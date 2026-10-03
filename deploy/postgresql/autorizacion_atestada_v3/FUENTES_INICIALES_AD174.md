@@ -1,10 +1,10 @@
 # Auditoría de la provisión inicial de fuentes ADMIN
 
-Estado: borrador conservado por orden de parada de Dirección. El SQL no se
-ha ensayado ni revisado. Quedan pendientes el guard de huella exacta del CHECK,
-los vectores, las negativas, la extensión del verificador y el ensayo causal.
-No instalar ni presentar esta rama como LISTA. Los archivos compartidos del
-verificador siguen intactos.
+Estado: candidata preparada sobre AD171 instalada en el frío post36/37.
+Dirección ha ensayado AD174 y sus pruebas SQL en el clon PostgreSQL 18.4:
+ambas terminaron con código 0. Quedan pendientes las dos revisiones
+independientes del commit final y el ensayo causal junto a CA33, IS15 y AUT39.
+No se ha instalado en la principal ni se declara LISTA.
 
 AD174 registra el acto técnico `provisionar_fuentes_iniciales_admin_v1` en la
 cadena común `auditoria_consumo_v3`. Su familia es
@@ -102,11 +102,42 @@ El verificador offline debe reconocer la familia y su eslabón versionados,
 rechazar campos cruzados y mantener los cálculos anteriores. Comprobar la
 consistencia no autentica LOGIN, fuente, plan, aprobación o checkpoint.
 
-## Preparación
+## Preparación y comprobación
 
-AD174 necesita la preimagen causal de AD171. Mantendrá literalmente la
-condición tipada vigente y su nombre para permitir las ampliaciones de
-AD172/173, sin editar esas migraciones ni el consumidor de negocio.
-La migración, los vectores, las negativas y el verificador se preparan en
-esta rama. No se declara LISTA antes de dos revisiones exactas y ensayo en
-el clon autorizado. No se instala SQL ni se ejecuta DOWN sobre historia.
+La preimagen es exclusivamente `auditoria_tipo_disjunto_v2` de AD171. La
+huella SHA256 de `pg_get_constraintdef(oid, false)`, en UTF-8 y sin salto
+final, es `f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29`.
+AD174 comprueba esa huella, conserva literalmente la condición y mantiene
+su nombre. No supone columnas, preimágenes ni familias de AD172/173, que aún
+no están integradas. Una sucesora necesita consumir la postimagen real.
+
+El verificador y la CLI admiten el esquema
+`vec.auditoria.verificacion.fuentes-iniciales.v1`. Comprueba consumo histórico
+v1, intentos AD169, eventos AD171 y provisión AD174. Los esquemas anteriores
+siguen rechazando AD174. Este formato no admite consumo AD172/173 ni declara
+cubiertas familias futuras. Recalcula material y eslabón; no acredita el origen
+del operador, la aprobación, la fuente ni el checkpoint.
+
+Hay dos vectores de bytes, uno con LOGIN UTF-8, en
+`pruebas_sql/ad174_vectores_cadena.json` y en la entrada sintética de la CLI
+`cmd/vec-auditoria-verificar/testdata/fuentes_iniciales_ad174.json`. Los
+valores esperados se calcularon fuera del código Go; la prueba SQL coteja
+los mismos valores con `encuadrar_mac` y SHA256 de PostgreSQL.
+
+La prueba `pruebas_sql/ad174_auditoria_fuentes_iniciales.sql` hace ROLLBACK.
+Comprueba ACL privada, positivo, replay sin duplicado, LOGIN ajeno, campos
+cruzados, falta de fuente, alcance institucional y resultado denegado; coteja
+que los rechazos no avancen la cabeza ni cambien la historia. No hace DOWN.
+
+La CLI consume un checkpoint separado y límites explícitos. Ejemplo con la
+entrada sintética y un checkpoint que contenga su `manifiesto`:
+
+```sh
+go run -p 8 ./cmd/vec-auditoria-verificar \
+  -checkpoint checkpoint.json -max-bytes 65536 -max-registros 2 \
+  < cmd/vec-auditoria-verificar/testdata/fuentes_iniciales_ad174.json
+```
+
+Se han pasado las pruebas focales de `internal/vec/auditoria` y
+`cmd/vec-auditoria-verificar`. Dirección ejecutó el SQL solo en el clon
+autorizado. El productor no ha instalado SQL ni tocado servidores.

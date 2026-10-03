@@ -72,6 +72,17 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			codigo = 1
 		}
 		return responder(salida, informe, codigo)
+	case auditoria.EsquemaVerificacionFuentesIniciales:
+		var documento auditoria.DocumentoVerificacionMixta
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe := auditoria.VerificarCadenaFuentesInicialesV1(documento, checkpoint, *maxRegistros)
+		codigo := 0
+		if informe.Estado != "verificada" {
+			codigo = 1
+		}
+		return responder(salida, informe, codigo)
 	default:
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
@@ -156,6 +167,9 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 	case *auditoria.DocumentoVerificacionMixta:
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionPreperfil {
 			return clavesDocumentoPreperfil(objeto)
+		}
+		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionFuentesIniciales {
+			return clavesDocumentoFuentesIniciales(objeto)
 		}
 		var manifiesto map[string]json.RawMessage
 		var registros []map[string]json.RawMessage
