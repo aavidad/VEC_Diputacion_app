@@ -36,6 +36,7 @@ type FuenteDescriptorFirmaV2 struct {
 }
 
 var _ ports.FuenteDescriptorFirmaV2 = (*FuenteDescriptorFirmaV2)(nil)
+var _ ports.FuenteDescriptorPlanFijadoFirmaV2 = (*FuenteDescriptorFirmaV2)(nil)
 
 func NuevaFuenteDescriptorFirmaV2(plan *Fuente, selector SelectorCentralDescriptorFirmaV2) (*FuenteDescriptorFirmaV2, error) {
 	if plan == nil || plan.resolutor == nil || nula(plan.publicacion) || !plan.version.Valida() || nula(selector) {
@@ -49,7 +50,14 @@ func NuevaFuenteDescriptorFirmaV2(plan *Fuente, selector SelectorCentralDescript
 // Esta lectura no sustituye el pin y la revalidación del plan publicado en la
 // transacción final; su composición operativa requiere esa dependencia.
 func (f *FuenteDescriptorFirmaV2) DescriptorFirmaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2) (ports.DescriptorConstructorFirmaV2, error) {
-	var cero ports.DescriptorConstructorFirmaV2
+	d, err := f.DescriptorPlanFijadoFirmaV2(ctx, m)
+	return d.Descriptor, err
+}
+
+// DescriptorPlanFijadoFirmaV2 devuelve el pin de la misma lectura y selección
+// que produjo el descriptor. No reconstruye una entrada desde fuentes actuales.
+func (f *FuenteDescriptorFirmaV2) DescriptorPlanFijadoFirmaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2) (ports.DescriptorPlanFijadoFirmaV2, error) {
+	var cero ports.DescriptorPlanFijadoFirmaV2
 	if ctx == nil || f == nil || f.plan == nil || nula(f.selector) {
 		return cero, ports.ErrCompetenciaFirmanteNoDisponible
 	}
@@ -103,7 +111,15 @@ func (f *FuenteDescriptorFirmaV2) DescriptorFirmaV2(ctx context.Context, m ports
 	if err != nil {
 		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
-	return d, nil
+	resultado := ports.DescriptorPlanFijadoFirmaV2{
+		Descriptor: d,
+		Plan: vd.ReferenciaEntradaCatalogo{CatalogoID: plan.Version.Referencia, CatalogoVersion: int(plan.Version.Version),
+			CatalogoHuellaSHA256: plan.Version.HuellaSHA256, EntradaClave: paso.EntradaClave},
+	}
+	if resultado.Plan.Validar() != nil {
+		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
+	}
+	return resultado, nil
 }
 
 func errorDescriptor(ctx context.Context, err error) error {
