@@ -1,0 +1,4 @@
+# Requiere #178 final con AUT20/AD3-121/B65, después AUT17/18 y AD3-118 de #179.
+# Puede recibir Usuarios instalado antes o después de AD3-121. Una vez por base.
+deploy/postgresql/autorizacion/migraciones/000021_clausura_externa_tipos_temporales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000122_clausura_externa_tipos_temporales.up.sql

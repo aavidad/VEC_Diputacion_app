@@ -24,25 +24,12 @@ const (
 // proceso externo mira el gobierno V3: solo lectura, TLS verificado y el
 // LOGIN nominal con una única membresía en el grupo de preflight externo.
 func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	if ctx == nil || dsn == "" {
+	if ctx == nil {
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}
-	c, err := pgxpool.ParseConfig(dsn)
-	if err != nil || c.ConnConfig.User != loginPreflightV3PortalExterno ||
-		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
-		return nil, ErrMaterialV3PortalExternoInvalido
-	}
-	c.MaxConns, c.MinConns = 2, 0
-	c.ConnConfig.ConnectTimeout = 5 * time.Second
-	if c.ConnConfig.RuntimeParams == nil {
-		c.ConnConfig.RuntimeParams = map[string]string{}
-	}
-	for k, v := range map[string]string{
-		"application_name": "vec-portal-externo-preflight-v3", "timezone": "UTC", "search_path": "pg_catalog",
-		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s",
-		"default_transaction_read_only": "on",
-	} {
-		c.ConnConfig.RuntimeParams[k] = v
+	c, err := prepararConfiguracionPreflightV3PortalExterno(dsn)
+	if err != nil {
+		return nil, err
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
@@ -60,6 +47,32 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}
 	return pool, nil
+}
+
+// prepararConfiguracionPreflightV3PortalExterno valida TLS antes de abrir una
+// conexión; no admite texto claro ni siquiera en una base local de pruebas.
+func prepararConfiguracionPreflightV3PortalExterno(dsn string) (*pgxpool.Config, error) {
+	if dsn == "" {
+		return nil, ErrMaterialV3PortalExternoInvalido
+	}
+	c, err := pgxpool.ParseConfig(dsn)
+	if err != nil || c.ConnConfig.User != loginPreflightV3PortalExterno ||
+		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, false) != nil {
+		return nil, ErrMaterialV3PortalExternoInvalido
+	}
+	c.MaxConns, c.MinConns = 2, 0
+	c.ConnConfig.ConnectTimeout = 5 * time.Second
+	if c.ConnConfig.RuntimeParams == nil {
+		c.ConnConfig.RuntimeParams = map[string]string{}
+	}
+	for k, v := range map[string]string{
+		"application_name": "vec-portal-externo-preflight-v3", "timezone": "UTC", "search_path": "pg_catalog",
+		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s",
+		"default_transaction_read_only": "on",
+	} {
+		c.ConnConfig.RuntimeParams[k] = v
+	}
+	return c, nil
 }
 
 // leerConfiguracionV3PortalExterno pide al gobierno la configuración vigente

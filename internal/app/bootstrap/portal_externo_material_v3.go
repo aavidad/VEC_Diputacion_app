@@ -140,7 +140,7 @@ var archivoClaveV3PortalExterno = regexp.MustCompile(`^externo/v3/[a-z_]+-[0-9]{
 // publicado por el lado interno (una entrada por audiencia y consumidor).
 func inventarioDesdeMateriales(publicados map[string][]materialAtestacionContratacionTemporalDesarrollo) (inventarioV3PortalExterno, error) {
 	var inv inventarioV3PortalExterno
-	inv.Version = 1
+	inv.Version = 2
 	inv.Consumidores = map[string][]claveInventarioV3PortalExterno{}
 	var referencia *materialAtestacionContratacionTemporalDesarrollo
 	for _, consumidor := range consumidoresPortalExternoV3 {
@@ -171,7 +171,7 @@ func inventarioDesdeMateriales(publicados map[string][]materialAtestacionContrat
 			})
 		}
 	}
-	if referencia == nil {
+	if referencia == nil || !strings.HasPrefix(referencia.claveID, "clave:atestacion:externo:") {
 		return inv, ErrMaterialV3PortalExternoInvalido
 	}
 	inv.Raiz = raizInventarioV3PortalExterno{
@@ -318,7 +318,7 @@ func leerInventarioV3PortalExterno(directorio string) (inventarioV3PortalExterno
 	decodificador.DisallowUnknownFields()
 	var sobrante any
 	if decodificador.Decode(&inv) != nil || !errors.Is(decodificador.Decode(&sobrante), io.EOF) ||
-		inv.Version != 1 || inv.Raiz.SemillaArchivo != semillaRaizMaterialV3PortalExterno ||
+		inv.Version != 2 || !strings.HasPrefix(inv.Raiz.ClaveID, "clave:atestacion:externo:") || inv.Raiz.SemillaArchivo != semillaRaizMaterialV3PortalExterno ||
 		inv.Raiz.ClaveID == "" || inv.Raiz.Version < 1 || inv.Configuracion.Revision == "" ||
 		inv.Configuracion.Secuencia < 1 || len(inv.Consumidores) == 0 {
 		return inventarioV3PortalExterno{}, ErrMaterialV3PortalExternoInvalido

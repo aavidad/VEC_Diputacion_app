@@ -110,9 +110,8 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 			ClientCAs:    raices,
 			MinVersion:   tls.VersionTLS13,
 			MaxVersion:   tls.VersionTLS13,
-			// La CA emite también los certificados de RRHH, Intervención y
-			// centros. El proceso externo solo acepta los de las personas
-			// que conoce: cualquier otro corta la conexión en el saludo TLS.
+			// La CA del externo es propia. Además, solo se admiten los
+			// certificados de las personas registradas en este proceso.
 			VerifyConnection: verificarClienteConocido(identidad),
 		},
 		identidad: identidad,
@@ -120,7 +119,7 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 }
 
 // verificarClienteConocido rechaza en el saludo TLS cualquier certificado de
-// cliente, aunque lo haya emitido la CA común, cuya huella no esté registrada
+// cliente, aunque lo haya emitido su CA, cuya huella no esté registrada
 // en el resolvedor del proceso.
 func verificarClienteConocido(identidad *resolvedorIdentidadDesarrollo) func(tls.ConnectionState) error {
 	return func(estado tls.ConnectionState) error {
@@ -137,7 +136,8 @@ func verificarClienteConocido(identidad *resolvedorIdentidadDesarrollo) func(tls
 
 // validarManifiestoPortalExterno comprueba lo que el manifiesto del material
 // dice del propio proceso externo: perfil de desarrollo no autoritativo, no
-// migrable, y huellas de su CA y de su certificado de servidor. Los demás
+// migrable, huellas de su CA y de su servidor, y la huella pública de la CA
+// interna, distinta de la propia. No abre material interno. Los demás
 // campos describen material que el externo no tiene y no se miran.
 func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate) error {
 	contenido, err := leerFicheroMaterialSeguro(ruta, 64<<10)
@@ -149,8 +149,15 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 	var manifiesto archivoManifiestoDesarrollo
 	var sobrante any
 	if decodificador.Decode(&manifiesto) != nil || !errors.Is(decodificador.Decode(&sobrante), io.EOF) ||
-		manifiesto.Perfil != config.ExecutionProfileDevelopment ||
+		manifiesto.Version != 2 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
 		manifiesto.Autoridad != AutoridadNoAutoritativa || manifiesto.MigrableAProduccion {
+		return ErrMaterialPortalExternoInvalido
+	}
+	huellaInterna, err := hex.DecodeString(manifiesto.HuellaCAInternaSHA256)
+	huellaPropia := sha256.Sum256(ca.Raw)
+	if err != nil || len(huellaInterna) != sha256.Size ||
+		hex.EncodeToString(huellaInterna) != manifiesto.HuellaCAInternaSHA256 ||
+		subtle.ConstantTimeCompare(huellaInterna, huellaPropia[:]) == 1 {
 		return ErrMaterialPortalExternoInvalido
 	}
 	for _, dato := range []struct {
@@ -228,19 +235,24 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas: preferencias, consulta de
-// Mi bolsa y, con el selector, acciones del candidato. Una capacidad activa
-// sin infraestructura completa impide arrancar.
+// personal activadas: preferencias, correos, imagen, Mi bolsa y acciones del
+// candidato. Una capacidad activa sin infraestructura completa impide arrancar.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
-	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
-		if activo, err := selectorCapacidadRRHHDesarrollo(cfg, selector); err != nil || activo {
-			return nil, nada, ErrUsuariosPortalExternoNoDisponible
-		}
-	}
 	preferencias, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return nil, nada, err
+	}
+	correos, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	imagen, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosImagenDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	if (correos || imagen) && !preferencias {
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	portalCandidato, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
 	if err != nil {
@@ -277,16 +289,35 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	cerrar := func() { preflight.Close(); derivador.borrar() }
+	var fuenteCorreos *fuenteClavesCorreosPortalExterno
+	if correos {
+		fuenteCorreos, err = nuevaFuenteClavesCorreosPortalExterno(ctx, cfg, preflight)
+		if err != nil {
+			cerrar()
+			return nil, nada, ErrUsuariosPortalExternoNoDisponible
+		}
+	}
+	cerrarConClaves := func() {
+		if fuenteCorreos != nil {
+			fuenteCorreos.borrar()
+		}
+		cerrar()
+	}
 	var personal http.Handler
 	cerrarPreferencias := nada
 	if preferencias {
-		autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		var autoridad *autoridadPreferenciasUsuariosDesarrollo
+		if fuenteCorreos != nil {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight, fuenteCorreos)
+		} else {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		}
 		if err != nil {
-			cerrar()
+			cerrarConClaves()
 			return nil, nada, err
 		}
 		cerrarPreferencias = autoridad.cerrar
-		cerrarTodo := func() { cerrarPreferencias(); cerrar() }
+		cerrarTodo := func() { cerrarPreferencias(); cerrarConClaves() }
 		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
 		if err != nil {
 			cerrarTodo()
@@ -297,10 +328,10 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	bolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
 	if err != nil {
 		cerrarPreferencias()
-		cerrar()
+		cerrarConClaves()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrar() }
+	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrarConClaves() }
 	if bolsa == nil {
 		return personal, cerrarTodo, nil
 	}

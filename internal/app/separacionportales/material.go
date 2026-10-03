@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"vec-diputacion-granada/config"
 )
 
 // FicheroMarcaPortal declara, dentro del directorio de material, a qué
@@ -41,6 +43,7 @@ const (
 )
 
 var ficherosExternos = map[string]struct{}{
+	config.DevelopmentExternalMailSeedRelativePath: {},
 	"identidad/bolsa-candidato.json":               {},
 	"identidad/candidato.json":                     {},
 	"identidad/usuarios-preferencias-externa.json": {},
@@ -48,12 +51,16 @@ var ficherosExternos = map[string]struct{}{
 }
 
 var ficherosComunes = map[string]struct{}{
-	FicheroMarcaPortal:             {},
-	"manifiesto.json":              {},
-	"desarrollo.env":               {},
-	"ca/ca.crt":                    {},
-	"tls/servidor.crt":             {},
-	"tls/servidor.key":             {},
+	FicheroMarcaPortal: {},
+	"manifiesto.json":  {},
+	"desarrollo.env":   {},
+	"ca/ca.crt":        {},
+	"tls/servidor.crt": {},
+	"tls/servidor.key": {},
+}
+
+// El material KMS y TSA nominal pertenece exclusivamente al interno.
+var ficherosInternos = map[string]struct{}{
 	"kms/clave-maestra.bin":        {},
 	"kms/atestacion-ed25519.key":   {},
 	"kms/atestacion-ed25519.pub":   {},
@@ -72,7 +79,9 @@ func clasificar(relativa string) pertenencia {
 		return pertenenciaProhibida
 	case strings.HasPrefix(relativa, "tls/") || strings.HasPrefix(relativa, "kms/") || strings.HasPrefix(relativa, "tsa/"):
 		if _, comun := ficherosComunes[relativa]; !comun {
-			return pertenenciaProhibida
+			if _, interno := ficherosInternos[relativa]; !interno {
+				return pertenenciaProhibida
+			}
 		}
 	case strings.HasSuffix(relativa, ".pem") || strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password"):
 		return pertenenciaProhibida

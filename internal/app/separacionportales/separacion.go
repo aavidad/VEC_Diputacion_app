@@ -3,13 +3,18 @@ package separacionportales
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/url"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"vec-diputacion-granada/config"
 )
 
 const (
@@ -62,6 +67,9 @@ func ComprobarSeparacion(interno, externo Proceso) (InformeSeparacion, error) {
 				return informe, err
 			}
 		}
+	}
+	if err := comprobarCADistintas(interno.Material, externo.Material); err != nil {
+		return informe, err
 	}
 	secretosInterno, err := huellasSecretos(interno.Material)
 	if err != nil {
@@ -131,10 +139,94 @@ func dentro(padre, hijo string) bool {
 	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
 }
 
+// comprobarCADistintas compara el DER y la clave pública SPKI: cambiar el PEM
+// o reemitir el certificado con la misma clave no crea otra autoridad.
+func comprobarCADistintas(interno, externo string) error {
+	var huellasDER, huellasSPKI [2][sha256.Size]byte
+	for i, directorio := range []string{interno, externo} {
+		contenido, err := leerFicheroAcotado(filepath.Join(directorio, "ca", "ca.crt"), tamanoMaximoSecreto)
+		if err != nil {
+			return rechazo("autoridad certificadora no legible", "ca/ca.crt")
+		}
+		bloque, resto := pem.Decode(contenido)
+		if bloque == nil || bloque.Type != "CERTIFICATE" || len(bytes.TrimSpace(resto)) != 0 {
+			return rechazo("autoridad certificadora no valida", "ca/ca.crt")
+		}
+		certificado, err := x509.ParseCertificate(bloque.Bytes)
+		if err != nil || !certificado.IsCA || certificado.KeyUsage&x509.KeyUsageCertSign == 0 {
+			return rechazo("autoridad certificadora no valida", "ca/ca.crt")
+		}
+		huellasDER[i] = sha256.Sum256(certificado.Raw)
+		huellasSPKI[i] = sha256.Sum256(certificado.RawSubjectPublicKeyInfo)
+	}
+	if huellasDER[0] == huellasDER[1] || huellasSPKI[0] == huellasSPKI[1] {
+		return rechazo("los dos procesos comparten autoridad certificadora", "ca/ca.crt")
+	}
+	declarada, err := leerHuellaCAInternaDeclarada(externo)
+	if err != nil {
+		return err
+	}
+	if declarada != huellasDER[0] {
+		return rechazo("la CA interna declarada no coincide con su material", "manifiesto.json")
+	}
+	return nil
+}
+
+// leerHuellaCAInternaDeclarada exige el manifiesto externo v2 y una huella
+// DER hexadecimal canónica. El cotejo corresponde al despliegue controlado;
+// este JSON no es un documento firmado.
+func leerHuellaCAInternaDeclarada(externo string) ([sha256.Size]byte, error) {
+	var huella [sha256.Size]byte
+	contenido, err := leerFicheroAcotado(filepath.Join(externo, "manifiesto.json"), tamanoMaximoJSON)
+	if err != nil {
+		return huella, rechazo("manifiesto externo no legible", "manifiesto.json")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(contenido))
+	inicio, err := decoder.Token()
+	if err != nil || inicio != json.Delim('{') {
+		return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+	}
+	campos := map[string]json.RawMessage{}
+	for decoder.More() {
+		clave, err := decoder.Token()
+		if err != nil {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		nombre, ok := clave.(string)
+		if _, repetida := campos[nombre]; !ok || repetida {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		var valor json.RawMessage
+		if decoder.Decode(&valor) != nil {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		campos[nombre] = valor
+	}
+	fin, err := decoder.Token()
+	var sobra any
+	if err != nil || fin != json.Delim('}') || decoder.Decode(&sobra) != io.EOF {
+		return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+	}
+	var version int
+	var texto string
+	if json.Unmarshal(campos["version"], &version) != nil || version != 2 ||
+		json.Unmarshal(campos["huella_ca_interna_sha256"], &texto) != nil {
+		return huella, rechazo("manifiesto externo sin CA interna declarada", "manifiesto.json")
+	}
+	binario, err := hex.DecodeString(texto)
+	if err != nil || len(binario) != sha256.Size || hex.EncodeToString(binario) != texto {
+		return huella, rechazo("huella de CA interna no valida", "manifiesto.json")
+	}
+	copy(huella[:], binario)
+	return huella, nil
+}
+
 // esSecreto señala los ficheros cuyo contenido no puede coincidir entre
-// procesos. Las claves públicas y los certificados pueden repetirse.
+// procesos. Las claves públicas pueden repetirse; las CA se comparan aparte.
 func esSecreto(relativa string) bool {
 	switch {
+	case relativa == config.DevelopmentExternalMailSeedRelativePath:
+		return true
 	case strings.HasPrefix(relativa, "kms/"):
 		return strings.HasSuffix(relativa, ".bin") || strings.HasSuffix(relativa, ".key")
 	case strings.HasPrefix(relativa, "tsa/"), strings.HasPrefix(relativa, "idempotencia/"),

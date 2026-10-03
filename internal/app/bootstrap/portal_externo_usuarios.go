@@ -9,6 +9,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	usuariosseguridad "vec-diputacion-granada/internal/modules/usuarios/adapters/seguridad"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
 	vecapp "vec-diputacion-granada/internal/vec/application"
@@ -29,6 +30,7 @@ var ErrUsuariosPortalExternoNoDisponible = errors.New("bootstrap: preferencias d
 // el rol de preflight externo.
 func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, identidad *resolvedorIdentidadDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, preflight *pgxpool.Pool,
+	fuentesCorreos ...usuariosseguridad.FuenteClavesCorreos,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	if ctx == nil || identidad == nil || derivador == nil || !derivador.valido() || incidencias == nil || preflight == nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
@@ -48,8 +50,12 @@ func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, ide
 	if err != nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
-	autoridad, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, identidad, derivador, incidencias, topologia,
-		core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consulta, actualizacion, nil, nil, nil)
+	correos, imagen, err := nuevasDependenciasAdicionalesPortalExterno(ctx, cfg, preflight, fuentesCorreos...)
+	if err != nil {
+		return nil, ErrUsuariosPortalExternoNoDisponible
+	}
+	autoridad, err := nuevaRutaUsuariosPreferenciasConFrontera(cfg, identidad, derivador, incidencias, topologia,
+		core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consulta, actualizacion, correos, imagen, nil, fronteraPreferenciasUsuariosPortalExterno(topologia))
 	if err != nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
@@ -63,14 +69,24 @@ type autoridadExactasPortalExterno struct {
 }
 
 func (a autoridadExactasPortalExterno) AutorizarRutaExacta(ctx context.Context, ruta string) error {
-	if ctx == nil || a.preferencias == nil || ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal {
+	if ctx == nil || a.preferencias == nil {
+		return vechttp.ErrAutenticacionRutaExactaRequerida
+	}
+	seleccionada := a.preferencias
+	switch ruta {
+	case usuarioshttp.RutaMisPreferenciasAreaPersonal:
+	case usuarioshttp.RutaMisCorreosAreaPersonal:
+		seleccionada = a.preferencias.correos
+	case usuarioshttp.RutaMiImagenAreaPersonal:
+		seleccionada = a.preferencias.imagen
+	default:
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
-	if !ok || c.autoridad != a.preferencias || c.resultado.Validar() != nil {
+	if !ok || seleccionada == nil || c.autoridad != seleccionada || c.resultado.Validar() != nil {
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
-	if c.vinculo.ValidarPara(c.resultado) != nil || !c.vinculo.VigenteEn(a.preferencias.reloj.Ahora(), c.resultado) {
+	if c.vinculo.ValidarPara(c.resultado) != nil || !c.vinculo.VigenteEn(seleccionada.reloj.Ahora(), c.resultado) {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	return nil
@@ -90,10 +106,23 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	if err != nil {
 		return nil, err
 	}
+	rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: preferencias.manejador}}
+	if preferencias.correos != nil {
+		if preferencias.correos.manejador == nil {
+			return nil, ErrUsuariosPortalExternoNoDisponible
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMisCorreosAreaPersonal, Manejador: preferencias.correos.manejador})
+	}
+	if preferencias.imagen != nil {
+		if preferencias.imagen.manejador == nil {
+			return nil, ErrUsuariosPortalExternoNoDisponible
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMiImagenAreaPersonal, Manejador: preferencias.imagen.manejador})
+	}
 	manejador, err := vechttp.NewHandlerWithOptions(servicio, vechttp.HandlerOptions{
 		AllowDemoIdentity:                        true,
 		DemoIdentityResolver:                     identidad,
-		RutasExactas:                             []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: preferencias.manejador}},
+		RutasExactas:                             rutas,
 		AutoridadRutasExactas:                    autoridadExactasPortalExterno{preferencias: preferencias},
 		RegistradorAuditoriaFronteraRutasExactas: registradorFronterasConUsuariosPreferencias{externa: preferencias.registrador},
 		EmisorIncidenciasTecnicas:                incidencias,
@@ -101,5 +130,12 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	if err != nil {
 		return nil, err
 	}
-	return preferencias.proteger(manejador), nil
+	var protegido http.Handler = manejador
+	if preferencias.correos != nil {
+		protegido = preferencias.correos.proteger(protegido)
+	}
+	if preferencias.imagen != nil {
+		protegido = preferencias.imagen.proteger(protegido)
+	}
+	return preferencias.proteger(protegido), nil
 }

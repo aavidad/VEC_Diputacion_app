@@ -33,15 +33,18 @@ const (
 	DevelopmentClientPrivateKeyRelativePath        = "mtls/cliente.key"
 	DevelopmentIntervencionCertificateRelativePath = "mtls/intervencion.crt"
 	DevelopmentIntervencionPrivateKeyRelativePath  = "mtls/intervencion.key"
-	DevelopmentKMSSecretRelativePath               = "kms/clave-maestra.bin"
-	DevelopmentKMSAttestationKeyRelativePath       = "kms/atestacion-ed25519.key"
-	DevelopmentKMSAttestationPublicRelativePath    = "kms/atestacion-ed25519.pub"
-	DevelopmentKMSRevalidationKeyRelativePath      = "kms/revalidacion-ed25519.key"
-	DevelopmentKMSRevalidationPublicRelativePath   = "kms/revalidacion-ed25519.pub"
-	DevelopmentTSASecretRelativePath               = "tsa/clave-hmac.bin"
-	DevelopmentIdentityRelativePath                = "identidad/identidad.json"
-	DevelopmentIntervencionIdentityRelativePath    = "identidad/intervencion.json"
-	DevelopmentIdempotencyHMACConfigRelativePath   = "idempotencia/configuracion.json"
+	// DevelopmentExternalMailSeedRelativePath pertenece a Usuarios externo,
+	// separado del KMS interno. La preparación de V3 no lo genera.
+	DevelopmentExternalMailSeedRelativePath      = "usuarios/correos-externos-semilla.bin"
+	DevelopmentKMSSecretRelativePath             = "kms/clave-maestra.bin"
+	DevelopmentKMSAttestationKeyRelativePath     = "kms/atestacion-ed25519.key"
+	DevelopmentKMSAttestationPublicRelativePath  = "kms/atestacion-ed25519.pub"
+	DevelopmentKMSRevalidationKeyRelativePath    = "kms/revalidacion-ed25519.key"
+	DevelopmentKMSRevalidationPublicRelativePath = "kms/revalidacion-ed25519.pub"
+	DevelopmentTSASecretRelativePath             = "tsa/clave-hmac.bin"
+	DevelopmentIdentityRelativePath              = "identidad/identidad.json"
+	DevelopmentIntervencionIdentityRelativePath  = "identidad/intervencion.json"
+	DevelopmentIdempotencyHMACConfigRelativePath = "idempotencia/configuracion.json"
 )
 
 type DevelopmentMaterialPaths struct {
@@ -53,6 +56,7 @@ type DevelopmentMaterialPaths struct {
 	ClientPrivateKey        string
 	IntervencionCertificate string
 	IntervencionPrivateKey  string
+	SemillaCorreosExterna   string
 	KMSSecret               string
 	KMSAttestationKey       string
 	KMSAttestationPublic    string
@@ -111,6 +115,7 @@ func (c Config) DevelopmentPaths() DevelopmentMaterialPaths {
 		ClientPrivateKey:        unir(DevelopmentClientPrivateKeyRelativePath),
 		IntervencionCertificate: unir(DevelopmentIntervencionCertificateRelativePath),
 		IntervencionPrivateKey:  unir(DevelopmentIntervencionPrivateKeyRelativePath),
+		SemillaCorreosExterna:   unir(DevelopmentExternalMailSeedRelativePath),
 		KMSSecret:               unir(DevelopmentKMSSecretRelativePath),
 		KMSAttestationKey:       unir(DevelopmentKMSAttestationKeyRelativePath),
 		KMSAttestationPublic:    unir(DevelopmentKMSAttestationPublicRelativePath),
