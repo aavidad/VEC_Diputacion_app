@@ -1,0 +1,20 @@
+{
+  "solo_kit": "Obligatorio para preparar un kit con datos sintéticos.",
+  "registro": "Referencia del registro de contexto acreditado.",
+  "der": "Ruta local de un certificado público DER sintético.",
+  "vinculo": "Referencia opaca del vínculo del certificado.",
+  "revision": "Revisión del vínculo.",
+  "estado": "Estado: activo o revocado.",
+  "desde": "Inicio de vigencia en UTC, formato RFC 3339.",
+  "hasta": "Fin de vigencia en UTC, formato RFC 3339.",
+  "evidencia": "Referencia opaca de la evidencia.",
+  "evidencia_sha": "Huella SHA-256 de la evidencia, en minúsculas.",
+  "preimagen": "Referencia anterior para una revisión existente.",
+  "preimagen_revision": "Número de la revisión anterior; cero para un vínculo nuevo.",
+  "preimagen_sha": "Huella SHA-256 anterior; vacía para un vínculo nuevo.",
+  "argumentos": "Revise los argumentos del kit sintético.",
+  "certificado": "No se pudo leer un certificado público DER válido, de hasta 128 KiB.",
+  "consulta": "No se pudo acreditar o consultar el destino en la base local.",
+  "destino": "El destino acreditado no contiene los metadatos esperados.",
+  "salida": "No se pudo entregar el descriptor del kit."
+}
