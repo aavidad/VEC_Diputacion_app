@@ -49,6 +49,48 @@ BEGIN
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
 END $frontera$;
 RESET SESSION AUTHORIZATION;
+-- Mismo objeto permitido, privilegio distinto: no debe pasar por pg_shdepend.
+GRANT CREATE ON SCHEMA vec_autorizacion TO vec_admin_bootstrap_central_v3_ejecutor;
+SET SESSION AUTHORIZATION vec_prueba_bootstrap37;
+DO $schema_create$
+BEGIN
+ BEGIN
+  PERFORM vec_autorizacion.preflight_bootstrap_central_admin_v3();
+  RAISE EXCEPTION 'AUT37 prueba: admitió CREATE sobre esquema permitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $schema_create$;
+RESET SESSION AUTHORIZATION;
+REVOKE CREATE ON SCHEMA vec_autorizacion FROM vec_admin_bootstrap_central_v3_ejecutor;
+DO $db_temporal$
+BEGIN
+ EXECUTE format('GRANT TEMP ON DATABASE %I TO vec_admin_bootstrap_central_v3_ejecutor',current_database());
+END $db_temporal$;
+SET SESSION AUTHORIZATION vec_prueba_bootstrap37;
+DO $db_temp$
+BEGIN
+ BEGIN
+  PERFORM vec_autorizacion.preflight_bootstrap_central_admin_v3();
+  RAISE EXCEPTION 'AUT37 prueba: admitió TEMP sobre base permitida';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $db_temp$;
+RESET SESSION AUTHORIZATION;
+DO $db_retirar$
+BEGIN
+ EXECUTE format('REVOKE TEMP ON DATABASE %I FROM vec_admin_bootstrap_central_v3_ejecutor',current_database());
+END $db_retirar$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.preflight_bootstrap_central_admin_v3()
+ TO vec_admin_bootstrap_central_v3_ejecutor WITH GRANT OPTION;
+SET SESSION AUTHORIZATION vec_prueba_bootstrap37;
+DO $exec_grant_option$
+BEGIN
+ BEGIN
+  PERFORM vec_autorizacion.preflight_bootstrap_central_admin_v3();
+  RAISE EXCEPTION 'AUT37 prueba: admitió GRANT OPTION en función permitida';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $exec_grant_option$;
+RESET SESSION AUTHORIZATION;
+REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION vec_autorizacion.preflight_bootstrap_central_admin_v3()
+ FROM vec_admin_bootstrap_central_v3_ejecutor;
 -- Una capacidad adicional al grupo invalida su frontera, incluso si es lectura.
 GRANT EXECUTE ON FUNCTION vec_autorizacion.canon_bootstrap_central_admin_v3(jsonb,text)
  TO vec_admin_bootstrap_central_v3_ejecutor;

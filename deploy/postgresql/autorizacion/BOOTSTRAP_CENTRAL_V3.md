@@ -48,7 +48,9 @@ pendientes o referencias propuestas no lo convierten en un plan aplicable.
 El DBA registra fuera de Git un LOGIN exclusivo, con una sola membresía heredable
 y sin SET ROLE en `vec_admin_bootstrap_central_v3_ejecutor`. El rol carece de
 inicio de sesión, propiedad de tablas y pertenencia a otros roles. Solo recibe
-preflight, ejecución y acceso al esquema. Ningún LOGIN se siembra en la migración.
+USAGE del esquema, CONNECT de la base y EXECUTE de preflight y ejecución, sin
+grant option. CREATE, TEMP y cualquier permiso adicional se rechazan incluso
+cuando pertenecen a esos mismos objetos. Ningún LOGIN se siembra en la migración.
 
 `config_bootstrap_central_admin_v3` liga ese LOGIN a proceso, SHA del plan,
 preimagen completa, referencia y SHA de aprobación, tres fuentes originales y
@@ -66,8 +68,15 @@ nuevas antes de escribir.
 El ámbito `organizacion_ref` se coteja contra la organización actual y la
 procedencia maestra CA3. Su fuente es la referencia, versión y huella de esa
 procedencia. La preimagen conserva también la versión organizativa actual.
-`unidad_ref` permanece cerrado cuando falta un puerto propietario que acredite
-su fuente. No se toma una unidad de un nombre de cargo o texto aportado.
+`unidad_ref` se acredita mediante la fachada privada Personal31 sobre su
+historia organizativa. AUT entrega la organización exacta, el ámbito original
+y su vigencia; Personal devuelve nodo, revisión, fuente y generación. Su barrera
+impide que una publicación o retirada invalide la fuente hasta COMMIT; un
+snapshot cambiado propaga `40001`. CA no recibe acceso a Personal ni interpreta
+una unidad por nombre de cargo o texto aportado. La tupla verificada queda
+comprometida en la preimagen completa aprobada. Una unidad opcional puede omitirse
+en la asignación; cuando se incluye, sus valores coinciden con el límite de
+gobierno y su fuente real.
 
 Los roles, controles, categorías y dimensiones se cotejan con AUT y su catálogo
 publicado. El SQL no acepta concesiones del plan. La gobernanza existente se
@@ -83,7 +92,12 @@ una persona ni registra una decisión V3 ficticia.
 
 Las tres asignaciones no pasan por la operación genérica AUT24 que impide dar
 dos perfiles administrativos normales a una misma persona. Esa restricción sigue
-vigente. La fachada específica solo se usa en este arranque privado aprobado.
+vigente. La fuente de continuidad y doble control cuenta solo Aplicación mediante
+categoría positiva, versión, SHA y control vigente. Los seis consumidores AUT24
+se actualizan desde AUT37 conservando firmas, ACL y configuración; AUT24 no se
+reaplica. La fuente histórica amplia permanece intacta para la guarda de persona
+administrativa única. Una versión antigua sin categoría requiere adaptación
+gobernada explícita antes de participar; no se reclasifica por nombre o prefijo. La fachada específica solo se usa en este arranque privado aprobado.
 
 Una repetición exacta devuelve el mismo recibo cuando siguen acreditados el
 operador y su aprobación. Coteja el acuse original mediante una fachada privada
@@ -93,13 +107,15 @@ el consumidor Go solo podrá confirmar después de COMMIT.
 
 ## Comprobaciones y límites
 
-La lista causal propia contiene AUT36 y AUT37, después de AUT33, CA20, IS9,
+La lista causal propia contiene Personal31, AUT36 y AUT37, después de AUT33, CA20, IS9,
 AUT24 y AD171 ya instaladas. No reaplicar esas dependencias ni usar DOWN sobre
 historia conservada. Dirección ejecutará el ensayo sobre el clon autorizado y
 cotejará la preimagen de datos, permisos y funciones.
 
 Las pruebas preparadas comprueban la concesión Sistemas, canon Go/SQL, claves
-adicionales, comodines, fechas con fracción y permisos del LOGIN. La fixture de
+adicionales, comodines, fechas con fracción y permisos del LOGIN, incluyendo contaminación CREATE del esquema, TEMP de la
+base y GRANT OPTION de una función ya permitida. Una regresión posterior al
+arranque real comprueba que el perfil Sistemas no aumenta la población Aplicación. La fixture de
 ACL crea únicamente un LOGIN y configuración sintéticos dentro de ROLLBACK;
 no fabrica personas ni modifica el control para simular un arranque permitido.
 
