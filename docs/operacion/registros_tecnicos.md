@@ -1,16 +1,43 @@
 # Recogida local de incidencias técnicas
 
 `vec-registros-tecnicos` recibe por la entrada estándar las incidencias
-`vec.incidencia_tecnica.v1` que ya emite VEC. Sistemas puede recoger en un
-directorio privado la salida técnica de varios procesos, con límites de archivo,
+`vec.incidencia_tecnica.v1` y los resultados `vec.resultado_tecnico.v1` que emite
+VEC. Sistemas puede recoger en un directorio privado la salida técnica de varios
+procesos, con límites de archivo,
 rotación, retención y avisos por umbral. El catálogo común sigue siendo la
 autoridad de códigos, componentes, etapas, severidades y mensajes.
 
-La herramienta solo acepta ese esquema. Rechaza campos extra, claves duplicadas,
+La herramienta solo acepta esos dos esquemas. Rechaza campos extra, claves duplicadas,
 nombres de campo con otra capitalización, valores fuera del catálogo y líneas
 demasiado largas. Cuenta las entradas rechazadas y continúa con la siguiente,
 sin guardar su contenido. Los archivos contienen una proyección reconstruida de
 los campos admitidos, sin rutas, cabeceras, cuerpos, SQL ni errores libres.
+
+## Resultados técnicos
+
+El resultado técnico usa el mismo emisor, cola, trabajador y archivo que las
+incidencias. Su catálogo admite `correcto`, `denegado`, `entrada_invalida`,
+`cancelado` y `no_disponible`. El nivel se fija por resultado: `info` para
+correcto o cancelado, `warn` para denegado o entrada inválida y `error` para
+no disponible. Componente y etapa proceden del catálogo técnico existente;
+el entorno y la versión proceden de la configuración del emisor. El registro
+lleva la fecha UTC, la correlación técnica de 32 caracteres y su referencia
+V3 `correlacion_` seguida de esos mismos caracteres. No incluye mensajes
+libres, errores de bibliotecas, identidad ni recurso.
+
+La frontera crea una correlación por petición. El puerto
+`ReferenciaCorrelacionAutorizacionV2DePeticion` deriva la referencia V3 de esa
+correlación privada, sin leer cabeceras ni generar otro identificador. Si falta
+la correlación, el emisor descarta el resultado y aumenta el contador
+`SinCorrelacion`. Un fallo del archivo aumenta `FallosEscritura`. Ambos
+contadores son técnicos: no cambian un recibo SQL confirmado ni provocan otro
+intento de negocio.
+
+El recolector comprueba el esquema, el resultado y nivel catalogados, la pareja
+correlación/referencia y la lista exacta de campos. Guarda la proyección
+validada y suma `por_resultado` en las métricas. Las alertas por umbral siguen
+aplicándose a códigos de incidencia. La auditoría funcional nominal conserva
+su propia cadena, permisos y retención; no entra en estos archivos rotatorios.
 
 ## Prueba con una incidencia sintética
 
@@ -100,10 +127,11 @@ la recogida de todas las raíces y las incidencias específicas de denegación o
 del validador requieren cortes posteriores.
 
 Cuando el emisor recibe el contexto de una petición, escribe su correlación
-técnica de 32 caracteres hexadecimales en la incidencia. Este recolector la
-conserva sin sustituirla. Si un proceso emite sin contexto, el emisor genera
-otra correlación aleatoria; ese registro no queda ligado a la petición. La
-auditoría nominal, su cadena y su exportación siguen en la auditoría común.
+técnica de 32 caracteres hexadecimales en la incidencia o el resultado. Este
+recolector la conserva sin sustituirla. Una incidencia emitida sin contexto
+recibe otra correlación aleatoria y no queda ligada a la petición; un resultado
+sin contexto se descarta y se cuenta. La auditoría nominal, su cadena y su
+exportación siguen en la auditoría común.
 Nunca se debe apuntar esta herramienta a su almacenamiento.
 
 El diseño sigue prácticas de [journald](https://www.freedesktop.org/software/systemd/man/252/journald.conf.html)
