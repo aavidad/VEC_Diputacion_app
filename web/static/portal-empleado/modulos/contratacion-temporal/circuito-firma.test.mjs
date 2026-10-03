@@ -117,11 +117,11 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(en, /HR Directorate or Head of the HR Service/u);
   assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
   assert.match(es, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
-  assert.match(es, /Firma externa con Portafirmas/u);
+  assert.match(es, /Envío al portafirmas corporativo/u);
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
-  assert.match(en, /External signing with Portafirmas/u);
-  assert.match(es, /<button[^>]*disabled[^>]*>Registrar documento firmado<\/button>/u);
-  assert.match(es, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
+  assert.match(en, /Sending to the corporate signature service/u);
+  assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
+  assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
   assert.match(es, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.doesNotMatch(es, /Portafirmas conectado|firma eficaz|Enviar a Firmadoc/u);
@@ -156,11 +156,11 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
-  assert.match(html, /Firma externa con Portafirmas/u);
-  assert.match(html, /Registro no disponible/u);
-  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Registrar documento firmado<\/button>/u);
-  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Descargar para firma externa<\/button>/u);
-  assert.match(html, /VEC debe comprobar el PDF custodiado y el permiso nominal para este expediente/u);
+  assert.match(html, /Envío al portafirmas corporativo/u);
+  assert.match(html, /Envío no disponible/u);
+  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
+  assert.match(html, /El envío desde este panel no está disponible/u);
   assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.match(html, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(html, /<details class="ct-circuito-limite">/u);
@@ -178,8 +178,8 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
 test("si falla el catálogo, conserva la vía de registro bloqueada sin afirmar estado de firma", () => {
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(null, t, "no_disponible");
-  assert.match(html, /Firma externa con Portafirmas/u);
-  assert.match(html, /Registro no disponible/u);
+  assert.match(html, /Envío al portafirmas corporativo/u);
+  assert.match(html, /Envío no disponible/u);
   assert.match(html, /El estado de las firmas no está disponible/u);
   assert.doesNotMatch(html, /data-ct-firma-accion|Firma de prueba registrada por/u);
   const denegado = renderizarCircuitoFirma(null, t, "denegado");
@@ -198,7 +198,7 @@ test("dos pasos CT118 firmados no acreditan registro en Portafirmas", () => {
   const unido = fusionarEstadoFirmas(catalogo, estado);
   const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
   assert.equal((html.match(/Firma de prueba registrada por/gu) ?? []).length, 2);
-  assert.match(html, /Registro no disponible/u);
+  assert.match(html, /Envío no disponible/u);
   assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
 });
@@ -213,11 +213,11 @@ test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verifi
     });
     const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
     assert.match(html, /Firma con certificado en VEC/u);
-    assert.match(html, /Firma externa con Portafirmas/u);
+    assert.match(html, /Envío al portafirmas corporativo/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
-    assert.match(html, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
-    assert.match(html, /<button[^>]*disabled[^>]*>Registrar documento firmado<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
     assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
     assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
   }
@@ -248,9 +248,9 @@ test("las dos vías de firma usan el idioma del portal", () => {
   }
   const traductor = crearTraductorCircuitoFirma({}, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
-  assert.match(html, /External signing with Portafirmas/u);
-  assert.match(html, /Recording unavailable/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Record signed document<\/button>/u);
+  assert.match(html, /Sending to the corporate signature service/u);
+  assert.match(html, /Sending unavailable/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Download for external signing<\/button>/u);
   assert.match(html, /VEC must check the PDF held in custody and the specific permission for this case/u);
   assert.match(html, /This panel does not evidence a signature, submission or record in Portafirmas/u);
@@ -315,7 +315,7 @@ test("un fallo de consulta deja el estado pendiente visible en el expediente act
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1);
-  assert.match(insertados[0], /Registro no disponible/u);
+  assert.match(insertados[0], /Envío no disponible/u);
   assert.match(insertados[0], /El estado de las firmas no está disponible/u);
   gestor.retirar();
 });

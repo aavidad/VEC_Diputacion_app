@@ -83,7 +83,7 @@ export function crearAccionesFirma({
     if (retirada || estado?.vista !== "expediente" || estado?.carga !== "listo" || exp?.demostracion !== false
       || !REFERENCIA.test(exp?.expediente_ref ?? "") || !Number.isSafeInteger(exp.version) || exp.version < 1
       || circuito.acciones === false || circuito.preflight_compuesto !== true
-      || !real || pasoOrden < 1
+      || !real || !Number.isSafeInteger(pasoOrden) || pasoOrden < 1 || pasoOrden > 16
       || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento)) return null;
     return { expedienteRef: exp.expediente_ref, version: exp.version, documento, pasoOrden,
       catalogoRef: circuito.catalogo_ref, catalogoHuella: circuito.huella_sha256 };
@@ -194,7 +194,29 @@ export function crearAccionesFirma({
       && (recibo.version_expediente ?? recibo.expediente_version) === s.contexto.version
       && (recibo.firma_verificada === true || recibo.verificacion_tecnica?.estado === "valida");
   }
+  function limpiarCamposExternos(s) {
+    for (const selector of ["[data-ct-firma-pdf]", "[data-ct-firma-referencia]", "[data-ct-firma-fecha]"]) {
+      const campo = s.bloque.querySelector?.(selector);
+      campo?.removeAttribute?.("aria-invalid"); campo?.removeAttribute?.("aria-describedby");
+    }
+    for (const error of s.bloque.querySelectorAll?.("[data-ct-firma-error-campo]") ?? []) error.remove?.();
+  }
+  function campoExternoInvalido(s, selector, clave) {
+    const campo = s.bloque.querySelector?.(selector);
+    campo?.setAttribute?.("aria-invalid", "true");
+    const pagina = campo?.ownerDocument ?? entornoDescarga.document;
+    if (campo?.id && pagina?.createElement && campo.insertAdjacentElement) {
+      const error = pagina.createElement("p"); error.id = `${campo.id}-error`;
+      error.className = "ct-circuito-resultado"; error.dataset.ctFirmaErrorCampo = "";
+      error.textContent = t(clave); campo.insertAdjacentElement("afterend", error);
+      campo.setAttribute("aria-describedby", error.id);
+    }
+    decir(s, clave); ocupada(s, false); campo?.focus?.();
+  }
   async function registrar(s, via) {
+    if (s.reintento && s.reintento.via !== via) {
+      decir(s, "circuito_firma_recuperacion", {}, true); return;
+    }
     const registro = via === "certificado_vec" ? registrarVec : registrarExterna;
     if (typeof registro !== "function") return;
     if (via === "certificado_vec" && !s.reintento) {
@@ -209,12 +231,20 @@ export function crearAccionesFirma({
       const fichero = s.bloque.querySelector?.("[data-ct-firma-pdf]")?.files?.[0];
       const referenciaPortafirmas = s.bloque.querySelector?.("[data-ct-firma-referencia]")?.value?.trim();
       const fecha = s.bloque.querySelector?.("[data-ct-firma-fecha]")?.value;
-      if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10 || !referenciaPortafirmas || referenciaPortafirmas.length > 256
-        || !fecha || Number.isNaN(new Date(fecha).getTime())) { decir(s, "circuito_firma_campos_externos", {}, true); return; }
+      limpiarCamposExternos(s);
+      if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10) {
+        campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return;
+      }
+      if (!referenciaPortafirmas || referenciaPortafirmas.length > 256) {
+        campoExternoInvalido(s, "[data-ct-firma-referencia]", "circuito_firma_referencia_requerida"); return;
+      }
+      if (!fecha || Number.isNaN(new Date(fecha).getTime())) {
+        campoExternoInvalido(s, "[data-ct-firma-fecha]", "circuito_firma_fecha_requerida"); return;
+      }
       if (!s.reintento || s.reintento.fichero !== fichero || s.reintento.referencia !== referenciaPortafirmas || s.reintento.fecha !== fecha) {
         const firmado = new Uint8Array(await fichero.arrayBuffer());
         if (!vigente(s)) return;
-        if (!pdfValido(firmado)) { decir(s, "circuito_firma_campos_externos", {}, true); return; }
+        if (!pdfValido(firmado)) { campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return; }
         const anterior = s.reintento;
         const mismo = anterior?.via === via && anterior.referencia === referenciaPortafirmas && anterior.fecha === fecha
           && anterior.datos.firmado.length === firmado.length && firmado.every((b, i) => b === anterior.datos.firmado[i]);

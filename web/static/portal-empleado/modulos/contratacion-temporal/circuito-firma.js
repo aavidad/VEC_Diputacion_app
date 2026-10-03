@@ -209,12 +209,11 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
     nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
   }) : ""}
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
-      <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
-      <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
+      <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_envio_corporativo_titulo"))}</h4>
+      <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_envio_corporativo_pendiente"))}</span>
       <div class="ct-circuito-envio">
-        <button type="button" class="boton-secundario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
-        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
-        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
+        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_accion"))}</button>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_bloqueado"))}</p>
       </div>
       <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
         <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>

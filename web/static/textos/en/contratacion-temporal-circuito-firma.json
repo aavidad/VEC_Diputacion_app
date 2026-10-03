@@ -86,7 +86,14 @@
     "circuito_firma_original_pendiente": "Signing is unavailable until the document held in custody is retrieved and your permissions are checked.",
     "circuito_firma_datos_obligatorios": "All fields are required.",
     "circuito_firma_estado_pendiente_consulta": "Signature status awaits verification.",
-    "circuito_firma_completo": "All signature steps for this document are complete."
+    "circuito_firma_completo": "All signature steps for this document are complete.",
+    "circuito_firma_envio_corporativo_titulo": "Sending to the corporate signature service",
+    "circuito_firma_envio_corporativo_pendiente": "Sending unavailable",
+    "circuito_firma_envio_corporativo_accion": "Send to the signature service",
+    "circuito_firma_envio_corporativo_bloqueado": "Sending from this panel is not available. Check the signing options below for this case.",
+    "circuito_firma_pdf_requerido": "Select a valid signed PDF, up to 1 MB.",
+    "circuito_firma_referencia_requerida": "Enter the signature service reference, up to 256 characters.",
+    "circuito_firma_fecha_requerida": "Enter a valid date and time."
   },
   "valores_controlados": {
     "documento": {

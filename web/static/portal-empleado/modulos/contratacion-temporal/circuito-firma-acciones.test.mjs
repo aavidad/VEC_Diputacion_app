@@ -74,6 +74,7 @@ test("fallo de confirmación reintenta los mismos bytes y clave sin otra firma",
 });
 test("consulta rota, ejemplo, huella ajena o recibo ajeno cierran efectos y confirmación", async () => {
   for (const alterar of [(e) => { e.estado.expediente.demostracion = true; },
+    (e) => { e.bloque.dataset.ctFirmaPaso = "NaN"; },
     (e) => { e.preflight.catalogo_huella = "b".repeat(64); }, (e) => { e.preflight.paso_pendiente = 1; },
     (e) => { e.deps.clientePreflight.consultar = async () => { throw { codigo: "acceso_denegado" }; }; }]) {
     const e = escenario(); alterar(e); const a = crearAccionesFirma(e.deps);
@@ -138,4 +139,39 @@ test("el paso nominal V2 prevalece sobre un panel CT118 antiguo sin inferir otro
   assert.equal(enviada.revisionEntradaRef, "revision:firmada-p1");
   assert.equal(e.circuito.documentos[0].paso_pendiente, 1);
   assert.equal(e.contador.confirmaciones, 1);
+});
+
+test("una operación externa incierta avisa y conserva su vía antes de otra firma", async () => {
+  const e = escenario(); const fichero = { size: pdf.length, arrayBuffer: async () => pdf.buffer };
+  e.campos.set("[data-ct-firma-pdf]", { files: [fichero] });
+  e.campos.set("[data-ct-firma-referencia]", { value: "portafirmas:prueba" });
+  e.campos.set("[data-ct-firma-fecha]", { value: "2026-10-03T12:00" });
+  const recibidas = [];
+  e.deps.registrarExterna = async (s) => { recibidas.push(s); if (recibidas.length === 1) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
+  const acciones = crearAccionesFirma(e.deps);
+  await acciones.manejarClic(e.evento("comprobar")); await acciones.manejarClic(e.evento("portafirmas_registro_rrhh"));
+  e.aviso.textContent = "";
+  await acciones.manejarClic(e.evento("certificado_vec"));
+  assert.match(e.aviso.textContent, /Reintente con el mismo PDF/u); assert.equal(e.contador.firmas, 0);
+  await acciones.manejarClic(e.evento("portafirmas_registro_rrhh"));
+  assert.equal(recibidas[0], recibidas[1]); assert.equal(e.contador.confirmaciones, 1);
+});
+
+test("el formulario externo identifica y enfoca el primer campo obligatorio ausente", async () => {
+  const e = escenario(["portafirmas_registro_rrhh"]);
+  const campos = ["[data-ct-firma-pdf]", "[data-ct-firma-referencia]", "[data-ct-firma-fecha]"];
+  for (const selector of campos) {
+    const atributos = new Map();
+    e.campos.set(selector, { files: [], value: "", atributos, setAttribute(k,v) { atributos.set(k,v); },
+      removeAttribute(k) { atributos.delete(k); }, focus() { this.enfocado = true; } });
+  }
+  const acciones = crearAccionesFirma(e.deps); await acciones.manejarClic(e.evento("comprobar"));
+  for (const selector of campos) {
+    await acciones.manejarClic(e.evento("portafirmas_registro_rrhh"));
+    const campo = e.campos.get(selector);
+    assert.equal(campo.atributos.get("aria-invalid"), "true"); assert.equal(campo.enfocado, true);
+    if (selector.includes("-pdf")) campo.files = [{ size: pdf.length, arrayBuffer: async () => pdf.buffer }];
+    else if (selector.includes("referencia")) campo.value = "portafirmas:prueba";
+    assert.equal(e.contador.registros, 0);
+  }
 });

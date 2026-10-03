@@ -86,7 +86,14 @@
     "circuito_firma_original_pendiente": "La firma no está disponible hasta recuperar el documento custodiado y comprobar sus permisos.",
     "circuito_firma_datos_obligatorios": "Todos los campos son obligatorios.",
     "circuito_firma_estado_pendiente_consulta": "Estado de firma pendiente de consulta.",
-    "circuito_firma_completo": "Este documento ya tiene completos sus pasos de firma."
+    "circuito_firma_completo": "Este documento ya tiene completos sus pasos de firma.",
+    "circuito_firma_envio_corporativo_titulo": "Envío al portafirmas corporativo",
+    "circuito_firma_envio_corporativo_pendiente": "Envío no disponible",
+    "circuito_firma_envio_corporativo_accion": "Enviar a Portafirmas",
+    "circuito_firma_envio_corporativo_bloqueado": "El envío desde este panel no está disponible. Consulte abajo las opciones de firma de este expediente.",
+    "circuito_firma_pdf_requerido": "Seleccione un PDF firmado válido, de hasta 1 MB.",
+    "circuito_firma_referencia_requerida": "Indique la referencia de Portafirmas, hasta 256 caracteres.",
+    "circuito_firma_fecha_requerida": "Indique una fecha y hora válidas."
   },
   "valores_controlados": {
     "documento": {

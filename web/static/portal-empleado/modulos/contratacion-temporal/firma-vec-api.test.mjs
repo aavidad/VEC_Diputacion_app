@@ -57,3 +57,12 @@ test("fallos de red, denegación y cancelación no devuelven recibo", async () =
   await assert.rejects(crearClienteFirmaVec({ fetchImpl: async () => { peticiones++; } }).registrar(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
   assert.equal(peticiones, 0);
 });
+
+test("el recibo conserva las huellas del original raíz y de la entrada preparada", async () => {
+  const preparada = { ...solicitud, originalHuella: "a".repeat(64), revisionEntradaHuella: "d".repeat(64) };
+  await crearClienteFirmaVec({ fetchImpl: async () => respuesta(recibo()) }).registrar(preparada);
+  for (const campo of ["originalHuella", "revisionEntradaHuella"]) {
+    await assert.rejects(crearClienteFirmaVec({ fetchImpl: async () => respuesta(recibo()) }).registrar({ ...preparada, [campo]: "b".repeat(64) }),
+      (e) => e.codigo === "resultado_no_confiable");
+  }
+});
