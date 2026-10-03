@@ -97,7 +97,8 @@ BEGIN
   'consumida_en',r.consumida_en,'registrador_principal_ref',decision->>'principal_id',
   'registrador_perfil_ref',decision->>'perfil_activo_ref',
   'auditoria_huella_sha256',r.auditoria_huella_sha256,
-  'operacion',decision->>'accion','audiencia',capacidad->>'audiencia_consumo');
+  'operacion',decision->>'accion','audiencia',capacidad->>'audiencia_consumo',
+  'decision_valida_hasta',decision->>'valida_hasta');
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb) FROM PUBLIC;
 DO $acl$

@@ -237,6 +237,12 @@ BEGIN
   OR fuente_personal->>'organizacion_ref' IS DISTINCT FROM rec->>'organizacion_ref'
   OR fuente_personal->>'unidad_ref' IS DISTINCT FROM rec->>'unidad_ref'
   OR fuente_personal->>'persona_ejerciente_ref' IS DISTINCT FROM ident->>'persona_ref'
+  OR vec_autorizacion.texto_positivo_valido(fuente_personal->>'procedencia_ref',512) IS NOT TRUE
+  OR vec_autorizacion.texto_positivo_valido(fuente_personal->>'recibo_ref',512) IS NOT TRUE
+  OR (per->'delegacion' = 'null'::jsonb AND fuente_personal->>'tipo_ejercicio' IS DISTINCT FROM 'titular')
+  OR (per->'delegacion' <> 'null'::jsonb AND
+      (fuente_personal->>'tipo_ejercicio' IN
+       ('delegacion_competencia','delegacion_firma','suplencia')) IS NOT TRUE)
   OR (fuente_personal->>'cargo_vigente_desde')::timestamptz IS DISTINCT FROM (per->>'cargo_vigente_desde')::timestamptz
   OR (fuente_personal->>'cargo_vigente_hasta')::timestamptz IS DISTINCT FROM (per->>'cargo_vigente_hasta')::timestamptz
   OR (fuente_personal->>'enlace_vigente_desde')::timestamptz IS DISTINCT FROM (per->>'enlace_vigente_desde')::timestamptz
@@ -272,6 +278,7 @@ BEGIN
  JOIN vec_autorizacion.control_vigencia_version_rol_actual x ON x.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol v ON v.version_rol_ref=x.version_rol_ref AND v.revision=x.revision
  WHERE r.version_rol_ref=a.version_rol_ref FOR SHARE OF r,x,v;
+ instante := clock_timestamp();
  IF a.principal_id IS DISTINCT FROM ident->>'persona_ref'
   OR a.principal_id IS DISTINCT FROM comp->>'persona_ref'
   OR a.asignacion_ref IS DISTINCT FROM comp#>>'{asignacion,referencia}'
@@ -288,7 +295,9 @@ BEGIN
   OR rol.documento->>'estado' IS DISTINCT FROM 'publicada'
   OR rol.documento->>'rol_id' IS DISTINCT FROM rol.rol_id
   OR rol.documento->>'version' IS DISTINCT FROM rol.version::text
+  OR (rol.documento->>'publicada_en')::timestamptz > instante
   OR rol.estado IS DISTINCT FROM 'habilitada'
+  OR (rol.control_documento->>'actualizado_en')::timestamptz > instante
   OR rol.revision IS DISTINCT FROM (comp#>>'{control_rol,version}')::numeric
   OR rol.control_huella IS DISTINCT FROM comp#>>'{control_rol,huella_sha256}'
   OR a.documento->>'estado' IS DISTINCT FROM 'activa'
@@ -308,6 +317,7 @@ BEGIN
   OR fecha_historica >= (per->>'cargo_vigente_hasta')::timestamptz
   OR instante < (per->>'enlace_vigente_desde')::timestamptz
   OR instante >= (per->>'enlace_vigente_hasta')::timestamptz
+  OR instante >= (v3->>'decision_valida_hasta')::timestamptz
   OR fecha_historica < (per->>'enlace_vigente_desde')::timestamptz
   OR fecha_historica >= (per->>'enlace_vigente_hasta')::timestamptz
   OR (per->'delegacion' IS DISTINCT FROM 'null'::jsonb AND
