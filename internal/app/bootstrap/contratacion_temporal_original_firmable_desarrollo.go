@@ -129,11 +129,11 @@ func nuevoServicioOriginalFirmableCTDesarrollo(
 		return nil, errors.Join(ErrOriginalFirmableCTMontajeNoDisponible, err)
 	}
 	custodia, err := almacenvec.NuevaCustodiaDocumentosOriginalCT(p.servicio, autorizaciones,
-		almacenvec.FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion))
+		almacenvec.FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion), tipos)
 	if err != nil {
 		return nil, errors.Join(ErrOriginalFirmableCTMontajeNoDisponible, err)
 	}
-	servicio, err := vecapp.NuevoServicioOriginalFirmableCT(fuente, custodia)
+	servicio, err := vecapp.NuevoServicioOriginalFirmableCT(fuente, custodia, tipos)
 	if err != nil {
 		return nil, errors.Join(ErrOriginalFirmableCTMontajeNoDisponible, err)
 	}
