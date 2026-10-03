@@ -21,7 +21,8 @@ BEGIN
   'vec_identidad_sesiones_v1.preimagen_fuentes_iniciales_admin_v1(jsonb,text)',
   'vec_identidad_sesiones_v1.aplicar_fuentes_iniciales_admin_v1(jsonb,text,text,text,text,text)',
   'vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(text,text,text)',
-  'vec_autorizacion_atestada_v3.registrar_provision_fuentes_iniciales_admin_v1(jsonb)'] LOOP
+  'vec_autorizacion_atestada_v3.registrar_provision_fuentes_iniciales_admin_v1(jsonb)',
+  'vec_autorizacion_atestada_v3.registrar_intento_fuentes_iniciales_admin_v1(jsonb)'] LOOP
   IF pg_catalog.to_regprocedure(firma) IS NULL THEN
    RAISE EXCEPTION 'AUT39: PARO clave=dependencia actual=ausente esperado=%',firma USING ERRCODE='55000';
   END IF;
@@ -177,7 +178,7 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_orquestada_fuentes_admin_v1(jsonb,text) FROM PUBLIC;
 
-CREATE FUNCTION vec_autorizacion.provisionar_fuentes_iniciales_admin_v1(p_plan_canonico text,p_huella_aprobada text)
+CREATE FUNCTION vec_autorizacion.aplicar_efecto_fuentes_iniciales_admin_v1(p_plan_canonico text,p_huella_aprobada text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE cfg vec_autorizacion.config_fuentes_iniciales_admin_v1;p jsonb;sha text;pre jsonb;pre_sha text;cfg_sha text;
@@ -225,7 +226,7 @@ BEGIN
   is_recibo:=vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(p->>'operacion_ref',sha,cfg.aprobacion_ref);
   IF is_recibo IS DISTINCT FROM previo.recibo->'is'
   THEN RAISE EXCEPTION 'AUT39: PARO clave=recibo_IS actual=divergente esperado=original_propietario' USING ERRCODE='55000'; END IF;
-  RETURN previo.recibo;
+  RETURN pg_catalog.jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
  pre:=vec_autorizacion.preimagen_orquestada_fuentes_admin_v1(p,cfg.material_hmac_canonico);
  pre_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
@@ -257,7 +258,44 @@ BEGIN
   'auditoria_huella_sha256',aud.huella_sha256,'registrada_en',ahora);
  INSERT INTO vec_autorizacion.fuentes_iniciales_admin_v1 VALUES(p->>'operacion_ref',sha,pg_catalog.convert_to(p_plan_canonico,'UTF8'),
   pre_sha,cfg_sha,session_user::name,cfg.aprobacion_ref,aud.auditoria_ref,recibo_ref,resultado,ahora);
- RETURN resultado;
+ RETURN pg_catalog.jsonb_build_object('recibo',resultado,'replay',false);
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_efecto_fuentes_iniciales_admin_v1(text,text) FROM PUBLIC;
+
+-- El motor observa la solicitud; no atribuye al CLI una procedencia no probada.
+-- Error controlado: rollback del subbloque, append común y envelope que el
+-- consumidor debe confirmar con COMMIT antes de informar su resultado.
+CREATE FUNCTION vec_autorizacion.provisionar_fuentes_iniciales_admin_v1(p_plan_canonico text,p_huella_aprobada text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on AS $f$
+DECLARE respuesta jsonb;estado text:='permitido';motivo text;codigo text;aud record;
+ solicitud text:='solicitud_fuentes:'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
+ evento text:='evento_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
+ correlacion text:='correlacion_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
+ solicitud_sha text;
+BEGIN
+ solicitud_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+  pg_catalog.jsonb_build_object('plan',p_plan_canonico,'huella_aprobada',p_huella_aprobada)::text,'UTF8')),'hex');
+ BEGIN
+  respuesta:=vec_autorizacion.aplicar_efecto_fuentes_iniciales_admin_v1(p_plan_canonico,p_huella_aprobada);
+  motivo:=CASE WHEN (respuesta->>'replay')::boolean THEN 'fuentes_replay' ELSE 'fuentes_registradas' END;
+ EXCEPTION WHEN OTHERS THEN
+  -- Las variables sobreviven a EXCEPTION; ninguna referencia revertida sale.
+  respuesta:=NULL;
+  codigo:=SQLSTATE;
+  estado:=CASE WHEN codigo IN('42501','22023','40001','23505','25000') THEN 'denegado' ELSE 'error' END;
+  motivo:=CASE WHEN estado='denegado' THEN 'fuentes_denegadas' ELSE 'fuentes_error' END;
+  codigo:=CASE WHEN estado='denegado' THEN 'fuentes_rechazadas' ELSE 'fuentes_no_disponibles' END;
+ END;
+ SELECT * INTO aud FROM vec_autorizacion_atestada_v3.registrar_intento_fuentes_iniciales_admin_v1(pg_catalog.jsonb_build_object(
+  'tipo_registro','intento_fuentes_iniciales_admin','evento_ref',evento,'operador_login',session_user::text,
+  'solicitud_sha256',solicitud_sha,'accion','provisionar_fuentes_iniciales_admin_v1','recurso_ref',solicitud,
+  'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada',
+  'finalidad_ref','provision_fuentes_iniciales_admin','correlacion_ref',correlacion));
+ RETURN pg_catalog.jsonb_build_object('estado',estado,'codigo',codigo,'recibo',respuesta->'recibo',
+  'replay',COALESCE((respuesta->>'replay')::boolean,false),'auditoria_intento',pg_catalog.jsonb_build_object(
+   'auditoria_ref',aud.auditoria_ref,'secuencia',aud.secuencia,'huella_sha256',aud.huella_sha256,
+   'correlacion_ref',aud.correlacion_ref,'registrada_en',aud.registrada_en));
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.provisionar_fuentes_iniciales_admin_v1(text,text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_fuentes_iniciales_ejecutor;
