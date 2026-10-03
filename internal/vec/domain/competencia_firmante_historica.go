@@ -10,6 +10,7 @@ import (
 )
 
 var ErrCanonCompetenciaFirmanteHistoricaV1Invalido = errors.New("vec: canon historico de competencia firmante invalido")
+var ErrRecuperacionCompetenciaFirmanteHistoricaV1 = errors.New("vec: competencia firmante historica no recuperable")
 
 const (
 	EsquemaCanonCompetenciaFirmanteHistoricaV1 = "vec.competencia-firmante.historica.v1"
@@ -283,6 +284,62 @@ func ValidarLecturaCompetenciaFirmanteHistoricaV1(
 		s.RecursoRef != r.RecursoAutorizableRef ||
 		s.RecursoContextoSHA256 != r.RecursoContextoSHA256 {
 		return ErrCanonCompetenciaFirmanteHistoricaV1Invalido
+	}
+	return nil
+}
+
+// SolicitudRecuperacionCompetenciaFirmanteHistoricaV1 separa la autorización
+// vigente del consultante del selector del efecto original. La fuente resuelve
+// ambos desde sus propietarios antes de conceder una lectura.
+type SolicitudRecuperacionCompetenciaFirmanteHistoricaV1 struct {
+	RegistroRef       string
+	CanonHuellaSHA256 string
+	Actor             ContextoActor
+	ResultadoContexto ResultadoContextoActorRegistradoV2
+	Vinculo           VinculoAutenticacionActorV2
+	RecursoActual     RecursoAutorizable
+	SelectorHistorico SelectorHistoricoCompetenciaFirmanteV1
+	DescriptorLectura DescriptorLecturaCompetenciaFirmanteHistoricaV1
+	Accion            string
+	Finalidad         string
+	Motivo            ReferenciaEntradaCatalogo
+	CorrelacionRef    string
+}
+
+func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarEn(en time.Time) error {
+	if instanteAutorizacionCanonico(en) &&
+		s.Actor.Validar() == nil && s.ResultadoContexto.Validar() == nil &&
+		s.Vinculo.VigenteEn(en, s.ResultadoContexto) &&
+		s.RecursoActual.Validar() == nil && len(s.RecursoActual.Ambitos) > 0 &&
+		s.SelectorHistorico.Validar() == nil &&
+		s.DescriptorLectura.Validar() == nil &&
+		ReferenciaMotivoAutorizacionV2Valida(s.Motivo) &&
+		textoAutorizacionSinComodinSeguro(s.RegistroRef, 512, false) &&
+		huellaAsignacionCompetencialV1Valida(s.CanonHuellaSHA256) &&
+		textoAutorizacionSinComodinSeguro(s.Accion, 256, false) &&
+		textoAutorizacionSinComodinSeguro(s.Finalidad, 512, false) &&
+		ReferenciaCorrelacionAutorizacionV2Valida(s.CorrelacionRef) {
+		huella, err := s.Actor.HuellaSHA256VinculadaV2()
+		if err == nil && huella == s.ResultadoContexto.HuellaSHA256 {
+			return nil
+		}
+	}
+	return ErrRecuperacionCompetenciaFirmanteHistoricaV1
+}
+
+// ValidarResultado liga el canon al recurso y a su selector exactos. La fuente
+// consume la autorización actual y audita incluso una recuperación repetida.
+func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarResultado(
+	c CanonCompetenciaFirmanteHistoricaV1, en time.Time,
+) error {
+	if s.ValidarEn(en) != nil {
+		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
+	}
+	huella, err := c.HuellaSHA256()
+	if err != nil || huella != s.CanonHuellaSHA256 ||
+		ValidarLecturaCompetenciaFirmanteHistoricaV1(c, s.RegistroRef,
+			s.SelectorHistorico, s.DescriptorLectura, s.RecursoActual) != nil {
+		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	return nil
 }
