@@ -68,7 +68,9 @@ El canal privado aprovisiona una fila en
 `proceso`, `entorno`, `host_admin`, `audiencia`, `vigente_hasta`. `proceso` admite
 `^[a-z][a-z0-9._-]{1,79}$`. No hay LOGIN ni configuración sembrados. El preflight
 acredita la topología, las ACL exactas y la vigencia; devuelve `acreditada` y
-`proceso`. Para sustituir un consumidor se usa otro LOGIN y otra fila; la fila
+`proceso`. La fecha de caducidad de esa configuración se incorpora al límite
+común de identidad, certificado, CRL y perfiles, y se comprueba después de las
+esperas de bloqueo y antes de devolver el resultado. Para sustituir un consumidor se usa otro LOGIN y otra fila; la fila
 anterior permanece inmutable.
 
 IS conserva la observación original en una tabla de sólo adición y construye el
@@ -91,7 +93,9 @@ Debe ejecutarse en el clon con PostgreSQL real tras instalar el árbol causal.
 cadena dentro de ROLLBACK. Usa un LOGIN y observación sintéticos previamente
 acreditados por el procedimiento privado; no crea identidades o asignaciones
 fingidas. Comprueba que `40001` alcanza al consumidor sin intentar auditarlo
-como denegación. La prueba de la cadena requiere el perfil v4 gobernado real
+como denegación. `000014_selector_admin_config_caducidad.sql` comprueba la
+caducidad del consumidor durante una demora del listado, con fuentes reales y
+sin elección persistida. La prueba de la cadena requiere el perfil v4 gobernado real
 del fixture para alcanzar ese punto.
 
 Quedan por ejecutar el ensayo de migraciones en el clon, esa prueba SQL y los

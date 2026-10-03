@@ -147,10 +147,11 @@ CREATE FUNCTION vec_identidad_sesiones_v1.ejecutar_selector_admin_auditado_propi
  p_perfil text,p_revision numeric,p_evento text,p_correlacion text,p_seleccion boolean)
 RETURNS TABLE(resultado jsonb,auditoria_comun_ref text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
-DECLARE r record;proceso text;hasta timestamptz;doc jsonb;salida jsonb;audit text;
+DECLARE r record;proceso text;hasta timestamptz;config_hasta timestamptz;doc jsonb;salida jsonb;audit text;
  accion text;estado text:='permitido';motivo text:='identidad_y_perfiles_propios_vigentes';
 BEGIN
  proceso:=vec_identidad_sesiones_v1.exigir_runtime_admin_preperfil_v1(p_entorno,p_host,p_audiencia);
+ SELECT vigente_hasta INTO STRICT config_hasta FROM vec_identidad_sesiones_v1.config_runtime_admin_preperfil_v1 WHERE identidad_login=session_user FOR SHARE;
  IF p_evento IS NULL OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion IS NULL OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
  THEN RAISE EXCEPTION 'IS14: evento o correlación inválidos' USING ERRCODE='22023'; END IF;
  -- Sin actor autenticado no se fabrica un registro preperfil. La frontera F
@@ -163,11 +164,11 @@ BEGIN
   'entorno',p_entorno,'host',p_host,'audiencia',p_audiencia,'autenticada_en',p_autenticada,'revocacion_verificada_en',p_revocada,
   'crl_hasta',p_crl_hasta,'certificado_hasta',p_certificado_hasta,'identidad_hasta',r.vigente_hasta,
   'accion',accion,'perfil_solicitado_ref',p_perfil,'revision_esperada',p_revision,
-  'proceso',proceso,'canal','administracion_privilegiada','finalidad_ref','seleccion_perfil');
+  'proceso',proceso,'config_runtime_vigente_hasta',config_hasta,'canal','administracion_privilegiada','finalidad_ref','seleccion_perfil');
  BEGIN
   IF p_crl_hasta IS NULL OR p_certificado_hasta IS NULL OR NOT isfinite(p_crl_hasta) OR NOT isfinite(p_certificado_hasta)
   THEN RAISE EXCEPTION 'IS14: observación inválida' USING ERRCODE='42501'; END IF;
-  hasta:=LEAST(r.vigente_hasta,p_crl_hasta,p_certificado_hasta);
+  hasta:=LEAST(r.vigente_hasta,p_crl_hasta,p_certificado_hasta,config_hasta);
   IF clock_timestamp()>=hasta THEN RAISE EXCEPTION 'IS14: observación caducada' USING ERRCODE='42501'; END IF;
   salida:=vec_contexto_actor_v1.listar_admin_preperfil_propietaria_v1(r.cuenta_ref,r.persona_ref,p_audiencia);
   IF jsonb_array_length(salida->'perfiles')=0 THEN RAISE EXCEPTION 'IS14: no hay perfil propio acreditado' USING ERRCODE='42501'; END IF;
@@ -177,6 +178,7 @@ BEGIN
    -- Auditoría y CAS comparten subtransacción: un CAS denegado elimina el
    -- supuesto éxito antes de registrar fuera su denegación real.
    audit:=vec_identidad_sesiones_v1.auditar_observacion_admin_preperfil_v1(p_evento,p_correlacion,r.persona_ref,accion,r.cuenta_ref,'permitido',motivo,proceso,doc||jsonb_build_object('resultado','permitido','motivo_ref',motivo));
+   IF clock_timestamp()>=hasta THEN RAISE EXCEPTION 'IS14: observación caducada antes del CAS' USING ERRCODE='42501'; END IF;
    salida:=vec_contexto_actor_v1.seleccionar_admin_preperfil_propietaria_v1(r.cuenta_ref,r.persona_ref,p_audiencia,p_perfil,p_revision,audit);
   ELSE
    audit:=vec_identidad_sesiones_v1.auditar_observacion_admin_preperfil_v1(p_evento,p_correlacion,r.persona_ref,accion,r.cuenta_ref,'permitido',motivo,proceso,doc||jsonb_build_object('resultado','permitido','motivo_ref',motivo,'listado',salida));
