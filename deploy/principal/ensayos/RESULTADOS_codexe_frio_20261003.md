@@ -101,3 +101,19 @@ CT170: AD3-159 requerido
 ```
 
 Ambos intentos conservaron snapshots completos e idénticos de historia, roles, funciones, ACL y catálogo de esquema. Resultado parcial: 23 migraciones nuevas instaladas en la copia y siete pruebas SQL focales verdes. AD159 y CT170 siguen sin instalar. Las piezas nuevas de cargos, competencia nominal y multifirma se ensayarán al recibir sus artefactos y orden aprobados.
+
+## AD162 y fachada privada de cargos
+
+Por orden de dirección se ensayó AD162 antes de AD160. AD162, commit `77cebd3d1306def7bbfd54dfd3ac9440eb285854`, SHA256 `f9387e72612ec129ee09281802875a8ee7f9a4cd7b8150e4912208dffc377bd9`, pasó sobre la postimagen AD158. Sus 475 tablas previas y roles conservan sus huellas. Se capturó inmediatamente su núcleo completo: definición SHA256 `8ee729ac5b3740fadc260dbd2a686cc03d411abde71e13b2b213330696cbabbf`; fuente `ed4fdb20579f858900aa6382a2c65e65312a12fb97f9d5b03a598be7422c337a`.
+
+AD160, commit `14044dbd007a36798076e7227c7f2387da423696`, SHA256 `b6bc945a36af85ef136b35300655488fe533977c738e021330ef3321b24a7572`, pasó después. Conserva el núcleo AD162 y la historia anterior. Añade cinco tablas centrales vacías y únicamente el rol técnico `vec_autorizacion_cargos_ct_ejecutor`, sin LOGIN ni privilegios de administración o BYPASSRLS, y sin membresías heredadas. Las huellas individuales de todos los roles anteriores coinciden. La prueba estructural `cargos_ct_000160.sql` pasó en ROLLBACK.
+
+La copia tiene ahora 480 tablas y 25 migraciones nuevas válidas. No se creó ningún plan, aprobación, asignación ni perfil. El ensayo estructural no acredita provisión real del cargo ni autorización administrativa para ejecutarla.
+
+## Recuperación a disco y candidata AD159
+
+La misma copia se trasladó a disco tras una parada limpia de PostgreSQL. El contenedor conserva usuario sin privilegios, red desactivada y límites de 2 GiB de memoria y 2 GiB de memoria más swap. No se restauró otra base ni se reaplicaron las 25 migraciones verdes. Las huellas de las 480 tablas, roles, ACL, funciones y catálogo de esquema tras el arranque coinciden exactamente con la postimagen AD160. Respaldo frío de ese estado: SHA256 `a9587fa0f2d6a27b8432667597377a3628200bc30e113a1e1dc7f77b02a2ce8b`.
+
+AD159 candidata `d6e5954c8` pasó en PostgreSQL 18.4 con `--rollback`. SQL SHA256 `ccd88c9b57acc1ddeb02d629ee22a20d2571b58ea4a3d774896dc3f14b21aad2`. El ensayo compara snapshots completos y terminó en `ENSAYO-OK`, con `rollback_snapshot_preserved: true`. Requiere el núcleo exacto post-AD162 y conserva sus consumidores V2. Los perfiles funcionales se provisionan fuera de esta instalación; cada consulta exige decisión V3 positiva y revalidación central vigente.
+
+AD159 sigue sin instalar. El resultado prueba instalación reversible y conservación; quedan pendientes las revisiones sensibles del commit exacto, CT170 y la consulta con concesión real. No acredita provisión RBAC, firma ni un recibo funcional. AD160 se conserva como candidata transferida a K; E no activa una autoridad administrativa paralela.
