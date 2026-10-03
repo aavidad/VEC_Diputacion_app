@@ -62,10 +62,10 @@ func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarResultado(
 	huella, err := c.HuellaSHA256()
 	if err != nil || huella != s.CanonHuellaSHA256 ||
 		c.Recurso.RecursoAutorizableRef != s.Recurso.Referencia ||
-		c.Recurso.OrganizacionRef != s.Recurso.Ambitos["organizacion"] ||
-		c.Recurso.UnidadRef != s.Recurso.Ambitos["unidad"] ||
-		c.Recurso.ExpedienteRef != s.Recurso.Atributos["expediente"] ||
-		c.Recurso.DocumentoRef != s.Recurso.Atributos["documento"] {
+		c.Recurso.OrganizacionRef != s.Recurso.Ambitos["organizacion_ref"] ||
+		c.Recurso.UnidadRef != s.Recurso.Ambitos["unidad_ref"] ||
+		c.Recurso.ExpedienteRef != s.Recurso.Ambitos["expediente_ref"] ||
+		c.Recurso.DocumentoRef != s.Recurso.Referencia {
 		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	actual, err := s.Recurso.HuellaContextoAutorizacionSHA256()
