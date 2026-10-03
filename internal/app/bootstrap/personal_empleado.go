@@ -308,7 +308,11 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 	if c.IntentosAuditoria.Proceso != proceso || c.IntentosAuditoria.Canal != string(core.SuperficieAutenticacionInternaCorporativaV1) || personalpg.PreflightEjecutorFichaPropia(ctx, pools[6]) != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	registroIntentos, err := personalcomp.NuevoRegistroIntentosFichaPropia(registradorComun, c.IntentosAuditoria)
+	destinoIntentos, ok := registradorComun.(personalcomp.RegistradorIntentosFichaPropia)
+	if !ok {
+		return nil, errPersonalEmpleadoEn()
+	}
+	registroIntentos, err := personalcomp.NuevoRegistroIntentosFichaPropia(destinoIntentos, c.IntentosAuditoria)
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
