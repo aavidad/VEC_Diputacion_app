@@ -53,12 +53,19 @@ test('JSON rechaza claves duplicadas, prototipos, profundidad excesiva y bytes U
   assert.throws(() => leerSalida(new Uint8Array([255])), /formato/);
 });
 test('textos propuestos limitados a 4096 bytes, sin controles ni sustitución de propuestas', () => {
-  for (const texto of ['á'.repeat(2049), 'texto\ntexto', '\ud800']) {
+  for (const texto of ['á'.repeat(2049), 'texto\ntexto']) {
     const dto = base(); dto.preparacion.material_propuesto.orden_dia_propuesto[0].texto_propuesto = texto;
     assert.throws(() => leer(dto), /formato/);
   }
   const dto = base(); dto.preparacion.material_propuesto.orden_dia_propuesto[0].texto_propuesto = 'á'.repeat(2048);
   assert.equal(leer(dto).preparacion.material_propuesto.orden_dia_propuesto.length, 1);
+});
+test('JSON con sustituto aislado se rechaza; un par válido y U+FFFD literal se conservan', () => {
+  for (const valor of ['\ud800', '\udfff', '\ud83d\ude00', '\ufffd']) {
+    const dto = base(); dto.preparacion.material_propuesto.orden_dia_propuesto[0].texto_propuesto = valor;
+    if (valor.length === 1 && valor !== '\ufffd') assert.throws(() => leer(dto), /formato/);
+    else assert.equal(leer(dto).preparacion.material_propuesto.orden_dia_propuesto[0].texto_propuesto, valor);
+  }
 });
 test('material incompleto sigue pendiente sin inventar fecha, agenda o acuerdos', () => {
   const dto = base(), m = dto.preparacion.material_propuesto;

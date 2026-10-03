@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import sys
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -28,7 +29,9 @@ def main():
         origen = f"http://127.0.0.1:{servidor.server_port}"
         try:
             with sync_playwright() as pw:
+                focal_volver = '--volver' in sys.argv
                 navegador = pw.chromium.launch(executable_path=os.environ.get("VEC_S5_ACTA_CHROME", "/usr/bin/google-chrome"), headless=True,
+                    ignore_default_args=["--disable-back-forward-cache"] if focal_volver else None,
                     args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-background-networking"])
                 contexto = navegador.new_context(accept_downloads=True, viewport={"width": 1440, "height": 900})
                 pagina = contexto.new_page()
@@ -36,6 +39,10 @@ def main():
                 pagina.on("pageerror", lambda e: errores.append(str(e)))
                 pagina.on("request", lambda r: peticiones.append((r.method, r.url)))
                 pagina.on("dialog", lambda d: (dialogos.append(d.message), d.dismiss()))
+                restauraciones = []
+                if focal_volver:
+                    pagina.expose_function("reportarRestauracion", lambda persisted, trusted: restauraciones.append({"persisted": bool(persisted), "trusted": bool(trusted)}))
+                    pagina.add_init_script("window.__documentoPrueba = Math.random(); window.addEventListener('pageshow', e => window.reportarRestauracion(e.persisted, e.isTrusted));")
                 assert pagina.goto(origen + entrada + "?lang=es").status == 200
                 archivo = pagina.locator("#acta-archivo")
 
@@ -43,6 +50,48 @@ def main():
                     archivo.set_input_files({"name": nombre, "mimeType": "application/json", "buffer": datos})
                     pagina.wait_for_function("() => !document.querySelector('#acta-descargar').disabled")
 
+                if focal_volver:
+                    abrir(original)
+                    pagina.locator("#acta-idioma").select_option("en")
+                    pagina.wait_for_function("() => document.documentElement.lang === 'en'")
+                    documento_anterior = pagina.evaluate("window.__documentoPrueba")
+                    assert pagina.goto(origen + "/textos/idiomas.json").status == 200
+                    pagina.go_back(wait_until="domcontentloaded")
+                    pagina.wait_for_function("anterior => window.__documentoPrueba !== anterior && document.querySelector('#acta-archivo') && !document.querySelector('#acta-archivo').disabled", arg=documento_anterior)
+                    assert pagina.locator("#acta-resultados").inner_text() == ""
+                    assert pagina.locator("#acta-descargar").is_disabled()
+                    assert archivo.input_value() == ""
+                    cache_observada = any(e["persisted"] and e["trusted"] for e in restauraciones)
+                    if cache_observada:
+                        assert pagina.locator("html").get_attribute("lang") == "en"
+                        assert "lang=en" in pagina.url
+                    abrir(original)
+                    with pagina.expect_download() as espera:
+                        pagina.locator("#acta-descargar").click()
+                    espera.value.save_as(salida / "original-tras-volver.json")
+                    assert (salida / "original-tras-volver.json").read_bytes() == original
+                    # Ejercicio sintético separado: el listener debe sobrevivir al AbortController.
+                    pagina.locator("#acta-idioma").select_option("en")
+                    pagina.wait_for_function("() => document.documentElement.lang === 'en'")
+                    documento_anterior = pagina.evaluate("window.__documentoPrueba")
+                    pagina.evaluate("window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true})); window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}));")
+                    pagina.wait_for_function("anterior => window.__documentoPrueba !== anterior && document.querySelector('#acta-archivo') && !document.querySelector('#acta-archivo').disabled", arg=documento_anterior)
+                    assert pagina.locator("html").get_attribute("lang") == "en" and "lang=en" in pagina.url
+                    assert pagina.locator("#acta-resultados").inner_text() == "" and archivo.input_value() == ""
+                    assert pagina.locator("#acta-descargar").is_disabled()
+                    abrir(original)
+                    with pagina.expect_download() as espera:
+                        pagina.locator("#acta-descargar").click()
+                    espera.value.save_as(salida / "original-tras-ciclo-sintetico.json")
+                    assert (salida / "original-tras-ciclo-sintetico.json").read_bytes() == original
+                    assert not errores and not dialogos, (errores, dialogos)
+                    assert all(m == "GET" and u.startswith(origen + "/") for m, u in peticiones), peticiones
+                    assert contexto.cookies() == []
+                    assert pagina.evaluate("localStorage.length === 0 && sessionStorage.length === 0")
+                    navegador.close()
+                    print(json.dumps({"chrome_volver": "OK", "pageshow_persisted_observado": cache_observada,
+                        "events_pageshow": restauraciones, "ciclo_persistido_sintetico": "OK", "descarga_identica": True, "original_sha256": hashlib.sha256(original).hexdigest()}))
+                    return
                 abrir(original)
                 assert dto["preparacion"]["material_propuesto"]["orden_dia_propuesto"][0]["texto_propuesto"] in pagina.locator("#acta-resultados").inner_text()
                 assert "Sin fecha propuesta" in pagina.locator("#acta-resultados").inner_text()

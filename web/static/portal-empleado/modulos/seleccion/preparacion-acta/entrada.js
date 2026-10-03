@@ -1,5 +1,5 @@
-import { leerArchivo } from './modelo.js?v=20261003-s5-acta-visor-v1';
-import { pintarSalida } from './vista.js?v=20261003-s5-acta-visor-v1';
+import { leerArchivo } from './modelo.js?v=20261003-s5-acta-visor-v2';
+import { pintarSalida } from './vista.js?v=20261003-s5-acta-visor-v2';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -65,6 +65,14 @@ document.addEventListener('focusin', e => {
   });
 }, { signal: eventos.signal });
 window.addEventListener('pagehide', () => { activa = false; retirar(); eventos.abort(); cancelAnimationFrame(frame); });
+window.addEventListener('pageshow', e => {
+  if (!e.persisted) return;
+  if (textos) {
+    const destino = new URL(location.href); destino.searchParams.set('lang', textos.idioma);
+    history.replaceState(history.state, '', destino);
+  }
+  location.reload();
+});
 try {
   const inicial = await cargarTextos('selectivos-acta-visor');
   if (activa) {

@@ -8,7 +8,8 @@ export const FIJOS = Object.freeze({ antecedente_tribunal: 'antecedente_no_cotej
   aprobacion: 'circuito_pendiente', firma: 'circuito_pendiente' });
 const AUSENTES = ['sesion_ref', 'fecha_propuesta', 'orden_dia_propuesto', 'acuerdos_propuestos', 'textos_orden_dia', 'textos_acuerdos'];
 const cadena = v => typeof v === 'string' && new TextEncoder().encode(v).byteLength <= 65536;
-const texto = v => cadena(v) && new TextEncoder().encode(v).byteLength <= 4096 && !/[\p{Cc}\p{Surrogate}]/u.test(v);
+const texto = v => cadena(v) && new TextEncoder().encode(v).byteLength <= 4096
+  && !/\p{Cc}/u.test(v) && !/[\uD800-\uDFFF]/u.test(v);
 const lista = (validar, maximo = 100) => v => Array.isArray(v) && v.length <= maximo && v.every(validar);
 const unico = (v, campo) => new Set(v.map(x => x[campo])).size === v.length;
 const fecha = v => typeof v === 'string' && v.length <= 40 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u.test(v)
