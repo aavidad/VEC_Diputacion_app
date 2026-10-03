@@ -79,6 +79,12 @@ type ServicioActos interface {
 	CerrarPropuestaSensible(context.Context, domain.SolicitudCierrePropuestaAdministracionPerfiles) (ports.CierrePropuestaAdministracionPerfiles, error)
 }
 
+// ServicioLotes amplía opcionalmente el servicio existente. Su ausencia
+// mantiene cerrado el endpoint de lotes sin recurrir a escrituras singulares.
+type ServicioLotes interface {
+	AplicarLoteOrdinario(context.Context, domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error)
+}
+
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
 	origen      string
@@ -166,7 +172,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, ErrAccesoDenegado), errors.Is(err, domain.ErrAutorizacionDenegada):
 			h.denegar(w, r, http.StatusForbidden, "acceso_denegado")
 		default:
-			fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+			h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		}
 		return
 	}
@@ -175,7 +181,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(sesion.CorrelacionRef) {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	if r.Method == http.MethodGet {
@@ -285,10 +291,14 @@ func refOpaca(v, prefix string) bool {
 }
 
 func decodificar(w http.ResponseWriter, r *http.Request, destino any) error {
-	if r.ContentLength > 16*1024 {
+	return decodificarLimitado(w, r, destino, 16*1024)
+}
+
+func decodificarLimitado(w http.ResponseWriter, r *http.Request, destino any, limite int64) error {
+	if r.ContentLength > limite {
 		return errCuerpoExcesivo
 	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limite))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(destino); err != nil {
 		var exceso *http.MaxBytesError

@@ -188,16 +188,24 @@ type FichaPersona struct {
 }
 
 type Propuesta struct {
-	PropuestaRef         string          `json:"propuesta_ref"`
-	ProponentePersonaRef string          `json:"proponente_persona_ref"`
-	ObjetivoPersonaRef   string          `json:"objetivo_persona_ref"`
-	ObjetivoNombre       string          `json:"objetivo_nombre"`
-	RolVersionRef        string          `json:"rol_version_ref"`
-	Operacion            string          `json:"operacion"`
-	HuellaSHA256         string          `json:"huella_sha256"`
-	CaducaEn             time.Time       `json:"caduca_en"`
-	PuedeCerrar          bool            `json:"puede_cerrar"`
-	MotivosCierre        []MotivoLectura `json:"motivos_cierre"`
+	// Estos datos opcionales solo los resuelve FuenteLecturas desde la propuesta
+	// conservada y el catálogo autorizado. Su ausencia no acredita el material.
+	ProponenteNombre       string          `json:"proponente_nombre,omitempty"`
+	ProponentePerfilNombre string          `json:"proponente_perfil_nombre,omitempty"`
+	Ambitos                []AmbitoPerfil  `json:"ambitos,omitempty"`
+	VigenteDesde           time.Time       `json:"vigente_desde,omitzero"`
+	VigenteHasta           time.Time       `json:"vigente_hasta,omitzero"`
+	Motivo                 *MotivoLectura  `json:"motivo,omitempty"`
+	PropuestaRef           string          `json:"propuesta_ref"`
+	ProponentePersonaRef   string          `json:"proponente_persona_ref"`
+	ObjetivoPersonaRef     string          `json:"objetivo_persona_ref"`
+	ObjetivoNombre         string          `json:"objetivo_nombre"`
+	RolVersionRef          string          `json:"rol_version_ref"`
+	Operacion              string          `json:"operacion"`
+	HuellaSHA256           string          `json:"huella_sha256"`
+	CaducaEn               time.Time       `json:"caduca_en"`
+	PuedeCerrar            bool            `json:"puede_cerrar"`
+	MotivosCierre          []MotivoLectura `json:"motivos_cierre"`
 }
 
 type PaginaPropuestas struct {
@@ -254,4 +262,29 @@ type SolicitudCierre struct {
 	PropuestaHuellaSHA256 string `json:"propuesta_huella_sha256"`
 	Decision              string `json:"decision"`
 	Motivo                Motivo `json:"motivo"`
+}
+
+// SolicitudLote acepta solo el material del efecto. Identidad, evidencia,
+// correlación, instantánea vigente y huella se reconstruyen en el servidor.
+type SolicitudLote struct {
+	OperacionRef   string         `json:"operacion_ref"`
+	Cambios        []CambioPerfil `json:"cambios"`
+	Motivo         Motivo         `json:"motivo"`
+	ReferenciaActo string         `json:"referencia_acto,omitempty"`
+}
+
+type CambioPerfil struct {
+	Operacion     string   `json:"operacion"`
+	RolVersionRef string   `json:"rol_version_ref"`
+	Objetivo      Objetivo `json:"objetivo"`
+}
+
+type ReciboLote struct {
+	OperacionRef          string    `json:"operacion_ref"`
+	ActoRef               string    `json:"acto_ref"`
+	ReciboRef             string    `json:"recibo_ref"`
+	AuditoriaRef          string    `json:"auditoria_ref"`
+	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
+	ConfirmadoEn          time.Time `json:"confirmado_en"`
+	Cambios               []Recibo  `json:"cambios"`
 }

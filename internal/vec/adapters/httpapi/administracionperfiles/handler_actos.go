@@ -20,6 +20,8 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		return
 	}
 	switch {
+	case p == PrefijoV1+"/lotes-ordinarios":
+		h.postLoteOrdinario(w, r, s)
 	case p == PrefijoV1+"/actos-ordinarios" || p == PrefijoV1+"/propuestas":
 		var dto SolicitudActo
 		if err := decodificar(w, r, &dto); err != nil {
