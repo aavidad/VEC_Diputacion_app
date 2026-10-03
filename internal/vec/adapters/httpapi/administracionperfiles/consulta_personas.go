@@ -1,6 +1,7 @@
 package administracionperfiles
 
 import (
+	"errors"
 	"net/url"
 	"strings"
 	"unicode"
@@ -8,31 +9,36 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
+var errConsultaPersonasInvalida = errors.New("administracion de perfiles: consulta de personas invalida")
+
 // consultaPersonas valida exclusivamente la forma HTTP. El catálogo y la
 // decisión de acceso corresponden a FuenteLecturas, nunca a estos filtros.
-func consultaPersonas(raw string) (ConsultaPersonas, bool) {
+func consultaPersonas(raw string) (ConsultaPersonas, error) {
+	if len(raw) > 2048 {
+		return ConsultaPersonas{}, errConsultaPersonasInvalida
+	}
 	q, err := url.ParseQuery(raw)
-	if err != nil || len(raw) > 2048 {
-		return ConsultaPersonas{}, false
+	if err != nil {
+		return ConsultaPersonas{}, err
 	}
 	for clave, valores := range q {
 		switch clave {
 		case "q", "cursor", "perfil_ref", "unidad_ref", "estado":
 		default:
-			return ConsultaPersonas{}, false
+			return ConsultaPersonas{}, errConsultaPersonasInvalida
 		}
 		if len(valores) != 1 || valores[0] == "" {
-			return ConsultaPersonas{}, false
+			return ConsultaPersonas{}, errConsultaPersonasInvalida
 		}
 	}
 	x := ConsultaPersonas{Texto: q.Get("q"), Cursor: q.Get("cursor"), PerfilRef: q.Get("perfil_ref"), UnidadRef: q.Get("unidad_ref"), Estado: q.Get("estado")}
 	if x.Texto != "" && (len(x.Texto) < 2 || !textoConsulta(x.Texto, 132) || strings.TrimSpace(x.Texto) != x.Texto) {
-		return ConsultaPersonas{}, false
+		return ConsultaPersonas{}, errConsultaPersonasInvalida
 	}
 	if !textoConsulta(x.Cursor, 256) || x.PerfilRef != "" && !domain.RolVersionAdministracionPerfilesValido(x.PerfilRef) || x.UnidadRef != "" && !referenciaUnidad(x.UnidadRef) || x.Estado != "" && x.Estado != "vigente" && x.Estado != "caducado" {
-		return ConsultaPersonas{}, false
+		return ConsultaPersonas{}, errConsultaPersonasInvalida
 	}
-	return x, true
+	return x, nil
 }
 
 func textoConsulta(s string, max int) bool {
