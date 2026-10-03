@@ -52,9 +52,15 @@ Las dependencias que impiden activar la consulta son concretas:
   `consultar_capacidades_admin_v1`, con la correlación de la frontera y el
   acuse común permitido de AD168. Devuelve `acciones: []`; las otras seis
   consultas y los actos siguen cerrados. Su constructor conserva
-  `NoDisponible` hasta que L entregue el registrador común durable de
-  denegaciones y errores y se acredite el LOGIN del rol técnico
-  `vec_admin_perfiles_lector`. Se inyectará por
+  `NoDisponible` hasta acreditar el preflight del registrador común L, su
+  composición privada y el LOGIN del rol técnico `vec_admin_perfiles_lector`.
+  El proveedor consume `RegistradorIntentosAuditoria` después del retorno y
+  rollback de la consulta fallida: conserva la identidad histórica acreditada,
+  la correlación común y la misma orden al reintentar un registro incierto.
+  Exige un acuse válido antes de devolver el error nominal. Proceso, canal,
+  finalidad y motivos gobernados son configuración obligatoria; sin ellos
+  devuelve indisponibilidad sin datos. El permitido sigue auditado por AD168.
+  Se inyectará por
   `DependenciasComposicionPerfiles.Lecturas`; no usa el pool de actos ni
   abre el constructor general de lecturas. Las pruebas de contrato con
   dobles no acreditan instalación ni auditoría real.

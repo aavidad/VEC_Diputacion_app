@@ -14,19 +14,21 @@ import (
 // FuenteCapacidades entrega únicamente la consulta de capacidades. No abre las
 // seis lecturas heredadas ni permite construir una autoridad de actos.
 type FuenteCapacidades struct {
-	pool     conexion
-	emisor   Emisor
-	fuente   ports.FuenteAutorizacion
-	catalogo ports.CatalogoRolesAdministrables
-	reloj    ports.Reloj
+	pool                  conexion
+	emisor                Emisor
+	fuente                ports.FuenteAutorizacion
+	catalogo              ports.CatalogoRolesAdministrables
+	reloj                 ports.Reloj
+	intentos              ports.RegistradorIntentosAuditoria
+	configuracionIntentos ConfiguracionIntentosCapacidades
 }
 
 var _ api.FuenteLecturas = (*FuenteCapacidades)(nil)
 
-// NuevaFuenteCapacidades permanece cerrada hasta conectar el registrador común
-// durable de denegaciones y errores. El acuse permitido de AD168 no sustituye
-// esa dependencia. La apertura posterior debe acreditar además el LOGIN lector
-// acotado a consultar_capacidades_admin_v1, sin permisos de actos.
+// NuevaFuenteCapacidades permanece cerrada hasta acreditar el preflight del
+// registrador común, la composición privada y el LOGIN lector acotado a
+// consultar_capacidades_admin_v1, sin permisos de actos. El consumo del puerto
+// de intentos no acredita esas dependencias ni su instalación.
 func NuevaFuenteCapacidades(ctx context.Context, pool *pgxpool.Pool, emisor Emisor,
 	fuente ports.FuenteAutorizacion, catalogo ports.CatalogoRolesAdministrables, reloj ports.Reloj,
 ) (*FuenteCapacidades, error) {
@@ -48,7 +50,7 @@ type capacidadesJSON struct {
 	RegistradaEn        time.Time `json:"registrada_en"`
 }
 
-func (f *FuenteCapacidades) Capacidades(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles) (api.Capacidades, error) {
+func (f *FuenteCapacidades) consultarCapacidades(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles) (api.Capacidades, error) {
 	if ctx == nil || f == nil || ausente(f.pool) || ausente(f.emisor) || ausente(f.fuente) || ausente(f.catalogo) || ausente(f.reloj) {
 		return api.Capacidades{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}

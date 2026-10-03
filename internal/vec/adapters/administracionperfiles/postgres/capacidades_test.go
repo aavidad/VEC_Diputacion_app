@@ -67,15 +67,16 @@ func (t *txCapacidadesPrueba) QueryRow(_ context.Context, consulta string, args 
 
 type poolCapacidadesPrueba struct {
 	conexion
-	tx        *txCapacidadesPrueba
-	comienzos int
-	opciones  pgx.TxOptions
+	tx          *txCapacidadesPrueba
+	comienzos   int
+	opciones    pgx.TxOptions
+	falloInicio error
 }
 
 func (p *poolCapacidadesPrueba) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
 	p.comienzos++
 	p.opciones = opciones
-	return p.tx, nil
+	return p.tx, p.falloInicio
 }
 
 func capacidadesPrueba(t *testing.T) (*FuenteCapacidades, context.Context, domain.SolicitudActoAdministracionPerfiles, *poolCapacidadesPrueba, *emisorCapacidadesPrueba, map[string]any) {
@@ -96,6 +97,14 @@ func capacidadesPrueba(t *testing.T) (*FuenteCapacidades, context.Context, domai
 	f := &FuenteCapacidades{pool: p, emisor: e, reloj: relojFijo(ahora), fuente: fuenteCapacidadesPrueba{instantanea: s.InstantaneaAutorizacion},
 		catalogo: catalogoCapacidadesPrueba{rol: ports.RolAdministrable{VersionRef: rol.VersionRef, Clase: rol.Clase, CategoriaAdmin: *rol.CategoriaAdmin,
 			HuellaSHA256: rol.HuellaSHA256, VigenteDesde: rol.VigenteDesde, VigenteHasta: rol.VigenteHasta, UnidadRequerida: *rol.UnidadRequerida}}}
+	f.intentos = &registradorCapacidadesPrueba{t: t, pool: p, ahora: ahora}
+	vinculo, err := s.Evidencia.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.configuracionIntentos = ConfiguracionIntentosCapacidades{Proceso: "vec-server", Canal: string(vinculo.Superficie), FinalidadRef: "gestion_perfiles",
+		MotivoDenegado: domain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_auditoria", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "acceso_denegado"},
+		MotivoError:    domain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_auditoria", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "consulta_error"}}
 	salida := map[string]any{"version": "1", "actor_persona_ref": s.Actor.PersonaRef, "acciones": []string{},
 		"perfil_activo_ref": s.Actor.PerfilActivoRef, "asignacion_perfil_ref": s.InstantaneaAutorizacion.AsignacionPerfil.Referencia(),
 		"correlacion_ref": "correlacion_" + correlacion, "auditoria_ref": "aud_v3_" + strings.Repeat("a", 32), "registrada_en": ahora}
@@ -113,6 +122,9 @@ func TestCapacidadesConsumoYAuditoriaAntesDePublicar(t *testing.T) {
 	if pool.comienzos != 1 || pool.tx.commits != 1 || pool.tx.rollbacks != 1 || pool.tx.consulta != capacidadesLecturaSQL || pool.tx.args != 11 ||
 		pool.opciones.IsoLevel != pgx.Serializable || pool.opciones.AccessMode != pgx.ReadWrite {
 		t.Fatal("consulta no consumida en transacción nominal")
+	}
+	if len(f.intentos.(*registradorCapacidadesPrueba).ordenes) != 0 {
+		t.Fatal("el permitido duplicó la auditoría común de AD168")
 	}
 	var material map[string]any
 	if json.Unmarshal([]byte(pool.tx.material), &material) != nil || material["correlacion_ref"] != salida["correlacion_ref"] ||
