@@ -486,7 +486,8 @@ BEGIN
   OR canon#>'{competencia,control_rol,version}' IS DISTINCT FROM s->'ControlVigenciaFirmanteRevision'
   OR canon#>>'{competencia,control_rol,huella_sha256}' IS DISTINCT FROM s->>'ControlVigenciaFirmanteHuella'
   OR canon#>>'{competencia,vigente_desde}' IS DISTINCT FROM s->>'AsignacionVigenteDesde'
-  OR canon#>>'{competencia,vigente_hasta}' IS DISTINCT FROM s->>'AsignacionVigenteHasta' THEN
+  OR canon#>>'{competencia,vigente_hasta}' IS DISTINCT FROM s->>'AsignacionVigenteHasta'
+  OR canon#>>'{personal,delegacion,acto,referencia}' IS DISTINCT FROM s->>'DelegacionRef' THEN
   RAISE EXCEPTION 'contexto nominal de firma divergente' USING ERRCODE='42501'; END IF;
  competencia := vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(
   contexto_nominal,relacion,to_jsonb(consumo));
