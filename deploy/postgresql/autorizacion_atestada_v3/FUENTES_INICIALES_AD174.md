@@ -138,6 +138,21 @@ go run -p 8 ./cmd/vec-auditoria-verificar \
   < cmd/vec-auditoria-verificar/testdata/fuentes_iniciales_ad174.json
 ```
 
-Se han pasado las pruebas focales de `internal/vec/auditoria` y
-`cmd/vec-auditoria-verificar`. Dirección ejecutó el SQL solo en el clon
-autorizado. El productor no ha instalado SQL ni tocado servidores.
+Comprobaciones locales ejecutadas, todas con código 0:
+
+- `GOCACHE=$HOME/.cache/go-build go test -p 8 ./internal/vec/auditoria ./cmd/vec-auditoria-verificar`.
+- Los mismos paquetes con `go test -race -p 8` y `go vet -p 8`.
+- `gosec -quiet -fmt text` solo sobre esos dos paquetes: sin hallazgos.
+- Semgrep con `--metrics=off` y reglas locales de
+  `pruebas_sql/ad174_semgrep_local.yml`: cinco archivos productivos cambiados,
+  tres reglas, sin hallazgos.
+- `git diff --check`.
+
+La revisión focal del productor recorrió la frontera LOGIN/AUT39, ABI de
+campos cerrados, ACL, rollback, exclusividad de familias y minimización del
+informe offline. No encontró un defecto pendiente; no sustituye las dos
+revisiones independientes de esta zona sensible. El SQL no lee tablas CA/IS.
+AUT39 debe suministrar el agregado real y unirlo al efecto antes del COMMIT.
+
+Dirección ejecutó el SQL solo en el clon autorizado. El productor no ha
+instalado SQL ni tocado servidores.
