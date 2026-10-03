@@ -615,6 +615,8 @@ static/textos/en/seleccion-bases-preparacion-error.json
 static/portal-empleado/portal-bolsas-historial-ofrecimientos.js
 static/textos/es/bolsa-historial-ofrecimientos.json
 static/textos/en/bolsa-historial-ofrecimientos.json
+static/textos/es/meritos-consulta.json
+static/textos/en/meritos-consulta.json
 static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
 static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
 static/portal-empleado/modulos/contratacion-temporal/firma-vec-api.js
