@@ -72,3 +72,63 @@ func TestCLIRechazaArgumentosYCheckpoint(t *testing.T) {
 		t.Fatalf("invalid checkpoint accepted or leaked: exit=%d output=%s", codigo, salida.String())
 	}
 }
+
+func TestCLICadenaMixtaV2YJSONAmbiguo(t *testing.T) {
+	contenido, err := os.ReadFile("testdata/cadena_mixta_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"--checkpoint", "testdata/checkpoint_mixto_v2.json", "--max-bytes", "8192", "--max-registros", "2"}
+	var salida bytes.Buffer
+	if codigo := ejecutar(args, bytes.NewReader(contenido), &salida); codigo != 0 {
+		t.Fatalf("mixta rechazada: codigo=%d salida=%s", codigo, salida.String())
+	}
+	var informe auditoria.InformeVerificacion
+	if json.Unmarshal(salida.Bytes(), &informe) != nil || informe.Estado != "verificada" ||
+		!informe.MaterialIntentoRecalculado || !informe.ActorPerfilContextoCotejados ||
+		informe.AutenticidadFuentesHistoricas != "no_comprobada" {
+		t.Fatalf("alcance de CLI mixto incorrecto: %s", salida.String())
+	}
+	for _, alterado := range [][]byte{
+		bytes.Replace(contenido, []byte(`"accion":"administracion.perfiles.consultar"`),
+			[]byte(`"accion":"otra","accion":"administracion.perfiles.consultar"`), 1),
+		bytes.Replace(contenido, []byte(`"tipo_registro":"intento_nominal"`),
+			[]byte(`"tipo_registro":"intento_nominal","consumo":{}`), 1),
+		bytes.Replace(contenido, []byte(`"contexto_canonico_base64":`),
+			[]byte(`"campo_ajeno":"x","contexto_canonico_base64":`), 1),
+		bytes.Replace(contenido, []byte(`"registros":[`), []byte(`"registros":null,"registros":[`), 1),
+	} {
+		salida.Reset()
+		if codigo := ejecutar(args, bytes.NewReader(alterado), &salida); codigo != 2 {
+			t.Fatalf("JSON mixto ambiguo aceptado: codigo=%d", codigo)
+		}
+	}
+}
+
+func TestCLIIntentoConAnteriorInvalidoNoReflejaDatos(t *testing.T) {
+	contenido, err := os.ReadFile("testdata/cadena_mixta_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documento auditoria.DocumentoVerificacionMixta
+	if err := json.Unmarshal(contenido, &documento); err != nil {
+		t.Fatal(err)
+	}
+	const datoPrivadoSintetico = "DNI-sintetico-12345678"
+	documento.Registros[0].Intento.AnteriorSHA256 = datoPrivadoSintetico
+	alterado, err := json.Marshal(documento)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"--checkpoint", "testdata/checkpoint_mixto_v2.json", "--max-bytes", "8192", "--max-registros", "2"}
+	var salida bytes.Buffer
+	if codigo := ejecutar(args, bytes.NewReader(alterado), &salida); codigo != 1 ||
+		strings.Contains(salida.String(), datoPrivadoSintetico) {
+		t.Fatalf("anterior invalido filtrado: codigo=%d salida=%s", codigo, salida.String())
+	}
+	var informe auditoria.InformeVerificacion
+	if json.Unmarshal(salida.Bytes(), &informe) != nil || informe.Fallo == nil ||
+		informe.Fallo.Clave != "anterior_sha256" || informe.Fallo.Obtenido != "no_admitido" {
+		t.Fatalf("rechazo no acotado: %s", salida.String())
+	}
+}

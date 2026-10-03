@@ -37,11 +37,33 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 	if leerJSONEstricto(f, *maxBytes, &checkpoint) != nil {
 		return responderFallo(salida, "checkpoint_invalido", "checkpoint", 2)
 	}
-	var documento auditoria.DocumentoVerificacion
-	if leerJSONEstricto(entrada, *maxBytes, &documento) != nil {
+	contenido, err := io.ReadAll(io.LimitReader(entrada, *maxBytes+1))
+	if err != nil || len(contenido) == 0 || int64(len(contenido)) > *maxBytes {
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
-	informe := auditoria.VerificarCadenaV3(documento, checkpoint, *maxRegistros)
+	var cabecera struct {
+		Esquema string `json:"esquema"`
+	}
+	if json.Unmarshal(contenido, &cabecera) != nil {
+		return responderFallo(salida, "documento_invalido", "entrada", 2)
+	}
+	var informe auditoria.InformeVerificacion
+	switch cabecera.Esquema {
+	case auditoria.EsquemaVerificacion:
+		var documento auditoria.DocumentoVerificacion
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaV3(documento, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionMixta:
+		var documento auditoria.DocumentoVerificacionMixta
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaMixtaV2(documento, checkpoint, *maxRegistros)
+	default:
+		return responderFallo(salida, "documento_invalido", "entrada", 2)
+	}
 	codigo := 0
 	if informe.Estado != "verificada" {
 		codigo = 1
@@ -72,6 +94,10 @@ func leerJSONEstricto(r io.Reader, limite int64, destino any) error {
 	if int64(len(b)) > limite || len(b) == 0 {
 		return errJSONInvalido
 	}
+	return decodificarJSONEstricto(b, destino)
+}
+
+func decodificarJSONEstricto(b []byte, destino any) error {
 	// encoding/json accepts repeated object keys by default. Reject them
 	// before decoding so a supplied manifest has one unambiguous meaning.
 	tokens := json.NewDecoder(bytes.NewReader(b))
@@ -79,7 +105,7 @@ func leerJSONEstricto(r io.Reader, limite int64, destino any) error {
 	if err := valorJSONUnico(tokens, 0); err != nil {
 		return err
 	}
-	if _, err = tokens.Token(); err != io.EOF {
+	if _, err := tokens.Token(); err != io.EOF {
 		return errJSONInvalido
 	}
 	decoder := json.NewDecoder(bytes.NewReader(b))
@@ -116,9 +142,52 @@ func leerJSONEstricto(r io.Reader, limite int64, destino any) error {
 			}
 		}
 		return nil
+	case *auditoria.DocumentoVerificacionMixta:
+		var manifiesto map[string]json.RawMessage
+		var registros []map[string]json.RawMessage
+		if !clavesExactas(objeto, "esquema", "manifiesto", "registros") ||
+			json.Unmarshal(objeto["manifiesto"], &manifiesto) != nil || !clavesCoberturaExactas(manifiesto) ||
+			json.Unmarshal(objeto["registros"], &registros) != nil {
+			return errJSONInvalido
+		}
+		for _, registro := range registros {
+			if !clavesExactas(registro, "tipo_registro", "consumo") &&
+				!clavesExactas(registro, "tipo_registro", "intento") {
+				return errJSONInvalido
+			}
+			var tipo string
+			if json.Unmarshal(registro["tipo_registro"], &tipo) != nil {
+				return errJSONInvalido
+			}
+			switch tipo {
+			case "consumo_confirmado":
+				var campos map[string]json.RawMessage
+				if json.Unmarshal(registro["consumo"], &campos) != nil ||
+					!clavesExactas(campos, "auditoria_ref", "secuencia", "decision_ref", "efecto_ref",
+						"huella_efecto_sha256", "anterior_sha256", "huella_sha256", "consumo_huella_sha256") {
+					return errJSONInvalido
+				}
+			case "intento_nominal":
+				var campos map[string]json.RawMessage
+				if json.Unmarshal(registro["intento"], &campos) != nil || !clavesIntentoExactas(campos) {
+					return errJSONInvalido
+				}
+			default:
+				return errJSONInvalido
+			}
+		}
+		return nil
 	default:
 		return errJSONInvalido
 	}
+}
+
+func clavesIntentoExactas(c map[string]json.RawMessage) bool {
+	return clavesExactas(c, "auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256",
+		"registrada_en", "intento_ref", "intento_material_sha256", "actor_ref", "perfil_activo_ref",
+		"registro_contexto_ref", "contexto_sha256", "procedencia_sha256", "autenticacion_ref", "sesion_ref",
+		"autenticacion_sha256", "accion", "modulo_id", "recurso_ref", "finalidad_ref", "resultado",
+		"motivo_ref", "proceso", "canal", "correlacion_ref", "vinculo_sha256", "contexto_canonico_base64")
 }
 
 func clavesCoberturaExactas(objeto map[string]json.RawMessage) bool {

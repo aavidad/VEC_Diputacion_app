@@ -2,9 +2,11 @@
 
 `vec-auditoria-verificar` compara un rango de registros con un checkpoint
 guardado aparte. Usa la cadena existente de
-`vec_autorizacion_atestada_v3.auditoria_consumo_v3`; no crea otra auditoría ni
-escribe en la base. Puede detectar cambios en las coordenadas cubiertas por la
-huella, filas repetidas, huecos y un rango que no coincide con el checkpoint.
+`vec_autorizacion_atestada_v3.auditoria_consumo_v3` y lee archivos locales;
+no escribe en la base. Admite el formato v1 de consumos y el formato v2, que
+incluye intentos denegados o fallidos de AD169. Detecta cambios en los campos
+cubiertos por las huellas, filas repetidas, huecos y rangos que no coinciden
+con el checkpoint.
 
 ## Preparar la entrada
 
@@ -41,7 +43,7 @@ El manifiesto y el checkpoint tienen la misma estructura:
 }
 ```
 
-El documento contiene `esquema`, `manifiesto` y `registros`. El esquema es
+El documento v1 contiene `esquema`, `manifiesto` y `registros`. El esquema es
 `vec.auditoria.verificacion.v1`. Cada fila contiene exclusivamente:
 
 | Campo | Fuente |
@@ -49,6 +51,29 @@ El documento contiene `esquema`, `manifiesto` y `registros`. El esquema es
 | `auditoria_ref`, `secuencia`, `decision_ref`, `efecto_ref` | `auditoria_consumo_v3` |
 | `huella_efecto_sha256`, `anterior_sha256`, `huella_sha256` | `auditoria_consumo_v3` |
 | `consumo_huella_sha256` | `consumo_decision_v3`, ligado por decisión, efecto y huella del efecto |
+
+El documento v2 usa `vec.auditoria.verificacion.v2`. Conserva el mismo
+manifiesto, pero cada fila indica `tipo_registro` y lleva **un solo** objeto:
+
+- `consumo_confirmado`: objeto `consumo` con las ocho claves v1 de la tabla.
+- `intento_nominal`: objeto `intento` con las columnas AD169 de la tabla,
+  `registrada_en` en UTC con seis decimales y `contexto_canonico_base64`.
+
+La preimagen de contexto procede de la fuente histórica de ContextoActor V2
+mediante una extracción autorizada. Puede incluir referencias de empleado o
+candidato. Este comando no obtiene esa preimagen ni concede permiso para
+extraerla. Los archivos sintéticos
+[`cadena_mixta_v2.json`](../../cmd/vec-auditoria-verificar/testdata/cadena_mixta_v2.json)
+y [`checkpoint_mixto_v2.json`](../../cmd/vec-auditoria-verificar/testdata/checkpoint_mixto_v2.json)
+sirven para ensayar el formato sin acceder a una base.
+
+Para un intento, el verificador comprueba la huella del contexto V2, su forma
+canónica y la coincidencia de actor y perfil. Reconstruye el material con el
+prefijo `vec.auditoria.intento.v1`, las huellas de contexto y vínculo, y los 16
+campos de orden de AD169 en su orden exacto. Luego comprueba el eslabón con el
+prefijo `vec.auditoria.eslabon.intento.v1`, secuencia, huella anterior,
+referencia, huella del material y fecha UTC con microsegundos. Los consumos del
+mismo rango usan el cálculo de AD3-002. No mezcle filas de otras cadenas.
 
 Use una instantánea coherente para leer las filas, el consumo y
 `control_cadena_auditoria`. Si extrae la cadena completa, la última secuencia y
@@ -61,16 +86,18 @@ Una cadena vacía declara primera y última secuencia 0, contador 0, ambos hashe
 con 64 ceros y una lista vacía de registros. No representa un tramo vacío de
 una cadena que ya contiene filas.
 
-No extraiga decisiones canónicas, contextos de identidad, certificados,
-material criptográfico ni cargas de negocio. Guarde los dos ficheros con
-permisos restrictivos y según la política de conservación vigente.
+En v2 incluya solo el contexto Actor V2 canónico necesario para cada intento,
+obtenido por una extracción histórica autorizada. No añada otros contextos de
+identidad, decisiones canónicas, certificados, material criptográfico ni cargas
+de negocio. Guarde los dos ficheros con permisos restrictivos y según la
+política de conservación vigente.
 
 ## Ejecutar
 
 Desde el repositorio:
 
 ```sh
-GOCACHE=/dev/shm/go-build go run ./cmd/vec-auditoria-verificar \
+GOCACHE=$HOME/.cache/go-build go run ./cmd/vec-auditoria-verificar \
   --checkpoint /ruta/privada/checkpoint.json \
   --max-bytes 16777216 \
   --max-registros 10000 < /ruta/privada/cadena.json
@@ -113,10 +140,18 @@ independencia antes de la comprobación. No acredita filas posteriores al
 checkpoint ni operaciones que nunca se registraron.
 
 `contenido_consumo_recalculado: false` indica que se usa la huella del consumo
-persistida; no se exportan las cargas canónicas para recalcularla.
-`campos_fuera_huella_verificados: false` advierte que esta cadena no cubre por
-sí misma otros campos, como `registrada_en`. Tampoco autentica al actor ni
-verifica las firmas de las decisiones originales.
+persistida; no se exportan las cargas canónicas para recalcularla. En v2,
+`material_intento_recalculado` y `actor_perfil_contexto_cotejados` indican qué
+se comprobó para los intentos presentes. La preimagen del vínculo de
+autenticación no está en este formato, así que su huella no acredita por sí
+sola la sesión. `autenticidad_fuentes_historicas: no_comprobada` deja constancia
+de que el archivo no prueba la procedencia de las preimágenes. El verificador
+tampoco comprueba las firmas de las decisiones originales.
+
+`campos_fuera_huella_verificados: false` se conserva para el formato v1 y para
+las partes de consumo del formato v2. Los campos de intento incluidos en su
+material y eslabón sí se cotejan; la marca específica anterior refleja ese
+alcance. La autenticidad del checkpoint sigue sin comprobarse.
 
 Este corte permite una comprobación reproducible. El sellado periódico, la
 firma del checkpoint, la exportación judicial autorizada y su auditoría quedan
