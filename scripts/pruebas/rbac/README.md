@@ -1,16 +1,16 @@
 # Ensayo RBAC en un clon desechable
 
 `ensayar.sh` restaura una copia fría física PG18. Conserva los roles y ACL de la
-fuente. El contenedor usa `--rm`, datos propios en `/dev/shm` y ninguna red.
+fuente. El contenedor usa `--rm`, datos propios en disco bajo `~/.local/state` y ninguna red.
 No publica puertos. Los comandos SQL acceden por el socket del contenedor.
 Antes de usarlos, el runner exige el ID registrado al crear el contenedor,
 los mismos montajes registrados al crearlo, un único montaje enlazado al
 directorio propio y el directorio de datos esperado.
 
 ```bash
-scripts/pruebas/rbac/ensayar.sh /dev/shm/vec-rbac-mi-ensayo init /ruta/privada/copia.tgz
-scripts/pruebas/rbac/ensayar.sh /dev/shm/vec-rbac-mi-ensayo status
-scripts/pruebas/rbac/ensayar.sh /dev/shm/vec-rbac-mi-ensayo snapshot /ruta/privada/preimagen.txt
+scripts/pruebas/rbac/ensayar.sh $HOME/.local/state/vec-rbac-mi-ensayo init /ruta/privada/copia.tgz
+scripts/pruebas/rbac/ensayar.sh $HOME/.local/state/vec-rbac-mi-ensayo status
+scripts/pruebas/rbac/ensayar.sh $HOME/.local/state/vec-rbac-mi-ensayo snapshot /ruta/privada/preimagen.txt
 ```
 
 El formato de fuente admitido contiene `vec-desarrollo-20260906/pgdata/`.
@@ -25,7 +25,7 @@ deben consultar datos y definiciones reales de su preimagen y resultado. La list
 causal pertenece al escritor y al director del corte.
 
 ```bash
-scripts/pruebas/rbac/ensayar.sh /dev/shm/vec-rbac-mi-ensayo apply \
+scripts/pruebas/rbac/ensayar.sh $HOME/.local/state/vec-rbac-mi-ensayo apply \
   /ruta/SQL.up.sql SHA256 /ruta/privada/pre.sql /ruta/privada/post.sql
 ```
 

@@ -5,7 +5,8 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 [[ $# -ge 2 ]] || fail 'Uso: ensayar.sh ROOT init SOURCE | snapshot DEST | apply SQL SHA PRE POST | status'
 root=$(realpath -m -- "$1"); action=$2; shift 2
-[[ $root == /dev/shm/vec-rbac-* || $root == /dev/shm/vec-codexk-rbac-* ]] || fail 'ROOT debe ser un directorio propio vec-rbac-* en /dev/shm'
+state_root=$(realpath -m -- "${XDG_STATE_HOME:-$HOME/.local/state}")
+[[ $root == "$state_root"/vec-rbac-* || $root == "$state_root"/vec-codexk-rbac-* ]] || fail 'ROOT debe ser un directorio propio de ensayo bajo la carpeta de estado en disco'
 name=$(basename -- "$root")
 [[ $name =~ ^[a-z0-9-]+$ ]] || fail 'Nombre de clon inválido'
 psql_clone() { docker exec -i "$expected_id" psql -X -q -h /tmp -U postgres -d postgres -At -v ON_ERROR_STOP=1 "$@"; }
