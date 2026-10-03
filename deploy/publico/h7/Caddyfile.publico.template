@@ -1,0 +1,39 @@
+{
+    servers {
+        protocols h1
+    }
+}
+
+https://${public_host}:${public_port} {
+    tls ${edge_certificate_file} ${edge_key_file}
+    route {
+        @transfer header Transfer-Encoding *
+        respond @transfer 400
+        @metadatos_entrantes not {
+            header !X-Forwarded-For
+            header !X-Forwarded-Proto
+            header !X-Forwarded-Host
+            header !Forwarded
+            header !Via
+            header !Proxy-Authorization
+            header !Trailer
+        }
+        respond @metadatos_entrantes 400
+        @conexion_sensible header_regexp Connection `(?i)(^|[\s,])(cookie|authorization|proxy-authorization|x-vec-[^,\s]*|x-auth-[^,\s]*|x-forwarded-[^,\s]*|x-remote-user|remote-user|forwarded|via|trailer)([\s,]|$$)`
+        respond @conexion_sensible 400
+        reverse_proxy https://${upstream_address}:${upstream_port} {
+            header_up Host ${upstream_server_name}
+            header_up -X-Forwarded-For
+            header_up -X-Forwarded-Proto
+            header_up -X-Forwarded-Host
+            header_up -Via
+            transport http {
+                tls_trust_pool file ${upstream_ca_file}
+                tls_server_name ${upstream_server_name}
+                dial_timeout 5s
+                tls_timeout 5s
+                response_header_timeout 10s
+            }
+        }
+    }
+}
