@@ -14,10 +14,13 @@ BEGIN
   OR to_regprocedure('vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(jsonb,jsonb,jsonb)') IS NOT NULL
   OR to_regprocedure('vec_autorizacion.validar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb)') IS NULL
   OR to_regprocedure('vec_autorizacion.texto_json_go_v3(text)') IS NULL
+  OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)') IS NULL
   OR to_regprocedure('vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(text)') IS NULL
   OR to_regprocedure('vec_personal.resolver_fuente_cargo_ocupante_ct_v1(text,text,text,text,text)') IS NULL
   OR NOT has_function_privilege('vec_autorizacion_propietario',
     'vec_personal.resolver_fuente_cargo_ocupante_ct_v1(text,text,text,text,text)','EXECUTE')
+  OR NOT has_function_privilege('vec_autorizacion_propietario',
+    'vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)','EXECUTE')
  THEN RAISE EXCEPTION 'aut35_preimagen_incompatible' USING ERRCODE='55000'; END IF;
 END $preimagen$;
 
@@ -175,6 +178,9 @@ BEGIN
   OR relacion_ct->>'tipo_evento_origen' IS DISTINCT FROM 'contratacion_temporal.asignacion_confirmada'
   OR (relacion_ct->>'asignacion_confirmada_en')::timestamptz > fecha
  THEN RAISE EXCEPTION 'aut35_relacion_no_admitida' USING ERRCODE='42501'; END IF;
+ -- AD167 acredita antes de cualquier lectura nominal que consumo y auditoría
+ -- fueron insertados en esta misma transacción para el efecto CT.
+ PERFORM vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(consumo_v3);
  -- CA25 devuelve fuentes revalidadas y bloqueadas, incluyendo la organización
  -- acreditada. Ningún campo de identidad del descriptor reemplaza a CA25.
  ca:=vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(
@@ -189,12 +195,16 @@ BEGIN
   'persona_ref',ca->>'persona_ref',
   'persona',ca->'persona',
   'cuenta',ca->'cuenta',
-  'vinculo_cuenta_persona',(ca->'vinculo_cuenta_persona') - 'cuenta_ref' - 'persona_ref' - 'perfil_ref',
+  'vinculo_cuenta_persona',jsonb_build_object(
+   'referencia',ca#>>'{vinculo_cuenta_persona,referencia}',
+   'version',ca#>'{vinculo_cuenta_persona,version}',
+   'huella_sha256',ca#>>'{vinculo_cuenta_persona,huella_sha256}'),
   'cuenta_persona_cuenta_ref',ca#>>'{vinculo_cuenta_persona,cuenta_ref}',
   'cuenta_persona_persona_ref',ca#>>'{vinculo_cuenta_persona,persona_ref}',
-  'vinculo_certificado',(ca->'vinculo_certificado') - 'cuenta_ref' - 'persona_ref'
-   - 'certificado_der_sha256' - 'estado' - 'vigente_desde' - 'vigente_hasta'
-   - 'evidencia_ref' - 'evidencia_sha256' - 'recibo_ref' - 'decision_ref' - 'auditoria_ref',
+  'vinculo_certificado',jsonb_build_object(
+   'referencia',ca#>>'{vinculo_certificado,referencia}',
+   'version',ca#>'{vinculo_certificado,version}',
+   'huella_sha256',ca#>>'{vinculo_certificado,huella_sha256}'),
   'vinculo_cuenta_ref',ca#>>'{vinculo_certificado,cuenta_ref}',
   'vinculo_persona_ref',ca#>>'{vinculo_certificado,persona_ref}',
   'vinculo_der_sha256',ca#>>'{vinculo_certificado,certificado_der_sha256}');
