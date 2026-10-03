@@ -2,6 +2,7 @@ package composicion
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -27,26 +28,48 @@ type LectorRelacionSeleccionadaRPT interface {
 }
 
 type lectorRelacionSeleccionadaCorrelacion struct {
-	siguiente       LectorRelacionSeleccionadaRPT
-	identidad       ResolutorIdentidadLectorRelacionRPT
-	limiteIdentidad time.Duration
+	siguiente               LectorRelacionSeleccionadaRPT
+	identidad               ResolutorIdentidadLectorRelacionRPT
+	limiteIdentidad         time.Duration
+	emisorTecnico           vecports.EmisorResultadosTecnicosConContexto
+	configuracionResultados ConfiguracionResultadosTecnicosLectorRPT
+}
+
+// ConfiguracionResultadosTecnicosLectorRPT sólo admite componente y etapa
+// del catálogo común. No incorpora identidad, recursos ni errores libres.
+type ConfiguracionResultadosTecnicosLectorRPT struct {
+	Componente vecdomain.ComponenteIncidenciaTecnica
+	Etapa      vecdomain.EtapaIncidenciaTecnica
+}
+
+func (c ConfiguracionResultadosTecnicosLectorRPT) validar() error {
+	_, err := vecdomain.ClasificarResultadoTecnico(vecdomain.SolicitudResultadoTecnico{Resultado: vecdomain.ResultadoTecnicoCorrecto, Componente: c.Componente, Etapa: c.Etapa})
+	return err
 }
 
 // NuevoLectorRelacionSeleccionadaRPTConIdentidad enlaza la selección existente
 // con la frontera nominal y el contexto técnico común, también fuera de HTTP.
-func NuevoLectorRelacionSeleccionadaRPTConIdentidad(l LectorRelacionSeleccionadaRPT, i ResolutorIdentidadLectorRelacionRPT, limite time.Duration) (LectorRelacionSeleccionadaRPT, error) {
-	if dependenciaNula(l) || dependenciaNula(i) || limite <= 0 || limite > 30*time.Second {
+func NuevoLectorRelacionSeleccionadaRPTConIdentidad(l LectorRelacionSeleccionadaRPT, i ResolutorIdentidadLectorRelacionRPT, limite time.Duration, e vecports.EmisorResultadosTecnicosConContexto, c ConfiguracionResultadosTecnicosLectorRPT) (LectorRelacionSeleccionadaRPT, error) {
+	if dependenciaNula(l) || dependenciaNula(i) || dependenciaNula(e) || c.validar() != nil || limite <= 0 || limite > 30*time.Second {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	return lectorRelacionSeleccionadaCorrelacion{siguiente: l, identidad: i, limiteIdentidad: limite}, nil
+	return lectorRelacionSeleccionadaCorrelacion{siguiente: l, identidad: i, limiteIdentidad: limite, emisorTecnico: e, configuracionResultados: c}, nil
 }
 
-func (l lectorRelacionSeleccionadaCorrelacion) ConsultarSeleccionada(ctx context.Context, actor vecdomain.ContextoActor, preparacion personaldomain.PreparacionRelacionParaRPT, organismo, seleccion string) (personalports.ResultadoRelacionParaRPTV1, error) {
+func (l lectorRelacionSeleccionadaCorrelacion) ConsultarSeleccionada(ctx context.Context, actor vecdomain.ContextoActor, preparacion personaldomain.PreparacionRelacionParaRPT, organismo, seleccion string) (resultado personalports.ResultadoRelacionParaRPTV1, errResultado error) {
 	var vacio personalports.ResultadoRelacionParaRPTV1
-	if ctx == nil || dependenciaNula(l.siguiente) || dependenciaNula(l.identidad) || l.limiteIdentidad <= 0 || l.limiteIdentidad > 30*time.Second {
+	errResultado = personaldomain.ErrLectorRelacionRPTNoDisponible
+	// Se emite una vez al conocer la respuesta final, también si el selector
+	// rechaza antes del servicio. La cola común no cambia el recibo de negocio.
+	defer func() {
+		if !dependenciaNula(l.emisorTecnico) {
+			l.emisorTecnico.EmitirResultadoConContexto(ctx, vecdomain.SolicitudResultadoTecnico{Resultado: codigoResultadoTecnicoLectorRPT(errResultado), Componente: l.configuracionResultados.Componente, Etapa: l.configuracionResultados.Etapa})
+		}
+	}()
+	if ctx == nil || dependenciaNula(l.siguiente) || dependenciaNula(l.identidad) || dependenciaNula(l.emisorTecnico) || l.configuracionResultados.validar() != nil || l.limiteIdentidad <= 0 || l.limiteIdentidad > 30*time.Second {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	if _, err := correlacionLectorRelacionRPT(ctx); err != nil {
+	if _, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx); err != nil {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
 	// La identidad histórica se captura antes de validar o abrir la lectura.
@@ -91,23 +114,19 @@ func estadoIntentoLectorRelacionRPT(ctx context.Context) (*intentoLectorRelacion
 	return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 }
 
-// El generador sólo traduce la marca privada común; no admite texto del cliente
-// ni acuña otra correlación. V3 y los registros técnicos comparten los mismos bits.
-type correlacionTecnicaLectorRPT struct{}
-
-func (correlacionTecnicaLectorRPT) NuevaReferenciaCorrelacionAutorizacionV2(ctx context.Context) (string, error) {
-	ref, ok := vecports.CorrelacionIncidenciasPeticion(ctx)
-	if !ok {
-		return "", personaldomain.ErrLectorRelacionRPTNoDisponible
+func codigoResultadoTecnicoLectorRPT(err error) vecdomain.CodigoResultadoTecnico {
+	switch {
+	case err == nil:
+		return vecdomain.ResultadoTecnicoCorrecto
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return vecdomain.ResultadoTecnicoCancelado
+	case errors.Is(err, personaldomain.ErrLectorRelacionRPTDenegado):
+		return vecdomain.ResultadoTecnicoDenegado
+	case errors.Is(err, personaldomain.ErrLectorRelacionRPTInvalido):
+		return vecdomain.ResultadoTecnicoEntradaInvalida
+	default:
+		return vecdomain.ResultadoTecnicoNoDisponible
 	}
-	return "correlacion_" + ref, nil
-}
-
-func correlacionLectorRelacionRPT(ctx context.Context) (vecdomain.ReferenciaCorrelacionAutorizacionV2, error) {
-	if ctx == nil {
-		return vecdomain.ReferenciaCorrelacionAutorizacionV2{}, personaldomain.ErrLectorRelacionRPTNoDisponible
-	}
-	return vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.WithoutCancel(ctx), correlacionTecnicaLectorRPT{})
 }
 
 var _ LectorRelacionSeleccionadaRPT = lectorRelacionSeleccionadaCorrelacion{}

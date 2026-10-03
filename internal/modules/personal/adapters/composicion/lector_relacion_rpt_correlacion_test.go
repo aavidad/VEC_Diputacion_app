@@ -1,7 +1,9 @@
 package composicion
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -52,7 +54,9 @@ func TestLectorRPTComparteCorrelacionTecnicaV3EIntentoOriginal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lector := lectorRelacionSeleccionadaCorrelacion{identidad: resolutor, limiteIdentidad: time.Second, siguiente: lectorSeleccionadaCorrelacionPrueba(func(ctx context.Context) (personalports.ResultadoRelacionParaRPTV1, error) {
+	var registroTecnico bytes.Buffer
+	resultadoTecnico := nuevoEmisorTecnicoLectorRPTPrueba(t, &registroTecnico)
+	lector := lectorRelacionSeleccionadaCorrelacion{identidad: resolutor, limiteIdentidad: time.Second, emisorTecnico: resultadoTecnico, configuracionResultados: configuracionResultadosLectorRPTPrueba(), siguiente: lectorSeleccionadaCorrelacionPrueba(func(ctx context.Context) (personalports.ResultadoRelacionParaRPTV1, error) {
 		resolutor.identidad = IdentidadRegistradaLectorRelacionRPT{}
 		if _, err := proveedor.AutorizarRelacionParaRPT(ctx, m); !errors.Is(err, personaldomain.ErrLectorRelacionRPTDenegado) {
 			t.Errorf("V3: %v", err)
@@ -72,6 +76,11 @@ func TestLectorRPTComparteCorrelacionTecnicaV3EIntentoOriginal(t *testing.T) {
 	if emisor.ref != "correlacion_"+tecnica || datos.Datos.CorrelacionRef != emisor.ref || datos.ResultadoContexto.HuellaSHA256 != id.Resultado.HuellaSHA256 {
 		t.Fatal("correlación o identidad divergentes")
 	}
+	cerrarEmisorTecnicoLectorRPTPrueba(t, resultadoTecnico)
+	var linea map[string]any
+	if json.Unmarshal(bytes.TrimSpace(registroTecnico.Bytes()), &linea) != nil || linea["correlacion_ref"] != emisor.ref || linea["resultado"] != "denegado" {
+		t.Fatal("V3, nominal y técnico no comparten correlación")
+	}
 }
 
 func TestLectorRPTCorrelacionCubreNegativaPreviaAlServicio(t *testing.T) {
@@ -81,7 +90,7 @@ func TestLectorRPTCorrelacionCubreNegativaPreviaAlServicio(t *testing.T) {
 	registro, _ := NuevoRegistroIntentosLectorRelacionRPT(d, configuracionIntentosRPTPrueba())
 	servicio := &servicioSeleccionadaRPTPrueba{}
 	base, _ := personalrpt.NuevoLectorRelacionSeleccionadaRPT(servicio, registro)
-	lector := lectorRelacionSeleccionadaCorrelacion{siguiente: base, identidad: resolutor, limiteIdentidad: time.Second}
+	lector := lectorRelacionSeleccionadaCorrelacion{siguiente: base, identidad: resolutor, limiteIdentidad: time.Second, emisorTecnico: emisorTecnicoLectorRPTPrueba(t), configuracionResultados: configuracionResultadosLectorRPTPrueba()}
 	ctx, _ := vecports.ConCorrelacionIncidenciasPeticion(context.Background())
 	_, err := lector.ConsultarSeleccionada(ctx, vecdomain.ContextoActor{}, personaldomain.PreparacionRelacionParaRPT{}, "", "")
 	if !errors.Is(err, personaldomain.ErrLectorRelacionRPTInvalido) || servicio.llamadas != 0 || len(d.ordenes) != 1 {
@@ -91,7 +100,7 @@ func TestLectorRPTCorrelacionCubreNegativaPreviaAlServicio(t *testing.T) {
 
 func TestLectorRPTNoAcuñaCorrelacionNiIdentidadAusentes(t *testing.T) {
 	llamadas := 0
-	lector := lectorRelacionSeleccionadaCorrelacion{limiteIdentidad: time.Second, identidad: identidadLectorRelacionRPTPrueba{err: errors.New("sin identidad")}, siguiente: lectorSeleccionadaCorrelacionPrueba(func(context.Context) (personalports.ResultadoRelacionParaRPTV1, error) {
+	lector := lectorRelacionSeleccionadaCorrelacion{limiteIdentidad: time.Second, emisorTecnico: emisorTecnicoLectorRPTPrueba(t), configuracionResultados: configuracionResultadosLectorRPTPrueba(), identidad: identidadLectorRelacionRPTPrueba{err: errors.New("sin identidad")}, siguiente: lectorSeleccionadaCorrelacionPrueba(func(context.Context) (personalports.ResultadoRelacionParaRPTV1, error) {
 		llamadas++
 		return personalports.ResultadoRelacionParaRPTV1{}, nil
 	})}
@@ -112,14 +121,14 @@ func TestLectorRPTFronteraRechazaIdentidadPlazoOLectorAusentes(t *testing.T) {
 	})
 	identidad := identidadLectorRelacionRPTPrueba{}
 	for _, plazo := range []time.Duration{0, -time.Second, 31 * time.Second} {
-		if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(lector, identidad, plazo); !errors.Is(err, personaldomain.ErrLectorRelacionRPTNoDisponible) {
+		if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(lector, identidad, plazo, emisorTecnicoLectorRPTPrueba(t), configuracionResultadosLectorRPTPrueba()); !errors.Is(err, personaldomain.ErrLectorRelacionRPTNoDisponible) {
 			t.Fatal("plazo inválido admitido", err)
 		}
 	}
-	if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(nil, identidad, time.Second); err == nil {
+	if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(nil, identidad, time.Second, emisorTecnicoLectorRPTPrueba(t), configuracionResultadosLectorRPTPrueba()); err == nil {
 		t.Fatal("lector ausente admitido")
 	}
-	if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(lector, nil, time.Second); err == nil {
+	if _, err := NuevoLectorRelacionSeleccionadaRPTConIdentidad(lector, nil, time.Second, emisorTecnicoLectorRPTPrueba(t), configuracionResultadosLectorRPTPrueba()); err == nil {
 		t.Fatal("identidad ausente admitida")
 	}
 }
