@@ -105,7 +105,7 @@ func (r ReciboCheckpointDesarrollo) CanonicoParaFirma() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !SHA256CheckpointValido(r.PinSPKISHA256) || r.TSA.HuellaCheckpointSHA256 != HuellaCheckpoint(c) || !SHA256CheckpointValido(r.TSA.HuellaPreimagenSHA256) || r.TSA.Autoridad != "no_autoritativa" || r.TSA.Esquema != "vec.tsa.desarrollo.v1" || !strings.HasPrefix(r.TSA.Referencia, "tsa-desarrollo:hmac-sha256:") || !SHA256CheckpointValido(strings.TrimPrefix(r.TSA.Referencia, "tsa-desarrollo:hmac-sha256:")) {
+	if !SHA256CheckpointValido(r.PinSPKISHA256) || r.TSA.HuellaCheckpointSHA256 != HuellaCheckpoint(c) || !SHA256CheckpointValido(r.TSA.HuellaPreimagenSHA256) || r.TSA.Autoridad != "no_autoritativo" || r.TSA.Esquema != "vec.tsa.desarrollo.v1" || !strings.HasPrefix(r.TSA.Referencia, "tsa-desarrollo:hmac-sha256:") || !SHA256CheckpointValido(strings.TrimPrefix(r.TSA.Referencia, "tsa-desarrollo:hmac-sha256:")) {
 		return nil, ErrCheckpointInvalido
 	}
 	return json.Marshal(struct {

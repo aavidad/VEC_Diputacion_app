@@ -93,3 +93,12 @@ piezas de producción mínimas del mismo recorrido. No añade tablas, rutas HTTP
 consumidores nominales ni cambios al verificador existente. Quedan pendientes
 captura durable autorizada, política periódica y validación de una TSA
 independiente, además de las decisiones de conservación y custodia aplicables.
+
+Comprobaciones locales de este corte: pruebas focales normales y con `-race` en
+CLI y proveedor; `go vet` en CLI, bootstrap, config, dominio, puertos y aplicación;
+Semgrep `p/golang` sobre los ocho archivos Go nuevos (42 reglas, sin hallazgos);
+gosec de la CLI sin hallazgos; tamaño de archivos y `git diff --check` correctos.
+El análisis gosec de bootstrap tuvo errores de resolución en archivos anteriores
+y hallazgos ajenos a este corte; no acredita una revisión completa del paquete.
+No se ejecutaron servicios, SQL, navegador ni la suite global. Las dos revisiones
+sensibles sobre el commit final corresponden a la integración.

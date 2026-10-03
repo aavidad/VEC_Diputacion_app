@@ -118,7 +118,7 @@ func run(args []string, out, log io.Writer) int {
 			return fallo()
 		}
 		codigo = domain.ResultadoTecnicoCorrecto
-		return escribirResultado(out, map[string]any{"modo": "DESARROLLO", "estado": "emitido", "pin_spki_sha256": proveedor.PinCheckpoint(), "origen_extraccion": "no_acreditado", "integridad_cadena": "no_evaluada", "tsa": "no_verificada_offline", "firma_legal": false})
+		return escribirResultado(out, map[string]any{"modo": "DESARROLLO", "estado": "emitido", "pin_spki_sha256": proveedor.PinCheckpoint(), "origen_extraccion": "no_acreditado", "integridad_cadena": "no_evaluada", "tsa": "no_verificada_offline", "tiempo_independiente": false, "firma_legal": false})
 	}
 	if *master != "" || *tsa != "" || *salida != "" {
 		return fallo()
@@ -258,6 +258,7 @@ func leerRegular(ruta string, limite int64, secreto bool) ([]byte, error) {
 			}
 		}
 	}
+	// #nosec G304 -- Ruta explícita del operador local; descriptor regular acotado y secretos externos con propietario y permisos comprobados.
 	f, e := os.OpenFile(ruta, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if e != nil {
 		return nil, errEntrada
@@ -269,7 +270,7 @@ func leerRegular(ruta string, limite int64, secreto bool) ([]byte, error) {
 	}
 	if secreto {
 		s, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || s.Nlink != 1 || st.Mode().Perm()&0077 != 0 || s.Uid != uint32(os.Geteuid()) {
+		if !ok || s.Nlink != 1 || st.Mode().Perm()&0077 != 0 || int64(s.Uid) != int64(os.Geteuid()) {
 			return nil, errEntrada
 		}
 	}
@@ -281,6 +282,7 @@ func leerRegular(ruta string, limite int64, secreto bool) ([]byte, error) {
 	return b, nil
 }
 func escribirNuevo(ruta string, b []byte) error {
+	// #nosec G304 -- Destino explícito del operador local; creación exclusiva sin sobrescribir archivos o enlaces existentes.
 	f, e := os.OpenFile(ruta, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if e != nil {
 		return errEntrada

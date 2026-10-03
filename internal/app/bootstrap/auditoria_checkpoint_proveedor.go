@@ -22,6 +22,8 @@ type proveedorCheckpointDesarrollo struct {
 // NuevoProveedorCheckpointDesarrollo utiliza el KMS y la TSA locales existentes.
 // El material lo aporta el operador; no se genera ni se reutiliza otra privada.
 func NuevoProveedorCheckpointDesarrollo(maestra, claveTSA [32]byte, p domain.PoliticaCheckpoint) (*proveedorCheckpointDesarrollo, error) {
+	defer clear(maestra[:])
+	defer clear(claveTSA[:])
 	if maestra == [32]byte{} || claveTSA == [32]byte{} || maestra == claveTSA || p.Validar() != nil {
 		return nil, domain.ErrCheckpointInvalido
 	}
@@ -67,6 +69,9 @@ func (p *proveedorCheckpointDesarrollo) PublicaCheckpointDER() ([]byte, error) {
 func (p *proveedorCheckpointDesarrollo) CerrarCheckpoint() {
 	if p != nil {
 		clear(p.privada)
+		if tsa, ok := p.tsa.(*selladorTiempoDesarrollo); ok {
+			clear(tsa.clave[:])
+		}
 		p.privada = nil
 		p.tsa = nil
 	}

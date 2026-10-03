@@ -53,6 +53,22 @@ func TestCLIEmiteVerificaYRechazaRaizAjena(t *testing.T) {
 	if !strings.Contains(out.String(), "verificada_con_pin_externo") || !strings.Contains(out.String(), "no_verificada_offline") {
 		t.Fatal(out.String())
 	}
+	cadena := filepath.Join(d, "cadena.json")
+	cadenaJSON := `{"esquema":"vec.auditoria.verificacion.v1","manifiesto":` + string(b) + `,"registros":[]}`
+	if err := os.WriteFile(cadena, []byte(cadenaJSON), 0600); err != nil {
+		t.Fatal(err)
+	}
+	conCadena := append(append([]string(nil), verificar...), "-cadena", cadena)
+	out.Reset()
+	if run(conCadena, &out, &log) != 0 || !strings.Contains(out.String(), `"integridad_cadena":"verificada"`) {
+		t.Fatalf("cadena: %s", out.String())
+	}
+	cadenaJSON = strings.Replace(cadenaJSON, "cadena:sintetica", "cadena:otra", 1)
+	_ = os.WriteFile(cadena, []byte(cadenaJSON), 0600)
+	out.Reset()
+	if run(conCadena, &out, &log) == 0 || !strings.Contains(out.String(), `"firma":"verificada_con_pin_externo"`) || !strings.Contains(out.String(), `"integridad_cadena":"rechazada"`) {
+		t.Fatalf("cadena alterada: %s", out.String())
+	}
 	verificar[len(verificar)-1] = strings.Repeat("0", 64)
 	out.Reset()
 	if run(verificar, &out, &log) == 0 {
