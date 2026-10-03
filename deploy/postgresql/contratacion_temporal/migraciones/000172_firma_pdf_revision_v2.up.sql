@@ -524,9 +524,13 @@ BEGIN
       RAISE EXCEPTION 'enlace de custodia de firma inconsistente' USING ERRCODE='55000'; END IF;
    SELECT * INTO revision_anterior FROM vec_contratacion_temporal.firma_documento_revision_pdf_v2
     WHERE firma_ref=previa.firma_ref;
-   IF NOT FOUND OR revision_anterior.descriptor_firma_original IS DISTINCT FROM p_descriptor_nominal
-    OR revision_anterior.descriptor_firma_huella_sha256 IS DISTINCT FROM descriptor_h
-    OR revision_anterior.competencia_evidencia_ref IS DISTINCT FROM competencia->>'evidencia_ref'
+   IF NOT FOUND OR revision_anterior.descriptor_firma_huella_sha256 IS DISTINCT FROM
+     encode(sha256(revision_anterior.descriptor_firma_original),'hex') THEN
+    RAISE EXCEPTION 'descriptor nominal histórico inconsistente' USING ERRCODE='55000'; END IF;
+   IF revision_anterior.descriptor_firma_original IS DISTINCT FROM p_descriptor_nominal
+    OR revision_anterior.descriptor_firma_huella_sha256 IS DISTINCT FROM descriptor_h THEN
+    RAISE EXCEPTION 'clave de firma reutilizada con otro descriptor' USING ERRCODE='P1181'; END IF;
+   IF revision_anterior.competencia_evidencia_ref IS DISTINCT FROM competencia->>'evidencia_ref'
     OR revision_anterior.competencia_evidencia_huella_sha256 IS DISTINCT FROM competencia->>'huella_sha256'
     OR revision_anterior.competencia_consumo_decision_ref IS DISTINCT FROM previa.decision_ref
     OR revision_anterior.competencia_consumo_huella_sha256 IS DISTINCT FROM previa.consumo_huella_sha256

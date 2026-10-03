@@ -20,7 +20,11 @@ END $runtime$;
 -- Debe comprobar alta/CAS, raíz/entrada exacta, dos firmas, denegaciones sin
 -- efecto y recuperación nominal vigente con recibo/fecha/historia idénticos.
 -- El descriptor exterior original y su SHA se conservan sin reescritura;
--- repetir una clave con otros bytes debe fallar, aunque el JSON sea equivalente.
+-- repetir una clave con otros bytes debe fallar con P1181, aunque el JSON sea equivalente.
+-- Negativa real del fixture: tras el favorable, mantener solicitud/clave, añadir
+-- un espacio al descriptor ORIGINAL y obtener otra decisión/capacidad V3 para
+-- su nueva huella. Exigir P1181 y recibo/fecha/historia anteriores intactos.
+-- No reutilizar la capacidad previa: sólo demostraría el rechazo AD170 de binding.
 -- Replay con decisión V3 nueva exige otra transacción; reinicio exige otro
 -- recorrido sobre un clon desechable, nunca se atribuyen a este ROLLBACK.
 \i :ct172_fixture_sql
@@ -132,5 +136,5 @@ BEGIN
   RAISE EXCEPTION 'CT172 rechazo produjo efecto' USING ERRCODE='55000'; END IF;
 END $sin_efectos$;
 ROLLBACK;
-\echo 'CT172: estructura y rechazo; favorable/CAS/replay/reinicio nominal NO EJECUTADOS.'
+\echo 'CT172: estructura y rechazo; favorable/CAS/replay/reinicio y descriptor distinto con V3 nueva NO EJECUTADOS.'
 \endif
