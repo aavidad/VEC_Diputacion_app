@@ -1,6 +1,6 @@
 {
   "capacidades": {
-    "version": "v1",
+    "version": "1",
     "actor_persona_ref": "per_actor_sintetico_000001",
     "acciones": [
       "consultar",
