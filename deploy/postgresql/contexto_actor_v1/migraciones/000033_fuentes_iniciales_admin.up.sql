@@ -79,7 +79,7 @@ BEGIN
   RETURN jsonb_build_object('esquema','vec.ca.preimagen-fuentes-admin.v1','version',1,'operacion_ref',p->>'operacion_ref','recibo',r.recibo);
  END IF;
  IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.organizacion_versiones WHERE organizacion_ref=p#>>'{organizacion,organizacion_ref}')
- OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.persona_versiones v JOIN LATERAL jsonb_array_elements(p->'personas') pe ON v.persona_ref=pe->>'persona_ref')
+ OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.persona_versiones v JOIN LATERAL jsonb_array_elements(p->'personas') personas_plan(value) ON v.persona_ref=personas_plan.value->>'persona_ref')
  THEN RAISE EXCEPTION 'CA33: CAS inicial divergente' USING ERRCODE='40001'; END IF;
  FOR pe IN SELECT p->'procedencia' UNION ALL SELECT value->'fuente_titularidad' FROM jsonb_array_elements(p->'personas') LOOP
   PERFORM pg_advisory_xact_lock(hashtextextended('vec_contexto_actor_v1:procedencia:v1:'||(pe->>'referencia'),0));
