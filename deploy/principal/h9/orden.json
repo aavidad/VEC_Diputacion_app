@@ -168,8 +168,6 @@
     "CT173"
   ],
   "bloqueos": [
-    "Falta ensayo causal completo de la selección sobre la copia fría con H7/H8/AD155/B77/importación5.",
-    "Falta evidencia de configuración para excluir consumidores CRN11/RPT/Selectivos.",
     "Los esquemas Convocatorias/Méritos/Baremo no están en la copia fría. S2 precisa roles BC, authBC1 y BC1; BC2..7 no son dependencia de S2. Inventariar otros prefijos según consumidor.",
     "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada."
   ],
@@ -5202,5 +5200,10 @@
     "reinicio": "7_HTTP200_datos_identicos_71_expedientes_v9_9_hitos",
     "chrome": "Chrome_sistema149_CT_Bolsa_Calendarios_1440_390; limites_worker_TLS_tool_y_lecturas_aux_bloqueadas_documentados",
     "binario_sha256": "16b8d71f19dc34db4d4bac35e69179526cdcea128ebef7da06f5e8b6f4248922"
-  }
+  },
+  "condiciones_instalacion": [
+    "Claude valida la configuración privada y preimagen de la principal",
+    "Cierre efectivo de tráfico y escritores, incluidos procesos psql ajenos, antes de copia fría",
+    "No habilitar consumidores excluidos CRN11/RPT/Selectivos sin preparar cadena compatible"
+  ]
 }
