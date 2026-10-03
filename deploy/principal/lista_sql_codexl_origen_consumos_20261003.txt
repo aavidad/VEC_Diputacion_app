@@ -1,7 +1,7 @@
-# Sólo AD172 NUEVA. Prerrequisitos acreditados e instalados antes:
-# H7 + h7kit/h8kit + AD155/B77/Import5 → AD149 → Personal26 → AD154 (#438).
-# Auditoría: roles intentos + CA26 (o sucesora CA27) + IS13 + AD169 → AD171 (#530, SHA256 7a5b2ac33e53a04c85e854dc558755ec95fc8ba360d34b9559c699c02027a7b8).
-# La matriz exacta requiere POST154; no admite POST153 ni POST168.
-# Personal27/30 no alteran el núcleo; la lectura RPT requiere su propia lista.
-# No concatenar otras variantes; no reaplicar dependencias presentes ni DOWN.
+# Sólo AD172 nueva; no reaplicar dependencias ni ejecutar DOWN.
+# Dos preimágenes cerradas: POST154 con fachada RPT, o POST168 del paquete H9.
+# POST154 conserva orden AD149→Personal26→AD154→AD172.
+# POST168 requiere las 40 SQL H9 instaladas y conserva sus consumidores.
+# AD171 y auditoría AD169/CA26(o27)/IS13 deben existir en ambas variantes.
+# Configurar origen DBA exacto de consumidores activos antes de instalación.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql

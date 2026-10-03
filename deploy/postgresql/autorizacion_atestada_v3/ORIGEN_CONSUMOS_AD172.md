@@ -49,9 +49,9 @@ al corte #522 de K; este commit no los modifica.
 
 La lista causal del corte añade exclusivamente AD172 a un checkpoint frío
 compatible. Requiere AD171 y sus dependencias. El manifiesto
-`pruebas_sql/ad172_postimagenes.json` fija exclusivamente POST154, medida
-en PostgreSQL 18.4 tras AD149 y AD154 de #438. Las variantes anteriores
-POST153 y POST168 ya no se admiten. Una definición distinta requiere
+`pruebas_sql/ad172_postimagenes.json` fija POST154, medida en PostgreSQL 18.4 tras AD149 y AD154 de #438,
+y POST168, medida tras las 40 SQL del paquete H9. POST153 sigue excluida.
+La guarda de la fachada RPT se exige sólo para POST154. Una definición distinta requiere
 comprobar y revisar otra postimagen; no se acepta por sus anclas.
 
 La migración compara definición, fuente, ACL y configuración del núcleo,
@@ -132,3 +132,19 @@ Antes del despliegue, preparar las ternas exactas de configuración junto con
 el DBA: un consumo nuevo sin su fila quedará denegado. La lectura RPT requiere
 su lista propia Personal27/30 y adaptación del runner de B a las familias
 v1/v2; este corte no modifica ese runner ni publica provisión desde la app.
+
+## Compatibilidad con la principal posterior a H9
+
+El paquete H9 excluyó RPT y dejó el núcleo en POST168. La variante POST168
+de AD172, ya prevista en su candidata inicial, vuelve a admitirse con
+definición y cuerpo exactos. Conserva las capacidades instaladas en H9
+y no incorpora CRN11 ni RPT. También conserva la variante POST154.
+La definición del CHECK común debe coincidir con la huella fijada en el
+manifiesto; no basta que tenga el nombre esperado.
+
+El ensayo sobre la copia reconstruida post-H9 instaló AD172 una sola vez,
+con 6.240 filas y cabeza histórica sin cambios. Este ensayo acredita la
+transformación estructural, no un consumo nominal firmado. Antes de
+instalar en la principal, el DBA debe completar la configuración de origen
+de los consumidores activos; la ausencia de una fila exacta deniega el
+consumo nuevo. Las extensiones futuras de RPT deben preservar este origen.
