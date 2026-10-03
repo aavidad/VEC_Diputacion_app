@@ -11,16 +11,23 @@ SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
 INSERT INTO vec_identidad_sesiones_v1.config_runtime_admin_preperfil_v1(identidad_login,proceso,entorno,host_admin,audiencia,vigente_hasta)
 VALUES('vec_prueba_is14_admin','admin-selector-test','desarrollo','admin.test.invalid','admin.selector.test',clock_timestamp()+interval '1 hour');
 RESET ROLE;
+-- Resolver como DBA antes de entrar al LOGIN sin USAGE de AD3/Contexto.
+-- Estos GUC sólo contienen OID de la prueba; ninguna fachada los consume.
+SELECT
+ set_config('vec_test_is14.resolver_oid',to_regprocedure('vec_identidad_sesiones_v1.resolver_identidad_admin_perfiles_propietaria_v1(text,text,text,text,text,timestamptz,timestamptz)')::oid::text,true),
+ set_config('vec_test_is14.append_oid',to_regprocedure('vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1(jsonb)')::oid::text,true),
+ set_config('vec_test_is14.seleccionar_oid',to_regprocedure('vec_contexto_actor_v1.seleccionar_admin_preperfil_propietaria_v1(text,text,text,text,numeric,text)')::oid::text,true),
+ set_config('vec_test_is14.observacion_oid',to_regclass('vec_identidad_sesiones_v1.observacion_admin_preperfil_v1')::oid::text,true);
 SET SESSION AUTHORIZATION vec_prueba_is14_admin;
 DO $frontera$
 DECLARE ok boolean;
 BEGIN
  SELECT acreditada INTO STRICT ok FROM vec_identidad_sesiones_v1.acreditar_runtime_preperfil_admin_v1();
  IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'LOGIN mínimo no acreditado'; END IF;
- IF has_function_privilege(current_user,'vec_identidad_sesiones_v1.resolver_identidad_admin_perfiles_propietaria_v1(text,text,text,text,text,timestamptz,timestamptz)','EXECUTE')
- OR has_function_privilege(current_user,'vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1(jsonb)','EXECUTE')
- OR has_function_privilege(current_user,'vec_contexto_actor_v1.seleccionar_admin_preperfil_propietaria_v1(text,text,text,text,numeric,text)','EXECUTE')
- OR has_table_privilege(current_user,'vec_identidad_sesiones_v1.observacion_admin_preperfil_v1','SELECT,INSERT,UPDATE,DELETE')
+ IF has_function_privilege(current_user,current_setting('vec_test_is14.resolver_oid')::oid,'EXECUTE')
+ OR has_function_privilege(current_user,current_setting('vec_test_is14.append_oid')::oid,'EXECUTE')
+ OR has_function_privilege(current_user,current_setting('vec_test_is14.seleccionar_oid')::oid,'EXECUTE')
+ OR has_table_privilege(current_user,current_setting('vec_test_is14.observacion_oid')::oid,'SELECT,INSERT,UPDATE,DELETE')
  THEN RAISE EXCEPTION 'LOGIN puede fabricar evidencia o cambiar selección sin fachada'; END IF;
  BEGIN
   PERFORM vec_identidad_sesiones_v1.listar_perfiles_admin_auditado_v1('desarrollo','admin.ajeno.invalid','admin.selector.test',repeat('1',64),repeat('2',64),clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 hour',clock_timestamp()+interval '1 hour','evento_'||repeat('a',32),'correlacion_'||repeat('b',32));

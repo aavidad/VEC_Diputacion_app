@@ -88,6 +88,9 @@ Sistemas, autenticación externa publicada ni un recorrido de navegador.
 `pruebas_sql/000014_selector_admin_acl.sql` crea un LOGIN sintético dentro de
 ROLLBACK. Comprueba preflight mínimo, ausencia de acceso a evidencia/tablas,
 denegación por host ajeno o identidad ausente y rechazo al ampliar la ACL.
+Resuelve los OID como DBA antes de cambiar al LOGIN y consulta los privilegios
+mediante esos OID: el LOGIN conserva el cierre de USAGE de los esquemas de
+auditoría y contexto. No se concede USAGE para facilitar la prueba.
 Debe ejecutarse en el clon con PostgreSQL real tras instalar el árbol causal.
 `pruebas_sql/000014_selector_admin_40001.sql` inyecta fallos de listado y de la
 cadena dentro de ROLLBACK. Usa un LOGIN y observación sintéticos previamente
@@ -98,9 +101,17 @@ caducidad del consumidor durante una demora del listado, con fuentes reales y
 sin elección persistida. La prueba de la cadena requiere el perfil v4 gobernado real
 del fixture para alcanzar ese punto.
 
-Quedan por ejecutar el ensayo de migraciones en el clon, esa prueba SQL y los
-casos positivos con una asignación sintética actual del catálogo AUT33: listado
-sin selección, elección CAS, replay con nueva auditoría, revisión obsoleta,
-revocación, rollback del CAS y recuperación tras reiniciar. Las dos revisiones
-sensibles deben usar el hash final. El productor no ha conectado PostgreSQL ni
-Go; Dirección coordina el ensayo y monta el adaptador.
+El ensayo de Dirección sobre producto `2d1865fe0` instaló CA31/IS14 una vez en
+el clon. La variante privada de la prueba de ACL por OID pasó, junto con la
+recuperación tras reinicio. La prueba original fallaba al resolver el nombre de
+una función en un esquema correctamente cerrado; el ajuste reproducible afecta
+sólo a la prueba. Los casos 40001/caducidad quedaron omitidos porque no había
+política IS9, vínculo, LOGIN y asignación v4 gobernados. No hay positivo del
+consumidor con COMMIT acreditado. El acta está en la bitácora privada del ensayo.
+
+Siguen pendientes los casos positivos con una asignación sintética gobernada del
+catálogo AUT33: listado sin selección, elección CAS, replay con nueva auditoría,
+revisión obsoleta, revocación, rollback del CAS y recuperación de esa elección tras
+reiniciar. El script corregido por OID no se ha vuelto a ejecutar: conserva el
+resultado de la variante equivalente del ensayo. El productor no ha conectado
+PostgreSQL ni Go; Dirección coordina las ratificaciones sobre el nuevo hash.
