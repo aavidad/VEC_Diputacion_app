@@ -59,7 +59,8 @@ CREATE TABLE vec_personal.enlace_cargo_competencial_historia (
  cargo_ref text NOT NULL, cargo_version bigint NOT NULL,
  persona_ref text NOT NULL CHECK(persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
  clase text NOT NULL CHECK(clase IN ('titular','delegacion_competencia','delegacion_firma','suplencia')),
- titular_enlace_ref text, delegante_persona_ref text,
+ titular_enlace_ref text,titular_enlace_version bigint,titular_enlace_sha256 text,
+ delegante_persona_ref text,
  accion_ref text NOT NULL CHECK(accion_ref ~ '^[a-z][a-z0-9_.:-]{2,255}$'),
  recurso_ref text NOT NULL CHECK(recurso_ref ~ '^[a-z][a-z0-9_.:/#-]{2,511}$'),
  finalidad_ref text NOT NULL CHECK(finalidad_ref ~ '^[a-z][a-z0-9_.:-]{2,511}$'),
@@ -78,10 +79,14 @@ CREATE TABLE vec_personal.enlace_cargo_competencial_historia (
  decision_ref text NOT NULL,auditoria_ref text NOT NULL,recibo_ref text NOT NULL,
  PRIMARY KEY(enlace_ref,version),UNIQUE(recibo_ref),
  FOREIGN KEY(cargo_ref,cargo_version) REFERENCES vec_personal.cargo_competencial_historia(cargo_ref,version),
+ FOREIGN KEY(titular_enlace_ref,titular_enlace_version)
+   REFERENCES vec_personal.enlace_cargo_competencial_historia(enlace_ref,version),
  FOREIGN KEY(ocupacion_ref,ocupacion_revision) REFERENCES vec_personal.ocupacion_empleado_historia(ocupacion_ref,revision),
  CHECK(vigente_hasta>vigente_desde),
- CHECK((clase='titular' AND titular_enlace_ref IS NULL AND delegante_persona_ref IS NULL)
-       OR (clase<>'titular' AND titular_enlace_ref IS NOT NULL AND delegante_persona_ref IS NOT NULL
+ CHECK((clase='titular' AND titular_enlace_ref IS NULL AND titular_enlace_version IS NULL
+        AND titular_enlace_sha256 IS NULL AND delegante_persona_ref IS NULL)
+       OR (clase<>'titular' AND titular_enlace_ref IS NOT NULL AND titular_enlace_version>0
+           AND titular_enlace_sha256 ~ '^[0-9a-f]{64}$' AND delegante_persona_ref IS NOT NULL
            AND persona_ref<>delegante_persona_ref)),
  CHECK((empleado_ref IS NULL AND ocupacion_ref IS NULL AND ocupacion_revision IS NULL)
        OR (empleado_ref IS NOT NULL AND ocupacion_ref IS NOT NULL AND ocupacion_revision IS NOT NULL))
@@ -220,7 +225,8 @@ BEGIN
   JOIN vec_personal.enlace_cargo_competencial_historia h USING(enlace_ref,version)
   WHERE h.acto_ref=d#>>'{acto,referencia}' AND h.acto_version::text=d#>>'{acto,version}'
    AND h.acto_huella_sha256=d#>>'{acto,huella_sha256}'
-   AND h.titular_enlace_ref=t.enlace_ref AND h.persona_ref=persona
+   AND h.titular_enlace_ref=t.enlace_ref AND h.titular_enlace_version=t.version
+   AND h.titular_enlace_sha256=t.huella_sha256 AND h.persona_ref=persona
    AND h.cargo_ref=cargo_ref AND h.accion_ref=accion
    AND h.recurso_ref=recurso AND h.finalidad_ref=finalidad FOR SHARE OF a,h;
   IF e.clase NOT IN ('delegacion_competencia','delegacion_firma','suplencia')
@@ -437,7 +443,8 @@ BEGIN
    OR (dato->>'vigente_hasta')::timestamptz>cargo.vigente_hasta THEN
    RAISE EXCEPTION 'cargo_publicacion_enlace_invalido' USING ERRCODE='22023'; END IF;
   IF dato->>'clase'='titular' THEN
-   IF dato->>'titular_enlace_ref' IS NOT NULL OR dato->>'delegante_persona_ref' IS NOT NULL THEN
+   IF dato->>'titular_enlace_ref' IS NOT NULL OR dato->>'delegante_persona_ref' IS NOT NULL
+    OR dato->>'titular_enlace_version' IS NOT NULL OR dato->>'titular_enlace_sha256' IS NOT NULL THEN
     RAISE EXCEPTION 'cargo_publicacion_titular_invalido' USING ERRCODE='22023'; END IF;
    IF EXISTS(SELECT 1 FROM vec_personal.enlace_cargo_competencial_actual a
      JOIN vec_personal.enlace_cargo_competencial_historia h USING(enlace_ref,version)
@@ -452,6 +459,8 @@ BEGIN
    IF titular.clase<>'titular' OR titular.estado<>'vigente' OR titular.cargo_ref<>cargo.cargo_ref
     OR titular.persona_ref IS DISTINCT FROM dato->>'delegante_persona_ref'
     OR titular.persona_ref IS NOT DISTINCT FROM dato->>'persona_ref'
+    OR titular.version::text IS DISTINCT FROM dato->>'titular_enlace_version'
+    OR titular.huella_sha256 IS DISTINCT FROM dato->>'titular_enlace_sha256'
     OR (dato->>'vigente_desde')::timestamptz<titular.vigente_desde
     OR (dato->>'vigente_hasta')::timestamptz>titular.vigente_hasta THEN
     RAISE EXCEPTION 'cargo_publicacion_delegacion_invalida' USING ERRCODE='42501'; END IF;
@@ -470,12 +479,14 @@ BEGIN
    RAISE EXCEPTION 'cargo_publicacion_ocupacion_parcial' USING ERRCODE='22023';
   END IF;
   INSERT INTO vec_personal.enlace_cargo_competencial_historia(enlace_ref,version,huella_sha256,
-   cargo_ref,cargo_version,persona_ref,clase,titular_enlace_ref,delegante_persona_ref,
+   cargo_ref,cargo_version,persona_ref,clase,titular_enlace_ref,titular_enlace_version,
+   titular_enlace_sha256,delegante_persona_ref,
    accion_ref,recurso_ref,finalidad_ref,estado,vigente_desde,vigente_hasta,
    acto_ref,acto_version,acto_huella_sha256,fuente_ref,fuente_version,fuente_huella_sha256,
    empleado_ref,ocupacion_ref,ocupacion_revision,publicada_en,decision_ref,auditoria_ref,recibo_ref)
   VALUES(objeto,version_nueva,dato_sha,dato->>'cargo_ref',cargo.version,dato->>'persona_ref',
-   dato->>'clase',dato->>'titular_enlace_ref',dato->>'delegante_persona_ref',
+   dato->>'clase',dato->>'titular_enlace_ref',(dato->>'titular_enlace_version')::bigint,
+   dato->>'titular_enlace_sha256',dato->>'delegante_persona_ref',
    dato->>'accion_ref',dato->>'recurso_ref',dato->>'finalidad_ref',dato->>'estado',
    (dato->>'vigente_desde')::timestamptz,(dato->>'vigente_hasta')::timestamptz,
    dato->>'acto_ref',(dato->>'acto_version')::bigint,dato->>'acto_huella_sha256',
