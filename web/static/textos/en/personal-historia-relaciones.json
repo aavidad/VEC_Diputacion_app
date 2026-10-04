@@ -13,7 +13,7 @@
     "cancelada": "Query cancelled. You can change the dates and query again.",
     "vacio": "There are no revisions within the interval and information cutoff queried.",
     "no_configurado": "Relationship history is not yet available in this portal.",
-    "no_disponible": "Service history could not be retrieved. Please try again.",
+    "no_disponible": "Relationship history could not be retrieved. Please try again.",
     "denegado": "You are not authorised to view this history. Contact Personnel if you need access.",
     "sesion_caducada": "Your session has ended. Sign in again and query again.",
     "excede_limite": "The interval contains too many revisions. Narrow the dates and query again.",
