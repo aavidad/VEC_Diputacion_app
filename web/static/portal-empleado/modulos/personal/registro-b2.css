@@ -391,3 +391,14 @@
   .personal-registro-b2 .personal-registro-b2-empleados td:last-child { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
   .personal-registro-b2 .personal-registro-b2-empleados td[data-registro-b2-vacio] { display: none; }
 }
+
+/* La búsqueda de una página conserva controles íntegros al ampliar el texto. */
+[data-personal-vacantes-b2] .cabecera-panel { flex-wrap: wrap; }
+[data-personal-vacantes-b2] .cabecera-panel :is(h3, span),
+[data-personal-vacantes-b2] .personal-registro-b2-toolbar :is(label, input, button) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+[data-personal-vacantes-b2] .personal-registro-b2-toolbar input { width: 100%; }
