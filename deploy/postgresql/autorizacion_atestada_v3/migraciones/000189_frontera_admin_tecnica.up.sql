@@ -37,7 +37,7 @@ BEGIN
  AND gobierno_usuarios_detalle IS NULL AND gobierno_usuarios_solicitud_sha256 IS NULL
  AND evento_ref IS NOT NULL AND evento_material_sha256 IS NOT NULL AND operador_login IS NOT NULL
  AND accion IS NOT DISTINCT FROM 'controlar_frontera_admin_v1' AND modulo_id IS NOT DISTINCT FROM 'administracion'
- AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL AND resultado IN ('denegado','error')
+ AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL AND resultado IS NOT NULL AND resultado IN ('denegado','error')
  AND motivo_ref IS NOT NULL AND proceso IS NOT NULL AND canal IS NOT DISTINCT FROM 'administracion_privilegiada'
  AND finalidad_ref IS NOT DISTINCT FROM 'control_frontera_admin'
  $tipo$||'))';
@@ -128,7 +128,7 @@ BEGIN
  h:=encode(sha256(vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.eslabon.frontera-admin-tecnica.v1')||vec_autorizacion_atestada_v3.encuadrar_mac(s::text)||vec_autorizacion_atestada_v3.encuadrar_mac(anterior)||vec_autorizacion_atestada_v3.encuadrar_mac(ref)||vec_autorizacion_atestada_v3.encuadrar_mac(material_sha)||vec_autorizacion_atestada_v3.encuadrar_mac(to_char(instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),'hex');
  INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,evento_ref,evento_material_sha256,operador_login,accion,modulo_id,recurso_ref,resultado,motivo_ref,proceso,canal,finalidad_ref,correlacion_ref)
  VALUES(ref,s,anterior,h,instante,'frontera_admin_tecnica',e->>'evento_ref',material_sha,session_user,'controlar_frontera_admin_v1','administracion',e->>'recurso_ref',e->>'resultado',e->>'codigo_ref',c.proceso,c.canal,'control_frontera_admin',e->>'correlacion_ref');
- UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria SET secuencia=s,cabeza_sha256=h WHERE control_id;
+ UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria SET secuencia=s,cabeza_sha256=h,actualizada_en=instante WHERE control_id;
  RETURN QUERY SELECT ref,s,h,e->>'correlacion_ref',instante;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_frontera_admin_tecnica_v1(jsonb) FROM PUBLIC;

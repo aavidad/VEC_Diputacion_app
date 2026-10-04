@@ -33,7 +33,24 @@ Reserva AD189 anterior al código y base causal AD188
 `92f884b9e70c65f720a1448c00269949f035d14d6dd466ebe0678b2f27cfc2b4`, UTF8 de
 `pg_get_constraintdef(false)` sin salto final. AD188 no cambió el núcleo.
 
-Estado: contrato y puerto preparados. SQL sólo será candidata, con dos GO
-independientes y ensayo autorizado antes de UP. No se ha ejecutado Go,
-PostgreSQL, instalado SQL ni modificado la principal. El montaje HTTP y la
-unión del verificador compartido se harán después de ceder estos archivos.
+Validación Go focal: pruebas normales y con `-race` de los dos paquetes
+modificados, `vet` de adaptador, auditoría y puertos; Semgrep local con cuatro
+reglas sin hallazgos y vecsilencio sin errores nuevos. Los vectores comprueban
+reintento del mismo evento tras COMMIT incierto, retirada de cancelación bajo
+plazo privado, rechazo de V2 inválido y ausencia de fallback desde AD169.
+El vector de huella se calculó con Python, fuera del verificador Go.
+
+Gosec revisó los tres paquetes modificados: doce avisos heredados, ninguno en
+los archivos nuevos. Cinco G101 son etiquetas de dominio de hash de pagos,
+documentos, cotejo y cargas, sin credenciales. Siete G115 están en los parsers
+existentes de atestación, preimagen y reconciliación: las longitudes de lectura
+se acotan al búfer restante; la preimagen se limita a 2 MiB y sus mapas a 512
+entradas; la reconciliación encuadra referencias y huellas previamente
+validadas. Estos archivos no cambian y no se añaden supresiones.
+
+SQL sigue como candidata: precisa dos GO exactos y ensayo autorizado antes de
+UP. El vector estructural está preparado, sin provisionar LOGIN ni una
+configuración favorable inventada. No se ha ejecutado PostgreSQL ni instalado
+SQL ni modificado la principal. El montaje HTTP y la unión del verificador
+compartido se harán después de ceder estos archivos. AD189 cubre sólo
+invocaciones que llegan a la frontera, no fallos TLS anteriores a HTTP.
