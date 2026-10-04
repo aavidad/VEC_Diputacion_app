@@ -8,7 +8,7 @@ servidor local del Baremador. Falta convertir esas operaciones en un expediente
 institucional registrado, autorizado y recuperable. El plan cubre concursos de
 provisión o traslados, libre designación y comisiones de servicios.
 
-La [ficha de requisitos P1–P16](https://github.com/aavidad/VEC_Diputacion_app/blob/940d00004595f682290dea87003347f12d2dd465/docs/estudio_requisitos/ficha_provision_2026-10-04.md)
+La [ficha de requisitos P1–P16](https://github.com/aavidad/VEC_Diputacion_app/blob/2cb8eb3e4/docs/estudio_requisitos/ficha_provision_2026-10-04.md)
 se entrega en una rama documental independiente. Este plan parte de main y no
 apila esa rama. El inventario no acredita instalación ni aceptación de RRHH;
 no modifica los contadores del seguimiento único.
@@ -201,7 +201,7 @@ No hay fecha comprometida ni aprobación del plan por RRHH.
 
 Reutilizar [dudas.md](../../dudas.md), preguntas 27–29, 36, 60–61, 122 y 128
 para Personal, auditoría, conservación y perfiles/delegaciones. Dirección
-reserva la 137, pendiente de incorporación, sobre primer proceso, responsables,
+ha registrado la pregunta 137 sobre primer proceso, responsables,
 fuentes internas y circuito de registro/firma/publicación. No volver a pedir
 coeficientes, requisitos o plazos que ya figuran en las bases públicas.
 
