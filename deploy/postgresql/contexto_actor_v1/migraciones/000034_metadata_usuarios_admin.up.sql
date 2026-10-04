@@ -20,17 +20,18 @@ BEGIN
 END $pre$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 -- Puerto propietario 0/1: ausencia comprobada devuelve NULL; fallo propaga error.
--- Incluye la versión actual aunque haya caducado/revocado: no autoriza su uso.
+-- Persona sólo vigente; perfiles con historia de caducidad/revocación no conceden uso.
 CREATE FUNCTION vec_contexto_actor_v1.metadatos_persona_administrable_v1(p_persona text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET row_security=on AS $f$
 DECLARE x record;
 BEGIN
  IF vec_contexto_actor_v1.referencia_valida(p_persona,'per_') IS NOT TRUE
  OR octet_length(p_persona)>128 THEN RAISE EXCEPTION 'CA34: referencia_invalida' USING ERRCODE='22023';END IF;
- SELECT v.persona_ref,v.version INTO x FROM vec_contexto_actor_v1.persona_actual a
+ SELECT v.persona_ref,v.version,v.estado,v.vigente_desde,v.vigente_hasta INTO x FROM vec_contexto_actor_v1.persona_actual a
  JOIN vec_contexto_actor_v1.persona_versiones v USING(persona_ref,version)
  WHERE a.persona_ref=p_persona FOR SHARE OF a;
  IF NOT FOUND THEN RETURN NULL;END IF;
+ IF x.estado<>'activo' OR clock_timestamp()<x.vigente_desde OR clock_timestamp()>=x.vigente_hasta THEN RETURN NULL;END IF;
  IF x.version NOT BETWEEN 1 AND 9007199254740991 THEN RAISE EXCEPTION 'CA34: metadata_no_disponible' USING ERRCODE='55000';END IF;
  RETURN jsonb_build_object('persona_ref',x.persona_ref,'version',x.version);
 END $f$;
