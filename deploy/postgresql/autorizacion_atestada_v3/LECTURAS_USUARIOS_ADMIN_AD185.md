@@ -24,9 +24,13 @@ finalidad y fecha de consumo. No se crea auditoría paralela.
 La migración exige AUT42, AD184 y AUT43 instaladas. Invierte las tres
 sustituciones concretas de AD184 y coteja las huellas de definición y fuente
 anteriores a AD184. Si falta una marca o hay otra edición del núcleo, aborta.
-El CHECK de audiencias se coteja del mismo modo antes de añadir las dos
-audiencias propias. No se asume una huella posterior a AD184. Ninguna fila
-histórica se reescribe.
+El núcleo exige además las huellas posteriores a AD184 de definición
+`ff77db3d6dac93c3ba8f359e6bca22a8a03489954b9c120acef4e44dc90a0bd6` y fuente
+`73cb05e1c57c82c13e066a1f3c27cf03d9bdbaed3e028184ee9d040b9b230735`.
+El CHECK de audiencias exige la huella `4c57e39c9b725b428149fea490bd38e6c41d608b8c727609d548363008576ebd`
+de `pg_get_constraintdef(false)`, medida después de AD184. PostgreSQL deparsa
+`IN` como `ANY`; el SQL conserva el predicado completo antes de añadir las dos audiencias.
+Ninguna fila histórica se reescribe.
 
 Estado: código preparado en rama aislada. Falta el ensayo causal en el clon,
 dos revisiones independientes y una lectura V3 real de lista y ficha. La

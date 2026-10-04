@@ -18,7 +18,11 @@ BEGIN
  OR s NOT LIKE '%persona_denominacion_publicar%' OR s NOT LIKE '%persona_denominacion_leer%'
  OR s NOT LIKE '%resolver_origen_consumo_v1%'
  THEN RAISE EXCEPTION 'AD185: extension_o_origen_perdidos';END IF;
- IF (SELECT count(*) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated AND pg_get_constraintdef(c.oid,false) LIKE '%vec.admin.usuarios.listar.v1%' AND pg_get_constraintdef(c.oid,false) LIKE '%vec.admin.usuarios.consultar.v1%')<>1
+ IF (SELECT count(*) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated
+  AND pg_get_constraintdef(c.oid,false) LIKE '%vec.persona.denominacion.publicar.v1%'
+  AND pg_get_constraintdef(c.oid,false) LIKE '%vec.persona.denominacion.leer.v1%'
+  AND pg_get_constraintdef(c.oid,false) LIKE '%vec.admin.usuarios.listar.v1%'
+  AND pg_get_constraintdef(c.oid,false) LIKE '%vec.admin.usuarios.consultar.v1%')<>1
  THEN RAISE EXCEPTION 'AD185: audiencias_ausentes';END IF;
 END $test$;
 ROLLBACK;

@@ -146,6 +146,12 @@ $x$;
 $x$;
 BEGIN
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
+ h:=encode(sha256(convert_to(original,'UTF8')),'hex');
+ IF h IS DISTINCT FROM 'ff77db3d6dac93c3ba8f359e6bca22a8a03489954b9c120acef4e44dc90a0bd6'
+ THEN RAISE EXCEPTION 'AD185: PARO clave=nucleo_postAD184_def_SHA actual=% esperado=ff77db3d6dac93c3ba8f359e6bca22a8a03489954b9c120acef4e44dc90a0bd6',h USING ERRCODE='55000';END IF;
+ h:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
+ IF h IS DISTINCT FROM '73cb05e1c57c82c13e066a1f3c27cf03d9bdbaed3e028184ee9d040b9b230735'
+ THEN RAISE EXCEPTION 'AD185: PARO clave=nucleo_postAD184_src_SHA actual=% esperado=73cb05e1c57c82c13e066a1f3c27cf03d9bdbaed3e028184ee9d040b9b230735',h USING ERRCODE='55000';END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
  OR NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f AND a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
@@ -178,16 +184,15 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE anterior text;nueva text;revertida text;h text;sufijo text:=') OR audiencia_consumo IN (''vec.persona.denominacion.publicar.v1'',''vec.persona.denominacion.leer.v1''))';
+DECLARE anterior text;nueva text;h text;
 BEGIN
  SELECT pg_get_constraintdef(c.oid,false) INTO STRICT anterior FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF left(anterior,8)<>'CHECK ((' OR right(anterior,length(sufijo)) IS DISTINCT FROM sufijo
- THEN RAISE EXCEPTION 'AD185: PARO clave=audiencias actual=incompatible esperado=AD184_exacto' USING ERRCODE='55000';END IF;
- revertida:='CHECK ('||substr(anterior,9,length(anterior)-8-length(sufijo))||')';
- h:=encode(sha256(convert_to(revertida,'UTF8')),'hex');
- IF h IS DISTINCT FROM '8935639700c8923c815400626135ce23add08a610a592eaaccc9ccd5d331b8c9'
- THEN RAISE EXCEPTION 'AD185: PARO clave=audiencias_preAD184_SHA actual=% esperado=8935639700c8923c815400626135ce23add08a610a592eaaccc9ccd5d331b8c9',h USING ERRCODE='55000';END IF;
+ h:=encode(sha256(convert_to(anterior,'UTF8')),'hex');
+ -- Preimagen medida tras AD184 exacta: PostgreSQL deparsa IN como ANY.
+ IF h IS DISTINCT FROM '4c57e39c9b725b428149fea490bd38e6c41d608b8c727609d548363008576ebd'
+ OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
+ THEN RAISE EXCEPTION 'AD185: PARO clave=CHECK_postAD184_SHA actual=% esperado=4c57e39c9b725b428149fea490bd38e6c41d608b8c727609d548363008576ebd',h USING ERRCODE='55000';END IF;
  nueva:='CHECK (('||substr(anterior,8,length(anterior)-8)||') OR audiencia_consumo IN (''vec.admin.usuarios.listar.v1'',''vec.admin.usuarios.consultar.v1''))';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
