@@ -17,6 +17,9 @@ func metadatosDenominacionPrueba() MetadatosDenominacionPersonaDesarrollo {
 }
 func guardarMetadatosDenominacion(t *testing.T, ruta string, m MetadatosDenominacionPersonaDesarrollo) {
 	t.Helper()
+	if os.Chmod(filepath.Dir(ruta), 0700) != nil {
+		t.Fatal("directorio_privado")
+	}
 	b, e := json.Marshal(m)
 	if e != nil || os.WriteFile(ruta, b, 0600) != nil {
 		t.Fatal("metadata_fixture")

@@ -208,7 +208,12 @@ func cargarTextos(ruta, idioma string) (*i18n.Catalog, error) {
 	if idioma == "" || !filepath.IsAbs(ruta) {
 		return nil, io.ErrUnexpectedEOF
 	}
-	f, e := os.Open(ruta)
+	raiz, e := os.OpenRoot(filepath.Dir(ruta))
+	if e != nil {
+		return nil, e
+	}
+	defer raiz.Close()
+	f, e := raiz.OpenFile(filepath.Base(ruta), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
 	if e != nil {
 		return nil, e
 	}

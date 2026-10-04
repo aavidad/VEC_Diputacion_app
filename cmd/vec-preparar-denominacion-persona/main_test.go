@@ -14,6 +14,9 @@ const metadataPrueba = `{"version":1,"entorno":"desarrollo","norma":{"referencia
 func fixtureCLI(t *testing.T) ([]string, string, string) {
 	t.Helper()
 	dir := t.TempDir()
+	if os.Chmod(dir, 0700) != nil {
+		t.Fatal("directorio_privado")
+	}
 	write := func(n string, b []byte) string {
 		p := filepath.Join(dir, n)
 		if os.WriteFile(p, b, 0600) != nil {
