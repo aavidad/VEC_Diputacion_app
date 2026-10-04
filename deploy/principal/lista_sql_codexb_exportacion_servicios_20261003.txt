@@ -1,0 +1,6 @@
+# BORRADOR, NO ENSAYAR: núcleo AD175 medido en POST176-L; falta el CHECK de audiencias.
+# Origen AD172, auditoría AD173, fuentes AD174 y unidad AD176 deben preceder.
+# AD175 se detiene con la huella NULL del CHECK hasta la medición causal de K.
+# Personal32 depende de AD175 cerrado; sus pruebas y la instalación corresponden a Dirección.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000175_consumidor_exportacion_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000032_exportacion_servicios_propios.up.sql
