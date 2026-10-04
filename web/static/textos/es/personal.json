@@ -466,6 +466,8 @@
     "ficha_navegacion_pendiente": "La navegación a este módulo no está montada.",
     "ficha_ir_dietas": "Ir a Dietas",
     "ficha_ir_cronos": "Ir a Cronos",
+    "ficha_ir_mis_correos": "Ver mis correos",
+    "ficha_mis_correos_destino": "Abre Mis preferencias, donde puede consultar y gestionar sus correos.",
     "ficha_catalogos_titulo": "Catálogos y estructura de referencia",
     "ficha_catalogos_ayuda": "Consultas separadas de categorías, RPT y estructura. No prueban empleo actual, ocupación, jerarquía ni autorización.",
     "ficha_catalogos_pendiente": "Las consultas de catálogo no están montadas en esta composición.",

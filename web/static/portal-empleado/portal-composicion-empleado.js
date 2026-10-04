@@ -242,6 +242,8 @@ export function componerPersonalVisible(recursos, entorno, {
   };
   const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
     raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+    // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.
+    abrirCorreos: entorno.location ? () => { entorno.location.hash = "#mis-preferencias"; } : undefined,
     destinosDisponibles: destinosDisponibles(),
     navegarModulo: (modulo) => {
       if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
