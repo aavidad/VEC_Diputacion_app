@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -74,7 +75,7 @@ func ejecutar(args []string, salida, fallos io.Writer) int {
 			versionExplicita = true
 		}
 	})
-	if errParse != nil || f.NArg() != 0 || !sintetico || !versionExplicita || !domain.ReferenciaPersonaDenominacionValida(persona) || esperada >= 1<<53-1 || !refOpaca(procedencia) || !refOpaca(ambito) || !rutasSeparadas(cfg, nombreRuta, maestraRuta, destino, textos) {
+	if errParse != nil || f.NArg() != 0 || !sintetico || !versionExplicita || !domain.ReferenciaPersonaDenominacionValida(persona) || len(persona) > 128 || esperada >= 1<<53-1 || !refProcedenciaCA32(procedencia) || !refOpaca(ambito) || !rutasSeparadas(cfg, nombreRuta, maestraRuta, destino, textos) {
 		return fallo("denominacion.uso_invalido")
 	}
 	fuente, err := bootstrap.NuevaFuenteConfiguracionPrivadaDenominacionPersona(cfg)
@@ -172,6 +173,17 @@ func ejecutar(args []string, salida, fallos io.Writer) int {
 	return emitir(salida, "denominacion.preparada", false, 0)
 }
 func huellaSobre(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func refProcedenciaCA32(s string) bool {
+	if !strings.HasPrefix(s, "prc_") || len(s) < 26 || len(s) > 128 {
+		return false
+	}
+	for _, r := range s[4:] {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
 func refOpaca(s string) bool {
 	if len(s) < 8 || len(s) > 128 {
 		return false

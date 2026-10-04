@@ -21,7 +21,7 @@ go run -p 8 ./cmd/vec-preparar-denominacion-persona \
   --salida /ruta/privada/preparacion.json \
   --persona-ref per_aaaaaaaaaaaaaaaaaaaaaaaa \
   --version-esperada 0 \
-  --procedencia-ref procedencia:sintetica_aprobada \
+  --procedencia-ref prc_bbbbbbbbbbbbbbbbbbbbbbbb \
   --ambito-ref ambito:administracion_pruebas \
   --sintetico --idioma es \
   --textos /ruta/repositorio/web/static/textos/es/persona-denominacion-preparar.json
@@ -29,7 +29,10 @@ go run -p 8 ./cmd/vec-preparar-denominacion-persona \
 
 La referencia del ejemplo no demuestra una Persona existente. Para el recorrido
 real de desarrollo se usa la referencia recibida de la autoridad común y la
-procedencia aprobada. No se toma el nombre del CN del certificado, cargo o rol.
+procedencia aprobada. Persona y procedencia tienen un máximo total de 128
+bytes. La procedencia usa `prc_[A-Za-z0-9_-]{22,124}`, igual que CA32; se
+comprueba tanto al preparar como al reutilizar una salida. No se toma el
+nombre del CN del certificado, cargo o rol.
 El archivo de nombre contiene únicamente el UTF8 exacto, sin salto final;
 la norma exige NFC y rechaza controles y blancos exteriores.
 

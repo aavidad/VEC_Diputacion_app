@@ -36,7 +36,7 @@ func fixtureCLI(t *testing.T) ([]string, string, string) {
 		t.Fatal("catalogo")
 	}
 	salida := filepath.Join(dir, "sobre.json")
-	return []string{"--configuracion", cfg, "--nombre-fichero", nombre, "--maestra-fichero", maestra, "--salida", salida, "--persona-ref", "per_aaaaaaaaaaaaaaaaaaaaaaaa", "--version-esperada", "0", "--procedencia-ref", "procedencia:sintetica", "--ambito-ref", "ambito:admin", "--sintetico", "--textos", textos, "--idioma", "es"}, salida, nombre
+	return []string{"--configuracion", cfg, "--nombre-fichero", nombre, "--maestra-fichero", maestra, "--salida", salida, "--persona-ref", "per_aaaaaaaaaaaaaaaaaaaaaaaa", "--version-esperada", "0", "--procedencia-ref", "prc_bbbbbbbbbbbbbbbbbbbbbbbb", "--ambito-ref", "ambito:admin", "--sintetico", "--textos", textos, "--idioma", "es"}, salida, nombre
 }
 func TestCLIProtegidaReintentoSinNuevoNonce(t *testing.T) {
 	args, salida, nombre := fixtureCLI(t)
@@ -109,5 +109,57 @@ func TestCLIRechazaNombrePublicoYVersionImplicita(t *testing.T) {
 	}
 	if ejecutar(sinVersion, &out, &errores) == 0 {
 		t.Fatal("version_por_defecto")
+	}
+}
+
+func TestCLIReferenciasCA32AntesDePrepararYReutilizar(t *testing.T) {
+	args, salida, _ := fixtureCLI(t)
+	modificar := func(flag, valor string) []string {
+		x := append([]string(nil), args...)
+		for i := range x {
+			if x[i] == flag {
+				x[i+1] = valor
+				break
+			}
+		}
+		return x
+	}
+	casos := []struct{ flag, valor string }{
+		{"--procedencia-ref", "procedencia:sintetica"},
+		{"--procedencia-ref", "prc_" + strings.Repeat("a", 21)},
+		{"--procedencia-ref", "prc_" + strings.Repeat("a", 125)},
+		{"--procedencia-ref", "prc_" + strings.Repeat("a", 22) + ":"},
+		{"--persona-ref", "per_" + strings.Repeat("a", 125)},
+	}
+	for _, c := range casos {
+		var out, errout bytes.Buffer
+		if ejecutar(modificar(c.flag, c.valor), &out, &errout) == 0 {
+			t.Fatal("referencia_no_publicable_preparada")
+		}
+		if _, e := os.Stat(salida); !os.IsNotExist(e) {
+			t.Fatal("referencia_invalida_creo_salida")
+		}
+	}
+	var out, errout bytes.Buffer
+	if ejecutar(args, &out, &errout) != 0 {
+		t.Fatal("preparacion_valida")
+	}
+	original, e := os.ReadFile(salida)
+	if e != nil {
+		t.Fatal("artefacto_original")
+	}
+	for _, c := range casos {
+		out.Reset()
+		errout.Reset()
+		if ejecutar(modificar(c.flag, c.valor), &out, &errout) == 0 {
+			t.Fatal("referencia_no_publicable_reutilizada")
+		}
+		actual, e := os.ReadFile(salida)
+		if e != nil || !bytes.Equal(actual, original) {
+			t.Fatal("referencia_invalida_modifico_original")
+		}
+	}
+	if !refProcedenciaCA32("prc_" + strings.Repeat("a", 124)) {
+		t.Fatal("limite_CA32_rechazado")
 	}
 }
