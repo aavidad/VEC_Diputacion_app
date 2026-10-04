@@ -72,7 +72,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.capturas_sello_periodico_v1(
  auditoria_ref text NOT NULL UNIQUE REFERENCES vec_autorizacion_atestada_v3.auditoria_consumo_v3(auditoria_ref));
 CREATE TABLE vec_autorizacion_atestada_v3.recibos_sello_periodico_v1(
  captura_ref text PRIMARY KEY REFERENCES vec_autorizacion_atestada_v3.capturas_sello_periodico_v1(captura_ref),
- recibo jsonb NOT NULL, recibo_sha256 text NOT NULL CHECK(recibo_sha256 ~ '^[0-9a-f]{64}$'),
+ recibo jsonb NOT NULL, recibo_texto text NOT NULL, recibo_sha256 text NOT NULL CHECK(recibo_sha256 ~ '^[0-9a-f]{64}$'),
  confirmado_en timestamptz(6) NOT NULL, auditoria_ref text NOT NULL UNIQUE
  REFERENCES vec_autorizacion_atestada_v3.auditoria_consumo_v3(auditoria_ref));
 REVOKE ALL ON TABLE vec_autorizacion_atestada_v3.politicas_sello_periodico_v1,vec_autorizacion_atestada_v3.capturas_sello_periodico_v1,vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 FROM PUBLIC;
@@ -123,8 +123,8 @@ BEGIN
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
  IF jsonb_typeof(p_configuracion) IS DISTINCT FROM 'object' OR octet_length(p_configuracion::text)>4096
- OR NOT p_configuracion ?& ARRAY['version','cadena_id','intervalo_segundos','activa','politica']
- OR (SELECT count(*) FROM jsonb_object_keys(p_configuracion))<>5
+ OR NOT p_configuracion ?& ARRAY['version','cadena_id','intervalo_segundos','activa','politica','pin_spki_sha256']
+ OR (SELECT count(*) FROM jsonb_object_keys(p_configuracion))<>6
  OR jsonb_typeof(p_configuracion->'version') IS DISTINCT FROM 'number'
  OR (p_configuracion->>'version') !~ '^[1-9][0-9]{0,8}$'
  OR jsonb_typeof(p_configuracion->'cadena_id') IS DISTINCT FROM 'string'
@@ -133,11 +133,13 @@ BEGIN
  OR (p_configuracion->>'intervalo_segundos') !~ '^[1-9][0-9]{0,7}$'
  OR (p_configuracion->>'intervalo_segundos')::bigint>31536000
  OR jsonb_typeof(p_configuracion->'activa') IS DISTINCT FROM 'boolean'
+ OR jsonb_typeof(p_configuracion->'pin_spki_sha256') IS DISTINCT FROM 'string'
+ OR (p_configuracion->>'pin_spki_sha256') !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'periodica_configuracion_invalida' USING ERRCODE='22023'; END IF;
  v_p:=p_configuracion->'politica';
  IF jsonb_typeof(v_p) IS DISTINCT FROM 'object'
  OR NOT v_p ?& ARRAY['version','politica_ref','politica_version','clave_ref','clave_version','proveedor_kms','proveedor_kms_version','proveedor_tsa','proveedor_tsa_version','operacion_tsa','modo']
- OR (SELECT count(*) FROM jsonb_object_keys(v_p))<>11 OR v_p->>'modo' IS DISTINCT FROM 'DESARROLLO' OR v_p->>'version' IS DISTINCT FROM '1'
+ OR (SELECT count(*) FROM jsonb_object_keys(v_p))<>11 OR jsonb_typeof(v_p->'version') IS DISTINCT FROM 'number' OR v_p->>'modo' IS DISTINCT FROM 'DESARROLLO' OR v_p->>'version' IS DISTINCT FROM '1'
  THEN RAISE EXCEPTION 'periodica_politica_invalida' USING ERRCODE='22023'; END IF;
  FOREACH v_k IN ARRAY ARRAY['politica_ref','clave_ref','proveedor_kms','proveedor_tsa','operacion_tsa'] LOOP
   IF jsonb_typeof(v_p->v_k) IS DISTINCT FROM 'string' OR (v_p->>v_k) !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$'
@@ -153,6 +155,9 @@ BEGIN
  THEN RAISE EXCEPTION 'periodica_preimagen_no_coincide' USING ERRCODE='40001'; END IF;
  IF v_anterior.version IS NOT NULL AND (p_configuracion->>'cadena_id' IS DISTINCT FROM v_anterior.configuracion->>'cadena_id')
  THEN RAISE EXCEPTION 'periodica_cadena_inmutable' USING ERRCODE='22023'; END IF;
+ IF EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1) AND
+ (p_configuracion->'politica' IS DISTINCT FROM v_anterior.configuracion->'politica' OR p_configuracion->>'pin_spki_sha256' IS DISTINCT FROM v_anterior.configuracion->>'pin_spki_sha256')
+ THEN RAISE EXCEPTION 'periodica_raiz_inmutable' USING ERRCODE='22023'; END IF;
  -- Un cambio nunca deja sin confirmación una captura emitida con otra política.
  IF EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 c LEFT JOIN vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 r USING(captura_ref) WHERE r.captura_ref IS NULL)
  THEN RAISE EXCEPTION 'periodica_captura_pendiente' USING ERRCODE='55000'; END IF;
@@ -163,7 +168,7 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.configurar_sello_periodico_v1(jsonb,text,text) FROM PUBLIC;
 
-CREATE FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(p_correlacion text)
+CREATE FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(p_correlacion text,p_max_registros numeric)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_cfg record;v_c record;v_ultimo record;v_a record;v_acuse jsonb;v_n numeric;v_h text;v_desde numeric;v_prev text;v_ref text;v_cp jsonb;
@@ -181,9 +186,9 @@ BEGIN
   PERFORM vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','captura_recuperada',p_correlacion,jsonb_build_object('captura_ref',v_c.captura_ref,'configuracion_sha256',v_cfg.huella_sha256,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
   SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_c.auditoria_ref;
   v_acuse:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref);
-  RETURN jsonb_build_object('estado','pendiente','captura_ref',v_c.captura_ref,'configuracion_version',v_c.configuracion_version,'configuracion_sha256',v_cfg.huella_sha256,'checkpoint',v_c.checkpoint,'acuse',v_acuse);
+  RETURN jsonb_build_object('estado','pendiente','captura_ref',v_c.captura_ref,'configuracion_version',v_c.configuracion_version,'configuracion_sha256',v_cfg.huella_sha256,'pin_spki_sha256',v_cfg.configuracion->>'pin_spki_sha256','checkpoint',v_c.checkpoint,'acuse',v_acuse);
  END IF;
- SELECT * INTO v_ultimo FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 ORDER BY creada_en DESC LIMIT 1;
+ SELECT * INTO v_ultimo FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 ORDER BY (checkpoint->'cobertura'->>'ultima_secuencia')::numeric DESC LIMIT 1;
  IF v_ultimo.captura_ref IS NOT NULL AND clock_timestamp()<v_ultimo.creada_en+make_interval(secs=>(v_cfg.configuracion->>'intervalo_segundos')::integer) THEN
   v_acuse:=vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','no_vencido',p_correlacion,jsonb_build_object('configuracion_sha256',v_cfg.huella_sha256,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
   RETURN jsonb_build_object('estado','no_vencido','acuse',v_acuse);
@@ -191,20 +196,22 @@ BEGIN
  SELECT secuencia,cabeza_sha256 INTO STRICT v_n,v_h FROM vec_autorizacion_atestada_v3.control_cadena_auditoria WHERE control_id FOR UPDATE;
  v_desde:=coalesce((v_ultimo.checkpoint->'cobertura'->>'ultima_secuencia')::numeric,0)+1;
  v_prev:=coalesce(v_ultimo.checkpoint->'cobertura'->>'cabeza_sha256',repeat('0',64));
+ IF p_max_registros IS NULL OR p_max_registros<>trunc(p_max_registros) OR p_max_registros<1 OR p_max_registros>9007199254740991 OR v_n-v_desde+2>p_max_registros
+ THEN RAISE EXCEPTION 'periodica_limite_cobertura' USING ERRCODE='22023'; END IF;
  v_ref:='captura_'||replace(gen_random_uuid()::text,'-','');
  v_acuse:=vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','captura_registrada',p_correlacion,
  jsonb_build_object('captura_ref',v_ref,'configuracion_sha256',v_cfg.huella_sha256,'previa_secuencia',v_n,'previa_cabeza_sha256',v_h,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
  v_cp:=jsonb_build_object('esquema','vec.auditoria.checkpoint.desarrollo.v1','politica',v_cfg.configuracion->'politica','cobertura',
  jsonb_build_object('cadena_id',v_cfg.configuracion->>'cadena_id','primera_secuencia',v_desde,'ultima_secuencia',v_acuse->'secuencia','registros',(v_acuse->>'secuencia')::numeric-v_desde+1,'anterior_sha256',v_prev,'cabeza_sha256',v_acuse->>'huella_sha256'));
  INSERT INTO vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 VALUES(v_ref,v_cfg.version,v_cp,clock_timestamp(),v_acuse->>'auditoria_ref');
- RETURN jsonb_build_object('estado','pendiente','captura_ref',v_ref,'configuracion_version',v_cfg.version,'configuracion_sha256',v_cfg.huella_sha256,'checkpoint',v_cp,'acuse',v_acuse);
+ RETURN jsonb_build_object('estado','pendiente','captura_ref',v_ref,'configuracion_version',v_cfg.version,'configuracion_sha256',v_cfg.huella_sha256,'pin_spki_sha256',v_cfg.configuracion->>'pin_spki_sha256','checkpoint',v_cp,'acuse',v_acuse);
 END $f$;
-REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(text,numeric) FROM PUBLIC;
 
-CREATE FUNCTION vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(p_captura text,p_recibo jsonb,p_recibo_sha text,p_correlacion text)
+CREATE FUNCTION vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(p_captura text,p_recibo_texto text,p_recibo_sha text,p_correlacion text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
-DECLARE v_c record;v_cfg record;v_r record;v_acuse jsonb;v_a record;
+DECLARE v_c record;v_cfg record;v_r record;v_acuse jsonb;v_a record;v_recibo jsonb;
 BEGIN
  IF NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
@@ -213,39 +220,82 @@ BEGIN
  SELECT * INTO v_c FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 WHERE captura_ref=p_captura;
  IF v_c.captura_ref IS NULL OR v_c.configuracion_version IS DISTINCT FROM v_cfg.version OR NOT (v_cfg.configuracion->>'activa')::boolean
  THEN RAISE EXCEPTION 'periodica_captura_denegada' USING ERRCODE='42501'; END IF;
- IF jsonb_typeof(p_recibo) IS DISTINCT FROM 'object' OR octet_length(p_recibo::text)>16384
- OR NOT p_recibo ?& ARRAY['checkpoint','tsa','pin_spki_sha256','firma_base64'] OR (SELECT count(*) FROM jsonb_object_keys(p_recibo))<>4
- OR p_recibo->'checkpoint' IS DISTINCT FROM v_c.checkpoint OR jsonb_typeof(p_recibo->'firma_base64') IS DISTINCT FROM 'string'
- OR length(p_recibo->>'firma_base64')<>88 OR p_recibo->>'firma_base64' !~ '^[A-Za-z0-9+/]{86}==$'
- OR p_recibo->>'pin_spki_sha256' !~ '^[0-9a-f]{64}$' OR p_recibo_sha IS NULL OR p_recibo_sha !~ '^[0-9a-f]{64}$'
+ IF p_recibo_texto IS NULL OR octet_length(p_recibo_texto)>16384 OR p_recibo_sha IS DISTINCT FROM encode(sha256(convert_to(p_recibo_texto,'UTF8')),'hex')
+ THEN RAISE EXCEPTION 'periodica_recibo_huella_invalida' USING ERRCODE='22023'; END IF;
+ BEGIN v_recibo:=p_recibo_texto::jsonb; EXCEPTION WHEN invalid_text_representation THEN RAISE EXCEPTION 'periodica_recibo_invalido' USING ERRCODE='22023'; END;
+ IF jsonb_typeof(v_recibo) IS DISTINCT FROM 'object'
+ OR NOT v_recibo ?& ARRAY['checkpoint','tsa','pin_spki_sha256','firma_base64'] OR (SELECT count(*) FROM jsonb_object_keys(v_recibo))<>4
+ OR v_recibo->'checkpoint' IS DISTINCT FROM v_c.checkpoint OR jsonb_typeof(v_recibo->'firma_base64') IS DISTINCT FROM 'string'
+ OR length(v_recibo->>'firma_base64')<>88 OR v_recibo->>'firma_base64' !~ '^[A-Za-z0-9+/]{86}==$'
+ OR jsonb_typeof(v_recibo->'pin_spki_sha256') IS DISTINCT FROM 'string'
+ OR v_recibo->>'pin_spki_sha256' IS DISTINCT FROM v_cfg.configuracion->>'pin_spki_sha256'
+ OR jsonb_typeof(v_recibo->'tsa') IS DISTINCT FROM 'object'
+ OR NOT (v_recibo->'tsa') ?& ARRAY['referencia','huella_preimagen_sha256','huella_checkpoint_sha256','autoridad','esquema']
+ OR (SELECT count(*) FROM jsonb_object_keys(v_recibo->'tsa'))<>5
+ OR v_recibo->'tsa'->>'autoridad' IS DISTINCT FROM 'no_autoritativo'
+ OR v_recibo->'tsa'->>'esquema' IS DISTINCT FROM 'vec.tsa.desarrollo.v1'
+ OR jsonb_typeof(v_recibo->'tsa'->'referencia') IS DISTINCT FROM 'string'
+ OR v_recibo->'tsa'->>'referencia' !~ '^tsa-desarrollo:hmac-sha256:[0-9a-f]{64}$'
+ OR jsonb_typeof(v_recibo->'tsa'->'huella_preimagen_sha256') IS DISTINCT FROM 'string'
+ OR v_recibo->'tsa'->>'huella_preimagen_sha256' !~ '^[0-9a-f]{64}$'
+ OR jsonb_typeof(v_recibo->'tsa'->'huella_checkpoint_sha256') IS DISTINCT FROM 'string'
+ OR v_recibo->'tsa'->>'huella_checkpoint_sha256' !~ '^[0-9a-f]{64}$' OR p_recibo_sha IS NULL OR p_recibo_sha !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'periodica_recibo_invalido' USING ERRCODE='22023'; END IF;
  -- PostgreSQL coteja contenido, no acredita firma/TSA: lo hace el verificador externo.
  SELECT * INTO v_r FROM vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 WHERE captura_ref=p_captura;
  IF v_r.captura_ref IS NOT NULL THEN
-  IF v_r.recibo IS DISTINCT FROM p_recibo OR v_r.recibo_sha256 IS DISTINCT FROM p_recibo_sha
+  IF v_r.recibo IS DISTINCT FROM v_recibo OR v_r.recibo_texto IS DISTINCT FROM p_recibo_texto OR v_r.recibo_sha256 IS DISTINCT FROM p_recibo_sha
   THEN RAISE EXCEPTION 'periodica_recibo_conflicto' USING ERRCODE='23505'; END IF;
   PERFORM vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('confirmar_sello_periodico_v1','permitido','recibo_recuperado',p_correlacion,jsonb_build_object('captura_ref',p_captura,'recibo_sha256',p_recibo_sha,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
   SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_r.auditoria_ref;
   v_acuse:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref);
  ELSE
   v_acuse:=vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('confirmar_sello_periodico_v1','permitido','recibo_registrado',p_correlacion,jsonb_build_object('captura_ref',p_captura,'recibo_sha256',p_recibo_sha,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
-  INSERT INTO vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 VALUES(p_captura,p_recibo,p_recibo_sha,clock_timestamp(),v_acuse->>'auditoria_ref');
+  INSERT INTO vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 VALUES(p_captura,v_recibo,p_recibo_texto,p_recibo_sha,clock_timestamp(),v_acuse->>'auditoria_ref');
  END IF;
  RETURN v_acuse||jsonb_build_object('captura_ref',p_captura,'recibo_huella_sha256',p_recibo_sha);
 END $f$;
-REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(text,jsonb,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(text,text,text,text) FROM PUBLIC;
+
+CREATE FUNCTION vec_autorizacion_atestada_v3.recuperar_sello_periodico_v1(p_captura text,p_correlacion text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE v_cfg record;v_c record;v_r record;v_a record;v_acuse jsonb;v_confirmacion jsonb;v_salida jsonb;
+BEGIN
+ IF NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
+ THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
+ SELECT * INTO v_cfg FROM vec_autorizacion_atestada_v3.politicas_sello_periodico_v1 ORDER BY version DESC LIMIT 1;
+ SELECT * INTO v_c FROM vec_autorizacion_atestada_v3.capturas_sello_periodico_v1 WHERE captura_ref=p_captura;
+ IF v_c.captura_ref IS NULL OR v_cfg.version IS NULL OR NOT (v_cfg.configuracion->>'activa')::boolean
+ THEN RAISE EXCEPTION 'periodica_recuperacion_denegada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO v_r FROM vec_autorizacion_atestada_v3.recibos_sello_periodico_v1 WHERE captura_ref=p_captura;
+ PERFORM vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','captura_recuperada',p_correlacion,jsonb_build_object('captura_ref',p_captura,'configuracion_sha256',v_cfg.huella_sha256,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
+ SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_c.auditoria_ref;
+ v_acuse:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref);
+ v_salida:=jsonb_build_object('estado','pendiente','captura_ref',p_captura,'configuracion_version',v_c.configuracion_version,'configuracion_sha256',v_cfg.huella_sha256,'pin_spki_sha256',v_cfg.configuracion->>'pin_spki_sha256','checkpoint',v_c.checkpoint,'acuse',v_acuse);
+ IF v_r.captura_ref IS NOT NULL THEN
+  SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_r.auditoria_ref;
+  v_confirmacion:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref,'captura_ref',p_captura,'recibo_huella_sha256',v_r.recibo_sha256);
+  v_salida:=v_salida||jsonb_build_object('estado','confirmado','recibo',v_r.recibo,'acuse_confirmacion',v_confirmacion);
+ END IF;
+ RETURN v_salida;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.recuperar_sello_periodico_v1(text,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_periodico_v1(p_accion text,p_resultado text,p_correlacion text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE v_perfil text;
 BEGIN
- IF p_accion NOT IN('capturar_sello_periodico_v1','confirmar_sello_periodico_v1') OR p_resultado NOT IN('denegado','error')
- OR NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
+ v_perfil:=CASE WHEN p_accion='configurar_sello_periodico_v1' THEN 'vec_auditoria_periodica_configurador' ELSE 'vec_auditoria_periodica_sellador' END;
+ IF p_accion IS NULL OR p_resultado IS NULL OR p_accion NOT IN('configurar_sello_periodico_v1','capturar_sello_periodico_v1','confirmar_sello_periodico_v1') OR p_resultado NOT IN('denegado','error')
+ OR NOT pg_has_role(session_user,v_perfil,'MEMBER')
  THEN RAISE EXCEPTION 'periodica_intento_denegado' USING ERRCODE='42501'; END IF;
- RETURN vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1(p_accion,p_resultado,CASE WHEN p_resultado='denegado' THEN 'operacion_denegada' ELSE 'operacion_error' END,p_correlacion,jsonb_build_object('perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
+ RETURN vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1(p_accion,p_resultado,CASE WHEN p_resultado='denegado' THEN 'operacion_denegada' ELSE 'operacion_error' END,p_correlacion,jsonb_build_object('perfil_tecnico_ref',v_perfil));
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_periodico_v1(text,text,text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_auditoria_periodica_configurador,vec_auditoria_periodica_sellador;
-GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.configurar_sello_periodico_v1(jsonb,text,text) TO vec_auditoria_periodica_configurador;
-GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(text),vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(text,jsonb,text,text),vec_autorizacion_atestada_v3.registrar_intento_periodico_v1(text,text,text) TO vec_auditoria_periodica_sellador;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.configurar_sello_periodico_v1(jsonb,text,text),vec_autorizacion_atestada_v3.registrar_intento_periodico_v1(text,text,text) TO vec_auditoria_periodica_configurador;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.capturar_sello_periodico_v1(text,numeric),vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1(text,text,text,text),vec_autorizacion_atestada_v3.recuperar_sello_periodico_v1(text,text),vec_autorizacion_atestada_v3.registrar_intento_periodico_v1(text,text,text) TO vec_auditoria_periodica_sellador;
 COMMIT;

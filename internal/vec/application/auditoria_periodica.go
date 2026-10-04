@@ -71,6 +71,9 @@ func SellarConfirmarCheckpointPeriodico(ctx context.Context, fuente ports.Fuente
 	if dependenciaPeriodicaNula(f) || dependenciaPeriodicaNula(t) {
 		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
 	}
+	if f.PinCheckpoint() != c.PinSPKISHA256 {
+		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
+	}
 	r, err := EmitirCheckpointDesarrollo(ctx, c.Checkpoint, f, t, maxRegistros)
 	if err != nil {
 		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{err}
@@ -97,11 +100,12 @@ func validarCapturaCheckpointPeriodico(c ports.CapturaCheckpointPeriodico, maxRe
 	}
 	switch c.Estado {
 	case "no_vencido":
-		if c.CapturaRef != "" || c.ConfiguracionVersion != 0 || c.ConfiguracionSHA256 != "" || c.Checkpoint != (domain.CheckpointDesarrollo{}) {
+		if c.CapturaRef != "" || c.ConfiguracionVersion != 0 || c.ConfiguracionSHA256 != "" || c.PinSPKISHA256 != "" || c.Checkpoint != (domain.CheckpointDesarrollo{}) {
 			return ErrCheckpointPeriodicoInvalido
 		}
 	case "pendiente":
 		if !referenciaCheckpointPeriodico.MatchString(c.CapturaRef) || c.ConfiguracionVersion == 0 ||
+			!huellaPeriodicaValida(c.PinSPKISHA256) ||
 			!huellaPeriodicaValida(c.ConfiguracionSHA256) || c.Checkpoint.Cobertura.Registros == 0 ||
 			c.Checkpoint.Cobertura.Registros > maxRegistros || c.Checkpoint.Cobertura.UltimaSecuencia != c.Acuse.Secuencia ||
 			c.Checkpoint.Cobertura.CabezaSHA256 != c.Acuse.HuellaSHA256 {

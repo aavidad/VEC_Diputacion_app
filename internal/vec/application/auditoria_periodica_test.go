@@ -63,7 +63,7 @@ func (p *proveedorPeriodicoPrueba) SellarCheckpoint(_ context.Context, c domain.
 
 func capturaPeriodicaPrueba() ports.CapturaCheckpointPeriodico {
 	return ports.CapturaCheckpointPeriodico{Estado: "pendiente", CapturaRef: "captura:desarrollo:1",
-		ConfiguracionVersion: 1, ConfiguracionSHA256: strings.Repeat("a", 64),
+		ConfiguracionVersion: 1, ConfiguracionSHA256: strings.Repeat("a", 64), PinSPKISHA256: strings.Repeat("b", 64),
 		Checkpoint: domain.CheckpointDesarrollo{Esquema: domain.EsquemaCheckpointDesarrollo,
 			Politica: domain.PoliticaCheckpoint{Version: 1, PoliticaRef: "politica:desarrollo", PoliticaVersion: 1,
 				ClaveRef: "clave:desarrollo", ClaveVersion: 1, ProveedorKMS: "kms:desarrollo", ProveedorKMSVersion: 1,

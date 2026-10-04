@@ -24,6 +24,7 @@ type CapturaCheckpointPeriodico struct {
 	CapturaRef           string
 	ConfiguracionVersion uint64
 	ConfiguracionSHA256  string
+	PinSPKISHA256        string
 	Checkpoint           domain.CheckpointDesarrollo
 	Acuse                AcuseCheckpointPeriodico
 }

@@ -36,11 +36,30 @@ func run(args []string, out, log io.Writer) int {
 	cadena := fs.String("cadena", "", "")
 	ancla := fs.String("ancla", "", "")
 	maxRecibos := fs.Int("max-recibos", 0, "")
+	conexion := fs.String("conexion", "", "")
+	capturaRef := fs.String("captura-ref", "", "")
 	fallo := func() int {
 		_ = json.NewEncoder(out).Encode(map[string]string{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida"})
 		return 1
 	}
-	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion") {
+	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion" && *modo != "ejecutar-periodico") {
+		return fallo()
+	}
+	if *modo == "ejecutar-periodico" {
+		incompatible := false
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "operacion", "config", "conexion", "captura-ref", "kms-master", "tsa-secret":
+			default:
+				incompatible = true
+			}
+		})
+		if incompatible {
+			return fallo()
+		}
+		return runPeriodico(opcionesPeriodicas{Config: *conf, Conexion: *conexion, CapturaRef: *capturaRef, Master: *master, TSA: *tsa}, out, log)
+	}
+	if *conexion != "" || *capturaRef != "" {
 		return fallo()
 	}
 	incompatible := false
