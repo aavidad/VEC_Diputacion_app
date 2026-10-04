@@ -256,6 +256,7 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
 	# Historia propia: POST interno fijo, same-origin/no-store, sólo fechas.
 	static/portal-empleado/modulos/personal/cliente-http-historia-servicios-propia.js
+	static/portal-empleado/modulos/personal/cliente-http-historia-relaciones-propia.js
 	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
 	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
 	# redirect error y no-referrer; misma autorización que el detalle.

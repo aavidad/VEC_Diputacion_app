@@ -1,3 +1,4 @@
+import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
 import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
@@ -97,6 +98,7 @@ function validarResultado(resultado, bloque) {
   if (resultado.fecha_referencia !== undefined && (bloque !== "servicios" || !esFechaCorteServicios(resultado.fecha_referencia))) throw new TypeError("fecha de referencia no válida");
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items,
     ...(resultado.fecha_referencia ? { fecha_referencia: resultado.fecha_referencia } : {}),
+    ...(bloque === "relaciones" ? { historia_relaciones_disponible: resultado.historia_relaciones_disponible === true } : {}),
     ...(bloque === "servicios" ? { exportacion_servicios_disponible: resultado.exportacion_servicios_disponible === true, historia_servicios_disponible: resultado.historia_servicios_disponible === true } : {}),
     ...(bloque === "servicios" && referenciaExportacionServiciosValida(resultado.recibo_ref, resultado.corte) && resultado.corte.vigente_en === resultado.fecha_referencia ? { recibo_ref: resultado.recibo_ref, corte: Object.freeze({ ...resultado.corte }) } : {}) };
 }
@@ -156,8 +158,8 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
     const estado = mensaje(d, ""); estado.dataset.personalServiciosExportacionEstado = ""; estado.setAttribute("aria-live", "polite"); resumen.append(estado);
     piezas.push(mensaje(d, traducirExportacionServicios("alcance")), resumen);
   }
-  if (bloque === "servicios" && typeof abrirHistoria === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
-    const boton=nodo(d,"button",t("ficha_ver_historia_servicios"));boton.type="button";boton.className="boton-secundario";boton.dataset.personalHistoriaAbrir="";
+  if (["servicios", "relaciones"].includes(bloque) && typeof abrirHistoria === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
+    const boton=nodo(d,"button",t(bloque === "servicios" ? "ficha_ver_historia_servicios" : "ficha_ver_historia_relaciones"));boton.type="button";boton.className="boton-secundario";boton.dataset.personalHistoriaAbrir="";
     boton.addEventListener("click",abrirHistoria);piezas.push(boton);
   }
   if (typeof actualizar === "function" && (["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado) || resultado.aviso_exportacion === "sesion_caducada")) {
@@ -290,10 +292,11 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
           }
         }
       } : undefined;
-      const abrirHistoria = clave === "servicios" && resultado.historia_servicios_disponible === true && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
+      const historiaDisponible = clave === "servicios" ? resultado.historia_servicios_disponible === true : clave === "relaciones" && resultado.historia_relaciones_disponible === true;
+      const abrirHistoria = historiaDisponible && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
         if (!activa || turno!==secuencia || limpiarHistoria) return;
         const hueco=nodo(d,"div");hueco.className="personal-ficha-panel-ancho personal-ficha-tabla-conjunto";hueco.dataset.personalHistoriaHueco="";principal.append(hueco);
-        montarVistaHistoriaServiciosPropia({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar("servicios",true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
+        (clave === "servicios" ? montarVistaHistoriaServiciosPropia : montarVistaHistoriaRelacionesPropia)({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar(clave,true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
         hueco.querySelector?.('[data-personal-historia-fecha="desde"]')?.focus?.();
         const boton=principal.querySelector?.('[data-personal-historia-abrir]');if(boton)boton.disabled=true;
       } : undefined;
