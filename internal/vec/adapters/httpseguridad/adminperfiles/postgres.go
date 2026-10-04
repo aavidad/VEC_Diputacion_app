@@ -49,12 +49,12 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 	err = p.transaccion(ctx, func(tx pgx.Tx) error {
 		sub, err := tx.Begin(ctx)
 		if err != nil {
-			return err
+			return api.ErrConfiguracionIncompleta
 		}
 		defer sub.Rollback(ctx)
 		var bruto, acuse []byte
 		if err := sub.QueryRow(ctx, consultarCuenta, args...).Scan(&bruto, &acuse); err != nil {
-			return err
+			return errorConsultaIS16(err)
 		}
 		datos, denegacion, err := leerResultadoIS16(bruto, acuse, args[9].(string), args[10].(string), p.reloj.Ahora())
 		if err != nil {
@@ -62,17 +62,17 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 		}
 		decision = denegacion
 		if decision != nil {
-			return sub.Commit(ctx)
+			return confirmarSubtransaccionIS16(ctx, sub)
 		} // conserva auditoría de denegación.
 		cuenta, err = p.cuentaDesdeFuente(ctx, o, datos)
 		if err == nil {
-			return sub.Commit(ctx)
+			return confirmarSubtransaccionIS16(ctx, sub)
 		}
 		if err = sub.Rollback(ctx); err != nil {
-			return err
+			return api.ErrConfiguracionIncompleta
 		}
 		if err = tx.QueryRow(ctx, `SELECT resultado,acuse FROM vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1($1,$2)`, args[9], args[10]).Scan(&bruto, &acuse); err != nil {
-			return err
+			return errorConsultaIS16(err)
 		}
 		_, decision, err = leerResultadoIS16(bruto, acuse, args[9].(string), args[10].(string), p.reloj.Ahora())
 		if err != nil || decision == nil {
@@ -114,7 +114,7 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 	// Una carrera en esta lectura/binder obliga a obtener evidencia F nueva.
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: aislamiento, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return err
+		return api.ErrConfiguracionIncompleta
 	}
 	defer func() {
 		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -122,12 +122,15 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 		_ = tx.Rollback(c)
 	}()
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','4s',true),set_config('statement_timeout','8s',true)`); err != nil {
-		return err
+		return api.ErrConfiguracionIncompleta
 	}
 	if err = fn(tx); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return api.ErrConfiguracionIncompleta
+	}
+	return nil
 }
 
 var _ FuenteCuentasADMIN = (*PostgreSQL)(nil)

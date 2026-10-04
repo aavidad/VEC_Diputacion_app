@@ -7,10 +7,12 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -267,7 +269,7 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 	err = p.transaccion(ctx, func(tx pgx.Tx) error {
 		var bruto, acuse []byte
 		if err := tx.QueryRow(ctx, vincularSesion, args...).Scan(&bruto, &acuse); err != nil {
-			return err
+			return errorConsultaIS16(err)
 		}
 		datos, denegada, err := leerResultadoIS16(bruto, acuse, evento.(string), correlacion.(string), p.reloj.Ahora())
 		if err != nil {
@@ -338,3 +340,20 @@ func decodificarVinculoIS16(bruto []byte) (VinculoSesionADMIN, error) {
 }
 
 var _ FuenteCuentasADMINConAcuse = (*PostgreSQL)(nil)
+
+// Una denegación funcional sólo procede del envelope confirmado con ACK.
+// Un 42501 técnico no tiene ese acuse; no se presenta como decisión funcional.
+func errorConsultaIS16(err error) error {
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) && pg.Code == "40001" {
+		return api.ErrConflictoEstado
+	}
+	return api.ErrConfiguracionIncompleta
+}
+
+func confirmarSubtransaccionIS16(ctx context.Context, tx pgx.Tx) error {
+	if tx.Commit(ctx) != nil {
+		return api.ErrConfiguracionIncompleta
+	}
+	return nil
+}

@@ -207,7 +207,7 @@ CREATE FUNCTION vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(
  p_crl_hasta timestamptz,p_certificado_hasta timestamptz,p_aut text,p_ses text,p_esperada jsonb,p_vis text,p_evento text,p_correlacion text)
 RETURNS TABLE(resultado jsonb,acuse jsonb)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
-DECLARE cfg vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;c jsonb;s record;v vec_identidad_sesiones_v1.vinculo_sesion_admin_v1;doc jsonb;obs jsonb;plan text;a jsonb;estado text:='permitido';hasta timestamptz;instante timestamptz;h text; BEGIN
+DECLARE cfg vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;cfg_final vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;c jsonb;s record;v vec_identidad_sesiones_v1.vinculo_sesion_admin_v1;doc jsonb;obs jsonb;plan text;a jsonb;estado text:='permitido';hasta timestamptz;instante timestamptz;h text;metodo text; BEGIN
  cfg:=vec_identidad_sesiones_v1.exigir_runtime_admin_perfiles_v1();
  BEGIN
   IF p_vis IS NULL OR p_vis !~ '^vis_[0-9a-f]{32}$' OR cfg.entorno IS DISTINCT FROM p_entorno OR cfg.host_admin IS DISTINCT FROM p_host OR cfg.audiencia IS DISTINCT FROM p_audiencia
@@ -221,6 +221,7 @@ DECLARE cfg vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;c jsonb;s
   OR s.politica_garantia_ref IS DISTINCT FROM c->>'politica_garantia_ref' OR s.politica_garantia_huella_sha256 IS DISTINCT FROM c->>'politica_garantia_huella_sha256'
   OR s.autenticacion_verificada_en IS DISTINCT FROM p_autenticada
   THEN RAISE EXCEPTION 'IS16: sesión divergente' USING ERRCODE='42501'; END IF;
+  metodo:=s.metodo_observado;
   obs:=jsonb_build_object('entorno',p_entorno,'host',p_host,'audiencia',p_audiencia,'certificado',p_certificado,'ca',p_ca,'autenticada',p_autenticada,'revocada',p_revocada,'crl_hasta',p_crl_hasta,'certificado_hasta',p_certificado_hasta);
   plan:=encode(sha256(convert_to(jsonb_build_object('observacion',obs,'esperada',p_esperada,'aut',p_aut,'ses',p_ses,'vis',p_vis,'evento',p_evento,'correlacion',p_correlacion)::text,'UTF8')),'hex');
   PERFORM pg_advisory_xact_lock(hashtextextended('vec:is16:sesion:'||p_ses,0));
@@ -230,6 +231,13 @@ DECLARE cfg vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;c jsonb;s
    SELECT * INTO STRICT s FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_is_v1(v.evento);
    a:=jsonb_build_object('auditoria_ref',s.auditoria_ref,'secuencia',s.secuencia,'huella_sha256',s.huella_sha256,'correlacion_ref',s.correlacion_ref,'registrada_en',s.registrada_en);
    IF a IS DISTINCT FROM v.acuse THEN RAISE EXCEPTION 'IS16: acuse original ausente' USING ERRCODE='55000'; END IF;
+   -- El ACK puede esperar un cerrojo. Revalidar después de esa espera, dentro
+   -- de la misma subtransacción, sin reescribir el evento ni el vínculo.
+   cfg_final:=vec_identidad_sesiones_v1.exigir_runtime_admin_perfiles_v1();
+   IF cfg_final IS DISTINCT FROM cfg
+   OR vec_identidad_sesiones_v1.cuenta_admin_propietaria_v1(p_entorno,p_host,p_audiencia,p_certificado,p_ca,p_autenticada,p_revocada,p_crl_hasta,p_certificado_hasta,cfg_final.espacio_identidad,cfg_final.vigente_hasta) IS DISTINCT FROM c
+   OR vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(v.referencia,v.version,v.huella_sha256,p_aut,p_ses,v.cuenta_ref,v.documento->>'perfil_activo_ref',clock_timestamp(),metodo) IS NULL
+   THEN RAISE EXCEPTION 'IS16: replay sin autoridad vigente tras acuse' USING ERRCODE='42501'; END IF;
    RETURN QUERY SELECT jsonb_build_object('estado','permitido','datos',v.documento),v.acuse;RETURN;
   END IF;
   instante:=clock_timestamp();hasta:=LEAST((c->>'vigente_hasta')::timestamptz,s.sesion_valida_hasta);

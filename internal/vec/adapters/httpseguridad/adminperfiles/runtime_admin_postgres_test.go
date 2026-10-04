@@ -104,9 +104,15 @@ func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {
 	}
 }
 
-type filaIS16Prueba struct{ resultado, acuse []byte }
+type filaIS16Prueba struct {
+	resultado, acuse []byte
+	err              error
+}
 
 func (f filaIS16Prueba) Scan(destinos ...any) error {
+	if f.err != nil {
+		return f.err
+	}
 	*destinos[0].(*[]byte) = f.resultado
 	*destinos[1].(*[]byte) = f.acuse
 	return nil
@@ -119,10 +125,13 @@ type txIS16Prueba struct {
 }
 
 func (tx *txIS16Prueba) Begin(context.Context) (pgx.Tx, error) {
+	if tx.pool.falloSubBegin != nil {
+		return nil, tx.pool.falloSubBegin
+	}
 	return &txIS16Prueba{pool: tx.pool, sub: true}, nil
 }
-func (*txIS16Prueba) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
+func (tx *txIS16Prueba) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, tx.pool.falloSet
 }
 func (tx *txIS16Prueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	p := tx.pool
@@ -144,7 +153,7 @@ func (tx *txIS16Prueba) QueryRow(_ context.Context, consulta string, args ...any
 	if !tx.sub {
 		bruto = []byte(`{"estado":"error","datos":null}`)
 	}
-	return filaIS16Prueba{bruto, a}
+	return filaIS16Prueba{resultado: bruto, acuse: a, err: p.falloQuery}
 }
 func (tx *txIS16Prueba) Rollback(context.Context) error {
 	if tx.sub {
@@ -155,20 +164,27 @@ func (tx *txIS16Prueba) Rollback(context.Context) error {
 func (tx *txIS16Prueba) Commit(context.Context) error {
 	if tx.sub {
 		tx.pool.subconfirmadas++
+		return tx.pool.falloSubCommit
 	} else {
 		tx.pool.confirmadas++
+		return tx.pool.falloCommit
 	}
-	return nil
 }
 
 type poolIS16Prueba struct {
-	ahora                                          time.Time
-	cuenta                                         []byte
-	lecturas, errores, confirmadas, subconfirmadas int
-	revertida                                      bool
+	ahora                                                                        time.Time
+	cuenta                                                                       []byte
+	lecturas, errores, confirmadas, subconfirmadas                               int
+	revertida                                                                    bool
+	inicios                                                                      int
+	falloBegin, falloSubBegin, falloSet, falloQuery, falloSubCommit, falloCommit error
 }
 
 func (p *poolIS16Prueba) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	p.inicios++
+	if p.falloBegin != nil {
+		return nil, p.falloBegin
+	}
 	return &txIS16Prueba{pool: p}, nil
 }
 func (*poolIS16Prueba) QueryRow(context.Context, string, ...any) pgx.Row {

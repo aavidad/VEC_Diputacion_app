@@ -23,6 +23,9 @@ cerrado `{estado, datos}` y un acuse AD192 de cinco campos. Go valida referencia
 secuencia, huella, correlación e instante antes del COMMIT o de usar los datos.
 La denegación se confirma antes de devolver el error funcional. Un acuse
 inválido, un fallo de transacción o un COMMIT incierto no devuelven éxito.
+BEGIN, SET, RELEASE y COMMIT fallidos devuelven configuración incompleta,
+sin datos ni reintento. Un 42501 de QUERY sin envelope y acuse confirmados
+tampoco se presenta como denegación funcional.
 
 SQL devuelve referencias opacas y las coordenadas/HMAC del acto inicial exacto.
 `NuevoPostgreSQLConFuenteADMIN` exige el proveedor original de SujetoID, CuentaID
@@ -31,7 +34,9 @@ sus coordenadas, sin derivar identificadores desde PersonaRef ni desde digests.
 El constructor antiguo conserva su firma y deniega sin esa fuente.
 
 El lector opcional de archivo privado exige SHA aprobado, objeto cerrado,
-versión 1, archivo regular sin acceso de grupo/otros y un máximo de 32 KiB.
+versión 1 y un máximo de 32 KiB. Reutiliza el protocolo privado existente:
+ruta absoluta limpia, padre propio 0700, sin Git ni enlaces en sus ancestros,
+raíz `os.Root` y archivo regular propio 0600 que no sea un enlace.
 El archivo lo entrega el productor original. No hay ejemplo de identidad real
 ni generación alternativa de preimágenes. Cuenta y fuente redactan JSON,
 formato y logs para impedir que salgan identificadores o material SQL.
@@ -47,7 +52,9 @@ El vínculo `vis_` usa 128 bits CSPRNG y conserva versión, SHA, autenticación,
 sesión, persona, ambas cuentas, perfil, certificado/CA, política, revisión de
 selección, control de sesión y fuente. Es inmutable. El replay sólo admite el
 mismo plan, referencia, evento, operador y acuse original; nunca elige otra
-sesión por cuenta. El adaptador no reinvoca un vínculo ante COMMIT incierto.
+sesión por cuenta. Tras cotejar el acuse revalida configuración, cuenta, sesión
+y ventanas del vínculo dentro de la misma subtransacción. El evento original
+permanece intacto. El adaptador no reinvoca un vínculo ante COMMIT incierto.
 
 La fachada propietaria para CA36 es:
 
@@ -83,6 +90,13 @@ fuente; acuses ajenos/incompletos/futuros; JSON con claves repetidas o ajenas;
 y redacción de identificadores. Usan dobles aislados del contrato, no una
 sesión productiva. El vector SQL comprueba ACL y ausencia bajo ambas transacciones;
 su ejecución queda pendiente del ensayo autorizado.
+
+El ensayo PostgreSQL del replay sigue pendiente. Con un vínculo real, debe
+retener el cerrojo `vec:is16:sesion:<sesion_ref>`, iniciar el replay exacto y
+comprobar que espera. Si una ventana de configuración, sesión o vínculo vence
+durante esa espera, al liberar el cerrojo no puede devolver el recibo permitido.
+Se comparan después las huellas del evento y vínculo originales, sin cambiar
+el reloj ni renovar fuentes para superar el caso.
 
 Falta localizar el archivo o productor original de las preimágenes del ejercicio
 privado actual. El plan de fuentes y el material HMAC conservados sólo contienen

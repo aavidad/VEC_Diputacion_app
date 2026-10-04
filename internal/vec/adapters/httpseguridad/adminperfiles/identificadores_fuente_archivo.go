@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -38,18 +39,8 @@ func NuevaFuenteIdentificadoresADMINDesdeArchivo(ruta, shaAprobado string) (Fuen
 	if !huella(shaAprobado) || ruta == "" {
 		return nil, api.ErrConfiguracionIncompleta
 	}
-	fd, err := syscall.Open(ruta, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
+	b, err := leerArchivoPrivadoIdentificadoresADMIN(ruta)
 	if err != nil {
-		return nil, api.ErrConfiguracionIncompleta
-	}
-	f := os.NewFile(uintptr(fd), "fuente-identificadores-admin")
-	defer f.Close()
-	st, err := f.Stat()
-	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 || st.Size() < 1 || st.Size() > 32768 {
-		return nil, api.ErrConfiguracionIncompleta
-	}
-	b, err := io.ReadAll(io.LimitReader(f, 32769))
-	if err != nil || len(b) > 32768 {
 		return nil, api.ErrConfiguracionIncompleta
 	}
 	defer clear(b)
@@ -79,6 +70,63 @@ func NuevaFuenteIdentificadoresADMINDesdeArchivo(ruta, shaAprobado string) (Fuen
 		}
 	}
 	return &fuenteIdentificadoresArchivoADMIN{doc.Entradas}, nil
+}
+
+// Reutiliza el protocolo de cmd/vec-mantener-admin-fijo/archivos.go:
+// raíz privada propia, sin repositorio ni enlaces en la ruta y archivo propio.
+func leerArchivoPrivadoIdentificadoresADMIN(ruta string) ([]byte, error) {
+	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	padre := filepath.Dir(ruta)
+	real, err := filepath.EvalSymlinks(padre)
+	if err != nil || real != padre {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	i, err := os.Lstat(padre)
+	if err != nil || !i.IsDir() || i.Mode().Perm() != 0700 || !archivoIdentificadoresADMINPropio(i) {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	for actual := padre; actual != "/"; actual = filepath.Dir(actual) {
+		marca := filepath.Join(actual, ".git")
+		if info, e := os.Lstat(marca); e == nil {
+			if !info.IsDir() {
+				return nil, api.ErrConfiguracionIncompleta
+			}
+			if _, e := os.Lstat(filepath.Join(marca, "HEAD")); e == nil {
+				return nil, api.ErrConfiguracionIncompleta
+			}
+		}
+	}
+	root, err := os.OpenRoot(padre)
+	if err != nil {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	defer root.Close()
+	abierta, err := root.Stat(".")
+	if err != nil || !abierta.IsDir() || abierta.Mode().Perm() != 0700 || !archivoIdentificadoresADMINPropio(abierta) {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	f, err := root.OpenFile(filepath.Base(ruta), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	defer f.Close()
+	i, err = f.Stat()
+	if err != nil || !i.Mode().IsRegular() || i.Mode().Perm() != 0600 || !archivoIdentificadoresADMINPropio(i) || i.Size() < 1 || i.Size() > 32768 {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	b, err := io.ReadAll(io.LimitReader(f, 32769))
+	if err != nil || int64(len(b)) != i.Size() {
+		clear(b)
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	return b, nil
+}
+
+func archivoIdentificadoresADMINPropio(i os.FileInfo) bool {
+	s, ok := i.Sys().(*syscall.Stat_t)
+	return ok && int64(s.Uid) == int64(os.Getuid())
 }
 
 func identificadorOriginalADMIN(id string) bool {
