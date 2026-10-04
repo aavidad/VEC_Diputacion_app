@@ -90,7 +90,7 @@ func resultadoFronteraNominal(codigo string) (domain.ResultadoIntentoAuditoria, 
 	switch codigo {
 	case "solicitud_invalida", "metodo_no_permitido", "acceso_denegado", "autenticacion_requerida", "conflicto_estado", "recurso_no_encontrado":
 		return domain.ResultadoIntentoAuditoriaDenegado, true
-	case "servicio_no_disponible":
+	case "servicio_no_disponible", "respuesta_incompatible":
 		return domain.ResultadoIntentoAuditoriaError, true
 	default:
 		return "", false

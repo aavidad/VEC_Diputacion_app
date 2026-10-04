@@ -20,7 +20,7 @@ consumir la correlación interna de la petición. Este corte no cambia ese
 proveedor ni usa la referencia como permiso.
 
 Los códigos de rechazo de entrada se registran como `denegado` y
-`servicio_no_disponible` como `error`. La orden se envía con un plazo propio
+`servicio_no_disponible` y `respuesta_incompatible` como `error`. La orden se envía con un plazo propio
 después de retirar la cancelación de la petición. Si el COMMIT del registrador
 es ambiguo, se reintenta la misma orden; la respuesta HTTP solo sigue después
 de recibir y validar el acuse. Sin identidad V2 acreditada se devuelve

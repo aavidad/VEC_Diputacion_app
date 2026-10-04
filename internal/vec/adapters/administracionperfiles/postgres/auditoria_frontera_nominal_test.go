@@ -193,3 +193,26 @@ func TestFronteraNominalErrorDeRespuestaUsaMotivoErrorYRecursoPrivado(t *testing
 		t.Fatalf("error de frontera filtró datos: %+v", x)
 	}
 }
+
+func TestFronteraNominalRespuestaIncompatibleDePersonaAuditaError(t *testing.T) {
+	espia := &registroFronteraPrueba{ahora: time.Now().UTC()}
+	a, err := NuevaAuditorFronteraNominal(espia, configFronteraPrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	persona := "per_" + strings.Repeat("p", 22)
+	ctx, d := denegacionFronteraPrueba(t, "consultar_persona", "respuesta_incompatible", persona)
+	d.ActorPersonaRef = "SECRETcuerpoRRHH"
+	d.PerfilActivoRef = "SECRETcabecera"
+	if err := a.RegistrarDenegacionADMIN(ctx, d); err != nil {
+		t.Fatal(err)
+	}
+	if espia.llamadas != 1 || len(espia.ordenes) != 1 {
+		t.Fatal("respuesta incompatible sin acuse común")
+	}
+	datos := espia.ordenes[0].Datos
+	if datos.Resultado != domain.ResultadoIntentoAuditoriaError || datos.RecursoRef != persona || datos.Accion != "administracion.usuarios.consultar" ||
+		strings.Contains(datos.RecursoRef, "SECRET") || espia.ordenes[0].ResultadoContexto.Contexto.PersonaRef != d.Actor.PersonaRef {
+		t.Fatalf("error de ficha mal registrado: %+v", datos)
+	}
+}
