@@ -27,9 +27,9 @@ export function montarVistaContactoPropio({ raiz, fetchImpl, cliente, abrirCorre
   const panel = nodo(d, "section"); panel.className = "panel personal-ficha-panel personal-ficha-panel-ancho";
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-panel"; cabecera.append(nodo(d, "h3", t("titulo")));
   const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel";
-  const contenido = nodo(d, "div");
-  const estado = nodo(d, "p"); estado.setAttribute("role", "status"); estado.dataset.personalContactoEstado = "";
-  const acciones = nodo(d, "div"); acciones.className = "acciones-fila";
+  const contenido = nodo(d, "div"); contenido.className = "personal-ficha-tabla-conjunto";
+  const estado = nodo(d, "p"); estado.className = "personal-ficha-procedencia"; estado.setAttribute("role", "status"); estado.dataset.personalContactoEstado = "";
+  const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
   const actualizar = nodo(d, "button", t("actualizar")); actualizar.type = "button"; actualizar.className = "boton-secundario"; actualizar.dataset.personalContactoActualizar = "";
   acciones.append(actualizar);
   if (typeof abrirCorreos === "function") {
