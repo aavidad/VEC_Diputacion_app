@@ -378,7 +378,18 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, co
 
 // El retorno exitoso del resolutor fija la fase aunque su sesión sea inválida.
 func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
-	registro := DenegacionADMIN{Codigo: "respuesta_incompatible", SesionResuelta: true}
+	registro := DenegacionADMIN{Codigo: "respuesta_incompatible", Accion: "consultar", SesionResuelta: true}
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	ref, err := correlacion.ValorCanonico()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	registro.CorrelacionRef = ref
 	actor, err := s.Actor.Clonar()
 	if err == nil {
 		resultado, err := s.Evidencia.ResultadoContexto.Clonar()
@@ -389,7 +400,6 @@ func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Reque
 				registro.Evidencia = evidencia
 				registro.ActorPersonaRef = actor.PersonaRef
 				registro.PerfilActivoRef = actor.PerfilActivoRef
-				registro.CorrelacionRef = s.CorrelacionRef
 			}
 		}
 	}

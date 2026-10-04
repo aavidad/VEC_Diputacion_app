@@ -13,6 +13,11 @@ el mismo evento si el COMMIT queda incierto. Después de una sesión resuelta,
 la marca privada `SesionResuelta` impide volver a la familia técnica. Un V2
 usable mantiene actor y evidencia originales para la auditoría nominal; un V2
 incompatible cierra con 503 y no inventa una Persona ni oculta errores de AD169.
+Si el V2 original sigue usable, el rechazo usa la acción cerrada `consultar`
+del catálogo privado y la correlación privada original del middleware, aunque
+la instantánea o la correlación devueltas por el resolutor sean incompatibles.
+El vector atraviesa handler, compuesto y auditor nominal: confirma un append
+ERROR con ese V2 antes de escribir el 503, sin registrar nada en AD189.
 
 Los rechazos de host, red, cadena o CRL que llegan al handler HTTP pasan por
 ese auditor antes de responder. Si no se confirma el registro, devuelve 503.
