@@ -2,13 +2,14 @@ import {
   minutosJornadaCompletaValidos,
   motivoUrgenciaValido,
   normalizarDuracionesMaximas,
+  normalizarModalidadesAnalisis,
   periodoSuperaDuracionMaxima,
   validarDatosPreviosAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
-} from "./contrato-analisis.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+} from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -156,9 +157,7 @@ function normalizarCatalogos(entrada, rectificacion) {
   const minutosJornadaCompleta = exigirMinutosJornadaCompleta(entrada.jornada_completa_minutos_semanales);
   // Las modalidades las publica el catálogo del servidor: aquí solo se exige
   // su forma, nunca una lista fija.
-  const modalidades = normalizarOpciones(entrada.modalidades, {
-    nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
-  });
+  const modalidades = normalizarModalidadesAnalisis(entrada.modalidades);
   const duraciones = tieneDuraciones
     ? normalizarDuracionesMaximas(entrada.duraciones_maximas, modalidades) : Object.freeze([]);
   if (tieneUrgencia && typeof entrada.urgencia_disponible !== "boolean") {
@@ -229,6 +228,10 @@ function duracionDeModalidad(catalogos, modalidad) {
   return catalogos.duraciones_maximas.find(({ modalidad_clave: clave }) => clave === modalidad) ?? null;
 }
 
+function reglaFin(catalogos, modalidad) {
+  return catalogos.modalidades.find(({ clave }) => clave === modalidad) ?? null;
+}
+
 // Texto legible de la duración máxima («9 meses», «3 años»).
 function textoDuracion(duracion, t) {
   const numero = duracion.cantidad === 1 ? "uno" : "otros";
@@ -263,7 +266,7 @@ function normalizarContexto(contexto) {
 function crearBorrador(analisis = null) {
   return analisis === null ? {
     modalidad_clave: "", categoria_ref: "", grupo_subgrupo: "", causa_clave: "",
-    inicio: "", fin: "", porcentaje_jornada: "", entrada_rc_referencia: "",
+    inicio: "", fin: "", causa_fin: "", porcentaje_jornada: "", entrada_rc_referencia: "",
     motivo_rectificacion_clave: "", observaciones: "", urgente: false, urgencia_motivo: "",
   } : {
     modalidad_clave: analisis.modalidad_clave,
@@ -271,7 +274,8 @@ function crearBorrador(analisis = null) {
     grupo_subgrupo: analisis.grupo_subgrupo,
     causa_clave: analisis.causa_clave,
     inicio: analisis.periodo.inicio.slice(0, 10),
-    fin: analisis.periodo.fin.slice(0, 10),
+    fin: analisis.periodo.fin?.slice(0, 10) ?? "",
+    causa_fin: analisis.periodo.causa_fin ?? "",
     porcentaje_jornada: String(analisis.porcentaje_jornada),
     entrada_rc_referencia: analisis.entrada_rc.referencia,
     motivo_rectificacion_clave: "",
@@ -320,7 +324,8 @@ function validarBorrador(borrador, catalogos, rectificacion) {
   const categoria = catalogos.categorias.find(
     ({ referencia }) => referencia === borrador.categoria_ref,
   );
-  if (!catalogos.modalidades.some(({ clave }) => clave === borrador.modalidad_clave)) {
+  const modalidad = reglaFin(catalogos, borrador.modalidad_clave);
+  if (!modalidad) {
     errores.modalidad_clave = "opcion";
   }
   if (!categoria) errores.categoria_ref = "opcion";
@@ -331,11 +336,15 @@ function validarBorrador(borrador, catalogos, rectificacion) {
     errores.causa_clave = "opcion";
   }
   if (!fechaCivilValida(borrador.inicio)) errores.inicio = "fecha";
-  if (!fechaCivilValida(borrador.fin)) errores.fin = "fecha";
-  if (!errores.inicio && !errores.fin
+  if (modalidad?.fecha_fin === "no_aplica" && borrador.fin !== "") errores.fin = "fecha_no_aplica";
+  else if (borrador.fin === "" && modalidad?.fecha_fin === "obligatoria") errores.fin = "fecha";
+  else if (borrador.fin !== "" && !fechaCivilValida(borrador.fin)) errores.fin = "fecha";
+  if (borrador.fin === "" && modalidad && modalidad.fecha_fin !== "obligatoria"
+    && !modalidad.causa_fin) errores.fin = "causa_fin";
+  if (!errores.inicio && !errores.fin && borrador.fin !== ""
     && !periodoDentroDelMaximo(borrador.inicio, borrador.fin)) errores.fin = "periodo";
   const duracion = duracionDeModalidad(catalogos, borrador.modalidad_clave);
-  if (!errores.inicio && !errores.fin && duracion?.bloquear
+  if (!errores.inicio && !errores.fin && borrador.fin !== "" && duracion?.bloquear
     && periodoSuperaDuracionMaxima(duracion, borrador.inicio, borrador.fin)) {
     errores.fin = "duracion_maxima";
   }
@@ -417,6 +426,21 @@ function campoEntrada(estado, t, campo, tipo, claveEtiqueta, atributos = "") {
       escaparHTML(estado.borrador[campo])}" ${atributosCampo(estado, campo)} ${atributos}>
     ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
       escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
+  </div>`;
+}
+
+function campoFin(estado, catalogos, t) {
+  const modalidad = reglaFin(catalogos, estado.borrador.modalidad_clave);
+  const regla = modalidad?.fecha_fin ?? "obligatoria";
+  const sinFecha = regla === "no_aplica" || estado.borrador.fin === "" && regla === "opcional";
+  const causa = sinFecha && modalidad?.causa_fin ? t(`causa_fin_${modalidad.causa_fin}`) : "";
+  return `<div class="ct-campo">
+    ${regla === "no_aplica" ? `<span>${escaparHTML(t("analisis_fin"))}</span>`
+      : `<label for="ct-analisis-fin">${escaparHTML(t("analisis_fin"))}${regla === "obligatoria" ? ' <b aria-hidden="true">*</b>' : ""}</label>`}
+    ${regla === "no_aplica" ? "" : `<input id="ct-analisis-fin" name="fin" type="date"${regla === "obligatoria" ? " required" : ""}
+      value="${escaparHTML(estado.borrador.fin)}" ${atributosCampo(estado, "fin")}>`}
+    ${causa ? `<p class="ct-aviso-campo" role="status">${escaparHTML(causa)}</p>` : ""}
+    ${estado.errores.fin ? `<span class="ct-error-campo" id="ct-analisis-fin-error">${escaparHTML(mensajeCampo(t, estado.errores.fin))}</span>` : ""}
   </div>`;
 }
 
@@ -512,7 +536,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
         ${campoSeleccion(estado, t, "grupo_subgrupo", "analisis_grupo", categoria?.grupos_subgrupos ?? [], "clave")}
         ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", catalogos.causas, "clave")}
         ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio")}
-        ${campoEntrada(estado, t, "fin", "date", "analisis_fin")}
+        ${campoFin(estado, catalogos, t)}
         <p class="ct-aviso-campo" id="ct-analisis-aviso-duracion" data-ct-analisis-aviso-duracion
           role="status" aria-live="polite" aria-atomic="true">${escaparHTML(textoAvisoDuracion(estado.borrador, catalogos, t))}</p>
         ${campoJornada(estado, t, formateadorJornada, catalogos.jornada_completa_minutos_semanales)}
@@ -643,7 +667,8 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       categoria_ref: previo.categoria_ref,
       causa_clave: previo.causa_clave,
       inicio: previo.periodo.inicio.slice(0, 10),
-      fin: previo.periodo.fin.slice(0, 10),
+      fin: previo.periodo.fin?.slice(0, 10) ?? "",
+      causa_fin: previo.periodo.causa_fin ?? "",
       porcentaje_jornada: String(previo.porcentaje_jornada),
       observaciones: previo.observaciones ?? "",
     };
@@ -708,7 +733,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       categoria_ref: entrada.categoria_ref,
       grupo_subgrupo: entrada.grupo_subgrupo,
       causa_clave: entrada.causa_clave,
-      periodo: { inicio: `${entrada.inicio}T00:00:00Z`, fin: `${entrada.fin}T00:00:00Z` },
+      periodo: { inicio: `${entrada.inicio}T00:00:00Z`,
+        ...(entrada.fin ? { fin: `${entrada.fin}T00:00:00Z` }
+          : { causa_fin: reglaFin(catalogos, entrada.modalidad_clave).causa_fin }) },
       porcentaje_jornada: Number(entrada.porcentaje_jornada),
       entrada_rc: { referencia: rc.referencia, huella_sha256: rc.huella_sha256 },
     };
@@ -837,6 +864,25 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   }
 
   function alCambiar(evento) {
+    if (evento.target?.name === "modalidad_clave" && !estado.ocupado) {
+      const formulario = evento.target.closest?.("[data-ct-analisis-form]");
+      if (!formulario || !raizActual.contains(formulario)) return;
+      const siguiente = extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales);
+      if (reglaFin(catalogos, siguiente.modalidad_clave)?.fecha_fin === "no_aplica") siguiente.fin = "";
+      estado = { ...estado, borrador: siguiente, errores: {} };
+      repintar("#ct-analisis-modalidad_clave");
+      return;
+    }
+    if (evento.target?.name === "fin" && !estado.ocupado) {
+      const formulario = evento.target.closest?.("[data-ct-analisis-form]");
+      if (!formulario || !raizActual.contains(formulario)) return;
+      estado = { ...estado,
+        borrador: extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales),
+        errores: {} };
+		repintar("#ct-analisis-fin");
+		actualizarAvisoDuracion(formulario);
+		return;
+    }
     if (["modalidad_clave", "inicio", "fin"].includes(evento.target?.name) && !estado.ocupado) {
       const formulario = evento.target.closest?.("[data-ct-analisis-form]");
       if (formulario && raizActual.contains(formulario)) actualizarAvisoDuracion(formulario);

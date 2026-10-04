@@ -108,6 +108,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaEstadisticasBolsaRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaAvisosBolsaRRHHDesarrollo, Manejador: manejador},
+			{Ruta: bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH, Manejador: manejador},
 		},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -145,6 +146,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esContratos {
 		_, _, esContratos = bolsahttp.ReferenciasRutaContratosParticipacion(r)
 	}
+	esSolicitudesDocumentales := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodGet && r.URL != nil && r.URL.Path == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH
 	esSancion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esSancion {
 		_, _, _, esSancion = bolsahttp.ReferenciasRutaSancionesParticipacion(r)
@@ -152,7 +154,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -161,7 +163,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
@@ -514,7 +516,7 @@ func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, ha
 		p := politica[0]
 		criterio = map[string]any{"politica_ref": p.Referencia, "version": p.Version, "criterio": p.Criterio, "tipo_lista": p.TipoLista, "reposicion": p.Reposicion, "provisional": p.Provisional, "rotulo": p.Rotulo, "actor": p.Actor, "vigente_desde": p.VigenteDesde}
 	}
-	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["trabajando"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia"] + conteo["pendiente_incorporacion"] + conteo["disponible_desde"], "por_estado": conteo, "llamamientos_en_curso": llamamientos, "politica_orden": criterio}
+	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["trabajando"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia"] + conteo["pendiente_incorporacion"] + conteo["disponible_desde"] + conteo["en_revision"], "por_estado": conteo, "llamamientos_en_curso": llamamientos, "politica_orden": criterio}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
@@ -603,7 +605,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 }
 
 func mapaEstadosVacio() map[string]int {
-	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0}
+	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0, "en_revision": 0}
 }
 func estadoBolsaCanonico(origen string) string { return origen }
 func estadoBolsaVisible(estado string) bool    { _, ok := mapaEstadosVacio()[estado]; return ok }

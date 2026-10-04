@@ -1,0 +1,7 @@
+# Contexto real V3, inventariado; nunca reaplicar piezas instaladas:
+# roles Baremo -> revalidación propia autorizacion/000001 -> BR1 -> BR2.
+# Sólo instalar las piezas ausentes. V2/BR3 no es dependencia de BR4.
+# Núcleo vigente: main AD142 -> AD144 exacta; Copias AD143 no es dependencia.
+# Lista de despliegue en orden de fusión, según dirección 02/10 13:50.
+# Esta lista añade únicamente BR4. No ejecutar DOWN con historia.
+deploy/postgresql/bolsa_reglas_baremo/migraciones/000004_gobierno_borradores_v3.up.sql

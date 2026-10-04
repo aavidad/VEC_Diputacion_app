@@ -112,3 +112,28 @@ Astra dio GO al planteamiento inicial tras distinguir historia propia, rectifica
 Dirección deberá confirmar el orden y el primer encargo antes de reabrir código. El GO del plan no activa Personal000025 ni autoriza despliegue.
 
 Fuentes: `AGENTS.md`; `ESPECIFICACIONES_AGENTES.md` E02–E08; `docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md` (PER, RPT y EMP); `docs/estudio_requisitos/analisis_integral_rrhh.md` §§15–22; `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`. Los estados de PR proceden del encargo de Dirección y requieren comprobación en Git/CI.
+
+## Contratos nominales preparados (1 de octubre de 2026)
+
+Por encargo expreso de Dirección se preparan tres interfaces y sus DTO mínimos
+en los puertos de Personal. Este corte aporta la definición necesaria para los
+consumidores posteriores; no espera las reglas pendientes de RRHH ni activa una
+fuente institucional.
+
+| Contrato | Acción y audiencia propias | Consumidor posterior |
+| --- | --- | --- |
+| `LectorServiciosParaCertificadosV1` | `personal.servicios_certificados.consultar` / `vec_personal.servicios_certificados.v1` | CER: servicios con estado, periodos, acto y procedencia; J conserva emisión y firma. |
+| `LectorAntecedentesCarreraV1` | `personal.antecedentes_carrera.consultar` / `vec_personal.antecedentes_carrera.v1` | H05: relaciones, servicios, situaciones y puesto/nivel procedentes de M; H conserva cálculo y Méritos. |
+| `LectorRelacionParaRPTV1` | `personal.relacion_rpt.consultar` / `vec_personal.relacion_rpt.v1` | RPT: relación exacta y versión esperada; M conserva ocupación, reserva y vacantes. |
+
+Las consultas conservan el actor efectivo acreditado, referencias opacas,
+organismo y cortes separados de efectos y conocimiento. La respuesta distingue
+cobertura completa, parcial y no acreditada, con certeza y versión de la fuente.
+La estructura de evidencia B2 se reutiliza para la evidencia de cada consulta
+nominal nueva; no permite reutilizar la autorización de una operación B2.
+
+Los contratos exigen concesión central positiva y consumo junto a lectura y
+auditoría en la transacción de la fuente. Quedan sin implementación, SQL, HTTP,
+composición ni autorización operativa. Las fuentes actuales de CER y H05 siguen
+siendo de ensayo. Los DTO no contienen nombre, DNI ni correo y no sustituyen
+las proyecciones puras de dominio ni crean otra ficha de persona.

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"vec-diputacion-granada/internal/modules/personal/application"
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -145,5 +146,42 @@ func TestDecodificarFichaPropiaSinReferenciasEnJSON(t *testing.T) {
 	b, _ := json.Marshal(r.Ficha)
 	if bytes.Contains(b, []byte("emp_")) || bytes.Contains(b, []byte("per_")) {
 		t.Fatalf("la ficha serializada contiene referencias: %s", b)
+	}
+}
+
+type autorizacionFichaTxPrueba struct {
+	a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+func (a autorizacionFichaTxPrueba) AutorizarFichaPropia(context.Context, domain.MaterialFichaPropia) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return a.a, nil
+}
+
+type registroFichaTxPrueba struct {
+	t        *testing.T
+	tx       *txP
+	llamadas int
+}
+
+func (r *registroFichaTxPrueba) VerificarRegistroFichaPropia(context.Context) error { return nil }
+func (r *registroFichaTxPrueba) RegistrarIntentoFichaPropia(_ context.Context, in ports.IntentoFichaPropia) error {
+	r.llamadas++
+	if r.tx.rollbacks != 1 || r.tx.commits != 0 || in.Motivo != "denegado" {
+		r.t.Fatal("append antes de cerrar TX original")
+	}
+	return nil
+}
+func TestFichaPropiaAppendFallidoOcurreDespuesDeRollbackOriginal(t *testing.T) {
+	o := ordenFichaPropiaPrueba(t)
+	tx := &txP{errQ: &pgconn.PgError{Code: "42501", Message: "detalle privado"}}
+	repo, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: tx})
+	registro := &registroFichaTxPrueba{t: t, tx: tx}
+	servicio, err := application.NuevoServicioFichaPropia(autorizacionFichaTxPrueba{o.Autorizacion}, repo, registro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := servicio.Consultar(context.Background(), domain.SolicitudFichaPropia{Actor: o.Material.Actor(), Corte: o.Material.Corte()})
+	if !errors.Is(err, domain.ErrFichaPropiaDenegada) || registro.llamadas != 1 || result.Ficha.Relaciones != nil {
+		t.Fatal("fallo no auditado después de cierre", err)
 	}
 }

@@ -17,7 +17,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 	return seleccionMaterialCTDesarrollo{
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
-		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
+		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
 		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
 		plantillasCatalogo: true, plantillasDocumental: true,
 	}
@@ -230,7 +230,7 @@ func TestPortalCandidatoPedidoSinSusRequisitosDetieneElArranque(t *testing.T) {
 }
 
 func TestDiagnosticoMigracionesPortalCandidato(t *testing.T) {
-	completo := estadoMigracionesPortalCandidato{ad384: true, ad386: true, bolsa29: true, bolsa30: true, bolsa40: true}
+	completo := estadoMigracionesPortalCandidato{ad384: true, ad386: true, bolsa29: true, bolsa30: true, bolsa40: true, bolsa77: true}
 	if err := completo.diagnostico(); err != nil {
 		t.Fatal(err)
 	}
@@ -243,6 +243,7 @@ func TestDiagnosticoMigracionesPortalCandidato(t *testing.T) {
 		{func(e *estadoMigracionesPortalCandidato) { e.bolsa30 = false }, ErrPortalCandidatoFaltaBolsa30},
 		{func(e *estadoMigracionesPortalCandidato) { e.ad386 = false }, ErrPortalCandidatoFaltaAD386},
 		{func(e *estadoMigracionesPortalCandidato) { e.bolsa40 = false }, ErrPortalCandidatoFaltaBolsa40},
+		{func(e *estadoMigracionesPortalCandidato) { e.bolsa77 = false }, ErrPortalCandidatoFaltaBolsa77},
 	}
 	for _, c := range casos {
 		e := completo

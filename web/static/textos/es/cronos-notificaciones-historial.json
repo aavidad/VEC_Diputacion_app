@@ -1,0 +1,22 @@
+{
+  "historial": {
+    "actualizar": "Actualizar historial",
+    "actualizando": "Consultando el historial…",
+    "actualizado": "Historial actualizado.",
+    "error_consulta": "No se pudo consultar el historial. Pulse Actualizar historial para reintentar. El borrador sigue en el formulario.",
+    "alcance": "La consulta devuelve como máximo 500 notificaciones. Los filtros se aplican a esas notificaciones.",
+    "estado": "Estado de la notificación",
+    "todos": "Todos los estados",
+    "registradas": "Pendientes de atender",
+    "atendidas": "Atendidas",
+    "aplicar": "Aplicar filtro",
+    "quitar": "Quitar filtro",
+    "filtro_activo": "Filtro aplicado: {estado}.",
+    "mostrando": "Mostrando {desde}–{hasta} de {total} notificaciones consultadas.",
+    "sin_resultados": "No hay notificaciones consultadas con este estado. Quite el filtro para ver los otros estados.",
+    "paginacion": "Páginas del historial de notificaciones",
+    "pagina": "Página {actual} de {total}",
+    "anterior": "Página anterior",
+    "siguiente": "Página siguiente"
+  }
+}

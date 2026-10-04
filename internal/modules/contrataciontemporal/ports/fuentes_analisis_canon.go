@@ -258,7 +258,19 @@ func canonPeticionCalculoCoste(datos DatosSolicitudCalcularCoste) ([]byte, error
 	escritor.texto(string(datos.ModalidadClave))
 	escritor.texto(string(datos.CausaClave))
 	escritor.instante(datos.Periodo.Inicio)
-	escritor.instante(datos.Periodo.Fin)
+	if datos.Periodo.Fin.IsZero() {
+		escritor.texto(string(datos.Periodo.CausaFin))
+	} else {
+		escritor.instante(datos.Periodo.Fin)
+	}
+	if datos.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		p := datos.Periodo.PoliticaFin
+		escritor.texto(p.ReglaRef)
+		escritor.entero64(p.CatalogoVersion)
+		escritor.texto(p.CatalogoHuellaSHA256)
+		escritor.texto(p.FechaFin)
+		escritor.texto(string(p.CausaFin))
+	}
 	escritor.entero16(uint16(datos.Jornada))
 	escritor.instante(datos.SolicitadaEn)
 	return escritor.resultado()
@@ -294,7 +306,7 @@ func instanteFuenteAnalisisCanonico(valor time.Time) bool {
 func periodoFuenteAnalisisValido(periodo domain.PeriodoPrevisto) bool {
 	return periodo.Validar() == nil &&
 		instanteFuenteAnalisisCanonico(periodo.Inicio) &&
-		instanteFuenteAnalisisCanonico(periodo.Fin) &&
+		(periodo.Fin.IsZero() || instanteFuenteAnalisisCanonico(periodo.Fin)) &&
 		!periodo.Fin.After(periodo.Inicio.AddDate(maximoAniosPeriodoFuente, 0, 0))
 }
 

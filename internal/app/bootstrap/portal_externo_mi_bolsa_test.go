@@ -99,11 +99,11 @@ func TestRutasMiBolsaExteriorSoloSiDependenciasCompletas(t *testing.T) {
 		d.proveedores[par[1]] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
 	}
 	rutas, err = nuevasRutasMiBolsaPortalExterno(d)
-	if err != nil || len(rutas) != 6 {
+	if err != nil || len(rutas) != 7 {
 		t.Fatalf("rutas propias: %v, %v", rutas, err)
 	}
 	esperadas := []string{bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial,
-		bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaRespuestas,
+		bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaSolicitudesDocumentales, bolsahttp.RutaMiBolsaRespuestas,
 		bolsahttp.RutaMiBolsaDisposiciones, bolsahttp.RutaMiBolsaContacto}
 	for i, ruta := range rutas {
 		if ruta.Ruta != esperadas[i] || ruta.Manejador == nil {

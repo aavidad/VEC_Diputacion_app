@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -17,6 +18,15 @@ func custodiarImportacionConvocaDesarrollo(cfg config.Config, contenido []byte) 
 	}
 	s := sha256.Sum256(contenido)
 	h := hex.EncodeToString(s[:])
+	extension := ""
+	switch {
+	case bytes.HasPrefix(contenido, []byte{0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1}):
+		extension = ".xls"
+	case bytes.HasPrefix(contenido, []byte{'P', 'K', 3, 4}):
+		extension = ".xlsx"
+	default:
+		return "", ErrCustodiaImportacionConvocaNoDisponible
+	}
 	// El material de desarrollo puede montarse en solo lectura (así está en la
 	// principal): la custodia admite un directorio propio; en producción será
 	// el gestor documental.
@@ -27,7 +37,7 @@ func custodiarImportacionConvocaDesarrollo(cfg config.Config, contenido []byte) 
 	if err := os.MkdirAll(d, 0700); err != nil {
 		return "", ErrCustodiaImportacionConvocaNoDisponible
 	}
-	p := filepath.Join(d, h+".xls")
+	p := filepath.Join(d, h+extension)
 	if err := guardarCustodiaNuevaImportacionConvoca(p, contenido); err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			return "", ErrCustodiaImportacionConvocaNoDisponible

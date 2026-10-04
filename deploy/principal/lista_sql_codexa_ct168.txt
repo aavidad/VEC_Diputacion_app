@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000168_auditoria_frontera_preparacion.up.sql

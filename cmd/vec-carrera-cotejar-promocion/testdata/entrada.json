@@ -1,0 +1,129 @@
+{
+  "consulta": {
+    "alcance": "preparacion_sintetica",
+    "caso_ref": "caso-promocion-sintetico",
+    "persona_ref": "persona-sintetica-clara",
+    "proceso_ref": "proceso-sintetico-A",
+    "proceso_version": "ensayo-1",
+    "bases_ref": "bases-sinteticas-aportadas",
+    "bases_version": "ensayo-1",
+    "huella_bases_aportada": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "instantanea_hechos_ref": "hechos-sinteticos",
+    "instantanea_hechos_version": "ensayo-1",
+    "instante_referencia": "2026-10-02T00:00:00Z",
+    "requisitos": [
+      {
+        "referencia": "requisito-1",
+        "version": "ensayo-1",
+        "hito": "hito-aportado-1",
+        "hito_fecha": "2026-10-01",
+        "representacion": "estructurada",
+        "regla_ref": "regla-sintetica-aportada-1",
+        "fuente": "fuente-bases-sinteticas",
+        "fuente_version": "ensayo-1"
+      },
+      {
+        "referencia": "requisito-2",
+        "version": "ensayo-1",
+        "hito": "hito-aportado-2",
+        "hito_fecha": "2026-10-01",
+        "representacion": "estructurada",
+        "regla_ref": "regla-sintetica-aportada-2",
+        "fuente": "fuente-bases-sinteticas",
+        "fuente_version": "ensayo-1"
+      },
+      {
+        "referencia": "requisito-3",
+        "version": "ensayo-1",
+        "hito": "hito-aportado-3",
+        "hito_fecha": "2026-10-01",
+        "representacion": "estructurada",
+        "regla_ref": "regla-sintetica-aportada-3",
+        "fuente": "fuente-bases-sinteticas",
+        "fuente_version": "ensayo-1"
+      }
+    ],
+    "hechos": [
+      {
+        "referencia": "hecho-1",
+        "version": "ensayo-1",
+        "estado_aportado": "acreditado",
+        "fuente": "fuente-hechos-sinteticos",
+        "fuente_version": "ensayo-1",
+        "evidencia": "evidencia-sintetica-1",
+        "vigente_desde": "2026-01-01",
+        "vigente_hasta": ""
+      },
+      {
+        "referencia": "hecho-2",
+        "version": "ensayo-1",
+        "estado_aportado": "acreditado",
+        "fuente": "fuente-hechos-sinteticos",
+        "fuente_version": "ensayo-1",
+        "evidencia": "evidencia-sintetica-2",
+        "vigente_desde": "2026-01-01",
+        "vigente_hasta": ""
+      },
+      {
+        "referencia": "hecho-3",
+        "version": "ensayo-1",
+        "estado_aportado": "declarado",
+        "fuente": "fuente-hechos-sinteticos",
+        "fuente_version": "ensayo-1",
+        "evidencia": "",
+        "vigente_desde": "2026-01-01",
+        "vigente_hasta": ""
+      }
+    ]
+  },
+  "dictamen_sintetico": {
+    "alcance": "preparacion_sintetica",
+    "huella_consulta_sha256": "43f77f36deab925891cf0875725f0f5c0dd9670731ae09d45c2919cf18c0ac03",
+    "evaluador_ref": "productor-seleccion-sintetico-configurable",
+    "evaluador_version": "ensayo-1",
+    "referencia": "dictamen-sintetico-configurable",
+    "version": "ensayo-1",
+    "evaluado_en": "2026-10-02T00:00:00Z",
+    "comprobaciones": [
+      {
+        "requisito_ref": "requisito-1",
+        "requisito_version": "ensayo-1",
+        "hito": "hito-aportado-1",
+        "hito_fecha": "2026-10-01",
+        "estado_aportado": "cumple",
+        "motivo_clave": "carrera.cotejo.motivo.cumple_aportado",
+        "fuente": "fuente-dictamen-sintetico",
+        "fuente_version": "ensayo-1",
+        "hechos_referencias": [
+          "hecho-1"
+        ]
+      },
+      {
+        "requisito_ref": "requisito-2",
+        "requisito_version": "ensayo-1",
+        "hito": "hito-aportado-2",
+        "hito_fecha": "2026-10-01",
+        "estado_aportado": "no_cumple",
+        "motivo_clave": "carrera.cotejo.motivo.no_cumple_aportado",
+        "fuente": "fuente-dictamen-sintetico",
+        "fuente_version": "ensayo-1",
+        "hechos_referencias": [
+          "hecho-2"
+        ]
+      },
+      {
+        "requisito_ref": "requisito-3",
+        "requisito_version": "ensayo-1",
+        "hito": "hito-aportado-3",
+        "hito_fecha": "2026-10-01",
+        "estado_aportado": "pendiente",
+        "motivo_clave": "carrera.cotejo.motivo.pendiente_aportado",
+        "fuente": "fuente-dictamen-sintetico",
+        "fuente_version": "ensayo-1",
+        "hechos_referencias": [
+          "hecho-3"
+        ]
+      }
+    ]
+  }
+}

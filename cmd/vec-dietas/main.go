@@ -18,6 +18,12 @@ func main() {
 	os.Exit(ejecutarConArgumentos(os.Args[1:], os.Stdin, os.Stdout))
 }
 func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
+	if len(args) == 6 && args[0] == "--comparar-liquidaciones" && args[1] == "--informe" && args[2] == "--textos" && args[4] == "--tema" {
+		return ejecutarInformeComparacion(in, out, args[3], args[5])
+	}
+	if len(args) == 1 && args[0] == "--comparar-liquidaciones" {
+		return ejecutarComparacion(in, out)
+	}
 	if len(args) == 7 && args[0] == "--preparar-liquidacion" && args[1] == "--desde-instantanea" && args[2] == "--informe" && args[3] == "--textos" && args[5] == "--tema" {
 		return ejecutarInformeRecuperacion(in, out, args[4], args[6])
 	}

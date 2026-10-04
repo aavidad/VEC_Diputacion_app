@@ -71,6 +71,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/modules/administracion" | \
 			"${modulo}/internal/modules/bolsa" | \
+			"${modulo}/internal/modules/contrataciontemporal/adapters/auditoriafirma" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/ginpixfichero" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/historiaincorporacion" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/httpinterno" | \
@@ -78,7 +79,9 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" | \
 			"${modulo}/internal/modules/contrataciontemporal/application" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmas" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmasv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/firmaautorizacionv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
 			"${modulo}/internal/modules/contrataciontemporal/domain" | \
 			"${modulo}/internal/modules/contrataciontemporal/ports" | \

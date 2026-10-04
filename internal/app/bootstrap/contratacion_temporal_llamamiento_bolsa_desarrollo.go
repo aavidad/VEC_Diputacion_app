@@ -277,12 +277,18 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuente(preparacion preparacionLlamami
 	}
 	bolsaHash, _ := bolsa.HuellaCanonicaSHA256()
 	// Fin de CT es fecha civil inclusiva; Bolsa usa extremo temporal exclusivo.
+	// Sin fecha, la causa catalogada viaja con el horizonte abierto.
+	finPrevisto := time.Time{}
+	if !e.Analisis.Periodo.Fin.IsZero() {
+		finPrevisto = e.Analisis.Periodo.Fin.AddDate(0, 0, 1)
+	}
 	necesidad, err := dominiobolsa.NuevaNecesidadCobertura(dominiobolsa.AltaNecesidadCobertura{
 		NecesidadRef: preparacion.necesidad, Version: 6, BolsaRef: bolsa.BolsaRef, VersionBolsa: bolsa.Version,
 		HuellaBolsaSHA256: bolsaHash, CategoriaRef: preparacion.categoria, PuestoRef: ref("puesto-sintetico"),
 		UnidadRef: preparacion.unidad, TipoCoberturaRef: string(e.Analisis.ModalidadClave), NumeroPuestos: 1,
-		InicioPrevisto: e.Analisis.Periodo.Inicio, FinPrevisto: e.Analisis.Periodo.Fin.AddDate(0, 0, 1),
-		CreadaEn: e.Fiscalizacion.FiscalizadaEn,
+		InicioPrevisto: e.Analisis.Periodo.Inicio, FinPrevisto: finPrevisto,
+		CausaFinClave: string(e.Analisis.Periodo.CausaFin),
+		CreadaEn:      e.Fiscalizacion.FiscalizadaEn,
 	})
 	if err != nil {
 		return nil, vacio, err

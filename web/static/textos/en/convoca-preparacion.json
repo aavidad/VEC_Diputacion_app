@@ -27,7 +27,8 @@
     "ayuda_texto": "Review the published rules, requirements and deadlines. You can choose optional files and download a summary. Leaving discards your preparation. The summary is not proof of submission, signature or registration.",
     "datos_tecnicos": "Recruitment notice version",
     "version": "Version {version}",
-    "huella": "SHA-256 hash: {huella}"
+    "huella": "SHA-256 hash: {huella}",
+    "descargar_json": "Download JSON draft"
   },
   "convocatoria": {
     "descripcion": "Published information",
@@ -76,7 +77,8 @@
     "fecha": "Generated locally: {fecha}",
     "separador": " · ",
     "limite": "This draft is not an acknowledgement or a receipt. It is not proof of signature, registration or submission.",
-    "archivo_descarga": "application-draft-{identificador}.txt"
+    "archivo_descarga": "application-draft-{identificador}.txt",
+    "archivo_descarga_json": "application-draft-{identificador}.json"
   },
   "limites": {
     "maximo_archivos": "8",

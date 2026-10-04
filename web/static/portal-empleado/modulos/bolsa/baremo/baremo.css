@@ -15,7 +15,7 @@
 .baremo-topes .cuerpo-panel { display: grid; gap: 12px; }
 .baremo-reglas { min-width: 0; }
 .baremo-reglas .tabla-contenedor { max-height: 32dvh; }
-.baremo-reglas td .campo > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.baremo-reglas td .campo:not(:has([data-umbral], [data-minimo-formacion], [data-restos-modo])) > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .baremo-reglas input { min-width: 115px; }
 .baremo-resultados { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; max-height: 28dvh; overflow: auto; }
 .baremo-resultados > p { grid-column: 1 / -1; }
@@ -50,6 +50,10 @@
  .baremo-reglas .tabla-contenedor { flex: 1; min-height: 0; max-height: none; overflow: auto; }
  .baremo-topes .cuerpo-panel { min-height: 0; overflow: auto; }
  .baremo-editor form > section:last-of-type { flex: 0 1 250px; display: flex; flex-direction: column; min-height: 120px; }
+ /* Jornada necesita espacio para el selector y el umbral, dentro del mismo marco. */
+ .baremo-editor:has([data-jornada-modo]) form > section:last-of-type { flex-basis: 200px; }
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas tbody th,
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas td { vertical-align: top; }
  .baremo-resultados { flex: 1; min-height: 0; max-height: none; padding-block: 12px; }
  .baremo-resultado h3 { margin-block: 0 12px; }
  .baremo-cabecera, .baremo-controles { padding-block: 12px; }

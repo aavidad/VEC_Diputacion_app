@@ -123,7 +123,7 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 			} `json:"bolsas"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(lista.Body.Bytes(), &salida); err != nil || salida.Data.Esquema != "vec.bolsa.rrhh.bolsas.v1" || len(salida.Data.Bolsas) != 1 || len(salida.Data.Bolsas[0].Estados) != 7 {
+	if err := json.Unmarshal(lista.Body.Bytes(), &salida); err != nil || salida.Data.Esquema != "vec.bolsa.rrhh.bolsas.v1" || len(salida.Data.Bolsas) != 1 || len(salida.Data.Bolsas[0].Estados) != 8 {
 		t.Fatalf("contrato bolsas: %#v err=%v", salida, err)
 	}
 	candidatos := httptest.NewRecorder()
@@ -212,8 +212,8 @@ func TestBolsasRRHHTurnoGlobalYUltimoLlamamientoDurableConReintento(t *testing.T
 
 func TestBolsasRRHHDesarrolloFallaCerradoSinFuente(t *testing.T) {
 	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{})
-	// Tres rutas exactas: cuadro, estadísticas agregadas y avisos derivados.
-	if err != nil || len(rutas) != 3 || len(colecciones) != 1 {
+	// Cuatro rutas exactas: cuadro, estadísticas, avisos y solicitudes documentales.
+	if err != nil || len(rutas) != 4 || len(colecciones) != 1 {
 		t.Fatalf("rutas RRHH: exactas=%d colecciones=%d error=%v", len(rutas), len(colecciones), err)
 	}
 	w := httptest.NewRecorder()
@@ -364,6 +364,74 @@ func TestBolsasRRHHDesarrolloPublicaEstadisticasAgregadas(t *testing.T) {
 	manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, rutaEstadisticasBolsaRRHHDesarrollo+"?periodo=2026", nil))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("consulta no canónica: %d", rec.Code)
+	}
+}
+
+func TestBolsasRRHH18ListaFiltroYEstadisticasConservanEnRevision(t *testing.T) {
+	datos := datosBolsasRRHHPrueba()
+	datos.Candidaturas[0].Estado = "en_revision"
+	datos.Candidaturas[0].Orden = nil
+	datos.Candidaturas[0].RazonOrden = "sin_turno"
+	manejador := nuevoManejadorBolsasRRHHDesarrollo(func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
+		return datos, nil
+	})
+	for _, ruta := range []string{
+		rutaBolsasRRHHDesarrollo,
+		rutaBolsasRRHHDesarrollo + "/bolsa:constituida:administrativo/candidatos?estado=en_revision",
+		rutaEstadisticasBolsaRRHHDesarrollo,
+	} {
+		t.Run(ruta, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, ruta, nil))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("ruta=%s status=%d body=%s", ruta, rec.Code, rec.Body.String())
+			}
+			var salida struct {
+				Data struct {
+					Bolsas []struct {
+						Total     int            `json:"total"`
+						PorEstado map[string]int `json:"por_estado"`
+					} `json:"bolsas"`
+					Bolsa struct {
+						Total     int            `json:"total"`
+						PorEstado map[string]int `json:"por_estado"`
+					} `json:"bolsa"`
+					Candidatos []struct {
+						Estado string `json:"estado_clave"`
+						Orden  *int   `json:"orden"`
+					} `json:"candidatos"`
+					Personas struct {
+						Total     int            `json:"total"`
+						PorEstado map[string]int `json:"por_estado"`
+					} `json:"personas"`
+				} `json:"data"`
+			}
+			if ruta == rutaEstadisticasBolsaRRHHDesarrollo {
+				// En estadísticas, «bolsas» es un agregado, no la lista.
+				var agregado struct {
+					Data struct {
+						Personas struct {
+							Total     int            `json:"total"`
+							PorEstado map[string]int `json:"por_estado"`
+						} `json:"personas"`
+					} `json:"data"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &agregado); err != nil || agregado.Data.Personas.Total != 2 || agregado.Data.Personas.PorEstado["en_revision"] != 1 {
+					t.Fatalf("estadísticas pierden personas en revisión: %s err=%v", rec.Body.String(), err)
+				}
+				return
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &salida); err != nil {
+				t.Fatal(err)
+			}
+			if ruta == rutaBolsasRRHHDesarrollo {
+				if len(salida.Data.Bolsas) != 1 || salida.Data.Bolsas[0].Total != 2 || salida.Data.Bolsas[0].PorEstado["en_revision"] != 1 {
+					t.Fatalf("la bolsa pierde personas en revisión: %s", rec.Body.String())
+				}
+			} else if salida.Data.Bolsa.Total != 2 || salida.Data.Bolsa.PorEstado["en_revision"] != 1 || len(salida.Data.Candidatos) != 1 || salida.Data.Candidatos[0].Estado != "en_revision" || salida.Data.Candidatos[0].Orden != nil {
+				t.Fatalf("filtro en revisión no conserva situación o turno: %s", rec.Body.String())
+			}
+		})
 	}
 }
 

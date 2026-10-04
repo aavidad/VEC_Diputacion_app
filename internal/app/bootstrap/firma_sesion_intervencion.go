@@ -93,6 +93,10 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) capacidadCanalSesion(ctx context
 	return captura, valida
 }
 
-func (p *proveedorSesionConsultaRRHHDesarrollo) rutaSesionConIndisponibilidad(ruta string) bool {
-	return rutaSesionConIndisponibilidadCTDesarrollo(ruta) || p != nil && p.canalIntervencion != nil && ruta == httpinterno.RutaResultadosFiscalizacion
+func (p *proveedorSesionConsultaRRHHDesarrollo) rutaSesionConIndisponibilidad(ruta string, contextos ...context.Context) bool {
+	if rutaSesionConIndisponibilidadCTDesarrollo(ruta) || p != nil && p.canalIntervencion != nil && ruta == httpinterno.RutaResultadosFiscalizacion {
+		return true
+	}
+	return len(contextos) == 1 && (p.sesionPreparacionBasesHTTPV3(contextos[0], ruta) ||
+		p.sesionGobiernoReglasBaremoHTTPV3(contextos[0], ruta))
 }

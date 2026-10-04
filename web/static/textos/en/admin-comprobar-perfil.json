@@ -1,0 +1,17 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "admin_comprobar_correcto": "The proposal matches the catalogue and preserves its requirements.",
+    "admin_comprobar_limite": "File check only. It does not publish the profile or grant access. Validity and provenance are checked against the supplied files.",
+    "admin_comprobar_entrada_invalida": "Check the files and the validation date. They must contain the expected data, without unknown or repeated fields.",
+    "admin_catalogo_acciones_invalido": "The catalogue is incomplete or contains invalid data.",
+    "admin_propuesta_perfil_invalida": "The profile proposal is incomplete or contains invalid data.",
+    "admin_perfil_fijo": "This system profile can only be viewed. Changes are not allowed.",
+    "admin_catalogo_acciones_no_vigente": "The catalogue is not valid on the specified date.",
+    "admin_origen_perfil_no_coincide": "The source version or hash does not match. Check the catalogue version and the previous profile version.",
+    "admin_permiso_perfil_no_coincide": "A permission does not match its valid entry. Check the action, resource, purpose, fields, assurance and obligations.",
+    "admin_gobierno_plan_preparado": "The plan is ready. No version has been published and no permissions have changed.",
+    "admin_gobierno_plan_limite": "File-based plan. Publication or withdrawal requires an administrative identity, a central source, another approver and a durable record.",
+    "admin_plan_gobierno_perfil_invalido": "The plan cannot be prepared. Check the operation, the previous version, its validity control and the reason."
+  }
+}

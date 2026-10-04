@@ -1,0 +1,6 @@
+# CT174 preparatoria: sólo helper INVOKER privado owner CT; no runtime ni K.
+# Prefijos CT006/008/050 y sus fuentes ya instaladas en el corte E post27:
+# NO reaplicar, revertir ni regenerar la historia. Root controla el bundle.
+# SQL no ensayada todavía; requiere dos revisiones exactas y clon 2 GiB/disco.
+# La integración CT172 WIP consume V3/auditoría antes del helper y K/replay.
+deploy/postgresql/contratacion_temporal/migraciones/000174_relacion_unidad_expediente_privada.up.sql

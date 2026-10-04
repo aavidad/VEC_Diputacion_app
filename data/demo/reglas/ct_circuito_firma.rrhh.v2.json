@@ -1,0 +1,103 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "circuito-firma-ct-rrhh-20261002-v2",
+    "actualizada_en": "2026-10-02T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: circuito indicado por RRHH el 02/10/2026. Su uso en desarrollo no acredita una firma del portafirmas corporativo.",
+    "origen_sha256": "4d20a0fbf2ba63b92291fedd201ed62cbdfefd6789e743da5e203fd2437b6b5f"
+  },
+  "catalogo": {
+    "id": "vec.contratacion_temporal.circuito_firma",
+    "version": 2,
+    "revision": 1,
+    "modulo_id": "contratacion_temporal",
+    "nombre": "Circuito de firma de Contratación temporal",
+    "descripcion": "La Jefatura del Servicio firma el informe para Intervención. La Diputada delegada de RRHH firma la resolución con el visto bueno de Dirección de RRHH o Jefatura del Servicio.",
+    "fuente_ref": "fuente:rrhh:decisiones-20261002",
+    "motivo_creacion": "Aplicar el circuito confirmado por RRHH el 02/10/2026.",
+    "entradas": [
+      {
+        "clave": "informe_definitivo.p1",
+        "etiqueta": "Informe definitivo: firma de Jefatura",
+        "descripcion": "Firma de Jefatura del Servicio de RRHH.",
+        "vigente_desde": "2026-10-02T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Decisión de RRHH del 02/10/2026, respuesta 4.",
+          "unidad": "ninguna",
+          "documento": "informe_definitivo",
+          "documento_etiqueta": "Informe definitivo",
+          "paso": "1",
+          "cargo": "Jefatura del Servicio de RRHH",
+          "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
+          "accion": "firma",
+          "condicion": "borrador_generado",
+          "habilita": "remision_intervencion",
+          "devolucion": "vuelve_a_redaccion",
+          "sustitucion": "suplente_designado",
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "resolucion.p1",
+        "etiqueta": "Resolución: visto bueno de Dirección o Jefatura",
+        "descripcion": "Visto bueno de la Dirección de RRHH o de la Jefatura del Servicio de RRHH; basta una de las dos competencias acreditadas.",
+        "vigente_desde": "2026-10-02T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Decisión de RRHH del 02/10/2026, respuesta 4.",
+          "unidad": "ninguna",
+          "documento": "resolucion",
+          "documento_etiqueta": "Resolución de nombramiento o contratación",
+          "paso": "1",
+          "cargo": "Dirección de RRHH o Jefatura del Servicio de RRHH",
+          "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
+          "accion": "visto_bueno",
+          "condicion": "borrador_generado",
+          "habilita": "siguiente_paso",
+          "devolucion": "vuelve_a_redaccion",
+          "sustitucion": "suplente_designado",
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "perfiles_ref_alternativos": "perfil:ct:direccion_rrhh",
+          "misma_persona_en_dos_pasos": "false"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "resolucion.p2",
+        "etiqueta": "Resolución: firma de la Diputada",
+        "descripcion": "Firma de la Diputada delegada de Recursos Humanos.",
+        "vigente_desde": "2026-10-02T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Decisión de RRHH del 02/10/2026, respuesta 4.",
+          "unidad": "ninguna",
+          "documento": "resolucion",
+          "documento_etiqueta": "Resolución de nombramiento o contratación",
+          "paso": "2",
+          "cargo": "Diputada delegada de Recursos Humanos",
+          "perfil_ref": "perfil:ct:diputacion_delegada_rrhh",
+          "accion": "firma",
+          "condicion": "firma_paso_anterior",
+          "habilita": "cierre_circuito",
+          "devolucion": "vuelve_paso_anterior",
+          "sustitucion": "suplente_designado",
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
+        },
+        "orden": 3
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-10-02T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-10-02T00:00:00Z",
+    "aprobacion_ref": "decision:rrhh:circuito:20261002",
+    "motivo_publicacion": "Decisiones de RRHH del 02/10/2026; conexión al portafirmas pendiente.",
+    "version_anterior_ref": "vec.contratacion_temporal.circuito_firma:1"
+  }
+}
