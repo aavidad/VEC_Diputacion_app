@@ -7,7 +7,7 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
 DO $pre$
-DECLARE r record;
+DECLARE r record;n integer:=0;
 BEGIN
  IF true THEN RAISE EXCEPTION 'CA36: borrador dependiente de IS16/AD192 y dos revisiones' USING ERRCODE='55000'; END IF;
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
@@ -23,6 +23,7 @@ BEGIN
    FROM pg_proc p WHERE p.oid IN(
     to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])'),
     to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])')) LOOP
+  n:=n+1;
   IF r.proowner IS DISTINCT FROM to_regrole('vec_contexto_actor_v1_propietario')
    OR r.prosecdef IS NOT TRUE OR r.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog']::text[]
    OR r.acl_texto IS DISTINCT FROM ARRAY[
@@ -36,7 +37,18 @@ BEGIN
        OR r.definicion_sha IS DISTINCT FROM 'c0f78c8896672dd167cbe509d80bbe3c38941f38a4b0d958b90c201f059db14f'))
   THEN RAISE EXCEPTION 'CA36: núcleo V2 divergente' USING ERRCODE='55000'; END IF;
  END LOOP;
- IF NOT FOUND THEN RAISE EXCEPTION 'CA36: núcleo V2 ausente' USING ERRCODE='55000'; END IF;
+ IF n<>2 THEN RAISE EXCEPTION 'CA36: núcleo V2 incompleto' USING ERRCODE='55000'; END IF;
+ SELECT p.proowner,p.prosecdef,p.proconfig,
+  ARRAY(SELECT a.acl::text FROM unnest(p.proacl) AS a(acl) ORDER BY a.acl::text) AS acl_texto,
+  encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS fuente_sha,
+  encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') AS definicion_sha
+ INTO r FROM pg_proc p WHERE p.oid=to_regprocedure('vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1()');
+ IF NOT FOUND OR r.proowner IS DISTINCT FROM to_regrole('vec_contexto_actor_v1_propietario')
+  OR r.prosecdef IS NOT TRUE OR r.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog']::text[]
+  OR r.acl_texto IS DISTINCT FROM ARRAY['vec_contexto_actor_v1_propietario=X/vec_contexto_actor_v1_propietario']::text[]
+  OR r.fuente_sha IS DISTINCT FROM '005fff9328377a75bcde2a23e997959f2d1603f658ae39a2e6f2eb8d8986d3c8'
+  OR r.definicion_sha IS DISTINCT FROM 'dbaa84ba1a9878e1410c38cf5e8eb25d25ceabed16ecff49a406dce0cf92c79c'
+ THEN RAISE EXCEPTION 'CA36: runtime general divergente' USING ERRCODE='55000'; END IF;
 END $pre$;
 CREATE ROLE vec_contexto_actor_v1_admin_contexto NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO $base$ BEGIN
@@ -110,6 +122,7 @@ BEGIN
  canon:=convert_from(r.representacion_canonica,'UTF8')::jsonb;
  IF r.cuenta_ref IS DISTINCT FROM NEW.cuenta_ref OR r.perfil_ref IS DISTINCT FROM NEW.perfil_ref
   OR r.metodo NOT IN('certificado','dnie') OR r.garantia IS DISTINCT FROM 'alto'
+  OR NEW.enlazado_en<r.resuelto_en
   OR canon->>'persona_ref' IS DISTINCT FROM NEW.actor_ref
   OR canon->>'perfil_activo_ref' IS DISTINCT FROM NEW.perfil_ref
   OR canon->>'cuenta_ref' IS DISTINCT FROM NEW.cuenta_ref
