@@ -1,0 +1,62 @@
+{
+  "vectores": [
+    {
+      "evento": {
+        "tipo_registro": "provision_fuentes_iniciales_admin",
+        "evento_ref": "evento_00000000000000000000000000000001",
+        "operador_login": "operador_fuentes_sintetico",
+        "plan_ref": "plan_fuentes:ad174:1",
+        "plan_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "preimagen_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "configuracion_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "aprobacion_ref": "aprobacion:ad174:1",
+        "alcance_fuente": "sintetico_declarado",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "plan_fuentes:ad174:1",
+        "resultado": "permitido",
+        "motivo_ref": "admin.fuentes.permitido",
+        "proceso": "fuentes_sinteticas",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000000001",
+        "fuente_ref": "recibos_fuentes:ad174:1",
+        "fuente_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "secuencia": 1,
+      "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "auditoria_ref": "aud_v3_f_00000000000000000000000000000001",
+      "registrada_en": "2026-10-03T21:00:00.123456Z",
+      "evento_material_sha256": "534bb859b593e9311143555caf163ba942bf8689889cef7d1ee81a51cefd0ef5",
+      "huella_sha256": "a6ebcbda7015497b9f1ae385d1db06df31867eed239391fd32433e9f90efd9fb"
+    },
+    {
+      "evento": {
+        "tipo_registro": "provision_fuentes_iniciales_admin",
+        "evento_ref": "evento_00000000000000000000000000000002",
+        "operador_login": "operador_ámbito_sintético",
+        "plan_ref": "plan_fuentes:ad174:2",
+        "plan_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "preimagen_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "configuracion_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "aprobacion_ref": "aprobacion:ad174:2",
+        "alcance_fuente": "sintetico_declarado",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "plan_fuentes:ad174:2",
+        "resultado": "permitido",
+        "motivo_ref": "admin.fuentes.permitido",
+        "proceso": "fuentes_sinteticas",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000000002",
+        "fuente_ref": "recibos_fuentes:ad174:2",
+        "fuente_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "secuencia": 2,
+      "anterior_sha256": "a6ebcbda7015497b9f1ae385d1db06df31867eed239391fd32433e9f90efd9fb",
+      "auditoria_ref": "aud_v3_f_00000000000000000000000000000002",
+      "registrada_en": "2026-10-03T21:00:00.123456Z",
+      "evento_material_sha256": "231c70e826293a7e53cad01a2090b17ae4a12009d25784744a99d6ab77568873",
+      "huella_sha256": "3beb0ffa5838844482d92c6d356bd354af60c7d7b6001c438418fcf809e73981"
+    }
+  ]
+}
