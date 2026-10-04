@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- BORRADOR AD175. No es instalable ni se ha ensayado.
--- Preimagen causal pendiente POST173/174: las tres huellas NULL provocan PARO
--- antes de modificar núcleo, catálogo de audiencias o crear el consumidor.
+-- Núcleo medido tras AD173/174/176 en L. El CHECK de audiencias sigue sin
+-- medición causal: su huella NULL provoca PARO antes de modificarlo.
 -- Contrato: exportación de servicios propios, acción/audiencia/perfil específicos.
 -- Sólo Personal consume. Nunca reutiliza el permiso consultar ni siembra perfiles,
 -- cuentas, membresías, claves o la configuración de origen de AD172.
@@ -31,11 +31,9 @@ BEGIN
      AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='trigger'::regtype
      AND p.proowner='vec_personal_propietario'::regrole)
  OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
- OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- THEN RAISE EXCEPTION 'PARO clave=AD175.preimagen, actual=%/%/%, esperado=true/true/true',
+ THEN RAISE EXCEPTION 'PARO clave=AD175.preimagen, actual=%/%, esperado=true/true',
   current_user='vec_autorizacion_atestada_v3_propietario',
-  to_regprocedure('vec_autorizacion_atestada_v3.consumir_exportacion_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL,
-  to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+  to_regprocedure('vec_autorizacion_atestada_v3.consumir_exportacion_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
   USING ERRCODE='55000'; END IF;
  FOREACH rol IN ARRAY ARRAY['vec_personal_propietario','vec_personal_migrador','vec_personal_ejecutor'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=rol AND NOT rolcanlogin
@@ -50,19 +48,15 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Pendientes de captura sobre POST173/174 en el clon autorizado.
- esperada_def_sha256 text:=NULL;
- esperada_fuente_sha256 text:=NULL;
+ -- Preimagen exacta POST176-L del núcleo, después de AD172/173/174/176.
+ esperada_def_sha256 constant text:='6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9';
+ esperada_fuente_sha256 constant text:='bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c';
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
- excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
-$excl$;
- excl_nuevo text:=$excl_nuevo$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
-               AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios'
-$excl_nuevo$;
- -- Marca pendiente de cotejar una vez reconstruida la fuente causal.
+ excl text:=$excl$p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal'$excl$;
+ excl_nuevo text:=$excl_nuevo$p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal'$excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
-$runtime$;
+           (p_perfil_mutacion IS NOT DISTINCT FROM 'capacidades_admin'$runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
                p_perfil_mutacion IS NOT DISTINCT FROM 'exportacion_servicios_propios'
@@ -75,7 +69,7 @@ $runtime$;
                AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
            )
-           OR
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'capacidades_admin'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'exportacion_servicios_propios'
@@ -93,8 +87,6 @@ $runtime_nuevo$;
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $extension$;
 BEGIN
- IF esperada_def_sha256 IS NULL OR esperada_fuente_sha256 IS NULL THEN
-  RAISE EXCEPTION 'AD175: BORRADOR; falta preimagen causal POST173/174' USING ERRCODE='55000'; END IF;
  IF f IS NULL THEN RAISE EXCEPTION 'AD3-175: núcleo ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
@@ -146,9 +138,6 @@ BEGIN
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
     OR strpos(original,'exportacion_servicios_propios')<>0
     OR strpos(original,'personal.registro_empleado.ficha_propia.servicios.exportar')<>0
-    OR strpos(original,'vinculo_propio_historico_crn11')=0
-    OR strpos(original,'personal.vinculo_propio.crn11.consultar')=0
-    OR strpos(original,'vec_personal.vinculo_propio.crn11.v1')=0
  THEN RAISE EXCEPTION 'PARO clave=AD175.nucleo, actual=%/%/%, esperado=%/%/%',
   encode(sha256(convert_to(original,'UTF8')),'hex'),encode(sha256(convert_to(fuente,'UTF8')),'hex'),config,
   esperada_def_sha256,esperada_fuente_sha256,ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
