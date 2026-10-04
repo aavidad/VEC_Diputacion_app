@@ -1,0 +1,3 @@
+# Requiere IS14/15, CA31 y AD192 ya instaladas y revisadas.
+# CA36 se instala después: consume el cotejo propietario de IS16.
+deploy/postgresql/identidad_sesiones_v1/migraciones/000016_runtime_admin_perfiles.up.sql
