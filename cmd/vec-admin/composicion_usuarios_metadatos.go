@@ -28,7 +28,7 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(base.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
-	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector}
+	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
 	cerrar := func() {
@@ -72,7 +72,7 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 		grupo  string
 	}{
 		{0, "vec_autorizacion_fuente"}, {1, "vec_autorizacion_registro"}, {2, "vec_autorizacion_motivos_evaluador"},
-		{6, "vec_admin_usuarios_lector"}, {7, "vec_autorizacion_atestada_v3_registrador_intentos"}, {8, "vec_identidad_sesiones_v1_admin_preperfil"},
+		{6, "vec_admin_usuarios_lector"}, {7, "vec_autorizacion_atestada_v3_registrador_intentos"}, {8, "vec_identidad_sesiones_v1_admin_preperfil"}, {9, "vec_admin_frontera_tecnica_ejecutor"},
 	} {
 		if acreditarPoolCentral(ctx, pools[capacidad.indice], capacidad.grupo) != nil {
 			return fallo()
@@ -117,9 +117,18 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 	if err != nil || registrador.PreflightIntentoAuditoria(ctx) != nil {
 		return fallo()
 	}
-	auditor, err := pg.NuevaAuditorFronteraNominal(registrador, pg.ConfiguracionAuditoriaFronteraNominal{
+	auditorNominal, err := pg.NuevaAuditorFronteraNominal(registrador, pg.ConfiguracionAuditoriaFronteraNominal{
 		Proceso: u.Proceso, Canal: u.Canal, MotivoDenegado: u.MotivoDenegado, MotivoError: u.MotivoError,
 		Plazo: u.plazoAuditoria(), Destinos: u.destinosAuditoria()})
+	if err != nil {
+		return fallo()
+	}
+	tecnico, err := pg.NuevoRegistradorFronteraTecnica(ctx, pools[9], pg.ConfiguracionFronteraTecnica{
+		Proceso: u.Proceso, Canal: u.Canal, Plazo: u.plazoAuditoria()})
+	if err != nil {
+		return fallo()
+	}
+	auditor, err := pg.NuevoAuditorFronteraCompuesto(auditorNominal, tecnico)
 	if err != nil {
 		return fallo()
 	}
