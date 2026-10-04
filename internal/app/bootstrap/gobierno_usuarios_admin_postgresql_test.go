@@ -37,9 +37,20 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 		t.Fatal("ensayo_config_invalida")
 	}
 	defer borrarBytes(b)
-	var f struct{ Fase, DirectorioMaterial, RutaConfiguracionHMAC, DSNPropietario, DSNOperador, Salida string }
-	if decodificarGobiernoUsuarios(b, &f) != nil || !filepath.IsAbs(f.Salida) || dentroDeRepositorioGit(f.Salida) {
+	var f configuracionEnsayoGobiernoUsuarios
+	if decodificarGobiernoUsuarios(b, &f) != nil || validarConfiguracionEnsayoGobiernoUsuarios(f) != nil {
 		t.Fatal("ensayo_config_invalida")
+	}
+	raizSalida, err := AbrirRaizPrivadaDenominacionPersona(f.Salida)
+	if err != nil {
+		t.Fatal("ensayo_salida_invalida")
+	}
+	defer raizSalida.Close()
+	escribir := func(nombre string, data []byte) {
+		t.Helper()
+		if escribirEnsayoGobiernoUsuarios(raizSalida, nombre, data) != nil {
+			t.Fatal("ensayo_salida_invalida")
+		}
 	}
 	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, f.DSNPropietario)
@@ -60,31 +71,30 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 			t.Fatal("ensayo_cadena_invalida")
 		}
 		informe := auditoria.VerificarCadenaGobiernoUsuariosV1(doc, doc.Manifiesto, 100)
-		p := filepath.Join(f.Salida, "verificacion-cadena.json")
 		b, _ := json.Marshal(informe)
-		if os.WriteFile(p, b, 0600) != nil {
-			t.Fatal("ensayo_salida_invalida")
-		}
+		escribir("verificacion-cadena.json", b)
 		if informe.Estado != "verificada" {
 			t.Fatalf("ensayo_cadena_rechazada_%s", informe.Fallo.Codigo)
 		}
 		return
 	}
 	type instantanea struct {
-		Revision  string    `json:"revision"`
-		Secuencia uint64    `json:"secuencia"`
-		SPKI      string    `json:"spki"`
-		ClaveID   string    `json:"clave_id"`
-		Version   uint64    `json:"version"`
-		Audiencia string    `json:"audiencia"`
-		Desde     time.Time `json:"desde"`
-		Hasta     time.Time `json:"hasta"`
-		Orden     uint64    `json:"orden"`
-		PreSHA    string    `json:"pre_sha"`
+		Revision    string    `json:"revision"`
+		Secuencia   uint64    `json:"secuencia"`
+		SPKI        string    `json:"spki"`
+		ClaveID     string    `json:"clave_id"`
+		Version     uint64    `json:"version"`
+		Audiencia   string    `json:"audiencia"`
+		Desde       time.Time `json:"desde"`
+		Hasta       time.Time `json:"hasta"`
+		Orden       uint64    `json:"orden"`
+		MaxVersion  uint64    `json:"max_version"`
+		MaxRevision uint64    `json:"max_revision"`
+		PreSHA      string    `json:"pre_sha"`
 	}
 	var actual instantanea
 	var raw []byte
-	if err = pool.QueryRow(ctx, `SELECT jsonb_build_object('revision',c.revision,'secuencia',c.secuencia,'spki',encode(r.clave_publica_spki,'base64'),'clave_id',r.clave_id,'version',r.version,'audiencia',r.audiencia_despliegue,'desde',r.valida_desde,'hasta',r.valida_hasta,'orden',(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_clave_emision),'pre_sha',encode(sha256(convert_to(vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()::text,'UTF8')),'hex')) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c ON c.revision=p.configuracion_revision JOIN vec_autorizacion_atestada_v3.configuracion_raiz cr ON cr.configuracion_revision=c.revision JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r ON r.clave_id=cr.raiz_clave_id AND r.version=cr.raiz_version ORDER BY p.orden DESC LIMIT 1`).Scan(&raw); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT jsonb_build_object('revision',c.revision,'secuencia',c.secuencia,'spki',encode(r.clave_publica_spki,'base64'),'clave_id',r.clave_id,'version',r.version,'audiencia',r.audiencia_despliegue,'desde',r.valida_desde,'hasta',r.valida_hasta,'orden',(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_clave_emision),'max_version',(SELECT max(version) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'max_revision',(SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'pre_sha',encode(sha256(convert_to(vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()::text,'UTF8')),'hex')) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c ON c.revision=p.configuracion_revision JOIN vec_autorizacion_atestada_v3.configuracion_raiz cr ON cr.configuracion_revision=c.revision JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r ON r.clave_id=cr.raiz_clave_id AND r.version=cr.raiz_version ORDER BY p.orden DESC LIMIT 1`).Scan(&raw); err != nil {
 		t.Fatal("ensayo_preimagen_no_disponible")
 	}
 	if decodificarGobiernoUsuarios(raw, &actual) != nil {
@@ -121,8 +131,8 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 		if err != nil {
 			t.Fatal("ensayo_gobierno_invalido")
 		}
-		for _, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
-			cfg.Entradas = append(cfg.Entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3", PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: actual.Orden + 1, RevisionGobierno: actual.Orden + 1, ValidaDesde: now.Add(-time.Minute), ValidaHasta: now.Add(2 * time.Hour)})
+		for i, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
+			cfg.Entradas = append(cfg.Entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3", PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: actual.MaxVersion + uint64(i) + 1, RevisionGobierno: actual.MaxRevision + uint64(i) + 1, ValidaDesde: now.Add(-time.Minute), ValidaHasta: now.Add(2 * time.Hour)})
 		}
 	} else {
 		data, err := leerFicheroMaterialSeguro(configFile, 16384)
@@ -161,24 +171,11 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 	}
 	defer m.Cerrar()
 	var secreto bytes.Buffer
-	defer borrarBytes(secreto.Bytes())
+	defer func() { borrarBytes(secreto.Bytes()); secreto.Reset() }()
 	if m.EscribirMaterialPrivado(&secreto) != nil {
 		t.Fatal("ensayo_material_no_disponible")
 	}
-	escribir := func(nombre string, data []byte) {
-		t.Helper()
-		file, err := os.OpenFile(filepath.Join(f.Salida, nombre), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
-			t.Fatal("ensayo_salida_invalida")
-		}
-		if _, err = file.Write(data); err != nil {
-			file.Close()
-			t.Fatal("ensayo_salida_invalida")
-		}
-		if file.Close() != nil {
-			t.Fatal("ensayo_salida_invalida")
-		}
-	}
+
 	if f.Fase == "preparar" {
 		escribir("material.json", secreto.Bytes())
 		datos, _ := json.Marshal(cfg)
