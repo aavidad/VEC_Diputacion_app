@@ -75,8 +75,9 @@ instalado, publicación, proveedor operativo o recorrido de este módulo.
 | DIS9 | Cancelación, archivo y eliminación conforme a serie/acto. | Personal conserva la inscripción legal; Archivo/DPD y Documentos conservan/eliminan lo autorizado. |
 | DIS10 | Operación, consulta y descarga nominal con todos sus resultados auditados. | Consumidor propio de auditoría K/L; el acceso general de RRHH no abre el expediente. |
 
-Perfiles fijos provisionados por huella/CAS, un perfil activo y denegación positiva
-por entidad, expediente, actuación, acción, finalidad, campos y vigencia. Instructor,
+Perfiles fijos provisionados por huella/CAS, un perfil activo, denegación por defecto
+y autorización positiva por entidad, expediente, actuación, acción, finalidad,
+campos y vigencia. Instructor,
 secretario, resolutor, ejecutor y defensa tienen funciones separadas; un nombramiento
 no suma roles. La persona expedientada/representante consulta solo las actuaciones
 accesibles. El cliente no aporta identidad libre ni publica permisos en su petición.
