@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000183_mantenimiento_perfil_fijo_admin.up.sql
