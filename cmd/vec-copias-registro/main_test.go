@@ -148,3 +148,28 @@ func TestStrictJSONAndCatalogues(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIAbandonoNoSeAutorizaPorDeclaracionNiDatos(t *testing.T) {
+	cfg := cliConfig(t)
+	d := port.Declaracion{Actor: "actor:administrador_declarado", Correlacion: "correlacion:cli"}
+	s := operacionescopias.Solicitud{Operacion: "op:cli", Clave: "clave:cli", SHA256: strings.Repeat("a", 64), Conjunto: "conjunto:cli", Destino: "destino:cli", Politica: "politica:cli"}
+	if code, _, err := cli(t, cfg, "reservar", "es", entrada{Sintetica: true, Declaracion: d, Solicitud: &s}); code != 0 {
+		t.Fatal(string(err))
+	}
+	c := operacionescopias.Comando{Clave: "captura:cli", SolicitudSHA256: s.SHA256, Accion: "iniciar_captura"}
+	if code, _, err := cli(t, cfg, "aplicar", "es", entrada{Sintetica: true, Declaracion: d, Operacion: s.Operacion, Comando: &c}); code != 0 {
+		t.Fatal(string(err))
+	}
+	c.Clave, c.VersionEsperada, c.Accion = "abandono:cli", 1, "abandonar_captura"
+	c.Abandono = &operacionescopias.ObservacionAbandono{Operacion: s.Operacion, Destino: s.Destino, FalloReferencia: "captura_fallida", FalloSHA256: s.SHA256, Lease: "lease:cli", EstadoEfecto: "inactivo", EstadoLease: "cancelada", EstadoPlataforma: "sin_efectos_pendientes"}
+	if code, _, err := cli(t, cfg, "aplicar", "es", entrada{Sintetica: true, Declaracion: d, Operacion: s.Operacion, Comando: &c}); code != 2 || !bytes.Contains(err, []byte("registro_entrada_invalida")) {
+		t.Fatal("free abort", code, string(err))
+	}
+	code, b, err := cli(t, cfg, "consultar", "es", entrada{Sintetica: true, Declaracion: d, Operacion: s.Operacion})
+	var r struct {
+		Resultado port.Resultado `json:"resultado"`
+	}
+	if code != 0 || json.Unmarshal(b, &r) != nil || r.Resultado.Recibo.Estado != operacionescopias.Capturando || r.Resultado.Recibo.Version != 1 {
+		t.Fatal("state changed", code, string(err))
+	}
+}

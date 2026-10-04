@@ -72,18 +72,8 @@ vec-auditoria-checkpoint -operacion verificar \
 ```
 
 Puede añadir `-cadena /ruta/externa/extraccion.json` para recalcular el rango con
-el verificador común AD3 v1, mixto v2 o mixto v3. El esquema v3 admite también los
-eventos administrativos de preperfil y bootstrap AD171. Los esquemas mixtos
-admiten consumos históricos, consumos AD172 y consumos nominales con fecha AD173.
-Esa extracción conserva su autorización
+el verificador común AD3 v1 o mixto v2. Esa extracción conserva su autorización
 y custodia independientes; la CLI no la obtiene ni vuelve a validar permisos.
-
-La proyección JSON conserva los objetos `consumo`, `intento`, `preperfil` y
-`bootstrap` de cada familia. El lector exige todos sus campos, rechaza uniones
-con objetos de otra familia, campos desconocidos, claves duplicadas o alias por
-mayúsculas, valores `null` y documentos concatenados. Limita la profundidad a
-16 y lee sólo ficheros regulares dentro del límite configurado, como máximo
-64 MiB. El manifiesto debe coincidir con la cobertura firmada del recibo.
 
 El resultado separa `firma: verificada_con_pin_externo` de
 `integridad_cadena: no_evaluada` o `verificada`. Siempre conserva
@@ -93,16 +83,38 @@ código de salida 1 aunque la firma del checkpoint sea correcta. La verificació
 no requiere secretos. La firma cubre el checkpoint canónico, esquema y
 versiones, procedencia de desarrollo, recibo TSA y huella SPKI.
 
-El resultado incluye siempre los indicadores
-`consumos_historicos_sin_fecha_ligada` y `fecha_consumo_ligada_cotejada`, sin
-omitir valores falsos. El primero advierte de los consumos v1/v2 de la proyección:
-sus fechas no están cubiertas por sus eslabones históricos. El aviso se mantiene
-aunque otro eslabón o el rango se rechace; no se completa ni se firma retroactivamente
-una fecha. El segundo es verdadero sólo cuando se verifica una cadena que contiene
-AD173 y se cotejan sus dos fechas UTC con seis decimales, actor, perfil y finalidad
-dentro del eslabón de quince campos. No acredita tiempo independiente, identidad,
-firma COSE ni fuente de extracción. Sin `-cadena`, ambos indicadores son falsos y
-`integridad_cadena` permanece `no_evaluada`.
+## Continuidad entre checkpoints
+
+Conserve un recibo previo por un canal confiable independiente del lote. Compruebe
+los recibos posteriores con esa ancla, el DER y la huella que ya tenía fijados:
+
+```sh
+vec-auditoria-checkpoint -operacion verificar-continuidad \
+  -config /ruta/externa/config.json -ancla /ruta/confiable/recibo-previo.json \
+  -entrada /ruta/externa/lote.json -max-recibos 256 \
+  -spki /ruta/confiable/auditoria.der -pin-spki-sha256 HUELLA_CONSERVADA
+```
+
+El lote contiene únicamente `esquema: vec.auditoria.continuidad.desarrollo.v1`
+y `recibos`, una lista de 1 a `max-recibos` recibos completos del formato anterior.
+El máximo admitido es 256. Todos los campos son obligatorios, incluso los ceros
+del ancla vacía; se rechazan claves repetidas, desconocidas y valores `null`.
+No admite `-cadena`, secretos ni destinos de emisión.
+
+Se verifican las firmas del ancla y de cada sucesor con la raíz externa. Política,
+raíz y cadena deben ser idénticas. Cada sucesor debe ser un tramo no vacío que
+empiece después del anterior y cuyo hash anterior coincida con su cabeza.
+`max_bytes` limita la suma de los dos documentos; `max_registros` cuenta el ancla
+y los sucesores. `recibos_verificados`, las coordenadas y `registros_total` incluyen
+el ancla. Esta puede ser vacía si conserva las coordenadas canónicas 0/0 y los
+dos hashes de ceros.
+
+El resultado separa firma y continuidad verificadas de `integridad_cadena:
+no_evaluada`. Conserva las limitaciones de origen, TSA, tiempo y firma legal ya
+descritas. Una firma correcta puede acompañar un rechazo por hueco, solape o
+retroceso. La herramienta no acredita la procedencia del ancla, la ausencia de
+registros posteriores, la periodicidad del sellado ni la integridad de registros
+que no recibió. No consulta ni exporta datos personales.
 
 Los errores devuelven códigos JSON sin reproducir las entradas ni rutas. El
 resultado técnico se registra en stderr por el emisor común, con correlación
@@ -117,29 +129,12 @@ consumidores nominales ni cambios al verificador existente. Quedan pendientes
 captura durable autorizada, política periódica y validación de una TSA
 independiente, además de las decisiones de conservación y custodia aplicables.
 
-Comprobaciones del corte inicial: pruebas focales normales y con `-race` en
-CLI y proveedor; `go vet` en CLI, bootstrap, config, dominio, puertos y aplicación;
-Semgrep `p/golang` sobre los ocho archivos Go nuevos (42 reglas, sin hallazgos);
-gosec de la CLI sin hallazgos; tamaño de archivos y `git diff --check` correctos.
-El análisis gosec de bootstrap con las versiones 2.25 y 2.29 tuvo los mismos
-errores de resolución y hallazgos en archivos sin cambios. No acredita una
-revisión completa del paquete; su causa concreta de carga sigue pendiente.
-No se ejecutaron servicios, SQL, navegador ni la suite global. Las dos revisiones
-sensibles sobre el commit final corresponden a la integración.
-
-El incremento mixto conserva el formato firmado, recibo y proveedores KMS/TSA.
-Su fixture `testdata/cadena_mixta_ad173.json` contiene datos sintéticos de las
-cinco familias v1, AD171 preperfil, AD172, AD171 bootstrap y AD173. No procede de
-una extracción de la base. Las pruebas emiten un recibo con el proveedor de
-desarrollo, fijan su SPKI y comprueban cadena, aviso histórico, alteraciones de
-los quince campos y entradas JSON ambiguas. El lector sigue siendo offline:
-no añade SQL, captura automática, tareas periódicas ni acceso al servidor.
-
-Comprobaciones del incremento mixto: `go test -race -p 8
-./cmd/vec-auditoria-checkpoint`, `go vet -p 8 ./cmd/vec-auditoria-checkpoint
-./internal/vec/application`, Semgrep `p/golang` sobre los cinco archivos Go
-afectados (42 reglas, sin hallazgos) y gosec sobre los tres archivos de producción
-de la CLI (415 líneas, sin hallazgos ni errores de carga). Los temporales de prueba
-se situaron fuera de Git: la carpeta ajena `/tmp/.git` hacía fallar la guarda
-existente para secretos, incluido el test anterior. No se modificó esa guarda ni
-la carpeta ajena. La suite global y los servicios no se ejecutaron.
+Comprobaciones de continuidad del 04/10: pruebas focales normales y con `-race`
+en CLI, aplicación y dominio, usando el proveedor KMS/TSA existente; `go vet`
+en esos tres paquetes; Semgrep `p/golang` sobre los siete archivos Go cambiados
+(42 reglas, sin hallazgos); formato y `git diff --check` correctos. Las pruebas
+usaron un directorio temporal externo a Git. Gosec analizó 115 archivos de esos
+paquetes: 25 avisos en archivos sin cambios, ninguno en los archivos cambiados
+y ningún error de carga. Ese resultado no es una revisión limpia de todo el
+código previo. No se ejecutaron servicios, SQL, navegador ni la suite global
+local. Las revisiones sensibles del commit final corresponden a la integración.

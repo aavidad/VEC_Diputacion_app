@@ -57,13 +57,18 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	TipoRegistro  string                   `json:"tipo_registro"`
-	Consumo       *RegistroCadenaV3        `json:"-"`
-	ConsumoOrigen *RegistroConsumoOrigenV2 `json:"-"`
-	ConsumoFecha  *RegistroConsumoFechaV3  `json:"-"`
-	Intento       *RegistroIntentoV2       `json:"intento,omitempty"`
-	Preperfil     *RegistroPreperfilV3     `json:"preperfil,omitempty"`
-	Bootstrap     *RegistroBootstrapV3     `json:"bootstrap,omitempty"`
+	IntentoBootstrapCentral *RegistroIntentoBootstrapCentralV1      `json:"intento_bootstrap_central,omitempty"`
+	UnidadInicial           *RegistroUnidadInicialPersonalV1        `json:"unidad_inicial,omitempty"`
+	IntentoUnidadInicial    *RegistroIntentoUnidadInicialPersonalV1 `json:"intento_unidad_inicial,omitempty"`
+	FuentesIniciales        *RegistroFuentesInicialesV1             `json:"fuentes_iniciales,omitempty"`
+	IntentoFuentesIniciales *RegistroIntentoFuentesInicialesV1      `json:"intento_fuentes_iniciales,omitempty"`
+	TipoRegistro            string                                  `json:"tipo_registro"`
+	Consumo                 *RegistroCadenaV3                       `json:"-"`
+	ConsumoOrigen           *RegistroConsumoOrigenV2                `json:"-"`
+	ConsumoFecha            *RegistroConsumoFechaV3                 `json:"-"`
+	Intento                 *RegistroIntentoV2                      `json:"intento,omitempty"`
+	Preperfil               *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
+	Bootstrap               *RegistroBootstrapV3                    `json:"bootstrap,omitempty"`
 }
 
 var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
@@ -172,6 +177,21 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
+		if r.IntentoBootstrapCentral != nil && r.TipoRegistro != "intento_bootstrap_central_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
+		if (r.UnidadInicial != nil || r.IntentoUnidadInicial != nil) && r.TipoRegistro != "unidad_inicial_personal" && r.TipoRegistro != "intento_unidad_inicial_personal" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
+		if (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil) && r.TipoRegistro != "provision_fuentes_iniciales_admin" && r.TipoRegistro != "intento_fuentes_iniciales_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if (r.ConsumoOrigen != nil || r.ConsumoFecha != nil) && r.TipoRegistro != TipoConsumoOrigenV2 && r.TipoRegistro != TipoConsumoFechaV3 {
+			return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+		}
+
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
 			if r.Consumo == nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
@@ -259,12 +279,57 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if esquema != EsquemaVerificacionPreperfil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad171_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
+			if esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
+			if r.TipoRegistro == "intento_fuentes_iniciales_admin" {
+				evento, codigo, clave = cotejarIntentoFuentesInicialesV1(r, secuencia)
+			}
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad174_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "unidad_inicial_personal", "intento_unidad_inicial_personal":
+			if esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarRegistroUnidadInicialV1(r, secuencia)
+			if r.TipoRegistro == "intento_unidad_inicial_personal" {
+				evento, codigo, clave = cotejarIntentoUnidadInicialV1(r, secuencia)
+			}
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad176_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "intento_bootstrap_central_admin":
+			if esquema != EsquemaVerificacionBootstrapCentral {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarIntentoBootstrapCentralV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad179_valido", "no_admitido", secuencia)
 			}
 			if eventos[evento.EventoRef] {
 				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)

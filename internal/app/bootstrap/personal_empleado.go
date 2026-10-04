@@ -71,6 +71,9 @@ type configuracionPersonalEmpleadoDesarrollo struct {
 	LimiteAuditoriaSegundos  int                                           `json:"limite_auditoria_segundos"`
 	ZonaHoraria              string                                        `json:"zona_horaria"`
 	MotivoFichaPropia        core.ReferenciaEntradaCatalogo                `json:"motivo_ficha_propia"`
+	ExportacionServicios     *configuracionExportacionServiciosPersonal    `json:"exportacion_servicios,omitempty"`
+	HistoriaServicios        *configuracionHistoriaServiciosPersonal       `json:"historia_servicios,omitempty"`
+	HistoriaRelaciones       *configuracionHistoriaRelacionesPersonal      `json:"historia_relaciones,omitempty"`
 }
 
 // autoridadPersonalEmpleadoDesarrollo es la frontera de /api/interna/personal/.
@@ -215,7 +218,7 @@ func servicioContextoActorPersonalEmpleado(resolutor vecports.ResolutorRegistroC
 
 // nuevasRutasPersonalEmpleadoDesarrollo devuelve nil con el selector apagado.
 // Con él activado, cualquier pieza ausente o incoherente impide arrancar.
-func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material *proveedorMaterialAltaContratacionTemporalDesarrollo) (*autoridadPersonalEmpleadoDesarrollo, error) {
+func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material *proveedorMaterialAltaContratacionTemporalDesarrollo, materialesOpcionales ...*proveedorMaterialAltaContratacionTemporalDesarrollo) (*autoridadPersonalEmpleadoDesarrollo, error) {
 	activo, err := cfg.PersonalEmpleadoDesarrolloActivo()
 	if err != nil {
 		return nil, err
@@ -364,18 +367,66 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
-	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroIntentos, zona, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroIntentos, zona, time.Duration(c.LimiteAuditoriaSegundos)*time.Second, c.ExportacionServicios != nil, c.HistoriaServicios != nil, c.HistoriaRelaciones != nil)
 	if err != nil {
 		return nil, err
 	}
 	a.rutas = map[string]http.Handler{personalhttp.RutaFichaPropia: manejador}
+	if c.ExportacionServicios != nil {
+		if (len(materialesOpcionales) < 1 || len(materialesOpcionales) > 3) || materialesOpcionales[0] == nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		emisorExportacion, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesOpcionales[0])
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		if c.ExportacionServicios.Motivo.CatalogoID != c.MotivoFichaPropia.CatalogoID {
+			return nil, errPersonalEmpleadoEn()
+		}
+		exportador, err := componerExportacionServiciosPersonal(ctx, pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisorExportacion, *c.ExportacionServicios, registradorComun, proceso, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		a.rutas[personalhttp.RutaExportacionServiciosPropios] = exportador
+	}
+
+	if c.HistoriaServicios != nil {
+		if len(materialesOpcionales) < 2 || len(materialesOpcionales) > 3 || materialesOpcionales[1] == nil || c.HistoriaServicios.Motivo.CatalogoID != c.MotivoFichaPropia.CatalogoID {
+			return nil, errPersonalEmpleadoEn()
+		}
+		emisorHistoria, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesOpcionales[1])
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		historia, err := componerHistoriaServiciosPersonal(ctx, pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisorHistoria, *c.HistoriaServicios, registradorComun, proceso, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		a.rutas[personalhttp.RutaHistoriaServiciosPropia] = historia
+	}
+
+	if c.HistoriaRelaciones != nil {
+		if len(materialesOpcionales) != 3 || materialesOpcionales[2] == nil || c.HistoriaRelaciones.Motivo.CatalogoID != c.MotivoFichaPropia.CatalogoID {
+			return nil, errPersonalEmpleadoEn()
+		}
+		emisorHistoriaRelaciones, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesOpcionales[2])
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		historia, err := componerHistoriaRelacionesPersonal(ctx, pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisorHistoriaRelaciones, *c.HistoriaRelaciones, registradorComun, proceso, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		a.rutas[personalhttp.RutaHistoriaRelacionesPropia] = historia
+	}
+
 	completa = true
 	return a, nil
 }
 
 // componerManejadorFichaPropia une repositorio, proveedor V3, caso de uso y
 // manejador. Devuelve la ruta completa o ninguna.
-func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPersonalEmpleadoDesarrollo, emisor emisorMaterialDietasDesarrollo, motivo core.ReferenciaEntradaCatalogo, registro personalports.RegistroIntentosFichaPropia, zona *time.Location, limite time.Duration) (http.Handler, error) {
+func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPersonalEmpleadoDesarrollo, emisor emisorMaterialDietasDesarrollo, motivo core.ReferenciaEntradaCatalogo, registro personalports.RegistroIntentosFichaPropia, zona *time.Location, limite time.Duration, exportacionDisponible ...bool) (http.Handler, error) {
 	if ejecutor == nil || identidad.autoridad == nil || dependenciaDietasNula(emisor) || dependenciaDietasNula(registro) || zona == nil || limite <= 0 || limite > 30*time.Second {
 		return nil, errPersonalEmpleadoEn()
 	}
@@ -391,25 +442,11 @@ func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPer
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	manejador, err := personalhttp.NuevoManejadorFichaPropia(identidad, servicio, registro, time.Now, zona)
+	manejador, err := personalhttp.NuevoManejadorFichaPropia(identidad, servicio, registro, time.Now, zona, exportacionDisponible...)
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		var err error
-		if _, ok := vecports.CorrelacionIncidenciasPeticion(ctx); !ok {
-			ctx, err = vecports.ConCorrelacionIncidenciasPeticion(ctx)
-		}
-		if err == nil {
-			ctx, err = personalcomp.PrepararContextoIntentoFichaPropia(ctx, identidad, limite)
-		}
-		if err != nil {
-			responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
-			return
-		}
-		manejador.ServeHTTP(w, r.WithContext(ctx))
-	}), nil
+	return capturarPeticionPersonal(identidad, manejador, limite), nil
 }
 
 // componerRaizConPersonalEmpleado monta el prefijo interno de Personal

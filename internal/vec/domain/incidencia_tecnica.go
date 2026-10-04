@@ -18,14 +18,14 @@ import (
 // Cualquier valor que no pertenezca al catálogo se sanea a un valor fijo: el
 // código desconocido, o un componente/etapa no admitidos para el código, se
 // transforman en RECOLECCION_DEGRADADA/supervision/validacion. La severidad y
-// el mensaje nunca los decide el llamante: proceden del catálogo.
+// la clave del mensaje nunca los decide el llamante: proceden del catálogo.
 
 // EsquemaIncidenciaTecnica identifica la versión del formato serializado.
 const EsquemaIncidenciaTecnica = "vec.incidencia_tecnica.v1"
 
 // VersionCatalogoIncidenciasTecnicas se incrementa con cualquier cambio de
 // códigos, severidades, componentes, etapas o plantillas.
-const VersionCatalogoIncidenciasTecnicas = 1
+const VersionCatalogoIncidenciasTecnicas = 2
 
 // RecuentoMaximoIncidenciaTecnica acota el recuento declarado de una incidencia.
 const RecuentoMaximoIncidenciaTecnica uint32 = 1 << 20
@@ -66,6 +66,7 @@ const (
 	ComponenteIncidenciaServidor        ComponenteIncidenciaTecnica = "servidor"
 	ComponenteIncidenciaComposicion     ComponenteIncidenciaTecnica = "composicion"
 	ComponenteIncidenciaHTTP            ComponenteIncidenciaTecnica = "http"
+	ComponenteIncidenciaGrxFirma        ComponenteIncidenciaTecnica = "grxfirma"
 	ComponenteIncidenciaCatalogoModulos ComponenteIncidenciaTecnica = "catalogo_modulos"
 	ComponenteIncidenciaPortalWeb       ComponenteIncidenciaTecnica = "portal_web"
 	ComponenteIncidenciaGobiernoV3      ComponenteIncidenciaTecnica = "gobierno_v3"
@@ -119,7 +120,8 @@ type DefinicionIncidenciaTecnica struct {
 	Severidad   SeveridadIncidenciaTecnica
 	Componentes []ComponenteIncidenciaTecnica
 	Etapas      []EtapaIncidenciaTecnica
-	// Plantilla es un texto fijo sin marcadores de sustitución.
+	// Plantilla identifica la clave estable del catálogo de textos. El dominio
+	// no contiene idiomas ni mensajes; el adaptador resuelve esta clave.
 	Plantilla string
 }
 
@@ -129,67 +131,54 @@ func DefinicionIncidenciaTecnicaDe(codigo CodigoIncidenciaTecnica) (DefinicionIn
 	switch codigo {
 	case IncidenciaArranqueFallido:
 		return definicionIncidencia(IncidenciaArranqueFallido, SeveridadIncidenciaCritica,
-			"El servidor no ha podido arrancar.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaServidor, ComponenteIncidenciaComposicion},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConfiguracion, EtapaIncidenciaComposicion, EtapaIncidenciaEscucha}), true
 	case IncidenciaCatalogoModulosInvalido:
 		return definicionIncidencia(IncidenciaCatalogoModulosInvalido, SeveridadIncidenciaError,
-			"El catálogo de módulos no es válido.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaCatalogoModulos, ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaValidacion, EtapaIncidenciaCarga}), true
 	case IncidenciaHTTPInternoFallido:
 		return definicionIncidencia(IncidenciaHTTPInternoFallido, SeveridadIncidenciaError,
-			"Una petición ha terminado con error interno.",
-			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP},
+			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP, ComponenteIncidenciaGrxFirma},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaPeticion}), true
 	case IncidenciaPanicoControlado:
 		return definicionIncidencia(IncidenciaPanicoControlado, SeveridadIncidenciaCritica,
-			"Se ha contenido un pánico del proceso.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP, ComponenteIncidenciaServidor},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaPeticion, EtapaIncidenciaEjecucion}), true
 	case IncidenciaGobiernoV3NoDisponible:
 		return definicionIncidencia(IncidenciaGobiernoV3NoDisponible, SeveridadIncidenciaCritica,
-			"La configuración de gobierno V3 no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaGobiernoV3},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaRenovacion, EtapaIncidenciaConsulta}), true
 	case IncidenciaPostgresNoDisponible:
 		return definicionIncidencia(IncidenciaPostgresNoDisponible, SeveridadIncidenciaCritica,
-			"PostgreSQL no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPostgreSQL},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaConsulta}), true
 	case IncidenciaSMTPNoDisponible:
 		return definicionIncidencia(IncidenciaSMTPNoDisponible, SeveridadIncidenciaError,
-			"El servicio de correo saliente no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaSMTP},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaEnvio}), true
 	case IncidenciaOSRMNoDisponible:
 		return definicionIncidencia(IncidenciaOSRMNoDisponible, SeveridadIncidenciaAviso,
-			"El servicio de rutas OSRM no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaOSRM},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaConsulta}), true
 	case IncidenciaAuditoriaNoRegistrada:
 		return definicionIncidencia(IncidenciaAuditoriaNoRegistrada, SeveridadIncidenciaCritica,
-			"No se ha podido registrar una entrada de auditoría.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaAuditoria},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaRegistro}), true
 	case IncidenciaModuloWebNoCargado:
 		return definicionIncidencia(IncidenciaModuloWebNoCargado, SeveridadIncidenciaError,
-			"Un módulo web no se ha cargado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaCarga}), true
 	case IncidenciaClienteFalloNoClasificado:
 		return definicionIncidencia(IncidenciaClienteFalloNoClasificado, SeveridadIncidenciaAviso,
-			"El cliente ha declarado un fallo no clasificado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaEjecucion}), true
 	case IncidenciaRecoleccionDegradada:
 		return definicionIncidencia(IncidenciaRecoleccionDegradada, SeveridadIncidenciaAviso,
-			"La recogida de incidencias técnicas está degradada.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaSupervision},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaValidacion, EtapaIncidenciaEmision, EtapaIncidenciaEscritura}), true
 	case IncidenciaAlertaNoEntregada:
 		return definicionIncidencia(IncidenciaAlertaNoEntregada, SeveridadIncidenciaError,
-			"Un aviso técnico no se ha entregado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaAlertas},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaEntrega}), true
 	default:
@@ -197,8 +186,8 @@ func DefinicionIncidenciaTecnicaDe(codigo CodigoIncidenciaTecnica) (DefinicionIn
 	}
 }
 
-func definicionIncidencia(codigo CodigoIncidenciaTecnica, severidad SeveridadIncidenciaTecnica, plantilla string, componentes []ComponenteIncidenciaTecnica, etapas []EtapaIncidenciaTecnica) DefinicionIncidenciaTecnica {
-	return DefinicionIncidenciaTecnica{Codigo: codigo, Severidad: severidad, Componentes: componentes, Etapas: etapas, Plantilla: plantilla}
+func definicionIncidencia(codigo CodigoIncidenciaTecnica, severidad SeveridadIncidenciaTecnica, componentes []ComponenteIncidenciaTecnica, etapas []EtapaIncidenciaTecnica) DefinicionIncidenciaTecnica {
+	return DefinicionIncidenciaTecnica{Codigo: codigo, Severidad: severidad, Componentes: componentes, Etapas: etapas, Plantilla: string(codigo)}
 }
 
 // CodigosIncidenciaTecnica devuelve una copia nueva del catálogo de códigos.
@@ -233,7 +222,8 @@ type SolicitudIncidenciaTecnica struct {
 
 // ClasificacionIncidenciaTecnica es una solicitud ya saneada contra el
 // catálogo. Sus valores son siempre constantes del catálogo, de modo que no
-// retiene memoria aportada por el llamante.
+// retiene memoria aportada por el llamante. Plantilla conserva la clave,
+// que el adaptador resuelve antes de serializar la incidencia.
 type ClasificacionIncidenciaTecnica struct {
 	Codigo     CodigoIncidenciaTecnica
 	Severidad  SeveridadIncidenciaTecnica

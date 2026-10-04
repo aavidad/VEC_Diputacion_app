@@ -1,6 +1,6 @@
 {
   "preparacion_no_autoritativa": "Local package review. The data is still awaiting publication.",
-  "argumentos_invalidos": "Check the arguments. Use --idioma to select a language from the catalogue.",
+  "argumentos_invalidos": "Check the arguments. Use --idioma to select a language and --preparar to obtain the reviewed package.",
   "entrada_invalida": "The package could not be read. Check its format, keys, values and the 8 MiB limit.",
   "manifiesto_invalido": "Check the manifest references, dates and catalogues.",
   "cantidad_hechos_invalida": "The package must contain between 1 and 3,000 facts.",
@@ -10,6 +10,7 @@
   "decision_invalida": "Check the decision data in the indicated row.",
   "decision_duplicada": "The row repeats a decision with the same class and source row. Check the package.",
   "decision_sin_fila": "The decision refers to a source row missing from the package.",
+  "paquete_excede_limite": "The package size (bytes_paquete) exceeds the maximum (limite_bytes_paquete). Reduce its size and repeat preparation.",
   "paquete_invalido": "The package could not be checked. Review its data.",
   "revision_paquete": "Correct the package and repeat the review.",
   "verificacion_catalogos": "Check the catalogues through the authorised process.",

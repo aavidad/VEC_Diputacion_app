@@ -311,7 +311,15 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	if err != nil {
 		return nil, err
 	}
-	for _, manifest := range manifiestosShellVEC(cfg) {
+	visibles, err := cfg.PortalModulosVisibles()
+	if err != nil {
+		return nil, err
+	}
+	manifiestos, err := filtrarManifiestosPortal(manifiestosShellVEC(cfg), visibles)
+	if err != nil {
+		return nil, err
+	}
+	for _, manifest := range manifiestos {
 		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
 			return nil, err
 		}
@@ -667,4 +675,29 @@ func demoRuleSet(convocatoriaID string, version string) (candidatedomain.BaremoR
 			candidatedomain.BaremoTieLetraSorteo,
 		},
 	})
+}
+
+// filtrarManifiestosPortal aplica VEC_PORTAL_MODULOS_VISIBLES. Sin lista no
+// cambia nada; con lista, cada clave debe corresponder a un módulo compuesto
+// (si no, el arranque falla cerrado) y solo esos módulos aparecen en el portal.
+func filtrarManifiestosPortal(manifiestos []vecdomain.ModuleManifest, visibles map[string]bool) ([]vecdomain.ModuleManifest, error) {
+	if visibles == nil {
+		return manifiestos, nil
+	}
+	compuestos := make(map[string]bool, len(manifiestos))
+	for _, m := range manifiestos {
+		compuestos[strings.TrimPrefix(m.ID, "vec.module.")] = true
+	}
+	for clave := range visibles {
+		if !compuestos[clave] {
+			return nil, config.ErrConfiguracionPortalModulos
+		}
+	}
+	filtrados := make([]vecdomain.ModuleManifest, 0, len(visibles))
+	for _, m := range manifiestos {
+		if visibles[strings.TrimPrefix(m.ID, "vec.module.")] {
+			filtrados = append(filtrados, m)
+		}
+	}
+	return filtrados, nil
 }
