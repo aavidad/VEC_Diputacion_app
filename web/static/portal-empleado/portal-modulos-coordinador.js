@@ -534,8 +534,7 @@ export function crearCoordinadorModulosPortal({
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
         // Abrir un destino diferido no exige haberlo visitado antes. Esto
         // sólo ofrece navegación propia; su lectura se autoriza al entrar.
-        // Sólo se ofrecen los destinos que el catálogo del despliegue incluye;
-        // un módulo oculto por configuración no aparece ni desactivado.
+        // Sólo se ofrecen destinos del catálogo; un módulo oculto no aparece.
         destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"]
           .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
           .map((clave) => [clave, [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave))])),
