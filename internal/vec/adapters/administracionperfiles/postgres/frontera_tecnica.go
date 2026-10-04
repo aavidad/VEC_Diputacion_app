@@ -29,7 +29,7 @@ func NuevoRegistradorFronteraTecnica(ctx context.Context, pool *pgxpool.Pool, c 
 	return nuevoRegistradorFronteraTecnica(ctx, pool, c)
 }
 func nuevoRegistradorFronteraTecnica(ctx context.Context, pool conexion, c ConfiguracionFronteraTecnica) (*RegistradorFronteraTecnica, error) {
-	if ctx == nil || ausente(pool) || c.Plazo <= 0 || c.Proceso == "" || c.Canal != "administracion_privilegiada" {
+	if ctx == nil || ausente(pool) || c.Plazo <= 0 || c.Plazo > 2*time.Second || c.Proceso == "" || c.Canal != "administracion_privilegiada" {
 		return nil, ports.ErrFronteraAdminTecnicaNoDisponible
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})

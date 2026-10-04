@@ -134,3 +134,11 @@ func TestFronteraTecnicaNoEntregaAcuseAnteCommitNoConfirmado(t *testing.T) {
 		t.Fatal("acuse_provisional")
 	}
 }
+
+func TestFronteraTecnicaRechazaPlazoSuperiorAlNominal(t *testing.T) {
+	p := &poolTecnicoPrueba{}
+	r, err := nuevoRegistradorFronteraTecnica(context.Background(), p, ConfiguracionFronteraTecnica{Proceso: "vec_admin", Canal: "administracion_privilegiada", Plazo: 2*time.Second + time.Nanosecond})
+	if r != nil || !errors.Is(err, ports.ErrFronteraAdminTecnicaNoDisponible) || len(p.txs) != 0 {
+		t.Fatal("plazo_no_acotado_antes_db")
+	}
+}

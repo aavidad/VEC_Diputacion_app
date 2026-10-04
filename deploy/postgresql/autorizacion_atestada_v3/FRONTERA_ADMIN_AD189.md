@@ -18,7 +18,7 @@ El evento tiene referencia propia; sólo registra denegación o error. Los resul
 cerrado de datos SQL. El acuse real contiene referencia, secuencia, huella,
 correlación e instante de la cadena común; prefijo `aud_v3_fat_`.
 
-El registrador confirma su transacción antes de emitir el acuse y dejar continuar la respuesta de denegación o error. Un
+El registrador confirma su transacción antes de emitir el acuse y dejar continuar la respuesta de denegación o error. El plazo privado se limita a dos segundos, como en la frontera nominal. Un
 COMMIT incierto vuelve a presentar la misma orden bajo un plazo privado y
 conservando los valores del contexto, sin fabricar otro evento. Si no puede
 confirmar un acuse válido, la frontera responde indisponibilidad.
@@ -52,5 +52,7 @@ SQL sigue como candidata: precisa dos GO exactos y ensayo autorizado antes de
 UP. El vector estructural está preparado, sin provisionar LOGIN ni una
 configuración favorable inventada. No se ha ejecutado PostgreSQL ni instalado
 SQL ni modificado la principal. El montaje HTTP y la unión del verificador
-compartido se harán después de ceder estos archivos. AD189 cubre sólo
+compartido se harán después de ceder estos archivos. El montaje debe conservar una señal
+de fase si el resolutor entrega un V2 incompatible; esa integración queda
+pendiente fuera de este corte y no se acredita el recorrido HTTP completo. AD189 cubre sólo
 invocaciones que llegan a la frontera, no fallos TLS anteriores a HTTP.
