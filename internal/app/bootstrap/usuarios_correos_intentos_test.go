@@ -12,6 +12,7 @@ import (
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -295,5 +296,85 @@ func TestIntentosConsultaCorreosCierraPoolPropioTrasFalloDeMontaje(t *testing.T)
 	composicion.cerrar()
 	if cerrados != 1 {
 		t.Fatal("cierre raíz perdió o repitió el cierre nominal")
+	}
+}
+
+func TestIntentosConsultaCorreosCaducaEntreCapturaYDispatcher(t *testing.T) {
+	for _, fallaAppend := range []bool{false, true} {
+		t.Run(map[bool]string{false: "acuse", true: "registro caído"}[fallaAppend], func(t *testing.T) {
+			destino := &registradorIntentosCorreosPrueba{}
+			if fallaAppend {
+				destino.errAppend = errors.New("registro caído")
+			}
+			a, ctx := contextoIntentosCorreosPrueba(t, destino)
+			c := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
+			v, err := c.vinculo.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			ahora := time.Now().UTC().Truncate(time.Microsecond)
+			hasta := ahora.Add(500 * time.Millisecond)
+			autenticacion := core.AutenticacionRevalidadaV1{
+				AutenticacionRef: v.AutenticacionRef, AutenticacionHuellaSHA256: v.AutenticacionHuellaSHA256,
+				AsercionRef: v.AsercionRef, SesionRef: v.SesionRef,
+				ControlSesionRef: v.ControlSesionRef, ControlSesionRevision: v.ControlSesionRevision, ControlSesionHuellaSHA256: v.ControlSesionHuellaSHA256,
+				CuentaRef: v.CuentaRef, CuentaOrdinariaRef: v.CuentaOrdinariaRef, CuentaPrivilegiada: v.CuentaPrivilegiada,
+				Superficie: v.Superficie, MetodoObservado: v.MetodoObservado, GarantiaObservada: v.GarantiaObservada,
+				PoliticaGarantiaRef: v.PoliticaGarantiaRef, PoliticaGarantiaHuellaSHA256: v.PoliticaGarantiaHuellaSHA256,
+				AutenticacionVerificadaEn: v.AutenticacionVerificadaEn, SesionEmitidaEn: v.SesionEmitidaEn,
+				SesionRevalidadaEn: v.SesionRevalidadaEn, SesionValidaHasta: hasta,
+			}
+			c.vinculo, c.resultado, err = core.CrearVinculoAutenticacionActorV2ConResultado(context.Background(), revalidadorMaterialRutasDietasPrueba{autenticacion},
+				core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef},
+				resolutorMaterialRutasDietasPrueba{c.resultado}, core.SolicitudContextoActor{
+					Cuenta:          core.CuentaAutenticadaContextoActor{CuentaRef: v.CuentaRef, Metodo: v.MetodoObservado, Garantia: v.GarantiaObservada},
+					PerfilActivoRef: c.resultado.Contexto.PerfilActivoRef}, &relojMaterialRutasDietasPrueba{ahora: ahora})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx = context.WithValue(ctx, claveContextoPreferenciasUsuarios{}, c)
+			ctx, err = a.capturarIntentoConsultaCorreos(ctx)
+			if err != nil || !c.vinculo.VigenteEn(a.reloj.Ahora(), c.resultado) {
+				t.Fatal("captura sin vínculo vigente", err)
+			}
+			ctx, err = vechttp.ConActorVerificadoAuditoriaPreferenciasUsuarios(ctx, c.resultado.Contexto)
+			if err != nil {
+				t.Fatal(err)
+			}
+			legado := &registradorDenegacionPreferenciasPrueba{}
+			composicion := &composicionPreferenciasUsuarios{interna: &autoridadPreferenciasUsuariosDesarrollo{correos: a}}
+			autoridad := autoridadExactasConUsuariosPreferencias{usuarios: composicion}
+			llamadas := 0
+			despachador, err := vechttp.NewHandlerSoloRutasExactas([]vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisCorreos,
+				Manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) { llamadas++ })}}, autoridad,
+				registradorFronterasConUsuariosPreferencias{interna: legado})
+			if err != nil {
+				t.Fatal(err)
+			}
+			<-time.After(time.Until(hasta) + time.Millisecond)
+			if c.vinculo.VigenteEn(a.reloj.Ahora(), c.resultado) {
+				t.Fatal("el vínculo no caducó")
+			}
+			w := httptest.NewRecorder()
+			destino.antesAppend = func() {
+				if w.Body.Len() != 0 || llamadas != 0 {
+					t.Fatal("append posterior a respuesta o acceso pese a caducidad")
+				}
+			}
+			despachador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, usuarioshttp.RutaMisCorreos, nil).WithContext(ctx))
+			estado, appendEsperados := 403, 1
+			if fallaAppend {
+				estado, appendEsperados = 503, 2
+			}
+			if w.Code != estado || len(destino.ordenes) != appendEsperados || len(legado.ordenes) != 0 || llamadas != 0 {
+				t.Fatalf("caducidad perdió auditoría o abrió consulta: HTTP%d append%d legado%d handler%d", w.Code, len(destino.ordenes), len(legado.ordenes), llamadas)
+			}
+			datos, _ := destino.ordenes[0].Datos()
+			correlacion, _ := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+			ref, _ := correlacion.ValorCanonico()
+			if datos.Datos.Resultado != core.ResultadoIntentoAuditoriaDenegado || datos.Datos.CorrelacionRef != ref || datos.ResultadoContexto.HuellaSHA256 != c.resultado.HuellaSHA256 {
+				t.Fatal("dispatcher sustituyó correlación o identidad capturadas")
+			}
+		})
 	}
 }
