@@ -145,11 +145,12 @@ La suma incorpora una provisión de SQL propio; si dirección decide consumir
 exclusivamente un trámite institucional existente, se recorta el alcance y se
 recalcula, sin presentar esa derivación como gestión del expediente.
 
-Con dos equipos se estiman **7–11 jornadas** una vez disponibles las dependencias:
+Con dos equipos se estiman **7–12 jornadas** una vez disponibles las dependencias:
 I00/I01 4–7 h; I02/I03 10–16 h; I04/I05 8–13 h; I06–I09 14–23 h con interfaz
-y documentos repartidos por archivo; I10–I15 11–20 h con seguimiento/publicación/
-archivo en paralelo tras el acto; I16 4–6 h. Ese camino orientativo suma 51–85 h,
-redondeadas a 7–11 jornadas de calendario técnico. Sin solape se vuelve a 9–14.
+y documentos repartidos por archivo; I10–I15 15–25 h: propuesta y decisión en
+secuencia, luego un equipo conserva comunicación/seguimiento y otro publicación/
+archivo; I16 4–6 h. Ese camino orientativo suma 55–90 h, redondeadas a 7–12
+jornadas de calendario técnico. Sin solape se vuelve a 9–14.
 Un equipo conserva solicitud/instrucción y otro documentos/proyección/seguimiento;
 el caso de uso de decisión y los contratos compartidos tienen un solo escritor.
 
