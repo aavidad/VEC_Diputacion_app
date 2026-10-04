@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"strconv"
@@ -26,7 +27,7 @@ type TextosComparacion struct {
 }
 
 var rotulosComparacion = [...]string{
-	"titulo", "estado", "limite", "importes", "tabla_ayuda", "linea", "original",
+	"titulo", "estado", "limite", "importes", "rechazos", "tabla_ayuda", "linea", "original",
 	"reconocido_antes", "reconocido_ahora", "cambio_reconocido", "rechazado_antes",
 	"rechazado_ahora", "cambio_rechazado", "total", "criterios", "regla_antes",
 	"regla_ahora", "motivo_antes", "motivo_ahora", "sin_motivo", "catalogos",
@@ -39,7 +40,10 @@ var rotulosComparacion = [...]string{
 // catálogo que pueda cambiar el significado de una columna.
 func CargarTextosComparacion(datos []byte) (TextosComparacion, error) {
 	var t TextosComparacion
-	if len(datos) == 0 || len(datos) > 65536 || !utf8.Valid(datos) || !objetosSinDuplicados(datos) {
+	if len(datos) == 0 || len(datos) > 65536 || !utf8.Valid(datos) {
+		return t, ErrTextos
+	}
+	if err := objetosSinDuplicados(datos); err != nil {
 		return t, ErrTextos
 	}
 	d := json.NewDecoder(bytes.NewReader(datos))
@@ -50,47 +54,62 @@ func CargarTextosComparacion(datos []byte) (TextosComparacion, error) {
 	return t, nil
 }
 
-func objetosSinDuplicados(datos []byte) bool {
+func objetosSinDuplicados(datos []byte) error {
 	d := json.NewDecoder(bytes.NewReader(datos))
-	var valor func(int) bool
-	valor = func(profundidad int) bool {
+	var valor func(int) error
+	valor = func(profundidad int) error {
 		if profundidad > 4 {
-			return false
+			return ErrTextos
 		}
 		tok, err := d.Token()
 		if err != nil {
-			return false
+			return fmt.Errorf("%w: %w", ErrTextos, err)
 		}
 		switch tok := tok.(type) {
 		case string:
-			return true
+			return nil
 		case json.Delim:
 			if tok != '{' {
-				return false
+				return ErrTextos
 			}
 			vistos := map[string]bool{}
 			for d.More() {
 				clave, err := d.Token()
+				if err != nil {
+					return fmt.Errorf("%w: %w", ErrTextos, err)
+				}
 				nombre, ok := clave.(string)
-				if err != nil || !ok || vistos[strings.ToLower(nombre)] {
-					return false
+				if !ok || vistos[strings.ToLower(nombre)] {
+					return ErrTextos
 				}
 				vistos[strings.ToLower(nombre)] = true
-				if !valor(profundidad + 1) {
-					return false
+				if err := valor(profundidad + 1); err != nil {
+					return err
 				}
 			}
 			fin, err := d.Token()
-			return err == nil && fin == json.Delim('}')
+			if err != nil {
+				return fmt.Errorf("%w: %w", ErrTextos, err)
+			}
+			if fin != json.Delim('}') {
+				return ErrTextos
+			}
+			return nil
 		default:
-			return false
+			return ErrTextos
 		}
 	}
-	if !valor(0) {
-		return false
+	if err := valor(0); err != nil {
+		return err
 	}
 	_, err := d.Token()
-	return err == io.EOF
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrTextos, err)
+	}
+	return ErrTextos
 }
 
 func (t TextosComparacion) validar() error {

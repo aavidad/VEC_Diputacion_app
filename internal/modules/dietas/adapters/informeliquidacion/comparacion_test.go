@@ -70,7 +70,7 @@ func TestComparacionHTMLLocalizadaConImportesYHuellasConservados(t *testing.T) {
 			s := string(b)
 			for _, esperado := range []string{
 				`<html lang="` + idioma + `">`, textos.Rotulos["estado"], textos.Rotulos["limite"],
-				textos.Rotulos["criterios"], textos.Motivos["revision_justificante"],
+				textos.Rotulos["rechazos"], textos.Rotulos["criterios"], textos.Motivos["revision_justificante"],
 				c.Anterior.CatalogoSHA256, c.Propuesta.CatalogoSHA256,
 				c.Anterior.SnapshotSHA256, c.Propuesta.SnapshotSHA256, c.DocumentoSHA256,
 				`scope="row"`, `tabindex="0"`, `@media print`,
@@ -78,6 +78,9 @@ func TestComparacionHTMLLocalizadaConImportesYHuellasConservados(t *testing.T) {
 				if !strings.Contains(s, esperado) {
 					t.Errorf("falta contenido %q", esperado)
 				}
+			}
+			if strings.Count(s, "<table>") != 3 {
+				t.Fatal("faltan las tablas separadas de admisión, rechazo y criterios")
 			}
 			for _, centimos := range []int64{6670, 5970, 6270, 700, 400, 300, -300} {
 				if !strings.Contains(s, moneda(centimos, textos.Formato)) {

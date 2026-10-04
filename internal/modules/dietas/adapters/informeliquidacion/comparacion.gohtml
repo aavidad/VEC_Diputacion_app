@@ -27,20 +27,36 @@
 <th scope="col" class="importe">{{index .Textos.Rotulos "reconocido_antes"}}</th>
 <th scope="col" class="importe">{{index .Textos.Rotulos "reconocido_ahora"}}</th>
 <th scope="col" class="importe">{{index .Textos.Rotulos "cambio_reconocido"}}</th>
-<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_antes"}}</th>
-<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_ahora"}}</th>
-<th scope="col" class="importe">{{index .Textos.Rotulos "cambio_rechazado"}}</th>
 </tr></thead>
 <tbody>{{range .Filas}}<tr>
 <th scope="row">{{.Numero}}</th>
 <td class="importe">{{.Original}}</td><td class="importe">{{.ReconocidoAntes}}</td>
 <td class="importe">{{.ReconocidoAhora}}</td><td class="importe">{{.CambioReconocido}}</td>
-<td class="importe">{{.RechazadoAntes}}</td><td class="importe">{{.RechazadoAhora}}</td>
-<td class="importe">{{.CambioRechazado}}</td>
 </tr>{{end}}</tbody>
 <tfoot><tr><th scope="row">{{index .Textos.Rotulos "total"}}</th>
 <td class="importe">{{.Total.Original}}</td><td class="importe">{{.Total.ReconocidoAntes}}</td>
 <td class="importe">{{.Total.ReconocidoAhora}}</td><td class="importe">{{.Total.CambioReconocido}}</td>
+</tr></tfoot>
+</table>
+</div>
+</section>
+<section class="panel" aria-labelledby="rechazos">
+<div class="cabecera-panel"><h2 id="rechazos">{{index .Textos.Rotulos "rechazos"}}</h2></div>
+<p id="rechazos-ayuda" class="tabla-ayuda">{{index .Textos.Rotulos "tabla_ayuda"}}</p>
+<div class="tabla-scroll" tabindex="0" role="region" aria-labelledby="rechazos" aria-describedby="rechazos-ayuda">
+<table>
+<caption class="solo-lectura">{{index .Textos.Rotulos "rechazos"}}</caption>
+<thead><tr>
+<th scope="col">{{index .Textos.Rotulos "linea"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_antes"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_ahora"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "cambio_rechazado"}}</th>
+</tr></thead>
+<tbody>{{range .Filas}}<tr>
+<th scope="row">{{.Numero}}</th><td class="importe">{{.RechazadoAntes}}</td>
+<td class="importe">{{.RechazadoAhora}}</td><td class="importe">{{.CambioRechazado}}</td>
+</tr>{{end}}</tbody>
+<tfoot><tr><th scope="row">{{index .Textos.Rotulos "total"}}</th>
 <td class="importe">{{.Total.RechazadoAntes}}</td><td class="importe">{{.Total.RechazadoAhora}}</td>
 <td class="importe">{{.Total.CambioRechazado}}</td></tr></tfoot>
 </table>
