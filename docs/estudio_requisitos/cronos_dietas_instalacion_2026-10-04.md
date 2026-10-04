@@ -21,10 +21,28 @@ preguntas 100–108, 118 y 122 de [dudas.md](../../dudas.md) conservan las decis
 pendientes. La respuesta informática a la 122 usa perfiles fijos; el perfil
 no crea la competencia administrativa ni permite aprobar una solicitud propia.
 
+En Cronos, el perfil central ya autoriza el paso de resolución; la tabla
+`permiso_resolutor` añade la restricción de qué empleados puede resolver cada
+persona. No exige un acto de Personal y no se sustituye por un lector nuevo
+de perfiles. Para usar perfiles fijos, K debe provisionar los contratos y
+ámbitos existentes y conservar esa restricción y la separación de funciones.
+La frontera de Cronos aún usa su registrador propio de denegaciones: falta
+conectarla al puerto común de intentos de L con contexto nominal acreditado.
+
 ## Orden de trabajo tras H9
 
 Esta es una cola de preparación, **no una lista para ejecutar**. Los números
 pertenecen a módulos distintos; no bastan para establecer el orden causal.
+
+La resolución de permisos C7 tiene una cadena distinta de CRN11:
+**AD57 → Cronos9 → AD58 → Cronos10**. En la captura post-AD173 no están los
+cuatro clasificadores de AD57 (`cronos_permisos_bandeja`,
+`cronos_permiso_resolver`, `cronos_avisos_propio` y `cronos_aviso_archivar`).
+El clon post-H9 tampoco devolvió la función `resolver_permiso_v1` al consultar
+su catálogo. Por tanto, antes de preparar su instalación se debe comprobar
+la existencia y ACL de las fachadas, reconciliar los consumidores históricos
+con L y recibir los perfiles y el origen nominal de K. AD181 no cierra C7;
+prepara únicamente la lectura histórica de Personal para C5.
 
 1. **CRN11: reanclar el consumidor de autorización antes de Personal26.**
    [AD149](../../deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql)
