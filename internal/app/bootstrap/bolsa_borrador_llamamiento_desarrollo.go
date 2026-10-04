@@ -74,7 +74,13 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituac
 	if err != nil {
 		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	var correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2
+	capacidad, documentales := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	if documentales && capacidad.ruta == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH {
+		correlacion, err = puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	} else {
+		correlacion, err = dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	}
 	if err != nil {
 		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
 	}
@@ -460,11 +466,13 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	soporteBolsa.soporteCanal.contextoEsperadoRegistrado = esperadoRegistrado
 	completa := false
+	cerrarIntentosDocumentales := func() {}
 	detenerReincorporaciones := func() {}
 	defer func() {
 		if !completa {
 			detenerReincorporaciones()
 			cerrarAuditoria()
+			cerrarIntentosDocumentales()
 		}
 	}()
 	sesionBolsa, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
@@ -665,7 +673,20 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerDocumentales, err := bolsahttp.NuevoHandlerSolicitudesDocumentalesRRHH(preparador, servicioSituacion)
+	registradorDocumentales, procesoDocumentales, detenerIntentosDocumentales, err := AbrirRegistradorIntentosAuditoriaDesarrollo(
+		ctx, cfg, alta.postgresql.bolsa, []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+		})
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	cerrarIntentosDocumentales = detenerIntentosDocumentales
+	consultaDocumentales, err := nuevaConsultaDocumentalesBolsaAuditada(servicioSituacion, registradorDocumentales, procesoDocumentales)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerDocumentales, err := bolsahttp.NuevoHandlerSolicitudesDocumentalesRRHH(preparador, consultaDocumentales)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -785,7 +806,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	// No incorporación (CT124/Bolsa 000042): con la incorporación acreditada
 	// encendida, el relevo lleva la baja a la bandeja de Bolsa.
-	cerrar := func() { detenerReincorporaciones(); cerrarAuditoria() }
+	cerrar := func() { detenerReincorporaciones(); cerrarAuditoria(); cerrarIntentosDocumentales() }
 	if incorporacionAcreditadaSolicitada(cfg) {
 		var catalogo catalogoNoIncorporacionBolsa
 		if c, ok := catalogoSanciones.(catalogoNoIncorporacionBolsa); ok && c != nil {
@@ -801,6 +822,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			detener()
 			detenerReincorporaciones()
 			cerrarAuditoria()
+			cerrarIntentosDocumentales()
 		}
 	}
 	completa = true
