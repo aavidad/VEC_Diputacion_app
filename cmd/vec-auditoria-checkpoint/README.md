@@ -171,6 +171,13 @@ también cambia su huella. La suma de archivo y recibo no puede superar
 `max_bytes`; `max_registros` limita las filas. Todos los campos del recibo son
 obligatorios. Se rechazan claves repetidas, desconocidas, alias y valores nulos.
 
+También admite los esquemas de gobierno de usuarios AD188 y frontera técnica
+ADMIN AD189, junto a las familias anteriores. Comprueba sus huellas y fechas
+con los verificadores comunes. Estos actos identifican el LOGIN técnico; no
+acreditan una persona ni un perfil humano. Alterar la fecha o un código del
+registro invalida la cadena, aunque el archivo tenga una firma correcta. Un
+esquema anterior no admite estas familias nuevas.
+
 Un resultado `verificada` confirma la firma con la raíz fijada, los bytes y los
 eslabones admitidos. `historicos_sin_fecha_ligada: true` advierte de tramos cuyas
 fechas no estaban protegidas por su eslabón. El informe conserva siempre

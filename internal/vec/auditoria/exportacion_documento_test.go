@@ -87,3 +87,66 @@ func TestDocumentoExportacionCierraJSONYManipulacion(t *testing.T) {
 		t.Fatalf("cadena manipulada: err=%v informe=%+v", err, informe)
 	}
 }
+
+func TestDocumentoExportacionConservaGobiernoYFronteraAdmin(t *testing.T) {
+	for _, nombre := range []string{"exportacion_ad188.json", "exportacion_ad189.json"} {
+		t.Run(nombre, func(t *testing.T) {
+			// Vectores sintéticos encuadrados con Python/SHA256, independientes
+			// del despacho y reutilizados por la CLI con firma y TSA DEV reales.
+			b, err := os.ReadFile("../../../cmd/vec-auditoria-checkpoint/testdata/" + nombre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var d DocumentoVerificacionMixta
+			if err := json.Unmarshal(b, &d); err != nil {
+				t.Fatal(err)
+			}
+			cobertura := domain.CoberturaCheckpoint(d.Manifiesto)
+			esquema, informe, err := VerificarDocumentoExportacionAuditoria(b, cobertura, 1<<20, 10)
+			if err != nil || esquema != d.Esquema || informe.Estado != "verificada" || informe.ActorPerfilContextoCotejados {
+				t.Fatalf("acto técnico: esquema=%q informe=%+v err=%v", esquema, informe, err)
+			}
+			for _, caso := range []string{"fecha", "codigo", "esquema_anterior", "campo_extra", "campo_omitido"} {
+				t.Run(caso, func(t *testing.T) {
+					alterado := string(b)
+					switch caso {
+					case "fecha":
+						alterado = strings.Replace(alterado, "T08:30:00", "T08:30:01", 1)
+						alterado = strings.Replace(alterado, "T12:00:00", "T12:00:01", 1)
+					case "codigo":
+						alterado = strings.Replace(alterado, "gobierno_usuarios_registrado", "contenido_privado_sintetico", 1)
+						alterado = strings.Replace(alterado, "autenticacion_requerida", "contenido_privado_sintetico", 1)
+					case "esquema_anterior":
+						alterado = strings.Replace(alterado, d.Esquema, EsquemaVerificacionMixta, 1)
+					case "campo_extra":
+						alterado = strings.Replace(alterado, `"operador_login":`, `"actor_ref":"contenido_privado_sintetico","operador_login":`, 1)
+					case "campo_omitido":
+						var arbol map[string]any
+						if err := json.Unmarshal(b, &arbol); err != nil {
+							t.Fatal(err)
+						}
+						registro := arbol["registros"].([]any)[0].(map[string]any)
+						for clave, valor := range registro {
+							if clave != "tipo_registro" {
+								delete(valor.(map[string]any), "modulo_id")
+							}
+						}
+						omitido, err := json.Marshal(arbol)
+						if err != nil {
+							t.Fatal(err)
+						}
+						alterado = string(omitido)
+					}
+					_, rechazado, err := VerificarDocumentoExportacionAuditoria([]byte(alterado), cobertura, 1<<20, 10)
+					if rechazado.Estado != "rechazada" || err != nil && !errors.Is(err, ErrDocumentoExportacionAuditoriaInvalido) {
+						t.Fatalf("alteración admitida: err=%v informe=%+v", err, rechazado)
+					}
+					raw, err := json.Marshal(rechazado)
+					if err != nil || strings.Contains(string(raw), "contenido_privado_sintetico") {
+						t.Fatal("informe expone contenido rechazado")
+					}
+				})
+			}
+		})
+	}
+}
