@@ -43,7 +43,12 @@ func nuevoManejadorConsultaReciboRespuestaDesarrollo(
 	if err != nil {
 		return nil, err
 	}
-	servicio, err := application.NuevoServicioConsultaReciboRespuesta(lector)
+	lectorAuditado, err := nuevoLectorReciboRespuestaAuditadoCT(lector, alta.soporte, alta.auditoriaLecturasCT,
+		configuracionAuditoriaLecturasCT{Proceso: alta.procesoAuditoriaLecturasCT, Canal: string(dominiovec.SuperficieAutenticacionInternaCorporativaV1)})
+	if err != nil {
+		return nil, err
+	}
+	servicio, err := application.NuevoServicioConsultaReciboRespuesta(lectorAuditado)
 	if err != nil {
 		return nil, err
 	}
