@@ -13,12 +13,12 @@ function fechaGeneracionRPT(valor) {
   if (/^\d{4}-\d{2}-\d{2}$/u.test(valor)) {
     const fecha = new Date(`${valor}T12:00:00Z`);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor)
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeZone: "UTC" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeZone: "Europe/Madrid" }).format(fecha);
   }
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u.test(valor)) {
     const fecha = new Date(valor);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 19) === valor.slice(0, 19))
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha);
   }
   return valor;
 }

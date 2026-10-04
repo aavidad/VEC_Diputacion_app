@@ -134,7 +134,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-centro-fuente-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-servicios-sync-v3"),
     ]);

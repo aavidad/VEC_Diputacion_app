@@ -23,7 +23,7 @@ test("puesto separa seis campos de lectura rápida y siete de detalle sin repeti
 
 test("la generación ISO se localiza y otros textos fuente se conservan sin interpretarlos", async () => {
   for (const [origen, esperado] of [
-    ["2026-09-17T10:30:00Z", /17 de septiembre de 2026.*10:30/u],
+    ["2026-09-17T10:30:00Z", /17 de septiembre de 2026.*12:30/u],
     ["<fecha fuente 2026-02-30>", /<fecha fuente 2026-02-30>/u],
   ]) {
     const r = raiz();
