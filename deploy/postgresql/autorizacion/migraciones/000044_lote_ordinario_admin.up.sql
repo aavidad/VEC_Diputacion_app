@@ -10,9 +10,9 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
 DO $pre$
 DECLARE c oid;definicion text;huella text;
 BEGIN
- -- Pendiente de la fuente de ámbito y del contrato de inicio efectivo; este
- -- borrador jamás debe abrir la fachada hasta resolver ambos extremos.
- IF true THEN RAISE EXCEPTION 'AUT44: pendiente fuente de unidad y fecha efectiva' USING ERRCODE='55000'; END IF;
+ -- Borrador preservado: no abrir fachada sin dos revisiones del hash final y
+ -- ensayo PostgreSQL del escritor único sobre las fuentes y fechas reales.
+ IF true THEN RAISE EXCEPTION 'AUT44: borrador pendiente de revision y ensayo' USING ERRCODE='55000'; END IF;
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_admin_perfiles_lote_ejecutor') IS NULL
