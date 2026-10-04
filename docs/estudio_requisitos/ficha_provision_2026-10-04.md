@@ -35,7 +35,7 @@ funcionarial por el mero hecho de compartir pantalla.
 | N1 | [TREBEP, RDL 5/2015, arts. 3, 74 y 78–84](https://www.boe.es/eli/es/rdlg/2015/10/30/5/con) | Marco del personal local, RPT, concurso, libre designación, movilidad y provisión laboral. Los arts. 78–80 exigen publicidad y separan valoración técnica de apreciación de idoneidad. |
 | N2 | [LBRL, Ley 7/1985, arts. 34, 90 y 101–102](https://www.boe.es/eli/es/l/1985/04/02/7/con) | Competencia provincial, plantilla/RPT, convocatoria pública y resolución de la provisión local. La asignación informática de un perfil no crea competencia ni delegación. |
 | N3 | [RD 364/1995, arts. 1, 39–50, 51–58 y 64](https://www.boe.es/eli/es/rd/1995/03/10/364/con) | El art. 1.1 fija ámbito estatal; el 1.3 prevé supletoriedad para otras Administraciones. Sus reglas se contrastan con la norma autonómica y las bases aplicables. La comisión de Granada de 2024 cita expresamente el art. 64; ello no extiende todo el reglamento a cada convocatoria provincial. |
-| N4 | [Ley 5/2023 de Función Pública de Andalucía, arts. 124, 126 y 128](https://www.boe.es/eli/es-an/l/2023/06/07/5/con) | Las bases provinciales consultadas citan estos preceptos. También remiten al Decreto 51/2025, arts. 58 y siguientes para concurso y 78 y siguientes para libre designación. Se conserva la remisión de cada base sin convertir la regulación de la Junta en una configuración universal de Granada. |
+| N4 | [Ley 5/2023 de Función Pública de Andalucía, arts. 124, 126 y 128](https://www.boe.es/eli/es-an/l/2023/06/07/5/con) | Las bases provinciales consultadas citan estos preceptos. También remiten al [Decreto 51/2025](https://www.juntadeandalucia.es/boja/2025/40/4.html), arts. 58 y siguientes para concurso y 78 y siguientes para libre designación, con su [corrección de errores](https://www.juntadeandalucia.es/boja/2025/200/7). Se conserva la remisión de cada base sin convertir la regulación de la Junta en una configuración universal de Granada. |
 | N5 | [Ley 39/2015, arts. 14, 16, 30–32, 35, 40–46, 53 y 123–124](https://www.boe.es/eli/es/l/2015/10/01/39/con) | Registro, cómputo, motivación, publicación/notificación, acceso al expediente y recursos. Cada plazo necesita su hecho de inicio y calendario; descargar un borrador no acredita ninguno de esos actos. |
 
 Las fuentes públicas aportan reglas de convocatorias concretas. RRHH debe elegir
@@ -60,7 +60,7 @@ internas que la publicación no resuelva.
 | P11 | Libre designación: solicitud y documentación, comprobación de requisitos, informes de idoneidad y decisión motivada del órgano competente, con nombramiento y cese trazables. | N1 art. 80; N3 arts. 51–58 dentro de su ámbito; bases provinciales de libre designación 1–5. |
 | P12 | Comisión de servicios: informe de origen y propuesta del destino, temporalidad, reserva del puesto, prórroga y cese. El ejercicio no crea comisión ni indemnización de Dietas. | N1 art. 81.3; N3 art. 64; resolución provincial 2024, bases 1.2, 2.3 y 3. |
 | P13 | Reutilizar persona, relación de servicio y grado de Personal B; puestos y cobertura de Organización/RPT; méritos y evidencias de RUM; motor compartido del Baremador. Consultar por puertos nominales y versiones exactas. | E02–E03; estudio de integración del Baremador; N1 art. 74. |
-| P14 | Denegar por defecto. Usar perfiles fijos asignados por la autoridad común, acciones y ámbitos exactos; impedir autoaprobación y suma de perfiles. Auditar éxito, denegación y error, también consulta, recuperación y descarga. | E04–E07; matriz de roles; dudas 122 y 128 para competencia y suplencias. |
+| P14 | Denegar por defecto. Usar perfiles fijos asignados por la autoridad común, acciones y ámbitos exactos; impedir autoaprobación y suma de perfiles. Auditar éxito, denegación y error, también consulta, recuperación y descarga: identidad y perfil activo, acción, recurso opaco, finalidad, instante, resultado, proceso y canal. El registro común es de solo adición y comparte transacción con el efecto. | E04–E07; matriz de roles; dudas 122 y 128 para competencia y suplencias. |
 | P15 | Documentos bajo custodia común, descarga con permiso propio, publicación minimizada y conservación gobernada. Interfaz en español e inglés, teclado y escritorio/móvil, sin cookies ni almacenamiento web. | E07–E08; N5 arts. 40–46 y 53; dudas 36, 60–61 sobre auditoría y conservación. |
 | P16 | Cada efecto institucional une autorización vigente, versión, idempotencia, estado, historia, auditoría y recibo en transacción; outbox cuando corresponda al efecto. Tras reinicio se recupera el mismo recibo. | E06 y E10; contrato pendiente de persistencia de Provisión. |
 
@@ -104,8 +104,8 @@ Reutilizar las preguntas 27–29 sobre fuentes de Personal, 36 sobre auditoría,
 suplencias de [dudas.md](../../dudas.md). Las preguntas 109–111 pertenecen a
 Selección: no acreditan decisiones de Provisión.
 
-Dirección reserva la pregunta 137, pendiente de incorporación a `dudas.md`,
-para elegir el primer proceso, responsables y separación de funciones, fuentes
+La pregunta 137 de `dudas.md` recoge la decisión interna pendiente
+sobre el primer proceso, responsables y separación de funciones, fuentes
 internas admitidas y circuitos de registro, firma, publicación y comunicación.
 Los actos y asignaciones vigentes se confirmarán dentro de ese circuito; las
 publicaciones de ejemplo no prueban quién tiene hoy una delegación.
