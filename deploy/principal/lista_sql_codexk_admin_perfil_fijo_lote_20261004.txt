@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion/migraciones/000045_mantenimiento_perfil_fijo_lote.up.sql
