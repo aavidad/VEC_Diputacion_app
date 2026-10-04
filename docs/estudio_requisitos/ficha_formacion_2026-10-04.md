@@ -87,7 +87,7 @@ FOR-001 corresponde al plan, FOR-002 a solicitudes y FOR-003 a ejecución/certif
 | F14 | Entregar al RUM una sola vez el hecho formativo acreditado, con curso/edición, horas, resultado, evidencia y procedencia. | H17; recibo y reconciliación de reintentos. Declarado, pendiente, acreditado y rechazado permanecen distintos. |
 | F15 | Facilitar consultas por puerto a Personal, Carrera y baremador cuando exista una finalidad admitida. | Cada dueño conserva sus decisiones. Un curso no asigna puntos, grado, progresión ni permiso horario. |
 | F16 | Usar identidad, perfil activo y autorización nominal comunes; denegación por defecto. | E04–E05. Acciones y campos fijos gobernados; ningún permiso enviado o publicado por una petición. |
-| F17 | Auditar éxito, denegación y error, también en consultas y descargas. | E06; autoridad común: actor acreditado, acción, recurso, resultado, instante y correlación. Rechazos sin actor usan la frontera técnica común cuando exista. |
+| F17 | Auditar éxito, denegación y error, también en consultas y descargas. | E06 y orden de auditoría del 03/10: identidad acreditada, perfil activo, acción, recurso opaco, finalidad, instante, resultado permitido/denegado/error, proceso/canal y correlación; solo adición y transacción con el efecto. Rechazos sin actor usan la frontera técnica común cuando exista. |
 | F18 | Minimizar datos personales y separar consulta propia, gestión y publicación pública. | E07 y matriz de ámbitos. Ausencias/adaptaciones no justifican exponer información de salud al listado. |
 | F19 | Usar catálogos ES/EN, tema común y estados claros de carga, vacío, pendiente, error y denegación. | E08; PC prioritario, móvil usable, teclado y foco. No textos visibles dentro del código. |
 | F20 | Conservar historia, versión, idempotencia y recibos en cualquier efecto futuro. | E06/E10. Sin SQL ahora; reservar migración nueva, ensayo en clon y revisiones antes de instalar por dirección. |
@@ -111,7 +111,7 @@ expresa que delimite funciones, autoridad y transición.
 | Plan, convocatoria, edición, selección, sesiones y resultado | Formación corporativa; VEC conserva referencias/versiones y consulta por contrato. |
 | Persona, relación y antecedentes laborales | Persona/Personal, responsabilidad B. La cuenta o un certificado no prueban relación de servicio. |
 | Archivo y firma del certificado | Formación expide; Documentos conserva custodia y verificación/firma por sus puertos. |
-| Hecho formativo reutilizable | RUM, responsabilidad A; entrega con evidencia. Baremador G aplica las bases de cada proceso. |
+| Hecho formativo reutilizable | RUM, responsabilidad A; entrega con evidencia. El baremador común aplica las bases de cada proceso. |
 | Grado y progresión | Carrera prepara su circuito; Personal registra el acto competente. No trasladar reglas de Carrera a selección de cursos. |
 | Permiso horario, comisión o indemnización | Cronos y Dietas, con su autoridad y fuente propias; asistir no concede compensación automática. |
 | Perfil, concesión, auditoría y publicación técnica | Autoridades comunes de VEC, sin administración paralela en Formación. |
