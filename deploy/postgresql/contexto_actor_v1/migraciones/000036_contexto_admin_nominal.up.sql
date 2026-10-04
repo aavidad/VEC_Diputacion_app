@@ -38,7 +38,12 @@ BEGIN
  END LOOP;
  IF NOT FOUND THEN RAISE EXCEPTION 'CA36: núcleo V2 ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
+CREATE ROLE vec_contexto_actor_v1_admin_contexto NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+DO $base$ BEGIN
+ EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_contexto_actor_v1_admin_contexto',current_database());
+END $base$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO vec_contexto_actor_v1_admin_contexto;
 -- Extrae exactamente el cuerpo medido; las entradas generales retienen el
 -- chequeo de su runtime. Los helpers nuevos sólo pertenecen al owner CA.
 DO $extraer$
@@ -65,6 +70,58 @@ BEGIN
 END $extraer$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.resolver_contexto_ca36_interno_v1(text,text,text,text,text,text,timestamptz,text[]),
  vec_contexto_actor_v1.reconciliar_contexto_ca36_interno_v1(text,text,text,text,text,text,timestamptz,text[]) FROM PUBLIC;
+-- Enlace de dominio: conserva el frame propietario que autorizó esta fila
+-- del núcleo. La cadena y el acuse de auditoría permanecen sólo en AD192.
+CREATE TABLE vec_contexto_actor_v1.enlace_contexto_admin_v1 (
+ operacion_ref text PRIMARY KEY REFERENCES vec_contexto_actor_v1.registros_contexto(operacion_ref),
+ registro_contexto_ref text NOT NULL UNIQUE REFERENCES vec_contexto_actor_v1.registros_contexto(registro_contexto_ref),
+ vinculo_sesion_ref text NOT NULL CHECK(vinculo_sesion_ref ~ '^vis_[0-9a-f]{32}$'),
+ vinculo_sesion_version numeric(20,0) NOT NULL CHECK(vinculo_sesion_version BETWEEN 1 AND 18446744073709551615),
+ vinculo_sesion_sha256 text NOT NULL CHECK(vinculo_sesion_sha256 ~ '^[0-9a-f]{64}$'),
+ autenticacion_ref text NOT NULL CHECK(vec_contexto_actor_v1.referencia_valida(autenticacion_ref,'aut_')),
+ sesion_ref text NOT NULL CHECK(vec_contexto_actor_v1.referencia_valida(sesion_ref,'ses_')),
+ cuenta_ref text NOT NULL CHECK(vec_contexto_actor_v1.referencia_valida(cuenta_ref,'cta_')),
+ actor_ref text NOT NULL CHECK(vec_contexto_actor_v1.referencia_valida(actor_ref,'per_')),
+ perfil_ref text NOT NULL CHECK(vec_contexto_actor_v1.referencia_valida(perfil_ref,'prf_')),
+ fuente_ref text NOT NULL CHECK(fuente_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$'),
+ fuente_sha256 text NOT NULL CHECK(fuente_sha256 ~ '^[0-9a-f]{64}$'),
+ evento_ref text NOT NULL UNIQUE CHECK(evento_ref ~ '^evento_[0-9a-f]{32}$'),
+ proceso text NOT NULL CHECK(proceso ~ '^[a-z][a-z0-9._-]{1,79}$'),
+ correlacion_ref text NOT NULL CHECK(correlacion_ref ~ '^correlacion_[0-9a-f]{32}$'),
+ motivo_ref text NOT NULL CHECK(motivo_ref='contexto_admin_pre_v2_permitido'),
+ motivo_catalogo_version smallint NOT NULL CHECK(motivo_catalogo_version=1),
+ enlazado_en timestamptz NOT NULL CHECK(isfinite(enlazado_en))
+);
+ALTER TABLE vec_contexto_actor_v1.enlace_contexto_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.enlace_contexto_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.enlace_contexto_admin_v1
+ TO vec_contexto_actor_v1_propietario USING(current_user='vec_contexto_actor_v1_propietario')
+ WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.enlace_contexto_admin_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia();
+CREATE TRIGGER historia_no_truncable BEFORE TRUNCATE ON vec_contexto_actor_v1.enlace_contexto_admin_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+CREATE FUNCTION vec_contexto_actor_v1.validar_enlace_contexto_admin_v1()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+DECLARE r record;canon jsonb;
+BEGIN
+ SELECT x.* INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto x
+ WHERE x.operacion_ref=NEW.operacion_ref AND x.registro_contexto_ref=NEW.registro_contexto_ref FOR SHARE;
+ canon:=convert_from(r.representacion_canonica,'UTF8')::jsonb;
+ IF r.cuenta_ref IS DISTINCT FROM NEW.cuenta_ref OR r.perfil_ref IS DISTINCT FROM NEW.perfil_ref
+  OR r.metodo NOT IN('certificado','dnie') OR r.garantia IS DISTINCT FROM 'alto'
+  OR canon->>'persona_ref' IS DISTINCT FROM NEW.actor_ref
+  OR canon->>'perfil_activo_ref' IS DISTINCT FROM NEW.perfil_ref
+  OR canon->>'cuenta_ref' IS DISTINCT FROM NEW.cuenta_ref
+  OR vec_contexto_actor_v1.alcance_registro_contexto_v2(r.representacion_canonica) IS DISTINCT FROM '{}'::text[]
+ THEN RAISE EXCEPTION 'CA36: enlace incompatible con contexto' USING ERRCODE='42501'; END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.validar_enlace_contexto_admin_v1() FROM PUBLIC;
+CREATE TRIGGER enlace_exacto BEFORE INSERT ON vec_contexto_actor_v1.enlace_contexto_admin_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.validar_enlace_contexto_admin_v1();
+REVOKE ALL ON TABLE vec_contexto_actor_v1.enlace_contexto_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.enlace_contexto_admin_v1 FROM PUBLIC;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
  p_operacion_ref text,p_registro_contexto_ref text,p_cuenta_ref text,p_perfil_ref text,
  p_metodo text,p_garantia text,p_solicitado_en timestamptz,p_proyecciones text[])
@@ -89,6 +146,60 @@ BEGIN
  RETURN QUERY SELECT * FROM vec_contexto_actor_v1.reconciliar_contexto_ca36_interno_v1(
   p_operacion_ref,p_registro_contexto_ref,p_cuenta_ref,p_perfil_ref,p_metodo,p_garantia,p_solicitado_en,p_proyecciones);
 END $f$;
+CREATE FUNCTION vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1()
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE l record;g record;dbo oid;nso oid;fs oid[];
+BEGIN
+ SELECT * INTO l FROM pg_roles WHERE rolname=session_user;
+ SELECT * INTO g FROM pg_roles WHERE rolname='vec_contexto_actor_v1_admin_contexto';
+ dbo:=(SELECT oid FROM pg_database WHERE datname=current_database());
+ nso:=to_regnamespace('vec_contexto_actor_v1');
+ fs:=ARRAY[
+  to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1()'),
+  to_regprocedure('vec_contexto_actor_v1.registrar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)'),
+  to_regprocedure('vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)'),
+  to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)')];
+ IF current_setting('role')<>'none' OR l.oid IS NULL OR g.oid IS NULL OR dbo IS NULL OR nso IS NULL
+  OR array_position(fs,NULL) IS NOT NULL OR cardinality(fs)<>4
+  OR l.rolcanlogin IS NOT TRUE OR l.rolinherit IS NOT TRUE
+  OR l.rolsuper OR l.rolcreaterole OR l.rolcreatedb OR l.rolreplication OR l.rolbypassrls OR l.rolconfig IS NOT NULL
+  OR g.rolcanlogin OR g.rolinherit OR g.rolsuper OR g.rolcreaterole OR g.rolcreatedb OR g.rolreplication OR g.rolbypassrls OR g.rolconfig IS NOT NULL
+  OR (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)<>1
+  OR NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
+      AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+  OR EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=g.oid)
+  OR EXISTS(SELECT 1 FROM pg_db_role_setting s WHERE s.setrole IN(l.oid,g.oid))
+  OR EXISTS(SELECT 1 FROM pg_default_acl d LEFT JOIN LATERAL aclexplode(coalesce(d.defaclacl,'{}'::aclitem[])) a ON true
+      WHERE d.defaclrole IN(l.oid,g.oid) OR a.grantee IN(l.oid,g.oid) OR a.grantor IN(l.oid,g.oid))
+  OR EXISTS(SELECT 1 FROM pg_policy p WHERE l.oid=ANY(p.polroles) OR g.oid=ANY(p.polroles))
+  OR EXISTS(SELECT 1 FROM pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=l.oid)
+  OR NOT COALESCE((SELECT count(*)=6 AND bool_and(d.deptype='a' AND d.objsubid=0 AND
+       ((d.classid='pg_catalog.pg_database'::regclass AND d.objid=dbo) OR
+        (d.classid='pg_catalog.pg_namespace'::regclass AND d.objid=nso) OR
+        (d.classid='pg_catalog.pg_proc'::regclass AND d.objid=ANY(fs))))
+      FROM pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=g.oid),false)
+  OR NOT COALESCE((SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable)
+      FROM pg_database b CROSS JOIN LATERAL aclexplode(coalesce(b.datacl,acldefault('d',b.datdba))) a
+      WHERE b.oid=dbo AND a.grantee=g.oid),false)
+  OR NOT COALESCE((SELECT count(*)=1 AND bool_and(a.privilege_type='USAGE' AND NOT a.is_grantable)
+      FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a
+      WHERE n.oid=nso AND a.grantee=g.oid),false)
+  OR NOT COALESCE((SELECT count(*)=4 AND count(DISTINCT p.oid)=4 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+      FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+      WHERE p.oid=ANY(fs) AND a.grantee=g.oid),false)
+  OR vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(l.oid,dbo,nso,fs) IS NOT TRUE
+ THEN RAISE EXCEPTION 'CA36: LOGIN contexto ADMIN no acreditado' USING ERRCODE='42501'; END IF;
+ RETURN session_user;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1() FROM PUBLIC;
+CREATE FUNCTION vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1()
+RETURNS TABLE(identidad_login text,acreditada boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $f$
+BEGIN
+ identidad_login:=vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
+ acreditada:=true;RETURN NEXT;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1() FROM PUBLIC;
 -- Las fachadas ADMIN, enlace durable y ACL exclusivas se añaden tras fijar
 -- IS16 y la consulta AD192; el bloqueo $pre$ impide instalar este borrador.
 COMMIT;
