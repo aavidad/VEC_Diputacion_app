@@ -28,11 +28,13 @@ La [relación provincial de compatibilidades](https://www.dipgra.es/export/sites
 | Fuente oficial | Artículos y consecuencia |
 | --- | --- |
 | [Ley 53/1984](https://www.boe.es/eli/es/l/1984/12/26/53/con) | Arts. 1–2: ámbito local y relaciones de empleo; art. 3: autorización previa de segunda actividad pública; arts. 7 y 11–13, 16: límites y prohibiciones. Art. 9: competencia del Pleno al que esté adscrito el puesto principal e informe favorable del segundo. Art. 14: reconocimiento previo para actividad privada, resolución motivada en dos meses, competencia local del Pleno y pérdida de efecto al cambiar de puesto público. Arts. 18–19: inscripción y excepciones. |
-| [RD 598/1985](https://www.boe.es/eli/es/rd/1985/04/30/598/con) | Art. 1 delimita Administración del Estado, Seguridad Social y entidades dependientes, con las inclusiones que expresa. Sus órganos y plazos del art. 5 no se trasladan automáticamente a Diputación. Cualquier aplicación concreta requiere fundamento comprobado. |
+| [RD 598/1985](https://www.boe.es/eli/es/rd/1985/04/30/598/con) | Art. 1 excluye expresamente a quien desempeñe su actividad pública única o principal en una comunidad autónoma o corporación local. Sus órganos y plazos del art. 5 no se trasladan a Diputación. Una referencia reglamentaria concreta exige fundamento comprobado. |
 | [Ley 19/2013](https://www.boe.es/eli/es/l/2013/12/09/19/con) | Art. 8.1.g: publicidad de resoluciones de compatibilidad; arts. 5.3 y 15: límites y protección de datos. La publicidad tiene su propio procedimiento y proyección. |
 | [RGPD, texto publicado en BOE](https://www.boe.es/doue/2016/119/L00001-00088.pdf) y [LOPDGDD](https://www.boe.es/eli/es/lo/2018/12/05/3/con) | RGPD arts. 5, 6.1.c/e, 13–14, 25 y 32: finalidad, licitud, información y protección. LOPDGDD art. 8: obligación legal y misión pública. La base concreta se documenta por tratamiento. |
 
 El circuito configurado mantendrá la competencia legal y las delegaciones que sean válidas y acreditadas. La relación provincial publicada muestra acuerdos plenarios; no justifica atribuir la resolución a una jefatura por su nombre de cargo.
+
+La aplicación temporal del art. 16.1 de la Ley 53/1984 requiere considerar la condición de efectos de la disposición final cuarta del TREBEP indicada en el propio BOE. La regla retributiva del expediente conservará la redacción y fundamento aplicables; no se deduce de una etiqueta del complemento.
 
 ## Perfiles, ámbitos y datos mínimos
 
