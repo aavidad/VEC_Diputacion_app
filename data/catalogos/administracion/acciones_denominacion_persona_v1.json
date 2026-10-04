@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "rol_origen_ref": "rol:administracion_perfiles:v4",
+  "rol_destino_ref": "rol:administracion_perfiles:v5",
+  "concesiones": [
+    {
+      "accion": "vec.persona.denominacion.publicar",
+      "modulo_id": "vec",
+      "tipo_recurso": "persona_denominacion",
+      "finalidades": [
+        "presentacion_persona"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "denominacion"
+      ],
+      "obligaciones": [
+        "auditar"
+      ]
+    },
+    {
+      "accion": "vec.persona.denominacion.leer",
+      "modulo_id": "vec",
+      "tipo_recurso": "persona_denominacion",
+      "finalidades": [
+        "presentacion_persona"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "nombre_mostrar"
+      ],
+      "obligaciones": [
+        "auditar"
+      ]
+    }
+  ]
+}

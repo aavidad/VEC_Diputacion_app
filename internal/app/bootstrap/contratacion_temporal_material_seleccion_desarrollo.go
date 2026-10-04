@@ -21,6 +21,7 @@ type seleccionMaterialCTDesarrollo struct {
 	cancelacion                                                      bool
 	exportacionServiciosPersonal                                     bool
 	historiaServiciosPersonal                                        bool
+	historiaRelacionesPersonal                                       bool
 	incorporacionAcreditada, incorporacionB2                         bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
@@ -78,6 +79,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	if err != nil {
 		return s, err
 	}
+	historiaRelaciones, err := historiaRelacionesPersonalSolicitada(cfg)
+	if err != nil {
+		return s, err
+	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
 		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
@@ -90,6 +95,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		fichaPropiaPersonal:          personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
 		exportacionServiciosPersonal: exportacionServicios,
 		historiaServiciosPersonal:    historiaServicios,
+		historiaRelacionesPersonal:   historiaRelaciones,
 		firmaDocumento:               firma,
 		seguimientoCese:              seguimientoCeseSolicitado(cfg),
 		cancelacion:                  cancelacionCTSolicitada(cfg),
@@ -188,6 +194,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.historiaServiciosPersonal {
 		d = append(d, descriptorMaterialHistoriaServiciosPersonal())
+	}
+	if s.historiaRelacionesPersonal {
+		d = append(d, descriptorMaterialHistoriaRelacionesPersonal())
 	}
 	if s.exportacionServiciosPersonal {
 		d = append(d, descriptorMaterialExportacionServiciosPersonal())

@@ -18,18 +18,19 @@ type PaquetePreparacionOrganizacion struct {
 }
 
 type InformeRevisionPreparacionOrganizacion struct {
-	Valido                 bool           `json:"valido"`
-	Estado                 string         `json:"estado"`
-	ClaveError             string         `json:"clave_error,omitempty"`
-	Seccion                string         `json:"seccion,omitempty"`
-	FilaFallida            int            `json:"fila_fallida,omitempty"`
-	Hechos                 int            `json:"hechos"`
-	Decisiones             int            `json:"decisiones"`
-	RecuentosClase         map[string]int `json:"recuentos_clase"`
-	RecuentosDecision      map[string]int `json:"recuentos_decision"`
-	ManifiestoHuellaSHA256 string         `json:"manifiesto_huella_sha256,omitempty"`
-	PaqueteHuellaSHA256    string         `json:"paquete_huella_sha256,omitempty"`
-	PendientesPublicacion  []string       `json:"pendientes_publicacion"`
+	Valido                 bool                               `json:"valido"`
+	Estado                 string                             `json:"estado"`
+	ClaveError             string                             `json:"clave_error,omitempty"`
+	Seccion                string                             `json:"seccion,omitempty"`
+	FilaFallida            int                                `json:"fila_fallida,omitempty"`
+	Hechos                 int                                `json:"hechos"`
+	Decisiones             int                                `json:"decisiones"`
+	RecuentosClase         map[string]int                     `json:"recuentos_clase"`
+	RecuentosDecision      map[string]int                     `json:"recuentos_decision"`
+	ManifiestoHuellaSHA256 string                             `json:"manifiesto_huella_sha256,omitempty"`
+	PaqueteHuellaSHA256    string                             `json:"paquete_huella_sha256,omitempty"`
+	PendientesPublicacion  []string                           `json:"pendientes_publicacion"`
+	CoberturaConciliacion  *CoberturaConciliacionOrganizacion `json:"cobertura_conciliacion,omitempty"`
 }
 
 // RevisarPreparacionOrganizacion solo comprueba material en memoria. No consulta
@@ -52,7 +53,7 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	if len(p.Decisiones) > 1000 {
 		return fallo("cantidad_decisiones_invalida", "decisiones", 0)
 	}
-	vistos, origenes, filas := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	vistos, origenes, filas := map[string]bool{}, map[string]bool{}, map[string]map[string]bool{}
 	for i, h := range p.Hechos {
 		if h.Validar(p.Manifiesto) != nil {
 			return fallo("hecho_invalido", "hechos", i+1)
@@ -61,7 +62,11 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		if vistos[identidad] || origenes[origen] {
 			return fallo("hecho_duplicado", "hechos", i+1)
 		}
-		vistos[identidad], origenes[origen], filas[h.FilaFuenteRef] = true, true, true
+		vistos[identidad], origenes[origen] = true, true
+		if filas[h.FilaFuenteRef] == nil {
+			filas[h.FilaFuenteRef] = map[string]bool{}
+		}
+		filas[h.FilaFuenteRef][h.Clase] = true
 		r.RecuentosClase[h.Clase]++
 	}
 	vistas := map[string]bool{}
@@ -73,8 +78,12 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		if vistas[clave] {
 			return fallo("decision_duplicada", "decisiones", i+1)
 		}
-		if !filas[d.FilaFuenteRef] {
+		clasesHecho, existe := filas[d.FilaFuenteRef]
+		if !existe {
 			return fallo("decision_sin_fila", "decisiones", i+1)
+		}
+		if d.Clase != "clasificacion" && !clasesHecho[d.Clase] && !(d.Clase == "unidad" && clasesHecho["nodo"]) {
+			return fallo("decision_invalida", "decisiones", i+1)
 		}
 		vistas[clave] = true
 		r.RecuentosDecision[d.Resultado]++
@@ -97,6 +106,41 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	if err != nil {
 		return fallo("manifiesto_invalido", "manifiesto", 0)
 	}
+	p = normalizarPreparacionOrganizacion(p)
+	material, err := json.Marshal(p)
+	if err != nil {
+		return fallo("paquete_invalido", "paquete", 0)
+	}
+	h := sha256.Sum256(material)
+	r.ManifiestoHuellaSHA256 = manifiestoHuella
+	r.PaqueteHuellaSHA256, r.Valido = hex.EncodeToString(h[:]), true
+	r.CoberturaConciliacion = revisarCoberturaConciliacionOrganizacion(p)
+	return r
+}
+
+func compactarPendientes(p []string) []string {
+	n := 0
+	for _, s := range p {
+		if n == 0 || p[n-1] != s {
+			p[n] = s
+			n++
+		}
+	}
+	return p[:n]
+}
+
+// PrepararPaqueteOrganizacion devuelve el material revisado en el mismo orden
+// canónico que identifica PaqueteHuellaSHA256. Nunca devuelve material inválido.
+// La revisión sigue siendo local y no acredita fuentes ni concede publicación.
+func PrepararPaqueteOrganizacion(p PaquetePreparacionOrganizacion) (PaquetePreparacionOrganizacion, InformeRevisionPreparacionOrganizacion) {
+	r := RevisarPreparacionOrganizacion(p)
+	if !r.Valido {
+		return PaquetePreparacionOrganizacion{}, r
+	}
+	return normalizarPreparacionOrganizacion(p), r
+}
+
+func normalizarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) PaquetePreparacionOrganizacion {
 	p.Hechos = append([]domain.HechoImportacionOrganizacion(nil), p.Hechos...)
 	p.Decisiones = append([]domain.DecisionConciliacionOrganizacion(nil), p.Decisiones...)
 	sort.Slice(p.Hechos, func(i, j int) bool {
@@ -113,23 +157,5 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		}
 		return a.FilaFuenteRef < b.FilaFuenteRef
 	})
-	material, err := json.Marshal(p)
-	if err != nil {
-		return fallo("paquete_invalido", "paquete", 0)
-	}
-	h := sha256.Sum256(material)
-	r.ManifiestoHuellaSHA256 = manifiestoHuella
-	r.PaqueteHuellaSHA256, r.Valido = hex.EncodeToString(h[:]), true
-	return r
-}
-
-func compactarPendientes(p []string) []string {
-	n := 0
-	for _, s := range p {
-		if n == 0 || p[n-1] != s {
-			p[n] = s
-			n++
-		}
-	}
-	return p[:n]
+	return p
 }

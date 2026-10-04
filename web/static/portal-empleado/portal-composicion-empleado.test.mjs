@@ -135,6 +135,23 @@ test("Personal monta ficha antes de crear catálogos y limpia registros temprano
   assert.equal(desmontajeFicha, 1);
 });
 
+test("el acceso de Personal a correos usa sólo la ruta interna existente de preferencias", () => {
+  let entradaFicha; let peticiones = 0; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { entradaFicha = entrada; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("no debe consultar"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { peticiones += 1; } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {}, anunciar() {} });
+  entradaFicha.abrirCorreos();
+  assert.equal(location.hash, "#mis-preferencias");
+  assert.equal(peticiones, 0);
+  assert.deepEqual(focos, [{ preventScroll: true }]);
+  assert.deepEqual(entradaFicha.fuentes, {});
+});
+
 test("Personal limpia una vez también si un catálogo falla después de registrar temprano", async () => {
   let limpiarTemprano = 0;
   let resolverTardio;
