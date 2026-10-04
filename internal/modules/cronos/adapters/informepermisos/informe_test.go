@@ -173,6 +173,35 @@ func TestInformePermisosSubconjuntoSinRotulosExcluidos(t *testing.T) {
 	}
 }
 
+func TestInformePermisosAceptaFilaMinimizada(t *testing.T) {
+	r := &rendererPrueba{}
+	p, err := Nuevo(r, bytes.NewReader(catalogoPrueba(t, "es")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := resumenPrueba()
+	s.CamposPermitidos = []string{"computo"}
+	s.Filas[0] = ports.FilaInformePermisos{Computo: domain.ComputoLaborables}
+	if _, err := p.PrepararInformePermisos(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	texto := strings.Join(r.contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "Cómputo: Días laborables") || strings.Contains(texto, "Permiso propio") || strings.Contains(texto, "Unidad:") {
+		t.Fatal(texto)
+	}
+	s.CamposPermitidos = []string{"unidad", "restante"}
+	s.Filas[0] = ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadInformePermisosPrueba(4)}
+	if _, err := p.PrepararInformePermisos(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	texto = strings.Join(r.contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "Restante: 4") || strings.Contains(texto, "Conciliación:") {
+		t.Fatal(texto)
+	}
+}
+
+func cantidadInformePermisosPrueba(v int64) *int64 { return &v }
+
 func TestInformePermisosParserPropagaErrorCerrado(t *testing.T) {
 	for _, raw := range []string{
 		``, `{"campo":`, `{"campo":"dato"`, `{"campo":"dato",}`, `{"mapa":{"campo":"a","campo":"b"}}`,

@@ -211,6 +211,49 @@ func TestExportacionPermisosSubconjuntoBorraCamposYConservaPolitica(t *testing.T
 	}
 }
 
+func TestExportacionPermisosAdmiteFuenteYaMinimizada(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		campos []string
+		fila   ports.FilaInformePermisos
+		valido bool
+	}{
+		{"solo_etiqueta", []string{"etiqueta"}, ports.FilaInformePermisos{Etiqueta: "Permiso de ejemplo"}, true},
+		{"solo_computo", []string{"computo"}, ports.FilaInformePermisos{Computo: domain.ComputoLaborables}, true},
+		{"restante_con_metadato_interno", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4), Conciliacion: ports.ConciliacionPermisosConfirmada}, true},
+		{"restante_sin_conciliacion", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4)}, false},
+		{"restante_no_conciliado", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4), Conciliacion: ports.ConciliacionPermisosPendiente}, false},
+		{"restante_desconocido_sin_metadato", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay}, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, o, fuente, preparador, registro := prepararInformePermisosPrueba(t)
+			fuente.datos.Politica.CamposPermitidos = caso.campos
+			fuente.datos.Filas[0].Resumen = caso.fila
+			resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+			if caso.valido {
+				if err != nil || preparador.llamadas != 1 || registro.llamadas != 1 || len(resultado.Contenido) == 0 {
+					t.Fatal("fuente filtrada rechazada", err)
+				}
+				if !contieneCampoPermisos(caso.campos, "conciliacion") && preparador.recibido.Filas[0].Conciliacion != "" {
+					t.Fatal("metadato interno llegó al preparador")
+				}
+			} else if err == nil || preparador.llamadas != 0 || registro.llamadas != 0 || len(resultado.Contenido) != 0 {
+				t.Fatal("fuente inconsistente aceptada", err)
+			}
+		})
+	}
+}
+
+func cantidadPermisosPrueba(v int64) *int64 { return &v }
+func contieneCampoPermisos(campos []string, buscado string) bool {
+	for _, campo := range campos {
+		if campo == buscado {
+			return true
+		}
+	}
+	return false
+}
+
 func TestExportacionPermisosValidaOriginalAntesDeMinimizar(t *testing.T) {
 	for _, caso := range []struct {
 		nombre  string
