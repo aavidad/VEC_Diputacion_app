@@ -1,15 +1,21 @@
+import { crearClienteHistoriaServiciosPropia } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 /**
  * Ficha propia de la persona empleada («mis datos» de Personal).
  *
  * El servidor deriva persona, perfil y empleado del certificado de la
- * petición y autoriza cada consulta; el cliente no envía referencias ni
- * parámetros. Una sola consulta alimenta los apartados «Relaciones y
+ * petición y autoriza cada consulta; el cliente no envía referencias
+ * de identidad. La fecha civil opcional se usa solo para Servicios.
+ * Una consulta actual alimenta los apartados «Relaciones y
  * puestos» y «Servicios» con denominaciones legibles; nada se guarda fuera
  * de la memoria de la vista montada.
  */
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260929-i18n-personal-v1";
 
+import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
+
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
+export const PREFER_HISTORIA_SERVICIOS = "vec-personal-historia-servicios-v1";
+export const ACCEPT_FICHA_PROPIA_EXPORTACION = 'application/json; profile="urn:vec:personal:ficha-propia:exportacion:v1"';
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
 const MAXIMO_FILAS = 200;
@@ -42,7 +48,7 @@ function claves(valor, esperadas) {
 }
 function fecha(valor, vacia = false) {
   if (vacia && valor === "") return true;
-  if (typeof valor !== "string" || !FECHA.test(valor)) return false;
+  if (typeof valor !== "string" || !FECHA.test(valor) || valor.startsWith("0000")) return false;
   const d = new Date(`${valor}T12:00:00Z`);
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === valor;
 }
@@ -58,10 +64,14 @@ function recortar(valor) {
 function validarSobre(sobre) {
   const datos = sobre?.data;
   const ficha = datos?.ficha;
-  if (!claves(sobre, ["data"]) || !claves(datos, ["ficha", "recibo_ref", "consultada_en"]) ||
+  if (!claves(sobre, ["data"]) ||
+      !(registro(datos) && ["ficha", "recibo_ref", "consultada_en"].every((k) => Object.hasOwn(datos, k)) && Object.keys(datos).every((k) => ["ficha", "recibo_ref", "consultada_en", "exportacion_servicios_disponible", "historia_servicios_disponible"].includes(k))) ||
+      (Object.hasOwn(datos, "exportacion_servicios_disponible") && typeof datos.exportacion_servicios_disponible !== "boolean") ||
+      (Object.hasOwn(datos, "historia_servicios_disponible") && typeof datos.historia_servicios_disponible !== "boolean") ||
       typeof datos.recibo_ref !== "string" || !/^fichapropia:[0-9a-f-]{36}$/u.test(datos.recibo_ref) ||
       typeof datos.consultada_en !== "string" || !INSTANTE.test(datos.consultada_en) || !Number.isFinite(Date.parse(datos.consultada_en)) ||
       !claves(ficha, ["corte", "relaciones", "servicios"]) || !claves(ficha.corte, ["vigente_en", "conocido_en"]) || !fecha(ficha.corte.vigente_en) ||
+      typeof ficha.corte.conocido_en !== "string" || !INSTANTE.test(ficha.corte.conocido_en) || !Number.isFinite(Date.parse(ficha.corte.conocido_en)) ||
       !Array.isArray(ficha.relaciones) || !Array.isArray(ficha.servicios)) throw error("sobre_no_valido", 200);
   // Más filas de las que la vista pinta: estado propio, no desaparición.
   if (ficha.relaciones.length > MAXIMO_FILAS || ficha.servicios.length > MAXIMO_FILAS) return Object.freeze({ excedeLimite: true });
@@ -74,10 +84,10 @@ function validarSobre(sobre) {
     if (!claves(s, ["inicio", "fin", "clase", "dias", "estado"]) || !fecha(s.inicio) || !fecha(s.fin) ||
         !texto(s.clase) || !Number.isSafeInteger(s.dias) || s.dias < 0 || !ESTADOS_SERVICIO.has(s.estado)) throw error("sobre_no_valido", 200);
   }
-  return Object.freeze({ ficha, consultadaEn: datos.consultada_en });
+  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref, exportacionServiciosDisponible: datos.exportacion_servicios_disponible === true, historiaServiciosDisponible: datos.historia_servicios_disponible === true });
 }
 
-async function consultar(fetchImpl, plazoMs, externo) {
+async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
   const controlador = new AbortController();
   const abortar = () => controlador.abort();
   if (externo?.aborted) throw error("operacion_abortada");
@@ -86,9 +96,9 @@ async function consultar(fetchImpl, plazoMs, externo) {
   try {
     let respuesta;
     try {
-      respuesta = await fetchImpl(RUTA_FICHA_PROPIA, {
+      respuesta = await fetchImpl(fechaReferencia ? `${RUTA_FICHA_PROPIA}?fecha_referencia=${fechaReferencia}` : RUTA_FICHA_PROPIA, {
         method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store",
-        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" },
+        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: ACCEPT_FICHA_PROPIA_EXPORTACION, Prefer: PREFER_HISTORIA_SERVICIOS },
         signal: controlador.signal,
       });
     } catch {
@@ -120,7 +130,9 @@ async function consultar(fetchImpl, plazoMs, externo) {
     if (typeof cuerpo !== "string" || cuerpo.length > MAXIMO_RESPUESTA_BYTES) throw error("respuesta_no_valida", estado);
     let sobre;
     try { sobre = JSON.parse(cuerpo); } catch { throw error("json_no_valido", estado); }
-    return validarSobre(sobre);
+    const validado = validarSobre(sobre);
+    if (fechaReferencia && validado.ficha && validado.ficha.corte.vigente_en !== fechaReferencia) throw error("corte_no_valido", estado);
+    return validado;
   } finally {
     clearTimeout(temporizador);
     externo?.removeEventListener?.("abort", abortar);
@@ -163,39 +175,75 @@ function presentarServicios(ficha, t) {
 export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir = crearTraductorFichaPropia(), plazoMs = PLAZO_POR_DEFECTO_MS } = {}) {
   if (typeof fetchImpl !== "function" || typeof traducir !== "function" ||
       !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000) throw new TypeError("fuentes de la ficha propia no disponibles");
-  let resultado;
+  const resultados = new Map();
   let revision = 0;
-  const obtener = async (signal) => {
+  let fechaActual = "";
+  let sesionCaducada = false;
+  const recibosSinExportacion = new Set();
+  const obtener = async (signal, fechaReferencia = "") => {
+    if (fechaReferencia !== "" && !fecha(fechaReferencia)) throw error("fecha_no_valida");
     if (signal?.aborted) throw error("operacion_abortada");
-    if (resultado) return resultado;
+    if (sesionCaducada) return Object.freeze({ sinFuente: true, estado: 401 });
+    if (resultados.has(fechaReferencia)) return resultados.get(fechaReferencia);
     const vigente = revision;
     try {
-      const consulta = await consultar(fetchImpl, plazoMs, signal);
+      const consulta = await consultar(fetchImpl, plazoMs, signal, fechaReferencia);
       if (signal?.aborted) throw error("operacion_abortada");
-      if (vigente === revision && !consulta.sinFuente) resultado = consulta;
+      if (vigente === revision) {
+        // Solo la fecha pedida sin parámetros pertenece a Relaciones y puestos.
+        resultados.set(fechaReferencia, consulta);
+        if (!fechaReferencia && consulta.ficha) fechaActual = consulta.ficha.corte.vigente_en;
+      }
       return consulta;
     } catch (causa) {
       if (signal?.aborted || causa?.codigo === "operacion_abortada") throw error("operacion_abortada");
       const fallo = Object.freeze({ error: true });
-      if (vigente === revision) resultado = fallo;
+      if (vigente === revision) resultados.set(fechaReferencia, fallo);
       return fallo;
     }
   };
   const grupoActualizacion = Object.freeze({});
-  const bloque = (presentar) => Object.freeze({
+  const bloque = (presentar, admiteFecha = false) => Object.freeze({
     grupoActualizacion,
-    get estadoInicial() { return resultado?.error ? "error" : "sin_consulta"; },
-    async consultarPropios({ signal } = {}) {
-      const consulta = await obtener(signal);
+    get estadoInicial() { return resultados.get("")?.error ? "error" : "sin_consulta"; },
+    get fechaReferencia() { return admiteFecha ? fechaActual : ""; },
+    seleccionarFecha: admiteFecha,
+    async consultarPropios({ signal, fechaReferencia = "" } = {}) {
+      if (!admiteFecha && fechaReferencia !== "") throw error("fecha_no_admitida");
+      const consulta = await obtener(signal, fechaReferencia);
       if (consulta.error) return { estado: "error" };
       if (consulta.excedeLimite) return { estado: "excede_limite" };
-      if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
+      if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado", ...(sesionCaducada ? { aviso_exportacion: "sesion_caducada" } : {}) };
       const items = presentar(consulta.ficha, traducir);
-      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items };
+      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible && !recibosSinExportacion.has(consulta.reciboRef), historia_servicios_disponible: consulta.historiaServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
-    actualizar() { revision += 1; resultado = undefined; },
+    ...(admiteFecha ? { clienteHistoria: Object.freeze({ async consultar(entrada) {
+      if (sesionCaducada) throw error("sesion_caducada", 401);
+      const vigente = revision;
+      try { return await crearClienteHistoriaServiciosPropia({ fetchImpl, plazoMs }).consultar(entrada); }
+      catch (causa) {
+        if (vigente === revision && causa?.estado === 401) {
+          revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = true;
+        }
+        throw causa;
+      }
+    } }) } : {}),
+    ...(admiteFecha ? { async exportarPropios(entrada) {
+      if (sesionCaducada || recibosSinExportacion.has(entrada?.reciboRef)) throw error("denegado", sesionCaducada ? 401 : 403);
+      const vigente = revision;
+      try { return await crearClienteExportacionServicios({ fetchImpl, plazoMs }).exportar(entrada); }
+      catch (causa) {
+        if (vigente === revision && causa?.estado === 401) {
+          revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = true;
+        } else if (vigente === revision && [403, 404].includes(causa?.estado)) {
+          recibosSinExportacion.add(entrada.reciboRef);
+        }
+        throw causa;
+      }
+    } } : {}),
+    actualizar() { revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = false; },
   });
-  const fuentes = Object.freeze({ relaciones: bloque(presentarRelaciones), servicios: bloque(presentarServicios) });
+  const fuentes = Object.freeze({ relaciones: bloque(presentarRelaciones), servicios: bloque(presentarServicios, true) });
   return Object.freeze({
     async preparar({ signal } = {}) {
       const consulta = await obtener(signal);

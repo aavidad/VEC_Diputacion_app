@@ -145,7 +145,7 @@ func solicitudValida(s SolicitudImportacion) bool {
 		!actorOpaco.MatchString(s.ActorRef) || !utf8.ValidString(s.NombreFichero) ||
 		len(s.NombreFichero) > 255 || filepath.Base(s.NombreFichero) != s.NombreFichero ||
 		strings.ContainsAny(s.NombreFichero, `/\`) ||
-		!strings.HasSuffix(strings.ToLower(s.NombreFichero), ".xls") {
+		!nombreExportacionConvocaValido(s.NombreFichero) {
 		return false
 	}
 	for _, r := range s.NombreFichero {
@@ -154,6 +154,11 @@ func solicitudValida(s SolicitudImportacion) bool {
 		}
 	}
 	return true
+}
+
+func nombreExportacionConvocaValido(nombre string) bool {
+	extension := strings.ToLower(filepath.Ext(nombre))
+	return len(nombre) > len(extension) && (extension == ".xls" || extension == ".xlsx")
 }
 
 func referenciaContexto(huella, categoria string) string {

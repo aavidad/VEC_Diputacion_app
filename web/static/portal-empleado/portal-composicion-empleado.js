@@ -65,6 +65,8 @@ export function componerCronosInterno(recursos, entorno) {
   });
   return Object.freeze({
     traducir,
+    ...(typeof cliente.solicitudes.consultarPermisos === "function"
+      ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
@@ -158,6 +160,8 @@ export function componerDietasInternas(recursos, entorno) {
   // dependen de la competencia que acredite la fuente gobernada.
   const clienteCircuito = typeof recursos?.clienteCircuito?.crearClienteCircuitoDietasHTTP === "function"
     ? recursos.clienteCircuito.crearClienteCircuitoDietasHTTP({ fetchImpl }) : undefined;
+  const clienteRectificacion = typeof recursos?.clienteRectificacion?.crearClienteRectificacionDietasHTTP === "function"
+    ? recursos.clienteRectificacion.crearClienteRectificacionDietasHTTP({ fetchImpl }) : undefined;
   return Object.freeze({
     clienteBorradores, clienteAsignacion,
     montar: async ({ raiz, anunciar, registrarDesmontar }) => {
@@ -178,7 +182,7 @@ export function componerDietasInternas(recursos, entorno) {
       }
       if (!vigente) return Object.freeze({ desmontar() {} });
       return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        clienteBorradores, clienteAsignacion, clienteCircuito, calculadorRuta, visorRuta, ...relaciones,
+        clienteBorradores, clienteAsignacion, clienteCircuito, clienteRectificacion, calculadorRuta, visorRuta, ...relaciones,
         anunciar, registrarDesmontar,
       });
     },

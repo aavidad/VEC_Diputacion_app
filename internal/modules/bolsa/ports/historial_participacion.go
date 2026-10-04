@@ -24,6 +24,7 @@ type CambioValorParticipacion struct {
 type HistorialParticipacion struct {
 	Operaciones []RegistroOperacionSituacion
 	Cambios     []CambioValorParticipacion
+	Vigente     SituacionParticipacion
 }
 
 type RepositorioHistorialParticipacion interface {

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -91,5 +93,52 @@ func TestCLIAntecedentesRechazaEntradaYArgumentosSinDatos(t *testing.T) {
 		if runArgs(args, strings.NewReader(`{"secreto":"dato-privado"}`), &out, &errs) != 1 || out.Len() != 0 || strings.Contains(errs.String(), "dato-privado") || strings.Contains(errs.String(), "ruta-privada") {
 			t.Fatal("rechazo filtra datos o devuelve preparación parcial")
 		}
+	}
+}
+
+func TestCLIRevisaCatalogoGradoJuntoConPreparacion(t *testing.T) {
+	in, err := os.ReadFile("testdata/entrada.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out, errs bytes.Buffer
+	if runArgs([]string{"--politica-grado-sintetica", "../../data/catalogos/carrera/politica_grado_ejemplo.json"}, bytes.NewReader(in), &out, &errs) != 0 {
+		t.Fatal(errs.String())
+	}
+	for _, s := range []string{`"politica_grado_sintetica"`, `"borrador-1"`, `"ensayo-2"`, `"carrera.politica.pendiente.periodos"`, `"carrera.politica.pendiente.aprobacion_competente"`, `"estado_global": "pendiente"`, `"aprobacion_referencia": ""`} {
+		if !strings.Contains(out.String(), s) {
+			t.Fatalf("falta %s", s)
+		}
+	}
+}
+
+func TestCLIPoliticaRechazaAmbiguedadTamanioYFuenteNoRegularSinFiltrar(t *testing.T) {
+	in, err := os.ReadFile("testdata/entrada.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, catalogo := range []string{`{"alcance":"preparacion_sintetica","alcance":"produccion"}`, `{"alcance":"preparacion_sintetica","ALCANCE":"produccion"}`, `{"alcance":"preparacion_sintetica","aprobada":true}`, `{} {}`, strings.Repeat(" ", 1024*1024+1), `{"secreto":"dato-privado"}`} {
+		ruta := filepath.Join(t.TempDir(), "catalogo.json")
+		if err := os.WriteFile(ruta, []byte(catalogo), 0600); err != nil {
+			t.Fatal(err)
+		}
+		var out, errs bytes.Buffer
+		if runArgs([]string{"--politica-grado-sintetica", ruta}, bytes.NewReader(in), &out, &errs) != 1 || out.Len() != 0 || strings.Contains(errs.String(), "dato-privado") || strings.Contains(errs.String(), ruta) {
+			t.Fatal("entrada ambigua produce salida o filtra datos")
+		}
+	}
+	for _, ruta := range []string{t.TempDir(), filepath.Join(t.TempDir(), "no-existe")} {
+		var out, errs bytes.Buffer
+		if runArgs([]string{"--politica-grado-sintetica", ruta}, bytes.NewReader(in), &out, &errs) != 1 || out.Len() != 0 || strings.Contains(errs.String(), ruta) {
+			t.Fatal("fuente no regular produce preparación o filtra ruta")
+		}
+	}
+	fifo := filepath.Join(t.TempDir(), "catalogo-fifo")
+	if err := syscall.Mkfifo(fifo, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var out, errs bytes.Buffer
+	if runArgs([]string{"--politica-grado-sintetica", fifo}, bytes.NewReader(in), &out, &errs) != 1 || out.Len() != 0 || strings.Contains(errs.String(), fifo) {
+		t.Fatal("un fichero especial bloquea o expone la ruta")
 	}
 }

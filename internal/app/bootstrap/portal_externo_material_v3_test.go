@@ -76,7 +76,7 @@ func TestMaterialV3PortalExternoSeEscribeYSeReconstruye(t *testing.T) {
 	if err != nil {
 		t.Fatalf("leer: %v", err)
 	}
-	if len(inv.Consumidores) != 2 || len(inv.Consumidores["portal_candidato"]) != 5 {
+	if len(inv.Consumidores) != 2 || len(inv.Consumidores["portal_candidato"]) != len(accionesPropiasPortalDesarrollo()) {
 		t.Fatalf("inventario incompleto: %+v", inv.Consumidores)
 	}
 	for _, consumidor := range []string{"usuarios_preferencias", "portal_candidato"} {
@@ -99,7 +99,7 @@ func TestMaterialV3PortalExternoSeEscribeYSeReconstruye(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entradas) != 1+1+2+5 {
+	if len(entradas) != 1+1+2+len(accionesPropiasPortalDesarrollo()) {
 		t.Fatalf("ficheros inesperados en el material externo: %d", len(entradas))
 	}
 	for _, e := range entradas {
@@ -119,8 +119,8 @@ func TestMaterialV3PortalExternoSeEscribeYSeReconstruye(t *testing.T) {
 		} `json:"claves"`
 		Raiz map[string]any `json:"raiz"`
 	}
-	if json.Unmarshal(contenido, &arg) != nil || len(arg.Claves) != 5 ||
-		arg.Claves[4].Audiencia != "vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1" ||
+	if json.Unmarshal(contenido, &arg) != nil || len(arg.Claves) != len(accionesPropiasPortalDesarrollo()) ||
+		arg.Claves[len(arg.Claves)-1].Audiencia != "vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1" ||
 		arg.Raiz["audiencia_despliegue"] != audienciaAtestacionContratacionTemporalDesarrollo {
 		t.Fatalf("argumento AD3-112 inesperado: %s", contenido)
 	}

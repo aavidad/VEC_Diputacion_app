@@ -1,0 +1,43 @@
+{
+  "titulo": "How the indicators are counted",
+  "cerrar": "Close help",
+  "version": "Definition version: {version}",
+  "periodo": "Figures are grouped by calendar year, month or week, using Madrid time. The range includes each complete period that intersects the selected dates.",
+  "ambito": "Only requests within the organisation, centre or unit that your profile may consult are counted.",
+  "corte": "Figures cover the latest snapshot published for HR. Changes that have not yet been published are excluded.",
+  "calidad": "Counts describe the published versions of requests. They do not by themselves establish a signature, the start of service or other administrative effects.",
+  "gobierno": "The institutional owner has yet to be assigned, and these definitions await approval.",
+  "fuente": "Technical source",
+  "funcion": "Read function",
+  "proyeccion": "Data source",
+  "corte_tecnico": "Snapshot control",
+  "endpoint": "Query used",
+  "migracion": "Calculation definition",
+  "indicadores": {
+    "altas": {
+      "nombre": "New requests",
+      "definicion": "Counts each request once, in the period of its earliest creation date."
+    },
+    "llamamientos": {
+      "nombre": "Calls to candidates",
+      "definicion": "Counts each request once, in the period of its first version in the candidate call phase."
+    },
+    "formalizaciones": {
+      "nombre": "Formalisation",
+      "definicion": "Counts each request once when it first reaches the appointment phase. This does not establish a signature or an effective appointment."
+    },
+    "cierres": {
+      "nombre": "Closures",
+      "definicion": "Counts each request once, in the period of its first completed or cancelled version."
+    },
+    "incidencias": {
+      "nombre": "Issues",
+      "definicion": "Counts each entry into the issue status. A request may count more than once if it leaves that status and later returns."
+    }
+  },
+  "ayuda": "Help with the indicators",
+  "consulta_pendiente": "There is no compatible query response yet to link these definitions to a data snapshot.",
+  "consulta_incompatible": "The query response does not match the format or snapshot described by this sheet.",
+  "corte_consultado": "Snapshot in the query response: {corte}",
+  "esquema_consultado": "Response format: {esquema}"
+}

@@ -18,6 +18,7 @@ function raizFalsa() {
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((hijo) => hijo !== this); }
     addEventListener(tipo, fn) { this.listeners.set(tipo, fn); }
     setAttribute(clave, valor) { this.atributos.set(clave, valor); }
+    click() { this.listeners.get("click")?.(); }
     focus() { this.enfocado = true; this.ownerDocument.activeElement = this; }
     matches(selector) { const coincide = selector.match(/^\[data-([a-z-]+)(?:="([a-z_-]+)")?\]$/u); if (!coincide) return false; const clave = coincide[1].replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return this.dataset[clave] !== undefined && (coincide[2] === undefined || this.dataset[clave] === coincide[2]); }
     querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
@@ -328,4 +329,211 @@ test("catálogos existentes se montan bajo demanda y se limpian al salir", async
   const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "catalogos").listeners.get("click")(); await completar();
   assert.equal(montajes, 1); assert.match(texto(ficha), /se consultan por separado/);
   tab(ficha, "ficha").listeners.get("click")(); assert.ok(limpiezas >= 1);
+});
+
+
+test("Servicios selecciona fecha, anuncia el corte real y elimina filas durante carga o denegación", async () => {
+  const raiz = raizFalsa(); const llamadas = []; let resolver;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios({ fechaReferencia, signal }) {
+      llamadas.push({ fechaReferencia, signal });
+      if (llamadas.length === 1) return { estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [{ procedencia: "Servicios propios" }] };
+      return new Promise((r) => { resolver = r; });
+    },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /Servicios a fecha de 25 sept 2026/);
+  assert.match(texto(ficha), /Esta fecha se aplica solo a Servicios/);
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]");
+  assert.equal(fecha.value, "2026-09-25");
+  const form = ficha.querySelector("[data-personal-ficha-corte]");
+  fecha.value = "2020-02-29"; form.listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas[1].fechaReferencia, "2020-02-29");
+  assert.doesNotMatch(texto(ficha), /Servicios propios|Servicios a fecha de/);
+  resolver({ estado: "denegado" }); await completar();
+  assert.doesNotMatch(texto(ficha), /Servicios propios|Servicios a fecha de/);
+  assert.equal(ficha.querySelector("[data-personal-ficha-corte]"), null);
+});
+
+test("un nuevo corte cancela el anterior y descarta su respuesta aunque ignore abort", async () => {
+  const raiz = raizFalsa(); const pendientes = [];
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios({ signal }) { return new Promise((resolver) => pendientes.push({ signal, resolver })); },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]"); fecha.value = "2020-02-29";
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(pendientes[0].signal.aborted, true);
+  pendientes[1].resolver({ estado: "error" }); await completar();
+  pendientes[0].resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [{ procedencia: "Respuesta anterior" }] }); await completar();
+  assert.doesNotMatch(texto(ficha), /Respuesta anterior|Servicios a fecha de/);
+});
+
+
+test("fecha inválida señala el campo y no inicia otra consulta", async () => {
+  const raiz = raizFalsa(); let llamadas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios() { llamadas += 1; return { estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [] }; },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]"); fecha.value = "2025-02-29";
+  fecha.listeners.get("blur")();
+  assert.equal(fecha.atributos.get("aria-invalid"), "true");
+  assert.match(texto(ficha), /Introduzca una fecha válida/);
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas, 1);
+  assert.equal(fecha.enfocado, true);
+  fecha.value = "2020-06-30"; fecha.listeners.get("input")();
+  assert.equal(fecha.atributos.get("aria-invalid"), "false");
+  assert.doesNotMatch(texto(ficha), /Introduzca una fecha válida/);
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas, 2, "corregir la fecha permite enviar a la primera");
+});
+
+
+const reciboServicios = "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100";
+const corteServicios = { vigente_en: "2026-10-01", conocido_en: "2026-10-02T07:59:59.000000Z" };
+const archivoServicios = () => ({ bytes: new TextEncoder().encode("Inicio,Fin\n"), mime: "text/csv; charset=utf-8", nombre: "servicios.csv", huella: "a".repeat(64) });
+function documentoDescarga(raiz) {
+  const blobs = [], urls = []; const d = raiz.ownerDocument; d.body = raiz;
+  d.defaultView = { Blob, URL: { createObjectURL(blob) { blobs.push(blob); return "blob:local"; }, revokeObjectURL(url) { urls.push(url); } } };
+  return { blobs, urls };
+}
+const datosServicios = () => ({ estado: "disponible", exportacion_servicios_disponible: true, fuente: "Personal", actualizado_en: "2026-10-02T08:00:00Z", fecha_referencia: corteServicios.vigente_en, recibo_ref: reciboServicios, corte: { ...corteServicios }, items: [{ procedencia: "Diputación" }] });
+
+test("CSV servidor: mismo recibo/corte, estado y foco; reintentar no renueva la consulta", async () => {
+  const raiz = raizFalsa(), { blobs, urls } = documentoDescarga(raiz);
+  let consultas = 0, completarExportacion; const exportaciones = [], avisos = [];
+  montarVistaFichaIntegralPersonal({ raiz, anunciar: (...args) => avisos.push(args), fuentes: { servicios: {
+    actualizar() {}, consultarPropios() { consultas += 1; return datosServicios(); },
+    exportarPropios(entrada) { exportaciones.push(entrada); return new Promise((resolver, rechazar) => { completarExportacion = { resolver, rechazar }; }); },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").click(); await completar();
+  const boton = ficha.querySelector("[data-personal-servicios-descargar]"); boton.focus(); boton.click(); boton.click();
+  assert.equal(boton.disabled, true); assert.equal(boton.atributos.get("aria-busy"), "true");
+  assert.match(texto(ficha), /Preparando el resumen/u); assert.equal(exportaciones.length, 1);
+  assert.equal(exportaciones[0].reciboRef, reciboServicios); assert.deepEqual(exportaciones[0].corte, corteServicios);
+  completarExportacion.rechazar({ codigo: "no_disponible" }); await completar();
+  assert.match(texto(ficha), /no está disponible ahora/u); assert.equal(boton.disabled, false); assert.equal(boton.enfocado, true);
+  assert.equal(consultas, 1); assert.equal(blobs.length, 0);
+  boton.click(); completarExportacion.resolver(archivoServicios()); await completar();
+  assert.equal(consultas, 1); assert.equal(exportaciones.length, 2); assert.equal(blobs.length, 1); assert.equal(urls.length, 1);
+  assert.match(texto(ficha), /servidor ha preparado el resumen/u);
+  assert.doesNotMatch(texto(ficha), /guardado|entregado|certificado/u);
+  assert.equal(avisos.length, 2);
+});
+
+test("CSV tardío se cancela al actualizar, cambiar apartado o desmontar", async () => {
+  for (const operacion of ["actualizar", "salir", "desmontar"]) {
+    const raiz = raizFalsa(), { blobs } = documentoDescarga(raiz); let resolver; let entrada; let consultas = 0;
+    const montaje = montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+      actualizar() {}, consultarPropios() { consultas += 1; return datosServicios(); },
+      exportarPropios(solicitud) { entrada = solicitud; return new Promise((r) => { resolver = r; }); },
+    } } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "servicios").click(); await completar();
+    const boton = ficha.querySelector("[data-personal-servicios-descargar]"); boton.click();
+    if (operacion === "actualizar") ficha.querySelector('[data-personal-ficha-actualizar="servicios"]').click();
+    else if (operacion === "salir") tab(ficha, "ficha").click();
+    else montaje.desmontar();
+    assert.equal(entrada.signal.aborted, true); resolver(archivoServicios()); await completar();
+    boton.click(); assert.equal(blobs.length, 0); assert.equal(consultas, operacion === "actualizar" ? 2 : 1);
+  }
+});
+
+test("sin recibo/corte o cliente nominal no se ofrece CSV local; 403 pide actualizar voluntariamente", async () => {
+  for (const quitar of ["recibo_ref", "corte", "exportador"]) {
+    const raiz = raizFalsa(); const datos = datosServicios(); if (quitar !== "exportador") delete datos[quitar];
+    const fuente = { consultarPropios: () => datos, ...(quitar !== "exportador" ? { exportarPropios: async () => archivoServicios() } : {}) };
+    montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: fuente } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "servicios").click(); await completar();
+    assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null);
+  }
+  const raiz = raizFalsa(); let consultas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: { actualizar() {}, consultarPropios() { consultas += 1; return datosServicios(); }, exportarPropios: async () => { throw { codigo: "denegado" }; } } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "servicios").click(); await completar();
+  ficha.querySelector("[data-personal-servicios-descargar]").click(); await completar();
+  assert.match(texto(ficha), /No se puede exportar esta consulta. Actualice/u);
+  assert.equal(consultas, 1); assert.ok(ficha.querySelector('[data-personal-ficha-actualizar="servicios"]'));
+});
+
+
+test("disponibilidad false o ausente nunca ofrece acción ni inicia POST con servidor antiguo", async () => {
+  for (const valor of [undefined, false, true]) {
+    const raiz = raizFalsa(); let posts = 0; const datos = datosServicios();
+    if (valor === undefined) delete datos.exportacion_servicios_disponible;
+    else datos.exportacion_servicios_disponible = valor;
+    montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: { consultarPropios: () => datos, exportarPropios: async () => { posts += 1; return archivoServicios(); } } } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "servicios").click(); await completar();
+    assert.equal(Boolean(ficha.querySelector("[data-personal-servicios-descargar]")), valor === true);
+    assert.equal(posts, 0); assert.match(texto(ficha), /Diputación/u);
+  }
+});
+
+
+test("sesión caducada en descarga retira tabla y conserva aviso y actualización al cambiar pestaña", async () => {
+  const { crearFuentesFichaPropia } = await import("./cliente-http-ficha-propia.js");
+  const raiz = raizFalsa(); const metodos = [];
+  const sobre = { data: { exportacion_servicios_disponible: true, ficha: { corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" }, relaciones: [], servicios: [{ inicio: "2019-01-01", fin: "2019-12-31", clase: "Servicios previos", dias: 365, estado: "reconocido" }] }, recibo_ref: "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100", consultada_en: "2026-09-25T09:00:00.000000Z" } };
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    metodos.push(opciones.method);
+    const cuerpo = JSON.stringify(opciones.method === "GET" ? sobre : { error: "autenticacion_requerida" });
+    return new Response(cuerpo, { status: opciones.method === "GET" ? 200 : 401, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+  } }).preparar();
+  montarVistaFichaIntegralPersonal({ raiz, fuentes });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").click(); await completar();
+  assert.ok(nodos(ficha).some((n) => n.tagName === "table"));
+  ficha.querySelector("[data-personal-servicios-descargar]").click(); await completar(); await completar();
+  for (const pestana of ["servicios", "relaciones", "servicios"]) {
+    tab(ficha, pestana).click(); await completar();
+    assert.equal(nodos(ficha).some((n) => n.tagName === "table"), false);
+    assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null);
+    assert.equal(ficha.querySelector("[data-personal-ficha-fecha]"), null);
+    assert.match(texto(ficha), /Su sesión ha finalizado. Identifíquese de nuevo/u);
+    assert.ok(ficha.querySelector(`[data-personal-ficha-actualizar="${pestana}"]`));
+  }
+  assert.deepEqual(metodos, ["GET", "POST"]);
+});
+
+test("historia conectada se abre desde Servicios sin consultar sola y se desmonta al salir", async () => {
+ const raiz=raizFalsa();let llamadas=0;
+ const datos={...datosServicios(),historia_servicios_disponible:true};
+ montarVistaFichaIntegralPersonal({raiz,fuentes:{servicios:{consultarPropios:()=>datos,clienteHistoria:{consultar:async()=>{llamadas+=1;}}}}});
+ const ficha=raiz.querySelector("[data-personal-ficha-integral]");tab(ficha,"servicios").click();await completar();
+ const abrir=ficha.querySelector("[data-personal-historia-abrir]");assert.ok(abrir);abrir.click();
+ assert.ok(ficha.querySelector("[data-personal-historia-servicios]"));assert.equal(llamadas,0);
+ tab(ficha,"ficha").click();assert.equal(ficha.querySelector("[data-personal-historia-servicios]"),null);assert.equal(llamadas,0);
+});
+
+
+test("401 de historia retira también la ficha padre y mantiene sesión invalidada sin GET", async () => {
+ const {crearFuentesFichaPropia}=await import("./cliente-http-ficha-propia.js");
+ const raiz=raizFalsa();const metodos=[];
+ const sobre={data:{exportacion_servicios_disponible:true,historia_servicios_disponible:true,ficha:{corte:{vigente_en:"2026-09-25",conocido_en:"2026-09-25T08:59:59.000000Z"},relaciones:[],servicios:[{inicio:"2019-01-01",fin:"2019-12-31",clase:"Servicios previos",dias:365,estado:"reconocido"}]},recibo_ref:"fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100",consultada_en:"2026-09-25T09:00:00.000000Z"}};
+ const fuentes=await crearFuentesFichaPropia({fetchImpl:async(_,opciones)=>{
+  metodos.push(opciones.method);const body=JSON.stringify(opciones.method==="GET"?sobre:{error:"autenticacion_requerida"});
+  return new Response(body,{status:opciones.method==="GET"?200:401,headers:{"Content-Type":"application/json; charset=utf-8","Content-Length":String(Buffer.byteLength(body))}});
+ }}).preparar();
+ montarVistaFichaIntegralPersonal({raiz,fuentes});const ficha=raiz.querySelector("[data-personal-ficha-integral]");
+ tab(ficha,"servicios").click();await completar();ficha.querySelector("[data-personal-historia-abrir]").click();
+ const historia=ficha.querySelector("[data-personal-historia-servicios]");
+ historia.querySelector('[data-personal-historia-fecha="desde"]').value="2020-01-01";
+ historia.querySelector('[data-personal-historia-fecha="hasta"]').value="2027-01-01";
+ const form=nodos(historia).find(n=>n.tagName==="form");form.listeners.get("submit")({preventDefault(){}});
+ await completar();await completar();
+ assert.equal(nodos(ficha).some(n=>n.tagName==="table"),false);
+ assert.equal(ficha.querySelector("[data-personal-historia-servicios]"),null);
+ assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"),null);
+ assert.match(texto(ficha),/Su sesión ha finalizado/u);
+ assert.ok(ficha.querySelector('[data-personal-ficha-actualizar="servicios"]'));
+ tab(ficha,"ficha").click();tab(ficha,"servicios").click();await completar();
+ assert.equal(nodos(ficha).some(n=>n.tagName==="table"),false);assert.deepEqual(metodos,["GET","POST"]);
+ await assert.rejects(fuentes.servicios.clienteHistoria.consultar({efectosDesde:"2020-01-01",efectosHasta:"2027-01-01"}),{codigo:"sesion_caducada",estado:401});
 });

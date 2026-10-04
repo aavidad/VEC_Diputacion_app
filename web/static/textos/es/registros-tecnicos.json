@@ -1,0 +1,6 @@
+{
+  "esquema": "1",
+  "ayuda": "Use --config con la configuración privada y --textos con este catálogo. La herramienta recibe incidencias técnicas JSONL por la entrada estándar hasta el fin de la entrada. Los avisos salen por la salida de errores y el resumen por la salida estándar.",
+  "terminado": "Recogida terminada. Consulte los contadores para conocer las entradas rechazadas.",
+  "error": "La recogida no se ha completado. Revise la configuración, los permisos del directorio privado y la disponibilidad de las salidas. No cambie el directorio de auditoría."
+}

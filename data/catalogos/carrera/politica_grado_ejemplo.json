@@ -1,0 +1,19 @@
+{
+  "alcance": "preparacion_sintetica",
+  "referencia": "politica-grado-sintetica-retirable",
+  "version": "borrador-1",
+  "fuente": "fuente-sintetica-politica",
+  "aprobacion_referencia": "referencia-aportada-sin-acreditar",
+  "regimenes": ["funcionario_carrera"],
+  "fuentes": [{"referencia": "fuente-sintetica-politica", "version": "ensayo-2"}],
+  "procedencia": {"referencia": "politica-grado-sintetica-retirable", "fuente": "fuente-sintetica-politica", "version": "ensayo-2"},
+  "vigencia": {
+    "inicio": "2026-01-01",
+    "fin": "",
+    "evidencia": {"referencia": "vigencia-sintetica", "fuente": "fuente-sintetica-politica", "version": "ensayo-2"}
+  },
+  "vias": [{"referencia": "via-sintetica-sin-regla", "fuente": "fuente-sintetica-politica", "version": "ensayo-2"}],
+  "periodos": [],
+  "limites": [],
+  "evidencias": []
+}

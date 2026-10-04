@@ -1,4 +1,4 @@
-// vec-comparar-organizacion consumes only synthetic preparation from standard input.
+// vec-comparar-organizacion compares synthetic preparations or explicit nominal queries.
 package main
 
 import (
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/shared/i18n"
@@ -16,25 +17,30 @@ import (
 )
 
 const esquemaEntrada = "vec.personal.comparacion-organizacion.preparacion.v1"
+const esquemaEntradaPaginada = "vec.personal.comparacion-organizacion.paginas-sinteticas.v1"
 const esquemaManifiesto = "vec.personal.comparacion-organizacion.manifiesto.v1"
 const limiteEntrada = 8 << 20
 
 type entrada struct {
-	Esquema   string                                      `json:"esquema"`
-	Sintetico bool                                        `json:"sintetico"`
-	Idioma    string                                      `json:"idioma"`
-	Formato   string                                      `json:"formato"`
-	Antes     personal.InstantaneaComparacionOrganizacion `json:"antes"`
-	Despues   personal.InstantaneaComparacionOrganizacion `json:"despues"`
+	Esquema        string                                      `json:"esquema"`
+	Sintetico      bool                                        `json:"sintetico"`
+	Idioma         string                                      `json:"idioma"`
+	Formato        string                                      `json:"formato"`
+	Antes          personal.InstantaneaComparacionOrganizacion `json:"antes"`
+	Despues        personal.InstantaneaComparacionOrganizacion `json:"despues"`
+	AntesPaginas   []personal.PaginaInstantaneaOrganizacion    `json:"antes_paginas,omitempty"`
+	DespuesPaginas []personal.PaginaInstantaneaOrganizacion    `json:"despues_paginas,omitempty"`
 }
 
 type manifiesto struct {
-	Antes         personal.InstantaneaComparacionOrganizacion `json:"antes"`
-	Despues       personal.InstantaneaComparacionOrganizacion `json:"despues"`
-	Esquema       string                                      `json:"esquema"`
-	Sintetico     bool                                        `json:"sintetico"`
-	EntradaSHA256 string                                      `json:"entrada_sha256"`
-	Comparacion   personal.ComparacionOrganizacionHistorica   `json:"comparacion"`
+	Antes          personal.InstantaneaComparacionOrganizacion `json:"antes"`
+	Despues        personal.InstantaneaComparacionOrganizacion `json:"despues"`
+	Esquema        string                                      `json:"esquema"`
+	Sintetico      bool                                        `json:"sintetico"`
+	EntradaSHA256  string                                      `json:"entrada_sha256"`
+	Comparacion    personal.ComparacionOrganizacionHistorica   `json:"comparacion"`
+	AntesPaginas   []personal.PaginaInstantaneaOrganizacion    `json:"antes_paginas,omitempty"`
+	DespuesPaginas []personal.PaginaInstantaneaOrganizacion    `json:"despues_paginas,omitempty"`
 }
 
 type salida struct {
@@ -47,6 +53,9 @@ type salida struct {
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func ejecutar(args []string, input io.Reader, output, errors io.Writer) int {
+	if len(args) == 2 && args[0] == "-consulta-nominal" {
+		return ejecutarConsultaNominal(args[1], input, output, errors, nuevaConsultaNominal)
+	}
 	catalogo, mensajes, err := web.CatalogoComparacionOrganizacion()
 	if err != nil {
 		return codigoErrorSalida(err)
@@ -74,7 +83,22 @@ func ejecutar(args []string, input io.Reader, output, errors io.Writer) int {
 	if e.Idioma != "" && len(mensajes[e.Idioma]) > 0 {
 		idioma = e.Idioma
 	}
-	if e.Esquema != esquemaEntrada || !e.Sintetico || (e.Formato != "json" && e.Formato != "html") || (e.Idioma != "" && len(mensajes[e.Idioma]) == 0) {
+	if (e.Esquema != esquemaEntrada && e.Esquema != esquemaEntradaPaginada) || !e.Sintetico || (e.Formato != "json" && e.Formato != "html") || (e.Idioma != "" && len(mensajes[e.Idioma]) == 0) {
+		return fallo("error_entrada")
+	}
+	if e.Esquema == esquemaEntradaPaginada {
+		if !reflect.DeepEqual(e.Antes, personal.InstantaneaComparacionOrganizacion{}) || !reflect.DeepEqual(e.Despues, personal.InstantaneaComparacionOrganizacion{}) {
+			return fallo("error_entrada")
+		}
+		e.Antes, err = personal.ReunirPaginasOrganizacionHistorica(e.AntesPaginas)
+		if err != nil {
+			return fallo("error_entrada")
+		}
+		e.Despues, err = personal.ReunirPaginasOrganizacionHistorica(e.DespuesPaginas)
+		if err != nil {
+			return fallo("error_entrada")
+		}
+	} else if len(e.AntesPaginas) != 0 || len(e.DespuesPaginas) != 0 {
 		return fallo("error_entrada")
 	}
 	resultado, err := personal.CompararOrganizacionHistorica(e.Antes, e.Despues)
@@ -82,16 +106,18 @@ func ejecutar(args []string, input io.Reader, output, errors io.Writer) int {
 		return fallo("error_entrada")
 	}
 	material := struct {
-		Esquema   string                                      `json:"esquema"`
-		Sintetico bool                                        `json:"sintetico"`
-		Antes     personal.InstantaneaComparacionOrganizacion `json:"antes"`
-		Despues   personal.InstantaneaComparacionOrganizacion `json:"despues"`
-	}{e.Esquema, e.Sintetico, e.Antes, e.Despues}
+		Esquema        string                                      `json:"esquema"`
+		Sintetico      bool                                        `json:"sintetico"`
+		Antes          personal.InstantaneaComparacionOrganizacion `json:"antes"`
+		Despues        personal.InstantaneaComparacionOrganizacion `json:"despues"`
+		AntesPaginas   []personal.PaginaInstantaneaOrganizacion    `json:"antes_paginas,omitempty"`
+		DespuesPaginas []personal.PaginaInstantaneaOrganizacion    `json:"despues_paginas,omitempty"`
+	}{e.Esquema, e.Sintetico, e.Antes, e.Despues, e.AntesPaginas, e.DespuesPaginas}
 	canonical, err := json.Marshal(material)
 	if err != nil {
 		return fallo("error_entrada")
 	}
-	m := manifiesto{Esquema: esquemaManifiesto, Sintetico: true, EntradaSHA256: huella(canonical), Comparacion: resultado, Antes: e.Antes, Despues: e.Despues}
+	m := manifiesto{Esquema: esquemaManifiesto, Sintetico: true, EntradaSHA256: huella(canonical), Comparacion: resultado, Antes: e.Antes, Despues: e.Despues, AntesPaginas: e.AntesPaginas, DespuesPaginas: e.DespuesPaginas}
 	canonical, err = json.Marshal(m)
 	if err != nil {
 		return fallo("error_salida")

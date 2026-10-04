@@ -158,6 +158,12 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
+	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
+	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
+	# Consulta de bases preparadas S2: POST interno fijo, mTLS del mismo origen,
+	# no-store, redirect error y no-referrer; sin actor ni permisos del formulario.
+	static/portal-empleado/modulos/seleccion/preparacion-bases/cliente-http.js
 	static/portal-empleado/portal-catalogo-modulos.js
 	# Usuarios 5.08a: GET/PUT a ruta interna fija, mTLS del mismo origen,
 	# no-store, redirect error, sin referente ni cookies accesibles en JS.
@@ -176,6 +182,12 @@ transportes_mtls_revisados=(
 	# Descarga de los borradores PDF/Word: POST a ruta interna fija, same-origin,
 	# no-store, redirect error y no-referrer, como cliente-http.js (revisado 23/09).
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
+	static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
+	# Firma V2: rutas internas fijas, mTLS del mismo origen y respuestas acotadas.
+	static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
+	static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
+	static/portal-empleado/modulos/contratacion-temporal/firma-vec-api.js
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js
@@ -239,6 +251,11 @@ transportes_mtls_revisados=(
 	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
 	# persona y empleado los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
+	# Exportación nominal de servicios propios: POST fijo con el recibo y corte
+	# consultados, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
+	# Historia propia: POST interno fijo, same-origin/no-store, sólo fechas.
+	static/portal-empleado/modulos/personal/cliente-http-historia-servicios-propia.js
 	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
 	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
 	# redirect error y no-referrer; misma autorización que el detalle.
@@ -257,6 +274,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-correo.js
 	static/portal-empleado/portal-bolsas-intentos.js
 	static/portal-empleado/portal-bolsas-ofertas.js
+	# Historial de ofrecimientos (02/10): GET por bolsa/oferta y POST de contacto
+	# a rutas internas fijas; referencias sin segmentos, same-origin, no-store,
+	# redirect error y no-referrer. Contexto y permiso se cotejan en servidor.
+	static/portal-empleado/portal-bolsas-historial-ofrecimientos.js
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js

@@ -364,7 +364,7 @@ func emitirMaterialNominalMiBolsaDesarrollo(ctx context.Context, delegado *prove
 // concesionesPortalMiBolsaDesarrollo concede las acciones propias AD3-84:
 // sin campos ni obligaciones, con la misma garantía que la consulta.
 func concesionesPortalMiBolsaDesarrollo() []dominiovec.ConcesionRol {
-	concesiones := make([]dominiovec.ConcesionRol, 0, 4)
+	concesiones := make([]dominiovec.ConcesionRol, 0, len(puertosbolsa.AccionesPortalCandidato()))
 	for _, par := range puertosbolsa.AccionesPortalCandidato() {
 		tipo := puertosbolsa.TipoRecursoMiBolsa
 		if par[0] == puertosbolsa.AccionManifestarDisposicionPropia {
@@ -402,11 +402,16 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		}},
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}
-	if len(portal) == 1 && portal[0] {
+	if len(portal) >= 1 && portal[0] {
 		// Rol distinto (no una versión nueva del de consulta): la asignación
 		// sube de versión al cambiar de rol y la historia anterior se conserva.
 		rol.RolID, rol.Nombre = rolPortalMiBolsaDesarrollo, "Consulta y acciones propias de bolsa en desarrollo"
-		rol.Concesiones = append(rol.Concesiones, concesionesPortalMiBolsaDesarrollo()...)
+		for _, concesion := range concesionesPortalMiBolsaDesarrollo() {
+			if len(portal) > 1 && !portal[1] && concesion.Accion == puertosbolsa.AccionPresentarSolicitudDocumentalPropia {
+				continue
+			}
+			rol.Concesiones = append(rol.Concesiones, concesion)
+		}
 		rol.Concesiones = append(rol.Concesiones, concesionesContactoPropioDesarrollo()...)
 	}
 	asignacion := dominiovec.AsignacionPerfil{
@@ -447,13 +452,14 @@ type autoridadInicialMiBolsaDesarrollo interface {
 
 func publicarPerfilMiBolsaDesarrollo(
 	ctx context.Context, autoridad autoridadInicialMiBolsaDesarrollo,
-	identidad *identidadCandidatoBolsaDesarrollo, ahora time.Time, portal bool,
+	identidad *identidadCandidatoBolsaDesarrollo, ahora time.Time, portal bool, documental ...bool,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	vacia := dominiovec.InstantaneaAutorizacion{}
 	if ctx == nil || ctx.Err() != nil || autoridad == nil {
 		return vacia, errMiBolsaNoDisponible
 	}
-	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, portal)
+	permitirDocumental := len(documental) == 0 || documental[0]
+	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, portal, permitirDocumental)
 	if err != nil {
 		return vacia, errMiBolsaNoDisponible
 	}
@@ -661,7 +667,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
-	for _, ruta := range []string{bolsapersonal.RutaMiBolsaSolicitudes, bolsapersonal.RutaMiBolsaRespuestas} {
+	for _, ruta := range []string{bolsapersonal.RutaMiBolsaSolicitudes, bolsapersonal.RutaMiBolsaSolicitudesDocumentales, bolsapersonal.RutaMiBolsaRespuestas} {
 		manejador, err := bolsapersonal.NuevoPortal(ruta, preparador, acciones)
 		if err != nil {
 			return nil, errMiBolsaNoDisponible

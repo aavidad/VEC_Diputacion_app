@@ -54,13 +54,15 @@ type solicitudCentroJSON struct {
 // identifica una intención de reintento; identidad, perfil y organización
 // continúan procediendo exclusivamente del contexto confiable del servidor.
 type solicitudAltaJSON struct {
-	ClaveIdempotencia string               `json:"clave_idempotencia"`
-	Solicitud         *solicitudCentroJSON `json:"solicitud"`
+	NumeroExpedienteMOAD string               `json:"numero_expediente_moad"`
+	ClaveIdempotencia    string               `json:"clave_idempotencia"`
+	Solicitud            *solicitudCentroJSON `json:"solicitud"`
 }
 
 type periodoPrevistoJSON struct {
-	Inicio string `json:"inicio"`
-	Fin    string `json:"fin"`
+	Inicio   string `json:"inicio"`
+	Fin      string `json:"fin,omitempty"`
+	CausaFin string `json:"causa_fin,omitempty"`
 }
 
 type declaracionRCJSON struct {
@@ -284,46 +286,47 @@ func valorUnicoNoVacio(valores []string) (string, bool) {
 func solicitudAltaDesdePeticion(
 	w http.ResponseWriter,
 	r *http.Request,
-) (string, domain.SolicitudCentro, error) {
+) (string, string, domain.SolicitudCentro, error) {
 	lector := http.MaxBytesReader(w, r.Body, MaximoCuerpoAltaBytes+1)
 	contenido, err := io.ReadAll(lector)
 	if err != nil {
 		var demasiadoGrande *http.MaxBytesError
 		if errors.As(err, &demasiadoGrande) {
-			return "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+			return "", "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
 		}
-		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if len(contenido) == 0 {
-		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if len(contenido) > MaximoCuerpoAltaBytes {
-		return "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+		return "", "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
 	}
 	if !utf8.Valid(contenido) {
-		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if err := validarJSONAltaSinDuplicados(contenido); err != nil {
-		return "", domain.SolicitudCentro{}, err
+		return "", "", domain.SolicitudCentro{}, err
 	}
 	var entrada solicitudAltaJSON
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(&entrada); err != nil {
-		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if err := decodificador.Decode(&struct{}{}); err != io.EOF {
-		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
-		entrada.Solicitud == nil {
-		return "", domain.SolicitudCentro{}, errContenidoAltaNoValido
+		entrada.Solicitud == nil ||
+		(entrada.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD)) {
+		return "", "", domain.SolicitudCentro{}, errContenidoAltaNoValido
 	}
 	solicitud, err := entrada.Solicitud.dominio()
 	if err != nil {
-		return "", domain.SolicitudCentro{}, err
+		return "", "", domain.SolicitudCentro{}, err
 	}
-	return entrada.ClaveIdempotencia, solicitud, nil
+	return entrada.ClaveIdempotencia, entrada.NumeroExpedienteMOAD, solicitud, nil
 }
 
 func validarJSONAltaSinDuplicados(contenido []byte) error {
@@ -401,7 +404,11 @@ func (s solicitudCentroJSON) dominio() (domain.SolicitudCentro, error) {
 		return domain.SolicitudCentro{}, errContenidoAltaNoValido
 	}
 	inicio, errInicio := fechaCivilUTC(s.Periodo.Inicio)
-	fin, errFin := fechaCivilUTC(s.Periodo.Fin)
+	var fin time.Time
+	var errFin error
+	if s.Periodo.Fin != "" {
+		fin, errFin = fechaCivilUTC(s.Periodo.Fin)
+	}
 	rc, errRC := s.RC.dominio()
 	observaciones := ""
 	if s.Observaciones.presente {
@@ -414,7 +421,7 @@ func (s solicitudCentroJSON) dominio() (domain.SolicitudCentro, error) {
 		GrupoSubgrupo:      s.GrupoSubgrupo,
 		MotivoClave:        domain.ClaveCatalogo(s.MotivoClave),
 		Detalle:            s.Detalle,
-		Periodo:            domain.PeriodoPrevisto{Inicio: inicio, Fin: fin},
+		Periodo:            domain.PeriodoPrevisto{Inicio: inicio, Fin: fin, CausaFin: domain.ClaveCatalogo(s.Periodo.CausaFin)},
 		RC:                 rc,
 		DocumentosAdjuntos: append([]string(nil), (*s.DocumentosAdjuntos)...),
 		Observaciones:      observaciones,

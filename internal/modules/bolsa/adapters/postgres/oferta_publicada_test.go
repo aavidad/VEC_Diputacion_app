@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,15 @@ func TestDecodificarOfertaDeLaProyeccionSQL(t *testing.T) {
 		oferta.Plazas[0].ResponderAntesDe == nil || len(oferta.Plazas[0].Historial) != 1 || oferta.Plazas[1].Propuesta.Tipo != "llamamiento_directo" ||
 		len(oferta.Disposiciones) != 2 || oferta.Disposiciones[1].OrdenVigente != nil || oferta.Plazo.Cantidad != 2 || oferta.VenceAntesDe.IsZero() {
 		t.Fatalf("oferta=%+v err=%v", oferta, err)
+	}
+	conConfirmacion := []byte(strings.Replace(string(salida), `"estado":"pendiente_resolucion"`, `"confirmacion_adjudicacion":"aceptacion_previa","estado":"pendiente_resolucion"`, 1))
+	telematica, err := decodificarOferta(conConfirmacion, false)
+	if err != nil || telematica.ConfirmacionAdjudicacion != "aceptacion_previa" {
+		t.Fatalf("confirmación de la política perdida: %q, %v", telematica.ConfirmacionAdjudicacion, err)
+	}
+	modoDesconocido := []byte(strings.Replace(string(conConfirmacion), `"confirmacion_adjudicacion":"aceptacion_previa"`, `"confirmacion_adjudicacion":"otra"`, 1))
+	if _, err := decodificarOferta(modoDesconocido, false); !errors.Is(err, ports.ErrOfertaNoDisponible) {
+		t.Fatalf("confirmación no implementada admitida: %v", err)
 	}
 	// Una proyección sin una entrada por plaza no se acepta.
 	incompleta := []byte(`{"oferta_ref":"oferta:1","estado":"abierta","numero_plazas":2,"plazas":[{"numero_de_plaza":1,"estado":"vacante","secuencia":0}]}`)

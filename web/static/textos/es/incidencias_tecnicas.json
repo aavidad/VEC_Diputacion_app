@@ -1,0 +1,19 @@
+{
+  "esquema": "1",
+  "version_catalogo": "2",
+  "plantillas": {
+    "ARRANQUE_FALLIDO": "El servidor no ha podido arrancar.",
+    "CATALOGO_MODULOS_INVALIDO": "El catálogo de módulos no es válido.",
+    "HTTP_INTERNO_FALLIDO": "Una petición ha terminado con error interno.",
+    "PANICO_CONTROLADO": "Se ha contenido un pánico del proceso.",
+    "GOBIERNO_V3_NO_DISPONIBLE": "La configuración de gobierno V3 no está disponible.",
+    "POSTGRES_NO_DISPONIBLE": "PostgreSQL no está disponible.",
+    "SMTP_NO_DISPONIBLE": "El servicio de correo saliente no está disponible.",
+    "OSRM_NO_DISPONIBLE": "El servicio de rutas OSRM no está disponible.",
+    "AUDITORIA_NO_REGISTRADA": "No se ha podido registrar una entrada de auditoría.",
+    "MODULO_WEB_NO_CARGADO": "Un módulo web no se ha cargado.",
+    "CLIENTE_FALLO_NO_CLASIFICADO": "El cliente ha declarado un fallo no clasificado.",
+    "RECOLECCION_DEGRADADA": "La recogida de incidencias técnicas está degradada.",
+    "ALERTA_NO_ENTREGADA": "Un aviso técnico no se ha entregado."
+  }
+}

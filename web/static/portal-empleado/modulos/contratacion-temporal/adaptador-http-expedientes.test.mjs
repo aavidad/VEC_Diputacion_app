@@ -90,6 +90,27 @@ function clienteFalso(llamadas) {
   };
 }
 
+test("expediente sin fecha de fin muestra la causa en solicitud y análisis", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.solicitud.periodo_fin;
+    detalle.solicitud.periodo_causa_fin = "reincorporacion_titular";
+    delete detalle.analisis.periodo_fin;
+    detalle.analisis.periodo_causa_fin = "reincorporacion_titular";
+    return detalle;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "periodo").valor, /Hasta la reincorporación/);
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "periodo_analizado").valor, /Hasta la reincorporación/);
+  assert.deepEqual(expediente.analisis_previo.periodo, {
+    inicio: "2026-09-04T00:00:00Z", causa_fin: "reincorporacion_titular",
+  });
+});
+
 test("convierte cuadro y detalle del servidor para la pantalla existente", async () => {
   const llamadas = [];
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({

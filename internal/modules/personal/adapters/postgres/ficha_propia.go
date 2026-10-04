@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,16 +17,12 @@ import (
 
 const (
 	consultaFichaPropiaSQL       = `SELECT vec_personal.consultar_ficha_propia_empleado_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	registrarDenegacionPropiaSQL = `SELECT vec_personal.registrar_denegacion_ficha_propia_v1($1::text,$2::text,$3::smallint,NULLIF($4::text,''))`
 	maxRespuestaFichaPropia      = 256 << 10
 	preflightFichaPropiaEjecutor = `SELECT has_function_privilege('vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_function_privilege('vec_personal.registrar_denegacion_ficha_propia_v1(text,text,smallint,text)','EXECUTE')`
-	preflightFichaPropiaFrontera = `SELECT has_function_privilege('vec_personal.registrar_denegacion_ficha_propia_v1(text,text,smallint,text)','EXECUTE') AND NOT has_function_privilege('vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')`
 )
 
 var (
 	ErrFichaPropiaPostgreSQLNoDisponible = errors.New("personal: ficha propia PostgreSQL no disponible")
-	correlacionDenegacionFichaPropia     = regexp.MustCompile(`^(corr_no_disponible|corr_[0-9a-f]{32})$`)
-	actorDenegacionFichaPropia           = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,512}$`)
 )
 
 var _ ports.RepositorioFichaPropia = (*RepositorioRegistroEmpleadoB2PostgreSQL)(nil)
@@ -132,40 +127,6 @@ func filasExactasFichaPropia(bruto json.RawMessage, claves []string) bool {
 		}
 	}
 	return true
-}
-
-// RegistroDenegacionFichaPropiaPostgreSQL inscribe denegaciones de frontera
-// con un LOGIN miembro exclusivo de vec_personal_registrador_frontera.
-type RegistroDenegacionFichaPropiaPostgreSQL struct {
-	pool *pgxpool.Pool
-}
-
-var _ ports.RegistroDenegacionFichaPropia = (*RegistroDenegacionFichaPropiaPostgreSQL)(nil)
-
-func NuevoRegistroDenegacionFichaPropiaPostgreSQL(pool *pgxpool.Pool) (*RegistroDenegacionFichaPropiaPostgreSQL, error) {
-	if pool == nil {
-		return nil, ErrFichaPropiaPostgreSQLNoDisponible
-	}
-	return &RegistroDenegacionFichaPropiaPostgreSQL{pool: pool}, nil
-}
-
-func (r *RegistroDenegacionFichaPropiaPostgreSQL) PreflightFichaPropia(ctx context.Context) error {
-	if r == nil {
-		return ErrFichaPropiaPostgreSQLNoDisponible
-	}
-	return preflightFichaPropia(ctx, r.pool, preflightFichaPropiaFrontera)
-}
-
-func (r *RegistroDenegacionFichaPropiaPostgreSQL) RegistrarDenegacionFichaPropia(ctx context.Context, d ports.DenegacionFichaPropia) error {
-	if r == nil || r.pool == nil || ctx == nil || !correlacionDenegacionFichaPropia.MatchString(d.CorrelacionRef) ||
-		d.EstadoHTTP < 400 || d.EstadoHTTP > 599 || (d.ActorRef != "" && !actorDenegacionFichaPropia.MatchString(d.ActorRef)) {
-		return ErrFichaPropiaPostgreSQLNoDisponible
-	}
-	var registrada bool
-	if err := r.pool.QueryRow(ctx, registrarDenegacionPropiaSQL, d.CorrelacionRef, d.Motivo, int16(d.EstadoHTTP), d.ActorRef).Scan(&registrada); err != nil || !registrada {
-		return ErrFichaPropiaPostgreSQLNoDisponible
-	}
-	return nil
 }
 
 type consultorFilaFichaPropia interface {

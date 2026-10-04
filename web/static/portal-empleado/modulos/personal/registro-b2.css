@@ -1,3 +1,5 @@
+@import url("./comparacion-ficha-b2.css?v=20261003-personal-comparacion-b2-v4");
+
 .personal-registro-b2 {
   display: grid;
   min-width: 0;
@@ -94,6 +96,7 @@
 
 .personal-registro-b2-contenido {
   display: grid;
+  grid-auto-rows: max-content;
   min-width: 0;
   min-height: 0;
   align-content: start;

@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -163,6 +164,34 @@ func jsonTexto(v any) string {
 		return x.String()
 	default:
 		return ""
+	}
+}
+
+func TestEmisorTreceCodigosConCatalogoTraducidoYContratoJSONL(t *testing.T) {
+	catalogo, err := catalogoincidencias.PorIdioma("en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	destino := &destinoSeguro{}
+	e := nuevoEmisor(t, OpcionesEmisor{Destino: destino, Catalogo: catalogo})
+	for _, codigo := range domain.CodigosIncidenciaTecnica() {
+		def, _ := domain.DefinicionIncidenciaTecnicaDe(codigo)
+		e.Emitir(domain.SolicitudIncidenciaTecnica{Codigo: codigo, Componente: def.Componentes[0], Etapa: def.Etapas[0]})
+	}
+	cerrar(t, e)
+	lineas := destino.lineas(t)
+	if len(lineas) != len(domain.CodigosIncidenciaTecnica()) {
+		t.Fatal("faltan códigos emitidos")
+	}
+	for _, linea := range lineas {
+		codigo := domain.CodigoIncidenciaTecnica(linea["codigo"].(string))
+		plantilla, ok := catalogo.Plantilla(codigo)
+		if !ok || linea["mensaje"] != plantilla || linea["esquema"] != domain.EsquemaIncidenciaTecnica || len(linea) != len(camposPermitidos) {
+			t.Fatal("catálogo o JSONL no conservado")
+		}
+	}
+	if _, err := NuevoEmisorJSONLines(OpcionesEmisor{Destino: destino, Catalogo: &catalogoincidencias.Catalogo{}}); err == nil {
+		t.Fatal("emisor con catálogo no válido")
 	}
 }
 
@@ -500,8 +529,8 @@ func TestEmisorToleraFallosDeDestinoYEntropia(t *testing.T) {
 	e.Emitir(solicitudValida())
 	cerrar(t, e)
 	lineas := destino.lineas(t)
-	if len(lineas) != 1 || lineas[0]["correlacion"] != strings.Repeat("0", 32) {
-		t.Fatalf("correlacion sin entropia: %v", lineas)
+	if len(lineas) != 0 || e.MetricasEmision().FallosCorrelacion != 1 {
+		t.Fatalf("fallo de entropia escribió una coincidencia o no contó la pérdida: lineas=%v metricas=%+v", lineas, e.MetricasEmision())
 	}
 }
 
