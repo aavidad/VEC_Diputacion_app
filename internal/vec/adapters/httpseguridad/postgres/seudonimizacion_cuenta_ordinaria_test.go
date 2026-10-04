@@ -128,6 +128,22 @@ func TestAliasOrdinarioNiegaFalloYCancelacionDeSegundaConsulta(t *testing.T) {
 	}
 }
 
+func TestRegistroPrivilegiadoNiegaAntesDeSQLSiFallaSegundoHMAC(t *testing.T) {
+	alta := altaValida()
+	alta.CuentaPrivilegiada = true
+	alta.CuentaOrdinariaID = "cuenta-ordinaria"
+	alta.Superficie = httpseguridad.SuperficieAdministracionPrivilegiada
+	proveedor := proveedorDosCuentasPrueba()
+	proveedor.errores[1] = errors.New("token retirado")
+	registro := &iniciadorDoble{}
+	adaptador := nuevoAdaptadorPrueba(t, registro, &iniciadorDoble{}, proveedor)
+	_, err := adaptador.ConsumirAsercionYRegistrar(context.Background(), alta)
+	if !errors.Is(err, httpseguridad.ErrSesionNoValida) ||
+		len(proveedor.entradas) != 2 || registro.llamadas != 0 {
+		t.Fatal("el fallo del segundo HMAC abrió una transacción SQL")
+	}
+}
+
 func TestRegistroPrivilegiadoReutilizaAliasEnReconciliacion(t *testing.T) {
 	alta := altaValida()
 	alta.CuentaPrivilegiada = true
