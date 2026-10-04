@@ -249,7 +249,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			return
 		}
 		result, err = h.lecturas.BuscarPersonas(ctx, actor, s.Evidencia, consulta)
-		if pagina, ok := result.(PaginaPersonas); err == nil && ok && !pagina.metadatosValidos() {
+		if pagina, ok := result.(PaginaPersonas); err == nil && ok && (h.soloMetadatos && pagina.Metadatos == nil || !pagina.metadatosValidos()) {
 			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "buscar_personas", "")
 			return
 		}
@@ -268,7 +268,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			}
 			err = ErrConfiguracionIncompleta
 		}
-		if err == nil && !ficha.metadatosValidos() {
+		if err == nil && (h.soloMetadatos && ficha.Metadatos == nil || !ficha.metadatosValidos()) {
 			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
 			return
 		}
