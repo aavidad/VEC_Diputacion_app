@@ -15,7 +15,6 @@ import (
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/application"
-	"vec-diputacion-granada/internal/vec/auditoria"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -169,18 +168,19 @@ func run(args []string, out, log io.Writer) int {
 		if err != nil {
 			return fallo()
 		}
-		cobertura := auditoria.CoberturaCadena{CadenaID: r.Checkpoint.Cobertura.CadenaID, PrimeraSecuencia: r.Checkpoint.Cobertura.PrimeraSecuencia, UltimaSecuencia: r.Checkpoint.Cobertura.UltimaSecuencia, AnteriorSHA256: r.Checkpoint.Cobertura.AnteriorSHA256, CabezaSHA256: r.Checkpoint.Cobertura.CabezaSHA256, Registros: r.Checkpoint.Cobertura.Registros}
-		informe, err := verificarCadenaCheckpoint(cb, cobertura, cfg.MaxRegistros)
+		informe, err := verificarCadenaCheckpoint(cb, r.Checkpoint.Cobertura, cfg.MaxBytes, cfg.MaxRegistros)
 		if err != nil {
-			return fallo()
+			resultado.IntegridadCadena = "rechazada"
+			_ = escribirResultado(out, resultado)
+			return 1
 		}
-		resultado.ConsumosHistoricosSinFechaLigada = informe.ConsumosHistoricosSinFechaLigada
-		resultado.FechaConsumoLigadaCotejada = informe.FechaConsumoLigadaCotejada
 		resultado.IntegridadCadena = informe.Estado
 		if informe.Estado != "verificada" {
 			_ = escribirResultado(out, resultado)
 			return 1
 		}
+		resultado.ConsumosHistoricosSinFechaLigada = informe.ConsumosHistoricosSinFechaLigada
+		resultado.FechaConsumoLigadaCotejada = informe.FechaConsumoLigadaCotejada
 	}
 	codigo = domain.ResultadoTecnicoCorrecto
 	return escribirResultado(out, resultado)

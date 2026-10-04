@@ -72,8 +72,11 @@ vec-auditoria-checkpoint -operacion verificar \
 ```
 
 Puede añadir `-cadena /ruta/externa/extraccion.json` para recalcular el rango con
-el verificador común AD3 v1 o mixto v2. Esa extracción conserva su autorización
-y custodia independientes; la CLI no la obtiene ni vuelve a validar permisos.
+el verificador común. Admite los esquemas v1, mixto v2, v3, fuentes iniciales,
+unidad inicial y bootstrap central. El lector compartido exige campos completos,
+rechaza duplicados, alias, valores nulos y esquemas desconocidos, y coteja el
+manifiesto con la cobertura firmada. La extracción conserva su autorización y
+custodia independientes; la CLI no la obtiene ni vuelve a validar permisos.
 
 El resultado separa `firma: verificada_con_pin_externo` de
 `integridad_cadena: no_evaluada` o `verificada`. Siempre conserva
@@ -82,6 +85,14 @@ El resultado separa `firma: verificada_con_pin_externo` de
 código de salida 1 aunque la firma del checkpoint sea correcta. La verificación
 no requiere secretos. La firma cubre el checkpoint canónico, esquema y
 versiones, procedencia de desarrollo, recibo TSA y huella SPKI.
+
+`consumos_historicos_sin_fecha_ligada` avisa de consumos anteriores cuyas fechas
+no quedaron ligadas al eslabón. `fecha_consumo_ligada_cotejada` confirma el
+cotejo de las fechas nominales AD173 cuando están presentes. Ambos indicadores
+solo se informan después de verificar toda la cadena; si se rechaza el
+documento o se omite `-cadena`, permanecen falsos. El aviso histórico no
+completa ni firma retroactivamente una fecha y el cotejo AD173 no acredita
+tiempo independiente.
 
 ## Continuidad entre checkpoints
 

@@ -102,6 +102,23 @@ func TestCheckpointMixtoFirmaPinYFechasHistoricas(t *testing.T) {
 	}
 }
 
+func TestCheckpointMixtoFamiliasIntegradas(t *testing.T) {
+	for _, ruta := range []string{
+		"../vec-auditoria-verificar/testdata/fuentes_iniciales_ad174.json",
+		"../vec-auditoria-verificar/testdata/unidad_inicial_ad176.json",
+		"../vec-auditoria-verificar/testdata/bootstrap_intentos_ad179.json",
+	} {
+		t.Run(filepath.Base(ruta), func(t *testing.T) {
+			_, args, _ := checkpointConCadena(t, ruta)
+			r := resultadoMixto(t, args, 0)
+			if r.Firma != "verificada_con_pin_externo" || r.IntegridadCadena != "verificada" ||
+				r.OrigenExtraccion != "no_acreditado" || r.TSA != "no_verificada_offline" || r.TiempoIndependiente || r.FirmaLegal {
+				t.Fatalf("familia integrada: %+v", r)
+			}
+		})
+	}
+}
+
 func TestCheckpointMixtoRechazaAlterarQuinceCampos(t *testing.T) {
 	b, args, ruta := checkpointMixto(t)
 	for _, campo := range []string{"tipo_registro", "version_consumo", "secuencia", "anterior_sha256", "decision_ref", "efecto_ref", "huella_efecto_sha256", "consumo_huella_sha256", "proceso", "canal", "registrada_en", "consumida_en", "actor_ref", "perfil_activo_ref", "finalidad_ref"} {
@@ -130,7 +147,7 @@ func TestCheckpointMixtoRechazaAlterarQuinceCampos(t *testing.T) {
 				t.Fatal("no se escribió alteración")
 			}
 			r := resultadoMixto(t, args, 1)
-			if r.Firma != "verificada_con_pin_externo" || r.IntegridadCadena != "rechazada" || !r.ConsumosHistoricosSinFechaLigada || r.FechaConsumoLigadaCotejada {
+			if r.Firma != "verificada_con_pin_externo" || r.IntegridadCadena != "rechazada" || r.ConsumosHistoricosSinFechaLigada || r.FechaConsumoLigadaCotejada {
 				t.Fatalf("rechazo o aviso histórico incorrecto: %+v", r)
 			}
 		})
@@ -142,7 +159,7 @@ func TestCheckpointMixtoRechazaAlterarQuinceCampos(t *testing.T) {
 		t.Fatal("no se escribió alteración temporal")
 	}
 	r := resultadoMixto(t, args, 1)
-	if r.IntegridadCadena != "rechazada" || !r.ConsumosHistoricosSinFechaLigada || r.FechaConsumoLigadaCotejada {
+	if r.IntegridadCadena != "rechazada" || r.ConsumosHistoricosSinFechaLigada || r.FechaConsumoLigadaCotejada {
 		t.Fatalf("fechas cambiadas admitidas: %+v", r)
 	}
 }
