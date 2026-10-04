@@ -38,12 +38,35 @@ func run(args []string, out, log io.Writer) int {
 	maxRecibos := fs.Int("max-recibos", 0, "")
 	conexion := fs.String("conexion", "", "")
 	capturaRef := fs.String("captura-ref", "", "")
+	versionPreservacion := fs.Uint64("version", 0, "")
 	fallo := func() int {
 		_ = json.NewEncoder(out).Encode(map[string]string{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida"})
 		return 1
 	}
-	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion" && *modo != "ejecutar-periodico") {
+	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion" && *modo != "ejecutar-periodico" && *modo != "configurar-preservacion" && *modo != "consultar-preservacion") {
 		return fallo()
+	}
+	if *modo == "configurar-preservacion" || *modo == "consultar-preservacion" {
+		incompatible := false
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "operacion", "config", "conexion":
+			case "entrada":
+				if *modo != "configurar-preservacion" {
+					incompatible = true
+				}
+			case "version":
+				if *modo != "consultar-preservacion" {
+					incompatible = true
+				}
+			default:
+				incompatible = true
+			}
+		})
+		if incompatible {
+			return fallo()
+		}
+		return runPreservacion(opcionesPreservacion{Operacion: *modo, Config: *conf, Conexion: *conexion, Entrada: *entrada, Version: *versionPreservacion}, out, log)
 	}
 	if *modo == "ejecutar-periodico" {
 		incompatible := false
@@ -59,7 +82,7 @@ func run(args []string, out, log io.Writer) int {
 		}
 		return runPeriodico(opcionesPeriodicas{Config: *conf, Conexion: *conexion, CapturaRef: *capturaRef, Master: *master, TSA: *tsa}, out, log)
 	}
-	if *conexion != "" || *capturaRef != "" {
+	if *conexion != "" || *capturaRef != "" || *versionPreservacion != 0 {
 		return fallo()
 	}
 	incompatible := false

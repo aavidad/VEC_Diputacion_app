@@ -266,3 +266,51 @@ estado verificable con raíz separada de
 [immudb](https://docs.immudb.io/1.5.0/management/state) y conservación de auditoría
 para completar operaciones de [Vault](https://developer.hashicorp.com/vault/docs/audit).
 No incorpora esos servicios ni les envía datos.
+
+## Preservación técnica provisional (AD187)
+
+`configurar-preservacion` publica una versión por CAS y referencia idempotente.
+`consultar-preservacion` consulta la vigente (`--version 0`) o una versión
+histórica. Ambas operaciones usan grupos técnicos propios y dejan auditoría
+común antes de devolver datos. El recibo original se conserva; cada replay o
+consulta añade su registro de acceso.
+
+La medida es `conservar_todo_sin_expurgo`, con estado `provisional`, para el
+conjunto técnico `auditoria_periodica:comun_interna`. No es una serie documental,
+un plazo efectivo, una resolución del Archivo ni una autorización de borrado.
+La referencia de decisión técnica identifica una decisión externa al código;
+no la convierte en resolución legal. La duda 84 sigue abierta.
+
+Configuración del ejecutor, sin credenciales ni reglas documentales:
+
+```json
+{"version":1,"timeout_segundos":30,"version_binario":"desarrollo:preservacion:1"}
+```
+
+Entrada sintética de publicación (conservarla para recuperar la operación):
+
+```json
+{"publicacion_ref":"preservacion_11111111111111111111111111111111","version":1,"preimagen_sha256":"0000000000000000000000000000000000000000000000000000000000000000","decision_tecnica_ref":"decision_tecnica_22222222222222222222222222222222","estado":"provisional","medida":"conservar_todo_sin_expurgo"}
+```
+
+```sh
+vec-auditoria-checkpoint --operacion configurar-preservacion --config ejecutor.json --conexion conexion-configurador.txt --entrada publicacion.json
+vec-auditoria-checkpoint --operacion consultar-preservacion --config ejecutor.json --conexion conexion-consultor.txt --version 0
+```
+
+Los archivos de conexión son privados, fuera de Git, con LOGIN nominal propio,
+NOINHERIT y concesión del grupo exacto de la operación. TCP exige verificación
+TLS del servidor y no admite alternativas en texto claro; el socket local se
+reserva al clon de desarrollo. Nunca se necesitan claves KMS/TSA en estos modos.
+
+La versión nueva exige la huella de la versión anterior. La primera exige
+preimagen cero. El material idempotente y su huella son el objeto JSON cerrado
+normalizado por PostgreSQL `jsonb::text` (SHA256 UTF-8). Un orden o espaciado
+diferente con los mismos seis valores conserva la operación; una referencia
+reutilizada con material distinto se rechaza. Un COMMIT incierto no devuelve
+versión, huella ni acuse: repetir la entrada original permite recuperarla.
+
+AD187 depende de AD186 y de su CHECK medido. No se reaplica ni se ejecuta DOWN.
+El código requiere revisión y ensayo en el clon antes de instalarse; este
+archivo no acredita instalación en la principal. No cambia la política
+criptográfica del sello ni borra registros.
