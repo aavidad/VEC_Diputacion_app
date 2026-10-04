@@ -549,7 +549,8 @@
     "ficha_excede_limite": "This section has more records than can be shown here. Ask Human Resources for the detail.",
     "ficha_error": "This section could not be checked. The other sections are still available.",
     "ficha_reintentar": "Retry query",
-    "ficha_actualizar": "Refresh data"
+    "ficha_actualizar": "Refresh data",
+    "ficha_ver_historia_servicios": "View service history"
   },
   "rpt_puestos": {
     "sobrelinea": "Employee Portal → Personnel",

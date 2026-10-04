@@ -1,11 +1,12 @@
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
 
-import { descargarResumenServicios } from "./servicios-descarga.js?v=20261004-personal-exportacion-v1";
-import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
-import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
+import { descargarResumenServicios } from "./servicios-descarga.js?v=20261004-personal-historia-v1";
+import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-historia-v1";
+import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
@@ -96,7 +97,7 @@ function validarResultado(resultado, bloque) {
   if (resultado.fecha_referencia !== undefined && (bloque !== "servicios" || !esFechaCorteServicios(resultado.fecha_referencia))) throw new TypeError("fecha de referencia no válida");
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items,
     ...(resultado.fecha_referencia ? { fecha_referencia: resultado.fecha_referencia } : {}),
-    ...(bloque === "servicios" ? { exportacion_servicios_disponible: resultado.exportacion_servicios_disponible === true } : {}),
+    ...(bloque === "servicios" ? { exportacion_servicios_disponible: resultado.exportacion_servicios_disponible === true, historia_servicios_disponible: resultado.historia_servicios_disponible === true } : {}),
     ...(bloque === "servicios" && referenciaExportacionServiciosValida(resultado.recibo_ref, resultado.corte) && resultado.corte.vigente_en === resultado.fecha_referencia ? { recibo_ref: resultado.recibo_ref, corte: Object.freeze({ ...resultado.corte }) } : {}) };
 }
 function formatearFecha(iso) {
@@ -131,7 +132,7 @@ function tabla(d, t, bloque, items) {
   const indicacion = nodo(d, "p", t("ficha_desplazar_tabla")); indicacion.className = "personal-ficha-desplazar";
   conjunto.append(indicacion, region); return conjunto;
 }
-function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, descargar) {
+function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, descargar, abrirHistoria) {
   const definicion = BLOQUES[bloque]; const piezas = [];
   if (corte && !["denegado", "no_configurado"].includes(resultado.estado)) {
     piezas.push(crearSelectorCorteServicios(d, corte.referencia(), corte.consultar));
@@ -154,6 +155,10 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
     boton.addEventListener("click", descargar); resumen.append(boton);
     const estado = mensaje(d, ""); estado.dataset.personalServiciosExportacionEstado = ""; estado.setAttribute("aria-live", "polite"); resumen.append(estado);
     piezas.push(mensaje(d, traducirExportacionServicios("alcance")), resumen);
+  }
+  if (bloque === "servicios" && typeof abrirHistoria === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
+    const boton=nodo(d,"button",t("ficha_ver_historia_servicios"));boton.type="button";boton.className="boton-secundario";boton.dataset.personalHistoriaAbrir="";
+    boton.addEventListener("click",abrirHistoria);piezas.push(boton);
   }
   if (typeof actualizar === "function" && (["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado) || resultado.aviso_exportacion === "sesion_caducada")) {
     const accion = nodo(d, "button", t(resultado.estado === "error" ? "ficha_reintentar" : "ficha_actualizar"));
@@ -185,8 +190,8 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
   const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
   let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
-  let vuelo; let vueloExportacion; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
-  const limpiar = () => { const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
+  let vuelo; let vueloExportacion; let limpiarHistoria; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
+  const limpiar = () => { limpiarHistoria?.(); limpiarHistoria = undefined; const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); limpiar(); contenedor.remove?.(); };
   registrarDesmontar?.(desmontar);
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista";
@@ -197,6 +202,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   principal.setAttribute("role", "tabpanel"); principal.setAttribute("tabindex", "0");
   const pintar = (clave, enfocarAccion = false) => {
     if (!activa) return;
+    limpiarHistoria?.(); limpiarHistoria = undefined;
     if (actual === "catalogos") limpiar();
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
     serviciosDescargables = undefined;
@@ -284,7 +290,14 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
           }
         }
       } : undefined;
-      pintarBloque(d, principal, t, clave, resultado, actualizar, corte, descargar);
+      const abrirHistoria = clave === "servicios" && resultado.historia_servicios_disponible === true && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
+        if (!activa || turno!==secuencia || limpiarHistoria) return;
+        const hueco=nodo(d,"div");hueco.className="personal-ficha-panel-ancho personal-ficha-tabla-conjunto";hueco.dataset.personalHistoriaHueco="";principal.append(hueco);
+        montarVistaHistoriaServiciosPropia({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar("servicios",true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
+        hueco.querySelector?.('[data-personal-historia-fecha="desde"]')?.focus?.();
+        const boton=principal.querySelector?.('[data-personal-historia-abrir]');if(boton)boton.disabled=true;
+      } : undefined;
+      pintarBloque(d, principal, t, clave, resultado, actualizar, corte, descargar, abrirHistoria);
       const nuevo = corte ? principal.querySelector?.("[data-personal-ficha-fecha]") : undefined;
       if (nuevo && teniaFoco) { nuevo.value = borrador; nuevo.focus?.(); }
       enfocar();

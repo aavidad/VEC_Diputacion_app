@@ -20,6 +20,7 @@ type seleccionMaterialCTDesarrollo struct {
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	exportacionServiciosPersonal                                     bool
+	historiaServiciosPersonal                                        bool
 	incorporacionAcreditada, incorporacionB2                         bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
@@ -73,6 +74,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	if err != nil {
 		return s, err
 	}
+	historiaServicios, err := historiaServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return s, err
+	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
 		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
@@ -84,6 +89,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		cronosAvisos:                 cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
 		fichaPropiaPersonal:          personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
 		exportacionServiciosPersonal: exportacionServicios,
+		historiaServiciosPersonal:    historiaServicios,
 		firmaDocumento:               firma,
 		seguimientoCese:              seguimientoCeseSolicitado(cfg),
 		cancelacion:                  cancelacionCTSolicitada(cfg),
@@ -179,6 +185,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.fichaPropiaPersonal {
 		d = append(d, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	}
+	if s.historiaServiciosPersonal {
+		d = append(d, descriptorMaterialHistoriaServiciosPersonal())
 	}
 	if s.exportacionServiciosPersonal {
 		d = append(d, descriptorMaterialExportacionServiciosPersonal())

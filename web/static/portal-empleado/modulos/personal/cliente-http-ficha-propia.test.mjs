@@ -146,7 +146,7 @@ test("más filas de las que se muestran: los apartados se ofrecen con estado pro
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {
   const vacia = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } };
   const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(vacia) }).preparar();
-  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25", exportacion_servicios_disponible: true, recibo_ref: FICHA.data.recibo_ref, corte: FICHA.data.ficha.corte });
+  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25", exportacion_servicios_disponible: true, historia_servicios_disponible: false, recibo_ref: FICHA.data.recibo_ref, corte: FICHA.data.ficha.corte });
 });
 
 test("actualizar borra la ficha anterior y no permite que una respuesta tardía repueble la caché", async () => {
@@ -327,5 +327,18 @@ test("denegar exportación conserva consulta y bloqueo al reabrir, sin reutiliza
     assert.equal(conservada.exportacion_servicios_disponible, false);
     await assert.rejects(fuentes.servicios.exportarPropios(entrada), { codigo: "denegado" });
     assert.deepEqual(peticiones, ["GET", "POST"]);
+  }
+});
+
+test("historia sólo se ofrece con disponibilidad explícita y conserva exportación del servidor anterior", async () => {
+  for (const valor of [undefined,false,true,"true"]) {
+    const data={...FICHA.data};if(valor!==undefined)data.historia_servicios_disponible=valor;
+    let peticion;
+    const fuentes=await crearFuentesFichaPropia({fetchImpl:async(_,opciones)=>{peticion=opciones;return respuesta({data});}}).preparar();
+    const servicios=await fuentes.servicios.consultarPropios();
+    if(typeof valor==="string"){assert.equal(servicios.estado,"error");continue;}
+    assert.equal(servicios.historia_servicios_disponible,valor===true);
+    assert.equal(servicios.exportacion_servicios_disponible,true);
+    assert.equal(peticion.headers.Prefer,"vec-personal-historia-servicios-v1");
   }
 });

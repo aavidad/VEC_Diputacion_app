@@ -72,6 +72,7 @@ type configuracionPersonalEmpleadoDesarrollo struct {
 	ZonaHoraria              string                                        `json:"zona_horaria"`
 	MotivoFichaPropia        core.ReferenciaEntradaCatalogo                `json:"motivo_ficha_propia"`
 	ExportacionServicios     *configuracionExportacionServiciosPersonal    `json:"exportacion_servicios,omitempty"`
+	HistoriaServicios        *configuracionHistoriaServiciosPersonal       `json:"historia_servicios,omitempty"`
 }
 
 // autoridadPersonalEmpleadoDesarrollo es la frontera de /api/interna/personal/.
@@ -216,7 +217,7 @@ func servicioContextoActorPersonalEmpleado(resolutor vecports.ResolutorRegistroC
 
 // nuevasRutasPersonalEmpleadoDesarrollo devuelve nil con el selector apagado.
 // Con él activado, cualquier pieza ausente o incoherente impide arrancar.
-func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material *proveedorMaterialAltaContratacionTemporalDesarrollo, materialesExportacion ...*proveedorMaterialAltaContratacionTemporalDesarrollo) (*autoridadPersonalEmpleadoDesarrollo, error) {
+func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material *proveedorMaterialAltaContratacionTemporalDesarrollo, materialesOpcionales ...*proveedorMaterialAltaContratacionTemporalDesarrollo) (*autoridadPersonalEmpleadoDesarrollo, error) {
 	activo, err := cfg.PersonalEmpleadoDesarrolloActivo()
 	if err != nil {
 		return nil, err
@@ -365,16 +366,16 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
-	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroIntentos, zona, time.Duration(c.LimiteAuditoriaSegundos)*time.Second, c.ExportacionServicios != nil)
+	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroIntentos, zona, time.Duration(c.LimiteAuditoriaSegundos)*time.Second, c.ExportacionServicios != nil, c.HistoriaServicios != nil)
 	if err != nil {
 		return nil, err
 	}
 	a.rutas = map[string]http.Handler{personalhttp.RutaFichaPropia: manejador}
 	if c.ExportacionServicios != nil {
-		if len(materialesExportacion) != 1 || materialesExportacion[0] == nil {
+		if (len(materialesOpcionales) != 1 && len(materialesOpcionales) != 2) || materialesOpcionales[0] == nil {
 			return nil, errPersonalEmpleadoEn()
 		}
-		emisorExportacion, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesExportacion[0])
+		emisorExportacion, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesOpcionales[0])
 		if err != nil {
 			return nil, errPersonalEmpleadoEn()
 		}
@@ -386,6 +387,21 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 			return nil, errPersonalEmpleadoEn()
 		}
 		a.rutas[personalhttp.RutaExportacionServiciosPropios] = exportador
+	}
+
+	if c.HistoriaServicios != nil {
+		if len(materialesOpcionales) != 2 || materialesOpcionales[1] == nil || c.HistoriaServicios.Motivo.CatalogoID != c.MotivoFichaPropia.CatalogoID {
+			return nil, errPersonalEmpleadoEn()
+		}
+		emisorHistoria, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, materialesOpcionales[1])
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		historia, err := componerHistoriaServiciosPersonal(ctx, pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisorHistoria, *c.HistoriaServicios, registradorComun, proceso, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		a.rutas[personalhttp.RutaHistoriaServiciosPropia] = historia
 	}
 
 	completa = true
