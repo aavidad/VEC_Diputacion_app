@@ -23,6 +23,7 @@ type DependenciasComposicionPerfiles struct {
 	Auditor                                                 api.AuditorFrontera
 	Reloj                                                   ports.Reloj
 	Activos                                                 fs.FS
+	SoloUsuariosMetadatos                                   bool
 }
 
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {
@@ -54,5 +55,5 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 		return nil, ErrConfiguracion
 	}
 	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
-		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia})
+		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos})
 }
