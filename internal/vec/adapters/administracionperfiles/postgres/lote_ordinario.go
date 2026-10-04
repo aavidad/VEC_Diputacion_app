@@ -12,23 +12,45 @@ import (
 
 const accionLoteOrdinario = "administracion.perfiles.aplicar_lote_ordinario"
 const audienciaLoteOrdinario = "vec_autorizacion.administracion_perfiles.lote_ordinario.v1"
-const aplicarLoteOrdinarioSQL = `SELECT vec_autorizacion.aplicar_lote_ordinario_admin_v1` + argumentosV3
+const aplicarLoteOrdinarioSQL = `SELECT vec_autorizacion.aplicar_lote_ordinario_admin_v1($1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+
+// El emisor recibe el recurso V3 exacto. El ámbito privado se coteja de nuevo
+// en AUT44; ni el DTO ni esta interfaz conceden acceso por sí solos.
+type EmisorLoteOrdinario interface {
+	EmitirLoteOrdinario(context.Context, domain.ContextoActor,
+		domain.EvidenciaSesionAdministracionPerfiles, domain.InstantaneaAutorizacion,
+		domain.RecursoAutorizable, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
+type AutoridadLoteOrdinario struct {
+	pool         conexion
+	emisor       EmisorLoteOrdinario
+	proveedor    ProveedorAmbitosLote
+	reloj        ports.Reloj
+	organizacion string
+}
+
+var _ ports.AutoridadLotesAdministracionPerfiles = (*AutoridadLoteOrdinario)(nil)
 
 // NuevaAutoridadLoteOrdinario no depende de las fachadas singulares heredadas.
 // El LOGIN propio se acredita en SQL antes de recibir la primera orden.
-func NuevaAutoridadLoteOrdinario(ctx context.Context, pool *pgxpool.Pool, emisor Emisor, reloj ports.Reloj) (*Autoridad, error) {
-	return nuevaAutoridadLoteOrdinario(ctx, pool, emisor, reloj)
+func NuevaAutoridadLoteOrdinario(ctx context.Context, pool *pgxpool.Pool, emisor EmisorLoteOrdinario,
+	proveedor ProveedorAmbitosLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
+	return nuevaAutoridadLoteOrdinario(ctx, pool, emisor, proveedor, organizacion, reloj)
 }
 
-func nuevaAutoridadLoteOrdinario(ctx context.Context, pool conexion, emisor Emisor, reloj ports.Reloj) (*Autoridad, error) {
-	if ctx == nil || ausente(pool) || ausente(emisor) || ausente(reloj) || ctx.Err() != nil {
+func nuevaAutoridadLoteOrdinario(ctx context.Context, pool conexion, emisor EmisorLoteOrdinario,
+	proveedor ProveedorAmbitosLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
+	if ctx == nil || ausente(pool) || ausente(emisor) || ausente(proveedor) || ausente(reloj) ||
+		!referenciaAmbitoLote.MatchString(organizacion) || ctx.Err() != nil {
 		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	var acreditado bool
 	if err := pool.QueryRow(ctx, `SELECT vec_autorizacion.acreditar_login_lote_ordinario_admin_v1()`).Scan(&acreditado); err != nil || !acreditado {
 		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
-	return &Autoridad{pool: pool, emisor: emisor, reloj: reloj}, nil
+	return &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: proveedor,
+		reloj: reloj, organizacion: organizacion}, nil
 }
 
 type reciboLoteOrdinarioJSON struct {
@@ -37,28 +59,40 @@ type reciboLoteOrdinarioJSON struct {
 	ReciboRef             string       `json:"recibo_ref"`
 	AuditoriaRef          string       `json:"auditoria_ref"`
 	HuellaSolicitudSHA256 string       `json:"huella_solicitud_sha256"`
+	FuentesSHA256         string       `json:"fuentes_sha256"`
 	ConfirmadoEn          time.Time    `json:"confirmado_en"`
 	Cambios               []reciboJSON `json:"cambios"`
+	Inicios               []struct {
+		Modo         domain.InicioVigenciaLoteAdministracion `json:"modo"`
+		VigenteDesde time.Time                               `json:"vigente_desde"`
+	} `json:"inicios"`
 }
 
 func (x reciboLoteOrdinarioJSON) dominio() domain.ReciboLoteAdministracionPerfiles {
 	r := domain.ReciboLoteAdministracionPerfiles{
 		OperacionRef: x.OperacionRef, ActoRef: x.ActoRef, ReciboRef: x.ReciboRef,
 		AuditoriaRef: x.AuditoriaRef, HuellaSolicitudSHA256: x.HuellaSolicitudSHA256,
-		ConfirmadoEn: x.ConfirmadoEn, Cambios: make([]domain.ReciboAdministracionPerfiles, 0, len(x.Cambios)),
+		FuentesSHA256: x.FuentesSHA256,
+		ConfirmadoEn:  x.ConfirmadoEn, Cambios: make([]domain.ReciboAdministracionPerfiles, 0, len(x.Cambios)),
 	}
 	for _, c := range x.Cambios {
 		r.Cambios = append(r.Cambios, c.dominio())
 	}
+	for _, inicio := range x.Inicios {
+		r.Inicios = append(r.Inicios, domain.InicioEfectivoLoteAdministracion{
+			Modo: inicio.Modo, VigenteDesde: inicio.VigenteDesde})
+	}
 	return r
 }
 
-func (a *Autoridad) aplicarLoteOrdinario(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
+func (a *AutoridadLoteOrdinario) AplicarLoteOrdinario(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
 	var vacio domain.ReciboLoteAdministracionPerfiles
-	if err := a.disponible(ctx); err != nil {
-		return vacio, err
+	if a == nil || ctx == nil || ausente(a.pool) || ausente(a.emisor) || ausente(a.proveedor) ||
+		ausente(a.reloj) || ctx.Err() != nil {
+		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	if s.Validar() != nil || s.Evidencia.ValidarEn(s.Actor, a.reloj.Ahora()) != nil ||
+		s.OrganizacionRef != a.organizacion ||
 		s.InstantaneaAutorizacion.VersionRol.RolID != "administracion_perfiles" ||
 		s.InstantaneaAutorizacion.VersionRol.Version != 6 ||
 		s.InstantaneaAutorizacion.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
@@ -67,14 +101,15 @@ func (a *Autoridad) aplicarLoteOrdinario(ctx context.Context, s domain.Solicitud
 		return vacio, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	for _, cambio := range s.Cambios {
-		rol, err := a.ResolverRolAdministrable(ctx, cambio.RolVersionRef)
+		rol, err := a.resolverRolLote(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return vacio, err
 		}
 		if rol.VersionRef != cambio.RolVersionRef || rol.Clase != domain.ClaseControlPerfilOrdinario ||
 			(rol.UnidadRequerida && cambio.Objetivo.UnidadRef == "") ||
 			(cambio.Operacion == domain.OperacionOtorgarPerfil &&
-				(cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) || cambio.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
+				(cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) ||
+					cambio.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
 			return vacio, domain.ErrActoAdministracionPerfilesInvalido
 		}
 	}
@@ -101,10 +136,18 @@ func (a *Autoridad) aplicarLoteOrdinario(ctx context.Context, s domain.Solicitud
 	}
 	efecto := Efecto{Accion: accionLoteOrdinario, Audiencia: audienciaLoteOrdinario,
 		Referencia: s.Cambios[0].Objetivo.PersonaRef, Material: canonico, CorrelacionAccesoRef: s.CorrelacionRef}
+	recurso := domain.RecursoAutorizable{Referencia: efecto.Referencia, ModuloID: "administracion", Tipo: "persona",
+		Ambitos:   map[string]string{"organizacion_ref": a.organizacion, "unidad_ref": s.Cambios[0].Objetivo.UnidadRef},
+		Atributos: map[string]string{"solicitud_sha256": huella}}
+	if recurso.Validar() != nil || s.Cambios[0].Objetivo.CentroRef != "" {
+		return vacio, domain.ErrActoAdministracionPerfilesInvalido
+	}
+	fuentes := materialFuentesPrivadasLote(ctx, a.proveedor, a.organizacion, s)
+	defer clear(fuentes)
 	var recibo domain.ReciboLoteAdministracionPerfiles
-	err = a.ejecutar(ctx, actor, evidencia, instantanea, efecto, aplicarLoteOrdinarioSQL, func(bruto []byte) error {
+	err = a.ejecutarLote(ctx, actor, evidencia, instantanea, recurso, efecto, fuentes, func(bruto []byte) error {
 		var x reciboLoteOrdinarioJSON
-		if decodificar(bruto, &x) != nil || len(x.Cambios) != len(s.Cambios) {
+		if decodificar(bruto, &x) != nil || len(x.Cambios) != len(s.Cambios) || len(x.Inicios) != len(s.Cambios) {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		for _, c := range x.Cambios {

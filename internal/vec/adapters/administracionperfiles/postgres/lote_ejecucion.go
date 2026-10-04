@@ -1,0 +1,124 @@
+package postgres
+
+import (
+	"bytes"
+	"context"
+	"strconv"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
+)
+
+func (a *AutoridadLoteOrdinario) resolverRolLote(ctx context.Context, ref string) (ports.RolAdministrable, error) {
+	var vacio ports.RolAdministrable
+	if ctx == nil || ctx.Err() != nil || a == nil || ausente(a.pool) || !domain.RolVersionAdministracionPerfilesValido(ref) {
+		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	var b []byte
+	if err := a.pool.QueryRow(ctx, catalogoSQL, ref).Scan(&b); err != nil {
+		return vacio, traducir(ctx, err)
+	}
+	var x rolJSON
+	if decodificar(b, &x) != nil || x.UnidadRequerida == nil {
+		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	r := ports.RolAdministrable{VersionRef: x.VersionRef, Clase: x.Clase, HuellaSHA256: x.HuellaSHA256,
+		VigenteDesde: x.VigenteDesde, VigenteHasta: x.VigenteHasta, UnidadRequerida: *x.UnidadRequerida}
+	if x.CategoriaAdmin != nil {
+		r.CategoriaAdmin = *x.CategoriaAdmin
+	}
+	if r.VersionRef != ref || r.ValidarEn(a.reloj.Ahora()) != nil {
+		return vacio, domain.ErrActoAdministracionPerfilesInvalido
+	}
+	return r, nil
+}
+
+// Ejecuta la única fachada AUT44. El material de fuentes es un argumento
+// privado adicional; no modifica el transporte ABI11 de actos singulares.
+func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.ContextoActor,
+	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
+	recurso domain.RecursoAutorizable, efecto Efecto, fuentes []byte, validar func([]byte) error) error {
+	fallo := ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	if a == nil || ctx == nil || ctx.Err() != nil || ausente(a.pool) || ausente(a.emisor) ||
+		ausente(a.reloj) || validar == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
+		!domain.ReferenciaCorrelacionAutorizacionV2Valida(efecto.CorrelacionAccesoRef) {
+		return fallo
+	}
+	contextoSHA, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil || recurso.Referencia != efecto.Referencia || recurso.ModuloID != "administracion" ||
+		recurso.Tipo != "persona" {
+		return fallo
+	}
+	// La solicitud y el recurso son nuevos valores. El emisor recibe su propia
+	// copia y no puede alterar los bytes que consulta AUT44.
+	entrega := efecto
+	entrega.Material = append([]byte(nil), efecto.Material...)
+	recursoEmisor := domain.RecursoAutorizable{Referencia: recurso.Referencia, ModuloID: recurso.ModuloID,
+		Tipo: recurso.Tipo, Ambitos: make(map[string]string, len(recurso.Ambitos)),
+		Atributos: make(map[string]string, len(recurso.Atributos))}
+	for k, v := range recurso.Ambitos {
+		recursoEmisor.Ambitos[k] = v
+	}
+	for k, v := range recurso.Atributos {
+		recursoEmisor.Atributos[k] = v
+	}
+	material, err := a.emisor.EmitirLoteOrdinario(ctx, actor, evidencia, instantanea, recursoEmisor, entrega)
+	clear(entrega.Material)
+	if err != nil {
+		return traducir(ctx, err)
+	}
+	r := material.ResumenCapacidad()
+	ahora := a.reloj.Ahora()
+	if material.ValidarEstructura() != nil || r.Operacion() != efecto.Accion ||
+		r.AudienciaConsumo() != efecto.Audiencia || r.EfectoRef() != efecto.Referencia ||
+		r.EfectoHuellaSHA256() != contextoSHA || r.ContextoRef() != evidencia.ResultadoContexto.RegistroContextoRef ||
+		r.ContextoHuellaSHA256() != evidencia.ResultadoContexto.HuellaSHA256 ||
+		!bytes.Equal(material.ContextoActorCanonico(), evidencia.ResultadoContexto.RepresentacionCanonica) ||
+		material.PersonaVersion() != actor.Instantanea.PersonaVersion ||
+		material.PerfilVersion() != actor.Instantanea.PerfilVersion ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) || ctx.Err() != nil {
+		return fallo
+	}
+	var fuentesArg any
+	if len(fuentes) != 0 {
+		fuentesArg = string(fuentes)
+	}
+	args := []any{string(efecto.Material), fuentesArg, material.CapacidadCanonica(), material.DecisionCanonica(),
+		material.MotivoCanonico(), material.ContextoActorCanonico(),
+		strconv.FormatUint(material.PersonaVersion(), 10), strconv.FormatUint(material.PerfilVersion(), 10),
+		material.PayloadVECAD3(), material.SobreCOSESign1(), material.EvidenciaVerificacion(), material.RaizPublicaSPKI()}
+	defer func() {
+		for _, arg := range args {
+			if b, ok := arg.([]byte); ok {
+				clear(b)
+			}
+		}
+	}()
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil || ausente(tx) {
+		return fallo
+	}
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
+	var bruto []byte
+	if err := tx.QueryRow(ctx, aplicarLoteOrdinarioSQL, args...).Scan(&bruto); err != nil {
+		return traducir(ctx, err)
+	}
+	if err := validar(bruto); err != nil {
+		return err
+	}
+	if ctx.Err() != nil {
+		return fallo
+	}
+	// Un COMMIT indeterminado jamás entrega un recibo provisional. La recuperación
+	// se hace con otra autorización sobre el mismo canon de solicitud.
+	if err := tx.Commit(ctx); err != nil {
+		return fallo
+	}
+	return nil
+}

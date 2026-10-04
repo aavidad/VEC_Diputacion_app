@@ -3,15 +3,33 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
+
+type emisorLotePrueba struct{ llamadas int }
+
+func (e *emisorLotePrueba) EmitirLoteOrdinario(context.Context, domain.ContextoActor,
+	domain.EvidenciaSesionAdministracionPerfiles, domain.InstantaneaAutorizacion,
+	domain.RecursoAutorizable, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	e.llamadas++
+	return ports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, errors.New("emisor_no_conectado")
+}
+
+type fuenteLotePrueba struct{}
+
+func (fuenteLotePrueba) ResolverUnidadLote(context.Context, string, string) (AmbitosFuenteLote, error) {
+	return AmbitosFuenteLote{}, errors.New("fuente_no_conectada")
+}
 
 func solicitudLoteOrdinarioPrueba(t *testing.T) (domain.SolicitudLoteAdministracionPerfiles, *poolCatalogoPrueba, time.Time) {
 	t.Helper()
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	acto, _, pool, _ := contratoV2Prueba(t)
 	version := acto.InstantaneaAutorizacion.VersionRol
 	version.Version = 6
@@ -24,18 +42,21 @@ func solicitudLoteOrdinarioPrueba(t *testing.T) (domain.SolicitudLoteAdministrac
 	acto.InstantaneaAutorizacion.AsignacionPerfil.VersionRolRef = version.Referencia()
 	acto.InstantaneaAutorizacion.ControlVigenciaVersionRol.VersionRolRef = version.Referencia()
 	s := domain.SolicitudLoteAdministracionPerfiles{
-		OperacionRef: acto.OperacionRef, Actor: acto.Actor, Evidencia: acto.Evidencia,
+		OperacionRef: acto.OperacionRef, OrganizacionRef: "org_prueba", Actor: acto.Actor, Evidencia: acto.Evidencia,
 		InstantaneaAutorizacion: acto.InstantaneaAutorizacion, Motivo: acto.Motivo,
 		ReferenciaActo: acto.ReferenciaActo, CorrelacionRef: acto.CorrelacionRef,
 		Cambios: []domain.CambioPerfilAdministracion{{Operacion: domain.OperacionOtorgarPerfil,
-			RolVersionRef: acto.RolVersionRef, Objetivo: acto.Objetivo}},
+			InicioVigencia: domain.InicioVigenciaLoteProgramado,
+			RolVersionRef:  acto.RolVersionRef, Objetivo: acto.Objetivo}},
 	}
+	s.Cambios[0].Objetivo.VigenteDesde = ahora.Add(time.Minute)
+	s.Cambios[0].Objetivo.CentroRef = ""
 	_, h, err := s.CanonicoYHuella()
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.HuellaSolicitudSHA256 = h
-	return s, pool, time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	return s, pool, ahora
 }
 
 func TestLoteOrdinarioRechazaRolSensibleAntesDeEmitirYEscribir(t *testing.T) {
@@ -49,9 +70,11 @@ func TestLoteOrdinarioRechazaRolSensibleAntesDeEmitirYEscribir(t *testing.T) {
 		t.Fatal(err)
 	}
 	pool.roles[rol.VersionRef] = b
-	a := &Autoridad{pool: pool, emisor: &emisorFalso{}, reloj: relojFijo(ahora)}
+	emisor := &emisorLotePrueba{}
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLotePrueba{},
+		reloj: relojFijo(ahora), organizacion: "org_prueba"}
 	recibo, err := a.AplicarLoteOrdinario(context.Background(), s)
-	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 {
+	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 || emisor.llamadas != 0 {
 		t.Fatal("rol_sensible_entro_en_lote_ordinario")
 	}
 }
@@ -59,9 +82,11 @@ func TestLoteOrdinarioRechazaRolSensibleAntesDeEmitirYEscribir(t *testing.T) {
 func TestLoteOrdinarioNoAdmiteAutoaltaAntesDeBD(t *testing.T) {
 	s, pool, ahora := solicitudLoteOrdinarioPrueba(t)
 	s.Cambios[0].Objetivo.PersonaRef = s.Actor.PersonaRef
-	a := &Autoridad{pool: pool, emisor: &emisorFalso{}, reloj: relojFijo(ahora)}
+	emisor := &emisorLotePrueba{}
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLotePrueba{},
+		reloj: relojFijo(ahora), organizacion: "org_prueba"}
 	recibo, err := a.AplicarLoteOrdinario(context.Background(), s)
-	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 {
+	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 || emisor.llamadas != 0 {
 		t.Fatal("autoalta_entro_en_bd")
 	}
 }
