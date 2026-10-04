@@ -461,7 +461,7 @@
     "ficha_estado_pendiente": "Connection pending",
     "ficha_descarga": "Download document",
     "ficha_descarga_motivo": "Not available: there is no document or authorised source to download.",
-    "ficha_accesos_titulo": "Access to Expenses and Cronos",
+    "ficha_accesos_titulo": "Other sections",
     "ficha_accesos_ayuda": "Navigation does not send identifiers or accredit an employment relationship. Each module must authorise its own data.",
     "ficha_navegacion_pendiente": "Navigation to this module is not set up.",
     "ficha_ir_dietas": "Go to Expenses",
