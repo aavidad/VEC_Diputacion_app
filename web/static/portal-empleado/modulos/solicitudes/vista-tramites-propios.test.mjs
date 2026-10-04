@@ -167,9 +167,56 @@ test("errores mínimos, denegación y relación ambigua no muestran registros pr
     await tick(); fallar = true; raiz.click("dietas", "consultar"); await tick();
     assert.doesNotMatch(raiz.innerHTML, /COM-1|operacion:1|detalle interno/);
     if (codigo === "relacion_ambigua") assert.match(raiz.innerHTML, /Abre Mis dietas para elegir/);
-    if (codigo.includes("denegado") || codigo === "autenticacion_requerida") assert.match(raiz.innerHTML, /No tienes acceso/);
+    if (codigo.includes("denegado")) assert.match(raiz.innerHTML, /No tienes acceso/);
+    if (codigo === "autenticacion_requerida") assert.match(raiz.innerHTML, /Identifícate de nuevo/);
     if (codigo === "fuente_no_configurada") assert.match(raiz.innerHTML, /no está disponible/);
   }
+});
+
+test("autenticación requerida purga los dos paneles y descarta la otra respuesta tardía", async () => {
+  for (const origen of ["cronos", "dietas"]) {
+    const raiz = raizFalsa(); const pendientes = { cronos: diferida(), dietas: diferida() };
+    const señales = []; let llamadas = 0; let inicial = true;
+    const consultar = (bloque) => ({ anio, signal }) => {
+      llamadas++; señales.push(signal);
+      return inicial ? bloque === "cronos" ? { anio, solicitudes: [solicitud()] } : { items: [comision()], siguiente_cursor: "cursor-2" } : pendientes[bloque].promesa;
+    };
+    const vista = montarVistaTramitesPropios({ raiz, ahora, fuente: { consultarCronos: consultar("cronos"), consultarDietas: consultar("dietas") } });
+    await tick(); assert.match(raiz.innerHTML, /Permiso 1/); assert.match(raiz.innerHTML, /COM-1/);
+    inicial = false;
+    // Conservar datos visibles del otro módulo al llegar la primera denegación.
+    raiz.click(origen, "consultar");
+    pendientes[origen].rechazar({ codigo: "autenticacion_requerida" }); await tick();
+    assert.doesNotMatch(raiz.innerHTML, /Permiso 1|COM-1|operacion:1/);
+    assert.equal(señales.every((signal) => signal.aborted), true);
+    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 2);
+    const antes = llamadas;
+    raiz.click("cronos", "consultar"); raiz.click("dietas", "consultar"); raiz.anio("2025");
+    assert.equal(llamadas, antes); vista.desmontar();
+  }
+  for (const origen of ["cronos", "dietas"]) {
+    const raiz = raizFalsa(); const pendientes = { cronos: diferida(), dietas: diferida() }; const señales = [];
+    montarVistaTramitesPropios({ raiz, ahora, fuente: {
+      consultarCronos: ({ signal }) => { señales.push(signal); return pendientes.cronos.promesa; },
+      consultarDietas: ({ signal }) => { señales.push(signal); return pendientes.dietas.promesa; },
+    } });
+    pendientes[origen].rechazar({ codigo: "autenticacion_requerida" }); await tick();
+    assert.equal(señales.every((signal) => signal.aborted), true);
+    pendientes[origen === "cronos" ? "dietas" : "cronos"].resolver({ anio: 2027, solicitudes: [solicitud(999)], items: [comision(999)] });
+    await tick(); assert.doesNotMatch(raiz.innerHTML, /Permiso 999|COM-999|operacion:999/);
+    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 2);
+  }
+});
+
+test("denegar permiso de un módulo conserva los datos y las lecturas del otro", async () => {
+  const raiz = raizFalsa(); let llamadas = 0;
+  const vista = montarVistaTramitesPropios({ raiz, ahora, fuente: {
+    consultarCronos: ({ anio }) => { llamadas++; return { anio, solicitudes: [solicitud()] }; },
+    consultarDietas: () => { throw { codigo: "acceso_denegado" }; },
+  } });
+  await tick(); assert.match(raiz.innerHTML, /Permiso 1/); assert.match(raiz.innerHTML, /No tienes acceso/);
+  raiz.anio("2025"); await tick(); assert.equal(llamadas, 2); assert.match(raiz.innerHTML, /Permiso 1/);
+  vista.desmontar();
 });
 
 test("vacío, fuente ausente y bloques deshabilitados se distinguen del fallo", async () => {
@@ -194,9 +241,13 @@ test("desmontar cancela ambos paneles y descarta respuestas que ignoran abort", 
   const raiz = raizFalsa(); const d = diferida(); const señales = []; let limpieza;
   const consulta = ({ signal }) => { señales.push(signal); return d.promesa; };
   const vista = montarVistaTramitesPropios({ raiz, ahora, registrarDesmontar: (fn) => limpieza = fn, fuente: { consultarCronos: consulta, consultarDietas: consulta } });
+  const antiguos = new Map(raiz.eventos);
   assert.equal(limpieza, vista.desmontar); limpieza(); limpieza();
   assert.equal(señales.length, 2); assert.equal(señales.every((signal) => signal.aborted), true);
   d.resolver({ anio: 2027, solicitudes: [solicitud()], items: [comision()] }); await tick();
+  antiguos.get("submit")({ target: { matches: () => true, elements: { anio: { value: "2025" } } }, preventDefault() {} });
+  antiguos.get("click")({ target: { closest: () => ({ dataset: { tramitesBloque: "cronos", tramitesAccion: "consultar" }, getAttribute: () => "false" }) } });
+  assert.equal(señales.length, 2);
   assert.equal(raiz.innerHTML, ""); assert.equal(raiz.eventos.size, 0);
 });
 
