@@ -74,3 +74,23 @@ versión de rol, versión CA, estado y vigencia. La denominación se autoriza
 aparte por `vec.persona.denominacion.leer`; no se incluyen actos, certificados
 ni historia. AUT43 aportará sus gates propios: los helpers legados siguen
 admitiendo exactamente el catálogo heredado4/5, sin ampliar su ámbito.
+
+Comprobación del 04/10 sobre el clon K posterior a AD183: UP42 y vector de
+estructura terminaron con código0. La instalación conservó 2382 asignaciones,
+65 punteros y las 6269 auditorías anteriores; Rol5 siguió ausente. Se conservaron
+OID, propietario, ACL, configuración y volatilidad de los helpers legados.
+El LOGIN mínimo sintético sin aprobación devolvió denegación sin recibo y sin
+replay; COMMIT confirmó un intento nominal AD183, dejando 6270 auditorías.
+El LOGIN de ensayo se retiró y no se sembraron aprobaciones favorables.
+
+Las pruebas focales de la CLI pasaron en modo normal, race y vet con `-p 8` y
+caché en disco. Gosec del paquete cambiado, Semgrep con reglas locales Go/SQL,
+la guarda vecsilencio y diff terminaron sin hallazgos nuevos. Los catálogos
+web pasaron siete comprobaciones Node. Se consultaron definiciones con gopls.
+
+Todavía falta demostrar publicación, replay, reinicio y rollback de auditoría
+en un objetivo fresco con plan aprobado. Las APP originales caducaron a las
+03:26 UTC; se conservaron sus vigencias. Este ensayo de estructura y rechazo
+no acredita todavía la actualización real de las dos asignaciones ni una
+instalación en principal. Las dos revisiones independientes corresponden a
+dirección antes de integrar.
