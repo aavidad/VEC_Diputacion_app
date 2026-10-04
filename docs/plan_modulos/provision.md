@@ -177,10 +177,12 @@ plan documental no sustituye ninguna de esas comprobaciones de producto.
 | Total técnico restante estimado | 324–552 |
 
 A ocho horas por jornada, **41–69 días de un equipo**. Con dos equipos y
-archivos disjuntos, prever **29–48 días**: tras el recorrido común pueden
+archivos disjuntos, prever **29–53 días**: tras el recorrido común pueden
 solaparse revisión/adjudicación y los circuitos propios de libre designación
-y comisión. Las fuentes, autorización, registro y publicación siguen en el
-camino crítico; duplicar equipos no reduce esas esperas a la mitad.
+y comisión. La cadena PV03 → PV04 → PV06–PV16 → PV20 suma 230–394 horas,
+unas 29–50 jornadas; el techo de 53 reserva margen para coordinar ambos equipos.
+Las fuentes, autorización, registro y publicación siguen en el camino crítico;
+duplicar equipos no reduce esas esperas a la mitad.
 
 La horquilla incluye consumidores de Provisión, pruebas, revisión y ajustes de
 las piezas existentes. Supone disponibles las autoridades y contratos comunes.
