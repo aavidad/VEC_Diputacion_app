@@ -63,6 +63,16 @@ func decodificarCerradoContextoADMIN(bruto []byte, destino any, claves int) erro
 	if len(bruto) == 0 || len(bruto) > 262144 {
 		return ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
+	// encoding/json acepta por defecto claves repetidas. Recorremos los tokens
+	// antes del DTO, también en evento/acuse/contexto anidados.
+	lexico := json.NewDecoder(bytes.NewReader(bruto))
+	lexico.UseNumber()
+	if clavesUnicasContextoADMIN(lexico, 0) != nil {
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	if _, err := lexico.Token(); err != io.EOF {
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
 	var forma map[string]json.RawMessage
 	if json.Unmarshal(bruto, &forma) != nil || len(forma) != claves {
 		return ports.ErrResolutorRegistroContextoActorNoDisponible
@@ -70,6 +80,58 @@ func decodificarCerradoContextoADMIN(bruto []byte, destino any, claves int) erro
 	d := json.NewDecoder(bytes.NewReader(bruto))
 	d.DisallowUnknownFields()
 	if d.Decode(destino) != nil || d.Decode(new(any)) != io.EOF {
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	return nil
+}
+
+func clavesUnicasContextoADMIN(d *json.Decoder, profundidad int) error {
+	if profundidad > 4 {
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	token, err := d.Token()
+	if err != nil {
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	delim, compuesto := token.(json.Delim)
+	if !compuesto {
+		return nil
+	}
+	switch delim {
+	case '{':
+		vistas := make(map[string]struct{}, 20)
+		for d.More() {
+			if len(vistas) >= 20 {
+				return ports.ErrResolutorRegistroContextoActorNoDisponible
+			}
+			claveToken, err := d.Token()
+			clave, ok := claveToken.(string)
+			if err != nil || !ok {
+				return ports.ErrResolutorRegistroContextoActorNoDisponible
+			}
+			if _, duplicada := vistas[clave]; duplicada {
+				return ports.ErrResolutorRegistroContextoActorNoDisponible
+			}
+			vistas[clave] = struct{}{}
+			if clavesUnicasContextoADMIN(d, profundidad+1) != nil {
+				return ports.ErrResolutorRegistroContextoActorNoDisponible
+			}
+		}
+	case '[':
+		for elementos := 0; d.More(); elementos++ {
+			if elementos >= 32 || clavesUnicasContextoADMIN(d, profundidad+1) != nil {
+				return ports.ErrResolutorRegistroContextoActorNoDisponible
+			}
+		}
+	default:
+		return ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	esperado := json.Delim('}')
+	if delim == '[' {
+		esperado = ']'
+	}
+	cierre, err := d.Token()
+	if err != nil || cierre != esperado {
 		return ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	return nil
@@ -97,6 +159,16 @@ func (r *respuestaContextoADMIN) validar(bruto []byte, solicitud ports.Solicitud
 		a.AuditoriaRef != "aud_v3_ap2_"+strings.TrimPrefix(e.EventoRef, "evento_") ||
 		a.Secuencia <= 0 || a.Secuencia > 9007199254740991 || !huella(a.HuellaSHA256) || a.CorrelacionRef != correlacion ||
 		a.RegistradaEn.IsZero() || zonaAcuse != 0 || a.RegistradaEn.Nanosecond()%1000 != 0 {
+		return vacio, ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	// AD192 admite identidad desconocida antes de V2. Toda coordenada que sí
+	// aparece debe pertenecer al vínculo original de esta petición.
+	if (e.FuenteRef == nil) != (e.FuenteSHA256 == nil) {
+		return vacio, ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	if (e.FuenteRef != nil && (*e.FuenteRef != v.FuenteRef || *e.FuenteSHA256 != v.FuenteSHA256)) ||
+		(e.ActorRef != nil && (e.FuenteRef == nil || *e.ActorRef != v.PersonaRef)) ||
+		(e.PerfilActivoRef != nil && (e.ActorRef == nil || *e.PerfilActivoRef != v.PerfilActivoRef)) {
 		return vacio, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	if r.Estado != "permitido" {

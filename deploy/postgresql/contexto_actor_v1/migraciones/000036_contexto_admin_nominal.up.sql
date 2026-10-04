@@ -347,7 +347,9 @@ BEGIN
    THEN RAISE EXCEPTION 'CA36: replay de otro vínculo' USING ERRCODE='23505'; END IF;
    SELECT * INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto
     WHERE operacion_ref=p_operacion AND registro_contexto_ref=p_recibo FOR SHARE;
-   IF vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,j->>'persona_ref',p_perfil,
+   IF r.solicitado_en IS DISTINCT FROM p_solicitado OR r.metodo IS DISTINCT FROM p_metodo
+    OR r.garantia IS DISTINCT FROM p_garantia
+    OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,j->>'persona_ref',p_perfil,
      (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
    THEN RAISE EXCEPTION 'CA36: replay sin contexto actual' USING ERRCODE='42501'; END IF;
    e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
@@ -546,7 +548,9 @@ BEGIN
   THEN RAISE EXCEPTION 'CA36: consulta de otro contexto' USING ERRCODE='42501'; END IF;
   SELECT * INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto
    WHERE operacion_ref=p_operacion AND registro_contexto_ref=p_recibo FOR SHARE;
-  IF vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
+  IF r.solicitado_en IS DISTINCT FROM p_solicitado OR r.metodo IS DISTINCT FROM p_metodo
+   OR r.garantia IS DISTINCT FROM p_garantia
+   OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
    (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
   THEN RAISE EXCEPTION 'CA36: consulta sin contexto actual' USING ERRCODE='42501'; END IF;
   e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,

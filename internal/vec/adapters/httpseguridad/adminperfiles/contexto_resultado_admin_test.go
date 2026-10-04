@@ -1,6 +1,7 @@
 package adminperfiles
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"strings"
@@ -52,12 +53,85 @@ func respuestaContextoADMINPrueba(t *testing.T) ([]byte, ports.SolicitudResoluci
 	return bruto, s, v, actor.RegistroContextoRef, evento, correlacion, op
 }
 
+func TestRespuestaContextoADMINRechazaClavesDuplicadasAnidadas(t *testing.T) {
+	bruto, s, v, recibo, evento, correlacion, op := respuestaContextoADMINPrueba(t)
+	casos := []struct{ anterior, duplicado string }{
+		{`"estado":"permitido"`, `"estado":"permitido","estado":"denegado"`},
+		{`"estado":"permitido"`, `"estado":"permitido","\u0065stado":"denegado"`},
+		{`"secuencia":1`, `"secuencia":1,"secuencia":2`},
+		{`"actor_ref":"` + v.PersonaRef + `"`, `"actor_ref":"` + v.PersonaRef + `","actor_ref":null`},
+		{`"registro_contexto_ref":"` + recibo + `"`, `"registro_contexto_ref":"` + recibo + `","registro_contexto_ref":"rca_` + strings.Repeat("f", 32) + `"`},
+	}
+	for _, caso := range casos {
+		alterado := bytes.Replace(bruto, []byte(caso.anterior), []byte(caso.duplicado), 1)
+		if bytes.Equal(alterado, bruto) {
+			t.Fatal("fixture no contiene clave de mutación")
+		}
+		var x respuestaContextoADMIN
+		if c, err := x.validar(alterado, s, v, op, recibo, evento, correlacion, "vec_admin", "login_contexto"); err == nil || c.OperacionRef != "" {
+			t.Fatal("JSON con clave duplicada acreditó contexto")
+		}
+	}
+}
+
+func TestRespuestaContextoADMINNegativaLigaCoordenadasPresentes(t *testing.T) {
+	bruto, s, v, recibo, evento, correlacion, op := respuestaContextoADMINPrueba(t)
+	casos := []struct {
+		nombre string
+		valido bool
+		mutar  func(map[string]any)
+	}{
+		{"todo_nulo", true, func(e map[string]any) {
+			e["actor_ref"], e["perfil_activo_ref"], e["fuente_ref"], e["fuente_sha256"] = nil, nil, nil, nil
+		}},
+		{"solo_fuente_original", true, func(e map[string]any) {
+			e["actor_ref"], e["perfil_activo_ref"] = nil, nil
+		}},
+		{"actor_original_sin_perfil", true, func(e map[string]any) { e["perfil_activo_ref"] = nil }},
+		{"todas_originales", true, func(map[string]any) {}},
+		{"fuente_ajena", false, func(e map[string]any) { e["fuente_ref"] = "fuente:otra" }},
+		{"huella_ajena", false, func(e map[string]any) { e["fuente_sha256"] = strings.Repeat("f", 64) }},
+		{"fuente_sin_huella", false, func(e map[string]any) { e["fuente_sha256"] = nil }},
+		{"actor_ajeno", false, func(e map[string]any) { e["actor_ref"] = "per_" + strings.Repeat("f", 22) }},
+		{"actor_sin_fuente", false, func(e map[string]any) { e["fuente_ref"], e["fuente_sha256"] = nil, nil }},
+		{"perfil_ajeno", false, func(e map[string]any) { e["perfil_activo_ref"] = "prf_" + strings.Repeat("f", 22) }},
+		{"perfil_sin_actor", false, func(e map[string]any) { e["actor_ref"] = nil }},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var x map[string]any
+			if json.Unmarshal(bruto, &x) != nil {
+				t.Fatal("fixture JSON")
+			}
+			x["estado"] = "denegado"
+			x["motivo_ref"] = "contexto_admin_pre_v2_denegado"
+			x["contexto"] = nil
+			e := x["evento"].(map[string]any)
+			e["resultado"] = "denegado"
+			e["motivo_ref"] = "contexto_admin_pre_v2_denegado"
+			caso.mutar(e)
+			b, _ := json.Marshal(x)
+			var respuesta respuestaContextoADMIN
+			c, err := respuesta.validar(b, s, v, op, recibo, evento, correlacion, "vec_admin", "login_contexto")
+			if (err == nil) != caso.valido || c.OperacionRef != "" {
+				t.Fatal("la negativa no respetó la relación original o devolvió V2")
+			}
+		})
+	}
+}
+
 func TestRespuestaContextoADMINLigaAcuseEventoYActorAntesCommit(t *testing.T) {
 	bruto, s, v, recibo, evento, correlacion, op := respuestaContextoADMINPrueba(t)
 	var respuesta respuestaContextoADMIN
 	confirmada, err := respuesta.validar(bruto, s, v, op, recibo, evento, correlacion, "vec_admin", "login_contexto")
 	if err != nil || confirmada.OperacionRef != op || confirmada.RegistroContextoRef != recibo {
 		t.Fatal("respuesta estructural positiva no se ligó a la solicitud")
+	}
+	metodoAjeno := s
+	metodoAjeno.Contexto.Cuenta.Metodo = domain.AuthMethodDNIe
+	var conMetodoAjeno respuestaContextoADMIN
+	if c, err := conMetodoAjeno.validar(bruto, metodoAjeno, v, op, recibo, evento, correlacion, "vec_admin", "login_contexto"); err == nil || c.OperacionRef != "" {
+		t.Fatal("el contexto histórico admitió otro método de autenticación")
 	}
 	for _, mutar := range []func(map[string]any){
 		func(x map[string]any) {
