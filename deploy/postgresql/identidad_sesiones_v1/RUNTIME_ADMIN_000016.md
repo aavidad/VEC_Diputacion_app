@@ -98,7 +98,39 @@ durante esa espera, al liberar el cerrojo no puede devolver el recibo permitido.
 Se comparan después las huellas del evento y vínculo originales, sin cambiar
 el reloj ni renovar fuentes para superar el caso.
 
-Falta localizar el archivo o productor original de las preimágenes del ejercicio
-privado actual. El plan de fuentes y el material HMAC conservados sólo contienen
-referencias y digests. Sin ese artefacto el proveedor permanece cerrado; no se
-declara la sesión conectada ni se regeneran identidades.
+Las preimágenes originales del ejercicio se han perdido: el plan y el material
+HMAC conservados sólo contienen referencias y digests. Dirección autorizó para
+la retoma un nuevo juego sintético por el circuito oficial de fuentes,
+titularidad, huellas y CAS, con sus originales guardados en un fixture privado.
+Todavía no se ha generado. El proveedor actual permanece cerrado.
+
+## Resultado del ensayo del 4 de octubre de 2026
+
+El código `2d24894cf56b2a08aa55a45439b2b1c4e387c95f` y SQL SHA256
+`2f88dafdcf8f2a6038cb42bc5879bc5b143f23e240184b6c040352e721bd5c92`
+recibieron dos GO exactos. Las pruebas focales y race, vet y Semgrep local pasan.
+
+AD192 se instaló con un COMMIT y sus dos vectores del productor terminaron
+correctamente. Core, ACL y los otros CHECK permanecieron idénticos; se
+conservaron las 6.254 filas de auditoría, su huella completa y la cabeza de cadena.
+Ese ensayo acredita instalación y ACL, no un append positivo de sesión real.
+
+IS16 quedó sin instalar. El preflight encontró dos interfaces v1 ausentes:
+
+```text
+IS14: resolver_identidad_admin_perfiles_propietaria_v1(
+  text,text,text,text,text,timestamptz,timestamptz)
+CA31: listar_admin_preperfil_propietaria_v1(text,text,text)
+```
+
+Se lanzó el UP pese a esos dos resultados negativos. La guarda lo rechazó con
+`preimagen incompatible` antes de crear rol o tablas y la conexión revirtió la
+transacción. Después se comprobó que los objetos IS16 seguían ausentes y que
+historia y metadatos eran idénticos. CA36 no se instaló ni se intentó.
+
+El clon quedó en una copia fría privada con dump, ACL globales y manifiesto;
+todos los archivos del tar se cotejaron por SHA256 con el cluster detenido.
+El contenedor y sus datos temporales se retiraron. Actas, configuración,
+fixtures, fuentes privadas y fríos anteriores se conservan fuera de Git.
+La retoma requiere coordinar la restauración y resolver estas dependencias;
+no repetir AD192 ni crear fachadas sustitutivas.
