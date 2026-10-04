@@ -1,0 +1,4 @@
+# BORRADOR: sólo delta propio CT176. No ejecutar hasta AD177/CC7 publicados,
+# preimágenes aprobadas, lista causal completa, dos GO y ensayo del clon.
+# CT172 instalado se conserva: no repetir su UP/DOWN.
+deploy/postgresql/contratacion_temporal/migraciones/000176_plan_autorizado_firma_v2.up.sql
