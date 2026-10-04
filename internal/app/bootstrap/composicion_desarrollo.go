@@ -402,6 +402,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	if documentos != nil {
+		vincularResultadosFirmaCT(autoridadContratacion.firmaDocumento, documentos)
 		defer func() {
 			if !completa {
 				documentos.cerrar()
