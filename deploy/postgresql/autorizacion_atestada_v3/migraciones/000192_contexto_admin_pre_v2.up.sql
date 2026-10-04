@@ -184,4 +184,37 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_contexto_admin_pre
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_identidad_sesiones_v1_propietario,vec_contexto_actor_v1_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_is_v1(jsonb) TO vec_identidad_sesiones_v1_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(jsonb) TO vec_contexto_actor_v1_propietario;
+
+-- Recuperación de COMMIT incierto: lectura propietario, sin append ni locks
+-- de cadena/evento. La misma operación debe aportar su frame15 original.
+CREATE FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_interna_v1(e jsonb,p_autoridad text)
+RETURNS TABLE(auditoria_ref text,secuencia bigint,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+DECLARE orden text[]:=ARRAY['tipo_registro','evento_ref','operador_login','actor_ref','perfil_activo_ref','accion','recurso_ref','resultado','motivo_ref','proceso','canal','finalidad_ref','correlacion_ref','fuente_ref','fuente_sha256'];campo text;material bytea;material_sha text;existente record;
+BEGIN
+ IF jsonb_typeof(e) IS DISTINCT FROM 'object' OR NOT e ?& orden OR(SELECT count(*) FROM jsonb_object_keys(e))<>15 THEN RAISE EXCEPTION 'AD192: objeto_cotejo_cerrado_invalido' USING ERRCODE='22023';END IF;
+ FOREACH campo IN ARRAY orden LOOP
+  IF jsonb_typeof(e->campo) IS DISTINCT FROM 'string' AND NOT(campo IN('actor_ref','perfil_activo_ref','fuente_ref','fuente_sha256') AND jsonb_typeof(e->campo)='null') THEN RAISE EXCEPTION 'AD192: tipo_cotejo_invalido' USING ERRCODE='22023';END IF;
+  IF campo IN('actor_ref','perfil_activo_ref','fuente_ref','fuente_sha256') AND e->>campo='' THEN RAISE EXCEPTION 'AD192: cadena_nullable_vacia' USING ERRCODE='22023';END IF;
+ END LOOP;
+ IF e->>'tipo_registro' IS DISTINCT FROM 'contexto_admin_pre_v2' OR e->>'operador_login' IS DISTINCT FROM session_user::text OR e->>'evento_ref' !~ '^evento_[0-9a-f]{32}$'
+ OR p_autoridad IS NULL OR p_autoridad NOT IN('is','ca') OR(p_autoridad='is' AND e->>'accion' NOT IN('resolver_cuenta_admin','vincular_sesion_admin')) OR(p_autoridad='ca' AND e->>'accion' NOT IN('registrar_contexto_admin','reconciliar_contexto_admin'))
+ THEN RAISE EXCEPTION 'AD192: autoridad_cotejo_invalida' USING ERRCODE='42501';END IF;
+ material:=vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.contexto-admin-pre-v2.v1');
+ FOREACH campo IN ARRAY orden LOOP material:=material||vec_autorizacion_atestada_v3.encuadrar_mac(COALESCE(e->>campo,''));END LOOP;material_sha:=encode(sha256(material),'hex');
+ SELECT a.* INTO existente FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.evento_ref=e->>'evento_ref';
+ IF NOT FOUND THEN RETURN;END IF;
+ IF existente.tipo_registro IS DISTINCT FROM 'contexto_admin_pre_v2' OR existente.evento_material_sha256 IS DISTINCT FROM material_sha OR existente.operador_login IS DISTINCT FROM session_user THEN RAISE EXCEPTION 'AD192: cotejo_material_distinto' USING ERRCODE='23505';END IF;
+ RETURN QUERY SELECT existente.auditoria_ref,existente.secuencia,existente.huella_sha256,existente.correlacion_ref,existente.registrada_en;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_interna_v1(jsonb,text) FROM PUBLIC;
+CREATE FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_is_v1(e jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia bigint,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$ SELECT * FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_interna_v1(e,'is') $f$;
+CREATE FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(e jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia bigint,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$ SELECT * FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_interna_v1(e,'ca') $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_is_v1(jsonb),vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_is_v1(jsonb) TO vec_identidad_sesiones_v1_propietario;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(jsonb) TO vec_contexto_actor_v1_propietario;
 COMMIT;

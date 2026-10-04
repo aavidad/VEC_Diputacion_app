@@ -21,6 +21,14 @@ Entradas propuestas para los productores propietarios:
 - `registrar_contexto_admin_pre_v2_ca_v1(jsonb)`: registrar_contexto_admin y
   reconciliar_contexto_admin. EXECUTE únicamente del propietario CA.
 
+Cotejo de recuperación propio: `cotejar_contexto_admin_pre_v2_is_v1(jsonb)`
+y `cotejar_contexto_admin_pre_v2_ca_v1(jsonb)`, únicamente sus propietarios.
+Admiten READ COMMITTED/READ ONLY y no escriben, crean eventos ni renuevan
+configuración. Devuelven ACK5 original si familia, LOGIN y frame15 coinciden;
+ausencia devuelve cero filas y material distinto con el mismo evento da23505.
+No conceden acceso al LOGIN ADMIN. El enlace CA es de dominio, no otro registro
+de auditoría; el cotejo lo consume después de verificar registro/enlace/vínculo.
+
 Devuelven los cinco campos del acuse común: `auditoria_ref`, `secuencia`,
 `huella_sha256`, `correlacion_ref`, `registrada_en`. El LOGIN de ADMIN sólo
 puede invocar las fachadas de IS/CA; no recibe append directo ni acceso a
