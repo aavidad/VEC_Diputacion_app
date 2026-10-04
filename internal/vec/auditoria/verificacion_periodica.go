@@ -72,11 +72,14 @@ func cotejarOperacionPeriodicaV1(r RegistroMixtoV2, secuencia uint64) (RegistroE
 	if instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != b.RegistradaEn {
 		return e, "instante_invalido", "registrada_en"
 	}
-	if len(p.DetalleCanonicoBase64) == 0 || len(p.DetalleCanonicoBase64) > base64.StdEncoding.EncodedLen(8192) {
+	if len(p.DetalleCanonicoBase64) == 0 || len(p.DetalleCanonicoBase64) > 16*1024 {
 		return e, "registro_invalido", "detalle_canonico_base64"
 	}
-	detalle, err := base64.StdEncoding.Strict().DecodeString(p.DetalleCanonicoBase64)
-	if err != nil || len(detalle) > 8192 || base64.StdEncoding.EncodeToString(detalle) != p.DetalleCanonicoBase64 || !detallePeriodicaValido(detalle, b) {
+	// encode(...,'base64') de PostgreSQL introduce LF. CR/LF pertenecen al
+	// transporte; el material auditado es exclusivamente el detalle decodificado.
+	normalizado := strings.ReplaceAll(strings.ReplaceAll(p.DetalleCanonicoBase64, "\r", ""), "\n", "")
+	detalle, err := base64.StdEncoding.Strict().DecodeString(normalizado)
+	if err != nil || len(detalle) > 8192 || base64.StdEncoding.EncodeToString(detalle) != normalizado || !detallePeriodicaValido(detalle, b) {
 		return e, "registro_invalido", "detalle_canonico_base64"
 	}
 	material := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.periodica.material.v1", TipoOperacionPeriodica,

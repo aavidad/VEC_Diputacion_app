@@ -67,11 +67,11 @@ func TestAD186RechazaAlteracionesSinExponerMaterial(t *testing.T) {
 		"detalle no canonico": func(d *DocumentoVerificacionMixta) {
 			d.Registros[0].Periodica.DetalleCanonicoBase64 = base64.StdEncoding.EncodeToString([]byte(`{"perfil_tecnico_ref":"vec_auditoria_periodica_sellador"}`))
 		},
-		"base64 no canonico": func(d *DocumentoVerificacionMixta) { d.Registros[0].Periodica.DetalleCanonicoBase64 += "\n" },
+		"base64 no canonico": func(d *DocumentoVerificacionMixta) { d.Registros[0].Periodica.DetalleCanonicoBase64 += "A" },
 		"resultado":          func(d *DocumentoVerificacionMixta) { d.Registros[0].Periodica.Resultado = "permitido" },
 		"secuencia":          func(d *DocumentoVerificacionMixta) { d.Registros[0].Periodica.Secuencia = 2 },
 		"limite": func(d *DocumentoVerificacionMixta) {
-			d.Registros[0].Periodica.DetalleCanonicoBase64 = strings.Repeat("A", 12000)
+			d.Registros[0].Periodica.DetalleCanonicoBase64 = strings.Repeat("A", 17000)
 		},
 	} {
 		t.Run(nombre, func(t *testing.T) {
@@ -83,6 +83,19 @@ func TestAD186RechazaAlteracionesSinExponerMaterial(t *testing.T) {
 				t.Fatalf("rechazo: %s", b)
 			}
 		})
+	}
+}
+
+func TestAD186AdmiteWrapPGSinCambiarBytesAuditados(t *testing.T) {
+	for _, salto := range []string{"\n", "\r\n"} {
+		d := documentoPeriodicaPrueba()
+		p := d.Registros[0].Periodica
+		p.DetalleCanonicoBase64 = p.DetalleCanonicoBase64[:76] + salto + p.DetalleCanonicoBase64[76:]
+		original := p.DetalleCanonicoBase64
+		r := VerificarCadenaPeriodicaV1(d, d.Manifiesto, 2)
+		if r.Estado != "verificada" || !r.MaterialPeriodicaRecalculado || p.DetalleCanonicoBase64 != original {
+			t.Fatal("wrap PG alteró detalle o proyección")
+		}
 	}
 }
 
