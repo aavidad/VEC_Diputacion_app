@@ -105,7 +105,9 @@ V3; conserva el nonce y el recibo del efecto.
 
 El cotejo sólo comprueba las piezas originales conservadas en AD, su consumo/acuse,
 gobierno actual y autoridad viva. No consume otra decisión ni consulta datos CA.
-Antes del callback exige además que la capacidad y decisión sigan vigentes.
+Antes del callback vuelve a cotejar con el reloj actual las vigencias de la
+capacidad, decisión, configuración, raíz y clave. Una espera en FOR SHARE o
+en el gate no conserva una autorización cuya vigencia haya terminado.
 Un acuse histórico coherente no permite una consulta nueva: ésta necesita nuevo V3.
 Un COMMIT incierto no autoriza regenerar el sobre ni repetir automáticamente el efecto.
 
@@ -123,3 +125,10 @@ AUT, y el cierre de las fachadas desde el operador de ensayo, en ROLLBACK; sus s
 Los positivos con firma/PDP/origen/gate reales y las negativas de retirada,
 Sistemas, ámbito, fuente, campos y recuperación quedan para el ensayo autorizado.
 El productor no ejecutó PostgreSQL ni pruebas Go, ya que no cambia paquetes Go.
+
+`ad184_cotejo_caducidad.sql` prepara el caso de demora después de los bloqueos.
+Se ejecuta con un acuse CA32 COMMIT real y un gobierno de ensayo configurado
+con una vigencia corta, antes de la capacidad/decisión. Comprueba un cotejo
+favorable previo y su rechazo después de la demora; no fabrica un gate o
+concesión. Hay que preparar un fixture nuevo para configuración, raíz y clave.
+Queda pendiente de ejecutar tras completar AUT42→AD184→CA32.

@@ -337,7 +337,8 @@ BEGIN
  OR vec_autorizacion.validar_administrador_denominacion_persona_v1(d,r->'material') IS NOT TRUE THEN RETURN false;END IF;
  -- Es una revalidación inmediata antes del callback, no una consulta nueva
  -- mediante una capacidad pasada. Una consulta nueva exige nuevo consumo.
- RETURN clock_timestamp()<(c->>'expira_en')::timestamptz AND clock_timestamp()<(c->>'decision_valida_hasta')::timestamptz;
+ RETURN clock_timestamp()<(c->>'expira_en')::timestamptz AND clock_timestamp()<(c->>'decision_valida_hasta')::timestamptz
+  AND clock_timestamp()<cfg.expira_en AND clock_timestamp()<raiz.valida_hasta AND clock_timestamp()<k.valida_hasta;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.cotejar_consumo_denominacion_persona_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)FROM PUBLIC;
 -- Puerto puro de formato para AUT42; no lectura de datos ni capacidad.
