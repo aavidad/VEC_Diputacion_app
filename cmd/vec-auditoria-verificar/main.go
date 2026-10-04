@@ -55,6 +55,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			return responderFallo(salida, "documento_invalido", "entrada", 2)
 		}
 		informe = auditoria.VerificarCadenaV3(documento, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionContextoAdminPreV2:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONContextoAdminPreV2(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaContextoAdminPreV2(d, checkpoint, *maxRegistros)
 	case auditoria.EsquemaVerificacionFronteraAdminTecnicaV1:
 		var documento auditoria.DocumentoVerificacionMixta
 		if decodificarJSONEstricto(contenido, &documento) != nil {
@@ -204,6 +210,9 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 		}
 		return nil
 	case *auditoria.DocumentoVerificacionMixta:
+		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionContextoAdminPreV2 {
+			return clavesDocumentoContextoAdminPreV2(objeto)
+		}
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionFronteraAdminTecnicaV1 {
 			return clavesDocumentoFronteraAdminTecnica(objeto)
 		}

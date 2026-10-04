@@ -40,13 +40,32 @@ material distinto se rechaza. El hash encuadra los quince campos en su orden
 mediante el helper común; los null acreditativos usan el frame vacío, que
 no puede confundirse con una cadena vacía válida.
 
-Base causal medida por Source: CHECK v4 SHA256
-`dacbd820f1679fc2f6a02bb3d001a0a69df8528c5693f8e9ea33c17cb7fe4fa5`;
-núcleo source SHA256
-`73cb05e1c57c82c13e066a1f3c27cf03d9bdbaed3e028184ee9d040b9b230735`.
-Esta base contiene AD183/184 y no AD185–190. La migración no asumirá sus
-columnas ni inventará la preimagen de una instalación futura.
+Catálogo técnico cerrado mínimo: las cuatro acciones combinadas con tres
+resultados. Motivos `contexto_admin_pre_v2_permitido`,
+`contexto_admin_pre_v2_denegado` y `contexto_admin_pre_v2_error`, en datos SQL
+y JSON del verificador. Una Persona conservada exige fuente/SHA acreditados;
+no se publica un motivo humano V2 inventado.
 
-Estado: contrato de producción preparado. Pendientes catálogo técnico de
-motivos cerrado, SQL/verificador/vectores, dos revisiones y ensayo autorizado.
-No se ha ejecutado Go ni PostgreSQL ni instalado AD192.
+Base causal medida por Source después de instalar estructuras
+AD185→186→187→188→189→191, sin publicar claves ni efectos: CHECK v4 SHA256
+`6b92079faedcd2482b720b1d0714ba6a1b09dc359badae8f6d7c0dd3f3275caf`;
+núcleo source SHA256
+`b7eb48be035e854928c9685c916f9139166a197e3cae731510b3597f0fe40a45`.
+Se conserva el CHECK anterior íntegro y no se modifica el núcleo. No se usa
+la captura anterior post184 ni se asume la futura familia AD190.
+
+Verificador y CLI usan el esquema propio
+`vec.auditoria.verificacion.contexto-admin-pre-v2.v1`. El parser de esta entrada
+permite null sólo en los cuatro slots acreditativos; los parsers anteriores
+permanecen cerrados. Los vectores encuadrados con Python prueban éxito,
+negativa con Persona conocida, error sin identidad, cruces de familias,
+colisión/cambio de acción, tipos JSON y preservación de familias históricas.
+
+Validación focal: normal/race/vet de auditoría y CLI verdes; gofmt/diff,
+Semgrep local y gosec sin hallazgos; vecsilencio sin errores nuevos. No se
+repitieron puertas globales ni se invocó la base de datos. La configuración
+inmutable de proceso/canal se verifica antes y después de la espera de cadena.
+
+Pendientes: dos revisiones exactas y ensayo autorizado con productores IS/CA
+reales. La configuración de LOGIN/proceso no se siembra durante UP. No se ha
+instalado AD192 ni ejecutado PostgreSQL por este agente.
