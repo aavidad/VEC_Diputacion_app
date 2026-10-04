@@ -2,8 +2,47 @@
 
 Plan para Dirección, 1 de octubre de 2026. Encargo de Alberto de las 17:30.
 Base de inventario: `main@f49e01089fb51f58441141decd449df82cb6a420`.
-Estado: propuesta; pendiente GO de Claude. Este documento no instala ni ejecuta copias,
-no abre permisos y no acredita que Administración permita restaurar hoy.
+Estado: plan incorporado a `main` mediante la PR #327. La ejecución desde
+Administración sigue pendiente. Este documento no instala copias, no abre permisos
+y no acredita una restauración operativa.
+
+## Estado comprobado al retomar el 4 de octubre de 2026
+
+Inventario sobre `main@92aedcc59`, antes de retomar los borradores. Los resultados
+posteriores se comunican por SHA en el canal y en cada PR; una preparación revisada
+no equivale a capacidad instalada.
+
+| Parte del recorrido | Código disponible | Qué falta para usarlo desde Administración |
+| --- | --- | --- |
+| Manifiesto, versión e inventario | CS01/02 y sus CLI están en main. | Descriptor autenticado y observación de todo el conjunto instalado. |
+| Captura y destino | CS03 cifrado y CS05 físico están en main; captura lógica #392 actualizada a `7d0159b97`. | Inventario completo, exclusión real de todos los escritores y configuración admitida de Sistemas. La captura lógica es parcial. |
+| Verificación | CS06 físico/lógico y contraste #501 están en main, con multibase y objetos grandes. | Dos restauraciones del conjunto real y consulta nominal de sus datos mediante el binario archivado. No basta salud o sesión. |
+| Registro y recuperación de fallos | CS07 está en main; abandono observado #405 actualizado a `be8419234`. | Autoridad y auditoría comunes. El diario offline con actor declarado no las sustituye. |
+| API, calendario y doble revisión | API #406, política #399 y control #396 están en main. | Proveedores nominales y montaje en el listener ADMIN. `NuevoHandlerCopias` es una factoría, no una ruta publicada. |
+| Pantalla | #404 actualizada a `417a374c3`, con los mismos archivos y revisión de usabilidad anterior. | Integración con la API nominal y recorrido real de dos personas. |
+| Órdenes autorizadas | #593 recupera CS08 `c32984285`: CLI, contratos y adaptadores, sin SQL. La separación de claves #407 ya está en main. | Materializador y consumo V3, COMMIT con auditoría común y relectura del mismo compromiso; anclaje vigente fuera del conjunto restaurado. |
+| Ejecutar y recuperar | CS11 recuperado por archivos propios en `trabajo/codexa-cs11-recuperacion-20261004@2e029b166`. | Conciliación de diario/testigo, consumidores multibase y autoridades comunes. Sigue en preparación, sin PR ni GO operativo. |
+
+El WIP SQL de K se conserva: AD143, AdministraciónCopias1 y sus dependencias de
+identidad/perfil. Antes de prepararlo como instalable hay que inventariar las
+reservas y la instalación post-H9, acordar la cadena con K/L y medir las huellas
+sobre esa fuente. No se reaplica SQL instalada ni se incorpora una preimagen antigua
+por conservar su número. Los borradores originales y los archivos sin versionar de
+`controlrestauracionpg` permanecen en su copia de origen.
+
+La primera corrección nueva conserva los errores y la desconexión en la auditoría
+HTTP. Su adaptador exige el intento exacto por correlación, contexto y vínculo
+originales, canal ADMIN y acuse del registrador común. Acción, finalidad, recurso,
+motivos y plazo vienen de configuración. Los rechazos anteriores a sesión utilizan
+su frontera propia; no se fabrica identidad. El registro de un error no acredita
+rollback ni repite el efecto. Las operaciones permitidas mantienen su auditoría
+junto al efecto en la transacción del consumidor propietario.
+
+Para cerrar el recorrido completo siguen pendientes la fuente nominal de K, los
+catálogos/registrador de L, la autoridad durante mantenimiento, la configuración de
+Sistemas y el montaje. Después corresponderá el ensayo post-H9 con dos personas,
+copia previa verificada, sustitución, fallos intermedios y recuperación tras reinicio.
+No se ha escrito en cidonia ni instalado SQL durante esta retoma.
 
 ## Resultado que debe poder usar un administrador
 
