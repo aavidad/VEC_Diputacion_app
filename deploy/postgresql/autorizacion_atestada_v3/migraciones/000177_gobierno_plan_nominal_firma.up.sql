@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- BORRADOR: requiere el delta de perfiles/audiencias del propietario del núcleo.
+-- BORRADOR: requiere AD193 y el delta de perfiles/audiencias del núcleo.
 -- Los hashes NULL impiden instalarlo hasta medir esa cadena causal exacta.
 -- No modifica AD167/AD172–176 ni publica concesiones o perfiles por petición.
 BEGIN;
@@ -15,6 +15,7 @@ DECLARE nucleo regprocedure;
  esperado_audiencias_sha256 text := NULL;
  observado_nucleo_sha256 text;
  observado_audiencias_sha256 text;
+ columnas_sello_xid8 bigint;
 BEGIN
  nucleo:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
@@ -26,6 +27,14 @@ BEGIN
   OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)') IS NOT NULL
   OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb)') IS NOT NULL THEN
   RAISE EXCEPTION 'AD177 clave=objetos observado=incompatible esperado=preimagen_no_instalada' USING ERRCODE='55000';
+ END IF;
+ SELECT count(*) INTO columnas_sello_xid8 FROM pg_attribute a
+ WHERE a.attrelid IN (to_regclass('vec_autorizacion_atestada_v3.consumo_decision_v3'),
+                     to_regclass('vec_autorizacion_atestada_v3.auditoria_consumo_v3'))
+  AND a.attname='transaccion_origen' AND a.attnum>0 AND NOT a.attisdropped
+  AND a.atttypid='xid8'::regtype;
+ IF columnas_sello_xid8<>2 THEN
+  RAISE EXCEPTION 'AD177 clave=columnas_sello_xid8 observado=% esperado=2',columnas_sello_xid8 USING ERRCODE='55000';
  END IF;
  observado_nucleo_sha256:=encode(sha256(convert_to(pg_get_functiondef(nucleo),'UTF8')),'hex');
  SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,true),'UTF8')),'hex')
@@ -69,7 +78,7 @@ BEGIN
   a.consumida_en,u.auditoria_ref,u.registrada_en,u.huella_sha256 AS auditoria_huella_sha256,
   t.huella_decision_sha256,t.decision_canonica,t.capacidad_canonica,
   u.tipo_registro,u.version_consumo,u.proceso,u.canal,u.actor_ref,u.perfil_activo_ref,u.finalidad_ref,
-  a.xmin AS consumo_xmin,u.xmin AS auditoria_xmin
+  a.transaccion_origen AS consumo_origen,u.transaccion_origen AS auditoria_origen
  INTO STRICT r
  FROM vec_autorizacion_atestada_v3.consumo_decision_v3 a
  JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 u
@@ -84,9 +93,9 @@ BEGIN
   OR r.auditoria_ref IS DISTINCT FROM p_consumo->>'auditoria_ref'
   OR r.consumida_en IS DISTINCT FROM (p_consumo->>'consumida_en')::timestamptz
   OR r.registrada_en IS DISTINCT FROM r.consumida_en
-  OR r.consumo_xmin IS DISTINCT FROM pg_current_xact_id()::xid
-  OR r.auditoria_xmin IS DISTINCT FROM pg_current_xact_id()::xid
-  OR r.tipo_registro IS DISTINCT FROM 'consumo_confirmado_v3' OR r.version_consumo IS DISTINCT FROM 3
+  OR r.consumo_origen IS DISTINCT FROM pg_current_xact_id()
+  OR r.auditoria_origen IS DISTINCT FROM pg_current_xact_id()
+  OR r.tipo_registro IS DISTINCT FROM 'consumo_confirmado_v4' OR r.version_consumo IS DISTINCT FROM 4
   OR r.consumida_en>ahora
   OR r.huella_decision_sha256 IS DISTINCT FROM encode(sha256(r.decision_canonica),'hex') THEN
   RAISE EXCEPTION 'AD177 consumo de gobierno no disponible' USING ERRCODE='42501';
@@ -285,7 +294,8 @@ BEGIN
  recibo:=jsonb_build_object('decision_ref',r.decision_ref,'efecto_ref',r.efecto_ref,
   'huella_efecto_sha256',r.huella_efecto_sha256,'consumo_huella_sha256',r.consumo_huella_sha256,
   'auditoria_ref',r.auditoria_ref,'consumida_en',r.consumida_en,'consumo_nuevo',true);
- -- AD167 exige xmin actual de consumo y auditoría y relee la atestación,
+ -- AD167, actualizado por AD193 sin cambiar ABI, exige ambos sellos TopXID
+ -- actuales de consumo y auditoría y relee la atestación,
  -- acción/audiencia y vigencia. Un recibo original de otra TX no sirve.
  prueba:=vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(recibo);
  IF prueba->>'decision_ref' IS DISTINCT FROM r.decision_ref

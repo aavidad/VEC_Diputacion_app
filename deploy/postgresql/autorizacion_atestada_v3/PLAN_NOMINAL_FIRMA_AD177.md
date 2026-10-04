@@ -4,6 +4,23 @@ AD177 es un borrador. La instalación se rechaza mientras sus dos preimágenes
 estén pendientes: definición del núcleo y CHECK de audiencias después del delta
 de L. El CHECK de tipos de auditoría no sustituye el CHECK de audiencias.
 
+El comprobador de gobierno usa el ABI de AD193 publicado por L en
+`f37e177b6`: ambos sellos internos `transaccion_origen xid8` deben coincidir
+con `pg_current_xact_id()` y la auditoría debe pertenecer a
+`consumo_confirmado_v4`, versión 4. Los valores proceden de las filas propias
+de la autoridad; el recibo conserva siete propiedades y no admite sellos
+enviados por el cliente. Un sello NULL o de otra transacción deniega. La
+precondición comprueba las dos columnas de tipo xid8 antes de crear funciones.
+No utiliza xmin ni una conversión al xid de 32 bits.
+
+AD193 preserva la ABI de `comprobar_consumo_firma_ct_v1(jsonb)`. AUT41,
+CT175 y CT176 mantienen su delegación y el formato del recibo. Este ajuste
+no modifica esas migraciones ni AD167 instalada. Las preimágenes de AD177
+siguen NULL hasta medir la cadena final AD193 y AD178, incluida la extensión
+de audiencias y perfiles de gobierno. La conformidad K, el ensayo causal con
+productores reales y dos revisiones del conjunto siguen pendientes; no se
+ha instalado AD177 ni se ha vuelto a ejecutar SQL.
+
 CC7 conserva los datos y la publicación original del plan. AD177 comprueba un
 consumo nominal nuevo y su auditoría común dentro de la misma transacción. CC7
 no consulta tablas de Autorización. La revalidación privada del pin desde CT usa
