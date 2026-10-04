@@ -532,7 +532,12 @@ export function crearCoordinadorModulosPortal({
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
       ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
-        destinosDisponibles: () => ({ dietas: vistaDisponible("dietas"), cronos: vistaDisponible("cronos") }),
+        // Abrir un destino diferido no exige haberlo visitado antes. Esto
+        // sólo ofrece navegación propia; su lectura se autoriza al entrar.
+        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"].map((clave) => [clave,
+          catalogo.some((modulo) => modulo.clave === clave)
+            && [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave)),
+        ])),
       })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
