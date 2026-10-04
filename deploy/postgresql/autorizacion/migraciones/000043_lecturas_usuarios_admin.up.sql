@@ -174,7 +174,6 @@ BEGIN
   ORDER BY x.perfil_activo_ref COLLATE "C" FOR SHARE OF q LOOP
   ca:=vec_contexto_actor_v1.metadatos_perfil_administrable_v1(p_persona,a.perfil_activo_ref);
   IF ca IS NULL OR ca->>'perfil_ref' IS DISTINCT FROM a.perfil_activo_ref THEN RAISE EXCEPTION 'AUT43: metadata_no_disponible' USING ERRCODE='55000';END IF;
-  IF jsonb_array_length(perfiles)>=50 THEN RAISE EXCEPTION 'AUT43: cardinalidad_no_disponible' USING ERRCODE='55000';END IF;
   perfiles:=perfiles||jsonb_build_array(jsonb_build_object('perfil_ref',a.perfil_activo_ref,'rol_version_ref',a.version_rol_ref,'version',ca->'version',
    'estado',vec_autorizacion.estado_asignacion_usuarios_admin_v1(a.documento,ahora),'vigente_desde',(a.documento->>'vigente_desde')::timestamptz,'vigente_hasta',(a.documento->>'vigente_hasta')::timestamptz));
  END LOOP;

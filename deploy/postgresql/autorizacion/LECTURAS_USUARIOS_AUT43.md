@@ -49,7 +49,9 @@ La versión de nombre procede del puerto CA32: NULL sólo por ausencia comprobad
 un fallo se propaga como error. El nombre requiere otra lectura V3 propia.
 
 Los filtros de ámbito, rol y estado se aplican sobre la misma asignación actual,
-antes de DISTINCT, orden por Persona con colación C y límite 51. La vigencia de
+antes de DISTINCT, orden por Persona con colación C y límite 51. Ese límite
+se aplica a Personas, no a sus perfiles: se devuelve el conjunto completo de
+perfiles del ámbito, sin truncarlo ni introducir un máximo adicional. La vigencia de
 Persona se comprueba también antes de paginar por CA34. AUT no pagina CA primero
 ni consulta tablas CA. El cursor `usuarios:<SHA64>:<persona>` liga conjunto y
 filtros mediante `vec.admin.cursor-usuarios.v1\n<conjunto>\n<JSON filtros>`; no
@@ -69,6 +71,10 @@ no se habilita hasta cerrar ese árbol. No se copian ni reaplican SQL ajenas.
 CA34 y AUT43 llevan listas separadas de sus únicas migraciones nuevas.
 Los vectores de bytes y SHA se calcularon independientemente; el ensayo SQL
 comprueba formato, vínculo de filtros/cursor y cierre de helpers.
+`aut43_persona_51_perfiles.sql` prepara una Persona sintética con 51 perfiles
+y asignaciones ordinarias en un mismo ámbito, mediante INSERT normales en las
+autoridades CA y AUT, y coteja la proyección privada de lista y ficha. Se
+ejecuta sólo en clon y ROLLBACK: no fabrica decisión, sesión ni V3 favorable.
 
 Estado: candidato preparado, sin ensayo PostgreSQL ni revisión independiente.
 Faltan positivos V3 reales, negativas, página mayor de 50 y filtro cruzado entre
