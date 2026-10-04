@@ -1,0 +1,39 @@
+{
+  "esquema": "vec.auditoria.origen-consumo.postimagenes.v1",
+  "variantes": [
+    {
+      "variante": "POST154",
+      "pre_def_sha256": "0659ad9bf01278e8373225c3415fe82c7c69b6058f7a537c8ff47aa589955156",
+      "pre_prosrc_sha256": "5b9d8a87caec44e4b7abd1273f52c2d397c398cfe204a0cf4d9697bb8aee983d",
+      "post_def_sha256": "92b4245448ffb76aa0792788616e5a779ddd867612e4bd28ab106d95d5356446",
+      "post_prosrc_sha256": "54327be7e866b84d0cd1feff3a54ef6fc58ceec92daaa2277b150da984371fe9"
+    },
+    {
+      "variante": "POST168_H9",
+      "pre_def_sha256": "00fdab71ff0477cbe3fb1dcabcde7377da857d20578b9be478339d031ac034ce",
+      "pre_prosrc_sha256": "1c4a33b316fe58454c76c207db1722504d69a2de21e5c4fb32c73a4cffc20fe4",
+      "post_def_sha256": "32939b59240dab122779c10789c8fca3d5bcd4024b6341b477e61d82020d8c10",
+      "post_prosrc_sha256": "24c003368a265ab7622e87b0c1949f0f13ba0b585a6624ff0729ecce88de066e"
+    }
+  ],
+  "bloques_modificados": [
+    "variables_privadas_origen",
+    "cotejo_origen_solo_consumo_nuevo",
+    "preimagen_e_insert_auditoria"
+  ],
+  "orden_eslabon": [
+    "consumo_confirmado_v2",
+    "2",
+    "secuencia",
+    "anterior_sha256",
+    "decision_ref",
+    "efecto_ref",
+    "huella_efecto_sha256",
+    "consumo_huella_sha256",
+    "proceso",
+    "canal"
+  ],
+  "consumo_huella_y_auditoria_ref": "calculo_original_intacto",
+  "pre_check_sha256": "f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29",
+  "post_check_sha256": "55603c422c7c752909d558d8dd238e371719c1e9d0626272e955cde21240c282"
+}

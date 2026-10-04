@@ -1,0 +1,7 @@
+# Sólo AD172 nueva; no reaplicar dependencias ni ejecutar DOWN.
+# Dos preimágenes cerradas: POST154 con fachada RPT, o POST168 del paquete H9.
+# POST154 conserva orden AD149→Personal26→AD154→AD172.
+# POST168 requiere las 40 SQL H9 instaladas y conserva sus consumidores.
+# AD171 y auditoría AD169/CA26(o27)/IS13 deben existir en ambas variantes.
+# Configurar origen DBA exacto de consumidores activos antes de instalación.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql
