@@ -57,18 +57,21 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	IntentoBootstrapCentral *RegistroIntentoBootstrapCentralV1      `json:"intento_bootstrap_central,omitempty"`
-	UnidadInicial           *RegistroUnidadInicialPersonalV1        `json:"unidad_inicial,omitempty"`
-	IntentoUnidadInicial    *RegistroIntentoUnidadInicialPersonalV1 `json:"intento_unidad_inicial,omitempty"`
-	FuentesIniciales        *RegistroFuentesInicialesV1             `json:"fuentes_iniciales,omitempty"`
-	IntentoFuentesIniciales *RegistroIntentoFuentesInicialesV1      `json:"intento_fuentes_iniciales,omitempty"`
-	TipoRegistro            string                                  `json:"tipo_registro"`
-	Consumo                 *RegistroCadenaV3                       `json:"-"`
-	ConsumoOrigen           *RegistroConsumoOrigenV2                `json:"-"`
-	ConsumoFecha            *RegistroConsumoFechaV3                 `json:"-"`
-	Intento                 *RegistroIntentoV2                      `json:"intento,omitempty"`
-	Preperfil               *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
-	Bootstrap               *RegistroBootstrapV3                    `json:"bootstrap,omitempty"`
+	Periodica                *RegistroOperacionPeriodicaV1           `json:"periodica,omitempty"`
+	MantenimientoFijo        *RegistroMantenimientoFijoV1            `json:"mantenimiento_fijo,omitempty"`
+	IntentoMantenimientoFijo *RegistroIntentoMantenimientoFijoV1     `json:"intento_mantenimiento_fijo,omitempty"`
+	IntentoBootstrapCentral  *RegistroIntentoBootstrapCentralV1      `json:"intento_bootstrap_central,omitempty"`
+	UnidadInicial            *RegistroUnidadInicialPersonalV1        `json:"unidad_inicial,omitempty"`
+	IntentoUnidadInicial     *RegistroIntentoUnidadInicialPersonalV1 `json:"intento_unidad_inicial,omitempty"`
+	FuentesIniciales         *RegistroFuentesInicialesV1             `json:"fuentes_iniciales,omitempty"`
+	IntentoFuentesIniciales  *RegistroIntentoFuentesInicialesV1      `json:"intento_fuentes_iniciales,omitempty"`
+	TipoRegistro             string                                  `json:"tipo_registro"`
+	Consumo                  *RegistroCadenaV3                       `json:"-"`
+	ConsumoOrigen            *RegistroConsumoOrigenV2                `json:"-"`
+	ConsumoFecha             *RegistroConsumoFechaV3                 `json:"-"`
+	Intento                  *RegistroIntentoV2                      `json:"intento,omitempty"`
+	Preperfil                *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
+	Bootstrap                *RegistroBootstrapV3                    `json:"bootstrap,omitempty"`
 }
 
 var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
@@ -177,6 +180,13 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
+		if r.Periodica != nil && r.TipoRegistro != TipoOperacionPeriodica {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if (r.MantenimientoFijo != nil || r.IntentoMantenimientoFijo != nil) && r.TipoRegistro != "mantenimiento_perfil_fijo_admin" && r.TipoRegistro != "intento_mantenimiento_perfil_fijo_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
 		if r.IntentoBootstrapCentral != nil && r.TipoRegistro != "intento_bootstrap_central_admin" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
 		}
@@ -279,7 +289,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
@@ -292,7 +302,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
-			if esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral {
+			if esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
@@ -308,7 +318,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "unidad_inicial_personal", "intento_unidad_inicial_personal":
-			if esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral {
+			if esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroUnidadInicialV1(r, secuencia)
@@ -324,12 +334,38 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "intento_bootstrap_central_admin":
-			if esquema != EsquemaVerificacionBootstrapCentral {
+			if esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarIntentoBootstrapCentralV1(r, secuencia)
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad179_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "mantenimiento_perfil_fijo_admin", "intento_mantenimiento_perfil_fijo_admin":
+			if esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarMantenimientoFijoV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad183_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case TipoOperacionPeriodica:
+			if esquema != EsquemaVerificacionPeriodica {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarOperacionPeriodicaV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad186_valido", "no_admitido", secuencia)
 			}
 			if eventos[evento.EventoRef] {
 				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
