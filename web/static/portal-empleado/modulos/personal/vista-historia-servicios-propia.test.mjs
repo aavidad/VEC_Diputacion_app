@@ -123,6 +123,10 @@ test("propuesta guiada por dato, errores por campo y foco conservan lo escrito s
   const motivo = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "motivo");
   const evidencia = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "evidencia");
   propuesta.value = "-2"; motivo.value = "Mi certificado indica otro periodo"; evidencia.value = "";
+  motivo.focus(); propuesta.listeners.get("blur")();
+  assert.equal(llamadas, 1); assert.equal(raiz.ownerDocument.activeElement, motivo);
+  const avisoPropuesta = nodos(raiz).find((n) => n.id === propuesta.attributes.get("aria-describedby"));
+  assert.match(avisoPropuesta.textContent, /número entero de días/u);
   await revisarPreparacion(raiz);
   assert.equal(llamadas, 1); assert.equal(propuesta.value, "-2"); assert.equal(motivo.value, "Mi certificado indica otro periodo");
   assert.equal(raiz.ownerDocument.activeElement, propuesta);
@@ -130,6 +134,9 @@ test("propuesta guiada por dato, errores por campo y foco conservan lo escrito s
   assert.equal(motivo.attributes.get("aria-invalid"), "false");
   assert.match(texto(raiz), /número entero de días/u); assert.match(texto(raiz), /Complete este campo/u);
   assert.match(texto(raiz), /El borrador sigue sin presentar/u);
+  assert.equal(buscar(raiz, "personalRevisionRevisar").parent.children[0].id, "personal-revision-error");
+  const avisoEvidencia = nodos(raiz).find((n) => n.id === evidencia.attributes.get("aria-describedby"));
+  assert.match(avisoEvidencia.textContent, /Complete este campo/u);
   const enlaceError = nodos(raiz).find((n) => n.tagName === "a" && n.href === "#personal-revision-propuesta");
   assert.ok(enlaceError); enlaceError.listeners.get("click")({ preventDefault() {} });
   assert.equal(raiz.ownerDocument.activeElement, propuesta);
