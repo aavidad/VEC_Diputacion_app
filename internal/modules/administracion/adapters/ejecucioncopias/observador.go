@@ -7,6 +7,7 @@ import (
 
 	lector "vec-diputacion-granada/internal/modules/administracion/adapters/contrastecopias"
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
+	contrasteports "vec-diputacion-granada/internal/modules/administracion/ports/contrastecopias"
 	p "vec-diputacion-granada/internal/modules/administracion/ports/ejecucioncopias"
 	aislado "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
 )
@@ -81,8 +82,8 @@ func (o *ObservadorEnsemble) resultado() (p.Ensayo, error) {
 // Su ejecutor sólo existe dentro de la ventana CS04 de escritores excluidos.
 type MedidorCS06 struct {
 	Lector    *lector.Lector
-	Ejecutor  lector.EjecutorPostgreSQL
-	Exclusion lector.ExclusionObservada
+	Ejecutor  contrasteports.EjecutorPostgreSQL
+	Exclusion contrasteports.ExclusionObservada
 	Base      string
 	Ficheros  FicherosOrigen
 }
