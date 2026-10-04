@@ -94,6 +94,17 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			codigo = 1
 		}
 		return responder(salida, informe, codigo)
+	case auditoria.EsquemaVerificacionBootstrapCentral:
+		var documento auditoria.DocumentoVerificacionMixta
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe := auditoria.VerificarCadenaBootstrapCentralV1(documento, checkpoint, *maxRegistros)
+		codigo := 0
+		if informe.Estado != "verificada" {
+			codigo = 1
+		}
+		return responder(salida, informe, codigo)
 	default:
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
@@ -184,6 +195,9 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 		}
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionUnidadInicial {
 			return clavesDocumentoUnidadInicial(objeto)
+		}
+		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionBootstrapCentral {
+			return clavesDocumentoBootstrapCentral(objeto)
 		}
 		return clavesDocumentoMixto(objeto, false)
 	default:
