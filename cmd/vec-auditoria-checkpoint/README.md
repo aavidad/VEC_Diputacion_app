@@ -129,12 +129,12 @@ consumidores nominales ni cambios al verificador existente. Quedan pendientes
 captura durable autorizada, política periódica y validación de una TSA
 independiente, además de las decisiones de conservación y custodia aplicables.
 
-Comprobaciones locales de este corte: pruebas focales normales y con `-race` en
-CLI y proveedor; `go vet` en CLI, bootstrap, config, dominio, puertos y aplicación;
-Semgrep `p/golang` sobre los ocho archivos Go nuevos (42 reglas, sin hallazgos);
-gosec de la CLI sin hallazgos; tamaño de archivos y `git diff --check` correctos.
-El análisis gosec de bootstrap con las versiones 2.25 y 2.29 tuvo los mismos
-errores de resolución y hallazgos en archivos sin cambios. No acredita una
-revisión completa del paquete; su causa concreta de carga sigue pendiente.
-No se ejecutaron servicios, SQL, navegador ni la suite global. Las dos revisiones
-sensibles sobre el commit final corresponden a la integración.
+Comprobaciones de continuidad del 04/10: pruebas focales normales y con `-race`
+en CLI, aplicación y dominio, usando el proveedor KMS/TSA existente; `go vet`
+en esos tres paquetes; Semgrep `p/golang` sobre los siete archivos Go cambiados
+(42 reglas, sin hallazgos); formato y `git diff --check` correctos. Las pruebas
+usaron un directorio temporal externo a Git. Gosec analizó 115 archivos de esos
+paquetes: 25 avisos en archivos sin cambios, ninguno en los archivos cambiados
+y ningún error de carga. Ese resultado no es una revisión limpia de todo el
+código previo. No se ejecutaron servicios, SQL, navegador ni la suite global
+local. Las revisiones sensibles del commit final corresponden a la integración.
