@@ -80,6 +80,10 @@ func (r ResultadoPreservacionAuditoria) Validar() error {
 		r.AcuseAcceso.Secuencia < r.AcuseOriginal.Secuencia {
 		return ErrPreservacionAuditoriaInvalida
 	}
+	if r.Estado == "publicada" && r.AcuseAcceso != r.AcuseOriginal ||
+		r.Estado != "publicada" && r.AcuseAcceso.Secuencia <= r.AcuseOriginal.Secuencia {
+		return ErrPreservacionAuditoriaInvalida
+	}
 	return nil
 }
 
