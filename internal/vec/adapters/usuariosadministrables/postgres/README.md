@@ -26,6 +26,12 @@ exportado, su referencia registrada y todos los campos del vínculo V2 con la
 evidencia original. La misma Persona y perfil en otra sesión no sirven para
 esta lectura.
 
+`ValidarEmisionUsuariosAdministrables` es un helper puro para el emisor. Recibe
+material y recurso, reconstruye el canon de lista o ficha, coteja acción,
+audiencia, ámbito, cursor y huellas, y devuelve una copia defensiva. Aceptar
+ese formato no concede permiso: el emisor conserva actor, evidencia, PDP y
+firma; AUT43 vuelve a decidir dentro de PostgreSQL.
+
 Cada lectura válida abre una transacción `SERIALIZABLE` de lectura/escritura,
 llama a una fachada AUT43, comprueba el acuse V3 y la forma exacta del resultado,
 y solo entrega metadatos tras un COMMIT confirmado. Un resultado nulo o vacío
