@@ -145,7 +145,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261004-b-portal-accesos-v1");
-  versionesEspeciales.set("portal.js", "20261004-personal-correos-acceso-v2");
+  versionesEspeciales.set("portal.js", "20261004-b-portal-accesos-v1");
   versionesEspeciales.set("modulos/personal/registro-b2.js", "20261003-personal-comparacion-b2-v3");
   versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261003-ct-firma-v2-v1");
   // Sólo estos consumidores CT cambiaron en el grafo de firma V2.
