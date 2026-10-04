@@ -364,8 +364,6 @@ BEGIN
   RAISE EXCEPTION 'AD177 consumo exterior divergente' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('decision_ref',x.decision_ref,'efecto_ref',x.efecto_ref,'huella_efecto_sha256',x.huella_efecto_sha256,
   'consumo_huella_sha256',x.consumo_huella_sha256,'auditoria_ref',x.auditoria_ref,'consumida_en',x.consumida_en,'consumo_nuevo',true);
-EXCEPTION WHEN data_exception THEN
- RAISE EXCEPTION 'AD177 material de plan atestado inválido' USING ERRCODE='22023';
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.recuperar_consumo_firma_plan_ct_v1(bytea) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_plan_firma_ct_v2_atestada(text,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
