@@ -13,6 +13,10 @@ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_contexto_actor_v1_admin_contexto') IS NOT NULL
+ OR to_regprocedure('vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(text,numeric,text,text,text,text,text,timestamptz,text)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(jsonb)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(jsonb)') IS NULL
+ OR to_regprocedure('vec_contexto_actor_v1.listar_admin_preperfil_propietaria_v1(text,text,text)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.resolver_contexto_ca36_interno_v1(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
  OR to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_ca36_interno_v1(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
  THEN RAISE EXCEPTION 'CA36: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -191,6 +195,31 @@ BEGIN
 EXCEPTION WHEN data_exception THEN RETURN false;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(text,text,text,numeric,timestamptz,bytea) FROM PUBLIC;
+CREATE FUNCTION vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(
+ p_evento text,p_correlacion text,p_proceso text,p_accion text,p_recurso text,p_resultado text,
+ p_actor text,p_perfil text,p_fuente text,p_fuente_sha text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE motivo text;
+BEGIN
+ IF p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
+  OR p_proceso !~ '^[a-z][a-z0-9._-]{1,79}$' OR p_recurso !~ '^oca_[A-Za-z0-9_-]{22,128}$'
+  OR p_accion NOT IN('registrar_contexto_admin','reconciliar_contexto_admin')
+  OR p_resultado NOT IN('permitido','denegado','error')
+  OR ((p_fuente IS NULL) IS DISTINCT FROM (p_fuente_sha IS NULL))
+  OR (p_actor IS NOT NULL AND p_fuente IS NULL)
+  OR (p_perfil IS NOT NULL AND p_actor IS NULL)
+  OR (p_resultado='permitido' AND (p_actor IS NULL OR p_perfil IS NULL OR p_fuente IS NULL))
+ THEN RAISE EXCEPTION 'CA36: evento PRE-V2 inválido' USING ERRCODE='22023'; END IF;
+ motivo:=CASE p_resultado WHEN 'permitido' THEN 'contexto_admin_pre_v2_permitido'
+  WHEN 'denegado' THEN 'contexto_admin_pre_v2_denegado'
+  ELSE 'contexto_admin_pre_v2_error' END;
+ RETURN jsonb_build_object('tipo_registro','contexto_admin_pre_v2','evento_ref',p_evento,
+  'operador_login',session_user::text,'actor_ref',p_actor,'perfil_activo_ref',p_perfil,
+  'accion',p_accion,'recurso_ref',p_recurso,'resultado',p_resultado,'motivo_ref',motivo,
+  'proceso',p_proceso,'canal','administracion_privilegiada','finalidad_ref','establecer_contexto_admin',
+  'correlacion_ref',p_correlacion,'fuente_ref',p_fuente,'fuente_sha256',p_fuente_sha);
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(text,text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
  p_operacion_ref text,p_registro_contexto_ref text,p_cuenta_ref text,p_perfil_ref text,
  p_metodo text,p_garantia text,p_solicitado_en timestamptz,p_proyecciones text[])
@@ -226,13 +255,15 @@ BEGIN
  fs:=ARRAY[
   to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1()'),
   to_regprocedure('vec_contexto_actor_v1.registrar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)'),
-  to_regprocedure('vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)'),
+  to_regprocedure('vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text,jsonb)'),
   to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)')];
  IF current_setting('role')<>'none' OR l.oid IS NULL OR g.oid IS NULL OR dbo IS NULL OR nso IS NULL
   OR array_position(fs,NULL) IS NOT NULL OR cardinality(fs)<>4
   OR l.rolcanlogin IS NOT TRUE OR l.rolinherit IS NOT TRUE
   OR l.rolsuper OR l.rolcreaterole OR l.rolcreatedb OR l.rolreplication OR l.rolbypassrls OR l.rolconfig IS NOT NULL
+  OR (l.rolvaliduntil IS NOT NULL AND clock_timestamp()>=l.rolvaliduntil)
   OR g.rolcanlogin OR g.rolinherit OR g.rolsuper OR g.rolcreaterole OR g.rolcreatedb OR g.rolreplication OR g.rolbypassrls OR g.rolconfig IS NOT NULL
+  OR g.rolvaliduntil IS NOT NULL OR g.rolconnlimit<>-1
   OR (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)<>1
   OR NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
       AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
@@ -269,6 +300,289 @@ BEGIN
  acreditada:=true;RETURN NEXT;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1() FROM PUBLIC;
--- Las fachadas ADMIN, enlace durable y ACL exclusivas se añaden tras fijar
--- IS16 y la consulta AD192; el bloqueo $pre$ impide instalar este borrador.
+CREATE FUNCTION vec_contexto_actor_v1.registrar_contexto_admin_v1(
+ p_operacion text,p_recibo text,p_cuenta text,p_perfil text,p_metodo text,p_garantia text,
+ p_solicitado timestamptz,p_vis text,p_vis_version numeric,p_vis_sha text,p_aut text,p_ses text,
+ p_evento text,p_correlacion text,p_proceso text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='4s' AS $f$
+DECLARE j jsonb;j_final jsonb;r record;l record;a record;a_final record;e jsonb;codigo text;
+ clase text;ahora timestamptz;fuente_acreditada boolean:=false;evento_fallo text;evento_previo text;
+BEGIN
+ PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
+  OR p_metodo NOT IN('certificado','dnie') OR p_garantia IS DISTINCT FROM 'alto'
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_operacion,'oca_') IS NOT TRUE
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_recibo,'rca_') IS NOT TRUE
+ OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
+ THEN RAISE EXCEPTION 'CA36: entrada ADMIN inválida' USING ERRCODE='22023'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_contexto_actor_v1:operacion:v2:'||p_operacion,0));
+ SELECT x.evento_ref INTO evento_previo FROM vec_contexto_actor_v1.enlace_contexto_admin_v1 x
+ WHERE x.operacion_ref=p_operacion;
+ BEGIN
+  j:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+   p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+  IF jsonb_typeof(j) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(j))<>12
+   OR j->>'referencia' IS DISTINCT FROM p_vis OR (j->>'version')::numeric IS DISTINCT FROM p_vis_version
+   OR j->>'huella_sha256' IS DISTINCT FROM p_vis_sha OR j->>'autenticacion_ref' IS DISTINCT FROM p_aut
+   OR j->>'sesion_ref' IS DISTINCT FROM p_ses OR j->>'cuenta_ref' IS DISTINCT FROM p_cuenta
+   OR j->>'perfil_ref' IS DISTINCT FROM p_perfil
+   OR vec_contexto_actor_v1.referencia_valida(j->>'persona_ref','per_') IS NOT TRUE
+   OR j->>'fuente_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$'
+   OR j->>'fuente_sha256' !~ '^[0-9a-f]{64}$'
+   OR vec_contexto_actor_v1.instante_valido((j->>'vigente_hasta')::timestamptz) IS NOT TRUE
+  THEN RAISE EXCEPTION 'CA36: vínculo IS incompatible' USING ERRCODE='42501'; END IF;
+  fuente_acreditada:=true;
+  SELECT * INTO l FROM vec_contexto_actor_v1.enlace_contexto_admin_v1
+   WHERE operacion_ref=p_operacion FOR SHARE;
+  IF FOUND THEN
+   IF l.registro_contexto_ref IS DISTINCT FROM p_recibo OR l.vinculo_sesion_ref IS DISTINCT FROM p_vis
+    OR l.vinculo_sesion_version IS DISTINCT FROM p_vis_version OR l.vinculo_sesion_sha256 IS DISTINCT FROM p_vis_sha
+    OR l.autenticacion_ref IS DISTINCT FROM p_aut OR l.sesion_ref IS DISTINCT FROM p_ses
+    OR l.cuenta_ref IS DISTINCT FROM p_cuenta OR l.perfil_ref IS DISTINCT FROM p_perfil
+    OR l.actor_ref IS DISTINCT FROM j->>'persona_ref' OR l.fuente_ref IS DISTINCT FROM j->>'fuente_ref'
+    OR l.fuente_sha256 IS DISTINCT FROM j->>'fuente_sha256'
+    OR l.evento_ref IS DISTINCT FROM p_evento OR l.proceso IS DISTINCT FROM p_proceso
+    OR l.correlacion_ref IS DISTINCT FROM p_correlacion
+   THEN RAISE EXCEPTION 'CA36: replay de otro vínculo' USING ERRCODE='23505'; END IF;
+   SELECT * INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto
+    WHERE operacion_ref=p_operacion AND registro_contexto_ref=p_recibo FOR SHARE;
+   IF vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,j->>'persona_ref',p_perfil,
+     (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+   THEN RAISE EXCEPTION 'CA36: replay sin contexto actual' USING ERRCODE='42501'; END IF;
+   e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+    'registrar_contexto_admin',p_operacion,'permitido',l.actor_ref,l.perfil_ref,l.fuente_ref,l.fuente_sha256);
+   SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(e);
+   j_final:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+    p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+   IF j_final IS DISTINCT FROM j OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(
+    p_cuenta,j->>'persona_ref',p_perfil,(j->>'seleccion_revision')::numeric,
+    (j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+    OR clock_timestamp()>=(j->>'vigente_hasta')::timestamptz
+   THEN RAISE EXCEPTION 'CA36: replay vencido' USING ERRCODE='42501'; END IF;
+   RETURN jsonb_build_object('estado','permitido','motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),
+    'contexto',jsonb_build_object('operacion_ref',r.operacion_ref,'registro_contexto_ref',r.registro_contexto_ref,
+     'representacion_canonica_base64',encode(r.representacion_canonica,'base64'),'huella_sha256',r.huella_sha256,
+     'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
+     'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
+     'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
+  END IF;
+  IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto WHERE operacion_ref=p_operacion)
+  THEN RAISE EXCEPTION 'CA36: operación preexistente sin enlace' USING ERRCODE='23505'; END IF;
+  -- En SERIALIZABLE el cotejo IS16 usa la fachada CA31/AUT24 y verifica la
+  -- selección positiva de Aplicación. Este helper verifica además CA actual.
+  SELECT * INTO STRICT r FROM vec_contexto_actor_v1.resolver_contexto_ca36_interno_v1(
+   p_operacion,p_recibo,p_cuenta,p_perfil,p_metodo,p_garantia,p_solicitado,'{}'::text[]);
+  IF r.operacion_ref IS DISTINCT FROM p_operacion OR r.registro_contexto_ref IS DISTINCT FROM p_recibo
+   OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,j->>'persona_ref',p_perfil,
+    (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+  THEN RAISE EXCEPTION 'CA36: contexto actual incompatible' USING ERRCODE='42501'; END IF;
+  e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+   'registrar_contexto_admin',p_operacion,'permitido',j->>'persona_ref',p_perfil,j->>'fuente_ref',j->>'fuente_sha256');
+  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
+  IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
+   OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
+  THEN RAISE EXCEPTION 'CA36: acuse AD192 incompatible' USING ERRCODE='42501'; END IF;
+  ahora:=clock_timestamp();
+  INSERT INTO vec_contexto_actor_v1.enlace_contexto_admin_v1 VALUES(
+   p_operacion,p_recibo,p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,j->>'persona_ref',p_perfil,
+   j->>'fuente_ref',j->>'fuente_sha256',p_evento,p_proceso,p_correlacion,e->>'motivo_ref',1,ahora);
+  j_final:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+   p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+  IF j_final IS DISTINCT FROM j OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(
+   p_cuenta,j->>'persona_ref',p_perfil,(j->>'seleccion_revision')::numeric,
+   (j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+  THEN RAISE EXCEPTION 'CA36: vigencia perdida tras enlace' USING ERRCODE='42501'; END IF;
+  SELECT * INTO STRICT a_final FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
+  IF a_final.auditoria_ref IS DISTINCT FROM a.auditoria_ref OR a_final.secuencia IS DISTINCT FROM a.secuencia
+   OR a_final.huella_sha256 IS DISTINCT FROM a.huella_sha256 OR a_final.correlacion_ref IS DISTINCT FROM a.correlacion_ref
+   OR a_final.registrada_en IS DISTINCT FROM a.registrada_en
+   OR clock_timestamp()>=(j->>'vigente_hasta')::timestamptz
+  THEN RAISE EXCEPTION 'CA36: acuse o vigencia final divergente' USING ERRCODE='42501'; END IF;
+  RETURN jsonb_build_object('estado','permitido','motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),
+   'contexto',jsonb_build_object('operacion_ref',r.operacion_ref,'registro_contexto_ref',r.registro_contexto_ref,
+    'representacion_canonica_base64',encode(r.representacion_canonica,'base64'),'huella_sha256',r.huella_sha256,
+    'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
+    'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
+    'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
+ EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
+  clase:=CASE WHEN codigo IN('42501','22023','23505','P0002','VCA31') THEN 'denegado' ELSE 'error' END;
+ END;
+ -- La subtransacción anterior deshizo el núcleo y el acuse favorable. El
+ -- evento negativo se confirma por AD192 antes de responder, sin V2 ficticio.
+ evento_fallo:=p_evento;
+ IF evento_previo IS NOT NULL AND evento_previo=p_evento THEN
+  evento_fallo:='evento_'||replace(gen_random_uuid()::text,'-','');
+ END IF;
+ e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(evento_fallo,p_correlacion,p_proceso,
+  'registrar_contexto_admin',p_operacion,clase,
+  CASE WHEN fuente_acreditada THEN j->>'persona_ref' ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN p_perfil ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN j->>'fuente_ref' ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN j->>'fuente_sha256' ELSE NULL END);
+ SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
+ IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(evento_fallo,8,32)
+  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
+ THEN RAISE EXCEPTION 'CA36: acuse negativo incompatible' USING ERRCODE='42501'; END IF;
+ RETURN jsonb_build_object('estado',clase,'motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),'contexto',NULL);
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.registrar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text) FROM PUBLIC;
+CREATE FUNCTION vec_contexto_actor_v1.recuperar_contexto_admin_v1(
+ p_operacion text,p_recibo text,p_cuenta text,p_perfil text,p_metodo text,p_garantia text,
+ p_solicitado timestamptz,p_vis text,p_vis_version numeric,p_vis_sha text,p_aut text,p_ses text,
+ p_evento text,p_correlacion text,p_proceso text,p_evento_material jsonb)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='4s' AS $f$
+DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;
+BEGIN
+ PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
+ IF current_setting('transaction_isolation')<>'read committed' OR current_setting('transaction_read_only')<>'off'
+  OR p_metodo NOT IN('certificado','dnie') OR p_garantia IS DISTINCT FROM 'alto'
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_operacion,'oca_') IS NOT TRUE
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_recibo,'rca_') IS NOT TRUE
+  OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
+  OR jsonb_typeof(p_evento_material) IS DISTINCT FROM 'object'
+  OR p_evento_material->>'evento_ref' IS DISTINCT FROM p_evento
+  OR p_evento_material->>'accion' IS DISTINCT FROM 'registrar_contexto_admin'
+  OR p_evento_material->>'recurso_ref' IS DISTINCT FROM p_operacion
+  OR p_evento_material->>'correlacion_ref' IS DISTINCT FROM p_correlacion
+  OR p_evento_material->>'proceso' IS DISTINCT FROM p_proceso
+ THEN RAISE EXCEPTION 'CA36: recuperación incompatible' USING ERRCODE='42501'; END IF;
+ -- No se crea auditoría ni se reaplica un efecto. La ausencia del acuse
+ -- original tampoco acredita una denegación histórica.
+ SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(p_evento_material);
+ IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
+  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
+ THEN RAISE EXCEPTION 'CA36: acuse histórico incompatible' USING ERRCODE='42501'; END IF;
+ SELECT * INTO l FROM vec_contexto_actor_v1.enlace_contexto_admin_v1
+  WHERE operacion_ref=p_operacion FOR SHARE;
+ IF NOT FOUND THEN
+  IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto WHERE operacion_ref=p_operacion)
+   OR p_evento_material->>'resultado' NOT IN('denegado','error')
+   OR p_evento_material->'actor_ref' IS DISTINCT FROM 'null'::jsonb AND
+      (p_evento_material->>'perfil_activo_ref' IS NULL OR p_evento_material->>'fuente_ref' IS NULL)
+  THEN RAISE EXCEPTION 'CA36: ausencia no conciliable' USING ERRCODE='42501'; END IF;
+  RETURN jsonb_build_object('estado',p_evento_material->>'resultado',
+   'motivo_ref',p_evento_material->>'motivo_ref','evento',p_evento_material,
+   'acuse',to_jsonb(a),'contexto',NULL);
+ END IF;
+ IF l.registro_contexto_ref IS DISTINCT FROM p_recibo OR l.vinculo_sesion_ref IS DISTINCT FROM p_vis
+  OR l.vinculo_sesion_version IS DISTINCT FROM p_vis_version OR l.vinculo_sesion_sha256 IS DISTINCT FROM p_vis_sha
+  OR l.autenticacion_ref IS DISTINCT FROM p_aut OR l.sesion_ref IS DISTINCT FROM p_ses
+  OR l.cuenta_ref IS DISTINCT FROM p_cuenta OR l.perfil_ref IS DISTINCT FROM p_perfil
+  OR l.evento_ref IS DISTINCT FROM p_evento OR l.correlacion_ref IS DISTINCT FROM p_correlacion
+  OR l.proceso IS DISTINCT FROM p_proceso
+ THEN RAISE EXCEPTION 'CA36: enlace de recuperación divergente' USING ERRCODE='42501'; END IF;
+ e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+  'registrar_contexto_admin',p_operacion,'permitido',l.actor_ref,l.perfil_ref,l.fuente_ref,l.fuente_sha256);
+ IF p_evento_material IS DISTINCT FROM e THEN RAISE EXCEPTION 'CA36: evento histórico sustituido' USING ERRCODE='42501'; END IF;
+ j:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+  p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+ IF jsonb_typeof(j) IS DISTINCT FROM 'object' OR j->>'persona_ref' IS DISTINCT FROM l.actor_ref
+  OR j->>'fuente_ref' IS DISTINCT FROM l.fuente_ref OR j->>'fuente_sha256' IS DISTINCT FROM l.fuente_sha256
+ THEN RAISE EXCEPTION 'CA36: vínculo recuperado no actual' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT r FROM vec_contexto_actor_v1.reconciliar_contexto_ca36_interno_v1(
+  p_operacion,p_recibo,p_cuenta,p_perfil,p_metodo,p_garantia,p_solicitado,'{}'::text[]);
+ IF vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
+  (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+ THEN RAISE EXCEPTION 'CA36: contexto recuperado no actual' USING ERRCODE='42501'; END IF;
+ j_final:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+  p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+ IF j_final IS DISTINCT FROM j OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
+  (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+  OR clock_timestamp()>=(j->>'vigente_hasta')::timestamptz
+ THEN RAISE EXCEPTION 'CA36: recuperación vencida' USING ERRCODE='42501'; END IF;
+ RETURN jsonb_build_object('estado','permitido','motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),
+  'contexto',jsonb_build_object('operacion_ref',r.operacion_ref,'registro_contexto_ref',r.registro_contexto_ref,
+   'representacion_canonica_base64',encode(r.representacion_canonica,'base64'),'huella_sha256',r.huella_sha256,
+   'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
+   'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
+   'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text,jsonb) FROM PUBLIC;
+CREATE FUNCTION vec_contexto_actor_v1.reconciliar_contexto_admin_v1(
+ p_operacion text,p_recibo text,p_cuenta text,p_perfil text,p_metodo text,p_garantia text,
+ p_solicitado timestamptz,p_vis text,p_vis_version numeric,p_vis_sha text,p_aut text,p_ses text,
+ p_evento text,p_correlacion text,p_proceso text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='4s' AS $f$
+DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;clase text;codigo text;fuente_acreditada boolean:=false;
+BEGIN
+ PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
+  OR p_metodo NOT IN('certificado','dnie') OR p_garantia IS DISTINCT FROM 'alto'
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_operacion,'oca_') IS NOT TRUE
+  OR vec_contexto_actor_v1.referencia_operacion_valida(p_recibo,'rca_') IS NOT TRUE
+  OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
+ THEN RAISE EXCEPTION 'CA36: consulta ADMIN inválida' USING ERRCODE='22023'; END IF;
+ BEGIN
+  j:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+   p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+  IF jsonb_typeof(j) IS DISTINCT FROM 'object' OR j->>'cuenta_ref' IS DISTINCT FROM p_cuenta
+   OR j->>'perfil_ref' IS DISTINCT FROM p_perfil OR j->>'referencia' IS DISTINCT FROM p_vis
+   OR (j->>'version')::numeric IS DISTINCT FROM p_vis_version OR j->>'huella_sha256' IS DISTINCT FROM p_vis_sha
+   OR j->>'autenticacion_ref' IS DISTINCT FROM p_aut OR j->>'sesion_ref' IS DISTINCT FROM p_ses
+  THEN RAISE EXCEPTION 'CA36: vínculo consulta incompatible' USING ERRCODE='42501'; END IF;
+  fuente_acreditada:=true;
+  SELECT * INTO STRICT l FROM vec_contexto_actor_v1.enlace_contexto_admin_v1 WHERE operacion_ref=p_operacion FOR SHARE;
+  IF l.registro_contexto_ref IS DISTINCT FROM p_recibo OR l.vinculo_sesion_ref IS DISTINCT FROM p_vis
+   OR l.vinculo_sesion_version IS DISTINCT FROM p_vis_version OR l.vinculo_sesion_sha256 IS DISTINCT FROM p_vis_sha
+   OR l.autenticacion_ref IS DISTINCT FROM p_aut OR l.sesion_ref IS DISTINCT FROM p_ses
+   OR l.cuenta_ref IS DISTINCT FROM p_cuenta OR l.perfil_ref IS DISTINCT FROM p_perfil
+   OR l.actor_ref IS DISTINCT FROM j->>'persona_ref' OR l.fuente_ref IS DISTINCT FROM j->>'fuente_ref'
+   OR l.fuente_sha256 IS DISTINCT FROM j->>'fuente_sha256' OR l.evento_ref IS NOT DISTINCT FROM p_evento
+  THEN RAISE EXCEPTION 'CA36: consulta de otro contexto' USING ERRCODE='42501'; END IF;
+  SELECT * INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto
+   WHERE operacion_ref=p_operacion AND registro_contexto_ref=p_recibo FOR SHARE;
+  IF vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
+   (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+  THEN RAISE EXCEPTION 'CA36: consulta sin contexto actual' USING ERRCODE='42501'; END IF;
+  e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+   'reconciliar_contexto_admin',p_operacion,'permitido',l.actor_ref,l.perfil_ref,l.fuente_ref,l.fuente_sha256);
+  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
+  IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
+   OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
+  THEN RAISE EXCEPTION 'CA36: acuse de consulta incompatible' USING ERRCODE='42501'; END IF;
+  j_final:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
+   p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
+  IF j_final IS DISTINCT FROM j OR vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(p_cuenta,l.actor_ref,p_perfil,
+   (j->>'seleccion_revision')::numeric,(j->>'vigente_hasta')::timestamptz,r.representacion_canonica) IS NOT TRUE
+   OR clock_timestamp()>=(j->>'vigente_hasta')::timestamptz
+  THEN RAISE EXCEPTION 'CA36: consulta vencida' USING ERRCODE='42501'; END IF;
+  RETURN jsonb_build_object('estado','permitido','motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),
+   'contexto',jsonb_build_object('operacion_ref',r.operacion_ref,'registro_contexto_ref',r.registro_contexto_ref,
+    'representacion_canonica_base64',encode(r.representacion_canonica,'base64'),'huella_sha256',r.huella_sha256,
+    'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
+    'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
+    'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
+ EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
+  clase:=CASE WHEN codigo IN('42501','22023','23505','P0002','VCA31') THEN 'denegado' ELSE 'error' END;
+ END;
+ e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+  'reconciliar_contexto_admin',p_operacion,clase,
+  CASE WHEN fuente_acreditada THEN j->>'persona_ref' ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN p_perfil ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN j->>'fuente_ref' ELSE NULL END,
+  CASE WHEN fuente_acreditada THEN j->>'fuente_sha256' ELSE NULL END);
+ SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
+ IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
+  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
+ THEN RAISE EXCEPTION 'CA36: acuse negativo de consulta incompatible' USING ERRCODE='42501'; END IF;
+ RETURN jsonb_build_object('estado',clase,'motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),'contexto',NULL);
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.reconciliar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1(),
+ vec_contexto_actor_v1.registrar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text),
+ vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text,jsonb),
+ vec_contexto_actor_v1.reconciliar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)
+ TO vec_contexto_actor_v1_admin_contexto;
+-- El bloqueo $pre$ permanece hasta cotejar la versión final de IS16/AD192,
+-- dos revisiones independientes y ensayo PostgreSQL del escritor único.
 COMMIT;
