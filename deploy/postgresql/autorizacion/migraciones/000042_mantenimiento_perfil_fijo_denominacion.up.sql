@@ -23,6 +23,16 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
  SELECT $datos$[{"accion":"vec.persona.denominacion.publicar","modulo_id":"vec","tipo_recurso":"persona_denominacion","finalidades":["presentacion_persona"],"garantia_minima":"alto","campos_permitidos":["denominacion"],"obligaciones":["auditar"]},{"accion":"vec.persona.denominacion.leer","modulo_id":"vec","tipo_recurso":"persona_denominacion","finalidades":["presentacion_persona"],"garantia_minima":"alto","campos_permitidos":["nombre_mostrar"],"obligaciones":["auditar"]}]$datos$::jsonb
 $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.concesiones_denominacion_persona_admin_v1() FROM PUBLIC;
+CREATE FUNCTION vec_autorizacion.concesiones_usuarios_admin_v1()
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
+ SELECT $datos$[{"accion":"administracion.usuarios.listar","modulo_id":"administracion","tipo_recurso":"conjunto_usuarios","finalidades":["gestion_usuarios"],"garantia_minima":"alto","campos_permitidos":["denominacion_version","perfiles","persona_ref","siguiente_cursor","unidad_ref"],"obligaciones":["auditar"]},{"accion":"administracion.usuarios.consultar","modulo_id":"administracion","tipo_recurso":"persona_administrable","finalidades":["gestion_usuarios"],"garantia_minima":"alto","campos_permitidos":["denominacion_version","perfiles","persona_ref","unidad_ref"],"obligaciones":["auditar"]}]$datos$::jsonb
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.concesiones_usuarios_admin_v1() FROM PUBLIC;
+CREATE FUNCTION vec_autorizacion.concesiones_mantenimiento_fijo_admin_v1()
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
+ SELECT vec_autorizacion.concesiones_denominacion_persona_admin_v1()||vec_autorizacion.concesiones_usuarios_admin_v1()
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.concesiones_mantenimiento_fijo_admin_v1() FROM PUBLIC;
 DO $fuente_acreditar_perfil_aplicacion_nominal_v1$
 DECLARE actual text;
 BEGIN
@@ -267,9 +277,9 @@ BEGIN
  OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v5')
  OR jsonb_array_length(vec_autorizacion.administradores_aplicacion_efectivos_internos_v3())<>2
  THEN RAISE EXCEPTION 'AUT42: PARO clave=fuente actual=divergente esperado=rol4_catalogo_y_dos_APP_vivos' USING ERRCODE='40001'; END IF;
- IF (p->'rol_destino_doc') IS DISTINCT FROM jsonb_set(jsonb_set(jsonb_set(jsonb_set(r.documento,'{version}','5'),'{concesiones}',r.documento->'concesiones'||vec_autorizacion.concesiones_denominacion_persona_admin_v1()),'{publicada_por}',p#>'{rol_destino_doc,publicada_por}'),'{publicada_en}',p#>'{rol_destino_doc,publicada_en}')
+ IF (p->'rol_destino_doc') IS DISTINCT FROM jsonb_set(jsonb_set(jsonb_set(jsonb_set(r.documento,'{version}','5'),'{concesiones}',r.documento->'concesiones'||vec_autorizacion.concesiones_mantenimiento_fijo_admin_v1()),'{publicada_por}',p#>'{rol_destino_doc,publicada_por}'),'{publicada_en}',p#>'{rol_destino_doc,publicada_en}')
  OR p#>>'{rol_destino_doc,publicada_en}' IS DISTINCT FROM p->>'preparado_en' OR vec_autorizacion.concesiones_positivas_validas(p->'rol_destino_doc') IS NOT TRUE
- THEN RAISE EXCEPTION 'AUT42: PARO clave=rol_destino actual=divergente esperado=clone4_mas_dos_concesiones_cerradas' USING ERRCODE='22023'; END IF;
+ THEN RAISE EXCEPTION 'AUT42: PARO clave=rol_destino actual=divergente esperado=clone4_mas_cuatro_concesiones_cerradas' USING ERRCODE='22023'; END IF;
  FOR t IN SELECT value FROM jsonb_array_elements(p->'asignaciones') ORDER BY value->>'perfil_ref' LOOP
   IF jsonb_typeof(t) IS DISTINCT FROM 'object' OR NOT t ?& ARRAY['perfil_ref','asignacion_origen_ref','asignacion_origen_sha256','persona_ref','cuenta_ref','vinculo_ref','cuenta_version','persona_version','perfil_version','vinculo_version','ambitos_fuente']
   OR (SELECT count(*) FROM jsonb_object_keys(t))<>11 THEN RAISE EXCEPTION 'AUT42: PARO clave=objetivo actual=invalido esperado=campos_exactos_de_asignacion' USING ERRCODE='22023'; END IF;
@@ -347,7 +357,7 @@ BEGIN
   FOR c IN SELECT to_jsonb(x) FROM vec_autorizacion.catalogo_accion_nominal_v1 x WHERE x.version_rol_ref='rol:administracion_perfiles:v4' ORDER BY x.accion_ref LOOP
    INSERT INTO vec_autorizacion.catalogo_accion_nominal_v1 VALUES(c->>'accion_ref',2,'rol:administracion_perfiles:v5',5,target_sha,'rol:administracion_perfiles:v5',c->'concesion',c->'dimensiones_ambito','administrador_aplicacion',instante,(c->>'vigente_hasta')::timestamptz);
   END LOOP;
-  FOR c IN SELECT value FROM jsonb_array_elements(vec_autorizacion.concesiones_denominacion_persona_admin_v1()) LOOP
+  FOR c IN SELECT value FROM jsonb_array_elements(vec_autorizacion.concesiones_mantenimiento_fijo_admin_v1()) LOOP
    INSERT INTO vec_autorizacion.catalogo_accion_nominal_v1 VALUES('accion:'||(c->>'accion'),1,'rol:administracion_perfiles:v5',5,target_sha,'rol:administracion_perfiles:v5',c,'["organizacion_ref","unidad_ref"]','administrador_aplicacion',instante,NULL);
   END LOOP;
   FOR t IN SELECT value FROM jsonb_array_elements(destinos) LOOP

@@ -26,8 +26,8 @@ asignaciones[2] {
 ```
 
 `rol_destino_doc` debe ser copia exacta de Rol4, salvo versión5, publicador
-`mantenimiento_operador:<LOGIN real>`, fecha igual a preparación y las dos
-concesiones cerradas del catálogo de denominación. No se acepta un documento
+`mantenimiento_operador:<LOGIN real>`, fecha igual a preparación y las cuatro
+concesiones cerradas de los catálogos de denominación y usuarios. No se acepta un documento
 arbitrario aunque su SHA esté aprobado. Los campos/vigencias/ámbitos originales
 se conservan en ambas asignaciones v2; no se crea Persona, perfil o vínculo CA.
 
@@ -64,3 +64,13 @@ propietarios. La lista de esta rama sólo contiene la migración42. No se
 reaplican SQL instaladas ni se ejecuta DOWN. Las actas SQL reales y dos revisiones
 exactas las coordina dirección. La vigencia antigua del ensayo no se amplía:
 el positivo se realiza en otro objetivo recuperado y aprobado si ha caducado.
+
+Las acciones `administracion.usuarios.listar`/`consultar` tienen finalidad
+`gestion_usuarios`, garantía `alto` y obligación `[auditar]`. Exigen organización
+y unidad. Los campos cerrados de listado son
+`[denominacion_version,perfiles,persona_ref,siguiente_cursor,unidad_ref]`; en
+consulta se omite `siguiente_cursor`. `perfiles` sólo proyecta referencia,
+versión de rol, versión CA, estado y vigencia. La denominación se autoriza
+aparte por `vec.persona.denominacion.leer`; no se incluyen actos, certificados
+ni historia. AUT43 aportará sus gates propios: los helpers legados siguen
+admitiendo exactamente el catálogo heredado4/5, sin ampliar su ámbito.
