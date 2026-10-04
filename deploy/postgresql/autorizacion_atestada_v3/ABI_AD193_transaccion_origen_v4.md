@@ -1,6 +1,6 @@
 # ABI AD193: consumo confirmado v4
 
-Candidata desde `origin/main@296f78373`. No instalada ni ensayada. Las cinco
+Candidata desde `origin/main@296f78373`. Instalada y ensayada estructuralmente sólo en el clon privado; queda pendiente el recorrido causal nominal. Las cinco
 preimágenes esperadas están fijadas como literales medidos en una copia fría:
 núcleo/comprobador POST173, idénticos tras AD189, y CHECK POST189
 `6b92079faedcd2482b720b1d0714ba6a1b09dc359badae8f6d7c0dd3f3275caf`.
@@ -125,8 +125,8 @@ para aprobar el destino. Las postimágenes completas de definición y cuerpo
 del núcleo y comprobador también se comprueban como literales medidos.
 
 La prueba SQL incluida verifica columnas/ACL y un vector de 16 campos con XID
-superior al entero seguro de JSON. No fabrica filas favorables. Faltan ensayo
-PostgreSQL real, dos revisiones independientes y conformidad K antes de LISTA.
+superior al entero seguro de JSON. No fabrica filas favorables. Quedan pendientes el ensayo causal con productores VEC reales y la
+conformidad de K antes de LISTA.
 El ensayo causal de dirección debe demostrar con productores VEC reales:
 
 1. Consumo fresco y comprobador en la misma transacción: ambos sellos iguales,
