@@ -244,7 +244,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.documento_asignacion_destino_mantenimien
 
 CREATE FUNCTION vec_autorizacion.preimagen_mantenimiento_perfil_fijo_admin_v1(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' AS $f$
-DECLARE r record;c record;meta record;gob record;a record;ptr record;t jsonb;asigs jsonb:='[]';cat jsonb;amb jsonb;ca boolean;
+DECLARE r record;c record;meta record;gob record;a record;ptr record;t jsonb;asigs jsonb:='[]';cat jsonb;amb jsonb;ca_viva boolean;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'AUT42: PARO clave=transaccion actual=divergente esperado=SERIALIZABLE_RW' USING ERRCODE='25000'; END IF;
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR NOT p ?& ARRAY['version','operacion_ref','preparado_en','caduca_en','rol_origen_sha256','control_revision_esperada','control_huella_sha256','catalogo_sha256','rol_destino_doc','asignaciones']
@@ -261,6 +261,8 @@ BEGIN
  IF r.huella_sha256 IS DISTINCT FROM p->>'rol_origen_sha256' OR r.documento->>'estado'<>'publicada' OR r.huella_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(vec_autorizacion.canon_version_rol_admin_v1(r.documento),'UTF8')),'hex')
  OR c.estado<>'habilitada' OR c.revision::text IS DISTINCT FROM p->>'control_revision_esperada' OR c.huella_sha256 IS DISTINCT FROM p->>'control_huella_sha256' OR c.huella_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(vec_autorizacion.canon_control_rol_admin_v1(c.documento),'UTF8')),'hex')
  OR meta.categoria_administrativa<>'aplicacion' OR meta.tipo_perfil<>'fijo_sistema' OR meta.version_rol_huella_sha256<>r.huella_sha256 OR meta.fuente_ref<>r.version_rol_ref OR meta.fuente_version<>4 OR meta.fuente_huella_sha256<>r.huella_sha256
+ OR gob.clase<>'administrador' OR gob.huella_sha256<>r.huella_sha256
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(cat) x WHERE x->>'fuente_ref'<>r.version_rol_ref OR x->>'fuente_version'<>'4' OR x->>'fuente_huella_sha256'<>r.huella_sha256 OR x->>'clase_control'<>'administrador_aplicacion' OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') v WHERE v=x->'concesion'))
  OR encode(pg_catalog.sha256(convert_to(cat::text,'UTF8')),'hex') IS DISTINCT FROM p->>'catalogo_sha256'
  OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v5')
  OR jsonb_array_length(vec_autorizacion.administradores_aplicacion_efectivos_internos_v3())<>2
@@ -269,15 +271,17 @@ BEGIN
  OR p#>>'{rol_destino_doc,publicada_en}' IS DISTINCT FROM p->>'preparado_en' OR vec_autorizacion.concesiones_positivas_validas(p->'rol_destino_doc') IS NOT TRUE
  THEN RAISE EXCEPTION 'AUT42: PARO clave=rol_destino actual=divergente esperado=clone4_mas_dos_concesiones_cerradas' USING ERRCODE='22023'; END IF;
  FOR t IN SELECT value FROM jsonb_array_elements(p->'asignaciones') ORDER BY value->>'perfil_ref' LOOP
+  IF jsonb_typeof(t) IS DISTINCT FROM 'object' OR NOT t ?& ARRAY['perfil_ref','asignacion_origen_ref','asignacion_origen_sha256','persona_ref','cuenta_ref','vinculo_ref','cuenta_version','persona_version','perfil_version','vinculo_version','ambitos_fuente']
+  OR (SELECT count(*) FROM jsonb_object_keys(t))<>11 THEN RAISE EXCEPTION 'AUT42: PARO clave=objetivo actual=invalido esperado=campos_exactos_de_asignacion' USING ERRCODE='22023'; END IF;
   SELECT x.* INTO STRICT a FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref) WHERE q.perfil_activo_ref=t->>'perfil_ref' FOR UPDATE OF q;
   IF a.asignacion_ref IS DISTINCT FROM t->>'asignacion_origen_ref' OR a.huella_sha256 IS DISTINCT FROM t->>'asignacion_origen_sha256' OR a.version<>1 OR a.version_rol_ref<>r.version_rol_ref OR a.principal_id IS DISTINCT FROM t->>'persona_ref' OR a.documento->>'estado'<>'activa'
   OR a.huella_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(vec_autorizacion.canon_asignacion_perfil_admin_v1(a.documento),'UTF8')),'hex')
   OR clock_timestamp()<(a.documento->>'vigente_desde')::timestamptz OR (p->>'caduca_en')::timestamptz>=(a.documento->>'vigente_hasta')::timestamptz
   OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil h WHERE h.asignacion_id=a.asignacion_id AND h.documento->>'estado'='revocada')
   THEN RAISE EXCEPTION 'AUT42: PARO clave=asignacion actual=divergente esperado=APP4_v1_viva_sin_revocacion' USING ERRCODE='40001'; END IF;
-  ca:=vec_contexto_actor_v1.bloquear_contexto_admin_v1(t->>'cuenta_ref',t->>'persona_ref',t->>'perfil_ref',t->>'vinculo_ref',(t->>'cuenta_version')::numeric,(t->>'persona_version')::numeric,(t->>'perfil_version')::numeric,(t->>'vinculo_version')::numeric);
+  ca_viva:=vec_contexto_actor_v1.bloquear_contexto_admin_v1(t->>'cuenta_ref',t->>'persona_ref',t->>'perfil_ref',t->>'vinculo_ref',(t->>'cuenta_version')::numeric,(t->>'persona_version')::numeric,(t->>'perfil_version')::numeric,(t->>'vinculo_version')::numeric);
   amb:=vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(t->'ambitos_fuente',(a.documento->>'vigente_hasta')::timestamptz);
-  IF ca IS NOT TRUE OR amb->'ambitos' IS DISTINCT FROM a.documento->'ambitos' OR jsonb_array_length(a.documento->'ambitos')<>2 THEN RAISE EXCEPTION 'AUT42: PARO clave=CA_ambitos actual=divergente esperado=CA_y_org_unidad_propietarias' USING ERRCODE='42501'; END IF;
+  IF ca_viva IS NOT TRUE OR amb->'ambitos' IS DISTINCT FROM a.documento->'ambitos' OR jsonb_array_length(a.documento->'ambitos')<>2 THEN RAISE EXCEPTION 'AUT42: PARO clave=CA_ambitos actual=divergente esperado=CA_y_org_unidad_propietarias' USING ERRCODE='42501'; END IF;
   asigs:=asigs||jsonb_build_array(jsonb_build_object('asignacion',to_jsonb(a),'fuentes_ambito',amb,'contexto',t));
  END LOOP;
  IF (SELECT count(DISTINCT x.value#>>'{asignacion,principal_id}') FROM jsonb_array_elements(asigs) x)<>2 OR (SELECT count(DISTINCT x.value#>>'{asignacion,perfil_activo_ref}') FROM jsonb_array_elements(asigs) x)<>2 THEN RAISE EXCEPTION 'AUT42: PARO clave=dos_APP actual=duplicadas esperado=dos_personas_perfiles_distintos' USING ERRCODE='22023'; END IF;
@@ -303,6 +307,7 @@ BEGIN
   IF pre_sha IS DISTINCT FROM cfg.preimagen_sha256 THEN RAISE EXCEPTION 'AUT42: PARO clave=preimagen actual=% esperado=%',pre_sha,cfg.preimagen_sha256 USING ERRCODE='40001'; END IF;
  ELSE
   pre_sha:=cfg.preimagen_sha256;
+  IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.control_vigencia_version_rol_actual q JOIN vec_autorizacion.control_vigencia_version_rol x USING(version_rol_ref,revision) WHERE q.version_rol_ref='rol:administracion_perfiles:v5' AND x.estado='habilitada') THEN RAISE EXCEPTION 'AUT42: PARO clave=replay_control actual=no_vigente esperado=rol5_habilitado' USING ERRCODE='40001'; END IF;
   IF r5.huella_sha256 IS DISTINCT FROM target_sha OR r5.documento IS DISTINCT FROM target OR r5.documento->>'estado'<>'publicada' OR r4.huella_sha256 IS DISTINCT FROM p->>'rol_origen_sha256' THEN RAISE EXCEPTION 'AUT42: PARO clave=replay_rol actual=divergente esperado=publicacion_original_viva' USING ERRCODE='40001'; END IF;
  END IF;
  FOR t IN SELECT value FROM jsonb_array_elements(p->'asignaciones') ORDER BY value->>'perfil_ref' LOOP
@@ -326,7 +331,7 @@ BEGIN
   'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','mantenimiento_perfil_fijo_admin','correlacion_ref',corr);
  SELECT * INTO STRICT aud FROM vec_autorizacion_atestada_v3.registrar_mantenimiento_perfil_fijo_admin_v1(e);
  IF replay THEN
-  IF sello.auditoria_ref IS DISTINCT FROM aud.auditoria_ref THEN RAISE EXCEPTION 'AUT42: PARO clave=acuse actual=divergente esperado=confirmacion_comun_original' USING ERRCODE='40001'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(destinos) x JOIN vec_autorizacion.sello_efecto_admin_tx_v1 z ON z.asignacion_ref=x.value->>'ref' WHERE z.auditoria_ref IS DISTINCT FROM aud.auditoria_ref OR z.operacion_ref IS DISTINCT FROM p->>'operacion_ref') THEN RAISE EXCEPTION 'AUT42: PARO clave=acuse actual=divergente esperado=confirmacion_comun_original' USING ERRCODE='40001'; END IF;
  ELSE
   instante:=(target->>'publicada_en')::timestamptz;
   INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento) VALUES('rol:administracion_perfiles:v5','administracion_perfiles',5,target_sha,instante,target);
