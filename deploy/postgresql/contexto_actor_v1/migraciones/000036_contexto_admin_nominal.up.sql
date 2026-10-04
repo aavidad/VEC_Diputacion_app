@@ -135,6 +135,62 @@ CREATE TRIGGER enlace_exacto BEFORE INSERT ON vec_contexto_actor_v1.enlace_conte
  FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.validar_enlace_contexto_admin_v1();
 REVOKE ALL ON TABLE vec_contexto_actor_v1.enlace_contexto_admin_v1 FROM PUBLIC;
 REVOKE ALL ON TYPE vec_contexto_actor_v1.enlace_contexto_admin_v1 FROM PUBLIC;
+CREATE FUNCTION vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(
+ p_cuenta text,p_persona text,p_perfil text,p_revision numeric,p_hasta timestamptz,p_canon bytea)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+DECLARE s record;c record;pe record;pf record;v record;j jsonb;ahora timestamptz;
+BEGIN
+ IF current_setting('transaction_read_only')<>'off' OR current_setting('transaction_isolation') NOT IN('serializable','read committed')
+  OR vec_contexto_actor_v1.referencia_valida(p_cuenta,'cta_') IS NOT TRUE
+  OR vec_contexto_actor_v1.referencia_valida(p_persona,'per_') IS NOT TRUE
+  OR vec_contexto_actor_v1.referencia_valida(p_perfil,'prf_') IS NOT TRUE
+  OR p_revision IS NULL OR p_revision<>trunc(p_revision) OR p_revision NOT BETWEEN 1 AND 18446744073709551615::numeric
+  OR vec_contexto_actor_v1.instante_valido(p_hasta) IS NOT TRUE OR p_canon IS NULL OR octet_length(p_canon) NOT BETWEEN 1 AND 65536
+ THEN RETURN false; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
+ SELECT x.* INTO s FROM vec_contexto_actor_v1.seleccion_admin_actual_auditada_v1 a
+ JOIN vec_contexto_actor_v1.seleccion_admin_auditada_v1 x USING(cuenta_ref,revision)
+ WHERE a.cuenta_ref=p_cuenta FOR SHARE OF a;
+ IF NOT FOUND OR s.revision IS DISTINCT FROM p_revision OR s.persona_ref IS DISTINCT FROM p_persona
+  OR s.perfil_ref IS DISTINCT FROM p_perfil THEN RETURN false; END IF;
+ SELECT x.* INTO c FROM vec_contexto_actor_v1.proyeccion_cuenta_actual a
+ JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones x USING(cuenta_ref,version)
+ WHERE a.cuenta_ref=p_cuenta FOR SHARE OF a;
+ IF NOT FOUND THEN RETURN false; END IF;
+ SELECT x.* INTO pe FROM vec_contexto_actor_v1.persona_actual a
+ JOIN vec_contexto_actor_v1.persona_versiones x USING(persona_ref,version)
+ WHERE a.persona_ref=p_persona FOR SHARE OF a;
+ IF NOT FOUND THEN RETURN false; END IF;
+ SELECT x.* INTO pf FROM vec_contexto_actor_v1.perfil_actual a
+ JOIN vec_contexto_actor_v1.perfil_versiones x USING(perfil_ref,version)
+ WHERE a.perfil_ref=p_perfil FOR SHARE OF a;
+ IF NOT FOUND THEN RETURN false; END IF;
+ SELECT x.* INTO v FROM vec_contexto_actor_v1.vinculo_contexto_actual a
+ JOIN vec_contexto_actor_v1.vinculo_contexto_versiones x USING(vinculo_ref,version)
+ WHERE a.vinculo_ref=s.vinculo_ref FOR SHARE OF a;
+ IF NOT FOUND THEN RETURN false; END IF;
+ j:=convert_from(p_canon,'UTF8')::jsonb;
+ ahora:=clock_timestamp();
+ RETURN jsonb_typeof(j)='object' AND j->>'esquema'='vec.contexto-actor.vinculado.v2'
+  AND j->>'cuenta_ref'=p_cuenta AND j->>'persona_ref'=p_persona AND j->>'perfil_activo_ref'=p_perfil
+  AND (j->>'cuenta_version')::numeric IS NOT DISTINCT FROM c.version
+  AND (j->>'persona_version')::numeric IS NOT DISTINCT FROM pe.version
+  AND (j->>'perfil_version')::numeric IS NOT DISTINCT FROM pf.version
+  AND (j->>'contexto_version')::numeric IS NOT DISTINCT FROM v.version
+  AND j->>'contexto_actor_ref'=v.vinculo_ref
+  AND v.cuenta_ref=p_cuenta AND v.persona_ref=p_persona AND v.perfil_ref=p_perfil
+  AND pf.persona_ref=p_persona
+  AND c.estado='activo' AND pe.estado='activo' AND pf.estado='activo' AND v.estado='activo'
+  AND c.procedencia_autoridad='autoridad_maestra_acreditada'
+  AND pe.procedencia_autoridad='autoridad_maestra_acreditada'
+  AND pf.procedencia_autoridad='autoridad_maestra_acreditada'
+  AND v.procedencia_autoridad='autoridad_maestra_acreditada'
+  AND ahora>=GREATEST(c.vigente_desde,pe.vigente_desde,pf.vigente_desde,v.vigente_desde)
+  AND ahora<LEAST(c.vigente_hasta,pe.vigente_hasta,pf.vigente_hasta,v.vigente_hasta,p_hasta);
+EXCEPTION WHEN data_exception THEN RETURN false;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.cotejar_contexto_admin_actual_v1(text,text,text,numeric,timestamptz,bytea) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
  p_operacion_ref text,p_registro_contexto_ref text,p_cuenta_ref text,p_perfil_ref text,
  p_metodo text,p_garantia text,p_solicitado_en timestamptz,p_proyecciones text[])
