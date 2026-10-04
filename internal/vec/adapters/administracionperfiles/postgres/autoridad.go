@@ -185,13 +185,9 @@ func (a *Autoridad) validarAdministrador(ctx context.Context, instantanea domain
 	return nil
 }
 
-// AplicarLoteOrdinario conserva cerrado el efecto hasta disponer de una fachada
-// central de lote aprobada. Nunca transforma la orden en actos singulares.
-func (a *Autoridad) AplicarLoteOrdinario(ctx context.Context, _ domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
-	if ctx != nil && ctx.Err() != nil {
-		return domain.ReciboLoteAdministracionPerfiles{}, ctx.Err()
-	}
-	return domain.ReciboLoteAdministracionPerfiles{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+// AplicarLoteOrdinario usa una sola fachada central y un único consumo V3.
+func (a *Autoridad) AplicarLoteOrdinario(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
+	return a.aplicarLoteOrdinario(ctx, s)
 }
 
 func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
