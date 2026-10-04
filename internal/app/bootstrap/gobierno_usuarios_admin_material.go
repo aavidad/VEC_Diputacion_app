@@ -8,12 +8,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"vec-diputacion-granada/internal/app/administracion"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -44,8 +46,9 @@ type MaterialUsuariosAdmin struct {
 	cerrado  bool
 }
 
-func (*MaterialUsuariosAdmin) String() string     { return "[MATERIAL-USUARIOS-ADMIN-PRIVADO]" }
-func (m *MaterialUsuariosAdmin) GoString() string { return m.String() }
+func (*MaterialUsuariosAdmin) String() string               { return "[MATERIAL-USUARIOS-ADMIN-PRIVADO]" }
+func (m *MaterialUsuariosAdmin) GoString() string           { return m.String() }
+func (m *MaterialUsuariosAdmin) Format(s fmt.State, _ rune) { _, _ = io.WriteString(s, m.String()) }
 func (m *MaterialUsuariosAdmin) MarshalJSON() ([]byte, error) {
 	return []byte(`{"material":"oculto"}`), nil
 }
@@ -77,7 +80,7 @@ func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMateria
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	cabecera := administracion.ConfiguracionConfianzaUsuariosV3{Raiz: cfg.Raiz, Gobierno: cfg.Gobierno}
-	cabecera.Cabecera.FormatoVersion = 3
+	cabecera.Cabecera.FormatoVersion = domain.VersionFormatoAtestacionAutorizacionV3
 	cabecera.Cabecera.Suite = confianza.SuiteAtestacionAutorizacionV3COSEEdDSA
 	cabecera.Cabecera.ClaveID = cfg.Raiz.ClaveID
 	cabecera.Cabecera.Audiencia = cfg.Raiz.Audiencia
