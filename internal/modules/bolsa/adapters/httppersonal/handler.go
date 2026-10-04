@@ -71,10 +71,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	resultado, err := h.consultor.Consultar(r.Context(), orden)
 	if err != nil {
+		publicarAcuseLecturaFallida(w, err)
 		responderError(w, err)
 		return
 	}
 	responder(w, 200, filtrarRespuesta(nuevaRespuesta(resultado), campos))
+}
+
+// Solo el error privado del servicio auditado puede entregar este acuse.
+// No se acepta una cabecera de petición ni un identificador aportado por HTTP.
+func publicarAcuseLecturaFallida(w http.ResponseWriter, err error) {
+	if acuse, ok := mibolsa.AcuseLecturaFallida(err); ok {
+		w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+		w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
+	}
 }
 
 // cuerpoAusente admite el GET sin cuerpo de HTTP/1.1 (http.NoBody) y el de
