@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"reflect"
 
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -27,7 +26,7 @@ func EmitirExportacionAuditoriaDesarrollo(ctx context.Context, fuente ports.Fuen
 	}
 	captura, err := fuente.CapturarAuditoriaParaExportacion(ctx)
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if ctx.Err() != nil || captura.Captura.Validar() != nil || captura.Cobertura.Validar() != nil ||
 		len(captura.Documento) == 0 || int64(len(captura.Documento)) > maxBytes || captura.Cobertura.Registros > maxRegistros {
@@ -36,7 +35,7 @@ func EmitirExportacionAuditoriaDesarrollo(ctx context.Context, fuente ports.Fuen
 	documento := append([]byte(nil), captura.Documento...)
 	esquema, informe, err := auditoria.VerificarDocumentoExportacionAuditoria(documento, captura.Cobertura, maxBytes, maxRegistros)
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if informe.Estado != "verificada" || ctx.Err() != nil {
 		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, fallo
@@ -49,7 +48,7 @@ func EmitirExportacionAuditoriaDesarrollo(ctx context.Context, fuente ports.Fuen
 		HistoricosSinFechaLigada: informe.ConsumosHistoricosSinFechaLigada,
 	}
 	if _, err := manifiesto.Canonico(); err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	pin := f.PinExportacionAuditoria()
 	if !domain.SHA256CheckpointValido(pin) || ctx.Err() != nil {
@@ -57,7 +56,7 @@ func EmitirExportacionAuditoriaDesarrollo(ctx context.Context, fuente ports.Fuen
 	}
 	sello, err := t.SellarExportacionAuditoria(ctx, manifiesto)
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if ctx.Err() != nil {
 		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, fallo
@@ -65,21 +64,21 @@ func EmitirExportacionAuditoriaDesarrollo(ctx context.Context, fuente ports.Fuen
 	recibo := domain.ReciboExportacionAuditoriaDesarrollo{Manifiesto: manifiesto, TSA: sello, PinSPKISHA256: pin}
 	preimagen, err := recibo.CanonicoParaFirma()
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if ctx.Err() != nil {
 		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, fallo
 	}
 	firmado, err := f.FirmarExportacionAuditoria(ctx, recibo)
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if ctx.Err() != nil {
 		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, fallo
 	}
 	confirmada, err := firmado.CanonicoParaFirma()
 	if err != nil {
-		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errors.Join(fallo, err)
+		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, errorExportacionAuditoria{causa: err}
 	}
 	if string(confirmada) != string(preimagen) || !firmaExportacionCanonica(firmado.FirmaBase64) {
 		return domain.ReciboExportacionAuditoriaDesarrollo{}, nil, fallo
@@ -178,4 +177,13 @@ func dependenciaExportacionNula(valor any) bool {
 	default:
 		return false
 	}
+}
+
+// Conserva la causa para errors.Is/As sin incluir su mensaje en registros o
+// transportes que conviertan el error nominal a texto.
+type errorExportacionAuditoria struct{ causa error }
+
+func (errorExportacionAuditoria) Error() string { return domain.ErrCheckpointInvalido.Error() }
+func (e errorExportacionAuditoria) Unwrap() []error {
+	return []error{domain.ErrCheckpointInvalido, e.causa}
 }

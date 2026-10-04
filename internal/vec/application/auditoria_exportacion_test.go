@@ -162,3 +162,13 @@ func TestExportacionAuditoriaFirmaAntesDeDocumento(t *testing.T) {
 		t.Fatalf("verificador ausente: %+v", informe)
 	}
 }
+
+func TestExportacionAuditoriaErrorConservaCausaSinExponerMensaje(t *testing.T) {
+	captura, politica := datosExportacionPrueba(t)
+	causa := errors.New("detalle_privado_sintetico")
+	fuente := &fuenteExportacionPrueba{captura: captura, err: causa}
+	r, b, err := EmitirExportacionAuditoriaDesarrollo(context.Background(), fuente, politica, &firmadorExportacionPrueba{}, &selladorExportacionPrueba{}, 1<<20, 100)
+	if !errors.Is(err, causa) || !errors.Is(err, domain.ErrCheckpointInvalido) || err.Error() != domain.ErrCheckpointInvalido.Error() || b != nil || r.FirmaBase64 != "" {
+		t.Fatal("causa perdida o mensaje expuesto")
+	}
+}
