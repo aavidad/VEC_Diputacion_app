@@ -108,7 +108,7 @@ BEGIN
  vec_autorizacion_atestada_v3.encuadrar_mac(v_ref)||vec_autorizacion_atestada_v3.encuadrar_mac(v_material)||
  vec_autorizacion_atestada_v3.encuadrar_mac(to_char(v_fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),'hex');
  INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,evento_ref,evento_material_sha256,operador_login,accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,correlacion_ref,periodica_detalle)
- VALUES(v_ref,v_seq,v_prev,v_hash,v_fecha,'operacion_tecnica_auditoria_periodica',v_evento,session_user::name,p_accion,'auditoria','auditoria_periodica:comun_interna','integridad_auditoria_periodica',p_resultado,p_motivo,'postgresql','operacion_tecnica_privada',p_correlacion,p_detalle);
+ VALUES(v_ref,v_seq,v_prev,v_hash,v_fecha,'operacion_tecnica_auditoria_periodica',v_evento,v_material,session_user::name,p_accion,'auditoria','auditoria_periodica:comun_interna','integridad_auditoria_periodica',p_resultado,p_motivo,'postgresql','operacion_tecnica_privada',p_correlacion,p_detalle);
  UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria SET secuencia=v_seq,cabeza_sha256=v_hash,actualizada_en=v_fecha WHERE control_id;
  RETURN jsonb_build_object('auditoria_ref',v_ref,'secuencia',v_seq,'huella_sha256',v_hash,'registrada_en',to_char(v_fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',p_correlacion);
 END $f$;
@@ -119,7 +119,9 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_anterior record;v_sha text;v_version bigint;v_acuse jsonb;v_p jsonb;v_k text;
 BEGIN
- IF NOT pg_has_role(session_user,'vec_auditoria_periodica_configurador','MEMBER')
+ IF pg_has_role(session_user,'vec_autorizacion_atestada_v3_propietario','MEMBER')
+ OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
+ OR NOT pg_has_role(session_user,'vec_auditoria_periodica_configurador','MEMBER')
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
  IF jsonb_typeof(p_configuracion) IS DISTINCT FROM 'object' OR octet_length(p_configuracion::text)>4096
@@ -135,6 +137,7 @@ BEGIN
  OR jsonb_typeof(p_configuracion->'activa') IS DISTINCT FROM 'boolean'
  OR jsonb_typeof(p_configuracion->'pin_spki_sha256') IS DISTINCT FROM 'string'
  OR (p_configuracion->>'pin_spki_sha256') !~ '^[0-9a-f]{64}$'
+ OR (p_configuracion->>'pin_spki_sha256')=repeat('0',64)
  THEN RAISE EXCEPTION 'periodica_configuracion_invalida' USING ERRCODE='22023'; END IF;
  v_p:=p_configuracion->'politica';
  IF jsonb_typeof(v_p) IS DISTINCT FROM 'object'
@@ -173,7 +176,9 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_cfg record;v_c record;v_ultimo record;v_a record;v_acuse jsonb;v_n numeric;v_h text;v_desde numeric;v_prev text;v_ref text;v_cp jsonb;
 BEGIN
- IF NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
+ IF pg_has_role(session_user,'vec_autorizacion_atestada_v3_propietario','MEMBER')
+ OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
+ OR NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
  SELECT * INTO v_cfg FROM vec_autorizacion_atestada_v3.politicas_sello_periodico_v1 ORDER BY version DESC LIMIT 1;
@@ -213,7 +218,9 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_c record;v_cfg record;v_r record;v_acuse jsonb;v_a record;v_recibo jsonb;
 BEGIN
- IF NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
+ IF pg_has_role(session_user,'vec_autorizacion_atestada_v3_propietario','MEMBER')
+ OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
+ OR NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
  SELECT * INTO v_cfg FROM vec_autorizacion_atestada_v3.politicas_sello_periodico_v1 ORDER BY version DESC LIMIT 1;
@@ -260,9 +267,11 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1
 CREATE FUNCTION vec_autorizacion_atestada_v3.recuperar_sello_periodico_v1(p_captura text,p_correlacion text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
-DECLARE v_cfg record;v_c record;v_r record;v_a record;v_acuse jsonb;v_confirmacion jsonb;v_salida jsonb;
+DECLARE v_cfg record;v_original record;v_c record;v_r record;v_a record;v_acuse jsonb;v_confirmacion jsonb;v_salida jsonb;
 BEGIN
- IF NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
+ IF pg_has_role(session_user,'vec_autorizacion_atestada_v3_propietario','MEMBER')
+ OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
+ OR NOT pg_has_role(session_user,'vec_auditoria_periodica_sellador','MEMBER')
  THEN RAISE EXCEPTION 'periodica_autoridad_denegada' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:periodica',0));
  SELECT * INTO v_cfg FROM vec_autorizacion_atestada_v3.politicas_sello_periodico_v1 ORDER BY version DESC LIMIT 1;
@@ -273,11 +282,12 @@ BEGIN
  PERFORM vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','captura_recuperada',p_correlacion,jsonb_build_object('captura_ref',p_captura,'configuracion_sha256',v_cfg.huella_sha256,'perfil_tecnico_ref','vec_auditoria_periodica_sellador'));
  SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_c.auditoria_ref;
  v_acuse:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref);
- v_salida:=jsonb_build_object('estado','pendiente','captura_ref',p_captura,'configuracion_version',v_c.configuracion_version,'configuracion_sha256',v_cfg.huella_sha256,'pin_spki_sha256',v_cfg.configuracion->>'pin_spki_sha256','checkpoint',v_c.checkpoint,'acuse',v_acuse);
+ SELECT * INTO STRICT v_original FROM vec_autorizacion_atestada_v3.politicas_sello_periodico_v1 WHERE version=v_c.configuracion_version;
+ v_salida:=jsonb_build_object('estado','pendiente','captura_ref',p_captura,'configuracion_version',v_c.configuracion_version,'configuracion_sha256',v_original.huella_sha256,'pin_spki_sha256',v_original.configuracion->>'pin_spki_sha256','checkpoint',v_c.checkpoint,'acuse',v_acuse);
  IF v_r.captura_ref IS NOT NULL THEN
   SELECT * INTO STRICT v_a FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE auditoria_ref=v_r.auditoria_ref;
   v_confirmacion:=jsonb_build_object('auditoria_ref',v_a.auditoria_ref,'secuencia',v_a.secuencia,'huella_sha256',v_a.huella_sha256,'registrada_en',to_char(v_a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'correlacion_ref',v_a.correlacion_ref,'captura_ref',p_captura,'recibo_huella_sha256',v_r.recibo_sha256);
-  v_salida:=v_salida||jsonb_build_object('estado','confirmado','recibo',v_r.recibo,'acuse_confirmacion',v_confirmacion);
+  v_salida:=v_salida||jsonb_build_object('estado','confirmado','recibo',v_r.recibo,'recibo_texto',v_r.recibo_texto,'acuse_confirmacion',v_confirmacion);
  END IF;
  RETURN v_salida;
 END $f$;
@@ -290,6 +300,8 @@ DECLARE v_perfil text;
 BEGIN
  v_perfil:=CASE WHEN p_accion='configurar_sello_periodico_v1' THEN 'vec_auditoria_periodica_configurador' ELSE 'vec_auditoria_periodica_sellador' END;
  IF p_accion IS NULL OR p_resultado IS NULL OR p_accion NOT IN('configurar_sello_periodico_v1','capturar_sello_periodico_v1','confirmar_sello_periodico_v1') OR p_resultado NOT IN('denegado','error')
+ OR pg_has_role(session_user,'vec_autorizacion_atestada_v3_propietario','MEMBER')
+ OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
  OR NOT pg_has_role(session_user,v_perfil,'MEMBER')
  THEN RAISE EXCEPTION 'periodica_intento_denegado' USING ERRCODE='42501'; END IF;
  RETURN vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1(p_accion,p_resultado,CASE WHEN p_resultado='denegado' THEN 'operacion_denegada' ELSE 'operacion_error' END,p_correlacion,jsonb_build_object('perfil_tecnico_ref',v_perfil));

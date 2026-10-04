@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"io"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,10 +26,16 @@ type opcionesPeriodicas struct{ Config, Conexion, CapturaRef, Master, TSA string
 // Una invocación sirve para un temporizador externo. SQL gobierna la cadencia;
 // este modo no permite coberturas manuales ni extracción de filas personales.
 func runPeriodico(o opcionesPeriodicas, out, log io.Writer) int {
-	ref := o.CapturaRef
+	ref := ""
+	if regexp.MustCompile(`^captura_[0-9a-f]{32}$`).MatchString(o.CapturaRef) {
+		ref = o.CapturaRef
+	}
 	fallo := func() int {
 		_ = json.NewEncoder(out).Encode(map[string]any{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida", "captura_ref": ref})
 		return 1
+	}
+	if o.CapturaRef != "" && ref == "" {
+		return fallo()
 	}
 	raw, err := leerRegular(o.Config, 16*1024, false)
 	if err != nil {
@@ -61,6 +71,26 @@ func runPeriodico(o opcionesPeriodicas, out, log io.Writer) int {
 	if err != nil {
 		return fallo()
 	}
+	// Las conexiones TCP verifican la identidad del servidor y nunca caen a
+	// texto claro. Los sockets locales sirven al ensayo aislado de desarrollo.
+	if !strings.HasPrefix(poolCfg.ConnConfig.Host, "/") {
+		if poolCfg.ConnConfig.TLSConfig == nil || poolCfg.ConnConfig.TLSConfig.InsecureSkipVerify {
+			return fallo()
+		}
+		if poolCfg.ConnConfig.TLSConfig.MinVersion < tls.VersionTLS12 {
+			poolCfg.ConnConfig.TLSConfig.MinVersion = tls.VersionTLS12
+		}
+	}
+	for _, alternativa := range poolCfg.ConnConfig.Fallbacks {
+		if !strings.HasPrefix(alternativa.Host, "/") {
+			if alternativa.TLSConfig == nil || alternativa.TLSConfig.InsecureSkipVerify {
+				return fallo()
+			}
+			if alternativa.TLSConfig.MinVersion < tls.VersionTLS12 {
+				alternativa.TLSConfig.MinVersion = tls.VersionTLS12
+			}
+		}
+	}
 	poolCfg.MaxConns = 2
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
@@ -73,9 +103,10 @@ func runPeriodico(o opcionesPeriodicas, out, log io.Writer) int {
 	}
 	var c ports.CapturaCheckpointPeriodico
 	var previo *domain.ReciboCheckpointDesarrollo
+	var textoRecibo string
 	var confirmacion ports.AcuseCheckpointPeriodico
 	if ref != "" {
-		c, previo, confirmacion, err = fuente.RecuperarCheckpoint(ctx, ref)
+		c, previo, confirmacion, textoRecibo, err = fuente.RecuperarCheckpoint(ctx, ref)
 	} else {
 		c, err = application.CapturarCheckpointPeriodico(ctx, fuente, cfg.MaxRegistros)
 	}
@@ -122,10 +153,12 @@ func runPeriodico(o opcionesPeriodicas, out, log io.Writer) int {
 	var r application.ResultadoCheckpointPeriodico
 	if previo != nil {
 		// Cotejo del artefacto conservado, sin volver a firmar o confirmar.
-		b, e := json.Marshal(*previo)
+		b := []byte(textoRecibo)
+		var comprobado domain.ReciboCheckpointDesarrollo
+		e := decodificar(b, &comprobado)
 		der, e2 := proveedor.PublicaCheckpointDER()
 		v, e3 := bootstrap.NuevoVerificadorCheckpointDesarrollo(der, cfg.PinSPKISHA256, c.Checkpoint.Politica)
-		if e != nil || e2 != nil || e3 != nil || previo.Checkpoint != c.Checkpoint || confirmacion.CapturaRef != ref || confirmacion.ReciboHuellaSHA256 != domain.HuellaCheckpoint(b) ||
+		if e != nil || comprobado != *previo || e2 != nil || e3 != nil || previo.Checkpoint != c.Checkpoint || confirmacion.CapturaRef != ref || confirmacion.ReciboHuellaSHA256 != domain.HuellaCheckpoint(b) ||
 			application.VerificarCheckpointDesarrollo(ctx, *previo, v, cfg.MaxRegistros).Firma != "verificada_con_pin_externo" {
 			return falloSello()
 		}
@@ -133,10 +166,20 @@ func runPeriodico(o opcionesPeriodicas, out, log io.Writer) int {
 	} else {
 		r, err = application.SellarConfirmarCheckpointPeriodico(ctx, fuente, c, proveedor, proveedor, cfg.MaxRegistros)
 		if err != nil {
+			if errors.Is(err, application.ErrEmisionCheckpointPeriodico) {
+				return falloSello()
+			}
 			return fallo()
 		}
 	}
+	if textoRecibo == "" {
+		b, e := json.Marshal(r.Recibo)
+		if e != nil {
+			return fallo()
+		}
+		textoRecibo = string(b)
+	}
 	codigo = domain.ResultadoTecnicoCorrecto
 	return escribirResultado(out, map[string]any{"modo": "DESARROLLO", "estado": r.Estado, "captura_ref": ref, "auditoria_ref": r.Acuse.AuditoriaRef,
-		"recibo": r.Recibo, "tsa": "no_verificada_offline", "tiempo_independiente": false, "firma_legal": false, "integridad_registros": "no_evaluada"})
+		"recibo": r.Recibo, "recibo_texto": textoRecibo, "tsa": "no_verificada_offline", "tiempo_independiente": false, "firma_legal": false, "integridad_registros": "no_evaluada"})
 }

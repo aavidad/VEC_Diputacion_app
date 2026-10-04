@@ -70,6 +70,7 @@ func (a acusePeriodicoSQL) puerto() ports.AcuseCheckpointPeriodico {
 }
 
 type capturaPeriodicaSQL struct {
+	ReciboTexto          string                             `json:"recibo_texto"`
 	Estado               string                             `json:"estado"`
 	CapturaRef           string                             `json:"captura_ref"`
 	ConfiguracionVersion uint64                             `json:"configuracion_version"`
@@ -116,17 +117,17 @@ func (f *FuenteCheckpointPeriodicoPostgreSQL) ConfirmarCheckpoint(ctx context.Co
 
 // Recuperar permite resolver COMMIT incierto con la referencia original,
 // revalidando la autoridad actual y auditando la lectura en su misma TX.
-func (f *FuenteCheckpointPeriodicoPostgreSQL) RecuperarCheckpoint(ctx context.Context, ref string) (ports.CapturaCheckpointPeriodico, *domain.ReciboCheckpointDesarrollo, ports.AcuseCheckpointPeriodico, error) {
+func (f *FuenteCheckpointPeriodicoPostgreSQL) RecuperarCheckpoint(ctx context.Context, ref string) (ports.CapturaCheckpointPeriodico, *domain.ReciboCheckpointDesarrollo, ports.AcuseCheckpointPeriodico, string, error) {
 	var r capturaPeriodicaSQL
 	err := f.operar(ctx, "capturar_sello_periodico_v1", `SELECT vec_autorizacion_atestada_v3.recuperar_sello_periodico_v1($2::text,$1::text)`, &r, ref)
 	if err != nil {
-		return ports.CapturaCheckpointPeriodico{}, nil, ports.AcuseCheckpointPeriodico{}, err
+		return ports.CapturaCheckpointPeriodico{}, nil, ports.AcuseCheckpointPeriodico{}, "", err
 	}
 	c := r.puerto()
 	if r.Estado == "confirmado" {
 		c.Estado = "pendiente"
 	}
-	return c, r.Recibo, r.AcuseConfirmacion.puerto(), nil
+	return c, r.Recibo, r.AcuseConfirmacion.puerto(), r.ReciboTexto, nil
 }
 
 func (f *FuenteCheckpointPeriodicoPostgreSQL) operar(ctx context.Context, accion, consulta string, destino any, args ...any) error {

@@ -13,6 +13,8 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+var ErrEmisionCheckpointPeriodico = errors.New("checkpoint_periodico_emision_fallida")
+
 var ErrCheckpointPeriodicoInvalido = errors.New("checkpoint_periodico_invalido")
 var ErrCheckpointPeriodicoNoDisponible = errors.New("checkpoint_periodico_no_disponible")
 
@@ -63,24 +65,24 @@ func SellarConfirmarCheckpointPeriodico(ctx context.Context, fuente ports.Fuente
 	f ports.FirmadorCheckpointDesarrollo, t ports.SelladorCheckpointDesarrollo, maxRegistros uint64,
 ) (ResultadoCheckpointPeriodico, error) {
 	if ctx == nil || ctx.Err() != nil || dependenciaPeriodicaNula(fuente) || validarCapturaCheckpointPeriodico(c, maxRegistros) != nil {
-		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
+		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{errors.Join(ErrEmisionCheckpointPeriodico, ErrCheckpointPeriodicoInvalido)}
 	}
 	if c.Estado == "no_vencido" {
 		return ResultadoCheckpointPeriodico{Estado: c.Estado, Acuse: c.Acuse}, nil
 	}
 	if dependenciaPeriodicaNula(f) || dependenciaPeriodicaNula(t) {
-		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
+		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{errors.Join(ErrEmisionCheckpointPeriodico, ErrCheckpointPeriodicoInvalido)}
 	}
 	if f.PinCheckpoint() != c.PinSPKISHA256 {
-		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
+		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{errors.Join(ErrEmisionCheckpointPeriodico, ErrCheckpointPeriodicoInvalido)}
 	}
 	r, err := EmitirCheckpointDesarrollo(ctx, c.Checkpoint, f, t, maxRegistros)
 	if err != nil {
-		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{err}
+		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{errors.Join(ErrEmisionCheckpointPeriodico, err)}
 	}
 	raw, err := json.Marshal(r)
 	if err != nil || ctx.Err() != nil {
-		return ResultadoCheckpointPeriodico{}, ErrCheckpointPeriodicoInvalido
+		return ResultadoCheckpointPeriodico{}, falloCheckpointPeriodico{errors.Join(ErrEmisionCheckpointPeriodico, ErrCheckpointPeriodicoInvalido)}
 	}
 	a, err := fuente.ConfirmarCheckpoint(ctx, c.CapturaRef, r)
 	if err != nil {
