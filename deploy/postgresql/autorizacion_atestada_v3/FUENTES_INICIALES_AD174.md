@@ -105,18 +105,28 @@ consistencia no autentica LOGIN, fuente, plan, aprobación o checkpoint.
 
 ## Preparación y comprobación
 
-La preimagen es exclusivamente `auditoria_tipo_disjunto_v2` de AD171. La
-huella SHA256 de `pg_get_constraintdef(oid, false)`, en UTF-8 y sin salto
-final, es `f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29`.
-AD174 comprueba esa huella, conserva literalmente la condición y mantiene
-su nombre. No supone columnas, preimágenes ni familias de AD172/173, que aún
-no están integradas. Una sucesora necesita consumir la postimagen real.
+AD174 admite únicamente dos parejas de preimagen, observadas con
+`pg_get_constraintdef(oid, false)` en UTF-8 sin salto final:
+
+| Cadena | CHECK | SHA256 previo |
+| --- | --- | --- |
+| H9/AD171 | auditoria_tipo_disjunto_v2 | f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29 |
+| POST173 | auditoria_tipo_disjunto_v4 | 4ea0f7f797122ddb81c59c4a601c87c213f10206d619d3c031f947f8efd2a1ea |
+
+Conserva literalmente la condición y su nombre. En POST173, ambas familias
+propias añaden `version_consumo IS NULL`: no pueden atribuirse una versión
+nominal de consumo. No acepta otra variante por nombre ni predice AD177/178.
+La postimagen POST173→174 medida es CHECKv4,
+`3a2b7514294cd022102440e37b784916e48c340e63ce7195defdea118bad34ba`.
+La variante H9 mantiene su postimagen CHECKv2 histórica.
 
 El verificador y la CLI admiten el esquema
 `vec.auditoria.verificacion.fuentes-iniciales.v1`. Comprueba consumo histórico
 v1, intentos AD169, eventos AD171 y provisión AD174. Los esquemas anteriores
-siguen rechazando AD174. Este formato no admite consumo AD172/173 ni declara
-cubiertas familias futuras. Recalcula material y eslabón; no acredita el origen
+siguen rechazando AD174. La dependencia Go L #557@9e09b8a331afe45090db34fdf552cf9aed9e8ef7
+se integra sin cambiar sus campos. La unión admite consumos reales v1/v2/v3,
+conserva el aviso de históricos sin fecha ligada y no declara cubiertas
+familias futuras. Recalcula material y eslabón; no acredita el origen
 del operador, la aprobación, la fuente ni el checkpoint.
 
 Hay dos vectores de bytes, uno con LOGIN UTF-8, en
@@ -231,3 +241,21 @@ los cuatro resultados y replay, ACL, campos cruzados, LOGIN ajeno, motivo libre,
 resultado incompatible, proceso falso, inmutabilidad e historia. Todo hace
 ROLLBACK en el clon y no ejecuta DOWN. Estas pruebas SQL nuevas están pendientes
 del ensayo de Dirección; las pruebas focales Go de la ampliación han pasado.
+
+## Ensayo de la unión POST173
+
+SQL174 variante SHA256
+`6dc657372fe3ec9a7ca7d8d3f9be6cf68936c242bee315ea63e2e67dca56ebdc`:
+UP y dos pruebas SQL terminaron con código 0 en el único clon. Las negativas
+incluyen un INSERT de familia técnica con `version_consumo=3`, que se rechaza
+sin efectos. Las 6.240 filas, cabeza e historia anteriores permanecen idénticas.
+
+El vector independiente `union_consumos_fuentes_ad173_ad174.json` enlaza
+consumos v1/v2/v3 y ambas familias de fuentes. El dominio y la CLI cotejan
+la cadena y rechazan cruces entre consumos y registros técnicos. Se mantienen
+los esquemas propios y no se inventan versiones v4/v5 de la proyección.
+
+Las capturas y logs quedan fuera de Git en el estado privado de K
+`vec-codexk-union-post173-20261004`. El núcleo POST173 no cambia. No se ha
+instalado en la principal; las revisiones independientes del SHA final siguen
+pendientes.
