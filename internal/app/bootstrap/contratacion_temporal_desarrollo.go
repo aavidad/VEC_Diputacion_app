@@ -1099,6 +1099,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
 		}
+		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), 30*time.Second)
+		reservadosIntentosBolsa := []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+			alta.postgresql.ejecucion.Config().ConnConfig.User,
+		}
+		alta.postgresql.auditoriaLecturasBolsa, alta.postgresql.procesoAuditoriaLecturasBolsa, alta.postgresql.cerrarAuditoriaLecturasBolsa, err =
+			AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctxIntentosBolsa, cfg, alta.postgresql.bolsa, reservadosIntentosBolsa)
+		cancelarIntentosBolsa()
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
 			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,

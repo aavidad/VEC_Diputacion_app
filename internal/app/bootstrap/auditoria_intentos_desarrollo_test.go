@@ -41,3 +41,43 @@ func TestAuditoriaIntentosConfiguracionPrivadaSinValoresSupuestos(t *testing.T) 
 		})
 	}
 }
+
+// Los dos canales usan archivos separados y se cotejan de forma exacta.
+func TestAuditoriaIntentosCanalesSeparados(t *testing.T) {
+	dir := directorioTemporalFueraDeGitPrueba(t)
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{DevelopmentMaterialDir: dir}
+	interna := `{"esquema":"vec.auditoria.intentos.servidor.v1","dsn_file":"intentos.dsn","proceso":"vec-sintetico","canal":"interna_corporativa","limite_segundos":5}`
+	externa := strings.Replace(interna, `"interna_corporativa"`, `"externa_personal"`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "auditoria-intentos.json"), []byte(interna), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg, "auditoria-intentos-externa.json", "externa_personal"); err == nil {
+		t.Fatal("la ausencia exterior reutilizó el archivo interno")
+	}
+	archivo := filepath.Join(dir, "auditoria-intentos-externa.json")
+	if err := os.WriteFile(archivo, []byte(interna), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg, "auditoria-intentos-externa.json", "externa_personal"); err == nil {
+		t.Fatal("el canal exterior aceptó material corporativo")
+	}
+	if err := os.WriteFile(archivo, []byte(externa), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg, "auditoria-intentos-externa.json", "externa_personal")
+	if err != nil || c.Canal != "externa_personal" {
+		t.Fatalf("configuración exterior explícita rechazada: %v", err)
+	}
+	if _, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg); err != nil {
+		t.Fatal("la configuración exterior sustituyó el archivo interno")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "auditoria-intentos.json"), []byte(externa), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg); err == nil {
+		t.Fatal("la apertura interna aceptó un canal exterior")
+	}
+}
