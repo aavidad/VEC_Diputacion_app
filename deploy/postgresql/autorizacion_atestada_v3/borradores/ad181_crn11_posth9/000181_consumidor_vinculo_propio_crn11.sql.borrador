@@ -1,0 +1,295 @@
+\set ON_ERROR_STOP on
+-- AD181, BORRADOR CERRADO. Sucesora CRN11 posterior a H9; AD149 queda histórica.
+-- NO es una migración UP. Las huellas finales NULL provocan PARO antes de todo DDL.
+-- Orden previsto: H9 -> AD172 -> AD173 -> AD174/176 variantes K -> extensiones
+-- B/E/L conciliadas -> AD181 -> Personal26. Dirección fija el orden final.
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000181',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
+
+-- La captura POST173 es fuente de diseño, no preimagen final. Hasta reconciliar
+-- 174/176/175/178/179/180 y el resto causal, los esperados siguen NULL.
+DO $preflight$
+DECLARE
+ f regprocedure:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ actual_def text; actual_src text; actual_aud text;
+ esperado_def_sha256 text:=NULL;
+ esperado_src_sha256 text:=NULL;
+ esperado_aud_sha256 text:=NULL;
+BEGIN
+ IF current_user IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'
+    OR f IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
+    OR to_regrole('vec_personal_propietario') IS NULL
+    OR to_regrole('vec_personal_ejecutor') IS NULL THEN
+  RAISE EXCEPTION 'PARO clave=AD181.dependencias, actual=incompatible, esperado=nucleo173+origen172+Personal' USING ERRCODE='55000';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='vec_personal_propietario'
+       AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolcreatedb
+       AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls)
+    OR NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='vec_personal_ejecutor'
+       AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolcreatedb
+       AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls)
+    OR EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
+    OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)'::regprocedure
+       AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+       AND p.proconfig=ARRAY['search_path=pg_catalog']
+       AND NOT p.prosecdef AND p.provolatile='s') THEN
+  RAISE EXCEPTION 'PARO clave=AD181.roles_origen, actual=incompatible, esperado=Personal_sin_LOGIN+resolver172' USING ERRCODE='55000';
+ END IF;
+ SELECT pg_get_functiondef(f),p.prosrc INTO actual_def,actual_src FROM pg_proc p WHERE p.oid=f;
+ SELECT pg_get_constraintdef(c.oid,true) INTO actual_aud FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+   AND c.conname='clave_capacidad_version_audiencia_consumo_check'
+   AND c.contype='c' AND c.convalidated;
+ IF esperado_def_sha256 IS NULL OR esperado_src_sha256 IS NULL OR esperado_aud_sha256 IS NULL THEN
+  RAISE EXCEPTION 'PARO clave=AD181.preimagen_final, actual=def:%/src:%/aud:%, esperado=def:NULL/src:NULL/aud:NULL',
+   coalesce(encode(sha256(convert_to(actual_def,'UTF8')),'hex'),'ausente'),
+   coalesce(encode(sha256(convert_to(actual_src,'UTF8')),'hex'),'ausente'),
+   coalesce(encode(sha256(convert_to(actual_aud,'UTF8')),'hex'),'ausente') USING ERRCODE='55000';
+ END IF;
+ IF encode(sha256(convert_to(actual_def,'UTF8')),'hex') IS DISTINCT FROM esperado_def_sha256
+    OR encode(sha256(convert_to(actual_src,'UTF8')),'hex') IS DISTINCT FROM esperado_src_sha256
+    OR encode(sha256(convert_to(actual_aud,'UTF8')),'hex') IS DISTINCT FROM esperado_aud_sha256 THEN
+  RAISE EXCEPTION 'PARO clave=AD181.preimagen_final, actual=def:%/src:%/aud:%, esperado=def:%/src:%/aud:%',
+   encode(sha256(convert_to(actual_def,'UTF8')),'hex'),
+   encode(sha256(convert_to(actual_src,'UTF8')),'hex'),
+   encode(sha256(convert_to(actual_aud,'UTF8')),'hex'),
+   esperado_def_sha256,esperado_src_sha256,esperado_aud_sha256 USING ERRCODE='55000';
+ END IF;
+END $preflight$;
+
+-- El resto es la candidata de código, inalcanzable con los NULL anteriores.
+-- Tres sustituciones exactas del núcleo: runtime propio, exclusión de la
+-- rama general y correspondencia operación/audiencia/campos. No se modifica
+-- la whitelist de exterior ni la familia común de auditoría AD173.
+DO $nucleo$
+DECLARE
+ f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ original text; nuevo text; actual text; fuente text; meta jsonb; acl aclitem[];
+ propietario oid; config text[]; definidora boolean; deps jsonb; deps_compartidas jsonb;
+ esperado_def_sha256 text:=NULL; esperado_src_sha256 text:=NULL;
+ runtime text:=$runtime$       OR NOT (
+           (p_perfil_mutacion IS NOT DISTINCT FROM 'capacidades_admin'$runtime$;
+ runtime_nuevo text:=$runtime_nuevo$       OR NOT (
+           (p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
+            AND EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=session_user
+             AND r.rolcanlogin AND r.rolinherit
+             AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))
+            AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole
+             AND m.roleid='vec_personal_ejecutor'::regrole
+             AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+            AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
+            AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)=1)
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'capacidades_admin'$runtime_nuevo$;
+ excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND$excl$;
+ excl_nuevo text:=$excl_nuevo$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'vinculo_propio_historico_crn11' AND$excl_nuevo$;
+ marca text:=$marca$       )
+       OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
+ extension text:=$extension$           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'personal.vinculo_propio.crn11.consultar'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.vinculo_propio.crn11.v1'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'personal'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'vinculo_historico_propio_crn11'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'acreditar_vinculo_historico_propio_crn11'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'recurso_ref' ~ '^emp_[A-Za-z0-9_-]{22,128}$'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '["empleado_ref","fuente_ref","persona_ref","version","vinculo_ref"]'::jsonb
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+$extension$;
+BEGIN
+ SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+ INTO deps_compartidas FROM pg_shdepend d
+ WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=f;
+ IF esperado_def_sha256 IS NULL OR esperado_src_sha256 IS NULL
+    OR original IS NULL OR fuente IS NULL OR meta IS NULL
+    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperado_def_sha256
+    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperado_src_sha256
+    OR propietario IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
+    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR definidora IS DISTINCT FROM true
+    OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.prokind='f'
+       AND p.provolatile='v' AND p.proparallel='u' AND p.prosecdef)
+    OR NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+       WHERE a.grantee=propietario AND a.grantor=propietario
+         AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+    OR EXISTS(SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+       WHERE a.grantee<>propietario OR a.grantor<>propietario
+          OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+    OR deps IS DISTINCT FROM jsonb_build_array(
+       jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+         'refclassid','pg_language'::regclass::oid,
+         'refobjid',(SELECT oid FROM pg_language WHERE lanname='plpgsql'),
+         'refobjsubid',0,'deptype','n'),
+       jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+         'refclassid','pg_namespace'::regclass::oid,
+         'refobjid','vec_autorizacion_atestada_v3'::regnamespace::oid,
+         'refobjsubid',0,'deptype','n'))
+    OR deps_compartidas IS DISTINCT FROM jsonb_build_array(
+       jsonb_build_object('dbid',(SELECT oid FROM pg_database WHERE datname=current_database()),
+         'classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+         'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
+    OR length(original)-length(replace(original,runtime,''))<>length(runtime)
+    OR length(original)-length(replace(original,excl,''))<>length(excl)
+    OR length(original)-length(replace(original,marca,''))<>length(marca)
+    OR strpos(original,'vinculo_propio_historico_crn11')<>0
+    OR strpos(original,'personal.vinculo_propio.crn11.consultar')<>0 THEN
+  RAISE EXCEPTION 'PARO clave=AD181.nucleo_forma, actual=runtime:%/excl:%/marca:%, esperado=1/1/1',
+   (length(original)-length(replace(original,runtime,'')))/length(runtime),
+   (length(original)-length(replace(original,excl,'')))/length(excl),
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000';
+ END IF;
+ nuevo:=replace(original,runtime,runtime_nuevo);
+ nuevo:=replace(nuevo,excl,excl_nuevo);
+ nuevo:=replace(nuevo,marca,extension||marca);
+ EXECUTE nuevo;
+ SELECT pg_get_functiondef(f) INTO STRICT actual;
+ IF actual IS DISTINCT FROM nuevo
+    OR replace(replace(replace(actual,extension||marca,marca),excl_nuevo,excl),runtime_nuevo,runtime) IS DISTINCT FROM original
+    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
+    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
+    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+        FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+        FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+          AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'AD181: núcleo cambió fuera de las tres inserciones' USING ERRCODE='55000';
+ END IF;
+END $nucleo$;
+
+-- Sólo la audiencia propia entra en el CHECK existente. El hash final se mide
+-- sobre el orden causal completo; el de AD149 no sirve tras H9.
+LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
+DO $audiencia$
+DECLARE d text; nueva text; esperado_sha256 text:=NULL;
+BEGIN
+ SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+   AND c.conname='clave_capacidad_version_audiencia_consumo_check'
+   AND c.contype='c' AND c.convalidated;
+ IF esperado_sha256 IS NULL
+    OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperado_sha256
+    OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1
+    OR right(d,3)<>']))'
+    OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')<>0 THEN
+  RAISE EXCEPTION 'PARO clave=AD181.audiencia_preimagen, actual=sha256:%/forma:%/ya_existe:%, esperado=sha256:%/forma:true/ya_existe:false',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),
+   strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')=1 AND right(d,3)=']))',
+   strpos(d,'vec_personal.vinculo_propio.crn11.v1')<>0,
+   esperado_sha256 USING ERRCODE='55000';
+ END IF;
+ nueva:=left(d,length(d)-3)||', ''vec_personal.vinculo_propio.crn11.v1''::text]))';
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+   DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
+ IF (SELECT pg_get_constraintdef(c.oid,true) FROM pg_constraint c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+       AND c.conname='clave_capacidad_version_audiencia_consumo_check') IS DISTINCT FROM nueva THEN
+  RAISE EXCEPTION 'AD181: CHECK de audiencia divergente' USING ERRCODE='55000';
+ END IF;
+END $audiencia$;
+
+-- Mismo ABI de diez argumentos y siete resultados que AD149. Personal26 sigue
+-- siendo el único consumidor. La autoridad nominal y el origen se comprueban
+-- antes de llamar al núcleo, que conserva consumo, cadena y auditoría AD173.
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
+ consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+DECLARE c jsonb; d jsonb; x record;
+BEGIN
+ IF current_user<>'vec_autorizacion_atestada_v3_propietario'
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off' THEN
+  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
+ END IF;
+ BEGIN
+  c:=convert_from(p_capacidad,'UTF8')::jsonb;
+  d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation
+      OR character_not_in_repertoire OR untranslatable_character THEN
+  RAISE EXCEPTION 'material CRN11 inválido' USING ERRCODE='22023';
+ END;
+ IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
+    OR d->>'concedida' IS DISTINCT FROM 'true'
+    OR d->>'modulo_id' IS DISTINCT FROM 'personal'
+    OR d->>'accion' IS DISTINCT FROM 'personal.vinculo_propio.crn11.consultar'
+    OR c->>'operacion' IS DISTINCT FROM d->>'accion'
+    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_personal.vinculo_propio.crn11.v1'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'vinculo_historico_propio_crn11'
+    OR d->>'finalidad' IS DISTINCT FROM 'acreditar_vinculo_historico_propio_crn11'
+    OR d->'campos_permitidos' IS DISTINCT FROM '["empleado_ref","fuente_ref","persona_ref","version","vinculo_ref"]'::jsonb
+    OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+    OR d->>'recurso_ref' IS NULL OR d->>'recurso_ref' !~ '^emp_[A-Za-z0-9_-]{22,128}$'
+    OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS NULL
+    OR d->>'contexto_recurso_huella_sha256' !~ '^[0-9a-f]{64}$'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
+  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
+ END IF;
+ IF vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(
+      c->>'audiencia_consumo',c->>'operacion',
+      d#>>'{vinculo_autenticacion_actor,superficie}') IS NULL THEN
+  RAISE EXCEPTION 'origen CRN11 no acreditado' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO STRICT x
+ FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
+  'vinculo_propio_historico_crn11',p_capacidad,p_decision,p_motivo,p_contexto,
+  p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF x.consumo_nuevo IS NOT TRUE OR x.decision_ref IS DISTINCT FROM d->>'decision_ref'
+    OR x.efecto_ref IS DISTINCT FROM c->>'efecto_ref'
+    OR x.huella_efecto_sha256 IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
+  RAISE EXCEPTION 'consumo CRN11 divergente' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,
+  x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_propietario;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_personal_propietario;
+
+DO $acl$
+DECLARE
+ f regprocedure:='vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ propietario oid:='vec_autorizacion_atestada_v3_propietario'::regrole::oid;
+ personal oid:='vec_personal_propietario'::regrole::oid;
+BEGIN
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM true
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
+    OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+       WHERE p.oid=f AND (a.grantee NOT IN (propietario,personal)
+          OR a.grantor<>propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+    OR NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+       WHERE p.oid=f AND a.grantee=personal AND a.privilege_type='EXECUTE') THEN
+  RAISE EXCEPTION 'AD181: fachada o ACL divergente' USING ERRCODE='55000';
+ END IF;
+END $acl$;
+COMMIT;
