@@ -276,16 +276,19 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 			return err
 		}
 		decision = denegada
-		if decision != nil {
-			return nil
-		}
-		v, err = decodificarVinculoIS16(datos)
-		if err != nil || v.Referencia != vis || v.AutenticacionRef != refs.AutenticacionRef || v.SesionRef != refs.SesionRef ||
-			v.PersonaRef != c.PersonaRef || v.CuentaRef != c.CuentaRef || v.CuentaOrdinariaRef != c.CuentaOrdinariaRef || v.PerfilActivoRef != c.PerfilActivoRef ||
-			v.SeleccionRevision != c.SeleccionRevision || v.CertificadoSHA256 != o.CertificadoSHA256 || v.CASHA256 != o.CASHA256 ||
-			v.VinculoCertificadoRef != c.VinculoRef || v.VinculoCertificadoVersion != c.VinculoVersion || v.PoliticaRef != c.PoliticaGarantiaRef || v.PoliticaSHA256 != c.PoliticaGarantiaHuellaSHA256 ||
-			!p.reloj.Ahora().Before(v.VigenteHasta) {
-			return api.ErrConfiguracionIncompleta
+		// La decisión funcional se devuelve después de confirmar su auditoría.
+		if decision == nil {
+			v, err = decodificarVinculoIS16(datos)
+			if err != nil {
+				return err
+			}
+			if v.Referencia != vis || v.AutenticacionRef != refs.AutenticacionRef || v.SesionRef != refs.SesionRef ||
+				v.PersonaRef != c.PersonaRef || v.CuentaRef != c.CuentaRef || v.CuentaOrdinariaRef != c.CuentaOrdinariaRef || v.PerfilActivoRef != c.PerfilActivoRef ||
+				v.SeleccionRevision != c.SeleccionRevision || v.CertificadoSHA256 != o.CertificadoSHA256 || v.CASHA256 != o.CASHA256 ||
+				v.VinculoCertificadoRef != c.VinculoRef || v.VinculoCertificadoVersion != c.VinculoVersion || v.PoliticaRef != c.PoliticaGarantiaRef || v.PoliticaSHA256 != c.PoliticaGarantiaHuellaSHA256 ||
+				!p.reloj.Ahora().Before(v.VigenteHasta) {
+				return api.ErrConfiguracionIncompleta
+			}
 		}
 		return nil
 	})
