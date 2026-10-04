@@ -215,6 +215,7 @@
     "replay_fuentes_unidad_bootstrap": "recibos_identicos",
     "negative_aprobacion_fuentes_bootstrap": "denegado_confirmado",
     "frio_post_arranque_sha256": "f7c080048ec19825da2bd244de8ad1df28438dc08bcd64a19efc4bf2ac94cf4b",
-    "principal_modificada": false
+    "principal_modificada": false,
+    "frio_restaurado_readonly": true
   }
 }

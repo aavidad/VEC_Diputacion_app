@@ -50,6 +50,8 @@ que comprobar su vigencia por la autoridad, sin ampliar fechas a mano.
 
 El frío post-arranque queda en la bitácora privada de K con SHA256
 `f7c080048ec19825da2bd244de8ad1df28438dc08bcd64a19efc4bf2ac94cf4b`.
+El frío se restauró en otro clon de sólo lectura: se recuperaron las 6.253
+auditorías, su cabeza, el prefijo H9 y los registros únicos de fuentes y unidad.
 Este corte no acredita garantía alta, PDP favorable, montaje ADMIN,
 recorrido HTTP ni despliegue. IS16 y CA36 sólo tienen ensayo estructural y
 ACL; todavía no se crearon vínculos de sesión o contexto en este circuito.
