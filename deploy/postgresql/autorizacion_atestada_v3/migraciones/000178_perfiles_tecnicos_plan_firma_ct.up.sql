@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- BORRADOR AD178. La reserva precede al código; no es SQL instalable.
--- Recuperación48 exclusivamente. Gobierno y lectura del plan siguen pendientes.
+-- Recuperación48 y gobierno nominal CT. Lectura del plan sigue pendiente.
 -- Las pre/postimágenes finales NULL abortan antes de cualquier DDL o concesión.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -23,6 +23,7 @@ DECLARE
  original text;fuente text;nueva text;actual text;audiencias text;audiencias_nuevas text;
  def_sha text;src_sha text;aud_sha text;meta jsonb;deps jsonb;compartidas jsonb;
  audiencia text:='vec_contratacion_temporal.firmas_r5.recuperar.v2';
+ audiencia_gobierno text:='vec_catalogos_configurables.plan_nominal_firma.gobierno.v1';
  ancla text:=$ancla$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_firmas_r5_ct_v2'$ancla$;
  extension text:=$extension$           OR (
@@ -41,6 +42,24 @@ DECLARE
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '["ByteRange","CanonNominal","CanonNominalRef","CanonNominalSHA256","CatalogoHuella","CatalogoRef","CertificadoHuella","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","ContenidoFirmadoHuellaSHA256","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","EntradaDocumentoHuella","EntradaDocumentoLongitud","EntradaDocumentoRef","EntradaDocumentoVersion","EvidenciaFirmasCanonica","EvidenciaFirmasHuellaSHA256","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaAnteriorRef","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","FirmanteRef","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","MaterialRootSHA256","OrdenFirmaPDF","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboAnteriorRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","RevisionHuellaSHA256","RevisionLongitud","Secuencia","SelloTiempoEstado","Via"]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $extension$;
+ gobierno text:=$gobierno$           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_plan_nominal_firma_ct'
+ AND (c->>'operacion' IN ('vec.catalogos.crear','vec.catalogos.actualizar','vec.catalogos.publicar','vec.catalogos.retirar')) IS TRUE
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'catalogo_configurable'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'gestionar_contratacion_temporal'
+ AND d->>'recurso_ref' IS NOT NULL
+ AND (d->>'recurso_ref' ~ '^[a-z][a-z0-9._-]{2,127}:[1-9][0-9]{0,9}$') IS TRUE
+ AND c->>'efecto_ref' IS NOT DISTINCT FROM d->>'recurso_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT NULL
+ AND c->>'huella_efecto_sha256' IS NOT DISTINCT FROM d->>'contexto_recurso_huella_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
+ AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+$gobierno$;
 BEGIN
  IF esperada_def IS NULL OR esperada_src IS NULL OR esperada_audiencias IS NULL
  OR esperada_post_def IS NULL OR esperada_post_src IS NULL OR esperada_post_audiencias IS NULL THEN
@@ -79,37 +98,38 @@ BEGIN
   RAISE EXCEPTION 'AD178: PARO clave=audiencias_sha256 actual=% esperado=%',aud_sha,esperada_audiencias USING ERRCODE='55000';
  END IF;
  IF length(original)-length(replace(original,ancla,''))<>length(ancla)
- OR strpos(original,'''recuperacion_firmas_r5_ct_v2''')<>0 THEN
-  RAISE EXCEPTION 'AD178: PARO clave=ancla_recuperacion actual=incompatible esperado=una_consulta44_sin_recuperacion48' USING ERRCODE='55000';
+ OR strpos(original,'''recuperacion_firmas_r5_ct_v2''')<>0
+ OR strpos(original,'''gobierno_plan_nominal_firma_ct''')<>0 THEN
+  RAISE EXCEPTION 'AD178: PARO clave=ancla_recuperacion actual=incompatible esperado=una_consulta44_sin_recuperacion48_gobierno' USING ERRCODE='55000';
  END IF;
  -- El runtime CT es el mismo de la consulta R5; no se cambia su clasificación.
- nueva:=replace(original,ancla,extension||ancla);
+ nueva:=replace(original,ancla,extension||gobierno||ancla);
  IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM esperada_post_def THEN
   RAISE EXCEPTION 'AD178: PARO clave=post_def_sha256 actual=% esperado=%',encode(sha256(convert_to(nueva,'UTF8')),'hex'),esperada_post_def USING ERRCODE='55000';
  END IF;
  IF left(audiencias,length('CHECK ((audiencia_consumo = ANY (ARRAY['))<>'CHECK ((audiencia_consumo = ANY (ARRAY[' OR right(audiencias,4)<>'])))'
- OR strpos(audiencias,quote_literal(audiencia))<>0 THEN
-  RAISE EXCEPTION 'AD178: PARO clave=forma_audiencias actual=incompatible esperado=ANY_ARRAY_sin_recuperacion' USING ERRCODE='55000';
+ OR strpos(audiencias,quote_literal(audiencia))<>0 OR strpos(audiencias,quote_literal(audiencia_gobierno))<>0 THEN
+  RAISE EXCEPTION 'AD178: PARO clave=forma_audiencias actual=incompatible esperado=ANY_ARRAY_sin_recuperacion_gobierno' USING ERRCODE='55000';
  END IF;
- audiencias_nuevas:=left(audiencias,length(audiencias)-4)||', '||quote_literal(audiencia)||'::text])))';
+ audiencias_nuevas:=left(audiencias,length(audiencias)-4)||', '||quote_literal(audiencia)||'::text, '||quote_literal(audiencia_gobierno)||'::text])))';
  IF encode(sha256(convert_to(audiencias_nuevas,'UTF8')),'hex') IS DISTINCT FROM esperada_post_audiencias THEN
   RAISE EXCEPTION 'AD178: PARO clave=post_audiencias_sha256 actual=% esperado=%',encode(sha256(convert_to(audiencias_nuevas,'UTF8')),'hex'),esperada_post_audiencias USING ERRCODE='55000';
  END IF;
  EXECUTE nueva;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nueva OR replace(actual,extension||ancla,ancla) IS DISTINCT FROM original
+ IF actual IS DISTINCT FROM nueva OR replace(actual,extension||gobierno||ancla,ancla) IS DISTINCT FROM original
  OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM esperada_post_src
  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())) IS DISTINCT FROM compartidas THEN
-  RAISE EXCEPTION 'AD178: PARO clave=delta_metadatos actual=divergente esperado=solo_OR_recuperacion48' USING ERRCODE='55000';
+  RAISE EXCEPTION 'AD178: PARO clave=delta_metadatos actual=divergente esperado=solo_OR_recuperacion48_gobierno' USING ERRCODE='55000';
  END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||audiencias_nuevas;
  IF (SELECT pg_get_constraintdef(c.oid,false) FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check') IS DISTINCT FROM audiencias_nuevas THEN
-  RAISE EXCEPTION 'AD178: PARO clave=delta_audiencias actual=divergente esperado=solo_recuperacion_v2' USING ERRCODE='55000';
+  RAISE EXCEPTION 'AD178: PARO clave=delta_audiencias actual=divergente esperado=solo_recuperacion_v2_gobierno_CT' USING ERRCODE='55000';
  END IF;
 END $delta$;
 

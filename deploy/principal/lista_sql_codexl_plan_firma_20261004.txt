@@ -2,5 +2,5 @@
 # No pasar esta lista a principal/cidonia. Sólo clon cuando cierre el candidato.
 # Orden causal: AD173 → AD174/175/176 reancladas → AD178 → AD177 → CC7.
 # Nunca reaplicar dependencias presentes ni ejecutar DOWN.
-# Esta pieza sólo define recuperación R5 de 48 campos; no gobierno ni lectura.
+# Esta pieza prepara recuperación48 y gobierno CT; no define el tercer lector.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000178_perfiles_tecnicos_plan_firma_ct.up.sql
