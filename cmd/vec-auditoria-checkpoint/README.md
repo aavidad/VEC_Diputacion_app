@@ -72,8 +72,11 @@ vec-auditoria-checkpoint -operacion verificar \
 ```
 
 Puede añadir `-cadena /ruta/externa/extraccion.json` para recalcular el rango con
-el verificador común AD3 v1 o mixto v2. Esa extracción conserva su autorización
-y custodia independientes; la CLI no la obtiene ni vuelve a validar permisos.
+el verificador común. Admite los esquemas v1, mixto v2, v3, fuentes iniciales,
+unidad inicial y bootstrap central. El lector compartido exige campos completos,
+rechaza duplicados, alias, valores nulos y esquemas desconocidos, y coteja el
+manifiesto con la cobertura firmada. La extracción conserva su autorización y
+custodia independientes; la CLI no la obtiene ni vuelve a validar permisos.
 
 El resultado separa `firma: verificada_con_pin_externo` de
 `integridad_cadena: no_evaluada` o `verificada`. Siempre conserva
@@ -82,6 +85,14 @@ El resultado separa `firma: verificada_con_pin_externo` de
 código de salida 1 aunque la firma del checkpoint sea correcta. La verificación
 no requiere secretos. La firma cubre el checkpoint canónico, esquema y
 versiones, procedencia de desarrollo, recibo TSA y huella SPKI.
+
+`consumos_historicos_sin_fecha_ligada` avisa de consumos anteriores cuyas fechas
+no quedaron ligadas al eslabón. `fecha_consumo_ligada_cotejada` confirma el
+cotejo de las fechas nominales AD173 cuando están presentes. Ambos indicadores
+solo se informan después de verificar toda la cadena; si se rechaza el
+documento o se omite `-cadena`, permanecen falsos. El aviso histórico no
+completa ni firma retroactivamente una fecha y el cotejo AD173 no acredita
+tiempo independiente.
 
 ## Continuidad entre checkpoints
 
@@ -138,3 +149,120 @@ paquetes: 25 avisos en archivos sin cambios, ninguno en los archivos cambiados
 y ningún error de carga. Ese resultado no es una revisión limpia de todo el
 código previo. No se ejecutaron servicios, SQL, navegador ni la suite global
 local. Las revisiones sensibles del commit final corresponden a la integración.
+
+## Comprobar un paquete de exportación de desarrollo
+
+`verificar-exportacion` comprueba el manifiesto firmado y el archivo exacto de
+la cadena. La raíz pública y su huella deben proceder de un canal confiable
+separado. La raíz de exportación tiene su propio dominio de derivación; no use
+el DER de los checkpoints anteriores. No se requieren claves privadas:
+
+```sh
+vec-auditoria-checkpoint -operacion verificar-exportacion \
+  -config /ruta/externa/config.json -entrada /ruta/externa/recibo-exportacion.json \
+  -cadena /ruta/externa/cadena.json \
+  -spki /ruta/confiable/exportacion.der -pin-spki-sha256 HUELLA_CONSERVADA
+```
+
+El recibo liga esquema, política y proveedores, referencia y huella del acuse
+de captura, fecha declarada, cobertura, tamaño y SHA256 exactos del archivo,
+y el aviso de fechas históricas no ligadas. Un cambio de espacios en el archivo
+también cambia su huella. La suma de archivo y recibo no puede superar
+`max_bytes`; `max_registros` limita las filas. Todos los campos del recibo son
+obligatorios. Se rechazan claves repetidas, desconocidas, alias y valores nulos.
+
+Un resultado `verificada` confirma la firma con la raíz fijada, los bytes y los
+eslabones admitidos. `historicos_sin_fecha_ligada: true` advierte de tramos cuyas
+fechas no estaban protegidas por su eslabón. El informe conserva siempre
+`origen_extraccion: no_acreditado`: la referencia y la huella del acuse ligadas
+a la firma no prueban por sí mismas que una autoridad permitiera la extracción.
+Conserva también `tsa: no_verificada_offline`, `tiempo_independiente: false` y
+`firma_legal: false`. La TSA existente es HMAC de desarrollo.
+
+La aplicación puede preparar ese recibo únicamente a través de
+`FuenteCapturaExportacionAuditoria`: la fuente debe consumir la autorización de
+exportación, fijar un rango coherente y registrar su acuse en la auditoría común
+en la misma transacción, antes de devolver datos tras COMMIT confirmado. La
+firma y el sello se producen después de esa captura. Un error de captura o de
+verificación devuelve cero datos y no invoca los proveedores criptográficos.
+No hay una opción CLI para emitir paquetes desde un JSON de captura libre.
+
+Todavía falta el adaptador de captura nominal y su catálogo de acciones para
+Aplicación. No se habilita extracción, entrega al juzgado, descarga administrativa
+ni sellado periódico con esta pieza. Los ensayos del formato usan datos sintéticos.
+El evento de captura futuro registrará la cabeza previa; quedará fuera de su
+propio rango para evitar una referencia circular. Los fallos y la recuperación
+de entrega deberán conservar su auditoría nominal antes de activar esa ruta.
+
+## Sello periódico con autoridad técnica propia
+
+La operación `ejecutar-periodico` consulta las fachadas AD186 y conserva el
+recibo en PostgreSQL. Un temporizador externo la invoca; el intervalo vigente
+de la política SQL decide si corresponde otra captura. Cada comprobación y
+recuperación queda auditada. El comando no obtiene filas de personas.
+
+La configuración del ejecutor contiene `version: 1`, `max_registros`,
+`version_binario`, `pin_spki_sha256` y `timeout_segundos`. La cadencia, cadena,
+política criptográfica y raíz aprobada pertenecen a la configuración SQL
+versionada, publicada por CAS y auditada. La configuración no tiene plazos de
+conservación ni autoriza borrados. La duda 84 sigue pendiente.
+
+Dirección instala AD186 después de AD183, sobre la preimagen acreditada.
+No se reaplican dependencias. Una variante del CHECK requiere medir y revisar
+su preimagen; la migración rechaza otra estructura. La función de configuración
+exige el grupo `vec_auditoria_periodica_configurador`; el ejecutor exige
+`vec_auditoria_periodica_sellador`. Las cuentas LOGIN propias se aprovisionan
+fuera de Git con CONNECT y SET del grupo exacto, sin INHERIT ni membresías de
+owner. El adaptador activa únicamente ese grupo. No concede permisos por
+petición. Las tablas y el helper permanecen privados.
+
+Configure la política mediante `configurar_sello_periodico_v1` en una
+transacción SERIALIZABLE/UTC con preimagen y versión esperadas. Ante fallo,
+haga ROLLBACK y registre el intento con `registrar_intento_periodico_v1`
+en otra transacción; el adaptador `ConfigurarCheckpointPeriodico` ya aplica
+ese contrato. La política incluye versión, cadena, intervalo en segundos,
+estado activo, política del checkpoint y pin SPKI. Una captura pendiente
+bloquea el cambio; una raíz con capturas anteriores permanece inmutable.
+La rotación después de capturas exige un protocolo posterior.
+
+Ejecute con archivos externos privados; la conexión TCP exige verificar el
+servidor por TLS y no admite caída a texto claro. El socket local sirve al
+ensayo aislado:
+
+```sh
+vec-auditoria-checkpoint -operacion ejecutar-periodico \
+  -config /ruta/privada/ejecutor.json -conexion /ruta/privada/conexion \
+  -kms-master /ruta/privada/kms-master -tsa-secret /ruta/privada/tsa-secret
+```
+
+Si no vence el intervalo, devuelve `no_vencido` con acuse y no firma. Cuando
+vence, captura la cabeza previa y añade su acuse en la misma transacción.
+El checkpoint termina en ese acuse; el material de este liga la cabeza
+previa, evitando autorreferencia. Firma y TSA se ejecutan tras COMMIT. Otra
+transacción conserva recibo y auditoría; el resultado queda cubierto por un
+checkpoint posterior. Una carrera serializable se rechaza y audita.
+
+Ante una respuesta perdida conserve `captura_ref` y recupere con los mismos
+archivos y `-captura-ref REFERENCIA`. Si ya estaba confirmado, devuelve el
+recibo conservado, sin otra firma ni confirmación. Un COMMIT incierto no se
+presenta como rollback. PostgreSQL conserva texto y SHA256 exactos; la salida
+`recibo_texto` permite recuperar esos bytes, incluso con formato alternativo.
+Guárdelos sin añadir un salto de línea antes de comprobar su huella.
+
+Compruebe el recibo con `verificar`, la raíz y el pin conservados por un canal
+separado. El nuevo formato `vec.auditoria.verificacion.periodica.v1` permite
+recalcular los eslabones técnicos junto a las familias anteriores. El detalle
+se reconstruye con la serialización PostgreSQL original; los saltos del
+transporte Base64 no cambian sus bytes. El sello por sí solo no recalcula
+registros ni acredita ausencia de otros posteriores.
+
+Todas las salidas mantienen DESARROLLO, TSA HMAC sin tiempo independiente y
+firma legal falsa. La captura técnica no sustituye la captura judicial
+nominal ni concede consulta administrativa de personas.
+
+El diseño sigue los patrones de resúmenes periódicos enlazados de
+[CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-digest-file-structure.html),
+estado verificable con raíz separada de
+[immudb](https://docs.immudb.io/1.5.0/management/state) y conservación de auditoría
+para completar operaciones de [Vault](https://developer.hashicorp.com/vault/docs/audit).
+No incorpora esos servicios ni les envía datos.
