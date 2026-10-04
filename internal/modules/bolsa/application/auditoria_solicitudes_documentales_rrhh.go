@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -52,8 +53,10 @@ func (s *ConsultaSolicitudesDocumentalesAuditada) ListarSolicitudesDocumentalesR
 	items, causa := s.consulta.ListarSolicitudesDocumentalesRRHH(ctx, q)
 	if ctx.Err() != nil {
 		causa = ctx.Err()
-	} else if causa != nil && len(items) != 0 || causa == nil && !solicitudesDocumentalesRRHHValidas(items) {
+	} else if causa != nil && len(items) != 0 {
 		causa = ports.ErrSituacionParticipacionNoDisponible
+	} else if causa == nil {
+		causa = validarSolicitudesDocumentalesRRHH(items)
 	}
 	if causa == nil {
 		return items, nil // El servicio ya confirmó la lectura y su auditoría SQL.
@@ -82,20 +85,23 @@ func (s *ConsultaSolicitudesDocumentalesAuditada) ListarSolicitudesDocumentalesR
 
 // Se conserva la forma cerrada que ya exige el transporte. Una proyección
 // inválida se registra como fallo y nunca alcanza el serializador HTTP.
-func solicitudesDocumentalesRRHHValidas(items []ports.SolicitudDocumentalPendienteRRHH) bool {
+func validarSolicitudesDocumentalesRRHH(items []ports.SolicitudDocumentalPendienteRRHH) error {
 	for _, item := range items {
 		if item.SolicitudRef == "" || item.Version != 1 || item.ContenidoSHA256 == "" || item.DocumentoRef == "" ||
 			item.DocumentoSHA256 == "" || item.Estado != "pendiente_rrhh" || item.ReciboRef == "" || item.RegistradaEn.IsZero() {
-			return false
+			return ports.ErrSituacionParticipacionNoDisponible
 		}
 		if item.FechaFinCausa != "" {
 			fecha, err := time.Parse(time.DateOnly, item.FechaFinCausa)
-			if err != nil || fecha.Format(time.DateOnly) != item.FechaFinCausa {
-				return false
+			if err != nil {
+				return fmt.Errorf("%w: fecha de proyección inválida: %w", ports.ErrSituacionParticipacionNoDisponible, err)
+			}
+			if fecha.Format(time.DateOnly) != item.FechaFinCausa {
+				return ports.ErrSituacionParticipacionNoDisponible
 			}
 		}
 	}
-	return true
+	return nil
 }
 
 func falloAuditoriaConsultaDocumentales() error {

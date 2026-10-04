@@ -120,6 +120,12 @@ func TestConsultaDocumentalesAuditadaNoDevuelveProyeccionParcialOInvalida(t *tes
 		if items != nil || !errors.Is(err, ports.ErrSituacionParticipacionNoDisponible) || len(r.ordenes) != 1 || r.ordenes[0].Datos.Resultado != core.ResultadoIntentoAuditoriaError {
 			t.Fatal("proyección no confiable publicada")
 		}
+		if causa == nil {
+			var fechaInvalida *time.ParseError
+			if !errors.As(err, &fechaInvalida) {
+				t.Fatal("causa de fecha inválida perdida")
+			}
+		}
 	}
 }
 
