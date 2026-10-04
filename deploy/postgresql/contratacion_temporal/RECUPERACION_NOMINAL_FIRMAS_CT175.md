@@ -13,3 +13,5 @@ La respuesta conserva `Firmas` y `RevisionesPDF` y añade `Recuperaciones`: una 
 Sólo el ejecutor CT recibe EXECUTE; las tablas y el lector AUT siguen privados. No hay nuevas tablas, permisos humanos, auditoría propia ni cambios al histórico instalado.
 
 Pendiente: dos revisiones sensibles del hash final, ensayo PostgreSQL 18 sobre la copia fría causal de K/L, adaptador/HTTP con auditoría de denegados y errores, y recorrido con dos firmas y recuperación tras reiniciar. Una prueba estructural no sustituye ese ensayo.
+
+El lector no envuelve el consumo en un bloque EXCEPTION: conserva los errores PostgreSQL de serialización, bloqueos o validación para el adaptador y su auditoría. La comparación TopXID/SubXID de las funciones instaladas sigue pendiente de corrección por la autoridad AD; retirar este bloque no resuelve por sí solo ese bloqueo común.

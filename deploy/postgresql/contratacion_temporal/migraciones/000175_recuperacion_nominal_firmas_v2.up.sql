@@ -188,10 +188,6 @@ BEGIN
  RETURN jsonb_build_object('Encontrado',true,'ExpedienteRef',s->>'ExpedienteRef','Firmas',firmas,'RevisionesPDF',revisiones,
   'Recuperaciones',recuperaciones,'HistoriaRevision',cabeza.revision,'HistoriaHuella',cabeza.huella_sha256,
   'CoincideFirmanteEnOtroPaso',coincide,'HistoriaSeparacionAcreditada',separacion);
-EXCEPTION WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
- RAISE EXCEPTION 'recuperación V2 transitoria' USING ERRCODE='P1525';
-WHEN data_exception THEN
- RAISE EXCEPTION 'material de recuperación V2 inválido' USING ERRCODE='22023';
 END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
