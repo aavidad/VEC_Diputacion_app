@@ -148,6 +148,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+	// Se fija después de componer Documentos y antes de servir HTTP. El cliente
+	// ya construido consulta esta fuente sólo al observar una respuesta real.
+	resultadosFirma func() puertosvec.EmisorResultadosTecnicosConContexto
 	// Las vías R5 se preparan juntas sobre el mismo servicio, circuito y
 	// custodia. Ninguna de ellas se entrega a una ruta mientras falte su
 	// autoridad nominal y transaccional.
@@ -156,6 +159,26 @@ type firmaDocumentoCTDesarrollo struct {
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
+}
+
+func (f *firmaDocumentoCTDesarrollo) emisorResultadosFirma() puertosvec.EmisorResultadosTecnicosConContexto {
+	if f == nil || f.resultadosFirma == nil {
+		return nil
+	}
+	return f.resultadosFirma()
+}
+
+func vincularResultadosFirmaCT(f *firmaDocumentoCTDesarrollo, d *autoridadDocumentosDesarrollo) {
+	if f == nil || d == nil {
+		return
+	}
+	f.resultadosFirma = func() puertosvec.EmisorResultadosTecnicosConContexto {
+		emisor, ok := d.incidencias.(puertosvec.EmisorResultadosTecnicosConContexto)
+		if !ok {
+			return nil
+		}
+		return emisor
+	}
 }
 
 // Ambas vías consumen una sola historia nominal V2, el mismo verificador
@@ -572,7 +595,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if circuito == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	verificador, err := nuevoVerificadorFirmaDocumentos(cfg)
+	verificador, err := nuevoVerificadorFirmaDocumentos(cfg, f.emisorResultadosFirma)
 	if err != nil {
 		return nil, err
 	}
