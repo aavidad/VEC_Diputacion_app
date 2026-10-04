@@ -70,7 +70,7 @@ Dominio y aplicación se mantienen independientes de HTTP, SQL y proveedor; adap
 
 Catálogos de supuestos, documentos, informes, órganos, suplencias, condiciones y reglas requieren fuente y artículo, publicación, versión/huella, colectivo, entidad, vigencia y efectos, órgano aprobador y responsable de validación. Una regla legal obligatoria no puede alterarse mediante una preferencia de RRHH. Toda modificación conserva la versión aplicada al expediente.
 
-Primer corte útil: INC1–INC4, INC7 e INC9 con datos sintéticos: preparar una solicitud propia, comprobar documentos y recuperar el recibo de recepción tras reinicio. Concederla, notificarla o publicarla queda fuera de ese corte hasta disponer del circuito validado, firma y adaptadores reales. Comprobar aislamiento entre entidades/personas, descarga denegada, revocación concurrente y auditoría de permitidos, denegados y errores.
+Primer corte útil: INC1–INC4, INC7 e INC9 con datos sintéticos: preparar una solicitud propia, comprobar documentos y recuperar el recibo interno de recepción tras reinicio; el asiento oficial exige el adaptador de Registro. Concederla, notificarla o publicarla queda fuera de ese corte hasta disponer del circuito validado, firma y adaptadores reales. Comprobar aislamiento entre entidades/personas, descarga denegada, revocación concurrente y auditoría de permitidos, denegados y errores.
 
 ## Pendiente de organización interna
 
