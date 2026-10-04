@@ -44,3 +44,11 @@ un recibo/outbox. Tras AUT40, la CLI recuperó el recibo idéntico, registró re
 por otra huella y un error controlado de un getter. El reinicio conservó el
 recibo y las tres asignaciones. Las actas privadas contienen referencias y
 comandos exactos. No acredita principal, producción, FNMT ni firma legal.
+
+La primera alta mediante el wrapper y la CLI se ensayó además sobre un objetivo
+nuevo recuperado del frío anterior. Un fallo real inyectado en el append AD179
+revirtió el primer efecto: quedaron cero bootstrap y perfiles del plan, sin
+avanzar la auditoría. Al retirar el fallo, la CLI confirmó la primera alta con
+replay falso; replay y reinicio conservaron el mismo recibo, tres perfiles,
+dos personas Aplicación y una confirmación AD171. Cada llamada permitida añadió
+su propio intento AD179. La base anterior y sus recibos permanecieron intactos.
