@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type Proveedor struct {
@@ -148,7 +148,7 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 	if _, _, err = identidad.ProyectarCuentaAutenticada(ctx, sesion); err != nil {
 		return vacia, api.ErrAccesoDenegado
 	}
-	correlacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil || ctx.Err() != nil {
 		return vacia, api.ErrConfiguracionIncompleta
 	}
