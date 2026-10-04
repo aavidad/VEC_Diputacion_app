@@ -46,47 +46,62 @@ func (r *registroAntesRespuestaFrontera) AppendIntentoAuditoria(ctx context.Cont
 }
 
 func TestFronteraSesionIncompatibleAppendNominalAntes503(t *testing.T) {
-	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	actor, evidencia := sesionFronteraPrueba(t, ahora)
-	// La evidencia es original y usable. La instantánea del resolutor es
-	// incoherente y su correlación inválida; ninguna sustituye el contexto V2.
-	s := api.SesionConfiable{Actor: actor, Evidencia: evidencia, CorrelacionRef: "SECRET_correlacion_sesion_invalida"}
-	w := httptest.NewRecorder()
-	reg := &registroAntesRespuestaFrontera{registroFronteraPrueba: &registroFronteraPrueba{ahora: ahora}, w: w}
-	nominal, err := NuevaAuditorFronteraNominal(reg, configFronteraPrueba())
-	if err != nil {
-		t.Fatal(err)
-	}
-	pool := &poolTecnicoPrueba{}
-	compuesto, err := NuevoAuditorFronteraCompuesto(nominal, registradorTecnicoPrueba(pool))
-	if err != nil {
-		t.Fatal(err)
-	}
-	h, err := api.NuevoHandlerLecturas("https://admin.example.test", sesionIncompatibleFrontera{s}, &lecturasNoInvocadasFrontera{}, compuesto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	privada, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ref, err := privada.ValorCanonico()
-	if err != nil {
-		t.Fatal(err)
-	}
-	r := httptest.NewRequest(http.MethodGet, "https://admin.example.test"+api.PrefijoV1+"/personas", nil).WithContext(ctx)
-	r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}}
-	r.Header.Set("X-Correlation-ID", "SECRET_cabecera")
-	h.ServeHTTP(w, r)
-	if w.Code != 503 || reg.llamadas != 1 || reg.respuestaEmitida || len(pool.eventos) != 0 || strings.Contains(w.Body.String(), "SECRET") {
-		t.Fatal("sin_append_nominal_o_downgrade")
-	}
-	orden := reg.ordenes[0]
-	if orden.Datos.Resultado != "error" || orden.Datos.CorrelacionRef != ref || orden.Datos.Accion != configFronteraPrueba().Destinos["consultar"].Accion || orden.ResultadoContexto.Contexto.PersonaRef != actor.PersonaRef || orden.ResultadoContexto.RegistroContextoRef != evidencia.ResultadoContexto.RegistroContextoRef {
-		t.Fatal("evidencia_accion_o_correlacion_sustituidas")
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		t.Run(metodo, func(t *testing.T) {
+			ahora := time.Now().UTC().Truncate(time.Microsecond)
+			actor, evidencia := sesionFronteraPrueba(t, ahora)
+			// La evidencia es original y usable. La instantánea del resolutor es
+			// incoherente y su correlación inválida; ninguna sustituye el contexto V2.
+			s := api.SesionConfiable{Actor: actor, Evidencia: evidencia, CorrelacionRef: "SECRET_correlacion_sesion_invalida"}
+			w := httptest.NewRecorder()
+			reg := &registroAntesRespuestaFrontera{registroFronteraPrueba: &registroFronteraPrueba{ahora: ahora}, w: w}
+			nominal, err := NuevaAuditorFronteraNominal(reg, configFronteraPrueba())
+			if err != nil {
+				t.Fatal(err)
+			}
+			pool := &poolTecnicoPrueba{}
+			compuesto, err := NuevoAuditorFronteraCompuesto(nominal, registradorTecnicoPrueba(pool))
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := api.NuevoHandlerLecturas("https://admin.example.test", sesionIncompatibleFrontera{s}, &lecturasNoInvocadasFrontera{}, compuesto)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			privada, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref, err := privada.ValorCanonico()
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(metodo, "https://admin.example.test"+api.PrefijoV1+"/personas", nil).WithContext(ctx)
+			r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}}
+			r.Header.Set("X-Correlation-ID", "SECRET_cabecera")
+			if metodo == http.MethodPost {
+				r.Header.Set("Origin", "https://admin.example.test")
+				r.Header.Set("Sec-Fetch-Site", "same-origin")
+				r.Header.Set("Sec-Fetch-Mode", "cors")
+				r.Header.Set("Sec-Fetch-Dest", "empty")
+			}
+			accion := "consultar"
+			if metodo == http.MethodPost {
+				accion = "escribir"
+			}
+			h.ServeHTTP(w, r)
+			if w.Code != 503 || reg.llamadas != 1 || reg.respuestaEmitida || len(pool.eventos) != 0 || strings.Contains(w.Body.String(), "SECRET") {
+				t.Fatal("sin_append_nominal_o_downgrade")
+			}
+			orden := reg.ordenes[0]
+			if orden.Datos.Resultado != "error" || orden.Datos.CorrelacionRef != ref || orden.Datos.Accion != configFronteraPrueba().Destinos[accion].Accion || orden.ResultadoContexto.Contexto.PersonaRef != actor.PersonaRef || orden.ResultadoContexto.RegistroContextoRef != evidencia.ResultadoContexto.RegistroContextoRef {
+				t.Fatal("evidencia_accion_o_correlacion_sustituidas")
+			}
+
+		})
 	}
 }
