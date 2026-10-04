@@ -1,0 +1,5209 @@
+{
+  "esquema_version": 1,
+  "source_commit": "39ec9858d2983e24786db9d909e86cdce19db720",
+  "base_commit": "ed9c7de8680d6282ba3f32e7e01118001ef7c262",
+  "estado": "ENSAYO_OK_SQL_ARRANQUE_REINICIO_CALIDAD",
+  "ejecutable": true,
+  "preimagen": {
+    "copia_fria": "h7-pg.tgz",
+    "sha256": "a1f56a65d53c6aaa20ab9f9b753f08ce80d390178ae03d6926072722ae192ce4",
+    "aplicar_solo_en_clon": [
+      {
+        "kit": "h7kit/sql",
+        "archivo": "01_000162_auditoria_frontera_organizacion_historica.up.sql",
+        "sha256": "8733aa0709500212976bd99d1c68a620bfdb04d48b15f345da8fdb3ba9a6cfe7"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "02_000071_plazo_desde_notificacion.up.sql",
+        "sha256": "7e3dbe53e22cc16e7013b15b4cb6715e6b4d7f053eaa74f7f92402645360c6fc"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "03_000070_adjudicacion_telematica.up.sql",
+        "sha256": "b4c2a3fad2e878c19098ec3d464092eafd39bf0b795880d20b714be7019786cf"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "04_000165_periodo_fin_segun_modalidad.up.sql",
+        "sha256": "7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "05_000166_periodo_fin_cobertura_c1.up.sql",
+        "sha256": "e6642ac29bf4b76f9315901f7f1c1e1bcd435d4f2e409990fcc5b039a17e94ab"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "06_000167_consulta_politica_fin_confirmada.up.sql",
+        "sha256": "961951e7f34fe120ded4e8230efde321eb33d824d0f1af1ebf6f365cc6494790"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "07_000074_horizonte_abierto_integracion.up.sql",
+        "sha256": "9a99fa259160d18d206fe9efa21d5769f1717e767f3faabff32b79d287b48b09"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "08_000075_ofertas_nuevas_aceptacion_previa.up.sql",
+        "sha256": "73a6a7eb5e3eba0dc2fe60852f030ba6ca10ab5af237bde38a9058751b247b9f"
+      },
+      {
+        "kit": "h7kit/sql",
+        "archivo": "09_000072_historial_ofrecimientos.up.sql",
+        "sha256": "9946449b4f33c2026adec976a41046e2a4469e40e000ccf7f02f9af000556e40"
+      },
+      {
+        "kit": "h8kit/sql",
+        "archivo": "01_000073.up.sql",
+        "sha256": "dbebf36ac124130e668188281515606efd4a547d49aa6fefc24e942a42602bce"
+      },
+      {
+        "kit": "h8kit/sql",
+        "archivo": "02_000076.up.sql",
+        "sha256": "2674b156d46a7bcf14b33a496c79a97224accf4edf9e3189e8c16a12d73e598c"
+      },
+      {
+        "kit": "h8kit/sql",
+        "archivo": "03_000169.up.sql",
+        "sha256": "4a9f843125416de8f1683e20df4b6ed192f2b8e7ea947a688c33dc8718846ab4"
+      },
+      {
+        "kit": "main_base",
+        "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000155_solicitud_documental_bolsa.up.sql",
+        "sha256": "c4380299caf3e00e3b14df343adf63754e40ea11afb393fee971a69af4b9e21d"
+      },
+      {
+        "kit": "main_base",
+        "ruta": "deploy/postgresql/bolsa_llamamientos/migraciones/000077_solicitud_documental_rrhh.up.sql",
+        "sha256": "93f47d3dd2e0c9ed4065818416fc83b4f67b4c4e0c7e334a04e5911185f01a44"
+      },
+      {
+        "kit": "main_base",
+        "ruta": "deploy/postgresql/bolsa_importacion_convoca/migraciones/000005_acta_xlsx.up.sql",
+        "sha256": "f575f6cf87d73d58531c4dfdd8f1ff272b24390060af32fdd4c74b22df11ebea"
+      }
+    ],
+    "principal": "Ya conserva H7/H8/AD155/B77/importación5; no reaplicar."
+  },
+  "seleccion_h9": [
+    "CA19",
+    "AUT22",
+    "AUT23",
+    "CA20",
+    "IS9",
+    "AUT24",
+    "CA26",
+    "IS13",
+    "AD169",
+    "CA27",
+    "AD171",
+    "AD160",
+    "AD164",
+    "AUT33",
+    "CA25",
+    "AD151",
+    "CT163",
+    "CT164",
+    "AD156",
+    "AD157",
+    "AD158",
+    "Documentos13",
+    "AD162",
+    "AD170",
+    "AD159",
+    "AD165",
+    "AD166",
+    "Personal28",
+    "Personal29",
+    "AD167",
+    "AUT32",
+    "AUT35",
+    "AUT34",
+    "AD168",
+    "AUT30",
+    "CT170",
+    "CT174",
+    "CT172",
+    "Personal31"
+  ],
+  "ramas_excluidas": {
+    "CRN11": [
+      "AD149",
+      "Personal26"
+    ],
+    "RPT": [
+      "AD149",
+      "Personal26",
+      "AD154",
+      "Personal27",
+      "Personal30"
+    ],
+    "Selectivos": [
+      "AD149",
+      "Personal26",
+      "SUPPORT2",
+      "SUPPORT3",
+      "SUPPORT4",
+      "AD161",
+      "Meritos1",
+      "SUPPORT5",
+      "AD145",
+      "Meritos2",
+      "SUPPORT6",
+      "SUPPORT7",
+      "AD153",
+      "BC8",
+      "CT168"
+    ]
+  },
+  "no_reaplicar": [
+    "AD141",
+    "AD142",
+    "AD144"
+  ],
+  "fuera_commit": [
+    "AD172",
+    "AD173",
+    "CT173"
+  ],
+  "bloqueos": [
+    "Los esquemas Convocatorias/Méritos/Baremo no están en la copia fría. S2 precisa roles BC, authBC1 y BC1; BC2..7 no son dependencia de S2. Inventariar otros prefijos según consumidor.",
+    "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada."
+  ],
+  "migraciones": [
+    {
+      "id": "CA19",
+      "modulo": "contexto_actor_v1",
+      "numero": 19,
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000019_perfiles_nominales_sin_revivir.up.sql",
+      "sha256": "7cbfe25c0e78fe34f6f8fee0d986c5e0bf0e8abc7238bdf1d8e7045b250ebb97",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 1,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "71e35ea86230452f79ace9b0b29ccbf9f8f4cadf041ece5ca49bd783a93ec243",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 27,
+          "linea_fin": 48,
+          "sha256_bloque": "4dde1dd3b6c4df757ac8f0c02f09ce62be89fecdef379f31059bf8ed95bbafb6",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 51,
+          "objeto": "vec_contexto_actor_v1.impedir_revivir_perfil_v1"
+        },
+        {
+          "linea": 100,
+          "objeto": "vec_contexto_actor_v1.listar_perfiles_cuenta_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT22",
+      "modulo": "autorizacion",
+      "numero": 22,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000022_rol_administracion_perfiles_sin_revivir.up.sql",
+      "sha256": "535cf354235083fb98f3bdff7c19c210d0b7e876328441e4faf233d026809495",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 2,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CA19"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "aeaa7cf1bacb1cdf21b61a7ae8d39ed86d40f533410233babac8cce492162f74",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 26,
+          "linea_fin": 41,
+          "sha256_bloque": "d7c58a43c0cc7c0eec80e69cf89028b646219f7f25518ced757f76ff94e9ec5b",
+          "controles": [
+            "owner/roles",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$rol$",
+          "linea_inicio": 77,
+          "linea_fin": 109,
+          "sha256_bloque": "49efa06f564a8a40cc364abc4017bbfb505952304dd53067d355cbb226225866",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 44,
+          "objeto": "vec_autorizacion.impedir_revivir_asignacion_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT23",
+      "modulo": "autorizacion",
+      "numero": 23,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000023_actos_perfiles_sensibles_internos.up.sql",
+      "sha256": "30246fab3cd3ba1d290ce0c15f6333d5824cecfff56bcc90eb7edeb59b893095",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 3,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT22"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "aeaa7cf1bacb1cdf21b61a7ae8d39ed86d40f533410233babac8cce492162f74",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 28,
+          "linea_fin": 55,
+          "sha256_bloque": "f8e1e02b5335eb75d4cd45098d077167be619aa7c6097d6a90970811cc8e7d89",
+          "controles": [
+            "owner/roles",
+            "RLS",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$rol_v2$",
+          "linea_inicio": 99,
+          "linea_fin": 127,
+          "sha256_bloque": "c772b451c33a75700bf3674075410384f76fa7b10394e370650c53260a450d5a",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$historia$",
+          "linea_inicio": 189,
+          "linea_fin": 200,
+          "sha256_bloque": "d79822f78b1e87f28b757b1111fd802c37cda5e0c68e4fb016793bd4dc0e6b9d",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 363,
+          "linea_fin": 372,
+          "sha256_bloque": "4ab3b8d383fb999007d44b48270ddc2a2a2779651d2c7fdf95b6153d83ea39e1",
+          "controles": [],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 211,
+          "objeto": "vec_autorizacion.validar_avance_continuidad_admin_v1"
+        },
+        {
+          "linea": 230,
+          "objeto": "vec_autorizacion.avanzar_continuidad_admin_interna_v1"
+        },
+        {
+          "linea": 250,
+          "objeto": "vec_autorizacion.bloquear_asignacion_sensible_hasta_aut24_v1"
+        },
+        {
+          "linea": 270,
+          "objeto": "vec_autorizacion.validar_propuesta_perfil_sensible_v1"
+        },
+        {
+          "linea": 294,
+          "objeto": "vec_autorizacion.validar_cierre_propuesta_sensible_v1"
+        },
+        {
+          "linea": 324,
+          "objeto": "vec_autorizacion.validar_acto_perfil_sensible_v1"
+        },
+        {
+          "linea": 349,
+          "objeto": "vec_autorizacion.validar_recibo_perfil_sensible_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CA20",
+      "modulo": "contexto_actor_v1",
+      "numero": 20,
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000020_actos_perfil_admin_internos.up.sql",
+      "sha256": "a8f719d49a9014585b16c30a4f23f8ea4734f0716d23ee3c375fcc5eed1d867c",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 4,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT23"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "6e6f629d810e29d044c77906d170b86e3782684a6f2b8df9b82be81ad25d532a",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 27,
+          "linea_fin": 35,
+          "sha256_bloque": "b8cbb8362776739389aa80332befa15eef9a1eea75d84e5d21f0a801a60dace5",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 42,
+          "objeto": "vec_contexto_actor_v1.bloquear_contexto_admin_v1"
+        },
+        {
+          "linea": 99,
+          "objeto": "vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1"
+        },
+        {
+          "linea": 168,
+          "objeto": "vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "IS9",
+      "modulo": "identidad_sesiones_v1",
+      "numero": 9,
+      "ruta": "deploy/postgresql/identidad_sesiones_v1/migraciones/000009_politica_certificado_admin_v1.up.sql",
+      "sha256": "a51d8e64f07bb901727689dae432146bdf98c5a3f609d116381e77e92f875e43",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 5,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CA20"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "6309ccf61e910c0a69bf015ff4c9eda15d347082ab899f1d0d8b5f7f2f8948ad",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 27,
+          "linea_fin": 38,
+          "sha256_bloque": "0b9d8c9c32226eeaf8affb55f4cd78d2045b2e280328d849483b024c838085ba",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 330,
+          "linea_fin": 341,
+          "sha256_bloque": "cf70407cf96ef6d84fd46948347e86dfa1453e848b179a8252ccc7e2e6362611",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 58,
+          "objeto": "vec_identidad_sesiones_v1.inmutabilidad_politica_admin_v1"
+        },
+        {
+          "linea": 120,
+          "objeto": "vec_identidad_sesiones_v1.avance_vinculo_certificado_admin_v1"
+        },
+        {
+          "linea": 156,
+          "objeto": "vec_identidad_sesiones_v1.crear_vinculo_certificado_admin_v1"
+        },
+        {
+          "linea": 209,
+          "objeto": "vec_identidad_sesiones_v1.revocar_vinculo_certificado_admin_v1"
+        },
+        {
+          "linea": 247,
+          "objeto": "vec_identidad_sesiones_v1.revalidar_certificado_admin_v1"
+        },
+        {
+          "linea": 306,
+          "objeto": "vec_identidad_sesiones_v1.bloquear_inactivacion_admin_hasta_aut24_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT24",
+      "modulo": "autorizacion",
+      "numero": 24,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000024_actos_admin_centrales_v1.up.sql",
+      "sha256": "a07ded3cbc503f409eeff04b937c3bc0fe5d6d78622dd0e1475c7193bbda5f2a",
+      "pr": {
+        "numero": 479,
+        "merge_commit": "bbd190258f45c2e2db20be9e6bbb026cea1ea491"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 6,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "IS9"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$frontera_preimagen$",
+          "linea_inicio": 13,
+          "linea_fin": 27,
+          "sha256_bloque": "8f81ad657e83bfd78f5e0f019785cdff85530a3a92a4b9b84fe995dbab7421ba",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 28,
+          "linea_fin": 39,
+          "sha256_bloque": "057bf0add1b4644b70d1491281b4945baf21a987c6e0d3b1def2c18d153a5574",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 32,
+              "sha256": "cca9d9cad02d20458b6b1f39fb4b4e41cf6bdcd32ed2cbc8c064480f8156cf88"
+            },
+            {
+              "linea": 32,
+              "sha256": "cca9d9cad02d20458b6b1f39fb4b4e41cf6bdcd32ed2cbc8c064480f8156cf88"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$rol$",
+          "linea_inicio": 41,
+          "linea_fin": 51,
+          "sha256_bloque": "c462fe897f90d34628eaa1e569c5b526e72929045a0b3d0cb937a348b0d19daa",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$rol_lector_v3$",
+          "linea_inicio": 214,
+          "linea_fin": 229,
+          "sha256_bloque": "abe622264e63694d7582e62f3650eebc0969a484694dd4eb24e62f03e8a26da6",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$historia$",
+          "linea_inicio": 262,
+          "linea_fin": 274,
+          "sha256_bloque": "0c4c54b3ce1906b1e37cf5b0e3c27e2f0fdcf0fa41c8c91a4d24f27d15c2c1f6",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$rol_bootstrap$",
+          "linea_inicio": 725,
+          "linea_fin": 729,
+          "sha256_bloque": "be3e3b8c48075f6e61af064592e84a83ecb08af73bad996af271471df4970589",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$historia_bootstrap$",
+          "linea_inicio": 769,
+          "linea_fin": 781,
+          "sha256_bloque": "16c74d9685a8454f67176ee9da0d0d1e71addf7826955631b254221043a7e176",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl_bootstrap_y_lectura$",
+          "linea_inicio": 801,
+          "linea_fin": 811,
+          "sha256_bloque": "4ae1446a5285655e4be0871fbdd16f227693c79e24da5b4715f2cb0b7a1fbf30",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 55,
+          "objeto": "vec_autorizacion.json_cadena_canonica_go_admin_v1"
+        },
+        {
+          "linea": 68,
+          "objeto": "vec_autorizacion.fecha_canonica_go_admin_v1"
+        },
+        {
+          "linea": 97,
+          "objeto": "vec_autorizacion.array_cadenas_canonico_go_admin_v1"
+        },
+        {
+          "linea": 119,
+          "objeto": "vec_autorizacion.objeto_canonico_go_admin_v1"
+        },
+        {
+          "linea": 197,
+          "objeto": "vec_autorizacion.canon_asignacion_perfil_admin_v1"
+        },
+        {
+          "linea": 202,
+          "objeto": "vec_autorizacion.canon_version_rol_admin_v1"
+        },
+        {
+          "linea": 207,
+          "objeto": "vec_autorizacion.canon_control_rol_admin_v1"
+        },
+        {
+          "linea": 275,
+          "objeto": "vec_autorizacion.resolver_rol_administrable_v1"
+        },
+        {
+          "linea": 294,
+          "objeto": "vec_contexto_actor_v1.preimagen_admin_interna_v1"
+        },
+        {
+          "linea": 315,
+          "objeto": "vec_contexto_actor_v1.enlace_perfil_admin_interno_v1"
+        },
+        {
+          "linea": 336,
+          "objeto": "vec_identidad_sesiones_v1.estado_admin_interno_v1"
+        },
+        {
+          "linea": 360,
+          "objeto": "vec_autorizacion.administradores_efectivos_internos_v1"
+        },
+        {
+          "linea": 382,
+          "objeto": "vec_autorizacion.preimagen_cambio_admin_interna_v1"
+        },
+        {
+          "linea": 399,
+          "objeto": "vec_autorizacion.validar_material_acto_admin_v1"
+        },
+        {
+          "linea": 455,
+          "objeto": "vec_autorizacion.consumir_material_admin_interno_v1"
+        },
+        {
+          "linea": 495,
+          "objeto": "vec_autorizacion.bloquear_asignacion_sensible_hasta_aut24_v1"
+        },
+        {
+          "linea": 507,
+          "objeto": "vec_autorizacion.ejecutar_cambio_admin_interno_v1"
+        },
+        {
+          "linea": 562,
+          "objeto": "vec_autorizacion.registrar_resultado_admin_interno_v1"
+        },
+        {
+          "linea": 571,
+          "objeto": "vec_autorizacion.recuperar_resultado_admin_interno_v1"
+        },
+        {
+          "linea": 582,
+          "objeto": "vec_autorizacion.aplicar_acto_ordinario_admin_v1"
+        },
+        {
+          "linea": 598,
+          "objeto": "vec_autorizacion.proponer_acto_admin_v1"
+        },
+        {
+          "linea": 622,
+          "objeto": "vec_autorizacion.cerrar_propuesta_admin_v1"
+        },
+        {
+          "linea": 660,
+          "objeto": "vec_autorizacion.consultar_asignacion_admin_perfiles_v1"
+        },
+        {
+          "linea": 688,
+          "objeto": "vec_autorizacion.preparar_preimagen_admin_v1"
+        },
+        {
+          "linea": 731,
+          "objeto": "vec_identidad_sesiones_v1.preimagen_bootstrap_admin_interna_v2"
+        },
+        {
+          "linea": 743,
+          "objeto": "vec_identidad_sesiones_v1.crear_certificado_bootstrap_admin_interno_v2"
+        },
+        {
+          "linea": 783,
+          "objeto": "vec_autorizacion.material_persona_bootstrap_interno_v2"
+        },
+        {
+          "linea": 791,
+          "objeto": "vec_autorizacion.provisionar_dos_administradores_iniciales_v2"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CA26",
+      "modulo": "contexto_actor_v1",
+      "numero": 26,
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000026_cotejo_historico_auditoria_intentos.up.sql",
+      "sha256": "a15215662dfca166a2a9cdc0033e7a24261a5ed1935917eb0bc76bff8cca9aa8",
+      "pr": {
+        "numero": 502,
+        "merge_commit": "d6ff441b42112e18e428b3d651f3627f6d5902ff"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 7,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT24"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 18,
+          "sha256_bloque": "6e1bf3010f61831a25b73b170007ffca4b3066c1829ea4051c0f383dad9d4e57",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 200,
+          "linea_fin": 209,
+          "sha256_bloque": "ed1c11f9887d329825b25661a7fd7ab764b4f6895396258e8d74dae08ba816bd",
+          "controles": [
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 20,
+          "objeto": "vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "IS13",
+      "modulo": "identidad_sesiones_v1",
+      "numero": 13,
+      "ruta": "deploy/postgresql/identidad_sesiones_v1/migraciones/000013_cotejo_historico_auditoria_intentos.up.sql",
+      "sha256": "0002112de0813f8075eca104f6a7d91dd672233baa967d4d9a213ba15a45232b",
+      "pr": {
+        "numero": 502,
+        "merge_commit": "d6ff441b42112e18e428b3d651f3627f6d5902ff"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 8,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CA26"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 18,
+          "sha256_bloque": "19cdb30c8abae2ff3b411f9dce5619a79345dc8071828b4a5c10920c676a3197",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 254,
+          "linea_fin": 263,
+          "sha256_bloque": "8932c91f58d68663d983e451920d4f20ef8c55ae005e40ce374bbe797e4bc0c6",
+          "controles": [
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 20,
+          "objeto": "vec_identidad_sesiones_v1.cotejar_autenticacion_historica_auditoria_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD169",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 169,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000169_intentos_nominales_auditoria_comun.up.sql",
+      "sha256": "9c9c51245234ea25e0e033535871959530f96c3c68b607a104bca782aa732cc7",
+      "pr": {
+        "numero": 502,
+        "merge_commit": "d6ff441b42112e18e428b3d651f3627f6d5902ff"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 9,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "IS13"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 13,
+          "linea_fin": 24,
+          "sha256_bloque": "6a55f3bb6d369f1bc7f5885c8c874979d2686ce5050af39580f86ea793429ab9",
+          "controles": [
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 136,
+          "objeto": "vec_autorizacion_atestada_v3.acreditar_registrador_intentos_v1"
+        },
+        {
+          "linea": 170,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_intento_nominal_v1"
+        },
+        {
+          "linea": 356,
+          "objeto": "vec_autorizacion_atestada_v3.preflight_registrador_intentos_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CA27",
+      "modulo": "contexto_actor_v1",
+      "numero": 27,
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000027_cotejo_historico_empleado_auditoria.up.sql",
+      "sha256": "72243349e6af4914c41b39e712484348c5a1be67c5c7b68a1cb7eed8280c8c97",
+      "pr": {
+        "numero": 521,
+        "merge_commit": "149152dacdc7ff3ddeba085e162f10d6b33f3e9f"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 10,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD169"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$cambio$",
+          "linea_inicio": 12,
+          "linea_fin": 179,
+          "sha256_bloque": "7835ab70344381125fe66efacf80f93729626581f7bcc5ec7fc47370c94984d8",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 114,
+              "sha256": "852e5101f3d751f43772fe16dd6e4af6a4dcb2b27be34a1bd7e8b9619b26e337"
+            },
+            {
+              "linea": 128,
+              "sha256": "2289982c05a581463ca02de2b49b18dc74d9411d8c5dc329a871efee6c4b2ca8"
+            },
+            {
+              "linea": 130,
+              "sha256": "ee33f00aee1cfdacfad434125265f8c407c9679cd6e11da9a8dd31355db2d52a"
+            },
+            {
+              "linea": 174,
+              "sha256": "310cc2852d16cc2c47b281603390be31e05436c9c255bb6f7151c9878ad9e04b"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD171",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 171,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000171_auditoria_admin_preperfil.up.sql",
+      "sha256": "7a5b2ac33e53a04c85e854dc558755ec95fc8ba360d34b9559c699c02027a7b8",
+      "pr": {
+        "numero": 530,
+        "merge_commit": "dca626d35c3394b17217608cec6edfc732b1c56b"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 11,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CA27"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 13,
+          "linea_fin": 24,
+          "sha256_bloque": "250a7e65fbd904be4c1dc1e7387a3bd59b7a8780062ca650e041a8ca0535ab3b",
+          "controles": [
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$familias$",
+          "linea_inicio": 37,
+          "linea_fin": 74,
+          "sha256_bloque": "43b31484c89be4dd9093afc2afacf555c6e8c1ea5c77211f8dae7ad995ce2ba8",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 218,
+          "linea_fin": 228,
+          "sha256_bloque": "20504dd54fe36f94a7664b2ebfd2b29f64562f2c2f92912d45ac812f797e2c8c",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 95,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD160",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 160,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000160_fachada_privada_cargos_ct.up.sql",
+      "sha256": "b6bc945a36af85ef136b35300655488fe533977c738e021330ef3321b24a7572",
+      "pr": {
+        "numero": 483,
+        "merge_commit": "4528a376b3eee8ff4f545a493757cee0f87185be"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 12,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD171"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 10,
+          "linea_fin": 37,
+          "sha256_bloque": "109de0aaef7ff04f0d22dd231605d8fb155dfb3827248b76a8375522e44e6c76",
+          "controles": [
+            "owner/roles",
+            "RLS",
+            "configuracion",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$conexion$",
+          "linea_inicio": 39,
+          "linea_fin": 41,
+          "sha256_bloque": "4610c7bdd7341ebd8c2dfc21641aa75550ea3b313b4a57f5939d600901d58617",
+          "controles": [],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$historia$",
+          "linea_inicio": 139,
+          "linea_fin": 151,
+          "sha256_bloque": "a0374ee49f9d3fee9678b60a48b745546997fec4ea7c3aca253b7db99cd05554",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$fachadas$",
+          "linea_inicio": 399,
+          "linea_fin": 407,
+          "sha256_bloque": "7bd4c92788ff30a00f740285f5a552d846be597826afd7a212ae16dfb34a89c2",
+          "controles": [
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 46,
+          "objeto": "vec_contexto_actor_v1.acreditar_destino_cargo_ct_v1"
+        },
+        {
+          "linea": 85,
+          "objeto": "vec_identidad_sesiones_v1.acreditar_operador_cargos_ct_v1"
+        },
+        {
+          "linea": 156,
+          "objeto": "vec_autorizacion.preimagen_cargo_ct_interna_v1"
+        },
+        {
+          "linea": 171,
+          "objeto": "vec_autorizacion.acreditar_adjunto_plan_cargo_ct_v1"
+        },
+        {
+          "linea": 197,
+          "objeto": "vec_autorizacion.operar_cargo_ct_interna_v1"
+        },
+        {
+          "linea": 403,
+          "objeto": "vec_autorizacion."
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD164",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 164,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000164_independencia_cargos_ct_cierre.up.sql",
+      "sha256": "07e2269fe8d40fdfd221d0e397e7681141f7268ba3896c3bb769bd6c029714be",
+      "pr": {
+        "numero": 483,
+        "merge_commit": "4528a376b3eee8ff4f545a493757cee0f87185be"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 13,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD160"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 50,
+          "sha256_bloque": "4819a4ebe99038c850f259f8e323bd639223041414351f4d35c765addf59cea4",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "configuracion",
+            "existencia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 33,
+              "sha256": "a2fbeee1e9e5a5112a4ef623938b21e83cee2f15694e96602b31ce16787e2ec8"
+            },
+            {
+              "linea": 34,
+              "sha256": "f1c551630b9fb6303f57308eb3999ff5b0746f6587a5211c18ab7ee6f1b619bb"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$guardas$",
+          "linea_inicio": 96,
+          "linea_fin": 142,
+          "sha256_bloque": "4e8e616ac3f4f0d8f5f608d1dc17bd4d46db78bfe7298d676ff7ccd5e37e007f",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$cierre$",
+          "linea_inicio": 146,
+          "linea_fin": 158,
+          "sha256_bloque": "8a5454f50cfbe4388e2a660b2fbf870be8a23740c08322f3efac2860b4539c59",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$comprobacion_privada$",
+          "linea_inicio": 159,
+          "linea_fin": 167,
+          "sha256_bloque": "5af2519515e95d81b450364bb6b743a08fcecdad7f9d8eff321b1fe2d6c771ad",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 55,
+          "objeto": "vec_autorizacion.comprobar_independencia_cargo_ct_v1"
+        },
+        {
+          "linea": 150,
+          "objeto": "vec_autorizacion."
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT33",
+      "modulo": "autorizacion",
+      "numero": 33,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000033_catalogo_fijo_fuentes_nominales.up.sql",
+      "sha256": "35dbdfa9b9aa43582f7565121e5d6405f77700a53fc713a8ade805ef594333e8",
+      "pr": {
+        "numero": 497,
+        "merge_commit": "834476654d234442c01b676b47a930278f04f3bd"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 14,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD164"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 37,
+          "sha256_bloque": "cb937058e3e27d2264e82c0d816efc40a7129532a9c0c43c3fa774b447f931a7",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$publicar$",
+          "linea_inicio": 87,
+          "linea_fin": 128,
+          "sha256_bloque": "d74ab437e8601c7b62ba27d6381cc05ad5bd4e9689bb4498fffdb800991b60e1",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$pre_is$",
+          "linea_inicio": 217,
+          "linea_fin": 225,
+          "sha256_bloque": "d474f782bcc98bdfa9a003633df6131abdcc376944e4725f8aee62beafd77615",
+          "controles": [
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 133,
+          "objeto": "vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1"
+        },
+        {
+          "linea": 195,
+          "objeto": "vec_autorizacion.acreditar_ambito_certificado_nominal_v1"
+        },
+        {
+          "linea": 227,
+          "objeto": "vec_identidad_sesiones_v1.clasificar_cuenta_privilegiada_nominal_v1"
+        },
+        {
+          "linea": 248,
+          "objeto": "vec_autorizacion.destino_no_administrador_certificado_nominal_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CA25",
+      "modulo": "contexto_actor_v1",
+      "numero": 25,
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000025_certificado_firmante_nominal_v2.up.sql",
+      "sha256": "38364c8118883cf6c56a164a74994b7134f80c115a684d391ff6c66535e686f3",
+      "pr": {
+        "numero": 497,
+        "merge_commit": "834476654d234442c01b676b47a930278f04f3bd"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 15,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT33"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 9,
+          "linea_fin": 37,
+          "sha256_bloque": "d83e75a199d9af12c9cbfc75421ce44091f95fd55f47235f158bcc0ea500cdd9",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 78,
+          "linea_fin": 88,
+          "sha256_bloque": "811df424022f9b9a2d514fdf36788f55eb3e392ae6a3af12570d31624ee0e05b",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 92,
+          "objeto": "vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2"
+        },
+        {
+          "linea": 127,
+          "objeto": "vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1"
+        },
+        {
+          "linea": 179,
+          "objeto": "vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2"
+        },
+        {
+          "linea": 290,
+          "objeto": "vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2"
+        },
+        {
+          "linea": 332,
+          "objeto": "vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD151",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 151,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql",
+      "sha256": "78a642daa482e9d7c6dbc33b9ec51d96dfabc66cd194d1290a4670f82a6593cf",
+      "pr": {
+        "numero": 440,
+        "merge_commit": "6a125cd7bc8665fbc519cb9e06e0fd325bcbb364"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 16,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CA25"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 19,
+          "linea_fin": 49,
+          "sha256_bloque": "fba72ce4e6ec17fb3ee1ea7fab81fbdd70698d63c6c5ac167e0d5e4aca420597",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 34,
+              "sha256": "6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197"
+            },
+            {
+              "linea": 35,
+              "sha256": "6630dd97fb55ed8a001cef3432aeb4c56e6fbf2305def0c77a58a00457b3f795"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 51,
+          "linea_fin": 146,
+          "sha256_bloque": "2c4f2f620fc6f2e4e41aed2b84bb37878a47a83c2d1f245c37f59b06d40d6ecf",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 58,
+              "sha256": "5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330"
+            },
+            {
+              "linea": 59,
+              "sha256": "cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 149,
+          "linea_fin": 177,
+          "sha256_bloque": "9aab1e226cd53d2931d6e9ffa15d34b2c91d65113de2e3f975be1ecba11bd62c",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 150,
+              "sha256": "c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 233,
+          "linea_fin": 258,
+          "sha256_bloque": "6577b4ff44d42fbdb5f5e9b0fdfd79f6b99244e60cef155d94b1cd5fce1c7243",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 179,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CT163",
+      "modulo": "contratacion_temporal",
+      "numero": 163,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000163_circuito_rrhh_versionado.up.sql",
+      "sha256": "4d8e54209c8c6bab2b6f061edb53d31b8648f434f15a1ec286748a44068931c1",
+      "pr": {
+        "numero": 439,
+        "merge_commit": "5fe353c87a0dcd35a2d4b7506c10af8e310022fb"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 17,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD151"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 14,
+          "linea_fin": 26,
+          "sha256_bloque": "44a5a25856bcac3013a01c90d96a636f4c221f82c52a73332f2d076ea21f28f6",
+          "controles": [
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$lectores_anteriores$",
+          "linea_inicio": 313,
+          "linea_fin": 359,
+          "sha256_bloque": "fea8b9f9b88ddd2aaf07d1567b51c7a015cf7efe2354e983fcc8f762d3470088",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$aviso_anterior$",
+          "linea_inicio": 361,
+          "linea_fin": 407,
+          "sha256_bloque": "7e77c95d0a321c595c2468566062f809bb928bb1381dbc48b67725d3266d9684",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 30,
+          "objeto": "vec_contratacion_temporal.circuito_vinculado_ct163"
+        },
+        {
+          "linea": 54,
+          "objeto": "vec_contratacion_temporal.circuito_siguiente_ct163"
+        },
+        {
+          "linea": 138,
+          "objeto": "vec_contratacion_temporal.proteger_version_circuito_ct163"
+        },
+        {
+          "linea": 189,
+          "objeto": "vec_contratacion_temporal.leer_expediente_seleccion_v3"
+        },
+        {
+          "linea": 233,
+          "objeto": "vec_contratacion_temporal.consultar_circuito_rrhh_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CT164",
+      "modulo": "contratacion_temporal",
+      "numero": 164,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql",
+      "sha256": "1734bc466b2c3ae13582518b8e4cfbc2eaf16f5bafeb5a2abf2e33145b90a942",
+      "pr": {
+        "numero": 441,
+        "merge_commit": "f080e9d5ea9cb70077648657204002dab82d659d"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 18,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CT163"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 20,
+          "linea_fin": 57,
+          "sha256_bloque": "8fb26be68a1addb076b1aaffe6c54644c7955eec62777964a297fa8b8befe137",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 38,
+              "sha256": "7db838715d98bd5876916ba1809c924a12623680a6fdab68b6cea9a6eadff585"
+            },
+            {
+              "linea": 39,
+              "sha256": "a2bc9daa31c30738c2a43db20e76440b2709f5e99627ae5648b336b43cfa73bf"
+            },
+            {
+              "linea": 41,
+              "sha256": "8f86d554b26f765e71001cee4f285605bda2a81764fc9313c79d1201cb24b4fa"
+            },
+            {
+              "linea": 42,
+              "sha256": "b028889e637cef0c6889c69b0d65697eb0b56528f62394101ee42e09811f5316"
+            },
+            {
+              "linea": 44,
+              "sha256": "8b0de28c8fad46fd5e71b34ab587757122eaafb870252f63b3e7feaa318150f4"
+            },
+            {
+              "linea": 45,
+              "sha256": "4947358f5cebf637b199b783037e918e689835ebee677b36bd76f97bb6adbd37"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 148,
+          "linea_fin": 201,
+          "sha256_bloque": "9a07a1f63e11f19629a4ec3c3c8ecb7a01012c344c299cfe4e0557ed0475a390",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 173,
+              "sha256": "0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0"
+            },
+            {
+              "linea": 174,
+              "sha256": "0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0"
+            },
+            {
+              "linea": 176,
+              "sha256": "dda0fe399101565ffb8f362060efa052bdd2d4d74447429fde11da1e3fea818a"
+            },
+            {
+              "linea": 177,
+              "sha256": "dda0fe399101565ffb8f362060efa052bdd2d4d74447429fde11da1e3fea818a"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 204,
+          "linea_fin": 254,
+          "sha256_bloque": "fddbfd66645c7725e80612d1ae06b86722acb0c974e39e5ca1541e2cbb3ecf3d",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 226,
+              "sha256": "011040aafc2b0b711534a31a65a99a1178a4d0df9f4edba9ceb5bf4243d16a51"
+            },
+            {
+              "linea": 227,
+              "sha256": "011040aafc2b0b711534a31a65a99a1178a4d0df9f4edba9ceb5bf4243d16a51"
+            },
+            {
+              "linea": 229,
+              "sha256": "8d3ec7bcf7da515d06fe6f87eb903cdf302f11cc1df2cf090b8fff9374a95ca5"
+            },
+            {
+              "linea": 230,
+              "sha256": "8d3ec7bcf7da515d06fe6f87eb903cdf302f11cc1df2cf090b8fff9374a95ca5"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 257,
+          "linea_fin": 304,
+          "sha256_bloque": "87345ab032ee36f64ab98a533bf4217e18fb05756fb508ffde47a55c7049badd",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 276,
+              "sha256": "d8b0f30326d0d1badf826b4bff790a7920aa54b783798537baff610fcd5004d5"
+            },
+            {
+              "linea": 277,
+              "sha256": "d8b0f30326d0d1badf826b4bff790a7920aa54b783798537baff610fcd5004d5"
+            },
+            {
+              "linea": 279,
+              "sha256": "09886769afbd66f637233fa5e2a3c224997f5884122f7bf189ba34f1d6a36f2a"
+            },
+            {
+              "linea": 280,
+              "sha256": "09886769afbd66f637233fa5e2a3c224997f5884122f7bf189ba34f1d6a36f2a"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 307,
+          "linea_fin": 356,
+          "sha256_bloque": "99e038a182aa04c4d4de0c72633a7305a8c8fab4ae36c787aaea9140232b7c1c",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 328,
+              "sha256": "35ac905214da14f99a881f46b34d563a546e6afd2768ead28a2c999f0bac018f"
+            },
+            {
+              "linea": 329,
+              "sha256": "35ac905214da14f99a881f46b34d563a546e6afd2768ead28a2c999f0bac018f"
+            },
+            {
+              "linea": 331,
+              "sha256": "0e964cb6f8c68a4fd64d62b75d202b4ca481c3394f0f21ae21e7528f7832e54e"
+            },
+            {
+              "linea": 332,
+              "sha256": "0e964cb6f8c68a4fd64d62b75d202b4ca481c3394f0f21ae21e7528f7832e54e"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 359,
+          "linea_fin": 406,
+          "sha256_bloque": "a38b2be762cd5fdbf2487cd8a7e27343cf6d1b2f5c9d798d02691f7d246d8175",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 378,
+              "sha256": "841486956d55f53192d1e53352337ee97db3aac553d7d1d013d88a7611897413"
+            },
+            {
+              "linea": 379,
+              "sha256": "841486956d55f53192d1e53352337ee97db3aac553d7d1d013d88a7611897413"
+            },
+            {
+              "linea": 381,
+              "sha256": "b4df981a3c9e4c36f13ffb383f74c97c7b08b9726a81209dfe9d985a90ce9c26"
+            },
+            {
+              "linea": 382,
+              "sha256": "b4df981a3c9e4c36f13ffb383f74c97c7b08b9726a81209dfe9d985a90ce9c26"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 409,
+          "linea_fin": 457,
+          "sha256_bloque": "8ba0a11b660e596a7d3826d802295dd2b9789592cde2aa33ec0dea3b56dcde8b",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 429,
+              "sha256": "f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276"
+            },
+            {
+              "linea": 430,
+              "sha256": "f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276"
+            },
+            {
+              "linea": 432,
+              "sha256": "65466bed9b1461df2550b57afa1a0f8d008593e9a3ff92417030fd05ef2aef56"
+            },
+            {
+              "linea": 433,
+              "sha256": "65466bed9b1461df2550b57afa1a0f8d008593e9a3ff92417030fd05ef2aef56"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 460,
+          "linea_fin": 510,
+          "sha256_bloque": "94e8f0256c0e2597a7096e9c163c543deabd780a1172075bd7b71343c57f86f0",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 482,
+              "sha256": "93a45bbeccb822da3ed28ef5577c629ca36f6bc029761fe87700a4eac1643383"
+            },
+            {
+              "linea": 483,
+              "sha256": "93a45bbeccb822da3ed28ef5577c629ca36f6bc029761fe87700a4eac1643383"
+            },
+            {
+              "linea": 485,
+              "sha256": "28bbfc9c2850b776eb8796049ecb09cd90236a48c49b5f33ca302f655bd11286"
+            },
+            {
+              "linea": 486,
+              "sha256": "28bbfc9c2850b776eb8796049ecb09cd90236a48c49b5f33ca302f655bd11286"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$patch$",
+          "linea_inicio": 513,
+          "linea_fin": 563,
+          "sha256_bloque": "6124b0d876a937e2cdb1b4e56953d69f995e3e952a6618b112b0403752ee3473",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 535,
+              "sha256": "70174dd28738cbae3b6a307e56b496f83e7b15158f7475303b720d5176efcb3c"
+            },
+            {
+              "linea": 536,
+              "sha256": "70174dd28738cbae3b6a307e56b496f83e7b15158f7475303b720d5176efcb3c"
+            },
+            {
+              "linea": 538,
+              "sha256": "6a30b018c4ee3e1fa6f55084e2ebfc6d661ea40ad899a94a7481ec65413fc250"
+            },
+            {
+              "linea": 539,
+              "sha256": "6a30b018c4ee3e1fa6f55084e2ebfc6d661ea40ad899a94a7481ec65413fc250"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 566,
+          "linea_fin": 586,
+          "sha256_bloque": "f863b16ac0b0f905b287b8b6fbdd6028e711c0f1baa5188aadf4df755ff58822",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 61,
+          "objeto": "vec_contratacion_temporal.circuito_flujo_nuevo_ct164"
+        },
+        {
+          "linea": 66,
+          "objeto": "vec_contratacion_temporal.circuito_agregado_valido_ct164"
+        },
+        {
+          "linea": 85,
+          "objeto": "vec_contratacion_temporal.circuito_acto_admitido_ct164"
+        },
+        {
+          "linea": 99,
+          "objeto": "vec_contratacion_temporal.circuito_proyectar_acto_ct164"
+        },
+        {
+          "linea": 113,
+          "objeto": "vec_contratacion_temporal.proteger_version_circuito_ct164"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD156",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 156,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000156_firma_externa_ct.up.sql",
+      "sha256": "07a774db534503a845d34eb710239d0a7b9508c684f4cec7c408c6b66cd2c87f",
+      "pr": {
+        "numero": 448,
+        "merge_commit": "db49106b604790fcddca9b12d736a9bde436ea24"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 19,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CT164"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 17,
+          "linea_fin": 35,
+          "sha256_bloque": "ba7e9a9ab86dc33e1d6612f195dbe892b51db1fba7b479a04e8c8f7e66b4a5fb",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 37,
+          "linea_fin": 153,
+          "sha256_bloque": "ee3cfa674b2c1af22ab092809777367c1fdedbb6ab59ce1f3f3f04c57b90bf35",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 43,
+              "sha256": "5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330"
+            },
+            {
+              "linea": 44,
+              "sha256": "cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 156,
+          "linea_fin": 185,
+          "sha256_bloque": "b8bd036ff18f126299fd1c66c9edfd33fcfd52b60b3aa94322a06100bce6969e",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 160,
+              "sha256": "c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 256,
+          "linea_fin": 281,
+          "sha256_bloque": "b10764b92086843bb5d22e32f21c123d63c18d25e60d9ddff6cd517d39fb70cc",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 189,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_externa_ct_v3_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD157",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 157,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000157_firma_vec_original_ct.up.sql",
+      "sha256": "0faa42b50dd092f78d71d6693ad285c6a3489c83df6bc5293a38500219d12ccb",
+      "pr": {
+        "numero": 451,
+        "merge_commit": "eaab705813e7a71b792be46aa9fa5cb679c464a0"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 20,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD156"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 21,
+          "linea_fin": 45,
+          "sha256_bloque": "2b0507bda429b7360d2410b79787d9bd439fb1e30003ba0971eb553fb56f2e22",
+          "controles": [
+            "owner/roles",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 145,
+          "linea_fin": 164,
+          "sha256_bloque": "f4ca542bd2585f3b58ea5fec77a92fc99d3445d0b300c391b27ed8b26243279c",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 47,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_vec_ct_v3_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD158",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 158,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000158_original_firmable_documentos.up.sql",
+      "sha256": "4a5c0004e01ca7eb8f0c8cb8e41f0fe18b137b910cbb254f28f0cfc8c73a0b7a",
+      "pr": {
+        "numero": 457,
+        "merge_commit": "c78dcc240b8cf3e8b3ce704bb95f330a8df46cd9"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 21,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD157"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 18,
+          "linea_fin": 48,
+          "sha256_bloque": "94a040e3b07fe871d582c7b6d92f4dd7babe8732c67bf22abe87af6530d4a13e",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 36,
+              "sha256": "48d812c39c5a26c4e905f26575acd04bc6d11017e2ecbac4c3b20eb09ae04144"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 52,
+          "linea_fin": 72,
+          "sha256_bloque": "7a4e5869bc31ad8252bfad5c9ad65bc1695fada398853c7b6800953002d0c565",
+          "controles": [
+            "SHA",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 55,
+              "sha256": "c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 74,
+          "linea_fin": 196,
+          "sha256_bloque": "17099237056c8947e63919d28054dc6024725197d946a5e9524c8fd8f3b38d32",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 79,
+              "sha256": "5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330"
+            },
+            {
+              "linea": 80,
+              "sha256": "cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$wrapper$",
+          "linea_inicio": 198,
+          "linea_fin": 275,
+          "sha256_bloque": "6c3c350653ed2fd1e9512807cabcfef28f9cb9a94601a8f7f94a8320673b45f6",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 203,
+              "sha256": "3e4412dbac79bcce6d0425f4c0fddfbb32602ed2169b9d694c2292fbb83a5d4f"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "Documentos13",
+      "modulo": "documentos",
+      "numero": 13,
+      "ruta": "deploy/postgresql/documentos/migraciones/000013_reserva_original_firmable.up.sql",
+      "sha256": "358603cc746aa3db4ffacbecf965da81f345dbc3ec07af2080705245d820d2b1",
+      "pr": {
+        "numero": 460,
+        "merge_commit": "412ff444e3c3445fb4b06ee045e647b593e035fb"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 22,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD158"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 12,
+          "linea_fin": 32,
+          "sha256_bloque": "7203b7d548a6dca1c05619793f92a9421a0020b14458eb6ac842f3ce25563d4d",
+          "controles": [
+            "owner/roles",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$seguridad$",
+          "linea_inicio": 100,
+          "linea_fin": 118,
+          "sha256_bloque": "34f2cb6f734f362dd9d3c224020f44feaf5497dd08ead9592e50d40aac29397f",
+          "controles": [
+            "ACL",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl_tipo$",
+          "linea_inicio": 123,
+          "linea_fin": 132,
+          "sha256_bloque": "7444ce97be735a1ab1ed8f6af44029320cb81cf7d27be86f69957d7a10dcb74f",
+          "controles": [
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$auditoria$",
+          "linea_inicio": 164,
+          "linea_fin": 176,
+          "sha256_bloque": "24eb1591b8e19b0bc9a36e83103d468e30abf1baf5bd90ebd486abbe47aa40d9",
+          "controles": [
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 142,
+          "objeto": "vec_documentos.reservar_identificador_v1"
+        },
+        {
+          "linea": 178,
+          "objeto": "vec_documentos.reservar_original_firmable_v1"
+        },
+        {
+          "linea": 300,
+          "objeto": "vec_documentos.confirmar_original_firmable_v1"
+        },
+        {
+          "linea": 422,
+          "objeto": "vec_documentos.exigir_confirmacion_original_firmable_v1"
+        },
+        {
+          "linea": 443,
+          "objeto": "vec_documentos.rechazar_externa_original_firmable_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD162",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 162,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000162_firma_revision_pdf_v2.up.sql",
+      "sha256": "f9387e72612ec129ee09281802875a8ee7f9a4cd7b8150e4912208dffc377bd9",
+      "pr": {
+        "numero": 509,
+        "merge_commit": "49859eb79be1e27868bb3858bd5ec9c2eaf99d34"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 23,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "Documentos13"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 12,
+          "linea_fin": 19,
+          "sha256_bloque": "37d424a9c1846db5507e4663f963df39dce5b2004ebdc5241b58e840a54daaca",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 20,
+          "linea_fin": 96,
+          "sha256_bloque": "230b03e70e4be8a8018df39267ec0377143eb509f89083119c804556b17eb82b",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "configuracion",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 77,
+              "sha256": "7c3f6ea9f42633072c3512999c8cfe3c88ff722c8ec0cfc327e7454e9b4558db"
+            },
+            {
+              "linea": 78,
+              "sha256": "ca78b04efb396268af1b4e8d8952854fbbd18e0005f31c4d02169c1731d631f4"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 98,
+          "linea_fin": 116,
+          "sha256_bloque": "1834608b5eeb26c62b7ab8740eb80fb06ff05be263fe7a0ba5893baa0de9ce45",
+          "controles": [
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 193,
+          "linea_fin": 205,
+          "sha256_bloque": "6cf9a3f20369898b4e96891969b4fee980c349c4f27a1c91dd56fd692e57f0e8",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 117,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada"
+        },
+        {
+          "linea": 165,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD170",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 170,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000170_firma_descriptor_atestado_v2.up.sql",
+      "sha256": "51a157cc3a6e4ff6d13cc2d8c515d4cff42e216294c7ef5d191d461dbdb94381",
+      "pr": {
+        "numero": 514,
+        "merge_commit": "f02ee44c5e08c5c0c885bf6baa47c566d563b1a5"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 24,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD162"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 12,
+          "linea_fin": 25,
+          "sha256_bloque": "f693a81c72c2a7ac75dbf91d65cf28256ed221775cb5317f574011cd5ec921ac",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 160,
+          "linea_fin": 169,
+          "sha256_bloque": "a1e2dfea741131f734a3a74552cbfe540240bf9ec94acb659497557eabab9d3c",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 26,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD159",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 159,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000159_consulta_firmas_ct170.up.sql",
+      "sha256": "ccd88c9b57acc1ddeb02d629ee22a20d2571b58ea4a3d774896dc3f14b21aad2",
+      "pr": {
+        "numero": 456,
+        "merge_commit": "44762088a930bcebbc3998a4ad074a3c55aa6902"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 25,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD170"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 24,
+          "linea_fin": 52,
+          "sha256_bloque": "7a707ab40821b14ebb008b15dfa8ca707d6c2de236b71a02301124030c0fe518",
+          "controles": [
+            "owner/roles",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$fachadas_ad162$",
+          "linea_inicio": 58,
+          "linea_fin": 80,
+          "sha256_bloque": "6a2e70b1857b98b41ce3f171a6112933a9982e0dd495258393c8c143362e8fbd",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 63,
+              "sha256": "1fd2930ccae9bfdf78ffc109f3bdbc4d0819cd87005f93c7a88eb62c3ed7ff6d"
+            },
+            {
+              "linea": 63,
+              "sha256": "daa83b0c5365166521c60f7260f6626f9de007930c4c6fb446a93532e15dbb77"
+            },
+            {
+              "linea": 64,
+              "sha256": "91dbe9ebd4f008fdccb242db16df16b91a6b9e401530cc6738326e4347b075c1"
+            },
+            {
+              "linea": 64,
+              "sha256": "c5b819ec5bba24e1aed4a0ae06b74fffe2833f0c6a5da65cb2d814f7afa24492"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 82,
+          "linea_fin": 176,
+          "sha256_bloque": "5b4d551bab47c3db5098ded0cb7c05ade052e1a16330b15d6cebf87279a1df5c",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 88,
+              "sha256": "8ee729ac5b3740fadc260dbd2a686cc03d411abde71e13b2b213330696cbabbf"
+            },
+            {
+              "linea": 89,
+              "sha256": "ed4fdb20579f858900aa6382a2c65e65312a12fb97f9d5b03a598be7422c337a"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 179,
+          "linea_fin": 203,
+          "sha256_bloque": "8a8dcc8575e51bc2ea2ddf50726d4b9d671ad80e559d440d84b22018dd5ab07e",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 181,
+              "sha256": "5cb9438b926cd0f8a5afee30f11bcf9a399f7c17786509089816bab639216585"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 260,
+          "linea_fin": 284,
+          "sha256_bloque": "f6a6d3dcf73ff5d5aebc13a858b76380684d51ddde2092e587240fe3eee720e4",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 208,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD165",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 165,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000165_publicacion_certificado_nominal_v3.up.sql",
+      "sha256": "007325925e706e07872476dc69a22c4dd4144873510747dea19e37b06d5c79bf",
+      "pr": {
+        "numero": 497,
+        "merge_commit": "834476654d234442c01b676b47a930278f04f3bd"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 26,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD159"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 24,
+          "sha256_bloque": "b6d311191c3f4724116ed2475cf89ea1367664d58c54bbeb43e0cb86da615661",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$conexion$",
+          "linea_inicio": 26,
+          "linea_fin": 28,
+          "sha256_bloque": "702e8fa8d22a43bde41ef4f2b7404ec21bd317cca30d6b7f264194b9bba12aeb",
+          "controles": [],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 33,
+          "linea_fin": 102,
+          "sha256_bloque": "dde76a406542db2e5a128ad6829cfeb5bf99f6c9a61d58a10542f13d4632c3a6",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 37,
+              "sha256": "7ccd6cb3e0c25a015a3a085af0be57dfd73cd3b48843317e727fb7677bedf0c8"
+            },
+            {
+              "linea": 38,
+              "sha256": "f3d2c780bc7703d0df2c0e52016f7946c5e06e31fd6a3368a8cf89dc540939c5"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 105,
+          "linea_fin": 119,
+          "sha256_bloque": "e261679a8f58a9c33a1e210749fc2ed4ccbfc9e0332af9c3881a6c41d4d5a4f9",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 106,
+              "sha256": "531bfedaeaba478d66551c518922339682c8e1ab3a4167737f59d167f34dc831"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 121,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_publicacion_certificado_nominal_v3_atestada"
+        },
+        {
+          "linea": 159,
+          "objeto": "vec_autorizacion.operar_certificado_nominal_v3"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD166",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 166,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000166_publicacion_cargo_competencial_v3.up.sql",
+      "sha256": "37e81c59df5412bec19ab6ea977c8446ad1ca5f774dcbddd96db85f535bd0302",
+      "pr": {
+        "numero": 498,
+        "merge_commit": "f8f8c1022233e0114e96daae61d19c18189a1c11"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 27,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD165"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 21,
+          "sha256_bloque": "8b61f1af44edb452abe03b7b43b15b3498be3cc56c94249bda5a3c3c319b47a9",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 26,
+          "linea_fin": 101,
+          "sha256_bloque": "54948449c57da46c540ac8583c7b1c227e5220100880ad613de60872b3f9835b",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 30,
+              "sha256": "684229f6e5d3c3a3f4e7b849cc03b55ee275d58cb0b40a5cdeeff39edd9c7beb"
+            },
+            {
+              "linea": 31,
+              "sha256": "7b04ba29e1ed6943647b445985e951f70130ce323c1acc2d2ea4eafe00f80549"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 104,
+          "linea_fin": 121,
+          "sha256_bloque": "52a378e19391f0f583d45e566094f35eb60980d4cc6ce589d6068ee36551246d",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 105,
+              "sha256": "89fb71c30c516e0da102b81154716e36d17a4bcad7fe261076f70f6ed758ff37"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 123,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_publicacion_cargo_competencial_v3_atestada"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "Personal28",
+      "modulo": "personal",
+      "numero": 28,
+      "ruta": "deploy/postgresql/personal/migraciones/000028_cargos_competenciales_nominales.up.sql",
+      "sha256": "304aa1761cc2ab7222d2f429ed8087a2fcce55467dd227f50f71db0244046e3a",
+      "pr": {
+        "numero": 498,
+        "merge_commit": "f8f8c1022233e0114e96daae61d19c18189a1c11"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 28,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD166"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 20,
+          "sha256_bloque": "0698a501ce9c72e229522bb82f9f0a3e33dc9496ae52e209a788c5b98d0b1014",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 113,
+          "linea_fin": 128,
+          "sha256_bloque": "df50d694ec690ce5f04e4082e54525b3063a6367ecf27ad00612da161ca28432",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 135,
+          "objeto": "vec_personal.leer_revalidar_cargo_ocupante_ct_v1"
+        },
+        {
+          "linea": 339,
+          "objeto": "vec_personal.publicar_cargo_competencial_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "Personal29",
+      "modulo": "personal",
+      "numero": 29,
+      "ruta": "deploy/postgresql/personal/migraciones/000029_resolver_fuente_cargo_firmante_ct.up.sql",
+      "sha256": "a2e5a385bd12d60a137315ee2c481d85a19a3dc7945d8efa107499d942a1ff74",
+      "pr": {
+        "numero": 508,
+        "merge_commit": "fbf86a4b0b31bb047fc772fda837c56c8bedbb20"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 29,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "Personal28"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 12,
+          "linea_fin": 27,
+          "sha256_bloque": "6e637fa298db34d0e31f1a605411aea41afccf07cfcfa9efb4450affcdfeb25e",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 33,
+          "objeto": "vec_personal.resolver_fuente_cargo_ocupante_ct_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD167",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 167,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000167_comprobar_consumo_firma_ct_v1.up.sql",
+      "sha256": "d46b1dfbca3d4b3636091916fb7716bc8c8b1ca76e568a4203ac0f47d9bfa883",
+      "pr": {
+        "numero": 496,
+        "merge_commit": "d1f7623b71e23944bc5cf74bb699131306ab854c"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 30,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "Personal29"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 23,
+          "sha256_bloque": "1f0afccc69f9a2b175cb1932a0c223d7dc8b61df8fedc576ae58dfaf020d2067",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 116,
+          "linea_fin": 132,
+          "sha256_bloque": "1cc439d8177d731afa79431b4d68b8696f72194eccd5c8aed89ca46df208a75d",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 25,
+          "objeto": "vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT32",
+      "modulo": "autorizacion",
+      "numero": 32,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000032_competencia_nominal_firmante_ct.up.sql",
+      "sha256": "881c208971775f08e0641961780964a34ef7706410c2f8279544d275993ce041",
+      "pr": {
+        "numero": 496,
+        "merge_commit": "d1f7623b71e23944bc5cf74bb699131306ab854c"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 31,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD167"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 12,
+          "linea_fin": 62,
+          "sha256_bloque": "026533b5672df2bc84233bed3192c8c7cf74ae0c2dbb2e87582be491318ef7fb",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia",
+            "reconstruccion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$tabla_acl$",
+          "linea_inicio": 114,
+          "linea_fin": 124,
+          "sha256_bloque": "0b604b2670c029ccccc41f4bdd2d3d414f7088d4024b814391aaeb3d72380845",
+          "controles": [
+            "ACL"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 589,
+          "linea_fin": 615,
+          "sha256_bloque": "a44ed0cc4f1d5c4f14de5084729890ad915372697f9b2ff44e28f429502acd54",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 132,
+          "objeto": "vec_autorizacion.bloquear_evidencia_competencia_ct_v1"
+        },
+        {
+          "linea": 145,
+          "objeto": "vec_autorizacion.validar_competencia_nominal_firmante_ct_v1"
+        },
+        {
+          "linea": 453,
+          "objeto": "vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1"
+        },
+        {
+          "linea": 528,
+          "objeto": "vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT35",
+      "modulo": "autorizacion",
+      "numero": 35,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000035_constructor_nominal_firmante_ct.up.sql",
+      "sha256": "9882cba105401f52a1fad5e4404c36444855b07d5d10c16514cfa251e41c1615",
+      "pr": {
+        "numero": 510,
+        "merge_commit": "f885c8975d5f62cc565feba7d354fac6fec7c001"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 32,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT32"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$preimagen$",
+          "linea_inicio": 11,
+          "linea_fin": 25,
+          "sha256_bloque": "e7eeba8d3175a3a0159214ed0a981d805e6fe49da4f6de25e6018cb84154af9f",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 304,
+          "linea_fin": 327,
+          "sha256_bloque": "cdd7912882fe257dfb9776f4155e4d5b9efd780a0d81596ff4e44d3ceb5e491c",
+          "controles": [
+            "owner/roles",
+            "ACL"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 27,
+          "objeto": "vec_autorizacion.canon_texto_json_go_ct_v1"
+        },
+        {
+          "linea": 36,
+          "objeto": "vec_autorizacion.canon_json_competencia_firmante_ct_v1"
+        },
+        {
+          "linea": 122,
+          "objeto": "vec_autorizacion.construir_contexto_nominal_firmante_ct_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AUT34",
+      "modulo": "autorizacion",
+      "numero": 34,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000034_capacidades_admin_nominales.up.sql",
+      "sha256": "df0aa95bf3917adb616d00ffdfc073770297dbd855398935a6e7983d02a03127",
+      "pr": {
+        "numero": 500,
+        "merge_commit": "539c849af1993a8ef589031b2eb55521bdf31db6"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 33,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT35"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 20,
+          "sha256_bloque": "bbbd75946546a476cf12d2142133dc4c0ffd2b0c24ee571f30950e4c326e5419",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$catalogo$",
+          "linea_inicio": 24,
+          "linea_fin": 45,
+          "sha256_bloque": "6fee63565ca0fcfcc428697c15a10bb6d31927536f074aa8edba0a62d1c409b7",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD168",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 168,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000168_consumidor_capacidades_admin.up.sql",
+      "sha256": "059936cbe6a5728fe16d34488f9ea11538f91279f1dbcf364fb9f1f030d7753a",
+      "pr": {
+        "numero": 500,
+        "merge_commit": "539c849af1993a8ef589031b2eb55521bdf31db6"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 34,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AUT34"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 19,
+          "sha256_bloque": "d5beb489c68b154d12f9327d5c6502e27bc4e544fbff08eda0c4147396bcec52",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 21,
+          "linea_fin": 96,
+          "sha256_bloque": "b1696c93a7bd88617d35dc3a5e120368383397a9513811f6e1f1fe14c6c8dc54",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 25,
+              "sha256": "3e73c94210c2ad0ecb4461afae9155a676464f62a4dd0e107417131e3564cddb"
+            },
+            {
+              "linea": 26,
+              "sha256": "25519603cb49c6582eb400cfe78c5679e3bc024373466009aff164d74ff0e0f5"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 99,
+          "linea_fin": 116,
+          "sha256_bloque": "0e6dd987e77196e5dd025213b1c6a573d326d68c01bcd0daa0a3da5d076c3aaa",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 100,
+              "sha256": "6aadac0ec1307e2ce7f07527a185daf8974c0c8a413a2d5149250db092cf3f8b"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 118,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_capacidades_admin_v3_atestada"
+        },
+        {
+          "linea": 173,
+          "objeto": "vec_autorizacion.consultar_capacidades_admin_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CT170",
+      "modulo": "contratacion_temporal",
+      "numero": 170,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000170_firma_verificada_procedencia.up.sql",
+      "sha256": "688998cca70e0f72665ea1e76d023c109702c5aa18848fc48a634e2d52c6cb48",
+      "pr": {
+        "numero": 464,
+        "merge_commit": "3b73d2373a14c83fb9a15a4db105f039406d87b4"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 35,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "AD168"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 18,
+          "linea_fin": 56,
+          "sha256_bloque": "6e380d51ad15fd77ab97f5d1b79f6d154fb46fc537a1604037a0f2290f25156d",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl_cabeza$",
+          "linea_inicio": 173,
+          "linea_fin": 189,
+          "sha256_bloque": "c92df331be5782b28bd1a19a0c0fddced1148d5d0a63735d86eb9b2b50675f50",
+          "controles": [
+            "ACL"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$preexistente$",
+          "linea_inicio": 199,
+          "linea_fin": 214,
+          "sha256_bloque": "1b07720259ce0238cf3e4df856b4f50cd1e0093b2b8cf09c13ff1c31060f0de7",
+          "controles": [
+            "SHA",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 761,
+          "linea_fin": 788,
+          "sha256_bloque": "79f9a88bda8ac63ffcb859f6eab2468f2a4bd4a9c4713920d2a0f001a95593cd",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 190,
+          "objeto": "vec_contratacion_temporal.nueva_huella_firma_historia_v1"
+        },
+        {
+          "linea": 215,
+          "objeto": "vec_contratacion_temporal.avanzar_cabeza_firma_v1"
+        },
+        {
+          "linea": 251,
+          "objeto": "vec_contratacion_temporal.registrar_firma_verificada_v1"
+        },
+        {
+          "linea": 541,
+          "objeto": "vec_contratacion_temporal.consultar_firmas_documento_v3"
+        },
+        {
+          "linea": 593,
+          "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CT174",
+      "modulo": "contratacion_temporal",
+      "numero": 174,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000174_relacion_unidad_expediente_privada.up.sql",
+      "sha256": "b27e191c6103298f81ee61921013d5f66accb8ba6fa61af3a703b6ed15200952",
+      "pr": {
+        "numero": 493,
+        "merge_commit": "85601175a53584dbcbd2efd55dc7e84a82cc44ed"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 36,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CT170"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 14,
+          "linea_fin": 27,
+          "sha256_bloque": "d40ce8db03349d2929562620905888dc951ebc53d81d4534d94b1b57a6dc3577",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 172,
+          "linea_fin": 190,
+          "sha256_bloque": "74b5eba95c3c86685ea3b86fe8afe37a62aed77455829f148badd47a10424797",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 29,
+          "objeto": "vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "CT172",
+      "modulo": "contratacion_temporal",
+      "numero": 172,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql",
+      "sha256": "0d16408c03b66d31c08b2f03e54dda1066a266aa35539d283e7629f09d66f709",
+      "pr": {
+        "numero": 515,
+        "merge_commit": "b57fb3fae5adb93e0e1ab8110bea62202e9c597e"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 37,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CT174"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 36,
+          "sha256_bloque": "8e0ae0e17a8354f11a78a9ede42ee32bffef892c1e46e8f37c170a6c8ebca417",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$politica_pre$",
+          "linea_inicio": 37,
+          "linea_fin": 43,
+          "sha256_bloque": "02422c4dc02eb5c05d647f7c155fb549827b1efa928247e3c9f0c96ced07afd4",
+          "controles": [
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 787,
+          "linea_fin": 809,
+          "sha256_bloque": "97e17a195f4a95f53a66dd91ca3228a7833d1df6930de43fc30807bc461347c7",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 95,
+          "objeto": "vec_contratacion_temporal.impedir_degradacion_firma_pdf_v2"
+        },
+        {
+          "linea": 116,
+          "objeto": "vec_contratacion_temporal.comprobar_hija_firma_pdf_v2"
+        },
+        {
+          "linea": 129,
+          "objeto": "vec_contratacion_temporal.registrar_firma_verificada_v2"
+        },
+        {
+          "linea": 675,
+          "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "Personal31",
+      "modulo": "personal",
+      "numero": 31,
+      "ruta": "deploy/postgresql/personal/migraciones/000031_unidad_bootstrap_admin.up.sql",
+      "sha256": "4f193433096b2002e14e7fb03e332ecea3bf159e4717d82f7a2dd830f6f363e4",
+      "pr": {
+        "numero": 544,
+        "merge_commit": "a7b8c39db91487d4651d1217fa7e9c68ac9db692"
+      },
+      "origen": "añadida_desde_base",
+      "orden": 38,
+      "estado": "seleccion_h9",
+      "dependencias_orden": [
+        "CT172"
+      ],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 22,
+          "sha256_bloque": "58b45445e43f53c4e23dfb5f2bf2784b3d5d5c6206f0d2faa31f70fd4a0ae0b2",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 121,
+          "linea_fin": 126,
+          "sha256_bloque": "511131b7756462ad9c1567214b81de52fb00c42d59774f53c82ad51ce2a1610e",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 40,
+          "objeto": "vec_personal.avanzar_barrera_unidad_bootstrap_admin_v1"
+        },
+        {
+          "linea": 56,
+          "objeto": "vec_personal.cotejar_unidad_bootstrap_admin_v1"
+        }
+      ],
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "motivo_exclusion": null
+    },
+    {
+      "id": "AD149",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 149,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql",
+      "sha256": "73a6c7081ae9b11b6c22240d83fa2baabe205aeceb4337e9611b6a40a57b11aa",
+      "pr": {
+        "numero": 470,
+        "merge_commit": "5c96f6f6a30f760849f88bffc077dac24654b6a6"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 16,
+          "linea_fin": 43,
+          "sha256_bloque": "6397da701064fa7e2474d3b62cdd1839f1b3f75a7948988797a59cf7e60ac8c7",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 44,
+          "linea_fin": 170,
+          "sha256_bloque": "ee0432b8721379e14c4e42dd0ca61ec7e489c14b3fcf8342e7ba5e19f304cfbb",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 50,
+              "sha256": "5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330"
+            },
+            {
+              "linea": 51,
+              "sha256": "cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 173,
+          "linea_fin": 195,
+          "sha256_bloque": "f2089c66884f23309daad26a1ac74d9a43f3df3c6b154a2c965037bd58fa3ec2",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 179,
+              "sha256": "c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626"
+            },
+            {
+              "linea": 182,
+              "sha256": "c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 254,
+          "linea_fin": 276,
+          "sha256_bloque": "51ca4f07c570537af8d2bc4dca0390bcf236cfd5bd73faa19299d2fbeab6813b",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 197,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "Personal26",
+      "modulo": "personal",
+      "numero": 26,
+      "ruta": "deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql",
+      "sha256": "14e4221926ce8530bd8ae939f0361adf48d5937f01a550aef4d7dcf085890d3d",
+      "pr": {
+        "numero": 470,
+        "merge_commit": "5c96f6f6a30f760849f88bffc077dac24654b6a6"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 14,
+          "linea_fin": 27,
+          "sha256_bloque": "43d210e02b3c31bb9fb0c6c14045db493a31f287a3ac9e650ecaa3ffd943c289",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 50,
+          "objeto": "vec_personal.consultar_vinculo_propio_historico_crn11_v1"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "AD154",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 154,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_consumidor_relacion_para_rpt.up.sql",
+      "sha256": "87845cf6c3da71912eca2b1bbe798c818e536e626599028a87913890088e5fb9",
+      "pr": {
+        "numero": 438,
+        "merge_commit": "23de1988433470dd70fc2a4380caf69fcd26f6b4"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 21,
+          "linea_fin": 49,
+          "sha256_bloque": "a2d6e626bbb307c8b8b769f641fc1e26d16a1e947255e6b986fa6a20ef5d4137",
+          "controles": [
+            "owner/roles",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 50,
+          "linea_fin": 176,
+          "sha256_bloque": "63923686d16092065048848d3685e66474f9f60e89430c1daa982c56650b4e73",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 56,
+              "sha256": "d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15"
+            },
+            {
+              "linea": 57,
+              "sha256": "1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 179,
+          "linea_fin": 200,
+          "sha256_bloque": "12a3c73029e0cfb793f506a8105224784bdd0908b2318e78e856d11c869179d0",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 185,
+              "sha256": "0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6"
+            },
+            {
+              "linea": 189,
+              "sha256": "0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 268,
+          "linea_fin": 291,
+          "sha256_bloque": "bec13e4641e94d613aeba1ef983dac946941f18afcf304a44c11f5d27a45e6a1",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 202,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "Personal27",
+      "modulo": "personal",
+      "numero": 27,
+      "ruta": "deploy/postgresql/personal/migraciones/000027_relacion_para_rpt.up.sql",
+      "sha256": "66bdeee92c6941cbbf66fd47d12ea0309ca7ff76083c2441ce7804ba76e1f646",
+      "pr": {
+        "numero": 438,
+        "merge_commit": "23de1988433470dd70fc2a4380caf69fcd26f6b4"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 21,
+          "linea_fin": 81,
+          "sha256_bloque": "f857e902c80725c41aa2070035903c176d93e7b4a50c73415fac4a28d240941a",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$post$",
+          "linea_inicio": 362,
+          "linea_fin": 405,
+          "sha256_bloque": "97f054d27ea0193eb38504ab3a80680a3c9daaced2eb78a537a0f59160357c03",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 108,
+          "objeto": "vec_personal.avanzar_generacion_relacion_rpt_v1"
+        },
+        {
+          "linea": 156,
+          "objeto": "vec_personal.consultar_relacion_para_rpt_v1"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "Personal30",
+      "modulo": "personal",
+      "numero": 30,
+      "ruta": "deploy/postgresql/personal/migraciones/000030_instante_decision_relacion_rpt.up.sql",
+      "sha256": "4f24fcc7ab1035cb8c905662239f265c55aec075a8f24513517d7615a4945e41",
+      "pr": {
+        "numero": 532,
+        "merge_commit": "ef9d9733b128c4a67b93b01d7005bf8c7ba00eac"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$corregir$",
+          "linea_inicio": 11,
+          "linea_fin": 84,
+          "sha256_bloque": "07d4c01a39e7a09c9a4f8baa074cf6c5a63779a4c9737a77b729733f117009b5",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 15,
+              "sha256": "9e4733bcb994a3234d8261c107aeb4b49a9d04f9544302ac34f39c77c604a560"
+            },
+            {
+              "linea": 16,
+              "sha256": "dd0b06eb3ecb2a8317054739ad01f6c363c725f477d7f98d345f01d83487a78f"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "AD161",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 161,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000161_convergencia_consumidores_post155.up.sql",
+      "sha256": "9c9e607de0ae3d22b9ef2b474dde87c281ff2558d50cca6094b5483557a74501",
+      "pr": {
+        "numero": 507,
+        "merge_commit": "0a0985e5b4ab26e477b4410629a5ca506b5f3361"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 13,
+          "linea_fin": 72,
+          "sha256_bloque": "f0824ee3e36592107e1e14d005022de958b6d184f19dd3d032ce19dff179eba7",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 61,
+              "sha256": "6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197"
+            },
+            {
+              "linea": 71,
+              "sha256": "6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 73,
+          "linea_fin": 284,
+          "sha256_bloque": "5ea934346610a2ae4e576e03d75de52b25fe17732d3028e68c8e1c0f50dd5404",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 79,
+              "sha256": "d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15"
+            },
+            {
+              "linea": 80,
+              "sha256": "1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 287,
+          "linea_fin": 312,
+          "sha256_bloque": "299f776f483b467fe3a3fed9fea430ee5c5d29c284cae765e88c3b56f229ce6b",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 293,
+              "sha256": "0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6"
+            },
+            {
+              "linea": 295,
+              "sha256": "0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 342,
+          "linea_fin": 364,
+          "sha256_bloque": "36467ec5788371a8a459e82cc0bb35953a27c2453f7410758644229257955f6c",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 421,
+          "linea_fin": 443,
+          "sha256_bloque": "8e8bba9cf037a00a5dfb429ec17ac61f0c7b51d21a712c396ffabf4aee717c26",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 499,
+          "linea_fin": 512,
+          "sha256_bloque": "fc418b2083c187190f4a0511ef428c1599b7600df382ddc34b43afa0ee02610f",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 314,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_version_convocatoria_v3_atestada"
+        },
+        {
+          "linea": 366,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada"
+        },
+        {
+          "linea": 445,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "BC7",
+      "modulo": "bolsa_convocatorias",
+      "numero": 7,
+      "ruta": "deploy/postgresql/bolsa_convocatorias/migraciones/000007_consulta_version_v3.up.sql",
+      "sha256": "90cfe7d9dfbb41888c5d84cae1ef25cf522525f56fd7917dccff2216abd72ba5",
+      "pr": {
+        "numero": 390,
+        "merge_commit": "4f91aad05c06abc45d3ca4e70aa8633ee6e49389"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 21,
+          "sha256_bloque": "ae16d36cef8f4fafc5b5b50f63d9a8bfe22f256562643d2650b19586cb8146d3",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 52,
+          "objeto": "vec_bolsa_convocatorias.obtener_version_exacta_v3"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "Meritos1",
+      "modulo": "meritos",
+      "numero": 1,
+      "ruta": "deploy/postgresql/meritos/migraciones/000001_registro_hechos_v1.up.sql",
+      "sha256": "f1faf970e2394179caec71d763da9ea8c4d814463b0a6047dc583eb441adcc0b",
+      "pr": {
+        "numero": 400,
+        "merge_commit": "7225e8782e23521ab96f786e81478c3f7408a81b"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 14,
+          "sha256_bloque": "b3d6a7acb736d4f248bac5ff1a1180dd5610e5aaf5c56b5955b1bc85d2380fcc",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$seguridad$",
+          "linea_inicio": 94,
+          "linea_fin": 103,
+          "sha256_bloque": "e9bed91cabf6dc4935bfef899f862d854063f0b9418134bb03058b1f9e513635",
+          "controles": [],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$tipos$",
+          "linea_inicio": 346,
+          "linea_fin": 350,
+          "sha256_bloque": "6c4d2b1e76509e8580e0a4588f7d22e5cf88d0405858677c3d83e3a449d10b57",
+          "controles": [],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 16,
+          "objeto": "vec_meritos.referencia_valida_v1"
+        },
+        {
+          "linea": 19,
+          "objeto": "vec_meritos.claves_exactas_v1"
+        },
+        {
+          "linea": 91,
+          "objeto": "vec_meritos.historia_inmutable_v1"
+        },
+        {
+          "linea": 107,
+          "objeto": "vec_meritos.validar_hecho_comando_v1"
+        },
+        {
+          "linea": 149,
+          "objeto": "vec_meritos.validar_comando_v1"
+        },
+        {
+          "linea": 178,
+          "objeto": "vec_meritos.cotejar_autorizacion_v1"
+        },
+        {
+          "linea": 217,
+          "objeto": "vec_meritos.registrar_auditoria_v1"
+        },
+        {
+          "linea": 229,
+          "objeto": "vec_meritos.operar_hecho_v1"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "BR4",
+      "modulo": "bolsa_reglas_baremo",
+      "numero": 4,
+      "ruta": "deploy/postgresql/bolsa_reglas_baremo/migraciones/000004_gobierno_borradores_v3.up.sql",
+      "sha256": "ddc1e06b024055063c1dfc42de9543db81622d46d75358c8d149ce534297e3a4",
+      "pr": {
+        "numero": 412,
+        "merge_commit": "34bd94a94566e8122c481e3118829de87cda2260"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 12,
+          "linea_fin": 27,
+          "sha256_bloque": "5d9605876537eeea89e37034a37ddb910fe82d91ec86ab061bfbda22d98aea17",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$cerrar$",
+          "linea_inicio": 91,
+          "linea_fin": 103,
+          "sha256_bloque": "2569920177baea2e61ccdd0bdcbd0b19b1f4bb523c36dd60b47d903c15840eac",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl_runtime$",
+          "linea_inicio": 363,
+          "linea_fin": 377,
+          "sha256_bloque": "c428c0805a7234952627de260d27dbff3f073ed0d4e257cc526b75e60e7a9d15",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 107,
+          "objeto": "vec_bolsa_reglas_baremo.validar_material_borrador_v3"
+        },
+        {
+          "linea": 214,
+          "objeto": "vec_bolsa_reglas_baremo.operar_borrador_v3"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "AD145",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 145,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000145_consulta_hecho_propio_meritos.up.sql",
+      "sha256": "a1db9084203be7731af490e54eb8061cd7c5ec5c95bd93c6af87a6bd993644f5",
+      "pr": {
+        "numero": 435,
+        "merge_commit": "46de1e00d81fd574c6da566ba1cbe8de29b186bd"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 17,
+          "sha256_bloque": "4d37188836047272fa05eecc2d5021f59567fef52fa0e77619489013d51c59d6",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 18,
+          "linea_fin": 135,
+          "sha256_bloque": "ddaa0473465ce2347d12bd5284ec7016824b7a56c0ae1c21a0a0493eb024beac",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 24,
+              "sha256": "d88a065b8c3bffce6f50551f500b589e1b8525b28f0a6e336b86e6b123eff6b9"
+            },
+            {
+              "linea": 25,
+              "sha256": "f276ae0181dc0623f5d1472f66bdd5ef797f3f163aa4b992cb339805ec85ead9"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$aud$",
+          "linea_inicio": 138,
+          "linea_fin": 145,
+          "sha256_bloque": "3afb9091d97be634fa989cbba70f35ea516745805634cbf409d6e5e09d134078",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 140,
+              "sha256": "5e499383cd8b84fefa88ff2d8ddb6c37a1adc693b3ec30764b9a363e7581ecd9"
+            },
+            {
+              "linea": 141,
+              "sha256": "5e499383cd8b84fefa88ff2d8ddb6c37a1adc693b3ec30764b9a363e7581ecd9"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 169,
+          "linea_fin": 191,
+          "sha256_bloque": "0566ee276f9daccbd6ca1aee4ab81ba405c58291df9b10f8a874ab3c5f958fbf",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 146,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_hecho_propio_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "Meritos2",
+      "modulo": "meritos",
+      "numero": 2,
+      "ruta": "deploy/postgresql/meritos/migraciones/000002_consulta_hecho_propio_v1.up.sql",
+      "sha256": "f35f0f950541ec0bab484939026af7456298340063b4c05b1de05a8d2e200f21",
+      "pr": {
+        "numero": 435,
+        "merge_commit": "46de1e00d81fd574c6da566ba1cbe8de29b186bd"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 8,
+          "linea_fin": 13,
+          "sha256_bloque": "2115c539a6d072a1f80b01e2517a0ea6e2421c5d231205bf825ed61ba9fd9e41",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 35,
+          "objeto": "vec_meritos.consultar_hecho_propio_v1"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "AD153",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 153,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000153_consumidores_preparacion_bases_bolsa.up.sql",
+      "sha256": "023dbd1607599ce496ffc00113b91736f4fc029ddfb5f72e15b9b1c663516794",
+      "pr": {
+        "numero": 445,
+        "merge_commit": "9151922b9f928f84b984f94cdd62fc17bf6c9159"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$roles$",
+          "linea_inicio": 10,
+          "linea_fin": 23,
+          "sha256_bloque": "13fe5713cba0f99c847daaf95d02ee5aa1316084e4dab1a28db46a081f6f21d1",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 25,
+          "linea_fin": 30,
+          "sha256_bloque": "544c72fa73bd166be3e9b43676b39ac94aeb9becc4ab5d83c6e9158fb86cfdeb",
+          "controles": [
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 31,
+          "linea_fin": 173,
+          "sha256_bloque": "c2a2e19586be16397e9d48797f060c2528da1a4ac65885dea1be7cb9f86cfd21",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 38,
+              "sha256": "841534ff6eac2f1d7d655a622bf8fb037a13c9971d8ead4d885f08bd0425e5fc"
+            },
+            {
+              "linea": 39,
+              "sha256": "e2fcf716975a34f6420772a8c5d932387dcdaf809babd6ed0d674c09e6c4dcc9"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 176,
+          "linea_fin": 188,
+          "sha256_bloque": "e66d1a9aea2320fbb1238b440d017e1aed0263d5ef349642f2aeebde620d8b6a",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 182,
+              "sha256": "a3b322448b75bb6620a39fcf2d0c37aa28313610d07f776fd0efaba6a22ea2ac"
+            },
+            {
+              "linea": 185,
+              "sha256": "a3b322448b75bb6620a39fcf2d0c37aa28313610d07f776fd0efaba6a22ea2ac"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 256,
+          "linea_fin": 267,
+          "sha256_bloque": "41f17b52d81a559a8536e921ad3a955dbc7c5e07672d4a4b28840c7c3d0387dc",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 191,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_guardar_preparacion_bases_bolsa_v3_atestada"
+        },
+        {
+          "linea": 223,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consultar_preparacion_bases_bolsa_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "BC8",
+      "modulo": "bolsa_convocatorias",
+      "numero": 8,
+      "ruta": "deploy/postgresql/bolsa_convocatorias/migraciones/000008_preparacion_bases_v3.up.sql",
+      "sha256": "7156fd573a05f152399fd49e362238311b01c3ff78d23da0fa26185fd73f6b8e",
+      "pr": {
+        "numero": 445,
+        "merge_commit": "9151922b9f928f84b984f94cdd62fc17bf6c9159"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 9,
+          "linea_fin": 20,
+          "sha256_bloque": "3b8fe0ef5cefc5144c16e0bd6dcb8d5c128b0b7d5301f182feb1dd4a5a45d0f1",
+          "controles": [
+            "owner/roles",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$cerrar$",
+          "linea_inicio": 114,
+          "linea_fin": 130,
+          "sha256_bloque": "465ec155a6c5043defac242349e086bf38bb33f5c1e622d8af20da6f38dd75b8",
+          "controles": [
+            "owner/roles"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 442,
+          "linea_fin": 456,
+          "sha256_bloque": "3265f4c7aed4dc8f92bdedd150a87ff6b886d26aac240b9253948342097e33a1",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "historia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$acl_datos$",
+          "linea_inicio": 457,
+          "linea_fin": 477,
+          "sha256_bloque": "90ee27ed6f7801c1d7fb7cad3759aeda662473d6800cb351ad2b23a18913bf34",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 101,
+          "objeto": "vec_bolsa_convocatorias.avanzar_preparacion_bases_actual_v3"
+        },
+        {
+          "linea": 132,
+          "objeto": "vec_bolsa_convocatorias.validar_material_preparacion_bases_v3"
+        },
+        {
+          "linea": 228,
+          "objeto": "vec_bolsa_convocatorias.consumir_preparacion_bases_v3_interna"
+        },
+        {
+          "linea": 289,
+          "objeto": "vec_bolsa_convocatorias.registrar_acceso_preparacion_bases_v3_interna"
+        },
+        {
+          "linea": 303,
+          "objeto": "vec_bolsa_convocatorias.guardar_preparacion_bases_v3"
+        },
+        {
+          "linea": 390,
+          "objeto": "vec_bolsa_convocatorias.obtener_preparacion_bases_v3"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "CT168",
+      "modulo": "contratacion_temporal",
+      "numero": 168,
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000168_auditoria_frontera_preparacion.up.sql",
+      "sha256": "68fd471d8b810205de7edf5566560550de6888874199dabb461db0d76dfc9db2",
+      "pr": {
+        "numero": 442,
+        "merge_commit": "4ce798d929e9bbc1f1caeb3de1103a80c914a01e"
+      },
+      "origen": "añadida_desde_base",
+      "orden": null,
+      "estado": "excluida_condicionada_a_montaje",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$cambio$",
+          "linea_inicio": 13,
+          "linea_fin": 110,
+          "sha256_bloque": "a6c02ee4d2a617d27eb80cabea617bd1f48c589dae833d2ac1bdc90fd7c274d8",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "RLS",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 39,
+              "sha256": "5ead94fccb71fcb5da5075c37a1d6aa694fa550ff6ce9bdedfdd97d9cc7be488"
+            },
+            {
+              "linea": 40,
+              "sha256": "8cc0cce2a2b9a39957b94894543a081100e8d65c4225cf0d9d4a8724520b592f"
+            },
+            {
+              "linea": 57,
+              "sha256": "9adb283a8c6d4407ac68ee66a3530a7388fa59d26476bf5429b40490360f9af1"
+            }
+          ]
+        }
+      ],
+      "consumidor_sql": [],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
+    },
+    {
+      "id": "AD141",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 141,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000141_consumidor_version_convocatoria_bolsa.up.sql",
+      "sha256": "77fa9038841699c2a903a7feac6e34913e1423c798071b85b189f2146c6236d2",
+      "pr": {
+        "numero": 390,
+        "merge_commit": "4f91aad05c06abc45d3ca4e70aa8633ee6e49389"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "sustituida_por_AD161",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 11,
+          "linea_fin": 20,
+          "sha256_bloque": "6251e5a9b0fa0d3547486330a7d668750c6e87969c4b3207a8412d9991172e56",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 21,
+          "linea_fin": 139,
+          "sha256_bloque": "e8742a5fb9b243823cedc12e36f4c78337fb2ff174fbdcf3f61162a1c6b5ab18",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 27,
+              "sha256": "dd5a4a795f5b03ebaf4a0f437d4416e20cffae5450dae04fc8dad721c67a1db4"
+            },
+            {
+              "linea": 28,
+              "sha256": "96f3f3c3b078d2f01c0b731aa39ddefce23ae48d284af15c958a1f2c99d1de89"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 142,
+          "linea_fin": 154,
+          "sha256_bloque": "c2126462482a54061fbe6246ca7e19016723fe4cc9c46f73b4a58fdf52b759c6",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 148,
+              "sha256": "5ad406c6e428cdc1eb827fa7f5dd86d7406add833cad3deffb25b082789dec0f"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 183,
+          "linea_fin": 205,
+          "sha256_bloque": "36467ec5788371a8a459e82cc0bb35953a27c2453f7410758644229257955f6c",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 155,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_version_convocatoria_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
+    },
+    {
+      "id": "AD142",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 142,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000142_consumidor_operacion_meritos.up.sql",
+      "sha256": "f1ed0a48b50b8665f36718623bde930619b833d67b54686b1f1b94cd694cb310",
+      "pr": {
+        "numero": 400,
+        "merge_commit": "7225e8782e23521ab96f786e81478c3f7408a81b"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "sustituida_por_AD161",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 10,
+          "linea_fin": 23,
+          "sha256_bloque": "eb32dff0f9d6083d6826b54676b6217dcf040583abc77362a1361678b1cfd20f",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 24,
+          "linea_fin": 169,
+          "sha256_bloque": "d15a81955e4467fe80b5b1a9d2be725c88bf72f38f001f6da6d2532243a0f2af",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 30,
+              "sha256": "d0a2a942a0f6df7f0e975f922073ba5c64652709902f4a1602a56f79da85ccee"
+            },
+            {
+              "linea": 31,
+              "sha256": "17a411ce89674b760d01ebc89e3576341607a7759b18ad5034331836d405ec83"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 172,
+          "linea_fin": 184,
+          "sha256_bloque": "8bff05d7132a364c7825f9c8876b1305f6ee056df3ae60cd6cfa0b18d01678e5",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 178,
+              "sha256": "8f6670d43dc687a7fc51db62d90ea4f48c2ff9b61a52e38c768a0426e4198fcf"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 240,
+          "linea_fin": 262,
+          "sha256_bloque": "8e8bba9cf037a00a5dfb429ec17ac61f0c7b51d21a712c396ffabf4aee717c26",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 185,
+          "objeto": "vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
+    },
+    {
+      "id": "AD144",
+      "modulo": "autorizacion_atestada_v3",
+      "numero": 144,
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000144_consumidor_gobierno_borrador_reglas_baremo.up.sql",
+      "sha256": "bb4d966c663491c9912d98b4c5af67dbfaef1e9a4ba24ecdd7333c893019f05e",
+      "pr": {
+        "numero": 411,
+        "merge_commit": "fbb42ebf2945a2fc021bbe76b22a47785f433fd6"
+      },
+      "origen": "pendiente_anterior",
+      "orden": null,
+      "estado": "sustituida_por_AD161",
+      "dependencias_orden": [],
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 16,
+          "linea_fin": 32,
+          "sha256_bloque": "098360e7a54d8d45c18399bb09e51602624c0dba7b08ba7f626e85ca1e3baed0",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "existencia"
+          ],
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$nucleo$",
+          "linea_inicio": 34,
+          "linea_fin": 165,
+          "sha256_bloque": "f5cb642b53cb5f49a8a7175ddef2208d2851fc62244783e970f0fac20cf87aa2",
+          "controles": [
+            "SHA",
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "existencia",
+            "reconstruccion",
+            "historia"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 40,
+              "sha256": "202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1"
+            },
+            {
+              "linea": 41,
+              "sha256": "4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$audiencias$",
+          "linea_inicio": 168,
+          "linea_fin": 180,
+          "sha256_bloque": "3b923e8e68d9a64a44fe93aa3eacf788adb5ff61ef001f9177cb47f5d7e5842a",
+          "controles": [
+            "SHA",
+            "reconstruccion"
+          ],
+          "literales_sha256": [
+            {
+              "linea": 174,
+              "sha256": "d5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9"
+            }
+          ]
+        },
+        {
+          "etiqueta": "$acl$",
+          "linea_inicio": 236,
+          "linea_fin": 249,
+          "sha256_bloque": "fc418b2083c187190f4a0511ef428c1599b7600df382ddc34b43afa0ee02610f",
+          "controles": [
+            "owner/roles",
+            "ACL",
+            "configuracion",
+            "historia"
+          ],
+          "literales_sha256": []
+        }
+      ],
+      "consumidor_sql": [
+        {
+          "linea": 182,
+          "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada"
+        }
+      ],
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
+      "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
+    },
+    {
+      "id": "AUT30",
+      "modulo": "autorizacion",
+      "numero": 30,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000030_competencia_firmante_ct.up.sql",
+      "sha256": "704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32",
+      "pr": 453,
+      "dependencias": [
+        "Catalogos_y_asignaciones_centrales",
+        "CT_propietario_y_ejecutor"
+      ],
+      "preimagen_guardas": {
+        "actual": "fachada_ausente",
+        "esperado": "roles_tablas_centrales_vigentes_y_migrador_superusuario"
+      },
+      "consumidor": "CT170 contrato legado permanece cerrado; CT172 usa AUT32/AUT35 nominales",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "estado": "seleccionada_h9_confirmada"
+    }
+  ],
+  "soporte": [
+    {
+      "id": "SUPPORT1",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/roles_intentos_up.sql",
+      "sha256": "70397114c01b77323633ed5c3bb87c2b9f0a23188042739d97b0ba850929b092",
+      "estado": "seleccion_h9",
+      "antes_de": [
+        "CA26",
+        "IS13",
+        "AD169"
+      ],
+      "condicion": "Confirmar rol ausente; primera instalación, sin LOGIN ni credenciales.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 9,
+          "linea_fin": 22,
+          "sha256_bloque": "35fbf30431a38c14a5ba5269cb2faaafd0ee126ca6c7833940a0f2522c7d8e85",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$base$",
+          "linea_inicio": 26,
+          "linea_fin": 32,
+          "sha256_bloque": "074f9c45a5fa6b315cd156717c5acdc166a5fd3c1b41c766f249d42a8447c7f0",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT2",
+      "ruta": "deploy/postgresql/bolsa_convocatorias/roles_up.sql",
+      "sha256": "3f49a405fd798bea91a66c00bb3135b4f250c02c19f441771d1abc1c66b5533f",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD161"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$prevalidacion$",
+          "linea_inicio": 11,
+          "linea_fin": 53,
+          "sha256_bloque": "c455217b875fff32ba56b944c9eed26f1360274da768cec349d96cf9cded8038",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$privilegios_base$",
+          "linea_inicio": 72,
+          "linea_fin": 90,
+          "sha256_bloque": "ac93e155bba33587f2673e06c839d940bb2e6ca74df153644e1e2f288297dbb5",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT3",
+      "ruta": "deploy/postgresql/meritos/roles_up.sql",
+      "sha256": "c2a3c87ca48e53429962f8d089c7aa2488d5f46c5146ae2e87f9cb84f186b3d8",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD161"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 7,
+          "linea_fin": 12,
+          "sha256_bloque": "01ee3b2fd70b1853ab2085c7bd09de619dfc7af1775f9ffaa06664e70b9c43fe",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$db$",
+          "linea_inicio": 25,
+          "linea_fin": 25,
+          "sha256_bloque": "bc027b49c4d1c9fbfdacc8400e4093d307bf8daf5f819c79d971267432cb393e",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT4",
+      "ruta": "deploy/postgresql/bolsa_reglas_baremo/roles_up.sql",
+      "sha256": "5c2d4507dbb5f183e4a2ad53ec897b01467b38313df98bc3e70700eb9a0805d8",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD161"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$prevalidacion$",
+          "linea_inicio": 11,
+          "linea_fin": 47,
+          "sha256_bloque": "6aedc834c2211b1e0177f7b70f231af2aceb02cdaf89110a6253bf9ca42d1993",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$privilegios_base$",
+          "linea_inicio": 64,
+          "linea_fin": 83,
+          "sha256_bloque": "fd467b2ec863d2c9f5a67c30ca8b2ea8d221be4666011300319d51cc10b0c4ee",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT5",
+      "ruta": "deploy/postgresql/meritos/roles_consulta_propia_up.sql",
+      "sha256": "fdb087494afedde1244c7f40f866c3b5ae0b5433fef9d17b07a266ce0b0987cf",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD145"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$pre$",
+          "linea_inicio": 7,
+          "linea_fin": 12,
+          "sha256_bloque": "71380796621e4b32fdd318fb936584522d321e4dd304e6d1332b952125d744f0",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$db$",
+          "linea_inicio": 15,
+          "linea_fin": 15,
+          "sha256_bloque": "42db6490d5eb7d8c06f0d66e592dc3a062d5a1591a01382fbb5ba071033f1739",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT6",
+      "ruta": "deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql",
+      "sha256": "fc63053318b5f2d4b5b53d5265ec98f5b6bcaec5f086b1c04fbf4732685a1209",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD153",
+        "BC8"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$prevalidacion$",
+          "linea_inicio": 9,
+          "linea_fin": 27,
+          "sha256_bloque": "1181c09f797898300088e09d8a4eb676f4b6c066c3d7de22d40e23ccf371eabc",
+          "literales_sha256": []
+        }
+      ]
+    },
+    {
+      "id": "SUPPORT7",
+      "ruta": "deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql",
+      "sha256": "818916065270d42bf263fbe679196fdac3ecb6cb4a43dc9b4856b1993451ce1e",
+      "estado": "opcional_no_seleccionada",
+      "antes_de": [
+        "AD153",
+        "BC8"
+      ],
+      "condicion": "No aplicar con el módulo excluido. Confirmar objeto ausente y preimagen propia.",
+      "preimagen_guardas": [
+        {
+          "etiqueta": "$prevalidacion$",
+          "linea_inicio": 8,
+          "linea_fin": 18,
+          "sha256_bloque": "d6ce3f5a405e0a66fa6b71583b702db5e139b7abca703e2ffc98f4fb0a3673e4",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$protecciones$",
+          "linea_inicio": 368,
+          "linea_fin": 395,
+          "sha256_bloque": "2e731b6ee73ace9c724ebaed9ad5149be3f866404814f941008902fab897e3f7",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$rls$",
+          "linea_inicio": 397,
+          "linea_fin": 422,
+          "sha256_bloque": "81042ad92fc0dc7862f6c41fbac156d565e14ba87b10f7e66a0fd33109d2f031",
+          "literales_sha256": []
+        },
+        {
+          "etiqueta": "$cerrar_tipos_implicitos$",
+          "linea_inicio": 427,
+          "linea_fin": 449,
+          "sha256_bloque": "2d22542a3e07a5782c460256ae983cba040beb7dc1485516f061a09b9024e770",
+          "literales_sha256": []
+        }
+      ]
+    }
+  ],
+  "orden_aplicacion": [
+    {
+      "orden": 1,
+      "id": "CA19",
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000019_perfiles_nominales_sin_revivir.up.sql",
+      "sha256": "7cbfe25c0e78fe34f6f8fee0d986c5e0bf0e8abc7238bdf1d8e7045b250ebb97",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 2,
+      "id": "AUT22",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000022_rol_administracion_perfiles_sin_revivir.up.sql",
+      "sha256": "535cf354235083fb98f3bdff7c19c210d0b7e876328441e4faf233d026809495",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 3,
+      "id": "AUT23",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000023_actos_perfiles_sensibles_internos.up.sql",
+      "sha256": "30246fab3cd3ba1d290ce0c15f6333d5824cecfff56bcc90eb7edeb59b893095",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 4,
+      "id": "CA20",
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000020_actos_perfil_admin_internos.up.sql",
+      "sha256": "a8f719d49a9014585b16c30a4f23f8ea4734f0716d23ee3c375fcc5eed1d867c",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 5,
+      "id": "IS9",
+      "ruta": "deploy/postgresql/identidad_sesiones_v1/migraciones/000009_politica_certificado_admin_v1.up.sql",
+      "sha256": "a51d8e64f07bb901727689dae432146bdf98c5a3f609d116381e77e92f875e43",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 6,
+      "id": "AUT24",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000024_actos_admin_centrales_v1.up.sql",
+      "sha256": "a07ded3cbc503f409eeff04b937c3bc0fe5d6d78622dd0e1475c7193bbda5f2a",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 7,
+      "id": "SUPPORT1",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/roles_intentos_up.sql",
+      "sha256": "70397114c01b77323633ed5c3bb87c2b9f0a23188042739d97b0ba850929b092",
+      "tipo": "soporte"
+    },
+    {
+      "orden": 8,
+      "id": "CA26",
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000026_cotejo_historico_auditoria_intentos.up.sql",
+      "sha256": "a15215662dfca166a2a9cdc0033e7a24261a5ed1935917eb0bc76bff8cca9aa8",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 9,
+      "id": "IS13",
+      "ruta": "deploy/postgresql/identidad_sesiones_v1/migraciones/000013_cotejo_historico_auditoria_intentos.up.sql",
+      "sha256": "0002112de0813f8075eca104f6a7d91dd672233baa967d4d9a213ba15a45232b",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 10,
+      "id": "AD169",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000169_intentos_nominales_auditoria_comun.up.sql",
+      "sha256": "9c9c51245234ea25e0e033535871959530f96c3c68b607a104bca782aa732cc7",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 11,
+      "id": "CA27",
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000027_cotejo_historico_empleado_auditoria.up.sql",
+      "sha256": "72243349e6af4914c41b39e712484348c5a1be67c5c7b68a1cb7eed8280c8c97",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 12,
+      "id": "AD171",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000171_auditoria_admin_preperfil.up.sql",
+      "sha256": "7a5b2ac33e53a04c85e854dc558755ec95fc8ba360d34b9559c699c02027a7b8",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 13,
+      "id": "AD160",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000160_fachada_privada_cargos_ct.up.sql",
+      "sha256": "b6bc945a36af85ef136b35300655488fe533977c738e021330ef3321b24a7572",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 14,
+      "id": "AD164",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000164_independencia_cargos_ct_cierre.up.sql",
+      "sha256": "07e2269fe8d40fdfd221d0e397e7681141f7268ba3896c3bb769bd6c029714be",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 15,
+      "id": "AUT33",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000033_catalogo_fijo_fuentes_nominales.up.sql",
+      "sha256": "35dbdfa9b9aa43582f7565121e5d6405f77700a53fc713a8ade805ef594333e8",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 16,
+      "id": "CA25",
+      "ruta": "deploy/postgresql/contexto_actor_v1/migraciones/000025_certificado_firmante_nominal_v2.up.sql",
+      "sha256": "38364c8118883cf6c56a164a74994b7134f80c115a684d391ff6c66535e686f3",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 17,
+      "id": "AD151",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql",
+      "sha256": "78a642daa482e9d7c6dbc33b9ec51d96dfabc66cd194d1290a4670f82a6593cf",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 18,
+      "id": "CT163",
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000163_circuito_rrhh_versionado.up.sql",
+      "sha256": "4d8e54209c8c6bab2b6f061edb53d31b8648f434f15a1ec286748a44068931c1",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 19,
+      "id": "CT164",
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql",
+      "sha256": "1734bc466b2c3ae13582518b8e4cfbc2eaf16f5bafeb5a2abf2e33145b90a942",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 20,
+      "id": "AD156",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000156_firma_externa_ct.up.sql",
+      "sha256": "07a774db534503a845d34eb710239d0a7b9508c684f4cec7c408c6b66cd2c87f",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 21,
+      "id": "AD157",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000157_firma_vec_original_ct.up.sql",
+      "sha256": "0faa42b50dd092f78d71d6693ad285c6a3489c83df6bc5293a38500219d12ccb",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 22,
+      "id": "AD158",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000158_original_firmable_documentos.up.sql",
+      "sha256": "4a5c0004e01ca7eb8f0c8cb8e41f0fe18b137b910cbb254f28f0cfc8c73a0b7a",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 23,
+      "id": "Documentos13",
+      "ruta": "deploy/postgresql/documentos/migraciones/000013_reserva_original_firmable.up.sql",
+      "sha256": "358603cc746aa3db4ffacbecf965da81f345dbc3ec07af2080705245d820d2b1",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 24,
+      "id": "AD162",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000162_firma_revision_pdf_v2.up.sql",
+      "sha256": "f9387e72612ec129ee09281802875a8ee7f9a4cd7b8150e4912208dffc377bd9",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 25,
+      "id": "AD170",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000170_firma_descriptor_atestado_v2.up.sql",
+      "sha256": "51a157cc3a6e4ff6d13cc2d8c515d4cff42e216294c7ef5d191d461dbdb94381",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 26,
+      "id": "AD159",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000159_consulta_firmas_ct170.up.sql",
+      "sha256": "ccd88c9b57acc1ddeb02d629ee22a20d2571b58ea4a3d774896dc3f14b21aad2",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 27,
+      "id": "AD165",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000165_publicacion_certificado_nominal_v3.up.sql",
+      "sha256": "007325925e706e07872476dc69a22c4dd4144873510747dea19e37b06d5c79bf",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 28,
+      "id": "AD166",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000166_publicacion_cargo_competencial_v3.up.sql",
+      "sha256": "37e81c59df5412bec19ab6ea977c8446ad1ca5f774dcbddd96db85f535bd0302",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 29,
+      "id": "Personal28",
+      "ruta": "deploy/postgresql/personal/migraciones/000028_cargos_competenciales_nominales.up.sql",
+      "sha256": "304aa1761cc2ab7222d2f429ed8087a2fcce55467dd227f50f71db0244046e3a",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 30,
+      "id": "Personal29",
+      "ruta": "deploy/postgresql/personal/migraciones/000029_resolver_fuente_cargo_firmante_ct.up.sql",
+      "sha256": "a2e5a385bd12d60a137315ee2c481d85a19a3dc7945d8efa107499d942a1ff74",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 31,
+      "id": "AD167",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000167_comprobar_consumo_firma_ct_v1.up.sql",
+      "sha256": "d46b1dfbca3d4b3636091916fb7716bc8c8b1ca76e568a4203ac0f47d9bfa883",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 32,
+      "id": "AUT32",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000032_competencia_nominal_firmante_ct.up.sql",
+      "sha256": "881c208971775f08e0641961780964a34ef7706410c2f8279544d275993ce041",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 33,
+      "id": "AUT35",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000035_constructor_nominal_firmante_ct.up.sql",
+      "sha256": "9882cba105401f52a1fad5e4404c36444855b07d5d10c16514cfa251e41c1615",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 34,
+      "id": "AUT34",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000034_capacidades_admin_nominales.up.sql",
+      "sha256": "df0aa95bf3917adb616d00ffdfc073770297dbd855398935a6e7983d02a03127",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 35,
+      "id": "AD168",
+      "ruta": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000168_consumidor_capacidades_admin.up.sql",
+      "sha256": "059936cbe6a5728fe16d34488f9ea11538f91279f1dbcf364fb9f1f030d7753a",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 36,
+      "id": "AUT30",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000030_competencia_firmante_ct.up.sql",
+      "sha256": "704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 37,
+      "id": "CT170",
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000170_firma_verificada_procedencia.up.sql",
+      "sha256": "688998cca70e0f72665ea1e76d023c109702c5aa18848fc48a634e2d52c6cb48",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 38,
+      "id": "CT174",
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000174_relacion_unidad_expediente_privada.up.sql",
+      "sha256": "b27e191c6103298f81ee61921013d5f66accb8ba6fa61af3a703b6ed15200952",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 39,
+      "id": "CT172",
+      "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql",
+      "sha256": "0d16408c03b66d31c08b2f03e54dda1066a266aa35539d283e7629f09d66f709",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 40,
+      "id": "Personal31",
+      "ruta": "deploy/postgresql/personal/migraciones/000031_unidad_bootstrap_admin.up.sql",
+      "sha256": "4f193433096b2002e14e7fb03e332ecea3bf159e4717d82f7a2dd830f6f363e4",
+      "tipo": "migracion"
+    }
+  ],
+  "listas_causales_consultadas": [
+    "deploy/principal/lista_sql_codexa_ad_reanclaje_20261003.txt",
+    "deploy/principal/lista_sql_codexa_b2_post222_20261001.txt",
+    "deploy/principal/lista_sql_codexa_baremo_ad144.txt",
+    "deploy/principal/lista_sql_codexa_baremo_br4.txt",
+    "deploy/principal/lista_sql_codexa_ct168.txt",
+    "deploy/principal/lista_sql_codexa_e3_ad136_20260930.txt",
+    "deploy/principal/lista_sql_codexa_rum03.txt",
+    "deploy/principal/lista_sql_codexa_rum04.txt",
+    "deploy/principal/lista_sql_codexa_s1_n2.txt",
+    "deploy/principal/lista_sql_codexa_selectivos_s1.txt",
+    "deploy/principal/lista_sql_codexa_selectivos_s2.txt",
+    "deploy/principal/lista_sql_codexb_ad133_135_20261001.txt",
+    "deploy/principal/lista_sql_codexb_aut19_canon_go_20260930.txt",
+    "deploy/principal/lista_sql_codexb_ca27_20261003.txt",
+    "deploy/principal/lista_sql_codexb_contexto_separado_20260930.txt",
+    "deploy/principal/lista_sql_codexb_crn11_20261003.txt",
+    "deploy/principal/lista_sql_codexb_ctx_temporal_20260930.txt",
+    "deploy/principal/lista_sql_codexb_personal30_20261003.txt",
+    "deploy/principal/lista_sql_codexb_rpt_20261003.txt",
+    "deploy/principal/lista_sql_codexd_ct159_restore_historico_20261001.txt",
+    "deploy/principal/lista_sql_codexd_h6_convergencia_fisica_20261001.txt",
+    "deploy/principal/lista_sql_codexd_h6_incorporacion_fisica_20261001.txt",
+    "deploy/principal/lista_sql_codexe_ad159_post_ad162_20261003.txt",
+    "deploy/principal/lista_sql_codexe_ad162_recuperada_20261003.txt",
+    "deploy/principal/lista_sql_codexe_cargos_fachada_20261003.txt",
+    "deploy/principal/lista_sql_codexe_ct172_post_ad162_20261003.txt",
+    "deploy/principal/lista_sql_codexe_ct174_relacion_unidad_20261003.txt",
+    "deploy/principal/lista_sql_codexe_descriptor_v3_20261003.txt",
+    "deploy/principal/lista_sql_codexe_pr440_ad151_reanclada_20261003.txt",
+    "deploy/principal/lista_sql_codexe_pr448_ad156_reanclada_20261003.txt",
+    "deploy/principal/lista_sql_codexe_pr451_ad157_reanclada_20261003.txt",
+    "deploy/principal/lista_sql_codexe_pr457_ad158_reanclada_20261003.txt",
+    "deploy/principal/lista_sql_codexk_admin_capacidades_20261003.txt",
+    "deploy/principal/lista_sql_codexk_aut32_competencia_nominal_20261003.txt",
+    "deploy/principal/lista_sql_codexk_aut35_constructor_nominal_20261003.txt",
+    "deploy/principal/lista_sql_codexk_ca25_certificado_nominal_20261003.txt",
+    "deploy/principal/lista_sql_codexk_personal28_cargos_20261003.txt",
+    "deploy/principal/lista_sql_codexk_rbac_base_20261003.txt",
+    "deploy/principal/lista_sql_codexl_intentos.txt",
+    "deploy/principal/lista_sql_codexr_convoca_xlsx.txt",
+    "deploy/principal/lista_sql_codexr_estados_rrhh18_20261002.txt",
+    "deploy/principal/lista_sql_codexr_fecha_fin_20261002.txt",
+    "deploy/principal/lista_sql_codexr_fin_cobertura_20261002.txt",
+    "deploy/principal/lista_sql_codexr_fin_modalidad_20261002.txt",
+    "deploy/principal/lista_sql_codexr_fin_recuperacion_20261002.txt",
+    "deploy/principal/lista_sql_codexr_historial_20261002.txt",
+    "deploy/principal/lista_sql_codexr_moad_20261002.txt",
+    "deploy/principal/lista_sql_codexr_oferta_integracion_20261002.txt",
+    "deploy/principal/lista_sql_codexr_plazo_20261002.txt",
+    "deploy/principal/lista_sql_codexr_rrhh17_20261002.txt",
+    "deploy/principal/lista_sql_personal29_fuente_cargo_ct_20261003.txt",
+    "deploy/principal/lista_sql_rrhh-506-ct-enlace-custodia-20260929.txt",
+    "deploy/principal/lista_sql_rrhh-506-custodia-sql-20260929.txt",
+    "deploy/principal/lista_sql_trabajo_aspirantes_sql_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_avisos_mis_correos_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_codexa_ct_rrhh_perfil_fijo_entrega_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_codexa_reincorporacion_sql_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_autorizacion_externa_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_contexto_candidato_exacto_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_contexto_externo_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_identidad_externa_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_identidad_externa_go_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_mi_bolsa_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexb_portal_candidato_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexd_rpt_gobierno_sql_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_codexd_rpt_lecturas_ad3_117_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexf_temas_sql_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_respuesta_integracion_20260928.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_rrhh_504_integracion_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_rrhh_c3_20260928.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_usab_respuesta_contexto_20260928.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_usab_respuesta_get_20260928.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_usab_respuesta_semantica_20260928.txt",
+    "deploy/principal/lista_sql_trabajo_codexg_usuarios_508a_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_codexk_auditoria_preperfil_20261003.txt",
+    "deploy/principal/lista_sql_trabajo_codexk_personal31_unidad_bootstrap_20261003.txt",
+    "deploy/principal/lista_sql_trabajo_codexr5_sql_actos_20261002.txt",
+    "deploy/principal/lista_sql_trabajo_codexr_directo_sql_20261002.txt",
+    "deploy/principal/lista_sql_trabajo_correo_llamamiento_numero_anual_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_ct_numerar_legado_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_ct_perfil_fijo_analisis_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_ct_perfil_fijo_asignacion_informe_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_ct_perfil_fijo_fiscalizacion_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_plazos_configurables_sql_20260930.txt",
+    "deploy/principal/lista_sql_trabajo_portal_externo_gobierno_sql_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_rrhh_306_307_plazas_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_usuarios_508b_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_usuarios_508c_20260929.txt",
+    "deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt"
+  ],
+  "resultado_ensayo": {
+    "base_reconstruida_sql": 15,
+    "nuevas_migraciones_confirmadas": 39,
+    "soportes_confirmados": 1,
+    "fallo_producto": null,
+    "AUT30_integrada": "63eb05717229f904e1d3a5d9dedcff8158abe9c1",
+    "arranque": "main39ec_acreditado_con_SQL_completo_de_seleccion",
+    "quality": "scripts/verificar_calidad.sh_VERDE_TMPDIR_var_tmp_h9p",
+    "instalacion_principal": false,
+    "precedente": "ensayo4a_detenido_CT170_resuelto_tras_merge453",
+    "reinicio": "7_HTTP200_datos_identicos_71_expedientes_v9_9_hitos",
+    "chrome": "Chrome_sistema149_CT_Bolsa_Calendarios_1440_390; limites_worker_TLS_tool_y_lecturas_aux_bloqueadas_documentados",
+    "binario_sha256": "16b8d71f19dc34db4d4bac35e69179526cdcea128ebef7da06f5e8b6f4248922"
+  },
+  "condiciones_instalacion": [
+    "Claude valida la configuración privada y preimagen de la principal",
+    "Cierre efectivo de tráfico y escritores, incluidos procesos psql ajenos, antes de copia fría",
+    "No habilitar consumidores excluidos CRN11/RPT/Selectivos sin preparar cadena compatible"
+  ]
+}
