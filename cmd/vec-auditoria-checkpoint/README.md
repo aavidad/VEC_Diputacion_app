@@ -83,6 +83,39 @@ código de salida 1 aunque la firma del checkpoint sea correcta. La verificació
 no requiere secretos. La firma cubre el checkpoint canónico, esquema y
 versiones, procedencia de desarrollo, recibo TSA y huella SPKI.
 
+## Continuidad entre checkpoints
+
+Conserve un recibo previo por un canal confiable independiente del lote. Compruebe
+los recibos posteriores con esa ancla, el DER y la huella que ya tenía fijados:
+
+```sh
+vec-auditoria-checkpoint -operacion verificar-continuidad \
+  -config /ruta/externa/config.json -ancla /ruta/confiable/recibo-previo.json \
+  -entrada /ruta/externa/lote.json -max-recibos 256 \
+  -spki /ruta/confiable/auditoria.der -pin-spki-sha256 HUELLA_CONSERVADA
+```
+
+El lote contiene únicamente `esquema: vec.auditoria.continuidad.desarrollo.v1`
+y `recibos`, una lista de 1 a `max-recibos` recibos completos del formato anterior.
+El máximo admitido es 256. Todos los campos son obligatorios, incluso los ceros
+del ancla vacía; se rechazan claves repetidas, desconocidas y valores `null`.
+No admite `-cadena`, secretos ni destinos de emisión.
+
+Se verifican las firmas del ancla y de cada sucesor con la raíz externa. Política,
+raíz y cadena deben ser idénticas. Cada sucesor debe ser un tramo no vacío que
+empiece después del anterior y cuyo hash anterior coincida con su cabeza.
+`max_bytes` limita la suma de los dos documentos; `max_registros` cuenta el ancla
+y los sucesores. `recibos_verificados`, las coordenadas y `registros_total` incluyen
+el ancla. Esta puede ser vacía si conserva las coordenadas canónicas 0/0 y los
+dos hashes de ceros.
+
+El resultado separa firma y continuidad verificadas de `integridad_cadena:
+no_evaluada`. Conserva las limitaciones de origen, TSA, tiempo y firma legal ya
+descritas. Una firma correcta puede acompañar un rechazo por hueco, solape o
+retroceso. La herramienta no acredita la procedencia del ancla, la ausencia de
+registros posteriores, la periodicidad del sellado ni la integridad de registros
+que no recibió. No consulta ni exporta datos personales.
+
 Los errores devuelven códigos JSON sin reproducir las entradas ni rutas. El
 resultado técnico se registra en stderr por el emisor común, con correlación
 propia, componente auditoría y códigos cerrados. Ese registro técnico no

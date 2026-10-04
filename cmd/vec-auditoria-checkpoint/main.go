@@ -37,11 +37,23 @@ func run(args []string, out, log io.Writer) int {
 	publica := fs.String("spki", "", "")
 	pin := fs.String("pin-spki-sha256", "", "")
 	cadena := fs.String("cadena", "", "")
+	ancla := fs.String("ancla", "", "")
+	maxRecibos := fs.Int("max-recibos", 0, "")
 	fallo := func() int {
 		_ = json.NewEncoder(out).Encode(map[string]string{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida"})
 		return 1
 	}
-	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar") {
+	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad") {
+		return fallo()
+	}
+	incompatible := false
+	fs.Visit(func(f *flag.Flag) {
+		if *modo == "verificar-continuidad" && (f.Name == "cadena" || f.Name == "kms-master" || f.Name == "tsa-secret" || f.Name == "salida") ||
+			*modo != "verificar-continuidad" && (f.Name == "ancla" || f.Name == "max-recibos") {
+			incompatible = true
+		}
+	})
+	if incompatible {
 		return fallo()
 	}
 	var cfg config.AuditoriaCheckpointOffline
@@ -66,6 +78,13 @@ func run(args []string, out, log io.Writer) int {
 		defer cancelar()
 		_ = emisor.Cerrar(c)
 	}()
+	if *modo == "verificar-continuidad" {
+		resultado := runContinuidad(ctx, cfg, opcionesContinuidad{*ancla, *entrada, *publica, *pin, *maxRecibos}, out)
+		if resultado == 0 {
+			codigo = domain.ResultadoTecnicoCorrecto
+		}
+		return resultado
+	}
 	b, err = leerRegular(*entrada, cfg.MaxBytes, false)
 	if err != nil {
 		return fallo()
