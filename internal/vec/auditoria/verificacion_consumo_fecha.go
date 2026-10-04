@@ -32,6 +32,22 @@ func CotejarConsumoFechaV3(r RegistroConsumoFechaV3) *FalloVerificacion {
 	if r.TipoRegistro != TipoConsumoFechaV3 || r.VersionConsumo != 3 {
 		return fallar("tipo_invalido", "tipo_version_consumo")
 	}
+	if fallo := cotejarCamposConsumoFecha(r); fallo != nil {
+		return fallo
+	}
+	if r.HuellaSHA256 != huellaConsumoFechaV3(r) {
+		return fallar("huella_distinta", "huella_sha256")
+	}
+	return nil
+}
+
+// Las versiones v3 y v4 comparten coordenadas, origen, fechas y referencias.
+// Cada versión comprueba por separado su discriminador y su preimagen.
+func cotejarCamposConsumoFecha(r RegistroConsumoFechaV3) *FalloVerificacion {
+	fallar := func(codigo, clave string) *FalloVerificacion {
+		return &FalloVerificacion{Codigo: codigo, Clave: clave,
+			Esperado: "asiento_ad173_valido", Obtenido: "incompatible", Secuencia: r.Secuencia}
+	}
 	if r.Secuencia == 0 || r.Secuencia > maxSecuenciaVerificacion ||
 		!referenciaCadenaValida(r.DecisionRef) || !referenciaCadenaValida(r.EfectoRef) ||
 		!huellaCadenaValida(r.HuellaEfectoSHA256) || !huellaCadenaValida(r.ConsumoHuellaSHA256) ||
@@ -63,9 +79,6 @@ func CotejarConsumoFechaV3(r RegistroConsumoFechaV3) *FalloVerificacion {
 		if !referenciaCadenaValida(campo.valor) {
 			return fallar("registro_invalido", campo.clave)
 		}
-	}
-	if r.HuellaSHA256 != huellaConsumoFechaV3(r) {
-		return fallar("huella_distinta", "huella_sha256")
 	}
 	return nil
 }
