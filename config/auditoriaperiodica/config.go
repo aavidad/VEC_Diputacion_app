@@ -16,6 +16,12 @@ import (
 
 var ErrConfiguracionInvalida = errors.New("auditoria_periodica_configuracion_invalida")
 
+type errorLecturaConfiguracion struct{ causa error }
+
+func (errorLecturaConfiguracion) Error() string     { return ErrConfiguracionInvalida.Error() }
+func (e errorLecturaConfiguracion) Unwrap() error   { return e.causa }
+func (errorLecturaConfiguracion) Is(err error) bool { return err == ErrConfiguracionInvalida }
+
 var versionBinarioValida = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$`)
 
 // Ejecutor no fija la periodicidad ni la política del sello. Ambas pertenecen
@@ -49,7 +55,14 @@ func (c Ejecutor) Timeout() time.Duration {
 // Decodificar exige un objeto cerrado y acotado. No admite DSN, credenciales,
 // perfiles, política o valores de periodicidad en el archivo del ejecutor.
 func Decodificar(raw []byte) (Ejecutor, error) {
-	if len(raw) == 0 || len(raw) > 16*1024 || clavesRepetidas(raw) {
+	if len(raw) == 0 || len(raw) > 16*1024 {
+		return Ejecutor{}, ErrConfiguracionInvalida
+	}
+	repetidas, err := clavesRepetidas(raw)
+	if err != nil {
+		return Ejecutor{}, errorLecturaConfiguracion{err}
+	}
+	if repetidas {
 		return Ejecutor{}, ErrConfiguracionInvalida
 	}
 	d := json.NewDecoder(bytes.NewReader(raw))
@@ -62,24 +75,30 @@ func Decodificar(raw []byte) (Ejecutor, error) {
 	return c, nil
 }
 
-func clavesRepetidas(raw []byte) bool {
+func clavesRepetidas(raw []byte) (bool, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	primera, err := d.Token()
-	if err != nil || primera != json.Delim('{') {
-		return true
+	if err != nil {
+		return false, err
+	}
+	if primera != json.Delim('{') {
+		return true, nil
 	}
 	vistas := make(map[string]bool)
 	for d.More() {
 		token, err := d.Token()
 		clave, ok := token.(string)
-		if err != nil || !ok || vistas[clave] {
-			return true
+		if err != nil {
+			return false, err
+		}
+		if !ok || vistas[clave] {
+			return true, nil
 		}
 		vistas[clave] = true
 		var valor json.RawMessage
-		if d.Decode(&valor) != nil {
-			return true
+		if err := d.Decode(&valor); err != nil {
+			return false, err
 		}
 	}
-	return false
+	return false, nil
 }

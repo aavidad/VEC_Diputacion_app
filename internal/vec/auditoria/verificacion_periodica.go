@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"sort"
 	"strconv"
@@ -79,7 +80,14 @@ func cotejarOperacionPeriodicaV1(r RegistroMixtoV2, secuencia uint64) (RegistroE
 	// transporte; el material auditado es exclusivamente el detalle decodificado.
 	normalizado := strings.ReplaceAll(strings.ReplaceAll(p.DetalleCanonicoBase64, "\r", ""), "\n", "")
 	detalle, err := base64.StdEncoding.Strict().DecodeString(normalizado)
-	if err != nil || len(detalle) > 8192 || base64.StdEncoding.EncodeToString(detalle) != normalizado || !detallePeriodicaValido(detalle, b) {
+	if err != nil {
+		var corrupta base64.CorruptInputError
+		if errors.As(err, &corrupta) {
+			return e, "detalle_base64_invalido", "detalle_canonico_base64"
+		}
+		return e, "detalle_base64_no_disponible", "detalle_canonico_base64"
+	}
+	if len(detalle) > 8192 || base64.StdEncoding.EncodeToString(detalle) != normalizado || !detallePeriodicaValido(detalle, b) {
 		return e, "registro_invalido", "detalle_canonico_base64"
 	}
 	material := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.periodica.material.v1", TipoOperacionPeriodica,
@@ -116,12 +124,14 @@ func detallePeriodicaValido(raw []byte, b RegistroOperacionMantenimientoV1) bool
 		}
 		if clave == "version" || clave == "previa_secuencia" {
 			n, ok := v.(json.Number)
-			if !ok || len(n.String()) == 0 || strings.ContainsAny(n.String(), ".eE+-") {
+			if !ok || len(n.String()) == 0 {
 				return false
 			}
-			u, err := strconv.ParseUint(n.String(), 10, 64)
-			if err != nil || strconv.FormatUint(u, 10) != n.String() ||
-				clave == "version" && (u == 0 || u > 999999999) || clave == "previa_secuencia" && u != b.Secuencia-1 {
+			decimal := n.String()
+			if clave == "previa_secuencia" && decimal != strconv.FormatUint(b.Secuencia-1, 10) {
+				return false
+			}
+			if clave == "version" && (len(decimal) > 9 || decimal[0] < '1' || decimal[0] > '9' || strings.ContainsFunc(decimal, func(r rune) bool { return r < '0' || r > '9' })) {
 				return false
 			}
 			continue
@@ -160,14 +170,16 @@ func detallePeriodicaValido(raw []byte, b RegistroOperacionMantenimientoV1) bool
 		if i > 0 {
 			canon.WriteString(", ")
 		}
-		k, _ := json.Marshal(clave)
-		v, err := json.Marshal(detalle[clave])
-		if err != nil {
+		canon.WriteString(strconv.Quote(clave))
+		canon.WriteString(": ")
+		switch valor := detalle[clave].(type) {
+		case string:
+			canon.WriteString(strconv.Quote(valor))
+		case json.Number:
+			canon.WriteString(valor.String())
+		default:
 			return false
 		}
-		canon.Write(k)
-		canon.WriteString(": ")
-		canon.Write(v)
 	}
 	canon.WriteByte('}')
 	return bytes.Equal(raw, canon.Bytes())
