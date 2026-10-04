@@ -8,13 +8,14 @@
 <style>{{.Tema}}
 {{.Estilos}}
 @media print {
+  .comparacion-catalogos { break-before: page; }
   .comparacion-local .cabecera-informe { margin-bottom: 12px; }
   .comparacion-local .panel { margin-bottom: 12px; }
   .comparacion-local .cabecera-panel { padding: 10px 16px; }
   .comparacion-local th, .comparacion-local td { padding: 8px 12px; }
   .comparacion-catalogos .cuerpo-panel { padding-block: 8px; }
-  .comparacion-catalogos h3 { margin: 12px 0 4px; }
-  .comparacion-catalogos .datos-detalle { gap: 8px 16px; }
+  .comparacion-catalogos h3 { margin: 12px 0 4px; break-after: avoid; }
+  .comparacion-catalogos .datos-detalle { gap: 8px 16px; break-inside: avoid; }
 }
 </style>
 </head>
