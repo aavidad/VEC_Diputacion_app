@@ -20,6 +20,7 @@ func TestEjecutorConfiguracionCerradaSinCredenciales(t *testing.T) {
 		[]byte(strings.Replace(string(raw), `"version":1`, `"version":0,"version":1`, 1)),
 		[]byte(strings.Replace(string(raw), `"max_registros":1000`, `"max_registros":0`, 1)),
 		[]byte(strings.Replace(string(raw), `"timeout_segundos":30`, `"timeout_segundos":301`, 1)),
+		[]byte(strings.Replace(string(raw), `"timeout_segundos":30`, `"timeout_segundos":-1`, 1)),
 		[]byte(strings.Replace(string(raw), strings.Repeat("a", 64), strings.Repeat("0", 64), 1)),
 		[]byte(strings.Replace(string(raw), `"version":1`, `"dsn":"postgres://privado","version":1`, 1)),
 		[]byte(strings.Repeat(" ", 16*1024+1)),
@@ -28,7 +29,7 @@ func TestEjecutorConfiguracionCerradaSinCredenciales(t *testing.T) {
 			t.Fatal("configuración inválida aceptada")
 		}
 	}
-	c.TimeoutSegundos = ^uint64(0)
+	c.TimeoutSegundos = 1 << 62
 	if c.Timeout() != 0 {
 		t.Fatal("timeout inválido desbordado")
 	}

@@ -25,7 +25,7 @@ type Ejecutor struct {
 	MaxRegistros    uint64 `json:"max_registros"`
 	VersionBinario  string `json:"version_binario"`
 	PinSPKISHA256   string `json:"pin_spki_sha256"`
-	TimeoutSegundos uint64 `json:"timeout_segundos"`
+	TimeoutSegundos int64  `json:"timeout_segundos"`
 }
 
 func (c Ejecutor) Validar() error {
@@ -33,7 +33,7 @@ func (c Ejecutor) Validar() error {
 		!versionBinarioValida.MatchString(c.VersionBinario) ||
 		!domain.SHA256CheckpointValido(c.PinSPKISHA256) ||
 		c.PinSPKISHA256 == strings.Repeat("0", 64) ||
-		c.TimeoutSegundos == 0 || c.TimeoutSegundos > 300 {
+		c.TimeoutSegundos <= 0 || c.TimeoutSegundos > 300 {
 		return ErrConfiguracionInvalida
 	}
 	return nil
