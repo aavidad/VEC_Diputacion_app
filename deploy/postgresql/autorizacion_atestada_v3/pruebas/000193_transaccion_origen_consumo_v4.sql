@@ -1,0 +1,56 @@
+\set ON_ERROR_STOP on
+-- Prueba estructural y vectores; no crea consumos manuales ni acredita camino causal.
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL statement_timeout='30s';
+DO $estructura$
+DECLARE tabla text;f oid;s text;
+BEGIN
+ FOREACH tabla IN ARRAY ARRAY['consumo_decision_v3','auditoria_consumo_v3'] LOOP
+  IF NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=to_regclass('vec_autorizacion_atestada_v3.'||tabla)
+   AND a.attname='transaccion_origen' AND a.atttypid='xid8'::regtype AND NOT a.attnotnull
+   AND NOT a.atthasdef AND NOT a.attisdropped)
+  THEN RAISE EXCEPTION 'AD193: columna divergente %',tabla; END IF;
+ END LOOP;
+ IF EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+  WHERE (tipo_registro='consumo_confirmado_v4' AND (version_consumo IS DISTINCT FROM 4 OR transaccion_origen IS NULL))
+   OR (tipo_registro<>'consumo_confirmado_v4' AND transaccion_origen IS NOT NULL))
+ THEN RAISE EXCEPTION 'AD193: familia/sello divergentes'; END IF;
+ f:=to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)');
+ SELECT prosrc INTO STRICT s FROM pg_proc WHERE oid=f;
+ IF strpos(s,'r.consumo_xmin')>0 OR strpos(s,'r.auditoria_xmin')>0
+ OR strpos(s,'r.consumo_transaccion_origen IS DISTINCT FROM pg_current_xact_id()')=0
+ OR strpos(s,'r.auditoria_transaccion_origen IS DISTINCT FROM pg_current_xact_id()')=0
+ OR NOT has_function_privilege('vec_autorizacion_propietario',f,'EXECUTE')
+ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid=f AND (a.grantee NOT IN(p.proowner,'vec_autorizacion_propietario'::regrole)
+   OR a.is_grantable OR a.privilege_type<>'EXECUTE'))
+ THEN RAISE EXCEPTION 'AD193: comprobador/ACL divergente'; END IF;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1('{}'::jsonb);
+  RAISE EXCEPTION 'AD193: aceptó recibo vacío';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
+END $estructura$;
+DO $vectores$
+DECLARE campos text[]:=ARRAY['consumo_confirmado_v4','4','1','0000000000000000000000000000000000000000000000000000000000000000','decision:prueba','efecto:prueba','1111111111111111111111111111111111111111111111111111111111111111','2222222222222222222222222222222222222222222222222222222222222222','proceso.prueba','interna_corporativa','2026-10-04T00:00:00.000000Z','2026-10-04T00:00:00.000000Z','persona:prueba','perfil:prueba','finalidad:prueba','9007199254740993'];campo text;preimagen bytea:=''::bytea;h text;
+BEGIN
+ FOREACH campo IN ARRAY campos LOOP
+  preimagen:=preimagen||vec_autorizacion_atestada_v3.encuadrar_mac(campo);
+ END LOOP;
+ h:=encode(sha256(preimagen),'hex');
+ IF h IS DISTINCT FROM '1da186ae6fb3e4f7a514976f944526653355d1f0b7e9105aa25cb14cb4ec8e4d'
+ THEN RAISE EXCEPTION 'AD193: vector v4 divergente %',h; END IF;
+ -- Valores fuera de JSON safe integer y máximo completo, siempre string decimal.
+ FOREACH campo IN ARRAY ARRAY['9007199254740993','18446744073709551615'] LOOP
+  IF (campo::xid8)::text IS DISTINCT FROM campo
+   OR jsonb_typeof(to_jsonb((campo::xid8)::text)) IS DISTINCT FROM 'string'
+   OR to_jsonb((campo::xid8)::text)#>>'{}' IS DISTINCT FROM campo
+  THEN RAISE EXCEPTION 'AD193: xid8 truncado o JSON numérico'; END IF;
+ END LOOP;
+ IF encode(sha256(preimagen||vec_autorizacion_atestada_v3.encuadrar_mac('1')),'hex')=h
+ THEN RAISE EXCEPTION 'AD193: sello no ligado al eslabón'; END IF;
+END $vectores$;
+ROLLBACK;

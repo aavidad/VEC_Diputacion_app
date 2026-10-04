@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000193_transaccion_origen_consumo_v4.up.sql
