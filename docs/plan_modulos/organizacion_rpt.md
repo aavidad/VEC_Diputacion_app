@@ -242,6 +242,30 @@ mixtos hasta acordar su transición. Se evita una segunda autoridad de ocupació
 La tarea 5 se estima una sola vez en M. PLA-001/002 quedan para después.
 
 
+## Consulta de plazas: búsqueda en la página — 4 de octubre de 2026
+
+Inventario sobre `origin/main@7141dedb5`: la consulta B2 de vacantes está montada
+con autorización nominal y lectura PostgreSQL. Aporta plazas de plantilla sin
+ocupación registrada y conserva corte, versión estructural, acto y fuente.
+La hoja ya distingue ese resultado de la ocupación del puesto y de la necesidad
+cubrible, que siguen pendientes de sus fuentes y criterios.
+
+La hoja añade búsqueda por código literal de plaza, denominación de unidad o
+puesto, dentro de la página recibida. Indica coincidencias y total de esa página;
+permite limpiar la búsqueda y distingue filtro sin coincidencias de consulta
+sin registros. La búsqueda no cambia ámbito, corte, origen ni autorización y
+no consulta más páginas. Cada hoja nueva parte sin filtro; los estados de fallo
+no reutilizan la lista anterior. Los padres y sus versiones de caché los actualiza
+Dirección en su turno de integración.
+
+Esta mejora usa el consumidor existente. No añade descarga ni publica fuentes,
+ocupaciones o reservas. Para obtener puestos sin ocupante y necesidades cubribles
+faltan lecturas nominales propias, cobertura de ocupaciones/reservas, vínculos y
+criterios acreditados. El contrato `LectorRelacionParaRPTV1` sigue preparado:
+una concesión B2 no lo convierte en una lectura autorizada para otro consumidor.
+La política de acreditación de fuentes de Personal 000011 continúa pendiente de
+una autoridad admitida; el revisor local ya integrado no la sustituye.
+
 ## Preparación reutilizable de fuente — 4 de octubre de 2026
 
 Inventario sobre `origin/main@66233cc3e`: Personal 000011 conserva los contratos,
