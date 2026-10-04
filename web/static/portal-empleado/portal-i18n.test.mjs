@@ -144,10 +144,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal.js", "20261002-r4-moad-v6"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261004-b-tramites-caducidad-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261004-b-tramites-justificantes-v1");
   versionesEspeciales.set("portal-composicion-empleado.js", "20261004-b-tramites-caducidad-v1");
-  versionesEspeciales.set("portal.js", "20261004-b-tramites-caducidad-v1");
-  versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-caducidad-v1");
+  versionesEspeciales.set("portal.js", "20261004-b-tramites-justificantes-v1");
+  versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-justificantes-v1");
   versionesEspeciales.set("modulos/personal/registro-b2.js", "20261003-personal-comparacion-b2-v3");
   versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261003-ct-firma-v2-v1");
   // Sólo estos consumidores CT cambiaron en el grafo de firma V2.
@@ -305,5 +305,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261004-b-tramites-caducidad-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261004-b-tramites-justificantes-v1");
 });

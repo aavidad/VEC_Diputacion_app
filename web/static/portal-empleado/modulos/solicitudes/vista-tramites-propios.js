@@ -61,7 +61,7 @@ function tablaCronos(panel, t, loc) {
 }
 function recibo(item, t, loc) {
   if (!item.recibo) return escapar(t("sin_dato"));
-  return `<details><summary>${escapar(t("ver_registro"))}</summary><dl><dt>${escapar(t("referencia_operacion"))}</dt><dd>${escapar(textoDato(item.recibo.referencia, t))}</dd><dt>${escapar(t("fecha_registro"))}</dt><dd>${escapar(fecha(item.recibo.registrado_en, t, loc, true))}</dd></dl></details>`;
+  return `<details><summary>${escapar(t("ver_justificante"))}</summary><dl><dt>${escapar(t("referencia_operacion"))}</dt><dd>${escapar(textoDato(item.recibo.referencia, t))}</dd><dt>${escapar(t("version_justificante"))}</dt><dd>${escapar(numero(item.recibo.version, loc))}</dd><dt>${escapar(t("fecha_operacion"))}</dt><dd>${escapar(fecha(item.recibo.registrado_en, t, loc, true))}</dd></dl></details>`;
 }
 function tablaDietas(panel, t, loc) {
   const filas = panel.datos.items.map((item) => `<tr>
@@ -70,7 +70,7 @@ function tablaDietas(panel, t, loc) {
     <td>${escapar(periodo(item.comision.fecha_inicio, item.comision.fecha_fin, t, loc))}</td>
     <td>${recibo(item, t, loc)}</td>
   </tr>`).join("");
-  return tabla("dietas", ["comision", "estado", "periodo_comision", "registro"], filas, t);
+  return tabla("dietas", ["comision", "estado", "periodo_comision", "justificante_operacion"], filas, t);
 }
 function paginacion(bloque, panel, t, loc) {
   const esCronos = bloque === "cronos";
