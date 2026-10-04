@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { cargarTextos } from "../../../comun/textos.js";
 import { montarVistaTramitesPropios, renderizarVistaTramitesPropios } from "./vista-tramites-propios.js";
+import { crearFuenteTramitesPropios } from "./fuente-tramites-propios.js";
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 const ahora = () => new Date("2026-12-31T23:30:00Z");
@@ -341,6 +342,43 @@ test("el catálogo conserva las claves de justificante para una vista anterior y
     assert.ok(textos.traducir("general.version_justificante").trim());
     assert.equal(textos.faltantes.length, 0);
   }
+});
+
+test("Mis trámites muestra la devolución propia sin confundir sus versiones ni interpretar el motivo como HTML", async () => {
+  const original = { items: [{ comision: { referencia: `dco_${"a".repeat(22)}`, version: 7,
+    estado: "devuelta", fecha_inicio: "2026-10-10", fecha_fin: "2026-10-11", motivo: "Contexto que no se proyecta",
+    devolucion: { etapa: "revision", motivo: "Revisar <img src=x onerror=alert(1)> el recorrido.",
+      version: 3, devuelta_en: "2026-10-03T10:00:00.123456Z" } },
+    recibo: { referencia: `rcd_${"b".repeat(22)}`, version: 6, registrado_en: "2026-10-01T10:00:00.123456Z", repeticion: false } }] };
+  const datos = await crearFuenteTramitesPropios({ listarComisiones: async () => original }).consultarDietas();
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("tramites-empleado", { idioma });
+    const html = renderizarVistaTramitesPropios({ dietas: panel(datos) }, { textos });
+    const detalle = html.match(/<details data-tramites-devolucion>([\s\S]*?)<\/details>/)?.[1];
+    assert.ok(detalle.includes(`<dt>${textos.traducir("general.devolucion_version")}</dt><dd>3</dd>`));
+    assert.ok(detalle.includes(textos.traducir("general.devolucion_etapa_revision")));
+    assert.match(detalle, /&lt;img src=x onerror=alert\(1\)&gt;/);
+    assert.match(detalle, /href="#dietas" data-vista="dietas"/);
+    assert.doesNotMatch(html, /<img|onerror="|Contexto que no se proyecta|plazo|vencimiento/i);
+    const justificante = html.match(/<details>([\s\S]*?)<\/details>/)?.[1];
+    assert.ok(justificante.includes(`<dt>${textos.traducir("general.version_justificante")}</dt><dd>6</dd>`));
+    const fecha = new Intl.DateTimeFormat(textos.localizacion, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(original.items[0].comision.devolucion.devuelta_en));
+    assert.ok(detalle.includes(fecha));
+  }
+  assert.equal(datos.items[0].comision.version, 7);
+  assert.equal(datos.items[0].comision.devolucion.motivo, original.items[0].comision.devolucion.motivo);
+});
+
+test("la caducidad de Cronos retira también el motivo personal de devolución de Dietas", async () => {
+  const raiz = raizFalsa(); const cronos = diferida(); const item = comision();
+  item.comision.devolucion = { etapa: "revision", motivo: "Completa el recorrido de Ana Molina.", version: 3, devuelta_en: "2026-10-03T10:00:00.123456Z" };
+  montarVistaTramitesPropios({ raiz, ahora, fuente: {
+    consultarCronos: () => cronos.promesa, consultarDietas: async () => ({ items: [item] }),
+  } });
+  await tick(); assert.match(raiz.innerHTML, /Completa el recorrido de Ana Molina/);
+  cronos.rechazar({ codigo: "autenticacion_requerida" }); await tick();
+  assert.doesNotMatch(raiz.innerHTML, /Ana Molina|data-tramites-devolucion/);
+  assert.match(raiz.innerHTML, /Identifícate de nuevo/);
 });
 
 test("hoja nueva no usa almacenamiento, identidad cliente, red ni CSS propio", async () => {

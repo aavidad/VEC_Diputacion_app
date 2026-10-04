@@ -63,14 +63,28 @@ function recibo(item, t, loc) {
   if (!item.recibo) return escapar(t("sin_dato"));
   return `<details><summary>${escapar(t("ver_justificante"))}</summary><dl><dt>${escapar(t("referencia_operacion"))}</dt><dd>${escapar(textoDato(item.recibo.referencia, t))}</dd><dt>${escapar(t("version_justificante"))}</dt><dd>${escapar(numero(item.recibo.version, loc))}</dd><dt>${escapar(t("fecha_operacion"))}</dt><dd>${escapar(fecha(item.recibo.registrado_en, t, loc, true))}</dd></dl></details>`;
 }
+function devolucion(item, t, loc) {
+  const dato = item.comision.devolucion;
+  if (!dato) return escapar(t("sin_pendientes"));
+  const campos = [
+    ["devolucion_motivo", dato.motivo],
+    ["devolucion_etapa", t(`devolucion_etapa_${dato.etapa}`)],
+    ["devolucion_version", numero(dato.version, loc)],
+    ["devolucion_fecha", fecha(dato.devuelta_en, t, loc, true)],
+  ];
+  return `<details data-tramites-devolucion><summary>${escapar(t("devolucion_ver"))}</summary>
+    <dl class="datos-clave">${campos.map(([clave, valor]) => `<div><dt>${escapar(t(clave))}</dt><dd>${escapar(valor)}</dd></div>`).join("")}</dl>
+    <a href="#dietas" data-vista="dietas">${escapar(t("devolucion_abrir"))}</a></details>`;
+}
 function tablaDietas(panel, t, loc) {
   const filas = panel.datos.items.map((item) => `<tr>
     <th scope="row">${escapar(textoDato(item.comision.numero_documento, () => t("dietas_nombre")))}</th>
     <td>${etiquetaEstado("dietas", item.comision.estado, t)}</td>
     <td>${escapar(periodo(item.comision.fecha_inicio, item.comision.fecha_fin, t, loc))}</td>
+    <td>${devolucion(item, t, loc)}</td>
     <td>${recibo(item, t, loc)}</td>
   </tr>`).join("");
-  return tabla("dietas", ["comision", "estado", "periodo_comision", "justificante_operacion"], filas, t);
+  return tabla("dietas", ["comision", "estado", "periodo_comision", "pendiente", "justificante_operacion"], filas, t);
 }
 function paginacion(bloque, panel, t, loc) {
   const esCronos = bloque === "cronos";
