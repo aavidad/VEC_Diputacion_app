@@ -134,7 +134,7 @@ test("propuesta guiada por dato, errores por campo y foco conservan lo escrito s
   assert.equal(motivo.attributes.get("aria-invalid"), "false");
   assert.match(texto(raiz), /número entero de días/u); assert.match(texto(raiz), /Complete este campo/u);
   assert.match(texto(raiz), /El borrador sigue sin presentar/u);
-  assert.equal(buscar(raiz, "personalRevisionRevisar").parent.children[0].id, "personal-revision-error");
+  assert.equal(buscar(raiz, "personalRevisionRevisar").parent.parent.children[1].id, "personal-revision-error");
   const avisoEvidencia = nodos(raiz).find((n) => n.id === evidencia.attributes.get("aria-describedby"));
   assert.match(avisoEvidencia.textContent, /Complete este campo/u);
   const enlaceError = nodos(raiz).find((n) => n.tagName === "a" && n.href === "#personal-revision-propuesta");

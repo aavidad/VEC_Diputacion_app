@@ -22,7 +22,7 @@ export function montarPreparacionRectificacionPropia({ raiz, datos, seleccion, r
   const entradas = {}, erroresCampo = {};
   let erroresVisibles = {};
   const error = nodo(d, "div"); error.id = "personal-revision-error"; error.setAttribute("role", "alert");
-  formulario.append(error);
+  cuerpo.append(error);
   let grupoPropuesta, etiquetaPropuesta;
   for (const clave of ["campo", "propuesta", "motivo", "evidencia"]) {
     const grupo = nodo(d, "div"); grupo.className = "personal-ficha-corte-campo";
