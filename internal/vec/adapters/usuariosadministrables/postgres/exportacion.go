@@ -64,7 +64,7 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 		textoCampo(d, "accion") != p.accion || textoCampo(d, "modulo_id") != "administracion" || textoCampo(d, "tipo_recurso") != p.recurso.Tipo ||
 		textoCampo(d, "recurso_ref") != p.recurso.Referencia || textoCampo(d, "contexto_recurso_huella_sha256") != huella ||
 		textoCampo(d, "finalidad") != "gestion_usuarios" || textoCampo(d, "garantia_minima") != "alto" ||
-		textoCampo(d, "version_rol_ref") != "rol:administracion_perfiles:v5" {
+		!versionRolUsuariosAdmitida(textoCampo(d, "version_rol_ref")) {
 		return "", "", fallo
 	}
 	var vinculo map[string]json.RawMessage

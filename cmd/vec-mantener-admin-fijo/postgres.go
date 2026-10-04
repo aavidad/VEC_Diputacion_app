@@ -70,7 +70,15 @@ func (t *transaccionPG) PrepararUTC(ctx context.Context) error {
 }
 func (t *transaccionPG) Provisionar(ctx context.Context, canon, sha string) ([]byte, error) {
 	var b []byte
-	err := t.tx.QueryRow(ctx, "SELECT vec_autorizacion.mantener_version_perfil_fijo_admin_v1($1::text,$2::text)", canon, sha).Scan(&b)
+	var plan documentoPlan
+	if decodificarEstricto([]byte(canon), &plan) != nil {
+		return nil, errConexion
+	}
+	variante, ok := varianteMantenimiento(plan.Version)
+	if !ok {
+		return nil, errConexion
+	}
+	err := t.tx.QueryRow(ctx, variante.QuerySQL, canon, sha).Scan(&b)
 	return b, err
 }
 func (t *transaccionPG) Confirmar(ctx context.Context) error { return t.tx.Commit(ctx) }
