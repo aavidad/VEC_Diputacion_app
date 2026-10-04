@@ -255,7 +255,7 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 	}
 	if snapshot.Validar() != nil || snapshot.AsignacionPerfil.PrincipalID != actor.PersonaRef || snapshot.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef ||
 		!snapshot.AsignacionPerfil.VigenteEn(ahora) || !snapshot.AsignacionPerfil.Cubre(p.recurso) ||
-		snapshot.VersionRol.Referencia() != "rol:administracion_perfiles:v5" || snapshot.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
+		!versionRolUsuariosAdmitida(snapshot.VersionRol.Referencia()) || snapshot.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
 		snapshot.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada {
 		return nil, domain.ErrAutorizacionDenegada
 	}

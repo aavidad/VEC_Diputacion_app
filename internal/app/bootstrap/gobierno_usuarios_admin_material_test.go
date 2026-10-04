@@ -42,7 +42,11 @@ func configuracionGobiernoUsuariosPrueba(t *testing.T) (ConfiguracionMaterialUsu
 	}
 	defer borrarBytes(base.privada)
 	defer borrarBytes(base.claveHMAC)
-	c := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: dir, RutaConfiguracionHMAC: ruta, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: base.claveID, Audiencia: audienciaAtestacionContratacionTemporalDesarrollo, Version: base.claveVersion, Publica: append(ed25519.PublicKey(nil), base.privada.Public().(ed25519.PublicKey)...), Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: base.validaDesde, ValidaHasta: base.validaHasta}, Gobierno: administracion.GobiernoConfianzaPerfilesV3{Revision: base.configuracionRef, Secuencia: base.configuracionOrden, HuellaSHA256: base.configuracionHuella, PublicadaEn: base.publicadaEn, ExpiraEn: base.expiraEn}}
+	semillaArchivo := filepath.Join(dir, "semilla-root-dev.bin")
+	if err := os.WriteFile(semillaArchivo, base.privada.Seed(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: dir, RutaConfiguracionHMAC: ruta, ArchivoSemillaRaiz: semillaArchivo, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: base.claveID, Audiencia: audienciaAtestacionContratacionTemporalDesarrollo, Version: base.claveVersion, Publica: append(ed25519.PublicKey(nil), base.privada.Public().(ed25519.PublicKey)...), Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: base.validaDesde, ValidaHasta: base.validaHasta}, Gobierno: administracion.GobiernoConfianzaPerfilesV3{Revision: base.configuracionRef, Secuencia: base.configuracionOrden, HuellaSHA256: base.configuracionHuella, PublicadaEn: base.publicadaEn, ExpiraEn: base.expiraEn}}
 	for _, s := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
 		c.Entradas = append(c.Entradas, DescriptorClaveUsuariosAdmin{Audiencia: s.a, Dominio: "vec.admin.desarrollo.usuarios." + s.n, PrefijoClave: "clave:capacidad:admin:usuarios:" + s.n + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: 1, RevisionGobierno: 1, ValidaDesde: reloj.Ahora().Add(-time.Minute), ValidaHasta: reloj.Ahora().Add(time.Hour)})
 	}
@@ -117,5 +121,41 @@ func TestGobiernoUsuariosRechazaRaizAjenaYAudienciasNoCerradas(t *testing.T) {
 				t.Fatal("fuente incompatible aceptada")
 			}
 		})
+	}
+}
+
+func TestGobiernoUsuariosHMACIndependienteDelFirmanteFijado(t *testing.T) {
+	cfg, r := configuracionGobiernoUsuariosPrueba(t)
+	otra, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(nuevoDerivadorIdempotenciaPrueba(t, 3, 1), r.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer borrarBytes(otra.privada)
+	defer borrarBytes(otra.claveHMAC)
+	cfg.Raiz.Publica = append(ed25519.PublicKey(nil), otra.privada.Public().(ed25519.PublicKey)...)
+	if os.WriteFile(cfg.ArchivoSemillaRaiz, otra.privada.Seed(), 0600) != nil {
+		t.Fatal("semilla sintetica")
+	}
+	raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(cfg.Raiz.ClaveID, cfg.Raiz.Version, cfg.Raiz.Publica, cfg.Raiz.Audiencia, cfg.Raiz.Estado, cfg.Raiz.ValidaDesde, cfg.Raiz.ValidaHasta, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gov, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(cfg.Gobierno.Revision, cfg.Gobierno.Secuencia, cfg.Gobierno.PublicadaEn, cfg.Gobierno.ExpiraEn, raiz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Gobierno.HuellaSHA256, err = gov.HuellaSHA256ParaGobierno()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := PrepararMaterialUsuariosAdmin(t.Context(), cfg, r)
+	if err != nil {
+		t.Fatal("firmante independiente fijado rechazado")
+	}
+	defer m.Cerrar()
+	cfg.ArchivoSemillaRaiz = ""
+	if x, err := PrepararMaterialUsuariosAdmin(t.Context(), cfg, r); err == nil {
+		x.Cerrar()
+		t.Fatal("firmante por defecto aceptado")
 	}
 }

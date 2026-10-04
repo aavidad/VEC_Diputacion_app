@@ -48,7 +48,7 @@ func camposUsuarios(audiencia string) []string {
 }
 
 func snapshotUsuariosValido(s domain.InstantaneaAutorizacion, actor domain.ContextoActor, emision ports.EmisionUsuariosAdministrables, ahora time.Time) bool {
-	if s.Validar() != nil || s.VersionRol.Referencia() != "rol:administracion_perfiles:v5" || s.VersionRol.Estado != domain.EstadoVersionRolPublicada || s.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada || ahora.Before(s.VersionRol.PublicadaEn) || ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) || s.AsignacionPerfil.PrincipalID != actor.PersonaRef || s.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef || !s.AsignacionPerfil.VigenteEn(ahora) || !s.AsignacionPerfil.Cubre(emision.Recurso) {
+	if s.Validar() != nil || !versionRolUsuariosEmisorAdmitida(s.VersionRol.Referencia()) || s.VersionRol.Estado != domain.EstadoVersionRolPublicada || s.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada || ahora.Before(s.VersionRol.PublicadaEn) || ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) || s.AsignacionPerfil.PrincipalID != actor.PersonaRef || s.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef || !s.AsignacionPerfil.VigenteEn(ahora) || !s.AsignacionPerfil.Cubre(emision.Recurso) {
 		return false
 	}
 	for _, c := range s.VersionRol.Concesiones {
@@ -128,7 +128,7 @@ func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, solicitud do
 	if err := json.Unmarshal(b, &datos); err != nil {
 		return errorEmisorUsuarios(err)
 	}
-	if datos.VersionRol != "rol:administracion_perfiles:v5" || datos.Garantia != domain.AuthAssuranceHigh || !slices.Equal(datos.Campos, camposUsuarios(audiencia)) || !slices.Equal(datos.Obligaciones, []string{"auditar"}) {
+	if !versionRolUsuariosEmisorAdmitida(datos.VersionRol) || datos.Garantia != domain.AuthAssuranceHigh || !slices.Equal(datos.Campos, camposUsuarios(audiencia)) || !slices.Equal(datos.Obligaciones, []string{"auditar"}) {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	return nil
@@ -171,4 +171,9 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 		return vacia, fallo
 	}
 	return material, nil
+}
+
+// Conjunto cerrado de versiones con las concesiones de usuarios heredadas.
+func versionRolUsuariosEmisorAdmitida(v string) bool {
+	return v == "rol:administracion_perfiles:v5" || v == "rol:administracion_perfiles:v6"
 }

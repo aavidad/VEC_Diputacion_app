@@ -1,9 +1,7 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,6 +23,7 @@ var ErrGobiernoUsuariosAdmin = errors.New("gobierno_usuarios_admin_no_disponible
 // privado. No publica gobierno ni acepta una solicitud HTTP.
 type ConfiguracionMaterialUsuariosAdmin struct {
 	DirectorioMaterial, RutaConfiguracionHMAC string
+	ArchivoSemillaRaiz                        string
 	Raiz                                      administracion.MaterialRaizPerfilesV3
 	Gobierno                                  administracion.GobiernoConfianzaPerfilesV3
 	Entradas                                  []DescriptorClaveUsuariosAdmin
@@ -40,10 +39,11 @@ type DescriptorClaveUsuariosAdmin struct {
 // MaterialUsuariosAdmin oculta todos los secretos en los formatos habituales.
 // Cerrar invalida también el firmante; la preparación no acredita publicación.
 type MaterialUsuariosAdmin struct {
-	mu       sync.RWMutex
-	config   administracion.ConfiguracionConfianzaUsuariosV3
-	firmante *firmanteAtestacionAltaContratacionTemporalDesarrollo
-	cerrado  bool
+	mu             sync.RWMutex
+	config         administracion.ConfiguracionConfianzaUsuariosV3
+	firmante       ports.FirmanteAtestacionesAutorizacionV3
+	cerrarFirmante func()
+	cerrado        bool
 }
 
 func (*MaterialUsuariosAdmin) String() string               { return "[MATERIAL-USUARIOS-ADMIN-PRIVADO]" }
@@ -57,7 +57,7 @@ func (m *MaterialUsuariosAdmin) MarshalJSON() ([]byte, error) {
 // existentes. La raíz debe coincidir con la pública externa fijada: nunca rota
 // una raíz ni genera un maestro para obtener un positivo.
 func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMaterialUsuariosAdmin, reloj ports.Reloj) (*MaterialUsuariosAdmin, error) {
-	if ctx == nil || ctx.Err() != nil || dependenciaBootstrapNula(reloj) || len(cfg.Entradas) != 2 || !identificadorSesionDesarrolloValido(cfg.PrefijoEvidencia) {
+	if ctx == nil || ctx.Err() != nil || dependenciaBootstrapNula(reloj) || len(cfg.Entradas) != 2 || cfg.ArchivoSemillaRaiz == "" || !identificadorSesionDesarrolloValido(cfg.PrefijoEvidencia) {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	material, err := cargarMaterialIdempotenciaDesarrollo(cfg.DirectorioMaterial, cfg.RutaConfiguracionHMAC)
@@ -76,7 +76,7 @@ func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMateria
 	}
 	defer borrarBytes(base.privada)
 	defer borrarBytes(base.claveHMAC)
-	if cfg.Raiz.Estado != confianza.EstadoClaveAtestacionAutorizacionV3Activa || !cfg.Raiz.RevocadaEn.IsZero() || !bytes.Equal(cfg.Raiz.Publica, base.privada.Public().(ed25519.PublicKey)) || cfg.Raiz.Audiencia != audienciaAtestacionContratacionTemporalDesarrollo {
+	if cfg.Raiz.Estado != confianza.EstadoClaveAtestacionAutorizacionV3Activa || !cfg.Raiz.RevocadaEn.IsZero() || cfg.Raiz.Audiencia != audienciaAtestacionContratacionTemporalDesarrollo {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	cabecera := administracion.ConfiguracionConfianzaUsuariosV3{Raiz: cfg.Raiz, Gobierno: cfg.Gobierno}
@@ -119,7 +119,10 @@ func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMateria
 		}
 		m.config.EntradasCapacidad = append(m.config.EntradasCapacidad, administracion.MaterialCapacidadPerfilesV3{Audiencia: e.Audiencia, ClaveID: n.claveHMACID, EmisorID: e.EmisorID, HuellaGobierno: n.claveHMACHuella, Version: e.Version, RevisionGobierno: e.RevisionGobierno, Material: n.claveHMAC, ValidaDesde: e.ValidaDesde, ValidaHasta: e.ValidaHasta, Estado: confianza.EstadoClaveHMACCapacidadAtestacionV3Emision})
 	}
-	m.firmante = &firmanteAtestacionAltaContratacionTemporalDesarrollo{claveID: cfg.Raiz.ClaveID, privada: append(ed25519.PrivateKey(nil), base.privada...), reloj: reloj, audiencia: cfg.Raiz.Audiencia, prefijoEvidencia: cfg.PrefijoEvidencia}
+	m.firmante, m.cerrarFirmante, err = NuevoFirmanteAtestacionV3DesdeArchivo(ConfiguracionFirmanteAtestacionV3Privado{ClaveID: cfg.Raiz.ClaveID, Audiencia: cfg.Raiz.Audiencia, PrefijoEvidencia: cfg.PrefijoEvidencia, ArchivoSemilla: cfg.ArchivoSemillaRaiz, PublicaEsperada: cfg.Raiz.Publica}, reloj)
+	if err != nil {
+		return nil, ErrGobiernoUsuariosAdmin
+	}
 	correcto = true
 	return m, nil
 }
@@ -133,12 +136,11 @@ func (m *MaterialUsuariosAdmin) Cerrar() {
 	for i := range m.config.EntradasCapacidad {
 		borrarBytes(m.config.EntradasCapacidad[i].Material)
 	}
-	if m.firmante != nil {
-		m.firmante.mu.Lock()
-		borrarBytes(m.firmante.privada)
-		m.firmante.privada = nil
-		m.firmante.mu.Unlock()
+	if m.cerrarFirmante != nil {
+		m.cerrarFirmante()
+		m.cerrarFirmante = nil
 	}
+	m.firmante = nil
 	m.cerrado = true
 }
 
