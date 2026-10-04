@@ -303,11 +303,16 @@ BEGIN
      OR encode(sha256(hija.envoltorio_original),'hex') IS DISTINCT FROM hija.envoltorio_huella_sha256 THEN
    RAISE EXCEPTION 'CT176 replay no coincide con plan histórico' USING ERRCODE='55000'; END IF;
  END IF;
- -- CC7 acaba de bloquear el control. Ambas decisiones exactas, acreditadas
- -- por AD, deben seguir vigentes incluso si la lectura esperó ese bloqueo.
- IF (decision_i->>'valida_hasta')::timestamptz<=clock_timestamp()
+ -- CC7 acaba de bloquear el control. Una espera o la escritura de la hija
+ -- también pueden agotar las dos decisiones o la vigencia de la entrada.
+ IF pin.entrada->>'vigente_desde' IS NULL
+    OR pin.entrada->>'vigente_hasta' IS NULL
+    OR (pin.entrada->>'vigente_desde')::timestamptz>clock_timestamp()
+    OR (pin.entrada->>'vigente_hasta'<>'0001-01-01T00:00:00Z' AND
+        (pin.entrada->>'vigente_hasta')::timestamptz<=clock_timestamp())
+    OR (decision_i->>'valida_hasta')::timestamptz<=clock_timestamp()
     OR (decision_e->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
-  RAISE EXCEPTION 'CT176 decisión caducada tras pin' USING ERRCODE='42501'; END IF;
+  RAISE EXCEPTION 'CT176 pin o decisión caducados antes de confirmar' USING ERRCODE='42501'; END IF;
  RETURN recibo;
 END $f$;
 
