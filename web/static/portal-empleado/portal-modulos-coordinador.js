@@ -226,8 +226,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-justificantes-v1"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261004-b-tramites-devoluciones-v1"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-devoluciones-v1"),
     ]);
     return { fuente, vista };
   },
