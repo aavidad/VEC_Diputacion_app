@@ -22,7 +22,7 @@ originales; si caducan esperando, se revierte el efecto/append permitido y se
 registra sólo la negativa gestionada. Los sellos y la auditoría siguen siendo
 los existentes AUT24/AD183. No hay familia nueva ni tabla de auditoría aparte.
 
-AUT45 en borrador usa la misma utilidad para Rol6. Orden causal: estructura
+AUT45 usa la misma utilidad para Rol6. Orden causal: estructura
 AUT42 → AUT46 → efecto42 aprobado → estructura AUT45 → efecto45 aprobado.
 Instalar las estructuras no publica Rol5/6 ni modifica asignaciones.
 
@@ -39,6 +39,26 @@ identidad/ámbitos; el driver devuelve bytes y SHA originales de replay.
 La revisión histórica con Desde anterior a EmitidaEn sigue como historia,
 no se regenera para hacerla pasar por un destino nuevo.
 
-Pendientes: dos revisiones exactas y ensayo autorizado de Source. No se ha
-ejecutado PostgreSQL ni instalado AUT46/45 desde este agente. El fixture vivo
-procede del pipeline, no de extender las asignaciones caducadas anteriores.
+Dos revisiones independientes cerraron el contenido exacto. En el clon nuevo
+POSTH9, AUT46 y su vector terminaron con código 0. La CLI real completó el
+mantenimiento42 y su replay con el mismo recibo. Los tres documentos actuales
+persistidos pasaron `AsignacionPerfil.Validar`, sin normalizar sus fechas.
+
+Después, AUT45 y sus vectores terminaron con código 0. La CLI real publicó
+Rol6 y recuperó el mismo recibo, fecha y huella en replay y después de reiniciar
+PostgreSQL. Las dos APP quedaron en revisión3; Sistemas conservó su revisión1.
+Identidades, CA, ámbitos y Hasta permanecieron intactos. El fixture se produjo
+por el pipeline autorizado con planes nuevos, sin extender accesos vencidos.
+
+La aprobación divergente fue denegada por un LOGIN real, con recibo nulo e
+intento durable. El CAS superado devolvió `40001` en una lectura revertida.
+La auditoría común terminó en 6254. No se ejecutó la espera temporal con varias
+sesiones: ese caso conserva revisión estática y vector puro, sin atribuirle un
+ensayo dinámico. Tampoco se acredita acceso nominal HTTP, V2 ni navegador.
+
+Acta privada `acta-entrega46-42-45.json`, SHA256
+`cc784eaeb887e143b9a1df7697a73f034a49520a098f2d80a02cee543f581422`.
+Copia fría de Rol6 antes del último replay, SHA256
+`8cf463a9c2b2147a58b62fbacfda89f82578177e495e135d7fbd1f808c7961aa`.
+La puerta completa se ejecutó una vez; los deltas posteriores de fechas y
+terminadores SQL tienen pruebas focales y dos ratificaciones exactas.

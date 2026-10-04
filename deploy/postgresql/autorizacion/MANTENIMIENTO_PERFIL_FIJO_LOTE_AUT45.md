@@ -44,12 +44,13 @@ se aborta todo. Replay recupera el
 recibo original sólo si el destino sigue vivo. No hay actor humano ficticio,
 permisos por petición ni una tabla de auditoría aparte.
 
-Estado: SQL en borrador. Los cuatro hashes de guarda coinciden con las
-capturas reales post191 del
-escritor único del clon (`gates-aut45-post191.json`). Los gates de versiones
+Estado: ensayado en el clon con dos revisiones independientes. Los cuatro
+hashes de guarda coinciden con las capturas reales del escritor único, tanto
+en el objetivo anterior como en el fixture nuevo. Los gates de versiones
 anteriores conservan propietario, ACL y configuración; usuarios mantiene
-`search_path=pg_catalog`, `TimeZone=UTC` y `row_security=on`. No se ha
-instalado AUT45 ni ejecutado PostgreSQL.
+`search_path=pg_catalog`, `TimeZone=UTC` y `row_security=on`. AUT45 se instaló
+una sola vez en el fixture nuevo, después del corrector AUT46 y de sus
+dependencias ausentes.
 La CLI existente `vec-mantener-admin-fijo` conserva planv1/AUT42/acusev1 y
 selecciona planv2/AUT45/acusev2 con un selector cerrado. No acepta otro número,
 SQL libre ni otro acuse; se mantienen archivos privados, O_EXCL antes de DB,
@@ -65,8 +66,13 @@ cero hallazgos. Gosec en los tres paquetes: un G101 heredado en `acreditarSQL`
 de la fuente, consulta de atributos/ACL sin contraseña ni clave, sin avisos
 propios. No se añaden supresiones ni cambia esa consulta.
 
-El vector SQL estructural está preparado con ACL/propietario, instalación sin
-publicación ni configuración favorable, versiones 5/7 rechazadas por el gate
-de lote y catálogo exacto. Pendientes: dos revisiones exactas y ensayo del mantenimiento con fixture vigente
-producido por el pipeline autorizado. No se acredita todavía publicar Rol6,
-una lectura favorable contra PostgreSQL ni la operación de lote.
+El vector SQL estructural y el de fechas terminaron con código 0. La CLI real
+publicó Rol6 y su replay, también tras reinicio, conservó el mismo recibo,
+fecha y huella. Las asignaciones persistidas pasan el validador Go; CA,
+identidad, ámbitos, Hasta y la asignación de Sistemas permanecen intactos.
+La aprobación divergente dejó una denegación común durable. El detalle y los
+límites están en `FECHAS_PROSPECTIVAS_MANTENIMIENTO_AUT46.md`.
+
+No se acredita todavía lectura nominal HTTP, V2, navegador ni efecto del lote
+AUT44/AD190. La espera temporal con varias sesiones no se ejecutó; no se
+presenta el vector puro como sustituto de ese ensayo.
