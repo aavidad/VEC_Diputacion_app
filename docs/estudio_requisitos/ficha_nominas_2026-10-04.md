@@ -44,6 +44,8 @@ Los nombres siguientes describen competencias propuestas. Sus asignaciones centr
 
 Administrador funcional, administrador técnico y jefatura no son perfiles universales. La representación, si se admite, requiere vínculo vigente y alcance expreso en el núcleo común; no entra por defecto en el primer corte.
 
+La gestión de RRHH usa el canal interno autorizado. El autoservicio del empleado conserva su frontera de canal y recursos propios. Ser la misma Persona en Bolsa o en el portal público no concede acceso a recibos: el perfil de candidato y el canal exterior de candidaturas quedan excluidos. Un acceso exterior para empleados necesita una política expresa de esa capacidad, sin trasladar al exterior las operaciones internas de gestión.
+
 ## Datos mínimos y privacidad
 
 El índice necesita referencias de persona y relación, entidad pagadora, periodo, tipo documental, identificador de origen, versión, estado comunicado por la fuente y referencia de custodia. El contenido salarial permanece en el documento o servicio autorizado. No se incorpora a Persona un maestro paralelo de salario, banco, embargo o familia.
