@@ -111,6 +111,47 @@ func TestEntregaPeticionCentroFalloAltaNoConfirmaYFalloEnlacePermiteReintento(t 
 	})
 }
 
+func TestEntregaPeticionCentroEnlazaAltaHistoricaSinNumeroMOAD(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	// La reserva ya existía y el alta antigua hizo COMMIT; falló solamente
+	// ConfirmarEntrega. El nuevo intento conserva la clave y no atribuye MOAD.
+	repo.preparaciones = 1
+	recibo := reciboAltaPeticionCentroPruebaApplication()
+	repo.preparada.AltaAnterior = &ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: repo.preparada.AmbitoAltaHMAC}
+	comando.NumeroExpedienteMOAD = ""
+	primera, err := servicio.Entregar(context.Background(), comando)
+	if err != nil || primera.EstadoEntrega != "confirmada" || primera.ReservaCreadaAhora ||
+		primera.ReciboAlta.NumeroVisible != recibo.NumeroVisible || registro.llamadas != 0 ||
+		repo.ultimaComando.NumeroExpedienteMOAD != "" {
+		t.Fatalf("no se enlazó el alta histórica: entrega=%#v error=%v", primera, err)
+	}
+}
+
+func TestEntregaConfirmadaSinNumeroCompruebaOrigenHistorico(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	recibo := reciboAltaPeticionCentroPruebaApplication()
+	repo.preparada.EstadoEntrega = "confirmada"
+	repo.preparada.ReciboAlta = &recibo
+	repo.preparada.AltaAnterior = &ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: repo.preparada.AmbitoAltaHMAC}
+	comando.NumeroExpedienteMOAD = ""
+	confirmada, err := servicio.Entregar(context.Background(), comando)
+	if err != nil || confirmada.ReciboAlta == nil || registro.llamadas != 0 || repo.confirmaciones != 0 {
+		t.Fatalf("no se acreditó el origen del recibo histórico: entrega=%#v error=%v", confirmada, err)
+	}
+	repo.preparada.AltaAnterior = nil
+	if _, err := servicio.Entregar(context.Background(), comando); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || repo.confirmaciones != 0 {
+		t.Fatalf("un alta MOAD se recuperó omitiendo su número: %v", err)
+	}
+}
+
+func TestEntregaNuevaSinMOADNoInvocaAlta(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	comando.NumeroExpedienteMOAD = ""
+	if _, err := servicio.Entregar(context.Background(), comando); !errors.Is(err, ports.ErrNumeroMOADAusente) || registro.llamadas != 0 || repo.confirmaciones != 0 {
+		t.Fatalf("entrega sin MOAD creó alta: %v", err)
+	}
+}
+
 func TestEntregaPeticionCentroDeniegaDivergentesYCancelacion(t *testing.T) {
 	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
 	divergente := comando
@@ -171,7 +212,7 @@ type registradorEntregaPeticionCentroPrueba struct {
 	recibo   ports.ReciboAlta
 }
 
-func (r *registradorEntregaPeticionCentroPrueba) RegistrarExpedientePeticion(_ context.Context, peticion ports.EntregaPeticionCentro) (ports.AltaDePeticionCentro, error) {
+func (r *registradorEntregaPeticionCentroPrueba) RegistrarExpedientePeticion(_ context.Context, peticion ports.EntregaPeticionCentro, _ string) (ports.AltaDePeticionCentro, error) {
 	r.llamadas++
 	r.recibido = peticion
 	if r.err != nil {
@@ -199,7 +240,7 @@ func entregaPeticionCentroPrueba(t *testing.T) (*repositorioEntregaPeticionCentr
 	if err != nil {
 		t.Fatal(err)
 	}
-	comando := ports.ComandoEntregarPeticionCentro{PeticionRef: peticion.Referencia, VersionEsperada: 2}
+	comando := ports.ComandoEntregarPeticionCentro{PeticionRef: peticion.Referencia, VersionEsperada: 2, NumeroExpedienteMOAD: "2026/5487"}
 	return repo, registro, servicio, comando, preparada
 }
 

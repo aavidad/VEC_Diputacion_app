@@ -1,0 +1,19 @@
+{
+  "esquema": "1",
+  "version_catalogo": "2",
+  "plantillas": {
+    "ARRANQUE_FALLIDO": "The server could not start.",
+    "CATALOGO_MODULOS_INVALIDO": "The module catalogue is invalid.",
+    "HTTP_INTERNO_FALLIDO": "A request ended with an internal error.",
+    "PANICO_CONTROLADO": "A process panic was contained.",
+    "GOBIERNO_V3_NO_DISPONIBLE": "The V3 governance configuration is unavailable.",
+    "POSTGRES_NO_DISPONIBLE": "PostgreSQL is unavailable.",
+    "SMTP_NO_DISPONIBLE": "The outgoing mail service is unavailable.",
+    "OSRM_NO_DISPONIBLE": "The OSRM routing service is unavailable.",
+    "AUDITORIA_NO_REGISTRADA": "An audit entry could not be recorded.",
+    "MODULO_WEB_NO_CARGADO": "A web module did not load.",
+    "CLIENTE_FALLO_NO_CLASIFICADO": "The client reported an unclassified failure.",
+    "RECOLECCION_DEGRADADA": "Technical incident collection is degraded.",
+    "ALERTA_NO_ENTREGADA": "A technical notification was not delivered."
+  }
+}

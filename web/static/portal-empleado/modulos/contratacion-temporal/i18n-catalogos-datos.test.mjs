@@ -67,6 +67,22 @@ const PREIMAGEN = {
     "MENSAJES_TEXTOS_VISTAS_ES": "8e3d9f5fc7ff76ae4c729bb9ec1bd308cfa91e4888c1200d40d67e47a55dcea4"
   }
 };
+// ANA002 añade cinco rótulos de contexto; la preimagen sigue comprobando todos los textos anteriores.
+const CLAVES_CONTEXTO_ANA002 = Object.freeze([
+  "ct_txt_contexto_fechas_consulta",
+  "ct_txt_contexto_agrupacion",
+  "ct_txt_contexto_zona_horaria",
+  "ct_txt_contexto_corte_publicado",
+  "ct_txt_contexto_no_comunicado",
+]);
+
+const CLAVES_FIN_MODALIDAD = Object.freeze({
+  "i18n-analisis-catalogo.js": [
+    "causa_fin_reincorporacion_titular", "causa_fin_cobertura_reglamentaria", "pc_periodo_con_causa",
+    "error_fecha_no_aplica", "error_causa_fin", "analisis_error_fecha_no_aplica", "analisis_error_causa_fin",
+  ],
+  "i18n-avisos-via-cobertura.js": ["avisos_via_propuesta_oferta_sae_sin_fin"],
+});
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
 
@@ -78,7 +94,24 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         ? Object.fromEntries(Object.entries(mensajesTramitePortal(nombre.slice("rotulos_".length)))
           .map(([clave, texto]) => [clave.slice("tramite_".length), texto]))
         : modulo[nombre];
-      assert.equal(huella(valor), anterior, nombre);
+      let preimagen = valor;
+	  if (CLAVES_FIN_MODALIDAD[archivo]) {
+	    for (const clave of CLAVES_FIN_MODALIDAD[archivo]) {
+	      assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+	    }
+	    preimagen = Object.fromEntries(Object.entries(valor)
+	      .filter(([clave]) => !CLAVES_FIN_MODALIDAD[archivo].includes(clave)));
+	  }
+      if (archivo === "i18n-textos-vistas.js") {
+        for (const clave of CLAVES_CONTEXTO_ANA002) {
+          assert.ok(Object.hasOwn(valor, clave), `${nombre}.${clave}`);
+          assert.equal(typeof valor[clave], "string", `${nombre}.${clave}`);
+          assert.ok(valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(valor)
+          .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
+      }
+      assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor) || nombre.startsWith("rotulos_"), nombre);
     }
   });

@@ -1,0 +1,16 @@
+{
+  "referencia": "cronos-informe-movimientos-csv-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006",
+  "formato_hora": "15:04:05 -07:00 MST",
+  "cabeceras": {"registro": "Record", "fecha": "Date", "hora": "Time", "movimiento": "Event", "origen": "Origin", "desde": "From", "hasta": "To", "zona_horaria": "Time zone", "estado_fuente": "Source status", "aviso": "Notice"},
+  "contexto": "Example context",
+  "marcaje": "Example clocking event",
+  "sintetico": "Synthetic example. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
+  "fuente_completa": "The example source is declared complete. It does not verify the real register.",
+  "fuente_incompleta": "The example source is incomplete. Information may be missing.",
+  "origen_sin_verificar": "Unverified",
+  "movimientos": {"entrada": "Clock in", "salida": "Clock out", "inicio_pausa": "Start break", "fin_pausa": "End break"},
+  "origenes": {"terminal": "Terminal (declared)", "remoto": "Remote (declared)"}
+}

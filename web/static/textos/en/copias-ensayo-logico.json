@@ -1,0 +1,10 @@
+{
+  "alcance": "Local rehearsal with synthetic data. Checks that the logical dump and roles restore without errors. It does not compare contents, row counts, schema or permission digests, test a physical backup or start VEC. It does not declare a backup valid or enable an operational restore.",
+  "restauracion_logica_completada": "The synthetic logical restore completed and its temporary resources were removed.",
+  "restauracion_logica_fallida": "The logical rehearsal did not complete successfully. Review the reported stage and check; data and internal errors are not shown.",
+  "uso": "Specify -configuracion file.json -solicitud file.json -catalogo file.json. Use synthetic files only. The rehearsal creates and removes its own isolated PostgreSQL instance.",
+  "error_argumentos": "Specify the configuration, request and message catalogue files.",
+  "error_catalogo": "The rehearsal message catalogue could not be read.",
+  "error_entrada": "Check the files and configuration limits for the synthetic sample.",
+  "error_salida": "The rehearsal result could not be written."
+}

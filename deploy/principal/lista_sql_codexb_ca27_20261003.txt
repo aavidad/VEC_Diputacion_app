@@ -1,0 +1,2 @@
+# Dependencia correctora de auditoría común. Requiere CA26, CA7 y Personal16 instaladas.
+deploy/postgresql/contexto_actor_v1/migraciones/000027_cotejo_historico_empleado_auditoria.up.sql

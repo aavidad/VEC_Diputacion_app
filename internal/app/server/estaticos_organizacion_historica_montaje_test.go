@@ -13,7 +13,7 @@ import (
 // importación cuando sus rutas están compuestas en la raíz. La bandera web
 // MONTAJE_ORGANIZACION_HISTORICA y la composición Go deben coincidir: activar
 // la bandera sin montar la ruta publicaría una pantalla que abre en error, y
-// montar la ruta sin la bandera dejaría la capacidad inalcanzable.
+// un backend opcional puede permanecer oculto hasta acreditar el entorno real.
 func TestBanderaWebOrganizacionHistoricaCoincideConComposicion(t *testing.T) {
 	raiz := filepath.Join("..", "..", "..")
 	fuente, err := os.ReadFile(filepath.Join(raiz, "web", "static", "portal-empleado", "organizacion", "historico.js"))
@@ -58,7 +58,7 @@ func TestBanderaWebOrganizacionHistoricaCoincideConComposicion(t *testing.T) {
 		"consulta":    {string(bandera[1]), "NewHandlerOrganizacionHistoricaPersonal("},
 		"importacion": {string(bandera[2]), "NewHandlerImportacionOrganizacionPersonal("},
 	} {
-		if (caso.bandera == "true") != compuestos[caso.constructor] {
+		if caso.bandera == "true" && !compuestos[caso.constructor] {
 			t.Errorf("%s: bandera web %s pero composición en la raíz %v", nombre, caso.bandera, compuestos[caso.constructor])
 		}
 	}

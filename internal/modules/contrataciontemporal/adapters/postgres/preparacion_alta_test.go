@@ -185,6 +185,7 @@ type generadorReferenciasPrueba struct {
 
 func (g *generadorReferenciasPrueba) GenerarReferenciasAlta(
 	context.Context,
+	string,
 ) (ports.ReferenciasAlta, error) {
 	if g.alGenerar != nil {
 		g.alGenerar()

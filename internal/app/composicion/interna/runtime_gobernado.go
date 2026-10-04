@@ -2,6 +2,7 @@ package interna
 
 import (
 	"context"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -25,13 +26,14 @@ func (relojGobiernoInterno) Ahora() time.Time {
 // El recurso posee solo las conexiones que no pertenecen a los once pools CT.
 // Su cierre es único incluso si el servidor falla antes de escuchar.
 type recursoGobiernoInterno struct {
-	pools       PoolsIdentidadInterna
-	hmac        *seudonimizacionpkcs11.Conector
-	ct          *internactproveedores.Proveedores
-	personalB2  interface{ Cerrar() }
-	propiedad   atomic.Bool
-	unaVez      sync.Once
-	errorCierre error
+	pools                 PoolsIdentidadInterna
+	hmac                  *seudonimizacionpkcs11.Conector
+	ct                    *internactproveedores.Proveedores
+	personalB2            interface{ Cerrar() }
+	organizacionHistorica interface{ Cerrar() }
+	propiedad             atomic.Bool
+	unaVez                sync.Once
+	errorCierre           error
 }
 
 func (r *recursoGobiernoInterno) reclamarPropiedad() bool {
@@ -50,6 +52,9 @@ func (r *recursoGobiernoInterno) cerrarSinPropiedad() error {
 		return nil
 	}
 	r.unaVez.Do(func() {
+		if r.organizacionHistorica != nil {
+			r.organizacionHistorica.Cerrar()
+		}
 		if r.personalB2 != nil {
 			r.personalB2.Cerrar()
 		}
@@ -192,6 +197,10 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	if disponible {
 		recursos.personalB2 = personalB2.proveedor
 	}
+	organizacion, disponibleOH := montarOrganizacionHistoricaGobernada(ctx, directorio, materialCT.AltaPersonal.Login, configuracionV2.AltaPersonal, recursos.ct, fuenteF1, auditoria, reloj, cfg.IntentosOrganizacionHistorica)
+	if disponibleOH {
+		recursos.organizacionHistorica = organizacion.proveedor
+	}
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
 		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
@@ -204,6 +213,14 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 		salida.empleadosPersonalB2 = personalB2.empleados
 		salida.altaPersonalB2, salida.hechoPersonalB2 = personalB2.alta, personalB2.hecho
 		salida.catalogosPersonalB2 = personalB2.catalogos
+	}
+	salida.organizacionHistoricaNoDisponible = organizacion.seleccionada && !disponibleOH
+	if salida.organizacionHistoricaNoDisponible {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
+	}
+	if disponibleOH {
+		salida.organizacionHistorica = organizacion.consulta
+		salida.vincularOrganizacionHistorica = organizacion.vincular
 	}
 	exito = true
 	return salida, nil

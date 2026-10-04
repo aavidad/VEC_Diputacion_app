@@ -1,0 +1,27 @@
+{
+  "general": {
+    "titulo": "Relación para Organización",
+    "pendiente": "Preparación con datos sintéticos y cobertura no acreditada. Ocupación y reserva pendientes de la fuente de Organización.",
+    "seleccione": "Seleccione una relación de servicio para consultar su preparación.",
+    "vacio": "No hay relaciones de servicio en esta consulta.",
+    "relacion_no_disponible": "La relación seleccionada no está disponible en esta consulta.",
+    "estado": "Estado de la relación",
+    "periodo": "Periodo de efectos",
+    "intervalo": "Fecha consultada dentro del periodo",
+    "si": "Sí",
+    "no": "No",
+    "sin_fin": "Sin fecha de fin",
+    "fuente": "Procedencia",
+    "sin_denominacion": "Fuente sin denominación disponible",
+    "version": "Versión del dato",
+    "conocido": "Información conocida hasta",
+    "detalle_tecnico": "Ver referencias",
+    "relacion_ref": "Referencia de la relación",
+    "fuente_ref": "Referencia de la fuente",
+    "fuente_version": "Versión de la fuente",
+    "acto_ref": "Referencia del acto",
+    "vigente": "Vigente",
+    "suspendida": "Suspendida",
+    "finalizada": "Finalizada"
+  }
+}

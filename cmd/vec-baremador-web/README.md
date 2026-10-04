@@ -47,11 +47,34 @@ también limita a 256 KiB. Se permiten dos simulaciones simultáneas en total.
 El servidor limita la lectura de cabeceras a dos segundos, la lectura completa
 a cinco y la escritura a diez. Se detiene con Ctrl+C.
 
+## Ensayo local de procesos selectivos
+
+La tercera dirección que muestra el programa abre el ensayo de oposición,
+concurso y concurso-oposición. RRHH puede revisar los requisitos, las fases y
+las reglas de un ejemplo sintético, cambiar la configuración y ver cómo se
+obtiene cada resultado. Las notas editables pertenecen a las solicitudes sintéticas del ejemplo.
+El ejercicio no admite nuevas solicitudes, nombres, requisitos, méritos ni documentos
+procedentes del navegador. Tampoco registra candidaturas ni calificaciones.
+
+`GET /api/seleccion/v1/ensayos` devuelve tres ejemplos sintéticos, uno por
+modalidad. `POST /api/seleccion/v1/simulaciones` recibe `ejemplo_ref` y
+`configuracion` y, opcionalmente, `notas_prueba`: una lista de
+`solicitud_ref`, `fase_ref` y `puntos_micropuntos`. Las referencias deben pertenecer
+al ejemplo y la fase debe ser una prueba. La nota es un entero de micropuntos
+entre cero y el máximo configurado, o `null` para dejarla pendiente. Omitir la
+lista conserva las notas originales. Cada nota editada identifica su procedencia
+en el desglose; no cambia los requisitos ni los méritos.
+
+El servidor aporta los demás hechos sintéticos del ejemplo y usa el
+caso de uso de Selección con el baremador común. La respuesta es un cálculo
+reproducible, sin acto de admisión, aprobación del tribunal ni traspaso a Bolsa
+o Personal. Los textos de la pantalla proceden de catálogos en español e inglés.
+
 Comprobaciones focales:
 
 ```sh
-go test -race ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
-go vet ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
+go test -race ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/... ./internal/modules/seleccion/...
+go vet ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/... ./internal/modules/seleccion/...
 ```
 
 Las pruebas comparan la salida HTTP con el servicio común y comprueban origen,

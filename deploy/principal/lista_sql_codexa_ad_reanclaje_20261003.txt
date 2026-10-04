@@ -1,0 +1,9 @@
+# Borrador: huellas POST149 reales de #470; pendiente ensayo causal y dos GO.
+# El ensayo POST155 anterior no acredita esta preimagen. No instalar todavía.
+# Instalar antes AD149/Personal26 de #470. AD161 añade sólo141/142/144.
+# Conserva CRN11 y AD155, sin reaplicar AD históricas ni ejecutar DOWN.
+# Bootstraps sólo si los tres grupos siguen confirmados ausentes.
+deploy/postgresql/bolsa_convocatorias/roles_up.sql
+deploy/postgresql/meritos/roles_up.sql
+deploy/postgresql/bolsa_reglas_baremo/roles_up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000161_convergencia_consumidores_post155.up.sql

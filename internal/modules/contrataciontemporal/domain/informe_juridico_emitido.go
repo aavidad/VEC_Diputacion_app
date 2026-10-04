@@ -152,6 +152,7 @@ func (e Expediente) RegistrarInformeJuridico(
 	borrador, err := informe.validarEntrada()
 	if e.Validar() != nil || err != nil ||
 		actuacion.validar() != nil || e.Asignacion == nil || e.InformeJuridico != nil ||
+		(e.Circuito != nil && !e.HabilitaInformeJefaturaCircuitoRRHH()) ||
 		e.FaseActual != ClaveFase("asignacion_unidad") || e.EstadoActual != EstadoEnCurso ||
 		borrador.Estado().ExpedienteRef != e.Referencia ||
 		borrador.Estado().VersionEsperadaExpediente != e.Version ||

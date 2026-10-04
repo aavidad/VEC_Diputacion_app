@@ -51,11 +51,14 @@ normalizar_manifiesto() {
 				;;
 			*.json)
 				case "${ruta}" in
+					static/portal-empleado/cache-publica-v1.json | \
+					static/area-personal/cache-publica-v1.json | \
 					"${cartografia_indice}" | static/acceso/locales/es.json | \
 						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \
 						static/area-personal/locales/en.json | \
-						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json)
+						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json | \
+						static/portal-empleado/modulos/analitica/catalogo-indicadores.json)
 						;;
 					# Catálogos de textos por idioma (datos i18n) y su índice.
 					static/textos/idiomas.json | static/textos/*/*.json)
@@ -175,7 +178,17 @@ printf '%s\n' \
 	static/comun/tema-vec.css \
 	static/comun/textos.js \
 	static/favicon.svg \
+	static/pwa/instalar.js \
+	static/pwa/navegacion.css \
+	static/pwa/sw-public-assets.js \
+	static/pwa/icons/vec-192.png \
+	static/pwa/icons/vec-512.png \
+	static/pwa/icons/vec-maskable-192.png \
+	static/pwa/icons/vec-maskable-512.png \
+	static/pwa/icons/vec.ico \
 	static/styles.css \
+	static/textos/es/pwa.json \
+	static/textos/en/pwa.json \
 	static/textos/idiomas.json | LC_ALL=C sort >"${esperados}"
 if ! cmp -s "${compartidos}" "${esperados}"; then
 	printf 'Interseccion no autorizada entre manifiestos:\n' >&2

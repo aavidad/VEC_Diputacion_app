@@ -1,0 +1,20 @@
+{
+  "general": {
+    "titulo": "Resumen de la consulta de servicios",
+    "descargar": "Descargar resumen CSV",
+    "alcance": "Incluye los servicios de esta consulta. No calcula antigüedad ni acredita derechos.",
+    "corte": "Fecha de referencia",
+    "corte_no_indicado": "No indicada en la respuesta",
+    "fuente": "Fuente",
+    "actualizado": "Datos consultados a fecha de",
+    "desde": "Inicio",
+    "hasta": "Fin",
+    "procedencia": "Procedencia",
+    "reconocimiento": "Reconocimiento",
+    "estado": "Estado",
+    "no_consta": "No consta",
+    "vacio": "La consulta no devuelve servicios.",
+    "archivo": "resumen-consulta-servicios.csv",
+    "error": "No se pudo descargar el resumen. Vuelva a intentarlo."
+  }
+}

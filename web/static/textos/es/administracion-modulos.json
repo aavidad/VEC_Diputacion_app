@@ -1,0 +1,81 @@
+{
+  "general": {
+    "titulo_documento": "Estado de módulos · Administración VEC",
+    "titulo": "Estado de módulos",
+    "administracion": "Administración de sistema",
+    "ruta": "Ubicación actual",
+    "saltar": "Saltar al contenido",
+    "idioma": "Idioma",
+    "ayuda": "Ayuda",
+    "ayuda_contenido": "Consulte el estado actual, elija un módulo configurable y revise el estado propuesto con su motivo. Preparar la solicitud no cambia la configuración. Aplicarla requiere un servicio autorizado con registro de los cambios, todavía pendiente. Habilitar un módulo tampoco concede permisos de acceso.",
+    "solo_preparacion": "Solo preparación",
+    "limite": "Los cambios reales están deshabilitados. Falta conectar el servicio autorizado que conserva y registra la configuración."
+  },
+  "consulta": {
+    "titulo": "Configuración actual",
+    "descripcion": "Estados recibidos del catálogo central de módulos.",
+    "recargar": "Actualizar consulta",
+    "tabla": "Estado actual de los módulos",
+    "modulo": "Módulo",
+    "nombre_pendiente": "Nombre del módulo pendiente",
+    "estado": "Estado actual",
+    "gobierno": "Configuración",
+    "gobernado": "Configurable",
+    "no_gobernado": "Fuera de este interruptor",
+    "pendiente": "Consulta pendiente: todavía no hay un servicio conectado para obtener los estados actuales.",
+    "cargando": "Consultando la configuración…",
+    "disponible": "Consulta disponible. Puede preparar una solicitud sin cambiar los estados actuales.",
+    "vacia": "El catálogo consultado no contiene módulos. No hay solicitudes que preparar.",
+    "sin_gobernados": "Los módulos consultados quedan fuera de este interruptor. No puede preparar cambios desde aquí.",
+    "denegada": "No tiene acceso a esta consulta. Solicite la autorización administrativa correspondiente.",
+    "incompatible": "La configuración recibida no se puede utilizar. Actualice la consulta; si persiste, avise a Informática.",
+    "error": "No se pudo consultar la configuración. Pulse Actualizar consulta para reintentarlo."
+  },
+  "estados": { "habilitado": "Habilitado", "deshabilitado": "Deshabilitado" },
+  "preparacion": {
+    "titulo": "Preparar una solicitud",
+    "modulo": "Módulo (obligatorio)",
+    "estado": "Estado propuesto (obligatorio)",
+    "motivo": "Motivo (obligatorio)",
+    "pista_motivo": "Explique el cambio en un máximo de 500 caracteres. Evite incluir datos personales.",
+    "elegir_modulo": "Seleccione un módulo",
+    "elegir_estado": "Seleccione un estado",
+    "revisar": "Revisar solicitud"
+  },
+  "revision": {
+    "titulo": "Revisión de la solicitud",
+    "modulo": "Módulo",
+    "actual": "Estado actual",
+    "propuesto": "Estado propuesto",
+    "motivo": "Motivo",
+    "limite": "Esta preparación no habilita ni deshabilita el módulo. El estado actual se mantiene.",
+    "corregir": "Corregir solicitud",
+    "preparar": "Preparar solicitud",
+    "dependencia": "Solo se preparará la propuesta. Aplicar cambios reales sigue pendiente.",
+    "sin_preparador": "Preparación deshabilitada: falta conectar el servicio que revisa la propuesta.",
+    "preparando": "Preparando la solicitud…",
+    "preparada": "Solicitud preparada para revisión. La configuración actual no ha cambiado."
+  },
+  "errores": {
+    "titulo": "Revise estos campos",
+    "modulo": "Seleccione un módulo configurable.",
+    "estado": "Seleccione el estado propuesto.",
+    "sin_cambio": "Elija un estado distinto del actual.",
+    "motivo": "Escriba un motivo de entre 1 y 500 caracteres.",
+    "conflicto": "La configuración ha cambiado. Actualice la consulta y revise la solicitud antes de prepararla de nuevo.",
+    "preparacion": "No se pudo preparar la solicitud. Revise los datos y vuelva a intentarlo."
+  },
+  "ui": { "vec": { "module": {
+    "administracion": { "name": "Administración de sistema" },
+    "bolsa": { "name": "Bolsas de trabajo" },
+    "contrataciontemporal": { "name": "Contratación temporal" },
+    "contratacion_temporal": { "name": "Contratación temporal" },
+    "cronos": { "name": "Control horario" },
+    "dietas": { "name": "Dietas y desplazamientos" },
+    "personal": { "name": "Personal" },
+    "formacion": { "name": "Formación" },
+    "seleccion": { "name": "Selección" },
+    "meritos": { "name": "Méritos" },
+    "carrera": { "name": "Carrera profesional" }
+  } } }
+}

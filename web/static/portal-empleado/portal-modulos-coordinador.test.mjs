@@ -12,14 +12,14 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -751,6 +751,42 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
   }
 });
 
+test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas directas se conservan", async () => {
+  const reales = await recursosCronosInternos(); const montadas = [];
+  const montar = (nombre) => ({ registrarDesmontar } = {}) => {
+    montadas.push(nombre); const desmontar = () => {}; registrarDesmontar?.(desmontar); return { desmontar };
+  };
+  const recursos = { ...reales,
+    permisosPropios: { montarPermisosPropiosCronos: montar("permisos") },
+    bandejaPermisos: { montarBandejaPermisosCronos: montar("bandeja") },
+    avisosPropios: { montarAvisosPropiosCronos: montar("avisos") },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: () => ({}) },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => clave },
+    notificacionesPropias: { montarNotificacionesPropiasCronos: montar("notificaciones") },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: montar("bandeja-notificaciones") },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: () => ({}) },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }],
+    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), cronos: async () => recursos },
+  });
+  await cargarConDiferidos(coordinador); const raiz = raizDietasFalsa();
+  for (const vista of ["cronos-permisos", "cronos-avisos", "cronos-notificaciones"]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    const navegacion = raiz.querySelector("[data-cronos-subvistas]").innerHTML;
+    assert.doesNotMatch(navegacion, /data-vista="cronos-bandeja(?:-notificaciones)?"/);
+  }
+  assert.deepEqual(montadas, ["permisos", "avisos", "notificaciones"]);
+  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"]]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    assert.equal(montadas.at(-1), montaje);
+    assert.match(raiz.querySelector("[data-cronos-subvistas]").innerHTML, new RegExp(`data-vista="${vista}" aria-current="page"`));
+  }
+  coordinador.desmontarVistaActual();
+});
+
 test("CT interno se activa solo después de una consulta autorizada", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
@@ -822,6 +858,8 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
   ]) {
     const llamadas = [];
     let presentador;
+    let mensajesAdaptador;
+    const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
     const fuente = {
       capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
       async listar() { llamadas.push("cuadro"); return cuadro; },
@@ -839,8 +877,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         }) },
         adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
           assert.equal(opciones.locale, idioma);
-          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
-          else assert.deepEqual(opciones.mensajes, {});
+          mensajesAdaptador = opciones.mensajes;
+          assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
+          assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
@@ -849,7 +889,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
           mensajes, locale, zonaHoraria }) => {
           assert.equal(locale, idioma);
-          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          assert.equal(mensajes, mensajesAdaptador);
           const estado = actual.obtenerEstado();
           const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
             recibo_ref: "recibo:ct:sintetico:001",

@@ -1,0 +1,18 @@
+/* Distribución del visor; superficies, tablas y controles del tema común. */
+.modulo-preparacion-bases .cabecera-panel { background: var(--portal-superficie-alterna); }
+.modulo-preparacion-bases :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
+.modulo-preparacion-bases .bases-rejilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
+.modulo-preparacion-bases .bases-datos { margin: 0; display: grid; gap: 12px; }
+.modulo-preparacion-bases .bases-datos dt { color: var(--portal-muted); font-size: .8125rem; }
+.modulo-preparacion-bases .bases-datos dd { margin: 4px 0 0; white-space: pre-wrap; }
+.modulo-preparacion-bases .bases-tabla td { white-space: normal; vertical-align: top; }
+.modulo-preparacion-bases .bases-tabla td:first-child { min-width: 160px; }
+.modulo-preparacion-bases .bases-tabla { min-width: 600px; }
+.modulo-preparacion-bases #bases-archivo { max-width: 100%; min-width: 0; }
+.modulo-preparacion-bases .bases-error-campo { color: var(--portal-peligro); }
+.modulo-preparacion-bases .campo input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.modulo-preparacion-bases [hidden] { display: none; }
+@media (max-width: 1100px) { .modulo-preparacion-bases .bases-rejilla { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) { .modulo-preparacion-bases .bases-tabla { min-width: 0; } }
+.modulo-preparacion-bases .bases-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: .8125rem; }
+.modulo-preparacion-bases .tabla-contenedor { max-height: min(440px, 60vh); }

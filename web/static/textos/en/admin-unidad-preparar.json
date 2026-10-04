@@ -1,0 +1,20 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "Preparation does not create the unit. Application requires external approval and configuration; the receipt and attempt audit are confirmed only after COMMIT.",
+    "uso_invalido": "Provide the plan material, separate source, plan destination and message catalog. Add --cotejar to check an existing plan.",
+    "fuente_insegura": "A private file cannot be read. Use files up to 64 KiB in a private directory outside the repository.",
+    "fuente_invalida": "The plan or its source does not meet the initial unit contract or has expired. Check references, catalog, dates and source hash.",
+    "plan_inseguro": "The private plan cannot be read for comparison.",
+    "plan_divergente": "The existing plan differs from the material and source or the destination is unsafe. It has not been overwritten.",
+    "plan_preparado": "The unit plan is prepared and its hash has been calculated. Keep it for review.",
+    "operacion_no_confirmada": "The operation has not been confirmed. No receipt or audit record is presented as persisted.",
+    "commit_no_confirmado": "COMMIT could not be confirmed. The result is indeterminate. Keep the plan and request a check before acting.",
+    "acuse_inseguro": "The acknowledgement destination is unsafe or already exists. Choose another private file before sending the operation.",
+    "acuse_no_guardado": "COMMIT is confirmed, but the acknowledgement could not be saved. Keep the plan to recover the original receipt with a new acknowledgement file.",
+    "unidad_confirmada": "The operation is confirmed and its acknowledgement has been saved.",
+    "unidad_rechazada": "The database rejected the operation and confirmed its attempt record. Consult the private acknowledgement.",
+    "unidad_no_disponible": "The operation ended with an error and its attempt record was confirmed. Consult the private acknowledgement.",
+    "aplicacion_entrada_invalida": "The private connection or approval does not meet the contract."
+  }
+}

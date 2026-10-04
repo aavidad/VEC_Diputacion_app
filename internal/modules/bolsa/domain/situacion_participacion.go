@@ -16,12 +16,14 @@ const (
 	SituacionRenuncia               = "renuncia"
 	SituacionExcluido               = "excluido"
 	SituacionDisponibleDesde        = "disponible_desde"
+	SituacionEnRevision             = "en_revision"
 )
 
 var catalogoSituacionesParticipacion = map[string]struct{}{
 	SituacionDisponible: {}, SituacionNoDisponible: {}, SituacionTrabajando: {},
 	SituacionPendienteIncorporacion: {}, SituacionRenuncia: {}, SituacionExcluido: {},
 	SituacionDisponibleDesde: {},
+	SituacionEnRevision:      {},
 }
 
 // transicionesSituacionParticipacion es el literal de
@@ -40,10 +42,11 @@ var transicionesSituacionParticipacion = map[string]map[string]struct{}{
 	SituacionDisponibleDesde:        {SituacionDisponible: {}, SituacionExcluido: {}},
 	SituacionRenuncia:               {SituacionDisponible: {}, SituacionExcluido: {}},
 	SituacionExcluido:               {},
+	SituacionEnRevision:             {},
 }
 
 func SituacionesParticipacion() []string {
-	return []string{SituacionDisponible, SituacionNoDisponible, SituacionTrabajando, SituacionPendienteIncorporacion, SituacionRenuncia, SituacionExcluido, SituacionDisponibleDesde}
+	return []string{SituacionDisponible, SituacionNoDisponible, SituacionTrabajando, SituacionPendienteIncorporacion, SituacionRenuncia, SituacionExcluido, SituacionDisponibleDesde, SituacionEnRevision}
 }
 
 func DestinosSituacionParticipacion(origen string) []string {
