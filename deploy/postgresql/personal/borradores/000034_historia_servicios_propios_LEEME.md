@@ -9,11 +9,21 @@ AD180 está cerrada por tres huellas pendientes. Se detiene antes de modificar
 el núcleo. Personal34 exige la fachada y su permiso exclusivo para Personal.
 Ninguna está ensayada o instalada por esta entrega.
 
-La fuente causal acordada por L el 04/10 a las 01:40 es H9→172→173→174variante→176variante.
-Faltan las postimágenes medidas de las variantes K. El núcleo POST173 debe
-conservarse; no basta reconocer el nombre del CHECK. El encaje posterior de
-AD175 y AD180 debe acordarse y medirse antes de cerrar sus guardas. No ejecutar
-esta lista como instalador ni reaplicar migraciones conservadas.
+La fuente causal sigue H9→172→173→174variante→176variante. K publicó
+las medidas POST176 el 04/10 a las 03:12. El CHECK publicado corresponde a la
+auditoría; todavía falta medir el CHECK de audiencias. Para AD180 se necesita
+la definición realmente resultante después de AD175 y AD178, no las huellas
+POST176 ni una transformación estimada. El orden y candidato finales requieren
+las revisiones de sus propietarios antes del ensayo.
+
+Personal34 depende de los helpers de Personal16, las historias de Personal17,
+la instantánea de catálogo de Personal20, la ficha de Personal22 y el consumidor
+AD180. No llama a la fachada CRN11 de Personal26 ni al consumidor AD181. Se
+retira su comprobación de existencia: imponía una dependencia histórica circular
+sin aportar autoridad a esta lectura. Las comprobaciones de empleado, firma,
+concesión propia, roles, permisos y consumo permanecen.
+
+No ejecutar esta lista como instalador ni reaplicar migraciones conservadas.
 
 La fachada devuelve todas las revisiones conocidas que solapan el intervalo
 de efectos solicitado. Más de 200 revisiones provoca 54000, sin datos truncados.

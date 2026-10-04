@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- BORRADOR Personal34: no ensayado ni instalado. Sólo lectura nominal propia.
--- Dependencias: Personal16/17/20/22/26 y AD180 FINAL aprobado e instalado.
+-- Dependencias reales: Personal16/17/20/22 y AD180 FINAL aprobado e instalado.
 -- AD180 está cerrado por su preimagen pendiente; su ausencia impide CREATE.
 -- No cambia una migración instalada, no añade historia/recibos/outbox y no
 -- acredita cobertura institucional, derechos ni documentos firmados.
@@ -19,7 +19,6 @@ BEGIN
     OR to_regprocedure('vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)') IS NULL
     OR to_regprocedure('vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)') IS NULL
     OR to_regprocedure('vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_personal.consultar_vinculo_propio_historico_crn11_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR (SELECT count(*) FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
         WHERE n.nspname='vec_personal' AND t.relname IN ('servicio_reconocido_historia','relacion_servicio_historia')
           AND t.relkind='r' AND t.relowner='vec_personal_propietario'::regrole AND t.relrowsecurity AND t.relforcerowsecurity)<>2
