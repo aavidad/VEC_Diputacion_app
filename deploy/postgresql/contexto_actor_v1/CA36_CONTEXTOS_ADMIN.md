@@ -45,3 +45,10 @@ de instalación hasta dos revisiones independientes y el ensayo PostgreSQL
 del escritor único. Las pruebas Go usan transporte sintético: comprueban la
 ligadura del acuse y la recuperación de un COMMIT incierto, pero no acreditan
 firma, efecto PostgreSQL, montaje ni recorrido HTTP.
+
+El ensayo pendiente debe comprobar con datos sintéticos: registro exacto y
+repetición con el mismo evento sin otra fila ni auditoría; sesión diferente de
+la misma cuenta rechazada; retirada del perfil o vencimiento mientras espera
+un bloqueo; denegación auditada sin contexto; recuperación tras COMMIT incierto
+del resultado positivo y del negativo con el evento original; ausencia de
+acuse sin éxito; y acceso directo al núcleo o a la tabla denegado al LOGIN CA.
