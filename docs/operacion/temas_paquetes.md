@@ -25,8 +25,8 @@ para esas claves viven en los catálogos `temas-paquetes.json` de cada idioma.
 
 El paquete declara esquema, identificador libre de tema, versión, referencias de
 sistema visual y política, clave de nombre, nombres por idioma y dos variantes
-completas: `clara` y `oscura`. La clave del nombre pertenece al espacio
-`ui.temas.<tema_id>.*`. Los nombres son texto sencillo, sin HTML, controles,
+completas: `clara` y `oscura`. La clave del nombre es exactamente
+`ui.temas.<tema_id>.nombre`. Los nombres son texto sencillo, sin HTML, controles,
 interpolaciones ni direcciones web. Cada variante contiene exactamente los tokens
 de la política, con colores opacos de seis dígitos hexadecimales.
 
@@ -50,8 +50,9 @@ a ocho niveles. No se admite CSS, JavaScript, recursos externos ni referencias
 del tema común en la base `296f78373f4874b9a81def9df744df12c1096af1`:
 institucional, granate, Diputación de Granada, arena, salvia, lavanda, azul sereno y noche
 suave. Los alias están resueltos. La variante `clara` conserva la paleta existente;
-noche suave ya usa colores oscuros en esa paleta. Las variantes `oscura` reproducen
-el modo oscuro común existente. No se ha diseñado otra paleta oscura por tema.
+noche suave ya usa colores oscuros en esa paleta. Granate conserva también su
+variante oscura existente. Los otros siete ejemplos reproducen el modo oscuro
+común. No se ha diseñado otra paleta oscura por tema.
 
 `original_sha256` identifica los bytes recibidos. Cambiar espacios u orden de
 propiedades cambia esa huella. `canonico_sha256` identifica el material normalizado:

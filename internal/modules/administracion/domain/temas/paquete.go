@@ -151,7 +151,7 @@ func (p Paquete) Normalizar(politica Politica) (Paquete, error) {
 		return Paquete{}, ErrPolitica
 	}
 	if p.Esquema != 1 || !refValida(p.TemaID) || p.Version < 1 || p.Version > MaxVersion || p.SistemaDisenoRef != politica.SistemaDisenoRef || p.PoliticaRef != politica.PoliticaRef ||
-		len(p.NombreKey) > 128 || !clave.MatchString(p.NombreKey) || !strings.HasPrefix(p.NombreKey, "ui.temas."+p.TemaID+".") || len(p.Textos) != len(politica.IdiomasRequeridos) {
+		len(p.NombreKey) > 128 || !clave.MatchString(p.NombreKey) || p.NombreKey != "ui.temas."+p.TemaID+".nombre" || len(p.Textos) != len(politica.IdiomasRequeridos) {
 		return Paquete{}, ErrPaquete
 	}
 	normal := p

@@ -113,6 +113,32 @@ func TestParserAdversarial(t *testing.T) {
 	}
 }
 
+func TestNombreNoColisionaConIdentificadorAnidado(t *testing.T) {
+	p := paquete(t)
+	p.TemaID = "arena"
+	p.NombreKey = "ui.temas." + p.TemaID + ".otro.nombre"
+	for idioma, textos := range p.Textos {
+		for _, nombre := range textos {
+			p.Textos[idioma] = map[string]string{p.NombreKey: nombre}
+		}
+	}
+	b, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Preparar(bytes.NewReader(b), politica(t)); err == nil {
+		t.Fatal("ancestor accepted the nested identifier name")
+	}
+	p.TemaID += ".otro"
+	b, err = json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Preparar(bytes.NewReader(b), politica(t)); err != nil {
+		t.Fatal("exact name rejected for its owner", err)
+	}
+}
+
 func TestRechazosDeContrato(t *testing.T) {
 	for nombre, cambiar := range map[string]func(*temas.Paquete){
 		"tokens_missing": func(p *temas.Paquete) { delete(p.Variantes.Clara, "--portal-tinta") },
