@@ -30,7 +30,7 @@ func (a *AuditorFronteraCompuesto) RegistrarDenegacionADMIN(ctx context.Context,
 	if d.Evidencia.ValidarPara(d.Actor) == nil {
 		return a.nominal.RegistrarDenegacionADMIN(ctx, d)
 	}
-	if d.Actor.PersonaRef != "" || d.Evidencia.ResultadoContexto.RegistroContextoRef != "" || d.Evidencia.Vinculo.Validar() == nil {
+	if d.SesionResuelta || d.Actor.PersonaRef != "" || d.Evidencia.ResultadoContexto.RegistroContextoRef != "" || d.Evidencia.Vinculo.Validar() == nil {
 		return ports.ErrFronteraAdminTecnicaNoDisponible
 	}
 	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)

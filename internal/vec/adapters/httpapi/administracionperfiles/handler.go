@@ -40,13 +40,14 @@ type ResolvedorSesion interface {
 	ResolverSesionADMIN(context.Context, *http.Request) (SesionConfiable, error)
 }
 
-// AuditorFrontera requiere evidencia V2 ya acreditada para registrar el
-// intento común. Antes de resolver esa identidad responde no disponible.
+// AuditorFrontera distingue la fase técnica previa a V2 de la nominal.
+// Una sesión resuelta incompatible nunca permite volver a la fase técnica.
 type AuditorFrontera interface {
 	RegistrarDenegacionADMIN(context.Context, DenegacionADMIN) error
 }
 
 type DenegacionADMIN struct {
+	SesionResuelta  bool `json:"-"`
 	Codigo          string
 	Accion          string
 	RecursoRef      string
@@ -195,7 +196,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(sesion.CorrelacionRef) {
-		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
+		h.denegarSesionIncompatible(w, r, sesion)
 		return
 	}
 	if r.Method == http.MethodGet {
@@ -375,6 +376,30 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, co
 	fallo(w, estado, codigo)
 }
 
+// El retorno exitoso del resolutor fija la fase aunque su sesión sea inválida.
+func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
+	registro := DenegacionADMIN{Codigo: "respuesta_incompatible", SesionResuelta: true}
+	actor, err := s.Actor.Clonar()
+	if err == nil {
+		resultado, err := s.Evidencia.ResultadoContexto.Clonar()
+		if err == nil {
+			evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
+			if evidencia.ValidarPara(actor) == nil {
+				registro.Actor = actor
+				registro.Evidencia = evidencia
+				registro.ActorPersonaRef = actor.PersonaRef
+				registro.PerfilActivoRef = actor.PerfilActivoRef
+				registro.CorrelacionRef = s.CorrelacionRef
+			}
+		}
+	}
+	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	fallo(w, http.StatusServiceUnavailable, "respuesta_incompatible")
+}
+
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
 	actor, err := s.Actor.Clonar()
@@ -392,7 +417,7 @@ func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionC
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
-	registro := DenegacionADMIN{Codigo: codigo, Accion: accion, RecursoRef: recurso,
+	registro := DenegacionADMIN{SesionResuelta: true, Codigo: codigo, Accion: accion, RecursoRef: recurso,
 		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
 		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
