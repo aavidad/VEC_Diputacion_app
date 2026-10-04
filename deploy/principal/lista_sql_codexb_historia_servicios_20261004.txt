@@ -1,5 +1,5 @@
 # BORRADOR: no ejecutar. AD180 tiene huellas NULL y detiene la instalación.
-# Fuente causal L/K: H9->172->173->174variante->176variante, postimágenes pendientes.
+# Medición POST176 recibida; faltan CHECK de audiencias y postimágenes reales tras AD175/AD178 para AD180.
 # Cerrar preimagen y encaje175/180, dos revisiones y ensayo antes de instalar.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000180_consumidor_historia_servicios_propios.up.sql
 deploy/postgresql/personal/migraciones/000034_historia_servicios_propios.up.sql
