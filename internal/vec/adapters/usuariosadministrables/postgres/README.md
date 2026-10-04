@@ -21,6 +21,10 @@ una exportación V3 real. Este paquete no implementa ese emisor.
 La fuente clona actor, resultado V2 e instantánea antes de invocarlo. Una
 mutación de sus argumentos no altera la evidencia del llamador ni la que se
 conserva para auditar un error.
+Antes de abrir la transacción, coteja los bytes canónicos y huella del contexto
+exportado, su referencia registrada y todos los campos del vínculo V2 con la
+evidencia original. La misma Persona y perfil en otra sesión no sirven para
+esta lectura.
 
 Cada lectura válida abre una transacción `SERIALIZABLE` de lectura/escritura,
 llama a una fachada AUT43, comprueba el acuse V3 y la forma exacta del resultado,

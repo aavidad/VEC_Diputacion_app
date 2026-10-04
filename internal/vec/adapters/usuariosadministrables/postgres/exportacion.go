@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,9 +12,12 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, actor domain.ContextoActor, p *peticion, ahora time.Time) (string, string, error) {
+func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, p *peticion, ahora time.Time) (string, string, error) {
 	fallo := ports.ErrLecturaUsuariosAdministrablesNoDisponible
-	if m.ValidarEstructura() != nil || m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion {
+	huellaActor, err := actor.HuellaSHA256VinculadaV2()
+	if evidencia.ValidarPara(actor) != nil || err != nil || huellaActor != evidencia.ResultadoContexto.HuellaSHA256 ||
+		m.ValidarEstructura() != nil || m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion ||
+		!bytes.Equal(m.ContextoActorCanonico(), evidencia.ResultadoContexto.RepresentacionCanonica) {
 		return "", "", fallo
 	}
 	huella, err := p.recurso.HuellaContextoAutorizacionSHA256()
@@ -24,7 +28,8 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	motivoSHA := sha256.Sum256(m.MotivoCanonico())
 	contextoSHA := sha256.Sum256(m.ContextoActorCanonico())
 	if r.Operacion() != p.accion || r.AudienciaConsumo() != p.audiencia || r.EfectoRef() != p.recurso.Referencia || r.EfectoHuellaSHA256() != huella ||
-		r.MotivoHuellaSHA256() != hex.EncodeToString(motivoSHA[:]) || r.ContextoHuellaSHA256() != hex.EncodeToString(contextoSHA[:]) ||
+		r.MotivoHuellaSHA256() != hex.EncodeToString(motivoSHA[:]) || r.ContextoRef() != evidencia.ResultadoContexto.RegistroContextoRef ||
+		r.ContextoHuellaSHA256() != evidencia.ResultadoContexto.HuellaSHA256 || r.ContextoHuellaSHA256() != hex.EncodeToString(contextoSHA[:]) ||
 		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
 		return "", "", fallo
 	}
@@ -45,6 +50,7 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	}
 	h := sha256.Sum256(decision)
 	if textoCampo(c, "operacion") != p.accion || textoCampo(c, "audiencia_consumo") != p.audiencia || textoCampo(c, "efecto_ref") != p.recurso.Referencia ||
+		textoCampo(c, "contexto_ref") != evidencia.ResultadoContexto.RegistroContextoRef || textoCampo(c, "huella_contexto_sha256") != evidencia.ResultadoContexto.HuellaSHA256 ||
 		textoCampo(c, "huella_efecto_sha256") != huella || textoCampo(c, "decision_ref") != r.DecisionRef() ||
 		textoCampo(c, "huella_decision_sha256") != hex.EncodeToString(h[:]) || r.DecisionHuellaSHA256() != hex.EncodeToString(h[:]) ||
 		!boolCampo(d, "concedida") || textoCampo(d, "decision_ref") != r.DecisionRef() || textoCampo(d, "principal_id") != actor.PersonaRef ||
@@ -57,7 +63,8 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	}
 	var vinculo map[string]json.RawMessage
 	if json.Unmarshal(d["vinculo_autenticacion_actor"], &vinculo) != nil ||
-		textoCampo(vinculo, "superficie") != "administracion_privilegiada" || !boolCampo(vinculo, "cuenta_privilegiada") {
+		textoCampo(vinculo, "superficie") != "administracion_privilegiada" || !boolCampo(vinculo, "cuenta_privilegiada") ||
+		!vinculoDecisionOriginal(d["vinculo_autenticacion_actor"], evidencia.Vinculo) {
 		return "", "", fallo
 	}
 	var campos, obligaciones []string
@@ -72,6 +79,42 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 		return "", "", fallo
 	}
 	return r.DecisionRef(), huella, nil
+}
+
+func vinculoDecisionOriginal(bruto json.RawMessage, original domain.VinculoAutenticacionActorV2) bool {
+	datos, err := original.Datos()
+	if err != nil {
+		return false
+	}
+	var recibido domain.DatosVinculoAutenticacionActorV2
+	if json.Unmarshal(bruto, &recibido) != nil || recibido.Validar() != nil {
+		return false
+	}
+	var clavesOriginal, clavesRecibidas map[string]json.RawMessage
+	originalJSON, err := json.Marshal(datos)
+	if err != nil || json.Unmarshal(originalJSON, &clavesOriginal) != nil || json.Unmarshal(bruto, &clavesRecibidas) != nil || len(clavesOriginal) != len(clavesRecibidas) {
+		return false
+	}
+	for clave := range clavesOriginal {
+		if _, ok := clavesRecibidas[clave]; !ok {
+			return false
+		}
+	}
+	if !recibido.AutenticacionVerificadaEn.Equal(datos.AutenticacionVerificadaEn) ||
+		!recibido.SesionEmitidaEn.Equal(datos.SesionEmitidaEn) ||
+		!recibido.SesionValidaHasta.Equal(datos.SesionValidaHasta) ||
+		!recibido.SesionRevalidadaEn.Equal(datos.SesionRevalidadaEn) {
+		return false
+	}
+	recibido.AutenticacionVerificadaEn = time.Time{}
+	datos.AutenticacionVerificadaEn = time.Time{}
+	recibido.SesionEmitidaEn = time.Time{}
+	datos.SesionEmitidaEn = time.Time{}
+	recibido.SesionValidaHasta = time.Time{}
+	datos.SesionValidaHasta = time.Time{}
+	recibido.SesionRevalidadaEn = time.Time{}
+	datos.SesionRevalidadaEn = time.Time{}
+	return recibido == datos
 }
 
 func validarRespuesta(bruto []byte, p *peticion, consulta string) error {

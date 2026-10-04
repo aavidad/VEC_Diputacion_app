@@ -279,7 +279,7 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 	if evidencia.ValidarEn(actor, ahora) != nil || !actor.Instantanea.VigenteEn(ahora) {
 		return nil, domain.ErrAutorizacionDenegada
 	}
-	decision, huella, err := validarExportacion(m, actor, p, ahora)
+	decision, huella, err := validarExportacion(m, actor, evidencia, p, ahora)
 	if err != nil {
 		return nil, err
 	}
