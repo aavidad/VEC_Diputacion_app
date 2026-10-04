@@ -1,6 +1,7 @@
 package auditoria
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -9,6 +10,27 @@ import (
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestDocumentoExportacionAdminConservaHistoriaPreperfil(t *testing.T) {
+	for _, esquema := range []string{EsquemaVerificacionGobiernoUsuarios, EsquemaVerificacionFronteraAdminTecnicaV1} {
+		for _, registro := range vectoresAD171Prueba(t) {
+			d := documentoAD171Prueba(registro)
+			d.Esquema = esquema
+			antes, err := json.Marshal(d)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recibido, informe, err := VerificarDocumentoExportacionAuditoria(antes, domain.CoberturaCheckpoint(d.Manifiesto), 1<<20, 10)
+			if err != nil || recibido != esquema || informe.Estado != "verificada" {
+				t.Fatalf("historia AD171: esquema=%q tipo=%q err=%v fallo=%+v", esquema, registro.TipoRegistro, err, informe.Fallo)
+			}
+			despues, err := json.Marshal(d)
+			if err != nil || !bytes.Equal(antes, despues) {
+				t.Fatal("historia modificada al verificar")
+			}
+		}
+	}
+}
 
 func fixtureExportacionPrueba(t *testing.T, nombre string) ([]byte, domain.CoberturaCheckpoint) {
 	t.Helper()
