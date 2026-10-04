@@ -27,5 +27,6 @@ modifica el fichero ni prepara una autorización. Use únicamente datos
 sintéticos mientras el circuito no esté admitido.
 
 Un rechazo sale con código 1 y un error de argumentos o escritura de salida
-con código 2. La salida de error solo indica `material_rechazado`: no incluye
+con código 2. El registro de error indica `material_rechazado` y una etapa
+cerrada (`argumentos`, `entrada`, `lectura`, `validacion` o `salida`): no incluye
 la ruta, el contenido ni los datos de actor del fichero.

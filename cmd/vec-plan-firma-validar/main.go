@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"regexp"
 	"strconv"
@@ -55,47 +56,61 @@ type resumen struct {
 }
 
 func main() {
-	codigo := ejecutar(os.Args[1:], os.Stdout)
-	if codigo != 0 {
-		_, _ = os.Stderr.WriteString("material_rechazado\n")
-	}
-	os.Exit(codigo)
+	os.Exit(ejecutar(os.Args[1:], os.Stdout))
 }
 
 func ejecutar(args []string, salida io.Writer) int {
 	if len(args) != 2 || !shaValido.MatchString(args[1]) {
+		registrarRechazo(errMaterial, "argumentos")
 		return 2
 	}
 	// #nosec G703 -- el operador elige explícitamente este fichero local.
 	inicial, err := os.Lstat(args[0])
-	if err != nil || !inicial.Mode().IsRegular() || inicial.Size() > maxMaterial {
-		return 1
+	if err != nil {
+		return rechazar(err, "entrada")
 	}
-	// #nosec G703 -- ruta local explícita; se coteja el mismo fichero regular tras abrirlo.
+	if !inicial.Mode().IsRegular() || inicial.Size() > maxMaterial {
+		return rechazar(errMaterial, "entrada")
+	}
+	// #nosec G703 -- ruta local explícita; SHA esperado y lectura acotada.
 	f, err := os.Open(args[0])
 	if err != nil {
-		return 1
+		return rechazar(err, "entrada")
 	}
 	b, err := io.ReadAll(io.LimitReader(f, maxMaterial+1))
 	actual, errStat := f.Stat()
 	errClose := f.Close()
-	if err != nil || errStat != nil || errClose != nil || !os.SameFile(inicial, actual) || len(b) > maxMaterial {
-		return 1
+	if err != nil || errStat != nil || errClose != nil {
+		return rechazar(errors.Join(err, errStat, errClose), "lectura")
+	}
+	if !actual.Mode().IsRegular() || actual.Size() > maxMaterial || len(b) > maxMaterial {
+		return rechazar(errMaterial, "lectura")
 	}
 	r, err := validar(b, args[1])
 	if err != nil {
-		return 1
+		return rechazar(err, "validacion")
 	}
-	if json.NewEncoder(salida).Encode(r) != nil {
+	if err := json.NewEncoder(salida).Encode(r); err != nil {
+		registrarRechazo(err, "salida")
 		return 2
 	}
 	return 0
 }
 
+func rechazar(err error, etapa string) int { registrarRechazo(err, etapa); return 1 }
+func registrarRechazo(err error, etapa string) {
+	if err != nil {
+		slog.Error("material_rechazado", "etapa", etapa)
+	}
+}
+
 func validar(b []byte, esperado string) (resumen, error) {
 	var cero resumen
-	if len(b) < 2 || len(b) > maxMaterial || !shaValido.MatchString(esperado) || huella(b) != esperado || !jsonUnico(b) {
+	if len(b) < 2 || len(b) > maxMaterial || !shaValido.MatchString(esperado) || huella(b) != esperado {
 		return cero, errMaterial
+	}
+	if err := jsonUnico(b); err != nil {
+		return cero, errors.Join(errMaterial, err)
 	}
 	var raw map[string]json.RawMessage
 	if json.Unmarshal(b, &raw) != nil || !clavesMaterialExactas(raw) {
@@ -110,16 +125,25 @@ func validar(b []byte, esperado string) (resumen, error) {
 		return cero, errMaterial
 	}
 	canon, ok := decodificarBloque(m.CatalogoBase64, m.CatalogoSHA, 2<<20)
-	if !ok || !jsonUnico(canon) {
+	if !ok {
 		return cero, errMaterial
+	}
+	if err := jsonUnico(canon); err != nil {
+		return cero, errors.Join(errMaterial, err)
 	}
 	traza, ok := decodificarBloque(m.TrazaBase64, m.TrazaSHA, 65536)
-	if !ok || !jsonUnico(traza) {
+	if !ok {
 		return cero, errMaterial
 	}
+	if err := jsonUnico(traza); err != nil {
+		return cero, errors.Join(errMaterial, err)
+	}
 	evento, ok := decodificarBloque(m.EventoBase64, m.EventoSHA, 65536)
-	if !ok || !jsonUnico(evento) {
+	if !ok {
 		return cero, errMaterial
+	}
+	if err := jsonUnico(evento); err != nil {
+		return cero, errors.Join(errMaterial, err)
 	}
 	var c vd.CatalogoConfigurable
 	if decodificarEstricto(canon, &c) != nil {
@@ -138,8 +162,8 @@ func validar(b []byte, esperado string) (resumen, error) {
 	if estado == "" || c.Estado != vd.EstadoCatalogoConfigurable(estado) {
 		return cero, errMaterial
 	}
-	if !validarPasos(c) {
-		return cero, errMaterial
+	if err := validarPasos(c); err != nil {
+		return cero, errors.Join(errMaterial, err)
 	}
 	if m.Operacion != "crear" && *m.HuellaEsperada == m.CatalogoSHA {
 		return cero, errMaterial
@@ -233,29 +257,32 @@ func estadoOperacion(c vd.CatalogoConfigurable, op string, esperada int) (string
 	return "", "", time.Time{}, ""
 }
 
-func validarPasos(c vd.CatalogoConfigurable) bool {
+func validarPasos(c vd.CatalogoConfigurable) error {
 	if len(c.Entradas) == 0 {
-		return false
+		return errMaterial
 	}
 	sha, err := c.HuellaSHA256()
 	if err != nil {
-		return false
+		return errors.Join(errMaterial, err)
 	}
 	version, err := strconv.ParseUint(strconv.Itoa(c.Version), 10, 64)
 	if err != nil {
-		return false
+		return errors.Join(errMaterial, err)
 	}
 	plan := ct.PlanCompetenciaFirmaV2{Version: ct.VersionPlanFirmaV2{Referencia: c.ID, Version: version, HuellaSHA256: sha}, FuenteRef: c.FuenteRef}
 	for _, e := range c.Entradas {
 		if !clavePlan.MatchString(e.Clave) || len(e.Atributos) != 18 || e.Atributos["esquema"] != ct.EsquemaPlanCompetenciaFirmaV2 {
-			return false
+			return errMaterial
 		}
 		a := e.Atributos
 		cv, x := strconv.ParseUint(a["circuito_version"], 10, 64)
 		po, y := strconv.ParseUint(a["paso_orden"], 10, 64)
 		mv, z := strconv.ParseUint(a["mapeo_version"], 10, 64)
-		if x != nil || y != nil || z != nil || strconv.FormatUint(cv, 10) != a["circuito_version"] || strconv.FormatUint(po, 10) != a["paso_orden"] || strconv.FormatUint(mv, 10) != a["mapeo_version"] {
-			return false
+		if x != nil || y != nil || z != nil {
+			return errors.Join(errMaterial, x, y, z)
+		}
+		if strconv.FormatUint(cv, 10) != a["circuito_version"] || strconv.FormatUint(po, 10) != a["paso_orden"] || strconv.FormatUint(mv, 10) != a["mapeo_version"] {
+			return errMaterial
 		}
 		plan.Pasos = append(plan.Pasos, ct.CompetenciaPasoFirmaV2{EntradaClave: e.Clave,
 			Circuito:  ct.VersionPlanFirmaV2{Referencia: a["circuito_ref"], Version: cv, HuellaSHA256: a["circuito_sha256"]},
@@ -264,14 +291,17 @@ func validarPasos(c vd.CatalogoConfigurable) bool {
 			Accion: a["accion_competencial"], Finalidad: a["finalidad"], TipoRecurso: a["tipo_recurso"], EsquemaContexto: a["esquema_contexto"],
 			MapeoVersion: mv, MapeoFuenteRef: a["mapeo_fuente_ref"]})
 	}
-	if plan.Validar() != nil {
-		return false
+	if err := plan.Validar(); err != nil {
+		return errors.Join(errMaterial, err)
 	}
 	if c.Estado == vd.EstadoCatalogoBorrador {
-		return true
+		return nil
 	}
 	_, err = plannominal.DesdeCatalogo(c, c.PublicadoEn)
-	return err == nil
+	if err != nil {
+		return errors.Join(errMaterial, err)
+	}
+	return nil
 }
 
 func decodificarBloque(s, h string, max int) ([]byte, bool) {
@@ -293,50 +323,71 @@ func decodificarEstricto(b []byte, v any) error {
 	}
 	return nil
 }
-func jsonUnico(b []byte) bool {
+func jsonUnico(b []byte) error {
 	if !utf8.Valid(b) {
-		return false
+		return errMaterial
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
-	if !valorUnico(d, 0) {
-		return false
+	if err := valorUnico(d, 0); err != nil {
+		return errors.Join(errMaterial, err)
 	}
 	_, err := d.Token()
-	return err == io.EOF
+	if err != io.EOF {
+		return errors.Join(errMaterial, err)
+	}
+	return nil
 }
-func valorUnico(d *json.Decoder, n int) bool {
+func valorUnico(d *json.Decoder, n int) error {
 	if n > 32 {
-		return false
+		return errMaterial
 	}
-	t, err := d.Token()
+	token, err := d.Token()
 	if err != nil {
-		return false
+		return errors.Join(errMaterial, err)
 	}
-	v, ok := t.(json.Delim)
+	apertura, ok := token.(json.Delim)
 	if !ok {
-		return true
+		return nil
 	}
-	switch v {
+	switch apertura {
 	case '{':
-		visto := map[string]bool{}
+		vistos := map[string]bool{}
 		for d.More() {
-			k, e := d.Token()
-			s, ok := k.(string)
-			if e != nil || !ok || visto[s] || !valorUnico(d, n+1) {
-				return false
+			clave, err := d.Token()
+			if err != nil {
+				return errors.Join(errMaterial, err)
 			}
-			visto[s] = true
+			nombre, ok := clave.(string)
+			if !ok || vistos[nombre] {
+				return errMaterial
+			}
+			if err := valorUnico(d, n+1); err != nil {
+				return err
+			}
+			vistos[nombre] = true
 		}
-		fin, err := d.Token()
-		return err == nil && fin == json.Delim('}')
+		cierre, err := d.Token()
+		if err != nil {
+			return errors.Join(errMaterial, err)
+		}
+		if cierre != json.Delim('}') {
+			return errMaterial
+		}
+		return nil
 	case '[':
 		for d.More() {
-			if !valorUnico(d, n+1) {
-				return false
+			if err := valorUnico(d, n+1); err != nil {
+				return err
 			}
 		}
-		fin, err := d.Token()
-		return err == nil && fin == json.Delim(']')
+		cierre, err := d.Token()
+		if err != nil {
+			return errors.Join(errMaterial, err)
+		}
+		if cierre != json.Delim(']') {
+			return errMaterial
+		}
+		return nil
 	}
-	return false
+	return errMaterial
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,6 +99,21 @@ func TestRechazaFicheroMayorQueCuatroMiB(t *testing.T) {
 	var salida bytes.Buffer
 	if codigo := ejecutar([]string{ruta, strings.Repeat("a", 64)}, &salida); codigo != 1 || salida.Len() != 0 {
 		t.Fatalf("límite ignorado: %d", codigo)
+	}
+}
+
+func TestRechazoRegistraSoloEtapaSinRutaNiActor(t *testing.T) {
+	anterior := slog.Default()
+	var registro bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	defer slog.SetDefault(anterior)
+	ruta := filepath.Join(t.TempDir(), "actor-privado-no-exponer.json")
+	var salida bytes.Buffer
+	if codigo := ejecutar([]string{ruta, strings.Repeat("a", 64)}, &salida); codigo != 1 || salida.Len() != 0 {
+		t.Fatal("rechazo no observable")
+	}
+	if !strings.Contains(registro.String(), "etapa=entrada") || strings.Contains(registro.String(), ruta) || strings.Contains(registro.String(), "actor-privado") {
+		t.Fatal("registro de error expone la ruta")
 	}
 }
 
