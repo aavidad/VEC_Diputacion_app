@@ -35,8 +35,6 @@ BEGIN
       AND (r.rolcanlogin OR r.rolsuper OR r.rolbypassrls)) THEN
   RAISE EXCEPTION 'CC7: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_catalogos_configurables_propietario REVOKE ALL ON FUNCTIONS FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_catalogos_configurables_propietario REVOKE ALL ON TYPES FROM PUBLIC;
 
 -- La cabeza mutable conserva revisión/estado actuales. El SHA de publicación
 -- apunta a bytes inmutables y no cambia al retirarse la versión.
