@@ -1,13 +1,14 @@
 # ABI AD193: consumo confirmado v4
 
-Candidata desde `origin/main@296f78373`. No instalada ni ensayada. La migración
-se detiene mientras la huella esperada del CHECK sea `NULL`. Las cuatro
-huellas de núcleo/comprobador y sus postimágenes están medidas en la copia
-fría POST173. Dirección contrasta su vigencia y fija el CHECK de la copia fría
-final de K, revisa el nuevo hash y ensaya.
+Candidata desde `origin/main@296f78373`. No instalada ni ensayada. Las cinco
+preimágenes esperadas están fijadas como literales medidos en una copia fría:
+núcleo/comprobador POST173, idénticos tras AD189, y CHECK POST189
+`6b92079faedcd2482b720b1d0714ba6a1b09dc359badae8f6d7c0dd3f3275caf`.
+La captura conserva secuencia y 6240 registros anteriores. AD193 no acepta el
+CHECK POST173. Dirección revisa el hash final antes del ensayo causal.
+
 AD174/176/179/183/186/187/188/189 amplían el CHECK y añaden funciones propias;
-sus archivos no reconstruyen el núcleo ni el comprobador. El CHECK POST173
-no representa esa cadena posterior.
+sus archivos no reconstruyen el núcleo ni el comprobador.
 
 ## Esquema y autoridad
 
@@ -50,14 +51,20 @@ UTF-8 y salto de línea. SHA256 se aplica a la concatenación, en este orden:
 | 15 | finalidad_ref |
 | 16 | transaccion_origen decimal completo |
 
-Los dos instantes proceden del mismo `v_ahora`. El campo 16 procede de la
-columna de auditoría; el verificador debe cotejar también el valor proyectado
-del consumo. Ambos se serializan como STRING decimal canónica. Nunca se pasan
-por JSON number, float64 o JavaScript Number. Por ejemplo,
-`"9007199254740993"` y `"18446744073709551615"` deben conservarse literalmente.
-Una proyección SQL emplea `a.transaccion_origen::text` y
-`u.transaccion_origen::text`. Dirección conserva la propiedad del exportador,
-verificador mixto y CLI: deben admitir v4 antes de producirla.
+Los dos instantes proceden del mismo `v_ahora`. La proyección final v4 tiene
+dos propiedades obligatorias:
+
+| Propiedad | Origen | Tipo |
+| --- | --- | --- |
+| `transaccion_origen` | `u.transaccion_origen::text`, auditoría | STRING decimal canónica positiva uint64 |
+| `transaccion_consumo_origen` | `a.transaccion_origen::text`, consumo | STRING decimal canónica positiva uint64 |
+
+Ambos valores deben ser iguales. Sólo `transaccion_origen` se encuadra en la
+posición 16. Se rechazan cero, signos, ceros iniciales, JSON number, NULL,
+propiedades ausentes y valores superiores a `18446744073709551615`. Nunca se
+pasan por float64 o JavaScript Number. Por ejemplo, `"9007199254740993"` y
+`"18446744073709551615"` deben conservarse literalmente. El verificador mixto
+y CLI son propiedad de dirección y deben admitir v4 antes de producirla.
 
 `consumo_huella_sha256` conserva su preimagen. El recibo de siete propiedades
 conserva nombres, valores y recuperación. AD193 no añade propiedades al recibo
