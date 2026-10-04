@@ -83,8 +83,30 @@ El vencimiento se comprueba después de los bloqueos y antes del retorno.
 Esta ampliación sigue en preparación. No ejecuta una captura ni una lectura
 histórica por sí sola. Las seis guardas de instalación conservan sus `NULL` y
 siguen abortando antes del DDL. El contrato AUT41 se ha leído en `f2d6f5010` y
-el material Go en `0fa5bea482`; faltan la unión causal, el ensayo nominal y las
-revisiones del SQL final. No se ha instalado ni ejecutado este comprobador.
+el material Go en `0fa5bea482`. El campo de emisión de la decisión es
+`emitida_en`, junto a `valida_hasta`.
+
+La revisión detectó una dependencia adicional de misma transacción: PostgreSQL
+abre una subtransacción al entrar en un bloque `EXCEPTION`, aunque no se produzca
+un error. Las filas insertadas conservan el `xmin` hijo y no el del identificador
+principal que devuelve `pg_current_xact_id()`. La captura POST173 y CT175 de E
+`e3c0a69d4` todavía rodean el consumo con esos bloques. AD178 aísla ahora la captura
+del parseo antes de escribir; no relaja la comprobación del `xmin`.
+La corrección de esa fachada no resuelve los envoltorios del núcleo ni CT175.
+Los propietarios deben corregirlos en el corte causal y revisar cualquier
+llamador con `SAVEPOINT` antes del ensayo completo.
+
+Fuentes: [subtransacciones de PostgreSQL 18](https://www.postgresql.org/docs/18/subxacts.html),
+[ejecutor PL/pgSQL](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/pl/plpgsql/src/pl_exec.c#L1667),
+[inserción heap](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/access/heap/heapam.c#L1956)
+y [identificador principal](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/utils/adt/xid8funcs.c#L306).
+La conclusión sobre el recorrido es una inferencia de esas fuentes y de los
+bloques SQL inspeccionados; no se ha ejecutado una consulta nominal.
+
+Faltan la unión causal corregida, el ensayo completo
+CT175 → AD178 → núcleo → AUT41 → comprobador y las revisiones del SQL final.
+No se ha instalado ni ejecutado este comprobador. Insertar filas directamente
+para una prueba no sustituye ese recorrido.
 
 ## Delta y cuarentena de instalación
 

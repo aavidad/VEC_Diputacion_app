@@ -148,7 +148,11 @@ BEGIN
  OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 2 AND 524288 THEN
   RAISE EXCEPTION 'AD178: recuperación nominal denegada' USING ERRCODE='42501';
  END IF;
- c:=convert_from(p_capacidad,'UTF8')::jsonb;d:=convert_from(p_decision,'UTF8')::jsonb;
+ BEGIN
+  c:=convert_from(p_capacidad,'UTF8')::jsonb;d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'AD178: material de recuperación inválido' USING ERRCODE='22023';
+ END;
  IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
  OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_contratacion_temporal.firmas_r5.recuperar.v2'
  OR c->>'operacion' IS DISTINCT FROM 'contratacion_temporal.documento.firmas_r5_v2.recuperar'
@@ -169,8 +173,6 @@ BEGIN
   RAISE EXCEPTION 'AD178: recuperación exige autorización nueva' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
-EXCEPTION WHEN data_exception THEN
- RAISE EXCEPTION 'AD178: material de recuperación inválido' USING ERRCODE='22023';
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_recuperacion_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_contratacion_temporal_propietario;
@@ -295,9 +297,9 @@ BEGIN
  OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  OR jsonb_typeof(d->'principal_id') IS DISTINCT FROM 'string' OR d->>'principal_id'=''
  OR jsonb_typeof(d->'perfil_activo_ref') IS DISTINCT FROM 'string' OR d->>'perfil_activo_ref'=''
- OR jsonb_typeof(d->'valida_desde') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(d->'emitida_en') IS DISTINCT FROM 'string'
  OR jsonb_typeof(d->'valida_hasta') IS DISTINCT FROM 'string'
- OR (d->>'valida_desde')::timestamptz>ahora OR (d->>'valida_hasta')::timestamptz<=ahora THEN
+ OR (d->>'emitida_en')::timestamptz>ahora OR (d->>'valida_hasta')::timestamptz<=ahora THEN
   RAISE EXCEPTION 'AD178: PARO clave=capacidad actual=no_acreditada esperado=recuperacion_R5_48_vigente' USING ERRCODE='42501';
  END IF;
  IF (d->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
