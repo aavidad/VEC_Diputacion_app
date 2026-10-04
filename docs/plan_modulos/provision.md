@@ -52,7 +52,7 @@ sin reutilizar esos estados históricos de PR ni atribuirles instalación.
 | Organización/RPT M | Puestos, requisitos, estructura, ocupación, reserva y cobertura con su historia. | Oferta/versiones y actos por puertos. No reconstruir RPT ni declarar vacante por ausencia de un dato. |
 | RUM A | Méritos, evidencias, acreditación y discrepancias. | Instantánea autorizada al corte, conservando estados y procedencia. La puntuación de Provisión no se escribe como mérito universal. |
 | Baremador común (A en el reparto vigente) | Aritmética y familias de reglas compartidas. | Servicio común y versión de motor; cualquier familia nueva se acuerda con su responsable. Las reglas del procedimiento permanecen en Provisión. El reparto histórico con G no reasigna su mantenimiento actual. |
-| Núcleo D y administración común | Contexto nominal, perfiles fijos, concesiones, auditoría y composición. | Permiso por acción/recurso/ámbito/finalidad/campos, vigente y revocable. Sin PDP, login ni auditoría paralelos. |
+| Núcleo y administración comunes (identidad K y auditoría L) | Contexto nominal, perfiles fijos, concesiones, auditoría y composición. | Permiso por acción/recurso/ámbito/finalidad/campos, vigente y revocable. Sin PDP, login ni auditoría paralelos. |
 | Documentos, firma, registro y publicación | Custodia, documento firmado, asiento y evidencia de publicación o entrega. | Referencias y recibos verificables por puertos propios. Borrador, huella y autenticación no acreditan firma ni publicación. |
 
 Reutilizar `FuentePersonalProceso`, `FuenteRPTProceso`, `FuenteInstantaneasCiclo`,
@@ -83,10 +83,10 @@ sus dependencias; los ensayos de conformidad pueden avanzar con datos sintético
 | --- | --- | --- | --- | ---: |
 | PV01 | Elegir y transcribir la versión pública del primer concurso, oferta y rectificaciones (P1–P3). | RRHH elige proceso; las fuentes públicas ya permiten preparación. | RRHH abre la ficha de bases exactas y ve qué reglas están transcritas o pendientes, sin botón de aprobación ficticio. | 6–10 |
 | PV02 | Contrastar fechas, seis familias y desempates en el ensayo existente (P4, P6, P8). | PV01; responsable del baremador común valida extensiones del motor. | Comparador reproducible con casos sintéticos de las bases; explica cualquier diferencia y conserva la configuración revisada. | 8–16 |
-| PV03 | Conectar instantáneas autorizadas de Personal/RPT/RUM (P3, P4, P13). | Puertos nominales de B, M y A disponibles. | Detalle de fuentes al corte, con versión y motivos pendientes; sin fuentes inventadas ni uso del permiso de otro módulo. | 12–20 |
-| PV04 | Consumir perfiles fijos y auditoría común en el recorrido de lectura (P14). | D aporta acciones nominales y auditoría; contexto/relación coherentes. | Persona/RRHH acceden sólo a su ámbito; se registra lectura permitida, denegada y fallida. Soporte tiene correlación sin datos privados. | 12–20 |
+| PV03 | Consumir perfiles fijos y auditoría común en el recorrido de lectura (P14). | K/L aportan acciones nominales y auditoría; contexto/relación coherentes. | Persona/RRHH acceden sólo a su ámbito; se registra lectura permitida, denegada y fallida. Soporte tiene correlación sin datos privados. | 12–20 |
+| PV04 | Conectar instantáneas autorizadas de Personal/RPT/RUM (P3, P4, P13). | PV03; puertos nominales de B, M y A disponibles. | Detalle de fuentes al corte, con versión y motivos pendientes; sin fuentes inventadas ni uso del permiso de otro módulo. | 12–20 |
 | PV05 | Montar catálogo y detalle institucional exactos (P1–P4). | PV01, PV03–PV04; fuente de convocatoria publicada. | Lista paginada y ficha con requisitos, puesto, bases, fechas y discrepancias; denegación/revocación y dependencia caída visibles. | 16–24 |
-| PV06 | Preparar y revisar convocatoria versionada (P2, P3, P16). | PV01–PV04; repositorio y acciones propias de D. | RRHH guarda y recupera una preparación; otro perfil revisa. Versiones previas consultables; aprobación/publicación separadas. | 20–32 |
+| PV06 | Preparar y revisar convocatoria versionada (P2, P3, P16). | PV01–PV04; repositorio y acciones propias del núcleo común. | RRHH guarda y recupera una preparación; otro perfil revisa. Versiones previas consultables; aprobación/publicación separadas. | 20–32 |
 | PV07 | Solicitud multipuesto registrada y recuperable (P5, P16). | PV05–PV06; registro y firma de solicitud si las bases la exigen. | Persona ordena preferencias, confirma, obtiene recibo y lo recupera tras reinicio; repetición exacta sin duplicado. | 24–40 |
 | PV08 | Admisión, causas y subsanación (P4, P7). | PV07; perfiles de tramitación y decisión confirmados. | RRHH consulta pendientes y emite actuación motivada; participante consulta y aporta lo requerido por el canal autorizado. | 16–28 |
 | PV09 | Valoración institucional con desglose (P6). | PV02, PV03 y PV08; fuentes acreditadas. | Comisión/RRHH consulta puntos por puesto y procedencia; provisional versionado con recibo. Un dato ausente no obtiene total oficial. | 16–28 |
@@ -133,7 +133,7 @@ buscar consumidores; este plan no autoriza una segunda implementación.
 ## Persistencia, permisos y prueba de cada corte
 
 El contrato de [persistencia pendiente](../../deploy/postgresql/provision/README.md)
-menciona `provision000001` ya reservada. D debe comprobar titular, alcance,
+menciona `provision000001` ya reservada. El custodio SQL debe comprobar titular, alcance,
 preimagen y cola H6/núcleo vigente antes de retomarla. Cualquier número nuevo
 se reserva fuera de Git en `RESERVAS_MIGRACIONES.md` antes de crear SQL; no se
 reutiliza una reserva ajena. En este encargo no se crea ni ejecuta SQL.
@@ -191,7 +191,7 @@ la fecha del recorrido dependiente; no están incluidos dos veces aquí.
 | Aportación externa | Supuesto de planificación | Efecto si falta |
 | --- | --- | --- |
 | RRHH/Secretaría | 3–7 jornadas de dedicación repartidas: elegir proceso y versión, validar transcripción, perfiles y actos, circuito y prueba manual. Las bases públicas ya se estudian sin esa espera. | Se continúa conformidad y preparación sintética; se pospone el efecto concreto sin inventar decisión, órgano o delegación. |
-| Sistemas/D y responsables de las fuentes | 4–8 jornadas repartidas si ya existen entornos y conectores: acceso nominal, fuentes autorizadas, custodia, ensayo/instalación y activación. | No se monta la capacidad dependiente; fallo cerrado. Un conector o modelo de fuente nuevo requiere otra estimación. |
+| Sistemas/K/L y responsables de las fuentes | 4–8 jornadas repartidas si ya existen entornos y conectores: acceso nominal, fuentes autorizadas, custodia, ensayo/instalación y activación. | No se monta la capacidad dependiente; fallo cerrado. Un conector o modelo de fuente nuevo requiere otra estimación. |
 
 Estas dedicaciones pueden solaparse con desarrollo. No se suman automáticamente
 al plazo técnico y no cuantifican la espera para obtener una respuesta o acceso.
@@ -208,7 +208,7 @@ coeficientes, requisitos o plazos que ya figuran en las bases públicas.
 Primero PV01 y PV02: elegir el antecedente público, conservar sus versiones y
 contrastar el motor actual, en especial el corte exclusivo y los desempates.
 En paralelo se comprueban contratos y disponibilidades de PV03–PV04 con B,
-M, A y D. No comenzar otra persistencia antes de conocer esas dependencias.
+M, A y K/L. No comenzar otra persistencia antes de conocer esas dependencias.
 
 Fuentes de continuidad:
 [estudio del Baremador](../estudio_requisitos/integracion_baremador_concursos_provision.md),
