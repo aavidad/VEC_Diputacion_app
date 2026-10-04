@@ -43,12 +43,12 @@ func run(args []string, out, log io.Writer) int {
 		_ = json.NewEncoder(out).Encode(map[string]string{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida"})
 		return 1
 	}
-	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad") {
+	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion") {
 		return fallo()
 	}
 	incompatible := false
 	fs.Visit(func(f *flag.Flag) {
-		if *modo == "verificar-continuidad" && (f.Name == "cadena" || f.Name == "kms-master" || f.Name == "tsa-secret" || f.Name == "salida") ||
+		if (*modo == "verificar-continuidad" || *modo == "verificar-exportacion") && (f.Name == "kms-master" || f.Name == "tsa-secret" || f.Name == "salida" || *modo == "verificar-continuidad" && f.Name == "cadena") ||
 			*modo != "verificar-continuidad" && (f.Name == "ancla" || f.Name == "max-recibos") {
 			incompatible = true
 		}
@@ -78,6 +78,13 @@ func run(args []string, out, log io.Writer) int {
 		defer cancelar()
 		_ = emisor.Cerrar(c)
 	}()
+	if *modo == "verificar-exportacion" {
+		resultado := runExportacion(ctx, cfg, opcionesExportacion{*entrada, *cadena, *publica, *pin}, out)
+		if resultado == 0 {
+			codigo = domain.ResultadoTecnicoCorrecto
+		}
+		return resultado
+	}
 	if *modo == "verificar-continuidad" {
 		resultado := runContinuidad(ctx, cfg, opcionesContinuidad{*ancla, *entrada, *publica, *pin, *maxRecibos}, out)
 		if resultado == 0 {

@@ -1,8 +1,8 @@
 package ports
 
 import (
- "context"
- "vec-diputacion-granada/internal/vec/domain"
+	"context"
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 // FuenteCapturaExportacionAuditoria está ligada por composición a una operación
@@ -11,22 +11,22 @@ import (
 // devuelve datos tras COMMIT confirmado. Un archivo local no implementa este
 // contrato ni concede permisos; aún no hay adaptador runtime de esta capacidad.
 type FuenteCapturaExportacionAuditoria interface {
- CapturarAuditoriaParaExportacion(context.Context) (CapturaParaExportacionAuditoria,error)
+	CapturarAuditoriaParaExportacion(context.Context) (CapturaParaExportacionAuditoria, error)
 }
 
 type CapturaParaExportacionAuditoria struct {
- Captura domain.CapturaExportacionAuditoria
- Cobertura domain.CoberturaCheckpoint
- Documento []byte
+	Captura   domain.CapturaExportacionAuditoria
+	Cobertura domain.CoberturaCheckpoint
+	Documento []byte
 }
 
 type FirmadorExportacionAuditoriaDesarrollo interface {
- FirmarExportacionAuditoria(context.Context, domain.ReciboExportacionAuditoriaDesarrollo) (domain.ReciboExportacionAuditoriaDesarrollo,error)
- PinExportacionAuditoria() string
+	FirmarExportacionAuditoria(context.Context, domain.ReciboExportacionAuditoriaDesarrollo) (domain.ReciboExportacionAuditoriaDesarrollo, error)
+	PinExportacionAuditoria() string
 }
 type SelladorExportacionAuditoriaDesarrollo interface {
- SellarExportacionAuditoria(context.Context, domain.ManifiestoExportacionAuditoriaDesarrollo) (domain.ReciboTSACheckpoint,error)
+	SellarExportacionAuditoria(context.Context, domain.ManifiestoExportacionAuditoriaDesarrollo) (domain.ReciboTSACheckpoint, error)
 }
 type VerificadorExportacionAuditoriaDesarrollo interface {
- VerificarExportacionAuditoria(context.Context, domain.ReciboExportacionAuditoriaDesarrollo) error
+	VerificarExportacionAuditoria(context.Context, domain.ReciboExportacionAuditoriaDesarrollo) error
 }
