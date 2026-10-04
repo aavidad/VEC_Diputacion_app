@@ -534,10 +534,11 @@ export function crearCoordinadorModulosPortal({
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
         // Abrir un destino diferido no exige haberlo visitado antes. Esto
         // sólo ofrece navegación propia; su lectura se autoriza al entrar.
-        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"].map((clave) => [clave,
-          catalogo.some((modulo) => modulo.clave === clave)
-            && [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave)),
-        ])),
+        // Sólo se ofrecen los destinos que el catálogo del despliegue incluye;
+        // un módulo oculto por configuración no aparece ni desactivado.
+        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"]
+          .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
+          .map((clave) => [clave, [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave))])),
       })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
