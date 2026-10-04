@@ -12,26 +12,31 @@ const diferida = () => { let resolver; let rechazar; const promesa = new Promise
 
 function raizFalsa() {
   const eventos = new Map(); const paneles = new Map(); const focos = [];
-  const doc = { activeElement: undefined };
+  const cuerpo = { id: "body" }; const doc = { activeElement: cuerpo };
+  let aviso;
   let html = "";
   const patron = /(<section class="panel" data-tramites-panel="(cronos|dietas)"[^>]*>)([\s\S]*?)<\/section>/g;
   function elemento(panel, id) {
     const etiqueta = panel.innerHTML.match(new RegExp(`<[^>]+id="${id}"[^>]*>`))?.[0];
     if (!etiqueta) return undefined;
-    return { id, panel, value: etiqueta.match(/value="([^"]*)"/)?.[1] ?? "", focus() { doc.activeElement = this; focos.push(id); } };
+    const disabled = /\sdisabled(?:\s|>)/.test(etiqueta);
+    return { id, panel, disabled, value: etiqueta.match(/value="([^"]*)"/)?.[1] ?? "", getAttribute: (nombre) => etiqueta.match(new RegExp(`${nombre}="([^"]*)"`))?.[1], focus() { if (!disabled) { doc.activeElement = this; focos.push(id); } } };
   }
   const raiz = {
     eventos, focos, ownerDocument: doc,
-    get innerHTML() { return html.replace(patron, (_todo, inicio, bloque) => `${inicio}${paneles.get(bloque).innerHTML}</section>`); },
+    get innerHTML() { return html.replace(patron, (_todo, inicio, bloque) => `${inicio}${paneles.get(bloque).innerHTML}</section>`).replace(/(<p id="tramites-autenticacion-estado"[^>]*>)[\s\S]*?<\/p>/, (_todo, inicio) => `${aviso?.hidden ? inicio : inicio.replace(" hidden", "")}${aviso?.textContent ?? ""}</p>`); },
     set innerHTML(valor) {
       html = valor; paneles.clear();
+      aviso = { id: "tramites-autenticacion-estado", hidden: true, textContent: "", focus() { if (!this.hidden) { doc.activeElement = this; focos.push(this.id); } } };
       for (const [, , bloque, contenido] of html.matchAll(patron)) {
-        const panel = { innerHTML: contenido, contains: (el) => el?.panel === panel, querySelector: (sel) => elemento(panel, sel.slice(1)), setAttribute() {} };
+        let actual = contenido;
+        const panel = { get innerHTML() { return actual; }, set innerHTML(nuevo) { if (doc.activeElement?.panel === panel) doc.activeElement = cuerpo; actual = nuevo; }, contains: (el) => el?.panel === panel, querySelector: (sel) => elemento(panel, sel.slice(1)), setAttribute() {} };
         paneles.set(bloque, panel);
       }
     },
-    querySelector(sel) { const bloque = sel.match(/^\[data-tramites-panel="(cronos|dietas)"\]$/)?.[1]; return bloque ? paneles.get(bloque) : [...paneles.values()].map((panel) => panel.querySelector(sel)).find(Boolean); },
-    replaceChildren() { html = ""; paneles.clear(); },
+    contains(el) { return el === aviso || [...paneles.values()].some((panel) => panel.contains(el)); },
+    querySelector(sel) { if (sel === "#tramites-autenticacion-estado") return aviso; const bloque = sel.match(/^\[data-tramites-panel="(cronos|dietas)"\]$/)?.[1]; return bloque ? paneles.get(bloque) : [...paneles.values()].map((panel) => panel.querySelector(sel)).find(Boolean); },
+    replaceChildren() { html = ""; paneles.clear(); aviso = undefined; doc.activeElement = cuerpo; },
     addEventListener(tipo, fn) { eventos.set(tipo, fn); },
     removeEventListener(tipo) { eventos.delete(tipo); },
   };
@@ -189,7 +194,7 @@ test("autenticación requerida purga los dos paneles y descarta la otra respuest
     pendientes[origen].rechazar({ codigo: "autenticacion_requerida" }); await tick();
     assert.doesNotMatch(raiz.innerHTML, /Permiso 1|COM-1|operacion:1/);
     assert.equal(señales.every((signal) => signal.aborted), true);
-    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 2);
+    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 1);
     const antes = llamadas;
     raiz.click("cronos", "consultar"); raiz.click("dietas", "consultar"); raiz.anio("2025");
     assert.equal(llamadas, antes); vista.desmontar();
@@ -204,7 +209,7 @@ test("autenticación requerida purga los dos paneles y descarta la otra respuest
     assert.equal(señales.every((signal) => signal.aborted), true);
     pendientes[origen === "cronos" ? "dietas" : "cronos"].resolver({ anio: 2027, solicitudes: [solicitud(999)], items: [comision(999)] });
     await tick(); assert.doesNotMatch(raiz.innerHTML, /Permiso 999|COM-999|operacion:999/);
-    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 2);
+    assert.equal((raiz.innerHTML.match(/Identifícate de nuevo/g) ?? []).length, 1);
   }
 });
 
@@ -216,6 +221,32 @@ test("denegar permiso de un módulo conserva los datos y las lecturas del otro",
   } });
   await tick(); assert.match(raiz.innerHTML, /Permiso 1/); assert.match(raiz.innerHTML, /No tienes acceso/);
   raiz.anio("2025"); await tick(); assert.equal(llamadas, 2); assert.match(raiz.innerHTML, /Permiso 1/);
+  vista.desmontar();
+});
+
+test("Dietas sin autenticación lleva el foco del año deshabilitado al aviso y anuncia una sola vez", async () => {
+  const raiz = raizFalsa(); const dietas = diferida(); const cronos = diferida(); const anuncios = [];
+  const vista = montarVistaTramitesPropios({ raiz, ahora, anunciar: (...args) => anuncios.push(args), fuente: {
+    consultarCronos: () => cronos.promesa, consultarDietas: () => dietas.promesa,
+  } });
+  raiz.querySelector("#tramites-cronos-anio").focus();
+  dietas.rechazar({ codigo: "autenticacion_requerida", message: "dato reservado" }); await tick();
+  const anio = raiz.querySelector("#tramites-cronos-anio");
+  assert.equal(anio.disabled, true); anio.focus();
+  assert.equal(raiz.ownerDocument.activeElement.id, "tramites-autenticacion-estado");
+  assert.match(raiz.innerHTML, /id="tramites-autenticacion-estado" tabindex="-1">Identifícate de nuevo/);
+  assert.deepEqual(anuncios, [["Identifícate de nuevo para consultar tus trámites.", "error"]]);
+  cronos.rechazar({ codigo: "autenticacion_requerida" }); await tick();
+  assert.equal(anuncios.length, 1); assert.doesNotMatch(raiz.innerHTML, /dato reservado/);
+  vista.desmontar();
+});
+
+test("la purga de autenticación conserva el foco fuera de la vista", async () => {
+  const raiz = raizFalsa(); const dietas = diferida(); const exterior = { id: "menu-portal" };
+  const vista = montarVistaTramitesPropios({ raiz, ahora, fuente: { disponibles: { cronos: false }, consultarDietas: () => dietas.promesa } });
+  raiz.ownerDocument.activeElement = exterior;
+  dietas.rechazar({ codigo: "autenticacion_requerida" }); await tick();
+  assert.equal(raiz.ownerDocument.activeElement, exterior);
   vista.desmontar();
 });
 

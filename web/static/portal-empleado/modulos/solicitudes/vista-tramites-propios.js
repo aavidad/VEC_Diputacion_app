@@ -94,13 +94,14 @@ function contenidoPanel(bloque, panel, t, loc) {
       : situacion === "disponible" ? t(`${bloque}_consulta_lista`)
         : t(sinAutenticacion ? "autenticacion_requerida" : panel.codigo === "relacion_ambigua" ? "relacion_ambigua" : `${bloque}_${situacion}`);
   const listado = situacion === "disponible" ? (bloque === "cronos" ? tablaCronos(panel, t, loc) : tablaDietas(panel, t, loc)) : "";
-  return `${cabecera}<div class="cuerpo-panel">${filtro}<p id="tramites-${bloque}-estado" role="status" aria-live="polite">${escapar(mensaje)}</p>${listado}${paginacion(bloque, panel, t, loc)}<div class="acciones-fila">${enlace(bloque, t)}</div></div>`;
+  const aviso = sinAutenticacion ? "" : `<p id="tramites-${bloque}-estado" role="status" aria-live="polite">${escapar(mensaje)}</p>`;
+  return `${cabecera}<div class="cuerpo-panel">${filtro}${aviso}${listado}${paginacion(bloque, panel, t, loc)}<div class="acciones-fila">${enlace(bloque, t)}</div></div>`;
 }
 
 /** Los paneles sólo presentan las proyecciones propias de sus autoridades. */
 export function renderizarVistaTramitesPropios(estado = {}, { textos = TEXTOS, t = tDe(textos), localizacion = textos.localizacion } = {}) {
   const paneles = BLOQUES.filter((bloque) => estado[bloque]?.visible);
-  return `<section class="columna-cuadro" data-tramites-propios><h2>${escapar(t("titulo"))}</h2>${paneles.length ? paneles.map((bloque) => `<section class="panel" data-tramites-panel="${bloque}" aria-labelledby="tramites-${bloque}-titulo" aria-busy="${estado[bloque].situacion === "cargando"}">${contenidoPanel(bloque, estado[bloque], t, localizacion)}</section>`).join("") : `<p role="status">${escapar(t("sin_fuentes"))}</p>`}</section>`;
+  return `<section class="columna-cuadro" data-tramites-propios><h2>${escapar(t("titulo"))}</h2><p id="tramites-autenticacion-estado" tabindex="-1" hidden></p>${paneles.length ? paneles.map((bloque) => `<section class="panel" data-tramites-panel="${bloque}" aria-labelledby="tramites-${bloque}-titulo" aria-busy="${estado[bloque].situacion === "cargando"}">${contenidoPanel(bloque, estado[bloque], t, localizacion)}</section>`).join("") : `<p role="status">${escapar(t("sin_fuentes"))}</p>`}</section>`;
 }
 
 function validarRespuesta(bloque, datos, anio) {
@@ -151,12 +152,22 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
   }
   function requerirAutenticacion() {
     autenticacionRequerida = true;
+    const focoEnVista = raiz.contains?.(raiz.ownerDocument?.activeElement);
     for (const bloque of BLOQUES) {
       const panel = estado[bloque];
       purgar(panel);
       Object.assign(panel, { situacion: "denegado", codigo: "autenticacion_requerida" });
       pintar(bloque);
     }
+    const mensaje = t("autenticacion_requerida");
+    const aviso = raiz.querySelector("#tramites-autenticacion-estado");
+    if (aviso) {
+      aviso.textContent = mensaje;
+      aviso.hidden = false;
+      const foco = raiz.ownerDocument?.activeElement;
+      if (focoEnVista && (!raiz.contains?.(foco) || foco?.disabled || foco?.getAttribute?.("aria-disabled") === "true")) aviso.focus?.();
+    }
+    anunciar(mensaje, "error");
   }
   async function consultar(bloque, opciones = {}) {
     if (!activa || autenticacionRequerida) return;
