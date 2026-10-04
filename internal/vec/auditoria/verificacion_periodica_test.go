@@ -91,7 +91,7 @@ func TestAD186DetallePGCanonicoYCoordenadasPrevias(t *testing.T) {
 	b.Secuencia = 2
 	b.AnteriorSHA256 = strings.Repeat("a", 64)
 	b.Resultado, b.MotivoRef = "permitido", "captura_registrada"
-	raw := `{"captura_ref": "captura_` + strings.Repeat("3", 32) + `", "previa_secuencia": 1, "perfil_tecnico_ref": "vec_auditoria_periodica_sellador", "previa_cabeza_sha256": "` + strings.Repeat("a", 64) + `", "configuracion_sha256": "` + strings.Repeat("b", 64) + `"}`
+	raw := `{"captura_ref": "captura_` + strings.Repeat("3", 32) + `", "previa_secuencia": 1, "perfil_tecnico_ref": "vec_auditoria_periodica_sellador", "configuracion_sha256": "` + strings.Repeat("b", 64) + `", "previa_cabeza_sha256": "` + strings.Repeat("a", 64) + `"}`
 	if !detallePeriodicaValido([]byte(raw), b) {
 		t.Fatal("detalle PG orden longitud/léxico rechazado")
 	}
