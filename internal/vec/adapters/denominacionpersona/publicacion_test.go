@@ -49,6 +49,7 @@ func ordenPublicacionPrueba(t *testing.T) ports.OrdenDenominacionPersona {
 	t.Helper()
 	protector, _ := escenario(t)
 	a := accesoPrueba(t)
+	a.Recurso.ModuloID, a.Recurso.Tipo, a.Recurso.Referencia = "vec", "persona_denominacion", personaUno
 	a.Recurso.Ambitos = map[string]string{"unidad_ref": "unidad:prueba"}
 	return ports.OrdenDenominacionPersona{Preparacion: preparar(t, protector, personaUno, 0), Acceso: a}
 }
@@ -148,5 +149,33 @@ func TestPublicacionNoAtribuyeIdentidadSinEvidencia(t *testing.T) {
 	_, err := p.PublicarDenominacionPersona(context.Background(), orden)
 	if !errors.Is(err, ErrNoDisponible) || registro.llamadas != 0 || intentos.llamadas != 0 {
 		t.Fatal("actor_inventado")
+	}
+}
+
+func TestPublicacionNoDesviaElRecursoNominalDeAuditoria(t *testing.T) {
+	for _, campo := range []string{"persona", "recurso", "modulo", "tipo", "finalidad"} {
+		t.Run(campo, func(t *testing.T) {
+			orden := ordenPublicacionPrueba(t)
+			switch campo {
+			case "persona":
+				orden.Acceso.PersonaRef = personaDos
+			case "recurso":
+				orden.Acceso.Recurso.Referencia = personaDos
+			case "modulo":
+				orden.Acceso.Recurso.ModuloID = "otro_modulo"
+			case "tipo":
+				orden.Acceso.Recurso.Tipo = "otro_tipo"
+			case "finalidad":
+				orden.Acceso.FinalidadRef = "otra_finalidad"
+			}
+			registro := &registroPublicacionPrueba{}
+			intentos := &intentosPublicacionPrueba{}
+			p, _ := NuevoPublicador(registro, intentos, configPublicacionPrueba())
+			_, err := p.PublicarDenominacionPersona(context.Background(), orden)
+			d, fallo := intentos.ultima.Datos()
+			if !errors.Is(err, ErrNoDisponible) || fallo != nil || registro.llamadas != 0 || intentos.llamadas != 1 || d.Datos.ModuloID != "vec" || d.Datos.RecursoRef != personaUno || d.Datos.FinalidadRef != "presentacion_persona" || d.Datos.Resultado != domain.ResultadoIntentoAuditoriaError {
+				t.Fatal("recurso_nominal_divergente")
+			}
+		})
 	}
 }

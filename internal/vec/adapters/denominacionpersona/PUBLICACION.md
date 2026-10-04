@@ -9,6 +9,9 @@ auditoría permitida y outbox en su propia transacción.
 Un recibo confirmado debe corresponder a la Persona, procedencia, versión y
 huella del sobre preparado. Si la autoridad deniega, falla o devuelve un recibo
 incompatible, el publicador registra el resultado mediante la auditoría común.
+El módulo y la finalidad son los del contrato de denominación; el recurso es la
+Persona validada de la preparación. Una entrada que pretenda cambiarlos no llega
+a la autoridad y se registra como error sobre esa Persona.
 Conserva el contexto registrado V2 y su vínculo original; no atribuye una persona
 cuando esa evidencia es inválida. Sólo una denegación explícita de la autoridad
 se clasifica como denegada. Un COMMIT desconocido se registra como error

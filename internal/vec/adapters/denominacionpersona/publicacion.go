@@ -35,22 +35,22 @@ func NuevoPublicador(registro ports.RegistroDenominacionPersona, intentos ports.
 	return &Publicador{registro: registro, intentos: intentos, configuracion: configuracion}, nil
 }
 
-func (p *Publicador) datosIntento(a ports.AccesoDenominacionPersona, resultado domain.ResultadoIntentoAuditoria) domain.DatosIntentoAuditoria {
+func (p *Publicador) datosIntento(a ports.AccesoDenominacionPersona, persona string, resultado domain.ResultadoIntentoAuditoria) domain.DatosIntentoAuditoria {
 	motivo := p.configuracion.MotivoError
 	if resultado == domain.ResultadoIntentoAuditoriaDenegado {
 		motivo = p.configuracion.MotivoDenegado
 	}
-	return domain.DatosIntentoAuditoria{Accion: ports.AccionPublicarDenominacionPersona, ModuloID: a.Recurso.ModuloID, RecursoRef: a.Recurso.Referencia, FinalidadRef: a.FinalidadRef, Resultado: resultado, Motivo: motivo, Proceso: p.configuracion.Proceso, Canal: p.configuracion.Canal, CorrelacionRef: a.Auditoria.CorrelationRef}
+	return domain.DatosIntentoAuditoria{Accion: ports.AccionPublicarDenominacionPersona, ModuloID: "vec", RecursoRef: persona, FinalidadRef: "presentacion_persona", Resultado: resultado, Motivo: motivo, Proceso: p.configuracion.Proceso, Canal: p.configuracion.Canal, CorrelacionRef: a.Auditoria.CorrelationRef}
 }
 
-func (p *Publicador) evidenciaValida(a ports.AccesoDenominacionPersona) bool {
+func (p *Publicador) evidenciaValida(a ports.AccesoDenominacionPersona, persona string) bool {
 	h, err := a.Contexto.HuellaSHA256VinculadaV2()
 	v, errV := a.Vinculo.Datos()
-	return err == nil && errV == nil && a.ResultadoContexto.Validar() == nil && a.ResultadoContexto.HuellaSHA256 == h && a.Vinculo.ValidarPara(a.ResultadoContexto) == nil && string(v.Superficie) == p.configuracion.Canal && p.datosIntento(a, domain.ResultadoIntentoAuditoriaError).Validar() == nil && p.datosIntento(a, domain.ResultadoIntentoAuditoriaDenegado).Validar() == nil
+	return domain.ReferenciaPersonaDenominacionValida(persona) && len(persona) <= 128 && err == nil && errV == nil && a.ResultadoContexto.Validar() == nil && a.ResultadoContexto.HuellaSHA256 == h && a.Vinculo.ValidarPara(a.ResultadoContexto) == nil && string(v.Superficie) == p.configuracion.Canal && p.datosIntento(a, persona, domain.ResultadoIntentoAuditoriaError).Validar() == nil && p.datosIntento(a, persona, domain.ResultadoIntentoAuditoriaDenegado).Validar() == nil
 }
 
 func (p *Publicador) PublicarDenominacionPersona(ctx context.Context, orden ports.OrdenDenominacionPersona) (ports.ReciboDenominacionPersona, error) {
-	if p == nil || ctx == nil || !p.evidenciaValida(orden.Acceso) {
+	if p == nil || ctx == nil || !p.evidenciaValida(orden.Acceso, orden.Preparacion.PersonaRef) {
 		return ports.ReciboDenominacionPersona{}, ErrNoDisponible
 	}
 	// La autoridad recibe copias; el intento conserva evidencia y recurso originales.
@@ -58,7 +58,13 @@ func (p *Publicador) PublicarDenominacionPersona(ctx context.Context, orden port
 	orden.Acceso = clonarAcceso(original)
 	orden.Preparacion.Sobre = clonarSobre(orden.Preparacion.Sobre)
 	persona, procedencia, version, huella := orden.Preparacion.PersonaRef, orden.Preparacion.ProcedenciaRef, orden.Preparacion.Sobre.Version, orden.Preparacion.SobreSHA256
-	recibo, err := p.registro.PublicarDenominacionPersona(ctx, orden)
+	var recibo ports.ReciboDenominacionPersona
+	err := ErrNoDisponible
+	// El recurso nominal es Persona, igual que en CA32. Una entrada divergente
+	// no llega al registro, pero su error observado conserva ese recurso propio.
+	if orden.Acceso.PersonaRef == persona && orden.Acceso.Recurso.Referencia == persona && orden.Acceso.Recurso.ModuloID == "vec" && orden.Acceso.Recurso.Tipo == "persona_denominacion" && orden.Acceso.FinalidadRef == "presentacion_persona" {
+		recibo, err = p.registro.PublicarDenominacionPersona(ctx, orden)
+	}
 	if err == nil && recibo.PersonaRef == persona && recibo.ProcedenciaRef == procedencia && recibo.Version == version && recibo.Version > 0 && recibo.SobreSHA256 == huella && len(huella) == 64 && recibo.AuditoriaRef != "" {
 		return recibo, nil
 	}
@@ -70,7 +76,7 @@ func (p *Publicador) PublicarDenominacionPersona(ctx context.Context, orden port
 	if fallo != nil {
 		return ports.ReciboDenominacionPersona{}, ErrNoDisponible
 	}
-	intento, fallo := ports.NuevaOrdenIntentoAuditoria(ref, original.ResultadoContexto, original.Vinculo, p.datosIntento(original, resultado))
+	intento, fallo := ports.NuevaOrdenIntentoAuditoria(ref, original.ResultadoContexto, original.Vinculo, p.datosIntento(original, persona, resultado))
 	if fallo != nil {
 		return ports.ReciboDenominacionPersona{}, ErrNoDisponible
 	}
