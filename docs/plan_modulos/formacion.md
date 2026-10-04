@@ -7,7 +7,7 @@ La prioridad y las responsabilidades de Personal y de las autoridades comunes si
 vigentes. Este encargo entrega documentación, sin código, SQL ni instalación.
 
 Base inspeccionada: `origin/main@77a4e7470cac5e0a02adce40dbdedd1c7a15b6db`.
-Requisitos: [ficha de Formación candidata](https://github.com/aavidad/VEC_Diputacion_app/blob/a97a57906/docs/estudio_requisitos/ficha_formacion_2026-10-04.md),
+Requisitos: [ficha de Formación candidata](https://github.com/aavidad/VEC_Diputacion_app/blob/1f9b76833/docs/estudio_requisitos/ficha_formacion_2026-10-04.md),
 en PR separada. Este plan desarrolla exclusivamente H02–H04 y H15–H17 del
 [plan de Carrera, Formación y RUM](carrera_formacion.md); no sustituye su seguimiento,
 reasigna Personal B ni vuelve a producir las piezas integradas.
@@ -27,7 +27,9 @@ Formación no reconoce ni inscribe el grado.
 Una página pública, una publicación oficial y una API admitida son capacidades
 diferentes. Los enlaces públicos no acreditan lectura de solicitudes personales,
 recepción de asistencia ni certificados. Se conserva la duda
-[119](../../dudas.md) y se propone la 138 para concretar la interfaz técnica.
+[119](../../dudas.md) y la 138 registrada en la candidata documental de Provisión
+`2cb8eb3e4` para concretar la interfaz técnica. Esa PR incorpora el único delta
+compartido de dudas; esta rama no copia ni modifica sus preguntas.
 Las dudas 39/120/121 conservan sus ámbitos; las reglas ya publicadas no requieren
 otra pregunta. Antes de implantar se comprobarán las versiones y modificaciones
 aplicables y la dirección oficial de cada convocatoria.
