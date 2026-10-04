@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"time"
 
@@ -17,10 +16,10 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	fallo := ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	huellaActor, err := actor.HuellaSHA256VinculadaV2()
 	if err != nil {
-		return "", "", errors.Join(fallo, err)
+		return "", "", falloValidacionRedactado(err)
 	}
 	if errEvidencia := evidencia.ValidarPara(actor); errEvidencia != nil {
-		return "", "", errors.Join(fallo, errEvidencia)
+		return "", "", falloValidacionRedactado(errEvidencia)
 	}
 	if huellaActor != evidencia.ResultadoContexto.HuellaSHA256 ||
 		m.ValidarEstructura() != nil || m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion ||
@@ -29,7 +28,7 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	}
 	huella, err := p.recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return "", "", errors.Join(fallo, err)
+		return "", "", falloValidacionRedactado(err)
 	}
 	r := m.ResumenCapacidad()
 	motivoSHA := sha256.Sum256(m.MotivoCanonico())
@@ -70,13 +69,13 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	}
 	var vinculo map[string]json.RawMessage
 	if errVinculo := json.Unmarshal(d["vinculo_autenticacion_actor"], &vinculo); errVinculo != nil {
-		return "", "", errors.Join(fallo, errVinculo)
+		return "", "", falloValidacionRedactado(errVinculo)
 	}
 	if textoCampo(vinculo, "superficie") != "administracion_privilegiada" || !boolCampo(vinculo, "cuenta_privilegiada") {
 		return "", "", fallo
 	}
 	if errVinculo := vinculoDecisionOriginal(d["vinculo_autenticacion_actor"], evidencia.Vinculo); errVinculo != nil {
-		return "", "", errors.Join(fallo, errVinculo)
+		return "", "", falloValidacionRedactado(errVinculo)
 	}
 	var campos, obligaciones []string
 	if json.Unmarshal(d["campos_permitidos"], &campos) != nil || json.Unmarshal(d["obligaciones"], &obligaciones) != nil {
