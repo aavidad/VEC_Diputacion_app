@@ -1,66 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   validarSolicitudRecuperacionFirmasV2, validarRespuestaRecuperacionFirmasV2,
 } from "./contrato-recuperacion-firmas-v2.js";
 import {
   crearClienteRecuperacionFirmasV2, RUTA_RECUPERACION_FIRMAS_V2,
 } from "./cliente-http-recuperacion-firmas-v2.js";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js";
 
 const h = (x) => x.repeat(64);
-const solicitud = Object.freeze({
-  expediente_ref: "expediente:prueba", version_expediente: 7,
-  documento: "informe_definitivo", paso_orden: 1,
-  clave_idempotencia: "clave-prueba-firma-000001", catalogo_huella: h("a"),
-  via: "certificado_vec",
-});
+const solicitud = Object.freeze(JSON.parse(readFileSync(
+  new URL("./testdata/recuperacion-firmas-v2-selector-go.json", import.meta.url), "utf8",
+)));
 
 function respuesta() {
-  const canon = JSON.stringify({
-    esquema: "vec.competencia-firmante.historica.v1",
-    prueba_sintetica: "a".repeat(510),
-  });
-  const sha = createHash("sha256").update(canon, "utf8").digest("hex");
-  const doc = { documento_ref: "original:prueba", version: 1, huella_sha256: h("b") };
-  return {
-    esquema: "vec.contratacion-temporal.recuperacion-firmas-r5.v2",
-    expediente_ref: solicitud.expediente_ref, version_expediente: 7,
-    documento: solicitud.documento, historia_revision: 1, historia_sha256: h("c"),
-    recuperacion: "recuperada", campos_no_disponibles: [], firma_eficaz: false,
-    firmas: [{
-      firma_ref: "firma:prueba", recibo_ref: "recibo:prueba",
-      registrada_en: "2026-10-03T10:00:00Z", secuencia: 1,
-      paso_orden: 1, paso_ref: "paso:primero", version_expediente: 7,
-      via: "certificado_vec", resultado: "firmado", catalogo_ref: "catalogo:prueba",
-      catalogo_huella: h("a"), original: doc,
-      documento_custodiado: {
-        expediente_ref: "expediente-documental:prueba", documento_ref: "custodia:prueba",
-        version: 1, huella_sha256: h("d"),
-      },
-      revision_pdf: {
-        orden_firma: 1, firma_anterior_ref: "", recibo_anterior_ref: "",
-        entrada_documento: doc, entrada_longitud: 100,
-        byte_range: [0, 120, 180, 20], revision_sha256: h("d"),
-        contenido_firmado_sha256: h("e"), revision_longitud: 200,
-        evidencia_firmas_sha256: h("f"),
-      },
-    }],
-    recuperaciones: [{
-      firma_ref: "firma:prueba", material_root_sha256: h("1"),
-      canon_nominal: canon, canon_nominal_sha256: sha,
-      canon_nominal_ref: "evidencia:competencia-firmante-ct:" + h("2"),
-    }],
-  };
+  return JSON.parse(readFileSync(
+    new URL("./testdata/recuperacion-firmas-v2-go.json", import.meta.url), "utf8",
+  )).data;
 }
 
 test("consulta histórica conserva huellas y descarta el canon bruto", async () => {
   const r = await validarRespuestaRecuperacionFirmasV2(respuesta(), solicitud, webcrypto);
   assert.equal(r.firmas.length, 1);
-  assert.equal(r.firmas[0].material_root_sha256, h("1"));
+  assert.equal(r.firmas[0].material_root_sha256, respuesta().recuperaciones[0].material_root_sha256);
   assert.equal(r.firmas[0].canon_nominal_sha256,
     createHash("sha256").update(respuesta().recuperaciones[0].canon_nominal).digest("hex"));
-  assert.equal(JSON.stringify(r).includes("prueba_sintetica"), false);
+  assert.equal(Object.hasOwn(r.firmas[0], "canon_nominal"), false);
+  assert.equal(JSON.stringify(r).includes("certificado_der_sha256"), false);
+});
+
+test("acepta la proyección JSON emitida por el handler Go de #590", async () => {
+  const contenido = readFileSync(new URL("./testdata/recuperacion-firmas-v2-go.json", import.meta.url), "utf8");
+  const envoltorio = JSON.parse(contenido);
+  assert.deepEqual(Object.keys(envoltorio), ["data"]);
+  const resultado = await validarRespuestaRecuperacionFirmasV2(envoltorio.data, solicitud, webcrypto);
+  assert.equal(resultado.firmas[0].recibo_ref, envoltorio.data.firmas[0].recibo_ref);
+  assert.equal(Object.hasOwn(resultado.firmas[0], "canon_nominal"), false);
 });
 
 test("rechaza cruces, JSON inesperado y canon alterado", async () => {
@@ -73,12 +50,22 @@ test("rechaza cruces, JSON inesperado y canon alterado", async () => {
     (x) => { x.ajeno = true; },
     (x) => { x.firmas[0].revision_pdf = null; },
     (x) => { x.campos_no_disponibles = ["canon_nominal"]; },
+    (x) => { x.firmas[0].documento_custodiado.expediente_ref = "ref:" + h("0"); },
+    (x) => { x.firmas[0].revision_pdf.byte_range = [0, 0, 0, 0]; },
+    (x) => { x.firmas[0].revision_pdf.revision_sha256 = h("0"); },
+    (x) => { x.firmas[0].revision_pdf.entrada_documento.huella_sha256 = h("0"); },
   ];
   for (const alterar of mutaciones) {
     const x = respuesta();
     alterar(x);
     await assert.rejects(validarRespuestaRecuperacionFirmasV2(x, solicitud, webcrypto), TypeError);
   }
+  const ajeno = JSON.parse(readFileSync(new URL(
+    "./testdata/recuperacion-firmas-v2-canon-ajeno-go.json", import.meta.url), "utf8"));
+  const cruzado = respuesta();
+  cruzado.recuperaciones[0].canon_nominal = ajeno.canon_nominal;
+  cruzado.recuperaciones[0].canon_nominal_sha256 = ajeno.canon_nominal_sha256;
+  await assert.rejects(validarRespuestaRecuperacionFirmasV2(cruzado, solicitud, webcrypto), TypeError);
   assert.throws(() => validarSolicitudRecuperacionFirmasV2({ ...solicitud, actor_ref: "per_cliente" }), TypeError);
 });
 
@@ -94,7 +81,7 @@ test("cliente usa ruta real, una petición y descarta respuesta tardía cancelad
   assert.equal(llamada.metodo, "POST");
   assert.equal(llamada.efecto, false);
   assert.equal(Object.keys(llamada.entrada).length, 7);
-  assert.equal(r.firmas[0].recibo_ref, "recibo:prueba");
+  assert.equal(r.firmas[0].recibo_ref, respuesta().firmas[0].recibo_ref);
 
   const controlador = new AbortController();
   const tardio = crearClienteRecuperacionFirmasV2({
@@ -107,4 +94,18 @@ test("cliente usa ruta real, una petición y descarta respuesta tardía cancelad
   });
   await assert.rejects(tardio.recuperar(solicitud, { signal: controlador.signal }),
     (error) => error.name === "AbortError");
+});
+
+test("los dos catálogos JSON tienen el mismo contrato y no hay idioma en el traductor", () => {
+  const catalogos = ["es", "en"].map((idioma) => JSON.parse(readFileSync(
+    new URL("../../../textos/" + idioma + "/contratacion-temporal-recuperacion-firmas-v2.json",
+      import.meta.url), "utf8",
+  )).general);
+  assert.deepEqual(Object.keys(catalogos[0]).sort(), Object.keys(catalogos[1]).sort());
+  for (const catalogo of catalogos) {
+    const t = crearTraductorRecuperacionFirmasV2(catalogo);
+    assert.ok(t("titulo"));
+    assert.ok(t("firma", { numero: 2 }).includes("2"));
+  }
+  assert.throws(() => crearTraductorRecuperacionFirmasV2({}), TypeError);
 });

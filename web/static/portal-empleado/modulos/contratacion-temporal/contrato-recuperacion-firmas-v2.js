@@ -40,6 +40,11 @@ function fecha(x) {
   return coincide(x, FECHA) && Number.isFinite(Date.parse(x));
 }
 
+async function sha256Hex(bytes, cryptoImpl) {
+  const suma = await cryptoImpl.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(suma)].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+
 function documento(x) {
   return exacto(x, ["documento_ref", "version", "huella_sha256"])
     && coincide(x.documento_ref, REF) && entero(x.version, 1) && coincide(x.huella_sha256, SHA);
@@ -90,11 +95,21 @@ function validarFirma(x, solicitud) {
       || !r.byte_range.every((v) => entero(v))
       || !coincide(r.revision_sha256, SHA) || !coincide(r.contenido_firmado_sha256, SHA)
       || !entero(r.revision_longitud, 1) || !coincide(r.evidencia_firmas_sha256, SHA)
-      || x.documento_custodiado === null) throw new TypeError("revision_historica_invalida");
+      || x.documento_custodiado === null
+      || r.entrada_longitud >= r.revision_longitud || r.byte_range[0] !== 0
+      || r.byte_range[1] < r.entrada_longitud || r.byte_range[2] <= r.byte_range[1]
+      || r.byte_range[2] >= r.revision_longitud
+      || r.byte_range[3] !== r.revision_longitud - r.byte_range[2]
+      || r.revision_sha256 !== x.documento_custodiado.huella_sha256
+      || r.orden_firma === 1 && (
+        r.entrada_documento.documento_ref !== x.original.documento_ref
+        || r.entrada_documento.version !== x.original.version
+        || r.entrada_documento.huella_sha256 !== x.original.huella_sha256
+      )) throw new TypeError("revision_historica_invalida");
   }
 }
 
-async function validarCanon(rec, cryptoImpl) {
+async function validarCanon(rec, firma, solicitud, cryptoImpl) {
   if (!exacto(rec, CAMPOS_RECUPERACION) || !coincide(rec.firma_ref, REF)
     || !coincide(rec.material_root_sha256, SHA) || !coincide(rec.canon_nominal_sha256, SHA)
     || !coincide(rec.canon_nominal_ref, REF_CANON) || typeof rec.canon_nominal !== "string"
@@ -112,9 +127,40 @@ async function validarCanon(rec, cryptoImpl) {
   if (!registro(canon) || canon.esquema !== "vec.competencia-firmante.historica.v1") {
     throw new TypeError("canon_historico_invalido");
   }
-  const suma = await cryptoImpl.subtle.digest("SHA-256", bytes);
-  const sha = [...new Uint8Array(suma)].map((n) => n.toString(16).padStart(2, "0")).join("");
-  if (sha !== rec.canon_nominal_sha256) throw new TypeError("canon_historico_invalido");
+  if (await sha256Hex(bytes, cryptoImpl) !== rec.canon_nominal_sha256) {
+    throw new TypeError("canon_historico_invalido");
+  }
+  const recurso = canon.recurso;
+  const original = recurso?.original;
+  const firmado = recurso?.firmado;
+  const revision = firma.revision_pdf;
+  if (!registro(recurso) || !registro(original) || !registro(firmado)
+    || recurso.expediente_ref !== solicitud.expediente_ref
+    || recurso.documento_ref !== firma.original.documento_ref
+    || original.referencia !== firma.original.documento_ref
+    || original.version !== firma.original.version
+    || original.huella_sha256 !== firma.original.huella_sha256
+    || firmado.referencia !== firma.documento_custodiado.documento_ref
+    || firmado.version !== firma.documento_custodiado.version
+    || firmado.huella_sha256 !== firma.documento_custodiado.huella_sha256
+    || recurso.numero_firmas !== revision.orden_firma
+    || canon.paso_ref !== firma.paso_ref || canon.paso_orden !== firma.paso_orden
+    || canon.circuito?.referencia !== firma.catalogo_ref
+    || canon.circuito?.huella_sha256 !== firma.catalogo_huella
+    || canon.fecha_historica !== firma.registrada_en
+    || revision.orden_firma === 1 && recurso.entrada_revision !== null
+    || revision.orden_firma === 2 && (
+      recurso.entrada_revision?.referencia !== revision.entrada_documento.documento_ref
+      || recurso.entrada_revision?.version !== revision.entrada_documento.version
+      || recurso.entrada_revision?.huella_sha256 !== revision.entrada_documento.huella_sha256
+    )) throw new TypeError("canon_historico_cruzado");
+  // Documentos usa una referencia opaca derivada; no es la referencia CT.
+  const documental = "vec.contratacion_temporal.custodia_firmado.v1\u0000expediente\u0000"
+    + recurso.organizacion_ref + "\u0000" + solicitud.expediente_ref + "\u0000";
+  const refDocumental = "ref:" + await sha256Hex(new TextEncoder().encode(documental), cryptoImpl);
+  if (firma.documento_custodiado.expediente_ref !== refDocumental) {
+    throw new TypeError("custodia_historica_cruzada");
+  }
 }
 
 // La respuesta de 48 campos es una capacidad del servidor. El canal proyecta
@@ -141,7 +187,7 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
     if (!firma || firma.revision_pdf === null || recuperadas.has(rec.firma_ref)) {
       throw new TypeError("recuperacion_historica_cruzada");
     }
-    await validarCanon(rec, cryptoImpl);
+    await validarCanon(rec, firma, q, cryptoImpl);
     recuperadas.set(rec.firma_ref, rec);
   }
   if ([...firmas.values()].filter((firma) => firma.revision_pdf !== null).length !== recuperadas.size) {

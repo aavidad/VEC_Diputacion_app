@@ -1,6 +1,6 @@
 import {
   validarSolicitudRecuperacionFirmasV2, validarRespuestaRecuperacionFirmasV2,
-} from "./contrato-recuperacion-firmas-v2.js";
+} from "./contrato-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
 
 export const RUTA_RECUPERACION_FIRMAS_V2 =
   "/api/vec/contratacion-temporal/firmas-documento/recuperaciones-v2";
