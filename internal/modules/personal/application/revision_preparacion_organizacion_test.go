@@ -75,6 +75,10 @@ func TestRevisionPreparacionFalloSituado(t *testing.T) {
 			p.Decisiones = decisionRevisionPrueba()
 			p.Decisiones[0].FilaFuenteRef = "fila:ausente"
 		}},
+		{"decisión de otra clase sobre una fila existente", "decision_invalida", "decisiones", 1, func(p *PaquetePreparacionOrganizacion) {
+			p.Decisiones = decisionRevisionPrueba()
+			p.Decisiones[0].Clase = "plaza"
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -85,6 +89,24 @@ func TestRevisionPreparacionFalloSituado(t *testing.T) {
 				t.Fatalf("informe: %+v", r)
 			}
 		})
+	}
+}
+
+func TestRevisionPreparacionAdmiteClasesDeHechosConLaMismaFila(t *testing.T) {
+	p := paqueteRevisionPrueba()
+	h := p.Hechos[0]
+	h.Clase = "puesto_tipo"
+	h.HechoRef = "33333333-3333-4333-8333-333333333333"
+	h.CatalogoEntradaClave, h.TipoUnidad = "", ""
+	h.CodigoFuente, h.ClasificacionRef = "P-1", "categoria:sintetica"
+	p.Hechos = append(p.Hechos, h)
+	p.Decisiones = []domain.DecisionConciliacionOrganizacion{
+		{FilaFuenteRef: "fila:1", Clase: "unidad", Resultado: "pendiente", Motivo: "Unidad por comprobar", EvidenciaRef: "evidencia:sintetica"},
+		{FilaFuenteRef: "fila:1", Clase: "puesto_tipo", Resultado: "pendiente", Motivo: "Puesto por comprobar", EvidenciaRef: "evidencia:sintetica"},
+		{FilaFuenteRef: "fila:1", Clase: "clasificacion", Resultado: "pendiente", Motivo: "Clasificación por comprobar", EvidenciaRef: "evidencia:sintetica"},
+	}
+	if r := RevisarPreparacionOrganizacion(p); !r.Valido {
+		t.Fatalf("decisiones de la fila sellada: %+v", r)
 	}
 }
 
