@@ -2,8 +2,10 @@ package controlrestauracionpg
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	ordenpg "vec-diputacion-granada/internal/modules/administracion/adapters/ordenescopias/postgres"
 	dominio "vec-diputacion-granada/internal/modules/administracion/domain/ordenescopias"
@@ -51,6 +53,33 @@ func TestResultadoDesdeSQLExigeFormaCerrada(t *testing.T) {
 		if _, err := resultadoDesdeSQL(bruto); !errorsIguales(err, ErrRegistro) {
 			t.Fatalf("respuesta invalida aceptada: %s; err=%v", bruto, err)
 		}
+	}
+}
+
+func TestResultadoDesdeSQLNormalizaDesplazamientoCeroYRechazaNull(t *testing.T) {
+	valido := `{"orden":"orden:uno","plan_sha256":"` + strings.Repeat("a", 64) + `","persona_ref":"per_uno","version":1,"recibo":"recibo:uno","registrada_en":"2026-10-01T12:00:00.000000Z","replay":false}`
+	conZ, err := resultadoDesdeSQL([]byte(valido))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conDesplazamiento, err := resultadoDesdeSQL([]byte(strings.Replace(valido, ".000000Z", ".000000+00:00", 1)))
+	if err != nil || !conZ.RegistradaEn.Equal(conDesplazamiento.RegistradaEn) || conDesplazamiento.RegistradaEn.Location() != time.UTC || conZ != conDesplazamiento {
+		t.Fatal("equivalent UTC receipt rejected or not normalized", err)
+	}
+	if _, err := resultadoDesdeSQL([]byte(strings.Replace(valido, ".000000Z", ".000000+02:00", 1))); err != ErrRegistro {
+		t.Fatal("nonzero offset accepted", err)
+	}
+	var campos map[string]json.RawMessage
+	if json.Unmarshal([]byte(valido), &campos) != nil {
+		t.Fatal("fixture")
+	}
+	for clave, valor := range campos {
+		campos[clave] = json.RawMessage("null")
+		bruto, _ := json.Marshal(campos)
+		if _, err := resultadoDesdeSQL(bruto); err != ErrRegistro {
+			t.Fatal("null accepted", clave, err)
+		}
+		campos[clave] = valor
 	}
 }
 

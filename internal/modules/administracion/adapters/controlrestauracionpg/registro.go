@@ -195,7 +195,7 @@ func formaResultadoCerrada(bruto []byte) bool {
 		}
 		esperadas[clave] = true
 		var valor json.RawMessage
-		if decodificador.Decode(&valor) != nil {
+		if decodificador.Decode(&valor) != nil || bytes.Equal(bytes.TrimSpace(valor), []byte("null")) {
 			return false
 		}
 	}
@@ -212,9 +212,11 @@ func formaResultadoCerrada(bruto []byte) bool {
 }
 
 func resultadoValido(resultado Resultado) bool {
+	_, desplazamiento := resultado.RegistradaEn.Zone()
 	if !referencia(resultado.Orden) || !referencia(resultado.PersonaRef) || !referencia(resultado.Recibo) ||
 		!huella(resultado.PlanSHA256) || resultado.Version == 0 || resultado.RegistradaEn.IsZero() ||
-		resultado.RegistradaEn.Location() != time.UTC || resultado.RegistradaEn.Nanosecond()%1000 != 0 {
+		desplazamiento != 0 || resultado.RegistradaEn.Year() < 1 || resultado.RegistradaEn.Year() > 9999 ||
+		resultado.RegistradaEn.Nanosecond()%1000 != 0 {
 		return false
 	}
 	return true
