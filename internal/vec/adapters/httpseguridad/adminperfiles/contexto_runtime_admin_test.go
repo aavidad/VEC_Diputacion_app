@@ -66,7 +66,7 @@ func TestContextoADMINNoRegistraSinVinculoDePeticionActual(t *testing.T) {
 				}
 			}
 			pool := &poolContextoFalso{}
-			r := &resolutorContexto{base: &PostgreSQL{pool: pool, reloj: relojPrueba{ahora: ahora}}, proceso: "vec_admin"}
+			r := &resolutorContexto{base: &PostgreSQL{pool: pool, reloj: relojPrueba{ahora: ahora}}, proceso: "vec_admin", login: "login_contexto"}
 			c, err := r.ResolverYRegistrarContextoActorV2(ctx, s)
 			if !errors.Is(err, ports.ErrResolutorRegistroContextoActorNoDisponible) || c.OperacionRef != "" || len(pool.opciones) != 0 {
 				t.Fatal("contexto ADMIN aceptó vínculo ausente, ajeno o vencido")

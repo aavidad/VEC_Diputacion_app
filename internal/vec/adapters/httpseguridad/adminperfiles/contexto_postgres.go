@@ -68,7 +68,8 @@ func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, rel
 
 func (r *resolutorContexto) ResolverYRegistrarContextoActorV2(ctx context.Context, solicitud ports.SolicitudResolucionRegistroContextoActorV2) (ports.ConfirmacionRegistroContextoActorV2, error) {
 	var vacia ports.ConfirmacionRegistroContextoActorV2
-	if r == nil || r.base == nil || nulo(r.base.reloj) || !procesoContextoADMIN.MatchString(r.proceso) ||
+	if r == nil || r.base == nil || nulo(r.base.pool) || nulo(r.base.reloj) ||
+		r.login == "" || !procesoContextoADMIN.MatchString(r.proceso) ||
 		ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
 		!solicitud.Proyecciones.Vacio() ||
 		(solicitud.Contexto.Cuenta.Metodo != domain.AuthMethodCertificate && solicitud.Contexto.Cuenta.Metodo != domain.AuthMethodDNIe) ||

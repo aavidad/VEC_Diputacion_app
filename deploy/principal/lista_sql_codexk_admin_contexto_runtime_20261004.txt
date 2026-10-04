@@ -1,0 +1,2 @@
+# Dependencias previas: IS16 y AD192 finales instaladas por el escritor único.
+deploy/postgresql/contexto_actor_v1/migraciones/000036_contexto_admin_nominal.up.sql
