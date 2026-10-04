@@ -34,7 +34,7 @@ func usuariosMetadatosPrueba(t *testing.T, base configuracionPerfilesPrivada) co
 		t.Fatal(err)
 	}
 	motivo := domain.ReferenciaEntradaCatalogo{CatalogoID: base.CatalogoMotivosID, CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "lectura"}
-	c := configuracionUsuariosMetadatosPrivada{Modo: modoUsuariosMetadatos, PoolLector: filepath.Join(dir, "lector.json"), PoolIntentos: filepath.Join(dir, "intentos.json"), PoolSelector: filepath.Join(dir, "selector.json"), ConfianzaJSON: b,
+	c := configuracionUsuariosMetadatosPrivada{Modo: modoUsuariosMetadatos, PoolLector: filepath.Join(dir, "lector.json"), PoolIntentos: filepath.Join(dir, "intentos.json"), PoolSelector: filepath.Join(dir, "selector.json"), PoolFronteraTecnica: filepath.Join(dir, "frontera_tecnica.json"), ConfianzaJSON: b,
 		OrganizacionRef: "org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", UnidadRef: "unidad_admin_sintetica", Proceso: "vec_admin", Canal: "administracion_privilegiada",
 		MotivosUsuarios: map[string]domain.ReferenciaEntradaCatalogo{administracion.AudienciaUsuariosListarV3: motivo, administracion.AudienciaUsuariosConsultarV3: motivo},
 		MotivoDenegado:  motivo, MotivoError: motivo, PlazoAuditoriaMS: 500, Destinos: map[string]destinoUsuariosPrivado{}}

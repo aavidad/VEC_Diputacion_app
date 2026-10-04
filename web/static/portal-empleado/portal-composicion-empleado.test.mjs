@@ -152,6 +152,25 @@ test("el acceso de Personal a correos usa sólo la ruta interna existente de pre
   assert.deepEqual(entradaFicha.fuentes, {});
 });
 
+test("los accesos propios de Mi ficha llevan el foco al contenido estable al cambiar de vista", () => {
+  let entrada; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(opciones) { entrada = opciones; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("sin consulta de catálogo"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { assert.fail("navegar no consulta datos"); } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {} });
+  for (const destino of ["cronos", "dietas"]) {
+    entrada.navegarModulo(destino);
+    assert.equal(location.hash, `#${destino}`);
+  }
+  entrada.navegarModulo("personal-registro");
+  assert.equal(location.hash, "#dietas", "no abre gestión desde estos accesos");
+  assert.deepEqual(focos, [{ preventScroll: true }, { preventScroll: true }]);
+});
+
 test("Personal limpia una vez también si un catálogo falla después de registrar temprano", async () => {
   let limpiarTemprano = 0;
   let resolverTardio;

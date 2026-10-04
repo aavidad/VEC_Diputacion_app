@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261004-personal-correos-acceso-v2";
+} from "./portal-composicion-empleado.js?v=20261004-b-tramites-caducidad-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
@@ -227,7 +227,7 @@ export function crearCoordinadorModulosPortal({
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
       import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-justificantes-v1"),
     ]);
     return { fuente, vista };
   },
@@ -532,7 +532,12 @@ export function crearCoordinadorModulosPortal({
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
       ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
-        destinosDisponibles: () => ({ dietas: vistaDisponible("dietas"), cronos: vistaDisponible("cronos") }),
+        // Abrir un destino diferido no exige haberlo visitado antes. Esto
+        // sólo ofrece navegación propia; su lectura se autoriza al entrar.
+        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"].map((clave) => [clave,
+          catalogo.some((modulo) => modulo.clave === clave)
+            && [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave)),
+        ])),
       })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
