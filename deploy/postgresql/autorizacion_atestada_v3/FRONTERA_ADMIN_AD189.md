@@ -14,11 +14,11 @@ La acción es `controlar_frontera_admin_v1`, módulo `administracion`, finalidad
 El recurso es `solicitud_admin:<32hex>`, los primeros 16 bytes de SHA256 sobre
 UTF8 `vec.admin.frontera.solicitud.v1\n` seguido de la correlación privada de la
 petición. No conserva certificado, cabeceras, ruta, consulta, cuerpo ni IP.
-El evento tiene referencia propia y los resultados/códigos forman un catálogo
+El evento tiene referencia propia; sólo registra denegación o error. Los resultados/códigos forman un catálogo
 cerrado de datos SQL. El acuse real contiene referencia, secuencia, huella,
 correlación e instante de la cadena común; prefijo `aud_v3_fat_`.
 
-El registrador confirma su transacción antes de permitir la respuesta. Un
+El registrador confirma su transacción antes de emitir el acuse y dejar continuar la respuesta de denegación o error. Un
 COMMIT incierto vuelve a presentar la misma orden bajo un plazo privado y
 conservando los valores del contexto, sin fabricar otro evento. Si no puede
 confirmar un acuse válido, la frontera responde indisponibilidad.

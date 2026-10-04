@@ -11,6 +11,7 @@ import (
 )
 
 var ErrFronteraAdminTecnicaNoDisponible = errors.New("vec.admin.frontera_tecnica.no_disponible")
+var ErrFronteraAdminTecnicaCommitIncierto = errors.New("vec.admin.frontera_tecnica.commit_incierto")
 
 // EventoFronteraAdminTecnica no transporta persona, perfil, sesión, certificado,
 // dirección, ruta ni contenido. El LOGIN pertenece al proceso PostgreSQL.
@@ -76,7 +77,7 @@ func (e EventoFronteraAdminTecnica) Validar() error {
 	if err != nil {
 		return errorFronteraAdminTecnica(err)
 	}
-	if e.TipoRegistro != "frontera_admin_tecnica" || !eventoFronteraTecnica.MatchString(e.EventoRef) || e.OperadorLogin == "" || len(e.OperadorLogin) > 63 || e.Accion != "controlar_frontera_admin_v1" || e.RecursoRef != recurso || (e.Resultado != "permitido" && e.Resultado != "denegado" && e.Resultado != "error") || !codigoFronteraTecnica.MatchString(e.CodigoRef) || !procesoFronteraTecnica.MatchString(e.Proceso) || e.Canal != "administracion_privilegiada" || e.FinalidadRef != "control_frontera_admin" {
+	if e.TipoRegistro != "frontera_admin_tecnica" || !eventoFronteraTecnica.MatchString(e.EventoRef) || e.OperadorLogin == "" || len(e.OperadorLogin) > 63 || e.Accion != "controlar_frontera_admin_v1" || e.RecursoRef != recurso || (e.Resultado != "denegado" && e.Resultado != "error") || !codigoFronteraTecnica.MatchString(e.CodigoRef) || !procesoFronteraTecnica.MatchString(e.Proceso) || e.Canal != "administracion_privilegiada" || e.FinalidadRef != "control_frontera_admin" {
 		return ErrFronteraAdminTecnicaNoDisponible
 	}
 	return nil
