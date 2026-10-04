@@ -85,13 +85,13 @@ func cotejarPreservacionAuditoriaV1(r RegistroMixtoV2, secuencia uint64) (Regist
 	if len(detalle) > 8192 || base64.StdEncoding.EncodeToString(detalle) != normalizado || !detallePreservacionValido(detalle, b) {
 		return e, "registro_invalido", "detalle_canonico_base64"
 	}
-	material := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.periodica.material.v1", TipoOperacionPreservacionAuditoria,
+	material := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.preservacion.material.v1", TipoOperacionPreservacionAuditoria,
 		b.EventoRef, b.OperadorLogin, b.Accion, b.ModuloID, b.RecursoRef, b.FinalidadRef, b.Resultado, b.MotivoRef,
 		b.Proceso, b.Canal, b.CorrelacionRef, string(detalle)))
 	if hex.EncodeToString(material[:]) != b.EventoMaterialSHA256 {
 		return e, "material_distinto", "evento_material_sha256"
 	}
-	huella := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.periodica.eslabon.v1", strconv.FormatUint(secuencia, 10),
+	huella := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.preservacion.eslabon.v1", strconv.FormatUint(secuencia, 10),
 		b.AnteriorSHA256, b.AuditoriaRef, b.EventoMaterialSHA256, b.RegistradaEn))
 	if hex.EncodeToString(huella[:]) != b.HuellaSHA256 {
 		return e, "huella_distinta", "huella_sha256"
