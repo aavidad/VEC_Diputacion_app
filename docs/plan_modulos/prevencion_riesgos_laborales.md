@@ -129,8 +129,10 @@ SQL en cidonia por este carril. Nuevos efectos posteriores revalidan su persiste
 ## Dependencias y paralelismo
 
 P00/P01 preceden a las bases nominales; P02 puede solaparse con acuerdos de DTO P03,
-cuya lectura espera permisos. Dos equipos reparten evaluación/vista (P04/P05) y
-medidas/evidencia/persistencia (P06–P08), después de fijar el contrato de evaluación.
+cuya lectura espera permisos. Dos equipos pueden separar archivos de evaluación/vista (P04/P05) y
+medidas/evidencia/persistencia (P06–P08), preparando DTO, documentos y pruebas
+mientras esperan. La entrega conserva la cadena P04→P05→P06→P07→P08;
+ese reparto no acredita un solape de todas sus horas.
 P09 reúne esas bases; instrucciones/documentos P10 pueden avanzar por archivos propios.
 P11 espera montaje/instalación. P12, P13/P14 y P15/P16 son carriles separables con
 fuentes admitidas; cada contrato/vista tiene un escritor. La organización sanitaria,
@@ -148,7 +150,7 @@ servicio sanitario antes de datos reales. La clínica no entra en búsqueda gene
 copias o índices de Persona/Personal/Cronos/Nóminas. Historia no fija retención ilimitada.
 
 P00–P11 suman **47–76 h**, **6–10 jornadas de un equipo** de ocho horas; con dos
-equipos **5–8 jornadas**. P12–P18 añaden **34–55 h**: conjunto **81–131 h**,
+equipos se conserva la cota de **6–10 jornadas** si predomina esa secuencia. P12–P18 añaden **34–55 h**: conjunto **81–131 h**,
 **11–17 jornadas de un equipo** o **9–14 jornadas con dos equipos**. Jornadas
 completas redondeadas, con integración/revisión y dependencias listas. Se reestima
 cada ampliación tras el acuerdo de fuente; espera externa y atención sanitaria no
