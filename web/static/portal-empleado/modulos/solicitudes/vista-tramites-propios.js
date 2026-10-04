@@ -46,7 +46,7 @@ function boton(bloque, accion, etiqueta, impedido = false) {
   return `<button type="button" class="boton-secundario" id="tramites-${bloque}-${accion}" data-tramites-bloque="${bloque}" data-tramites-accion="${accion}" aria-disabled="${impedido}">${escapar(etiqueta)}</button>`;
 }
 function tabla(bloque, columnas, filas, t) {
-  return `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${escapar(t(`${bloque}_tabla`))}" id="tramites-${bloque}-tabla"><table class="tabla-datos"><caption>${escapar(t(`${bloque}_tabla`))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filas}</tbody></table></div>`;
+  return `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${escapar(t(`${bloque}_tabla`))}" id="tramites-${bloque}-tabla"><table class="tabla-datos${bloque === "dietas" ? " tabla-datos--prioritaria" : ""}"><caption>${escapar(t(`${bloque}_tabla`))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filas}</tbody></table></div>`;
 }
 function tablaCronos(panel, t, loc) {
   const inicio = panel.pagina * TAMANO;
