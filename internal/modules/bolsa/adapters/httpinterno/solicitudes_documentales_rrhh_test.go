@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +20,89 @@ type consultorDocumentalesPrueba struct {
 	items    []ports.SolicitudDocumentalPendienteRRHH
 	err      error
 	llamadas int
+}
+
+type contextoEmisionDocumentalHTTPPrueba struct{}
+
+func (contextoEmisionDocumentalHTTPPrueba) ResolverContextoSituacionParticipacion(context.Context, dominiovec.ContextoActor, string, string) (ports.ContextoSituacionParticipacionResuelto, error) {
+	return ports.ContextoSituacionParticipacionResuelto{UnidadRef: "unidad:seleccion", AmbitoRef: "ambito:bolsa"}, nil
+}
+
+type repositorioEmisionDocumentalHTTPPrueba struct {
+	ports.RepositorioSituacionParticipacion
+	lecturas int
+}
+
+func (*repositorioEmisionDocumentalHTTPPrueba) ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
+func (r *repositorioEmisionDocumentalHTTPPrueba) ListarSolicitudesDocumentalesPendientes(context.Context, string, string, string, time.Time, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]ports.SolicitudDocumentalPendienteRRHH, error) {
+	r.lecturas++
+	return nil, nil
+}
+
+type emisorDocumentalesHTTPPrueba struct {
+	err      error
+	llamadas int
+}
+
+func (e *emisorDocumentalesHTTPPrueba) EmitirMaterialAutorizacionAtestadaV3(context.Context, dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	e.llamadas++
+	return dominiovec.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
+}
+
+func TestSolicitudesDocumentalesRRHHConservaDenegacionDelContratoEmisorV3(t *testing.T) {
+	for _, denegado := range []bool{false, true} {
+		ctx, err := vecports.ConCorrelacionIncidenciasPeticion(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actor, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(time.Now().UTC(), "per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", dominiovec.AuthMethodCertificate, dominiovec.AuthAssuranceHigh)
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := ports.SolicitudCambiarSituacionParticipacion{ResultadoContexto: actor, Vinculo: vinculo, BolsaRef: "bolsa:01", ParticipacionRef: "participacion:01", Destino: "disponible", Motivo: "consulta", ClaveIdempotencia: "consulta", Correlacion: correlacion,
+			MotivoAutorizacion: dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("b", 64), EntradaClave: "motivo_0123456789abcdef0123456789abcdef"}}
+		// Es el contrato del emisor común: error privado más marcador sólo
+		// cuando ya ha validado la denegación nominal. Un fallo técnico carece
+		// de ese marcador y no debe convertirse en autorización denegada.
+		e := &emisorDocumentalesHTTPPrueba{err: errors.New("emision material: fallo privado sintetico")}
+		esperado := http.StatusServiceUnavailable
+		resultado := dominiovec.ResultadoIntentoAuditoriaError
+		if denegado {
+			e.err = errors.Join(e.err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3)
+			esperado = http.StatusForbidden
+			resultado = dominiovec.ResultadoIntentoAuditoriaDenegado
+		}
+		repo := &repositorioEmisionDocumentalHTTPPrueba{}
+		servicio, err := application.NuevoServicioSituacionParticipacion(contextoEmisionDocumentalHTTPPrueba{}, e, repo, time.Now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := &registradorDocumentalesHTTPPrueba{t: t}
+		auditada, err := application.NuevaConsultaSolicitudesDocumentalesAuditada(servicio, r, "vec-bolsa-prueba")
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, err := NuevoHandlerSolicitudesDocumentalesRRHH(preparadorDocumentalesAuditadoHTTP{q: q}, auditada)
+		if err != nil {
+			t.Fatal(err)
+		}
+		peticion := httptest.NewRequest(http.MethodGet, RutaSolicitudesDocumentalesPendientesRRHH+"?bolsa_ref=bolsa%3A01&participacion_ref=participacion%3A01", nil).WithContext(ctx)
+		peticion.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticion)
+		ref, _ := correlacion.ValorCanonico()
+		if w.Code != esperado || e.llamadas != 1 || repo.lecturas != 0 || len(r.ordenes) != 1 || r.ordenes[0].Datos.Resultado != resultado ||
+			w.Header().Get("X-Audit-Ref") != "aud_documental_http_sintetica" || w.Header().Get("X-Correlation-Ref") != ref || strings.Contains(w.Body.String(), "privado") {
+			t.Fatalf("contrato emisor perdido: %d %s", w.Code, w.Body.String())
+		}
+	}
 }
 
 type preparadorDocumentalesAuditadoHTTP struct {
