@@ -252,10 +252,13 @@ func cargarTextos(ruta, idioma string) (*i18n.Catalog, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 	claves := []string{"denominacion.catalogo_no_disponible", "denominacion.uso_invalido", "denominacion.configuracion_no_disponible", "denominacion.material_no_disponible", "denominacion.nombre_no_disponible", "denominacion.salida_no_disponible", "denominacion.preparacion_divergente", "denominacion.preparada"}
+	mensajes := make(map[string]string, len(claves))
 	for _, k := range claves {
-		if c.Mensajes[k] == "" {
+		mensaje := c.Mensajes[strings.ReplaceAll(k, ".", "_")]
+		if mensaje == "" {
 			return nil, io.ErrUnexpectedEOF
 		}
+		mensajes[k] = mensaje
 	}
-	return i18n.New(idioma, map[string]map[string]string{idioma: c.Mensajes})
+	return i18n.New(idioma, map[string]map[string]string{idioma: mensajes})
 }
