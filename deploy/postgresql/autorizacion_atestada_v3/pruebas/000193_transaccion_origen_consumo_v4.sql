@@ -6,7 +6,7 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL statement_timeout='30s';
 DO $estructura$
-DECLARE tabla text;f oid;s text;
+DECLARE tabla text;f oid;s text;definicion text;
 BEGIN
  FOREACH tabla IN ARRAY ARRAY['consumo_decision_v3','auditoria_consumo_v3'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=to_regclass('vec_autorizacion_atestada_v3.'||tabla)
@@ -14,6 +14,17 @@ BEGIN
    AND NOT a.atthasdef AND NOT a.attisdropped)
   THEN RAISE EXCEPTION 'AD193: columna divergente %',tabla; END IF;
  END LOOP;
+ f:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ SELECT p.prosrc,pg_get_functiondef(p.oid) INTO STRICT s,definicion FROM pg_proc p WHERE p.oid=f;
+ IF encode(sha256(convert_to(s,'UTF8')),'hex') IS DISTINCT FROM 'bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b'
+ OR encode(sha256(convert_to(definicion,'UTF8')),'hex') IS DISTINCT FROM 'f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b'
+ OR strpos(s,'persona_denominacion_publicar')=0 OR strpos(s,'usuarios_admin_listar')=0
+ THEN RAISE EXCEPTION 'AD193: núcleo posterior o ramas AD184/185 divergentes'; END IF;
+ SELECT pg_get_constraintdef(c.oid,false) INTO STRICT definicion FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+ AND c.conname='auditoria_tipo_disjunto_v4' AND c.contype='c' AND c.convalidated;
+ IF strpos(definicion,'contexto_admin_pre_v2')=0
+ THEN RAISE EXCEPTION 'AD193: rama AD192 ausente del CHECK'; END IF;
  IF EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
   WHERE (tipo_registro='consumo_confirmado_v4' AND (version_consumo IS DISTINCT FROM 4 OR transaccion_origen IS NULL))
    OR (tipo_registro<>'consumo_confirmado_v4' AND transaccion_origen IS NOT NULL))

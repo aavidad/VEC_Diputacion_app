@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- AD193 prospectiva: preimágenes medidas en copia POST189; revisión/ensayo pendientes.
+-- AD193 prospectiva: preimágenes medidas en copia fría POST184/185/192; revisión/ensayo causal pendientes.
 -- Las huellas esperadas son literales; no se calculan para aprobar el destino.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -11,11 +11,11 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migr
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
 DECLARE nombre text;f oid;etiqueta text;actual text;
- nucleo_def text:='6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9'; -- medida en copia fría POST173, pg_get_functiondef
- nucleo_src text:='bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c'; -- medida en copia fría POST173, pg_proc.prosrc
- helper_def text:='1930a2da7f948cac8e44126c768c256b3d25c9b9e8f9ed39bc32ee4ee5d4c725'; -- medida en copia fría POST173, pg_get_functiondef
- helper_src text:='f0d1b453d4f594e14191750c6dcde2b6727aa71559cb9c344b0a1621185f7d6f'; -- medida en copia fría POST173, pg_proc.prosrc
- check_sha text:='6b92079faedcd2482b720b1d0714ba6a1b09dc359badae8f6d7c0dd3f3275caf'; -- medida POST189, pg_get_constraintdef(false)
+ nucleo_def text:='536ea653143147e0cfb2d3277948530acb8d4d1643e44f4786462fe5ad1379fe'; -- medida en copia fría POST192, pg_get_functiondef
+ nucleo_src text:='b7eb48be035e854928c9685c916f9139166a197e3cae731510b3597f0fe40a45'; -- medida en copia fría POST192, pg_proc.prosrc
+ helper_def text:='1930a2da7f948cac8e44126c768c256b3d25c9b9e8f9ed39bc32ee4ee5d4c725'; -- comprobador conservado desde POST173, pg_get_functiondef
+ helper_src text:='f0d1b453d4f594e14191750c6dcde2b6727aa71559cb9c344b0a1621185f7d6f'; -- comprobador conservado desde POST173, pg_proc.prosrc
+ check_sha text:='0f6d15ebdc61ba5ff67903bde824db878a6396fa593029e98498946e2d8d1331'; -- medida POST192, pg_get_constraintdef(false)
  esperado_def text;esperado_src text;
 BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
@@ -183,8 +183,8 @@ BEGIN
   THEN RAISE EXCEPTION 'AD193: PARO clave=bloque_nuevo_% esperado=1 actual=%',i,(length(revertida)-length(replace(revertida,nuevos[i],'')))/length(nuevos[i]) USING ERRCODE='55000'; END IF;
   revertida:=replace(revertida,nuevos[i],antiguos[i]);
  END LOOP;
- IF encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '9574d5ceaf97cc1612839684e7a642f702e1edf1e30e4cd15ef8e364a1fae2ba'
- OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9c0dc58188634ff010c211cf8641348d8d2655eee626e875732628f89795e2dd'
+ IF encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM 'f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b'
+ OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b'
  OR actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps

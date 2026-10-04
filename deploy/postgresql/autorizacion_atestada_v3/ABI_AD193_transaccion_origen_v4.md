@@ -1,14 +1,22 @@
 # ABI AD193: consumo confirmado v4
 
-Candidata desde `origin/main@296f78373`. Instalada y ensayada estructuralmente sólo en el clon privado; queda pendiente el recorrido causal nominal. Las cinco
-preimágenes esperadas están fijadas como literales medidos en una copia fría:
-núcleo/comprobador POST173, idénticos tras AD189, y CHECK POST189
-`6b92079faedcd2482b720b1d0714ba6a1b09dc359badae8f6d7c0dd3f3275caf`.
-La captura conserva secuencia y 6240 registros anteriores. AD193 no acepta el
-CHECK POST173. Dirección revisa el hash final antes del ensayo causal.
+Candidata desde `origin/main@296f78373`, reanclada sobre AD184, AD185 y AD192
+en ese orden. El candidato anterior se ensayó estructuralmente en un clon privado;
+esta revisión todavía requiere el ensayo de dirección y el recorrido causal nominal.
+La captura fría `POSTIMAGEN_FINAL_AD192_K.json` (SHA256
+`de59d6a47401bc8e0aba65c3ab2034467cf4ab1576123cdd415c8d4d583d3919`)
+conserva 6254 registros anteriores y no tiene AD193 instalada. Las preimágenes
+esperadas son núcleo POST192, comprobador conservado desde POST173 y CHECK POST192
+`0f6d15ebdc61ba5ff67903bde824db878a6396fa593029e98498946e2d8d1331`.
+El núcleo capturado tiene `prosrc` SHA256
+`b7eb48be035e854928c9685c916f9139166a197e3cae731510b3597f0fe40a45`
+y definición SHA256 `536ea653143147e0cfb2d3277948530acb8d4d1643e44f4786462fe5ad1379fe`.
+AD193 rechaza la preimagen antigua. Dirección revisa el hash final antes del
+ensayo causal.
 
-AD174/176/179/183/186/187/188/189 amplían el CHECK y añaden funciones propias;
-sus archivos no reconstruyen el núcleo ni el comprobador.
+AD174/176/179/183/186/187/188/189 amplían el CHECK y añaden funciones propias.
+AD184 y AD185 amplían el núcleo; AD192 añade otra familia al CHECK. AD193
+conserva esas ramas y no reconstruye el comprobador fuera de su delta previsto.
 
 ## Esquema y autoridad
 
@@ -124,7 +132,8 @@ funciones y rechaza bloques ausentes o repetidos. Las huellas se fijan como lite
 para aprobar el destino. Las postimágenes completas de definición y cuerpo
 del núcleo y comprobador también se comprueban como literales medidos.
 
-La prueba SQL incluida verifica columnas/ACL y un vector de 16 campos con XID
+La prueba SQL incluida verifica columnas/ACL, huella posterior del núcleo, ramas
+AD184/185/192 y un vector de 16 campos con XID
 superior al entero seguro de JSON. No fabrica filas favorables. Quedan pendientes el ensayo causal con productores VEC reales y la
 conformidad de K antes de LISTA.
 El ensayo causal de dirección debe demostrar con productores VEC reales:
@@ -147,7 +156,7 @@ o importaciones necesitan procedencia explícita; XID no identifica de forma
 global una transacción entre instalaciones. No reaplicar UP ni ejecutar DOWN
 sobre historia conservada.
 
-## Ensayo estructural del 04/10
+## Evidencia anterior y aceptación pendiente
 
 La copia privada PostgreSQL 18 restaurada desde POST173 recibió una sola vez
 AD174/176/179/183/186/187/188/189 y después AD193. Dos revisiones SQL/sensibles
@@ -157,7 +166,14 @@ y configuración de las dos funciones se conservaron. Los sellos históricos
 siguen NULL: no hubo backfill. La prueba de 16 encuadres y la serialización
 de valores superiores a 2^53 y del máximo uint64 quedaron verdes.
 
-Esta evidencia no acredita aún consumo fresco CT175/AUT41, SAVEPOINT o
+Ese ensayo corresponde al candidato anterior, previo a AD184/185/192; no acredita
+esta revisión ni instalación en la principal. La postimagen nueva permite calcular
+fuera de SQL las tres sustituciones reversibles del núcleo: `pg_proc.prosrc`
+`bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b`
+y `pg_get_functiondef` `f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b`.
+El comprobador mantiene sus huellas previas. Esta medida aún no acredita consumo
+fresco CT175/AUT41, SAVEPOINT o
 EXCEPTION dentro de ese recorrido, replay o rechazo entre transacciones con
 productores VEC reales. Falta además la conformidad de K antes de LISTA. La
-migración no se ha instalado en la principal; no se debe reaplicar en el clon.
+migración no se ha instalado en la principal; el ensayo nuevo debe ejecutarse
+sobre un clon restaurado de POST192.

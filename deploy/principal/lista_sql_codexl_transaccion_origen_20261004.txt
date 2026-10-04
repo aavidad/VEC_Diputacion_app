@@ -1,1 +1,3 @@
+# Aplicar sólo tras AD184, AD185 y AD192, sobre la postimagen fría medida.
+# AD193 reanclada: ensayo y revisión de este hash pendientes; no reaplicar el UP anterior.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000193_transaccion_origen_consumo_v4.up.sql
