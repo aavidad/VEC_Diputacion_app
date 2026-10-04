@@ -75,9 +75,18 @@ pendientes. El material HMAC del fixture de fuentes deriva SPKI
 `e7a8529fd7e7959640a03bcfe325d65214b3943980f6e9227b22d22dd95ab89e`;
 el gobierno requiere `9c11fc59ca30e845be2684b21a045d4882c77544e7d4d4d73f7f1ccdbbeb7f12`.
 Son hashes públicos de DER. El candidato D6 también fue rechazado. El preparador
-paró antes de escribir: hace falta el material original o el firmante privado
-existente ligado a esa raíz. Dirección tiene la pregunta11:31. No se rotó la raíz
-ni se creó una clave sustitutiva. La entrega queda en borrador hasta ese recorrido.
+paró antes de escribir. Dirección respondió a la pregunta11:31 el 04/10 a las
+11:34: el firmante principal9c11 vive sólo allí y no se copia a local. Autoriza
+un firmante DEV propio exclusivamente en el clon desechable, por el circuito de
+gobierno existente, con cambio documentado. No se ha ejecutado aún ese productor.
+La entrega queda en borrador hasta cerrar el recorrido positivo del clon.
+
+La API exige ahora `ArchivoSemillaRaiz` explícito y utiliza
+`NuevoFirmanteAtestacionV3DesdeArchivo`, cotejando su pública fijada. El material
+HMAC puede proceder de otro proveedor; nunca selecciona el firmante por defecto.
+La semilla se lee del archivo privado existente y el cierre invalida el firmante.
+No se copió ninguna clave de la principal. La prueba de fuente HMAC independiente
+y la negativa de archivo ausente pasan con race.
 
 El test PostgreSQL es opt-in mediante `VEC_GOBIERNO_USUARIOS_ENSAYO_CONFIG`:
 JSON0600 fuera de Git, con fase/rutas/DSN privados. Normalmente se omite. Preparar
