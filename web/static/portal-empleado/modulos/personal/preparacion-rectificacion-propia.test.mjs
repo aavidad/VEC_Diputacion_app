@@ -29,6 +29,36 @@ test("admite prosa multilínea sin inventar reglas de rectificabilidad ni límit
   p.preparar({ ...propuesta, motivo }); assert.equal(p.revisar(datos()).motivo, motivo);
 });
 
+test("valida propuesta según el dato sin convertirla en decisión de rectificabilidad", () => {
+  const d = datos(), p = crearPreparacionRectificacionPropia(d, d.historia.revisiones[0]);
+  const error = (campo, valor, codigo) => {
+    assert.throws(() => p.preparar({ ...propuesta, campo, propuesta: valor }),
+      (causa) => causa.codigo === "borrador_invalido" && causa.errores.propuesta === codigo);
+  };
+  error("periodo_desde", "2025-02-29", "fecha");
+  error("periodo_hasta", "2026-13-01", "fecha");
+  p.preparar({ ...propuesta, campo: "periodo_desde", propuesta: "2024-02-29" });
+  error("dias_reconocidos", "-1", "dias"); error("dias_reconocidos", "1.5", "dias");
+  error("dias_reconocidos", "9007199254740992", "dias");
+  p.preparar({ ...propuesta, propuesta: "0" });
+  error("estado", "firmado", "estado");
+  p.preparar({ ...propuesta, campo: "estado", propuesta: "comprobado" });
+  error("clase", "A".repeat(301), "clase"); error("clase", "clase\ninyectada", "clase");
+  p.preparar({ ...propuesta, campo: "clase", propuesta: "<dato fuente>" });
+  assert.equal(p.revisar(datos()).propuesta, "<dato fuente>");
+});
+
+test("un intento inválido retira el borrador anterior y señala solo los campos erróneos", () => {
+  const d = datos(), p = crearPreparacionRectificacionPropia(d, d.historia.revisiones[0]);
+  p.preparar(propuesta);
+  assert.throws(() => p.preparar({ campo: "estado", propuesta: "sin_estado", motivo: "", evidencia: "" }),
+    (causa) => causa.codigo === "borrador_invalido" &&
+      JSON.stringify(causa.errores) === JSON.stringify({ propuesta: "estado", motivo: "obligatorio", evidencia: "obligatorio" }));
+  assert.throws(() => p.revisar(datos()), { codigo: "borrador_invalido" });
+  assert.throws(() => p.preparar({ ...propuesta, campo: "persona_ref" }),
+    (causa) => causa.errores.campo === "obligatorio");
+});
+
 test("catálogos completos, recuperación y estado de preparación en ambos idiomas", () => {
   const cargar = (idioma) => JSON.parse(readFileSync(new URL(`../../../textos/${idioma}/personal-preparacion-rectificacion.json`, import.meta.url), "utf8"));
   const claves = (c) => Object.entries(c).flatMap(([k, v]) => typeof v === "string" ? [k] : claves(v).map((x) => `${k}.${x}`)).sort();

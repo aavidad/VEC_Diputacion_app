@@ -1,7 +1,13 @@
 # Informes de Dietas: preparación sintética — 1 de octubre de 2026
 
 RRHH puede revisar una vista de informes por persona, unidad y periodo con un
-paquete sintético. La exportación y la impresión esperan el permiso nominal
+paquete sintético. Puede filtrar también por situación del ejemplo. Las opciones
+proceden de las situaciones incluidas en su configuración; el filtro no amplía
+ese conjunto. Lista, recuento y subtotales usan la misma selección.
+
+La situación elegida se aplica con los demás filtros y se conserva al recargar.
+Si una nueva configuración deja de incluirla, el resultado queda vacío hasta
+cambiar o quitar el filtro. La exportación y la impresión esperan el permiso nominal
 con auditoría de D. Este corte no consulta expedientes reales ni acredita una
 liquidación, una fiscalización o un pago.
 

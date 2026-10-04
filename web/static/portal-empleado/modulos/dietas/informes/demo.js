@@ -1,6 +1,6 @@
 import { leerRecursoJSON } from "../../../../comun/idioma.js";
 import { cargarTextos } from "../../../../comun/textos.js";
-import { montarInformesDietas } from "./vista.js";
+import { montarInformesDietas } from "./vista.js?v=20261004-a-dietas-situacion-v1";
 
 const catalogo = await cargarTextos("dietas-informes");
 document.documentElement.lang = catalogo.idioma;
