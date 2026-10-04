@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD179: intentos propios de AUT40; conserva confirmación bootstrap AD171.
--- Fuente exacta POST-AD176; no admite ni predice AD177/178 de otras ramas.
+-- Variantes exactas POST176 H9 y POST173; no predice AD177/178 de otras ramas.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -24,21 +24,28 @@ BEGIN
    AND a.attname='bootstrap_solicitud_sha256')
  OR (SELECT count(*) FROM pg_catalog.pg_constraint c
   WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-   AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated)<>1
+   AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated)<>1
  THEN RAISE EXCEPTION 'AD179: PARO clave=preimagen actual=incompatible esperado=AD176_sin_AD179' USING ERRCODE='55000'; END IF;
 END $pre$;
 LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
 ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD COLUMN bootstrap_solicitud_sha256 text;
 DO $familia$
-DECLARE v_predicado text;v_nuevo text;v_actual_sha text;
- v_esperada_sha constant text:='84546bd65669826e85a1dd8de95debbc7407595679f551299334493fce2dab99';
+DECLARE v_predicado text;v_nombre name;v_nuevo text;v_actual_sha text;v_version_nula text:='';
+ v_h9_sha constant text:='84546bd65669826e85a1dd8de95debbc7407595679f551299334493fce2dab99';
 BEGIN
- SELECT pg_catalog.pg_get_constraintdef(c.oid,false) INTO STRICT v_predicado FROM pg_catalog.pg_constraint c
+ SELECT pg_catalog.pg_get_constraintdef(c.oid,false),c.conname INTO STRICT v_predicado,v_nombre FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-  AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated;
+  AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated;
  v_actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_predicado,'UTF8')),'hex');
- IF v_actual_sha IS DISTINCT FROM v_esperada_sha
- THEN RAISE EXCEPTION 'AD179: PARO clave=CHECK_SHA256 actual=% esperado=%',v_actual_sha,v_esperada_sha USING ERRCODE='55000'; END IF;
+ IF v_nombre='auditoria_tipo_disjunto_v2' AND v_actual_sha=v_h9_sha THEN
+  v_version_nula:='';
+ ELSIF v_nombre='auditoria_tipo_disjunto_v4'
+  AND v_actual_sha='8346e28593ad3b35a2dc88de0023a41c8c4a89571b31ba6226d1b9bf44523e03' THEN
+  v_version_nula:=' AND version_consumo IS NULL';
+ ELSE
+  RAISE EXCEPTION 'AD179: PARO clave=CHECK_nombre_SHA256 actual=%:% esperado=v2:%_o_v4:8346e28593ad3b35a2dc88de0023a41c8c4a89571b31ba6226d1b9bf44523e03',
+   v_nombre,v_actual_sha,v_h9_sha USING ERRCODE='55000';
+ END IF;
  v_nuevo:='CHECK ((bootstrap_solicitud_sha256 IS NULL AND ('||
  pg_catalog.substr(v_predicado,8,pg_catalog.length(v_predicado)-8)||')) OR ('||$tipado$tipo_registro='intento_bootstrap_central_admin'
  AND decision_ref IS NULL AND efecto_ref IS NULL AND huella_efecto_sha256 IS NULL
@@ -54,9 +61,9 @@ BEGIN
  AND accion IS NOT DISTINCT FROM 'registrar_bootstrap_central_admin_v3' AND modulo_id IS NOT DISTINCT FROM 'administracion'
  AND proceso IS NOT DISTINCT FROM 'postgresql' AND canal IS NOT DISTINCT FROM 'operacion_tecnica_privada'
  AND finalidad_ref IS NOT DISTINCT FROM 'bootstrap_admin'
- AND resultado IS NOT NULL AND motivo_ref IS NOT NULL AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL$tipado$||'))';
- ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT auditoria_tipo_disjunto_v2;
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_tipo_disjunto_v2 '||v_nuevo;
+ AND resultado IS NOT NULL AND motivo_ref IS NOT NULL AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL$tipado$||v_version_nula||'))';
+ EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT %I',v_nombre);
+ EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT %I %s',v_nombre,v_nuevo);
 END $familia$;
 -- Catálogo técnico cerrado de datos, sin texto del motor ni permisos nuevos.
 CREATE FUNCTION vec_autorizacion_atestada_v3.motivo_intento_bootstrap_valido_v1(p_resultado text,p_motivo text)

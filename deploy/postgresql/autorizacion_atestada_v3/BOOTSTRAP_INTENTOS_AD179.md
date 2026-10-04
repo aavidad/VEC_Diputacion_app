@@ -67,13 +67,18 @@ del append con evento/material idénticos conserva sus coordenadas originales.
 
 ## Preimagen e integridad
 
-Se exige el CHECK real `auditoria_tipo_disjunto_v2` posterior a AD176,
-observado en el clon PostgreSQL 18.4. SHA256 de
-`pg_get_constraintdef(oid, false)` en UTF-8 sin salto final:
-`84546bd65669826e85a1dd8de95debbc7407595679f551299334493fce2dab99`.
-La migración envuelve literalmente esa condición y mantiene sus nulos; no
-predice AD177 de E ni AD178 de L. Un árbol futuro con otra condición exige
-una revisión causal propia, no se acepta por el nombre de la familia.
+Se admiten únicamente dos parejas POST176 de CHECK/SHA medidas:
+
+| Cadena | CHECK | SHA256 previo |
+| --- | --- | --- |
+| H9 | auditoria_tipo_disjunto_v2 | 84546bd65669826e85a1dd8de95debbc7407595679f551299334493fce2dab99 |
+| POST173→174→176 | auditoria_tipo_disjunto_v4 | 8346e28593ad3b35a2dc88de0023a41c8c4a89571b31ba6226d1b9bf44523e03 |
+
+Se conserva literalmente la condición y su nombre; la variante POST173 exige
+`version_consumo IS NULL` en este intento técnico. No predice AD177 de E ni
+AD178 de L. Un árbol futuro con otra condición necesita su revisión causal.
+La postimagen POST173→174→176→179 medida es CHECKv4,
+`e2ce386bbc77b80f237a4923966f98619cfb9f9823a6bea9099c9b3835ed6a93`.
 
 Se reutilizan `encuadrar_mac`, SHA256, la cabeza y el cerrojo comunes de evento.
 El material usa `vec.auditoria.intento-bootstrap-central-admin.v1` seguido de
@@ -87,7 +92,7 @@ familia se rechaza sin modificar la cabeza ni la historia.
 ## Verificador y pruebas focales
 
 La CLI añade `vec.auditoria.verificacion.bootstrap-central-admin.v1` y el objeto
-`intento_bootstrap_central`. Admite únicamente las familias instaladas hasta
+`intento_bootstrap_central`. Admite consumos reales v1/v2/v3 de L #557 exacta, las familias instaladas hasta
 AD176 y este intento; los esquemas anteriores rechazan AD179. El informe añade
 `material_intentos_bootstrap_recalculado`, sin autenticar LOGIN, fuente o
 checkpoint. Conserva los cálculos y bytes de los registros anteriores.
@@ -118,3 +123,24 @@ Comprobaciones locales ejecutadas, todas con código 0: pruebas normales y
 nuevos y Semgrep local `--metrics=off` (cinco archivos, tres reglas, sin
 hallazgos). Caché Go en disco y `git diff --check` limpio. No se repitió la
 puerta global ni se modificaron las SQL anteriores o la baseline.
+
+## Unión causal POST173
+
+La dependencia L #557@9e09b8a331afe45090db34fdf552cf9aed9e8ef7 mantiene sus
+DTO y SQL originales. El vector independiente
+`union_consumos_tecnicos_bootstrap_ad173_ad179.json` enlaza las siete familias
+anteriores con los cuatro intentos bootstrap: 19 asientos. Conserva los avisos
+de fecha histórica y rechaza consumos nominales cruzados en registros técnicos.
+
+La SQL variante SHA256
+`bf5008ef4646a25c265e19869945cf467416df66894a1fdf90e3236c51d5d00a` y la prueba
+ampliada SHA256 `49a3d20a8f0a9c5d7fe9defa6cf86077cf64fde19ef2c2e1c54d9635d66cfc67`
+terminaron con código 0. Se mantuvieron las 6.240 filas, cabeza e historia
+POST173. El INSERT técnico con versión nominal 3 se rechaza sin efectos.
+No se aplicaron SQL en la principal ni se reejecutaron dependencias instaladas.
+
+El ensayo usó un solo contenedor 2 GB, disco y red desactivada. La instancia K
+original de 6.269 filas se guardó en fría antes del cambio, se restauró y se
+cotejó contra su snapshot completo. La copia POST173 expandida se retiró tras
+conservar fría y actas. Capturas privadas en el estado K
+`vec-codexk-union-post173-20261004`; las dos revisiones exactas siguen pendientes.

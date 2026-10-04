@@ -44,3 +44,23 @@ func TestCLIBootstrapIntentosSinConfirmacionesFicticias(t *testing.T) {
 		})
 	}
 }
+
+func TestCLIUnionBootstrapPOST173(t *testing.T) {
+	b, err := os.ReadFile("testdata/union_consumos_tecnicos_bootstrap_ad173_ad179.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d map[string]json.RawMessage
+	if json.Unmarshal(b, &d) != nil {
+		t.Fatal("fixture")
+	}
+	ruta := filepath.Join(t.TempDir(), "checkpoint.json")
+	if os.WriteFile(ruta, d["manifiesto"], 0600) != nil {
+		t.Fatal("checkpoint")
+	}
+	var salida bytes.Buffer
+	if codigo := ejecutar([]string{"-checkpoint", ruta, "-max-bytes", "65536", "-max-registros", "19"}, bytes.NewReader(b), &salida); codigo != 0 ||
+		!bytes.Contains(salida.Bytes(), []byte(`"material_intentos_bootstrap_recalculado":true`)) || !bytes.Contains(salida.Bytes(), []byte(`"fecha_consumo_ligada_cotejada":true`)) {
+		t.Fatalf("CLI unión: %d %s", codigo, salida.String())
+	}
+}

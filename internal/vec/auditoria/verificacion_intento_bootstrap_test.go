@@ -35,6 +35,26 @@ func TestAD179VectoresYAlcance(t *testing.T) {
 	}
 }
 
+func TestAD179UnionConsumosYFamiliasTecnicas(t *testing.T) {
+	b, err := os.ReadFile("../../../cmd/vec-auditoria-verificar/testdata/union_consumos_tecnicos_bootstrap_ad173_ad179.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d DocumentoVerificacionMixta
+	if err = json.Unmarshal(b, &d); err != nil {
+		t.Fatal(err)
+	}
+	r := VerificarCadenaBootstrapCentralV1(d, d.Manifiesto, 19)
+	if r.Estado != "verificada" || !r.ConsumosHistoricosSinFechaLigada || !r.FechaConsumoLigadaCotejada ||
+		!r.MaterialFuentesRecalculado || !r.MaterialUnidadRecalculado || !r.MaterialIntentosBootstrapRecalculado || r.ActorPerfilContextoCotejados {
+		t.Fatalf("unión bootstrap: %+v", r)
+	}
+	d.Registros[15].ConsumoFecha = d.Registros[2].ConsumoFecha
+	if VerificarCadenaBootstrapCentralV1(d, d.Manifiesto, 19).Estado != "rechazada" {
+		t.Fatal("intento bootstrap admitió consumo nominal cruzado")
+	}
+}
+
 func TestAD179PreservaFamiliasYConfirmacionBootstrap(t *testing.T) {
 	documentos := []DocumentoVerificacionMixta{vectorMixtoV2(), documentoFuentesPrueba(t), documentoIntentoFuentesPrueba(t), documentoUnidadInicialPrueba(t)}
 	for _, r := range vectoresAD171Prueba(t) {
