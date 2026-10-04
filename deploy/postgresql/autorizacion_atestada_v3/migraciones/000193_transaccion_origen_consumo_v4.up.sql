@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- AD193 candidata NO-GO de instalación hasta medir las cinco preimágenes en copia K.
--- NULL es deliberado: no se sustituye por la huella calculada del propio destino.
+-- AD193 candidata NO-GO de instalación hasta medir el CHECK final en copia K.
+-- CHECK NULL es deliberado: no se sustituye por la huella del propio destino.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -11,10 +11,10 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migr
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
 DECLARE nombre text;f oid;etiqueta text;actual text;
- nucleo_def text:=NULL; -- pendiente: copia fría K final, pg_get_functiondef
- nucleo_src text:=NULL; -- pendiente: copia fría K final, pg_proc.prosrc
- helper_def text:=NULL; -- pendiente: copia fría K final, pg_get_functiondef
- helper_src text:=NULL; -- pendiente: copia fría K final, pg_proc.prosrc
+ nucleo_def text:='6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9'; -- medida en copia fría POST173, pg_get_functiondef
+ nucleo_src text:='bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c'; -- medida en copia fría POST173, pg_proc.prosrc
+ helper_def text:='1930a2da7f948cac8e44126c768c256b3d25c9b9e8f9ed39bc32ee4ee5d4c725'; -- medida en copia fría POST173, pg_get_functiondef
+ helper_src text:='f0d1b453d4f594e14191750c6dcde2b6727aa71559cb9c344b0a1621185f7d6f'; -- medida en copia fría POST173, pg_proc.prosrc
  check_sha text:=NULL; -- pendiente: copia fría K final, pg_get_constraintdef(false)
  esperado_def text;esperado_src text;
 BEGIN
@@ -185,7 +185,9 @@ BEGIN
   THEN RAISE EXCEPTION 'AD193: bloque nuevo % no único',i USING ERRCODE='55000'; END IF;
   revertida:=replace(revertida,nuevos[i],antiguos[i]);
  END LOOP;
- IF actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
+ IF encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '9574d5ceaf97cc1612839684e7a642f702e1edf1e30e4cd15ef8e364a1fae2ba'
+ OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9c0dc58188634ff010c211cf8641348d8d2655eee626e875732628f89795e2dd'
+ OR actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())) IS DISTINCT FROM compartidas
@@ -226,7 +228,9 @@ BEGIN
   THEN RAISE EXCEPTION 'AD193: bloque nuevo % no único',i USING ERRCODE='55000'; END IF;
   revertida:=replace(revertida,nuevos[i],antiguos[i]);
  END LOOP;
- IF actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
+ IF encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM 'fe5e93bbece6225e72155029211e77b3d08518a3ac6ef8b350f994658cbcb3fe'
+ OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '3984c45db3ceb2ebbeead7246336294a8a2ffbb2d99f66cf6f6876fc07ab6d1f'
+ OR actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())) IS DISTINCT FROM compartidas

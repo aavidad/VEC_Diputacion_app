@@ -1,10 +1,13 @@
 # ABI AD193: consumo confirmado v4
 
 Candidata desde `origin/main@296f78373`. No instalada ni ensayada. La migración
-se detiene mientras las cinco huellas esperadas sean `NULL`. Dirección mide y
-fija esas huellas en la copia fría final de K, revisa el nuevo hash y ensaya.
-La captura POST173 sirve para contrastar los bloques, no como preimagen de la
-cadena posterior AD174/176/179/183/186/187/188/189.
+se detiene mientras la huella esperada del CHECK sea `NULL`. Las cuatro
+huellas de núcleo/comprobador y sus postimágenes están medidas en la copia
+fría POST173. Dirección contrasta su vigencia y fija el CHECK de la copia fría
+final de K, revisa el nuevo hash y ensaya.
+AD174/176/179/183/186/187/188/189 amplían el CHECK y añaden funciones propias;
+sus archivos no reconstruyen el núcleo ni el comprobador. El CHECK POST173
+no representa esa cadena posterior.
 
 ## Esquema y autoridad
 
@@ -110,8 +113,9 @@ WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
 ```
 
 La migración comprueba propietario, configuración y ACL exactos de ambas
-funciones y rechaza bloques ausentes o repetidos. Las cinco huellas se fijan
-como literales medidos antes de revisar; no se calculan para aprobar el destino.
+funciones y rechaza bloques ausentes o repetidos. Las huellas se fijan como literales medidos antes de revisar; no se calculan
+para aprobar el destino. Las postimágenes completas de definición y cuerpo
+del núcleo y comprobador también se comprueban como literales medidos.
 
 La prueba SQL incluida verifica columnas/ACL y un vector de 16 campos con XID
 superior al entero seguro de JSON. No fabrica filas favorables. Faltan ensayo
