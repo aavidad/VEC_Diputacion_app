@@ -1,0 +1,105 @@
+{
+  "esquema": "vec.auditoria.verificacion.bootstrap-central-admin.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:ad179",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 4,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "2ed908594b00fdcd7e0889c0ee11acfb5f4f3aa69d0c852f62aea6b08b7ce098",
+    "registros": 4
+  },
+  "registros": [
+    {
+      "tipo_registro": "intento_bootstrap_central_admin",
+      "intento_bootstrap_central": {
+        "evento_ref": "evento_000000000000000000000000000045ed",
+        "operador_login": "operador_arranque_sintetico",
+        "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "accion": "registrar_bootstrap_central_admin_v3",
+        "recurso_ref": "solicitud_bootstrap:00000000000000000000000000000001",
+        "resultado": "permitido",
+        "motivo_ref": "bootstrap_registrado",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "bootstrap_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000045ed",
+        "auditoria_ref": "aud_v3_bi_000000000000000000000000000045ed",
+        "secuencia": 1,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "huella_sha256": "1bbf8b7f8a90ca404a132a44c77c7fcef72eb3797daa968b57d7620ee1326a08",
+        "registrada_en": "2026-10-04T01:31:00.123456Z",
+        "evento_material_sha256": "609c75445583f9adc4adde92fa2c97ba4012c9992ffaa1382c5cd4d0c56335ad",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_bootstrap_central_admin",
+      "intento_bootstrap_central": {
+        "evento_ref": "evento_000000000000000000000000000045ee",
+        "operador_login": "operador_ámbito_sintético",
+        "solicitud_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "accion": "registrar_bootstrap_central_admin_v3",
+        "recurso_ref": "solicitud_bootstrap:00000000000000000000000000000002",
+        "resultado": "permitido",
+        "motivo_ref": "bootstrap_replay",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "bootstrap_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000045ee",
+        "auditoria_ref": "aud_v3_bi_000000000000000000000000000045ee",
+        "secuencia": 2,
+        "anterior_sha256": "1bbf8b7f8a90ca404a132a44c77c7fcef72eb3797daa968b57d7620ee1326a08",
+        "huella_sha256": "09b2cbd350bbb867180d8fed2fc6229d515b65a775cc5ecc980d6f3bbf1c4f43",
+        "registrada_en": "2026-10-04T01:31:00.123456Z",
+        "evento_material_sha256": "fdc8ccb236da9f7ec61291587d9e87bd6222f4990f4d7c47aa8f1cee3238c0f2",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_bootstrap_central_admin",
+      "intento_bootstrap_central": {
+        "evento_ref": "evento_000000000000000000000000000045ef",
+        "operador_login": "operador_arranque_sintetico",
+        "solicitud_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "accion": "registrar_bootstrap_central_admin_v3",
+        "recurso_ref": "solicitud_bootstrap:00000000000000000000000000000003",
+        "resultado": "denegado",
+        "motivo_ref": "bootstrap_denegado",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "bootstrap_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000045ef",
+        "auditoria_ref": "aud_v3_bi_000000000000000000000000000045ef",
+        "secuencia": 3,
+        "anterior_sha256": "09b2cbd350bbb867180d8fed2fc6229d515b65a775cc5ecc980d6f3bbf1c4f43",
+        "huella_sha256": "a4f0de1d62620593c219d8cd3f2a22ef70ec9aa50c07377f5b70396fd263e7f1",
+        "registrada_en": "2026-10-04T01:31:00.123456Z",
+        "evento_material_sha256": "f0e36c0b1c430ffbbbf10c81ebec0af65201ea780c6300c3e7812b8ebc69cafb",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_bootstrap_central_admin",
+      "intento_bootstrap_central": {
+        "evento_ref": "evento_000000000000000000000000000045f0",
+        "operador_login": "operador_arranque_sintetico",
+        "solicitud_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "accion": "registrar_bootstrap_central_admin_v3",
+        "recurso_ref": "solicitud_bootstrap:00000000000000000000000000000004",
+        "resultado": "error",
+        "motivo_ref": "bootstrap_error",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "bootstrap_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000045f0",
+        "auditoria_ref": "aud_v3_bi_000000000000000000000000000045f0",
+        "secuencia": 4,
+        "anterior_sha256": "a4f0de1d62620593c219d8cd3f2a22ef70ec9aa50c07377f5b70396fd263e7f1",
+        "huella_sha256": "2ed908594b00fdcd7e0889c0ee11acfb5f4f3aa69d0c852f62aea6b08b7ce098",
+        "registrada_en": "2026-10-04T01:31:00.123456Z",
+        "evento_material_sha256": "1fa7f8f3289895368be32c01e56d1733a8e8231cf84052825f1a98ae33c15065",
+        "modulo_id": "administracion"
+      }
+    }
+  ]
+}

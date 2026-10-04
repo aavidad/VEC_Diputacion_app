@@ -32,14 +32,16 @@ func EmitirCheckpointDesarrollo(ctx context.Context, c domain.CheckpointDesarrol
 }
 
 type ResultadoCheckpointDesarrollo struct {
-	Esquema             string `json:"esquema"`
-	Modo                string `json:"modo"`
-	Firma               string `json:"firma"`
-	IntegridadCadena    string `json:"integridad_cadena"`
-	OrigenExtraccion    string `json:"origen_extraccion"`
-	TSA                 string `json:"tsa"`
-	TiempoIndependiente bool   `json:"tiempo_independiente"`
-	FirmaLegal          bool   `json:"firma_legal"`
+	ConsumosHistoricosSinFechaLigada bool   `json:"consumos_historicos_sin_fecha_ligada"`
+	FechaConsumoLigadaCotejada       bool   `json:"fecha_consumo_ligada_cotejada"`
+	Esquema                          string `json:"esquema"`
+	Modo                             string `json:"modo"`
+	Firma                            string `json:"firma"`
+	IntegridadCadena                 string `json:"integridad_cadena"`
+	OrigenExtraccion                 string `json:"origen_extraccion"`
+	TSA                              string `json:"tsa"`
+	TiempoIndependiente              bool   `json:"tiempo_independiente"`
+	FirmaLegal                       bool   `json:"firma_legal"`
 }
 
 // resultadoCheckpointRechazado traduce el fallo al informe cerrado del canal,

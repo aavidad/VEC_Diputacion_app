@@ -1,4 +1,5 @@
-import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-rectificacion-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
@@ -47,7 +48,7 @@ function ayuda(d, t) {
   detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto, corte);
   return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; corte.textContent = clave === "ficha_servicios_ayuda" ? traducirCorteServicios("ayuda") : ""; } };
 }
-function accesos(d, t, navegarModulo, destinosDisponibles) {
+function accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
   for (const [destino, etiqueta] of [["dietas", "ficha_ir_dietas"], ["cronos", "ficha_ir_cronos"]]) {
     const boton = nodo(d, "button", t(etiqueta)); boton.type = "button"; boton.dataset.personalFichaDestino = destino;
@@ -57,10 +58,16 @@ function accesos(d, t, navegarModulo, destinosDisponibles) {
     if (!disponible) { boton.title = t("ficha_navegacion_pendiente"); boton.setAttribute("aria-label", `${t(etiqueta)}. ${t("ficha_navegacion_pendiente")}`); }
     boton.addEventListener("click", () => { if (disponible) navegarModulo(destino); }); acciones.append(boton);
   }
+  if (typeof abrirCorreos === "function") {
+    const boton = nodo(d, "button", t("ficha_ir_mis_correos")); boton.type = "button";
+    boton.className = "boton-secundario"; boton.dataset.personalFichaCorreos = "";
+    boton.title = t("ficha_mis_correos_destino");
+    boton.addEventListener("click", abrirCorreos); acciones.append(boton);
+  }
   return acciones;
 }
-function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente) {
-  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho");
+function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos) {
+  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos)], "personal-ficha-panel-ancho");
   if (ocultarSinFuente && visibles.length === 0) return [accesosPanel];
   const bloques = nodo(d, "div"); bloques.className = "personal-ficha-bloques";
   for (const clave of visibles) {
@@ -97,6 +104,7 @@ function validarResultado(resultado, bloque) {
   if (resultado.fecha_referencia !== undefined && (bloque !== "servicios" || !esFechaCorteServicios(resultado.fecha_referencia))) throw new TypeError("fecha de referencia no válida");
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items,
     ...(resultado.fecha_referencia ? { fecha_referencia: resultado.fecha_referencia } : {}),
+    ...(bloque === "relaciones" ? { historia_relaciones_disponible: resultado.historia_relaciones_disponible === true } : {}),
     ...(bloque === "servicios" ? { exportacion_servicios_disponible: resultado.exportacion_servicios_disponible === true, historia_servicios_disponible: resultado.historia_servicios_disponible === true } : {}),
     ...(bloque === "servicios" && referenciaExportacionServiciosValida(resultado.recibo_ref, resultado.corte) && resultado.corte.vigente_en === resultado.fecha_referencia ? { recibo_ref: resultado.recibo_ref, corte: Object.freeze({ ...resultado.corte }) } : {}) };
 }
@@ -156,8 +164,8 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
     const estado = mensaje(d, ""); estado.dataset.personalServiciosExportacionEstado = ""; estado.setAttribute("aria-live", "polite"); resumen.append(estado);
     piezas.push(mensaje(d, traducirExportacionServicios("alcance")), resumen);
   }
-  if (bloque === "servicios" && typeof abrirHistoria === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
-    const boton=nodo(d,"button",t("ficha_ver_historia_servicios"));boton.type="button";boton.className="boton-secundario";boton.dataset.personalHistoriaAbrir="";
+  if (["servicios", "relaciones"].includes(bloque) && typeof abrirHistoria === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
+    const boton=nodo(d,"button",t(bloque === "servicios" ? "ficha_ver_historia_servicios" : "ficha_ver_historia_relaciones"));boton.type="button";boton.className="boton-secundario";boton.dataset.personalHistoriaAbrir="";
     boton.addEventListener("click",abrirHistoria);piezas.push(boton);
   }
   if (typeof actualizar === "function" && (["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado) || resultado.aviso_exportacion === "sesion_caducada")) {
@@ -176,9 +184,10 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
  * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
  * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
+      (abrirCorreos !== undefined && typeof abrirCorreos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
       !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
@@ -213,7 +222,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
-    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente)); return; }
+    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos)); return; }
     if (clave === "catalogos") {
       const hueco = nodo(d, "div"); hueco.dataset.personalFichaCatalogos = "";
       principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
@@ -290,10 +299,11 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
           }
         }
       } : undefined;
-      const abrirHistoria = clave === "servicios" && resultado.historia_servicios_disponible === true && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
+      const historiaDisponible = clave === "servicios" ? resultado.historia_servicios_disponible === true : clave === "relaciones" && resultado.historia_relaciones_disponible === true;
+      const abrirHistoria = historiaDisponible && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
         if (!activa || turno!==secuencia || limpiarHistoria) return;
         const hueco=nodo(d,"div");hueco.className="personal-ficha-panel-ancho personal-ficha-tabla-conjunto";hueco.dataset.personalHistoriaHueco="";principal.append(hueco);
-        montarVistaHistoriaServiciosPropia({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar("servicios",true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
+        (clave === "servicios" ? montarVistaHistoriaServiciosPropia : montarVistaHistoriaRelacionesPropia)({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar(clave,true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
         hueco.querySelector?.('[data-personal-historia-fecha="desde"]')?.focus?.();
         const boton=principal.querySelector?.('[data-personal-historia-abrir]');if(boton)boton.disabled=true;
       } : undefined;
