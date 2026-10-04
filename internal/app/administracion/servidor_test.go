@@ -152,7 +152,7 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	}
 	var llamadasPerfiles atomic.Int64
 	correlaciones := make(chan string, 2)
-	perfilHandler := &handlerPerfilesADMIN{api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	perfilHandler := &handlerPerfilesADMIN{auditor: &auditorActivosPrueba{}, api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ref, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
