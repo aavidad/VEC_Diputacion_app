@@ -101,6 +101,7 @@ func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, orig
 		"/admin/usuarios/vista.js":                     "admin/usuarios/vista.js",
 		"/admin/usuarios/render.js":                    "admin/usuarios/render.js",
 		"/admin/usuarios/contratos.js":                 "admin/usuarios/contratos.js",
+		"/admin/usuarios/metadatos.js":                 "admin/usuarios/metadatos.js",
 		"/admin/usuarios/cliente.js":                   "admin/usuarios/cliente.js",
 		"/admin/usuarios/lecturas-http.js":             "admin/usuarios/lecturas-http.js",
 		"/admin/usuarios/propuestas.js":                "admin/usuarios/propuestas.js",
