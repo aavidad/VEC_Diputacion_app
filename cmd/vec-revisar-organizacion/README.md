@@ -57,6 +57,29 @@ revisión como con `--preparar`; el paquete exportado y sus huellas conservan
 su formato. Se omite si la entrada o el paquete resultan rechazados, incluido
 el rechazo por tamaño durante la exportación.
 
+## Comprobar que la preparación está completa
+
+Use `--comprobar-completo` para comprobar los campos obligatorios del manifiesto
+y las decisiones declaradas de todos los hechos. El comando devuelve
+`comprobacion_completitud.completa` y una lista de `faltantes` con `clave`,
+`esperado` y `actual`. Estos son códigos traducidos en `mensajes`; la lista no
+incluye filas, identificadores ni el contenido recibido.
+
+```sh
+go run ./cmd/vec-revisar-organizacion --comprobar-completo < cmd/vec-revisar-organizacion/ejemplo.sintetico.json
+```
+
+El estado de salida es `0` si esta comprobación local está completa y `1` si
+falta algo o el paquete es inválido. Se puede añadir `--preparar` para obtener
+el paquete normalizado solo cuando esté completo. `--idioma` cambia los mensajes,
+sin cambiar los códigos ni las huellas. Las opciones se admiten una vez cada una
+y en cualquier orden.
+
+«Completa» describe exclusivamente el material preparatorio. El informe mantiene
+`preparacion_no_autoritativa` y enumera las verificaciones institucionales
+pendientes. No acredita fuente, catálogos, acto, conciliación duradera,
+aprobación ni publicación. Personal 000011 sigue denegando la publicación.
+
 Estado del proceso: `0` para un paquete válido en esta revisión; `1` para
 entrada o paquete rechazados; `2` si no se puede cargar el catálogo o escribir
 el informe. `go run` comunica un estado de error propio al fallar el comando.

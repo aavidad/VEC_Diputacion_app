@@ -103,7 +103,7 @@ func ejecutar(args []string, out, errout io.Writer, abrir abrirTransaccion) int 
 	var p documentoPlan
 	var c conexionPrivada
 	var a aprobacionPrivada
-	if decodificarEstricto(pb, &p) != nil || decodificarEstricto(cb, &c) != nil || decodificarEstricto(ab, &a) != nil || p.Version != 1 || len(p.Asignaciones) != 2 || !hashValido(p.RolOrigenSHA) || !hashValido(p.CatalogoSHA) || !hashValido(a.HuellaPlanSHA256) || c.DSN == "" {
+	if decodificarEstricto(pb, &p) != nil || decodificarEstricto(cb, &c) != nil || decodificarEstricto(ab, &a) != nil || !versionMantenimientoAdmitida(p.Version) || len(p.Asignaciones) != 2 || !hashValido(p.RolOrigenSHA) || !hashValido(p.CatalogoSHA) || !hashValido(a.HuellaPlanSHA256) || c.DSN == "" {
 		return fallo("entrada_invalida")
 	}
 	h := sha256.Sum256(pb)

@@ -171,6 +171,13 @@ también cambia su huella. La suma de archivo y recibo no puede superar
 `max_bytes`; `max_registros` limita las filas. Todos los campos del recibo son
 obligatorios. Se rechazan claves repetidas, desconocidas, alias y valores nulos.
 
+También admite los esquemas de gobierno de usuarios AD188 y frontera técnica
+ADMIN AD189, junto a las familias anteriores. Comprueba sus huellas y fechas
+con los verificadores comunes. Estos actos identifican el LOGIN técnico; no
+acreditan una persona ni un perfil humano. Alterar la fecha o un código del
+registro invalida la cadena, aunque el archivo tenga una firma correcta. Un
+esquema anterior no admite estas familias nuevas.
+
 Un resultado `verificada` confirma la firma con la raíz fijada, los bytes y los
 eslabones admitidos. `historicos_sin_fecha_ligada: true` advierte de tramos cuyas
 fechas no estaban protegidas por su eslabón. El informe conserva siempre
@@ -178,6 +185,15 @@ fechas no estaban protegidas por su eslabón. El informe conserva siempre
 a la firma no prueban por sí mismas que una autoridad permitiera la extracción.
 Conserva también `tsa: no_verificada_offline`, `tiempo_independiente: false` y
 `firma_legal: false`. La TSA existente es HMAC de desarrollo.
+
+Los esquemas mixtos conservan también `consumo_confirmado_v4` de AD193. El
+objeto `consumo` añade dos cadenas decimales uint64 obligatorias e iguales:
+`transaccion_origen` de auditoría y `transaccion_consumo_origen` del consumo.
+El eslabón añade sólo el primero como campo 16; el segundo se coteja sin
+añadir otro encuadre. Se rechazan números JSON, valores no canónicos y sellos
+distintos. Los consumos históricos conservan sus formatos y huellas. El
+cotejo de XID no acredita procedencia global, firma COSE ni instalación SQL;
+la exportación mantiene el pin externo y todos los límites de desarrollo.
 
 La aplicación puede preparar ese recibo únicamente a través de
 `FuenteCapturaExportacionAuditoria`: la fuente debe consumir la autorización de
