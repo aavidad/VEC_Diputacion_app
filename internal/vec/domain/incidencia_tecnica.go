@@ -25,7 +25,7 @@ const EsquemaIncidenciaTecnica = "vec.incidencia_tecnica.v1"
 
 // VersionCatalogoIncidenciasTecnicas se incrementa con cualquier cambio de
 // códigos, severidades, componentes, etapas o plantillas.
-const VersionCatalogoIncidenciasTecnicas = 1
+const VersionCatalogoIncidenciasTecnicas = 2
 
 // RecuentoMaximoIncidenciaTecnica acota el recuento declarado de una incidencia.
 const RecuentoMaximoIncidenciaTecnica uint32 = 1 << 20
@@ -66,6 +66,7 @@ const (
 	ComponenteIncidenciaServidor        ComponenteIncidenciaTecnica = "servidor"
 	ComponenteIncidenciaComposicion     ComponenteIncidenciaTecnica = "composicion"
 	ComponenteIncidenciaHTTP            ComponenteIncidenciaTecnica = "http"
+	ComponenteIncidenciaGrxFirma        ComponenteIncidenciaTecnica = "grxfirma"
 	ComponenteIncidenciaCatalogoModulos ComponenteIncidenciaTecnica = "catalogo_modulos"
 	ComponenteIncidenciaPortalWeb       ComponenteIncidenciaTecnica = "portal_web"
 	ComponenteIncidenciaGobiernoV3      ComponenteIncidenciaTecnica = "gobierno_v3"
@@ -138,7 +139,7 @@ func DefinicionIncidenciaTecnicaDe(codigo CodigoIncidenciaTecnica) (DefinicionIn
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaValidacion, EtapaIncidenciaCarga}), true
 	case IncidenciaHTTPInternoFallido:
 		return definicionIncidencia(IncidenciaHTTPInternoFallido, SeveridadIncidenciaError,
-			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP},
+			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP, ComponenteIncidenciaGrxFirma},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaPeticion}), true
 	case IncidenciaPanicoControlado:
 		return definicionIncidencia(IncidenciaPanicoControlado, SeveridadIncidenciaCritica,
