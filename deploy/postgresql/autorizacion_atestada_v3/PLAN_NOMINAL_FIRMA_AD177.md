@@ -58,3 +58,10 @@ Orden previsto: delta de perfiles/audiencias de L → AD177 → CC7. Las fachada
 AD177 podrán referirse a CC7 mediante PL/pgSQL, pero no se invocan ni se exponen
 antes de completar esa cadena. Falta el ensayo causal con PostgreSQL real,
 las pruebas de concurrencia y recuperación, y dos revisiones del hash final.
+
+
+CT176 consume dos autorizaciones de firma ligadas en la misma transacción. AD177 prepara la fachada exterior `consumir_plan_firma_ct_v2_atestada`, cuyo contexto liga el material y el envoltorio completo (`plan_firma_sha256`). El envoltorio conserva el descriptor de once claves, el pin publicado y la SHA de la decisión interior. La fachada compara actor, perfil, versión del rol, acción y recurso de ambas decisiones. No añade un perfil al núcleo ni modifica AD170.
+
+Después del registro CT172, `recuperar_consumo_firma_plan_ct_v1` relee el consumo interior actual desde tablas propias AD, exige que los bytes de decisión sean idénticos a los conservados y lo comprueba mediante AD167. Devuelve sólo los siete campos del recibo; no presta un recibo histórico. CT176 revalida el pin mediante CC7 y conserva ambos vínculos antes de COMMIT. Las fachadas nuevas sólo reciben EXECUTE para el propietario CT; el LOGIN no puede invocarlas directamente.
+
+Los datos compartidos se cotejan con el material y el descriptor. `esquema_contexto`, `mapeo_version` y `mapeo_fuente_ref` se verifican por la publicación íntegra fijada, sin afirmar un cotejo independiente de la derivación del selector. Ninguna de estas preparaciones acredita todavía ensayo, instalación ni firma nominal.
