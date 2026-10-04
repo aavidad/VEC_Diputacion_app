@@ -54,3 +54,67 @@ KMS. Ninguna ventana o regla externa concede permisos automáticamente.
 Pendiente: revisiones SQL/seguridad, ensayo positivo con proveedor real,
 replay/reinicio, rollback obligatorio de auditoría y regresión CT. Las pruebas
 focales de preparación/verificación no acreditan ese recorrido ni producción.
+
+## Ensayo terminado y límite actual
+
+AD188 de `8d213c010` se instaló una sola vez, después de dos GO. Los vectores
+SQL de estructura/ACL/formato terminaron0. Un LOGIN técnico real registró cinco
+intentos denegados: configuración ausente, CONNECT/USAGE/EXECUTE con facultad de
+delegación y plan incompleto. Auditoría común6250→6255, cero claves nuevas. Las
+ACL se restauraron después de cada caso. Los tres ejercicios de ACL usaron un
+plan inválido: acreditan denegación y recibo real; no aíslan su causa frente al
+rechazo del plan. El verificador recalculó los cinco materiales y eslabones reales.
+
+Asignaciones, punteros, Persona/perfil CA, Rol5 y cabeza histórica6248 conservaron
+sus recuentos y huellas. No se ampliaron vigencias de los administradores caducados.
+El reinicio se comprueba sobre esos mismos cinco recibos, sin otro intento.
+Actas privadas en `ensayo188/` del estado K; ninguna contiene claves.
+
+La publicación favorable, su replay y la regresión CT tras dos claves ADMIN siguen
+pendientes. El material HMAC del fixture de fuentes deriva SPKI
+`e7a8529fd7e7959640a03bcfe325d65214b3943980f6e9227b22d22dd95ab89e`;
+el gobierno requiere `9c11fc59ca30e845be2684b21a045d4882c77544e7d4d4d73f7f1ccdbbeb7f12`.
+Son hashes públicos de DER. El candidato D6 también fue rechazado. El preparador
+paró antes de escribir: hace falta el material original o el firmante privado
+existente ligado a esa raíz. Dirección tiene la pregunta11:31. No se rotó la raíz
+ni se creó una clave sustitutiva. La entrega queda en borrador hasta ese recorrido.
+
+El test PostgreSQL es opt-in mediante `VEC_GOBIERNO_USUARIOS_ENSAYO_CONFIG`:
+JSON0600 fuera de Git, con fase/rutas/DSN privados. Normalmente se omite. Preparar
+sólo escribe plan/material privados; aplicar/replay exige aprobación externa y el
+LOGIN configurado; verificar lee la cadena técnica real. No crea perfiles, fuentes
+ni sesiones. El kit no modifica las filas históricas para obtener un positivo.
+
+## Comprobación focal de código y seguridad
+
+Normal y race de `bootstrap`/`auditoria`, vet y diff verdes. Tras corregir los
+acuses, la tanda focal race pasó de nuevo. Gopls resolvió el derivador existente.
+Semgrep local: siete reglas, nueve archivos y cero hallazgos. El primer uso de la
+regla AD183 de verificador sobre pruebas del preparador señaló dos WriteFile:
+son los archivos0600 del fixture, no escrituras del verificador. AD188 limita esa
+regla al paquete de auditoría y conserva las demás sin excluir código operativo.
+
+Gosec se ejecutó sólo sobre los dos paquetes tocados. Sus 17 avisos están en
+archivos heredados, sin cambios en esta rama. No señaló los archivos nuevos.
+El cargador además reportó metadatos incompletos de dependencias aun con Go1.26:
+no se presenta esta pasada como cobertura completa ni como resultado verde.
+No se repitió una campaña global para ocultar ese límite.
+
+- G101: `dietas_postgresql.go:241` es una consulta de acreditación, sin contraseña.
+- G304: `material_desarrollo.go:446,680`, `fake_credentials.go:73`,
+  `contratacion_temporal_subsanacion_politica_desarrollo.go:131`,
+  `contratacion_temporal_propuesta_publicaciones_desarrollo.go:22`,
+  `contratacion_temporal_centros_anteriores.go:41`, `catalogo_rpt_desarrollo.go:40`
+  y `bolsa_importacion_convoca_custodia.go:53,73`: rutas existentes de configuración,
+  catálogo o custodia, sin entrada HTTP nueva. El proveedor reutiliza la lectura
+  privada/acotada del cargador; no amplía a peticiones la selección de ruta.
+- G302: `portal_externo_material_v3.go:222` aplica0700 a directorios privados;
+  el bit de recorrido del directorio es necesario, los archivos siguen0600.
+- G104: `portal_externo_material_v3.go:294,298`,
+  `contratacion_temporal_incorporacion_configuracion.go:92` y
+  `contratacion_temporal_comunicacion_llamamiento_desarrollo.go:534,539,540`:
+  cierres de limpieza en ramas ya fallidas. No convierten el fallo previo en éxito.
+
+No se añadieron supresiones ni se cambiaron estos componentes ajenos. Las dos
+revisiones de seguridad/SQL acreditan el código y sus límites, no una autorización
+favorable ni producción.
