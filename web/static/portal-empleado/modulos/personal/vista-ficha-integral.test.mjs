@@ -31,6 +31,21 @@ function texto(n) { return nodos(n).map((item) => item.textContent).join(" "); }
 function tab(ficha, clave) { return nodos(ficha).find((n) => n.dataset.personalFichaTab === clave); }
 const completar = () => new Promise((resolve) => setImmediate(resolve));
 
+test("el acceso a correos abre su vista existente sin consultar ni trasladar datos de Personal", () => {
+  const raiz = raizFalsa(); let aperturas = 0; let consultas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, abrirCorreos: () => { aperturas += 1; }, fuentes: {
+    servicios: { consultarPropios() { consultas += 1; throw new Error("no debe consultar"); } },
+  } });
+  const boton = raiz.querySelector("[data-personal-ficha-correos]");
+  assert.equal(boton.textContent, "Ver mis correos");
+  assert.match(boton.title, /Mis preferencias/);
+  boton.focus(); boton.click();
+  assert.equal(aperturas, 1); assert.equal(consultas, 0);
+  assert.doesNotMatch(texto(raiz), /@/);
+  const sinNavegacion = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz: sinNavegacion });
+  assert.equal(sinNavegacion.querySelector("[data-personal-ficha-correos]"), null);
+});
+
 test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () => {
   const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   assert.ok(ficha); assert.equal(tab(ficha, "tiempo").textContent, "Tiempo");

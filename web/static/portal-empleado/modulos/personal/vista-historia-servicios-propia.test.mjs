@@ -85,3 +85,76 @@ test("catálogos ES/EN completos: mismos campos, estados y mensajes de recuperac
   const es = cargar("es"), en = cargar("en"); assert.deepEqual(claves(es), claves(en));
   assert.equal(es.general.hasta, "Efectos hasta (no incluido)"); assert.match(en.general.sesion_caducada, /Sign in again/u);
 });
+
+const abrirPreparacion = (raiz) => buscar(raiz, "personalRevisionPreparar").listeners.get("click")();
+function rellenarPreparacion(raiz, textoPropuesto = "366") {
+  for (const n of nodos(raiz).filter((n) => n.dataset.personalRevisionCampo)) {
+    n.value = { campo: "dias_reconocidos", propuesta: textoPropuesto, motivo: "El periodo consta en el certificado", evidencia: "Certificado de servicios de 2020" }[n.dataset.personalRevisionCampo];
+  }
+}
+const revisarPreparacion = (raiz) => buscar(raiz, "personalRevisionRevisar").parent.listeners.get("submit")({ preventDefault() {} });
+
+test("fila real prepara y reconsulta con filtros propios antes de revisar, sin enviar borrador ni identidad", async () => {
+  const llamadas = []; const { raiz } = montar({ async consultar(entrada) { llamadas.push(entrada); return datos(); } });
+  await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz, "<img src=x onerror=alert(1)>");
+  assert.match(texto(raiz), /Preparación sin presentar/u); await revisarPreparacion(raiz);
+  assert.equal(llamadas.length, 2); assert.deepEqual(Object.keys(llamadas[1]), ["efectosDesde", "efectosHasta", "signal"]);
+  assert.ok(nodos(raiz).some((n) => n.textContent === "<img src=x onerror=alert(1)>"));
+  assert.match(texto(raiz), /no se ha enviado ni registrado/u); assert.equal(nodos(raiz).some((n) => n.innerHTML), false);
+  assert.match(texto(raiz), /Ver procedencia del borrador/u); assert.match(texto(raiz), /Referencia del acto/u);
+  assert.match(texto(raiz), /acto:uno/u); assert.match(texto(raiz), /Efectos hasta \(no incluido\)/u);
+  assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+});
+
+test("revisión sustituida, denegación y dependencia caída borran historia y borrador anteriores", async () => {
+  for (const codigo of ["revision_sustituida", "denegado", "sesion_caducada", "no_disponible"]) {
+    let llamadas = 0; const { raiz } = montar({ async consultar() {
+      if (++llamadas === 1) return datos();
+      if (codigo !== "revision_sustituida") throw { codigo };
+      const r = datos(); r.historia.revisiones[0].traza.version = 3; return r;
+    } });
+    await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz); await revisarPreparacion(raiz);
+    assert.equal(llamadas, 2); assert.equal(nodos(raiz).some((n) => n.tagName === "table"), false);
+    assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+    assert.doesNotMatch(texto(raiz), /Certificado de servicios|aud_v3_|366/u);
+  }
+});
+
+test("cancelación y desmontaje durante reconsulta ignoran respuestas tardías", async () => {
+  for (const accion of ["cancelar", "desmontar"]) {
+    let resolver, señal, llamadas = 0; const { raiz, montaje } = montar({ consultar({ signal }) {
+      if (++llamadas === 1) return Promise.resolve(datos());
+      señal = signal; return new Promise((r) => { resolver = r; });
+    } });
+    await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz); const revision = revisarPreparacion(raiz);
+    assert.equal(nodos(raiz).some((n) => n.tagName === "table"), false);
+    if (accion === "cancelar") buscar(raiz, "personalRevisionCancelar").listeners.get("click")(); else montaje.desmontar();
+    assert.equal(señal.aborted, true); resolver(datos()); await revision;
+    assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+    assert.equal(nodos(raiz).some((n) => n.tagName === "table"), false); assert.doesNotMatch(texto(raiz), /Certificado de servicios/u);
+  }
+});
+
+test("actualizar historia o cambiar filtros elimina preparación y sus campos", async () => {
+  const { raiz } = montar({ async consultar() { return datos(); } });
+  await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz);
+  const camposAnteriores = nodos(raiz).filter((n) => n.dataset.personalRevisionCampo);
+  await enviar(raiz); assert.ok(camposAnteriores.every((n) => n.value === ""));
+  assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+  abrirPreparacion(raiz); rellenarPreparacion(raiz);
+  nodos(raiz).find((n) => n.dataset.personalHistoriaFecha).listeners.get("input")();
+  assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+});
+
+test("cambiar fechas o cancelar consulta mientras revisa aborta y retira todos los datos anteriores", async () => {
+  for (const accion of ["fecha", "consulta"]) {
+    let resolver, señal, llamadas = 0;
+    const { raiz } = montar({ consultar({ signal }) { if (++llamadas === 1) return Promise.resolve(datos()); señal = signal; return new Promise((r) => { resolver = r; }); } });
+    await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz); const revision = revisarPreparacion(raiz);
+    if (accion === "fecha") nodos(raiz).find((n) => n.dataset.personalHistoriaFecha).listeners.get("input")();
+    else buscar(raiz, "personalHistoriaCancelar").listeners.get("click")();
+    assert.equal(señal.aborted, true); resolver(datos()); await revision;
+    assert.equal(nodos(raiz).some((n) => n.tagName === "table"), false);
+    assert.equal(buscar(raiz, "personalHistoriaConsultar").disabled, false); assert.doesNotMatch(texto(raiz), /Certificado de servicios/u);
+  }
+});

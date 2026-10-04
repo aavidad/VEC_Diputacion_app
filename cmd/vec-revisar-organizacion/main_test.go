@@ -49,6 +49,11 @@ func TestRevisionCLIFormatoExistenteYCatalogos(t *testing.T) {
 	if es.Mensajes["alcance"] == en.Mensajes["alcance"] || es.Mensajes["huella"] == "" {
 		t.Fatal("traducción ausente")
 	}
+	if es.Informe.CoberturaConciliacion == nil || !reflect.DeepEqual(es.Informe.CoberturaConciliacion, en.Informe.CoberturaConciliacion) ||
+		es.Informe.CoberturaConciliacion.Completa || es.Informe.CoberturaConciliacion.Hechos[0].Resultado != "sin_decision" ||
+		es.Informe.PaqueteHuellaSHA256 != "900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6" {
+		t.Fatal("cobertura ausente o huella del ejemplo alterada")
+	}
 	catalogo, mensajes, err := web.CatalogoRevisionOrganizacion()
 	if err != nil {
 		t.Fatal(err)
@@ -170,6 +175,10 @@ func TestPrepararCLIExportaPaqueteCompatibleYHuella(t *testing.T) {
 	if codigo != 0 || codigoEN != 0 || es.Paquete == nil || en.Paquete == nil {
 		t.Fatal("paquete no exportado")
 	}
+	if es.Informe.CoberturaConciliacion == nil || !reflect.DeepEqual(es.Informe.CoberturaConciliacion, en.Informe.CoberturaConciliacion) ||
+		es.Informe.CoberturaConciliacion.RecuentosHechos["sin_decision"] != 2 {
+		t.Fatal("exportación no conserva cobertura por hecho")
+	}
 	if es.Paquete.Hechos[0].HechoRef != p.Hechos[1].HechoRef || !reflect.DeepEqual(es.Paquete, en.Paquete) {
 		t.Fatal("orden o idioma cambió el paquete")
 	}
@@ -233,6 +242,9 @@ func TestPrepararCLINoExportaEntradasInvalidas(t *testing.T) {
 		if s.Informe.PaqueteHuellaSHA256 != "" || s.Informe.Valido {
 			t.Fatal("huella inválida exportada")
 		}
+		if s.Informe.CoberturaConciliacion != nil {
+			t.Fatal("material inválido tiene cobertura")
+		}
 	}
 }
 
@@ -288,6 +300,9 @@ func TestPrepararCLIRechazaExpansionQueExcedeRelectura(t *testing.T) {
 		}
 		if s.BytesPaquete != len(canonico) || s.LimiteBytesPaquete != limiteEntrada {
 			t.Fatal("tamaño real o límite no comunicados")
+		}
+		if s.Informe.CoberturaConciliacion != nil || bytes.Contains(output.Bytes(), []byte("fila:999")) {
+			t.Fatal("rechazo por tamaño devolvió cobertura de entrada")
 		}
 		if bytes.Contains(output.Bytes(), []byte("evidencia:sintetica")) || bytes.Contains(output.Bytes(), []byte(strings.Repeat("<", 2048))) {
 			t.Fatal("fallo devolvió datos de entrada")
