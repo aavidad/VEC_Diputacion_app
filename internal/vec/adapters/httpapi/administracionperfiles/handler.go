@@ -87,14 +87,15 @@ type ServicioLotes interface {
 
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
-	origen      string
-	host        string
-	sesiones    ResolvedorSesion
-	lecturas    FuenteLecturas
-	catalogo    ports.CatalogoRolesAdministrables
-	actos       ServicioActos
-	soloLectura bool
-	auditor     AuditorFrontera
+	origen        string
+	host          string
+	sesiones      ResolvedorSesion
+	lecturas      FuenteLecturas
+	catalogo      ports.CatalogoRolesAdministrables
+	actos         ServicioActos
+	soloLectura   bool
+	soloMetadatos bool
+	auditor       AuditorFrontera
 }
 
 func NuevoHandler(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas,
@@ -118,6 +119,17 @@ func NuevoHandlerLecturas(origen string, sesiones ResolvedorSesion, lecturas Fue
 		return nil, ErrConfiguracionIncompleta
 	}
 	return &Handler{origen: origen, host: u.Host, sesiones: sesiones, lecturas: lecturas, auditor: auditor, soloLectura: true}, nil
+}
+
+// Sólo las dos consultas nominales de usuarios: las demás rutas se rechazan
+// en la frontera auditada sin ejecutar fuentes o fabricar capacidades.
+func NuevoHandlerUsuariosMetadatos(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas, auditor AuditorFrontera) (*Handler, error) {
+	h, err := NuevoHandlerLecturas(origen, sesiones, lecturas, auditor)
+	if err != nil {
+		return nil, err
+	}
+	h.soloMetadatos = true
+	return h, nil
 }
 
 func dependenciaNula(v any) bool {
@@ -211,6 +223,10 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 		return
 	}
 	p := r.URL.Path
+	if h.soloMetadatos && p != PrefijoV1+"/personas" && !strings.HasPrefix(p, PrefijoV1+"/personas/") {
+		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "consultar", "")
+		return
+	}
 	ctx := r.Context()
 	var result any
 	var err error
@@ -225,6 +241,10 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 	case p == PrefijoV1+"/personas":
 		consulta, errConsulta := consultaPersonas(r.URL.RawQuery)
 		if errConsulta != nil {
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
+			return
+		}
+		if h.soloMetadatos && consulta.Texto != "" {
 			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
 			return
 		}
