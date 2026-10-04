@@ -1,5 +1,5 @@
 import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-rectificacion-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 

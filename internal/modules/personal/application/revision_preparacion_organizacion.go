@@ -105,22 +105,7 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	if err != nil {
 		return fallo("manifiesto_invalido", "manifiesto", 0)
 	}
-	p.Hechos = append([]domain.HechoImportacionOrganizacion(nil), p.Hechos...)
-	p.Decisiones = append([]domain.DecisionConciliacionOrganizacion(nil), p.Decisiones...)
-	sort.Slice(p.Hechos, func(i, j int) bool {
-		a, b := p.Hechos[i], p.Hechos[j]
-		if a.Clase != b.Clase {
-			return a.Clase < b.Clase
-		}
-		return a.HechoRef < b.HechoRef
-	})
-	sort.Slice(p.Decisiones, func(i, j int) bool {
-		a, b := p.Decisiones[i], p.Decisiones[j]
-		if a.Clase != b.Clase {
-			return a.Clase < b.Clase
-		}
-		return a.FilaFuenteRef < b.FilaFuenteRef
-	})
+	p = normalizarPreparacionOrganizacion(p)
 	material, err := json.Marshal(p)
 	if err != nil {
 		return fallo("paquete_invalido", "paquete", 0)
@@ -140,4 +125,35 @@ func compactarPendientes(p []string) []string {
 		}
 	}
 	return p[:n]
+}
+
+// PrepararPaqueteOrganizacion devuelve el material revisado en el mismo orden
+// canónico que identifica PaqueteHuellaSHA256. Nunca devuelve material inválido.
+// La revisión sigue siendo local y no acredita fuentes ni concede publicación.
+func PrepararPaqueteOrganizacion(p PaquetePreparacionOrganizacion) (PaquetePreparacionOrganizacion, InformeRevisionPreparacionOrganizacion) {
+	r := RevisarPreparacionOrganizacion(p)
+	if !r.Valido {
+		return PaquetePreparacionOrganizacion{}, r
+	}
+	return normalizarPreparacionOrganizacion(p), r
+}
+
+func normalizarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) PaquetePreparacionOrganizacion {
+	p.Hechos = append([]domain.HechoImportacionOrganizacion(nil), p.Hechos...)
+	p.Decisiones = append([]domain.DecisionConciliacionOrganizacion(nil), p.Decisiones...)
+	sort.Slice(p.Hechos, func(i, j int) bool {
+		a, b := p.Hechos[i], p.Hechos[j]
+		if a.Clase != b.Clase {
+			return a.Clase < b.Clase
+		}
+		return a.HechoRef < b.HechoRef
+	})
+	sort.Slice(p.Decisiones, func(i, j int) bool {
+		a, b := p.Decisiones[i], p.Decisiones[j]
+		if a.Clase != b.Clase {
+			return a.Clase < b.Clase
+		}
+		return a.FilaFuenteRef < b.FilaFuenteRef
+	})
+	return p
 }

@@ -1,0 +1,13 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "denominacion_catalogo_no_disponible": "The message catalogue cannot be read.",
+    "denominacion_uso_invalido": "Provide private files, Person, expected version, provenance, scope and synthetic data.",
+    "denominacion_configuracion_no_disponible": "The private protection configuration is unavailable.",
+    "denominacion_material_no_disponible": "The existing private master material is unavailable.",
+    "denominacion_nombre_no_disponible": "The denomination cannot be prepared from the supplied name.",
+    "denominacion_salida_no_disponible": "The preparation cannot be saved to a new private file.",
+    "denominacion_preparacion_divergente": "The existing preparation differs or its protection is no longer available.",
+    "denominacion_preparada": "Preparation saved. Person verification and publication authorization are pending."
+  }
+}
