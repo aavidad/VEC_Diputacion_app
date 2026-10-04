@@ -55,6 +55,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			return responderFallo(salida, "documento_invalido", "entrada", 2)
 		}
 		informe = auditoria.VerificarCadenaV3(documento, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionFronteraAdminTecnicaV1:
+		var documento auditoria.DocumentoVerificacionMixta
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaFronteraAdminTecnicaV1(documento, checkpoint, *maxRegistros)
 	case auditoria.EsquemaVerificacionMixta:
 		var documento auditoria.DocumentoVerificacionMixta
 		if decodificarJSONEstricto(contenido, &documento) != nil {
@@ -198,6 +204,9 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 		}
 		return nil
 	case *auditoria.DocumentoVerificacionMixta:
+		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionFronteraAdminTecnicaV1 {
+			return clavesDocumentoFronteraAdminTecnica(objeto)
+		}
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionPreperfil {
 			return clavesDocumentoPreperfil(objeto)
 		}
@@ -289,6 +298,55 @@ func valorJSONUnico(d *json.Decoder, profundidad int) error {
 	if !((delim == '{' && cierre == json.Delim('}')) ||
 		(delim == '[' && cierre == json.Delim(']'))) {
 		return errJSONInvalido
+	}
+	return nil
+}
+
+// Conserva los parsers históricos: sólo el esquema AD189 admite su familia.
+func clavesDocumentoFronteraAdminTecnica(o map[string]json.RawMessage) error {
+	var m map[string]json.RawMessage
+	var rs []map[string]json.RawMessage
+	if !clavesExactas(o, "esquema", "manifiesto", "registros") || json.Unmarshal(o["manifiesto"], &m) != nil || !clavesCoberturaExactas(m) || json.Unmarshal(o["registros"], &rs) != nil {
+		return errJSONInvalido
+	}
+	for _, r := range rs {
+		var tipo string
+		if json.Unmarshal(r["tipo_registro"], &tipo) != nil {
+			return errJSONInvalido
+		}
+		objeto := ""
+		extras := []string{}
+		comunes := []string{"auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256", "registrada_en", "evento_ref", "evento_material_sha256", "operador_login", "accion", "modulo_id", "recurso_ref", "resultado", "motivo_ref", "proceso", "canal", "finalidad_ref", "correlacion_ref"}
+		switch tipo {
+		case "frontera_admin_tecnica":
+			objeto = "frontera_admin_tecnica"
+			comunes = []string{"auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256", "registrada_en", "tipo_registro", "evento_ref", "evento_material_sha256", "operador_login", "accion", "modulo_id", "recurso_ref", "resultado", "codigo_ref", "proceso", "canal", "finalidad_ref", "correlacion_ref"}
+		case "gobierno_usuarios_admin":
+			objeto = "gobierno_usuarios"
+			extras = []string{"plan_sha256", "preimagen_sha256", "configuracion_origen_ref", "configuracion_destino_ref", "claves_sha256"}
+		case "intento_gobierno_usuarios_admin":
+			objeto = "intento_gobierno_usuarios"
+			extras = []string{"solicitud_sha256"}
+		case auditoria.TipoOperacionPeriodica:
+			objeto = "periodica"
+			extras = []string{"detalle_canonico_base64"}
+		case auditoria.TipoOperacionPreservacionAuditoria:
+			objeto = "preservacion"
+			extras = []string{"detalle_canonico_base64"}
+		default:
+			b, err := json.Marshal([]map[string]json.RawMessage{r})
+			if err != nil {
+				return errJSONInvalido
+			}
+			if clavesDocumentoMantenimientoFijo(map[string]json.RawMessage{"esquema": o["esquema"], "manifiesto": o["manifiesto"], "registros": b}) != nil {
+				return errJSONInvalido
+			}
+			continue
+		}
+		var campos map[string]json.RawMessage
+		if !clavesExactas(r, "tipo_registro", objeto) || json.Unmarshal(r[objeto], &campos) != nil || !clavesExactas(campos, append(comunes, extras...)...) {
+			return errJSONInvalido
+		}
 	}
 	return nil
 }

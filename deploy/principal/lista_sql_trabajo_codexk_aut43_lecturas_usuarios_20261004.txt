@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion/migraciones/000043_lecturas_usuarios_admin.up.sql

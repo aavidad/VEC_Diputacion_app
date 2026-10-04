@@ -251,7 +251,10 @@ export function componerPersonalVisible(recursos, entorno, {
     } : undefined,
     destinosDisponibles: destinosDisponibles(),
     navegarModulo: (modulo) => {
-      if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
+      if (["dietas", "cronos"].includes(modulo) && entorno.location) {
+        entorno.location.hash = `#${modulo}`;
+        entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+      }
     },
   });
   // Ficha propia servida por Personal: una consulta al entrar decide qué
