@@ -314,9 +314,15 @@ BEGIN
   OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 2 AND 524288
   OR p_capacidad IS NULL OR octet_length(p_capacidad) NOT BETWEEN 2 AND 65536 THEN
   RAISE EXCEPTION 'AD177 plan atestado no disponible' USING ERRCODE='42501'; END IF;
- s:=p_solicitud::jsonb; original:=convert_from(p_envoltorio,'UTF8')::json; e:=original::jsonb;
- c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
- interior:=convert_from(p_decision_interior,'UTF8')::jsonb;
+ -- Sólo el parseo queda en una subtransacción, antes de cualquier efecto.
+ -- Evita que un DETAIL del analizador conserve tokens del material privado.
+ BEGIN
+  s:=p_solicitud::jsonb; original:=convert_from(p_envoltorio,'UTF8')::json; e:=original::jsonb;
+  c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+  interior:=convert_from(p_decision_interior,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'AD177 material exterior inválido' USING ERRCODE='22023';
+ END;
  IF jsonb_typeof(s) IS DISTINCT FROM 'object' OR jsonb_typeof(e) IS DISTINCT FROM 'object'
   OR jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
   OR jsonb_typeof(interior) IS DISTINCT FROM 'object'
