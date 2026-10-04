@@ -186,6 +186,15 @@ a la firma no prueban por sí mismas que una autoridad permitiera la extracción
 Conserva también `tsa: no_verificada_offline`, `tiempo_independiente: false` y
 `firma_legal: false`. La TSA existente es HMAC de desarrollo.
 
+Los esquemas mixtos conservan también `consumo_confirmado_v4` de AD193. El
+objeto `consumo` añade dos cadenas decimales uint64 obligatorias e iguales:
+`transaccion_origen` de auditoría y `transaccion_consumo_origen` del consumo.
+El eslabón añade sólo el primero como campo 16; el segundo se coteja sin
+añadir otro encuadre. Se rechazan números JSON, valores no canónicos y sellos
+distintos. Los consumos históricos conservan sus formatos y huellas. El
+cotejo de XID no acredita procedencia global, firma COSE ni instalación SQL;
+la exportación mantiene el pin externo y todos los límites de desarrollo.
+
 La aplicación puede preparar ese recibo únicamente a través de
 `FuenteCapturaExportacionAuditoria`: la fuente debe consumir la autorización de
 exportación, fijar un rango coherente y registrar su acuse en la auditoría común
