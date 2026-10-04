@@ -1,4 +1,4 @@
-import { MAXIMO_EXPORTACION_SERVICIOS, MIME_EXPORTACION_SERVICIOS } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
+import { MAXIMO_EXPORTACION_SERVICIOS, MIME_EXPORTACION_SERVICIOS } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
 
 /** Descarga los bytes comprobados del servidor, sin volver a crear el CSV. */
 export function descargarResumenServicios(d, exportacion) {

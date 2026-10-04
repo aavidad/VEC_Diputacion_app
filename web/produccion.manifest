@@ -651,3 +651,8 @@ static/textos/es/selectivos-acta-visor.json
 static/textos/en/selectivos-acta-visor.json
 static/textos/es/personal-exportacion-servicios.json
 static/textos/en/personal-exportacion-servicios.json
+static/portal-empleado/modulos/personal/cliente-http-historia-servicios-propia.js
+static/portal-empleado/modulos/personal/vista-historia-servicios-propia.js
+static/portal-empleado/modulos/personal/i18n-historia-servicios-propia.js
+static/textos/es/personal-historia-servicios.json
+static/textos/en/personal-historia-servicios.json

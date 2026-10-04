@@ -121,6 +121,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -600,6 +601,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if seleccionExportacion {
 		etapa = "material_personal_exportacion_servicios"
 		dependencias.materialPersonalExportacionServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaExportacionServiciosPropios)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionHistoria, err := historiaServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionHistoria {
+		etapa = "material_personal_historia_servicios"
+		dependencias.materialPersonalHistoriaServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaHistoriaServiciosPropia)
 		if err != nil {
 			return vacias, err
 		}

@@ -335,9 +335,39 @@ func TestFichaPropiaHTTPNegociaDisponibilidadSinCambiarContratoAnterior(t *testi
 					t.Fatal("disponibilidad distinta al montaje")
 				}
 			}
-			if w.Header().Get("Cache-Control") != "no-store" || len(w.Header().Values("Vary")) != 2 {
+			if w.Header().Get("Cache-Control") != "no-store" || len(w.Header().Values("Vary")) != 3 {
 				t.Fatal("perdió las condiciones de caché anteriores")
 			}
 		})
+	}
+}
+
+func TestFichaPropiaHistoriaEsRepresentacionOptativaSinReutilizarExportacion(t *testing.T) {
+	for _, prefer := range []string{"", PreferenciaHistoriaServiciosFichaPropia, "otro"} {
+		m := manejadorFichaPropiaPrueba(t, &consultaFichaPropiaHTTP{}, &registroFichaPropiaHTTP{})
+		m.historiaDisponible = true
+		r := httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil)
+		r.Header.Set("Accept", PerfilAceptacionFichaPropiaExportacion)
+		if prefer != "" {
+			r.Header.Set("Prefer", prefer)
+		}
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, r)
+		var sobre struct {
+			Data map[string]json.RawMessage `json:"data"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &sobre) != nil {
+			t.Fatal("consulta no disponible")
+		}
+		valor, existe := sobre.Data["historia_servicios_disponible"]
+		if existe != (prefer == PreferenciaHistoriaServiciosFichaPropia) {
+			t.Fatal("historia sin negociación")
+		}
+		if existe && string(valor) != "true" {
+			t.Fatal("historia no coincide con montaje")
+		}
+		if string(sobre.Data["exportacion_servicios_disponible"]) != "false" {
+			t.Fatal("historia habilitó exportación")
+		}
 	}
 }
