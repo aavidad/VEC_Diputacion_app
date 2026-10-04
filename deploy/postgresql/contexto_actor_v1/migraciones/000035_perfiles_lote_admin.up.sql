@@ -16,6 +16,8 @@ BEGIN
  OR to_regprocedure('vec_contexto_actor_v1.bloquear_contexto_admin_v1(text,text,text,text,numeric,numeric,numeric,numeric)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text)') IS NULL
+ OR to_regclass('vec_contexto_actor_v1.titularidad_cuenta_persona_v1') IS NULL
+ OR to_regclass('vec_contexto_actor_v1.fuentes_iniciales_admin_v1') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.crear_perfil_vinculo_admin_lote_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_contexto_actor_v1.revocar_perfil_vinculo_admin_lote_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text,timestamptz)') IS NOT NULL
  THEN RAISE EXCEPTION 'CA35: preimagen CA20 incompatible' USING ERRCODE='55000'; END IF;
@@ -32,8 +34,10 @@ DECLARE c record;pe record;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
  OR p_instante_lote IS NULL OR NOT isfinite(p_instante_lote) OR p_instante_lote<transaction_timestamp() OR p_instante_lote>clock_timestamp()
- OR p_vigente_desde IS NULL OR NOT isfinite(p_vigente_desde) OR p_vigente_desde>p_instante_lote
- OR p_vigente_hasta IS NULL OR NOT isfinite(p_vigente_hasta) OR p_vigente_hasta<=p_instante_lote
+ OR p_vigente_desde IS NULL OR NOT isfinite(p_vigente_desde) OR p_vigente_desde<p_instante_lote
+ OR p_vigente_hasta IS NULL OR NOT isfinite(p_vigente_hasta) OR p_vigente_hasta<=p_vigente_desde
+ OR (p_vigente_desde>p_instante_lote AND p_vigente_desde<=clock_timestamp())
+ OR p_vigente_hasta<=clock_timestamp()
  OR vec_contexto_actor_v1.referencia_valida(p_cuenta_ref,'cta_') IS NOT TRUE
  OR vec_contexto_actor_v1.referencia_valida(p_persona_ref,'per_') IS NOT TRUE
  OR vec_contexto_actor_v1.referencia_valida(p_perfil_ref,'prf_') IS NOT TRUE
@@ -59,11 +63,16 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias
    WHERE procedencia_ref=p_procedencia_ref AND procedencia_version=p_procedencia_version
    AND procedencia_huella_sha256=p_procedencia_huella AND procedencia_autoridad='autoridad_maestra_acreditada')
- OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual va
+ OR NOT (EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual va
    JOIN vec_contexto_actor_v1.vinculo_contexto_versiones vv USING(vinculo_ref,version)
    WHERE vv.cuenta_ref=p_cuenta_ref AND vv.persona_ref=p_persona_ref
    AND vv.estado='activo' AND vv.procedencia_autoridad='autoridad_maestra_acreditada'
    AND p_instante_lote>=vv.vigente_desde AND p_instante_lote<vv.vigente_hasta)
+   OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t
+    JOIN vec_contexto_actor_v1.fuentes_iniciales_admin_v1 f USING(operacion_ref)
+    WHERE t.cuenta_ref=p_cuenta_ref AND t.persona_ref=p_persona_ref
+    AND t.version=1 AND t.alcance_fuente='sintetico_declarado'
+    AND p_instante_lote>=t.vigente_desde AND p_instante_lote<t.vigente_hasta))
  OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.perfil_actual WHERE perfil_ref=p_perfil_ref)
  OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual WHERE vinculo_ref=p_vinculo_ref)
  THEN RAISE EXCEPTION 'CA35: alta sin preimagen acreditada' USING ERRCODE='55000'; END IF;

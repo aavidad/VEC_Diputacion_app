@@ -1,9 +1,11 @@
 # CA35: contexto de perfiles para el lote ordinario
 
 CA35 añade dos funciones privadas a Contexto Actor. Reciben el instante único
-que elegirá la fachada SQL AUT44 y conservan el `VigenteDesde` del objetivo
-canónico. Comprueban las versiones y la procedencia maestra antes de insertar
-historia; una revocación crea versiones nuevas y no reactiva las anteriores.
+que elegirá la fachada SQL AUT44. Una alta inmediata usa ese instante como
+inicio; una programada conserva la fecha futura del objetivo canónico.
+Comprueban versiones, procedencia maestra y titularidad CA33, también cuando
+es el primer perfil de la persona. Una revocación crea versiones nuevas y no
+reactiva las anteriores.
 Solo el propietario de Autorización puede ejecutarlas. CA20 permanece intacta.
 
 Este corte está **en preparación**. AUT44 debe confirmar todos los cambios en

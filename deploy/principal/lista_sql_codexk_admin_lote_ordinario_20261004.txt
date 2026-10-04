@@ -1,0 +1,4 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000035_perfiles_lote_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000045_mantenimiento_perfil_fijo_lote.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000190_consumidor_lote_perfiles_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000044_lote_ordinario_admin.up.sql
