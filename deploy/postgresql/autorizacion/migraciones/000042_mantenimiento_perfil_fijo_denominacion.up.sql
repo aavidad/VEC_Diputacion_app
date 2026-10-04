@@ -14,7 +14,7 @@ BEGIN
  OR to_regprocedure('vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(jsonb,timestamptz)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.bloquear_contexto_admin_v1(text,text,text,text,numeric,numeric,numeric,numeric)') IS NULL
  OR to_regclass('vec_autorizacion.sello_efecto_admin_tx_v1') IS NULL
- OR to_regclass('vec_autorizacion.mantenimiento_perfil_fijo_admin_v1') IS NOT NULL
+ OR to_regclass('vec_autorizacion.config_mantenimiento_perfil_fijo_admin_v1') IS NOT NULL
  THEN RAISE EXCEPTION 'AUT42: PARO clave=dependencias actual=divergente esperado=AUT33_34_37_AD183_sin_AUT42' USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_propietario;
@@ -312,15 +312,17 @@ BEGIN
  END IF;
  FOR t IN SELECT value FROM jsonb_array_elements(p->'asignaciones') ORDER BY value->>'perfil_ref' LOOP
   SELECT * INTO STRICT old_a FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref=t->>'asignacion_origen_ref';
-  IF old_a.huella_sha256 IS DISTINCT FROM t->>'asignacion_origen_sha256' OR old_a.version_rol_ref<>'rol:administracion_perfiles:v4' OR old_a.version<>1 OR old_a.principal_id IS DISTINCT FROM t->>'persona_ref' THEN RAISE EXCEPTION 'AUT42: PARO clave=origen actual=divergente esperado=asignacion_original4' USING ERRCODE='40001'; END IF;
+  IF old_a.huella_sha256 IS DISTINCT FROM t->>'asignacion_origen_sha256' OR old_a.version_rol_ref<>'rol:administracion_perfiles:v4' OR old_a.version<>1 OR old_a.principal_id IS DISTINCT FROM t->>'persona_ref' OR old_a.perfil_activo_ref IS DISTINCT FROM t->>'perfil_ref' THEN RAISE EXCEPTION 'AUT42: PARO clave=origen actual=divergente esperado=asignacion_original4' USING ERRCODE='40001'; END IF;
   doc:=vec_autorizacion.documento_asignacion_destino_mantenimiento_v1(old_a.documento,p,session_user::text);ref:='asignacion:'||old_a.asignacion_id||':v2';
   origenes:=origenes||jsonb_build_array(jsonb_build_object('ref',old_a.asignacion_ref,'sha',old_a.huella_sha256));destinos:=destinos||jsonb_build_array(jsonb_build_object('ref',ref,'sha',encode(pg_catalog.sha256(convert_to(vec_autorizacion.canon_asignacion_perfil_admin_v1(doc),'UTF8')),'hex'),'documento',doc));
   IF replay THEN
    SELECT x.* INTO STRICT new_a FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref) WHERE q.perfil_activo_ref=t->>'perfil_ref' FOR SHARE OF q;
    SELECT * INTO STRICT sello FROM vec_autorizacion.sello_efecto_admin_tx_v1 WHERE asignacion_ref=ref;
-   IF new_a.asignacion_ref IS DISTINCT FROM ref OR new_a.documento IS DISTINCT FROM doc OR new_a.documento->>'estado'<>'activa' OR clock_timestamp()>=(new_a.documento->>'vigente_hasta')::timestamptz OR sello.operacion_ref IS DISTINCT FROM p->>'operacion_ref' THEN RAISE EXCEPTION 'AUT42: PARO clave=replay_asignacion actual=revocada_o_divergente esperado=destino_original_sin_rescate' USING ERRCODE='40001'; END IF;
-   PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(t->>'cuenta_ref',t->>'persona_ref',t->>'perfil_ref',t->>'vinculo_ref',(t->>'cuenta_version')::numeric,(t->>'persona_version')::numeric,(t->>'perfil_version')::numeric,(t->>'vinculo_version')::numeric);
-   PERFORM vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(t->'ambitos_fuente',(new_a.documento->>'vigente_hasta')::timestamptz);
+   IF new_a.asignacion_ref IS DISTINCT FROM ref OR new_a.documento IS DISTINCT FROM doc OR new_a.huella_sha256 IS DISTINCT FROM destinos#>>'{-1,sha}' OR new_a.documento->>'estado'<>'activa' OR clock_timestamp()>=(new_a.documento->>'vigente_hasta')::timestamptz OR sello.operacion_ref IS DISTINCT FROM p->>'operacion_ref' THEN RAISE EXCEPTION 'AUT42: PARO clave=replay_asignacion actual=revocada_o_divergente esperado=destino_original_sin_rescate' USING ERRCODE='40001'; END IF;
+   IF vec_contexto_actor_v1.bloquear_contexto_admin_v1(t->>'cuenta_ref',t->>'persona_ref',t->>'perfil_ref',t->>'vinculo_ref',(t->>'cuenta_version')::numeric,(t->>'persona_version')::numeric,(t->>'perfil_version')::numeric,(t->>'vinculo_version')::numeric) IS NOT TRUE
+   OR vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(t->'ambitos_fuente',(new_a.documento->>'vigente_hasta')::timestamptz)->'ambitos' IS DISTINCT FROM new_a.documento->'ambitos' THEN
+    RAISE EXCEPTION 'AUT42: PARO clave=replay_CA_ambitos actual=divergente esperado=CA_y_ambitos_originales_vivos' USING ERRCODE='42501';
+   END IF;
   END IF;
  END LOOP;
  corr:='correlacion_'||substr(sha,33,32);
