@@ -22,6 +22,33 @@ BEGIN
  OR to_regprocedure('vec_contexto_actor_v1.revocar_perfil_vinculo_admin_lote_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text,timestamptz)') IS NOT NULL
  THEN RAISE EXCEPTION 'CA35: preimagen CA20 incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+DO $fuentes_ca33$
+DECLARE x record;f oid;definicion text;fuente text;propietario oid;definidora boolean;config text[];acl aclitem[];h text;
+BEGIN
+ FOR x IN SELECT * FROM (VALUES
+  ('vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz)',
+   'e8f78ed112b883450fad18eb1986f6d11ae71fc8874ee8f47e3bb2ec59a97588',
+   '792eaee76893a9e6bdd225b90cf329f1554608eaba5c108ec07b0db4e284ff67'),
+  ('vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text)',
+   'aee2d6ad9ac06c0e65c9e41442d75fb2c1625511ecb38d1c1a6a111a6541f664',
+   'ffb5bc621d49d51e9b39aa5ea4addae7e728366d5028900a61ba9bcd6a9a9aa3'))
+  AS datos(firma,def_sha,src_sha) LOOP
+  f:=to_regprocedure(x.firma);
+  SELECT pg_get_functiondef(p.oid),p.prosrc,p.proowner,p.prosecdef,p.proconfig,p.proacl
+   INTO STRICT definicion,fuente,propietario,definidora,config,acl FROM pg_proc p WHERE p.oid=f;
+  h:=encode(sha256(convert_to(definicion,'UTF8')),'hex');
+  IF h IS DISTINCT FROM x.def_sha OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM x.src_sha
+   OR propietario IS DISTINCT FROM 'vec_contexto_actor_v1_propietario'::regrole OR NOT definidora
+   OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
+   OR (SELECT count(*) FROM aclexplode(coalesce(acl,acldefault('f',propietario))))<>2
+   OR NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+    WHERE a.grantee='vec_autorizacion_propietario'::regrole AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   OR EXISTS(SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+    WHERE a.grantee NOT IN(propietario,'vec_autorizacion_propietario'::regrole)
+     OR a.grantor<>propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+  THEN RAISE EXCEPTION 'CA35: fachada CA33 divergente %',x.firma USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $fuentes_ca33$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 
 CREATE FUNCTION vec_contexto_actor_v1.crear_perfil_vinculo_admin_lote_v1(
