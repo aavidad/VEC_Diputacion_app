@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"vec-diputacion-granada/internal/modules/administracion/adapters/paquetestemas"
+	"vec-diputacion-granada/internal/modules/administracion/adapters/temascss"
 	"vec-diputacion-granada/internal/modules/administracion/domain/temas"
 )
 
@@ -34,6 +35,7 @@ func ejecutar(args []string, entrada io.Reader, salida, diagnostico io.Writer) i
 	f.SetOutput(io.Discard)
 	politicaRuta := f.String("politica", "", "")
 	huellaEsperada := f.String("politica-sha256", "", "")
+	salidaCSS := f.Bool("css", false, "")
 	if f.Parse(args) != nil || f.NArg() != 0 || *politicaRuta == "" || *huellaEsperada == "" {
 		return fallar("temas.paquetes.error.argumentos")
 	}
@@ -57,11 +59,20 @@ func ejecutar(args []string, entrada io.Reader, salida, diagnostico io.Writer) i
 	}
 	// Codificar antes de escribir evita producir un documento parcial por
 	// errores de serialización; una escritura fallida nunca devuelve éxito.
-	b, err := json.Marshal(resultado)
-	if err != nil {
-		return fallar("temas.paquetes.error.salida")
+	var b []byte
+	if *salidaCSS {
+		hoja, err := temascss.Generar(resultado.Material, politica.Copia())
+		if err != nil {
+			return fallar(claveError(err))
+		}
+		b = hoja.Contenido
+	} else {
+		b, err = json.Marshal(resultado)
+		if err != nil {
+			return fallar("temas.paquetes.error.salida")
+		}
+		b = append(b, '\n')
 	}
-	b = append(b, '\n')
 	n, err := salida.Write(b)
 	if err != nil || n != len(b) {
 		return fallar("temas.paquetes.error.salida")

@@ -67,11 +67,43 @@ Quedan pendientes instalación durable, gobierno común de catálogos, autorizac
 auditoría, selección por Usuarios y recorrido en navegador. Los estilos, módulos,
 preferencias y migraciones existentes permanecen sin cambios.
 
-Un consumidor posterior puede generar una hoja del mismo origen sólo desde el
-material validado. Debe mantener el alto contraste común y funcionar con la CSP
-de ADMIN `style-src 'self'`. La combinación con `html[data-tema="granate"]`
-requiere retirar y restaurar ese estado legado durante la aplicación del paquete;
-sus selectores tienen mayor especificidad. No se ha añadido ese consumidor aquí.
+## Generar una hoja de colores
+
+La misma CLI admite `-css`. Devuelve solo la hoja de colores por la salida
+estándar; los errores siguen usando el canal de diagnóstico.
+
+```sh
+go run ./cmd/vec-temas-validar \
+  -politica data/temas/politica-v1.json \
+  -politica-sha256 548c28a7452217e88c3b0590682f627b2ab5ea5f6b290a8c4a6234495e15af44 \
+  -css < data/temas/salvia-v1.json
+```
+
+La generación vuelve a validar el material. Ordena los tokens y vincula los dos
+selectores a la huella canónica del paquete. El adaptador devuelve también la
+huella de la hoja para que un consumidor posterior pueda servir esos bytes
+como recurso del mismo origen. No introduce nombres, traducciones ni datos
+libres dentro del CSS. Cambiar el orden de las propiedades o escribir un color
+en mayúsculas no cambia la hoja normalizada.
+
+Los selectores requieren `data-paquete-tema` con la huella canónica y
+`data-variante-tema` con `clara` u `oscura`, ambos en `body`. La capa queda
+excluida cuando hay alto contraste por atributo o clase y cuando el dispositivo
+usa colores forzados. No incluye reglas de distribución, estilos en línea,
+recursos remotos ni `!important`.
+
+Antes de aplicarla, el consumidor debe suspender los atributos anteriores
+`html[data-tema]` y `body[data-modo-color]`; al cancelar, debe restaurar su estado
+anterior. Granate en modo oscuro tiene selectores más específicos que esta
+hoja. No se debe mezclar la vista previa de un paquete con ese controlador.
+El CSS común conserva la estructura y la accesibilidad; la integración debe
+comprobar también los estados y focos que hoy dependen del modo antiguo.
+
+Esta salida sirve para preparar un recurso y comprobar sus colores. No activa
+un tema en el servidor, no decide qué paquetes puede elegir una persona y no
+sustituye la revisión de una pantalla. El montaje futuro debe funcionar con la
+CSP de ADMIN `style-src 'self'` y confirmar una publicación completa antes de
+cambiar la apariencia.
 
 El código separa las responsabilidades necesarias: el dominio valida contrato y
 contraste; el adaptador comprueba huella, tamaño y estructura JSON; la CLI
@@ -80,7 +112,7 @@ uso con efectos, un puerto de permisos ni una capa de aplicación para este cort
 
 ## Comprobación del corte
 
-Se ejecutaron pruebas focales de dominio, adaptador y CLI, con detección de
+Para el validador local se ejecutaron pruebas focales de dominio, adaptador y CLI, con detección de
 carreras, y `go vet -p 8` sobre esos tres paquetes. Los ocho ejemplos superaron
 los 29 pares por variante. Las pruebas incluyen claves repetidas, campos
 desconocidos, mayúsculas, límites, rechazo de colores libres, nombres inválidos,
@@ -93,3 +125,15 @@ excluidos por la configuración existente. No se envió código a un servicio de
 análisis. `vecsilencio` no encontró fallos silenciosos nuevos respecto a la base.
 Los procesos Go se ejecutaron sin red, con fuente y herramientas de sólo
 lectura, entorno explícito y archivos temporales en un directorio aislado.
+
+Para la salida CSS se comprobaron la CLI y el adaptador con pruebas normales,
+detección de carreras y vet. Gosec no encontró problemas; Semgrep ejecutó las
+42 reglas Go sobre sus dos archivos de producción, sin hallazgos. No se repitió
+la campaña global del validador.
+
+Chrome del sistema, mediante Playwright, aplicó la hoja de Salvia a componentes
+comunes sintéticos en 1440 y 390 píxeles. Coincidieron los 39 tokens de ambas
+variantes. Alto contraste por atributo y clase, y colores forzados, prevalecieron
+sobre el paquete. El cambio conservó foco y contenido del formulario, sin errores
+JavaScript, desbordamiento horizontal ni uso de almacenamiento web. Esa prueba no
+acredita un instalador, una sesión ADMIN ni una pantalla completa de VEC.
