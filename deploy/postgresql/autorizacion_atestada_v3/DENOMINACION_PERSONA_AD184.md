@@ -44,8 +44,10 @@ maps Go con orden lexicográfico: `ambitos` contiene organización/unidad; `atri
 contiene `material_sha256` y, sólo al publicar, `procedencia_autoridad`,
 `procedencia_sha256`, `procedencia_version` como cadena decimal.
 `canon_material_denominacion_persona_v1(jsonb)` conserva el orden Go del DTO y del
-sobre. Ambos helpers son puros; AUT42 recibe una ACL
-propietaria expresa para esos dos helpers, pendiente de las revisiones exactas. No son permisos para consultar datos.
+sobre. Ambos helpers son puros y SECURITY DEFINER, con propietario AD y
+`search_path=pg_catalog`. Así pueden usar su cierre de helpers privados sin
+prestar ese cierre a AUT. AUT42 recibe EXECUTE sólo sobre las dos fachadas de
+formato; no se amplían sus permisos sobre tablas, claves u otros helpers. No son permisos para consultar datos.
 
 ## Autoridad y orden causal
 
@@ -116,8 +118,8 @@ acredita esa composición ni habilita el circuito completo por sí solo.
 ## Comprobaciones preparadas
 
 `ad184_vectores_recurso.json` fija bytes y SHA del recurso por cálculo independiente.
-`ad184_recurso_acl.sql` comprueba el canon, los ámbitos y el cierre de las fachadas
-en ROLLBACK; sus sobres son transportes sintéticos, no una autoridad V3 favorable.
+`ad184_recurso_acl.sql` comprueba el canon y los ámbitos desde el propietario
+AUT, y el cierre de las fachadas desde el operador de ensayo, en ROLLBACK; sus sobres son transportes sintéticos, no una autoridad V3 favorable.
 Los positivos con firma/PDP/origen/gate reales y las negativas de retirada,
 Sistemas, ámbito, fuente, campos y recuperación quedan para el ensayo autorizado.
 El productor no ejecutó PostgreSQL ni pruebas Go, ya que no cambia paquetes Go.

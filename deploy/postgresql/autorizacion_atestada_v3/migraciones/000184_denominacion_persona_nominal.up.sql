@@ -66,7 +66,7 @@ BEGIN
  RETURN '{"Esquema":"vec.persona.denominacion.aead.v1","PersonaRef":'||to_jsonb(s->>'PersonaRef')::text||',"ClaveRef":'||to_jsonb(s->>'ClaveRef')::text||',"Version":'||(s->>'Version')||',"Nonce":'||to_jsonb(s->>'Nonce')::text||',"Cifrado":'||to_jsonb(s->>'Cifrado')::text||',"Indice":{"AmbitoRef":'||to_jsonb(i->>'AmbitoRef')::text||',"NormaRef":'||to_jsonb(i->>'NormaRef')::text||',"NormaSHA256":'||to_jsonb(i->>'NormaSHA256')::text||',"ClaveRef":'||to_jsonb(i->>'ClaveRef')::text||',"Tokens":['||tokens||']}}';
 END $f$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.canon_material_denominacion_persona_v1(p_documento jsonb)
-RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $f$
+RETURNS text LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE m jsonb:=p_documento;a jsonb;can text;sobre text;p_publicar boolean;
 BEGIN
  IF p_documento IS NULL OR octet_length(p_documento::text)>65536 THEN RAISE EXCEPTION 'AD184: material_invalido' USING ERRCODE='22023';END IF;
@@ -104,7 +104,7 @@ END $f$;
 -- No usa funciones ni tablas CA: CA32 valida su canon antes de esta llamada.
 -- Aquí se comprueba el material semántico y se liga TODO su texto al recurso.
 CREATE FUNCTION vec_autorizacion_atestada_v3.recurso_denominacion_persona_v1(p_material text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $f$
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE m jsonb;a jsonb;atributos text;canon text;accion text;k text;
 BEGIN
  IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 65536 THEN RAISE EXCEPTION 'AD184: material_invalido' USING ERRCODE='22023';END IF;
