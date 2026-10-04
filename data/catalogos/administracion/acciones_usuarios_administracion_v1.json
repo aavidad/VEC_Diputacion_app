@@ -46,7 +46,7 @@
   "proyeccion_perfiles": [
     "perfil_ref",
     "rol_version_ref",
-    "versionCA",
+    "version",
     "estado",
     "vigente_desde",
     "vigente_hasta"

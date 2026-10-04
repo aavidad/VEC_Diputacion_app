@@ -94,3 +94,15 @@ en un objetivo fresco con plan aprobado. Las APP originales caducaron a las
 no acredita todavía la actualización real de las dos asignaciones ni una
 instalación en principal. Las dos revisiones independientes corresponden a
 dirección antes de integrar.
+
+La candidata posterior cierra la facultad de delegación del operador: exige
+exactamente CONNECT, USAGE y EXECUTE de la fachada, los tres sin GRANT OPTION,
+y ninguna ACL directa al LOGIN. Conserva el rechazo de CREATE/TEMP. El
+vector `mantenimiento_perfil_fijo_000042_acl.sql` necesita el plan real aprobado
+y su LOGIN en un objetivo fresco: parte de un permiso efectivo, prueba las
+tres delegaciones dentro de savepoints y recupera el mismo recibo tras revertir
+las ACL. Todo termina en ROLLBACK, sin fuentes ni aprobación fabricadas.
+Esta guarda final aún no se ha reaplicado sobre el clon instalado anterior.
+
+En el descriptor de usuarios, `proyeccion_perfiles.version` representa la
+versión CA del perfil. Es la misma clave del DTO; no se publica `versionCA`.
