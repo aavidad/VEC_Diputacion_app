@@ -72,6 +72,7 @@ type RegistroMixtoV2 struct {
 	TipoRegistro             string                                  `json:"tipo_registro"`
 	Consumo                  *RegistroCadenaV3                       `json:"-"`
 	ConsumoOrigen            *RegistroConsumoOrigenV2                `json:"-"`
+	ConsumoTransaccion       *RegistroConsumoTransaccionV4           `json:"-"`
 	ConsumoFecha             *RegistroConsumoFechaV3                 `json:"-"`
 	Intento                  *RegistroIntentoV2                      `json:"intento,omitempty"`
 	Preperfil                *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
@@ -80,12 +81,12 @@ type RegistroMixtoV2 struct {
 
 var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
 
-// Las tres versiones conservan el mismo objeto JSON consumo. La proyección
+// Las versiones conservan el mismo objeto JSON consumo. La proyección
 // histórica mantiene su tipo Go; el discriminador elige una sola versión.
 func (r RegistroMixtoV2) MarshalJSON() ([]byte, error) {
 	type alias RegistroMixtoV2
 	var consumo any
-	for _, presente := range []bool{r.Consumo != nil, r.ConsumoOrigen != nil, r.ConsumoFecha != nil} {
+	for _, presente := range []bool{r.Consumo != nil, r.ConsumoOrigen != nil, r.ConsumoFecha != nil, r.ConsumoTransaccion != nil} {
 		if presente && consumo != nil {
 			return nil, errRegistroMixtoJSON
 		}
@@ -97,6 +98,8 @@ func (r RegistroMixtoV2) MarshalJSON() ([]byte, error) {
 				consumo = r.ConsumoOrigen
 			case r.ConsumoFecha != nil:
 				consumo = r.ConsumoFecha
+			case r.ConsumoTransaccion != nil:
+				consumo = r.ConsumoTransaccion
 			}
 		}
 	}
@@ -127,6 +130,8 @@ func (r *RegistroMixtoV2) UnmarshalJSON(b []byte) error {
 			destino = &registro.ConsumoOrigen
 		case TipoConsumoFechaV3:
 			destino = &registro.ConsumoFecha
+		case TipoConsumoTransaccionV4:
+			destino = &registro.ConsumoTransaccion
 		default:
 			return errRegistroMixtoJSON
 		}
@@ -184,6 +189,9 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
+		if r.ConsumoTransaccion != nil && r.TipoRegistro != TipoConsumoTransaccionV4 {
+			return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+		}
 		if r.FronteraAdminTecnica != nil && r.TipoRegistro != "frontera_admin_tecnica" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
 		}
@@ -244,7 +252,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 				return fallar("huella_distinta", "huella_sha256", huella, c.HuellaSHA256, secuencia)
 			}
 			historicosSinFecha = true
-		case TipoConsumoOrigenV2, TipoConsumoFechaV3:
+		case TipoConsumoOrigenV2, TipoConsumoFechaV3, TipoConsumoTransaccionV4:
 			if r.Consumo != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 			}
@@ -252,18 +260,25 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			var fallo *FalloVerificacion
 			switch r.TipoRegistro {
 			case TipoConsumoOrigenV2:
-				if r.ConsumoOrigen == nil || r.ConsumoFecha != nil {
+				if r.ConsumoOrigen == nil || r.ConsumoFecha != nil || r.ConsumoTransaccion != nil {
 					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 				}
 				c = r.ConsumoOrigen.RegistroCadenaV3
 				fallo = CotejarConsumoOrigenV2(*r.ConsumoOrigen)
 				historicosSinFecha = true
 			case TipoConsumoFechaV3:
-				if r.ConsumoFecha == nil || r.ConsumoOrigen != nil {
+				if r.ConsumoFecha == nil || r.ConsumoOrigen != nil || r.ConsumoTransaccion != nil {
 					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 				}
 				c = r.ConsumoFecha.RegistroCadenaV3
 				fallo = CotejarConsumoFechaV3(*r.ConsumoFecha)
+				fechaLigada = true
+			case TipoConsumoTransaccionV4:
+				if r.ConsumoTransaccion == nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoTransaccion.RegistroCadenaV3
+				fallo = CotejarConsumoTransaccionV4(*r.ConsumoTransaccion)
 				fechaLigada = true
 			}
 			if c.Secuencia != secuencia {
