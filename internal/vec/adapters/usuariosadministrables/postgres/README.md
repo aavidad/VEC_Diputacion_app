@@ -4,8 +4,9 @@
 `vec_admin_usuarios_lector`, el emisor central V3, la fuente de instantánea de
 autorización, el registrador común de intentos, reloj y ámbito privado de
 organización/unidad. Comprueba estructura del LOGIN y presencia de las dos
-fachadas AUT43 y del consumidor AD185. Si falta una dependencia, no construye
-la fuente.
+fachadas AUT43, sus ACL y propietario, el esquema y los permisos mínimos de
+base de datos. También exige el consumidor AD185 con propietario y ACL propios.
+Si falta una dependencia, no construye la fuente.
 
 El puerto es `ports.FuenteUsuariosAdministrables`. `ListarUsuarios` recibe los
 filtros de perfil, unidad y estado, además del cursor; `ConsultarUsuario`
@@ -23,6 +24,11 @@ error y resultado vacío, sin volver a consultar. Tras terminar el rollback,
 registra denegación o error mediante el puerto común con el resultado y vínculo
 V2 originales y la configuración privada.
 
+Un cursor incompatible se registra como denegación sobre el conjunto derivado
+del ámbito privado; no se conserva el cursor recibido. Una referencia de Persona
+malformada se rechaza en la frontera sin inventar Persona ni actor para la
+auditoría.
+
 El resultado contiene únicamente referencia de Persona, unidad, versión
 opcional de denominación y todos los perfiles del ámbito con seis campos. No
 aplica límite adicional a perfiles; SQL limita la página a 50 Personas. No
@@ -31,3 +37,6 @@ monta rutas ni adapta el DTO heredado de siete fachadas.
 Estado: código y pruebas focales locales. Faltan el montaje del emisor real,
 el ensayo de AUT42/AD184/CA32/CA34/AUT43/AD185 en PostgreSQL, las revisiones
 sensibles y el recorrido del canal ADMIN.
+
+Gosec marca G101 en `acreditarSQL`: la constante contiene nombres de roles y
+funciones PostgreSQL para cotejar ACL, sin credenciales ni secretos.

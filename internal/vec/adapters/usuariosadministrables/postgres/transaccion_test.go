@@ -8,19 +8,33 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type poolConsultaPrueba struct {
-	tx        *txConsultaPrueba
-	opciones  pgx.TxOptions
-	comienzos int
+	tx          *txConsultaPrueba
+	falloInicio error
+	opciones    pgx.TxOptions
+	comienzos   int
 }
 
 func (p *poolConsultaPrueba) BeginTx(_ context.Context, o pgx.TxOptions) (pgx.Tx, error) {
 	p.comienzos++
 	p.opciones = o
+	if p.falloInicio != nil {
+		return nil, p.falloInicio
+	}
 	return p.tx, nil
+}
+
+func TestInicioDenegadoNoSimulaLecturaNiFiltraSQL(t *testing.T) {
+	p := &poolConsultaPrueba{tx: &txConsultaPrueba{}, falloInicio: &pgconn.PgError{Code: "42501", Message: "dato privado"}}
+	salida, err := consultarTransaccion(context.Background(), p, nil, &peticion{}, listarSQL)
+	if salida != nil || !errors.Is(err, ports.ErrLecturaUsuariosAdministrablesNoDisponible) || errors.Is(err, domain.ErrAutorizacionDenegada) || p.comienzos != 1 || p.tx.consultas != 0 || p.tx.commits != 0 {
+		t.Fatalf("inicio: salida=%v err=%v consultas=%d", salida, err, p.tx.consultas)
+	}
 }
 func (*poolConsultaPrueba) QueryRow(context.Context, string, ...any) pgx.Row {
 	panic("consulta externa inesperada")

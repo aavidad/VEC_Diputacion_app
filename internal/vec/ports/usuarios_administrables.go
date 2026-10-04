@@ -8,7 +8,7 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-var ErrLecturaUsuariosAdministrablesNoDisponible = errors.New("vec: lectura de usuarios administrables no disponible")
+var ErrLecturaUsuariosAdministrablesNoDisponible = errors.New("vec.usuarios_administrables.lectura.no_disponible")
 
 // Los filtros son selección de la petición; organización y unidad proceden
 // exclusivamente de la configuración privada del adaptador.

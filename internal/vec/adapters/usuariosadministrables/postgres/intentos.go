@@ -12,8 +12,8 @@ import (
 // Se llama cuando consumir ya ha terminado y su rollback diferido ha salido.
 // Conserva el resultado y vínculo V2 originales; la configuración privada
 // aporta proceso, canal y motivos de catálogo.
-func (f *Fuente) registrarFallo(ctx context.Context, evidencia domain.EvidenciaSesionAdministracionPerfiles, p *peticion, causa error) error {
-	if f == nil || p == nil || evidencia.Vinculo.ValidarPara(evidencia.ResultadoContexto) != nil {
+func (f *Fuente) registrarFallo(ctx context.Context, evidencia domain.EvidenciaSesionAdministracionPerfiles, accion, recursoRef, correlacion string, causa error) error {
+	if f == nil || evidencia.Vinculo.ValidarPara(evidencia.ResultadoContexto) != nil {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	resultado := domain.ResultadoIntentoAuditoriaError
@@ -22,9 +22,9 @@ func (f *Fuente) registrarFallo(ctx context.Context, evidencia domain.EvidenciaS
 		resultado = domain.ResultadoIntentoAuditoriaDenegado
 		motivo = f.config.MotivoDenegado
 	}
-	datos := domain.DatosIntentoAuditoria{Accion: p.accion, ModuloID: "administracion", RecursoRef: p.recurso.Referencia,
+	datos := domain.DatosIntentoAuditoria{Accion: accion, ModuloID: "administracion", RecursoRef: recursoRef,
 		FinalidadRef: "gestion_usuarios", Resultado: resultado, Motivo: motivo,
-		Proceso: f.config.Proceso, Canal: f.config.Canal, CorrelacionRef: p.correlacion}
+		Proceso: f.config.Proceso, Canal: f.config.Canal, CorrelacionRef: correlacion}
 	if datos.Validar() != nil {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}

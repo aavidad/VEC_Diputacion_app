@@ -81,13 +81,43 @@ const acreditarSQL = `SELECT COALESCE(
  AND (SELECT count(*) FROM pg_catalog.pg_auth_members x WHERE x.member=l.oid)=1
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members x WHERE x.member=g.oid)
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_db_role_setting x WHERE x.setrole IN(l.oid,g.oid))
+ AND pg_catalog.has_database_privilege(current_user,current_database(),'CONNECT')
  AND NOT pg_catalog.has_database_privilege(current_user,current_database(),'CREATE')
+ AND NOT pg_catalog.has_database_privilege(current_user,current_database(),'TEMPORARY')
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_database d CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(d.datacl,pg_catalog.acldefault('d',d.datdba))) a
+  WHERE d.datname=current_database() AND a.grantee IN(l.oid,g.oid) AND (a.privilege_type<>'CONNECT' OR a.is_grantable))
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a
+  WHERE n.nspname='vec_autorizacion' AND n.nspowner=pg_catalog.to_regrole('vec_autorizacion_propietario')
+   AND a.grantee=g.oid AND a.privilege_type='USAGE' AND NOT a.is_grantable)
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a
+  WHERE n.nspname IN('vec_autorizacion','vec_autorizacion_atestada_v3','vec_contexto_actor_v1')
+   AND (a.grantee=l.oid OR (n.nspname<>'vec_autorizacion' AND a.grantee=g.oid)))
+ AND pg_catalog.has_schema_privilege(current_user,'vec_autorizacion','USAGE')
+ AND NOT pg_catalog.has_schema_privilege(current_user,'vec_autorizacion','CREATE')
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+  WHERE n.nspname IN('vec_autorizacion','vec_autorizacion_atestada_v3','vec_contexto_actor_v1')
+   AND (a.grantee=l.oid OR a.grantee=g.oid AND (n.nspname<>'vec_autorizacion' OR p.oid NOT IN(
+    pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+    pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')))))
  AND pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
- AND NOT pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'),false)
+ AND NOT pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND (SELECT count(*)=2 FROM pg_catalog.pg_proc p WHERE p.oid IN (
+  pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+  pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
+  AND p.proowner=pg_catalog.to_regrole('vec_autorizacion_propietario') AND p.prosecdef
+  AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE a.grantee=g.oid AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+  AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE a.grantee NOT IN(p.proowner,g.oid) OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+  AND p.proowner=pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') AND p.prosecdef
+  AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE a.grantee NOT IN(p.proowner,pg_catalog.to_regrole('vec_autorizacion_propietario')) OR a.privilege_type<>'EXECUTE' OR a.is_grantable)),false)
  FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_auth_members m ON m.member=l.oid JOIN pg_catalog.pg_roles g ON g.oid=m.roleid WHERE l.rolname=session_user`
 
 func ausente(v any) bool {
@@ -108,7 +138,7 @@ func (f *Fuente) ListarUsuarios(ctx context.Context, actor domain.ContextoActor,
 	}
 	p, err := materialListar(f.ambito, filtros)
 	if err != nil {
-		return ports.PaginaUsuariosAdministrables{}, err
+		return ports.PaginaUsuariosAdministrables{}, f.rechazarListaInvalida(ctx, actor, evidencia, err)
 	}
 	bruto, err := f.ejecutar(ctx, actor, evidencia, &p, listarSQL)
 	if err != nil {
@@ -152,10 +182,39 @@ func (f *Fuente) ejecutar(ctx context.Context, actor domain.ContextoActor, evide
 	if evidencia.ValidarPara(actor) != nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
-	if f.registrarFallo(ctx, evidencia, p, err) != nil {
+	if f.registrarFallo(ctx, evidencia, p.accion, p.recurso.Referencia, p.correlacion, err) != nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	return nil, err
+}
+
+// Un cursor o filtro incompatible no llega a la fachada. La referencia de
+// auditoría es el conjunto real del ámbito privado; no se guarda el valor
+// recibido ni se construye una decisión para justificar su rechazo.
+func (f *Fuente) rechazarListaInvalida(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, causa error) error {
+	if ctx == nil || actor.Validar() != nil || evidencia.ValidarPara(actor) != nil {
+		return causa
+	}
+	vinculo, err := evidencia.Vinculo.Datos()
+	if err != nil || string(vinculo.Superficie) != f.config.Canal || !vinculo.CuentaPrivilegiada {
+		return causa
+	}
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	if err != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	ref, err := correlacion.ValorCanonico()
+	if err != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	conjunto, err := conjuntoUsuarios(f.ambito)
+	if err != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	if f.registrarFallo(ctx, evidencia, accionListar, conjunto, ref, domain.ErrAutorizacionDenegada) != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	return causa
 }
 
 func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, p *peticion, consulta string, correlacion domain.ReferenciaCorrelacionAutorizacionV2) ([]byte, error) {
@@ -172,7 +231,7 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 	}
 	snapshot, err := f.fuente.ObtenerInstantaneaAutorizacion(ctx, actor.PersonaRef, actor.PerfilActivoRef)
 	if err != nil {
-		return nil, err
+		return nil, clasificarDependencia(err)
 	}
 	if snapshot.Validar() != nil || snapshot.AsignacionPerfil.PrincipalID != actor.PersonaRef || snapshot.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef ||
 		!snapshot.AsignacionPerfil.VigenteEn(ahora) || !snapshot.AsignacionPerfil.Cubre(p.recurso) ||
@@ -187,7 +246,7 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 	m, err := f.emisor.EmitirLecturaUsuariosAdministrables(ctx, actor, evidencia, snapshot, emision)
 	clear(emision.Material)
 	if err != nil {
-		return nil, err
+		return nil, clasificarDependencia(err)
 	}
 	ahora = f.reloj.Ahora()
 	if evidencia.ValidarEn(actor, ahora) != nil || !actor.Instantanea.VigenteEn(ahora) {
@@ -212,7 +271,8 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 func consultarTransaccion(ctx context.Context, pool conexion, args []any, p *peticion, consulta string) ([]byte, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return nil, traducir(err)
+		// El lector no ha ejecutado SQL nominal; tampoco hay denegación del gate.
+		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	defer func() {
 		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -238,6 +298,13 @@ func consultarTransaccion(ctx context.Context, pool conexion, args []any, p *pet
 func traducir(err error) error {
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) && pg.Code == "42501" {
+		return domain.ErrAutorizacionDenegada
+	}
+	return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+}
+
+func clasificarDependencia(err error) error {
+	if errors.Is(err, domain.ErrAutorizacionDenegada) {
 		return domain.ErrAutorizacionDenegada
 	}
 	return ports.ErrLecturaUsuariosAdministrablesNoDisponible
