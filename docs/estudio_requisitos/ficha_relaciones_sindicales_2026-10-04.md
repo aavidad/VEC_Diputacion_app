@@ -32,7 +32,7 @@ El [acuerdo provincial ratificado por el Pleno el 30/01/2020](https://www.dipgra
 | [Estatuto de los Trabajadores](https://www.boe.es/eli/es/rdlg/2015/10/23/2/con) | Arts. 61–81: representación y reuniones laborales; arts. 65, 67 y 68: sigilo, mandato/sustitución y garantías/crédito. La acumulación laboral exige la habilitación correspondiente. |
 | [RD 1844/1994](https://www.boe.es/buscar/act.php?id=BOE-A-1994-20236) y [RD 1846/1994](https://www.boe.es/buscar/act.php?id=BOE-A-1994-20237) | Reglamento 1844, art. 1: promoción electoral laboral; Reglamento 1846, art. 1.1 y 1.5: ámbito AGE y supletoriedad local. Conservar actas y fundamento electoral aplicable; no replicar órganos AGE como autoridad provincial. |
 | [Acuerdo provincial de 2020](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/Acuerdo-regulacion-creditos-horarios-sindicales.pdf) | Apartados II.A–D: recursos y acumulaciones; II.E: uso, preaviso y publicidad; III: vigencia durante el mandato. Las reglas operativas se cargarán con acreditación de su vigencia actual. |
-| [Ley andaluza 1/2014](https://www.boe.es/eli/es-an/l/2014/06/24/1/con) | Art. 10.1.m: identificación de integrantes de órganos representativos y número de personas con dispensa total. No habilita publicar un censo de afiliación. |
+| [Ley andaluza 1/2014](https://www.boe.es/eli/es-an/l/2014/06/24/1/con) | Art. 10.1.l: identificación de integrantes de órganos representativos y número de personas con dispensa total. No habilita publicar un censo de afiliación. |
 
 ## Perfiles, ámbitos y canales
 
