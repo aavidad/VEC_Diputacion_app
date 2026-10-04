@@ -252,6 +252,22 @@ func TestAuditoriaLecturasCTCabeceraHTTPExigeAcuseConfirmado(t *testing.T) {
 				if (w.Header().Get("X-Audit-Ref") == "auditoria_sintetica") != (estado == "denegado" || estado == "cancelado") {
 					t.Fatal("cabecera de auditoría perdida o emitida sin acuse")
 				}
+				correlacion := ""
+				if estado == "denegado" || estado == "cancelado" {
+					ref, e := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+					if e != nil {
+						t.Fatal(e)
+					}
+					correlacion, e = ref.ValorCanonico()
+					if e != nil {
+						t.Fatal(e)
+					}
+				} else if w.Header().Get("X-Audit-Ref") != "" {
+					t.Fatal("referencia de auditoría falsa cuando falló el registro")
+				}
+				if w.Header().Get("X-Correlation-Ref") != correlacion {
+					t.Fatal("correlación del acuse perdida o emitida sin confirmar")
+				}
 			})
 		}
 	}

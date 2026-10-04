@@ -33,4 +33,5 @@ func adjuntarAcuseAuditoriaLectura(w http.ResponseWriter, err error) {
 		}
 	}
 	w.Header().Set("X-Audit-Ref", a.AuditoriaRef)
+	w.Header().Set("X-Correlation-Ref", a.CorrelacionRef)
 }
