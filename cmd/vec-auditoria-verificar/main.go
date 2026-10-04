@@ -72,6 +72,17 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			codigo = 1
 		}
 		return responder(salida, informe, codigo)
+	case auditoria.EsquemaVerificacionFuentesIniciales:
+		var documento auditoria.DocumentoVerificacionMixta
+		if decodificarJSONEstricto(contenido, &documento) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe := auditoria.VerificarCadenaFuentesInicialesV1(documento, checkpoint, *maxRegistros)
+		codigo := 0
+		if informe.Estado != "verificada" {
+			codigo = 1
+		}
+		return responder(salida, informe, codigo)
 	default:
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
@@ -157,40 +168,10 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionPreperfil {
 			return clavesDocumentoPreperfil(objeto)
 		}
-		var manifiesto map[string]json.RawMessage
-		var registros []map[string]json.RawMessage
-		if !clavesExactas(objeto, "esquema", "manifiesto", "registros") ||
-			json.Unmarshal(objeto["manifiesto"], &manifiesto) != nil || !clavesCoberturaExactas(manifiesto) ||
-			json.Unmarshal(objeto["registros"], &registros) != nil {
-			return errJSONInvalido
+		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionFuentesIniciales {
+			return clavesDocumentoFuentesIniciales(objeto)
 		}
-		for _, registro := range registros {
-			if !clavesExactas(registro, "tipo_registro", "consumo") &&
-				!clavesExactas(registro, "tipo_registro", "intento") {
-				return errJSONInvalido
-			}
-			var tipo string
-			if json.Unmarshal(registro["tipo_registro"], &tipo) != nil {
-				return errJSONInvalido
-			}
-			switch tipo {
-			case "consumo_confirmado":
-				var campos map[string]json.RawMessage
-				if json.Unmarshal(registro["consumo"], &campos) != nil ||
-					!clavesExactas(campos, "auditoria_ref", "secuencia", "decision_ref", "efecto_ref",
-						"huella_efecto_sha256", "anterior_sha256", "huella_sha256", "consumo_huella_sha256") {
-					return errJSONInvalido
-				}
-			case "intento_nominal":
-				var campos map[string]json.RawMessage
-				if json.Unmarshal(registro["intento"], &campos) != nil || !clavesIntentoExactas(campos) {
-					return errJSONInvalido
-				}
-			default:
-				return errJSONInvalido
-			}
-		}
-		return nil
+		return clavesDocumentoMixto(objeto, false)
 	default:
 		return errJSONInvalido
 	}
