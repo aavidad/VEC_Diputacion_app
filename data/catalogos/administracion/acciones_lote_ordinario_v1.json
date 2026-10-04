@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "concesiones": [
+    {
+      "accion": "administracion.perfiles.aplicar_lote_ordinario",
+      "modulo_id": "administracion",
+      "tipo_recurso": "persona",
+      "finalidades": [
+        "gestion_perfiles"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [],
+      "obligaciones": [
+        "auditar"
+      ]
+    }
+  ],
+  "dimensiones_ambito": [
+    "organizacion_ref",
+    "unidad_ref"
+  ]
+}

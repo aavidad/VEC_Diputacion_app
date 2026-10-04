@@ -43,6 +43,10 @@ type referenciaAsignacion struct {
 
 func validarEnvoltura(b []byte, p documentoPlan, sha string) (envoltura, error) {
 	var e envoltura
+	variante, ok := varianteMantenimiento(p.Version)
+	if !ok {
+		return e, errEnvoltura
+	}
 	if len(b) < 1 || len(b) > limiteDocumento || decodificarEstricto(b, &e) != nil {
 		return e, errEnvoltura
 	}
@@ -53,21 +57,21 @@ func validarEnvoltura(b []byte, p documentoPlan, sha string) (envoltura, error) 
 	switch e.Estado {
 	case "permitido":
 		r := e.Recibo
-		if e.Codigo != nil || r == nil || r.Esquema != "vec.admin.mantenimiento-fijo.v1" || r.OperacionRef != p.OperacionRef || r.PlanSHA256 != sha || r.RolOrigenRef != "rol:administracion_perfiles:v4" || r.RolDestinoRef != "rol:administracion_perfiles:v5" || !hashValido(r.RolDestinoSHA) || len(r.Asignaciones) != 2 || !refHex(r.AuditoriaRef, "aud_v3_mf_") || r.AuditoriaSecuencia == 0 || !hashValido(r.AuditoriaHuella) || !fechaValida(r.ConfirmadoEn) {
+		if e.Codigo != nil || r == nil || r.Esquema != variante.Esquema || r.OperacionRef != p.OperacionRef || r.PlanSHA256 != sha || r.RolOrigenRef != variante.OrigenRef || r.RolDestinoRef != variante.DestinoRef || !hashValido(r.RolDestinoSHA) || len(r.Asignaciones) != 2 || !refHex(r.AuditoriaRef, "aud_v3_mf_") || r.AuditoriaSecuencia == 0 || !hashValido(r.AuditoriaHuella) || !fechaValida(r.ConfirmadoEn) {
 			return e, errEnvoltura
 		}
 		var target struct {
 			Version int `json:"version"`
 		}
-		if json.Unmarshal(p.RolDestino, &target) != nil || target.Version != 5 {
+		if json.Unmarshal(p.RolDestino, &target) != nil || target.Version != variante.VersionRolDestino {
 			return e, errEnvoltura
 		}
 		expected := map[string]bool{}
 		for _, x := range p.Asignaciones {
-			if !strings.HasSuffix(x.AsignacionRef, ":v1") {
+			if !strings.HasSuffix(x.AsignacionRef, variante.OrigenSufijo) {
 				return e, errEnvoltura
 			}
-			expected[strings.TrimSuffix(x.AsignacionRef, ":v1")+":v2"] = true
+			expected[strings.TrimSuffix(x.AsignacionRef, variante.OrigenSufijo)+variante.DestinoSufijo] = true
 		}
 		for _, x := range r.Asignaciones {
 			if !expected[x.Ref] || !hashValido(x.SHA) {
