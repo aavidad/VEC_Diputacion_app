@@ -226,8 +226,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-justificantes-v1"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261004-b-tramites-devoluciones-v2"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-devoluciones-v2"),
     ]);
     return { fuente, vista };
   },
@@ -534,10 +534,10 @@ export function crearCoordinadorModulosPortal({
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
         // Abrir un destino diferido no exige haberlo visitado antes. Esto
         // sólo ofrece navegación propia; su lectura se autoriza al entrar.
-        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"].map((clave) => [clave,
-          catalogo.some((modulo) => modulo.clave === clave)
-            && [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave)),
-        ])),
+        // Sólo se ofrecen destinos del catálogo; un módulo oculto no aparece.
+        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"]
+          .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
+          .map((clave) => [clave, [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave))])),
       })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),

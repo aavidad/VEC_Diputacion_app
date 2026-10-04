@@ -13,13 +13,20 @@ Base comprobada: `origin/main@77a4e7470`.
   de carga deciden la navegación; cada operación conserva su autorización en
   servidor. Un destino ausente o cuya carga falló sigue deshabilitado. Al entrar,
   el foco permanece en el contenido principal.
-- I-04 sigue necesitando las proyecciones propias de actos y documentos. I-05
+- I-04 ya consume referencias de actos en las historias propias de Personal;
+  los documentos necesitan el vínculo autorizado con su versión. I-05
   no dispone de plazos administrativos en las lecturas actuales; las fechas de
   permiso o comisión no permiten deducirlos. I-06 conserva el recibo de Dietas,
   sin convertirlo en registro oficial o notificación legal.
 - La parte de catálogos ES/EN de I-09 ya usa el lector común y `solicitudes.json`.
   El componente genérico de Solicitudes carece de consumidor productivo; esta
   comprobación no da por cerrado el trámite gobernado de I-08.
+
+La continuación añade tres mejoras en «Mis trámites»: al caducar la sesión,
+retira los datos de ambos paneles; el justificante de Dietas muestra la versión
+exacta del recibo; y una devolución permite consultar motivo, etapa, versión y
+fecha del hecho, con acceso a «Mis dietas» para revisarla. Esa fecha no fija un
+plazo administrativo. No se añade una descarga ni se repite una escritura.
 
 Validación de los accesos: pruebas focales de coordinación, composición y ficha;
 Chrome del sistema en ES/EN, 1440/390 y ampliación al 200 %, con teclado y foco.

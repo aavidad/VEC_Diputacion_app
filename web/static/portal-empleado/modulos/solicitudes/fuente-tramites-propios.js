@@ -1,6 +1,8 @@
 import { validarPermisosPropiosCronos } from "../cronos/cliente-solicitudes-http.js";
+import { sinBordes } from "../dietas/texto-dietas.js?v=20260925-d5d6-v1";
 
 const ESTADOS_DIETAS = new Set(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
+const ETAPAS_DEVOLUCION = new Set(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const CODIGOS_LECTURA = new Set(["acceso_denegado", "autenticacion_requerida", "sin_empleado", "relacion_ambigua", "relacion_no_disponible", "no_disponible", "servicio_no_disponible", "red_no_disponible", "plazo_agotado", "operacion_abortada", "respuesta_incompatible", "respuesta_excesiva", "peticion_invalida", "fuente_no_configurada"]);
 const codificador = new TextEncoder();
 
@@ -58,6 +60,18 @@ function proyectarCronos(valor, anio) {
   return Object.freeze({ anio: valor.anio, solicitudes: Object.freeze(solicitudes) });
 }
 
+// Hecho devuelto por Dietas: su instante no fija un plazo de subsanación.
+function proyectarDevolucion(comision) {
+  const d = comision.devolucion;
+  if (!registro(d) || Object.keys(d).length !== 4 || !["etapa", "motivo", "version", "devuelta_en"].every((clave) => Object.hasOwn(d, clave))
+    || !ETAPAS_DEVOLUCION.has(d.etapa) || !["devuelta", "borrador"].includes(comision.estado)
+    || typeof d.motivo !== "string" || d.motivo.length < 3 || codificador.encode(d.motivo).byteLength > 600
+    || /[\x00-\x1F\x7F]/u.test(d.motivo) || !sinBordes(d.motivo)
+    || !version(d.version) || d.version < 3 || !version(comision.version) || d.version > comision.version
+    || typeof d.devuelta_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(d.devuelta_en) || !instante(d.devuelta_en)) incompatible();
+  return Object.freeze({ etapa: d.etapa, motivo: d.motivo, version: d.version, devuelta_en: d.devuelta_en });
+}
+
 function proyectarItemDietas(item) {
   if (!registro(item) || !registro(item.comision)) incompatible();
   const comision = item.comision;
@@ -65,11 +79,13 @@ function proyectarItemDietas(item) {
     || !fecha(comision.fecha_inicio) || !fecha(comision.fecha_fin) || comision.fecha_inicio > comision.fecha_fin
     || (comision.numero_documento !== undefined && (typeof comision.numero_documento !== "string" || !/^VEC-D-\d{4}-\d{6,18}$/u.test(comision.numero_documento)))
     || (comision.fecha_apertura !== undefined && !instante(comision.fecha_apertura))) incompatible();
+  const devolucion = comision.devolucion === undefined ? undefined : proyectarDevolucion(comision);
   const minima = Object.freeze({
     referencia: comision.referencia, ...(comision.version === undefined ? {} : { version: comision.version }), estado: comision.estado,
     fecha_inicio: comision.fecha_inicio, fecha_fin: comision.fecha_fin,
     ...(comision.numero_documento === undefined ? {} : { numero_documento: comision.numero_documento }),
     ...(comision.fecha_apertura === undefined ? {} : { fecha_apertura: comision.fecha_apertura }),
+    ...(devolucion === undefined ? {} : { devolucion }),
   });
   let recibo;
   if (item.recibo !== undefined) {

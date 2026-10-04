@@ -69,6 +69,16 @@
     "dietas_estado_pendiente_liquidacion": "Pendiente de liquidación",
     "dietas_estado_pendiente_fiscalizacion": "Pendiente de fiscalización",
     "dietas_estado_fiscalizada": "Fiscalizada",
-    "dietas_estado_devuelta": "Devuelta"
+    "dietas_estado_devuelta": "Devuelta",
+    "devolucion_ver": "Ver motivo de devolución",
+    "devolucion_motivo": "Motivo de devolución",
+    "devolucion_etapa": "Etapa de la devolución",
+    "devolucion_version": "Versión devuelta",
+    "devolucion_fecha": "Fecha de devolución",
+    "devolucion_abrir": "Revisar en Mis dietas",
+    "devolucion_etapa_revision": "Revisión",
+    "devolucion_etapa_autorizacion": "Autorización",
+    "devolucion_etapa_liquidacion": "Liquidación",
+    "devolucion_etapa_fiscalizacion": "Fiscalización"
   }
 }
