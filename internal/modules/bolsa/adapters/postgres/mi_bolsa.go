@@ -12,6 +12,7 @@ import (
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/shared/postgresql"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
@@ -195,7 +196,9 @@ func errorMiBolsa(ctx context.Context, err error) error {
 		switch pgErr.Code {
 		case "40001", "40P01", "55P03", "57014":
 			return puertosbolsa.ErrMaterialMiBolsaNoDisponible
-		case "22000", "22023", "23503", "23514", "42501", "55000":
+		case "42501":
+			return errors.Join(dominiovec.ErrAutorizacionDenegada, puertosbolsa.ErrConsultaMiBolsaInvalida)
+		case "22000", "22023", "23503", "23514", "55000":
 			return puertosbolsa.ErrConsultaMiBolsaInvalida
 		}
 	}
