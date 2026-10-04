@@ -6,10 +6,20 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>{{index .Textos.Rotulos "titulo"}}</title>
 <style>{{.Tema}}
-{{.Estilos}}</style>
+{{.Estilos}}
+@media print {
+  .comparacion-local .cabecera-informe { margin-bottom: 12px; }
+  .comparacion-local .panel { margin-bottom: 12px; }
+  .comparacion-local .cabecera-panel { padding: 10px 16px; }
+  .comparacion-local th, .comparacion-local td { padding: 8px 12px; }
+  .comparacion-catalogos .cuerpo-panel { padding-block: 8px; }
+  .comparacion-catalogos h3 { margin: 12px 0 4px; }
+  .comparacion-catalogos .datos-detalle { gap: 8px 16px; }
+}
+</style>
 </head>
 <body>
-<main>
+<main class="comparacion-local">
 <header class="cabecera-informe">
 <h1>{{index .Textos.Rotulos "titulo"}}</h1>
 <p class="estado">{{index .Textos.Rotulos "estado"}}</p>
@@ -81,10 +91,11 @@
 </table>
 </div>
 </section>
-<section class="panel" aria-labelledby="catalogos">
+<section class="panel comparacion-catalogos" aria-labelledby="catalogos">
 <div class="cabecera-panel"><h2 id="catalogos">{{index .Textos.Rotulos "catalogos"}}</h2></div>
 <div class="cuerpo-panel">
 <p>{{.CatalogosEstado}}</p>
+<p class="limite-huella">{{index .Textos.Rotulos "huella_limite"}}</p>
 {{range .Catalogos}}
 <h3>{{.Rotulo}}</h3>
 <dl class="datos-detalle">
@@ -100,7 +111,6 @@
 <div><dt>{{index .Textos.Rotulos "comision_version"}}</dt><dd>{{.Version}}</dd></div>
 <div><dt>{{index .Textos.Rotulos "huella_documento"}}</dt><dd class="huella">{{.DocumentoSHA}}</dd></div>
 </dl>
-<p class="limite-huella">{{index .Textos.Rotulos "huella_limite"}}</p>
 </div>
 </section>
 </main>

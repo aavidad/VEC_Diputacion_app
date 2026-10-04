@@ -80,7 +80,11 @@ func TestComparacionHTMLLocalizadaConImportesYHuellasConservados(t *testing.T) {
 				}
 			}
 			if strings.Count(s, "<table>") != 3 {
-				t.Fatal("faltan las tablas separadas de admisión, rechazo y criterios")
+				t.Fatal("faltan las tablas separadas de importes, rechazo y criterios")
+			}
+			if aviso, primerCatalogo := strings.Index(s, `class="limite-huella">`),
+				strings.Index(s, "<h3>"+textos.Rotulos["anterior"]+"</h3>"); aviso < 0 || primerCatalogo < 0 || aviso > primerCatalogo {
+				t.Fatal("el aviso de huellas quedó separado de los catálogos")
 			}
 			for _, centimos := range []int64{6670, 5970, 6270, 700, 400, 300, -300} {
 				if !strings.Contains(s, moneda(centimos, textos.Formato)) {
