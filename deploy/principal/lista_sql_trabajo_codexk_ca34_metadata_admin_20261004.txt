@@ -1,0 +1,1 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000034_metadata_usuarios_admin.up.sql

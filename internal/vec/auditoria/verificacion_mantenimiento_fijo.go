@@ -64,7 +64,10 @@ type InformeVerificacionMantenimientoFijo struct {
 }
 
 func VerificarCadenaMantenimientoFijoV1(d DocumentoVerificacionMixta, c CoberturaCadena, max uint64) InformeVerificacionMantenimientoFijo {
-	r := InformeVerificacionMantenimientoFijo{InformeVerificacionBootstrapCentral: InformeVerificacionBootstrapCentral{InformeVerificacionUnidadInicial: InformeVerificacionUnidadInicial{InformeVerificacionFuentesIniciales: InformeVerificacionFuentesIniciales{InformeVerificacion: verificarCadenaMixta(d, c, max, EsquemaVerificacionMantenimientoFijo)}}}}
+	return verificarCadenaMantenimientoFijo(d, c, max, EsquemaVerificacionMantenimientoFijo)
+}
+func verificarCadenaMantenimientoFijo(d DocumentoVerificacionMixta, c CoberturaCadena, max uint64, esquema string) InformeVerificacionMantenimientoFijo {
+	r := InformeVerificacionMantenimientoFijo{InformeVerificacionBootstrapCentral: InformeVerificacionBootstrapCentral{InformeVerificacionUnidadInicial: InformeVerificacionUnidadInicial{InformeVerificacionFuentesIniciales: InformeVerificacionFuentesIniciales{InformeVerificacion: verificarCadenaMixta(d, c, max, esquema)}}}}
 	if r.Estado == "verificada" {
 		for _, x := range d.Registros {
 			r.MaterialEventoRecalculado = r.MaterialEventoRecalculado || x.Preperfil != nil || x.Bootstrap != nil
