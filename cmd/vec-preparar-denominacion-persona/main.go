@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -100,6 +101,11 @@ func ejecutar(args []string, salida, fallos io.Writer) int {
 		return fallo("denominacion.nombre_no_disponible")
 	}
 	defer clear(nombre)
+	// Rutas diferentes pueden contener el mismo material: comparar los datos,
+	// nunca la identidad del fichero o su directorio.
+	if len(nombre) == len(maestra) && subtle.ConstantTimeCompare(nombre, maestra[:]) == 1 {
+		return fallo("denominacion.nombre_no_disponible")
+	}
 	raiz, err := bootstrap.AbrirRaizPrivadaDenominacionPersona(destino)
 	if err != nil {
 		return fallo("denominacion.salida_no_disponible")

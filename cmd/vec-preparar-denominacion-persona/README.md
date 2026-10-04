@@ -39,7 +39,9 @@ la norma exige NFC y rechaza controles y blancos exteriores.
 Los archivos privados requieren `0600` y su directorio inmediato `0700`, propios
 del operador, sin enlaces y fuera de Git. El maestro es el archivo binario
 existente de 32 bytes, no una cadena hexadecimal ni una clave nueva. La salida
-se crea con O_EXCL y `0600`. El catálogo de mensajes es público y versionado.
+se crea con O_EXCL y `0600`. Si el contenido del nombre coincide con los 32
+bytes del maestro, la CLI lo rechaza, incluso mediante otra ruta, enlace duro
+o copia; no compara inodos. El catálogo de mensajes es público y versionado.
 
 Configuración cerrada, sin material secreto:
 

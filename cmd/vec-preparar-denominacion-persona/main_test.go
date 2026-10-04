@@ -163,3 +163,74 @@ func TestCLIReferenciasCA32AntesDePrepararYReutilizar(t *testing.T) {
 		t.Fatal("limite_CA32_rechazado")
 	}
 }
+
+func TestCLIRechazaMaterialMaestroComoNombrePorContenido(t *testing.T) {
+	for _, modo := range []string{"enlace_duro", "copia"} {
+		t.Run(modo, func(t *testing.T) {
+			args, salida, nombre := fixtureCLI(t)
+			var maestra string
+			for i := range args {
+				if args[i] == "--maestra-fichero" {
+					maestra = args[i+1]
+					break
+				}
+			}
+			// Material sintético de 32 bytes que también sería un nombre UTF8 válido.
+			material := []byte("Elena Marquez Navarro Lopez Luna")
+			if len(material) != 32 {
+				t.Fatal("fixture_material")
+			}
+			if os.WriteFile(maestra, material, 0600) != nil {
+				t.Fatal("fixture_maestra")
+			}
+			alias := filepath.Join(filepath.Dir(nombre), "nombre_equivocado.privado")
+			if modo == "enlace_duro" {
+				if os.Link(maestra, alias) != nil {
+					t.Fatal("fixture_enlace")
+				}
+			} else {
+				if os.WriteFile(alias, material, 0600) != nil {
+					t.Fatal("fixture_copia")
+				}
+			}
+			equivocados := append([]string(nil), args...)
+			for i := range equivocados {
+				if equivocados[i] == "--nombre-fichero" {
+					equivocados[i+1] = alias
+					break
+				}
+			}
+			var out, errores bytes.Buffer
+			if ejecutar(equivocados, &out, &errores) == 0 {
+				t.Fatal("material_preparado_como_nombre")
+			}
+			if _, e := os.Stat(salida); !os.IsNotExist(e) {
+				t.Fatal("rechazo_creo_salida")
+			}
+			if bytes.Contains(out.Bytes(), material) || bytes.Contains(errores.Bytes(), material) {
+				t.Fatal("material_en_diagnostico")
+			}
+			out.Reset()
+			errores.Reset()
+			if ejecutar(args, &out, &errores) != 0 {
+				t.Fatal("nombre_legitimo_diferente_rechazado")
+			}
+			original, e := os.ReadFile(salida)
+			if e != nil {
+				t.Fatal("preparacion_original")
+			}
+			out.Reset()
+			errores.Reset()
+			if ejecutar(equivocados, &out, &errores) == 0 {
+				t.Fatal("material_reutilizado_como_nombre")
+			}
+			actual, e := os.ReadFile(salida)
+			if e != nil || !bytes.Equal(original, actual) {
+				t.Fatal("rechazo_modifico_sobre_original")
+			}
+			if bytes.Contains(out.Bytes(), material) || bytes.Contains(errores.Bytes(), material) {
+				t.Fatal("material_en_diagnostico_reintento")
+			}
+		})
+	}
+}
