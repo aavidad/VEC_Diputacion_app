@@ -36,3 +36,17 @@ solo las dos audiencias de lectura de usuarios. La publicación de esa clave y
 el montaje HTTP pertenecen a cortes separados. Los actos sensibles de ADMIN
 e Intervención siguen sujetos a propuesta y otra persona aprobadora. La
 operación multiunidad o por centro queda fuera de esta versión.
+
+La composición posterior necesita tres dependencias concretas: publicación
+gobernada de la clave HMAC de la audiencia de lote (AD188 solo publica lista y
+ficha de usuarios), catálogo nominal Rol6 que devuelva categoría Aplicación al
+servicio de perfiles, y un puente de servicio que combine ese catálogo con la
+autoridad exclusiva del lote sin conceder al LOGIN de lote permisos singulares.
+El constructor HTTP de lote recibe organización privada y el adaptador recibe
+un proveedor tipado de descriptores reales; ninguno se monta aquí.
+
+Comprobación focal del borrador Go: pruebas normales y `-race` de los cuatro
+paquetes afectados, `go vet`, `gopls check` y Semgrep local `p/golang` sin
+hallazgos nuevos. Gosec encontró 25 avisos en archivos ajenos al cambio
+(G115/G101); cero en los archivos de este corte. El SQL solo tiene revisión
+estática propia: no se ejecutó PostgreSQL ni se observó un efecto V3 favorable.

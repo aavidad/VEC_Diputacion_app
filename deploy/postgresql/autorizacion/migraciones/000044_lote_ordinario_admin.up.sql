@@ -203,7 +203,7 @@ BEGIN
  WHERE a.perfil_activo_ref=m->>'PerfilActivoRef' AND a.asignacion_ref=m->>'AsignacionRef' FOR SHARE OF a,x;
  IF NOT FOUND OR asignacion.principal_id IS DISTINCT FROM m->>'ActorPersonaRef'
  OR asignacion.documento->>'estado' IS DISTINCT FROM 'activa'
- OR asignacion.documento->'ambitos' @> esperados IS NOT TRUE
+ OR (asignacion.documento->'ambitos' @> esperados) IS NOT TRUE
  THEN RAISE EXCEPTION 'AUT44: ambito del administrador no acreditado' USING ERRCODE='42501'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(m->'Cambios') LOOP
   indice:=indice+1;descriptor:=p_fuentes->'ambitos_por_cambio'->(indice-1);
@@ -214,10 +214,18 @@ BEGIN
    OR descriptor#>>'{1,valores,0}' IS DISTINCT FROM unidad
    OR item#>>'{Objetivo,UnidadRef}' IS DISTINCT FROM unidad
   THEN RAISE EXCEPTION 'AUT44: fuente de item divergente' USING ERRCODE='42501'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(descriptor) AS x(value)
+   WHERE jsonb_typeof(x.value) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(x.value))<>3
+    OR NOT (x.value ?& ARRAY['dimension','valores','fuente'])
+    OR jsonb_typeof(x.value->'fuente') IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(x.value->'fuente'))<>3
+    OR NOT ((x.value->'fuente') ?& ARRAY['referencia','version','huella_sha256']))
+  THEN RAISE EXCEPTION 'AUT44: descriptor abierto' USING ERRCODE='22023'; END IF;
   IF item->>'Operacion'='otorgar' THEN
    hasta:=(item#>>'{Objetivo,VigenteHasta}')::timestamptz;
   ELSE
-   hasta:=clock_timestamp()+interval '1 second';
+   hasta:=clock_timestamp()+interval '1 microsecond';
   END IF;
   d:=vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(descriptor,hasta);
   IF d->'ambitos' IS DISTINCT FROM esperados OR jsonb_typeof(d->'unidades') IS DISTINCT FROM 'array'
@@ -346,10 +354,25 @@ BEGIN
  END LOOP;
 
  -- Sólo después del último CAS se elige la fecha privada compartida.
+ IF (vec_autorizacion.cotejar_fuentes_lote_ordinario_admin_v1(p_material,p_fuentes))->>'fuentes_sha256' IS DISTINCT FROM fuentes_sha
+ OR vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(
+  d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
+  'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
+  '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
+ OR vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
+  p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL
+ OR clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+ THEN RAISE EXCEPTION 'AUT44: fuente o permiso vencido tras bloqueo' USING ERRCODE='42501'; END IF;
  ahora:=clock_timestamp();acto:='acto_admin:'||substr(encode(sha256(convert_to(m->>'OperacionRef','UTF8')),'hex'),1,32);
  recibo:='recibo_admin:'||substr(encode(sha256(convert_to((m->>'OperacionRef')||':recibo','UTF8')),'hex'),1,32);
  FOREACH item IN ARRAY validaciones LOOP
   indice:=indice+1;objeto:=item->'item';o:=item->'objetivo';rol:=item->'rol';antes:=item->'antes';modo:=item->>'modo';
+  IF clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+   OR vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(
+    d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
+    'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
+    '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
+  THEN RAISE EXCEPTION 'AUT44: permiso vencido durante lote' USING ERRCODE='42501'; END IF;
   IF objeto->>'operacion'='otorgar' THEN
    vig_desde:=CASE WHEN modo='inmediato' THEN ahora ELSE (o->>'VigenteDesde')::timestamptz END;
    IF vig_desde<ahora OR (modo='programado' AND vig_desde<=clock_timestamp())
