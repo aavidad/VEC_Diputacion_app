@@ -1,8 +1,8 @@
 # ABI AD193: consumo confirmado v4
 
-Candidata desde `origin/main@296f78373`, reanclada sobre AD184, AD185 y AD192
-en ese orden. El candidato anterior se ensayó estructuralmente en un clon privado;
-esta revisión todavía requiere el ensayo de dirección y el recorrido causal nominal.
+Candidata desde `origin/main@296f78373`, unida a `main@337ca757b` y reanclada
+sobre AD184, AD185 y AD192 en ese orden. El ensayo estructural de esta revisión
+terminó correctamente en una copia privada de POST192; falta el recorrido causal nominal.
 La captura fría `POSTIMAGEN_FINAL_AD192_K.json` (SHA256
 `de59d6a47401bc8e0aba65c3ab2034467cf4ab1576123cdd415c8d4d583d3919`)
 conserva 6254 registros anteriores y no tiene AD193 instalada. Las preimágenes
@@ -151,10 +151,11 @@ El ensayo causal de dirección debe demostrar con productores VEC reales:
 6. Rol no autorizado y dato de sello enviado como propiedad adicional del
    recibo: denegación. No hay entrada SQL pública para elegir el sello.
 
-El sello acredita causalidad en la instalación local ensayada. Restauraciones
-o importaciones necesitan procedencia explícita; XID no identifica de forma
-global una transacción entre instalaciones. No reaplicar UP ni ejecutar DOWN
-sobre historia conservada.
+El sello permite comprobar la procedencia transaccional dentro de una instalación.
+El recorrido causal pendiente debe demostrar su uso con los productores reales.
+Restauraciones o importaciones necesitan procedencia explícita; XID no identifica
+de forma global una transacción entre instalaciones. No reaplicar UP ni ejecutar
+DOWN sobre historia conservada.
 
 ## Evidencia anterior y aceptación pendiente
 
@@ -171,9 +172,33 @@ esta revisión ni instalación en la principal. La postimagen nueva permite calc
 fuera de SQL las tres sustituciones reversibles del núcleo: `pg_proc.prosrc`
 `bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b`
 y `pg_get_functiondef` `f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b`.
-El comprobador mantiene sus huellas previas. Esta medida aún no acredita consumo
+Las preimágenes del comprobador coinciden con las del candidato anterior. Esta medida aún no acredita consumo
 fresco CT175/AUT41, SAVEPOINT o
 EXCEPTION dentro de ese recorrido, replay o rechazo entre transacciones con
 productores VEC reales. Falta además la conformidad de K antes de LISTA. La
-migración no se ha instalado en la principal; el ensayo nuevo debe ejecutarse
-sobre un clon restaurado de POST192.
+migración no se ha instalado en la principal.
+
+## Ensayo estructural POST192 del 04/10
+
+La candidata `5d7e2c3d65c11a000c0ba6c1807bf09ce985866f` recibió dos revisiones
+independientes de preparación, una SQL y otra sensible. El SQL con SHA256
+`f226520ce551c6fa53c43cf9a00b4806d36c6f51adfb6ba9a7a808f2c3a0c51b` y la
+prueba `2f3d4e8052bdef5825b99518c05bda78223c88660159e173735161c367da5b8f`
+se ejecutaron en una copia del frío final de K, PostgreSQL 18, sin red ni acceso
+a la principal. AD192 ya estaba instalada: no se reaplicó. Un único UP de AD193
+y la prueba estructural terminaron con código 0.
+
+Las postimágenes del núcleo medidas en PostgreSQL coinciden con las calculadas
+arriba. La postimagen del comprobador es definición SHA256
+`fe5e93bbece6225e72155029211e77b3d08518a3ac6ef8b350f994658cbcb3fe` y cuerpo
+`3984c45db3ceb2ebbeead7246336294a8a2ffbb2d99f66cf6f6876fc07ab6d1f`.
+Se conservaron los 6254 registros de auditoría, los 6240 consumos, la secuencia
+y cabeza, OID, metadatos y ACL. Los datos se compararon excluyendo las columnas
+nuevas; todos los sellos históricos siguen NULL. Las demás funciones, roles,
+políticas, ACL de tablas, catálogo de audiencias y CHECK de outbox quedaron
+idénticos. Las pruebas comprobaron las ramas AD184/185/192, el encuadre de 16
+campos y la serialización de los valores superiores a 2^53 y del máximo uint64.
+
+El ensayo estructural no acredita consumo nominal CT175/AUT41, SAVEPOINT,
+EXCEPTION, rechazo entre transacciones o replay con productores reales. La PR
+queda en borrador hasta ese recorrido y la conformidad de K; no se declara LISTA.
