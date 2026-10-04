@@ -515,15 +515,18 @@ CREATE FUNCTION vec_contexto_actor_v1.reconciliar_contexto_admin_v1(
  p_evento text,p_correlacion text,p_proceso text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='4s' AS $f$
-DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;clase text;codigo text;fuente_acreditada boolean:=false;
+DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;clase text;codigo text;
+ fuente_acreditada boolean:=false;evento_previo text;evento_fallo text;
 BEGIN
  PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
   OR p_metodo NOT IN('certificado','dnie') OR p_garantia IS DISTINCT FROM 'alto'
   OR vec_contexto_actor_v1.referencia_operacion_valida(p_operacion,'oca_') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_operacion_valida(p_recibo,'rca_') IS NOT TRUE
-  OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
+ OR p_evento !~ '^evento_[0-9a-f]{32}$' OR p_correlacion !~ '^correlacion_[0-9a-f]{32}$'
  THEN RAISE EXCEPTION 'CA36: consulta ADMIN inválida' USING ERRCODE='22023'; END IF;
+ SELECT x.evento_ref INTO evento_previo FROM vec_contexto_actor_v1.enlace_contexto_admin_v1 x
+ WHERE x.operacion_ref=p_operacion;
  BEGIN
   j:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
    p_vis,p_vis_version,p_vis_sha,p_aut,p_ses,p_cuenta,p_perfil,p_solicitado,p_metodo);
@@ -569,14 +572,18 @@ BEGIN
   GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
   clase:=CASE WHEN codigo IN('42501','22023','23505','P0002','VCA31') THEN 'denegado' ELSE 'error' END;
  END;
- e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(p_evento,p_correlacion,p_proceso,
+ evento_fallo:=p_evento;
+ IF evento_previo IS NOT NULL AND evento_previo=p_evento THEN
+  evento_fallo:='evento_'||replace(gen_random_uuid()::text,'-','');
+ END IF;
+ e:=vec_contexto_actor_v1.evento_contexto_admin_pre_v2_v1(evento_fallo,p_correlacion,p_proceso,
   'reconciliar_contexto_admin',p_operacion,clase,
   CASE WHEN fuente_acreditada THEN j->>'persona_ref' ELSE NULL END,
   CASE WHEN fuente_acreditada THEN p_perfil ELSE NULL END,
   CASE WHEN fuente_acreditada THEN j->>'fuente_ref' ELSE NULL END,
   CASE WHEN fuente_acreditada THEN j->>'fuente_sha256' ELSE NULL END);
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
- IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
+ IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(evento_fallo,8,32)
   OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
  THEN RAISE EXCEPTION 'CA36: acuse negativo de consulta incompatible' USING ERRCODE='42501'; END IF;
