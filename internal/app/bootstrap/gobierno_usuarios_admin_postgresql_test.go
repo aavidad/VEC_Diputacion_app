@@ -41,7 +41,7 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 	if decodificarGobiernoUsuarios(b, &f) != nil || validarConfiguracionEnsayoGobiernoUsuarios(f) != nil {
 		t.Fatal("ensayo_config_invalida")
 	}
-	raizSalida, err := AbrirRaizPrivadaDenominacionPersona(f.Salida)
+	raizSalida, err := AbrirRaizPrivadaDenominacionPersona(filepath.Join(f.Salida, "configuracion-material.json"))
 	if err != nil {
 		t.Fatal("ensayo_salida_invalida")
 	}

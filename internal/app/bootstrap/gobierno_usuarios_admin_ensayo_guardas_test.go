@@ -79,7 +79,7 @@ func TestGobiernoUsuariosEnsayoSalidaPrivadaNoTruncaNiSigueEnlace(t *testing.T) 
 	if os.Chmod(d, 0700) != nil {
 		t.Fatal("directorio")
 	}
-	root, err := AbrirRaizPrivadaDenominacionPersona(d)
+	root, err := AbrirRaizPrivadaDenominacionPersona(filepath.Join(d, "acta.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestGobiernoUsuariosEnsayoSalidaPrivadaNoTruncaNiSigueEnlace(t *testing.T) 
 	if os.Chmod(d, 0755) != nil {
 		t.Fatal("modo")
 	}
-	if r, err := AbrirRaizPrivadaDenominacionPersona(d); err == nil {
+	if r, err := AbrirRaizPrivadaDenominacionPersona(filepath.Join(d, "acta.json")); err == nil {
 		r.Close()
 		t.Fatal("directorio publico aceptado")
 	}
