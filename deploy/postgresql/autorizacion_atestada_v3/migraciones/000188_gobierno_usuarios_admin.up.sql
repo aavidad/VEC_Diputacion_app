@@ -418,12 +418,17 @@ BEGIN
  BEGIN
   recibo:=vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(p_plan,p_aprobado,p_material);
   IF recibo->>'replay'='true' THEN motivo:='gobierno_usuarios_replay';codigo:=motivo;END IF;
+ SELECT * INTO intento FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','intento_gobierno_usuarios_admin','evento_ref','evento_'||replace(gen_random_uuid()::text,'-',''),'operador_login',session_user::text,'solicitud_sha256',solicitud,'accion','aprovisionar_gobierno_usuarios_admin_v1','recurso_ref','solicitud_gobierno_usuarios:'||substr(solicitud,1,32),'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||replace(gen_random_uuid()::text,'-','')));
+  -- Incluye la última espera de auditoría en el subbloque del efecto.
+  PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p_plan::jsonb,p_material::jsonb);
  EXCEPTION WHEN insufficient_privilege OR serialization_failure OR invalid_parameter_value OR invalid_text_representation OR datetime_field_overflow OR unique_violation OR no_data_found THEN
   estado:='denegado';motivo:='gobierno_usuarios_denegado';codigo:=motivo;recibo:=NULL;
  WHEN OTHERS THEN estado:='error';motivo:='gobierno_usuarios_error';codigo:=motivo;recibo:=NULL;
  END;
+ IF estado<>'permitido' THEN
+  -- El efecto/confirmación/intento permitido se han revertido juntos.
  SELECT * INTO intento FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','intento_gobierno_usuarios_admin','evento_ref','evento_'||replace(gen_random_uuid()::text,'-',''),'operador_login',session_user::text,'solicitud_sha256',solicitud,'accion','aprovisionar_gobierno_usuarios_admin_v1','recurso_ref','solicitud_gobierno_usuarios:'||substr(solicitud,1,32),'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||replace(gen_random_uuid()::text,'-','')));
- IF estado='permitido' THEN PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p_plan::jsonb,p_material::jsonb);END IF;
+ END IF;
  RETURN jsonb_build_object('estado',estado,'codigo',codigo,'recibo',recibo,'auditoria_intento',to_jsonb(intento)||jsonb_build_object('solicitud_sha256',solicitud));
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1(),vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1(),vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text),vec_autorizacion_atestada_v3.aprovisionar_gobierno_usuarios_admin_v1(text,text,text) FROM PUBLIC;
