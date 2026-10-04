@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -142,6 +143,23 @@ func TestConstructorNoAbreFuenteConACLNoAcreditada(t *testing.T) {
 	}
 }
 
+func TestAcreditacionSoloInspeccionaFronteraNominalYNoLeeDatos(t *testing.T) {
+	for _, fragmento := range []string{
+		"pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n",
+		"pg_catalog.pg_attribute at CROSS JOIN LATERAL pg_catalog.aclexplode(at.attacl)",
+		"n.nspname IN('vec_autorizacion','vec_autorizacion_atestada_v3','vec_contexto_actor_v1')",
+		"c.relkind IN('r','p','v','m','f','S')",
+		"a.grantee IN(l.oid,g.oid,0::oid)",
+	} {
+		if !strings.Contains(acreditarSQL, fragmento) {
+			t.Fatalf("falta guardia acotada: %s", fragmento)
+		}
+	}
+	if strings.Contains(acreditarSQL, "SELECT *") || strings.Contains(acreditarSQL, "FROM vec_autorizacion.") || strings.Contains(acreditarSQL, "FROM vec_contexto_actor_v1.") {
+		t.Fatal("la acreditación consultaría datos de negocio")
+	}
+}
+
 func TestDependenciasSoloExponenDenegacionTipada(t *testing.T) {
 	if !errors.Is(clasificarDependencia(domain.ErrAutorizacionDenegada), domain.ErrAutorizacionDenegada) {
 		t.Fatal("denegación tipada perdida")
@@ -151,5 +169,76 @@ func TestDependenciasSoloExponenDenegacionTipada(t *testing.T) {
 		if !errors.Is(x, ports.ErrLecturaUsuariosAdministrablesNoDisponible) || strings.Contains(x.Error(), "dato privado") || errors.Is(x, domain.ErrAutorizacionDenegada) {
 			t.Fatalf("error de dependencia filtrado: %v", x)
 		}
+	}
+}
+
+type fuenteSnapshotPrueba struct {
+	snapshot domain.InstantaneaAutorizacion
+}
+
+func (f fuenteSnapshotPrueba) ObtenerInstantaneaAutorizacion(context.Context, string, string) (domain.InstantaneaAutorizacion, error) {
+	return f.snapshot, nil
+}
+
+type emisorMutadorPrueba struct{ llamadas int }
+
+func (e *emisorMutadorPrueba) EmitirLecturaUsuariosAdministrables(_ context.Context, actor domain.ContextoActor, v2 domain.EvidenciaSesionAdministracionPerfiles, snapshot domain.InstantaneaAutorizacion, m ports.EmisionUsuariosAdministrables) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	e.llamadas++
+	v2.ResultadoContexto.RepresentacionCanonica[0] ^= 1
+	v2.ResultadoContexto.ManifiestoProcedenciaCanonico[0] ^= 1
+	snapshot.AsignacionPerfil.Ambitos[0].Valores[0] = "unidad_ajena"
+	m.Material[0] = 'X'
+	m.Recurso.Ambitos["unidad_ref"] = "unidad_ajena"
+	_ = actor
+	return ports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, errors.New("detalle SQL privado")
+}
+
+func snapshotAdminPrueba(t *testing.T, actor domain.ContextoActor, ahora time.Time, a ambito) domain.InstantaneaAutorizacion {
+	t.Helper()
+	rol := domain.VersionRol{RolID: "administracion_perfiles", Version: 5, Nombre: "Administrador aplicación", Estado: domain.EstadoVersionRolPublicada,
+		Concesiones: []domain.ConcesionRol{{Accion: accionListar, ModuloID: "administracion", TipoRecurso: "conjunto_usuarios", Finalidades: []string{"gestion_usuarios"}, GarantiaMinima: domain.AuthAssuranceHigh,
+			CamposPermitidos: []string{"denominacion_version", "perfiles", "persona_ref", "siguiente_cursor", "unidad_ref"}, Obligaciones: []string{"auditar"}}},
+		PublicadaPor: "responsable_seguridad", PublicadaEn: ahora.Add(-24 * time.Hour)}
+	h, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := domain.InstantaneaAutorizacion{VersionRol: rol, AsignacionPerfil: domain.AsignacionPerfil{AsignacionID: "asig_admin_prueba", Version: 1,
+		PerfilActivoRef: actor.PerfilActivoRef, PrincipalID: actor.PersonaRef, VersionRolRef: rol.Referencia(), Estado: domain.EstadoAsignacionPerfilActiva,
+		Ambitos:      []domain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{a.OrganizacionRef}}, {Clave: "unidad_ref", Valores: []string{a.UnidadRef}}},
+		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "administrador_identidades", EmitidaEn: ahora.Add(-2 * time.Hour)},
+		ControlVigenciaVersionRol: domain.ControlVigenciaVersionRol{VersionRolRef: rol.Referencia(), Revision: 1, Estado: domain.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: "responsable_seguridad", ActualizadoEn: rol.PublicadaEn},
+		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: h}
+	if s.Validar() != nil {
+		t.Fatal("snapshot sintético inválido")
+	}
+	return s
+}
+
+func TestEmisorMutadorNoAlteraEvidenciaOriginalYErrorSeAudita(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	actor, v2 := evidenciaAdminPrueba(t, ahora)
+	resultadoOriginal, err := v2.ResultadoContexto.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := ambito{"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "unidad_admin_sintetica"}
+	snapshot := snapshotAdminPrueba(t, actor, ahora, a)
+	emisor := &emisorMutadorPrueba{}
+	registrador := &capturadorIntentoUsuarios{ahora: ahora}
+	f := &Fuente{ambito: a, config: Configuracion{Proceso: "vec_admin", Canal: "administracion_privilegiada", MotivoDenegado: motivoIntentoPrueba(), MotivoError: motivoIntentoPrueba()},
+		pool: &acreditacionPoolPrueba{}, fuente: fuenteSnapshotPrueba{snapshot}, emisor: emisor, intentos: registrador, reloj: relojAdminPrueba{ahora}}
+	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := f.ListarUsuarios(ctx, actor, v2, ports.FiltrosUsuariosAdministrables{})
+	if !errors.Is(err, ports.ErrLecturaUsuariosAdministrablesNoDisponible) || len(x.Personas) != 0 || emisor.llamadas != 1 || len(registrador.datos) != 1 || registrador.datos[0].Resultado != domain.ResultadoIntentoAuditoriaError {
+		t.Fatalf("emisor adversario: error=%v llamadas=%d auditorías=%+v", err, emisor.llamadas, registrador.datos)
+	}
+	if v2.ValidarPara(actor) != nil || !bytes.Equal(v2.ResultadoContexto.RepresentacionCanonica, resultadoOriginal.RepresentacionCanonica) ||
+		!bytes.Equal(v2.ResultadoContexto.ManifiestoProcedenciaCanonico, resultadoOriginal.ManifiestoProcedenciaCanonico) ||
+		snapshot.AsignacionPerfil.Ambitos[0].Valores[0] != a.OrganizacionRef {
+		t.Fatal("el emisor alteró al llamador, la evidencia o el snapshot de origen")
 	}
 }

@@ -100,6 +100,19 @@ const acreditarSQL = `SELECT COALESCE(
    AND (a.grantee=l.oid OR a.grantee=g.oid AND (n.nspname<>'vec_autorizacion' OR p.oid NOT IN(
     pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
     pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')))))
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname IN('vec_autorizacion','vec_autorizacion_atestada_v3','vec_contexto_actor_v1')
+   AND c.relkind IN('r','p','v','m','f','S')
+   AND (c.relowner IS DISTINCT FROM CASE n.nspname
+    WHEN 'vec_autorizacion' THEN pg_catalog.to_regrole('vec_autorizacion_propietario')
+    WHEN 'vec_autorizacion_atestada_v3' THEN pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario')
+    ELSE pg_catalog.to_regrole('vec_contexto_actor_v1_propietario') END
+    OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault(
+      CASE WHEN c.relkind='S' THEN 'S'::"char" ELSE 'r'::"char" END,c.relowner))) a
+      WHERE a.grantee IN(l.oid,g.oid,0::oid))
+    OR EXISTS(SELECT 1 FROM pg_catalog.pg_attribute at CROSS JOIN LATERAL pg_catalog.aclexplode(at.attacl) a
+      WHERE at.attrelid=c.oid AND at.attnum>0 AND NOT at.attisdropped AND at.attacl IS NOT NULL
+       AND a.grantee IN(l.oid,g.oid,0::oid))))
  AND pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -166,6 +179,10 @@ func (f *Fuente) ejecutar(ctx context.Context, actor domain.ContextoActor, evide
 	if ctx == nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
+	actorOriginal, evidenciaOriginal, err := clonarIdentidadLectura(actor, evidencia)
+	if err != nil {
+		return nil, err
+	}
 	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
@@ -175,14 +192,14 @@ func (f *Fuente) ejecutar(ctx context.Context, actor domain.ContextoActor, evide
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	p.correlacion = ref
-	bruto, err := f.consumir(ctx, actor, evidencia, p, consulta, correlacion)
+	bruto, err := f.consumir(ctx, actorOriginal, evidenciaOriginal, p, consulta, correlacion)
 	if err == nil {
 		return bruto, nil
 	}
-	if evidencia.ValidarPara(actor) != nil {
+	if evidenciaOriginal.ValidarPara(actorOriginal) != nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
-	if f.registrarFallo(ctx, evidencia, p.accion, p.recurso.Referencia, p.correlacion, err) != nil {
+	if f.registrarFallo(ctx, evidenciaOriginal, p.accion, p.recurso.Referencia, p.correlacion, err) != nil {
 		return nil, ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	return nil, err
@@ -243,7 +260,17 @@ func (f *Fuente) consumir(ctx context.Context, actor domain.ContextoActor, evide
 	recursoEmisor.Ambitos = maps.Clone(p.recurso.Ambitos)
 	recursoEmisor.Atributos = maps.Clone(p.recurso.Atributos)
 	emision := ports.EmisionUsuariosAdministrables{Material: append([]byte(nil), p.material...), Recurso: recursoEmisor, Accion: p.accion, Audiencia: p.audiencia, Correlacion: correlacion}
-	m, err := f.emisor.EmitirLecturaUsuariosAdministrables(ctx, actor, evidencia, snapshot, emision)
+	actorEmisor, evidenciaEmisor, err := clonarIdentidadLectura(actor, evidencia)
+	if err != nil {
+		clear(emision.Material)
+		return nil, err
+	}
+	snapshotEmisor, err := clonarInstantaneaLectura(snapshot)
+	if err != nil {
+		clear(emision.Material)
+		return nil, err
+	}
+	m, err := f.emisor.EmitirLecturaUsuariosAdministrables(ctx, actorEmisor, evidenciaEmisor, snapshotEmisor, emision)
 	clear(emision.Material)
 	if err != nil {
 		return nil, clasificarDependencia(err)

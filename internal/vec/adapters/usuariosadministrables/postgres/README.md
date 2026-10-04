@@ -5,7 +5,10 @@
 autorización, el registrador común de intentos, reloj y ámbito privado de
 organización/unidad. Comprueba estructura del LOGIN y presencia de las dos
 fachadas AUT43, sus ACL y propietario, el esquema y los permisos mínimos de
-base de datos. También exige el consumidor AD185 con propietario y ACL propios.
+base de datos. Rechaza privilegios de relación o columna del LOGIN, grupo y
+PUBLIC en los esquemas AUT, AD y CA, incluyendo tablas, particiones, vistas,
+secuencias y tablas externas; verifica sus propietarios. También exige el
+consumidor AD185 con propietario y ACL propios.
 Si falta una dependencia, no construye la fuente.
 
 El puerto es `ports.FuenteUsuariosAdministrables`. `ListarUsuarios` recibe los
@@ -15,6 +18,9 @@ configuración privada del constructor. El material, conjunto y cursor siguen
 el orden y las huellas de AUT43. El emisor recibe recurso, material, acción,
 audiencia, correlación interna, actor, evidencia V2 e instantánea; debe devolver
 una exportación V3 real. Este paquete no implementa ese emisor.
+La fuente clona actor, resultado V2 e instantánea antes de invocarlo. Una
+mutación de sus argumentos no altera la evidencia del llamador ni la que se
+conserva para auditar un error.
 
 Cada lectura válida abre una transacción `SERIALIZABLE` de lectura/escritura,
 llama a una fachada AUT43, comprueba el acuse V3 y la forma exacta del resultado,
