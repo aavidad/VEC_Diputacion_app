@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	ca "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -26,10 +27,21 @@ const recuperarContexto = `SELECT operacion_ref,registro_contexto_ref,representa
 type resolutorContexto struct{ base *PostgreSQL }
 
 func NuevoContextoRegistradoPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj) (*application.AutoridadContextoActorRegistradoV2, error) {
-	base, err := NuevoPostgreSQL(ctx, pool, reloj)
-	if err != nil {
-		return nil, err
+	return nuevoContextoRegistradoPostgreSQL(ctx, pool, reloj)
+}
+
+func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, reloj h.Reloj) (*application.AutoridadContextoActorRegistradoV2, error) {
+	if ctx == nil || ctx.Err() != nil || nulo(pool) || nulo(reloj) {
+		return nil, api.ErrConfiguracionIncompleta
 	}
+	var login string
+	var acreditada bool
+	if err := pool.QueryRow(ctx, `SELECT identidad_login,acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1()`).Scan(&login, &acreditada); err != nil || !acreditada || login == "" {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	base := &PostgreSQL{pool: pool, reloj: reloj}
+	// El pool de contexto acredita exclusivamente CA36; el constructor de IS
+	// acredita su propio LOGIN y no se presta entre autoridades.
 	servicio, err := application.NuevoServicioContextoActorProductivoV2(
 		&resolutorContexto{base: base}, ca.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
 	if err != nil {
