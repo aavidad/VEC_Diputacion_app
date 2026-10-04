@@ -214,7 +214,7 @@ func (f *Fuente) rechazarListaInvalida(ctx context.Context, actor domain.Context
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
 	if err != nil {
-		return errors.Join(ports.ErrLecturaUsuariosAdministrablesNoDisponible, err)
+		return falloValidacionRedactado(err)
 	}
 	if string(vinculo.Superficie) != f.config.Canal || !vinculo.CuentaPrivilegiada {
 		return causa
