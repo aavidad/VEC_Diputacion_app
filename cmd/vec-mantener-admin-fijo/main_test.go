@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -91,5 +93,38 @@ func TestMantenimientoNoAceptaTercerPerfilNiFalsaConfirmacion(t *testing.T) {
 	}
 	if bytes.Contains(b, []byte("secreto_no_exponer")) {
 		t.Fatal("diagnostico_privado")
+	}
+}
+
+func TestMantenimientoArchivoPrivadoYClavesExactas(t *testing.T) {
+	dir := t.TempDir()
+	if os.Chmod(dir, 0700) != nil {
+		t.Fatal("directorio")
+	}
+	p := filepath.Join(dir, "plan.json")
+	if os.WriteFile(p, []byte(`{"dato":"sintetico"}`), 0600) != nil {
+		t.Fatal("fixture")
+	}
+	if _, e := leerPrivado(p); e != nil {
+		t.Fatal("privado_rechazado")
+	}
+	if os.Chmod(p, 0644) != nil {
+		t.Fatal("chmod")
+	}
+	if _, e := leerPrivado(p); e == nil {
+		t.Fatal("archivo_publico_admitido")
+	}
+	if os.Chmod(p, 0600) != nil {
+		t.Fatal("chmod")
+	}
+	alias := filepath.Join(dir, "alias.json")
+	if os.Symlink(p, alias) != nil {
+		t.Fatal("enlace")
+	}
+	if _, e := leerPrivado(alias); e == nil {
+		t.Fatal("enlace_admitido")
+	}
+	if decodificarEstricto([]byte(`{"huella_plan_sha256":"x","actor_persona_ref":"inventado"}`), new(aprobacionPrivada)) == nil {
+		t.Fatal("actor_por_peticion")
 	}
 }
