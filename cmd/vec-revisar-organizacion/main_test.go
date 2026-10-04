@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"vec-diputacion-granada/internal/modules/personal/application"
 
 	"vec-diputacion-granada/web"
 )
@@ -146,3 +150,86 @@ func (lectorFallido) Read([]byte) (int, error) { return 0, errors.New("lectura")
 type escritorFallido struct{}
 
 func (escritorFallido) Write([]byte) (int, error) { return 0, errors.New("escritura") }
+
+func TestPrepararCLIExportaPaqueteCompatibleYHuella(t *testing.T) {
+	var p application.PaquetePreparacionOrganizacion
+	if err := json.Unmarshal(ejemploRevision(t), &p); err != nil {
+		t.Fatal(err)
+	}
+	p.Hechos = append(p.Hechos, p.Hechos[0])
+	p.Hechos[0].HechoRef = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+	p.Hechos[0].FilaFuenteRef = "fila:2"
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	codigo, es := revisarCLI(t, []string{"--preparar"}, data)
+	codigoEN, en := revisarCLI(t, []string{"--idioma", "en", "--preparar"}, data)
+	if codigo != 0 || codigoEN != 0 || es.Paquete == nil || en.Paquete == nil {
+		t.Fatal("paquete no exportado")
+	}
+	if es.Paquete.Hechos[0].HechoRef != p.Hechos[1].HechoRef || !reflect.DeepEqual(es.Paquete, en.Paquete) {
+		t.Fatal("orden o idioma cambió el paquete")
+	}
+	canonico, err := json.Marshal(es.Paquete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256(canonico)
+	if hex.EncodeToString(huella[:]) != es.Informe.PaqueteHuellaSHA256 {
+		t.Fatal("huella no identifica material exportado")
+	}
+	// La salida se puede extraer y alimentar al lector estricto ya existente.
+	var output bytes.Buffer
+	if codigo := ejecutar(nil, bytes.NewReader(canonico), &output); codigo != 0 {
+		t.Fatal("material exportado no admitido")
+	}
+	for _, pendiente := range []string{"acreditacion_fuente", "publicacion_autorizada", "aprobacion_separada"} {
+		if !slices.Contains(es.Informe.PendientesPublicacion, pendiente) {
+			t.Fatal("deuda borrada")
+		}
+	}
+	_, sinFlag := revisarCLI(t, nil, data)
+	if sinFlag.Paquete != nil {
+		t.Fatal("salida original alterada")
+	}
+	_, invertido := revisarCLI(t, []string{"--preparar", "--idioma", "en"}, data)
+	if !reflect.DeepEqual(en, invertido) {
+		t.Fatal("orden de argumentos alteró salida")
+	}
+}
+
+func TestPrepararCLINoExportaEntradasInvalidas(t *testing.T) {
+	datos := ejemploRevision(t)
+	invalido := bytes.Replace(datos, []byte(`"vigente_desde": "2026-01-01"`), []byte(`"vigente_desde": "2026-02-30"`), 1)
+	for _, caso := range []struct {
+		args []string
+		data []byte
+	}{
+		{[]string{"--preparar"}, invalido},
+		{[]string{"--preparar"}, []byte(`{`)},
+		{[]string{"--preparar", "--preparar"}, datos},
+		{[]string{"--preparar", "--idioma", "en", "--idioma", "es"}, datos},
+		{[]string{"--preparar", "--idioma"}, datos},
+		{[]string{"--preparar", "--idioma", "xx"}, datos},
+	} {
+		var output bytes.Buffer
+		if codigo := ejecutar(caso.args, bytes.NewReader(caso.data), &output); codigo != 1 {
+			t.Fatal("fallo aceptado")
+		}
+		var campos map[string]json.RawMessage
+		if err := json.Unmarshal(output.Bytes(), &campos); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := campos["paquete"]; ok {
+			t.Fatal("material inválido exportado")
+		}
+		var s salida
+		if err := json.Unmarshal(output.Bytes(), &s); err != nil {
+			t.Fatal(err)
+		}
+		if s.Informe.PaqueteHuellaSHA256 != "" || s.Informe.Valido {
+			t.Fatal("huella inválida exportada")
+		}
+	}
+}

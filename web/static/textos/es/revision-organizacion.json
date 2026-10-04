@@ -1,6 +1,6 @@
 {
   "preparacion_no_autoritativa": "Revisión local del paquete. Los datos siguen pendientes de publicación.",
-  "argumentos_invalidos": "Revise los argumentos. Puede indicar un idioma del catálogo mediante --idioma.",
+  "argumentos_invalidos": "Revise los argumentos. Use --idioma para elegir el idioma y --preparar para obtener el paquete revisado.",
   "entrada_invalida": "No se ha podido leer el paquete. Revise el formato, las claves, los valores y el límite de 8 MiB.",
   "manifiesto_invalido": "Revise las referencias, fechas y catálogos del manifiesto.",
   "cantidad_hechos_invalida": "El paquete debe contener entre 1 y 3.000 hechos.",

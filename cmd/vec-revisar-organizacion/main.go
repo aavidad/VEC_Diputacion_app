@@ -14,6 +14,7 @@ type salida struct {
 	Informe  application.InformeRevisionPreparacionOrganizacion `json:"informe"`
 	Idioma   string                                             `json:"idioma"`
 	Mensajes map[string]string                                  `json:"mensajes"`
+	Paquete  *application.PaquetePreparacionOrganizacion        `json:"paquete,omitempty"`
 }
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout)) }
@@ -25,20 +26,42 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 	}
 	idioma := catalogo.DefaultLocale()
 	codigoMensaje := ""
-	if len(args) > 0 {
-		if len(args) != 2 || args[0] != "--idioma" || len(mensajes[args[1]]) == 0 {
+	preparar, idiomaSeleccionado := false, false
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--preparar":
+			if preparar {
+				codigoMensaje = "argumentos_invalidos"
+			}
+			preparar = true
+		case "--idioma":
+			if i+1 >= len(args) || len(mensajes[args[i+1]]) == 0 || idiomaSeleccionado {
+				codigoMensaje = "argumentos_invalidos"
+			} else {
+				i++
+				idioma = args[i]
+				idiomaSeleccionado = true
+			}
+		default:
 			codigoMensaje = "argumentos_invalidos"
-		} else {
-			idioma = args[1]
 		}
 	}
+	var exportado *application.PaquetePreparacionOrganizacion
 	var informe application.InformeRevisionPreparacionOrganizacion
 	if codigoMensaje == "" {
 		paquete, err := leerPaquete(input)
 		if err != nil {
 			codigoMensaje = "entrada_invalida"
 		} else {
-			informe = application.RevisarPreparacionOrganizacion(paquete)
+			if preparar {
+				var normalizado application.PaquetePreparacionOrganizacion
+				normalizado, informe = application.PrepararPaqueteOrganizacion(paquete)
+				if informe.Valido {
+					exportado = &normalizado
+				}
+			} else {
+				informe = application.RevisarPreparacionOrganizacion(paquete)
+			}
 		}
 	}
 	if codigoMensaje != "" {
@@ -47,7 +70,7 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 	}
 	encoder := json.NewEncoder(output)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(salida{informe, idioma, mensajes[idioma]}); err != nil {
+	if err := encoder.Encode(salida{Informe: informe, Idioma: idioma, Mensajes: mensajes[idioma], Paquete: exportado}); err != nil {
 		return codigoErrorSalida(err)
 	}
 	if !informe.Valido {

@@ -1,6 +1,6 @@
 {
   "preparacion_no_autoritativa": "Local package review. The data is still awaiting publication.",
-  "argumentos_invalidos": "Check the arguments. Use --idioma to select a language from the catalogue.",
+  "argumentos_invalidos": "Check the arguments. Use --idioma to select a language and --preparar to obtain the reviewed package.",
   "entrada_invalida": "The package could not be read. Check its format, keys, values and the 8 MiB limit.",
   "manifiesto_invalido": "Check the manifest references, dates and catalogues.",
   "cantidad_hechos_invalida": "The package must contain between 1 and 3,000 facts.",
