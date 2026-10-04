@@ -24,6 +24,7 @@ const PerfilAceptacionFichaPropiaExportacion = `application/json; profile="urn:v
 
 // Preferencia de representación; no constituye autorización para la historia.
 const PreferenciaHistoriaServiciosFichaPropia = "vec-personal-historia-servicios-v1"
+const PreferenciaHistoriaRelacionesFichaPropia = "vec-personal-historia-relaciones-v1"
 
 // margenConocidoFichaPropia deja fuera de la foto los hechos de los últimos
 // instantes para que el corte nunca supere el reloj de la base de datos.
@@ -50,23 +51,24 @@ type consultorFichaPropia interface {
 }
 
 type ManejadorFichaPropia struct {
-	actor                 ResolutorActorFichaPropia
-	consulta              consultorFichaPropia
-	registro              personalports.RegistroIntentosFichaPropia
-	ahora                 func() time.Time
-	zona                  *time.Location
-	exportacionDisponible bool
-	historiaDisponible    bool
+	actor                        ResolutorActorFichaPropia
+	consulta                     consultorFichaPropia
+	registro                     personalports.RegistroIntentosFichaPropia
+	ahora                        func() time.Time
+	zona                         *time.Location
+	exportacionDisponible        bool
+	historiaDisponible           bool
+	historiaRelacionesDisponible bool
 }
 
 // NuevoManejadorFichaPropia fija la fecha de efectos en la zona indicada
 // (la del organismo) y el instante de conocimiento en UTC.
 func NuevoManejadorFichaPropia(actor ResolutorActorFichaPropia, consulta consultorFichaPropia, registro personalports.RegistroIntentosFichaPropia, ahora func() time.Time, zona *time.Location, exportacionDisponible ...bool) (*ManejadorFichaPropia, error) {
-	if nuloRelacionesDietas(actor) || nuloRelacionesDietas(consulta) || nuloRelacionesDietas(registro) || ahora == nil || zona == nil || len(exportacionDisponible) > 2 {
+	if nuloRelacionesDietas(actor) || nuloRelacionesDietas(consulta) || nuloRelacionesDietas(registro) || ahora == nil || zona == nil || len(exportacionDisponible) > 3 {
 		return nil, ErrManejadorFichaPropiaNoDisponible
 	}
 	disponible := len(exportacionDisponible) >= 1 && exportacionDisponible[0]
-	return &ManejadorFichaPropia{actor: actor, consulta: consulta, registro: registro, ahora: ahora, zona: zona, exportacionDisponible: disponible, historiaDisponible: len(exportacionDisponible) == 2 && exportacionDisponible[1]}, nil
+	return &ManejadorFichaPropia{actor: actor, consulta: consulta, registro: registro, ahora: ahora, zona: zona, exportacionDisponible: disponible, historiaDisponible: len(exportacionDisponible) >= 2 && exportacionDisponible[1], historiaRelacionesDisponible: len(exportacionDisponible) == 3 && exportacionDisponible[2]}, nil
 }
 
 func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -156,8 +158,11 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		datos["exportacion_servicios_disponible"] = m.exportacionDisponible
 	}
 	preferencia := r.Header.Values("Prefer")
-	if len(preferencia) == 1 && preferencia[0] == PreferenciaHistoriaServiciosFichaPropia {
+	if len(preferencia) == 1 && (preferencia[0] == PreferenciaHistoriaServiciosFichaPropia || preferencia[0] == PreferenciaHistoriaServiciosFichaPropia+", "+PreferenciaHistoriaRelacionesFichaPropia) {
 		datos["historia_servicios_disponible"] = m.historiaDisponible
+	}
+	if len(preferencia) == 1 && (preferencia[0] == PreferenciaHistoriaRelacionesFichaPropia || preferencia[0] == PreferenciaHistoriaServiciosFichaPropia+", "+PreferenciaHistoriaRelacionesFichaPropia) {
+		datos["historia_relaciones_disponible"] = m.historiaRelacionesDisponible
 	}
 	w.Header().Add("Vary", "Prefer")
 	w.Header().Add("Vary", "Accept")

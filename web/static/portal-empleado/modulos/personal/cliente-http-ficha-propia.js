@@ -1,3 +1,4 @@
+import { crearClienteHistoriaRelacionesPropia } from "./cliente-http-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
 import { crearClienteHistoriaServiciosPropia } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 /**
  * Ficha propia de la persona empleada («mis datos» de Personal).
@@ -15,6 +16,7 @@ import { crearClienteExportacionServicios } from "./cliente-http-exportacion-ser
 
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 export const PREFER_HISTORIA_SERVICIOS = "vec-personal-historia-servicios-v1";
+export const PREFER_HISTORIAS_PROPIAS = PREFER_HISTORIA_SERVICIOS + ", vec-personal-historia-relaciones-v1";
 export const ACCEPT_FICHA_PROPIA_EXPORTACION = 'application/json; profile="urn:vec:personal:ficha-propia:exportacion:v1"';
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
@@ -65,9 +67,10 @@ function validarSobre(sobre) {
   const datos = sobre?.data;
   const ficha = datos?.ficha;
   if (!claves(sobre, ["data"]) ||
-      !(registro(datos) && ["ficha", "recibo_ref", "consultada_en"].every((k) => Object.hasOwn(datos, k)) && Object.keys(datos).every((k) => ["ficha", "recibo_ref", "consultada_en", "exportacion_servicios_disponible", "historia_servicios_disponible"].includes(k))) ||
+      !(registro(datos) && ["ficha", "recibo_ref", "consultada_en"].every((k) => Object.hasOwn(datos, k)) && Object.keys(datos).every((k) => ["ficha", "recibo_ref", "consultada_en", "exportacion_servicios_disponible", "historia_servicios_disponible", "historia_relaciones_disponible"].includes(k))) ||
       (Object.hasOwn(datos, "exportacion_servicios_disponible") && typeof datos.exportacion_servicios_disponible !== "boolean") ||
       (Object.hasOwn(datos, "historia_servicios_disponible") && typeof datos.historia_servicios_disponible !== "boolean") ||
+      (Object.hasOwn(datos, "historia_relaciones_disponible") && typeof datos.historia_relaciones_disponible !== "boolean") ||
       typeof datos.recibo_ref !== "string" || !/^fichapropia:[0-9a-f-]{36}$/u.test(datos.recibo_ref) ||
       typeof datos.consultada_en !== "string" || !INSTANTE.test(datos.consultada_en) || !Number.isFinite(Date.parse(datos.consultada_en)) ||
       !claves(ficha, ["corte", "relaciones", "servicios"]) || !claves(ficha.corte, ["vigente_en", "conocido_en"]) || !fecha(ficha.corte.vigente_en) ||
@@ -84,7 +87,7 @@ function validarSobre(sobre) {
     if (!claves(s, ["inicio", "fin", "clase", "dias", "estado"]) || !fecha(s.inicio) || !fecha(s.fin) ||
         !texto(s.clase) || !Number.isSafeInteger(s.dias) || s.dias < 0 || !ESTADOS_SERVICIO.has(s.estado)) throw error("sobre_no_valido", 200);
   }
-  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref, exportacionServiciosDisponible: datos.exportacion_servicios_disponible === true, historiaServiciosDisponible: datos.historia_servicios_disponible === true });
+  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref, exportacionServiciosDisponible: datos.exportacion_servicios_disponible === true, historiaServiciosDisponible: datos.historia_servicios_disponible === true, historiaRelacionesDisponible: datos.historia_relaciones_disponible === true });
 }
 
 async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
@@ -98,7 +101,7 @@ async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
     try {
       respuesta = await fetchImpl(fechaReferencia ? `${RUTA_FICHA_PROPIA}?fecha_referencia=${fechaReferencia}` : RUTA_FICHA_PROPIA, {
         method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store",
-        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: ACCEPT_FICHA_PROPIA_EXPORTACION, Prefer: PREFER_HISTORIA_SERVICIOS },
+        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: ACCEPT_FICHA_PROPIA_EXPORTACION, Prefer: PREFER_HISTORIAS_PROPIAS },
         signal: controlador.signal,
       });
     } catch {
@@ -215,19 +218,19 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
       if (consulta.excedeLimite) return { estado: "excede_limite" };
       if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado", ...(sesionCaducada ? { aviso_exportacion: "sesion_caducada" } : {}) };
       const items = presentar(consulta.ficha, traducir);
-      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible && !recibosSinExportacion.has(consulta.reciboRef), historia_servicios_disponible: consulta.historiaServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
+      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(!admiteFecha ? { historia_relaciones_disponible: consulta.historiaRelacionesDisponible } : {}), ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible && !recibosSinExportacion.has(consulta.reciboRef), historia_servicios_disponible: consulta.historiaServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
-    ...(admiteFecha ? { clienteHistoria: Object.freeze({ async consultar(entrada) {
+    ...({ clienteHistoria: Object.freeze({ async consultar(entrada) {
       if (sesionCaducada) throw error("sesion_caducada", 401);
       const vigente = revision;
-      try { return await crearClienteHistoriaServiciosPropia({ fetchImpl, plazoMs }).consultar(entrada); }
+      try { return await (admiteFecha ? crearClienteHistoriaServiciosPropia : crearClienteHistoriaRelacionesPropia)({ fetchImpl, plazoMs }).consultar(entrada); }
       catch (causa) {
         if (vigente === revision && causa?.estado === 401) {
           revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = true;
         }
         throw causa;
       }
-    } }) } : {}),
+    } }) }),
     ...(admiteFecha ? { async exportarPropios(entrada) {
       if (sesionCaducada || recibosSinExportacion.has(entrada?.reciboRef)) throw error("denegado", sesionCaducada ? 401 : 403);
       const vigente = revision;

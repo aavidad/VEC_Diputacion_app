@@ -656,3 +656,8 @@ static/portal-empleado/modulos/personal/vista-historia-servicios-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-servicios-propia.js
 static/textos/es/personal-historia-servicios.json
 static/textos/en/personal-historia-servicios.json
+static/portal-empleado/modulos/personal/cliente-http-historia-relaciones-propia.js
+static/portal-empleado/modulos/personal/vista-historia-relaciones-propia.js
+static/portal-empleado/modulos/personal/i18n-historia-relaciones-propia.js
+static/textos/es/personal-historia-relaciones.json
+static/textos/en/personal-historia-relaciones.json

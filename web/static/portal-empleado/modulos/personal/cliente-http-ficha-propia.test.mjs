@@ -339,6 +339,6 @@ test("historia sólo se ofrece con disponibilidad explícita y conserva exportac
     if(typeof valor==="string"){assert.equal(servicios.estado,"error");continue;}
     assert.equal(servicios.historia_servicios_disponible,valor===true);
     assert.equal(servicios.exportacion_servicios_disponible,true);
-    assert.equal(peticion.headers.Prefer,"vec-personal-historia-servicios-v1");
+    assert.equal(peticion.headers.Prefer,"vec-personal-historia-servicios-v1, vec-personal-historia-relaciones-v1");
   }
 });
