@@ -47,7 +47,8 @@ export function montarVistaRecuperacionFirmasV2({
   let generacion = 0;
   const identificador = "ct-recuperacion-firmas-" + (++siguientePanel);
 
-  const panel = elemento(doc, "section", "panel ct-recuperacion-firmas");
+  const panel = elemento(doc, "section", "panel");
+  panel.classList.add("ct-recuperacion-firmas");
   panel.dataset.ctRecuperacionFirmasV2 = "";
   panel.setAttribute("aria-labelledby", identificador);
   const cabecera = elemento(doc, "div", "cabecera-panel");

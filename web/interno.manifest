@@ -478,6 +478,7 @@ static/textos/es/contratacion-temporal-firma-remision.json
 static/textos/es/contratacion-temporal-seguimiento-cese.json
 static/textos/es/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/es/contratacion-temporal-firma-incorporacion-expedientes.json
+static/textos/es/contratacion-temporal-recuperacion-firmas-v2.json
 static/textos/es/dietas-catalogo.json
 static/textos/es/dietas-informes.json
 static/textos/en/contratacion-temporal-circuito-firma.json
@@ -486,6 +487,7 @@ static/textos/en/contratacion-temporal-firma-remision.json
 static/textos/en/contratacion-temporal-seguimiento-cese.json
 static/textos/en/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/en/contratacion-temporal-firma-incorporacion-expedientes.json
+static/textos/en/contratacion-temporal-recuperacion-firmas-v2.json
 static/textos/en/dietas-catalogo.json
 static/textos/en/dietas-informes.json
 static/textos/es/formacion.json

@@ -181,6 +181,27 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
     if (firmas.has(firma.firma_ref)) throw new TypeError("firma_historica_duplicada");
     firmas.set(firma.firma_ref, firma);
   }
+  for (const firma of firmas.values()) {
+    if (firma.paso_orden !== 2 || firma.revision_pdf === null) continue;
+    const revision = firma.revision_pdf;
+    const previa = firmas.get(revision.firma_anterior_ref);
+    const custodia = previa?.documento_custodiado;
+    const revisionPrevia = previa?.revision_pdf;
+    if (!previa || previa.paso_orden !== 1 || !custodia || !revisionPrevia
+      || revision.recibo_anterior_ref !== previa.recibo_ref
+      || firma.secuencia !== previa.secuencia + 1
+      || firma.catalogo_ref !== previa.catalogo_ref
+      || firma.catalogo_huella !== previa.catalogo_huella
+      || firma.original.documento_ref !== previa.original.documento_ref
+      || firma.original.version !== previa.original.version
+      || firma.original.huella_sha256 !== previa.original.huella_sha256
+      || revision.entrada_documento.documento_ref !== custodia.documento_ref
+      || revision.entrada_documento.version !== custodia.version
+      || revision.entrada_documento.huella_sha256 !== custodia.huella_sha256
+      || revision.entrada_longitud !== revisionPrevia.revision_longitud) {
+      throw new TypeError("cadena_historica_invalida");
+    }
+  }
   const recuperadas = new Map();
   for (const rec of x.recuperaciones) {
     const firma = firmas.get(rec?.firma_ref);
