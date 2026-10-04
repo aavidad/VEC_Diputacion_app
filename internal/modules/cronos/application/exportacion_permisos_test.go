@@ -138,8 +138,14 @@ func TestExportacionPermisosDenegacionesSinBytes(t *testing.T) {
 		{"politica_tipo_duplicado", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
 			f.datos.Politica.TiposPermitidos = append(f.datos.Politica.TiposPermitidos, "tipo_ejemplo")
 		}},
-		{"campo_ausente", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
-			f.datos.Politica.CamposPermitidos = f.datos.Politica.CamposPermitidos[:6]
+		{"sin_campos", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = nil
+		}},
+		{"cantidad_sin_unidad", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = []string{"etiqueta", "concedido"}
+		}},
+		{"campo_duplicado", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = []string{"etiqueta", "etiqueta"}
 		}},
 		{"campo_sensible", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
 			f.datos.Politica.CamposPermitidos[0] = "motivo"
@@ -179,6 +185,48 @@ func TestExportacionPermisosDenegacionesSinBytes(t *testing.T) {
 			}
 			if c.nombre == "tipo_excluido" && (p.llamadas != 0 || r.llamadas != 0) {
 				t.Fatal("tipo excluido dejó huella en el informe")
+			}
+		})
+	}
+}
+
+func TestExportacionPermisosSubconjuntoBorraCamposYConservaPolitica(t *testing.T) {
+	s, o, f, p, r := prepararInformePermisosPrueba(t)
+	f.datos.Politica.CamposPermitidos = []string{"etiqueta", "unidad", "concedido"}
+	original := append([]string(nil), f.datos.Politica.CamposPermitidos...)
+	p.alPreparar = func() { f.datos.Politica.CamposPermitidos[0] = "conciliacion" }
+	resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+	if err != nil || r.llamadas != 1 || len(resultado.Contenido) == 0 {
+		t.Fatal(err)
+	}
+	got := p.recibido
+	if len(got.CamposPermitidos) != 3 || got.CamposPermitidos[0] != original[0] ||
+		got.Filas[0].Etiqueta != "Permiso de ejemplo" || got.Filas[0].Unidad != domain.LeaveUnitDay || *got.Filas[0].Concedido != 3 ||
+		got.Filas[0].Computo != "" || got.Filas[0].PendienteResolver != nil || got.Filas[0].Restante != nil || got.Filas[0].Conciliacion != "" {
+		t.Fatal("el preparador recibió un campo excluido o lista mutable", got)
+	}
+	e := resultado.Confirmacion.Evidencia
+	if e.PoliticaRef != "politica_ejemplo" || e.PoliticaVersion != 1 || e.PoliticaSHA256 != strings.Repeat("c", 64) || e.FuenteRef != "fuente_ejemplo" || e.FuenteSHA256 != strings.Repeat("a", 64) {
+		t.Fatal("origen y política no conservados", e)
+	}
+}
+
+func TestExportacionPermisosValidaOriginalAntesDeMinimizar(t *testing.T) {
+	for _, caso := range []struct {
+		nombre  string
+		alterar func(*ports.FilaInformePermisos)
+	}{
+		{"estado_excluido_invalido", func(f *ports.FilaInformePermisos) { f.Conciliacion = "estado_inventado" }},
+		{"cantidad_excluida_negativa", func(f *ports.FilaInformePermisos) { n := int64(-1); f.PendienteResolver = &n }},
+		{"restante_incompatible_excluido", func(f *ports.FilaInformePermisos) { n := int64(2); f.Restante = &n }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, o, fuente, p, r := prepararInformePermisosPrueba(t)
+			fuente.datos.Politica.CamposPermitidos = []string{"etiqueta"}
+			caso.alterar(&fuente.datos.Filas[0].Resumen)
+			resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+			if err == nil || len(resultado.Contenido) != 0 || p.llamadas != 0 || r.llamadas != 0 {
+				t.Fatal("dato original inválido pasó por proyección", err)
 			}
 		})
 	}

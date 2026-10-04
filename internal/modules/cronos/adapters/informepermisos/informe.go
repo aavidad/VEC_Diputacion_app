@@ -35,6 +35,8 @@ type Catalogo struct {
 	Corte           string            `json:"corte"`
 	Alcance         string            `json:"alcance"`
 	Fila            string            `json:"fila"`
+	SeparadorCampos string            `json:"separador_campos"`
+	Campos          map[string]string `json:"campos"`
 	Dias            string            `json:"dias"`
 	Duracion        string            `json:"duracion"`
 	DuracionCorta   string            `json:"duracion_corta"`
@@ -85,7 +87,7 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 	if err != nil || !texto(c.ZonaHoraria, 64) {
 		return nil, ports.ErrExportacionPermisosInvalida
 	}
-	for _, v := range []string{c.Titulo, c.Ejercicio, c.Corte, c.Alcance, c.Fila, c.Dias, c.Duracion, c.DuracionCorta, c.Desconocido, c.Vacio, c.Limite, c.Sintetico, c.NombreSintetico} {
+	for _, v := range []string{c.Titulo, c.Ejercicio, c.Corte, c.Alcance, c.Fila, c.SeparadorCampos, c.Dias, c.Duracion, c.DuracionCorta, c.Desconocido, c.Vacio, c.Limite, c.Sintetico, c.NombreSintetico} {
 		if !texto(v, 2048) {
 			return nil, ports.ErrExportacionPermisosInvalida
 		}
@@ -93,11 +95,14 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 	if !mapaValido(c.Unidades, []string{string(domain.LeaveUnitDay), string(domain.LeaveUnitHour)}) || !mapaValido(c.Computos, []string{string(domain.ComputoLaborables), string(domain.ComputoNaturales)}) || !mapaValido(c.Estados, []string{ports.ConciliacionPermisosConfirmada, ports.ConciliacionPermisosPendiente}) {
 		return nil, ports.ErrExportacionPermisosInvalida
 	}
+	if !mapaValido(c.Campos, clavesCamposInformePermisos) {
+		return nil, ports.ErrExportacionPermisosInvalida
+	}
 	for _, p := range []struct {
 		valor  string
 		claves []string
 	}{
-		{c.Ejercicio, []string{"ejercicio"}}, {c.Corte, []string{"corte"}}, {c.Fila, []string{"etiqueta", "unidad", "computo", "pendiente", "concedido", "restante", "estado"}}, {c.Dias, []string{"cantidad"}}, {c.Duracion, []string{"horas", "minutos"}}, {c.DuracionCorta, []string{"minutos"}}, {c.NombreSintetico, []string{"nombre"}},
+		{c.Ejercicio, []string{"ejercicio"}}, {c.Corte, []string{"corte"}}, {c.Fila, []string{"campos"}}, {c.Dias, []string{"cantidad"}}, {c.Duracion, []string{"horas", "minutos"}}, {c.DuracionCorta, []string{"minutos"}}, {c.NombreSintetico, []string{"nombre"}},
 	} {
 		restante := p.valor
 		for _, clave := range p.claves {
@@ -108,6 +113,11 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 			restante = strings.ReplaceAll(restante, marcador, "")
 		}
 		if strings.Contains(restante, "{{") || strings.Contains(restante, "}}") {
+			return nil, ports.ErrExportacionPermisosInvalida
+		}
+	}
+	for _, plantilla := range c.Campos {
+		if strings.Count(plantilla, "{{valor}}") != 1 || strings.Contains(strings.ReplaceAll(plantilla, "{{valor}}", ""), "{{") || strings.Contains(strings.ReplaceAll(plantilla, "{{valor}}", ""), "}}") {
 			return nil, ports.ErrExportacionPermisosInvalida
 		}
 	}
@@ -136,14 +146,23 @@ func (p *Preparador) preparar(ctx context.Context, r ports.ResumenPermisosInform
 	if r.Ejercicio < 1 || r.Ejercicio > 9999 || r.CorteUTC.IsZero() || r.CorteUTC.Location() != time.UTC || r.CorteUTC.Nanosecond()%1000 != 0 || len(r.Filas) > 256 {
 		return cero, ports.ErrExportacionPermisosInvalida
 	}
+	permitidos, err := camposInformePermisosPermitidos(r.CamposPermitidos)
+	if err != nil {
+		return cero, err
+	}
 	c := p.catalogo
 	parrafos := []string{}
 	if nombre != "" {
 		parrafos = append(parrafos, c.Sintetico, sustituir(c.NombreSintetico, "nombre", nombre))
 	}
 	parrafos = append(parrafos, sustituir(c.Ejercicio, "ejercicio", strconv.Itoa(r.Ejercicio)), sustituir(c.Corte, "corte", r.CorteUTC.In(p.zona).Format(c.FormatoFecha)), c.Alcance)
+	hayCantidadDesconocida := false
 	for _, f := range r.Filas {
-		if !texto(f.Etiqueta, 256) || c.Unidades[string(f.Unidad)] == "" || c.Computos[string(f.Computo)] == "" || c.Estados[f.Conciliacion] == "" || (f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
+		if (permitidos["etiqueta"] && !texto(f.Etiqueta, 256)) || (f.Etiqueta != "" && !texto(f.Etiqueta, 256)) ||
+			(permitidos["unidad"] && c.Unidades[string(f.Unidad)] == "") || (f.Unidad != "" && c.Unidades[string(f.Unidad)] == "") ||
+			(permitidos["computo"] && c.Computos[string(f.Computo)] == "") || (f.Computo != "" && c.Computos[string(f.Computo)] == "") ||
+			(permitidos["conciliacion"] && c.Estados[f.Conciliacion] == "") || (f.Conciliacion != "" && c.Estados[f.Conciliacion] == "") ||
+			(f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
 			return cero, ports.ErrExportacionPermisosInvalida
 		}
 		for _, v := range []*int64{f.PendienteResolver, f.Concedido, f.Restante} {
@@ -151,14 +170,38 @@ func (p *Preparador) preparar(ctx context.Context, r ports.ResumenPermisosInform
 				return cero, ports.ErrExportacionPermisosInvalida
 			}
 		}
-		// Replacer sustituye simultáneamente: una etiqueta nunca se trata como plantilla.
-		fila := strings.NewReplacer("{{etiqueta}}", f.Etiqueta, "{{unidad}}", c.Unidades[string(f.Unidad)], "{{computo}}", c.Computos[string(f.Computo)], "{{pendiente}}", p.cantidad(f.PendienteResolver, f.Unidad), "{{concedido}}", p.cantidad(f.Concedido, f.Unidad), "{{restante}}", p.cantidad(f.Restante, f.Unidad), "{{estado}}", c.Estados[f.Conciliacion]).Replace(c.Fila)
+		valores := map[string]string{
+			"etiqueta": f.Etiqueta, "unidad": c.Unidades[string(f.Unidad)], "computo": c.Computos[string(f.Computo)],
+			"conciliacion": c.Estados[f.Conciliacion],
+		}
+		if permitidos["pendiente_resolver"] {
+			hayCantidadDesconocida = hayCantidadDesconocida || f.PendienteResolver == nil
+			valores["pendiente_resolver"] = p.cantidad(f.PendienteResolver, f.Unidad)
+		}
+		if permitidos["concedido"] {
+			hayCantidadDesconocida = hayCantidadDesconocida || f.Concedido == nil
+			valores["concedido"] = p.cantidad(f.Concedido, f.Unidad)
+		}
+		if permitidos["restante"] {
+			hayCantidadDesconocida = hayCantidadDesconocida || f.Restante == nil
+			valores["restante"] = p.cantidad(f.Restante, f.Unidad)
+		}
+		partes := make([]string, 0, len(permitidos))
+		for _, campo := range clavesCamposInformePermisos {
+			if permitidos[campo] {
+				// Los datos se sustituyen una sola vez; nunca se interpretan como plantilla.
+				partes = append(partes, strings.Replace(c.Campos[campo], "{{valor}}", valores[campo], 1))
+			}
+		}
+		fila := strings.Replace(c.Fila, "{{campos}}", strings.Join(partes, c.SeparadorCampos), 1)
 		parrafos = append(parrafos, fila)
 	}
 	if len(r.Filas) == 0 {
 		parrafos = append(parrafos, c.Vacio)
 	}
-	parrafos = append(parrafos, c.Limite)
+	if hayCantidadDesconocida {
+		parrafos = append(parrafos, c.Limite)
+	}
 	contenido, err := p.renderer.Renderizar(ctx, vecdomain.ContenidoDocumento{Titulo: c.Titulo, Parrafos: parrafos})
 	if err != nil {
 		return cero, err
@@ -177,6 +220,32 @@ func (p *Preparador) preparar(ctx context.Context, r ports.ResumenPermisosInform
 		return cero, err
 	}
 	return ports.DocumentoPermisosPreparado{Contenido: contenido, CatalogoRef: c.Referencia, CatalogoVersion: p.version, CatalogoSHA256: p.huella}, nil
+}
+
+var clavesCamposInformePermisos = []string{"etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"}
+
+func camposInformePermisosPermitidos(campos []string) (map[string]bool, error) {
+	if len(campos) == 0 || len(campos) > len(clavesCamposInformePermisos) {
+		return nil, ports.ErrExportacionPermisosInvalida
+	}
+	permitidos := make(map[string]bool, len(campos))
+	for _, campo := range campos {
+		conocido := false
+		for _, clave := range clavesCamposInformePermisos {
+			if campo == clave {
+				conocido = true
+				break
+			}
+		}
+		if !conocido || permitidos[campo] {
+			return nil, ports.ErrExportacionPermisosInvalida
+		}
+		permitidos[campo] = true
+	}
+	if !permitidos["unidad"] && (permitidos["pendiente_resolver"] || permitidos["concedido"] || permitidos["restante"]) {
+		return nil, ports.ErrExportacionPermisosInvalida
+	}
+	return permitidos, nil
 }
 func (p *Preparador) cantidad(v *int64, u domain.LeaveUnit) string {
 	if v == nil {

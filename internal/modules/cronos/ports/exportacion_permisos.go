@@ -89,9 +89,10 @@ type FilaInformePermisos struct {
 	Conciliacion      string                `json:"conciliacion"`
 }
 type ResumenPermisosInforme struct {
-	Ejercicio int                   `json:"ejercicio"`
-	CorteUTC  time.Time             `json:"corte_utc"`
-	Filas     []FilaInformePermisos `json:"filas"`
+	Ejercicio        int                   `json:"ejercicio"`
+	CorteUTC         time.Time             `json:"corte_utc"`
+	CamposPermitidos []string              `json:"campos_permitidos"`
+	Filas            []FilaInformePermisos `json:"filas"`
 }
 
 type DocumentoPermisosPreparado struct {
