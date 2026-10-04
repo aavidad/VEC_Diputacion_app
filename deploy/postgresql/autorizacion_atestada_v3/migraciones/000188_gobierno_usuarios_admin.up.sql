@@ -310,11 +310,12 @@ RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catal
 DECLARE k jsonb;g record;r vec_autorizacion_atestada_v3.raiz_confianza_version;checkpoint record;ahora timestamptz;
 BEGIN
  PERFORM vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1();
- ahora:=clock_timestamp();
- IF (p->>'caduca_en')::timestamptz<=ahora THEN RAISE EXCEPTION 'AD188: PARO clave=plan_vigencia actual=caducado esperado=vigente' USING ERRCODE='42501';END IF;
  SELECT x.* INTO STRICT g FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual a JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version x ON x.revision=a.configuracion_revision WHERE a.orden=(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual) FOR SHARE OF a,x;
  SELECT x.* INTO STRICT r FROM vec_autorizacion_atestada_v3.configuracion_raiz cr JOIN vec_autorizacion_atestada_v3.raiz_confianza_version x ON x.clave_id=cr.raiz_clave_id AND x.version=cr.raiz_version WHERE cr.configuracion_revision=g.revision FOR SHARE OF cr,x;
  SELECT * INTO STRICT checkpoint FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id FOR SHARE;
+ PERFORM vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1();
+ ahora:=clock_timestamp();
+ IF (p->>'caduca_en')::timestamptz<=ahora THEN RAISE EXCEPTION 'AD188: PARO clave=plan_vigencia actual=caducado esperado=vigente' USING ERRCODE='42501';END IF;
  IF g.revision IS DISTINCT FROM p->'configuracion'->>'revision' OR g.secuencia IS DISTINCT FROM (p->'configuracion'->>'secuencia')::bigint
  OR g.huella_configuracion_sha256 IS DISTINCT FROM p->'configuracion'->>'huella_sha256'
  OR g.publicada_en>ahora OR g.expira_en<=ahora OR r.valida_desde>ahora OR r.valida_hasta<=ahora
