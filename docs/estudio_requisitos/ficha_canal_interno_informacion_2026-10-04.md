@@ -33,6 +33,8 @@ VEC hará accesible el enlace institucional y explicará finalidad y vías de co
 
 La [Ley 2/2023](https://www.boe.es/eli/es/l/2023/02/20/2/con), arts. 2–3, delimita infracciones y personas del contexto laboral/profesional, incluidos supuestos anteriores o posteriores al vínculo. Arts. 5, 7–9 y 13–14: garantías, comunicaciones anónimas, independencia, procedimiento y sector público. Arts. 16 y 25: canal externo e información. Arts. 29–33: bases, información, acceso e identidad reservada. Arts. 35–39: protección y afectados.
 
+El art. 9.2.c exige acuse en siete días naturales desde la recepción, salvo riesgo para la confidencialidad. El art. 9.2.d fija respuesta de investigación en un máximo de tres meses desde la recepción o, sin acuse, desde el vencimiento de aquellos siete días; excepcional complejidad permite hasta otros tres meses adicionales. Son límites legales del procedimiento, distintos de los tres meses desde recepción para supresión del art. 32.4. No son parámetros libres de RRHH.
+
 | Compartimento | Regla que debe materializarse |
 | --- | --- |
 | Sistema de recepción | Art. 32.3: solo tiempo imprescindible para decidir investigar. Art. 32.4: a los tres meses desde recepción sin investigación, supresión, salvo evidencia del funcionamiento; lo no tramitado, anonimizado y sin bloqueo LOPDGDD. |
