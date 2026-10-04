@@ -95,3 +95,10 @@ f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pr
 
 # AD171: SHA256 público del consumo sintético idéntico al vector V2; no es un token SumoLogic.
 9cc9e7a84a8f19940364aa9cf829421d611b59be:cmd/vec-auditoria-verificar/testdata/preperfil_mixta_v3.json:sumologic-access-token:1
+
+# CS11: recuperación de dos tokens deterministas de pg_dump --restrict-key.
+# Sólo se comparan huellas de esquema; el búfer se vacía y no se ejecuta el SQL.
+# Mismos falsos positivos revisados en 7808b9db; exclusivamente este commit.
+# https://www.postgresql.org/docs/18/app-pgdump.html
+a302e7d66b992ccc86a1ab8280f8b1228f8f1b53:internal/modules/administracion/adapters/ejecucioncopias/runtime_local_source.go:generic-api-key:105
+a302e7d66b992ccc86a1ab8280f8b1228f8f1b53:internal/modules/administracion/adapters/ejecucioncopias/runtime_local_source_inventario.go:generic-api-key:91
