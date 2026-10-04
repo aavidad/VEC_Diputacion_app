@@ -40,8 +40,8 @@ type ResolvedorSesion interface {
 	ResolverSesionADMIN(context.Context, *http.Request) (SesionConfiable, error)
 }
 
-// AuditorFrontera conserva denegaciones previas a la identidad sin guardar
-// cabeceras, certificado ni cuerpo. Sin recibo de auditoría se responde 503.
+// AuditorFrontera requiere evidencia V2 ya acreditada para registrar el
+// intento común. Antes de resolver esa identidad responde no disponible.
 type AuditorFrontera interface {
 	RegistrarDenegacionADMIN(context.Context, DenegacionADMIN) error
 }
@@ -53,6 +53,8 @@ type DenegacionADMIN struct {
 	ActorPersonaRef string
 	PerfilActivoRef string
 	CorrelacionRef  string
+	Actor           domain.ContextoActor                         `json:"-"`
+	Evidencia       domain.EvidenciaSesionAdministracionPerfiles `json:"-"`
 }
 
 // FuenteLecturas debe resolver el catálogo central del actor y admitir solo
@@ -355,9 +357,24 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, co
 
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
+	actor, err := s.Actor.Clonar()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
+	if evidencia.ValidarPara(actor) != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
 	registro := DenegacionADMIN{Codigo: codigo, Accion: accion, RecursoRef: recurso,
-		ActorPersonaRef: s.Actor.PersonaRef, PerfilActivoRef: s.Actor.PerfilActivoRef,
-		CorrelacionRef: s.CorrelacionRef}
+		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
+		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
