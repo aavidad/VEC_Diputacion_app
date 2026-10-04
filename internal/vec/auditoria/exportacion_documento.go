@@ -52,7 +52,8 @@ func VerificarDocumentoExportacionAuditoria(documento []byte, cobertura domain.C
 			fallo = VerificarCadenaV3(d, checkpoint, maxRegistros)
 		}
 	case EsquemaVerificacionMixta, EsquemaVerificacionPreperfil,
-		EsquemaVerificacionFuentesIniciales, EsquemaVerificacionUnidadInicial, EsquemaVerificacionBootstrapCentral:
+		EsquemaVerificacionFuentesIniciales, EsquemaVerificacionUnidadInicial, EsquemaVerificacionBootstrapCentral,
+		EsquemaVerificacionMantenimientoFijo, EsquemaVerificacionPeriodica:
 		var d DocumentoVerificacionMixta
 		destino = &d
 		if decodificarDocumentoExportacionEstricto(documento, destino) == nil {
@@ -67,6 +68,10 @@ func VerificarDocumentoExportacionAuditoria(documento []byte, cobertura domain.C
 				fallo = VerificarCadenaUnidadInicialV1(d, checkpoint, maxRegistros).InformeVerificacion
 			case EsquemaVerificacionBootstrapCentral:
 				fallo = VerificarCadenaBootstrapCentralV1(d, checkpoint, maxRegistros).InformeVerificacion
+			case EsquemaVerificacionMantenimientoFijo:
+				fallo = VerificarCadenaMantenimientoFijoV1(d, checkpoint, maxRegistros).InformeVerificacion
+			case EsquemaVerificacionPeriodica:
+				fallo = VerificarCadenaPeriodicaV1(d, checkpoint, maxRegistros).InformeVerificacion
 			}
 		}
 	default:

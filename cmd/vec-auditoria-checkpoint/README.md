@@ -193,3 +193,76 @@ ni sellado periódico con esta pieza. Los ensayos del formato usan datos sintét
 El evento de captura futuro registrará la cabeza previa; quedará fuera de su
 propio rango para evitar una referencia circular. Los fallos y la recuperación
 de entrega deberán conservar su auditoría nominal antes de activar esa ruta.
+
+## Sello periódico con autoridad técnica propia
+
+La operación `ejecutar-periodico` consulta las fachadas AD186 y conserva el
+recibo en PostgreSQL. Un temporizador externo la invoca; el intervalo vigente
+de la política SQL decide si corresponde otra captura. Cada comprobación y
+recuperación queda auditada. El comando no obtiene filas de personas.
+
+La configuración del ejecutor contiene `version: 1`, `max_registros`,
+`version_binario`, `pin_spki_sha256` y `timeout_segundos`. La cadencia, cadena,
+política criptográfica y raíz aprobada pertenecen a la configuración SQL
+versionada, publicada por CAS y auditada. La configuración no tiene plazos de
+conservación ni autoriza borrados. La duda 84 sigue pendiente.
+
+Dirección instala AD186 después de AD183, sobre la preimagen acreditada.
+No se reaplican dependencias. Una variante del CHECK requiere medir y revisar
+su preimagen; la migración rechaza otra estructura. La función de configuración
+exige el grupo `vec_auditoria_periodica_configurador`; el ejecutor exige
+`vec_auditoria_periodica_sellador`. Las cuentas LOGIN propias se aprovisionan
+fuera de Git con CONNECT y SET del grupo exacto, sin INHERIT ni membresías de
+owner. El adaptador activa únicamente ese grupo. No concede permisos por
+petición. Las tablas y el helper permanecen privados.
+
+Configure la política mediante `configurar_sello_periodico_v1` en una
+transacción SERIALIZABLE/UTC con preimagen y versión esperadas. Ante fallo,
+haga ROLLBACK y registre el intento con `registrar_intento_periodico_v1`
+en otra transacción; el adaptador `ConfigurarCheckpointPeriodico` ya aplica
+ese contrato. La política incluye versión, cadena, intervalo en segundos,
+estado activo, política del checkpoint y pin SPKI. Una captura pendiente
+bloquea el cambio; una raíz con capturas anteriores permanece inmutable.
+La rotación después de capturas exige un protocolo posterior.
+
+Ejecute con archivos externos privados; la conexión TCP exige verificar el
+servidor por TLS y no admite caída a texto claro. El socket local sirve al
+ensayo aislado:
+
+```sh
+vec-auditoria-checkpoint -operacion ejecutar-periodico \
+  -config /ruta/privada/ejecutor.json -conexion /ruta/privada/conexion \
+  -kms-master /ruta/privada/kms-master -tsa-secret /ruta/privada/tsa-secret
+```
+
+Si no vence el intervalo, devuelve `no_vencido` con acuse y no firma. Cuando
+vence, captura la cabeza previa y añade su acuse en la misma transacción.
+El checkpoint termina en ese acuse; el material de este liga la cabeza
+previa, evitando autorreferencia. Firma y TSA se ejecutan tras COMMIT. Otra
+transacción conserva recibo y auditoría; el resultado queda cubierto por un
+checkpoint posterior. Una carrera serializable se rechaza y audita.
+
+Ante una respuesta perdida conserve `captura_ref` y recupere con los mismos
+archivos y `-captura-ref REFERENCIA`. Si ya estaba confirmado, devuelve el
+recibo conservado, sin otra firma ni confirmación. Un COMMIT incierto no se
+presenta como rollback. PostgreSQL conserva texto y SHA256 exactos; la salida
+`recibo_texto` permite recuperar esos bytes, incluso con formato alternativo.
+Guárdelos sin añadir un salto de línea antes de comprobar su huella.
+
+Compruebe el recibo con `verificar`, la raíz y el pin conservados por un canal
+separado. El nuevo formato `vec.auditoria.verificacion.periodica.v1` permite
+recalcular los eslabones técnicos junto a las familias anteriores. El detalle
+se reconstruye con la serialización PostgreSQL original; los saltos del
+transporte Base64 no cambian sus bytes. El sello por sí solo no recalcula
+registros ni acredita ausencia de otros posteriores.
+
+Todas las salidas mantienen DESARROLLO, TSA HMAC sin tiempo independiente y
+firma legal falsa. La captura técnica no sustituye la captura judicial
+nominal ni concede consulta administrativa de personas.
+
+El diseño sigue los patrones de resúmenes periódicos enlazados de
+[CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-digest-file-structure.html),
+estado verificable con raíz separada de
+[immudb](https://docs.immudb.io/1.5.0/management/state) y conservación de auditoría
+para completar operaciones de [Vault](https://developer.hashicorp.com/vault/docs/audit).
+No incorpora esos servicios ni les envía datos.
