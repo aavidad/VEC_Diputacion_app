@@ -25,20 +25,21 @@ type destinoUsuariosPrivado struct {
 // Overlay privado y cerrado. El fichero legado conserva exactamente su
 // formato y se usa sólo para los componentes comunes de identidad/arranque.
 type configuracionUsuariosMetadatosPrivada struct {
-	Modo             string                                      `json:"modo"`
-	PoolLector       string                                      `json:"pool_lector"`
-	PoolIntentos     string                                      `json:"pool_intentos"`
-	PoolSelector     string                                      `json:"pool_selector"`
-	ConfianzaJSON    json.RawMessage                             `json:"confianza"`
-	OrganizacionRef  string                                      `json:"organizacion_ref"`
-	UnidadRef        string                                      `json:"unidad_ref"`
-	Proceso          string                                      `json:"proceso"`
-	Canal            string                                      `json:"canal"`
-	MotivosUsuarios  map[string]domain.ReferenciaEntradaCatalogo `json:"motivos_usuarios"`
-	MotivoDenegado   domain.ReferenciaEntradaCatalogo            `json:"motivo_denegado"`
-	MotivoError      domain.ReferenciaEntradaCatalogo            `json:"motivo_error"`
-	PlazoAuditoriaMS int                                         `json:"plazo_auditoria_ms"`
-	Destinos         map[string]destinoUsuariosPrivado           `json:"destinos"`
+	Modo                string                                      `json:"modo"`
+	PoolLector          string                                      `json:"pool_lector"`
+	PoolIntentos        string                                      `json:"pool_intentos"`
+	PoolFronteraTecnica string                                      `json:"pool_frontera_tecnica"`
+	PoolSelector        string                                      `json:"pool_selector"`
+	ConfianzaJSON       json.RawMessage                             `json:"confianza"`
+	OrganizacionRef     string                                      `json:"organizacion_ref"`
+	UnidadRef           string                                      `json:"unidad_ref"`
+	Proceso             string                                      `json:"proceso"`
+	Canal               string                                      `json:"canal"`
+	MotivosUsuarios     map[string]domain.ReferenciaEntradaCatalogo `json:"motivos_usuarios"`
+	MotivoDenegado      domain.ReferenciaEntradaCatalogo            `json:"motivo_denegado"`
+	MotivoError         domain.ReferenciaEntradaCatalogo            `json:"motivo_error"`
+	PlazoAuditoriaMS    int                                         `json:"plazo_auditoria_ms"`
+	Destinos            map[string]destinoUsuariosPrivado           `json:"destinos"`
 }
 
 var referenciaAmbitoUsuarios = regexp.MustCompile(`^[A-Za-z0-9_:-]{3,128}$`)
@@ -80,7 +81,7 @@ func validarConfiguracionUsuariosMetadatosPrivada(c configuracionUsuariosMetadat
 		len(c.MotivosUsuarios) != 2 || len(c.Destinos) != len(clavesDestinoUsuarios) || contieneClavePrivadaInline(c.ConfianzaJSON) {
 		return errConfiguracionPrivadaPerfiles
 	}
-	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, base.Pools.AuditoriaFrontera, c.PoolLector, c.PoolIntentos, c.PoolSelector, base.Firmante.ClavePrivadaArchivo, base.Identidad.RutaConfiguracionHMAC}
+	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, base.Pools.AuditoriaFrontera, c.PoolLector, c.PoolIntentos, c.PoolSelector, c.PoolFronteraTecnica, base.Firmante.ClavePrivadaArchivo, base.Identidad.RutaConfiguracionHMAC}
 	if base.Pools.ActosADMIN != "" {
 		rutas = append(rutas, base.Pools.ActosADMIN)
 	}
