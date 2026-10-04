@@ -9,7 +9,6 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
 DO $pre$
 DECLARE r record;n integer:=0;
 BEGIN
- IF true THEN RAISE EXCEPTION 'CA36: borrador dependiente de IS16/AD192 y dos revisiones' USING ERRCODE='55000'; END IF;
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_contexto_actor_v1_admin_contexto') IS NOT NULL

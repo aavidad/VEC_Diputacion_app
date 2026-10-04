@@ -40,11 +40,13 @@ respuesta auditada fue negativa, la recuperación devuelve ese estado sin
 contexto V2; no afirma que no haya otros registros históricos.
 
 IS16 y AD192 han publicado candidatos de sus fachadas propietarias. La
-preimagen real del núcleo CA está medida. CA36 mantiene una parada explícita
-de instalación hasta dos revisiones independientes y el ensayo PostgreSQL
-del escritor único. Las pruebas Go usan transporte sintético: comprueban la
-ligadura del acuse y la recuperación de un COMMIT incierto, pero no acreditan
-firma, efecto PostgreSQL, montaje ni recorrido HTTP.
+preimagen real del núcleo CA está medida y CA36 recibió dos revisiones
+independientes `GO` sobre el borrador `d5ec03817`. Se retiró únicamente la
+parada de borrador; falta ratificar el hash resultante y ensayar la migración
+en PostgreSQL por el escritor único. No está instalada. Las pruebas Go usan
+transporte sintético: comprueban la ligadura del acuse y la recuperación de un
+COMMIT incierto, pero no acreditan firma, efecto PostgreSQL, montaje ni
+recorrido HTTP.
 
 El ensayo pendiente debe comprobar con datos sintéticos: registro exacto y
 repetición con el mismo evento sin otra fila ni auditoría; sesión diferente de
