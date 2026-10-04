@@ -69,6 +69,9 @@ func runPreservacion(o opcionesPreservacion, out, log io.Writer) int {
 		}
 		r, err = application.PublicarPreservacionAuditoria(ctx, fuente, s)
 	} else {
+		if !versionConsultaPreservacionValida(ctx, o.Version, fuente.RegistrarFalloPreservacion) {
+			return fallo()
+		}
 		r, err = application.ConsultarPreservacionAuditoria(ctx, fuente, o.Version)
 	}
 	if err != nil {
@@ -76,6 +79,14 @@ func runPreservacion(o opcionesPreservacion, out, log io.Writer) int {
 	}
 	codigo = domain.ResultadoTecnicoCorrecto
 	return escribirResultado(out, map[string]any{"modo": "DESARROLLO", "resultado": r, "resolucion_documental": false, "expurgo_autorizado": false})
+}
+
+func versionConsultaPreservacionValida(ctx context.Context, version uint64, registrar func(context.Context, string, string) error) bool {
+	if version <= domain.MaxVersionPreservacionAuditoria {
+		return true
+	}
+	_ = registrar(ctx, "consultar_preservacion_auditoria_v1", "error")
+	return false
 }
 func escribirResultadoPreservacion(out io.Writer, r any, codigo int) int {
 	if escribirResultado(out, r) != 0 {
