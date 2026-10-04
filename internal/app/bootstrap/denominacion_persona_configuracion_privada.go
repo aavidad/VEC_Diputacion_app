@@ -216,7 +216,7 @@ func AbrirRaizPrivadaDenominacionPersona(ruta string) (*os.Root, error) {
 		return nil, ErrConfiguracionDenominacionPrivada
 	}
 	abierta, err := root.Stat(".")
-	if err != nil || !os.SameFile(info, abierta) || !abierta.IsDir() || abierta.Mode().Perm() != 0700 || !archivoDenominacionPropio(abierta) {
+	if err != nil || !abierta.IsDir() || abierta.Mode().Perm() != 0700 || !archivoDenominacionPropio(abierta) {
 		_ = root.Close()
 		return nil, ErrConfiguracionDenominacionPrivada
 	}
