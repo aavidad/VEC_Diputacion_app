@@ -82,7 +82,7 @@ BEGIN
  OR(l.rolvaliduntil IS NOT NULL AND clock_timestamp()>=l.rolvaliduntil)
  OR g.rolcanlogin OR g.rolinherit OR g.rolsuper OR g.rolcreaterole OR g.rolcreatedb OR g.rolreplication OR g.rolbypassrls OR g.rolconfig IS NOT NULL
  OR g.rolconnlimit<>-1 OR g.rolvaliduntil IS NOT NULL OR array_position(fs,NULL) IS NOT NULL
- OR(SELECT count(*) FROM pg_auth_members WHERE member=l.oid OR roleid=l.oid OR grantor=l.oid OR member=g.oid)<>1
+ OR(SELECT count(*) FROM pg_auth_members WHERE member IN(l.oid,g.oid) OR roleid IN(l.oid,g.oid) OR grantor IN(l.oid,g.oid))<>1
  OR NOT EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles otorgante ON otorgante.oid=m.grantor
   WHERE m.member=l.oid AND m.roleid=g.oid AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option AND otorgante.rolsuper)
  OR EXISTS(SELECT 1 FROM pg_db_role_setting WHERE setrole IN(l.oid,g.oid))
@@ -159,7 +159,7 @@ DECLARE e jsonb;a record; BEGIN
   'motivo_ref','contexto_admin_pre_v2_'||p_resultado,'proceso',p_proceso,'canal','administracion_privilegiada',
   'finalidad_ref','establecer_contexto_admin','correlacion_ref',p_correlacion,'fuente_ref',p_fuente,'fuente_sha256',p_sha);
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_is_v1(e);
- IF a.auditoria_ref IS NULL OR a.auditoria_ref !~ '^aud_v3_ap2_[0-9a-f]{32}$' OR a.secuencia IS NULL OR a.secuencia NOT BETWEEN 1 AND 9007199254740991
+ IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8) OR a.secuencia IS NULL OR a.secuencia NOT BETWEEN 1 AND 9007199254740991
  OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$' OR a.huella_sha256=repeat('0',64)
  OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL OR NOT isfinite(a.registrada_en)
  THEN RAISE EXCEPTION 'IS16: acuse común inválido' USING ERRCODE='55000'; END IF;

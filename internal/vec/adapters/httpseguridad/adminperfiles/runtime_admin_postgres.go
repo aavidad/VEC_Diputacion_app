@@ -47,9 +47,9 @@ type acuseIS16 struct {
 	RegistradaEn time.Time `json:"registrada_en"`
 }
 
-func leerResultadoIS16(bruto, acuse []byte, correlacion string, ahora time.Time) (json.RawMessage, error, error) {
+func leerResultadoIS16(bruto, acuse []byte, evento, correlacion string, ahora time.Time) (json.RawMessage, error, error) {
 	var a acuseIS16
-	if jsonCerradoIS16(acuse, &a) != nil || !hexConPrefijoIS16(a.Referencia, "aud_v3_ap2_") || a.Secuencia == 0 || a.Secuencia > 1<<53-1 ||
+	if jsonCerradoIS16(acuse, &a) != nil || !hexConPrefijoIS16(evento, "evento_") || a.Referencia != "aud_v3_ap2_"+evento[7:] || a.Secuencia == 0 || a.Secuencia > 1<<53-1 ||
 		!huella(a.Huella) || a.Correlacion != correlacion || !instante(a.RegistradaEn.UTC()) || a.RegistradaEn.After(ahora) {
 		return nil, nil, api.ErrConfiguracionIncompleta
 	}
@@ -269,7 +269,7 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 		if err := tx.QueryRow(ctx, vincularSesion, args...).Scan(&bruto, &acuse); err != nil {
 			return err
 		}
-		datos, denegada, err := leerResultadoIS16(bruto, acuse, correlacion.(string), p.reloj.Ahora())
+		datos, denegada, err := leerResultadoIS16(bruto, acuse, evento.(string), correlacion.(string), p.reloj.Ahora())
 		if err != nil {
 			return err
 		}

@@ -56,7 +56,7 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 		if err := sub.QueryRow(ctx, consultarCuenta, args...).Scan(&bruto, &acuse); err != nil {
 			return err
 		}
-		datos, denegacion, err := leerResultadoIS16(bruto, acuse, args[len(args)-1].(string), p.reloj.Ahora())
+		datos, denegacion, err := leerResultadoIS16(bruto, acuse, args[9].(string), args[10].(string), p.reloj.Ahora())
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 		if err = tx.QueryRow(ctx, `SELECT resultado,acuse FROM vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1($1,$2)`, args[9], args[10]).Scan(&bruto, &acuse); err != nil {
 			return err
 		}
-		_, decision, err = leerResultadoIS16(bruto, acuse, args[10].(string), p.reloj.Ahora())
+		_, decision, err = leerResultadoIS16(bruto, acuse, args[9].(string), args[10].(string), p.reloj.Ahora())
 		if err != nil || decision == nil {
 			return api.ErrConfiguracionIncompleta
 		}

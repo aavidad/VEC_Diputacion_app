@@ -3,12 +3,17 @@ package adminperfiles
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	is "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type fuenteIDsPruebaADMIN struct{ ids IdentificadoresFuenteADMIN }
@@ -76,6 +81,7 @@ func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {
 	}{
 		{"denegación confirmada", func(*acuseIS16) {}, true},
 		{"otra correlación", func(a *acuseIS16) { a.Correlacion = "correlacion_" + strings.Repeat("d", 32) }, false},
+		{"otro evento", func(a *acuseIS16) { a.Referencia = "aud_v3_ap2_" + strings.Repeat("d", 32) }, false},
 		{"sin secuencia", func(a *acuseIS16) { a.Secuencia = 0 }, false},
 		{"sin huella", func(a *acuseIS16) { a.Huella = "" }, false},
 		{"fecha futura", func(a *acuseIS16) { a.RegistradaEn = ahora.Add(time.Second) }, false},
@@ -84,7 +90,7 @@ func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {
 			v := a
 			caso.cambiar(&v)
 			b, _ := json.Marshal(v)
-			_, decision, err := leerResultadoIS16(bruto, b, corr, ahora)
+			_, decision, err := leerResultadoIS16(bruto, b, "evento_"+strings.Repeat("b", 32), corr, ahora)
 			if (err == nil) != caso.permitido || (caso.permitido && decision == nil) {
 				t.Fatal("se aceptó un acuse no acreditado")
 			}
@@ -92,9 +98,101 @@ func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {
 	}
 	b, _ := json.Marshal(a)
 	for _, v := range [][]byte{[]byte(`{"estado":"permitido","estado":"denegado","datos":null}`), []byte(`{"estado":"denegado","datos":null,"extra":1}`)} {
-		if _, _, err := leerResultadoIS16(v, b, corr, ahora); err == nil {
+		if _, _, err := leerResultadoIS16(v, b, "evento_"+strings.Repeat("b", 32), corr, ahora); err == nil {
 			t.Fatal("se aceptó resultado ambiguo")
 		}
+	}
+}
+
+type filaIS16Prueba struct{ resultado, acuse []byte }
+
+func (f filaIS16Prueba) Scan(destinos ...any) error {
+	*destinos[0].(*[]byte) = f.resultado
+	*destinos[1].(*[]byte) = f.acuse
+	return nil
+}
+
+type txIS16Prueba struct {
+	pgx.Tx
+	pool *poolIS16Prueba
+	sub  bool
+}
+
+func (tx *txIS16Prueba) Begin(context.Context) (pgx.Tx, error) {
+	return &txIS16Prueba{pool: tx.pool, sub: true}, nil
+}
+func (*txIS16Prueba) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (tx *txIS16Prueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
+	p := tx.pool
+	var evento, corr string
+	if tx.sub {
+		p.lecturas++
+		evento = args[9].(string)
+		corr = args[10].(string)
+	} else {
+		if !strings.Contains(consulta, "rechazar_fuente_cuenta_admin_v1") || !p.revertida {
+			panic("error sin revertir lectura positiva")
+		}
+		p.errores++
+		evento = args[0].(string)
+		corr = args[1].(string)
+	}
+	a, _ := json.Marshal(acuseIS16{Referencia: "aud_v3_ap2_" + evento[7:], Secuencia: 1, Huella: strings.Repeat("f", 64), Correlacion: corr, RegistradaEn: p.ahora})
+	bruto := p.cuenta
+	if !tx.sub {
+		bruto = []byte(`{"estado":"error","datos":null}`)
+	}
+	return filaIS16Prueba{bruto, a}
+}
+func (tx *txIS16Prueba) Rollback(context.Context) error {
+	if tx.sub {
+		tx.pool.revertida = true
+	}
+	return nil
+}
+func (tx *txIS16Prueba) Commit(context.Context) error {
+	if tx.sub {
+		tx.pool.subconfirmadas++
+	} else {
+		tx.pool.confirmadas++
+	}
+	return nil
+}
+
+type poolIS16Prueba struct {
+	ahora                                          time.Time
+	cuenta                                         []byte
+	lecturas, errores, confirmadas, subconfirmadas int
+	revertida                                      bool
+}
+
+func (p *poolIS16Prueba) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	return &txIS16Prueba{pool: p}, nil
+}
+func (*poolIS16Prueba) QueryRow(context.Context, string, ...any) pgx.Row {
+	panic("consulta fuera de transacción")
+}
+
+func TestIS16FalloFuenteRevierteLecturaYConfirmaErrorComun(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	o := ObservacionADMIN{Entorno: "desarrollo", Host: "admin.example.invalid", Audiencia: "vec.admin.perfiles.v1", CertificadoSHA256: strings.Repeat("a", 64), CASHA256: strings.Repeat("b", 64), AutenticacionVerificadaEn: ahora, RevocacionVerificadaEn: ahora, CRLVigenteHasta: ahora.Add(time.Minute), CertificadoVigenteHasta: ahora.Add(time.Minute)}
+	datos, _ := json.Marshal(cuentaSQLIS16{PersonaRef: "per_" + strings.Repeat("a", 32), CuentaRef: "cta_" + strings.Repeat("b", 32), CuentaOrdinariaRef: "cta_" + strings.Repeat("c", 32), EspacioIdentidad: "https://sintetico.example.invalid", EsquemaHMAC: is.EsquemaHMACSHA256V1, ClaveHMACVersion: 1,
+		FuenteSHA256: strings.Repeat("1", 64), SujetoHMAC: strings.Repeat("2", 64), CuentaHMAC: strings.Repeat("3", 64), CuentaOrdinariaHMAC: strings.Repeat("4", 64)})
+	bruto, _ := json.Marshal(struct {
+		Estado string          `json:"estado"`
+		Datos  json.RawMessage `json:"datos"`
+	}{"permitido", datos})
+	pool := &poolIS16Prueba{ahora: ahora, cuenta: bruto}
+	p := &PostgreSQL{pool: pool, reloj: relojPrueba{ahora}, identificadores: fuenteIDsPruebaADMIN{}, seudonimizador: &seudIDsPruebaADMIN{}}
+	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := p.ResolverCuentaADMIN(ctx, o)
+	if !errors.Is(err, api.ErrConfiguracionIncompleta) || c != (CuentaADMIN{}) || pool.lecturas != 1 || pool.errores != 1 || pool.confirmadas != 1 || pool.subconfirmadas != 0 || !pool.revertida {
+		t.Fatal("se devolvió éxito, quedó lectura positiva o no se confirmó el error común")
 	}
 }
 
