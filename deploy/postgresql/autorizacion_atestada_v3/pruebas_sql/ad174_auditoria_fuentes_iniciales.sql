@@ -137,6 +137,14 @@ BEGIN
   PERFORM * FROM vec_autorizacion_atestada_v3.registrar_provision_fuentes_iniciales_admin_v1(e||'{"resultado":"denegado"}'::jsonb);
   RAISE EXCEPTION 'AD174 prueba: inventó evento denegado';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ IF EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass AND attname='version_consumo' AND NOT attisdropped) THEN
+  BEGIN
+   EXECUTE 'INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3 SELECT (pg_catalog.jsonb_populate_record(NULL::vec_autorizacion_atestada_v3.auditoria_consumo_v3,$1)).*'
+   USING (SELECT pg_catalog.to_jsonb(a)||pg_catalog.jsonb_build_object('version_consumo',3,'auditoria_ref','aud_v3_f_000000000000000000000000000a0174',
+    'evento_ref','evento_000000000000000000000000000a0174','secuencia',v_secuencia+2) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.auditoria_ref=x.auditoria_ref);
+   RAISE EXCEPTION 'AD174 prueba: fuente técnica aceptó version_consumo nominal';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+ END IF;
  BEGIN
   UPDATE vec_autorizacion_atestada_v3.auditoria_consumo_v3 SET fuentes_plan_ref='plan:distinto' WHERE auditoria_ref=x.auditoria_ref;
   RAISE EXCEPTION 'AD174 prueba: permitió mutar auditoría';

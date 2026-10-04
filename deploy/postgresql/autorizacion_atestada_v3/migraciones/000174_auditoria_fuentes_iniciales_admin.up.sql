@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- Candidata AD174 sobre CHECK exacto AD171. Requiere revisión y ensayo causal;
--- no admite preimágenes AD172/173 ni autoriza instalación por sí misma.
+-- AD174 admite exclusivamente H9/AD171 o la preimagen exacta POST-AD173.
+-- Una variante no ensayada ni una huella distinta no autoriza instalación.
 -- AD174: acto técnico de fuentes iniciales, sin una autorización V3 inventada.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -25,7 +25,7 @@ BEGIN
      AND a.attname IN ('fuentes_plan_ref','fuentes_preimagen_sha256','fuentes_configuracion_sha256','fuentes_alcance','fuentes_solicitud_sha256'))
  OR (SELECT count(*) FROM pg_catalog.pg_constraint c
    WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-     AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated)<>1
+     AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated)<>1
  THEN RAISE EXCEPTION 'AD174: PARO clave=preimagen actual=incompatible esperado=AD171_sin_AD174' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -37,21 +37,28 @@ ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
  ADD COLUMN fuentes_alcance text,
  ADD COLUMN fuentes_solicitud_sha256 text;
 
--- Conserva literalmente CHECK AD171 y su nombre; cualquier sucesora deberá
--- consumir esta postimagen explícitamente, sin predecir sus columnas o familias.
+-- Conserva literalmente la pareja de CHECK admitida y su nombre (v2 o v4).
+-- POST-AD173 reserva version_consumo exclusivamente a sus consumos reales.
 DO $familia$
-DECLARE v_predicado text;v_nombre name;v_nuevo text;v_actual_sha text;
- v_esperada_sha constant text:='f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29';
+DECLARE v_predicado text;v_nombre name;v_nuevo text;v_actual_sha text;v_version_nula text:='';
+ v_h9_sha constant text:='f31b31dc0ec40bdd2d7a6930346210e919ab4aed225352235723525a27e7dc29';
 BEGIN
  SELECT pg_catalog.pg_get_constraintdef(c.oid,false),c.conname INTO STRICT v_predicado,v_nombre
  FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-   AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated;
+   AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated;
  IF pg_catalog.left(v_predicado,7)<>'CHECK (' OR pg_catalog.right(v_predicado,1)<>')'
  THEN RAISE EXCEPTION 'AD174: PARO clave=CHECK actual=incompatible esperado=CHECK_validado' USING ERRCODE='55000'; END IF;
  v_actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_predicado,'UTF8')),'hex');
- IF v_actual_sha IS DISTINCT FROM v_esperada_sha
- THEN RAISE EXCEPTION 'AD174: PARO clave=CHECK_SHA256 actual=% esperado=%',v_actual_sha,v_esperada_sha USING ERRCODE='55000'; END IF;
+ IF v_nombre='auditoria_tipo_disjunto_v2' AND v_actual_sha=v_h9_sha THEN
+  v_version_nula:='';
+ ELSIF v_nombre='auditoria_tipo_disjunto_v4'
+  AND v_actual_sha='4ea0f7f797122ddb81c59c4a601c87c213f10206d619d3c031f947f8efd2a1ea' THEN
+  v_version_nula:=' AND version_consumo IS NULL';
+ ELSE
+  RAISE EXCEPTION 'AD174: PARO clave=CHECK_nombre_SHA256 actual=%:% esperado=v2:%_o_v4:4ea0f7f797122ddb81c59c4a601c87c213f10206d619d3c031f947f8efd2a1ea',
+   v_nombre,v_actual_sha,v_h9_sha USING ERRCODE='55000';
+ END IF;
  v_nuevo:='CHECK ((fuentes_plan_ref IS NULL AND fuentes_preimagen_sha256 IS NULL'
    ||' AND fuentes_configuracion_sha256 IS NULL AND fuentes_alcance IS NULL AND fuentes_solicitud_sha256 IS NULL AND ('
    ||pg_catalog.substr(v_predicado,8,pg_catalog.length(v_predicado)-8)||')) OR ('
@@ -74,7 +81,7 @@ BEGIN
  AND finalidad_ref IS NOT DISTINCT FROM 'provision_fuentes_iniciales_admin'
  AND resultado IS NOT DISTINCT FROM 'permitido'
  AND recurso_ref IS NOT NULL AND motivo_ref IS NOT NULL AND proceso IS NOT NULL AND correlacion_ref IS NOT NULL$tipado$
-   ||') OR ('||$intento$tipo_registro='intento_fuentes_iniciales_admin'
+   ||v_version_nula||') OR ('||$intento$tipo_registro='intento_fuentes_iniciales_admin'
  AND decision_ref IS NULL AND efecto_ref IS NULL AND huella_efecto_sha256 IS NULL
  AND intento_ref IS NULL AND intento_material_sha256 IS NULL
  AND actor_ref IS NULL AND perfil_activo_ref IS NULL AND registro_contexto_ref IS NULL
@@ -90,7 +97,7 @@ BEGIN
  AND canal IS NOT DISTINCT FROM 'operacion_tecnica_privada'
  AND finalidad_ref IS NOT DISTINCT FROM 'provision_fuentes_iniciales_admin'
  AND proceso IS NOT DISTINCT FROM 'postgresql'
- AND resultado IS NOT NULL AND recurso_ref IS NOT NULL AND motivo_ref IS NOT NULL AND correlacion_ref IS NOT NULL$intento$||'))';
+ AND resultado IS NOT NULL AND recurso_ref IS NOT NULL AND motivo_ref IS NOT NULL AND correlacion_ref IS NOT NULL$intento$||v_version_nula||'))';
  EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT %I',v_nombre);
  EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT %I %s',v_nombre,v_nuevo);
 END $familia$;
