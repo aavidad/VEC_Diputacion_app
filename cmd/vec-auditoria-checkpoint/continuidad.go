@@ -22,7 +22,9 @@ func runContinuidad(ctx context.Context, cfg config.AuditoriaCheckpointOffline, 
 		r := application.ResultadoContinuidadCheckpoint{ResultadoCheckpointDesarrollo: application.ResultadoCheckpointDesarrollo{
 			Esquema: domain.EsquemaContinuidadCheckpointDesarrollo, Modo: "DESARROLLO", Firma: "rechazada", IntegridadCadena: "no_evaluada",
 			OrigenExtraccion: "no_acreditado", TSA: "no_verificada_offline"}, InformeContinuidadCheckpoint: domain.RechazoContinuidadCheckpoint(clave, "valida", "invalida")}
-		_ = escribirResultado(out, r)
+		if escribirResultado(out, r) != 0 {
+			return 1
+		}
 		return 1
 	}
 	if o.ancla == "" || o.entrada == "" || o.spki == "" || o.pin == "" || o.maxRecibos < 1 || o.maxRecibos > 256 {
