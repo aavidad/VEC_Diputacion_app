@@ -20,7 +20,7 @@ El tema común sigue controlando componentes, estructura, tipografía, tamaño d
 | Catálogo durable de preferencias | `deploy/postgresql/usuarios_vec/migraciones/000017_temas_preferencias_v2.up.sql` | Publica la versión 2 y amplía `valores_validos` a seis colores nuevos. No instala paquetes. No se reaplica ni revierte. |
 | Nombres traducidos | `web/static/textos/{es,en}/preferencias.json` | Nombres de las opciones actuales. Un paquete nuevo necesitará su propio catálogo de nombres validado. |
 | Ensayo de color | `web/static/comun/codexf-temas-contraste.test.mjs` | Comprueba pares de texto, navegación, botones, estados y foco. |
-| Galería de decisión | `web/static/presentacion/temas/` | Permite comparar alternativas; no administra el catálogo instalado. |
+| Galería histórica | `web/static/presentacion/temas/`, citada por la skill visual | No existe en el commit inventariado. La referencia histórica no acredita un catálogo instalado. |
 
 `aspecto-vec` aplica la maqueta de RRHH: fondo tintado, paneles, cabeceras, tablas y estados reconocibles. `disenar-sistema-visual-vec` conserva una gramática visual común. `usabilidad-vec` fija lenguaje claro, teclado y accesibilidad; Impeccable se aplica después de esas tres autoridades.
 
@@ -73,7 +73,7 @@ Las comprobaciones de contraste son necesarias, pero no acreditan por sí solas 
 
 ## Propiedad y contratos
 
-La autoridad visual es común a VEC. El contrato de paquetes se implementará en `internal/modules/administracion/domain/temas`; la lectura estricta de JSON, en un adaptador separado. Administración ofrecerá el recorrido de gestión en su superficie real, compuesta en `internal/app/administracion`, usando el perfil fijo de administrador de aplicación. Actualmente sus proveedores de lectura y selección no constituyen un instalador operativo; el panel del portal empleado tampoco lo sustituye. Usuarios conserva las preferencias de cada persona y consume una instantánea aprobada por un puerto; no consulta tablas ajenas.
+La autoridad visual es común a VEC. El contrato de paquetes se implementará en `internal/modules/administracion/domain/temas`; la lectura estricta de JSON, en un adaptador separado. Administración ofrecerá el recorrido de gestión en su superficie real, compuesta en `internal/app/administracion`, usando el perfil fijo de administrador de aplicación. Actualmente sus proveedores de lectura y selección no constituyen un instalador operativo; el panel del portal empleado tampoco lo sustituye. El montaje actual de perfiles y su lista positiva de activos no sirven `/admin/modulos/` ni `tema-vec.js`; la futura ruta se incorporará expresamente a la frontera con pruebas. Usuarios conserva las preferencias de cada persona y consume una instantánea aprobada por un puerto; no consulta tablas ajenas.
 
 El catálogo público de color no contiene identidad, preferencias personales ni auditoría. Solo expone paquetes disponibles, versiones, huellas y nombres. Las lecturas de administración y de preferencias mantienen su autorización y auditoría nominal. Una lista de colores no permite consultar quién los usa.
 
