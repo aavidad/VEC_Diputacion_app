@@ -87,16 +87,18 @@ test("catálogos ES/EN completos: mismos campos, estados y mensajes de recuperac
 });
 
 const abrirPreparacion = (raiz) => buscar(raiz, "personalRevisionPreparar").listeners.get("click")();
-function rellenarPreparacion(raiz, textoPropuesto = "366") {
+function rellenarPreparacion(raiz, textoPropuesto = "366", campo = "dias_reconocidos") {
+  const selector = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "campo");
+  selector.value = campo; selector.listeners.get("change")?.();
   for (const n of nodos(raiz).filter((n) => n.dataset.personalRevisionCampo)) {
-    n.value = { campo: "dias_reconocidos", propuesta: textoPropuesto, motivo: "El periodo consta en el certificado", evidencia: "Certificado de servicios de 2020" }[n.dataset.personalRevisionCampo];
+    n.value = { campo, propuesta: textoPropuesto, motivo: "El periodo consta en el certificado", evidencia: "Certificado de servicios de 2020" }[n.dataset.personalRevisionCampo];
   }
 }
 const revisarPreparacion = (raiz) => buscar(raiz, "personalRevisionRevisar").parent.listeners.get("submit")({ preventDefault() {} });
 
 test("fila real prepara y reconsulta con filtros propios antes de revisar, sin enviar borrador ni identidad", async () => {
   const llamadas = []; const { raiz } = montar({ async consultar(entrada) { llamadas.push(entrada); return datos(); } });
-  await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz, "<img src=x onerror=alert(1)>");
+  await enviar(raiz); abrirPreparacion(raiz); rellenarPreparacion(raiz, "<img src=x onerror=alert(1)>", "clase");
   assert.match(texto(raiz), /Preparación sin presentar/u); await revisarPreparacion(raiz);
   assert.equal(llamadas.length, 2); assert.deepEqual(Object.keys(llamadas[1]), ["efectosDesde", "efectosHasta", "signal"]);
   assert.ok(nodos(raiz).some((n) => n.textContent === "<img src=x onerror=alert(1)>"));
@@ -104,6 +106,42 @@ test("fila real prepara y reconsulta con filtros propios antes de revisar, sin e
   assert.match(texto(raiz), /Ver procedencia del borrador/u); assert.match(texto(raiz), /Referencia del acto/u);
   assert.match(texto(raiz), /acto:uno/u); assert.match(texto(raiz), /Efectos hasta \(no incluido\)/u);
   assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
+});
+
+test("propuesta guiada por dato, errores por campo y foco conservan lo escrito sin consultar", async () => {
+  let llamadas = 0; const { raiz } = montar({ async consultar() { llamadas++; return datos(); } });
+  await enviar(raiz); abrirPreparacion(raiz);
+  assert.equal(nodos(raiz).find((n) => n.tagName === "form" && nodos(n).some((h) => h.dataset.personalRevisionCampo)).noValidate, true);
+  const selector = buscar(raiz, "personalRevisionRevisar").parent.children
+    .flatMap(nodos).find((n) => n.dataset.personalRevisionCampo === "campo");
+  selector.value = "periodo_desde"; selector.listeners.get("change")();
+  let propuesta = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "propuesta");
+  assert.equal(propuesta.type, "date");
+  selector.value = "dias_reconocidos"; selector.listeners.get("change")();
+  propuesta = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "propuesta");
+  assert.equal(propuesta.type, "number"); assert.equal(propuesta.min, "0"); assert.equal(propuesta.step, "1");
+  const motivo = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "motivo");
+  const evidencia = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "evidencia");
+  propuesta.value = "-2"; motivo.value = "Mi certificado indica otro periodo"; evidencia.value = "";
+  await revisarPreparacion(raiz);
+  assert.equal(llamadas, 1); assert.equal(propuesta.value, "-2"); assert.equal(motivo.value, "Mi certificado indica otro periodo");
+  assert.equal(raiz.ownerDocument.activeElement, propuesta);
+  assert.equal(propuesta.attributes.get("aria-invalid"), "true");
+  assert.equal(motivo.attributes.get("aria-invalid"), "false");
+  assert.match(texto(raiz), /número entero de días/u); assert.match(texto(raiz), /Complete este campo/u);
+  assert.match(texto(raiz), /El borrador sigue sin presentar/u);
+  const enlaceError = nodos(raiz).find((n) => n.tagName === "a" && n.href === "#personal-revision-propuesta");
+  assert.ok(enlaceError); enlaceError.listeners.get("click")({ preventDefault() {} });
+  assert.equal(raiz.ownerDocument.activeElement, propuesta);
+  selector.value = "estado"; selector.listeners.get("change")();
+  propuesta = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "propuesta");
+  assert.equal(propuesta.tagName, "select");
+  assert.deepEqual(propuesta.children.map((n) => n.textContent), ["Seleccione un estado", "Declarado", "Comprobado", "Reconocido"]);
+  assert.equal(motivo.value, "Mi certificado indica otro periodo");
+  assert.doesNotMatch(texto(raiz), /número entero de días/u);
+  propuesta.value = "comprobado"; evidencia.value = "Certificado de servicios";
+  await revisarPreparacion(raiz);
+  assert.equal(llamadas, 2); assert.match(texto(raiz), /no se ha enviado ni registrado/u);
 });
 
 test("revisión sustituida, denegación y dependencia caída borran historia y borrador anteriores", async () => {
