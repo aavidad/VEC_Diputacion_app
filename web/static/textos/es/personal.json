@@ -550,7 +550,8 @@
     "ficha_error": "No se pudo consultar este apartado. Los demás apartados siguen disponibles.",
     "ficha_reintentar": "Reintentar consulta",
     "ficha_actualizar": "Actualizar datos",
-    "ficha_ver_historia_servicios": "Ver historia de servicios"
+    "ficha_ver_historia_servicios": "Ver historia de servicios",
+    "ficha_ver_historia_relaciones": "Ver historia de relaciones"
   },
   "rpt_puestos": {
     "sobrelinea": "Portal del Empleado → Personal",

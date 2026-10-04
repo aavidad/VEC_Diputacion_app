@@ -550,7 +550,8 @@
     "ficha_error": "This section could not be checked. The other sections are still available.",
     "ficha_reintentar": "Retry query",
     "ficha_actualizar": "Refresh data",
-    "ficha_ver_historia_servicios": "View service history"
+    "ficha_ver_historia_servicios": "View service history",
+    "ficha_ver_historia_relaciones": "View relationship history"
   },
   "rpt_puestos": {
     "sobrelinea": "Employee Portal → Personnel",

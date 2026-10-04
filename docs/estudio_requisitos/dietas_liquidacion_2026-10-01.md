@@ -137,11 +137,29 @@ huellas de las instantáneas. Estas huellas comprueban coherencia local, sin
 acreditar autenticidad ni aprobación. La salida conserva `liquidable:false`
 y la procedencia `comparacion_local_sin_registrar`.
 
+El mismo JSON de entrada puede generar un informe HTML local en castellano. Guarde
+el objeto con `esquema`, `anterior` y `propuesta` del comando anterior como
+`comparacion-entrada.json` y ejecute:
+
+```sh
+go run ./cmd/vec-dietas --comparar-liquidaciones --informe \
+  --textos web/static/textos/es/dietas-comparacion-liquidacion-informe.json \
+  --tema web/static/comun/tema-vec.css \
+  < comparacion-entrada.json > comparacion-dietas.html
+```
+
+El catálogo equivalente en `textos/en/` produce el informe en inglés. El HTML
+se puede leer e imprimir sin conexión. Muestra por línea los importes de ambas
+propuestas y sus diferencias, reglas y motivos, además de las versiones y
+huellas de los dos catálogos. Reutiliza la comparación ya validada: no vuelve
+a calcular tarifas ni a registrar una liquidación. Un error de entrada o de
+catálogo deja la salida sin HTML y devuelve un código cerrado.
+
 La entrada completa tiene un límite de 1 MiB. Las claves duplicadas, campos
 desconocidos, valores nulos y documentos adicionales se rechazan. Un error
 devuelve únicamente un código JSON y termina con estado 2; no incluye datos
-de las propuestas ni una comparación parcial. El comando no admite informe
-HTML, no publica tarifas y no registra una liquidación.
+de las propuestas ni una comparación parcial. El informe HTML local tampoco
+publica tarifas ni registra una liquidación. No es el documento liquidado D9.
 
 ## Contraste con fuentes públicas
 

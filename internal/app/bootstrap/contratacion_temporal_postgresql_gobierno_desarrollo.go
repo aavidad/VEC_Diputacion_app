@@ -359,6 +359,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		personal.AudienciaFichaPropia,
 		personal.AudienciaExportacionServiciosPropios,
 		personal.AudienciaHistoriaServiciosPropia,
+		personal.AudienciaHistoriaRelacionesPropia,
 	}
 }
 
