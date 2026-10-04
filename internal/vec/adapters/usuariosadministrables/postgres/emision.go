@@ -3,6 +3,7 @@ package postgres
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"maps"
 	"reflect"
@@ -44,12 +45,21 @@ func ValidarEmisionUsuariosAdministrables(e ports.EmisionUsuariosAdministrables)
 	default:
 		return ports.EmisionUsuariosAdministrables{}, fallo
 	}
-	if err != nil || !bytes.Equal(e.Material, p.material) || e.Accion != p.accion || e.Audiencia != p.audiencia || !reflect.DeepEqual(e.Recurso, p.recurso) {
+	if err != nil {
+		return ports.EmisionUsuariosAdministrables{}, errors.Join(fallo, err)
+	}
+	if !bytes.Equal(e.Material, p.material) || e.Accion != p.accion || e.Audiencia != p.audiencia || !reflect.DeepEqual(e.Recurso, p.recurso) {
 		return ports.EmisionUsuariosAdministrables{}, fallo
 	}
 	huella, err := e.Recurso.HuellaContextoAutorizacionSHA256()
 	huellaEsperada, errEsperada := p.recurso.HuellaContextoAutorizacionSHA256()
-	if err != nil || errEsperada != nil || huella != huellaEsperada {
+	if err != nil {
+		return ports.EmisionUsuariosAdministrables{}, errors.Join(fallo, err)
+	}
+	if errEsperada != nil {
+		return ports.EmisionUsuariosAdministrables{}, errors.Join(fallo, errEsperada)
+	}
+	if huella != huellaEsperada {
 		return ports.EmisionUsuariosAdministrables{}, fallo
 	}
 	copia := e

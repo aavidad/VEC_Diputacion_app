@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"time"
 
@@ -15,14 +16,20 @@ import (
 func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, p *peticion, ahora time.Time) (string, string, error) {
 	fallo := ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	huellaActor, err := actor.HuellaSHA256VinculadaV2()
-	if evidencia.ValidarPara(actor) != nil || err != nil || huellaActor != evidencia.ResultadoContexto.HuellaSHA256 ||
+	if err != nil {
+		return "", "", errors.Join(fallo, err)
+	}
+	if errEvidencia := evidencia.ValidarPara(actor); errEvidencia != nil {
+		return "", "", errors.Join(fallo, errEvidencia)
+	}
+	if huellaActor != evidencia.ResultadoContexto.HuellaSHA256 ||
 		m.ValidarEstructura() != nil || m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion ||
 		!bytes.Equal(m.ContextoActorCanonico(), evidencia.ResultadoContexto.RepresentacionCanonica) {
 		return "", "", fallo
 	}
 	huella, err := p.recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return "", "", fallo
+		return "", "", errors.Join(fallo, err)
 	}
 	r := m.ResumenCapacidad()
 	motivoSHA := sha256.Sum256(m.MotivoCanonico())
@@ -62,10 +69,14 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 		return "", "", fallo
 	}
 	var vinculo map[string]json.RawMessage
-	if json.Unmarshal(d["vinculo_autenticacion_actor"], &vinculo) != nil ||
-		textoCampo(vinculo, "superficie") != "administracion_privilegiada" || !boolCampo(vinculo, "cuenta_privilegiada") ||
-		!vinculoDecisionOriginal(d["vinculo_autenticacion_actor"], evidencia.Vinculo) {
+	if errVinculo := json.Unmarshal(d["vinculo_autenticacion_actor"], &vinculo); errVinculo != nil {
+		return "", "", errors.Join(fallo, errVinculo)
+	}
+	if textoCampo(vinculo, "superficie") != "administracion_privilegiada" || !boolCampo(vinculo, "cuenta_privilegiada") {
 		return "", "", fallo
+	}
+	if errVinculo := vinculoDecisionOriginal(d["vinculo_autenticacion_actor"], evidencia.Vinculo); errVinculo != nil {
+		return "", "", errors.Join(fallo, errVinculo)
 	}
 	var campos, obligaciones []string
 	if json.Unmarshal(d["campos_permitidos"], &campos) != nil || json.Unmarshal(d["obligaciones"], &obligaciones) != nil {
@@ -81,30 +92,42 @@ func validarExportacion(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	return r.DecisionRef(), huella, nil
 }
 
-func vinculoDecisionOriginal(bruto json.RawMessage, original domain.VinculoAutenticacionActorV2) bool {
+func vinculoDecisionOriginal(bruto json.RawMessage, original domain.VinculoAutenticacionActorV2) error {
 	datos, err := original.Datos()
 	if err != nil {
-		return false
+		return err
 	}
 	var recibido domain.DatosVinculoAutenticacionActorV2
-	if json.Unmarshal(bruto, &recibido) != nil || recibido.Validar() != nil {
-		return false
+	if err := json.Unmarshal(bruto, &recibido); err != nil {
+		return err
+	}
+	if err := recibido.Validar(); err != nil {
+		return err
 	}
 	var clavesOriginal, clavesRecibidas map[string]json.RawMessage
 	originalJSON, err := json.Marshal(datos)
-	if err != nil || json.Unmarshal(originalJSON, &clavesOriginal) != nil || json.Unmarshal(bruto, &clavesRecibidas) != nil || len(clavesOriginal) != len(clavesRecibidas) {
-		return false
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(originalJSON, &clavesOriginal); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bruto, &clavesRecibidas); err != nil {
+		return err
+	}
+	if len(clavesOriginal) != len(clavesRecibidas) {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	for clave := range clavesOriginal {
 		if _, ok := clavesRecibidas[clave]; !ok {
-			return false
+			return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 		}
 	}
 	if !recibido.AutenticacionVerificadaEn.Equal(datos.AutenticacionVerificadaEn) ||
 		!recibido.SesionEmitidaEn.Equal(datos.SesionEmitidaEn) ||
 		!recibido.SesionValidaHasta.Equal(datos.SesionValidaHasta) ||
 		!recibido.SesionRevalidadaEn.Equal(datos.SesionRevalidadaEn) {
-		return false
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	recibido.AutenticacionVerificadaEn = time.Time{}
 	datos.AutenticacionVerificadaEn = time.Time{}
@@ -114,7 +137,10 @@ func vinculoDecisionOriginal(bruto json.RawMessage, original domain.VinculoAuten
 	datos.SesionValidaHasta = time.Time{}
 	recibido.SesionRevalidadaEn = time.Time{}
 	datos.SesionRevalidadaEn = time.Time{}
-	return recibido == datos
+	if recibido != datos {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	return nil
 }
 
 func validarRespuesta(bruto []byte, p *peticion, consulta string) error {
