@@ -1,6 +1,9 @@
 package application
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -172,5 +175,39 @@ func TestRevisionPreparacionLimites(t *testing.T) {
 	p.Hechos = append(p.Hechos, original)
 	if r := RevisarPreparacionOrganizacion(p); r.ClaveError != "cantidad_hechos_invalida" {
 		t.Fatalf("exceso hechos: %+v", r)
+	}
+}
+
+func TestPreparacionExportadaNoModificaNiComparteEntrada(t *testing.T) {
+	p := paqueteRevisionPrueba()
+	p.Hechos = append(p.Hechos, p.Hechos[0])
+	p.Hechos[0].HechoRef = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+	p.Hechos[0].FilaFuenteRef = "fila:2"
+	p.Decisiones = decisionRevisionPrueba()
+	p.Decisiones = append(p.Decisiones, p.Decisiones[0])
+	p.Decisiones[0].FilaFuenteRef = "fila:2"
+	original, _ := json.Marshal(p)
+	normalizado, informe := PrepararPaqueteOrganizacion(p)
+	if !informe.Valido || normalizado.Hechos[0].FilaFuenteRef != "fila:1" || normalizado.Decisiones[0].FilaFuenteRef != "fila:1" {
+		t.Fatal("normalización ausente")
+	}
+	material, err := json.Marshal(normalizado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(material)
+	if hex.EncodeToString(h[:]) != informe.PaqueteHuellaSHA256 {
+		t.Fatal("huella divergente")
+	}
+	normalizado.Hechos[0].Denominacion = "Otra denominación"
+	normalizado.Decisiones[0].Motivo = "Otro motivo"
+	despues, _ := json.Marshal(p)
+	if string(original) != string(despues) {
+		t.Fatal("entrada modificada o compartida")
+	}
+	p.Hechos[0].VigenteDesde = "2026-02-30"
+	vacio, fallo := PrepararPaqueteOrganizacion(p)
+	if fallo.Valido || !reflect.DeepEqual(vacio, PaquetePreparacionOrganizacion{}) || fallo.PaqueteHuellaSHA256 != "" {
+		t.Fatal("material inválido retornado")
 	}
 }

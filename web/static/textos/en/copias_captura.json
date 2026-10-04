@@ -1,0 +1,12 @@
+{
+  "copias_captura_parcial": "Logical capture finished. Physical backup and files, encryption and restore checks are still required. This capture cannot recover VEC yet.",
+  "copias_captura_argumentos": "Provide the configuration file with -config.",
+  "copias_captura_configuracion": "Check the local test configuration, limits and tools.",
+  "copias_captura_inventario": "The inventory differs from the expected release or cannot be checked.",
+  "copias_captura_destino": "The private capture cannot be created. Use a new directory and share the lock directory across captures of the same source.",
+  "copias_captura_precondicion": "The maintenance window is closed or required data is missing.",
+  "copias_captura_control": "Not all writers could be excluded and checked. Capture is blocked.",
+  "copias_captura_fallo": "Capture failed. Any remaining files are partial and must not be published or restored.",
+  "copias_captura_liberacion": "Reopening services or releasing exclusion failed. Check the services before proceeding.",
+  "copias_captura_salida": "The capture result could not be delivered."
+}

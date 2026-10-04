@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000174_auditoria_fuentes_iniciales_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000176_auditoria_unidad_inicial_personal.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000179_auditoria_intentos_bootstrap_central_admin.up.sql
