@@ -158,17 +158,8 @@ func (p *Preparador) preparar(ctx context.Context, r ports.ResumenPermisosInform
 	parrafos = append(parrafos, sustituir(c.Ejercicio, "ejercicio", strconv.Itoa(r.Ejercicio)), sustituir(c.Corte, "corte", r.CorteUTC.In(p.zona).Format(c.FormatoFecha)), c.Alcance)
 	hayCantidadDesconocida := false
 	for _, f := range r.Filas {
-		if (permitidos["etiqueta"] && !texto(f.Etiqueta, 256)) || (f.Etiqueta != "" && !texto(f.Etiqueta, 256)) ||
-			(permitidos["unidad"] && c.Unidades[string(f.Unidad)] == "") || (f.Unidad != "" && c.Unidades[string(f.Unidad)] == "") ||
-			(permitidos["computo"] && c.Computos[string(f.Computo)] == "") || (f.Computo != "" && c.Computos[string(f.Computo)] == "") ||
-			(permitidos["conciliacion"] && c.Estados[f.Conciliacion] == "") || (f.Conciliacion != "" && c.Estados[f.Conciliacion] == "") ||
-			(f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
-			return cero, ports.ErrExportacionPermisosInvalida
-		}
-		for _, v := range []*int64{f.PendienteResolver, f.Concedido, f.Restante} {
-			if v != nil && *v < 0 {
-				return cero, ports.ErrExportacionPermisosInvalida
-			}
+		if err := validarFilaInformePermisos(f, permitidos); err != nil {
+			return cero, err
 		}
 		valores := map[string]string{
 			"etiqueta": f.Etiqueta, "unidad": c.Unidades[string(f.Unidad)], "computo": c.Computos[string(f.Computo)],
@@ -246,6 +237,24 @@ func camposInformePermisosPermitidos(campos []string) (map[string]bool, error) {
 		return nil, ports.ErrExportacionPermisosInvalida
 	}
 	return permitidos, nil
+}
+
+// PDF y CSV reciben la misma proyección mínima. Los campos excluidos pueden
+// llegar vacíos; cualquier valor presente conserva su validación de formato.
+func validarFilaInformePermisos(f ports.FilaInformePermisos, permitidos map[string]bool) error {
+	if (permitidos["etiqueta"] && !texto(f.Etiqueta, 256)) || (f.Etiqueta != "" && !texto(f.Etiqueta, 256)) ||
+		(permitidos["unidad"] && f.Unidad == "") || (f.Unidad != "" && f.Unidad != domain.LeaveUnitDay && f.Unidad != domain.LeaveUnitHour) ||
+		(permitidos["computo"] && f.Computo == "") || (f.Computo != "" && f.Computo != domain.ComputoLaborables && f.Computo != domain.ComputoNaturales) ||
+		(permitidos["conciliacion"] && f.Conciliacion == "") || (f.Conciliacion != "" && f.Conciliacion != ports.ConciliacionPermisosConfirmada && f.Conciliacion != ports.ConciliacionPermisosPendiente) ||
+		(f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
+		return ports.ErrExportacionPermisosInvalida
+	}
+	for _, v := range []*int64{f.PendienteResolver, f.Concedido, f.Restante} {
+		if v != nil && *v < 0 {
+			return ports.ErrExportacionPermisosInvalida
+		}
+	}
+	return nil
 }
 func (p *Preparador) cantidad(v *int64, u domain.LeaveUnit) string {
 	if v == nil {
