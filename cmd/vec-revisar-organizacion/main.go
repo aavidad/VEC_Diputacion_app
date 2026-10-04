@@ -11,10 +11,12 @@ import (
 )
 
 type salida struct {
-	Informe  application.InformeRevisionPreparacionOrganizacion `json:"informe"`
-	Idioma   string                                             `json:"idioma"`
-	Mensajes map[string]string                                  `json:"mensajes"`
-	Paquete  *application.PaquetePreparacionOrganizacion        `json:"paquete,omitempty"`
+	Informe            application.InformeRevisionPreparacionOrganizacion `json:"informe"`
+	Idioma             string                                             `json:"idioma"`
+	Mensajes           map[string]string                                  `json:"mensajes"`
+	Paquete            *application.PaquetePreparacionOrganizacion        `json:"paquete,omitempty"`
+	BytesPaquete       int                                                `json:"bytes_paquete,omitempty"`
+	LimiteBytesPaquete int                                                `json:"limite_bytes_paquete,omitempty"`
 }
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout)) }
@@ -46,6 +48,7 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 			codigoMensaje = "argumentos_invalidos"
 		}
 	}
+	var bytesPaquete, limiteBytesPaquete int
 	var exportado *application.PaquetePreparacionOrganizacion
 	var informe application.InformeRevisionPreparacionOrganizacion
 	if codigoMensaje == "" {
@@ -57,7 +60,17 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 				var normalizado application.PaquetePreparacionOrganizacion
 				normalizado, informe = application.PrepararPaqueteOrganizacion(paquete)
 				if informe.Valido {
-					exportado = &normalizado
+					material, err := json.Marshal(normalizado)
+					if err != nil {
+						codigoMensaje = "paquete_invalido"
+					} else if len(material) > limiteEntrada {
+						bytesPaquete, limiteBytesPaquete = len(material), limiteEntrada
+						informe.Valido = false
+						informe.ClaveError, informe.Seccion = "paquete_excede_limite", "paquete"
+						informe.ManifiestoHuellaSHA256, informe.PaqueteHuellaSHA256 = "", ""
+					} else {
+						exportado = &normalizado
+					}
 				}
 			} else {
 				informe = application.RevisarPreparacionOrganizacion(paquete)
@@ -70,7 +83,7 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 	}
 	encoder := json.NewEncoder(output)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(salida{Informe: informe, Idioma: idioma, Mensajes: mensajes[idioma], Paquete: exportado}); err != nil {
+	if err := encoder.Encode(salida{Informe: informe, Idioma: idioma, Mensajes: mensajes[idioma], Paquete: exportado, BytesPaquete: bytesPaquete, LimiteBytesPaquete: limiteBytesPaquete}); err != nil {
 		return codigoErrorSalida(err)
 	}
 	if !informe.Valido {

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"vec-diputacion-granada/internal/modules/personal/application"
+	"vec-diputacion-granada/internal/modules/personal/domain"
 
 	"vec-diputacion-granada/web"
 )
@@ -230,6 +232,65 @@ func TestPrepararCLINoExportaEntradasInvalidas(t *testing.T) {
 		}
 		if s.Informe.PaqueteHuellaSHA256 != "" || s.Informe.Valido {
 			t.Fatal("huella inválida exportada")
+		}
+	}
+}
+
+func TestPrepararCLIRechazaExpansionQueExcedeRelectura(t *testing.T) {
+	var p application.PaquetePreparacionOrganizacion
+	if err := json.Unmarshal(ejemploRevision(t), &p); err != nil {
+		t.Fatal(err)
+	}
+	h := p.Hechos[0]
+	p.Hechos = nil
+	for i := 0; i < 1000; i++ {
+		h.HechoRef = fmt.Sprintf("%08x-2222-4222-8222-222222222222", i)
+		h.FilaFuenteRef = fmt.Sprintf("fila:%d", i)
+		p.Hechos = append(p.Hechos, h)
+		p.Decisiones = append(p.Decisiones, domain.DecisionConciliacionOrganizacion{
+			FilaFuenteRef: h.FilaFuenteRef, Clase: "unidad", Resultado: "pendiente",
+			Motivo: strings.Repeat("<", 2048), EvidenciaRef: "evidencia:sintetica",
+		})
+	}
+	var entrada bytes.Buffer
+	encoder := json.NewEncoder(&entrada)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(p); err != nil {
+		t.Fatal(err)
+	}
+	canonico, err := json.Marshal(p)
+	if err != nil || entrada.Len() > limiteEntrada || len(canonico) <= limiteEntrada {
+		t.Fatal("fixture no reproduce expansión del JSON")
+	}
+	codigo, revision := revisarCLI(t, nil, entrada.Bytes())
+	if codigo != 0 || !revision.Informe.Valido || revision.Informe.PaqueteHuellaSHA256 == "" || revision.BytesPaquete != 0 || revision.LimiteBytesPaquete != 0 {
+		t.Fatal("revisión existente alterada")
+	}
+	for _, args := range [][]string{{"--preparar"}, {"--preparar", "--idioma", "en"}} {
+		var output bytes.Buffer
+		if codigo := ejecutar(args, bytes.NewReader(entrada.Bytes()), &output); codigo != 1 {
+			t.Fatal("exportación expansiva aceptada")
+		}
+		var campos map[string]json.RawMessage
+		if err := json.Unmarshal(output.Bytes(), &campos); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := campos["paquete"]; ok {
+			t.Fatal("paquete excesivo exportado")
+		}
+		var s salida
+		if err := json.Unmarshal(output.Bytes(), &s); err != nil {
+			t.Fatal(err)
+		}
+		if s.Informe.Valido || s.Informe.ClaveError != "paquete_excede_limite" || s.Informe.Seccion != "paquete" ||
+			s.Informe.PaqueteHuellaSHA256 != "" || s.Informe.ManifiestoHuellaSHA256 != "" || s.Mensajes[s.Informe.ClaveError] == "" {
+			t.Fatal("fallo de tamaño o traducción no comunicado")
+		}
+		if s.BytesPaquete != len(canonico) || s.LimiteBytesPaquete != limiteEntrada {
+			t.Fatal("tamaño real o límite no comunicados")
+		}
+		if bytes.Contains(output.Bytes(), []byte("evidencia:sintetica")) || bytes.Contains(output.Bytes(), []byte(strings.Repeat("<", 2048))) {
+			t.Fatal("fallo devolvió datos de entrada")
 		}
 	}
 }

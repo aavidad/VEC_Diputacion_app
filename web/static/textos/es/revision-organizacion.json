@@ -10,6 +10,7 @@
   "decision_invalida": "Revise los datos de la decisión en la fila indicada.",
   "decision_duplicada": "La fila repite una decisión de la misma clase y fila de fuente. Revise el paquete.",
   "decision_sin_fila": "La decisión hace referencia a una fila de fuente ausente del paquete.",
+  "paquete_excede_limite": "El tamaño del paquete (bytes_paquete) supera el máximo (limite_bytes_paquete). Reduzca su tamaño y repita la preparación.",
   "paquete_invalido": "No se ha podido comprobar el paquete. Revise los datos.",
   "revision_paquete": "Corregir el paquete y repetir la revisión.",
   "verificacion_catalogos": "Comprobar los catálogos mediante el circuito autorizado.",

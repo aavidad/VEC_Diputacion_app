@@ -10,6 +10,7 @@
   "decision_invalida": "Check the decision data in the indicated row.",
   "decision_duplicada": "The row repeats a decision with the same class and source row. Check the package.",
   "decision_sin_fila": "The decision refers to a source row missing from the package.",
+  "paquete_excede_limite": "The package size (bytes_paquete) exceeds the maximum (limite_bytes_paquete). Reduce its size and repeat preparation.",
   "paquete_invalido": "The package could not be checked. Review its data.",
   "revision_paquete": "Correct the package and repeat the review.",
   "verificacion_catalogos": "Check the catalogues through the authorised process.",

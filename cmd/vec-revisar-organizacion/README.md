@@ -55,7 +55,7 @@ Compruebe primero el estado del proceso. Extraiga el paquete con `jq`, si está
 instalado, y vuelva a revisarlo con el mismo comando:
 
 ```sh
-jq -e '.paquete' revision.json > paquete.json
+jq -cje '.paquete' revision.json > paquete.json
 go run ./cmd/vec-revisar-organizacion < paquete.json
 ```
 
@@ -72,3 +72,12 @@ verificar catálogos y fuente, conciliar y aprobar antes de publicar con Persona
 000011. Esta opción tampoco conecta ese circuito ni acredita su instalación.
 Las decisiones pendientes pueden conservarse como declaraciones para revisión;
 no permiten publicar.
+
+La exportación comprueba también que el JSON compacto normalizado no supera
+8 MiB. Algunos caracteres, como `<`, se escapan al normalizar y aumentan su
+tamaño. Si se supera el límite, el informe devuelve `paquete_excede_limite`,
+sin paquete ni huellas. La salida indica el tamaño real en `bytes_paquete` y
+el máximo en `limite_bytes_paquete`, sin devolver el material recibido.
+El proceso termina con estado `1`. La revisión sin
+`--preparar` conserva su comportamiento. Extraiga el paquete en formato
+compacto, sin salto final, como en el comando `jq -cje` anterior.
