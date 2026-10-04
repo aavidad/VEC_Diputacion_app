@@ -171,6 +171,18 @@ BEGIN
    AND (exacta.firma_ref IS NULL OR f.historia_revision_observada<exacta.historia_revision_observada OR f.firma_ref=exacta.firma_ref)
    AND ROW(f.documento,f.paso_orden,f.catalogo_huella_sha256) IS DISTINCT FROM ROW(s->>'Documento',(s->>'PasoOrden')::integer,s->>'CatalogoHuella')
    AND (f.firmante_principal_ref IS NULL OR f.catalogo_huella_sha256 IS DISTINCT FROM s->>'CatalogoHuella')) INTO coincide,separacion;
+ -- Cada posición global previa debe tener una fila observable. CT170
+ -- avanzó también por filas legacy sin revisión; no se presume su separación.
+ -- DISTINCT impide que dos filas con la misma posición cubran una laguna.
+ -- Las filas futuras (incluido legado sin posición) no alteran este corte.
+ IF exacta.firma_ref IS NOT NULL AND
+  (SELECT count(DISTINCT f.historia_revision_observada)
+   FROM vec_contratacion_temporal.firma_documento_v1 f
+   WHERE f.organizacion_ref=s->>'OrganizacionRef' AND f.expediente_ref=s->>'ExpedienteRef'
+    AND f.historia_revision_observada<exacta.historia_revision_observada)
+   IS DISTINCT FROM exacta.historia_revision_observada THEN
+  separacion:=false;
+ END IF;
  IF (d->>'valida_hasta')::timestamptz<=clock_timestamp() OR d->>'valida_hasta' IS NULL THEN
   RAISE EXCEPTION 'consulta de recuperación caducada' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('Encontrado',true,'ExpedienteRef',s->>'ExpedienteRef','Firmas',firmas,'RevisionesPDF',revisiones,
