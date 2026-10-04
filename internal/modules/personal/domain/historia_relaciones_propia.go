@@ -140,7 +140,7 @@ type RevisionRelacionPropia struct {
 }
 
 type HistoriaRelacionesPropia struct {
-	EmpleadoRef string                       `json:"empleado_ref"`
+	EmpleadoRef string                        `json:"empleado_ref"`
 	Corte       CorteHistoriaRelacionesPropia `json:"corte"`
 	// La cobertura procede de la fuente. Una lista vacía no la determina.
 	Cobertura  string                   `json:"cobertura"`

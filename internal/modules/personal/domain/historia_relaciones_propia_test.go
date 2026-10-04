@@ -71,14 +71,14 @@ func TestHistoriaRelacionesPropiaConservaRevisionesYSeparacionTemporal(t *testin
 		"revision_futura": func(h *HistoriaRelacionesPropia) {
 			h.Revisiones[0].Traza.RegistradaEn = h.Corte.ConocidoEn.Add(time.Microsecond)
 		},
-		"efectos_fuera":       func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Traza.Desde = h.Corte.Hasta },
-		"fuente_ausente":      func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Traza.FuenteRef = "" },
+		"efectos_fuera":        func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Traza.Desde = h.Corte.Hasta },
+		"fuente_ausente":       func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Traza.FuenteRef = "" },
 		"estado_inventado":     func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Estado = "reconocido" },
 		"denominacion_control": func(h *HistoriaRelacionesPropia) { h.Revisiones[0].Puesto = "\x00" },
-		"revision_repetida":   func(h *HistoriaRelacionesPropia) { h.Revisiones[1] = h.Revisiones[0] },
-		"orden_invertido":     func(h *HistoriaRelacionesPropia) { h.Revisiones[0], h.Revisiones[1] = h.Revisiones[1], h.Revisiones[0] },
-		"nulo":                func(h *HistoriaRelacionesPropia) { h.Revisiones = nil },
-		"cobertura_inventada": func(h *HistoriaRelacionesPropia) { h.Cobertura = "confirmada" },
+		"revision_repetida":    func(h *HistoriaRelacionesPropia) { h.Revisiones[1] = h.Revisiones[0] },
+		"orden_invertido":      func(h *HistoriaRelacionesPropia) { h.Revisiones[0], h.Revisiones[1] = h.Revisiones[1], h.Revisiones[0] },
+		"nulo":                 func(h *HistoriaRelacionesPropia) { h.Revisiones = nil },
+		"cobertura_inventada":  func(h *HistoriaRelacionesPropia) { h.Cobertura = "confirmada" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			h := historiaRelacionesPrueba(m)
