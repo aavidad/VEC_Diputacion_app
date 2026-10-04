@@ -19,7 +19,8 @@ La medición K del CHECK `auditoria_tipo_disjunto_v4` tiene SHA-256
 AD175 no modifica ese CHECK. Aún falta la definición y huella de
 `clave_capacidad_version_audiencia_consumo_check` tras la misma cadena causal;
 por ello su guarda conserva `NULL` y detiene la migración antes de cambiar el
-catálogo de audiencias. Tampoco se ha ensayado ni instalado AD175 o Personal32.
+núcleo o el catálogo de audiencias. Se comprueba otra vez bajo bloqueo antes de
+alterar el catálogo. Tampoco se ha ensayado ni instalado AD175 o Personal32.
 
 La comprobación estática toma el JSON medido y el borrador SQL:
 

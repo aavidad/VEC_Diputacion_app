@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- BORRADOR AD175. No es instalable ni se ha ensayado.
 -- Núcleo medido tras AD173/174/176 en L. El CHECK de audiencias sigue sin
--- medición causal: su huella NULL provoca PARO antes de modificarlo.
+-- medición causal: su huella NULL provoca PARO antes de todo DDL.
 -- Contrato: exportación de servicios propios, acción/audiencia/perfil específicos.
 -- Sólo Personal consume. Nunca reutiliza el permiso consultar ni siembra perfiles,
 -- cuentas, membresías, claves o la configuración de origen de AD172.
@@ -16,7 +16,7 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000175',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
-DECLARE rol text;
+DECLARE rol text; d text; esperada_audiencia_sha256 constant text:=NULL;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_exportacion_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -42,6 +42,20 @@ BEGIN
  END LOOP;
  IF EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole) THEN
   RAISE EXCEPTION 'AD175: herencia del ejecutor incompatible' USING ERRCODE='55000'; END IF;
+ -- El mismo CHECK se vuelve a comprobar bajo LOCK justo antes de alterarlo.
+ -- La ausencia de medición detiene el borrador antes de reconstruir el núcleo.
+ IF esperada_audiencia_sha256 IS NULL THEN
+  RAISE EXCEPTION 'PARO clave=AD175.audiencias actual=sin_medicion esperado=SHA256_POST176'
+   USING ERRCODE='55000'; END IF;
+ SELECT pg_get_constraintdef(c.oid,true) INTO d FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ IF d IS NULL OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256
+    OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
+    OR strpos(d,'vec_personal.registro_empleado.ficha_propia.servicios.exportar.v1')<>0 THEN
+  RAISE EXCEPTION 'PARO clave=AD175.audiencias actual=% esperado=%',
+   coalesce(encode(sha256(convert_to(d,'UTF8')),'hex'),'ausente'),esperada_audiencia_sha256
+   USING ERRCODE='55000'; END IF;
 END $pre$;
 DO $nucleo$
 DECLARE
@@ -173,8 +187,7 @@ BEGIN
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256
     OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
-    OR strpos(d,'vec_personal.registro_empleado.ficha_propia.servicios.exportar.v1')<>0
-    OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')=0 THEN
+    OR strpos(d,'vec_personal.registro_empleado.ficha_propia.servicios.exportar.v1')<>0 THEN
   RAISE EXCEPTION 'PARO clave=AD175.audiencias, actual=%, esperado=preimagen_causal_pendiente',
    encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000';
  END IF;

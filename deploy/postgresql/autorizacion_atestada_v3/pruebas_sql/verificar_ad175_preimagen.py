@@ -49,6 +49,10 @@ def verificar(nucleo: pathlib.Path, migracion: pathlib.Path) -> None:
         recuperada = recuperada.replace(nuevo, antiguo, 1)
     if recuperada != medido["definition"] or candidata.count("exportacion_servicios_propios") != 4:
         raise ValueError("sustitución AD175 no reversible o perfil duplicado")
+    if (sql.count("esperada_audiencia_sha256 constant text:=NULL;") != 2
+            or not sql.index("DO $pre$") < sql.index("IF esperada_audiencia_sha256 IS NULL") < sql.index("EXECUTE nuevo;")
+            or "vec_personal.vinculo_propio.crn11.v1" in sql):
+        raise ValueError("audiencia sin PARO previo al DDL o dependencia CRN11 ajena")
     print("AD175-PREIMAGEN-ESTATICA-OK; audiencia de clave pendiente de medición, SQL no ensayado")
 
 
