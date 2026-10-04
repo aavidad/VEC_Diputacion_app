@@ -203,6 +203,14 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   let vuelo; let vueloExportacion; let limpiarHistoria; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
   const limpiar = () => { limpiarHistoria?.(); limpiarHistoria = undefined; const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); limpiar(); contenedor.remove?.(); };
+  const caducarSesion = () => {
+    try { for (const fuente of Object.values(fuentes)) fuente?.actualizar?.(); }
+    finally {
+      desmontar();
+      const aviso = mensaje(d, traducirExportacionServicios("sesion_caducada"), "alert"); aviso.setAttribute("tabindex", "-1");
+      raiz.append(aviso); aviso.focus?.(); anunciar(aviso.textContent, "error");
+    }
+  };
   registrarDesmontar?.(desmontar);
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista";
   const ayudaFicha = ayuda(d, t);
@@ -227,12 +235,13 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     if (clave === "catalogos" || clave === "contacto") {
       const contacto = clave === "contacto", montarComplemento = contacto ? montarContacto : montarCatalogos;
       const hueco = nodo(d, "div"); hueco.dataset[contacto ? "personalFichaContacto" : "personalFichaCatalogos"] = "";
+      if (contacto) hueco.className = "personal-ficha-panel-ancho";
       principal.replaceChildren(contacto ? hueco : panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
       if (!montarComplemento) { hueco.append(mensaje(d, t("ficha_catalogos_pendiente"))); return; }
       const turno = secuencia;
       Promise.resolve().then(() => {
         if (!activa || actual !== clave || turno !== secuencia) return;
-        return montarComplemento({ raiz: hueco, anunciar, ...(contacto ? { abrirCorreos, alCaducarSesion: () => { pintar("ficha", true); anunciar(traducirExportacionServicios("sesion_caducada"), "error"); } } : {}), registrarDesmontar: (fn) => {
+        return montarComplemento({ raiz: hueco, anunciar, ...(contacto ? { abrirCorreos, alCaducarSesion: caducarSesion } : {}), registrarDesmontar: (fn) => {
         if (typeof fn !== "function") throw new TypeError("limpieza de catálogos de Personal no válida");
         if (activa && actual === clave && turno === secuencia) limpiarCatalogos = fn; else fn();
       } }); }).then((montaje) => {

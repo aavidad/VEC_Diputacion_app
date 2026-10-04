@@ -42,6 +42,19 @@ test("Contacto consulta su fuente sólo al abrir la pestaña y limpia una vez al
   assert.equal(consultas, 1); tab(ficha, "ficha").click(); await completar(); assert.equal(limpiezas, 1);
 });
 
+test("una sesión caducada en Contacto cierra toda la ficha y retira sus fuentes cacheadas", async () => {
+  const raiz = raizFalsa(); let caducar, invalidaciones = 0, limpiezas = 0, lecturas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: {
+    servicios: { consultarPropios() { lecturas += 1; return { estado: "disponible", fuente: "Personal", actualizado_en: "2026-10-04T00:00:00Z", items: [{ procedencia: "Periodo reconocido" }] }; }, actualizar() { invalidaciones += 1; } },
+  }, montarContacto(entrada) { caducar = entrada.alCaducarSesion; const limpiar = () => { limpiezas += 1; }; entrada.registrarDesmontar(limpiar); return { desmontar: limpiar }; } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const servicios = tab(ficha, "servicios"); servicios.click(); await completar(); assert.match(texto(raiz), /Periodo reconocido/);
+  tab(ficha, "contacto").click(); await completar(); caducar();
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null); assert.equal(invalidaciones, 1); assert.equal(limpiezas, 1);
+  assert.doesNotMatch(texto(raiz), /Periodo reconocido/); assert.equal(raiz.children[0].atributos.get("role"), "alert");
+  assert.equal(raiz.ownerDocument.activeElement, raiz.children[0]); servicios.click(); await completar(); assert.equal(lecturas, 1);
+});
+
 test("el acceso a correos abre su vista existente sin consultar ni trasladar datos de Personal", () => {
   const raiz = raizFalsa(); let aperturas = 0; let consultas = 0;
   montarVistaFichaIntegralPersonal({ raiz, abrirCorreos: () => { aperturas += 1; }, fuentes: {
