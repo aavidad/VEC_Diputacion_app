@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261004-personal-correos-acceso-v2";
+} from "./portal-composicion-empleado.js?v=20261004-b-portal-accesos-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
