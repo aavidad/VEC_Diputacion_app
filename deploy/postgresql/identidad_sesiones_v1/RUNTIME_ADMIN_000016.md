@@ -103,7 +103,8 @@ Las preimágenes originales del ejercicio se han perdido: el plan y el material
 HMAC conservados sólo contienen referencias y digests. Dirección autorizó para
 la retoma un nuevo juego sintético por el circuito oficial de fuentes,
 titularidad, huellas y CAS, con sus originales guardados en un fixture privado.
-Todavía no se ha generado. El proveedor actual permanece cerrado.
+El nuevo juego se generó por ese circuito y conserva sus originales privados.
+El acceso nominal aún debe ensayarse con una selección propia vigente.
 
 ## Resultado estructural del 4 de octubre de 2026
 
@@ -127,7 +128,22 @@ No se reaplicó AD192 ni se ejecutó DOWN.
 
 El ensayo acreditó estructura y ACL. No creó un vínculo favorable con sesión
 real ni un nuevo evento nominal. Las identidades originales no se reconstruyen:
-falta un nuevo juego sintético por el circuito oficial de fuentes y bootstrap,
-con originales privados en modo 0600 y asignaciones vigentes. Las anteriores
-han caducado. Quedan pendientes el ensayo de espera y replay con sesión real,
+el nuevo juego sintético ya pasó el circuito oficial de fuentes, unidad y
+bootstrap 2+1, con originales privados en modo 0600. Las asignaciones del primer
+ejercicio han caducado y no se prolongaron. Quedan pendientes el ensayo de espera y replay con sesión real,
 los LOGIN y pools segregados, la garantía alta, PDP y el montaje ADMIN.
+
+
+## Composición nominal preparada
+
+La rama de trabajo conecta `NuevoPostgreSQLConFuenteADMIN` con el productor
+original aprobado por SHA y el proveedor HMAC existente. El alias ordinario se
+coteja con propósito `cuenta`, separado de las cinco huellas de alta; no se
+reescriben los alias persistidos.
+
+`vec-admin` carga una configuración nominal adicional y entrega a CA36 un pool
+distinto del de cuentas, registro y revalidación. La frontera existente verifica
+mTLS, CRL y vínculo del canal. Para el ensayo se prepararon con la misma CA
+sintética una CRL firmada y un certificado de servidor, además del archivo de
+originales de las dos cuentas de Aplicación. No son una sesión favorable ni una
+prueba de PDP. Los detalles de configuración están en `cmd/vec-admin/README.md`.
