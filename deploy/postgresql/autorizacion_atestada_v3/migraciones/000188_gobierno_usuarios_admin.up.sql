@@ -287,9 +287,57 @@ RETURNS jsonb LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog 
  'revocaciones_configuracion',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY configuracion_revision),'[]'::jsonb) FROM vec_autorizacion_atestada_v3.revocacion_configuracion r),
  'claves_usuarios',(SELECT coalesce(jsonb_agg(to_jsonb(k)-'secreto_hmac' ORDER BY clave_id,version),'[]'::jsonb) FROM vec_autorizacion_atestada_v3.clave_capacidad_version k WHERE audiencia_consumo IN('vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1')))
 $f$;
+CREATE FUNCTION vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1(t timestamptz)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog AS $f$
+ SELECT to_char(t AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS')||CASE WHEN to_char(t AT TIME ZONE 'UTC','US')='000000' THEN '' ELSE '.'||rtrim(to_char(t AT TIME ZONE 'UTC','US'),'0') END||'Z'
+$f$;
+CREATE FUNCTION vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(g jsonb,r vec_autorizacion_atestada_v3.raiz_confianza_version)
+RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $f$
+DECLARE campos text[];campo text;material bytea:=''::bytea;
+BEGIN
+ campos:=ARRAY['vec.configuracion-confianza-atestacion-autorizacion.v3',g->>'revision',((g->>'secuencia')::bigint)::text,
+ vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1((g->>'publicada_en')::timestamptz),vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1((g->>'expira_en')::timestamptz),
+ r.clave_id,r.version::text,'EdDSA',r.huella_spki_sha256,r.suite,r.audiencia_despliegue,'activa',
+ vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1(r.valida_desde),vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1(r.valida_hasta),''];
+ FOREACH campo IN ARRAY campos LOOP
+  IF campo IS NULL THEN RETURN NULL;END IF;
+  material:=material||int8send(octet_length(convert_to(campo,'UTF8'))::bigint)||convert_to(campo,'UTF8');
+ END LOOP;
+ RETURN encode(sha256(material),'hex');
+END $f$;
+CREATE FUNCTION vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p jsonb,m jsonb)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE k jsonb;g record;r vec_autorizacion_atestada_v3.raiz_confianza_version;checkpoint record;ahora timestamptz;
+BEGIN
+ PERFORM vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1();
+ ahora:=clock_timestamp();
+ IF (p->>'caduca_en')::timestamptz<=ahora THEN RAISE EXCEPTION 'AD188: PARO clave=plan_vigencia actual=caducado esperado=vigente' USING ERRCODE='42501';END IF;
+ SELECT x.* INTO STRICT g FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual a JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version x ON x.revision=a.configuracion_revision WHERE a.orden=(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual) FOR SHARE OF a,x;
+ SELECT x.* INTO STRICT r FROM vec_autorizacion_atestada_v3.configuracion_raiz cr JOIN vec_autorizacion_atestada_v3.raiz_confianza_version x ON x.clave_id=cr.raiz_clave_id AND x.version=cr.raiz_version WHERE cr.configuracion_revision=g.revision FOR SHARE OF cr,x;
+ SELECT * INTO STRICT checkpoint FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id FOR SHARE;
+ IF g.revision IS DISTINCT FROM p->'configuracion'->>'revision' OR g.secuencia IS DISTINCT FROM (p->'configuracion'->>'secuencia')::bigint
+ OR g.huella_configuracion_sha256 IS DISTINCT FROM p->'configuracion'->>'huella_sha256'
+ OR g.publicada_en>ahora OR g.expira_en<=ahora OR r.valida_desde>ahora OR r.valida_hasta<=ahora
+ OR g.secuencia<checkpoint.configuracion_secuencia_minima OR r.version<checkpoint.raiz_version_minima
+ OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_raiz x WHERE x.raiz_clave_id=r.clave_id AND x.raiz_version=r.version)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion x WHERE x.configuracion_revision=g.revision)
+ OR vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(p->'configuracion',r) IS DISTINCT FROM g.huella_configuracion_sha256
+ THEN RAISE EXCEPTION 'AD188: PARO clave=gobierno_actual actual=incompatible esperado=original_vigente_no_retirado' USING ERRCODE='42501';END IF;
+ FOR k IN SELECT value FROM jsonb_array_elements(m->'claves') LOOP
+  IF NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version x JOIN vec_autorizacion_atestada_v3.puntero_clave_emision a ON a.clave_id=x.clave_id AND a.version=x.version
+   WHERE x.clave_id=k->>'clave_id' AND x.version=(k->>'version')::bigint AND x.audiencia_consumo=k->>'audiencia'
+   AND x.revision_gobierno=(k->>'revision_gobierno')::bigint AND x.huella_gobierno_sha256=k->>'huella_gobierno_sha256' AND x.huella_secreto_sha256=k->>'huella_secreto_sha256'
+   AND x.emisor_id=k->>'emisor_id' AND x.valida_desde=(k->>'valida_desde')::timestamptz AND x.valida_hasta=(k->>'valida_hasta')::timestamptz
+   AND x.valida_desde<=ahora AND x.valida_hasta>ahora
+   AND a.orden=(SELECT max(pc.orden) FROM vec_autorizacion_atestada_v3.puntero_clave_emision pc JOIN vec_autorizacion_atestada_v3.clave_capacidad_version kc ON kc.clave_id=pc.clave_id AND kc.version=pc.version WHERE kc.audiencia_consumo=x.audiencia_consumo AND pc.establecida_en<=ahora)
+   AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_clave_capacidad rc WHERE rc.clave_id=x.clave_id AND rc.version=x.version))
+  THEN RAISE EXCEPTION 'AD188: PARO clave=clave_actual actual=retirada_o_distinta esperado=original_vigente' USING ERRCODE='42501';END IF;
+ END LOOP;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1(timestamptz),vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(jsonb,vec_autorizacion_atestada_v3.raiz_confianza_version),vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(jsonb,jsonb) FROM PUBLIC;
 CREATE FUNCTION vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(p_plan text,p_aprobado text,p_material text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
-DECLARE c vec_autorizacion_atestada_v3.config_gobierno_usuarios_admin_v1;p jsonb;m jsonb;g jsonb;pre jsonb;sha text;k jsonb;claves jsonb;root record;anterior record;a record;previo record;secret bytea;ord bigint;i integer:=0;ref text;claves_sha text;ahora timestamptz;
+DECLARE c vec_autorizacion_atestada_v3.config_gobierno_usuarios_admin_v1;p jsonb;m jsonb;g jsonb;pre jsonb;sha text;k jsonb;claves jsonb;root vec_autorizacion_atestada_v3.raiz_confianza_version;anterior record;a record;previo record;secret bytea;ord bigint;i integer:=0;ref text;claves_sha text;ahora timestamptz;
 BEGIN
  c:=vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1();
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'
@@ -316,17 +364,8 @@ BEGIN
  IF (p->>'caduca_en')::timestamptz<=clock_timestamp() THEN RAISE EXCEPTION 'AD188: PARO clave=plan_vigencia actual=caducado esperado=vigente' USING ERRCODE='42501';END IF;
  SELECT * INTO previo FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='gobierno_usuarios_admin' AND plan_sha256=sha;
  IF FOUND THEN
-  -- Un replay no repone una clave retirada ni renueva la configuración.
-  FOR k IN SELECT value FROM jsonb_array_elements(claves) LOOP
-   IF NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version x WHERE x.clave_id=k->>'clave_id' AND x.version=(k->>'version')::bigint AND x.huella_secreto_sha256=k->>'huella_secreto_sha256' AND x.audiencia_consumo=k->>'audiencia'
-    AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_clave_capacidad r WHERE r.clave_id=x.clave_id AND r.version=x.version))
-   THEN RAISE EXCEPTION 'AD188: PARO clave=replay actual=retirado_o_distinto esperado=original_vigente' USING ERRCODE='42501'; END IF;
-  END LOOP;
-  IF NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual a JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version x ON x.revision=a.configuracion_revision WHERE x.revision=g->>'revision' AND a.orden=(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual) AND x.expira_en>clock_timestamp() AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion r WHERE r.configuracion_revision=x.revision))
-  THEN RAISE EXCEPTION 'AD188: PARO clave=replay_configuracion actual=retirada_o_distinta esperado=original_vigente' USING ERRCODE='42501';END IF;
-  PERFORM vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1();
-  IF (p->>'caduca_en')::timestamptz<=clock_timestamp() THEN RAISE EXCEPTION 'AD188: PARO clave=replay_plan actual=caducado esperado=vigente' USING ERRCODE='42501';END IF;
-  RETURN jsonb_build_object('auditoria_ref',previo.auditoria_ref,'secuencia',previo.secuencia,'huella_sha256',previo.huella_sha256,'correlacion_ref',previo.correlacion_ref,'registrada_en',previo.registrada_en,'replay',true);
+  PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p,m);
+  RETURN jsonb_build_object('auditoria_ref',previo.auditoria_ref,'secuencia',previo.secuencia,'huella_sha256',previo.huella_sha256,'correlacion_ref',previo.correlacion_ref,'registrada_en',previo.registrada_en,'replay',true,'plan_sha256',sha,'preimagen_sha256',c.preimagen_sha256,'material_sha256',c.material_sha256,'claves_sha256',previo.gobierno_usuarios_detalle->>'claves_sha256','configuracion_ref',g->>'revision');
  END IF;
  pre:=vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1();
  IF encode(sha256(convert_to(pre::text,'UTF8')),'hex') IS DISTINCT FROM c.preimagen_sha256 THEN RAISE EXCEPTION 'AD188: PARO clave=preimagen actual=distinta esperado=aprobada' USING ERRCODE='40001';END IF;
@@ -337,6 +376,7 @@ BEGIN
  OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion r WHERE r.configuracion_revision=anterior.revision)
  OR (g->>'publicada_en')::timestamptz<>date_trunc('day',ahora) OR (g->>'expira_en')::timestamptz<>(g->>'publicada_en')::timestamptz+interval '1 day'
  OR g->>'revision' !~ '^confianza:atestacion:ct:desarrollo:[0-9]{4}-[0-9]{2}-[0-9]{2}(:r[0-9]+)?$'
+ OR vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(g,root) IS DISTINCT FROM g->>'huella_sha256'
  OR g->>'huella_sha256' !~ '^[0-9a-f]{64}$' OR (g->>'secuencia')::bigint<=anterior.secuencia
  OR (g->>'secuencia')::bigint<=(pre->>'orden_configuracion')::bigint
  THEN RAISE EXCEPTION 'AD188: PARO clave=renovacion actual=incompatible esperado=misma_raiz_diaria_aprobada' USING ERRCODE='42501';END IF;
@@ -356,8 +396,8 @@ BEGIN
   OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version x WHERE x.clave_id=k->>'clave_id' OR x.secreto_hmac=secret)
   THEN RAISE EXCEPTION 'AD188: PARO clave=material actual=incompatible esperado=nuevo_dedicado_32bytes' USING ERRCODE='42501';END IF;
   INSERT INTO vec_autorizacion_atestada_v3.clave_capacidad_version(clave_id,version,revision_gobierno,huella_gobierno_sha256,secreto_hmac,huella_secreto_sha256,emisor_id,audiencia_consumo,valida_desde,valida_hasta,acto_ref)
-  VALUES(k->>'clave_id',(k->>'version')::bigint,(k->>'revision_gobierno')::bigint,k->>'huella_gobierno_sha256',secret,k->>'huella_secreto_sha256',k->>'emisor_id',k->>'audiencia',(k->>'valida_desde')::timestamptz,(k->>'valida_hasta')::timestamptz,'acto_tecnico:admin:usuarios:clave:'||sha);
-  INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision(orden,clave_id,version,establecida_en,acto_ref) VALUES(ord,k->>'clave_id',(k->>'version')::bigint,ahora,'acto_tecnico:admin:usuarios:puntero:'||sha);
+  VALUES(k->>'clave_id',(k->>'version')::bigint,(k->>'revision_gobierno')::bigint,k->>'huella_gobierno_sha256',secret,k->>'huella_secreto_sha256',k->>'emisor_id',k->>'audiencia',(k->>'valida_desde')::timestamptz,(k->>'valida_hasta')::timestamptz,'acto_tecnico:admin:usuarios:clave:'||sha||':'||i::text);
+  INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision(orden,clave_id,version,establecida_en,acto_ref) VALUES(ord,k->>'clave_id',(k->>'version')::bigint,ahora,'acto_tecnico:admin:usuarios:puntero:'||sha||':'||i::text);
  END LOOP;
  -- Sólo configuración y enlace/puntero nuevos; raíz original intacta.
  INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version(revision,secuencia,huella_configuracion_sha256,publicada_en,expira_en,acto_ref)
@@ -367,7 +407,8 @@ BEGIN
  VALUES((g->>'secuencia')::bigint,g->>'revision',(g->>'publicada_en')::timestamptz,'acto:ct:desarrollo:puntero-configuracion:r'||(g->>'secuencia'));
  claves_sha:=encode(sha256(convert_to((SELECT jsonb_agg(value-'secreto_hmac') FROM jsonb_array_elements(claves))::text,'UTF8')),'hex');
  SELECT * INTO a FROM vec_autorizacion_atestada_v3.registrar_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','gobierno_usuarios_admin','evento_ref','evento_'||substr(sha,1,32),'operador_login',session_user::text,'plan_sha256',sha,'preimagen_sha256',c.preimagen_sha256,'configuracion_origen_ref',anterior.revision,'configuracion_destino_ref',g->>'revision','claves_sha256',claves_sha,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||substr(sha,1,32)));
- RETURN to_jsonb(a)||jsonb_build_object('replay',false);
+ PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p,m);
+ RETURN to_jsonb(a)||jsonb_build_object('replay',false,'plan_sha256',sha,'preimagen_sha256',c.preimagen_sha256,'material_sha256',c.material_sha256,'claves_sha256',claves_sha,'configuracion_ref',g->>'revision');
 END $f$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.aprovisionar_gobierno_usuarios_admin_v1(p_plan text,p_aprobado text,p_material text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -382,7 +423,8 @@ BEGIN
  WHEN OTHERS THEN estado:='error';motivo:='gobierno_usuarios_error';codigo:=motivo;recibo:=NULL;
  END;
  SELECT * INTO intento FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','intento_gobierno_usuarios_admin','evento_ref','evento_'||replace(gen_random_uuid()::text,'-',''),'operador_login',session_user::text,'solicitud_sha256',solicitud,'accion','aprovisionar_gobierno_usuarios_admin_v1','recurso_ref','solicitud_gobierno_usuarios:'||substr(solicitud,1,32),'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||replace(gen_random_uuid()::text,'-','')));
- RETURN jsonb_build_object('estado',estado,'codigo',codigo,'recibo',recibo,'auditoria_intento',to_jsonb(intento));
+ IF estado='permitido' THEN PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_usuarios_admin_v1(p_plan::jsonb,p_material::jsonb);END IF;
+ RETURN jsonb_build_object('estado',estado,'codigo',codigo,'recibo',recibo,'auditoria_intento',to_jsonb(intento)||jsonb_build_object('solicitud_sha256',solicitud));
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.exigir_operador_gobierno_usuarios_admin_v1(),vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1(),vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text),vec_autorizacion_atestada_v3.aprovisionar_gobierno_usuarios_admin_v1(text,text,text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_gobierno_usuarios_admin_operador;
