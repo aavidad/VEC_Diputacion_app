@@ -357,6 +357,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaHistorialMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
+		personal.AudienciaExportacionServiciosPropios,
+		personal.AudienciaHistoriaServiciosPropia,
+		personal.AudienciaHistoriaRelacionesPropia,
 	}
 }
 

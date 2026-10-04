@@ -19,6 +19,13 @@ import (
 // Solo admite una fecha civil de referencia opcional para los servicios.
 const RutaFichaPropia = "/api/interna/personal/mi-ficha"
 
+// PerfilAceptacionFichaPropiaExportacion negocia sólo metadatos de representación.
+const PerfilAceptacionFichaPropiaExportacion = `application/json; profile="urn:vec:personal:ficha-propia:exportacion:v1"`
+
+// Preferencia de representación; no constituye autorización para la historia.
+const PreferenciaHistoriaServiciosFichaPropia = "vec-personal-historia-servicios-v1"
+const PreferenciaHistoriaRelacionesFichaPropia = "vec-personal-historia-relaciones-v1"
+
 // margenConocidoFichaPropia deja fuera de la foto los hechos de los últimos
 // instantes para que el corte nunca supere el reloj de la base de datos.
 const margenConocidoFichaPropia = time.Second
@@ -44,20 +51,24 @@ type consultorFichaPropia interface {
 }
 
 type ManejadorFichaPropia struct {
-	actor    ResolutorActorFichaPropia
-	consulta consultorFichaPropia
-	registro personalports.RegistroIntentosFichaPropia
-	ahora    func() time.Time
-	zona     *time.Location
+	actor                        ResolutorActorFichaPropia
+	consulta                     consultorFichaPropia
+	registro                     personalports.RegistroIntentosFichaPropia
+	ahora                        func() time.Time
+	zona                         *time.Location
+	exportacionDisponible        bool
+	historiaDisponible           bool
+	historiaRelacionesDisponible bool
 }
 
 // NuevoManejadorFichaPropia fija la fecha de efectos en la zona indicada
 // (la del organismo) y el instante de conocimiento en UTC.
-func NuevoManejadorFichaPropia(actor ResolutorActorFichaPropia, consulta consultorFichaPropia, registro personalports.RegistroIntentosFichaPropia, ahora func() time.Time, zona *time.Location) (*ManejadorFichaPropia, error) {
-	if nuloRelacionesDietas(actor) || nuloRelacionesDietas(consulta) || nuloRelacionesDietas(registro) || ahora == nil || zona == nil {
+func NuevoManejadorFichaPropia(actor ResolutorActorFichaPropia, consulta consultorFichaPropia, registro personalports.RegistroIntentosFichaPropia, ahora func() time.Time, zona *time.Location, exportacionDisponible ...bool) (*ManejadorFichaPropia, error) {
+	if nuloRelacionesDietas(actor) || nuloRelacionesDietas(consulta) || nuloRelacionesDietas(registro) || ahora == nil || zona == nil || len(exportacionDisponible) > 3 {
 		return nil, ErrManejadorFichaPropiaNoDisponible
 	}
-	return &ManejadorFichaPropia{actor: actor, consulta: consulta, registro: registro, ahora: ahora, zona: zona}, nil
+	disponible := len(exportacionDisponible) >= 1 && exportacionDisponible[0]
+	return &ManejadorFichaPropia{actor: actor, consulta: consulta, registro: registro, ahora: ahora, zona: zona, exportacionDisponible: disponible, historiaDisponible: len(exportacionDisponible) >= 2 && exportacionDisponible[1], historiaRelacionesDisponible: len(exportacionDisponible) == 3 && exportacionDisponible[2]}, nil
 }
 
 func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -136,11 +147,26 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	// Solo lo que la pantalla necesita: sin referencias de persona, empleado,
 	// decisión ni auditoría. El recibo es opaco.
-	responderFichaPropia(w, http.StatusOK, "", map[string]any{"data": map[string]any{
+	datos := map[string]any{
 		"ficha":         resultado.Ficha,
 		"recibo_ref":    resultado.Evidencia.ReciboRef,
 		"consultada_en": resultado.Evidencia.ConsultadaEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
-	}})
+	}
+	// Los clientes anteriores conservan su sobre de tres claves exactas.
+	acepta := r.Header.Values("Accept")
+	if len(acepta) == 1 && acepta[0] == PerfilAceptacionFichaPropiaExportacion {
+		datos["exportacion_servicios_disponible"] = m.exportacionDisponible
+	}
+	preferencia := r.Header.Values("Prefer")
+	if len(preferencia) == 1 && (preferencia[0] == PreferenciaHistoriaServiciosFichaPropia || preferencia[0] == PreferenciaHistoriaServiciosFichaPropia+", "+PreferenciaHistoriaRelacionesFichaPropia) {
+		datos["historia_servicios_disponible"] = m.historiaDisponible
+	}
+	if len(preferencia) == 1 && (preferencia[0] == PreferenciaHistoriaRelacionesFichaPropia || preferencia[0] == PreferenciaHistoriaServiciosFichaPropia+", "+PreferenciaHistoriaRelacionesFichaPropia) {
+		datos["historia_relaciones_disponible"] = m.historiaRelacionesDisponible
+	}
+	w.Header().Add("Vary", "Prefer")
+	w.Header().Add("Vary", "Accept")
+	responderFichaPropia(w, http.StatusOK, "", map[string]any{"data": datos})
 }
 
 // La única entrada temporal del navegador es la fecha civil. El instante de

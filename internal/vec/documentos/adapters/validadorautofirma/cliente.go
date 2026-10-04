@@ -65,14 +65,19 @@ type Configuracion struct {
 	CertificadoClientePEM []byte
 	ClaveClientePEM       []byte
 	Timeout               time.Duration
+	// Disponibilidad observa únicamente una respuesta 5xx o un dictamen
+	// interpretable del origen autorizado. El receptor debe ser no bloqueante.
+	// No recibe errores, credenciales ni contenido del documento.
+	Disponibilidad func(context.Context, bool)
 }
 
 // Cliente implementa ports.VerificadorFirma y ports.VerificadorFirmaMotivado.
 // No tiene estado global: cada instancia posee su transporte.
 type Cliente struct {
-	url   string
-	token string
-	http  *http.Client
+	url            string
+	token          string
+	http           *http.Client
+	disponibilidad func(context.Context, bool)
 }
 
 var (
@@ -131,8 +136,9 @@ func Nuevo(config Configuracion) (*Cliente, error) {
 		ForceAttemptHTTP2:      false,
 	}
 	return &Cliente{
-		url:   strings.TrimSuffix(config.URL, "/") + RutaVerificacion,
-		token: token,
+		url:            strings.TrimSuffix(config.URL, "/") + RutaVerificacion,
+		token:          token,
+		disponibilidad: config.Disponibilidad,
 		http: &http.Client{
 			Transport:     transporte,
 			Timeout:       limite,
@@ -249,6 +255,9 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 	case respuesta.StatusCode == http.StatusBadRequest || respuesta.StatusCode == http.StatusRequestEntityTooLarge ||
 		respuesta.StatusCode == http.StatusUnprocessableEntity:
 		return cero, ports.MotivoRechazadaPorValidador
+	case respuesta.StatusCode >= http.StatusInternalServerError && respuesta.StatusCode <= 599:
+		c.observarDisponibilidad(ctx, false)
+		return cero, ports.MotivoValidadorNoDisponible
 	case respuesta.StatusCode != http.StatusOK:
 		return cero, ports.MotivoValidadorNoDisponible
 	}
@@ -270,4 +279,12 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma) ports.VerificacionFirmaMotivada {
 	r.Estado = m.EstadoAsociado()
 	return ports.VerificacionFirmaMotivada{Resultado: r, Motivo: m}
+}
+
+// observarDisponibilidad no cambia la decisión de verificación. Una respuesta
+// bien formada demuestra disponibilidad incluso si su dictamen es no_valida.
+func (c *Cliente) observarDisponibilidad(ctx context.Context, disponible bool) {
+	if c != nil && c.disponibilidad != nil && ctx != nil && ctx.Err() == nil {
+		c.disponibilidad(ctx, disponible)
+	}
 }
