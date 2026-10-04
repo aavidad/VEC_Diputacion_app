@@ -3,6 +3,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from unittest import mock
 
@@ -103,6 +104,44 @@ class TransporteNominalTest(unittest.TestCase):
         pagina.evaluate.return_value = {"status": 200, "data": {"data": datos}}
         self.assertEqual(r.consultar_recuperacion_nominal_v2(pagina, informe, firmas),
                          self.validar(datos, informe, firmas))
+
+    def test_transporte_corta_cabeceras_y_cuerpo_que_no_terminan(self):
+        pagina = mock.Mock()
+        pagina.evaluate.return_value = {"status": 200, "data": {"data": {}}}
+        r.consultar_json_firmas_v2(pagina, nominal.RUTA, {}, nominal.MAX_RESPUESTA)
+        fuente = pagina.evaluate.call_args.args[0]
+        # Ejecuta el JS real sin red. Sólo se acelera el reloj; fetch retiene
+        # cabeceras o cuerpo hasta que recibe la cancelación del consumidor.
+        guion = r"""
+        const ejecutar = (0,eval)(process.argv[1]);
+        const reloj = globalThis.setTimeout;
+        globalThis.setTimeout = (fn,ms) => {
+          if(ms!==30000)throw Error('plazo_incorrecto');
+          return reloj(fn,5);
+        };
+        const resultados=[];
+        for(const fase of ['cabeceras','cuerpo']){
+          let cancelada=false;
+          globalThis.fetch=async (_,opciones)=>{
+            const espera=()=>new Promise((_,rechazar)=>
+              opciones.signal.addEventListener('abort',()=>{
+                cancelada=true;rechazar(Error('abortada'));
+              },{once:true}));
+            if(fase==='cabeceras')return espera();
+            return {status:200,headers:{get:()=> 'application/json'},body:{getReader:()=>({
+              read:espera,cancel:async()=>{}
+            })}};
+          };
+          const resultado=await ejecutar(['ruta_local',{},8<<20]);
+          resultados.push({fase,cancelada,resultado});
+        }
+        process.stdout.write(JSON.stringify(resultados));
+        """
+        resultado = subprocess.run(["node", "--input-type=module", "-e", guion, fuente],
+                                   capture_output=True, text=True, timeout=5, check=True)
+        for caso in json.loads(resultado.stdout):
+            self.assertTrue(caso["cancelada"])
+            self.assertEqual(caso["resultado"], {"status": 0, "data": None})
 
     def test_reinicio_compara_baseline_y_no_adopta_informes_antiguos(self):
         previo, tecnica, datos, firmas = datos_nominales(True)

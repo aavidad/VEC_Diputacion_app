@@ -772,8 +772,12 @@ def validar_consulta_tecnica_v2(datos, informe, firmas):
 
 def consultar_json_firmas_v2(page, ruta, solicitud, limite):
     respuesta=page.evaluate(r"""async ([ruta, solicitud, limite]) => {
+      const control=new AbortController();
+      const plazo=setTimeout(()=>control.abort(),30000);
+      try {
       const r=await fetch(ruta,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
-        body:JSON.stringify(solicitud),mode:'same-origin',credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer'});
+        body:JSON.stringify(solicitud),mode:'same-origin',credentials:'same-origin',cache:'no-store',redirect:'error',
+        referrerPolicy:'no-referrer',signal:control.signal});
       if(r.status!==200)return {status:r.status,data:null};
       if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(r.headers.get('Content-Type')||''))return {status:200,data:null};
       const lector=r.body?.getReader();if(!lector)return {status:200,data:null};
@@ -784,6 +788,8 @@ def consultar_json_firmas_v2(page, ruta, solicitud, limite):
       const bytes=new Uint8Array(total);let offset=0;for(const parte of partes){bytes.set(parte,offset);offset+=parte.byteLength;}
       try {return {status:200,data:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))};}
       catch{return {status:200,data:null};}
+      } catch {return {status:0,data:null};}
+      finally {clearTimeout(plazo);control.abort();}
     }""",[ruta,solicitud,limite])
     if respuesta["status"]!=200:
         raise Corte("consulta_v2_pendiente",f"consulta técnica V2 no disponible o denegada: HTTP {respuesta['status']}")
