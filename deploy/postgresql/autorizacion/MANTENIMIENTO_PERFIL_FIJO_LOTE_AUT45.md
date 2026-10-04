@@ -41,5 +41,24 @@ permisos por petición ni una tabla de auditoría aparte.
 Estado: SQL en borrador. Las guardas iniciales proceden de las definiciones
 causales AUT42/43; falta cotejar sus hashes con las capturas actuales del
 escritor único del clon. No se ha instalado AUT45 ni ejecutado PostgreSQL.
-Pendientes: vectores, CLI privada, compatibilidad Go exacta 5/6, dos revisiones
-y ensayo con fixture vigente producido por el pipeline autorizado.
+La CLI existente `vec-mantener-admin-fijo` conserva planv1/AUT42/acusev1 y
+selecciona planv2/AUT45/acusev2 con un selector cerrado. No acepta otro número,
+SQL libre ni otro acuse; se mantienen archivos privados, O_EXCL antes de DB,
+COMMIT de todos los estados y cierre indeterminado sin reintento automático.
+Usa el catálogo ES/EN existente, cuyo texto no presupone una versión concreta.
+
+Compatibilidad Go preparada en fuente de usuarios y emisor: sólo 5 y 6, con
+los mismos campos y obligación de auditar. Los vectores admiten ambas y
+rechazan 4/7; el de fuente usa un proveedor que falla y no inventa una lectura
+V3 favorable. CLI, fuente y emisor: normal, race y vet verdes, gofmt/diff check
+verdes; vecsilencio sin nuevos errores. Semgrep local en once Go y dos SQL:
+cero hallazgos. Gosec en los tres paquetes: un G101 heredado en `acreditarSQL`
+de la fuente, consulta de atributos/ACL sin contraseña ni clave, sin avisos
+propios. No se añaden supresiones ni cambia esa consulta.
+
+El vector SQL estructural está preparado con ACL/propietario, instalación sin
+publicación ni configuración favorable, versiones 5/7 rechazadas por el gate
+de lote y catálogo exacto. Pendientes: capturas reales de los cuatro gates,
+dos revisiones exactas y ensayo del mantenimiento con fixture vigente
+producido por el pipeline autorizado. No se acredita todavía publicar Rol6,
+una lectura favorable contra PostgreSQL ni la operación de lote.
