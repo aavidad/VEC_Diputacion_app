@@ -314,7 +314,10 @@ BEGIN
     'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
     '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
   THEN RAISE EXCEPTION 'AUT44: replay sin autoridad actual' USING ERRCODE='42501'; END IF;
-  IF clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+  IF (clock_timestamp()<(d->>'valida_hasta')::timestamptz
+   AND clock_timestamp()<(c->>'expira_en')::timestamptz
+   AND clock_timestamp()<(c->>'configuracion_expira_en')::timestamptz
+   AND clock_timestamp()<(c->>'raiz_valida_hasta')::timestamptz) IS NOT TRUE
   THEN RAISE EXCEPTION 'AUT44: replay vencido' USING ERRCODE='42501'; END IF;
   RETURN previo.resultado;
  END IF;
@@ -496,7 +499,10 @@ BEGIN
   'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
   '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
  THEN RAISE EXCEPTION 'AUT44: permiso vencido al devolver recibo' USING ERRCODE='42501'; END IF;
- IF clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+ IF (clock_timestamp()<(d->>'valida_hasta')::timestamptz
+  AND clock_timestamp()<(c->>'expira_en')::timestamptz
+  AND clock_timestamp()<(c->>'configuracion_expira_en')::timestamptz
+  AND clock_timestamp()<(c->>'raiz_valida_hasta')::timestamptz) IS NOT TRUE
  THEN RAISE EXCEPTION 'AUT44: lote vencido al devolver recibo' USING ERRCODE='42501'; END IF;
  RETURN resultado;
 END $f$;

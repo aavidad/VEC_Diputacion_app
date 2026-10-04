@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -112,6 +113,10 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	}()
 	var bruto []byte
 	if err := tx.QueryRow(ctx, aplicarLoteOrdinarioSQL, args...).Scan(&bruto); err != nil {
+		var pg *pgconn.PgError
+		if errors.As(err, &pg) && pg.Code == "42501" {
+			return domain.ErrAutorizacionDenegada
+		}
 		return traducir(ctx, err)
 	}
 	if err := validar(bruto); err != nil {

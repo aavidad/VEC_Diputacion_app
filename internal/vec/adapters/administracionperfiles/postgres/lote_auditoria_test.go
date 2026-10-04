@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -110,17 +111,31 @@ func (e emisorLoteMaterialPrueba) EmitirLoteOrdinario(context.Context, domain.Co
 }
 
 type registroLoteTrasTxPrueba struct {
-	t   *testing.T
-	tx  *txFalsa
-	reg *registroFronteraPrueba
+	t         *testing.T
+	tx        *txFalsa
+	rollbacks int
+	reg       *registroFronteraPrueba
 }
 
 func (r registroLoteTrasTxPrueba) AppendIntentoAuditoria(ctx context.Context, orden ports.OrdenIntentoAuditoria) (ports.AcuseIntentoAuditoria, error) {
 	r.t.Helper()
-	if r.tx.rollbacks != 1 {
+	if r.tx.rollbacks != r.rollbacks {
 		r.t.Fatal("AD169 se invocó antes del rollback del efecto")
 	}
 	return r.reg.AppendIntentoAuditoria(ctx, orden)
+}
+
+type poolLoteFasesPrueba struct {
+	poolFalso
+	falloInicio error
+}
+
+func (p *poolLoteFasesPrueba) BeginTx(ctx context.Context, o pgx.TxOptions) (pgx.Tx, error) {
+	if p.falloInicio != nil {
+		p.comienzos++
+		return nil, p.falloInicio
+	}
+	return p.poolFalso.BeginTx(ctx, o)
 }
 
 // El material del doble sólo satisface la estructura del transporte. AUT44
@@ -153,15 +168,26 @@ func materialLoteEstructuralPrueba(t *testing.T, s domain.SolicitudLoteAdministr
 	return material
 }
 
-func TestLoteRollbackYCommitInciertoAntesDeAD169(t *testing.T) {
+func TestLoteFasesSQLYCommitAntesDeAD169(t *testing.T) {
 	for _, caso := range []struct {
-		nombre      string
-		fila        pgx.Row
-		falloCommit error
-		commits     int
+		nombre           string
+		fila             pgx.Row
+		falloInicio      error
+		falloCommit      error
+		consultas        int
+		commits          int
+		rollbacks        int
+		resultadoIntento domain.ResultadoIntentoAuditoria
+		errorPublico     error
 	}{
-		{"rollback_sql", filaFalsa{err: errors.New("SQL privado")}, nil, 0},
-		{"commit_indeterminado", filaFalsa{dato: []byte(`{}`)}, errors.New("COMMIT privado"), 1},
+		{"rollback_sql", filaFalsa{err: errors.New("SQL privado")}, nil, nil, 1, 0, 1,
+			domain.ResultadoIntentoAuditoriaError, ports.ErrAutoridadAdministracionPerfilesNoDisponible},
+		{"query_42501", filaFalsa{err: &pgconn.PgError{Code: "42501", Message: "SQL privado"}}, nil, nil, 1, 0, 1,
+			domain.ResultadoIntentoAuditoriaDenegado, domain.ErrAutorizacionDenegada},
+		{"begin_42501", nil, &pgconn.PgError{Code: "42501", Message: "BEGIN privado"}, nil, 0, 0, 0,
+			domain.ResultadoIntentoAuditoriaError, ports.ErrAutoridadAdministracionPerfilesNoDisponible},
+		{"commit_42501", filaFalsa{dato: []byte(`{}`)}, nil, &pgconn.PgError{Code: "42501", Message: "COMMIT privado"}, 1, 1, 1,
+			domain.ResultadoIntentoAuditoriaError, ports.ErrAutoridadAdministracionPerfilesNoDisponible},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			s := solicitudAuditoriaLotePrueba(t)
@@ -173,19 +199,19 @@ func TestLoteRollbackYCommitInciertoAntesDeAD169(t *testing.T) {
 			efecto := Efecto{Accion: accionLoteOrdinario, Audiencia: audienciaLoteOrdinario,
 				Referencia: recurso.Referencia, Material: []byte(`{}`), CorrelacionAccesoRef: s.CorrelacionRef}
 			tx := &txFalsa{fila: caso.fila, falloCommit: caso.falloCommit}
-			pool := &poolFalso{tx: tx}
+			pool := &poolLoteFasesPrueba{poolFalso: poolFalso{tx: tx}, falloInicio: caso.falloInicio}
 			reg := &registroFronteraPrueba{ahora: ahora}
-			a := auditorLotePrueba(registroLoteTrasTxPrueba{t: t, tx: tx, reg: reg})
+			a := auditorLotePrueba(registroLoteTrasTxPrueba{t: t, tx: tx, rollbacks: caso.rollbacks, reg: reg})
 			a.pool, a.emisor, a.reloj = pool,
 				emisorLoteMaterialPrueba{materialLoteEstructuralPrueba(t, s, recurso, efecto, ahora)}, relojFijo(ahora)
 			err := a.ejecutarLote(context.Background(), s.Actor, s.Evidencia, s.InstantaneaAutorizacion,
 				recurso, efecto, nil, func([]byte) error { return nil })
-			if err == nil || tx.rollbacks != 1 || tx.commits != caso.commits || tx.consultas != 1 {
+			if err == nil || tx.rollbacks != caso.rollbacks || tx.commits != caso.commits || tx.consultas != caso.consultas || pool.comienzos != 1 {
 				t.Fatal("el efecto no cerró una sola transacción antes de AD169")
 			}
 			publico := a.finalizarFalloLote(context.Background(), s, err)
-			if !errors.Is(publico, ports.ErrAutoridadAdministracionPerfilesNoDisponible) ||
-				reg.llamadas != 1 || reg.ordenes[0].Datos.Resultado != domain.ResultadoIntentoAuditoriaError ||
+			if !errors.Is(publico, caso.errorPublico) ||
+				reg.llamadas != 1 || reg.ordenes[0].Datos.Resultado != caso.resultadoIntento ||
 				strings.Contains(publico.Error(), "privado") {
 				t.Fatal("fallo transaccional no quedó auditado con error cerrado")
 			}
