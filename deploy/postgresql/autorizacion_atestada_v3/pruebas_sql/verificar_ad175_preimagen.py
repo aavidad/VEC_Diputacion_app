@@ -32,8 +32,22 @@ def verificar(nucleo: pathlib.Path, migracion: pathlib.Path) -> None:
             or sha(medido["source"]) != medido["src_sha"]
             or medido["def_sha"] not in sql or medido["src_sha"] not in sql):
         raise ValueError("núcleo medido o guarda AD175 divergente")
-    cambios = [(bloque(sql, a), bloque(sql, b)) for a, b in
-               (("runtime", "runtime_nuevo"), ("excl", "excl_nuevo"), ("marca", "extension"))]
+    operaciones = (
+        "nuevo:=replace(original,runtime,runtime_nuevo);",
+        "nuevo:=replace(nuevo,excl,excl_nuevo);",
+        "nuevo:=replace(nuevo,marca,extension||marca);",
+        "EXECUTE nuevo;",
+    )
+    if any(sql.count(op) != 1 for op in operaciones) or [sql.index(op) for op in operaciones] != sorted(sql.index(op) for op in operaciones):
+        raise ValueError("secuencia de sustituciones AD175 divergente")
+    if sql.count("replace(replace(replace(actual,extension||marca,marca),excl_nuevo,excl),runtime_nuevo,runtime)") != 1:
+        raise ValueError("inversión SQL AD175 divergente")
+    marca = bloque(sql, "marca")
+    cambios = [
+        (bloque(sql, "runtime"), bloque(sql, "runtime_nuevo")),
+        (bloque(sql, "excl"), bloque(sql, "excl_nuevo")),
+        (marca, bloque(sql, "extension") + marca),
+    ]
     for antiguo, nuevo in cambios:
         if medido["definition"].count(antiguo) != 1 or medido["source"].count(antiguo) != 1:
             raise ValueError("ancla ausente o ambigua en K")
