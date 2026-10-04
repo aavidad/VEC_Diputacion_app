@@ -49,6 +49,20 @@ func TestModoMetadatosNuncaSerializaFichaCompleta(t *testing.T) {
 	}
 }
 
+func TestModoMetadatosAuditaFichaCompletaConReferenciaAjena(t *testing.T) {
+	s := sesionADMINPrueba(t)
+	a := &auditorPrueba{}
+	h, err := NuevoHandlerUsuariosMetadatos("https://admin.example.test", &sesionPrueba{resultado: s}, &fichaCompletaEnMetadatosPrueba{}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionADMIN(http.MethodGet, PrefijoV1+"/personas/per_"+strings.Repeat("h", 22), ""))
+	if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "Nombre reservado") || a.llamadas != 1 || a.ultima.Actor.PersonaRef != s.Actor.PersonaRef || a.ultima.Codigo != "respuesta_incompatible" {
+		t.Fatal("ficha_incompatible_sin_auditoria")
+	}
+}
+
 func TestModoMetadatosNuncaSerializaPaginaCompleta(t *testing.T) {
 	s := sesionADMINPrueba(t)
 	f := &fuenteUsuariosPrueba{}

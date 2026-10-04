@@ -264,7 +264,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 		var ficha FichaPersona
 		ficha, err = h.lecturas.ConsultarPersona(ctx, actor, s.Evidencia, ref)
 		if err == nil && ficha.referenciaEmitida() != ref {
-			if ficha.Metadatos != nil {
+			if h.soloMetadatos || ficha.Metadatos != nil {
 				h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
 				return
 			}
