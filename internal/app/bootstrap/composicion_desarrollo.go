@@ -415,7 +415,7 @@ func nuevoServidorDesarrollo(
 			return nil, nil, err
 		}
 	}
-	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios)
+	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios)
 	if err != nil {
 		return nil, nil, err
 	}
