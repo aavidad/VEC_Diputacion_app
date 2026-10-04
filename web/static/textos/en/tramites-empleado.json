@@ -35,6 +35,7 @@
     "referencia_operacion": "Operation reference",
     "fecha_registro": "Operation date",
     "sin_dato": "Not recorded",
+    "autenticacion_requerida": "Sign in again to view your requests.",
     "cronos_nombre": "Leave or holidays",
     "dietas_nombre": "Business trip",
     "estado_no_disponible": "Status unavailable",

@@ -35,6 +35,7 @@
     "referencia_operacion": "Referencia de la operación",
     "fecha_registro": "Fecha de la operación",
     "sin_dato": "No consta",
+    "autenticacion_requerida": "Identifícate de nuevo para consultar tus trámites.",
     "cronos_nombre": "Permiso o vacaciones",
     "dietas_nombre": "Comisión de servicio",
     "estado_no_disponible": "Estado no disponible",

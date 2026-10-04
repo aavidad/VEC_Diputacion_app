@@ -86,20 +86,22 @@ function paginacion(bloque, panel, t, loc) {
 }
 function contenidoPanel(bloque, panel, t, loc) {
   const situacion = panel.situacion;
-  const cabecera = `<header class="cabecera-panel"><h3 id="tramites-${bloque}-titulo">${escapar(t(`${bloque}_titulo`))}</h3>${boton(bloque, "consultar", t(situacion === "error" ? "reintentar" : "actualizar"), situacion === "cargando" || situacion === "no_configurado")}</header>`;
-  const filtro = bloque === "cronos" ? `<form class="acciones-fila" data-tramites-anio novalidate><div class="campo-filtro"><label for="tramites-cronos-anio">${escapar(t("anio"))}</label><input id="tramites-cronos-anio" name="anio" type="number" inputmode="numeric" min="2000" max="2100" step="1" required value="${escapar(panel.anio)}" aria-invalid="${Boolean(panel.errorAnio)}"${panel.errorAnio ? ' aria-describedby="tramites-cronos-anio-error"' : ""}></div><button class="boton-secundario" id="tramites-cronos-aplicar" type="submit">${escapar(t("consultar_anio"))}</button></form>${panel.errorAnio ? `<p id="tramites-cronos-anio-error" role="alert">${escapar(t("anio_invalido"))}</p>` : ""}` : "";
+  const sinAutenticacion = panel.codigo === "autenticacion_requerida";
+  const cabecera = `<header class="cabecera-panel"><h3 id="tramites-${bloque}-titulo">${escapar(t(`${bloque}_titulo`))}</h3>${boton(bloque, "consultar", t(situacion === "error" ? "reintentar" : "actualizar"), sinAutenticacion || situacion === "cargando" || situacion === "no_configurado")}</header>`;
+  const filtro = bloque === "cronos" ? `<form class="acciones-fila" data-tramites-anio novalidate><div class="campo-filtro"><label for="tramites-cronos-anio">${escapar(t("anio"))}</label><input id="tramites-cronos-anio" name="anio" type="number" inputmode="numeric" min="2000" max="2100" step="1" required value="${escapar(panel.anio)}" aria-invalid="${Boolean(panel.errorAnio)}"${sinAutenticacion ? " disabled" : ""}${panel.errorAnio ? ' aria-describedby="tramites-cronos-anio-error"' : ""}></div><button class="boton-secundario" id="tramites-cronos-aplicar" type="submit"${sinAutenticacion ? " disabled" : ""}>${escapar(t("consultar_anio"))}</button></form>${panel.errorAnio ? `<p id="tramites-cronos-anio-error" role="alert">${escapar(t("anio_invalido"))}</p>` : ""}` : "";
   const mensaje = situacion === "cargando" ? t(`${bloque}_cargando`)
     : situacion === "vacio" ? t(`${bloque}_vacio`)
       : situacion === "disponible" ? t(`${bloque}_consulta_lista`)
-        : t(panel.codigo === "relacion_ambigua" ? "relacion_ambigua" : `${bloque}_${situacion}`);
+        : t(sinAutenticacion ? "autenticacion_requerida" : panel.codigo === "relacion_ambigua" ? "relacion_ambigua" : `${bloque}_${situacion}`);
   const listado = situacion === "disponible" ? (bloque === "cronos" ? tablaCronos(panel, t, loc) : tablaDietas(panel, t, loc)) : "";
-  return `${cabecera}<div class="cuerpo-panel">${filtro}<p id="tramites-${bloque}-estado" role="status" aria-live="polite">${escapar(mensaje)}</p>${listado}${paginacion(bloque, panel, t, loc)}<div class="acciones-fila">${enlace(bloque, t)}</div></div>`;
+  const aviso = sinAutenticacion ? "" : `<p id="tramites-${bloque}-estado" role="status" aria-live="polite">${escapar(mensaje)}</p>`;
+  return `${cabecera}<div class="cuerpo-panel">${filtro}${aviso}${listado}${paginacion(bloque, panel, t, loc)}<div class="acciones-fila">${enlace(bloque, t)}</div></div>`;
 }
 
 /** Los paneles sólo presentan las proyecciones propias de sus autoridades. */
 export function renderizarVistaTramitesPropios(estado = {}, { textos = TEXTOS, t = tDe(textos), localizacion = textos.localizacion } = {}) {
   const paneles = BLOQUES.filter((bloque) => estado[bloque]?.visible);
-  return `<section class="columna-cuadro" data-tramites-propios><h2>${escapar(t("titulo"))}</h2>${paneles.length ? paneles.map((bloque) => `<section class="panel" data-tramites-panel="${bloque}" aria-labelledby="tramites-${bloque}-titulo" aria-busy="${estado[bloque].situacion === "cargando"}">${contenidoPanel(bloque, estado[bloque], t, localizacion)}</section>`).join("") : `<p role="status">${escapar(t("sin_fuentes"))}</p>`}</section>`;
+  return `<section class="columna-cuadro" data-tramites-propios><h2>${escapar(t("titulo"))}</h2><p id="tramites-autenticacion-estado" tabindex="-1" hidden></p>${paneles.length ? paneles.map((bloque) => `<section class="panel" data-tramites-panel="${bloque}" aria-labelledby="tramites-${bloque}-titulo" aria-busy="${estado[bloque].situacion === "cargando"}">${contenidoPanel(bloque, estado[bloque], t, localizacion)}</section>`).join("") : `<p role="status">${escapar(t("sin_fuentes"))}</p>`}</section>`;
 }
 
 function validarRespuesta(bloque, datos, anio) {
@@ -126,6 +128,7 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
     datos: undefined, secuencia: 0, controlador: undefined, codigo: undefined,
   }]));
   let activa = true;
+  let autenticacionRequerida = false;
   raiz.innerHTML = renderizarVistaTramitesPropios(estado, { textos, t, localizacion });
   function pintar(bloque) {
     if (!activa) return;
@@ -142,7 +145,32 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
       reemplazo?.focus?.();
     }
   }
+  function purgar(panel) {
+    panel.secuencia += 1;
+    panel.controlador?.abort();
+    Object.assign(panel, { controlador: undefined, datos: undefined, cursor: undefined, cursores: [], pagina: 0, errorAnio: false });
+  }
+  function requerirAutenticacion() {
+    autenticacionRequerida = true;
+    const focoEnVista = raiz.contains?.(raiz.ownerDocument?.activeElement);
+    for (const bloque of BLOQUES) {
+      const panel = estado[bloque];
+      purgar(panel);
+      Object.assign(panel, { situacion: "denegado", codigo: "autenticacion_requerida" });
+      pintar(bloque);
+    }
+    const mensaje = t("autenticacion_requerida");
+    const aviso = raiz.querySelector("#tramites-autenticacion-estado");
+    if (aviso) {
+      aviso.textContent = mensaje;
+      aviso.hidden = false;
+      const foco = raiz.ownerDocument?.activeElement;
+      if (focoEnVista && (!raiz.contains?.(foco) || foco?.disabled || foco?.getAttribute?.("aria-disabled") === "true")) aviso.focus?.();
+    }
+    anunciar(mensaje, "error");
+  }
   async function consultar(bloque, opciones = {}) {
+    if (!activa || autenticacionRequerida) return;
     const panel = estado[bloque];
     // La primera página tiene cursor undefined; no sustituirlo por el cursor actual.
     const cursor = Object.hasOwn(opciones, "cursor") ? opciones.cursor : panel.cursor;
@@ -162,11 +190,13 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
       Object.assign(panel, { datos, cursor, cursores, situacion: (bloque === "cronos" ? datos.solicitudes : datos.items).length ? "disponible" : "vacio" });
     } catch (error) {
       if (!activa || secuencia !== panel.secuencia || controlador.signal.aborted) return;
+      if (error?.codigo === "autenticacion_requerida") { requerirAutenticacion(); return; }
       Object.assign(panel, { situacion: situacionError(error?.codigo), codigo: error?.codigo, datos: undefined });
     }
     pintar(bloque);
   }
   function aplicarAnio(formulario) {
+    if (!activa || autenticacionRequerida) return;
     const panel = estado.cronos;
     const valor = String(formulario.elements?.anio?.value ?? "");
     const nuevo = /^\d{4}$/.test(valor) ? Number(valor) : NaN;
@@ -192,6 +222,7 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
     if (formulario) aplicarAnio(formulario);
   };
   const alClick = (evento) => {
+    if (!activa || autenticacionRequerida) return;
     const control = evento.target?.closest?.("[data-tramites-accion]");
     if (!control || control.getAttribute?.("aria-disabled") === "true") return;
     const { tramitesBloque: bloque, tramitesAccion: accion } = control.dataset;
@@ -216,7 +247,7 @@ export function montarVistaTramitesPropios({ raiz, fuente, anunciar = () => {}, 
   const desmontar = () => {
     if (!activa) return;
     activa = false;
-    for (const panel of Object.values(estado)) { panel.secuencia += 1; panel.controlador?.abort(); }
+    for (const panel of Object.values(estado)) purgar(panel);
     raiz.removeEventListener("click", alClick); raiz.removeEventListener("submit", alSubmit); raiz.removeEventListener("change", alCambio);
     raiz.replaceChildren();
   };
