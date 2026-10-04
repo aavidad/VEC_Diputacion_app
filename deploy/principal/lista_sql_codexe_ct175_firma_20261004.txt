@@ -1,0 +1,2 @@
+# BORRADOR: después de AD178 y AUT41 ensayadas; no aplicable a principal.
+deploy/postgresql/contratacion_temporal/migraciones/000175_recuperacion_nominal_firmas_v2.up.sql
