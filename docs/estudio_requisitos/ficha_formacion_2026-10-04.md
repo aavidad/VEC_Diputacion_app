@@ -128,8 +128,8 @@ destino oficial y datos consultables. Las reglas publicadas citadas arriba se in
 a la ficha y no se vuelven a preguntar. La pregunta 39 reúne aplicaciones y responsables;
 120 y 121 corresponden a convenio y reconocimiento del grado, respectivamente.
 
-La integración técnica se propone en la duda 138, pendiente de incorporación por
-dirección: interfaz/API o exportación admitida, correspondencia de identificadores,
+La integración técnica se recoge en la duda 138, presentada junto a la ficha de
+Provisión: interfaz/API o exportación admitida, correspondencia de identificadores,
 versiones y recepción de hechos y certificados, con responsable y permisos concretos.
 La vía de solicitud de cada convocatoria y las delegaciones actuales se cotejan con su
 publicación vigente; no se presuponen a partir de una convocatoria anterior.
