@@ -48,7 +48,7 @@ function ayuda(d, t) {
   detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto, corte);
   return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; corte.textContent = clave === "ficha_servicios_ayuda" ? traducirCorteServicios("ayuda") : ""; } };
 }
-function accesos(d, t, navegarModulo, destinosDisponibles) {
+function accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
   for (const [destino, etiqueta] of [["dietas", "ficha_ir_dietas"], ["cronos", "ficha_ir_cronos"]]) {
     const boton = nodo(d, "button", t(etiqueta)); boton.type = "button"; boton.dataset.personalFichaDestino = destino;
@@ -58,10 +58,16 @@ function accesos(d, t, navegarModulo, destinosDisponibles) {
     if (!disponible) { boton.title = t("ficha_navegacion_pendiente"); boton.setAttribute("aria-label", `${t(etiqueta)}. ${t("ficha_navegacion_pendiente")}`); }
     boton.addEventListener("click", () => { if (disponible) navegarModulo(destino); }); acciones.append(boton);
   }
+  if (typeof abrirCorreos === "function") {
+    const boton = nodo(d, "button", t("ficha_ir_mis_correos")); boton.type = "button";
+    boton.className = "boton-secundario"; boton.dataset.personalFichaCorreos = "";
+    boton.title = t("ficha_mis_correos_destino");
+    boton.addEventListener("click", abrirCorreos); acciones.append(boton);
+  }
   return acciones;
 }
-function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente) {
-  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho");
+function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos) {
+  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos)], "personal-ficha-panel-ancho");
   if (ocultarSinFuente && visibles.length === 0) return [accesosPanel];
   const bloques = nodo(d, "div"); bloques.className = "personal-ficha-bloques";
   for (const clave of visibles) {
@@ -178,9 +184,10 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
  * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
  * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
+      (abrirCorreos !== undefined && typeof abrirCorreos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
       !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
@@ -215,7 +222,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
-    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente)); return; }
+    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos)); return; }
     if (clave === "catalogos") {
       const hueco = nodo(d, "div"); hueco.dataset.personalFichaCatalogos = "";
       principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
