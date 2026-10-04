@@ -30,8 +30,19 @@ confirma el cambio por la fachada CC7 en una llamada SQL. Deriva actor, perfil,
 finalidad, proceso y canal del registro común; verifica la caducidad al finalizar.
 El identificador debe ser una clave documental común de al menos tres caracteres,
 como exige el plan CT; no admite dos puntos. El material enlaza contenido y CAS
-mediante `material_sha256`. El servicio común actual aún necesita su decorador
-de material operativo para emitir esa autorización ligada al contenido.
+mediante `material_sha256`.
+
+La primera versión se invoca desde el kit privado: conserva el fichero de
+material y su SHA esperado. Cada reintento obtiene una autorización nueva para
+los mismos bytes y la misma clave, sin regenerar fechas, traza, evento o JSON.
+El fichero aprobado no concede permisos. Se reutilizan las transiciones de
+`CatalogoConfigurable`; la edición web y la recuperación semántica de una orden
+reconstruida quedan para V2.
+
+CC7 devuelve el actor, fecha, auditoría y recibo de outbox del efecto original,
+incluso si la publicación fue retirada después. AD177 entrega el consumo del
+acceso nuevo por separado; no sustituye esos campos históricos por datos del
+reintento.
 
 El gobierno usa `administracion_privilegiada`, como la fuente real de Aplicación.
 La categoría y las concesiones se revalidan mediante la fachada AUT existente.
