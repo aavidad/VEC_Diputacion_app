@@ -436,7 +436,7 @@ CREATE FUNCTION vec_contexto_actor_v1.recuperar_contexto_admin_v1(
  p_evento text,p_correlacion text,p_proceso text,p_evento_material jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='4s' AS $f$
-DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;
+DECLARE l record;r record;a record;j jsonb;j_final jsonb;e jsonb;enlace_evento text;enlace_encontrado boolean;
 BEGIN
  PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_admin_v1();
  IF current_setting('transaction_isolation')<>'read committed' OR current_setting('transaction_read_only')<>'off'
@@ -460,9 +460,12 @@ BEGIN
  THEN RAISE EXCEPTION 'CA36: acuse histórico incompatible' USING ERRCODE='42501'; END IF;
  SELECT * INTO l FROM vec_contexto_actor_v1.enlace_contexto_admin_v1
   WHERE operacion_ref=p_operacion FOR SHARE;
- IF NOT FOUND THEN
-  IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto WHERE operacion_ref=p_operacion)
-   OR p_evento_material->>'resultado' NOT IN('denegado','error')
+ enlace_encontrado:=FOUND;
+ IF enlace_encontrado THEN enlace_evento:=l.evento_ref; END IF;
+ IF p_evento_material->>'resultado' IN('denegado','error') THEN
+  -- La denegación recupera su hecho AD192. Una fila histórica de otro
+  -- intento no se convierte en efecto de este evento ni se declara ausente.
+  IF enlace_evento IS NOT DISTINCT FROM p_evento
    OR p_evento_material->'actor_ref' IS DISTINCT FROM 'null'::jsonb AND
       (p_evento_material->>'perfil_activo_ref' IS NULL OR p_evento_material->>'fuente_ref' IS NULL)
   THEN RAISE EXCEPTION 'CA36: ausencia no conciliable' USING ERRCODE='42501'; END IF;
@@ -470,6 +473,8 @@ BEGIN
    'motivo_ref',p_evento_material->>'motivo_ref','evento',p_evento_material,
    'acuse',to_jsonb(a),'contexto',NULL);
  END IF;
+ IF p_evento_material->>'resultado' IS DISTINCT FROM 'permitido' OR enlace_encontrado IS NOT TRUE
+ THEN RAISE EXCEPTION 'CA36: efecto favorable ausente' USING ERRCODE='42501'; END IF;
  IF l.registro_contexto_ref IS DISTINCT FROM p_recibo OR l.vinculo_sesion_ref IS DISTINCT FROM p_vis
   OR l.vinculo_sesion_version IS DISTINCT FROM p_vis_version OR l.vinculo_sesion_sha256 IS DISTINCT FROM p_vis_sha
   OR l.autenticacion_ref IS DISTINCT FROM p_aut OR l.sesion_ref IS DISTINCT FROM p_ses
