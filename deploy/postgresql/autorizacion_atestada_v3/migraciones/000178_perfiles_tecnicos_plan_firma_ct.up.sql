@@ -185,4 +185,147 @@ BEGIN
   RAISE EXCEPTION 'AD178: PARO clave=ACL_fachada actual=divergente esperado=AUT_owner_y_CT_owner_EXECUTE' USING ERRCODE='55000';
  END IF;
 END $acl$;
+
+-- AUT41 recibe sólo el ámbito acreditado por un consumo de recuperación nuevo.
+-- No recibe SELECT de tablas AD ni una identidad derivada del selector histórico.
+CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_recuperacion_firmas_ct_v2(
+ p_material_consulta bytea,p_consumo jsonb
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
+DECLARE r record;s jsonb;original json;material_h text;contexto_h text;
+ c jsonb;d jsonb;ahora timestamptz(6);version_actual numeric;
+BEGIN
+ IF current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'
+ OR pg_is_in_recovery() THEN
+  RAISE EXCEPTION 'AD178: PARO clave=transaccion actual=incompatible esperado=serializable_escritura_UTC' USING ERRCODE='42501';
+ END IF;
+ IF p_material_consulta IS NULL OR octet_length(p_material_consulta) NOT BETWEEN 2 AND 4096 THEN
+  RAISE EXCEPTION 'AD178: PARO clave=material actual=invalido esperado=consulta_R5_V2' USING ERRCODE='42501';
+ END IF;
+ original:=convert_from(p_material_consulta,'UTF8')::json;s:=original::jsonb;
+ IF jsonb_typeof(s) IS DISTINCT FROM 'object'
+ OR (SELECT count(*) FROM jsonb_object_keys(s))<>10
+ OR NOT (s ?& ARRAY['CatalogoHuella','ClaveIdempotencia','Documento','ExpedienteRef',
+   'FirmantePrincipalCandidatoRef','OrganizacionRef','PasoOrden','UnidadRef','VersionExpediente','Via'])
+ OR (SELECT count(*) FROM json_each(original))<>10
+ OR jsonb_typeof(s->'Via') IS DISTINCT FROM 'string'
+ OR (s->>'Via' IN('certificado_vec','portafirmas_registro_rrhh')) IS NOT TRUE
+ OR s->'UnidadRef' IS DISTINCT FROM 'null'::jsonb
+ OR jsonb_typeof(s->'OrganizacionRef') IS DISTINCT FROM 'string'
+ OR (s->>'OrganizacionRef' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$') IS NOT TRUE
+ OR jsonb_typeof(s->'ExpedienteRef') IS DISTINCT FROM 'string'
+ OR (s->>'ExpedienteRef' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$') IS NOT TRUE
+ OR jsonb_typeof(s->'Documento') IS DISTINCT FROM 'string'
+ OR (s->>'Documento' ~ '^[a-z][a-z0-9_]{1,63}$') IS NOT TRUE
+ OR jsonb_typeof(s->'FirmantePrincipalCandidatoRef') IS DISTINCT FROM 'string'
+ OR (s->>'FirmantePrincipalCandidatoRef' ~ '^per_[A-Za-z0-9_-]{2,159}$') IS NOT TRUE
+ OR jsonb_typeof(s->'ClaveIdempotencia') IS DISTINCT FROM 'string'
+ OR (s->>'ClaveIdempotencia' ~ '^[A-Za-z0-9][A-Za-z0-9._-]{15,63}$') IS NOT TRUE
+ OR jsonb_typeof(s->'CatalogoHuella') IS DISTINCT FROM 'string'
+ OR (s->>'CatalogoHuella' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+ OR jsonb_typeof(s->'VersionExpediente') IS DISTINCT FROM 'number'
+ OR (s->>'VersionExpediente' ~ '^[1-9][0-9]{0,15}$') IS NOT TRUE
+ OR jsonb_typeof(s->'PasoOrden') IS DISTINCT FROM 'number'
+ OR (s->>'PasoOrden' ~ '^[12]$') IS NOT TRUE THEN
+  RAISE EXCEPTION 'AD178: PARO clave=material actual=invalido esperado=consulta_R5_V2_exacta' USING ERRCODE='42501';
+ END IF;
+ version_actual:=(s->>'VersionExpediente')::numeric;
+ IF version_actual>9007199254740991 THEN
+  RAISE EXCEPTION 'AD178: PARO clave=version actual=fuera_rango esperado=entera_segura' USING ERRCODE='42501';
+ END IF;
+ material_h:=encode(sha256(p_material_consulta),'hex');
+ contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
+  '"},"atributos":{"material_sha256":"'||material_h||'"}}','UTF8')),'hex');
+ IF jsonb_typeof(p_consumo) IS DISTINCT FROM 'object'
+ OR (SELECT count(*) FROM jsonb_object_keys(p_consumo))<>7
+ OR NOT (p_consumo ?& ARRAY['decision_ref','efecto_ref','huella_efecto_sha256',
+  'consumo_huella_sha256','auditoria_ref','consumida_en','consumo_nuevo'])
+ OR p_consumo->'consumo_nuevo' IS DISTINCT FROM 'true'::jsonb
+ OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_consumo) AS k(nombre)
+  WHERE k.nombre<>'consumo_nuevo' AND jsonb_typeof(p_consumo->k.nombre) IS DISTINCT FROM 'string')
+ OR (p_consumo->>'decision_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,511}$') IS NOT TRUE
+ OR (p_consumo->>'auditoria_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,511}$') IS NOT TRUE
+ OR (p_consumo->>'consumo_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+ OR p_consumo->>'efecto_ref' IS DISTINCT FROM s->>'ExpedienteRef'
+ OR p_consumo->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h THEN
+  RAISE EXCEPTION 'AD178: PARO clave=consumo actual=invalido esperado=recuperacion_nueva_ligada' USING ERRCODE='42501';
+ END IF;
+ SELECT a.decision_ref,a.efecto_ref,a.huella_efecto_sha256,a.huella_decision_sha256 AS consumo_decision_sha256,
+  a.consumo_huella_sha256,a.consumida_en,u.auditoria_ref,u.registrada_en,
+  t.huella_decision_sha256,t.huella_capacidad_sha256,t.decision_canonica,t.capacidad_canonica,
+  a.xmin AS consumo_xmin,u.xmin AS auditoria_xmin INTO STRICT r
+ FROM vec_autorizacion_atestada_v3.consumo_decision_v3 a
+ JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 u
+  ON u.decision_ref=a.decision_ref AND u.efecto_ref=a.efecto_ref AND u.huella_efecto_sha256=a.huella_efecto_sha256
+ JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 t
+  ON t.decision_ref=a.decision_ref AND t.efecto_ref=a.efecto_ref AND t.huella_efecto_sha256=a.huella_efecto_sha256
+ WHERE a.decision_ref=p_consumo->>'decision_ref' FOR SHARE OF a,u,t;
+ ahora:=clock_timestamp();
+ IF r.efecto_ref IS DISTINCT FROM s->>'ExpedienteRef'
+ OR r.huella_efecto_sha256 IS DISTINCT FROM contexto_h
+ OR r.consumo_huella_sha256 IS DISTINCT FROM p_consumo->>'consumo_huella_sha256'
+ OR r.auditoria_ref IS DISTINCT FROM p_consumo->>'auditoria_ref'
+ OR r.consumida_en IS DISTINCT FROM (p_consumo->>'consumida_en')::timestamptz
+ OR r.registrada_en IS DISTINCT FROM r.consumida_en OR r.consumida_en>ahora
+ OR r.consumo_xmin IS DISTINCT FROM pg_current_xact_id()::xid
+ OR r.auditoria_xmin IS DISTINCT FROM pg_current_xact_id()::xid
+ OR r.huella_decision_sha256 IS DISTINCT FROM encode(sha256(r.decision_canonica),'hex')
+ OR r.consumo_decision_sha256 IS DISTINCT FROM r.huella_decision_sha256
+ OR r.huella_capacidad_sha256 IS DISTINCT FROM encode(sha256(r.capacidad_canonica),'hex') THEN
+  RAISE EXCEPTION 'AD178: PARO clave=filas actual=no_acreditadas esperado=consumo_auditoria_TX_actual' USING ERRCODE='42501';
+ END IF;
+ d:=convert_from(r.decision_canonica,'UTF8')::jsonb;c:=convert_from(r.capacidad_canonica,'UTF8')::jsonb;
+ IF jsonb_typeof(d) IS DISTINCT FROM 'object' OR jsonb_typeof(c) IS DISTINCT FROM 'object'
+ OR d->>'decision_ref' IS DISTINCT FROM r.decision_ref OR d->'concedida' IS DISTINCT FROM 'true'::jsonb
+ OR d->>'codigo' IS DISTINCT FROM 'concedida'
+ OR d->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firmas_r5_v2.recuperar'
+ OR c->>'operacion' IS DISTINCT FROM d->>'accion'
+ OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_contratacion_temporal.firmas_r5.recuperar.v2'
+ OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+ OR d->>'tipo_recurso' IS DISTINCT FROM 'expediente_contratacion_temporal'
+ OR d->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
+ OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
+ OR d->>'recurso_ref' IS DISTINCT FROM s->>'ExpedienteRef' OR c->>'efecto_ref' IS DISTINCT FROM s->>'ExpedienteRef'
+ OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM contexto_h
+ OR c->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h
+ OR c->>'huella_decision_sha256' IS DISTINCT FROM r.huella_decision_sha256
+ OR d->'campos_permitidos' IS DISTINCT FROM '["ByteRange","CanonNominal","CanonNominalRef","CanonNominalSHA256","CatalogoHuella","CatalogoRef","CertificadoHuella","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","ContenidoFirmadoHuellaSHA256","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","EntradaDocumentoHuella","EntradaDocumentoLongitud","EntradaDocumentoRef","EntradaDocumentoVersion","EvidenciaFirmasCanonica","EvidenciaFirmasHuellaSHA256","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaAnteriorRef","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","FirmanteRef","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","MaterialRootSHA256","OrdenFirmaPDF","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboAnteriorRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","RevisionHuellaSHA256","RevisionLongitud","Secuencia","SelloTiempoEstado","Via"]'::jsonb
+ OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+ OR jsonb_typeof(d->'principal_id') IS DISTINCT FROM 'string' OR d->>'principal_id'=''
+ OR jsonb_typeof(d->'perfil_activo_ref') IS DISTINCT FROM 'string' OR d->>'perfil_activo_ref'=''
+ OR jsonb_typeof(d->'valida_desde') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(d->'valida_hasta') IS DISTINCT FROM 'string'
+ OR (d->>'valida_desde')::timestamptz>ahora OR (d->>'valida_hasta')::timestamptz<=ahora THEN
+  RAISE EXCEPTION 'AD178: PARO clave=capacidad actual=no_acreditada esperado=recuperacion_R5_48_vigente' USING ERRCODE='42501';
+ END IF;
+ IF (d->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
+  RAISE EXCEPTION 'AD178: PARO clave=vigencia actual=caducada esperado=vigente_al_retornar' USING ERRCODE='42501';
+ END IF;
+ RETURN jsonb_build_object('organizacion_ref',s->>'OrganizacionRef','expediente_ref',s->>'ExpedienteRef',
+  'documento',s->>'Documento','version_expediente',version_actual,'decision_ref',r.decision_ref,
+  'consumo_huella_sha256',r.consumo_huella_sha256,'auditoria_ref',r.auditoria_ref,
+  'decision_valida_hasta',d->>'valida_hasta');
+EXCEPTION WHEN data_exception OR no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'AD178: PARO clave=material_o_filas actual=incompatible esperado=consumo_ligado_actual' USING ERRCODE='42501';
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_recuperacion_firmas_ct_v2(bytea,jsonb) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_autorizacion_propietario;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_recuperacion_firmas_ct_v2(bytea,jsonb) TO vec_autorizacion_propietario;
+DO $acl_helper$
+DECLARE f regprocedure:='vec_autorizacion_atestada_v3.comprobar_consumo_recuperacion_firmas_ct_v2(bytea,jsonb)'::regprocedure;
+ owner_id oid:='vec_autorizacion_atestada_v3_propietario'::regrole;
+ aut_id oid:='vec_autorizacion_propietario'::regrole;
+BEGIN
+ IF (SELECT p.proowner FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM owner_id
+ OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>2
+ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid=f AND (a.grantee NOT IN(owner_id,aut_id) OR a.grantor<>owner_id
+   OR a.privilege_type<>'EXECUTE' OR (a.grantee=aut_id AND a.is_grantable)))
+ OR NOT has_function_privilege(aut_id,f,'EXECUTE') THEN
+  RAISE EXCEPTION 'AD178: PARO clave=ACL_comprobador actual=divergente esperado=solo_AD_owner_AUT_owner' USING ERRCODE='55000';
+ END IF;
+END $acl_helper$;
+
 COMMIT;

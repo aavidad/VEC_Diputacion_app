@@ -58,6 +58,34 @@ lectura histórica autorizada que conserve los bytes originales. Recuperar una
 firma anterior no exige ni inventa un cargo actual de su firmante. E conserva el
 cotejo del canon recuperado contra la firma/PDF registrados y la raíz original.
 
+## Comprobador privado para AUT41
+
+El contrato de E añade
+`comprobar_consumo_recuperacion_firmas_ct_v2(material_consulta bytea, consumo jsonb)`.
+Devuelve únicamente organización, expediente, tipo documental, versión de
+expediente, decisión, huella del consumo, auditoría y vencimiento de la decisión.
+AUT recibe EXECUTE de la función y no recibe lectura de las tablas AD. CT liga
+por sus propias filas el tipo documental con la referencia del PDF histórico.
+
+El material conserva las diez claves de `MaterialConsultaFirmasR5V2.Canonico()`.
+La unidad es `null`; documento y versión quedan ligados dentro de sus bytes.
+No se añade un ámbito de unidad a la consulta. El SHA256 de los bytes originales
+se incluye en el contexto canónico de organización; la huella del efecto es la
+de ese contexto, como en CT172, y no el SHA256 del material aislado.
+
+La función relee y bloquea consumo, auditoría y atestación. Comprueba los siete
+valores del recibo contra las filas, las huellas de decisión y capacidad,
+acción/audiencia de recuperación, los 48 campos exactos y obligaciones vacías.
+Consumo y auditoría deben pertenecer al `xmin` de la transacción actual, según
+AD167. La atestación se bloquea y coteja sin añadir un requisito nuevo de `xmin`.
+El vencimiento se comprueba después de los bloqueos y antes del retorno.
+
+Esta ampliación sigue en preparación. No ejecuta una captura ni una lectura
+histórica por sí sola. Las seis guardas de instalación conservan sus `NULL` y
+siguen abortando antes del DDL. El contrato AUT41 se ha leído en `f2d6f5010` y
+el material Go en `0fa5bea482`; faltan la unión causal, el ensayo nominal y las
+revisiones del SQL final. No se ha instalado ni ejecutado este comprobador.
+
 ## Delta y cuarentena de instalación
 
 La migración añade una sola condición de recuperación junto al bloque de consulta
