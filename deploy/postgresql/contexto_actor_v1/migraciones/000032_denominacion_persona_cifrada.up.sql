@@ -231,6 +231,14 @@ BEGIN
  OR EXISTS(SELECT 1 FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND refobjid=l.oid)
  OR array_position(fs,NULL) IS NOT NULL
  OR NOT coalesce((SELECT count(*)=7 AND bool_and(deptype='a' AND objsubid=0 AND ((classid='pg_database'::regclass AND objid=db)OR(classid='pg_namespace'::regclass AND objid=ns)OR(classid='pg_proc'::regclass AND objid=ANY(fs))))FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND refobjid=g.oid),false)
+ -- pg_shdepend enumera objetos, no el privilegio ni su grant option.
+ OR NOT coalesce((SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable)FROM pg_database d CROSS JOIN LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba)))a WHERE d.oid=db AND a.grantee=g.oid),false)
+ OR NOT coalesce((SELECT count(*)=1 AND bool_and(a.privilege_type='USAGE' AND NOT a.is_grantable)FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner)))a WHERE n.oid=ns AND a.grantee=g.oid),false)
+ OR NOT coalesce((SELECT count(*)=5 AND count(DISTINCT p.oid)=5 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable)FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner)))a WHERE p.oid=ANY(fs) AND a.grantee=g.oid),false)
+ OR EXISTS(SELECT 1 FROM pg_database d CROSS JOIN LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba)))a WHERE d.oid=db AND a.grantee=l.oid)
+ OR EXISTS(SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner)))a WHERE n.oid=ns AND a.grantee=l.oid)
+ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner)))a WHERE p.oid=ANY(fs) AND a.grantee=l.oid)
+ OR has_schema_privilege(l.oid,ns,'CREATE') OR has_database_privilege(l.oid,db,'CREATE,TEMP')
  OR EXISTS(SELECT 1 FROM pg_default_acl d LEFT JOIN LATERAL aclexplode(coalesce(d.defaclacl,'{}'::aclitem[]))a ON true WHERE d.defaclrole IN(l.oid,g.oid) OR a.grantee IN(l.oid,g.oid)OR a.grantor IN(l.oid,g.oid))
  OR EXISTS(SELECT 1 FROM pg_policy WHERE l.oid=ANY(polroles) OR g.oid=ANY(polroles))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec\_%' ESCAPE '\' AND c.relkind IN('r','p','v','m','S') AND (has_table_privilege(l.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')OR has_any_column_privilege(l.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))

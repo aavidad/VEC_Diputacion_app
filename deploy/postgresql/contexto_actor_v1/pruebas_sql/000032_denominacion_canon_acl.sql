@@ -18,4 +18,84 @@ BEGIN
  END LOOP;
  IF has_table_privilege(runtime,'vec_contexto_actor_v1.denominacion_persona_version_v1','SELECT,INSERT,UPDATE,DELETE,TRUNCATE') THEN RAISE EXCEPTION 'runtime con tabla';END IF;
 END $canon$;
+-- Negativas de ACL sobre los MISMOS objetos: el número de dependencias no
+-- cambia con CREATE/TEMP ni WITH GRANT OPTION. No se fabrican fuentes V3.
+CREATE ROLE vec_prueba_ca32_acl LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_persona_denominacion_ejecutor TO vec_prueba_ca32_acl WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+SELECT vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+RESET SESSION AUTHORIZATION;
+SAVEPOINT esquema_create;
+GRANT CREATE ON SCHEMA vec_contexto_actor_v1 TO vec_persona_denominacion_ejecutor;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT esquema_create;
+SAVEPOINT esquema_grant_option;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO vec_persona_denominacion_ejecutor WITH GRANT OPTION;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT esquema_grant_option;
+SAVEPOINT db_create;
+DO $grant$BEGIN EXECUTE format('GRANT CREATE ON DATABASE %I TO vec_persona_denominacion_ejecutor',current_database());END $grant$;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT db_create;
+SAVEPOINT db_temp;
+DO $grant$BEGIN EXECUTE format('GRANT TEMP ON DATABASE %I TO vec_persona_denominacion_ejecutor',current_database());END $grant$;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT db_temp;
+SAVEPOINT db_grant_option;
+DO $grant$BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_persona_denominacion_ejecutor WITH GRANT OPTION',current_database());END $grant$;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT db_grant_option;
+SAVEPOINT funcion_grant_option;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1()TO vec_persona_denominacion_ejecutor WITH GRANT OPTION;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT funcion_grant_option;
+SAVEPOINT login_acl_directa;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO vec_prueba_ca32_acl;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+DO $rechazo$BEGIN
+ BEGIN PERFORM vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+  RAISE EXCEPTION 'CA32: vector_acl_admitido';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $rechazo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT login_acl_directa;
+SET SESSION AUTHORIZATION vec_prueba_ca32_acl;
+SELECT vec_contexto_actor_v1.acreditar_runtime_denominacion_persona_v1();
+RESET SESSION AUTHORIZATION;
 ROLLBACK;

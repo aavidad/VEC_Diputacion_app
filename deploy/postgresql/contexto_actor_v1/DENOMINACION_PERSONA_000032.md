@@ -102,7 +102,12 @@ consumidor todavía requiere su composición real y los permisos de AUT42.
 El LOGIN del pool sólo hereda `vec_persona_denominacion_ejecutor`, con
 `ADMIN FALSE`, `INHERIT TRUE` y `SET FALSE`. El grupo tiene CONNECT, USAGE en CA y
 las cinco fachadas de runtime; carece de acceso a tablas y a los helpers privados.
-No se cambia de rol dentro de las transacciones del adaptador.
+No se cambia de rol dentro de las transacciones del adaptador. Además de los
+objetos de `pg_shdepend`, la guarda exige las ACL exactas: un CONNECT, un USAGE
+y cinco EXECUTE sin grant option. El LOGIN no tiene ACL directas y tampoco
+CREATE en el esquema ni CREATE/TEMP efectivos en la base. Los vectores nuevos
+añaden esos privilegios o grant option sobre los mismos objetos y comprueban
+el rechazo dentro de ROLLBACK; quedan preparados, sin ejecución PostgreSQL.
 
 La búsqueda del puerto se mantiene cerrada. La búsqueda de nombres con filtros
 compuestos, la lectura histórica explícita y la rotación operativa quedan para
