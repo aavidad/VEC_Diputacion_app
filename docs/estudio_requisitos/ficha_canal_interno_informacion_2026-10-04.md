@@ -36,7 +36,7 @@ La [Ley 2/2023](https://www.boe.es/eli/es/l/2023/02/20/2/con), arts. 2–3, deli
 | Compartimento | Regla que debe materializarse |
 | --- | --- |
 | Sistema de recepción | Art. 32.3: solo tiempo imprescindible para decidir investigar. Art. 32.4: a los tres meses desde recepción sin investigación, supresión, salvo evidencia del funcionamiento; lo no tramitado, anonimizado y sin bloqueo LOPDGDD. |
-| Investigación separada | Art. 32.4 permite continuar fuera del Sistema por el órgano competente, sin obligación de mantener allí la comunicación. Conservación necesaria conforme al expediente legal correspondiente. |
+| Investigación separada | Los accesos y comunicaciones habilitados por arts. 32.1–2 y el límite de finalidad de art. 32.3 requieren separar el expediente que tramite el órgano competente. Es un requisito de diseño: su conservación depende de la base y normativa de ese expediente, sin atribuir al art. 32.4 una autorización general de conservación. |
 | Libro-registro reservado | Art. 26: necesario/proporcionado, máximo de diez años; acceso judicial en sus términos. Ese máximo no impone diez años a cada dato. |
 
 El [reglamento provincial](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1751497250139-final-40f10e71-1.pdf), apartados 11–13, distingue registro, anonimización y protección, pero el 13 formula la eliminación a los tres meses posteriores al archivo o tras proceso judicial. Esa formulación no puede retrasar la supresión exigida por el art. 32 de la ley. Antes de cualquier integración, DPD y Responsable documentarán cómo se separan recepción, investigación, custodia legal y copias; VEC no codificará el plazo provincial como conservación indiscriminada.
