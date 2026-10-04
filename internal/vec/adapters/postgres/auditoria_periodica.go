@@ -51,6 +51,9 @@ func (f *FuenteCheckpointPeriodicoPostgreSQL) ConfigurarCheckpointPeriodico(ctx 
 		Acuse   acusePeriodicoSQL `json:"acuse"`
 	}
 	err := configurador.operar(ctx, "configurar_sello_periodico_v1", `SELECT vec_autorizacion_atestada_v3.configurar_sello_periodico_v1($2::jsonb,$3::text,$1::text)`, &r, string(configuracion), preimagen)
+	if err != nil {
+		return 0, "", err
+	}
 	return r.Version, r.Huella, err
 }
 
@@ -112,6 +115,9 @@ func (f *FuenteCheckpointPeriodicoPostgreSQL) ConfirmarCheckpoint(ctx context.Co
 	var a acusePeriodicoSQL
 	// $1 siempre es la correlación emitida por el contexto privado del proceso.
 	err = f.operar(ctx, "confirmar_sello_periodico_v1", `SELECT vec_autorizacion_atestada_v3.confirmar_sello_periodico_v1($2::text,$3::text,$4::text,$1::text)`, &a, ref, string(raw), domain.HuellaCheckpoint(raw))
+	if err != nil {
+		return ports.AcuseCheckpointPeriodico{}, err
+	}
 	return a.puerto(), err
 }
 

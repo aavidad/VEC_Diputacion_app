@@ -8,12 +8,38 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type poolPeriodicoPrueba struct {
 	txs    []*txPeriodicoPrueba
 	usados int
+}
+
+func TestPeriodicoConfirmacionYConfiguracionNoEntreganDatosConCommitIncierto(t *testing.T) {
+	ctx, _ := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	for _, modo := range []string{"confirmar", "configurar"} {
+		t.Run(modo, func(t *testing.T) {
+			tx := &txPeriodicoPrueba{raw: []byte(`{"auditoria_ref":"aud_v3_per_sintetico","secuencia":2,"configuracion_version":1,"configuracion_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`), commitErr: errors.New("respuesta_perdida")}
+			p := &poolPeriodicoPrueba{txs: []*txPeriodicoPrueba{tx}}
+			f := &FuenteCheckpointPeriodicoPostgreSQL{pool: p, maxRegistros: 10}
+			if modo == "configurar" {
+				v, h, err := f.ConfigurarCheckpointPeriodico(ctx, []byte(`{}`), strings.Repeat("0", 64))
+				if !errors.Is(err, ErrCheckpointPeriodicoCommitIndeterminado) || v != 0 || h != "" {
+					t.Fatal("configuración indeterminada no puede entregar datos de éxito")
+				}
+				return
+			}
+			c := domain.CheckpointDesarrollo{Esquema: domain.EsquemaCheckpointDesarrollo, Politica: domain.PoliticaCheckpoint{Version: 1, PoliticaRef: "politica:sintetica", PoliticaVersion: 1, ClaveRef: "clave:sintetica", ClaveVersion: 1, ProveedorKMS: "kms:sintetico", ProveedorKMSVersion: 1, ProveedorTSA: "tsa:sintetico", ProveedorTSAVersion: 1, OperacionTSA: "operacion:sintetica", Modo: "DESARROLLO"}, Cobertura: domain.CoberturaCheckpoint{CadenaID: "cadena:sintetica", PrimeraSecuencia: 1, UltimaSecuencia: 1, Registros: 1, AnteriorSHA256: strings.Repeat("0", 64), CabezaSHA256: strings.Repeat("a", 64)}}
+			b, _ := c.Canonico()
+			r := domain.ReciboCheckpointDesarrollo{Checkpoint: c, PinSPKISHA256: strings.Repeat("b", 64), TSA: domain.ReciboTSACheckpoint{Referencia: "tsa-desarrollo:hmac-sha256:" + strings.Repeat("c", 64), HuellaPreimagenSHA256: strings.Repeat("d", 64), HuellaCheckpointSHA256: domain.HuellaCheckpoint(b), Autoridad: "no_autoritativo", Esquema: "vec.tsa.desarrollo.v1"}, FirmaBase64: "fixture-unitaria"}
+			a, err := f.ConfirmarCheckpoint(ctx, "captura_sintetica", r)
+			if !errors.Is(err, ErrCheckpointPeriodicoCommitIndeterminado) || a != (ports.AcuseCheckpointPeriodico{}) {
+				t.Fatal("confirmación indeterminada no puede entregar acuse")
+			}
+		})
+	}
 }
 
 func (p *poolPeriodicoPrueba) BeginTx(ctx context.Context, o pgx.TxOptions) (pgx.Tx, error) {
