@@ -48,7 +48,11 @@ BEGIN
   OR p_capacidad IS NULL OR octet_length(p_capacidad) NOT BETWEEN 1 AND 65536
   OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288 THEN
   RAISE EXCEPTION 'lectura V2 inválida' USING ERRCODE='22023'; END IF;
- s:=p_solicitud::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ BEGIN
+  s:=p_solicitud::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'material de recuperación inválido' USING ERRCODE='22023';
+ END;
  IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY['OrganizacionRef','ExpedienteRef','VersionExpediente',
    'Documento','FirmantePrincipalCandidatoRef','ClaveIdempotencia','PasoOrden','CatalogoHuella','Via','UnidadRef']) IS NOT TRUE
   OR (SELECT count(*) FROM json_each(p_solicitud::json))<>(SELECT count(*) FROM jsonb_each(s))
