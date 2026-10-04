@@ -1099,6 +1099,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
 		}
+		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil || alta.postgresql.bolsa == nil {
+			return nil, nil, nil, errMiBolsaNoDisponible
+		}
 		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), 30*time.Second)
 		reservadosIntentosBolsa := []string{
 			alta.postgresql.gobierno.Config().ConnConfig.User,
