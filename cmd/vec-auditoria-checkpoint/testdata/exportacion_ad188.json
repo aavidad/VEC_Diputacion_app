@@ -1,0 +1,40 @@
+{
+  "esquema": "vec.auditoria.verificacion.gobierno-usuarios-admin.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:comun:interna",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 1,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "d8e2f7c86bac7e375fd7192fdd72467035570e8152e2d287516f81f6a903530a",
+    "registros": 1
+  },
+  "registros": [
+    {
+      "tipo_registro": "gobierno_usuarios_admin",
+      "gobierno_usuarios": {
+        "auditoria_ref": "aud_v3_gu_11111111111111111111111111111111",
+        "secuencia": 1,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "registrada_en": "2026-10-04T08:30:00.000000Z",
+        "evento_ref": "evento_11111111111111111111111111111111",
+        "operador_login": "vec_admin_gobierno_ensayo",
+        "accion": "aprovisionar_gobierno_usuarios_admin_v1",
+        "modulo_id": "administracion",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "gobierno_usuarios_admin",
+        "correlacion_ref": "correlacion_22222222222222222222222222222222",
+        "resultado": "permitido",
+        "motivo_ref": "gobierno_usuarios_registrado",
+        "recurso_ref": "gobierno_usuarios:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "plan_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "preimagen_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configuracion_origen_ref": "confianza:atestacion:ct:desarrollo:2026-10-02",
+        "configuracion_destino_ref": "confianza:atestacion:ct:desarrollo:2026-10-04",
+        "claves_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "evento_material_sha256": "6a9bd5aa10f2ed572142c9f05d63fa42c268d183d0450823aca499a2d4680b29",
+        "huella_sha256": "d8e2f7c86bac7e375fd7192fdd72467035570e8152e2d287516f81f6a903530a"
+      }
+    }
+  ]
+}
