@@ -5,9 +5,10 @@ la selección vigente de CA31. No concede perfiles ni cambia el núcleo V2.
 Requiere IS14/15, CA31 y la familia de auditoría AD192. CA36 consume después el
 vínculo desde su propietario, con otro LOGIN y pool.
 
-La migración está reservada. Esta entrega prepara SQL, adaptador y pruebas;
-no acredita instalación, recuperación PostgreSQL ni recorrido HTTP. Sólo se
-instala tras las dos revisiones del mismo candidato y el ensayo de Dirección.
+El candidato IS16 tiene dos revisiones independientes. Su estructura se instaló
+una vez en el clon aislado
+el 4 de octubre de 2026. Aún no hay recuperación con una sesión real ni
+recorrido HTTP acreditados.
 
 ## Contratos y permisos
 
@@ -88,8 +89,8 @@ ampliar puertos generales ni aceptar datos de la petición HTTP.
 Las pruebas focales Go cubren discrepancias de las tres huellas, coordenadas y
 fuente; acuses ajenos/incompletos/futuros; JSON con claves repetidas o ajenas;
 y redacción de identificadores. Usan dobles aislados del contrato, no una
-sesión productiva. El vector SQL comprueba ACL y ausencia bajo ambas transacciones;
-su ejecución queda pendiente del ensayo autorizado.
+sesión productiva. El vector SQL de ACL y ausencia bajo ambas transacciones
+terminó con salida 0 en el clon.
 
 El ensayo PostgreSQL del replay sigue pendiente. Con un vínculo real, debe
 retener el cerrojo `vec:is16:sesion:<sesion_ref>`, iniciar el replay exacto y
@@ -104,33 +105,29 @@ la retoma un nuevo juego sintético por el circuito oficial de fuentes,
 titularidad, huellas y CAS, con sus originales guardados en un fixture privado.
 Todavía no se ha generado. El proveedor actual permanece cerrado.
 
-## Resultado del ensayo del 4 de octubre de 2026
+## Resultado estructural del 4 de octubre de 2026
 
 El código `2d24894cf56b2a08aa55a45439b2b1c4e387c95f` y SQL SHA256
 `2f88dafdcf8f2a6038cb42bc5879bc5b143f23e240184b6c040352e721bd5c92`
 recibieron dos GO exactos. Las pruebas focales y race, vet y Semgrep local pasan.
 
-AD192 se instaló con un COMMIT y sus dos vectores del productor terminaron
-correctamente. Core, ACL y los otros CHECK permanecieron idénticos; se
-conservaron las 6.254 filas de auditoría, su huella completa y la cabeza de cadena.
-Ese ensayo acredita instalación y ACL, no un append positivo de sesión real.
+El frío posterior a AD192 se restauró en un clon aislado. CA31 e IS14 se
+instalaron una vez, en ese orden, y sus fachadas quedaron disponibles. Después,
+IS16 con el SQL indicado arriba terminó su UP con salida 0. El vector
+`runtime_admin_000016_acl.sql` también terminó con salida 0. CA36 se instaló
+después y pasó su vector de ACL; estos resultados no corresponden a la base
+principal.
 
-IS16 quedó sin instalar. El preflight encontró dos interfaces v1 ausentes:
+Antes y después de las migraciones se conservaron las 6.254 filas de auditoría,
+su huella completa y la cabeza de cadena. El núcleo de auditoría AD192 mantuvo
+la huella de fuente `b7eb48be035e854928c9685c916f9139166a197e3cae731510b3597f0fe40a45`;
+el CHECK `auditoria_tipo_disjunto_v4` mantuvo
+`0f6d15ebdc61ba5ff67903bde824db878a6396fa593029e98498946e2d8d1331`.
+No se reaplicó AD192 ni se ejecutó DOWN.
 
-```text
-IS14: resolver_identidad_admin_perfiles_propietaria_v1(
-  text,text,text,text,text,timestamptz,timestamptz)
-CA31: listar_admin_preperfil_propietaria_v1(text,text,text)
-```
-
-Se lanzó el UP pese a esos dos resultados negativos. La guarda lo rechazó con
-`preimagen incompatible` antes de crear rol o tablas y la conexión revirtió la
-transacción. Después se comprobó que los objetos IS16 seguían ausentes y que
-historia y metadatos eran idénticos. CA36 no se instaló ni se intentó.
-
-El clon quedó en una copia fría privada con dump, ACL globales y manifiesto;
-todos los archivos del tar se cotejaron por SHA256 con el cluster detenido.
-El contenedor y sus datos temporales se retiraron. Actas, configuración,
-fixtures, fuentes privadas y fríos anteriores se conservan fuera de Git.
-La retoma requiere coordinar la restauración y resolver estas dependencias;
-no repetir AD192 ni crear fachadas sustitutivas.
+El ensayo acreditó estructura y ACL. No creó un vínculo favorable con sesión
+real ni un nuevo evento nominal. Las identidades originales no se reconstruyen:
+falta un nuevo juego sintético por el circuito oficial de fuentes y bootstrap,
+con originales privados en modo 0600 y asignaciones vigentes. Las anteriores
+han caducado. Quedan pendientes el ensayo de espera y replay con sesión real,
+los LOGIN y pools segregados, la garantía alta, PDP y el montaje ADMIN.
