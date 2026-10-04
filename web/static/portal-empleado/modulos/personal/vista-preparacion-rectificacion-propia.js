@@ -1,5 +1,5 @@
-import { crearPreparacionRectificacionPropia } from "./preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v1";
-import { traducirPreparacionRectificacion as t } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v1";
+import { crearPreparacionRectificacionPropia } from "./preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
+import { traducirPreparacionRectificacion as t } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
 import { formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 
 const nodo = (d, tipo, texto) => { const n = d.createElement(tipo); if (texto !== undefined) n.textContent = texto; return n; };

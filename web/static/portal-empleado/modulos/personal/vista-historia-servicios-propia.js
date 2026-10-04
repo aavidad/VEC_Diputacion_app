@@ -1,7 +1,7 @@
 import { intervaloHistoriaServiciosValido, validarRespuestaHistoriaServicios } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
 import { traducirHistoriaServicios as t, formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=20261004-personal-historia-v1";
-import { montarPreparacionRectificacionPropia } from "./vista-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v1";
-import { traducirPreparacionRectificacion as tRevision } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v1";
+import { montarPreparacionRectificacionPropia } from "./vista-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
+import { traducirPreparacionRectificacion as tRevision } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
 
 function nodo(d, tipo, texto, clase) {
   const elemento = d.createElement(tipo);
@@ -70,7 +70,7 @@ export function montarVistaHistoriaServiciosPropia({ raiz, cliente, registrarDes
   formulario.append(consultar, cancelar);
   const resultado = nodo(d, "div", undefined, "personal-ficha-tabla-conjunto"); resultado.dataset.personalHistoriaResultado = ""; resultado.setAttribute("aria-live", "polite"); resultado.setAttribute("tabindex", "-1");
   resultado.append(mensaje(d, disponible ? "sin_consulta" : "no_configurado"));
-  const borrador = nodo(d, "div"); borrador.dataset.personalRevisionContenedor = "";
+  const borrador = nodo(d, "div", undefined, "personal-ficha-tabla-conjunto"); borrador.dataset.personalRevisionContenedor = "";
   cuerpo.append(formulario, errorFechas, resultado); panel.append(cabecera, cuerpo); raiz.append(panel, borrador);
   let activa = true, turno = 0, vuelo, preparacion;
   const limpiarPreparacion = () => { preparacion?.desmontar(); preparacion = undefined; borrador.replaceChildren(); };
