@@ -140,7 +140,11 @@ func proyectarRecuperacionesSQL175(m ports.MaterialConsultaFirmasR5V2, base port
 			return nil, ports.ErrResultadoFirmaDocumentoInvalido
 		}
 		canon, err := vecdomain.RecuperarCanonCompetenciaFirmanteHistoricaV1([]byte(v.CanonNominal), v.CanonNominalSHA256)
-		if err != nil || canon.Recurso.OrganizacionRef != m.OrganizacionRef || canon.Recurso.ExpedienteRef != m.ExpedienteRef ||
+		if err != nil {
+			return nil, errors.Join(ports.ErrResultadoFirmaDocumentoInvalido, err)
+		}
+		if canon.Recurso.ModuloID != ports.ModuloContratacion ||
+			canon.Recurso.OrganizacionRef != m.OrganizacionRef || canon.Recurso.ExpedienteRef != m.ExpedienteRef ||
 			canon.Recurso.DocumentoRef != revision.OriginalRef ||
 			canon.Recurso.Original.Referencia != revision.OriginalRef || canon.Recurso.Original.Version != revision.OriginalVersion ||
 			canon.Recurso.Original.HuellaSHA256 != revision.OriginalHuella ||
@@ -149,7 +153,12 @@ func proyectarRecuperacionesSQL175(m ports.MaterialConsultaFirmasR5V2, base port
 			canon.PasoRef != revision.PasoRef || !ordenRecuperacionCoincide(canon.PasoOrden, revision.PasoOrden) ||
 			!ordenRecuperacionCoincide(canon.Recurso.NumeroFirmas, revision.OrdenFirmaPDF) ||
 			canon.Circuito.Referencia != revision.CatalogoRef || canon.Circuito.HuellaSHA256 != revision.CatalogoHuella ||
-			!canon.FechaHistorica.Equal(revision.RegistradaEn) {
+			!canon.FechaHistorica.Equal(revision.RegistradaEn) ||
+			(revision.OrdenFirmaPDF == 1 && canon.Recurso.EntradaRevision != nil) ||
+			(revision.OrdenFirmaPDF == 2 && (canon.Recurso.EntradaRevision == nil ||
+				canon.Recurso.EntradaRevision.Referencia != revision.EntradaDocumentoRef ||
+				canon.Recurso.EntradaRevision.Version != revision.EntradaDocumentoVersion ||
+				canon.Recurso.EntradaRevision.HuellaSHA256 != revision.EntradaDocumentoHuella)) {
 			return nil, ports.ErrResultadoFirmaDocumentoInvalido
 		}
 		vistos[v.FirmaRef] = true

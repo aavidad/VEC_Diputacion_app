@@ -117,11 +117,27 @@ func TestRecuperacionPGDeniegaCapacidad44YMaterialAjenoAntesDeBegin(t *testing.T
 }
 
 func TestRecuperacionPGRevierteCommitInciertoYCanonManipulado(t *testing.T) {
-	for _, caso := range []string{"commit", "canon", "campo"} {
+	for _, caso := range []string{"commit", "canon", "campo", "modulo"} {
 		t.Run(caso, func(t *testing.T) {
 			m, w := fixtureRecuperacionSQL175(t)
 			if caso == "canon" {
 				w.Recuperaciones[0].CanonNominalSHA256 = strings.Repeat("0", 64)
+			}
+			if caso == "modulo" {
+				original, err := vd.RecuperarCanonCompetenciaFirmanteHistoricaV1([]byte(w.Recuperaciones[0].CanonNominal),
+					w.Recuperaciones[0].CanonNominalSHA256)
+				if err != nil {
+					t.Fatal(err)
+				}
+				original.Recurso.ModuloID = "modulo_ajeno"
+				original.Competencia.ModuloID = "modulo_ajeno"
+				canon, err := original.Canonico()
+				if err != nil {
+					t.Fatal(err)
+				}
+				huella := sha256.Sum256(canon)
+				w.Recuperaciones[0].CanonNominal = string(canon)
+				w.Recuperaciones[0].CanonNominalSHA256 = hex.EncodeToString(huella[:])
 			}
 			b, err := json.Marshal(w)
 			if err != nil {
@@ -139,6 +155,9 @@ func TestRecuperacionPGRevierteCommitInciertoYCanonManipulado(t *testing.T) {
 			l, err := r.RecuperarFirmasAutorizadasV2(context.Background(), m, capacidadRecuperacionFirmaV2Prueba(t, m, ports.CamposRecuperacionFirmasV2()))
 			if err == nil || len(l.Recuperaciones) != 0 || tx.rollbacks != 1 || (caso != "commit" && tx.commits != 0) {
 				t.Fatalf("lectura incorrecta tras fallo: %v", err)
+			}
+			if caso == "canon" && !errors.Is(err, vd.ErrCanonCompetenciaFirmanteHistoricaV1Invalido) {
+				t.Fatal("se perdió la causa del validador común")
 			}
 		})
 	}
