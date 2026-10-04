@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"reflect"
@@ -74,7 +75,17 @@ func (a *Adaptador) transaccion(ctx context.Context, usar func(pgx.Tx) error) er
 	if _, e = tx.Exec(ctx, `SET LOCAL timezone='UTC'; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SET LOCAL lock_timeout='2s'`); e != nil {
 		return ErrNoDisponible
 	}
-	if e = usar(tx); e != nil || ctx.Err() != nil {
+	e = usar(tx)
+	if ctx.Err() != nil {
+		return ErrNoDisponible
+	}
+	if e != nil {
+		// Sólo el rechazo explícito del cuerpo SQL es una denegación.
+		// BEGIN, preparación y COMMIT conservan resultado no disponible.
+		var pg *pgconn.PgError
+		if errors.As(e, &pg) && pg.Code == "42501" {
+			return domain.ErrAutorizacionDenegada
+		}
 		return ErrNoDisponible
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -183,7 +194,16 @@ func (a *Adaptador) PublicarDenominacionPersona(ctx context.Context, o ports.Ord
 		}
 		return nil
 	})
-	if e != nil {
+	return resultadoPublicacion(x, e)
+}
+
+// Un recibo provisional nunca sale cuando el COMMIT no quedó confirmado.
+// La clasificación se limita al rechazo nominal que transaccion ya identificó.
+func resultadoPublicacion(x reciboJSON, err error) (ports.ReciboDenominacionPersona, error) {
+	if err != nil {
+		if errors.Is(err, domain.ErrAutorizacionDenegada) {
+			return ports.ReciboDenominacionPersona{}, domain.ErrAutorizacionDenegada
+		}
 		return ports.ReciboDenominacionPersona{}, ErrNoDisponible
 	}
 	return ports.ReciboDenominacionPersona{PersonaRef: x.PersonaRef, ProcedenciaRef: x.ProcedenciaRef, SobreSHA256: x.SobreSHA256, AuditoriaRef: x.AuditoriaRef, Version: x.Version}, nil
