@@ -130,6 +130,10 @@ LOGIN configurado; verificar lee un tramo contiguo de la cadena técnica real. L
 no abren PostgreSQL. `VEC_GOBIERNO_USUARIOS_LAB_CONFIG` activa por separado el
 setup DEV, con autorización explícita y SHA de plan/configuración;
 `TestGobiernoUsuariosCoexistenciaCTPrivado` sólo consulta el helper CT.
+El setup reserva semilla y acta con O_EXCL antes de abrir PostgreSQL; una salida
+existente se rechaza sin alterar el gobierno. La semilla se escribe y sincroniza
+antes del efecto; el descriptor del acta reservado se completa tras COMMIT.
+Las negativas de colisión se comprueban sin PostgreSQL.
 Las filas históricas se conservan.
 
 ## Comprobación focal de código y seguridad

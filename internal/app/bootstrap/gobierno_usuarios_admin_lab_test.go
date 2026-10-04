@@ -59,6 +59,15 @@ func TestGobiernoUsuariosRootDEVSetupPrivado(t *testing.T) {
 			t.Fatal("setup_salida_no_privada")
 		}
 	}
+	var semillaSalida, actaSalida *os.File
+	if cfg.Fase == "aplicar" {
+		semillaSalida, actaSalida, err = reservarSalidasSetupRootDEV(rootSalida)
+		if err != nil {
+			t.Fatal("setup_salida_existente_o_no_privada")
+		}
+		defer semillaSalida.Close()
+		defer actaSalida.Close()
+	}
 	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, cfg.DSNPropietario)
 	if err != nil {
@@ -145,6 +154,12 @@ func TestGobiernoUsuariosRootDEVSetupPrivado(t *testing.T) {
 	if pre2 != p.PreimagenSHA256 || sig2 != p.SPIAnteriorSHA256 || count2 != p.AuditoriaEsperada || !(relojGobiernoUsuariosEnsayo{}).Ahora().Before(p.CaducaEn) {
 		t.Fatal("setup_CAS_distinto")
 	}
+	if _, err = semillaSalida.Write(dev.privada.Seed()); err != nil {
+		t.Fatal("setup_semilla_no_escrita")
+	}
+	if err = semillaSalida.Sync(); err != nil {
+		t.Fatal("setup_semilla_no_durable")
+	}
 	if publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, &dev) != nil {
 		t.Fatal("setup_publicador_existente_rechaza")
 	}
@@ -155,13 +170,17 @@ func TestGobiernoUsuariosRootDEVSetupPrivado(t *testing.T) {
 	if tx.Commit(ctx) != nil {
 		t.Fatal("setup_COMMIT_indeterminado")
 	}
-	escribir("semilla-root-dev.bin", dev.privada.Seed())
 	acta := map[string]any{"setup_lab_explicito": true, "no_root_principal": true, "autorizacion_ref": cfg.AutorizacionRef, "plan_sha256": cfg.PlanAprobadoSHA256, "preimagen_sha256": p.PreimagenSHA256, "spki_anterior_sha256": p.SPIAnteriorSHA256, "spki_dev_sha256": dev.spkiHuella, "root_clave_id": dev.claveID, "root_version": dev.claveVersion, "gobierno_ref": dev.configuracionRef, "gobierno_secuencia": dev.configuracionOrden, "gobierno_sha256": dev.configuracionHuella, "auditoria_antes": count, "auditoria_despues": countFinal, "publicador": "publicarGobiernoAtestacionCTEnTxDesarrollo"}
 	b, err := json.Marshal(acta)
 	if err != nil {
 		t.Fatal("setup_acta_invalida")
 	}
-	escribir("acta-setup-root-dev.json", b)
+	if _, err = actaSalida.Write(b); err != nil {
+		t.Fatal("setup_acta_no_escrita")
+	}
+	if err = actaSalida.Sync(); err != nil {
+		t.Fatal("setup_acta_no_durable")
+	}
 }
 
 // El publicador ADMIN no puede hacer que CT seleccione una clave ajena.
@@ -196,5 +215,58 @@ func TestGobiernoUsuariosCoexistenciaCTPrivado(t *testing.T) {
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal("coexistencia_commit_ausente")
+	}
+}
+
+// Reservar ambas salidas antes de conectar evita cambiar el gobierno cuando
+// alguna evidencia ya existe. El descriptor del acta se completa tras COMMIT.
+func reservarSalidasSetupRootDEV(root *os.Root) (*os.File, *os.File, error) {
+	if root == nil {
+		return nil, nil, ErrGobiernoUsuariosAdmin
+	}
+	acta, err := root.OpenFile("acta-setup-root-dev.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return nil, nil, ErrGobiernoUsuariosAdmin
+	}
+	semilla, err := root.OpenFile("semilla-root-dev.bin", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		cerrar := acta.Close()
+		retirar := root.Remove("acta-setup-root-dev.json")
+		if cerrar != nil || retirar != nil {
+			return nil, nil, ErrGobiernoUsuariosAdmin
+		}
+		return nil, nil, ErrGobiernoUsuariosAdmin
+	}
+	return semilla, acta, nil
+}
+
+func TestGobiernoUsuariosRootDEVReservaAntesEfectoSinPG(t *testing.T) {
+	for _, nombre := range []string{"semilla-root-dev.bin", "acta-setup-root-dev.json"} {
+		t.Run(nombre, func(t *testing.T) {
+			d := t.TempDir()
+			if os.Chmod(d, 0700) != nil {
+				t.Fatal("setup_directorio_invalido")
+			}
+			if os.WriteFile(filepath.Join(d, nombre), []byte("original"), 0600) != nil {
+				t.Fatal("setup_fixture_invalido")
+			}
+			root, err := AbrirRaizPrivadaDenominacionPersona(filepath.Join(d, nombre))
+			if err != nil {
+				t.Fatal("setup_root_invalido")
+			}
+			defer root.Close()
+			semilla, acta, err := reservarSalidasSetupRootDEV(root)
+			if err == nil || semilla != nil || acta != nil {
+				t.Fatal("setup_salida_existente_aceptada")
+			}
+			original, err := os.ReadFile(filepath.Join(d, nombre))
+			if err != nil || string(original) != "original" {
+				t.Fatal("setup_evidencia_original_alterada")
+			}
+			entradas, err := os.ReadDir(d)
+			if err != nil || len(entradas) != 1 {
+				t.Fatal("setup_reserva_parcial_conservada")
+			}
+		})
 	}
 }
