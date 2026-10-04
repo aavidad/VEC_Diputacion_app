@@ -87,7 +87,7 @@ turno de su custodio; ningún corte autoriza tomarlos de otro equipo.
 | F00 · inventario | Revalidar SHA, PR integradas, contratos y FIN; señalar solo deuda restante. | Este plan, durante su turno documental. | Origin/main y seguimiento vigente; no repetir #312/#313/RUM. | 1–2 |
 | F01 · H02 | Acuerdo de fuente/versiones, destino por acción, campos y funciones conservadas. Derivación informativa si solo hay URL. | Contrato documentado junto al adaptador; actualización de `fuentes.json` si procede. | RRHH/Formación/Sistemas; dudas 119/138; aprobación de lectura separada de API. | 2–4 |
 | F02 · B1 | Consumidor nominal y auditoría común con una consulta/CLI focal que permite o deniega el recurso exacto. | Nuevos `formacion/ports/{autorizacion,auditoria}.go`; consumidor propio; composición por custodio. | F01 y ABI/configuración auténticos de K/L; perfiles fijos, ningún permiso por petición. | 6–10 |
-| F03 · B2/B3 | Correspondencia curso/edición/persona/organización versionada, con conflicto o ausencia explicados en consulta. | Contrato mínimo en `formacion/ports/`; adaptador de correspondencia propio. | F01; B produce contexto/relación y M organización. No escribir sus tablas. | 2–4 |
+| F03 · B2/B3 | Correspondencia curso/edición/persona/organización versionada, con conflicto o ausencia explicados en consulta. | Contrato mínimo en `formacion/ports/`; adaptador de correspondencia propio. | F01/F02 antes de consultar datos personales; B produce contexto/relación y M organización. El acuerdo de códigos/DTO puede avanzar sin datos. No escribir sus tablas. | 2–4 |
 | F04 · H03/H04 | Puerto, adaptador admitido y consumidor CLI de catálogo/detalle; vacío/error identificables. | `formacion/ports/catalogo.go`, `adapters/corporativo/`; CLI propia que reutiliza preparación. | F01; lectura pública expresamente admitida o F02/F03 para datos restringidos. No inferir API. | 4–6 |
 | F05 · H04 | Catálogo/detalle en vista VEC y continuación oficial con estados claros ES/EN. | Vista/cliente propios de Formación, catálogos ES/EN; montaje cedido por custodio. | F04; registro real, frontera y revisión independiente de usabilidad. | 2–6 |
 | F06 · H15, solicitud | Consultar solicitud propia y justificante originales desde la fuente, con permiso y recibo de acceso. | `formacion/ports/solicitudes.go`; adaptador y caso de uso propios. | F01–F03; fuente admite lectura personal; SQL F14 si necesita estado durable. | 3–5 |
@@ -116,7 +116,7 @@ lecturas/EXPLAIN. Dirección instala. Nunca DOWN sobre historia ni SQL en cidoni
 
 ## Dependencias y paralelismo
 
-Un equipo empieza por F00/F01. Después prepara F02 mientras acuerda F03 y diseña F13.
+Un equipo empieza por F00/F01. Después prepara F02 mientras acuerda los códigos y DTO de F03 sin consultar datos personales. La lectura de F03 espera F02; F13 se prepara sobre los contratos admitidos.
 F04/F05 hacen utilizable el catálogo; F06/F07 y F08/F09/F10 pueden separarse por archivos
 una vez disponible la lectura nominal. F11/F12 esperan la fuente documental y RUM.
 La preparación SQL puede avanzar, pero F14 espera contratos finales y revisiones.
