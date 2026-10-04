@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -60,9 +61,19 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 	defer pool.Close()
 	if f.Fase == "verificar" {
 		var data []byte
-		query := `WITH rows AS(SELECT * FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_gobierno_usuarios_admin' ORDER BY secuencia), rango AS(SELECT min(secuencia) primero,max(secuencia) ultimo,count(*) cuenta FROM rows)
-   SELECT jsonb_build_object('esquema',$1::text,'manifiesto',jsonb_build_object('cadena_id','cadena:comun:interna','primera_secuencia',ra.primero,'ultima_secuencia',ra.ultimo,'registros',ra.cuenta,'anterior_sha256',(SELECT anterior_sha256 FROM rows ORDER BY secuencia LIMIT 1),'cabeza_sha256',(SELECT huella_sha256 FROM rows ORDER BY secuencia DESC LIMIT 1)),
-   'registros',(SELECT jsonb_agg(jsonb_build_object('tipo_registro',a.tipo_registro,'intento_gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref,'solicitud_sha256',a.gobierno_usuarios_solicitud_sha256)) ORDER BY a.secuencia) FROM rows a)) FROM rango ra`
+		// Exporta el tramo técnico contiguo posterior al último evento de otra
+		// familia; no elimina eventos intermedios ni atribuye cobertura global.
+		query := `WITH rows AS (
+ SELECT * FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+ WHERE tipo_registro IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')
+ AND secuencia > COALESCE((SELECT max(secuencia) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+ WHERE tipo_registro NOT IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')),0)
+), rango AS(SELECT min(secuencia) primero,max(secuencia) ultimo,count(*) cuenta FROM rows)
+ SELECT jsonb_build_object('esquema',$1::text,'manifiesto',jsonb_build_object('cadena_id','cadena:comun:interna','primera_secuencia',ra.primero,'ultima_secuencia',ra.ultimo,'registros',ra.cuenta,'anterior_sha256',(SELECT anterior_sha256 FROM rows ORDER BY secuencia LIMIT 1),'cabeza_sha256',(SELECT huella_sha256 FROM rows ORDER BY secuencia DESC LIMIT 1)),
+ 'registros',(SELECT jsonb_agg(jsonb_build_object('tipo_registro',a.tipo_registro) ||
+ CASE WHEN a.tipo_registro='gobierno_usuarios_admin' THEN jsonb_build_object('gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('plan_sha256',a.plan_sha256,'preimagen_sha256',a.gobierno_usuarios_detalle->>'preimagen_sha256','configuracion_origen_ref',a.gobierno_usuarios_detalle->>'configuracion_origen_ref','configuracion_destino_ref',a.gobierno_usuarios_detalle->>'configuracion_destino_ref','claves_sha256',a.gobierno_usuarios_detalle->>'claves_sha256'))
+ ELSE jsonb_build_object('intento_gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('solicitud_sha256',a.gobierno_usuarios_solicitud_sha256)) END
+ ORDER BY a.secuencia) FROM rows a)) FROM rango ra`
 		if pool.QueryRow(ctx, query, auditoria.EsquemaVerificacionGobiernoUsuarios).Scan(&data) != nil {
 			t.Fatal("ensayo_cadena_no_disponible")
 		}
@@ -115,10 +126,10 @@ func TestGobiernoUsuariosPostgreSQLPrivado(t *testing.T) {
 	if !ok {
 		t.Fatal("ensayo_spki_invalido")
 	}
-	cfg := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: f.DirectorioMaterial, RutaConfiguracionHMAC: f.RutaConfiguracionHMAC, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: actual.ClaveID, Version: actual.Version, Audiencia: actual.Audiencia, Publica: pub, Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: actual.Desde.UTC(), ValidaHasta: actual.Hasta.UTC()}}
+	cfg := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: f.DirectorioMaterial, RutaConfiguracionHMAC: f.RutaConfiguracionHMAC, ArchivoSemillaRaiz: f.ArchivoSemillaRaiz, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: actual.ClaveID, Version: actual.Version, Audiencia: actual.Audiencia, Publica: pub, Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: actual.Desde.UTC(), ValidaHasta: actual.Hasta.UTC()}}
 	configFile := filepath.Join(f.Salida, "configuracion-material.json")
 	if f.Fase == "preparar" {
-		cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02"), Secuencia: actual.Secuencia + 1, PublicadaEn: dia, ExpiraEn: dia.Add(24 * time.Hour)}
+		cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02") + ":r" + strconv.FormatUint(actual.Secuencia+1, 10), Secuencia: actual.Secuencia + 1, PublicadaEn: dia, ExpiraEn: dia.Add(24 * time.Hour)}
 		raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(cfg.Raiz.ClaveID, cfg.Raiz.Version, pub, cfg.Raiz.Audiencia, cfg.Raiz.Estado, cfg.Raiz.ValidaDesde, cfg.Raiz.ValidaHasta, time.Time{})
 		if err != nil {
 			t.Fatal("ensayo_raiz_invalida")

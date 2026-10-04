@@ -35,10 +35,12 @@ configuración/raíz y sus controles. ADMIN tiene actos propios; no se añade a 
 para eludir su comprobación. La renovación diaria sigue la autoridad y protocolo
 existentes CT y queda expresamente ligada al plan técnico aprobado.
 
-Orden medido: POST185 -> AD186 -> AD187 -> AD188. El clon K conserva AUD6250,
-políticas/preservaciones vacías y frío anterior a186. CHECK de familias posterior
-a187: `97d754fef3d60b4799f82fac0d09417133f4caa5b25e8f2bcba005fb1f72a09f`.
-No se ha instalado188. La instalación requiere dos revisiones del hash final.
+Orden ensayado: POST185 → AD186 → AD187 → AD188 → AD189 → AD191. Cada
+migración se instaló una sola vez en el clon, tras las dos revisiones de su
+contenido exacto. CHECK de familias previo a AD188:
+`97d754fef3d60b4799f82fac0d09417133f4caa5b25e8f2bcba005fb1f72a09f`.
+AD191 conserva la función de efecto y corrige tres referencias de su acuse;
+el archivo AD188 instalado permanece intacto.
 
 Como referencia pública, Keycloak distingue claves activas y pasivas
 ([Realm keys](https://www.keycloak.org/docs/26.8.0/server_admin/)); Vault Transit
@@ -51,11 +53,7 @@ Authentik importa parejas certificado/clave
 es una inferencia: conservar historia/SPKI, renovar por adición y reutilizar el
 KMS. Ninguna ventana o regla externa concede permisos automáticamente.
 
-Pendiente: revisiones SQL/seguridad, ensayo positivo con proveedor real,
-replay/reinicio, rollback obligatorio de auditoría y regresión CT. Las pruebas
-focales de preparación/verificación no acreditan ese recorrido ni producción.
-
-## Ensayo terminado y límite actual
+## Recorrido comprobado en el clon
 
 AD188 de `8d213c010` se instaló una sola vez, después de dos GO. Los vectores
 SQL de estructura/ACL/formato terminaron0. Un LOGIN técnico real registró cinco
@@ -70,16 +68,53 @@ sus recuentos y huellas. No se ampliaron vigencias de los administradores caduca
 El reinicio se comprueba sobre esos mismos cinco recibos, sin otro intento.
 Actas privadas en `ensayo188/` del estado K; ninguna contiene claves.
 
-La publicación favorable, su replay y la regresión CT tras dos claves ADMIN siguen
-pendientes. El material HMAC del fixture de fuentes deriva SPKI
-`e7a8529fd7e7959640a03bcfe325d65214b3943980f6e9227b22d22dd95ab89e`;
-el gobierno requiere `9c11fc59ca30e845be2684b21a045d4882c77544e7d4d4d73f7f1ccdbbeb7f12`.
-Son hashes públicos de DER. El candidato D6 también fue rechazado. El preparador
-paró antes de escribir. Dirección respondió a la pregunta11:31 el 04/10 a las
-11:34: el firmante principal9c11 vive sólo allí y no se copia a local. Autoriza
-un firmante DEV propio exclusivamente en el clon desechable, por el circuito de
-gobierno existente, con cambio documentado. No se ha ejecutado aún ese productor.
-La entrega queda en borrador hasta cerrar el recorrido positivo del clon.
+Dirección respondió el 04/10 a las 11:34: el firmante principal permanece en
+la principal. Autorizó un firmante DEV propio exclusivamente en el clon, por
+el circuito de gobierno existente. Ese setup se ejecutó con plan/configuración
+aprobados y CAS, conservando la raíz pública original como historia. No es una
+rotación de producción ni una confirmación ficticia AD188. Acta privada:
+`lab-root-dev/acta-setup-root-dev.json`.
+
+El primer positivo encontró SQLSTATE `55000`: la variable PL/pgSQL `a` ocultaba
+un alias SQL al leer la configuración. AD191 corrigió sólo su declaración y
+dos usos, manteniendo firma, OID, propietario, ACL y demás metadata. Después:
+
+- LOGIN técnico real: permitido, dos claves, dos punteros y una confirmación.
+- Replay real: mismo recibo, fecha y huella; únicamente un nuevo intento.
+- Reinicio de PostgreSQL y otro replay real: mismo recibo, sin otra publicación.
+- Plan aprobado con preimagen obsoleta, mediante otro LOGIN técnico: denegado,
+  recibo nulo e intento durable.
+- Comprobación real del helper CT: reconoce su gobierno tras las dos claves ADMIN.
+
+Auditoría común final: 6262 registros. La confirmación se conserva en 6258;
+los intentos de alta, replay, CAS denegado y replay tras reinicio son 6259–6262.
+El tramo contiguo 6257–6262 incluye el error anterior y permite recalcular
+materiales y eslabones sin omitir la confirmación intermedia. La exportación
+opt-in declara únicamente ese tramo, no cobertura global de la auditoría.
+
+Dos diagnósticos adicionales terminaron en ROLLBACK: retirada de la raíz DEV
+rechazada con recibo nulo y fallo obligatorio de auditoría durante replay
+rechazado con `42501`, sin acuse de éxito. Usaron sesión técnica simulada sólo
+para el diagnóstico. El segundo acredita rollback obligatorio sobre replay;
+no se presenta como ensayo de fallo durante una primera publicación.
+
+Recuentos y huellas de roles, asignaciones y Persona/perfil CA permanecieron
+idénticos antes y después del reinicio. Los perfiles APP vencidos siguen
+vencidos: el recorrido técnico de gobierno no acredita acceso nominal actual
+ni una sesión HIGH.
+
+Actas privadas: `ensayo191/reinicio-final/acta-reinicio.json`,
+`acta-root-retirada-rollback.json`, `acta-auditoria-obligatoria-rollback.json` y
+`ensayo188positivo/acuse-aplicar-post191.json`. Copia fría previa a AD191:
+`estado-pre191-rootDEV6257-frio.tgz`, SHA256
+`e6bd65d9c09b16140eadbaed0081944c234faea3f2e7fd38c36234d2b2ad7d62`.
+Copia fría posterior al positivo/CAS, antes del último replay:
+`estado-post191-gobierno-real6261-frio.tgz`, SHA256
+`38dbbdecf1640e226f71c2a4db3c0ebbd039e52a810bfd810a20c02532c21514`.
+
+El producto prepara y aplica gobierno técnico en el clon. El montaje ADMIN y
+los recorridos nominales requieren sus fuentes y vigencias propias. No se ha
+desplegado esta entrega en servidores.
 
 La API exige ahora `ArchivoSemillaRaiz` explícito y utiliza
 `NuevoFirmanteAtestacionV3DesdeArchivo`, cotejando su pública fijada. El material
@@ -91,8 +126,11 @@ y la negativa de archivo ausente pasan con race.
 El test PostgreSQL es opt-in mediante `VEC_GOBIERNO_USUARIOS_ENSAYO_CONFIG`:
 JSON0600 fuera de Git, con fase/rutas/DSN privados. Normalmente se omite. Preparar
 sólo escribe plan/material privados; aplicar/replay exige aprobación externa y el
-LOGIN configurado; verificar lee la cadena técnica real. No crea perfiles, fuentes
-ni sesiones. El kit no modifica las filas históricas para obtener un positivo.
+LOGIN configurado; verificar lee un tramo contiguo de la cadena técnica real. Los tests normales
+no abren PostgreSQL. `VEC_GOBIERNO_USUARIOS_LAB_CONFIG` activa por separado el
+setup DEV, con autorización explícita y SHA de plan/configuración;
+`TestGobiernoUsuariosCoexistenciaCTPrivado` sólo consulta el helper CT.
+Las filas históricas se conservan.
 
 ## Comprobación focal de código y seguridad
 
@@ -125,5 +163,5 @@ No se repitió una campaña global para ocultar ese límite.
   cierres de limpieza en ramas ya fallidas. No convierten el fallo previo en éxito.
 
 No se añadieron supresiones ni se cambiaron estos componentes ajenos. Las dos
-revisiones de seguridad/SQL acreditan el código y sus límites, no una autorización
-favorable ni producción.
+revisiones de seguridad/SQL acreditan el código y sus límites, sin acreditar una sesión nominal o producción. El recorrido técnico favorable
+es el que se describe arriba, con LOGIN y auditoría reales.
