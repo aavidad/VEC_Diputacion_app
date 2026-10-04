@@ -115,13 +115,18 @@ admiten únicamente estos pares:
 
 ## Cadena y recuperación
 
-La preimagen exacta es `auditoria_tipo_disjunto_v2` posterior a AD174.
-La huella SHA256 de `pg_get_constraintdef(oid, false)`, en UTF-8 y sin salto
-final, observada por Dirección en el clon PostgreSQL 18.4 es
-`c7dc8abc0c0ea178cadb22960976af57a7f711e158a076c7068227d5718efbb8`.
-AD176 la comprueba y envuelve literalmente la condición existente. Las
-columnas nuevas son nulas para todas las familias anteriores. No predice
-columnas ni familias futuras de AD172/173.
+AD176 admite únicamente dos parejas POST174 de CHECK/SHA, medidas en el clon:
+
+| Cadena | CHECK | SHA256 previo |
+| --- | --- | --- |
+| H9 | auditoria_tipo_disjunto_v2 | c7dc8abc0c0ea178cadb22960976af57a7f711e158a076c7068227d5718efbb8 |
+| POST173→174 | auditoria_tipo_disjunto_v4 | 3a2b7514294cd022102440e37b784916e48c340e63ce7195defdea118bad34ba |
+
+Conserva literalmente la condición y su nombre. En POST173, ambas familias
+propias añaden `version_consumo IS NULL`. No acepta otros CHECK por nombre ni
+predice familias de otros equipos. La postimagen conjunta POST173→174→176,
+medida con `pg_get_constraintdef(oid, false)` en UTF-8 sin salto final, es CHECKv4
+`8346e28593ad3b35a2dc88de0023a41c8c4a89571b31ba6226d1b9bf44523e03`.
 
 Se reutilizan `encuadrar_mac`, la cabeza y el cerrojo de eventos comunes.
 La confirmación usa material `vec.auditoria.unidad-inicial-personal.v1`,
@@ -141,8 +146,8 @@ cabeza. El replay del append no equivale al replay del plan de negocio: este
 
 La CLI admite el esquema propio
 `vec.auditoria.verificacion.unidad-inicial-personal.v1`, con objetos
-`unidad_inicial` e `intento_unidad_inicial`. Conserva consumo histórico v1,
-AD169, AD171 y las dos familias AD174. Los esquemas anteriores rechazan AD176.
+`unidad_inicial` e `intento_unidad_inicial`. Conserva consumos v1/v2/v3 de L #557 exacta,
+AD169, AD171 y las dos familias AD174, sin cambiar sus campos. Los esquemas anteriores rechazan AD176.
 El informe distingue material de unidad y de intento, recalculados; no autentica
 el LOGIN, el checkpoint ni la fuente y no declara cubiertas familias futuras.
 
@@ -175,3 +180,30 @@ Prueba SQL ensayada: SHA256
 Los logs del ensayo quedan en el estado privado de Dirección, fuera de Git.
 La lista causal de esta rama sirve para un frío sin AD174; en un clon que ya
 la conserve se aplica únicamente AD176. Nunca se reaplica la dependencia.
+
+## Unión con AD173
+
+La dependencia L #557@9e09b8a331afe45090db34fdf552cf9aed9e8ef7 se integra
+sin editar sus SQL, DTO ni cuerpos de cotejo. El esquema propio de unidad
+admite los tres consumos y las cuatro familias técnicas K, sin uniones
+cruzadas. Conserva el aviso permanente de consumos históricos sin fecha ligada
+ y no autentica origen, COSE o checkpoint por recalcular la cadena.
+
+El vector independiente
+`union_consumos_tecnicos_ad173_ad174_ad176.json` enlaza las siete familias en
+15 asientos. Las pruebas Go y CLI conservan los registros y rechazan mezclar
+campos de consumos y de fuentes/unidad.
+
+SQL176 variante SHA256
+`356598632ae2cd7b908ce3d0037310915cf11d4a8205eecdc0e791dc057f3fc8`:
+UP y prueba SQL ampliada terminaron con código 0. La negativa con
+`version_consumo=3` en ambas familias técnicas se rechaza sin efectos.
+Se conservan 6.240 filas, cabeza e historia de POST173. El núcleo conserva
+exactamente definición SHA `6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9`
+y cuerpo SHA `bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c`.
+
+Capturas privadas: estado K `vec-codexk-union-post173-20261004`,
+`check-post174-L.json`, `check-post176-L.json` y `nucleo-post176-L.json`.
+La instancia K original y su fría actual se conservan aparte, sin aplicar esta
+variante sobre ellas. Las revisiones independientes del SHA final y cualquier
+instalación en la principal siguen pendientes.
