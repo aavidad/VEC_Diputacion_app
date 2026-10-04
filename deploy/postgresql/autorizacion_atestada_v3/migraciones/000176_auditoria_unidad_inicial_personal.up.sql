@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- AD176 candidata: familias propias Personal33, sobre CHECK exacto POST-AD174.
--- Preimagen pg_get_constraintdef(false) observada por Dirección en clon PG18.4.
+-- AD176: familias propias Personal33, con variantes POST174 H9 y POST173.
+-- Ambas preimágenes son parejas nombre/SHA observadas en el clon PG18.4.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -26,7 +26,7 @@ BEGIN
      'unidad_recibo_ref','unidad_recibo_sha256','unidad_solicitud_sha256'))
  OR (SELECT count(*) FROM pg_catalog.pg_constraint c
    WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-    AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated)<>1
+    AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated)<>1
  THEN RAISE EXCEPTION 'AD176: PARO clave=preimagen actual=incompatible esperado=AD174_sin_AD176' USING ERRCODE='55000'; END IF;
 END $pre$;
 LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
@@ -35,15 +35,22 @@ ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
  ADD COLUMN unidad_configuracion_sha256 text, ADD COLUMN unidad_alcance text,
  ADD COLUMN unidad_recibo_ref text, ADD COLUMN unidad_recibo_sha256 text, ADD COLUMN unidad_solicitud_sha256 text;
 DO $familias$
-DECLARE v_predicado text;v_nuevo text;v_actual_sha text;
- v_esperada_sha constant text:='c7dc8abc0c0ea178cadb22960976af57a7f711e158a076c7068227d5718efbb8';
+DECLARE v_predicado text;v_nombre name;v_nuevo text;v_actual_sha text;v_version_nula text:='';
+ v_h9_sha constant text:='c7dc8abc0c0ea178cadb22960976af57a7f711e158a076c7068227d5718efbb8';
 BEGIN
- SELECT pg_catalog.pg_get_constraintdef(c.oid,false) INTO STRICT v_predicado FROM pg_catalog.pg_constraint c
+ SELECT pg_catalog.pg_get_constraintdef(c.oid,false),c.conname INTO STRICT v_predicado,v_nombre FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
-  AND c.conname='auditoria_tipo_disjunto_v2' AND c.contype='c' AND c.convalidated;
+  AND c.conname IN ('auditoria_tipo_disjunto_v2','auditoria_tipo_disjunto_v4') AND c.contype='c' AND c.convalidated;
  v_actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_predicado,'UTF8')),'hex');
- IF v_actual_sha IS DISTINCT FROM v_esperada_sha
- THEN RAISE EXCEPTION 'AD176: PARO clave=CHECK_SHA256 actual=% esperado=%',v_actual_sha,v_esperada_sha USING ERRCODE='55000'; END IF;
+ IF v_nombre='auditoria_tipo_disjunto_v2' AND v_actual_sha=v_h9_sha THEN
+  v_version_nula:='';
+ ELSIF v_nombre='auditoria_tipo_disjunto_v4'
+  AND v_actual_sha='3a2b7514294cd022102440e37b784916e48c340e63ce7195defdea118bad34ba' THEN
+  v_version_nula:=' AND version_consumo IS NULL';
+ ELSE
+  RAISE EXCEPTION 'AD176: PARO clave=CHECK_nombre_SHA256 actual=%:% esperado=v2:%_o_v4:3a2b7514294cd022102440e37b784916e48c340e63ce7195defdea118bad34ba',
+   v_nombre,v_actual_sha,v_h9_sha USING ERRCODE='55000';
+ END IF;
  v_nuevo:='CHECK ((unidad_plan_ref IS NULL AND unidad_preimagen_sha256 IS NULL AND unidad_configuracion_sha256 IS NULL'
   ||' AND unidad_alcance IS NULL AND unidad_recibo_ref IS NULL AND unidad_recibo_sha256 IS NULL AND unidad_solicitud_sha256 IS NULL AND ('
   ||pg_catalog.substr(v_predicado,8,pg_catalog.length(v_predicado)-8)||')) OR ('||$confirmado$tipo_registro='unidad_inicial_personal'
@@ -62,7 +69,7 @@ BEGIN
  AND proceso IS NOT DISTINCT FROM 'postgresql' AND canal IS NOT DISTINCT FROM 'operacion_tecnica_privada'
  AND finalidad_ref IS NOT DISTINCT FROM 'inicializar_unidad_sintetica_admin' AND resultado IS NOT DISTINCT FROM 'permitido'
  AND motivo_ref IS NOT DISTINCT FROM 'unidad_registrada' AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL$confirmado$
- ||') OR ('||$intento$tipo_registro='intento_unidad_inicial_personal'
+ ||v_version_nula||') OR ('||$intento$tipo_registro='intento_unidad_inicial_personal'
  AND decision_ref IS NULL AND efecto_ref IS NULL AND huella_efecto_sha256 IS NULL
  AND intento_ref IS NULL AND intento_material_sha256 IS NULL AND actor_ref IS NULL AND perfil_activo_ref IS NULL
  AND registro_contexto_ref IS NULL AND contexto_sha256 IS NULL AND procedencia_sha256 IS NULL
@@ -76,9 +83,9 @@ BEGIN
  AND accion IS NOT DISTINCT FROM 'inicializar_unidad_sintetica_admin_v1' AND modulo_id IS NOT DISTINCT FROM 'personal'
  AND proceso IS NOT DISTINCT FROM 'postgresql' AND canal IS NOT DISTINCT FROM 'operacion_tecnica_privada'
  AND finalidad_ref IS NOT DISTINCT FROM 'inicializar_unidad_sintetica_admin'
- AND resultado IS NOT NULL AND motivo_ref IS NOT NULL AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL$intento$||'))';
- ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT auditoria_tipo_disjunto_v2;
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_tipo_disjunto_v2 '||v_nuevo;
+ AND resultado IS NOT NULL AND motivo_ref IS NOT NULL AND recurso_ref IS NOT NULL AND correlacion_ref IS NOT NULL$intento$||v_version_nula||'))';
+ EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT %I',v_nombre);
+ EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT %I %s',v_nombre,v_nuevo);
 END $familias$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.motivo_intento_unidad_valido_v1(p_resultado text,p_motivo text)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SET search_path=pg_catalog

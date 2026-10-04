@@ -218,6 +218,14 @@ BEGIN
      AND a.fuente_ref IS NULL AND a.fuente_sha256 IS NULL AND a.plan_sha256 IS NULL AND a.aprobacion_ref IS NULL)
    THEN RAISE EXCEPTION 'AD176 prueba: intento mezcló confirmación ficticia'; END IF;
   END IF;
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass AND attname='version_consumo' AND NOT attisdropped) THEN
+   BEGIN
+    EXECUTE 'INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3 SELECT (pg_catalog.jsonb_populate_record(NULL::vec_autorizacion_atestada_v3.auditoria_consumo_v3,$1)).*'
+    USING (SELECT pg_catalog.to_jsonb(a)||pg_catalog.jsonb_build_object('version_consumo',3,'auditoria_ref','aud_v3_u_000000000000000000000000000a0176',
+     'evento_ref','evento_000000000000000000000000000a0176','secuencia',v_secuencia+v_total+2) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.auditoria_ref=x.auditoria_ref);
+    RAISE EXCEPTION 'AD176 prueba: familia técnica aceptó version_consumo nominal';
+   EXCEPTION WHEN check_violation THEN NULL; END;
+  END IF;
   v_total:=v_total+1;
   IF pg_catalog.to_jsonb(x) IS DISTINCT FROM pg_catalog.to_jsonb(y) OR x.secuencia<>v_secuencia+v_total
   OR NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.auditoria_ref=x.auditoria_ref
