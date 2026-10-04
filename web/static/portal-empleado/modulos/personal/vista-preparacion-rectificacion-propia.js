@@ -37,6 +37,7 @@ export function montarPreparacionRectificacionPropia({ raiz, datos, seleccion, r
     if (clave === "propuesta") { grupoPropuesta = grupo; etiquetaPropuesta = etiqueta; }
   }
   entradas.campo.value = preparacion.campos[0];
+  const actual = nodo(d, "p");
   const prepararControlPropuesta = () => {
     const campo = entradas.campo.value;
     const input = nodo(d, campo === "estado" ? "select" : "input");
@@ -48,18 +49,17 @@ export function montarPreparacionRectificacionPropia({ raiz, datos, seleccion, r
     } else if (campo.startsWith("periodo_")) input.type = "date";
     else if (campo === "dias_reconocidos") { input.type = "number"; input.min = "0"; input.step = "1"; }
     else { input.type = "text"; input.maxLength = 300; }
-    grupoPropuesta.replaceChildren(etiquetaPropuesta, input, erroresCampo.propuesta); entradas.propuesta = input;
+    grupoPropuesta.replaceChildren(etiquetaPropuesta, actual, input, erroresCampo.propuesta); entradas.propuesta = input;
     input.addEventListener("blur", () => validarCampo("propuesta"));
   };
   prepararControlPropuesta();
-  const actual = nodo(d, "p");
   const actualizar = () => { actual.textContent = t("general.actual", { valor: valor(entradas.campo.value, preparacion.valor(entradas.campo.value)) }); };
   actualizar(); entradas.campo.addEventListener("change", () => {
     prepararControlPropuesta(); actualizar(); error.textContent = ""; error.replaceChildren();
     erroresVisibles = {};
     for (const input of Object.values(entradas)) input.setAttribute("aria-invalid", "false");
     for (const aviso of Object.values(erroresCampo)) aviso.textContent = "";
-  }); formulario.append(actual);
+  });
   const mostrarErrores = (errores, enfocar = true) => {
     erroresVisibles = { ...errores };
     error.textContent = ""; error.replaceChildren();
