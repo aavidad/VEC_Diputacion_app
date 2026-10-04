@@ -80,8 +80,8 @@ migración que reconstruye el mismo cuerpo:
 | `registrar_y_consumir_decision_v3_atestada`, origen AD002 | dos INSERT propios | sin ampliar; sello NULL |
 | `consumir_consulta_rrhh_v3_interna`, origen AD003 | dos INSERT propios | sin ampliar; sello NULL |
 | `consumir_decision_mutacion_v3_interna`, origen AD010 y cadena posterior | dos INSERT propios | ambos sellados; v4 |
-| `consumir_decision_mutacion_v3_externa_interna`, copia AD116 | dos INSERT propios | sin ampliar; sello NULL |
-| `consumir_decision_mutacion_v3_usuarios_externa_interna`, copia AD118 | dos INSERT propios | sin ampliar; sello NULL |
+| `consumir_decision_mutacion_v3_externa_interna`, copia AD116 | dos INSERT propios | sin columnas nuevas; formato anterior |
+| `consumir_decision_mutacion_v3_usuarios_externa_interna`, copia AD118 | dos INSERT propios | sin columnas nuevas; formato anterior |
 
 Los cuatro INSERT de AD002/AD003 quedan expresamente fuera de la ampliación.
 Las fachadas que delegan en el núcleo interno reciben v4; las delegaciones
@@ -146,3 +146,18 @@ El sello acredita causalidad en la instalación local ensayada. Restauraciones
 o importaciones necesitan procedencia explícita; XID no identifica de forma
 global una transacción entre instalaciones. No reaplicar UP ni ejecutar DOWN
 sobre historia conservada.
+
+## Ensayo estructural del 04/10
+
+La copia privada PostgreSQL 18 restaurada desde POST173 recibió una sola vez
+AD174/176/179/183/186/187/188/189 y después AD193. Dos revisiones SQL/sensibles
+independientes aprobaron el SQL exacto. UP y la prueba estructural terminaron
+con código 0; los 6240 registros anteriores, la cabeza, OID, propietario, ACL
+y configuración de las dos funciones se conservaron. Los sellos históricos
+siguen NULL: no hubo backfill. La prueba de 16 encuadres y la serialización
+de valores superiores a 2^53 y del máximo uint64 quedaron verdes.
+
+Esta evidencia no acredita aún consumo fresco CT175/AUT41, SAVEPOINT o
+EXCEPTION dentro de ese recorrido, replay o rechazo entre transacciones con
+productores VEC reales. Falta además la conformidad de K antes de LISTA. La
+migración no se ha instalado en la principal; no se debe reaplicar en el clon.
