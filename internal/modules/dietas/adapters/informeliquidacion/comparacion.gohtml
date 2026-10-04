@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="{{.Textos.Idioma}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>{{index .Textos.Rotulos "titulo"}}</title>
+<style>{{.Tema}}
+{{.Estilos}}
+@media print {
+  .comparacion-catalogos { break-before: page; }
+  .comparacion-local .cabecera-informe { margin-bottom: 12px; }
+  .comparacion-local .panel { margin-bottom: 12px; }
+  .comparacion-local .cabecera-panel { padding: 10px 16px; }
+  .comparacion-local th, .comparacion-local td { padding: 8px 12px; }
+  .comparacion-catalogos .cuerpo-panel { padding-block: 8px; }
+  .comparacion-catalogos h3 { margin: 12px 0 4px; break-after: avoid; }
+  .comparacion-catalogos .datos-detalle { gap: 8px 16px; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<main class="comparacion-local">
+<header class="cabecera-informe">
+<h1>{{index .Textos.Rotulos "titulo"}}</h1>
+<p class="estado">{{index .Textos.Rotulos "estado"}}</p>
+<p class="limite">{{index .Textos.Rotulos "limite"}}</p>
+</header>
+<section class="panel" aria-labelledby="importes">
+<div class="cabecera-panel"><h2 id="importes">{{index .Textos.Rotulos "importes"}}</h2></div>
+<p id="importes-ayuda" class="tabla-ayuda">{{index .Textos.Rotulos "tabla_ayuda"}}</p>
+<div class="tabla-scroll" tabindex="0" role="region" aria-labelledby="importes" aria-describedby="importes-ayuda">
+<table>
+<caption class="solo-lectura">{{index .Textos.Rotulos "importes"}}</caption>
+<thead><tr>
+<th scope="col">{{index .Textos.Rotulos "linea"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "original"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "reconocido_antes"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "reconocido_ahora"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "cambio_reconocido"}}</th>
+</tr></thead>
+<tbody>{{range .Filas}}<tr>
+<th scope="row">{{.Numero}}</th>
+<td class="importe">{{.Original}}</td><td class="importe">{{.ReconocidoAntes}}</td>
+<td class="importe">{{.ReconocidoAhora}}</td><td class="importe">{{.CambioReconocido}}</td>
+</tr>{{end}}</tbody>
+<tfoot><tr><th scope="row">{{index .Textos.Rotulos "total"}}</th>
+<td class="importe">{{.Total.Original}}</td><td class="importe">{{.Total.ReconocidoAntes}}</td>
+<td class="importe">{{.Total.ReconocidoAhora}}</td><td class="importe">{{.Total.CambioReconocido}}</td>
+</tr></tfoot>
+</table>
+</div>
+</section>
+<section class="panel" aria-labelledby="rechazos">
+<div class="cabecera-panel"><h2 id="rechazos">{{index .Textos.Rotulos "rechazos"}}</h2></div>
+<p id="rechazos-ayuda" class="tabla-ayuda">{{index .Textos.Rotulos "tabla_ayuda"}}</p>
+<div class="tabla-scroll" tabindex="0" role="region" aria-labelledby="rechazos" aria-describedby="rechazos-ayuda">
+<table>
+<caption class="solo-lectura">{{index .Textos.Rotulos "rechazos"}}</caption>
+<thead><tr>
+<th scope="col">{{index .Textos.Rotulos "linea"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_antes"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "rechazado_ahora"}}</th>
+<th scope="col" class="importe">{{index .Textos.Rotulos "cambio_rechazado"}}</th>
+</tr></thead>
+<tbody>{{range .Filas}}<tr>
+<th scope="row">{{.Numero}}</th><td class="importe">{{.RechazadoAntes}}</td>
+<td class="importe">{{.RechazadoAhora}}</td><td class="importe">{{.CambioRechazado}}</td>
+</tr>{{end}}</tbody>
+<tfoot><tr><th scope="row">{{index .Textos.Rotulos "total"}}</th>
+<td class="importe">{{.Total.RechazadoAntes}}</td><td class="importe">{{.Total.RechazadoAhora}}</td>
+<td class="importe">{{.Total.CambioRechazado}}</td></tr></tfoot>
+</table>
+</div>
+</section>
+<section class="panel" aria-labelledby="criterios">
+<div class="cabecera-panel"><h2 id="criterios">{{index .Textos.Rotulos "criterios"}}</h2></div>
+<div class="tabla-scroll" tabindex="0" role="region" aria-labelledby="criterios">
+<table>
+<caption class="solo-lectura">{{index .Textos.Rotulos "criterios"}}</caption>
+<thead><tr>
+<th scope="col">{{index .Textos.Rotulos "linea"}}</th>
+<th scope="col">{{index .Textos.Rotulos "regla_antes"}}</th>
+<th scope="col">{{index .Textos.Rotulos "regla_ahora"}}</th>
+<th scope="col">{{index .Textos.Rotulos "motivo_antes"}}</th>
+<th scope="col">{{index .Textos.Rotulos "motivo_ahora"}}</th>
+</tr></thead>
+<tbody>{{range .Filas}}<tr>
+<th scope="row">{{.Numero}}</th><td>{{.ReglaAntes}}</td><td>{{.ReglaAhora}}</td>
+<td>{{.MotivoAntes}}</td><td>{{.MotivoAhora}}</td>
+</tr>{{end}}</tbody>
+</table>
+</div>
+</section>
+<section class="panel comparacion-catalogos" aria-labelledby="catalogos">
+<div class="cabecera-panel"><h2 id="catalogos">{{index .Textos.Rotulos "catalogos"}}</h2></div>
+<div class="cuerpo-panel">
+<p>{{.CatalogosEstado}}</p>
+<p class="limite-huella">{{index .Textos.Rotulos "huella_limite"}}</p>
+{{range .Catalogos}}
+<h3>{{.Rotulo}}</h3>
+<dl class="datos-detalle">
+<div><dt>{{index $.Textos.Rotulos "referencia"}}</dt><dd>{{.Referencia}}</dd></div>
+<div><dt>{{index $.Textos.Rotulos "version"}}</dt><dd>{{.Version}}</dd></div>
+<div><dt>{{index $.Textos.Rotulos "huella_catalogo"}}</dt><dd class="huella">{{.CatalogoSHA}}</dd></div>
+<div><dt>{{index $.Textos.Rotulos "huella_propuesta"}}</dt><dd class="huella">{{.PropuestaSHA}}</dd></div>
+</dl>
+{{end}}
+<h3>{{index .Textos.Rotulos "comision"}}</h3>
+<dl class="datos-detalle">
+<div><dt>{{index .Textos.Rotulos "referencia"}}</dt><dd>{{.ComisionRef}}</dd></div>
+<div><dt>{{index .Textos.Rotulos "comision_version"}}</dt><dd>{{.Version}}</dd></div>
+<div><dt>{{index .Textos.Rotulos "huella_documento"}}</dt><dd class="huella">{{.DocumentoSHA}}</dd></div>
+</dl>
+</div>
+</section>
+</main>
+</body>
+</html>

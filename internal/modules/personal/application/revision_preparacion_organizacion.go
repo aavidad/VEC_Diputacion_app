@@ -52,7 +52,7 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	if len(p.Decisiones) > 1000 {
 		return fallo("cantidad_decisiones_invalida", "decisiones", 0)
 	}
-	vistos, origenes, filas := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	vistos, origenes, filas := map[string]bool{}, map[string]bool{}, map[string]map[string]bool{}
 	for i, h := range p.Hechos {
 		if h.Validar(p.Manifiesto) != nil {
 			return fallo("hecho_invalido", "hechos", i+1)
@@ -61,7 +61,11 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		if vistos[identidad] || origenes[origen] {
 			return fallo("hecho_duplicado", "hechos", i+1)
 		}
-		vistos[identidad], origenes[origen], filas[h.FilaFuenteRef] = true, true, true
+		vistos[identidad], origenes[origen] = true, true
+		if filas[h.FilaFuenteRef] == nil {
+			filas[h.FilaFuenteRef] = map[string]bool{}
+		}
+		filas[h.FilaFuenteRef][h.Clase] = true
 		r.RecuentosClase[h.Clase]++
 	}
 	vistas := map[string]bool{}
@@ -73,8 +77,12 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		if vistas[clave] {
 			return fallo("decision_duplicada", "decisiones", i+1)
 		}
-		if !filas[d.FilaFuenteRef] {
+		clasesHecho, existe := filas[d.FilaFuenteRef]
+		if !existe {
 			return fallo("decision_sin_fila", "decisiones", i+1)
+		}
+		if d.Clase != "clasificacion" && !clasesHecho[d.Clase] && !(d.Clase == "unidad" && clasesHecho["nodo"]) {
+			return fallo("decision_invalida", "decisiones", i+1)
 		}
 		vistas[clave] = true
 		r.RecuentosDecision[d.Resultado]++

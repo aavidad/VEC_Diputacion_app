@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -113,5 +114,75 @@ func TestCLIComparacionRevalidaYRechazaSustitucion(t *testing.T) {
 	var out bytes.Buffer
 	if ejecutarConArgumentos([]string{"--comparar-liquidaciones", "--informe"}, bytes.NewReader(entradaComparacionCLI(t)), &out) != 2 || out.String() != "{\"codigo\":\"argumentos_no_admitidos\"}\n" {
 		t.Fatal("argumentos admitidos", out.String())
+	}
+}
+
+func entradaComparacionConCambio(t *testing.T) []byte {
+	t.Helper()
+	datos, err := os.ReadFile("testdata/preparacion_liquidacion_gastos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entrada preparacionliquidacion.Entrada
+	if err := json.Unmarshal(datos, &entrada); err != nil {
+		t.Fatal(err)
+	}
+	anterior, err := preparacionliquidacion.Preparar(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entrada.Revisiones[2].ReconocidoPropuestoCentimos = 1800
+	entrada.Revisiones[2].MotivoCodigo = ""
+	propuesta, err := preparacionliquidacion.Preparar(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(preparacionliquidacion.EntradaComparacion{
+		Esquema:  preparacionliquidacion.EsquemaComparacionLiquidacion,
+		Anterior: anterior.Instantanea(), Propuesta: propuesta.Instantanea(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestCLIComparacionInformeLocalConCambioReal(t *testing.T) {
+	entrada := entradaComparacionConCambio(t)
+	for _, caso := range []struct{ idioma, totalAntes, totalDespues string }{
+		{"es", "59,70", "62,70"}, {"en", "59.70", "62.70"},
+	} {
+		t.Run(caso.idioma, func(t *testing.T) {
+			args := []string{"--comparar-liquidaciones", "--informe", "--textos", "../../web/static/textos/" + caso.idioma + "/dietas-comparacion-liquidacion-informe.json", "--tema", "../../web/static/comun/tema-vec.css"}
+			var out bytes.Buffer
+			if codigo := ejecutarConArgumentos(args, bytes.NewReader(entrada), &out); codigo != 0 {
+				t.Fatal("informe no generado", codigo, out.String())
+			}
+			for _, esperado := range []string{`<!doctype html>`, `<html lang="` + caso.idioma + `">`, caso.totalAntes, caso.totalDespues, "3"} {
+				if !strings.Contains(out.String(), esperado) {
+					t.Errorf("falta %q", esperado)
+				}
+			}
+			if strings.Contains(out.String(), "comparacion_local_sin_registrar") || strings.Contains(out.String(), "<script") {
+				t.Fatal("estado interno o script visible")
+			}
+		})
+	}
+}
+
+func TestCLIComparacionInformeFallaAntesDeEmitirHTML(t *testing.T) {
+	args := []string{"--comparar-liquidaciones", "--informe", "--textos", "../../web/static/textos/es/dietas-comparacion-liquidacion-informe.json", "--tema", "../../web/static/comun/tema-vec.css"}
+	var out bytes.Buffer
+	if codigo := ejecutarConArgumentos(args, bytes.NewReader([]byte(`{"esquema":"ajeno"}`)), &out); codigo != 2 || !strings.HasPrefix(out.String(), `{"codigo":`) || strings.Contains(out.String(), "<!doctype") {
+		t.Fatal("entrada inválida produjo HTML", codigo, out.String())
+	}
+	args[3] = "ruta-privada-inexistente"
+	out.Reset()
+	if codigo := ejecutarConArgumentos(args, bytes.NewReader(entradaComparacionConCambio(t)), &out); codigo != 2 || out.String() != "{\"codigo\":\"catalogo_informe_no_disponible\"}\n" || strings.Contains(out.String(), args[3]) {
+		t.Fatal("ruta filtrada o HTML parcial", codigo, out.String())
+	}
+	args[3] = "../../web/static/textos/es/dietas-comparacion-liquidacion-informe.json"
+	if codigo := ejecutarConArgumentos(args, bytes.NewReader(entradaComparacionConCambio(t)), salidaCortaInforme{}); codigo != 1 {
+		t.Fatal("salida parcial anunciada como completa", codigo)
 	}
 }
