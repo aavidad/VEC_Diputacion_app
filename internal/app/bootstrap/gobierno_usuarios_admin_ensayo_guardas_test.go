@@ -11,6 +11,7 @@ import (
 )
 
 type configuracionEnsayoGobiernoUsuarios struct {
+	ArchivoSemillaRaiz                                                                     string
 	Fase, DirectorioMaterial, RutaConfiguracionHMAC, DSNPropietario, DSNOperador, Salida   string
 	Alcance, NombreClon, HostPermitido, BasePermitida, UsuarioPropietario, UsuarioOperador string
 	PuertoPermitido                                                                        uint16
