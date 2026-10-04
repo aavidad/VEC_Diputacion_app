@@ -331,6 +331,18 @@ test("sin justificante no fabrica versión ni detalle desde los datos de la comi
   assert.doesNotMatch(html, /<details>|Versión del justificante|<dd>7<\/dd>/);
 });
 
+test("el catálogo conserva las claves de justificante para una vista anterior ya abierta", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("tramites-empleado", { idioma });
+    for (const [anterior, actual] of [["registro", "justificante_operacion"], ["ver_registro", "ver_justificante"], ["fecha_registro", "fecha_operacion"]]) {
+      assert.equal(textos.traducir(`general.${anterior}`), textos.traducir(`general.${actual}`));
+      assert.ok(textos.traducir(`general.${anterior}`).trim());
+    }
+    assert.ok(textos.traducir("general.version_justificante").trim());
+    assert.equal(textos.faltantes.length, 0);
+  }
+});
+
 test("hoja nueva no usa almacenamiento, identidad cliente, red ni CSS propio", async () => {
   const codigo = await readFile(new URL("vista-tramites-propios.js", import.meta.url), "utf8");
   assert.doesNotMatch(codigo, /localStorage|sessionStorage|indexedDB|document\.cookie|\bfetch\s*\(|empleado_ref|persona_ref|style=/);
