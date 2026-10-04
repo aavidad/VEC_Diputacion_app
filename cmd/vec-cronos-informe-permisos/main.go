@@ -22,11 +22,12 @@ type filaEjemplo struct {
 	Resumen ports.FilaInformePermisos `json:"resumen"`
 }
 type escenarioSintetico struct {
-	Demo      bool          `json:"demo"`
-	Nombre    string        `json:"nombre"`
-	Ejercicio int           `json:"ejercicio"`
-	CorteUTC  time.Time     `json:"corte_utc"`
-	Filas     []filaEjemplo `json:"filas"`
+	Demo             bool          `json:"demo"`
+	Nombre           string        `json:"nombre"`
+	Ejercicio        int           `json:"ejercicio"`
+	CorteUTC         time.Time     `json:"corte_utc"`
+	CamposPermitidos []string      `json:"campos_permitidos"`
+	Filas            []filaEjemplo `json:"filas"`
 }
 
 func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
@@ -68,7 +69,7 @@ func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
 	// ni se transmite al caso de uso productivo. Estos dos tipos NO están aprobados.
 	tiposEjemplo := map[string]bool{"vacaciones_ejemplo": true, "asuntos_propios_ejemplo": true}
 	vistos := map[string]bool{}
-	resumen := ports.ResumenPermisosInforme{Ejercicio: e.Ejercicio, CorteUTC: e.CorteUTC, Filas: make([]ports.FilaInformePermisos, 0, len(e.Filas))}
+	resumen := ports.ResumenPermisosInforme{Ejercicio: e.Ejercicio, CorteUTC: e.CorteUTC, CamposPermitidos: append([]string(nil), e.CamposPermitidos...), Filas: make([]ports.FilaInformePermisos, 0, len(e.Filas))}
 	for _, f := range e.Filas {
 		if !tiposEjemplo[f.TipoRef] || vistos[f.TipoRef] {
 			return ports.ErrExportacionPermisosInvalida

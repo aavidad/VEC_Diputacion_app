@@ -4,8 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
@@ -101,24 +105,21 @@ func minimizarPermisosExportables(p ports.PermisosExportables) (ports.ResumenPer
 		}
 		tipos[tipo] = true
 	}
-	// Son los campos del contrato mínimo, no una política de permisos por defecto.
-	campos := []string{"etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"}
-	if len(politica.CamposPermitidos) != len(campos) {
+	if len(politica.CamposPermitidos) == 0 || len(politica.CamposPermitidos) > 7 {
 		return cero, ports.ErrExportacionPermisosNoDisponible
 	}
-	permitidos := make(map[string]bool, len(campos))
+	conocidos := map[string]bool{"etiqueta": true, "unidad": true, "computo": true, "pendiente_resolver": true, "concedido": true, "restante": true, "conciliacion": true}
+	permitidos := make(map[string]bool, len(politica.CamposPermitidos))
 	for _, campo := range politica.CamposPermitidos {
-		if permitidos[campo] {
+		if !conocidos[campo] || permitidos[campo] {
 			return cero, ports.ErrExportacionPermisosNoDisponible
 		}
 		permitidos[campo] = true
 	}
-	for _, campo := range campos {
-		if !permitidos[campo] {
-			return cero, ports.ErrExportacionPermisosNoDisponible
-		}
+	if !permitidos["unidad"] && (permitidos["pendiente_resolver"] || permitidos["concedido"] || permitidos["restante"]) {
+		return cero, ports.ErrExportacionPermisosNoDisponible
 	}
-	resumen := ports.ResumenPermisosInforme{Ejercicio: p.Ejercicio, CorteUTC: p.CorteUTC, Filas: make([]ports.FilaInformePermisos, 0, len(p.Filas))}
+	resumen := ports.ResumenPermisosInforme{Ejercicio: p.Ejercicio, CorteUTC: p.CorteUTC, CamposPermitidos: append([]string(nil), politica.CamposPermitidos...), Filas: make([]ports.FilaInformePermisos, 0, len(p.Filas))}
 	vistos := make(map[string]bool, len(p.Filas))
 	for _, fila := range p.Filas {
 		if !tipos[fila.TipoRef] || vistos[fila.TipoRef] {
@@ -126,13 +127,60 @@ func minimizarPermisosExportables(p ports.PermisosExportables) (ports.ResumenPer
 		}
 		vistos[fila.TipoRef] = true
 		r := fila.Resumen
+		if !filaPermisosOriginalValida(r) {
+			return cero, ports.ErrExportacionPermisosNoDisponible
+		}
 		// Cada cantidad se copia antes de entregar el modelo neutral al renderer.
 		r.PendienteResolver = copiarCantidadExportacionPermisos(r.PendienteResolver)
 		r.Concedido = copiarCantidadExportacionPermisos(r.Concedido)
 		r.Restante = copiarCantidadExportacionPermisos(r.Restante)
+		if !permitidos["etiqueta"] {
+			r.Etiqueta = ""
+		}
+		if !permitidos["unidad"] {
+			r.Unidad = ""
+		}
+		if !permitidos["computo"] {
+			r.Computo = ""
+		}
+		if !permitidos["pendiente_resolver"] {
+			r.PendienteResolver = nil
+		}
+		if !permitidos["concedido"] {
+			r.Concedido = nil
+		}
+		if !permitidos["restante"] {
+			r.Restante = nil
+		}
+		if !permitidos["conciliacion"] {
+			r.Conciliacion = ""
+		}
 		resumen.Filas = append(resumen.Filas, r)
 	}
 	return resumen, nil
+}
+
+// Comprobar el origen antes de borrar campos impide ocultar un dato incoherente
+// tras una selección más estrecha. El preparador sólo verá la proyección mínima.
+func filaPermisosOriginalValida(f ports.FilaInformePermisos) bool {
+	if strings.TrimSpace(f.Etiqueta) == "" || len(f.Etiqueta) > 256 || !utf8.ValidString(f.Etiqueta) ||
+		(f.Unidad != domain.LeaveUnitDay && f.Unidad != domain.LeaveUnitHour) ||
+		(f.Computo != domain.ComputoLaborables && f.Computo != domain.ComputoNaturales) ||
+		(f.Conciliacion != ports.ConciliacionPermisosConfirmada && f.Conciliacion != ports.ConciliacionPermisosPendiente) ||
+		(f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
+		return false
+	}
+	for _, r := range f.Etiqueta {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	for _, valor := range []*int64{f.PendienteResolver, f.Concedido, f.Restante} {
+		if valor != nil && *valor < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func copiarCantidadExportacionPermisos(v *int64) *int64 {
