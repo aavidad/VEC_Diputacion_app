@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { montarModuloRPTPublica } from "./vista-rpt-publica.js";
 
-function raiz() { class Nodo { constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.focused = false; } append(...nodos) { this.children.push(...nodos); nodos.forEach((n) => { n.parent = this; }); } replaceChildren(...nodos) { this.children = []; this.append(...nodos); } removeChild(n) { this.children = this.children.filter((h) => h !== n); n.parent = null; } remove() { this.parent?.removeChild(this); } addEventListener(t, h) { this.listeners.set(t, h); } setAttribute(k, v) { this.atributos.set(k, v); } focus() { let actual = this; while (actual) { if (actual === this.ownerDocument.raiz) { this.focused = true; return; } actual = actual.parent; } } matches(s) { const k = s.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, l) => l.toUpperCase()); return k ? this.dataset[k] !== undefined : false; } querySelector(s) { if (this.matches(s)) return this; for (const h of this.children) { const e = h.querySelector(s); if (e) return e; } return null; } } const d = { createElement: (e) => new Nodo(d, e) }; const salida = new Nodo(d, "root"); d.raiz = salida; return salida; }
+function raiz() { class Nodo { constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.focused = false; } append(...nodos) { this.children.push(...nodos); nodos.forEach((n) => { n.parent = this; }); } replaceChildren(...nodos) { this.children.forEach((n) => { n.parent = null; }); this.children = []; this.append(...nodos); } removeChild(n) { this.children = this.children.filter((h) => h !== n); n.parent = null; } remove() { this.parent?.removeChild(this); } addEventListener(t, h) { this.listeners.set(t, h); } setAttribute(k, v) { this.atributos.set(k, v); } contains(n) { for (let actual = n; actual; actual = actual.parent) { if (actual === this) return true; } return false; } focus() { let actual = this; while (actual) { if (actual === this.ownerDocument.raiz) { this.focused = true; this.ownerDocument.activeElement = this; return; } actual = actual.parent; } } matches(s) { const k = s.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, l) => l.toUpperCase()); return k ? this.dataset[k] !== undefined : false; } querySelector(s) { if (this.matches(s)) return this; for (const h of this.children) { const e = h.querySelector(s); if (e) return e; } return null; } } const d = { createElement: (e) => new Nodo(d, e) }; const salida = new Nodo(d, "root"); d.raiz = salida; return salida; }
 function textoNodo(nodo) { return `${nodo.textContent} ${nodo.children.map(textoNodo).join(" ")}`; }
 function nodosCon(nodo, clave, salida = []) { if (nodo.dataset[clave] !== undefined) salida.push(nodo); nodo.children.forEach((hijo) => nodosCon(hijo, clave, salida)); return salida; }
 function propagarTecla(origen, key) { const evento = { key, cancelado: false, preventDefault() { this.cancelado = true; } }; for (let actual = origen; actual; actual = actual.parent) actual.listeners.get("keydown")?.(evento); return evento; }
@@ -33,4 +33,82 @@ test("la generación ISO se localiza y otros textos fuente se conservan sin inte
     assert.match(textoNodo(ayuda), /no acredita la vigencia administrativa/u);
     assert.ok(ayuda.children.flatMap((n) => n.children).some((n) => n.tagName === "p" && n.textContent.includes(origen.startsWith("<") ? origen : "Generación")));
   }
+});
+
+const esperarRespuesta = async () => { await Promise.resolve(); await Promise.resolve(); };
+function enviarBusqueda(r, texto) {
+  const entrada = r.querySelector("[data-personal-rpt-publica-busqueda]");
+  entrada.value = texto; entrada.focus();
+  r.querySelector("[data-personal-rpt-publica-filtros]").listeners.get("submit")({ preventDefault() {} });
+}
+test("búsqueda aplicada distingue texto sin enviar y quitar vuelve a la primera página conservando vista", async () => {
+  const r = raiz(), llamadas = [];
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) {
+    llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 51, offset: consulta.offset });
+  } } });
+  assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
+  nodosCon(r, "personalRptPublicaVista")[1].listeners.get("click")(); await esperarRespuesta();
+  enviarBusqueda(r, "  administrativo  "); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]").textContent, "Búsqueda aplicada: administrativo");
+  r.querySelector("[data-personal-rpt-publica-busqueda]").value = "sin enviar";
+  r.querySelector("[data-personal-rpt-publica-siguiente]").listeners.get("click")(); await esperarRespuesta();
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", limit: 25, offset: 25 });
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "sin enviar");
+  const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"); quitar.focus(); quitar.listeners.get("click")();
+  await esperarRespuesta();
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", limit: 25, offset: 0 });
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]"), null);
+  assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "");
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-publica-busqueda]"));
+});
+test("la respuesta conserva texto y foco del buscador; no roba el foco fuera del buscador", async () => {
+  const r = raiz(); let resolver;
+  await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta) {
+    return consulta.q === "" ? Promise.resolve(pagina()) : new Promise((resolve) => { resolver = resolve; });
+  } } });
+  enviarBusqueda(r, "administrativo");
+  const entrada = r.querySelector("[data-personal-rpt-publica-busqueda]");
+  assert.equal(r.ownerDocument.activeElement, entrada);
+  entrada.value = "siguiente búsqueda";
+  resolver(pagina()); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]"), entrada);
+  assert.equal(entrada.value, "siguiente búsqueda"); assert.equal(r.ownerDocument.activeElement, entrada);
+  enviarBusqueda(r, "otra");
+  const fuera = r.ownerDocument.createElement("button"); r.append(fuera); fuera.focus();
+  resolver(pagina()); await esperarRespuesta();
+  assert.equal(r.ownerDocument.activeElement, fuera);
+});
+test("quitar búsqueda sigue disponible tras vacío o error, sin recuperar filas antiguas", async () => {
+  for (const fallo of [false, true]) {
+    const r = raiz();
+    await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) {
+      if (consulta.q && fallo) throw new Error("fallo sintético");
+      return consulta.q ? pagina({ total: 0, items: [] }) : pagina();
+    } } });
+    enviarBusqueda(r, "ausente"); await esperarRespuesta();
+    assert.doesNotMatch(textoNodo(r), /ADMINISTRATIVO/u);
+    const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]");
+    assert.ok(quitar); quitar.focus(); quitar.listeners.get("click")(); await esperarRespuesta();
+    assert.match(textoNodo(r), /ADMINISTRATIVO/u);
+    assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
+  }
+});
+test("una búsqueda tardía no reaparece al quitarla y desmontar cancela la consulta vigente", async () => {
+  const r = raiz(), pendientes = [];
+  const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta, { signal }) {
+    if (consulta.q === "") return Promise.resolve(pagina());
+    return new Promise((resolve) => pendientes.push({ resolve, signal }));
+  } } });
+  enviarBusqueda(r, "antigua");
+  const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]");
+  quitar.focus(); quitar.listeners.get("click")(); await esperarRespuesta();
+  assert.equal(pendientes[0].signal.aborted, true);
+  pendientes[0].resolve(pagina({ total: 0, items: [] })); await esperarRespuesta();
+  assert.match(textoNodo(r), /ADMINISTRATIVO/u);
+  assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]"), null);
+  enviarBusqueda(r, "pendiente"); modulo.desmontar();
+  assert.equal(pendientes[1].signal.aborted, true);
+  pendientes[1].resolve(pagina()); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica]"), null);
 });
