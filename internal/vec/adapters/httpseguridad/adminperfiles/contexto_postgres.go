@@ -68,9 +68,18 @@ func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, rel
 
 func (r *resolutorContexto) ResolverYRegistrarContextoActorV2(ctx context.Context, solicitud ports.SolicitudResolucionRegistroContextoActorV2) (ports.ConfirmacionRegistroContextoActorV2, error) {
 	var vacia ports.ConfirmacionRegistroContextoActorV2
-	if r == nil || r.base == nil || ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
-		!solicitud.Proyecciones.Vacio() || solicitud.Contexto.Cuenta.Metodo != domain.AuthMethodCertificate ||
+	if r == nil || r.base == nil || nulo(r.base.reloj) || !procesoContextoADMIN.MatchString(r.proceso) ||
+		ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
+		!solicitud.Proyecciones.Vacio() ||
+		(solicitud.Contexto.Cuenta.Metodo != domain.AuthMethodCertificate && solicitud.Contexto.Cuenta.Metodo != domain.AuthMethodDNIe) ||
 		solicitud.Contexto.Cuenta.Garantia != domain.AuthAssuranceHigh {
+		return vacia, ports.ErrResolutorRegistroContextoActorNoDisponible
+	}
+	vinculo, err := VinculoSesionADMINDeContexto(ctx)
+	ahora := r.base.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	if err != nil || vinculo.CuentaRef != solicitud.Contexto.Cuenta.CuentaRef ||
+		vinculo.PerfilActivoRef != solicitud.Contexto.PerfilActivoRef ||
+		vinculo.VinculadaEn.After(ahora) || !ahora.Before(vinculo.VigenteHasta) {
 		return vacia, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	var entropia [24]byte
