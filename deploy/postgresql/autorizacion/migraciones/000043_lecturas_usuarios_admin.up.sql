@@ -38,6 +38,12 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.conjunto_usuarios_admin_v1(text,text) FROM PUBLIC;
 
+CREATE FUNCTION vec_autorizacion.ligadura_cursor_usuarios_admin_v1(conjunto text,f jsonb)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
+ SELECT encode(sha256(convert_to(E'vec.admin.cursor-usuarios.v1\n'||conjunto||E'\n'||'{"perfil_ref":'||to_jsonb(f->>'perfil_ref')::text||',"unidad_ref":'||to_jsonb(f->>'unidad_ref')::text||',"estado":'||to_jsonb(f->>'estado')::text||'}','UTF8')),'hex')
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.ligadura_cursor_usuarios_admin_v1(text,jsonb) FROM PUBLIC;
+
 -- Canon cerrado propio. Ningún actor, nombre, cuenta o permiso en el material.
 CREATE FUNCTION vec_autorizacion.canon_lectura_usuarios_admin_v1(m jsonb)
 RETURNS text LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -61,6 +67,7 @@ BEGIN
   OR jsonb_typeof(f->'estado') IS DISTINCT FROM 'string' OR f->>'estado' NOT IN('','vigente','caducado')
   OR jsonb_typeof(m->'cursor') IS DISTINCT FROM 'string' OR octet_length(m->>'cursor')>256
   OR jsonb_typeof(m->'limite') IS DISTINCT FROM 'number' OR m->>'limite' IS DISTINCT FROM '50' THEN RAISE EXCEPTION 'AUT43: filtros_invalidos' USING ERRCODE='22023';END IF;
+  IF m->>'cursor'<>'' AND(split_part(m->>'cursor',':',3)!~'^per_[A-Za-z0-9_-]{22,124}$' OR m->>'cursor' IS DISTINCT FROM 'usuarios:'||vec_autorizacion.ligadura_cursor_usuarios_admin_v1(m->>'conjunto_ref',f)||':'||split_part(m->>'cursor',':',3)) THEN RAISE EXCEPTION 'AUT43: cursor_divergente' USING ERRCODE='22023';END IF;
   can:=can||',"filtros":{"perfil_ref":'||to_jsonb(f->>'perfil_ref')::text||',"unidad_ref":'||to_jsonb(f->>'unidad_ref')::text||',"estado":'||to_jsonb(f->>'estado')::text||'},"cursor":'||to_jsonb(m->>'cursor')::text||',"limite":50';
  ELSE
   IF (SELECT count(*) FROM jsonb_object_keys(m))<>5 OR NOT m ?& ARRAY['esquema','organizacion_ref','unidad_ref','conjunto_ref','persona_ref']
@@ -187,9 +194,9 @@ BEGIN
    WHERE x.principal_id=m->>'persona_ref' AND vec_contexto_actor_v1.metadatos_persona_administrable_v1(x.principal_id) IS NOT NULL AND x.documento->'ambitos' @> jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))) THEN RETURN NULL;END IF;
   RETURN vec_autorizacion.proyectar_persona_usuarios_admin_v1(m->>'persona_ref',org,unidad);
  END IF;
- ligadura:=encode(sha256(convert_to(E'vec.admin.cursor-usuarios.v1\n'||(m->>'conjunto_ref')||E'\n'||'{"perfil_ref":'||to_jsonb(f->>'perfil_ref')::text||',"unidad_ref":'||to_jsonb(f->>'unidad_ref')::text||',"estado":'||to_jsonb(f->>'estado')::text||'}','UTF8')),'hex');
+ ligadura:=vec_autorizacion.ligadura_cursor_usuarios_admin_v1(m->>'conjunto_ref',f);
  IF cursor<>'' THEN
-  IF split_part(cursor,':',1)<>'usuarios' OR split_part(cursor,':',2) IS DISTINCT FROM ligadura OR split_part(cursor,':',3)!~'^per_[A-Za-z0-9_-]{22,124}$' OR split_part(cursor,':',4)<>'' THEN RAISE EXCEPTION 'AUT43: cursor_divergente' USING ERRCODE='22023';END IF;
+  IF split_part(cursor,':',1)<>'usuarios' OR split_part(cursor,':',2) IS DISTINCT FROM ligadura OR split_part(cursor,':',3)!~'^per_[A-Za-z0-9_-]{22,124}$' OR cursor IS DISTINCT FROM 'usuarios:'||ligadura||':'||split_part(cursor,':',3) THEN RAISE EXCEPTION 'AUT43: cursor_divergente' USING ERRCODE='22023';END IF;
   posicion:=split_part(cursor,':',3);
  END IF;
  -- TODOS los predicados corresponden a x, la misma asignación actual.
