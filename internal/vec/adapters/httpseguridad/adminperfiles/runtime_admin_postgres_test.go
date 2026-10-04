@@ -25,11 +25,18 @@ func (f fuenteIDsPruebaADMIN) ResolverIdentificadoresADMIN(context.Context, Refe
 type seudIDsPruebaADMIN struct {
 	resultado is.SeudonimosAlta
 	recibidos is.IdentificadoresAlta
+	llamadas  int
 }
 
 func (s *seudIDsPruebaADMIN) SeudonimizarAlta(_ context.Context, ids is.IdentificadoresAlta) (is.SeudonimosAlta, error) {
-	s.recibidos = ids
-	return s.resultado, nil
+	s.llamadas++
+	resultado := s.resultado
+	if s.llamadas == 1 {
+		s.recibidos = ids
+	} else {
+		resultado.CuentaIDHMAC = [32]byte{3}
+	}
+	return resultado, nil
 }
 
 func TestIdentificadoresADMINExigeTresHMACYCoordenadasOriginales(t *testing.T) {
@@ -40,7 +47,7 @@ func TestIdentificadoresADMINExigeTresHMACYCoordenadasOriginales(t *testing.T) {
 	ids := IdentificadoresFuenteADMIN{SujetoID: "sujeto-sintetico-original", CuentaID: "admin-sintetica-original", CuentaOrdinariaID: "ordinaria-sintetica-original",
 		EspacioIdentidad: r.EspacioIdentidad, DominioHMACRef: r.DominioHMACRef, ClaveHMACID: r.ClaveHMACID, ClaveHMACVersion: 1, FuenteRef: r.FuenteRef, FuenteSHA256: r.FuenteSHA256}
 	base := is.SeudonimosAlta{Esquema: r.EsquemaHMAC, EspacioIdentidad: r.EspacioIdentidad, DominioRef: r.DominioHMACRef, ClaveID: r.ClaveHMACID, ClaveVersion: 1,
-		SujetoIDHMAC: r.SujetoHMAC, CuentaIDHMAC: r.CuentaHMAC, CuentaOrdinariaIDHMAC: r.CuentaOrdinariaHMAC}
+		AsercionIDHMAC: [32]byte{4}, SesionIDHMAC: [32]byte{5}, SujetoIDHMAC: r.SujetoHMAC, CuentaIDHMAC: r.CuentaHMAC, CuentaOrdinariaIDHMAC: [32]byte{6}}
 	for _, caso := range []struct {
 		nombre    string
 		cambiar   func(*IdentificadoresFuenteADMIN, *is.SeudonimosAlta)
@@ -49,7 +56,7 @@ func TestIdentificadoresADMINExigeTresHMACYCoordenadasOriginales(t *testing.T) {
 		{"fuente original", func(*IdentificadoresFuenteADMIN, *is.SeudonimosAlta) {}, true},
 		{"sujeto distinto", func(_ *IdentificadoresFuenteADMIN, s *is.SeudonimosAlta) { s.SujetoIDHMAC[0]++ }, false},
 		{"cuenta distinta", func(_ *IdentificadoresFuenteADMIN, s *is.SeudonimosAlta) { s.CuentaIDHMAC[0]++ }, false},
-		{"ordinaria distinta", func(_ *IdentificadoresFuenteADMIN, s *is.SeudonimosAlta) { s.CuentaOrdinariaIDHMAC[0]++ }, false},
+		{"sujeto igual a cuenta", func(_ *IdentificadoresFuenteADMIN, s *is.SeudonimosAlta) { s.SujetoIDHMAC = s.CuentaIDHMAC }, false},
 		{"otra generación", func(_ *IdentificadoresFuenteADMIN, s *is.SeudonimosAlta) { s.ClaveVersion++ }, false},
 		{"otra procedencia", func(i *IdentificadoresFuenteADMIN, _ *is.SeudonimosAlta) { i.FuenteSHA256 = strings.Repeat("2", 64) }, false},
 		{"sin preimagen", func(i *IdentificadoresFuenteADMIN, _ *is.SeudonimosAlta) { i.SujetoID = "" }, false},
@@ -62,11 +69,19 @@ func TestIdentificadoresADMINExigeTresHMACYCoordenadasOriginales(t *testing.T) {
 			if (err == nil) != caso.permitido {
 				t.Fatal("cotejo no coincide con autoridad esperada")
 			}
-			if caso.permitido && (v != ids || seud.recibidos.SujetoID != ids.SujetoID || seud.recibidos.CuentaID != ids.CuentaID || seud.recibidos.CuentaOrdinariaID != ids.CuentaOrdinariaID) {
+			if caso.permitido && (seud.llamadas != 2 || v != ids || seud.recibidos.SujetoID != ids.SujetoID || seud.recibidos.CuentaID != ids.CuentaID || seud.recibidos.CuentaOrdinariaID != ids.CuentaOrdinariaID) {
 				t.Fatal("se alteraron los identificadores originales")
 			}
 		})
 	}
+	t.Run("alias ordinario registrado distinto", func(t *testing.T) {
+		otra := r
+		otra.CuentaOrdinariaHMAC[0]++
+		seud := &seudIDsPruebaADMIN{resultado: base}
+		if _, err := cotejarIdentificadoresFuenteADMIN(context.Background(), fuenteIDsPruebaADMIN{ids}, seud, otra); err == nil || seud.llamadas != 2 {
+			t.Fatal("se aceptó un alias ordinario ajeno al registrado")
+		}
+	})
 }
 
 func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {

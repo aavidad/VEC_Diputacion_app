@@ -239,10 +239,10 @@ func cotejarIdentificadoresFuenteADMIN(ctx context.Context, fuente FuenteIdentif
 	if _, err = rand.Read(aleatorio[:]); err != nil {
 		return IdentificadoresFuenteADMIN{}, api.ErrConfiguracionIncompleta
 	}
-	d, err := seud.SeudonimizarAlta(ctx, is.IdentificadoresAlta{EspacioIdentidad: r.EspacioIdentidad, AsercionID: hex.EncodeToString(aleatorio[:16]), SesionID: hex.EncodeToString(aleatorio[16:]), SujetoID: ids.SujetoID, CuentaID: ids.CuentaID, CuentaOrdinariaID: ids.CuentaOrdinariaID})
+	d, aliasOrdinario, err := is.SeudonimizarAltaConAliasCuentaOrdinaria(ctx, seud, is.IdentificadoresAlta{EspacioIdentidad: r.EspacioIdentidad, AsercionID: hex.EncodeToString(aleatorio[:16]), SesionID: hex.EncodeToString(aleatorio[16:]), SujetoID: ids.SujetoID, CuentaID: ids.CuentaID, CuentaOrdinariaID: ids.CuentaOrdinariaID}, r.EspacioIdentidad, r.DominioHMACRef)
 	if err != nil || d.Esquema != r.EsquemaHMAC || d.EspacioIdentidad != r.EspacioIdentidad || d.DominioRef != r.DominioHMACRef || d.ClaveID != r.ClaveHMACID || d.ClaveVersion != r.ClaveHMACVersion ||
 		subtle.ConstantTimeCompare(d.SujetoIDHMAC[:], r.SujetoHMAC[:]) != 1 || subtle.ConstantTimeCompare(d.CuentaIDHMAC[:], r.CuentaHMAC[:]) != 1 ||
-		subtle.ConstantTimeCompare(d.CuentaOrdinariaIDHMAC[:], r.CuentaOrdinariaHMAC[:]) != 1 {
+		subtle.ConstantTimeCompare(aliasOrdinario, r.CuentaOrdinariaHMAC[:]) != 1 {
 		return IdentificadoresFuenteADMIN{}, api.ErrConfiguracionIncompleta
 	}
 	return ids, nil
