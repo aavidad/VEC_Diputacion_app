@@ -152,3 +152,39 @@ func TestRecursoAjenoAlContratoComunSeMinimizaSinPerderIntento(t *testing.T) {
 		})
 	}
 }
+
+func TestPlazoLimitaAppendYFronteraSeparadaSinReintentos(t *testing.T) {
+	for _, nominal := range []bool{true, false} {
+		c := configuracionPrueba()
+		c.Plazo = 50 * time.Millisecond
+		in := intentoPrueba()
+		e := acreditacionPrueba(t, in.ActorPersonaRef, in.PerfilActivoRef, true)
+		if !nominal {
+			in.ActorPersonaRef, in.PerfilActivoRef, in.CorrelacionRef = "", "", ""
+		}
+		writes, boundaries := 0, 0
+		a, err := Nuevo(c, fuenteFunc(func(context.Context, string) (Acreditacion, error) {
+			if !nominal {
+				t.Fatal("pre-session resolved a fabricated identity")
+			}
+			return e, nil
+		}), registradorFunc(func(ctx context.Context, _ v.OrdenIntentoAuditoria) (v.AcuseIntentoAuditoria, error) {
+			writes++
+			<-ctx.Done()
+			return v.AcuseIntentoAuditoria{}, ctx.Err()
+		}), func(ctx context.Context, _ http.Denegacion) error {
+			boundaries++
+			<-ctx.Done()
+			return ctx.Err()
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = a.Registrar(context.Background(), in); err != p.ErrNoDisponible {
+			t.Fatal("timeout leaked or ignored", err)
+		}
+		if nominal && (writes != 1 || boundaries != 0) || !nominal && (writes != 0 || boundaries != 1) {
+			t.Fatal("timeout retried or crossed boundaries", writes, boundaries)
+		}
+	}
+}
