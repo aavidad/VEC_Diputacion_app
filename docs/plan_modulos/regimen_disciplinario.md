@@ -156,11 +156,12 @@ Las 18 filas suman **76–123 horas técnicas**, con revisión y comprobaciones 
 SQL propio y consumidores del módulo; excluyen producción común de B/K/L y servicios
 externos. Las horas se reestiman al fijar 134 y los contratos de ejecución.
 
-Con dos equipos se estiman **8–13 jornadas**, con órganos/fuentes disponibles.
+Con dos equipos se estiman **9–13 jornadas**, con órganos/fuentes disponibles.
 Camino orientativo: D00/D01 5–8 h; D02/D03 10–16 h; D04/D05 9–15 h;
-D06–D09 16–25 h con UI/documentos en paralelo; D10–D16 15–27 h con medidas/
-cómputos separados de propuesta/efectos; D17 4–6 h. Suma **59–97 h**, redondeadas
-a 8–13 jornadas de calendario técnico. Un equipo conserva expediente/instrucción
+D06–D09 16–25 h con UI/documentos en paralelo; D10–D16 21–34 h: propuesta,
+acto, eficacia, entrega y archivo en secuencia, mientras el otro equipo prepara
+medidas/cómputos; D17 4–6 h. Suma **65–104 h**, redondeadas a 9–13 jornadas
+de calendario técnico. Un equipo conserva expediente/instrucción
 y otro documentos/cómputos/entregas; cada contrato, catálogo y vista tiene un solo
 escritor. Iniciación, decisión y entrega limitan el solape. Sin esas condiciones
 se utiliza la horquilla de un equipo.
