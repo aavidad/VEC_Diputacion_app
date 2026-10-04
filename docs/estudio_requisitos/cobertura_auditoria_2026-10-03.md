@@ -101,3 +101,16 @@ La política documental existente usa [`conservacion/catalogo.go`](../../interna
 Consulta GitHub realizada el 03/10: #435 (Méritos), #442–#446 (baremo/preparación de bases y frontera), #437/#438 (lector Personal→RPT), #448/#451/#453/#456/#457/#458/#460/#464–#466 (firma, circuito y originales) y #392/#404–#407 (copias). Sus títulos y ramas describen preparación; ninguna se cuenta como integrada por figurar abierta. El relevo histórico del 29/09 se leyó para localizar trabajo previo y se contrastó con las ramas/PR actuales.
 
 La revisión de seguridad de este inventario es estática y focal: comprueba propiedad de autoridades, separación de fuentes, minimización y las limitaciones de atomicidad descritas. No es una auditoría completa ni acredita una vulnerabilidad en producción. El único cambio es este documento; no requiere ensayos SQL, `gosec`, Semgrep de código, pruebas Go ni navegador. Se comprueban enlaces a archivos existentes y `git diff --check`.
+
+## Avance de exportación — 04/10
+
+El paquete de desarrollo dispone de manifiesto tipado, proveedor KMS/TSA y
+comprobación de firma, archivo exacto y eslabones en `verificar-exportacion`.
+Los tramos históricos mantienen el aviso de fecha no ligada. El origen de la
+captura sigue sin acreditarse por la firma del paquete. La emisión de aplicación
+exige una fuente de captura confirmada; no tiene todavía un adaptador nominal
+activado ni una opción CLI de emisión manual. El [contrato común, apartado 9](../portal_vec/contrato_auditoria_comun.md#9-paquete-verificable-de-desarrollo--0410)
+y las instrucciones del comando conservan el alcance.
+
+No cierra el punto 4: faltan captura autorizada, auditoría de entrega y consulta
+por Aplicación. Tampoco acredita sello periódico ni resolución de conservación.
