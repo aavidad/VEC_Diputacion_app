@@ -20,6 +20,8 @@ BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
   OR getdatabaseencoding()<>'UTF8' OR nucleo IS NULL
   OR to_regrole('vec_catalogos_configurables_propietario') IS NULL
+  OR to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
+  OR to_regprocedure('vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)') IS NULL
   OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)') IS NULL
   OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)') IS NOT NULL
   OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb)') IS NOT NULL THEN
@@ -103,7 +105,7 @@ BEGIN
   OR decision->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
   OR decision->>'tipo_recurso' IS DISTINCT FROM 'catalogo_configurable'
   OR decision->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
-  OR decision#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
+  OR decision#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'administracion_privilegiada'
   OR decision->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR decision->'obligaciones' IS DISTINCT FROM '[]'::jsonb
   OR decision->>'principal_id' IS NULL OR decision->>'perfil_activo_ref' IS NULL
   OR r.actor_ref IS DISTINCT FROM decision->>'principal_id'
@@ -111,6 +113,15 @@ BEGIN
   OR r.finalidad_ref IS DISTINCT FROM decision->>'finalidad'
   OR decision->>'valida_hasta' IS NULL OR (decision->>'valida_hasta')::timestamptz<=ahora THEN
   RAISE EXCEPTION 'AD177 consumo de gobierno no disponible' USING ERRCODE='42501';
+ END IF;
+ -- AUT acredita la categoría y las concesiones fijas, no el LOGIN.
+ -- La fuente actual rechaza acciones no catalogadas; K debe publicar
+ -- su extensión aprobada antes de habilitar el gobierno del plan.
+ IF vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
+   decision->>'version_rol_ref',decision->>'asignacion_ref',decision->>'principal_id',decision->>'perfil_activo_ref',
+   decision->>'accion','contratacion_temporal','catalogo_configurable','gestionar_contratacion_temporal',
+   '[]'::jsonb,decision->'vinculo_autenticacion_actor') IS NOT TRUE THEN
+  RAISE EXCEPTION 'AD177 categoría Aplicación no acreditada' USING ERRCODE='42501';
  END IF;
  RETURN jsonb_build_object('decision_ref',r.decision_ref,'efecto_ref',r.efecto_ref,
   'huella_efecto_sha256',r.huella_efecto_sha256,'consumo_huella_sha256',r.consumo_huella_sha256,
@@ -199,6 +210,9 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobier
  bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(
  bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_catalogos_configurables_propietario;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_contratacion_temporal_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(
+ bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
 
 -- Una fachada nueva evita ampliar el ACL de AD167 ya instalada.
 CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(p_consumo jsonb)
@@ -217,27 +231,31 @@ DO $acl$
 DECLARE nombre text; f regprocedure; permiso record;
  propietario oid:='vec_autorizacion_atestada_v3_propietario'::regrole;
  catalogos oid:='vec_catalogos_configurables_propietario'::regrole;
+ runtime_ct oid:='vec_contratacion_temporal_ejecutor'::regrole;
+ exterior boolean;
 BEGIN
  FOREACH nombre IN ARRAY ARRAY[
   'vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)',
   'vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb)'] LOOP
   f:=nombre::regprocedure;
+  exterior:=nombre='vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)';
   IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario THEN
    RAISE EXCEPTION 'AD177 clave=propietario_funcion observado=incompatible esperado=propietario_AD' USING ERRCODE='55000';
   END IF;
   -- Retira también concesiones heredadas de privilegios predeterminados.
   FOR permiso IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL
    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
-   WHERE p.oid=f AND x.grantee NOT IN(propietario,catalogos) LOOP
+   WHERE p.oid=f AND x.grantee NOT IN(propietario,catalogos)
+     AND (NOT exterior OR x.grantee<>runtime_ct) LOOP
    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
     CASE WHEN permiso.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(permiso.grantee)) END);
   END LOOP;
   IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL
-    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>2
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>(CASE WHEN exterior THEN 3 ELSE 2 END)
    OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
     aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f
-    AND (x.grantee NOT IN(propietario,catalogos) OR x.grantor<>propietario
+    AND ((x.grantee NOT IN(propietario,catalogos) AND (NOT exterior OR x.grantee<>runtime_ct)) OR x.grantor<>propietario
       OR x.privilege_type<>'EXECUTE' OR x.is_grantable)) THEN
    RAISE EXCEPTION 'AD177 clave=acl_funcion observado=incompatible esperado=AD_y_CC_EXECUTE_sin_grant_option' USING ERRCODE='55000';
   END IF;

@@ -12,7 +12,8 @@ un consumo de firma vigente, sin conceder permisos de gobierno al firmante.
 Los perfiles técnicos de gobierno y lectura aún no existen en la cadena
 post-H9/AD173. L conserva su implementación. La fachada de gobierno está preparada;
 falta completar la consulta nominal. Ningún LOGIN recibe
-EXECUTE de los comprobadores privados de este borrador.
+EXECUTE de los comprobadores privados de este borrador. La fachada exterior
+admite el ejecutor técnico CT existente; ese grupo no acredita a la persona.
 
 `comprobar_consumo_gobierno_plan_firma_v1(jsonb)` acepta los siete campos del
 resultado de consumo y coteja las filas, la decisión, el efecto, la vigencia y
@@ -31,6 +32,12 @@ El identificador debe ser una clave documental común de al menos tres caractere
 como exige el plan CT; no admite dos puntos. El material enlaza contenido y CAS
 mediante `material_sha256`. El servicio común actual aún necesita su decorador
 de material operativo para emitir esa autorización ligada al contenido.
+
+El gobierno usa `administracion_privilegiada`, como la fuente real de Aplicación.
+La categoría y las concesiones se revalidan mediante la fachada AUT existente.
+Actualmente sus acciones y versión siguen restringidas: K debe publicar la
+extensión aprobada. Este borrador rechaza el gobierno hasta entonces; no infiere
+la categoría del rol técnico, un nombre de cargo o un identificador propuesto.
 
 La composición debe registrar denegados y errores mediante el puerto común de
 intentos publicado por L, después del rollback del efecto. Este borrador no
