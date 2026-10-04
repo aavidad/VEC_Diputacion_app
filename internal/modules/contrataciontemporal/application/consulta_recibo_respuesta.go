@@ -28,12 +28,19 @@ func (s *ServicioConsultaReciboRespuesta) Consultar(ctx context.Context, solicit
 		return vacio, err
 	}
 	r, err := s.lector.ConsultarReciboRespuesta(ctx, solicitud)
+	var auditado ports.FalloLecturaAuditado
+	conAcuse := errors.As(err, &auditado)
 	if e := ctx.Err(); e != nil {
-		return vacio, e
+		if !conAcuse {
+			return vacio, e
+		}
 	}
 	if err != nil {
 		if r != vacio {
 			return vacio, ports.ErrReciboRespuestaNoConfiable
+		}
+		if conAcuse {
+			return vacio, err
 		}
 		for _, conocido := range []error{ports.ErrConsultaReciboRespuestaInvalida, ports.ErrReciboRespuestaNoEncontrado, ports.ErrConsultaReciboRespuestaDenegada, ports.ErrReciboRespuestaNoConfiable, context.Canceled, context.DeadlineExceeded} {
 			if errors.Is(err, conocido) {

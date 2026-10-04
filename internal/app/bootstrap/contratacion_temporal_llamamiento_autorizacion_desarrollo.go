@@ -556,6 +556,8 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 			return fallo(ports.ErrAutorizacionDenegada)
 		}
 		correlacion, err = resultado.auditoria.CorrelacionPara(resultado.solicitud)
+	} else if a.consultaReciboRespuesta || a.consultaComunicacionesExpediente {
+		correlacion, err = puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	} else {
 		correlacion, err = dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
 	}
