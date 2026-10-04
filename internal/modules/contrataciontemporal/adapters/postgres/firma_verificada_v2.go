@@ -104,8 +104,35 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 	}
 	defer clear(contenido)
 	var w respuestaFirmasR5SQL172
-	if decodificarFirma118(contenido, &w) != nil || w.Encontrado == nil || w.ExpedienteRef != m.ExpedienteRef ||
-		w.Firmas == nil || w.RevisionesPDF == nil || w.HistoriaRevision == nil ||
+	if decodificarFirma118(contenido, &w) != nil {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
+	lectura, err := proyectarLecturaFirmasSQL172(m, w)
+	if err != nil {
+		return cero, err
+	}
+	if err = ctx.Err(); err != nil {
+		return cero, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		if ctx.Err() != nil {
+			return cero, ctx.Err()
+		}
+		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	confirmado = true
+	if !*w.Encontrado {
+		return cero, ports.ErrExpedienteConsultaFirmasNoEncontrado
+	}
+	return lectura, nil
+}
+
+// proyectarLecturaFirmasSQL172 valida la proyección común a consulta y recuperación.
+// La transacción llamadora conserva el resultado oculto hasta confirmar su COMMIT.
+func proyectarLecturaFirmasSQL172(m ports.MaterialConsultaFirmasR5V2, w respuestaFirmasR5SQL172) (ports.LecturaFirmasR5V2, error) {
+	var cero ports.LecturaFirmasR5V2
+	if w.Encontrado == nil || w.ExpedienteRef != m.ExpedienteRef ||
+		w.Firmas == nil || w.RevisionesPDF == nil || len(w.Firmas) > 128 || len(w.RevisionesPDF) > 128 || w.HistoriaRevision == nil ||
 		*w.HistoriaRevision > 9007199254740991 || w.CoincideFirmanteEnOtroPaso == nil ||
 		w.HistoriaSeparacionAcreditada == nil || !domain.HuellaSHA256FirmaValida(w.HistoriaHuella) ||
 		(!*w.Encontrado && (len(w.Firmas) != 0 || len(w.RevisionesPDF) != 0)) {
@@ -173,19 +200,6 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 			ContenidoFirmadoHuellaSHA256: v.ContenidoFirmadoHuellaSHA256, RevisionLongitud: v.RevisionLongitud,
 			EvidenciaFirmasCanonica:     json.RawMessage(v.EvidenciaFirmasCanonica),
 			EvidenciaFirmasHuellaSHA256: v.EvidenciaFirmasHuellaSHA256})
-	}
-	if err = ctx.Err(); err != nil {
-		return cero, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		if ctx.Err() != nil {
-			return cero, ctx.Err()
-		}
-		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
-	}
-	confirmado = true
-	if !*w.Encontrado {
-		return cero, ports.ErrExpedienteConsultaFirmasNoEncontrado
 	}
 	return ports.LecturaFirmasR5V2{LecturaFirmasR5: ports.LecturaFirmasR5{
 		Firmas: firmas, HistoriaRevision: *w.HistoriaRevision, HistoriaHuella: w.HistoriaHuella,
