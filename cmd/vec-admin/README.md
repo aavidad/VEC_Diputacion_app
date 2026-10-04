@@ -6,7 +6,7 @@ lecturas nominales mediante la sesión ADMIN y el PDP V3. Las escrituras de
 perfiles siguen cerradas. El selector reutiliza la observación de esa misma
 frontera; no añade un login.
 
-El proceso exige configuración privada y siete LOGIN segregados. Si falta una
+El modo heredado exige configuración privada y siete LOGIN segregados. Si falta una
 función, un perfil vigente, material criptográfico o una fuente, el arranque o
 la operación se cierran. No crea cuentas ni publica permisos al recibir una
 petición. La CLI privada prepara o coteja el bootstrap; su aplicación sigue cerrada
@@ -65,8 +65,8 @@ manifiestos públicos e internos comunes no se amplían para servir ADMIN.
 
 Las fuentes `Lecturas` y `FuenteSeleccion` se inyectan por el compositor. La
 segunda debe confirmar lectura o selección y auditoría común en una sola
-transacción. Todavía no se ha conectado una implementación en este proceso;
-la ausencia conserva 503. Las fuentes no se sustituyen por datos de prueba ni
+transacción. En el modo heredado no hay una implementación conectada: la
+ausencia conserva 503. Las fuentes no se sustituyen por datos de prueba ni
 se habilitan desde un parámetro HTTP.
 
 La composición y los activos están preparados para revisión. Un recorrido
@@ -74,3 +74,29 @@ real exige fuentes auditadas, instalación causal, configuración privada y
 bootstrap aprobado por su canal de operador. Aquí no se ejecutan SQL,
 bootstrap ni servidor. Una preparación, un GO estático o pruebas con dobles
 no acreditan el recorrido.
+
+## Modo privado de metadatos de usuarios
+
+`VEC_ADMIN_USUARIOS_CONFIG_FILE` puede apuntar a un segundo archivo privado
+`0600`, fuera de Git. Si se aporta, su campo `modo` debe ser exactamente
+`metadatos_v1`: cualquier fallo cierra el arranque. El archivo heredado de
+`VEC_ADMIN_PERFILES_CONFIG_FILE` sigue aportando identidad, firmante, pools
+centrales y activos, con el mismo formato que antes.
+
+El overlay fija organización y unidad, proceso y canal ADMIN, los dos motivos
+de lectura, los motivos de denegación y error, un plazo acotado y los nueve
+destinos de auditoría. La referencia del conjunto de usuarios debe corresponder
+al ámbito privado. También señala tres archivos DSN distintos para el lector
+AUT43/AD185, el registrador común AD169 y el selector IS14. Cada uno usa un
+LOGIN propio y el proceso verifica su grupo antes de montar la fuente. La
+configuración `confianza` del overlay admite exactamente las dos audiencias
+de usuarios; el material HMAC, la semilla de firma y los seudónimos siguen
+procediendo de archivos protegidos.
+
+Con ese modo, el proceso conecta el emisor V3, la fuente PostgreSQL nominal,
+el mapper de metadatos y el auditor común. La API queda acotada a GET de lista
+y ficha; las escrituras continúan cerradas. El selector conserva su circuito
+auditado. Sin pool, permiso, clave o fuente real no hay lectura sustitutiva.
+El montaje no acredita todavía un recorrido de navegador ni instalación SQL
+en el entorno de destino. La frontera anterior a V2 sigue devolviendo
+indisponibilidad hasta que disponga de una autoridad técnica propia.

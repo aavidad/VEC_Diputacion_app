@@ -19,6 +19,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
@@ -149,7 +151,19 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 		t.Fatal("TLS acepto cliente sin certificado")
 	}
 	var llamadasPerfiles atomic.Int64
+	correlaciones := make(chan string, 2)
 	perfilHandler := &handlerPerfilesADMIN{api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ref, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		canon, err := ref.ValorCanonico()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		correlaciones <- canon
 		llamadasPerfiles.Add(1)
 		w.WriteHeader(http.StatusAccepted)
 	}), rutas: map[string]string{}}
@@ -169,6 +183,7 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 			t.Fatal(err)
 		}
 		req.Host = cfg.Host
+		req.Header.Set("X-Correlation-ID", strings.Repeat("a", 32))
 		respuesta, err := (&http.Client{Transport: transporte}).Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -179,8 +194,16 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if got := peticionPerfil(); got != http.StatusAccepted || llamadasPerfiles.Load() != 1 {
 		t.Fatalf("perfil tras frontera=%d llamadas=%d", got, llamadasPerfiles.Load())
 	}
+	primera := <-correlaciones
+	if got := peticionPerfil(); got != http.StatusAccepted || llamadasPerfiles.Load() != 2 {
+		t.Fatalf("segunda petición=%d llamadas=%d", got, llamadasPerfiles.Load())
+	}
+	segunda := <-correlaciones
+	if primera == segunda || primera == "correlacion_"+strings.Repeat("a", 32) || segunda == "correlacion_"+strings.Repeat("a", 32) {
+		t.Fatal("correlacion_de_cliente_o_reutilizada")
+	}
 	actualizarCRL(true)
-	if got := peticionPerfil(); got != http.StatusForbidden || llamadasPerfiles.Load() != 1 {
+	if got := peticionPerfil(); got != http.StatusForbidden || llamadasPerfiles.Load() != 2 {
 		t.Fatalf("revocado llegó al handler=%d llamadas=%d", got, llamadasPerfiles.Load())
 	}
 	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {

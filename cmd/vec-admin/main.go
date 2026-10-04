@@ -33,7 +33,19 @@ func main() {
 	if err != nil {
 		log.Fatal(administracion.ErrConfiguracion)
 	}
-	servidor, cerrar, err := componerProcesoADMIN(configServidor, privada)
+	var servidor *http.Server
+	var cerrar func()
+	if rutaUsuarios := os.Getenv("VEC_ADMIN_USUARIOS_CONFIG_FILE"); rutaUsuarios != "" {
+		// El modo lo fija el archivo privado cerrado; una configuración inválida
+		// nunca cae al arranque heredado de perfiles.
+		usuarios, errorConfig := cargarConfiguracionUsuariosMetadatosPrivada(rutaUsuarios, privada)
+		if errorConfig != nil {
+			log.Fatal(administracion.ErrConfiguracion)
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMIN(configServidor, privada, usuarios)
+	} else {
+		servidor, cerrar, err = componerProcesoADMIN(configServidor, privada)
+	}
 	if err != nil {
 		log.Fatal(administracion.ErrConfiguracion)
 	}
