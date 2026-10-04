@@ -59,14 +59,14 @@ Se documentarán obligación/misión pública y condición específica de salud:
 
 Servicio sanitario, DPD y Archivo fijan RAT, destinatarios, información a la persona, contratos del proveedor, riesgos/EIPD cuando proceda, conservación por serie y por exposición, bloqueo y archivo. No se adopta un plazo clínico genérico ni se concluye que cesar extingue toda vigilancia. La historia de solo adición no significa retención ilimitada. [LOPDGDD, arts. 8, 28 y 32](https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673).
 
-Cada acción, incluida consulta, descarga, denegación o error, usa la auditoría común nominal: actor, perfil activo, acción, recurso opaco, finalidad, instante, resultado y origen (proceso y canal), con correlación y versión necesarias. Efecto y auditoría en la misma transacción; lectura auditada antes de revelar datos. Registro de solo adición y acceso segregado. No incluye diagnósticos, aptitudes en claro, salud, familia o documentos completos; los logs técnicos tampoco. Los actos sanitarios deben dejar esa traza común mínima por el contrato autorizado, manteniendo la clínica en su custodia.
+Cada acción, incluida consulta, descarga, denegación o error, usa la auditoría común nominal: actor, perfil activo, acción, recurso opaco, finalidad, instante, resultado y origen (proceso y canal), con correlación y versión necesarias. Efecto y auditoría en la misma transacción; lectura auditada antes de revelar datos. Registro de solo adición y acceso segregado. No incluye diagnósticos, aptitudes en claro, salud, familia o documentos completos; los logs técnicos tampoco. Las actuaciones sanitarias realizadas a través de VEC o de su contrato auditado dejan esa traza común mínima, manteniendo la clínica en su custodia. La actividad privada del proveedor fuera de ese contrato conserva su auditoría sanitaria propia; no se replica íntegramente en VEC.
 
 ## Relaciones internas y dependencias externas
 
 | Propietario interno | Puerto mínimo | Restricción |
 | --- | --- | --- |
 | Núcleo común | Persona, identidad, autorización y auditoría. | Sin login, auditoría o motor de permisos paralelo. |
-| Personal / RPT | Relación, puesto, adscripción y fechas pertinentes. | Devuelve aptitud/medidas para actuación concreta; no clínica. |
+| Personal / RPT | Relación, puesto, adscripción y fechas pertinentes. | Recibe de PRL solo aptitud/medidas necesarias para la actuación concreta, sin clínica. |
 | Provisión | Conclusión de compatibilidad y referencia del procedimiento de movilidad. | El órgano competente mantiene decisión y ocupación. |
 | Formación | Acción preventiva, asistencia y certificación acreditadas. | No traslada motivos sanitarios de adaptaciones. |
 | Cronos | Ausencia autorizada, fecha y efecto administrativo indispensable. | No diagnóstico ni cita médica detallada; no duplica maestro de ausencias. |
