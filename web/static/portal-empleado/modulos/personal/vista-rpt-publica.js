@@ -5,24 +5,27 @@ function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-per
 function retirar(raiz, contenedor) { if (!sigueMontada(raiz, contenedor)) return; if (typeof contenedor.remove === "function") contenedor.remove(); else raiz.removeChild?.(contenedor); }
 function formulario(documento, consulta, recargar, t) {
   const salida = nodo(documento, "form");
+  salida.className = "panel filtros-quitables";
   salida.dataset.personalRptPublicaFiltros = "";
   salida.dataset.personalRptPublicaConsulta = consulta.q;
-  const etiqueta = nodo(documento, "label", t("buscar"));
+  const etiqueta = nodo(documento, "label");
   const entrada = nodo(documento, "input");
   entrada.type = "search"; entrada.name = "q"; entrada.value = consulta.q; entrada.maxLength = 100;
   entrada.dataset.personalRptPublicaBusqueda = "";
-  etiqueta.append(entrada);
+  etiqueta.append(nodo(documento, "span", t("buscar")), entrada);
   const boton = nodo(documento, "button", t("accion_buscar"));
-  boton.type = "submit";
+  boton.type = "submit"; boton.className = "boton-primario";
   salida.append(etiqueta, boton);
   if (consulta.q !== "") {
     const aplicada = nodo(documento, "p", t("busqueda_aplicada", { busqueda: consulta.q }));
+    aplicada.className = "rpt-huella";
     aplicada.dataset.personalRptPublicaBusquedaAplicada = "";
     const quitar = nodo(documento, "button", t("quitar_busqueda"));
-    quitar.type = "button";
+    quitar.type = "button"; quitar.className = "boton-secundario";
     quitar.dataset.personalRptPublicaQuitarBusqueda = "";
     quitar.addEventListener("click", () => recargar({ q: "", offset: 0 }));
-    salida.append(aplicada, quitar);
+    const activos = nodo(documento, "div"); activos.className = "filtros-activos";
+    activos.append(aplicada, quitar); salida.append(activos);
   }
   salida.addEventListener("submit", (evento) => {
     evento.preventDefault(); recargar({ q: entrada.value.trim(), offset: 0 });
