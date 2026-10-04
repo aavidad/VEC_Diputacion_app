@@ -5,12 +5,45 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+// El vector procede del ensayo PostgreSQL 18 post-AD183 del director. Conserva
+// configuración, captura y confirmación reales en la cadena técnica sintética.
+func TestAD186VectorPostgreSQLRealConWrapBase64(t *testing.T) {
+	raw, err := os.ReadFile("testdata/periodica_ad186.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d DocumentoVerificacionMixta
+	if err := decodificarDocumentoExportacionEstricto(raw, &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Manifiesto.PrimeraSecuencia != 6241 || d.Manifiesto.UltimaSecuencia != 6243 || d.Manifiesto.Registros != 3 {
+		t.Fatal("vector PostgreSQL distinto")
+	}
+	for _, r := range d.Registros {
+		if r.Periodica == nil || !strings.Contains(r.Periodica.DetalleCanonicoBase64, "\n") {
+			t.Fatal("sin transporte PostgreSQL natural")
+		}
+	}
+	r := VerificarCadenaPeriodicaV1(d, d.Manifiesto, 3)
+	if r.Estado != "verificada" || !r.MaterialPeriodicaRecalculado || r.ActorPerfilContextoCotejados || r.AutenticidadCheckpoint != "no_comprobada" {
+		t.Fatalf("vector PostgreSQL: %+v fallo=%+v", r, r.Fallo)
+	}
+	c := d.Manifiesto
+	_, informe, err := VerificarDocumentoExportacionAuditoria(raw, domain.CoberturaCheckpoint{
+		CadenaID: c.CadenaID, PrimeraSecuencia: c.PrimeraSecuencia, UltimaSecuencia: c.UltimaSecuencia,
+		Registros: c.Registros, AnteriorSHA256: c.AnteriorSHA256, CabezaSHA256: c.CabezaSHA256}, 8192, 3)
+	if err != nil || informe.Estado != "verificada" {
+		t.Fatalf("parser PostgreSQL: %v %+v", err, informe)
+	}
+}
 
 // Esta fixture prueba alteraciones locales, no la interoperabilidad SQL.
 // El vector producido por PostgreSQL se coteja por separado.
