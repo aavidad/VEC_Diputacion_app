@@ -229,6 +229,10 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			return
 		}
 		result, err = h.lecturas.BuscarPersonas(ctx, actor, s.Evidencia, consulta)
+		if pagina, ok := result.(PaginaPersonas); err == nil && ok && !pagina.metadatosValidos() {
+			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "buscar_personas", "")
+			return
+		}
 	case strings.HasPrefix(p, PrefijoV1+"/personas/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/personas/")
 		if !refOpaca(ref, "per_") {
@@ -237,8 +241,16 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 		}
 		var ficha FichaPersona
 		ficha, err = h.lecturas.ConsultarPersona(ctx, actor, s.Evidencia, ref)
-		if err == nil && ficha.PersonaRef != ref {
+		if err == nil && ficha.referenciaEmitida() != ref {
+			if ficha.Metadatos != nil {
+				h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
+				return
+			}
 			err = ErrConfiguracionIncompleta
+		}
+		if err == nil && !ficha.metadatosValidos() {
+			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
+			return
 		}
 		result = ficha
 	case p == PrefijoV1+"/propuestas" && (r.URL.RawQuery == "" || r.URL.RawQuery == "estado=pendiente"):
