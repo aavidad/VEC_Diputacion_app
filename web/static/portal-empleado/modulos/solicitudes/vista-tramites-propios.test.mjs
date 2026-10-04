@@ -328,7 +328,7 @@ test("el justificante muestra su propia versión, referencia y fecha sin tomar l
 test("sin justificante no fabrica versión ni detalle desde los datos de la comisión", () => {
   const item = comision(); item.comision.version = 7; delete item.recibo;
   const html = renderizarVistaTramitesPropios({ dietas: panel({ items: [item] }) });
-  assert.match(html, /Justificante de operación/); assert.match(html, /<td>No consta<\/td>/);
+  assert.match(html, /Justificante de operación/); assert.match(html, /<td\b[^>]*>No consta<\/td>/);
   assert.doesNotMatch(html, /<details>|Versión del justificante|<dd>7<\/dd>/);
 });
 

@@ -46,7 +46,7 @@ function boton(bloque, accion, etiqueta, impedido = false) {
   return `<button type="button" class="boton-secundario" id="tramites-${bloque}-${accion}" data-tramites-bloque="${bloque}" data-tramites-accion="${accion}" aria-disabled="${impedido}">${escapar(etiqueta)}</button>`;
 }
 function tabla(bloque, columnas, filas, t) {
-  return `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${escapar(t(`${bloque}_tabla`))}" id="tramites-${bloque}-tabla"><table class="tabla-datos${bloque === "dietas" ? " tabla-datos--prioritaria" : ""}"><caption>${escapar(t(`${bloque}_tabla`))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filas}</tbody></table></div>`;
+  return `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${escapar(t(`${bloque}_tabla`))}" id="tramites-${bloque}-tabla"><table class="tabla-datos${bloque === "dietas" ? " tabla-datos--prioritaria tabla-apilable" : ""}"><caption>${escapar(t(`${bloque}_tabla`))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filas}</tbody></table></div>`;
 }
 function tablaCronos(panel, t, loc) {
   const inicio = panel.pagina * TAMANO;
@@ -79,10 +79,10 @@ function devolucion(item, t, loc) {
 function tablaDietas(panel, t, loc) {
   const filas = panel.datos.items.map((item) => `<tr>
     <th scope="row">${escapar(textoDato(item.comision.numero_documento, () => t("dietas_nombre")))}</th>
-    <td>${etiquetaEstado("dietas", item.comision.estado, t)}</td>
-    <td>${escapar(periodo(item.comision.fecha_inicio, item.comision.fecha_fin, t, loc))}</td>
-    <td>${devolucion(item, t, loc)}</td>
-    <td>${recibo(item, t, loc)}</td>
+    <td data-etiqueta="${escapar(t("estado"))}">${etiquetaEstado("dietas", item.comision.estado, t)}</td>
+    <td data-etiqueta="${escapar(t("periodo_comision"))}">${escapar(periodo(item.comision.fecha_inicio, item.comision.fecha_fin, t, loc))}</td>
+    <td class="envuelve" data-etiqueta="${escapar(t("pendiente"))}">${devolucion(item, t, loc)}</td>
+    <td data-etiqueta="${escapar(t("justificante_operacion"))}">${recibo(item, t, loc)}</td>
   </tr>`).join("");
   return tabla("dietas", ["comision", "estado", "periodo_comision", "pendiente", "justificante_operacion"], filas, t);
 }
