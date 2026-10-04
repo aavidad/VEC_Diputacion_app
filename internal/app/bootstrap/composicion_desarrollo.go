@@ -402,6 +402,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	if documentos != nil {
+		vincularResultadosFirmaCT(autoridadContratacion.firmaDocumento, documentos)
 		defer func() {
 			if !completa {
 				documentos.cerrar()
@@ -414,7 +415,7 @@ func nuevoServidorDesarrollo(
 			return nil, nil, err
 		}
 	}
-	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios)
+	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios, autoridadContratacion.materialPersonalHistoriaRelaciones)
 	if err != nil {
 		return nil, nil, err
 	}
