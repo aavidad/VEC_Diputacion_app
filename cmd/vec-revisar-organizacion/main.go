@@ -68,6 +68,7 @@ func ejecutar(args []string, input io.Reader, output io.Writer) int {
 						informe.Valido = false
 						informe.ClaveError, informe.Seccion = "paquete_excede_limite", "paquete"
 						informe.ManifiestoHuellaSHA256, informe.PaqueteHuellaSHA256 = "", ""
+						informe.CoberturaConciliacion = nil
 					} else {
 						exportado = &normalizado
 					}
