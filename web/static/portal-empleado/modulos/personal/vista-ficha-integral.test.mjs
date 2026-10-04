@@ -31,6 +31,17 @@ function texto(n) { return nodos(n).map((item) => item.textContent).join(" "); }
 function tab(ficha, clave) { return nodos(ficha).find((n) => n.dataset.personalFichaTab === clave); }
 const completar = () => new Promise((resolve) => setImmediate(resolve));
 
+test("Contacto consulta su fuente sólo al abrir la pestaña y limpia una vez al salir", async () => {
+  const raiz = raizFalsa(); let consultas = 0, limpiezas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, montarContacto(entrada) {
+    consultas += 1; const limpiar = () => { limpiezas += 1; }; entrada.registrarDesmontar(limpiar);
+    return { desmontar: limpiar };
+  } });
+  assert.equal(consultas, 0);
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "contacto").click(); await completar();
+  assert.equal(consultas, 1); tab(ficha, "ficha").click(); await completar(); assert.equal(limpiezas, 1);
+});
+
 test("el acceso a correos abre su vista existente sin consultar ni trasladar datos de Personal", () => {
   const raiz = raizFalsa(); let aperturas = 0; let consultas = 0;
   montarVistaFichaIntegralPersonal({ raiz, abrirCorreos: () => { aperturas += 1; }, fuentes: {

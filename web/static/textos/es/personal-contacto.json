@@ -1,0 +1,18 @@
+{
+  "titulo": "Mis correos",
+  "direccion": "Dirección",
+  "estado": "Estado",
+  "alta": "Fecha de alta",
+  "activo": "Verificado · Para avisos",
+  "verificado": "Verificado",
+  "pendiente": "Pendiente de verificación",
+  "actualizar": "Actualizar",
+  "gestionar": "Gestionar mis correos",
+  "cargando": "Consultando sus correos…",
+  "fuente": "Fuente: Mis correos. La fecha corresponde al alta de cada dirección.",
+  "vacio": "No tiene direcciones registradas. Puede añadirlas en Mis preferencias.",
+  "sesion": "Su sesión ha caducado. Identifíquese de nuevo para consultar sus correos.",
+  "denegado": "No tiene acceso a esta consulta con el perfil activo.",
+  "no_configurado": "La consulta de correos no está conectada. Avise a Informática.",
+  "error": "No se han podido consultar sus correos. Pulse Actualizar para reintentar."
+}

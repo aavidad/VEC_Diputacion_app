@@ -212,6 +212,9 @@ static/portal-empleado/modulos/personal/i18n-exportacion-servicios.js
 static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
+static/portal-empleado/modulos/personal/vista-contacto-propio.js
+static/textos/es/personal-contacto.json
+static/textos/en/personal-contacto.json
 static/portal-empleado/modulos/personal/ficha-propia-corte.js
 static/portal-empleado/modulos/personal/registro-b2.js
 static/portal-empleado/modulos/personal/vacantes-b2-vista.js
