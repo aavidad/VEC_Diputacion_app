@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -115,5 +116,39 @@ func TestCSVRechazaCatalogoAmbiguo(t *testing.T) {
 		if err == nil || len(b) != 0 {
 			t.Fatal("catálogo inválido produjo bytes", err)
 		}
+	}
+}
+
+func TestCSVRechazaCabecerasFueraDelCatalogoComun(t *testing.T) {
+	e := ejemploPrueba(t)
+	var base map[string]any
+	if err := json.Unmarshal(catalogoCSVPrueba(t, "es"), &base); err != nil {
+		t.Fatal(err)
+	}
+	for nombre, cambiar := range map[string]func(map[string]any){
+		"array":   func(c map[string]any) { c["cabeceras"] = []string{"Registro", "Fecha"} },
+		"ausente": func(c map[string]any) { delete(c["cabeceras"].(map[string]any), "registro") },
+		"ajena":   func(c map[string]any) { c["cabeceras"].(map[string]any)["dato_ajeno"] = "Dato ajeno" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c := map[string]any{}
+			for k, v := range base {
+				c[k] = v
+			}
+			cabeceras := map[string]any{}
+			for k, v := range base["cabeceras"].(map[string]any) {
+				cabeceras[k] = v
+			}
+			c["cabeceras"] = cabeceras
+			cambiar(c)
+			raw, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, err := PrepararCSV(context.Background(), bytes.NewReader(raw), e)
+			if err == nil || len(b) != 0 {
+				t.Fatal("cabeceras inválidas produjeron bytes", err)
+			}
+		})
 	}
 }

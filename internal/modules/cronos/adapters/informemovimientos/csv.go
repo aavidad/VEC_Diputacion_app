@@ -24,7 +24,7 @@ type CatalogoCSV struct {
 	Idioma             string            `json:"idioma"`
 	FormatoFecha       string            `json:"formato_fecha"`
 	FormatoHora        string            `json:"formato_hora"`
-	Cabeceras          []string          `json:"cabeceras"`
+	Cabeceras          map[string]string `json:"cabeceras"`
 	Contexto           string            `json:"contexto"`
 	Marcaje            string            `json:"marcaje"`
 	Sintetico          string            `json:"sintetico"`
@@ -33,6 +33,11 @@ type CatalogoCSV struct {
 	OrigenSinVerificar string            `json:"origen_sin_verificar"`
 	Movimientos        map[string]string `json:"movimientos"`
 	Origenes           map[string]string `json:"origenes"`
+}
+
+var clavesCabecerasCSV = [...]string{
+	"registro", "fecha", "hora", "movimiento", "origen", "desde", "hasta",
+	"zona_horaria", "estado_fuente", "aviso",
 }
 
 // PrepararCSV recibe el mismo ejemplo cerrado que el PDF de movimientos. La
@@ -69,7 +74,11 @@ func PrepararCSV(ctx context.Context, catalogo io.Reader, e EjemploSintetico) ([
 	sort.SliceStable(ordenados, func(i, j int) bool { return ordenados[i].InstanteUTC.Before(ordenados[j].InstanteUTC) })
 	var salida bytes.Buffer
 	w := csv.NewWriter(&salida)
-	if err := escribirFilaCSV(w, c.Cabeceras); err != nil {
+	cabeceras := make([]string, 0, len(clavesCabecerasCSV))
+	for _, clave := range clavesCabecerasCSV {
+		cabeceras = append(cabeceras, c.Cabeceras[clave])
+	}
+	if err := escribirFilaCSV(w, cabeceras); err != nil {
 		return nil, err
 	}
 	fuente := c.FuenteIncompleta
@@ -114,7 +123,7 @@ func validarCatalogoCSV(c CatalogoCSV) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrEjemploInvalido, err)
 	}
-	if idioma.String() != c.Idioma || !texto(c.Referencia, 512) || !texto(c.FormatoFecha, 32) || !texto(c.FormatoHora, 64) || len(c.Cabeceras) != 10 {
+	if idioma.String() != c.Idioma || !texto(c.Referencia, 512) || !texto(c.FormatoFecha, 32) || !texto(c.FormatoHora, 64) || !mapa(c.Cabeceras, clavesCabecerasCSV[:]) {
 		return ErrEjemploInvalido
 	}
 	base, confianza := idioma.Base()

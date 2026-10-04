@@ -4,7 +4,7 @@
   "idioma": "es-ES",
   "formato_fecha": "02/01/2006",
   "formato_hora": "15:04:05 -07:00 MST",
-  "cabeceras": ["Registro", "Fecha", "Hora", "Movimiento", "Origen", "Desde", "Hasta", "Zona horaria", "Estado de la fuente", "Aviso"],
+  "cabeceras": {"registro": "Registro", "fecha": "Fecha", "hora": "Hora", "movimiento": "Movimiento", "origen": "Origen", "desde": "Desde", "hasta": "Hasta", "zona_horaria": "Zona horaria", "estado_fuente": "Estado de la fuente", "aviso": "Aviso"},
   "contexto": "Contexto del ejemplo",
   "marcaje": "Fichaje del ejemplo",
   "sintetico": "Ejemplo sintético. No consulta el registro real ni tiene validez administrativa. La descarga para empleados sigue pendiente.",
