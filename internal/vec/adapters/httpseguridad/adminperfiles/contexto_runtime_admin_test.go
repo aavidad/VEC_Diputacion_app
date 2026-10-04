@@ -47,9 +47,14 @@ func TestContextoADMINExigeGrupoPropioAlConstruir(t *testing.T) {
 		{filaRuntimeContextoADMIN{login: "login_admin", acreditada: true}, true},
 	} {
 		pool := &poolRuntimeContextoADMIN{fila: caso.fila}
-		a, err := nuevoContextoRegistradoPostgreSQL(context.Background(), pool, relojPrueba{ahora: time.Now().UTC()})
+		a, err := nuevoContextoRegistradoPostgreSQL(context.Background(), pool, relojPrueba{ahora: time.Now().UTC()},
+			ConfiguracionContextoADMIN{Proceso: "vec_admin"})
 		if (a != nil && err == nil) != caso.valida || pool.consulta != acreditar || len(pool.opciones) != 0 {
 			t.Fatal("el contexto aceptó un LOGIN no acreditado o inició trabajo antes de construir")
 		}
+	}
+	if a, err := nuevoContextoRegistradoPostgreSQL(context.Background(), &poolRuntimeContextoADMIN{},
+		relojPrueba{ahora: time.Now().UTC()}, ConfiguracionContextoADMIN{}); a != nil || err == nil {
+		t.Fatal("constructor aceptó proceso AD192 ausente")
 	}
 }

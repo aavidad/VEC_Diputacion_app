@@ -17,7 +17,7 @@ BEGIN
  OR to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_ca36_interno_v1(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
  THEN RAISE EXCEPTION 'CA36: preimagen incompatible' USING ERRCODE='55000'; END IF;
  FOR r IN SELECT p.oid,p.proowner,p.prosecdef,p.proconfig,
-    ARRAY(SELECT a::text FROM unnest(p.proacl) a ORDER BY a::text) AS acl_texto,
+    ARRAY(SELECT a.acl::text FROM unnest(p.proacl) AS a(acl) ORDER BY a.acl::text) AS acl_texto,
     encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS fuente_sha,
     encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') AS definicion_sha
    FROM pg_proc p WHERE p.oid IN(

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,14 +25,29 @@ const recuperarContexto = `SELECT operacion_ref,registro_contexto_ref,representa
  manifiesto_procedencia_canonico,manifiesto_procedencia_huella_sha256,autoridad_efectiva,resuelto_en
  FROM vec_contexto_actor_v1.reconciliar_contexto_admin_perfiles_v1($1,$2,$3,$4)`
 
-type resolutorContexto struct{ base *PostgreSQL }
+type ConfiguracionContextoADMIN struct{ Proceso string }
 
-func NuevoContextoRegistradoPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj) (*application.AutoridadContextoActorRegistradoV2, error) {
-	return nuevoContextoRegistradoPostgreSQL(ctx, pool, reloj)
+var procesoContextoADMIN = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
+
+type resolutorContexto struct {
+	base    *PostgreSQL
+	proceso string
 }
 
-func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, reloj h.Reloj) (*application.AutoridadContextoActorRegistradoV2, error) {
-	if ctx == nil || ctx.Err() != nil || nulo(pool) || nulo(reloj) {
+// La firma heredada no acredita un pool CA segregado ni un proceso AD192.
+// La composición usa el constructor tipado cuando esas dependencias existan.
+func NuevoContextoRegistradoPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj) (*application.AutoridadContextoActorRegistradoV2, error) {
+	return nil, api.ErrConfiguracionIncompleta
+}
+
+func NuevoContextoRegistradoADMINPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj,
+	config ConfiguracionContextoADMIN) (*application.AutoridadContextoActorRegistradoV2, error) {
+	return nuevoContextoRegistradoPostgreSQL(ctx, pool, reloj, config)
+}
+
+func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, reloj h.Reloj,
+	config ConfiguracionContextoADMIN) (*application.AutoridadContextoActorRegistradoV2, error) {
+	if ctx == nil || ctx.Err() != nil || nulo(pool) || nulo(reloj) || !procesoContextoADMIN.MatchString(config.Proceso) {
 		return nil, api.ErrConfiguracionIncompleta
 	}
 	var login string
@@ -43,7 +59,7 @@ func nuevoContextoRegistradoPostgreSQL(ctx context.Context, pool transactor, rel
 	// El pool de contexto acredita exclusivamente CA36; el constructor de IS
 	// acredita su propio LOGIN y no se presta entre autoridades.
 	servicio, err := application.NuevoServicioContextoActorProductivoV2(
-		&resolutorContexto{base: base}, ca.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
+		&resolutorContexto{base: base, proceso: config.Proceso}, ca.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
 	if err != nil {
 		return nil, err
 	}
