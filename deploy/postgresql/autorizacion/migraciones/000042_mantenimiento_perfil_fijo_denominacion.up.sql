@@ -261,7 +261,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.documento_asignacion_destino_mantenimien
 
 CREATE FUNCTION vec_autorizacion.preimagen_mantenimiento_perfil_fijo_admin_v1(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' AS $f$
-DECLARE r record;c record;meta record;gob record;a record;ptr record;t jsonb;asigs jsonb:='[]';cat jsonb;amb jsonb;ca_viva boolean;
+DECLARE r record;c record;meta record;gob record;a record;ptr record;t jsonb;asigs jsonb:='[]';cat jsonb;amb jsonb;ca_viva boolean;efectivos jsonb;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'AUT42: PARO clave=transaccion actual=divergente esperado=SERIALIZABLE_RW' USING ERRCODE='25000'; END IF;
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR NOT p ?& ARRAY['version','operacion_ref','preparado_en','caduca_en','rol_origen_sha256','control_revision_esperada','control_huella_sha256','catalogo_sha256','rol_destino_doc','asignaciones']
@@ -270,6 +270,7 @@ BEGIN
  OR (p->>'preparado_en')::timestamptz>clock_timestamp() OR (p->>'caduca_en')::timestamptz<=clock_timestamp() OR (p->>'caduca_en')::timestamptz<=(p->>'preparado_en')::timestamptz
  THEN RAISE EXCEPTION 'AUT42: PARO clave=plan actual=invalido esperado=plan_cerrado_vigente_dos_APP' USING ERRCODE='22023'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
+ efectivos:=vec_autorizacion.administradores_aplicacion_efectivos_internos_v3();
  SELECT * INTO STRICT r FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v4' FOR SHARE;
  SELECT x.* INTO STRICT c FROM vec_autorizacion.control_vigencia_version_rol_actual ca JOIN vec_autorizacion.control_vigencia_version_rol x USING(version_rol_ref,revision) WHERE ca.version_rol_ref=r.version_rol_ref FOR UPDATE OF ca;
  SELECT * INTO STRICT meta FROM vec_autorizacion.perfil_fijo_categoria_nominal_v1 WHERE version_rol_ref=r.version_rol_ref FOR SHARE;
@@ -282,7 +283,7 @@ BEGIN
  OR EXISTS(SELECT 1 FROM jsonb_array_elements(cat) x WHERE x->>'fuente_ref'<>r.version_rol_ref OR x->>'fuente_version'<>'4' OR x->>'fuente_huella_sha256'<>r.huella_sha256 OR x->>'clase_control'<>'administrador_aplicacion' OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') v WHERE v=x->'concesion'))
  OR encode(pg_catalog.sha256(convert_to(cat::text,'UTF8')),'hex') IS DISTINCT FROM p->>'catalogo_sha256'
  OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v5')
- OR jsonb_array_length(vec_autorizacion.administradores_aplicacion_efectivos_internos_v3())<>2
+ OR jsonb_array_length(efectivos)<>2
  THEN RAISE EXCEPTION 'AUT42: PARO clave=fuente actual=divergente esperado=rol4_catalogo_y_dos_APP_vivos' USING ERRCODE='40001'; END IF;
  IF (p->'rol_destino_doc') IS DISTINCT FROM jsonb_set(jsonb_set(jsonb_set(jsonb_set(r.documento,'{version}','5'),'{concesiones}',r.documento->'concesiones'||vec_autorizacion.concesiones_mantenimiento_fijo_admin_v1()),'{publicada_por}',p#>'{rol_destino_doc,publicada_por}'),'{publicada_en}',p#>'{rol_destino_doc,publicada_en}')
  OR p#>>'{rol_destino_doc,publicada_en}' IS DISTINCT FROM p->>'preparado_en' OR vec_autorizacion.concesiones_positivas_validas(p->'rol_destino_doc') IS NOT TRUE
@@ -302,6 +303,9 @@ BEGIN
   asigs:=asigs||jsonb_build_array(jsonb_build_object('asignacion',to_jsonb(a),'fuentes_ambito',amb,'contexto',t));
  END LOOP;
  IF (SELECT count(DISTINCT x.value#>>'{asignacion,principal_id}') FROM jsonb_array_elements(asigs) x)<>2 OR (SELECT count(DISTINCT x.value#>>'{asignacion,perfil_activo_ref}') FROM jsonb_array_elements(asigs) x)<>2 THEN RAISE EXCEPTION 'AUT42: PARO clave=dos_APP actual=duplicadas esperado=dos_personas_perfiles_distintos' USING ERRCODE='22023'; END IF;
+ IF (SELECT jsonb_agg(jsonb_build_object('asignacion_ref',x.value#>>'{asignacion,asignacion_ref}','persona_ref',x.value#>>'{asignacion,principal_id}','perfil_ref',x.value#>>'{asignacion,perfil_activo_ref}') ORDER BY x.value#>>'{asignacion,perfil_activo_ref}') FROM jsonb_array_elements(asigs) x)
+ IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('asignacion_ref',x.value->>'asignacion_ref','persona_ref',x.value->>'persona_ref','perfil_ref',x.value->>'perfil_ref') ORDER BY x.value->>'perfil_ref') FROM jsonb_array_elements(efectivos) x)
+ THEN RAISE EXCEPTION 'AUT42: PARO clave=APP_objetivos actual=conjunto_distinto esperado=dos_APP_efectivas_exactas' USING ERRCODE='40001'; END IF;
  RETURN jsonb_build_object('esquema','vec.admin.mantenimiento-fijo.preimagen.v1','rol',to_jsonb(r),'control',to_jsonb(c),'categoria',to_jsonb(meta),'gobierno',to_jsonb(gob),'catalogo',cat,'asignaciones',asigs);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_mantenimiento_perfil_fijo_admin_v1(jsonb) FROM PUBLIC;
