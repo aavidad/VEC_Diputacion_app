@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261004-b-portal-accesos-v1";
+} from "./portal-composicion-empleado.js?v=20261004-b-tramites-caducidad-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
@@ -227,7 +227,7 @@ export function crearCoordinadorModulosPortal({
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
       import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-caducidad-v1"),
     ]);
     return { fuente, vista };
   },
