@@ -127,7 +127,7 @@ func minimizarPermisosExportables(p ports.PermisosExportables) (ports.ResumenPer
 		}
 		vistos[fila.TipoRef] = true
 		r := fila.Resumen
-		if !filaPermisosOriginalValida(r) {
+		if !filaPermisosOriginalValida(r, permitidos) {
 			return cero, ports.ErrExportacionPermisosNoDisponible
 		}
 		// Cada cantidad se copia antes de entregar el modelo neutral al renderer.
@@ -160,14 +160,17 @@ func minimizarPermisosExportables(p ports.PermisosExportables) (ports.ResumenPer
 	return resumen, nil
 }
 
-// Comprobar el origen antes de borrar campos impide ocultar un dato incoherente
-// tras una selección más estrecha. El preparador sólo verá la proyección mínima.
-func filaPermisosOriginalValida(f ports.FilaInformePermisos) bool {
-	if strings.TrimSpace(f.Etiqueta) == "" || len(f.Etiqueta) > 256 || !utf8.ValidString(f.Etiqueta) ||
-		(f.Unidad != domain.LeaveUnitDay && f.Unidad != domain.LeaveUnitHour) ||
-		(f.Computo != domain.ComputoLaborables && f.Computo != domain.ComputoNaturales) ||
-		(f.Conciliacion != ports.ConciliacionPermisosConfirmada && f.Conciliacion != ports.ConciliacionPermisosPendiente) ||
-		(f.Conciliacion == ports.ConciliacionPermisosPendiente && f.Restante != nil) {
+// La fuente puede haber filtrado ya los campos excluidos. Cada dato presente
+// debe ser válido; un restante conocido requiere conciliación interna para
+// verificar su coherencia antes de borrar esa metainformación si se excluyó.
+func filaPermisosOriginalValida(f ports.FilaInformePermisos, permitidos map[string]bool) bool {
+	if (permitidos["etiqueta"] && strings.TrimSpace(f.Etiqueta) == "") ||
+		(f.Etiqueta != "" && (strings.TrimSpace(f.Etiqueta) == "" || len(f.Etiqueta) > 256 || !utf8.ValidString(f.Etiqueta))) ||
+		(permitidos["unidad"] && f.Unidad == "") || (f.Unidad != "" && f.Unidad != domain.LeaveUnitDay && f.Unidad != domain.LeaveUnitHour) ||
+		(permitidos["computo"] && f.Computo == "") || (f.Computo != "" && f.Computo != domain.ComputoLaborables && f.Computo != domain.ComputoNaturales) ||
+		(permitidos["conciliacion"] && f.Conciliacion == "") ||
+		(f.Conciliacion != "" && f.Conciliacion != ports.ConciliacionPermisosConfirmada && f.Conciliacion != ports.ConciliacionPermisosPendiente) ||
+		(f.Restante != nil && f.Conciliacion != ports.ConciliacionPermisosConfirmada) {
 		return false
 	}
 	for _, r := range f.Etiqueta {
