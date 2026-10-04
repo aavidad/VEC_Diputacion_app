@@ -61,7 +61,7 @@ internas que la publicación no resuelva.
 | P12 | Comisión de servicios: informe de origen y propuesta del destino, temporalidad, reserva del puesto, prórroga y cese. El ejercicio no crea comisión ni indemnización de Dietas. | N1 art. 81.3; N3 art. 64; resolución provincial 2024, bases 1.2, 2.3 y 3. |
 | P13 | Reutilizar persona, relación de servicio y grado de Personal B; puestos y cobertura de Organización/RPT; méritos y evidencias de RUM; motor compartido del Baremador. Consultar por puertos nominales y versiones exactas. | E02–E03; estudio de integración del Baremador; N1 art. 74. |
 | P14 | Denegar por defecto. Usar perfiles fijos asignados por la autoridad común, acciones y ámbitos exactos; impedir autoaprobación y suma de perfiles. Auditar éxito, denegación y error, también consulta, recuperación y descarga. | E04–E07; matriz de roles; dudas 122 y 128 para competencia y suplencias. |
-| P15 | Documentos bajo custodia común, descarga con permiso propio, publicación minimizada y conservación gobernada. Interfaz en español e inglés, teclado y escritorio/móvil, sin cookies ni almacenamiento web. | E07–E08; N5 arts. 40–46 y 53; dudas 35, 60–61 sobre auditoría y conservación. |
+| P15 | Documentos bajo custodia común, descarga con permiso propio, publicación minimizada y conservación gobernada. Interfaz en español e inglés, teclado y escritorio/móvil, sin cookies ni almacenamiento web. | E07–E08; N5 arts. 40–46 y 53; dudas 36, 60–61 sobre auditoría y conservación. |
 | P16 | Cada efecto institucional une autorización vigente, versión, idempotencia, estado, historia, auditoría y recibo en transacción; outbox cuando corresponda al efecto. Tras reinicio se recupera el mismo recibo. | E06 y E10; contrato pendiente de persistencia de Provisión. |
 
 ## Lo existente en la base inventariada
@@ -99,7 +99,7 @@ anuncios; no calculará plazos a partir del resumen contradictorio.
 
 ## Pendiente de RRHH y Sistemas
 
-Reutilizar las preguntas 27–29 sobre fuentes de Personal, 35 sobre auditoría,
+Reutilizar las preguntas 27–29 sobre fuentes de Personal, 36 sobre auditoría,
 60–61 sobre conservación, 122 sobre perfiles y 128 sobre delegaciones y
 suplencias de [dudas.md](../../dudas.md). Las preguntas 109–111 pertenecen a
 Selección: no acreditan decisiones de Provisión.
