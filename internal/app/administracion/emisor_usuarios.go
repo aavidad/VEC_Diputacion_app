@@ -30,7 +30,7 @@ func NuevoEmisorUsuarios(emisores map[string]*confianza.EmisorMaterialAutorizaci
 		return nil, ErrConfiguracion
 	}
 	for _, audiencia := range []string{AudienciaUsuariosListarV3, AudienciaUsuariosConsultarV3} {
-		if emisores[audiencia] == nil || motivos[audiencia].Validar() != nil {
+		if emisores[audiencia] == nil || !domain.ReferenciaMotivoAutorizacionV2Valida(motivos[audiencia]) {
 			return nil, ErrConfiguracion
 		}
 	}
@@ -59,6 +59,15 @@ func snapshotUsuariosValido(s domain.InstantaneaAutorizacion, actor domain.Conte
 	return false
 }
 
+// Clasifica la causa en un código cerrado. No conserva mensaje SQL, nombre,
+// material criptográfico ni el texto del proveedor en el error entregado.
+func errorEmisorUsuarios(err error) error {
+	if err != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	return nil
+}
+
 // La instantánea recibida es una precondición, no la autoridad de permiso: el
 // PDP común vuelve a consultar su fuente durable al evaluar la solicitud.
 func (e *EmisorUsuarios) solicitud(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, snapshot domain.InstantaneaAutorizacion, entrada ports.EmisionUsuariosAdministrables) (domain.SolicitudAutorizacionLigadaV3, domain.ResultadoContextoActorRegistradoV2, ports.EmisionUsuariosAdministrables, error) {
@@ -74,32 +83,41 @@ func (e *EmisorUsuarios) solicitud(ctx context.Context, actor domain.ContextoAct
 		return vacia, resultadoVacio, entradaVacia, fallo
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
-	if err != nil || !vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 || vinculo.GarantiaObservada != domain.AuthAssuranceHigh {
+	if err != nil {
+		return vacia, resultadoVacio, entradaVacia, errorEmisorUsuarios(err)
+	}
+	if !vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 || vinculo.GarantiaObservada != domain.AuthAssuranceHigh {
 		return vacia, resultadoVacio, entradaVacia, fallo
 	}
 	emision, err := formato.ValidarEmisionUsuariosAdministrables(entrada)
-	if err != nil || e.emisores[emision.Audiencia] == nil || !snapshotUsuariosValido(snapshot, actor, emision, ahora) {
+	if err != nil {
+		return vacia, resultadoVacio, entradaVacia, errorEmisorUsuarios(err)
+	}
+	if e.emisores[emision.Audiencia] == nil || !snapshotUsuariosValido(snapshot, actor, emision, ahora) {
 		return vacia, resultadoVacio, entradaVacia, fallo
 	}
 	resultado, err := evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		return vacia, resultadoVacio, entradaVacia, fallo
+		return vacia, resultadoVacio, entradaVacia, errorEmisorUsuarios(err)
 	}
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: evidencia.Vinculo, ReferenciaMotivo: e.motivos[emision.Audiencia], Accion: emision.Accion, Recurso: emision.Recurso, Finalidad: "gestion_usuarios", Correlacion: emision.Correlacion})
 	if err != nil {
-		return vacia, resultadoVacio, entradaVacia, fallo
+		return vacia, resultadoVacio, entradaVacia, errorEmisorUsuarios(err)
 	}
 	return solicitud, resultado, emision, nil
 }
 
-func decisionUsuariosValida(d domain.DecisionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, audiencia string, ahora time.Time) bool {
+func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, audiencia string, ahora time.Time) error {
 	concedida, _, err := d.Resultado()
-	if err != nil || !concedida || d.ValidarPara(solicitud) != nil || !d.VigenteEn(ahora) {
-		return false
+	if err != nil {
+		return errorEmisorUsuarios(err)
+	}
+	if !concedida || d.ValidarPara(solicitud) != nil || !d.VigenteEn(ahora) {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	b, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(d)
 	if err != nil {
-		return false
+		return errorEmisorUsuarios(err)
 	}
 	var datos struct {
 		VersionRol   string               `json:"version_rol_ref"`
@@ -107,10 +125,13 @@ func decisionUsuariosValida(d domain.DecisionAutorizacionLigadaV3, solicitud dom
 		Campos       []string             `json:"campos_permitidos"`
 		Obligaciones []string             `json:"obligaciones"`
 	}
-	if json.Unmarshal(b, &datos) != nil {
-		return false
+	if err := json.Unmarshal(b, &datos); err != nil {
+		return errorEmisorUsuarios(err)
 	}
-	return datos.VersionRol == "rol:administracion_perfiles:v5" && datos.Garantia == domain.AuthAssuranceHigh && slices.Equal(datos.Campos, camposUsuarios(audiencia)) && slices.Equal(datos.Obligaciones, []string{"auditar"})
+	if datos.VersionRol != "rol:administracion_perfiles:v5" || datos.Garantia != domain.AuthAssuranceHigh || !slices.Equal(datos.Campos, camposUsuarios(audiencia)) || !slices.Equal(datos.Obligaciones, []string{"auditar"}) {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	return nil
 }
 
 func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, snapshot domain.InstantaneaAutorizacion, entrada ports.EmisionUsuariosAdministrables) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -118,7 +139,7 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 	fallo := ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	solicitud, resultado, emision, err := e.solicitud(ctx, actor, evidencia, snapshot, entrada)
 	if err != nil {
-		return vacia, fallo
+		return vacia, errorEmisorUsuarios(err)
 	}
 	defer clear(emision.Material)
 	decision, confirmacion, exportador, err := e.emisores[emision.Audiencia].EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
@@ -128,19 +149,25 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 		if ctx.Err() == nil && errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 			return vacia, domain.ErrAutorizacionDenegada
 		}
-		return vacia, fallo
+		return vacia, errorEmisorUsuarios(err)
 	}
 	ahora := e.reloj.Ahora()
-	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || !decisionUsuariosValida(decision, solicitud, emision.Audiencia, ahora) || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
+	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || validarDecisionUsuarios(decision, solicitud, emision.Audiencia, ahora) != nil || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
 		return vacia, fallo
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
-	if err != nil || material.ValidarEstructura() != nil || ctx.Err() != nil {
+	if err != nil {
+		return vacia, errorEmisorUsuarios(err)
+	}
+	if material.ValidarEstructura() != nil || ctx.Err() != nil {
 		return vacia, fallo
 	}
 	huella, err := emision.Recurso.HuellaContextoAutorizacionSHA256()
 	resumen := material.ResumenCapacidad()
-	if err != nil || resumen.Operacion() != emision.Accion || resumen.AudienciaConsumo() != emision.Audiencia || resumen.EfectoRef() != emision.Recurso.Referencia || resumen.EfectoHuellaSHA256() != huella || resumen.ContextoRef() != resultado.RegistroContextoRef || resumen.ContextoHuellaSHA256() != resultado.HuellaSHA256 || !bytes.Equal(material.ContextoActorCanonico(), resultado.RepresentacionCanonica) || material.PersonaVersion() != resultado.Contexto.Instantanea.PersonaVersion || material.PerfilVersion() != resultado.Contexto.Instantanea.PerfilVersion {
+	if err != nil {
+		return vacia, errorEmisorUsuarios(err)
+	}
+	if resumen.Operacion() != emision.Accion || resumen.AudienciaConsumo() != emision.Audiencia || resumen.EfectoRef() != emision.Recurso.Referencia || resumen.EfectoHuellaSHA256() != huella || resumen.ContextoRef() != resultado.RegistroContextoRef || resumen.ContextoHuellaSHA256() != resultado.HuellaSHA256 || !bytes.Equal(material.ContextoActorCanonico(), resultado.RepresentacionCanonica) || material.PersonaVersion() != resultado.Contexto.Instantanea.PersonaVersion || material.PerfilVersion() != resultado.Contexto.Instantanea.PerfilVersion {
 		return vacia, fallo
 	}
 	return material, nil

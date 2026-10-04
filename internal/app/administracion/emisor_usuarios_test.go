@@ -8,6 +8,7 @@ import (
 	"time"
 
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	formato "vec-diputacion-granada/internal/vec/adapters/usuariosadministrables/postgres"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/pruebas"
@@ -40,7 +41,7 @@ func escenarioSolicitudUsuarios(t *testing.T) (*EmisorUsuarios, domain.ContextoA
 	}
 	motivos := map[string]domain.ReferenciaEntradaCatalogo{}
 	for _, audiencia := range []string{AudienciaUsuariosListarV3, AudienciaUsuariosConsultarV3} {
-		motivos[audiencia] = domain.ReferenciaEntradaCatalogo{CatalogoID: deps.CatalogoMotivosID, CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "lectura_usuarios"}
+		motivos[audiencia] = domain.ReferenciaEntradaCatalogo{CatalogoID: deps.CatalogoMotivosID, CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_" + strings.Repeat("f", 32)}
 	}
 	e, err := NuevoEmisorUsuarios(cadena.Emisores, motivos, deps.Reloj)
 	if err != nil {
@@ -77,7 +78,7 @@ func escenarioSolicitudUsuarios(t *testing.T) (*EmisorUsuarios, domain.ContextoA
 	}
 	entrada := ports.EmisionUsuariosAdministrables{Material: material, Recurso: recurso, Accion: "administracion.usuarios.listar", Audiencia: AudienciaUsuariosListarV3, Correlacion: correlacion}
 	publicado := ahora.Add(-time.Minute)
-	rol := domain.VersionRol{RolID: "administracion_perfiles", Version: 5, Estado: domain.EstadoVersionRolPublicada, PublicadaPor: "ensayo:usuarios", PublicadaEn: publicado, Concesiones: []domain.ConcesionRol{{Accion: entrada.Accion, ModuloID: "administracion", TipoRecurso: recurso.Tipo, Finalidades: []string{"gestion_usuarios"}, GarantiaMinima: domain.AuthAssuranceHigh, CamposPermitidos: camposUsuarios(entrada.Audiencia), Obligaciones: []string{"auditar"}}}}
+	rol := domain.VersionRol{RolID: "administracion_perfiles", Version: 5, Nombre: "Perfil de ensayo", Estado: domain.EstadoVersionRolPublicada, PublicadaPor: "ensayo:usuarios", PublicadaEn: publicado, Concesiones: []domain.ConcesionRol{{Accion: entrada.Accion, ModuloID: "administracion", TipoRecurso: recurso.Tipo, Finalidades: []string{"gestion_usuarios"}, GarantiaMinima: domain.AuthAssuranceHigh, CamposPermitidos: camposUsuarios(entrada.Audiencia), Obligaciones: []string{"auditar"}}}}
 	asig := domain.AsignacionPerfil{AsignacionID: "ensayo:usuarios:asignacion", Version: 2, PerfilActivoRef: actor.PerfilActivoRef, PrincipalID: actor.PersonaRef, VersionRolRef: rol.Referencia(), Estado: domain.EstadoAsignacionPerfilActiva, Ambitos: []domain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{recurso.Ambitos["organizacion_ref"]}}, {Clave: "unidad_ref", Valores: []string{recurso.Ambitos["unidad_ref"]}}}, VigenteDesde: publicado, VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "ensayo:usuarios", EmitidaEn: publicado}
 	hash, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
 	if err != nil {
@@ -94,7 +95,9 @@ func TestSolicitudUsuariosLigaV2OriginalYContextoRecurso(t *testing.T) {
 	e, actor, evidencia, snapshot, entrada := escenarioSolicitudUsuarios(t)
 	solicitud, resultado, copia, err := e.solicitud(context.Background(), actor, evidencia, snapshot, entrada)
 	if err != nil {
-		t.Fatal(err)
+		v, _ := evidencia.Vinculo.Datos()
+		_, fmtErr := formato.ValidarEmisionUsuariosAdministrables(entrada)
+		t.Fatalf("solicitud: actor=%v evidencia=%v vigencia=%v formato=%v snapshot=%v superficie=%v privada=%v garantia=%v", actor.Validar(), evidencia.ValidarEn(actor, e.reloj.Ahora()), actor.Instantanea.VigenteEn(e.reloj.Ahora()), fmtErr, snapshotUsuariosValido(snapshot, actor, entrada, e.reloj.Ahora()), v.Superficie, v.CuentaPrivilegiada, v.GarantiaObservada)
 	}
 	datos, err := solicitud.Datos()
 	if err != nil {
