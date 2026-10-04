@@ -26,6 +26,8 @@ type AutoridadLoteOrdinario struct {
 	pool         conexion
 	emisor       EmisorLoteOrdinario
 	proveedor    ProveedorAmbitosLote
+	registrador  ports.RegistradorIntentosAuditoria
+	auditoria    ConfiguracionAuditoriaLote
 	reloj        ports.Reloj
 	organizacion string
 }
@@ -35,13 +37,16 @@ var _ ports.AutoridadLotesAdministracionPerfiles = (*AutoridadLoteOrdinario)(nil
 // NuevaAutoridadLoteOrdinario no depende de las fachadas singulares heredadas.
 // El LOGIN propio se acredita en SQL antes de recibir la primera orden.
 func NuevaAutoridadLoteOrdinario(ctx context.Context, pool *pgxpool.Pool, emisor EmisorLoteOrdinario,
-	proveedor ProveedorAmbitosLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
-	return nuevaAutoridadLoteOrdinario(ctx, pool, emisor, proveedor, organizacion, reloj)
+	proveedor ProveedorAmbitosLote, registrador ports.RegistradorIntentosAuditoria,
+	auditoria ConfiguracionAuditoriaLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
+	return nuevaAutoridadLoteOrdinario(ctx, pool, emisor, proveedor, registrador, auditoria, organizacion, reloj)
 }
 
 func nuevaAutoridadLoteOrdinario(ctx context.Context, pool conexion, emisor EmisorLoteOrdinario,
-	proveedor ProveedorAmbitosLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
-	if ctx == nil || ausente(pool) || ausente(emisor) || ausente(proveedor) || ausente(reloj) ||
+	proveedor ProveedorAmbitosLote, registrador ports.RegistradorIntentosAuditoria,
+	auditoria ConfiguracionAuditoriaLote, organizacion string, reloj ports.Reloj) (*AutoridadLoteOrdinario, error) {
+	if ctx == nil || ausente(pool) || ausente(emisor) || ausente(proveedor) || ausente(registrador) ||
+		auditoria.validar() != nil || ausente(reloj) ||
 		!referenciaAmbitoLote.MatchString(organizacion) || ctx.Err() != nil {
 		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
@@ -50,7 +55,7 @@ func nuevaAutoridadLoteOrdinario(ctx context.Context, pool conexion, emisor Emis
 		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	return &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: proveedor,
-		reloj: reloj, organizacion: organizacion}, nil
+		registrador: registrador, auditoria: auditoria, reloj: reloj, organizacion: organizacion}, nil
 }
 
 type reciboLoteOrdinarioJSON struct {
@@ -85,7 +90,7 @@ func (x reciboLoteOrdinarioJSON) dominio() domain.ReciboLoteAdministracionPerfil
 	return r
 }
 
-func (a *AutoridadLoteOrdinario) AplicarLoteOrdinario(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
+func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
 	var vacio domain.ReciboLoteAdministracionPerfiles
 	if a == nil || ctx == nil || ausente(a.pool) || ausente(a.emisor) || ausente(a.proveedor) ||
 		ausente(a.reloj) || ctx.Err() != nil {

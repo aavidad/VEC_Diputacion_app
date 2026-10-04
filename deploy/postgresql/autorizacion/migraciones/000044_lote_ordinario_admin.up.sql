@@ -300,6 +300,22 @@ BEGIN
    OR fuentes_originales.material_fuentes_sha256 IS DISTINCT FROM fuentes_validas->>'fuentes_sha256'
    OR previo.resultado->>'fuentes_sha256' IS DISTINCT FROM fuentes_validas->>'fuentes_sha256'
   THEN RAISE EXCEPTION 'AUT44: replay de fuente distinto' USING ERRCODE='42501'; END IF;
+  -- La lectura de fuentes pudo esperar. No devuelve un recibo histórico bajo
+  -- una autorización o fuente que ya venció tras esa última espera.
+  IF (vec_autorizacion.cotejar_fuentes_lote_ordinario_admin_v1(
+    p_material,fuentes_originales.material_fuentes))->>'fuentes_sha256'
+      IS DISTINCT FROM fuentes_originales.material_fuentes_sha256
+  THEN RAISE EXCEPTION 'AUT44: replay de fuente caducada' USING ERRCODE='42501'; END IF;
+  IF vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
+    p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL
+  THEN RAISE EXCEPTION 'AUT44: replay de decision caducada' USING ERRCODE='42501'; END IF;
+  IF vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(
+    d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
+    'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
+    '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
+  THEN RAISE EXCEPTION 'AUT44: replay sin autoridad actual' USING ERRCODE='42501'; END IF;
+  IF clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+  THEN RAISE EXCEPTION 'AUT44: replay vencido' USING ERRCODE='42501'; END IF;
   RETURN previo.resultado;
  END IF;
  fuentes_validas:=vec_autorizacion.cotejar_fuentes_lote_ordinario_admin_v1(p_material,p_fuentes);
@@ -344,6 +360,9 @@ BEGIN
    OR antes#>>'{contexto,vinculo,estado}' IS DISTINCT FROM 'activo'
    OR antes#>>'{asignacion,estado}' IS DISTINCT FROM 'activa'
    OR antes#>>'{asignacion,version_rol_ref}' IS DISTINCT FROM item->>'rol_version_ref'
+   OR ((rol->>'unidad_requerida')::boolean AND antes#>'{asignacion,ambitos}' IS DISTINCT FROM
+      jsonb_build_array(jsonb_build_object('clave','unidad','valores',jsonb_build_array(o->>'UnidadRef')))
+      )
    OR (antes#>>'{contexto,perfil,version}')::numeric IS DISTINCT FROM (o->>'PerfilVersion')::numeric
    OR (antes#>>'{contexto,vinculo,version}')::numeric IS DISTINCT FROM (o->>'VinculoVersion')::numeric
    OR o->>'VigenteDesde' IS DISTINCT FROM '0001-01-01T00:00:00Z'
@@ -381,7 +400,9 @@ BEGIN
     o->>'CuentaRef',o->>'PersonaRef',(o->>'CuentaVersion')::numeric,(o->>'PersonaVersion')::numeric,
     o->>'PerfilRef',o->>'VinculoRef',o->>'ProcedenciaRef',(o->>'ProcedenciaVersion')::numeric,
     o->>'ProcedenciaHuellaSHA256',vig_desde,(o->>'VigenteHasta')::timestamptz,ahora);
-   asig_id:='admin_'||substr(encode(sha256(convert_to('vec.admin.lote.item.v1'||chr(10)||m->>'OperacionRef'||chr(10)||indice::text||chr(10)||o->>'PerfilRef','UTF8')),'hex'),1,32);
+   asig_id:='admin_'||substr(encode(sha256(convert_to(
+    'vec.admin.lote.item.v1'||chr(10)||(m->>'OperacionRef')||chr(10)||indice::text||chr(10)||(o->>'PerfilRef'),
+    'UTF8')),'hex'),1,32);
    version_asig:=1;version_ca:=1;estado:='activo';
    IF (rol->>'unidad_requerida')::boolean THEN
     ambitos:=jsonb_build_array(jsonb_build_object('clave','unidad','valores',jsonb_build_array(o->>'UnidadRef')));
@@ -457,6 +478,26 @@ BEGIN
   m->>'ActorPersonaRef',m->>'PerfilActivoRef',consumo.decision_ref,consumo.auditoria_ref,resultado,ahora);
  INSERT INTO vec_autorizacion.material_fuentes_lote_admin_v1 VALUES(m->>'OperacionRef',1,huella,p_fuentes,fuentes_sha,ahora);
  INSERT INTO vec_autorizacion.outbox_acto_admin_v1 VALUES(m->>'OperacionRef','lote_perfiles_aplicado',consumo.auditoria_ref,ahora);
+ -- Comprueba otra vez tras todos los INSERT y cualquier espera de índices o
+ -- triggers. Si venció algo, la excepción revierte el lote entero y AD190.
+ FOR item IN SELECT value FROM jsonb_array_elements(m->'Cambios') LOOP
+  rol:=vec_autorizacion.resolver_rol_administrable_v1(item->>'RolVersionRef');
+  IF rol->>'clase' IS DISTINCT FROM 'ordinario'
+  THEN RAISE EXCEPTION 'AUT44: rol retirado durante lote' USING ERRCODE='42501'; END IF;
+ END LOOP;
+ IF (vec_autorizacion.cotejar_fuentes_lote_ordinario_admin_v1(p_material,p_fuentes))->>'fuentes_sha256'
+      IS DISTINCT FROM fuentes_sha
+ THEN RAISE EXCEPTION 'AUT44: fuente vencida al devolver recibo' USING ERRCODE='42501'; END IF;
+ IF vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
+  p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL
+ THEN RAISE EXCEPTION 'AUT44: decision vencida al devolver recibo' USING ERRCODE='42501'; END IF;
+ IF vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(
+  d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
+  'administracion.perfiles.aplicar_lote_ordinario','administracion','persona','gestion_perfiles',
+  '[]'::jsonb,d->'vinculo_autenticacion_actor') IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT44: permiso vencido al devolver recibo' USING ERRCODE='42501'; END IF;
+ IF clock_timestamp()>=(d->>'valida_hasta')::timestamptz
+ THEN RAISE EXCEPTION 'AUT44: lote vencido al devolver recibo' USING ERRCODE='42501'; END IF;
  RETURN resultado;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_lote_ordinario_admin_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;

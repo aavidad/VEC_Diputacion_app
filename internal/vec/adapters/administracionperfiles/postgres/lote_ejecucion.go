@@ -3,6 +3,7 @@ package postgres
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
@@ -10,6 +11,10 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
+
+// Un error de COMMIT no permite concluir si el efecto se aplicó. Sólo se
+// expone la indisponibilidad y no se reintenta la operación automáticamente.
+var errCommitLoteIndeterminado = errors.New("vec.admin.lote.commit_indeterminado")
 
 func (a *AutoridadLoteOrdinario) resolverRolLote(ctx context.Context, ref string) (ports.RolAdministrable, error) {
 	var vacio ports.RolAdministrable
@@ -49,7 +54,7 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	contextoSHA, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil || recurso.Referencia != efecto.Referencia || recurso.ModuloID != "administracion" ||
 		recurso.Tipo != "persona" {
-		return fallo
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	// La solicitud y el recurso son nuevos valores. El emisor recibe su propia
 	// copia y no puede alterar los bytes que consulta AUT44.
@@ -98,7 +103,7 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	}()
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || ausente(tx) {
-		return fallo
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	defer func() {
 		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -118,7 +123,7 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	// Un COMMIT indeterminado jamás entrega un recibo provisional. La recuperación
 	// se hace con otra autorización sobre el mismo canon de solicitud.
 	if err := tx.Commit(ctx); err != nil {
-		return fallo
+		return errCommitLoteIndeterminado
 	}
 	return nil
 }

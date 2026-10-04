@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
@@ -31,6 +32,7 @@ func materialFuentesPrivadasLote(ctx context.Context, proveedor ProveedorAmbitos
 	}
 	ambitos, err := proveedor.ResolverUnidadLote(ctx, organizacion, unidad)
 	if err != nil || !ambitosFuenteLoteValidos(ambitos, organizacion, unidad) {
+		slog.Warn("vec.admin.lote.fuente_no_disponible")
 		return nil
 	}
 	material := materialFuentesLote{
@@ -44,6 +46,7 @@ func materialFuentesPrivadasLote(ctx context.Context, proveedor ProveedorAmbitos
 	}
 	b, err := json.Marshal(material)
 	if err != nil || len(b) > 65536 {
+		slog.Warn("vec.admin.lote.material_fuentes_no_disponible")
 		return nil
 	}
 	return b
