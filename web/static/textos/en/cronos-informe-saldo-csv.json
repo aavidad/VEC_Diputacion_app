@@ -1,0 +1,24 @@
+{
+  "esquema": "cronos-saldo-csv-v1",
+  "referencia": "cronos-informe-saldo-csv-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006",
+  "cabeceras": {
+    "persona_ejemplo": "Sample person",
+    "desde": "From",
+    "hasta": "To",
+    "previstos_minutos": "Planned time (minutes)",
+    "trabajados_minutos": "Worked time (minutes)",
+    "saldo_minutos": "Balance (minutes)",
+    "estado": "Balance status",
+    "aviso": "Notice"
+  },
+  "estados": {
+    "disponible": "Available",
+    "no_disponible": "Unavailable",
+    "incompleto": "Incomplete"
+  },
+  "desconocido": "Unavailable",
+  "sintetico": "SYNTHETIC SAMPLE. No administrative validity. Download for employees is still pending."
+}

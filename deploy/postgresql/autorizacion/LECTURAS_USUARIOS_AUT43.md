@@ -69,6 +69,8 @@ denegados/error tras rollback requieren el registrador común en su composición
 Orden estructural: AUT42 y CA32, CA34, AUT43 (gate y lector), AD185. El grupo
 no se habilita hasta cerrar ese árbol. No se copian ni reaplican SQL ajenas.
 CA34 y AUT43 llevan listas separadas de sus únicas migraciones nuevas.
+AUT47 concede al grupo `CONNECT` sobre la base actual, que AUT43 no daba; sin él
+el LOGIN lector no entra donde PUBLIC no tiene CONNECT. Sin DOWN.
 Los vectores de bytes y SHA se calcularon independientemente; el ensayo SQL
 comprueba formato, vínculo de filtros/cursor y cierre de helpers.
 `aut43_persona_51_perfiles.sql` prepara una Persona sintética con 51 perfiles

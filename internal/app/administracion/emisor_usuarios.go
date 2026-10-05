@@ -48,7 +48,7 @@ func camposUsuarios(audiencia string) []string {
 }
 
 func snapshotUsuariosValido(s domain.InstantaneaAutorizacion, actor domain.ContextoActor, emision ports.EmisionUsuariosAdministrables, ahora time.Time) bool {
-	if s.Validar() != nil || s.VersionRol.Referencia() != "rol:administracion_perfiles:v5" || s.VersionRol.Estado != domain.EstadoVersionRolPublicada || s.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada || ahora.Before(s.VersionRol.PublicadaEn) || ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) || s.AsignacionPerfil.PrincipalID != actor.PersonaRef || s.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef || !s.AsignacionPerfil.VigenteEn(ahora) || !s.AsignacionPerfil.Cubre(emision.Recurso) {
+	if s.Validar() != nil || !versionRolUsuariosEmisorAdmitida(s.VersionRol.Referencia()) || s.VersionRol.Estado != domain.EstadoVersionRolPublicada || s.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada || ahora.Before(s.VersionRol.PublicadaEn) || ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) || s.AsignacionPerfil.PrincipalID != actor.PersonaRef || s.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef || !s.AsignacionPerfil.VigenteEn(ahora) || !s.AsignacionPerfil.Cubre(emision.Recurso) {
 		return false
 	}
 	for _, c := range s.VersionRol.Concesiones {
@@ -107,12 +107,25 @@ func (e *EmisorUsuarios) solicitud(ctx context.Context, actor domain.ContextoAct
 	return solicitud, resultado, emision, nil
 }
 
-func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, audiencia string, ahora time.Time) error {
+// La vigencia se comprueba sobre la confirmación durable del registro, no
+// sobre la decisión en memoria: DecisionAutorizacionLigadaV3.VigenteEn falla
+// cerrado por diseño hasta que exista un tipo posterior al COMMIT, y ese tipo
+// es precisamente la confirmación. Se liga a esta decisión, motivo y contexto
+// con la orden de registro antes de mirar su ventana. El consumo SQL vuelve a
+// exigir la decisión registrada; esto sólo evita entregar material caducado.
+func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, confirmacion ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, motivo domain.ReferenciaEntradaCatalogo, resultado domain.ResultadoContextoActorRegistradoV2, audiencia string, ahora time.Time) error {
 	concedida, _, err := d.Resultado()
 	if err != nil {
 		return errorEmisorUsuarios(err)
 	}
-	if !concedida || d.ValidarPara(solicitud) != nil || !d.VigenteEn(ahora) {
+	if !concedida || d.ValidarPara(solicitud) != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(solicitud, d, motivo, resultado)
+	if err != nil {
+		return errorEmisorUsuarios(err)
+	}
+	if confirmacion.ValidarPara(orden) != nil || !confirmacion.DentroDeVentanaEn(ahora.UTC().Truncate(time.Microsecond)) {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	b, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(d)
@@ -128,7 +141,7 @@ func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, solicitud do
 	if err := json.Unmarshal(b, &datos); err != nil {
 		return errorEmisorUsuarios(err)
 	}
-	if datos.VersionRol != "rol:administracion_perfiles:v5" || datos.Garantia != domain.AuthAssuranceHigh || !slices.Equal(datos.Campos, camposUsuarios(audiencia)) || !slices.Equal(datos.Obligaciones, []string{"auditar"}) {
+	if !versionRolUsuariosEmisorAdmitida(datos.VersionRol) || datos.Garantia != domain.AuthAssuranceHigh || !slices.Equal(datos.Campos, camposUsuarios(audiencia)) || !slices.Equal(datos.Obligaciones, []string{"auditar"}) {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	return nil
@@ -152,7 +165,7 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 		return vacia, errorEmisorUsuarios(err)
 	}
 	ahora := e.reloj.Ahora()
-	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || validarDecisionUsuarios(decision, solicitud, emision.Audiencia, ahora) != nil || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
+	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || validarDecisionUsuarios(decision, confirmacion, solicitud, e.motivos[emision.Audiencia], resultado, emision.Audiencia, ahora) != nil || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
 		return vacia, fallo
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
@@ -171,4 +184,9 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 		return vacia, fallo
 	}
 	return material, nil
+}
+
+// Conjunto cerrado de versiones con las concesiones de usuarios heredadas.
+func versionRolUsuariosEmisorAdmitida(v string) bool {
+	return v == "rol:administracion_perfiles:v5" || v == "rol:administracion_perfiles:v6"
 }

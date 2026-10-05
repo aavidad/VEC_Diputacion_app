@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261004-b-contacto-retoma-v2";
+} from "./portal-composicion-empleado.js?v=20261005-b-contacto-v3";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
@@ -118,7 +118,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261004-b-contacto-retoma-v2"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20261005-b-contacto-v3"),
       import("./modulos/personal/registro-b2.js?v=20261004-personal-vacantes-filtro-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
@@ -135,7 +135,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-busqueda-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-servicios-sync-v3"),
     ]);

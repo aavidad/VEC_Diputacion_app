@@ -96,6 +96,54 @@ El ensayo de devengo anterior sigue disponible sin argumentos. Los catálogos
 de idioma y el tema se eligen mediante rutas explícitas del operador; los
 errores no muestran esas rutas ni el contenido de los archivos.
 
+## Recuperar una propuesta guardada
+
+Conserve el JSON completo que devuelve el preparador. Puede volver a consultar
+esa propuesta y generar su informe con los importes y el catálogo conservados,
+sin aplicar las tarifas actuales.
+
+Desde la raíz del repositorio, prepare el ejemplo con gastos y recupérelo:
+
+```sh
+ensayo_dietas="$(mktemp -d)"
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas --preparar-liquidacion \
+  < cmd/vec-dietas/testdata/preparacion_liquidacion_gastos.json \
+  > "$ensayo_dietas/propuesta.json"
+
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas \
+  --preparar-liquidacion --desde-instantanea \
+  < "$ensayo_dietas/propuesta.json" > "$ensayo_dietas/recuperada.json"
+
+cmp "$ensayo_dietas/propuesta.json" "$ensayo_dietas/recuperada.json"
+```
+
+Si `cmp` termina sin mostrar diferencias, ambos archivos son idénticos. Para
+leer el informe de la propuesta guardada, ejecute en la misma terminal:
+
+```sh
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas \
+  --preparar-liquidacion --desde-instantanea --informe \
+  --textos web/static/textos/es/dietas-liquidacion-informe.json \
+  --tema web/static/comun/tema-vec.css \
+  < "$ensayo_dietas/propuesta.json" > "$ensayo_dietas/informe.html"
+```
+
+Abra `informe.html` de esa carpeta en el navegador. Para inglés, cambie `es`
+por `en` en la ruta del catálogo de textos. El idioma modifica los rótulos,
+no los importes ni la propuesta conservada.
+
+La recuperación comprueba las huellas y la coherencia de la instantánea antes
+de generar el informe. Si la copia está alterada o incompleta, devuelve un
+código de error y no emite un informe parcial. Esta comprobación no acredita
+quién aprobó la propuesta. El resultado sigue siendo una preparación local,
+con `liquidable:false`, sin registro, firma ni recibo administrativo.
+
+Después de revisar el ejemplo, retire sus archivos temporales:
+
+```sh
+rm -r -- "$ensayo_dietas"
+```
+
 ## Comparar dos propuestas locales
 
 `--comparar-liquidaciones` recibe dos instantáneas completas en un objeto

@@ -28,7 +28,7 @@ func clavesDocumentoMixto(objeto map[string]json.RawMessage, admiteAdmin bool) e
 		}
 		var campos map[string]json.RawMessage
 		switch tipo {
-		case "consumo_confirmado", auditoria.TipoConsumoOrigenV2, auditoria.TipoConsumoFechaV3:
+		case "consumo_confirmado", auditoria.TipoConsumoOrigenV2, auditoria.TipoConsumoFechaV3, auditoria.TipoConsumoTransaccionV4:
 			if !clavesExactas(r, "tipo_registro", "consumo") || json.Unmarshal(r["consumo"], &campos) != nil ||
 				!clavesConsumoExactas(campos, tipo) {
 				return errJSONInvalido
@@ -65,11 +65,14 @@ func clavesEventoExactas(campos map[string]json.RawMessage, extra []string) bool
 
 func clavesConsumoExactas(campos map[string]json.RawMessage, tipo string) bool {
 	claves := []string{"auditoria_ref", "secuencia", "decision_ref", "efecto_ref", "huella_efecto_sha256", "anterior_sha256", "huella_sha256", "consumo_huella_sha256"}
-	if tipo == auditoria.TipoConsumoOrigenV2 || tipo == auditoria.TipoConsumoFechaV3 {
+	if tipo == auditoria.TipoConsumoOrigenV2 || tipo == auditoria.TipoConsumoFechaV3 || tipo == auditoria.TipoConsumoTransaccionV4 {
 		claves = append(claves, "tipo_registro", "version_consumo", "proceso", "canal")
 	}
-	if tipo == auditoria.TipoConsumoFechaV3 {
+	if tipo == auditoria.TipoConsumoFechaV3 || tipo == auditoria.TipoConsumoTransaccionV4 {
 		claves = append(claves, "registrada_en", "consumida_en", "actor_ref", "perfil_activo_ref", "finalidad_ref")
+	}
+	if tipo == auditoria.TipoConsumoTransaccionV4 {
+		claves = append(claves, "transaccion_origen", "transaccion_consumo_origen")
 	}
 	return clavesExactas(campos, claves...)
 }

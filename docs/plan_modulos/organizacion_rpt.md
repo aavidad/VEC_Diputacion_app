@@ -1,5 +1,10 @@
 # Organización y RPT: inventario y trabajo siguiente
 
+La consulta publicada permite quitar la búsqueda aplicada y volver a la primera
+página, conservando la pestaña. El buscador mantiene el texto aún sin enviar y
+el foco durante la carga. Esta mejora no cambia la fuente de la RPT ni acredita
+ocupación, vacantes o vigencia administrativa.
+
 Fecha: 1 de octubre de 2026. Base contrastada: `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
 Este plan recoge código publicado y candidatas separadas; no declara ORG/RPT completos.
 El inventario se hizo sobre esa base. Main avanzó a `f49e01089` con CT159;
