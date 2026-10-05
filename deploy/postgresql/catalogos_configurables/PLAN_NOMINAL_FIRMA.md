@@ -85,7 +85,7 @@ y retirado SHA-256
 Sus copias exactas están en `pruebas_sql/testdata/`. No inserta concesiones
 sintéticas.
 
-El 5 de octubre de 2026 se ensayó en el clon de la principal posterior a AD193,
+El 5 de octubre de 2026 se ensayó en el clon de la principal posterior a AD193 (repetido sobre main con AD195 y AD196),
 con AD178 y AD177: UP único con código 0 y prueba verde. Dos correcciones sobre
 el borrador de Codex-E: el validador de selectores usaba la expresión regular
 `{2,511}`, que PostgreSQL rechaza (máximo 255) y habría hecho fallar toda
