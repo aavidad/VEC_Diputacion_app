@@ -22,13 +22,14 @@ function tabla(d, etiqueta, columnas) {
   head.append(fila); const body = nodo(d, 'tbody'); t.append(head, body); region.append(t);
   return { region, body };
 }
-const ICONOS = {
-  solicitudes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/></svg>',
-  admitidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4 10-10"/></svg>',
-  excluidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>',
-  tras_escrito: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg>',
-  subsanables: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
-};
+// Iconos decorativos: marcado SVG, no textos visibles.
+const ICONOS = new Map([
+  ['solicitudes', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/></svg>'],
+  ['admitidas', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4 10-10"/></svg>'],
+  ['excluidas', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>'],
+  ['tras_escrito', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg>'],
+  ['subsanables', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>'],
+]);
 // Número de solicitud legible: la referencia sin su prefijo técnico («preparacion:»).
 const numeroSolicitud = ref => ref.slice(ref.indexOf(':') + 1);
 const esDefinitiva = dto => dto.esquema === ESQUEMA_DEFINITIVA;
@@ -42,7 +43,7 @@ function kpis(d, textos, dto) {
     const tarjeta = nodo(d, 'article', undefined, `tarjeta-kpi ${clase}`.trim());
     const marca = nodo(d, 'span', undefined, 'icono-kpi'); marca.setAttribute('aria-hidden', 'true');
     // Plantillas fijas de este módulo; ningún dato del archivo entra en innerHTML.
-    marca.innerHTML = ICONOS[icono];
+    marca.innerHTML = ICONOS.get(icono);
     const texto = nodo(d, 'div'); texto.append(nodo(d, 'strong', textos.numero(valor), 'valor-kpi'), nodo(d, 'span', t(`kpi.${clave}`), 'etiqueta-kpi'));
     tarjeta.append(marca, texto); rejilla.append(tarjeta);
   }
