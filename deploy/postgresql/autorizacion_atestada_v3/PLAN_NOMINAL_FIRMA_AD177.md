@@ -131,6 +131,18 @@ CREATE ROLE <login_gobierno_plan> LOGIN INHERIT PASSWORD '<secreto fuera de Git>
 GRANT vec_plan_firma_gobierno_ejecutor TO <login_gobierno_plan> WITH INHERIT TRUE, SET FALSE;
 ```
 
+El núcleo exige además el origen del consumo (AD172): `resolver_origen_consumo_v1`
+busca `login_nombre=session_user` en `configuracion_origen_consumos_v1`. El DBA
+inserta, también fuera de Git, una fila por operación para el LOGIN nuevo con la
+audiencia `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1`, las
+operaciones `vec.catalogos.crear`, `vec.catalogos.actualizar`,
+`vec.catalogos.publicar` y `vec.catalogos.retirar`, el proceso `vec-admin` y el
+canal `administracion_privilegiada`. Sin esas cuatro filas todo consumo real se
+deniega con `42501 origen de consumo no acreditado`. Las filas que pudiera haber a
+nombre del runtime CT no se pueden modificar ni borrar (la tabla es de solo
+adición); quedan inertes, porque el runtime CT ya no ejecuta la fachada y la
+rama de sesión lo rechaza.
+
 Pertenecer al grupo no acredita a la persona: cada llamada sigue necesitando
 una decisión V3 nominal de la audiencia de gobierno, emitida en la superficie
 `administracion_privilegiada` con cuenta privilegiada y el perfil de Aplicación
@@ -144,3 +156,6 @@ precondición. `pruebas_sql/ad200_grupo_gobierno_plan_firma.sql`, dentro de un
 ROLLBACK, comprueba que un LOGIN exclusivo del grupo pasa la rama de sesión, que
 uno con otra pertenencia se rechaza en ella y que el runtime CT ya no tiene
 `EXECUTE` sobre la fachada.
+`pruebas_sql/ad177_ad178_post_ad193.sql` es anterior a AD190: mide el núcleo
+previo y espera el `EXECUTE` del runtime CT, así que no se ejecuta tras AD190 ni
+tras AD200.

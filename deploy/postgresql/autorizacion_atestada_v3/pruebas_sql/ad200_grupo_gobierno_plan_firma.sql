@@ -42,7 +42,7 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE, mensaje=MESSAGE_TEXT;
   IF mensaje LIKE 'AD200 prueba:%' THEN RAISE; END IF;
-  IF esperado='pasa_sesion' AND (mensaje='consumo VEC-AD-3 rechazado' OR estado<>'22023') THEN
+  IF esperado='pasa_sesion' AND (estado<>'22023' OR mensaje<>'entrada VEC-AD-3 inválida') THEN
    RAISE EXCEPTION 'AD200 prueba: % no pasó la sesión: % %',session_user,estado,mensaje; END IF;
   IF esperado='rechazo_sesion' AND mensaje<>'consumo VEC-AD-3 rechazado' THEN
    RAISE EXCEPTION 'AD200 prueba: % no se rechazó en la sesión: % %',session_user,estado,mensaje; END IF;
