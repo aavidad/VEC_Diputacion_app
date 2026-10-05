@@ -18,6 +18,7 @@ type preparadorDatosContactoPrueba struct {
 	err            error
 	ultimaEntrada  EntradaRegistrarDatosContactoParticipacion
 	ultimaConsulta [2]string
+	ultimoCompleto bool
 }
 
 func (p *preparadorDatosContactoPrueba) PrepararSolicitudRegistrarDatosContacto(_ context.Context, e EntradaRegistrarDatosContactoParticipacion) (puertosbolsa.SolicitudRegistrarDatosContactoParticipacion, error) {
@@ -28,12 +29,12 @@ func (p *preparadorDatosContactoPrueba) PrepararSolicitudRegistrarDatosContacto(
 	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{BolsaRef: e.BolsaRef, ParticipacionRef: e.ParticipacionRef, Datos: e.Datos, Motivo: e.Motivo, ClaveIdempotencia: e.ClaveIdempotencia}, nil
 }
 
-func (p *preparadorDatosContactoPrueba) PrepararSolicitudConsultarDatosContacto(_ context.Context, bolsa, participacion string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
-	p.ultimaConsulta = [2]string{bolsa, participacion}
+func (p *preparadorDatosContactoPrueba) PrepararSolicitudConsultarDatosContacto(_ context.Context, bolsa, participacion string, completo bool) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
+	p.ultimaConsulta, p.ultimoCompleto = [2]string{bolsa, participacion}, completo
 	if p.err != nil {
 		return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, p.err
 	}
-	return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion}, nil
+	return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Completo: completo}, nil
 }
 
 type operadorDatosContactoPrueba struct {
@@ -106,11 +107,11 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 	ahora := time.Date(2026, 9, 22, 15, 0, 0, 0, time.UTC)
 	datos := dominiobolsa.DatosContactoParticipacion{ParticipacionRef: "participacion:b4", Correo: "candidata@dipgra.es", Telefono1: "600123456"}
 	prep := &preparadorDatosContactoPrueba{}
-	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 2, RegistradaEn: ahora, Datos: datos, Enmascarados: datos.Enmascarados()}}
+	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 2, RegistradaEn: ahora, Datos: datos, Enmascarados: datos.Enmascarados(), AuditoriaRef: "aud_v3_0123456789abcdef0123456789abcdef", DecisionRef: "decision:prueba"}}
 	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
-	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") {
+	if rec.Code != http.StatusOK || prep.ultimoCompleto || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") || rec.Header().Get("X-Audit-Ref") != "" {
 		t.Fatalf("la lectura ordinaria no debe exponer el claro: %d %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "c***@dipgra.es") || !strings.Contains(rec.Body.String(), "***3456") {
@@ -118,8 +119,15 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 	}
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba+"?ver=completo", ""))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "candidata@dipgra.es") {
-		t.Fatalf("ver=completo: %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK || !prep.ultimoCompleto || !strings.Contains(rec.Body.String(), "candidata@dipgra.es") || rec.Header().Get("X-Audit-Ref") != "aud_v3_0123456789abcdef0123456789abcdef" {
+		t.Fatalf("ver=completo: %d %s %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	// Un claro sin acuse de consumo no se entrega.
+	op.leidos.AuditoriaRef = ""
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba+"?ver=completo", ""))
+	if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), "candidata@dipgra.es") {
+		t.Fatalf("completo sin acuse: %d %s", rec.Code, rec.Body.String())
 	}
 	if prep.ultimaConsulta != [2]string{"bolsa:b4", "participacion:b4"} {
 		t.Fatalf("consulta=%v", prep.ultimaConsulta)
