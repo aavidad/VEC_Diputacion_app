@@ -148,8 +148,11 @@ BEGIN
  END LOOP;
  -- Bajas posibles: asignaciones activas de la persona en esa organización y unidad
  -- de perfiles registrados como ordinarios, con su vínculo y versiones.
- FOR asig IN SELECT x2.* FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil x2 USING(asignacion_ref)
+ -- El nombre del perfil sale del documento de su versión (como en las altas),
+ -- para que la pantalla no muestre referencias.
+ FOR asig IN SELECT x2.*,coalesce(vr2.documento->>'nombre','') AS nombre_rol FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil x2 USING(asignacion_ref)
   JOIN vec_autorizacion.rol_administrable_exacto_v1 ra ON ra.version_rol_ref=x2.version_rol_ref AND ra.clase='ordinario'
+  JOIN vec_autorizacion.version_rol vr2 ON vr2.version_rol_ref=x2.version_rol_ref
   WHERE x2.principal_id=persona AND x2.documento->>'estado'='activa'
   AND x2.documento->'ambitos'=jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))
   ORDER BY x2.perfil_activo_ref COLLATE "C" LIMIT 65 LOOP
@@ -163,7 +166,7 @@ BEGIN
   CONTINUE WHEN enlace->>'cuenta_ref' IS DISTINCT FROM cuenta;
   cambio:=jsonb_build_object('Operacion','revocar','RolVersionRef',asig.version_rol_ref,'Objetivo',jsonb_build_object('UnidadRef',unidad,'CuentaRef',cuenta,'PersonaRef',persona,'PerfilRef',asig.perfil_activo_ref,'VinculoRef',enlace->>'vinculo_ref'));
   pre:=vec_autorizacion.preimagen_cambio_lote_admin_v1(cambio,org);
-  bajas:=bajas||jsonb_build_array(jsonb_build_object('rol_version_ref',asig.version_rol_ref,'perfil_ref',asig.perfil_activo_ref,'vinculo_ref',enlace->>'vinculo_ref',
+  bajas:=bajas||jsonb_build_array(jsonb_build_object('rol_version_ref',asig.version_rol_ref,'nombre',asig.nombre_rol,'perfil_ref',asig.perfil_activo_ref,'vinculo_ref',enlace->>'vinculo_ref',
    'perfil_version',pre#>'{contexto,perfil,version}','vinculo_version',pre#>'{contexto,vinculo,version}',
    'vigente_desde',asig.documento->>'vigente_desde','vigente_hasta',asig.documento->>'vigente_hasta',
    'huella_sha256',encode(sha256(convert_to(pre::text,'UTF8')),'hex')));
