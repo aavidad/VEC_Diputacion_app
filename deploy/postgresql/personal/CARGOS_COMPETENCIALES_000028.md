@@ -19,3 +19,17 @@ cambia las dos reglas por la misma intención (primer carácter, alfabeto y
 longitud de 3 a 512 medida aparte) sin tocar la fachada. Su vector
 `pruebas_sql/personal37_restricciones_enlace.sql` (7/7) falla antes de
 instalarla y pasa después. Repetirla se para en la preimagen.
+
+## Personal38: enlace por tipo de recurso (4c-4)
+
+Decisión de dirección del 05/10: el enlace de ejercicio de un cargo guarda como
+recurso el tipo de recurso del paso del plan (por ejemplo
+`documento_contratacion_temporal`), no un documento. Personal38 añade
+`localizar_enlace_cargo_ct_v1`, que devuelve el único enlace vigente de una
+persona para un cargo, acción, tipo y finalidad (solo lo ejecuta
+`vec_autorizacion_propietario`, y la sesión debe ser del ejecutor CT). También
+cambia `leer_revalidar_cargo_ocupante_ct_v1` para que, si el contexto trae
+`recurso.tipo_recurso`, compare con él el recurso del enlace. La decisión y el
+consumo de la firma siguen ligados al documento exacto en CT172/AD170. Vector
+`pruebas_sql/personal38_localizador_enlace.sql`: 7/7 tras instalar; antes de
+instalar falla.
