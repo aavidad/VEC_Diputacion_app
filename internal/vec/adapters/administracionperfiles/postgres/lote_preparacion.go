@@ -36,6 +36,7 @@ type altaPreparacionJSON struct {
 
 type bajaPreparacionJSON struct {
 	RolVersionRef  string    `json:"rol_version_ref"`
+	Nombre         *string   `json:"nombre"`
 	PerfilRef      string    `json:"perfil_ref"`
 	VinculoRef     string    `json:"vinculo_ref"`
 	PerfilVersion  uint64    `json:"perfil_version"`
@@ -85,7 +86,10 @@ func (x preparacionLoteJSON) dominio() (domain.PreparacionLoteAdministracionPerf
 			PerfilRef:         a.PerfilRef, VinculoRef: a.VinculoRef, HuellaSHA256: a.HuellaSHA256})
 	}
 	for _, b := range x.Bajas {
-		p.Bajas = append(p.Bajas, domain.BajaPosibleLoteAdministracion{RolVersionRef: b.RolVersionRef,
+		if b.Nombre == nil {
+			return domain.PreparacionLoteAdministracionPerfiles{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		}
+		p.Bajas = append(p.Bajas, domain.BajaPosibleLoteAdministracion{RolVersionRef: b.RolVersionRef, Nombre: *b.Nombre,
 			PerfilRef: b.PerfilRef, VinculoRef: b.VinculoRef, PerfilVersion: b.PerfilVersion,
 			VinculoVersion: b.VinculoVersion, VigenteDesde: b.VigenteDesde.UTC(), VigenteHasta: b.VigenteHasta.UTC(),
 			HuellaSHA256: b.HuellaSHA256})
