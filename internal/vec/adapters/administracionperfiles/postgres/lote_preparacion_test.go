@@ -167,7 +167,8 @@ func TestPreparacionLoteOtraOrganizacionNoLlegaAlEmisor(t *testing.T) {
 	s.OrganizacionRef = "org_otra"
 	_, err := a.PrepararLoteOrdinario(context.Background(), s)
 	if !errors.Is(err, domain.ErrActoAdministracionPerfilesInvalido) || pool.comienzos != 0 ||
-		emisor.efecto.Referencia != "" || reg.llamadas != 1 || reg.ordenes[0].Datos.Resultado != domain.ResultadoIntentoAuditoriaDenegado {
+		emisor.efecto.Referencia != "" || reg.llamadas != 1 || reg.ordenes[0].Datos.Resultado != domain.ResultadoIntentoAuditoriaDenegado ||
+		reg.ordenes[0].Datos.Accion != AccionPreparacionLote {
 		t.Fatal("organización ajena no se rechazó antes de emitir")
 	}
 }
