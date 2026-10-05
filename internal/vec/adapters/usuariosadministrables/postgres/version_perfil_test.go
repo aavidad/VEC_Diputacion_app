@@ -7,7 +7,9 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-func TestSourceUsuariosAdmiteSoloHerenciaRol5Y6(t *testing.T) {
+// AUT48: el adaptador no fija la versión del rol de Aplicación; la concesión
+// exacta la comprueban el emisor y PostgreSQL.
+func TestSourceUsuariosAdmiteVersionVigenteDeAplicacion(t *testing.T) {
 	for _, v := range []int{4, 5, 6, 7} {
 		ahora := time.Now().UTC().Truncate(time.Microsecond)
 		actor, v2 := evidenciaAdminPrueba(t, ahora)
@@ -25,7 +27,7 @@ func TestSourceUsuariosAdmiteSoloHerenciaRol5Y6(t *testing.T) {
 		}
 		// El proveedor adversario devuelve error: no hay lectura ni V3 favorable.
 		_, err = f.ListarUsuarios(ctx, actor, v2, ports.FiltrosUsuariosAdministrables{})
-		if err == nil || (emisor.llamadas == 1) != (v == 5 || v == 6) {
+		if err == nil || emisor.llamadas != 1 {
 			t.Fatalf("version%d fronteraincorrecta", v)
 		}
 	}
