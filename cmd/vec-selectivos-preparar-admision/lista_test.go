@@ -74,3 +74,60 @@ func TestListaProvisionalSinSalidaAnteErrores(t *testing.T) {
 		}
 	}
 }
+
+func TestListaDefinitivaProduceElMismoContratoYTextos(t *testing.T) {
+	material, err := os.ReadFile("testdata/lista-definitiva-material.json")
+	esperado, err2 := os.ReadFile("testdata/lista-definitiva-resultado.json")
+	if err != nil || err2 != nil {
+		t.Fatal(err, err2)
+	}
+	for _, idioma := range []string{"es", "en"} {
+		var salida, errores bytes.Buffer
+		args := append(argumentos(idioma), "--salida", "lista-definitiva", "--catalogo-admision-dir", "../../data/catalogos/seleccion")
+		if codigo := ejecutar(context.Background(), args, bytes.NewReader(material), &salida, &errores); codigo != 0 || errores.Len() != 0 {
+			t.Fatalf("%d %s", codigo, errores.String())
+		}
+		if !bytes.Equal(esperado, salida.Bytes()) {
+			t.Fatalf("%s: el resultado difiere del contrato conservado", idioma)
+		}
+		var lista domain.ListaAdmisionDefinitiva
+		if json.Unmarshal(salida.Bytes(), &lista) != nil || lista.Aprobada || lista.Publicada || lista.Persistida {
+			t.Fatal(salida.String())
+		}
+		catalogo, err := cargarCatalogo("../../web/static/textos", idioma)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, clave := range lista.Pendientes {
+			if _, ok := mensajeCatalogo(catalogo, idioma, clave); !ok {
+				t.Fatalf("%s: falta el texto de %s", idioma, clave)
+			}
+		}
+	}
+}
+
+func TestListaDefinitivaSinSalidaAnteErrores(t *testing.T) {
+	raw, err := os.ReadFile("testdata/lista-definitiva-material.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	argsDefinitiva := []string{"--catalogos-dir", "../../web/static/textos", "--idioma", "es", "--salida", "lista-definitiva", "--catalogo-admision-dir", "../../data/catalogos/seleccion"}
+	casos := map[string]struct{ entrada, clave string }{
+		"huella_ajena": {strings.Replace(string(raw), `"a0de31453bd8555d34f2573aae10b1ff6097a4e07dee4e4adff0a4b8443f42f0"`, `"`+strings.Repeat("0", 64)+`"`, 1), "seleccion.lista_definitiva.entrada_invalida"},
+		"motivo_nuevo": {strings.Replace(string(raw), `"motivos_persistentes": [
+        "documento_identidad_no_aportado"`, `"motivos_persistentes": [
+        "titulacion_no_acreditada"`, 1), "seleccion.lista_definitiva.entrada_invalida"},
+		"subsanar_fuera_plazo":  {strings.Replace(string(raw), `"via": "reclamacion"`, `"via": "subsanacion"`, 1), "seleccion.lista_definitiva.entrada_invalida"},
+		"catalogo_otra_version": {strings.Replace(string(raw), `"ejemplo-1"`, `"ejemplo-2"`, 1), "seleccion.lista_admision.catalogo_no_disponible"},
+	}
+	for nombre, c := range casos {
+		if c.entrada == string(raw) {
+			t.Fatalf("%s: el caso no cambia el material", nombre)
+		}
+		var salida, errores bytes.Buffer
+		if codigo := ejecutar(context.Background(), argsDefinitiva, strings.NewReader(c.entrada), &salida, &errores); codigo != 1 || salida.Len() != 0 ||
+			!strings.Contains(errores.String(), `"error_clave":"`+c.clave+`"`) {
+			t.Errorf("%s: %d %q %q", nombre, codigo, salida.String(), errores.String())
+		}
+	}
+}

@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare a requirements review or the draft provisional list from synthetic JSON. Use --salida preparacion, antecedente, aportacion or lista-provisional. Choose --idioma and --catalogos-dir; for the list, --catalogo-admision-dir and --catalogo-admision. Material is read from standard input. Preparing a submission does not file or resolve a correction, and the draft list is neither approved nor published.",
+  "ayuda": "Prepare a requirements review or the draft lists from synthetic JSON. Use --salida preparacion, antecedente, aportacion, lista-provisional, antecedente-lista or lista-definitiva. Choose --idioma and --catalogos-dir; for the lists, --catalogo-admision-dir and --catalogo-admision. Material is read from standard input. Preparing a submission does not file or resolve a correction, and the draft lists are neither approved nor published.",
   "seleccion_admision_entrada_invalida": "The review could not be prepared. Check the format, references and versions of the supplied material.",
   "seleccion_admision_salida_no_disponible": "The result could not be written. Check the destination and prepare it again.",
   "seleccion_admision_causa_fuentes_no_verificadas": "The source and correspondence of the material remain unverified.",
@@ -31,5 +31,11 @@
   "seleccion_lista_admision_pendiente_identidad_publicacion": "On publication, name, surnames and masked document are added and the list is sorted by surname.",
   "seleccion_lista_admision_pendiente_vencimiento_al_publicar": "The last day for corrections is calculated with the calendar from the day after publication.",
   "seleccion_lista_admision_pendiente_publicacion_oficial": "Publish the list in the official gazette and on the site set by the call rules.",
-  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "The reasons and the deadline are examples. Replace them with the ones HR confirms."
+  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "The reasons and the deadline are examples. Replace them with the ones HR confirms.",
+  "seleccion_lista_definitiva_entrada_invalida": "The final list could not be prepared. Check that the provisional list fingerprint matches and that every exclusion has one resolution consistent with its reasons.",
+  "seleccion_lista_definitiva_pendiente_aprobacion_competente": "The competent body must approve the final list before it is published.",
+  "seleccion_lista_definitiva_pendiente_registro_escritos": "Check that every correction or complaint was registered within the deadline.",
+  "seleccion_lista_definitiva_pendiente_identidad_publicacion": "On publication, name, surnames and masked document are added and the list is sorted by surname.",
+  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publish the final list in the official gazette and on the site set by the call rules.",
+  "seleccion_lista_definitiva_pendiente_pie_recursos": "The decision approving the final list must state the available appeals, the body that hears them and the deadline."
 }
