@@ -50,7 +50,7 @@ func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, e
 	}
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(material, &m); err != nil || len(m) != len(clavesMaterialGobiernoPlanFirma) ||
-		!objetoSinClavesRepetidas(material) {
+		claveRepetidaEnObjeto(material) != nil {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
 	for _, clave := range clavesMaterialGobiernoPlanFirma {
@@ -70,7 +70,7 @@ func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, e
 	}
 	canon, err := base64.StdEncoding.DecodeString(catalogoB64)
 	if err != nil || hexSHA256(canon) != catalogoSHA || !utf8.Valid(canon) ||
-		bytes.Contains(canon, []byte(`\u0000`)) || !objetoSinClavesRepetidas(canon) {
+		bytes.Contains(canon, []byte(`\u0000`)) || claveRepetidaEnObjeto(canon) != nil {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
 	// Claves exactas, como jsonb (encoding/json emparejaría sin mayúsculas), y
@@ -120,27 +120,35 @@ func numeroJSON(b json.RawMessage, destino *json.Number) error {
 	return d.Decode(destino)
 }
 
-// objetoSinClavesRepetidas recorre el primer nivel: AD177 compara el recuento
+// claveRepetidaEnObjeto recorre el primer nivel: AD177 compara el recuento
 // json con el jsonb, así que un material con claves repetidas se rechaza ya aquí.
-func objetoSinClavesRepetidas(b []byte) bool {
+// Devuelve el error de lectura o ErrPlanCompetenciaFirmaV2 si hay repetidas.
+func claveRepetidaEnObjeto(b []byte) error {
 	d := json.NewDecoder(bytes.NewReader(b))
-	if t, err := d.Token(); err != nil || t != json.Delim('{') {
-		return false
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+	if t != json.Delim('{') {
+		return ct.ErrPlanCompetenciaFirmaV2
 	}
 	vistas := map[string]bool{}
 	for d.More() {
 		t, err := d.Token()
+		if err != nil {
+			return err
+		}
 		clave, ok := t.(string)
-		if err != nil || !ok || vistas[clave] {
-			return false
+		if !ok || vistas[clave] {
+			return ct.ErrPlanCompetenciaFirmaV2
 		}
 		vistas[clave] = true
 		var valor json.RawMessage
-		if d.Decode(&valor) != nil {
-			return false
+		if err := d.Decode(&valor); err != nil {
+			return err
 		}
 	}
-	return true
+	return nil
 }
 
 func hexSHA256(b []byte) string {
