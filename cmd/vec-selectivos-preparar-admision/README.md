@@ -157,7 +157,7 @@ Su SHA256 es
 
 Si una solicitud no aparece en la provisional (ni admitida ni excluida), se
 prepara una nueva revisión de esa provisional con `--salida
-revision-provisional`. El material lleva dos partes:
+revision-provisional`. El material lleva tres partes:
 
 - `material`: el material completo de la nueva revisión, con la misma
   `lista_ref`, la `revision` siguiente y todas las solicitudes, las de antes y
