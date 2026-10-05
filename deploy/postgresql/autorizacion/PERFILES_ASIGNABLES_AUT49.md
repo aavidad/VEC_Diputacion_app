@@ -13,17 +13,25 @@ Por cada perfil del plan:
 - la versión del rol existe, está publicada y su huella es la del plan;
 - su control de vigencia actual está habilitado, con la revisión y la huella
   del plan;
-- no es administración ni Sistemas, no figura como rol sensible (tampoco otra
-  versión del mismo rol), no es un perfil fijo, no tiene asignaciones externas
-  y ninguna concesión es de los módulos `administracion` o `intervencion` ni de
-  fiscalización;
-- los ámbitos fijos son válidos y no incluyen `unidad_ref` (la unidad la aporta
-  cada asignación cuando `unidad_requerida` es verdadero);
+- no es administración ni Sistemas; ninguna versión del mismo rol es sensible,
+  fija, de otra clase administrable ni tiene asignaciones externas;
+- no es de Intervención ni de fiscalización (por identificador, nombre,
+  módulo, acción o finalidad) ni de aspirantes o usuarios externos (rol
+  `candidato_…`, identificador con «extern», módulo `aspirantes`);
+- ninguna concesión es del módulo `administracion`;
+- los ámbitos fijos son válidos (al menos uno, normalmente `organizacion_ref`)
+  y no incluyen `unidad_ref`; cuando `unidad_requerida` es verdadero, la unidad
+  la aporta cada asignación;
 - la vigencia es finita y termina en el futuro; la duración propuesta está
   entre 60 segundos y un año;
 - no estaba registrado antes.
 
-El plan tiene de 1 a 32 perfiles sin repetir, caduca como mucho un día después
+Estas exclusiones son una defensa técnica por nombres. La clasificación
+positiva es la aprobación: Alberto revisa la lista exacta del plan antes de
+firmar su huella. Conviene que decida expresamente sobre los roles de gobierno
+de datos, como `organizacion_preparacion` (`personal.organizacion.actualizar`).
+
+El plan es el texto canónico de `jsonb` (sin claves repetidas), tiene de 1 a 32 perfiles sin repetir, caduca como mucho un día después
 de prepararse y su huella debe coincidir con la que aprobó Alberto. Cualquier
 fallo deja la operación sin efecto.
 
@@ -41,7 +49,7 @@ fallo deja la operación sin efecto.
    `WITH INHERIT TRUE, SET FALSE, ADMIN FALSE` y sin otros permisos, e inserta la
    fila de `vec_autorizacion.config_perfiles_asignables_admin_v1` con el LOGIN,
    la huella del plan, la referencia y la huella de la aprobación, entorno
-   `desarrollo` y una ventana corta (dos horas).
+   `desarrollo` y una ventana corta (dos horas; la tabla no admite más de un día).
 4. **Aplicar.** Con ese LOGIN, por TLS `verify-full`:
 
    ```sql
@@ -53,7 +61,10 @@ fallo deja la operación sin efecto.
    ```
 
    La respuesta trae `estado` (`permitido`, `denegado` o `error`), el recibo y la
-   referencia del intento auditado. No se muestran causas detalladas.
+   referencia del intento auditado. No se muestran causas detalladas. La
+   fachada espera como mucho 5 s por un bloqueo y 30 s en total. Si dos
+   operadores coinciden, PostgreSQL puede abortar con 40001 sin respuesta: se
+   repite el mismo paso, que es idempotente.
 5. **Replay.** Repetir el mismo paso devuelve el mismo recibo con
    `replay: true` y añade sólo un intento a la auditoría. Sirve para recuperar
    un COMMIT dudoso.
@@ -66,7 +77,7 @@ fallo deja la operación sin efecto.
 - `registro_perfiles_asignables_admin_v1`: el plan exacto, el LOGIN, el recibo
   y la referencia de auditoría.
 - Auditoría común: un registro `perfiles_asignables_admin` con la huella del
-  plan, la operación y la huella de la lista; y un `intento_perfiles_asignables_admin`
+  plan, la de la aprobación, la operación y la huella de la lista; y un `intento_perfiles_asignables_admin`
   por cada llamada (registrado, replay, denegado o error).
 
 Un perfil registrado no se borra. Para dejar de ofrecerlo se retira su versión

@@ -34,7 +34,7 @@ CREATE TABLE vec_autorizacion.config_perfiles_asignables_admin_v1(
  aprobacion_sha256 text NOT NULL CHECK(aprobacion_sha256 ~ '^[0-9a-f]{64}$'),
  entorno text NOT NULL CHECK(entorno='desarrollo'),
  vigente_desde timestamptz NOT NULL,vigente_hasta timestamptz NOT NULL,
- CHECK(isfinite(vigente_desde) AND isfinite(vigente_hasta) AND vigente_hasta>vigente_desde)
+ CHECK(isfinite(vigente_desde) AND isfinite(vigente_hasta) AND vigente_hasta>vigente_desde AND vigente_hasta-vigente_desde<=interval '1 day')
 );
 -- Historia del registro: plan exacto, recibo y auditoría. Sirve al replay.
 CREATE TABLE vec_autorizacion.registro_perfiles_asignables_admin_v1(
@@ -67,7 +67,7 @@ SET LOCAL ROLE vec_autorizacion_propietario;
 -- El LOGIN debe ser mínimo y exclusivo, como en AUT42/AUT45: miembro único del
 -- grupo con INHERIT y sin SET/ADMIN, sin ajustes propios ni permisos directos.
 CREATE FUNCTION vec_autorizacion.exigir_operador_perfiles_asignables_admin_v1()
-RETURNS vec_autorizacion.config_perfiles_asignables_admin_v1 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+RETURNS vec_autorizacion.config_perfiles_asignables_admin_v1 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE l record;g record;cfg vec_autorizacion.config_perfiles_asignables_admin_v1;ns oid;db oid;f oid;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC' OR current_setting('role')<>'none' THEN RAISE EXCEPTION 'AUT49: PARO clave=transaccion actual=divergente esperado=SERIALIZABLE_RW_UTC_sin_SETROLE' USING ERRCODE='25000'; END IF;
@@ -93,11 +93,13 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.exigir_operador_perfiles_asignables_admin_v1() FROM PUBLIC;
 
 -- Un perfil del plan es asignable sólo si es una versión ORDINARIA publicada y
--- habilitada, con su huella y control exactos. Las exclusiones son invariantes
--- técnicas: administración, Sistemas, roles sensibles o fijos, Intervención
--- (fiscalización) y roles con asignaciones externas siguen otros circuitos.
+-- habilitada, con su huella y control exactos. La clasificación positiva es la
+-- aprobación de Alberto sobre la lista exacta del plan; estas exclusiones son la
+-- defensa técnica: administración, Sistemas, roles sensibles o fijos,
+-- Intervención y fiscalización, aspirantes y usuarios externos nunca entran,
+-- aunque el plan los incluya. Comparan por rol_id para cubrir cualquier versión.
 CREATE FUNCTION vec_autorizacion.validar_perfil_asignable_admin_v1(t jsonb,p_registro boolean)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
 DECLARE r record;c record;dur numeric;
 BEGIN
  IF jsonb_typeof(t) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(t))<>9
@@ -122,17 +124,23 @@ BEGIN
  SELECT * INTO r FROM vec_autorizacion.version_rol WHERE version_rol_ref=t->>'version_rol_ref' FOR SHARE;
  IF NOT FOUND OR r.huella_sha256 IS DISTINCT FROM t->>'version_rol_sha256' OR r.documento->>'estado' IS DISTINCT FROM 'publicada'
  OR jsonb_typeof(r.documento->'concesiones') IS DISTINCT FROM 'array' OR jsonb_array_length(r.documento->'concesiones')<1
- THEN RAISE EXCEPTION 'AUT49: PARO clave=version_rol actual=divergente esperado=publicada_huella_exacta' USING ERRCODE='40001'; END IF;
+ THEN RAISE EXCEPTION 'AUT49: PARO clave=version_rol actual=divergente esperado=publicada_huella_exacta' USING ERRCODE='P0V01'; END IF;
  SELECT x.* INTO c FROM vec_autorizacion.control_vigencia_version_rol_actual ca JOIN vec_autorizacion.control_vigencia_version_rol x USING(version_rol_ref,revision) WHERE ca.version_rol_ref=r.version_rol_ref FOR SHARE OF ca;
  IF NOT FOUND OR c.estado IS DISTINCT FROM 'habilitada' OR c.revision::text IS DISTINCT FROM t->>'control_revision' OR c.huella_sha256 IS DISTINCT FROM t->>'control_sha256'
- THEN RAISE EXCEPTION 'AUT49: PARO clave=control actual=divergente esperado=habilitado_revision_exacta' USING ERRCODE='40001'; END IF;
+ THEN RAISE EXCEPTION 'AUT49: PARO clave=control actual=divergente esperado=habilitado_revision_exacta' USING ERRCODE='P0V01'; END IF;
  IF r.rol_id IN('administracion_perfiles','operador_plataforma')
  OR EXISTS(SELECT 1 FROM vec_autorizacion.rol_sensible_exacto WHERE version_rol_ref=r.version_rol_ref)
  OR EXISTS(SELECT 1 FROM vec_autorizacion.rol_sensible_exacto s JOIN vec_autorizacion.version_rol v USING(version_rol_ref) WHERE v.rol_id=r.rol_id)
- OR EXISTS(SELECT 1 FROM vec_autorizacion.perfil_fijo_categoria_nominal_v1 WHERE version_rol_ref=r.version_rol_ref)
- OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_externa WHERE version_rol_ref=r.version_rol_ref)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.perfil_fijo_categoria_nominal_v1 f JOIN vec_autorizacion.version_rol v USING(version_rol_ref) WHERE v.rol_id=r.rol_id)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_externa e JOIN vec_autorizacion.version_rol v USING(version_rol_ref) WHERE v.rol_id=r.rol_id)
+ -- Roles de aspirantes y de usuarios externos: nunca se reparten a personal interno.
+ OR r.rol_id ~ '(^candidato_|extern)'
+ -- Intervención y fiscalización siguen el circuito con doble control.
+ OR r.rol_id ~ '^intervencion' OR r.documento->>'nombre' ~* '(fiscaliz|intervenc)'
+ -- Ninguna versión del mismo rol puede figurar ya con otra clase.
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.rol_administrable_exacto_v1 a JOIN vec_autorizacion.version_rol v USING(version_rol_ref) WHERE v.rol_id=r.rol_id AND a.clase<>'ordinario')
  OR EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') x
-  WHERE x->>'modulo_id' IN('administracion','intervencion') OR x->>'accion' LIKE 'administracion.%' OR x->>'accion' LIKE '%fiscalizacion%'
+  WHERE x->>'modulo_id' IN('administracion','intervencion','aspirantes') OR x->>'accion' LIKE 'administracion.%' OR x->>'accion' LIKE '%fiscalizacion%'
   OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(x->'finalidades')='array' THEN x->'finalidades' ELSE '[]'::jsonb END) fi WHERE fi LIKE '%fiscaliz%'))
  THEN RAISE EXCEPTION 'AUT49: PARO clave=clase actual=no_ordinaria esperado=rol_ordinario_interno' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('version_rol_ref',r.version_rol_ref,'version_rol_sha256',r.huella_sha256);
@@ -140,7 +148,7 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.validar_perfil_asignable_admin_v1(jsonb,boolean) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.aplicar_perfiles_asignables_admin_v1(plan_canonico text,sha_aprobado text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
 DECLARE cfg vec_autorizacion.config_perfiles_asignables_admin_v1;p jsonb;sha text;t jsonb;v jsonb;lista jsonb:='[]';previo record;lista_sha text;
  e jsonb;aud record;recibo jsonb;instante timestamptz;
 BEGIN
@@ -149,10 +157,14 @@ BEGIN
  sha:=encode(sha256(convert_to(plan_canonico,'UTF8')),'hex');
  IF sha IS DISTINCT FROM cfg.plan_sha256 THEN RAISE EXCEPTION 'AUT49: PARO clave=plan_sha actual=divergente esperado=aprobado' USING ERRCODE='42501'; END IF;
  p:=plan_canonico::jsonb;
+ -- El texto aprobado debe ser la forma canónica de jsonb: sin claves repetidas ni
+ -- variantes de formato que hagan leer al aprobador un valor distinto del ejecutado.
+ IF plan_canonico IS DISTINCT FROM p::text THEN RAISE EXCEPTION 'AUT49: PARO clave=plan actual=no_canonico esperado=jsonb_text' USING ERRCODE='22023'; END IF;
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(p))<>5 OR NOT p ?& ARRAY['esquema','operacion_ref','preparado_en','caduca_en','perfiles']
  OR p->>'esquema' IS DISTINCT FROM 'vec.admin.perfiles-asignables.plan.v1' OR jsonb_typeof(p->'operacion_ref') IS DISTINCT FROM 'string' OR p->>'operacion_ref' !~ '^rpa_[A-Za-z0-9_-]{22,124}$'
  OR jsonb_typeof(p->'perfiles') IS DISTINCT FROM 'array' OR jsonb_array_length(p->'perfiles') NOT BETWEEN 1 AND 32
  OR (SELECT count(DISTINCT x->>'version_rol_ref') FROM jsonb_array_elements(p->'perfiles') x)<>jsonb_array_length(p->'perfiles')
+ OR jsonb_typeof(p->'preparado_en') IS DISTINCT FROM 'string' OR jsonb_typeof(p->'caduca_en') IS DISTINCT FROM 'string'
  OR p->>'preparado_en' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' OR p->>'caduca_en' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
  OR (p->>'preparado_en')::timestamptz>clock_timestamp() OR (p->>'caduca_en')::timestamptz<=(p->>'preparado_en')::timestamptz
  OR (p->>'caduca_en')::timestamptz>(p->>'preparado_en')::timestamptz+interval '1 day'
@@ -167,7 +179,7 @@ BEGIN
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(previo.recibo->'perfiles') x LEFT JOIN vec_autorizacion.rol_administrable_exacto_v1 a ON a.version_rol_ref=x->>'version_rol_ref'
    LEFT JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref
    WHERE a.version_rol_ref IS NULL OR a.clase<>'ordinario' OR a.huella_sha256 IS DISTINCT FROM x->>'version_rol_sha256' OR r.huella_sha256 IS DISTINCT FROM a.huella_sha256)
-  THEN RAISE EXCEPTION 'AUT49: PARO clave=replay_perfiles actual=divergente esperado=registro_original' USING ERRCODE='40001'; END IF;
+  THEN RAISE EXCEPTION 'AUT49: PARO clave=replay_perfiles actual=divergente esperado=registro_original' USING ERRCODE='P0V01'; END IF;
   RETURN jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
  IF (p->>'caduca_en')::timestamptz<=clock_timestamp() THEN RAISE EXCEPTION 'AUT49: PARO clave=plan_caducado actual=caducado esperado=vigente' USING ERRCODE='42501'; END IF;
@@ -178,7 +190,7 @@ BEGIN
  END LOOP;
  lista_sha:=encode(sha256(convert_to(lista::text,'UTF8')),'hex');
  e:=jsonb_build_object('tipo_registro','perfiles_asignables_admin','evento_ref','evento_'||substr(sha,1,32),'operador_login',session_user::text,'plan_sha256',sha,
-  'operacion_ref',p->>'operacion_ref','perfiles_sha256',lista_sha,'perfiles_numero',jsonb_array_length(lista)::text,
+  'operacion_ref',p->>'operacion_ref','perfiles_sha256',lista_sha,'perfiles_numero',jsonb_array_length(lista)::text,'aprobacion_sha256',cfg.aprobacion_sha256,
   'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','perfiles_asignables_admin','correlacion_ref','correlacion_'||substr(sha,33,32));
  SELECT * INTO STRICT aud FROM vec_autorizacion_atestada_v3.registrar_perfiles_asignables_admin_v1(e);
  FOR t IN SELECT value FROM jsonb_array_elements(p->'perfiles') ORDER BY value->>'version_rol_ref' LOOP
@@ -186,7 +198,7 @@ BEGIN
   VALUES(t->>'version_rol_ref','ordinario',t->>'version_rol_sha256',(t->>'vigente_desde')::timestamptz,(t->>'vigente_hasta')::timestamptz,(t->>'unidad_requerida')::boolean,
    'vec_autorizacion.administracion_perfiles.lote_ordinario.v1',t->'ambitos_fijos',make_interval(secs=>(t->>'duracion_propuesta_segundos')::double precision));
  END LOOP;
- recibo:=jsonb_build_object('esquema','vec.admin.perfiles-asignables.recibo.v1','operacion_ref',p->>'operacion_ref','plan_sha256',sha,'perfiles',lista,'perfiles_sha256',lista_sha,
+ recibo:=jsonb_build_object('esquema','vec.admin.perfiles-asignables.recibo.v1','operacion_ref',p->>'operacion_ref','plan_sha256',sha,'aprobacion_ref',cfg.aprobacion_ref,'aprobacion_sha256',cfg.aprobacion_sha256,'perfiles',lista,'perfiles_sha256',lista_sha,
   'auditoria_ref',aud.auditoria_ref,'auditoria_secuencia',aud.secuencia,'auditoria_huella_sha256',aud.huella_sha256,'confirmado_en',aud.registrada_en);
  INSERT INTO vec_autorizacion.registro_perfiles_asignables_admin_v1 VALUES(p->>'operacion_ref',sha,convert_to(plan_canonico,'UTF8'),session_user,aud.auditoria_ref,recibo,aud.registrada_en);
  -- Revalidación final bajo la misma transacción: configuración aún vigente.
@@ -200,7 +212,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_perfiles_asignables_admin_v1(tex
 -- deja un registro común. El efecto y su intento permitido comparten subbloque;
 -- si algo falla se revierten ambos y sólo queda la negativa gestionada.
 CREATE FUNCTION vec_autorizacion.registrar_perfiles_asignables_admin_v1(plan_canonico text,sha_aprobado text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='5s' SET statement_timeout='30s' AS $f$
 DECLARE respuesta jsonb;estado text:='permitido';codigo text;motivo text;aud record;sol text;evento text;corr text;solsha text;
 BEGIN
  sol:='solicitud_perfiles_asignables:'||replace(gen_random_uuid()::text,'-','');evento:='evento_'||replace(gen_random_uuid()::text,'-','');corr:='correlacion_'||replace(gen_random_uuid()::text,'-','');
@@ -210,7 +222,7 @@ BEGIN
   motivo:=CASE WHEN (respuesta->>'replay')::boolean THEN 'perfiles_asignables_replay' ELSE 'perfiles_asignables_registrado' END;
   SELECT * INTO STRICT aud FROM vec_autorizacion_atestada_v3.registrar_intento_perfiles_asignables_admin_v1(jsonb_build_object('tipo_registro','intento_perfiles_asignables_admin','evento_ref',evento,'operador_login',session_user::text,'solicitud_sha256',solsha,'accion','registrar_perfiles_asignables_admin_v1','recurso_ref',sol,'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','perfiles_asignables_admin','correlacion_ref',corr));
   PERFORM vec_autorizacion.exigir_operador_perfiles_asignables_admin_v1();
- EXCEPTION WHEN OTHERS THEN respuesta:=NULL;codigo:=SQLSTATE;estado:=CASE WHEN codigo IN('42501','22023','22P02','22007','22008','40001','23505','25000') THEN 'denegado' ELSE 'error' END;
+ EXCEPTION WHEN OTHERS THEN respuesta:=NULL;codigo:=SQLSTATE;estado:=CASE WHEN codigo IN('42501','22023','22P02','22007','22008','P0V01','23505','25000') THEN 'denegado' ELSE 'error' END;
   motivo:=CASE WHEN estado='denegado' THEN 'perfiles_asignables_denegado' ELSE 'perfiles_asignables_error' END;
   codigo:=CASE WHEN estado='denegado' THEN 'perfiles_asignables_rechazado' ELSE 'perfiles_asignables_no_disponible' END;
  END;

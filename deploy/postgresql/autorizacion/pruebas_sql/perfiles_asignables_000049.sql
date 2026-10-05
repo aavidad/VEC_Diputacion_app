@@ -52,6 +52,8 @@ SELECT pg_temp.comprobar('positivo',(:'r1'::jsonb)->>'estado'='permitido' AND ((
  AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0 AND tipo_registro='intento_perfiles_asignables_admin' AND resultado='permitido' AND motivo_ref='perfiles_asignables_registrado')=1);
 SELECT pg_temp.comprobar('resolver_rol',vec_autorizacion.resolver_rol_administrable_v1('rol:tecnico_rrhh_desarrollo:v1')->>'clase'='ordinario'
  AND (vec_autorizacion.resolver_rol_administrable_v1('rol:llamamiento_desarrollo:v1')->>'unidad_requerida')::boolean IS FALSE);
+SELECT pg_temp.comprobar('aprobacion_en_auditoria',(SELECT perfiles_asignables_detalle->>'aprobacion_sha256' FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0 AND tipo_registro='perfiles_asignables_admin')=repeat('0',63)||'1'
+ AND (:'r1'::jsonb)#>>'{recibo,aprobacion_ref}'='aprobacion:prueba:aut49');
 SELECT pg_temp.comprobar('registro_plan',(SELECT plan=convert_to(:'plan_a','UTF8') AND login_nombre='prueba_aut49_a' FROM vec_autorizacion.registro_perfiles_asignables_admin_v1 WHERE operacion_ref='rpa_prueba_aut49_positivo_0001'));
 
 -- 2. Replay: mismo recibo, sin efecto nuevo, con intento auditado.
@@ -85,6 +87,31 @@ SELECT pg_temp.plan('rpa_prueba_aut49_doble_00001',jsonb_build_array(pg_temp.per
 SELECT pg_temp.operador('prueba_aut49_g',:'plan_g') AS sha_g \gset
 SELECT pg_temp.plan('rpa_prueba_aut49_sistemas_001',jsonb_build_array(pg_temp.perfil('rol:operador_plataforma:v1'))) AS plan_h \gset
 SELECT pg_temp.operador('prueba_aut49_h',:'plan_h') AS sha_h \gset
+SELECT jsonb_set(jsonb_set(pg_temp.plan('rpa_prueba_aut49_fechasnulas01',jsonb_build_array(pg_temp.perfil('rol:respuesta_recibida_desarrollo:v1')))::jsonb,'{preparado_en}','null'),'{caduca_en}','null')::text AS plan_j \gset
+SELECT pg_temp.operador('prueba_aut49_j',:'plan_j') AS sha_j \gset
+SELECT '{"esquema": "otro", '||substr(pg_temp.plan('rpa_prueba_aut49_clavesdobles1',jsonb_build_array(pg_temp.perfil('rol:respuesta_recibida_desarrollo:v1'))),2) AS plan_k \gset
+SELECT pg_temp.operador('prueba_aut49_k',:'plan_k') AS sha_k \gset
+SELECT pg_temp.plan('rpa_prueba_aut49_candidato_001',jsonb_build_array(pg_temp.perfil('rol:candidato_bolsa_consulta_propia_desarrollo:v1'))) AS plan_l \gset
+SELECT pg_temp.operador('prueba_aut49_l',:'plan_l') AS sha_l \gset
+SELECT pg_temp.plan('rpa_prueba_aut49_externa_0001',jsonb_build_array(pg_temp.perfil('rol:usuarios_preferencias_externa_h3:v2'),pg_temp.perfil('rol:candidato_bolsa_portal_propio_desarrollo:v1'))) AS plan_m \gset
+SELECT pg_temp.plan('rpa_prueba_aut49_firmasinterv1',jsonb_build_array(pg_temp.perfil('rol:intervencion_firmas_lector_desarrollo:v1'))) AS plan_n \gset
+SELECT pg_temp.operador('prueba_aut49_n',:'plan_n') AS sha_n \gset
+SELECT pg_temp.operador('prueba_aut49_m',:'plan_m') AS sha_m \gset
+SET SESSION AUTHORIZATION prueba_aut49_j;
+SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_j',:'sha_j')->>'estado' AS e_j \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION prueba_aut49_k;
+SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_k',:'sha_k')->>'estado' AS e_k \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION prueba_aut49_l;
+SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_l',:'sha_l')->>'estado' AS e_l \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION prueba_aut49_m;
+SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_m',:'sha_m')->>'estado' AS e_m \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION prueba_aut49_n;
+SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_n',:'sha_n')->>'estado' AS e_n \gset
+RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION prueba_aut49_b;
 SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan_b',:'sha_b')->>'estado' AS e_b \gset
 RESET SESSION AUTHORIZATION;
@@ -113,10 +140,15 @@ SELECT pg_temp.comprobar('ya_registrado_denegado',:'e_e'='denegado');
 SELECT pg_temp.comprobar('caducado_denegado',:'e_f'='denegado');
 SELECT pg_temp.comprobar('duplicado_denegado',:'e_g'='denegado');
 SELECT pg_temp.comprobar('sistemas_denegado',:'e_h'='denegado');
+SELECT pg_temp.comprobar('fechas_nulas_denegado',:'e_j'='denegado');
+SELECT pg_temp.comprobar('claves_dobles_denegado',:'e_k'='denegado');
+SELECT pg_temp.comprobar('candidato_denegado',:'e_l'='denegado');
+SELECT pg_temp.comprobar('externa_denegado',:'e_m'='denegado');
+SELECT pg_temp.comprobar('lector_firmas_intervencion_denegado',:'e_n'='denegado');
 SELECT pg_temp.comprobar('sin_efecto_parcial',NOT EXISTS(SELECT 1 FROM vec_autorizacion.rol_administrable_exacto_v1 WHERE version_rol_ref IN('rol:respuesta_recibida_desarrollo:v1','rol:intervencion_fiscalizacion_desarrollo:v1'))
  AND (SELECT count(*) FROM vec_autorizacion.rol_administrable_exacto_v1 WHERE clase='ordinario')=2
  AND (SELECT count(*) FROM vec_autorizacion.registro_perfiles_asignables_admin_v1)=1
- AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0 AND motivo_ref='perfiles_asignables_denegado')=8);
+ AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0 AND motivo_ref='perfiles_asignables_denegado')=13);
 
 -- 9. LOGIN del grupo sin configuración aprobada.
 SELECT pg_temp.operador('prueba_aut49_sin',NULL) AS sha_sin \gset
@@ -165,5 +197,5 @@ SELECT pg_temp.comprobar('cadena',NOT EXISTS(
  SELECT 1 FROM (SELECT secuencia,anterior_sha256,lag(huella_sha256) OVER (ORDER BY secuencia) AS previa FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>=:aud0) x
  WHERE secuencia>:aud0 AND anterior_sha256 IS DISTINCT FROM previa)
  AND (SELECT cabeza_sha256 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria WHERE control_id)=(SELECT huella_sha256 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 ORDER BY secuencia DESC LIMIT 1)
- AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0)=13);
+ AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0)=18);
 ROLLBACK;

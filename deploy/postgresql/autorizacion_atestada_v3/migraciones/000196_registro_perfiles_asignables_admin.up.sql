@@ -69,13 +69,15 @@ BEGIN
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_tipo_disjunto_v4 '||nuevo;
 END $familia$;
 
--- Detalle cerrado: referencia de la operación, huella de la lista registrada y
--- número de perfiles (1..32). La lista completa queda en el registro de AUT49.
+-- Detalle cerrado: referencia de la operación, huella de la lista registrada,
+-- número de perfiles (1..32) y huella de la aprobación externa. La lista
+-- completa y el plan exacto quedan en el registro de AUT49.
 CREATE FUNCTION vec_autorizacion_atestada_v3.detalle_perfiles_asignables_valido_v1(p jsonb)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $f$
 BEGIN
- RETURN jsonb_typeof(p)='object' AND (SELECT count(*) FROM jsonb_object_keys(p))=3
-  AND p ?& ARRAY['operacion_ref','perfiles_sha256','perfiles_numero']
+ RETURN jsonb_typeof(p)='object' AND (SELECT count(*) FROM jsonb_object_keys(p))=4
+  AND p ?& ARRAY['operacion_ref','perfiles_sha256','perfiles_numero','aprobacion_sha256']
+  AND jsonb_typeof(p->'aprobacion_sha256')='string' AND p->>'aprobacion_sha256' ~ '^[0-9a-f]{64}$'
   AND jsonb_typeof(p->'operacion_ref')='string' AND p->>'operacion_ref' ~ '^rpa_[A-Za-z0-9_-]{22,124}$'
   AND jsonb_typeof(p->'perfiles_sha256')='string' AND p->>'perfiles_sha256' ~ '^[0-9a-f]{64}$'
   AND jsonb_typeof(p->'perfiles_numero')='string' AND p->>'perfiles_numero' ~ '^[1-9][0-9]?$'
@@ -102,7 +104,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE
- v_orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','plan_sha256','operacion_ref','perfiles_sha256','perfiles_numero','proceso','canal','finalidad_ref','correlacion_ref'];
+ v_orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','plan_sha256','operacion_ref','perfiles_sha256','perfiles_numero','aprobacion_sha256','proceso','canal','finalidad_ref','correlacion_ref'];
  v_claves text[];v_clave text;v_material bytea;v_material_sha text;v_anterior text;
  v_secuencia numeric;v_instante timestamptz(6);v_ref text;v_huella text;v_existente record;
 BEGIN
