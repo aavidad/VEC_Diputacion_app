@@ -349,9 +349,12 @@ BEGIN
  -- Sólo vale la publicación vigente: ni una versión anterior aún no retirada
  -- ni otro catálogo de plan del módulo. SERIALIZABLE detecta una publicación
  -- concurrente que cambie esta lectura.
+ -- Una versión posterior que llegó a publicarse la sustituye para siempre,
+ -- aunque después se retire: la anterior no revive sin publicar otra nueva.
  IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control x
-    WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado'
-      AND (x.catalogo_id<>p_catalogo_id OR x.version>p_version)) THEN
+    WHERE x.modulo_id='contratacion_temporal'
+      AND ((x.catalogo_id<>p_catalogo_id AND x.estado='publicado')
+        OR (x.catalogo_id=p_catalogo_id AND x.version>p_version AND x.estado IN ('publicado','retirado')))) THEN
   RAISE EXCEPTION 'CC7: plan sustituido por otra publicación' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT publicacion FROM vec_catalogos_configurables.plan_firma_publicacion p
   WHERE p.catalogo_id=p_catalogo_id AND p.version=p_version;

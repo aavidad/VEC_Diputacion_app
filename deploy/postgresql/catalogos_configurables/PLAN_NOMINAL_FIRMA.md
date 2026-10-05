@@ -96,7 +96,7 @@ Sólo vale el plan vigente: `leer_plan_nominal_firma_v1` rechaza una versión si
 hay otra posterior del mismo catálogo publicada, o cualquier otro catálogo de
 plan publicado en el módulo; y publicar se rechaza mientras haya otro catálogo
 de plan publicado. Así, al publicar la versión N+1, las firmas dejan de poder
-fijarse a la N aunque todavía no se haya retirado. Para publicar no basta con
+fijarse a la N aunque todavía no se haya retirado. Si después se retira la N+1, la N no vuelve a valer: hay que publicar otra versión. Para publicar no basta con
 ser distinto del creador y del último editor: nadie que haya creado o editado
 esa versión puede publicarla. Una actualización no puede cambiar `creado_en`.
 Las fechas `publicado_en`, `retirado_en` y `creado_en` del canon las aporta el
