@@ -1,0 +1,10 @@
+.ct-recuperacion-firmas [data-ct-recuperacion-resultado] {
+  min-width: 0;
+  max-block-size: 32rem;
+  overflow: auto;
+}
+
+.ct-recuperacion-firmas code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
