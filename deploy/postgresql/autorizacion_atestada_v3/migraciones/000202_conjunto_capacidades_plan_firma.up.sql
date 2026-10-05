@@ -21,8 +21,8 @@ BEGIN
  THEN RAISE EXCEPTION 'AD202: PARO clave=migrador_PG actual=no_acreditado esperado=superusuario_PG18' USING ERRCODE='42501'; END IF;
  IF to_regclass('vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(text,text,text)') IS NULL
- OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version<>1)
- THEN RAISE EXCEPTION 'AD202: PARO clave=preimagen actual=incompatible esperado=AD198_solo_conjunto_1' USING ERRCODE='55000'; END IF;
+ OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=2)
+ THEN RAISE EXCEPTION 'AD202: PARO clave=preimagen actual=incompatible esperado=AD198_sin_conjunto_2' USING ERRCODE='55000'; END IF;
  SELECT * INTO uno FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=1;
  IF NOT FOUND
  OR uno.audiencias IS DISTINCT FROM ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1']
@@ -42,8 +42,10 @@ INSERT INTO vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1(
 RESET ROLE;
 DO $post$
 BEGIN
- IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1)<>2
- OR NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=2 AND cardinality(audiencias)=4)
- THEN RAISE EXCEPTION 'AD202: PARO clave=postimagen esperado=conjuntos_1_y_2 actual=divergente' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=2
+   AND audiencias=ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1',
+    'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1']
+   AND segmentos=ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma'])
+ THEN RAISE EXCEPTION 'AD202: PARO clave=postimagen esperado=conjunto_2_exacto actual=divergente' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
