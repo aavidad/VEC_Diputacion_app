@@ -158,6 +158,11 @@ func leerTexto(fila FilaStaging, columna int, requerido bool, maximo int) (strin
 	if celda.Tipo != CeldaVacia && celda.Tipo != CeldaTexto {
 		return "", codigoTipoCeldaInvalido
 	}
+	// Un texto muy por encima del máximo se descarta antes de normalizar: la
+	// composición NFC no reduce una cadena a menos de 1/32 de sus bytes.
+	if len(celda.Valor) > 32*maximo+64 {
+		return "", codigoTextoExcesivo
+	}
 	valor := norm.NFC.String(strings.TrimSpace(celda.Valor))
 	if valor == "" {
 		if requerido {

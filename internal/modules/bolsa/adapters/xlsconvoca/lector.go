@@ -27,9 +27,22 @@ var (
 
 var firmaContenedorOLE2 = [8]byte{0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1}
 
-type Lector struct{}
+// Lector admite un tope de filas propio (cabecera incluida) por debajo del
+// máximo absoluto del adaptador; sin tope usa ese máximo.
+type Lector struct{ maximoFilas int }
 
 func NuevoLector() *Lector { return &Lector{} }
+
+// NuevoLectorConLimiteFilas corta la lectura en cuanto la hoja declara o
+// alcanza más filas que el tope (cabecera incluida), antes de leer sus celdas.
+func NuevoLectorConLimiteFilas(filas int) *Lector { return &Lector{maximoFilas: filas} }
+
+func (l *Lector) limiteFilas() int {
+	if l == nil || l.maximoFilas <= 0 || l.maximoFilas > maximoFilasXLS {
+		return maximoFilasXLS
+	}
+	return l.maximoFilas
+}
 
 func (l *Lector) Decodificar(
 	ctx context.Context,
@@ -52,15 +65,15 @@ func (l *Lector) Decodificar(
 		return dominio.HojaStaging{}, err
 	}
 	if esXLSX {
-		return decodificarXLSX(ctx, origen)
+		return decodificarXLSX(ctx, origen, l.limiteFilas())
 	}
 	libro, err := xls.Read(origen)
 	if err != nil || libro == nil || libro.SheetCount() != 1 {
 		return dominio.HojaStaging{}, ErrXLSInvalido
 	}
 	hojaXLS := libro.Sheet(0)
-	if hojaXLS == nil || hojaXLS.RowCount() < 1 || hojaXLS.RowCount() > maximoFilasXLS {
-		if hojaXLS != nil && hojaXLS.RowCount() > maximoFilasXLS {
+	if hojaXLS == nil || hojaXLS.RowCount() < 1 || hojaXLS.RowCount() > l.limiteFilas() {
+		if hojaXLS != nil && hojaXLS.RowCount() > l.limiteFilas() {
 			return dominio.HojaStaging{}, ErrLimiteXLSExcedido
 		}
 		return dominio.HojaStaging{}, ErrXLSInvalido

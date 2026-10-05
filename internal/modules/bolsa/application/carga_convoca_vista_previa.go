@@ -18,10 +18,11 @@ import (
 )
 
 // Límites de la carga desde la pantalla. El transporte corta el cuerpo antes
-// de leerlo (MaximoBytesCargaConvoca más el margen del formulario) y el caso
-// de uso vuelve a comprobar tamaño y número de filas antes de validar.
+// de leerlo (el fichero va en base64 dentro del JSON, por debajo del límite
+// global de 2 MiB del servidor), el lector se compone con el tope de filas
+// (cabecera incluida) y el caso de uso vuelve a comprobar tamaño y filas.
 const (
-	MaximoBytesCargaConvoca = 16 * 1024 * 1024
+	MaximoBytesCargaConvoca = 1024 * 1024
 	MaximoFilasCargaConvoca = 20000
 )
 
