@@ -20,6 +20,7 @@ DO $pre$ BEGIN
  IF to_regprocedure('vec_autorizacion.aplicar_lote_ordinario_admin_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion.preimagen_cambio_lote_admin_v1(jsonb,text)') IS NULL
  OR to_regprocedure('vec_autorizacion.acreditar_login_lote_ordinario_admin_v1()') IS NULL
+ OR to_regprocedure('vec_contexto_actor_v1.cuentas_titular_persona_admin_lote_v1(text)') IS NULL
  OR has_function_privilege('vec_autorizacion_propietario','vec_contexto_actor_v1.cuentas_titular_persona_admin_lote_v1(text)','EXECUTE') IS NOT TRUE
  OR has_function_privilege('vec_autorizacion_propietario','vec_contexto_actor_v1.enlace_perfil_admin_interno_v1(text,text)','EXECUTE') IS NOT TRUE
  OR to_regclass('vec_autorizacion.registro_preparacion_lote_admin_v1') IS NOT NULL
@@ -83,7 +84,7 @@ CREATE FUNCTION vec_autorizacion.preparar_lote_ordinario_admin_v1(p_material tex
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE m jsonb;d jsonb;c jsonb;rec jsonb;x record;actor record;org text;unidad text;persona text;ahora timestamptz;
  cuenta text;cuentas jsonb;base jsonb;enlace jsonb;cambio jsonb;pre jsonb;r record;altas jsonb:='[]'::jsonb;bajas jsonb:='[]'::jsonb;
- perfil text;vinculo text;asig record;
+ perfil text;vinculo text;asig record;truncado boolean:=false;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC' OR current_setting('role')<>'none'
@@ -125,7 +126,7 @@ BEGIN
  base:=vec_contexto_actor_v1.preimagen_admin_interna_v1(cuenta,persona,'prf_'||repeat('0',32),'vca_'||repeat('0',32));
  -- Altas posibles: perfiles registrados para el lote y vigentes que la persona
  -- no tiene ya activos en esa unidad. Referencias nuevas para cada uno.
- FOR r IN SELECT ra.version_rol_ref,ra.unidad_requerida,ra.vigente_desde,ra.vigente_hasta,vr.documento->>'nombre' AS nombre
+ FOR r IN SELECT ra.version_rol_ref,ra.unidad_requerida,ra.vigente_desde,ra.vigente_hasta,ra.duracion_propuesta,vr.documento->>'nombre' AS nombre
   FROM vec_autorizacion.rol_administrable_exacto_v1 ra JOIN vec_autorizacion.version_rol vr USING(version_rol_ref)
   JOIN vec_autorizacion.control_vigencia_version_rol_actual cq USING(version_rol_ref)
   JOIN vec_autorizacion.control_vigencia_version_rol cc ON cc.version_rol_ref=cq.version_rol_ref AND cc.revision=cq.revision
@@ -136,12 +137,13 @@ BEGIN
   AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil a USING(asignacion_ref)
    WHERE a.principal_id=persona AND a.version_rol_ref=ra.version_rol_ref AND a.documento->>'estado'='activa' AND ahora<(a.documento->>'vigente_hasta')::timestamptz
    AND a.documento->'ambitos' @> jsonb_build_array(jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad))))
-  ORDER BY ra.version_rol_ref COLLATE "C" LIMIT 64 LOOP
+  ORDER BY ra.version_rol_ref COLLATE "C" LIMIT 65 LOOP
+  IF jsonb_array_length(altas)=64 THEN truncado:=true; EXIT; END IF;
   perfil:='prf_'||replace(gen_random_uuid()::text,'-','');vinculo:='vca_'||replace(gen_random_uuid()::text,'-','');
   cambio:=jsonb_build_object('Operacion','otorgar','RolVersionRef',r.version_rol_ref,'Objetivo',jsonb_build_object('UnidadRef',unidad,'CuentaRef',cuenta,'PersonaRef',persona,'PerfilRef',perfil,'VinculoRef',vinculo));
   pre:=vec_autorizacion.preimagen_cambio_lote_admin_v1(cambio,org);
   altas:=altas||jsonb_build_array(jsonb_build_object('rol_version_ref',r.version_rol_ref,'nombre',coalesce(r.nombre,''),'unidad_requerida',r.unidad_requerida,
-   'vigente_hasta_maxima',vec_autorizacion.instante_lote_admin_v1(r.vigente_hasta),'perfil_ref',perfil,'vinculo_ref',vinculo,
+   'vigente_hasta_maxima',vec_autorizacion.instante_lote_admin_v1(r.vigente_hasta),'duracion_propuesta_segundos',extract(epoch FROM r.duracion_propuesta)::bigint,'perfil_ref',perfil,'vinculo_ref',vinculo,
    'huella_sha256',encode(sha256(convert_to(pre::text,'UTF8')),'hex')));
  END LOOP;
  -- Bajas posibles: asignaciones activas de la persona en esa organización y unidad
@@ -150,8 +152,14 @@ BEGIN
   JOIN vec_autorizacion.rol_administrable_exacto_v1 ra ON ra.version_rol_ref=x2.version_rol_ref AND ra.clase='ordinario'
   WHERE x2.principal_id=persona AND x2.documento->>'estado'='activa'
   AND x2.documento->'ambitos'=jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))
-  ORDER BY x2.perfil_activo_ref COLLATE "C" LIMIT 64 LOOP
-  enlace:=vec_contexto_actor_v1.enlace_perfil_admin_interno_v1(persona,asig.perfil_activo_ref);
+  ORDER BY x2.perfil_activo_ref COLLATE "C" LIMIT 65 LOOP
+  IF jsonb_array_length(bajas)=64 THEN truncado:=true; EXIT; END IF;
+  -- Un perfil sin vínculo único no se puede retirar por el lote; se omite
+  -- sin impedir el resto de la preparación.
+  BEGIN
+   enlace:=vec_contexto_actor_v1.enlace_perfil_admin_interno_v1(persona,asig.perfil_activo_ref);
+  EXCEPTION WHEN insufficient_privilege THEN CONTINUE;
+  END;
   CONTINUE WHEN enlace->>'cuenta_ref' IS DISTINCT FROM cuenta;
   cambio:=jsonb_build_object('Operacion','revocar','RolVersionRef',asig.version_rol_ref,'Objetivo',jsonb_build_object('UnidadRef',unidad,'CuentaRef',cuenta,'PersonaRef',persona,'PerfilRef',asig.perfil_activo_ref,'VinculoRef',enlace->>'vinculo_ref'));
   pre:=vec_autorizacion.preimagen_cambio_lote_admin_v1(cambio,org);
@@ -165,7 +173,7 @@ BEGIN
  RETURN jsonb_build_object('operacion_ref',m->>'OperacionRef','auditoria_ref',x.auditoria_ref,'preparada_en',vec_autorizacion.instante_lote_admin_v1(ahora),
   'persona_ref',persona,'persona_version',base#>'{persona,version}','cuenta_ref',cuenta,'cuenta_version',base#>'{cuenta,version}',
   'procedencia_ref',base#>>'{persona,procedencia_ref}','procedencia_version',base#>'{persona,procedencia_version}','procedencia_huella_sha256',base#>>'{persona,procedencia_huella_sha256}',
-  'organizacion_ref',org,'unidad_ref',unidad,'altas',altas,'bajas',bajas);
+  'organizacion_ref',org,'unidad_ref',unidad,'altas',altas,'bajas',bajas,'truncado',truncado);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preparar_lote_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.preparar_lote_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_admin_perfiles_lote_ejecutor;
@@ -181,6 +189,8 @@ BEGIN
   WHERE p.oid='vec_autorizacion.preparar_lote_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure AND a.grantee NOT IN(p.proowner,g))
  OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
   WHERE c.oid='vec_autorizacion.registro_preparacion_lote_admin_v1'::regclass AND a.grantee<>c.relowner)
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_autorizacion.preparar_lote_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
+  AND p.proowner='vec_autorizacion_propietario'::regrole AND p.prosecdef)
  THEN RAISE EXCEPTION 'AUT50: PARO clave=ACL actual=ampliada esperado=propietario_y_grupo' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;

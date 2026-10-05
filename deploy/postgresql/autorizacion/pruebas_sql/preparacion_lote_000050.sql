@@ -138,14 +138,16 @@ CREATE FUNCTION pg_temp.orden_desde(prep jsonb,op_ref text,altas text[],bajas te
    FROM jsonb_array_elements(prep->'bajas') b WHERE b->>'rol_version_ref'=ANY(bajas)),'[]'::jsonb))
 $f$;
 
--- 1. Preparación: cuenta ordinaria, dos perfiles asignables y ninguno actual.
+-- 1. Preparación: cuenta ordinaria, tres perfiles asignables y ninguno actual.
 SELECT pg_temp.material_prep('prep_admin:'||repeat('1',32)) AS p1 \gset
 SET SESSION AUTHORIZATION prueba_aut44_lote;
 SELECT pg_temp.preparar(:'p1',pg_temp.decision_prep(:'p1',:'actor'),pg_temp.capacidad_prep(:'p1')) AS r1 \gset
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.comprobar('preparacion',:'r1' NOT LIKE 'ERROR%' AND (:'r1'::jsonb)->>'cuenta_ref'=:'cuenta'
  AND (SELECT count(*) FROM jsonb_array_elements((:'r1'::jsonb)->'altas'))=3 AND jsonb_array_length((:'r1'::jsonb)->'bajas')=0
- AND (SELECT count(*) FROM vec_autorizacion.registro_preparacion_lote_admin_v1)=1);
+ AND (SELECT count(*) FROM vec_autorizacion.registro_preparacion_lote_admin_v1)=1
+ AND ((:'r1'::jsonb)->>'truncado')::boolean IS FALSE AND ((:'r1'::jsonb)#>>'{altas,0,duracion_propuesta_segundos}')::int=86400
+ AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.registro_lote_admin_v1));
 
 -- 2. Con esas huellas el lote se aplica (dos altas a la vez).
 SELECT pg_temp.orden_desde(:'r1'::jsonb,'acto_admin:'||repeat('c',32),ARRAY['rol:tecnico_rrhh_desarrollo:v1','rol:llamamiento_desarrollo:v1'],ARRAY[]::text[]) AS o2 \gset
@@ -191,6 +193,15 @@ SELECT pg_temp.comprobar('decision_de_otra_preparacion',:'r6' LIKE 'ERROR 42501%
 SELECT pg_temp.comprobar('preparacion_propia',:'r7' LIKE 'ERROR 22023%');
 SELECT pg_temp.comprobar('unidad_fuera_de_ambito',:'r8' LIKE 'ERROR 42501%');
 SELECT pg_temp.comprobar('login_ajeno',:'r9' LIKE 'ERROR 42501%');
+-- Decisiones cruzadas entre preparación y efecto, y referencia repetida.
+SET SESSION AUTHORIZATION prueba_aut44_lote;
+SELECT pg_temp.aplicar(:'o5',pg_temp.fuentes(:'o5',2),pg_temp.decision_prep(:'p6',:'actor'),pg_temp.capacidad_prep(:'p6')) AS x1 \gset
+SELECT pg_temp.preparar(:'p6',pg_temp.decision(:'o5',:'actor'),pg_temp.capacidad(:'o5')) AS x2 \gset
+SELECT pg_temp.preparar(:'p1',pg_temp.decision_prep(:'p1',:'actor'),pg_temp.capacidad_prep(:'p1')) AS x3 \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('decision_de_preparacion_en_efecto',:'x1' LIKE 'ERROR 42501%');
+SELECT pg_temp.comprobar('decision_de_efecto_en_preparacion',:'x2' LIKE 'ERROR 42501%');
+SELECT pg_temp.comprobar('preparacion_repetida',:'x3' LIKE 'ERROR 23505%');
 SELECT pg_temp.comprobar('acl',has_function_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.preparar_lote_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_table_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.registro_preparacion_lote_admin_v1','SELECT')
  AND (SELECT count(*) FROM vec_autorizacion.registro_preparacion_lote_admin_v1)=2);
