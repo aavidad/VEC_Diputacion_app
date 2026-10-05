@@ -81,7 +81,10 @@ El material lleva las revisiones de requisitos (`revisiones_s4`, el mismo
 contrato de la salida `preparacion`) y una decisión por revisión. Cada decisión
 nombra su revisión por el antecedente que devuelve `--salida antecedente`; el
 CLI lo recalcula y rechaza la lista si falta una decisión, sobra otra, cambia
-una huella o las revisiones vienen de bases distintas.
+una huella o las revisiones vienen de bases distintas. Cada revisión cuenta como
+una solicitud por su `preparacion_ref`; mientras no exista el registro de
+solicitudes presentadas, el CLI no comprueba que estén todas las de la
+convocatoria ni que dos referencias no correspondan a la misma solicitud.
 
 Una exclusión necesita al menos un motivo y una admisión ninguno. Los motivos
 y el plazo de subsanación salen del catálogo configurable
@@ -114,7 +117,9 @@ go test -p 8 -timeout 120s \
   ./internal/modules/seleccion/application \
   ./internal/modules/seleccion/adapters/catalogoadmision \
   ./cmd/vec-selectivos-preparar-admision
-go vet -p 8 ./internal/modules/seleccion/application \
+go vet -p 8 ./internal/modules/seleccion/domain \
+  ./internal/modules/seleccion/application \
+  ./internal/modules/seleccion/adapters/catalogoadmision \
   ./cmd/vec-selectivos-preparar-admision
 ```
 

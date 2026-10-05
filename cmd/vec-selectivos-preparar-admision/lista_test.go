@@ -41,6 +41,15 @@ func TestListaProvisionalProduceElMismoContratoEnCadaIdioma(t *testing.T) {
 		if json.Unmarshal(salida.Bytes(), &lista) != nil || lista.Aprobada || lista.Publicada || lista.Persistida {
 			t.Fatal(salida.String())
 		}
+		catalogo, err := cargarCatalogo("../../web/static/textos", idioma)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, clave := range lista.Pendientes {
+			if _, ok := mensajeCatalogo(catalogo, idioma, clave); !ok {
+				t.Fatalf("%s: falta el texto de %s", idioma, clave)
+			}
+		}
 	}
 }
 
