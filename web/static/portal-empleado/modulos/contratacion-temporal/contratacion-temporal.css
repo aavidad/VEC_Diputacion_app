@@ -639,7 +639,6 @@
 .ct-llamamiento summary > h3 {
   display: inline;
   margin: 0;
-  font-size: inherit;
 }
 
 .ct-llamamiento input[readonly] {
