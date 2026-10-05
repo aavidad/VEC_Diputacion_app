@@ -5,7 +5,8 @@ description: Implementa incrementos del backend Go de VEC reutilizando dominio, 
 
 # Programar backend VEC
 
-Partir del recorrido que necesita RRHH y buscar primero su implementación con rg.
+Partir del recorrido que necesita RRHH y buscar primero su implementación en el índice
+de código (codebase-memory); rg queda para texto y configuración.
 Inspeccionar internal/modules/contrataciontemporal/{domain,application,ports,adapters}
 y la composición de internal/app. Distinguir un servicio existente de una ruta montada.
 
