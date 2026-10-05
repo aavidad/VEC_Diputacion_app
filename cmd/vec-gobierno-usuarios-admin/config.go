@@ -33,7 +33,8 @@ type configuracionPrivada struct {
 	Salida                string `json:"salida"`
 	HorasValidezClaves    int    `json:"horas_validez_claves"`
 	// ConjuntoCapacidades 0 (o ausente) publica las dos claves de usuarios con
-	// AD188; 1 publica el conjunto 1 de AD198 (usuarios y lote ordinario).
+	// AD188; 1 publica el conjunto 1 de AD198 (usuarios y lote ordinario); 2, el
+	// conjunto 2 de AD202 (además, el gobierno del plan nominal de firma).
 	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
 }
 
