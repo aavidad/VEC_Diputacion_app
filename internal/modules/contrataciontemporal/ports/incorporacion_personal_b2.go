@@ -66,8 +66,6 @@ type ContratoPlanNominalB2 struct {
 	RegistradoEn             time.Time                          `json:"registrado_en"`
 }
 
-// HechosPersonalIncorporacionB2 es una proyección del propietario, releída con
-// permiso actual. No admite las referencias de recibos como prueba por sí solas.
 // PrefijoReciboOrigenIncorporacionPersonalB2 es el prefijo con el que CT155/
 // CT160 emiten el recibo del origen B2 y con el que su disparador distingue,
 // en cese y GINPIX, una incorporación personal_b2_v1 de una ejercicio_v2.
@@ -80,6 +78,8 @@ func ReciboOrigenIncorporacionPersonalB2(ref string) bool {
 		ref[:len(PrefijoReciboOrigenIncorporacionPersonalB2)] == PrefijoReciboOrigenIncorporacionPersonalB2
 }
 
+// HechosPersonalIncorporacionB2 es una proyección del propietario, releída con
+// permiso actual. No admite las referencias de recibos como prueba por sí solas.
 type HechosPersonalIncorporacionB2 struct {
 	ModoPersonal          string `json:"modo_personal"`
 	PersonalPlanRef       string `json:"personal_plan_ref"`
