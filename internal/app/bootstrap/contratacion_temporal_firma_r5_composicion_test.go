@@ -178,8 +178,8 @@ func TestComposicionFirmasR5CadaDependenciaV2EsObligatoria(t *testing.T) {
 	}
 }
 
-// registroDirectoContado cuenta las llamadas que llegarían al registro directo
-// CT172; tras CT176 esa vía no confirma una firma V2 nueva.
+// registroDirectoContado tiene también el registro directo de CT172, como el
+// adaptador PostgreSQL real; el montaje no debe poder alcanzarlo.
 type registroDirectoContado struct {
 	dependenciasR5PresentesPrueba
 	directas, consultas int
@@ -194,6 +194,9 @@ func (r *registroDirectoContado) ConsultarFirmasAutorizadasV2(context.Context, p
 	return ports.LecturaFirmasR5V2{}, nil
 }
 
+// La garantía principal es de compilación: registroFirmaV2DurableDesarrollo
+// no ofrece RegistrarFirmaVerificadaV2, así que d.registro no puede pasarse a
+// las vías R5. Esta prueba fija además el comportamiento en ejecución.
 func TestComposicionFirmasR5RegistraSiempreConPlanCT176(t *testing.T) {
 	f := &firmaDocumentoCTDesarrollo{servicio: baseR5MontajePrueba(t), custodiaR5Compuesta: true}
 	d := dependenciasCompletasR5Prueba()
@@ -205,15 +208,18 @@ func TestComposicionFirmasR5RegistraSiempreConPlanCT176(t *testing.T) {
 	if _, ok := f.registroR5.(*firmaautorizacionv2.RegistroConPlanV2); !ok {
 		t.Fatalf("las vías R5 no reciben el registro con plan: %T", f.registroR5)
 	}
-	// Un material que no supera la validación nunca alcanza CT172.
 	if _, err := f.registroR5.RegistrarFirmaVerificadaV2(t.Context(), ports.MaterialFirmaVerificadaV2{}, ports.CapacidadFirmaVerificadaV2{}); err == nil {
 		t.Fatal("registro sin material aceptado")
 	}
-	if durable.directas != 0 {
-		t.Fatalf("el montaje llamó %d veces al registro directo CT172", durable.directas)
-	}
-	// La consulta sí delega en el lector durable.
 	if _, err := f.registroR5.ConsultarFirmasAutorizadasV2(t.Context(), ports.MaterialConsultaFirmasR5V2{}, ports.CapacidadConsultaFirmasR5V2{}); err != nil || durable.consultas != 1 {
 		t.Fatalf("consulta no delegada: %d, %v", durable.consultas, err)
+	}
+	// El adaptador de consulta que recibe el decorador nunca escribe por CT172.
+	c := consultaFirmasV2SinRegistroDirecto{durable}
+	if _, err := c.RegistrarFirmaVerificadaV2(t.Context(), ports.MaterialFirmaVerificadaV2{}, ports.CapacidadFirmaVerificadaV2{}); !errors.Is(err, ports.ErrRegistroFirmaDocumentoNoDisponible) {
+		t.Fatalf("registro directo no rechazado: %v", err)
+	}
+	if durable.directas != 0 {
+		t.Fatalf("el montaje llamó %d veces al registro directo CT172", durable.directas)
 	}
 }

@@ -184,11 +184,31 @@ func vincularResultadosFirmaCT(f *firmaDocumentoCTDesarrollo, d *autoridadDocume
 	}
 }
 
-// registroFirmaV2DurableDesarrollo es el adaptador durable de firmas V2: la
-// consulta (CT172) y el registro con plan fijado (CT176) en un mismo objeto.
+// registroFirmaV2DurableDesarrollo es lo único que el montaje usa del
+// adaptador durable de firmas V2: la consulta y el registro con plan fijado
+// (CT176). No incluye el registro directo de CT172, así que esta dependencia
+// no puede entregarse a las vías R5 por error: no compilaría.
 type registroFirmaV2DurableDesarrollo interface {
-	ports.RegistroFirmasVerificadasV2
+	ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2,
+		ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error)
 	ports.RegistradorFirmaConPlanV2
+}
+
+// consultaFirmasV2SinRegistroDirecto adapta la consulta durable al puerto que
+// pide el decorador. Su registro directo rechaza siempre: RegistroConPlanV2
+// sólo escribe por CT176.
+type consultaFirmasV2SinRegistroDirecto struct {
+	durable registroFirmaV2DurableDesarrollo
+}
+
+func (c consultaFirmasV2SinRegistroDirecto) RegistrarFirmaVerificadaV2(context.Context,
+	ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
+	return ports.ReciboFirmaDocumento{}, ports.ErrRegistroFirmaDocumentoNoDisponible
+}
+
+func (c consultaFirmasV2SinRegistroDirecto) ConsultarFirmasAutorizadasV2(ctx context.Context,
+	m ports.MaterialConsultaFirmasR5V2, cap ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
+	return c.durable.ConsultarFirmasAutorizadasV2(ctx, m, cap)
 }
 
 // Ambas vías consumen una sola historia nominal V2, el mismo verificador
@@ -226,7 +246,8 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro, d.registro)
+	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro,
+		consultaFirmasV2SinRegistroDirecto{d.registro})
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
