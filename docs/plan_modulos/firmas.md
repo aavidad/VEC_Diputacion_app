@@ -33,3 +33,7 @@ AD193 → AD195/AD196 → AD178 → AD177 → AUT41 → CT175 → CC7 → CT176,
 | 6 | Recorrido completo: navegador → dos firmas → mismo PDF verificado V2 → justificante → reinicio, con auditoría propia de cada descarga. | Firmas (E) | Depende de 1, 3 y 4. | Captura y recibos iguales antes y después de reiniciar aplicación y PostgreSQL. |
 
 Detalles menores que quedan anotados en los documentos de cada migración: el CAS de CC7 usa SQLSTATE 40001, que un reintentador genérico repetiría; las fechas del canon del plan las aporta el material y sólo se valida su orden.
+
+## Corte 4c-3: publicación vigente del plan (CC8 y CT178)
+
+El descriptor del plan (`plannominal.Fuente`) relee en cada firma el catálogo del plan y pide a `PublicacionAutorizada` que confirme que es la publicación vigente. `leer_plan_nominal_firma_v1` (CC7) no sirve antes del PDP porque exige un consumo de firma de la misma transacción. CC8 añade `comprobar_publicacion_plan_nominal_firma_v1(id, versión, SHA)`, de sólo lectura, con las mismas comprobaciones de publicación que CC7 y sin devolver el documento: sólo fecha y revisión. Lo ejecuta el propietario CT; CT178 lo ofrece al ejecutor CT. En Go, `postgres.PublicacionPlanFirmaPostgreSQL` coteja además la fecha y la revisión con el catálogo leído. La comprobación definitiva sigue en CT176 con el pin y el consumo.
