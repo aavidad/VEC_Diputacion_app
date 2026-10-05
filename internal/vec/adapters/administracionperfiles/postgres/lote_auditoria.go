@@ -73,13 +73,14 @@ func (a *AutoridadLoteOrdinario) registrarFalloLote(ctx context.Context, s domai
 			}
 		}
 	}
-	return a.registrarFalloConsumo(ctx, s.Actor, s.Evidencia, s.CorrelacionRef, recursoRef, fallo)
+	return a.registrarFalloConsumo(ctx, accionLoteOrdinario, s.Actor, s.Evidencia, s.CorrelacionRef, recursoRef, fallo)
 }
 
 // registrarFalloConsumo deja el intento común (denegado o error) de una orden
-// del lote o de su preparación. Sin persona destinataria válida usa una
-// referencia derivada de la correlación, nunca un dato de la petición.
-func (a *AutoridadLoteOrdinario) registrarFalloConsumo(ctx context.Context, actorOrigen domain.ContextoActor,
+// del lote o de su preparación, cada una con su acción. Sin persona
+// destinataria válida usa una referencia derivada de la correlación, nunca un
+// dato de la petición.
+func (a *AutoridadLoteOrdinario) registrarFalloConsumo(ctx context.Context, accion string, actorOrigen domain.ContextoActor,
 	evidenciaOrigen domain.EvidenciaSesionAdministracionPerfiles, correlacion, recursoRef string, fallo error) error {
 	if a == nil || ctx == nil || ausente(a.registrador) || a.auditoria.validar() != nil ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(correlacion) {
@@ -110,7 +111,7 @@ func (a *AutoridadLoteOrdinario) registrarFalloConsumo(ctx context.Context, acto
 	if clase == domain.ResultadoIntentoAuditoriaDenegado {
 		motivo = a.auditoria.MotivoDenegado
 	}
-	datos := domain.DatosIntentoAuditoria{Accion: accionLoteOrdinario, ModuloID: "administracion",
+	datos := domain.DatosIntentoAuditoria{Accion: accion, ModuloID: "administracion",
 		RecursoRef: recursoRef, FinalidadRef: "gestion_perfiles", Resultado: clase, Motivo: motivo,
 		Proceso: a.auditoria.Proceso, Canal: a.auditoria.Canal, CorrelacionRef: correlacion}
 	if datos.Validar() != nil {
