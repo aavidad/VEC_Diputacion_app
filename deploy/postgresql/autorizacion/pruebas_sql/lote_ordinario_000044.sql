@@ -34,14 +34,22 @@ FROM vec_autorizacion.bootstrap_central_admin_v3 \gset
 SELECT q.asignacion_ref AS actor_asig FROM vec_autorizacion.asignacion_perfil_actual q WHERE q.perfil_activo_ref=:'actor_perfil' \gset
 SELECT t.cuenta_ref AS cuenta FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t JOIN vec_identidad_sesiones_v1.cuenta c USING(cuenta_ref)
  WHERE t.persona_ref=:'destino' AND NOT c.cuenta_privilegiada \gset
+SELECT t.cuenta_ref AS cuenta_priv FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t JOIN vec_identidad_sesiones_v1.cuenta c USING(cuenta_ref)
+ WHERE t.persona_ref=:'destino' AND c.cuenta_privilegiada \gset
 SELECT pv.version AS pver, pv.procedencia_ref AS prc, pv.procedencia_version AS prcv, pv.procedencia_huella_sha256 AS prch
 FROM vec_contexto_actor_v1.persona_actual pa JOIN vec_contexto_actor_v1.persona_versiones pv USING(persona_ref,version) WHERE pa.persona_ref=:'destino' \gset
 SELECT cv.version AS cver FROM vec_contexto_actor_v1.proyeccion_cuenta_actual ca JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones cv USING(cuenta_ref,version) WHERE ca.cuenta_ref=:'cuenta' \gset
 
 -- Perfil asignable de prueba (fixture directo; en el entorno lo registra AUT49).
 INSERT INTO vec_autorizacion.rol_administrable_exacto_v1
-SELECT v.version_rol_ref,'ordinario',v.huella_sha256,now()-interval '1 hour',now()+interval '400 days',false,'vec_autorizacion.administracion_perfiles.lote_ordinario.v1','[]'::jsonb,interval '1 day'
+SELECT v.version_rol_ref,'ordinario',v.huella_sha256,now()-interval '1 hour',now()+interval '400 days',false,'vec_autorizacion.administracion_perfiles.lote_ordinario.v1',
+ jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(:'org'))),interval '1 day'
 FROM vec_autorizacion.version_rol v WHERE v.version_rol_ref IN('rol:tecnico_rrhh_desarrollo:v1','rol:llamamiento_desarrollo:v1','rol:consulta_cuadro_rrhh_desarrollo:v1');
+-- Uno más configurado para otra organización: el lote no puede usarlo.
+INSERT INTO vec_autorizacion.rol_administrable_exacto_v1
+SELECT v.version_rol_ref,'ordinario',v.huella_sha256,now()-interval '1 hour',now()+interval '400 days',false,'vec_autorizacion.administracion_perfiles.lote_ordinario.v1',
+ '[{"clave":"organizacion_ref","valores":["organizacion:otra"]}]'::jsonb,interval '1 day'
+FROM vec_autorizacion.version_rol v WHERE v.version_rol_ref='rol:respuesta_recibida_desarrollo:v1';
 
 -- Construcción del material (canon Go v3) con la preimagen real.
 CREATE FUNCTION pg_temp.cambio(op text,inicio text,perfil text,vinculo text,pv numeric,vv numeric,desde text,hasta text,huella text) RETURNS jsonb LANGUAGE sql AS $f$
@@ -166,7 +174,16 @@ SELECT pg_temp.aplicar(:'m8b',pg_temp.fuentes(:'m8b',1),pg_temp.decision(:'m8b',
 SELECT pg_temp.aplicar(:'m8c',pg_temp.fuentes(:'m8c',1),pg_temp.decision(:'m8c',:'actor'),pg_temp.capacidad(:'m8c')) AS r8c \gset
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.comprobar('autoasignacion',:'r8a' LIKE 'ERROR 22023%');
-SELECT pg_temp.comprobar('rol_no_administrable',:'r8b' LIKE 'ERROR 42501%');
+SELECT pg_temp.comprobar('perfil_de_otra_organizacion',:'r8b' LIKE 'ERROR 42501%');
+-- Cuenta privilegiada de la destinataria y material con un valor null.
+SELECT pg_temp.sellar('acto_admin:'||repeat('b',32),jsonb_build_array(jsonb_set(jsonb_set(pg_temp.cambio('otorgar','inmediato','prf_prueba_aut44_priv_00000000001','vca_prueba_aut44_priv_00000000001',0,0,'0001-01-01T00:00:00Z',to_char(date_trunc('second',now()+interval '20 hours') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),repeat('0',64)),'{Objetivo,CuentaRef}',to_jsonb(:'cuenta_priv'::text)),'{RolVersionRef}','"rol:llamamiento_desarrollo:v1"'))) AS m8d \gset
+SELECT replace(:'m8d','"ReferenciaActo": ""','"ReferenciaActo": null') AS m8e \gset
+SET SESSION AUTHORIZATION prueba_aut44_lote;
+SELECT pg_temp.aplicar(:'m8d',pg_temp.fuentes(:'m8d',1),pg_temp.decision(:'m8d',:'actor'),pg_temp.capacidad(:'m8d')) AS r8d \gset
+SELECT pg_temp.aplicar(:'m8e',pg_temp.fuentes(:'m8e',1),pg_temp.decision(:'m8e',:'actor'),pg_temp.capacidad(:'m8e')) AS r8e \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('cuenta_privilegiada',:'r8d' LIKE 'ERROR 42501%');
+SELECT pg_temp.comprobar('material_con_null',:'r8e' LIKE 'ERROR 22023%');
 SELECT pg_temp.comprobar('programado_pasado',:'r8c' LIKE 'ERROR 22023%');
 
 -- 9. Baja del perfil dado de alta en 1: nueva versión revocada, sin reactivar.

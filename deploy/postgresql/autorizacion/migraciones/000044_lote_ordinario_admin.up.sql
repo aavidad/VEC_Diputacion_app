@@ -26,6 +26,7 @@ DO $pre$ BEGIN
  OR has_function_privilege('vec_autorizacion_propietario','vec_contexto_actor_v1.preimagen_admin_interna_v1(text,text,text,text)','EXECUTE') IS NOT TRUE
  OR has_function_privilege('vec_autorizacion_propietario','vec_contexto_actor_v1.metadatos_persona_administrable_v1(text)','EXECUTE') IS NOT TRUE
  OR to_regprocedure('vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(jsonb,timestamptz)') IS NULL
+ OR has_function_privilege('vec_autorizacion_propietario','vec_identidad_sesiones_v1.clasificar_cuenta_privilegiada_nominal_v1(text)','EXECUTE') IS NOT TRUE
  OR to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NULL
  OR to_regprocedure('vec_autorizacion.canon_asignacion_perfil_admin_v1(jsonb)') IS NULL
  OR to_regclass('vec_autorizacion.sello_efecto_admin_tx_v1') IS NULL
@@ -91,14 +92,15 @@ REVOKE ALL ON FUNCTION vec_autorizacion.instante_lote_admin_v1(timestamptz) FROM
 
 -- Valida la forma exacta del canon Go de SolicitudLoteAdministracionPerfiles v3.
 CREATE FUNCTION vec_autorizacion.validar_material_lote_admin_v1(p_material text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $f$
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE m jsonb;c jsonb;o jsonb;i int:=0;primera jsonb;
 BEGIN
  IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 1 AND 65536 THEN RAISE EXCEPTION 'AUT44: material invalido' USING ERRCODE='22023'; END IF;
  m:=p_material::jsonb;
- IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>9
+ IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR jsonb_path_exists(m,'$.** ? (@ == null)') OR (SELECT count(*) FROM jsonb_object_keys(m))<>9
  OR NOT m ?& ARRAY['Esquema','OperacionRef','ActorPersonaRef','PerfilActivoRef','AsignacionRef','OrganizacionRef','Cambios','Motivo','ReferenciaActo']
  OR m->>'Esquema' IS DISTINCT FROM 'administracion_perfiles_lote:v3'
+ OR EXISTS(SELECT 1 FROM unnest(ARRAY['OperacionRef','ActorPersonaRef','PerfilActivoRef','AsignacionRef','OrganizacionRef']) k WHERE jsonb_typeof(m->k)<>'string')
  OR m->>'OperacionRef' !~ '^acto_admin:[0-9a-f]{32}$'
  OR m->>'ActorPersonaRef' !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR m->>'PerfilActivoRef' !~ '^prf_[A-Za-z0-9_-]{22,128}$'
@@ -136,8 +138,8 @@ BEGIN
   OR (c->>'Operacion'='otorgar' AND ((o->>'PerfilVersion')::numeric<>0 OR (o->>'VinculoVersion')::numeric<>0
    OR o->>'VigenteHasta' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$' OR o->>'VigenteHasta' LIKE '0001-01-01%'
    OR (c->>'InicioVigencia'='inmediato' AND o->>'VigenteDesde'<>'0001-01-01T00:00:00Z')
-   OR (c->>'InicioVigencia'='programado' AND (o->>'VigenteDesde' LIKE '0001-01-01%' OR (o->>'VigenteDesde')::timestamptz>=(o->>'VigenteHasta')::timestamptz))))
-  OR (c->>'Operacion'='revocar' AND ((o->>'PerfilVersion')::numeric<1 OR (o->>'VinculoVersion')::numeric<1
+   OR (c->>'InicioVigencia'='programado' AND (o->>'VigenteDesde' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$' OR o->>'VigenteDesde' LIKE '0001-01-01%' OR (o->>'VigenteDesde')::timestamptz>=(o->>'VigenteHasta')::timestamptz))))
+  OR (c->>'Operacion'='revocar' AND ((o->>'PerfilVersion')::numeric<1 OR (o->>'VinculoVersion')::numeric<1 OR o->'PerfilVersion' IS DISTINCT FROM o->'VinculoVersion'
    OR o->>'VigenteDesde'<>'0001-01-01T00:00:00Z' OR o->>'VigenteHasta'<>'0001-01-01T00:00:00Z'))
   THEN RAISE EXCEPTION 'AUT44: cambio de lote invalido' USING ERRCODE='22023'; END IF;
   i:=i+1;
@@ -186,8 +188,8 @@ REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_cambio_lote_admin_v1(jsonb,tex
 CREATE FUNCTION vec_autorizacion.aplicar_lote_ordinario_admin_v1(p_material text,p_fuentes jsonb,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,
  p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on AS $f$
-DECLARE m jsonb;d jsonb;c jsonb;rec jsonb;x record;previo record;actor record;org text;unidad text;
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE m jsonb;d jsonb;c jsonb;rec jsonb;adm record;x record;previo record;actor record;org text;unidad text;
  ahora timestamptz;acto text;recibo_ref text;procedencia text;sol text;fuentes_sha text;
  cambio jsonb;o jsonb;pre jsonb;pres jsonb:='[]'::jsonb;post jsonb;rol jsonb;desc_amb jsonb;amb jsonb;i int:=0;desde timestamptz;hasta timestamptz;
  asig_id text;asig_ref text;doc jsonb;ant record;ver bigint;cambios jsonb:='[]'::jsonb;inicios jsonb:='[]'::jsonb;recibo jsonb;persona text;
@@ -247,8 +249,18 @@ BEGIN
  -- después se aplican los cambios. Así el CAS es sobre lo que vio quien firmó.
  FOR cambio IN SELECT value FROM jsonb_array_elements(m->'Cambios') LOOP
   o:=cambio->'Objetivo';
-  rol:=vec_autorizacion.resolver_rol_administrable_v1(cambio->>'RolVersionRef');
-  IF rol->>'clase' IS DISTINCT FROM 'ordinario' THEN RAISE EXCEPTION 'AUT44: rol no ordinario' USING ERRCODE='42501'; END IF;
+  -- Altas: perfil asignable vigente y habilitado, configurado para el lote
+  -- (organización fija = la del lote; la unidad la añade cada asignación).
+  -- Bajas: basta que la versión esté registrada como ordinaria; una retirada
+  -- no exige que el perfil siga ofreciéndose.
+  SELECT * INTO adm FROM vec_autorizacion.rol_administrable_exacto_v1 WHERE version_rol_ref=cambio->>'RolVersionRef';
+  IF NOT FOUND OR adm.clase<>'ordinario' THEN RAISE EXCEPTION 'AUT44: rol no ordinario' USING ERRCODE='42501'; END IF;
+  IF cambio->>'Operacion'='otorgar' THEN
+   rol:=vec_autorizacion.resolver_rol_administrable_v1(cambio->>'RolVersionRef');
+   IF rol->>'clase' IS DISTINCT FROM 'ordinario' OR adm.audiencia_administrativa<>'vec_autorizacion.administracion_perfiles.lote_ordinario.v1'
+   OR adm.ambitos_fijos IS DISTINCT FROM jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)))
+   THEN RAISE EXCEPTION 'AUT44: perfil no configurado para el lote' USING ERRCODE='42501'; END IF;
+  END IF;
   pre:=vec_autorizacion.preimagen_cambio_lote_admin_v1(cambio,org);
   IF encode(sha256(convert_to(pre::text,'UTF8')),'hex') IS DISTINCT FROM o->>'HuellaSHA256'
   OR (pre#>>'{contexto,cuenta,version}')::numeric IS DISTINCT FROM (o->>'CuentaVersion')::numeric
@@ -262,10 +274,10 @@ BEGIN
  PERFORM vec_contexto_actor_v1.registrar_procedencia_acto_admin_lote_v1(procedencia,sol);
  FOR cambio IN SELECT value FROM jsonb_array_elements(m->'Cambios') LOOP
   o:=cambio->'Objetivo';
-  rol:=vec_autorizacion.resolver_rol_administrable_v1(cambio->>'RolVersionRef');
   pre:=pres->i;
   desc_amb:=p_fuentes->'ambitos_por_cambio'->i;
   IF cambio->>'Operacion'='otorgar' THEN
+   rol:=vec_autorizacion.resolver_rol_administrable_v1(cambio->>'RolVersionRef');
    hasta:=(o->>'VigenteHasta')::timestamptz;
    desde:=CASE WHEN cambio->>'InicioVigencia'='inmediato' THEN ahora ELSE (o->>'VigenteDesde')::timestamptz END;
    IF desde<ahora OR hasta<=desde OR hasta<=ahora OR desde<(rol->>'vigente_desde')::timestamptz OR hasta>(rol->>'vigente_hasta')::timestamptz
@@ -281,6 +293,8 @@ BEGIN
    amb:=vec_autorizacion.cotejar_ambitos_bootstrap_central_admin_v3(desc_amb,hasta)->'ambitos';
    IF amb IS DISTINCT FROM jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))
    THEN RAISE EXCEPTION 'AUT44: fuentes de ambito divergentes' USING ERRCODE='42501'; END IF;
+   IF vec_identidad_sesiones_v1.clasificar_cuenta_privilegiada_nominal_v1(o->>'CuentaRef') IS DISTINCT FROM false
+   THEN RAISE EXCEPTION 'AUT44: cuenta no ordinaria' USING ERRCODE='42501'; END IF;
    PERFORM vec_contexto_actor_v1.crear_perfil_vinculo_admin_lote_v1(o->>'CuentaRef',persona,(o->>'CuentaVersion')::numeric,(o->>'PersonaVersion')::numeric,
     o->>'PerfilRef',o->>'VinculoRef',procedencia,1,sol,desde,hasta,ahora);
    asig_id:='admin_'||substr(encode(sha256(convert_to((m->>'OperacionRef')||':'||i,'UTF8')),'hex'),1,32);ver:=1;
@@ -300,7 +314,7 @@ BEGIN
    OR (pre#>>'{contexto,vinculo,version}')::numeric IS DISTINCT FROM (o->>'VinculoVersion')::numeric
    OR pre#>>'{asignacion,version_rol_ref}' IS DISTINCT FROM cambio->>'RolVersionRef' OR pre#>>'{asignacion,estado}' IS DISTINCT FROM 'activa'
    OR pre#>>'{asignacion,principal_id}' IS DISTINCT FROM persona
-   OR NOT (pre#>'{asignacion,ambitos}') @> jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))
+   OR pre#>'{asignacion,ambitos}' IS DISTINCT FROM jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(org)),jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(unidad)))
    THEN RAISE EXCEPTION 'AUT44: baja sin vinculo y asignacion exactos' USING ERRCODE='40001'; END IF;
    SELECT * INTO STRICT ant FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref=pre#>>'{asignacion,asignacion_ref}';
    PERFORM vec_contexto_actor_v1.revocar_perfil_vinculo_admin_lote_v1(o->>'CuentaRef',persona,o->>'PerfilRef',o->>'VinculoRef',

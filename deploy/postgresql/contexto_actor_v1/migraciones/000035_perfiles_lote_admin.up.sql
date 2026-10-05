@@ -23,6 +23,7 @@ BEGIN
  OR to_regprocedure('vec_contexto_actor_v1.crear_perfil_vinculo_admin_lote_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_contexto_actor_v1.revocar_perfil_vinculo_admin_lote_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_contexto_actor_v1.registrar_procedencia_acto_admin_lote_v1(text,text)') IS NOT NULL
+ OR to_regclass('vec_contexto_actor_v1.procedencia_acto_admin_v1') IS NOT NULL
  THEN RAISE EXCEPTION 'CA35: preimagen CA20 incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 DO $fuentes_ca33$
@@ -53,6 +54,26 @@ BEGIN
  END LOOP;
 END $fuentes_ca33$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+
+-- Procedencias que nacen de un acto de Administración (lote ordinario). Se
+-- distinguen de las fuentes maestras: sólo estas pueden respaldar el alta y la
+-- baja de vínculos del lote, y nunca otra cosa (denominación, titularidad).
+CREATE TABLE vec_contexto_actor_v1.procedencia_acto_admin_v1(
+ procedencia_ref text PRIMARY KEY CHECK(procedencia_ref ~ '^prc_[0-9a-f]{32}$'),
+ huella_sha256 text NOT NULL CHECK(huella_sha256 ~ '^[0-9a-f]{64}$'),
+ registrada_en timestamptz NOT NULL CHECK(isfinite(registrada_en))
+);
+ALTER TABLE vec_contexto_actor_v1.procedencia_acto_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.procedencia_acto_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.procedencia_acto_admin_v1 FOR ALL TO vec_contexto_actor_v1_propietario
+ USING(current_user='vec_contexto_actor_v1_propietario') WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_procedencia_acto_admin_v1() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $f$
+BEGIN RAISE EXCEPTION 'CA35: procedencia de acto inmutable' USING ERRCODE='55000'; END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.rechazar_mutacion_procedencia_acto_admin_v1() FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.procedencia_acto_admin_v1 FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_procedencia_acto_admin_v1();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.procedencia_acto_admin_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_procedencia_acto_admin_v1();
+REVOKE ALL ON TABLE vec_contexto_actor_v1.procedencia_acto_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.procedencia_acto_admin_v1 FROM PUBLIC;
 
 CREATE FUNCTION vec_contexto_actor_v1.crear_perfil_vinculo_admin_lote_v1(
  p_cuenta_ref text,p_persona_ref text,p_cuenta_version numeric,p_persona_version numeric,
@@ -93,6 +114,7 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias
    WHERE procedencia_ref=p_procedencia_ref AND procedencia_version=p_procedencia_version
    AND procedencia_huella_sha256=p_procedencia_huella AND procedencia_autoridad='autoridad_maestra_acreditada')
+ OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencia_acto_admin_v1 WHERE procedencia_ref=p_procedencia_ref AND huella_sha256=p_procedencia_huella)
  OR NOT (EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual va
    JOIN vec_contexto_actor_v1.vinculo_contexto_versiones vv USING(vinculo_ref,version)
    WHERE vv.cuenta_ref=p_cuenta_ref AND vv.persona_ref=p_persona_ref
@@ -141,6 +163,7 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias
    WHERE procedencia_ref=p_procedencia_ref AND procedencia_version=p_procedencia_version
    AND procedencia_huella_sha256=p_procedencia_huella AND procedencia_autoridad='autoridad_maestra_acreditada')
+ OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencia_acto_admin_v1 WHERE procedencia_ref=p_procedencia_ref AND huella_sha256=p_procedencia_huella)
  THEN RAISE EXCEPTION 'CA35: revocacion sin preimagen acreditada' USING ERRCODE='55000'; END IF;
  SELECT * INTO STRICT p FROM vec_contexto_actor_v1.perfil_versiones WHERE perfil_ref=p_perfil_ref AND version=p_perfil_version;
  SELECT * INTO STRICT v FROM vec_contexto_actor_v1.vinculo_contexto_versiones WHERE vinculo_ref=p_vinculo_ref AND version=p_vinculo_version;
@@ -190,10 +213,12 @@ BEGIN
  SELECT * INTO x FROM vec_contexto_actor_v1.procedencias WHERE procedencia_ref=p_procedencia_ref;
  IF FOUND THEN
   IF x.procedencia_version<>1 OR x.procedencia_huella_sha256<>p_huella OR x.procedencia_autoridad<>'autoridad_maestra_acreditada'
+  OR NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencia_acto_admin_v1 WHERE procedencia_ref=p_procedencia_ref AND huella_sha256=p_huella)
   THEN RAISE EXCEPTION 'CA35: procedencia divergente' USING ERRCODE='23505'; END IF;
   RETURN true;
  END IF;
  INSERT INTO vec_contexto_actor_v1.procedencias VALUES(p_procedencia_ref,1,p_huella,'autoridad_maestra_acreditada');
+ INSERT INTO vec_contexto_actor_v1.procedencia_acto_admin_v1 VALUES(p_procedencia_ref,p_huella,clock_timestamp());
  RETURN true;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.registrar_procedencia_acto_admin_lote_v1(text,text) FROM PUBLIC;
