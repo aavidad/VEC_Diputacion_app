@@ -84,18 +84,20 @@ func dsnValido(dsn string) error {
 			return errConfiguracion
 		}
 	}
-	if _, ok := cc.RuntimeParams["role"]; ok {
-		return errConfiguracion
-	}
-	if _, ok := cc.RuntimeParams["options"]; ok {
-		return errConfiguracion
+	// Solo se admite application_name: cualquier otro parámetro de sesión
+	// (role en cualquier grafía, options, search_path, default_transaction_*)
+	// podría cambiar la identidad efectiva o el comportamiento de la sesión.
+	for clave := range cc.RuntimeParams {
+		if clave != "application_name" {
+			return errConfiguracion
+		}
 	}
 	return nil
 }
 
 func destinoValido(host string, t *tls.Config) bool {
 	if strings.HasPrefix(host, "/") {
-		return filepath.IsAbs(host) && filepath.Clean(host) == host
+		return socketPrivado(host)
 	}
 	if host == "localhost" {
 		return true
@@ -104,6 +106,17 @@ func destinoValido(host string, t *tls.Config) bool {
 		return true
 	}
 	return host != "" && t != nil && !t.InsecureSkipVerify && t.ServerName != ""
+}
+
+// socketPrivado exige un directorio de socket real, sin enlace y sin escritura
+// para cualquiera: en una carpeta como /tmp otro usuario podría suplantar el
+// socket de PostgreSQL y recibir la contraseña del DSN.
+func socketPrivado(dir string) bool {
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
+		return false
+	}
+	i, err := os.Lstat(dir)
+	return err == nil && i.IsDir() && i.Mode().Perm()&0o002 == 0
 }
 
 func mismoUsuario(a, b string) bool {

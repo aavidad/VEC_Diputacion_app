@@ -14,13 +14,9 @@ import (
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
-const (
-	dsnLecturaFixture  = "host=/run/postgresql port=5432 user=lector_sintetico dbname=vec_sintetica sslmode=disable"
-	dsnOperadorFixture = "host=/run/postgresql port=5432 user=operador_sintetico password=secreto-sintetico dbname=vec_sintetica sslmode=disable"
-)
-
 type escenario struct {
 	dir, salida, config, textos string
+	dsnLectura, dsnOperador     string
 	llamadas                    int
 	ops                         operaciones
 }
@@ -31,17 +27,20 @@ func nuevoEscenario(t *testing.T) *escenario {
 	t.Helper()
 	base := t.TempDir()
 	e := &escenario{dir: filepath.Join(base, "privado"), salida: filepath.Join(base, "salida")}
-	for _, d := range []string{e.dir, e.salida} {
+	socket := filepath.Join(base, "socket")
+	for _, d := range []string{e.dir, e.salida, socket} {
 		if os.Mkdir(d, 0700) != nil {
 			t.Fatal("directorio")
 		}
 	}
+	e.dsnLectura = "host=" + socket + " port=5432 user=lector_sintetico dbname=vec_sintetica sslmode=disable"
+	e.dsnOperador = "host=" + socket + " port=5432 user=operador_sintetico password=secreto-sintetico dbname=vec_sintetica sslmode=disable"
 	textos, err := filepath.Abs("../../web/static/textos/es/admin-gobierno-usuarios.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	e.textos = textos
-	e.config = e.escribirConfig(t, configuracionPrivada{DirectorioMaterial: "/srv/privado/material", RutaConfiguracionHMAC: "/srv/privado/hmac.json", ArchivoSemillaRaiz: "/srv/privado/semilla", DSNLectura: dsnLecturaFixture, DSNOperador: dsnOperadorFixture, Salida: e.salida, HorasValidezClaves: 2})
+	e.config = e.escribirConfig(t, configuracionPrivada{DirectorioMaterial: "/srv/privado/material", RutaConfiguracionHMAC: "/srv/privado/hmac.json", ArchivoSemillaRaiz: "/srv/privado/semilla", DSNLectura: e.dsnLectura, DSNOperador: e.dsnOperador, Salida: e.salida, HorasValidezClaves: 2})
 	e.ops = operaciones{
 		preparar: func(context.Context, string, time.Duration, bootstrap.MaterialOrigenGobiernoUsuariosAdmin, *os.Root) (bootstrap.PreparacionGobiernoUsuariosAdmin, error) {
 			e.llamadas++
@@ -71,6 +70,16 @@ func (e *escenario) escribirConfig(t *testing.T, c any) string {
 		t.Fatal("config")
 	}
 	return ruta
+}
+
+// socketAbierto crea un directorio de socket escribible por cualquiera.
+func (e *escenario) socketAbierto(t *testing.T) string {
+	t.Helper()
+	d := filepath.Join(filepath.Dir(e.dir), "socket-abierto")
+	if os.Mkdir(d, 0700) != nil || os.Chmod(d, 0777) != nil {
+		t.Fatal("socket abierto")
+	}
+	return d
 }
 
 func (e *escenario) args(fase string, extra ...string) []string {
@@ -145,29 +154,46 @@ func TestConfiguracionInsegura(t *testing.T) {
 
 func TestConfiguracionInvalida(t *testing.T) {
 	base := func(e *escenario) map[string]any {
-		return map[string]any{"directorio_material": "/srv/privado/material", "ruta_configuracion_hmac": "/srv/privado/hmac.json", "archivo_semilla_raiz": "/srv/privado/semilla", "dsn_lectura": dsnLecturaFixture, "dsn_operador": dsnOperadorFixture, "salida": e.salida, "horas_validez_claves": 2}
+		return map[string]any{"directorio_material": "/srv/privado/material", "ruta_configuracion_hmac": "/srv/privado/hmac.json", "archivo_semilla_raiz": "/srv/privado/semilla", "dsn_lectura": e.dsnLectura, "dsn_operador": e.dsnOperador, "salida": e.salida, "horas_validez_claves": 2}
 	}
 	casos := map[string]struct {
 		fase   string
-		cambio func(map[string]any)
+		cambio func(*escenario, map[string]any)
 	}{
-		"campo_extra":          {"preparar", func(m map[string]any) { m["dsn_propietario"] = dsnLecturaFixture }},
-		"horas_cero":           {"preparar", func(m map[string]any) { m["horas_validez_claves"] = 0 }},
-		"horas_25":             {"preparar", func(m map[string]any) { m["horas_validez_claves"] = 25 }},
-		"horas_negativas":      {"verificar", func(m map[string]any) { m["horas_validez_claves"] = -1 }},
-		"ruta_relativa":        {"preparar", func(m map[string]any) { m["directorio_material"] = "material" }},
-		"salida_relativa":      {"verificar", func(m map[string]any) { m["salida"] = "salida" }},
-		"sin_dsn_operador":     {"aplicar", func(m map[string]any) { m["dsn_operador"] = "" }},
-		"operador_igual":       {"aplicar", func(m map[string]any) { m["dsn_operador"] = dsnLecturaFixture }},
-		"dsn_con_role":         {"verificar", func(m map[string]any) { m["dsn_lectura"] = dsnLecturaFixture + " role=vec_propietario" }},
-		"dsn_remoto_sin_tls":   {"verificar", func(m map[string]any) { m["dsn_lectura"] = "host=db.ejemplo.invalid user=l dbname=v sslmode=disable" }},
-		"dsn_remoto_sin_verif": {"verificar", func(m map[string]any) { m["dsn_lectura"] = "host=db.ejemplo.invalid user=l dbname=v sslmode=require" }},
+		"campo_extra":      {"preparar", func(e *escenario, m map[string]any) { m["dsn_propietario"] = e.dsnLectura }},
+		"horas_cero":       {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 0 }},
+		"horas_25":         {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 25 }},
+		"horas_negativas":  {"verificar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = -1 }},
+		"ruta_relativa":    {"preparar", func(e *escenario, m map[string]any) { m["directorio_material"] = "material" }},
+		"salida_relativa":  {"verificar", func(e *escenario, m map[string]any) { m["salida"] = "salida" }},
+		"sin_dsn_operador": {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = "" }},
+		"operador_igual":   {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnLectura }},
+		"dsn_con_role":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " role=vec_propietario" }},
+		"dsn_con_ROLE":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " ROLE=x" }},
+		"url_con_Role":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "postgres://l@" + "localhost/v?Role=x" }},
+		"dsn_search_path":  {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " search_path=x" }},
+		"dsn_transaccion": {"verificar", func(e *escenario, m map[string]any) {
+			m["dsn_lectura"] = e.dsnLectura + " default_transaction_read_only=off"
+		}},
+		"socket_escribible": {"verificar", func(e *escenario, m map[string]any) {
+			m["dsn_lectura"] = "host=" + e.socketAbierto(t) + " user=l dbname=v"
+		}},
+		"socket_tmp": {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "host=/tmp user=l dbname=v" }},
+		"socket_ausente": {"verificar", func(e *escenario, m map[string]any) {
+			m["dsn_lectura"] = "host=/nonexistent/vec-socket user=l dbname=v"
+		}},
+		"dsn_remoto_sin_tls": {"verificar", func(e *escenario, m map[string]any) {
+			m["dsn_lectura"] = "host=db.ejemplo.invalid user=l dbname=v sslmode=disable"
+		}},
+		"dsn_remoto_sin_verif": {"verificar", func(e *escenario, m map[string]any) {
+			m["dsn_lectura"] = "host=db.ejemplo.invalid user=l dbname=v sslmode=require"
+		}},
 	}
 	for nombre, c := range casos {
 		t.Run(nombre, func(t *testing.T) {
 			e := nuevoEscenario(t)
 			m := base(e)
-			c.cambio(m)
+			c.cambio(e, m)
 			e.config = e.escribirConfig(t, m)
 			args := e.args(c.fase)
 			if c.fase == "aplicar" {
@@ -186,13 +212,20 @@ func TestConfiguracionInvalida(t *testing.T) {
 		e := nuevoEscenario(t)
 		ruta := filepath.Join(e.dir, "config.json")
 		_ = os.Remove(ruta)
-		if os.WriteFile(ruta, []byte(`{"salida":"`+e.salida+`","salida":"/otra","dsn_lectura":"`+dsnLecturaFixture+`"}`), 0600) != nil {
+		if os.WriteFile(ruta, []byte(`{"salida":"`+e.salida+`","salida":"/otra","dsn_lectura":"`+e.dsnLectura+`"}`), 0600) != nil {
 			t.Fatal("config")
 		}
 		if code, d, _, _ := e.ejecutar(e.args("verificar")); code != 1 || d.Codigo != "configuracion_invalida" {
 			t.Fatal("clave repetida aceptada", d.Codigo)
 		}
 	})
+}
+
+func TestDSNAdmiteSoloApplicationName(t *testing.T) {
+	e := nuevoEscenario(t)
+	if dsnValido(e.dsnLectura+" application_name=vec-gobierno-usuarios") != nil {
+		t.Fatal("application_name rechazado")
+	}
 }
 
 func TestCatalogoIncompletoSinConexion(t *testing.T) {
@@ -237,14 +270,14 @@ func TestSalidaDentroDeGitRechazada(t *testing.T) {
 	if os.MkdirAll(filepath.Join(repo, ".git"), 0700) != nil || os.WriteFile(filepath.Join(repo, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0600) != nil || os.Mkdir(dentro, 0700) != nil {
 		t.Fatal("repo")
 	}
-	e.config = e.escribirConfig(t, configuracionPrivada{DSNLectura: dsnLecturaFixture, Salida: dentro})
+	e.config = e.escribirConfig(t, configuracionPrivada{DSNLectura: e.dsnLectura, Salida: dentro})
 	if code, d, _, _ := e.ejecutar(e.args("verificar")); code != 1 || d.Codigo != "salida_insegura" || e.llamadas != 0 {
 		t.Fatal("salida en Git aceptada", d.Codigo)
 	}
 	if os.Chmod(e.salida, 0755) != nil {
 		t.Fatal("chmod")
 	}
-	e.config = e.escribirConfig(t, configuracionPrivada{DSNLectura: dsnLecturaFixture, Salida: e.salida})
+	e.config = e.escribirConfig(t, configuracionPrivada{DSNLectura: e.dsnLectura, Salida: e.salida})
 	if code, d, _, _ := e.ejecutar(e.args("verificar")); code != 1 || d.Codigo != "salida_insegura" {
 		t.Fatal("salida pública aceptada", d.Codigo)
 	}
@@ -295,7 +328,7 @@ func TestAplicarCodigosDeSalida(t *testing.T) {
 			if code != c.exit || d.Codigo != c.codigo || (salida != "") != c.estdout || e.llamadas != 1 {
 				t.Fatal("salida", code, d.Codigo)
 			}
-			if dsnUsado != dsnOperadorFixture || acuseUsado != "acuse-1.json" {
+			if dsnUsado != e.dsnOperador || acuseUsado != "acuse-1.json" {
 				t.Fatal("usa conexión o acuse ajenos")
 			}
 			if strings.Contains(salida+errores, "secreto") || strings.Contains(salida+errores, e.salida) {
@@ -324,7 +357,7 @@ func TestPrepararEmiteSoloHuellas(t *testing.T) {
 		return preparar(ctx, dsn, l, o, r)
 	}
 	code, d, salida, _ := e.ejecutar(e.args("preparar"))
-	if code != 0 || d.Codigo != "preparacion_lista" || d.Preparacion == nil || d.Preparacion.PlanSHA256 != strings.Repeat("a", 64) || validez != 2*time.Hour || dsnUsado != dsnLecturaFixture {
+	if code != 0 || d.Codigo != "preparacion_lista" || d.Preparacion == nil || d.Preparacion.PlanSHA256 != strings.Repeat("a", 64) || validez != 2*time.Hour || dsnUsado != e.dsnLectura {
 		t.Fatal("preparación", code, d.Codigo)
 	}
 	if strings.Contains(salida, "/srv/") || strings.Contains(salida, "user=") || strings.Contains(salida, e.salida) {

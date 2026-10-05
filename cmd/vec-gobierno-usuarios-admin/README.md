@@ -36,7 +36,9 @@ cualquier repositorio. No admite campos desconocidos ni claves repetidas:
 - Verificar usa `dsn_lectura` y `salida`.
 
 Las conexiones van por socket local, por la dirección de bucle o por TLS con
-verificación del servidor. No se admiten `role` ni `options`. La carpeta de
+verificación del servidor. La carpeta del socket debe existir y no puede tener
+escritura para cualquiera (por ejemplo, `/tmp` no vale). El único parámetro de
+sesión admitido es `application_name`. La carpeta de
 salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
 
 ## Procedimiento
@@ -52,7 +54,8 @@ salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
 
    La consola muestra las huellas del plan, del material y de la preimagen, y
    la hora de caducidad del plan (dos horas como máximo). Si falla a medias,
-   no reutilice la carpeta: empiece en otra vacía.
+   borre la carpeta entera, porque puede contener `material.json` con las
+   claves secretas, y empiece en otra vacía.
 
 2. El DBA crea un LOGIN técnico exclusivo, miembro solo de
    `vec_gobierno_usuarios_admin_operador`, e inserta una fila en
@@ -70,7 +73,8 @@ salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
    El comando rehace el material con la configuración guardada y comprueba que
    coincide byte a byte con el preparado. Después envía el plan en una
    transacción SERIALIZABLE. El acuse se reserva antes de enviar y solo se
-   conserva si la base confirma COMMIT.
+   conserva si la base confirma COMMIT. Si el proceso se corta, puede quedar
+   un acuse vacío (0 bytes): no vale como recibo y se puede borrar.
 
 4. Repetir aplicar con otro acuse (`-acuse acuse-replay.json`). La base
    devuelve el mismo recibo y solo añade un intento nuevo. Así se comprueba la
