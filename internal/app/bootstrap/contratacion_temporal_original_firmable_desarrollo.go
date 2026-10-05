@@ -72,6 +72,12 @@ func motivoOriginalFirmableCTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 	}
 }
 
+// motivoOriginalFirmableCTAdmitido: el PDP valida además que el motivo sea el
+// de la ruta sellada. Las rutas de firma R5 añadirán aquí el suyo.
+func motivoOriginalFirmableCTAdmitido(m dominiovec.ReferenciaEntradaCatalogo) bool {
+	return m == motivoOriginalFirmableCTDesarrollo()
+}
+
 // concesionesOriginalFirmableCTDesarrollo son las del rol del perfil fijo.
 // Los campos son los que exigen AD3-60 (descarga), AD3-158 (reserva y
 // confirmación) y el plan de escritura del almacén; sin obligaciones.
@@ -162,7 +168,7 @@ func esperadoOriginalFirmableDe(ctx context.Context) (*esperadoOriginalFirmableC
 func solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	e, ok := esperadoOriginalFirmableDe(ctx)
 	r := datos.Recurso
-	if !ok || datos.ReferenciaMotivo != motivoOriginalFirmableCTDesarrollo() || r.ModuloID != moduloRecursoDocumentosCT ||
+	if !ok || !motivoOriginalFirmableCTAdmitido(datos.ReferenciaMotivo) || r.ModuloID != moduloRecursoDocumentosCT ||
 		r.Referencia != e.documentoRef || !maps.Equal(r.Ambitos, map[string]string{"organizacion_ref": docports.OrganizacionRefV3}) {
 		return false
 	}
@@ -232,6 +238,10 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 	if !valida || !rutaOriginalFirmableCTDesarrollo(capacidad.ruta) || perfil == nil {
 		return vacia, errOriginalFirmableCTDenegado
 	}
+	motivo, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
+	if !motivoValido || !motivoOriginalFirmableCTAdmitido(motivo) {
+		return vacia, errOriginalFirmableCTDenegado
+	}
 	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
 	if estadoPerfil == perfilFijoConsumoFuenteNoDisponible {
 		return vacia, docports.ErrCapacidadNoDisponible
@@ -259,7 +269,7 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 		return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
 	}
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoOriginalFirmableCTDesarrollo(),
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivo,
 		Accion: accion, Recurso: recurso, Finalidad: finalidad, Correlacion: correlacion,
 	}
 	if !solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) {
@@ -296,7 +306,11 @@ func (p pdpCTOriginalFirmableDesarrollo) materialOriginalV3(ctx context.Context,
 	if p.alta == nil || p.alta.postgresql.materialDocumentos == nil {
 		return vacio, docports.ErrCapacidadNoDisponible
 	}
-	motivo := motivoOriginalFirmableCTDesarrollo()
+	datos, err := s.solicitud.Datos()
+	if err != nil {
+		return vacio, docports.ErrCapacidadNoDisponible
+	}
+	motivo := datos.ReferenciaMotivo
 	material, err := p.alta.postgresql.materialDocumentos.proveerMaterialConfirmacion(ctx, s.solicitud, s.decision,
 		s.confirmacion, motivo, s.operativo.Resultado)
 	if err != nil || !puertosvec.MaterialAtestadoLigadoV3(s.solicitud, s.decision, s.confirmacion,
