@@ -12,7 +12,9 @@ DO $pre$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NULL THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NULL
+    OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure)
+       IS DISTINCT FROM '393d7534b44ca5db82ef3ed77ecbdafd' THEN
   RAISE EXCEPTION 'Bolsa 000081 DOWN: instalación incompatible' USING ERRCODE='55000';
  END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa) THEN

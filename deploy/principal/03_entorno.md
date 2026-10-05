@@ -370,7 +370,7 @@ Bolsa para aplicar la restricción de cinco o nueve meses al candidato. Usa su
 - LOGIN nominal fuera de Git, miembro **solo** de ese grupo (INHERIT, sin
   ADMIN), con la misma línea `hostssl` de `pg_hba.conf` que las demás. En la
   principal no existía: el grupo no tenía miembros.
-  `GRANT vec_bolsa_llamamientos_relevo_cese TO <login> WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;`
+  `GRANT vec_bolsa_llamamientos_relevo_cese TO <login> WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;`
   El guion privado de la bitácora de dirección lo crea, primero en ensayo con
   `ROLLBACK` y después con `COMMIT`; repetirlo no cambia nada.
 - Entorno: `VEC_BOLSA_CESE_CT_DATABASE_URL` (mismo patrón TLS que las demás) y

@@ -52,10 +52,11 @@ CREATE TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa (
  origen_huella_sha256 text NOT NULL CHECK (origen_huella_sha256 ~ '^[a-f0-9]{64}$'),
  origen_posicion bigint NOT NULL CHECK (origen_posicion>=0),
  llamamiento_ref text NOT NULL CHECK (octet_length(llamamiento_ref) BETWEEN 1 AND 512),
- participacion_ref text NOT NULL CHECK (octet_length(participacion_ref) BETWEEN 1 AND 512),
- bolsa_ref text NOT NULL CHECK (octet_length(bolsa_ref) BETWEEN 1 AND 512),
+ -- Solo referencias del puente sintético de CT (referenciaPuenteLlamamientoDesarrollo).
+ participacion_ref text NOT NULL CHECK (participacion_ref ~ '^participacion-sintetica-[1-9][0-9]{0,2}:[a-z]{16,128}$'),
+ bolsa_ref text NOT NULL CHECK (bolsa_ref ~ '^bolsa-sintetica:[a-z]{16,128}$'),
  expediente_ref text NOT NULL CHECK (octet_length(expediente_ref) BETWEEN 1 AND 512),
- organizacion_ref text NOT NULL CHECK (octet_length(organizacion_ref) BETWEEN 1 AND 512),
+ organizacion_ref text NOT NULL CHECK (organizacion_ref ~ '^organizacion:desarrollo:'),
  recibo_ct_ref text NOT NULL CHECK (octet_length(recibo_ct_ref) BETWEEN 1 AND 512),
  motivo text NOT NULL CHECK (motivo='participacion_no_constituida'),
  registro jsonb NOT NULL CHECK (jsonb_typeof(registro)='object'),
@@ -84,7 +85,8 @@ COMMENT ON TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa IS
 CREATE FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
  p_origen_ref text,p_huella_sha256 text,p_posicion bigint)
 RETURNS boolean
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s'
+ SET statement_timeout='5s' AS $f$
 DECLARE v_ct record; v_b13 record; v_llamamiento record; v_previa vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
  v_evento_ref text; v_registro jsonb; v_ahora timestamptz;
 BEGIN
@@ -125,6 +127,14 @@ BEGIN
  IF NOT FOUND OR v_llamamiento.participacion IS DISTINCT FROM v_b13.participacion_ref
     OR v_llamamiento.bolsa_ref IS DISTINCT FROM v_b13.bolsa_ref THEN
   RAISE EXCEPTION 'llamamiento de cese divergente' USING ERRCODE='23503';
+ END IF;
+ -- Guarda positiva: solo el puente sintético de CT en una organización de
+ -- desarrollo, como la política sintética de 000045. Otra fuente de bolsas
+ -- nunca cae aquí aunque no pase por constitucion.
+ IF v_ct.organizacion_ref !~ '^organizacion:desarrollo:'
+    OR v_b13.bolsa_ref !~ '^bolsa-sintetica:[a-z]{16,128}$'
+    OR v_b13.participacion_ref !~ '^participacion-sintetica-[1-9][0-9]{0,2}:[a-z]{16,128}$' THEN
+  RAISE EXCEPTION 'cese sin candidato fuera del puente sintético' USING ERRCODE='23503';
  END IF;
  -- Una participación o bolsa constituida puede recibir su vínculo más tarde:
  -- ese cese no es «sin candidato» y sigue pendiente.

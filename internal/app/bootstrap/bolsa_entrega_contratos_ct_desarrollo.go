@@ -194,7 +194,7 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 				contenido.Tipo != "cese" || contenido.OrigenRef != evento.OrigenRef || evento.HuellaSHA256 == "" || evento.OrigenPosicion < 0 {
 				return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
 			}
-			var reutilizada bool
+			var reutilizada, sinCandidato bool
 			var recibo, candidato string
 			var disponible time.Time
 			var politica int64
@@ -222,16 +222,17 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 						evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
 						return resultado, falloRelevoCeseBolsaDesarrollo(err)
 					}
-					if !reutilizada {
-						resultado.sinCandidato++
-					}
+					sinCandidato = true
 				}
 			} else if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
 				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
 			}
-			if reutilizada {
+			switch {
+			case reutilizada:
 				resultado.reentregas++
-			} else {
+			case sinCandidato:
+				resultado.sinCandidato++
+			default:
 				resultado.nuevos++
 			}
 			desde = puertosct.CursorPublicacionContratosBolsa{Posicion: evento.OrigenPosicion, OrigenRef: evento.OrigenRef}
