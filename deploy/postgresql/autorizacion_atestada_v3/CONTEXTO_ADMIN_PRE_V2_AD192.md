@@ -75,5 +75,12 @@ repitieron puertas globales ni se invocó la base de datos. La configuración
 inmutable de proceso/canal se verifica antes y después de la espera de cadena.
 
 Pendientes: dos revisiones exactas y ensayo autorizado con productores IS/CA
-reales. La configuración de LOGIN/proceso no se siembra durante UP. No se ha
-instalado AD192 ni ejecutado PostgreSQL por este agente.
+reales. La configuración de LOGIN/proceso no se siembra durante UP. AD192 se
+instaló después en la principal de desarrollo (H10, 4 de octubre de 2026).
+
+AD194 (`000194_secuencia_repeticion_contexto_admin.up.sql`) corrige la repetición de registrar y el cotejo, que fallaban con «structure of query does not match function result type» porque devolvían `secuencia` como numeric(20,0) en lugar de bigint; sólo añade `::bigint` a ese valor, conserva firma, OID, propietario, ACL y proconfig, comprueba la preimagen de AD192 y se prueba con `pruebas_sql/ad194_repeticion_secuencia.sql`.
+
+Si AD194 ya está aplicada, una segunda ejecución se detiene con código 3 y
+`AD194: PARO clave=definicion … actual=468bd4…` (o `actual=4df083…` en la
+función de cotejo). Ese mensaje significa «ya aplicada»: no cambia nada y no
+hay que repetirla.
