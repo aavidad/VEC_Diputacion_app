@@ -1,6 +1,8 @@
 package mibolsa
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"context"
 	"errors"
 	"regexp"
@@ -87,7 +89,7 @@ func (s *LecturasAuditadas) registrarFallo(ctx context.Context, orden Orden, acc
 		return falloAuditoriaLectura(noDisponible)
 	}
 	intento, err := ports.NuevaOrdenIntentoAuditoria(referencia, actor, orden.Vinculo, domain.DatosIntentoAuditoria{
-		Accion: accion, ModuloID: bolsa.ModuloMiBolsa, RecursoRef: "mi-bolsa:" + candidato,
+		Accion: accion, ModuloID: bolsa.ModuloMiBolsa, RecursoRef: recursoIntentoMiBolsa(candidato),
 		FinalidadRef: finalidad, Resultado: resultadoFalloLectura(causa), Motivo: orden.Motivo,
 		Proceso: s.proceso, Canal: string(vinculo.Superficie), CorrelacionRef: correlacion,
 	})
@@ -141,4 +143,13 @@ func AcuseLecturaFallida(err error) (ports.AcuseIntentoAuditoria, bool) {
 		return ports.AcuseIntentoAuditoria{}, false
 	}
 	return auditada.acuse, true
+}
+
+// recursoIntentoMiBolsa da una referencia opaca y estable del candidato para
+// la auditoría común, que sólo admite minúsculas, dígitos y «._:-». Las
+// referencias de candidato son base64url y mezclan mayúsculas, así que se
+// conserva su huella SHA-256: identifica el mismo candidato sin copiarlo.
+func recursoIntentoMiBolsa(candidato string) string {
+	suma := sha256.Sum256([]byte(candidato))
+	return "mi-bolsa:candidato-sha256:" + hex.EncodeToString(suma[:])
 }
