@@ -919,7 +919,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("servicio", err)
 	}
-	manejadores, err := httpinterno.NuevosManejadoresSeguimiento(autoridad, autoridad, finPersonal.envolver(servicio))
+	manejadores, err := httpinterno.NuevosManejadoresSeguimiento(autoridad, autoridad, finPersonal.envolver(servicio, repositorio))
 	if err != nil {
 		return fallar("http", err)
 	}

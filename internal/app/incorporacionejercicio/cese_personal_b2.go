@@ -101,17 +101,21 @@ func NuevoCesePersonalB2(c ConfiguracionCesePersonalB2) (*CesePersonalB2, error)
 	return &CesePersonalB2{c}, nil
 }
 
-// SolicitudCesePersonalB2 lleva el recibo durable del cese de CT y el
-// justificante que CT ya validó. Nada procede del cuerpo HTTP sin pasar por CT.
+// SolicitudCesePersonalB2 lleva el recibo durable del cese de CT, el
+// justificante que CT ya validó y el recibo de la incorporación que CT asocia
+// al expediente. Nada procede del cuerpo HTTP sin pasar por CT.
 type SolicitudCesePersonalB2 struct {
 	Recibo             ct.ReciboOperacionSeguimiento
 	JustificanteRef    string
 	JustificanteSHA256 string
+	// IncorporacionReciboRef decide si aplica: solo un origen personal_b2_v1
+	// (ct.ReciboOrigenIncorporacionPersonalB2) lleva a leer o escribir en B2.
+	IncorporacionReciboRef string
 }
 
 type ResultadoCesePersonalB2 struct {
-	// Aplica es falso cuando el expediente no se incorporó por personal_b2_v1:
-	// entonces no se ha leído ni escrito nada en Personal.
+	// Aplica es falso cuando CT no incorporó el expediente por personal_b2_v1:
+	// entonces no se ha leído nada con permisos B2 ni escrito en Personal.
 	Aplica          bool
 	IdempotenciaRef string
 	RelacionRef     string
@@ -132,20 +136,18 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 		r.VersionResultante > math.MaxInt64 || !dom.ReferenciaOpacaValida(s.JustificanteRef) || !huellaPlanNominalValida(s.JustificanteSHA256) {
 		return cero, ct.ErrIntencionIncorporacionAplicacion
 	}
+	if !ct.ReciboOrigenIncorporacionPersonalB2(s.IncorporacionReciboRef) {
+		return cero, nil
+	}
 	contrato, err := c.c.Contratos.LeerContratoPlanNominal(ctx, r.OrganizacionRef, r.ExpedienteRef)
 	if errors.Is(err, ct.ErrPlanNominalB2NoEncontrado) {
-		return cero, nil
+		// CT dice que la incorporación es B2: un plan ausente no es «no aplica».
+		return cero, ct.ErrPreparacionIncorporacionPendiente
 	}
 	if err != nil {
 		return cero, errorConsumidorPersonalB2(ctx, err)
 	}
-	if !contratoBasicoValido(contrato, r.OrganizacionRef, r.ExpedienteRef) {
-		return cero, ct.ErrConflictoIncorporacionAplicacion
-	}
-	if contrato.Protocolo == ProtocoloEjercicioV2 {
-		return cero, nil
-	}
-	if contrato.Protocolo != ProtocoloPersonalB2V1 || !contratoB2Valido(contrato) {
+	if !contratoBasicoValido(contrato, r.OrganizacionRef, r.ExpedienteRef) || contrato.Protocolo != ProtocoloPersonalB2V1 || !contratoB2Valido(contrato) {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
 	origen, encontrado, err := c.c.Origen.LeerOrigenIncorporacionB2(ctx, r.OrganizacionRef, r.ExpedienteRef)
@@ -153,11 +155,10 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 		return cero, errorConsumidorPersonalB2(ctx, err)
 	}
 	if !encontrado {
-		// Hay plan B2 pero CT no confirmó el origen: no se sabe qué relación cerrar.
 		return cero, ct.ErrPreparacionIncorporacionPendiente
 	}
 	h := origen.Confirmacion.Hechos
-	if origen.Protocolo != ct.ProtocoloIncorporacionPersonalB2 || origen.Confirmacion.OrganizacionRef != r.OrganizacionRef ||
+	if origen.ReciboRef != s.IncorporacionReciboRef || origen.Protocolo != ct.ProtocoloIncorporacionPersonalB2 || origen.Confirmacion.OrganizacionRef != r.OrganizacionRef ||
 		origen.Confirmacion.ExpedienteRef != r.ExpedienteRef || !personal.ReferenciaEmpleadoValida(h.EmpleadoRef) ||
 		!personal.ReferenciaRelacionValida(h.RelacionRef) || h.RelacionVersion < 1 {
 		return cero, ct.ErrConflictoIncorporacionAplicacion

@@ -108,8 +108,9 @@ type escenarioCeseB2 struct {
 }
 
 const (
-	empleadoCeseB2 = "emp_eeeeeeeeeeeeeeeeeeeeeeee"
-	relacionCeseB2 = "rel_rrrrrrrrrrrrrrrrrrrrrrrr"
+	empleadoCeseB2     = "emp_eeeeeeeeeeeeeeeeeeeeeeee"
+	relacionCeseB2     = "rel_rrrrrrrrrrrrrrrrrrrrrrrr"
+	origenReciboCeseB2 = ct.PrefijoReciboOrigenIncorporacionPersonalB2 + "5f0c2a4e-8d1b-4c7a-9e3f-1a2b3c4d5e6f"
 )
 
 func nuevoEscenarioCeseB2(t *testing.T, regla ReglaFechaCesePersonalB2) *escenarioCeseB2 {
@@ -129,7 +130,7 @@ func nuevoEscenarioCeseB2(t *testing.T, regla ReglaFechaCesePersonalB2) *escenar
 			Traza: pd.TrazaEmpleadoB2{Desde: d.Desde, Hasta: "2027-03-31", RegistradaEn: ahora.Add(-time.Hour), Version: 1,
 				ActoRef: d.Procedencia.ActoRef, FuenteRef: d.Procedencia.FuenteRef, FuenteVersion: d.Procedencia.FuenteVersion},
 			CatalogoSnapshot: pd.SnapshotCatalogoEmpleadoB2{Regimen: snapshot("regimen", d.Regimen.Ref), Modalidad: snapshot("modalidad", d.Modalidad.Ref)}}}}}
-	e.origen = &origenCeseB2Prueba{encontrado: true, origen: ct.OrigenIncorporacionPersonalB2{Protocolo: ct.ProtocoloIncorporacionPersonalB2,
+	e.origen = &origenCeseB2Prueba{encontrado: true, origen: ct.OrigenIncorporacionPersonalB2{Protocolo: ct.ProtocoloIncorporacionPersonalB2, ReciboRef: origenReciboCeseB2,
 		Confirmacion: ct.ConfirmacionOrigenIncorporacionB2{OrganizacionRef: e.contrato.OrganizacionRef, ExpedienteRef: e.contrato.ExpedienteRef,
 			Hechos: ct.HechosPersonalIncorporacionB2{EmpleadoRef: empleadoCeseB2, RelacionRef: relacionCeseB2, RelacionVersion: 1}}}}
 	e.actos = &actosCeseB2Prueba{ficha: e.ficha, recibos: map[string]pp.ReciboActoRegistroEmpleadoB2{},
@@ -139,7 +140,7 @@ func nuevoEscenarioCeseB2(t *testing.T, regla ReglaFechaCesePersonalB2) *escenar
 		FaseResultante: dom.FaseNombramiento, EstadoResultante: dom.EstadoEnCurso, ReciboRef: "recibo:ct-cese:0123abcd",
 		AuditoriaRef: "auditoria:cese", EventoRef: "evento:cese", ActorRef: actor.Principal.ID, RegistradaEn: ahora,
 		CausaClave: "fin_necesidad", FechaEfecto: "2026-12-15"},
-		JustificanteRef: "documento:cese", JustificanteSHA256: strings.Repeat("c", 64)}
+		JustificanteRef: "documento:cese", JustificanteSHA256: strings.Repeat("c", 64), IncorporacionReciboRef: origenReciboCeseB2}
 	cese, err := NuevoCesePersonalB2(ConfiguracionCesePersonalB2{
 		Contratos: contratoNominalPrueba(func(context.Context, string, string) (ContratoPlanNominal, error) {
 			e.contratos++
@@ -286,31 +287,65 @@ func TestCesePersonalB2RechazaRelacionDeOtroEmpleadoOOrganismo(t *testing.T) {
 	}
 }
 
-func TestCesePersonalB2NoAplicaSinProtocoloPersonalB2(t *testing.T) {
+// Solo el recibo de incorporación que CT asocia al expediente decide si
+// aplica; sin origen B2 no se lee nada con permisos B2 ni se escribe.
+func TestCesePersonalB2NoAplicaSinOrigenB2EnCT(t *testing.T) {
+	for _, incorporacion := range []string{"", "recibo:ct-incorporacion-v2:0123abcd", ct.PrefijoReciboOrigenIncorporacionPersonalB2} {
+		e := nuevoEscenarioCeseB2(t, CeseUltimoDiaTrabajado)
+		e.solicitud.IncorporacionReciboRef = incorporacion
+		r, err := e.finalizar()
+		if err != nil || r.Aplica || e.contratos != 0 || e.origen.lecturas != 0 || e.ficha.lecturas != 0 || e.actos.llamadas != 0 {
+			t.Fatalf("incorporación %q tocó B2: %v %+v", incorporacion, err, r)
+		}
+	}
+}
+
+// Con origen B2 en CT, cualquier incoherencia con el plan o el origen
+// guardados se rechaza en lugar de tratarse como «no aplica».
+func TestCesePersonalB2OrigenB2IncoherenteNoSeIgnora(t *testing.T) {
 	for _, caso := range []struct {
 		nombre  string
 		cambiar func(*escenarioCeseB2)
+		want    error
 	}{
-		{"ejercicio_v2", func(e *escenarioCeseB2) { e.contrato.Protocolo = ProtocoloEjercicioV2 }},
+		{"plan_ejercicio_v2", func(e *escenarioCeseB2) { e.contrato.Protocolo = ProtocoloEjercicioV2 }, ct.ErrConflictoIncorporacionAplicacion},
 		{"sin_plan_nominal", func(e *escenarioCeseB2) {
 			e.cese.c.Contratos = contratoNominalPrueba(func(context.Context, string, string) (ContratoPlanNominal, error) {
 				return ContratoPlanNominal{}, ct.ErrPlanNominalB2NoEncontrado
 			})
-		}},
+		}, ct.ErrPreparacionIncorporacionPendiente},
+		{"origen_sin_confirmar", func(e *escenarioCeseB2) { e.origen.encontrado = false }, ct.ErrPreparacionIncorporacionPendiente},
+		{"origen_con_otro_recibo", func(e *escenarioCeseB2) {
+			e.origen.origen.ReciboRef = ct.PrefijoReciboOrigenIncorporacionPersonalB2 + "00000000-0000-4000-8000-000000000000"
+		}, ct.ErrConflictoIncorporacionAplicacion},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e := nuevoEscenarioCeseB2(t, CeseUltimoDiaTrabajado)
 			caso.cambiar(e)
-			r, err := e.finalizar()
-			if err != nil || r.Aplica || e.origen.lecturas != 0 || e.ficha.lecturas != 0 || e.actos.llamadas != 0 {
-				t.Fatalf("tocó Personal sin protocolo B2: %v %+v", err, r)
+			if _, err := e.finalizar(); !errors.Is(err, caso.want) || e.actos.llamadas != 0 {
+				t.Fatalf("origen B2 incoherente: %v, llamadas=%d", err, e.actos.llamadas)
 			}
 		})
 	}
+}
+
+// La lectura puede no ver aún la revisión «finalizada» (reloj de la aplicación
+// por detrás del de la base): se repite la solicitud original y Personal la
+// resuelve como repetición de la misma clave, sin otra revisión.
+func TestCesePersonalB2LecturaQueNoVeLaRevisionFinalSeResuelvePorRepeticion(t *testing.T) {
 	e := nuevoEscenarioCeseB2(t, CeseUltimoDiaTrabajado)
-	e.origen.encontrado = false
-	if _, err := e.finalizar(); !errors.Is(err, ct.ErrPreparacionIncorporacionPendiente) || e.actos.llamadas != 0 {
-		t.Fatalf("plan B2 sin origen confirmado no debe pasar inadvertido: %v", err)
+	primero, err := e.finalizar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := e.actos.ultima
+	e.ficha.ficha.Relaciones = e.ficha.ficha.Relaciones[:1]
+	segundo, err := e.finalizar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if segundo.Recibo != primero.Recibo || e.actos.escrituras != 1 || !reflect.DeepEqual(e.actos.ultima, original) {
+		t.Fatalf("la lectura atrasada produjo otra solicitud o revisión: %+v / %+v", primero, segundo)
 	}
 }
 
