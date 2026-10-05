@@ -73,6 +73,11 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	material, err := a.emisor.EmitirLoteOrdinario(ctx, actor, evidencia, instantanea, recursoEmisor, entrega)
 	clear(entrega.Material)
 	if err != nil {
+		// La denegación explícita del PDP se conserva: es un 403 auditado como
+		// denegado, no una indisponibilidad.
+		if ctx.Err() == nil && errors.Is(err, domain.ErrAutorizacionDenegada) {
+			return domain.ErrAutorizacionDenegada
+		}
 		return traducir(ctx, err)
 	}
 	r := material.ResumenCapacidad()
@@ -113,11 +118,7 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 	}()
 	var bruto []byte
 	if err := tx.QueryRow(ctx, aplicarLoteOrdinarioSQL, args...).Scan(&bruto); err != nil {
-		var pg *pgconn.PgError
-		if errors.As(err, &pg) && pg.Code == "42501" {
-			return domain.ErrAutorizacionDenegada
-		}
-		return traducir(ctx, err)
+		return traducirErrorLoteSQL(ctx, err)
 	}
 	if err := validar(bruto); err != nil {
 		return err
@@ -131,4 +132,27 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 		return errCommitLoteIndeterminado
 	}
 	return nil
+}
+
+// traducirErrorLoteSQL clasifica los SQLSTATE de AUT44/AD190/CA35 en las
+// categorías del puerto, sin conservar el mensaje de PostgreSQL:
+// 42501 denegado; 40001, 40P01, 55000 y P0002 conflicto de estado (preimagen
+// o contexto cambiados); 23505 conflicto (idempotencia o perfil ya asignado);
+// 22023, 22P02, 22007 y 23514 solicitud inválida; el resto, no disponible.
+func traducirErrorLoteSQL(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) {
+		switch pg.Code {
+		case "42501":
+			return domain.ErrAutorizacionDenegada
+		case "40001", "40P01", "55000", "P0002", "23505":
+			return domain.ErrControlAdministracionPerfilesInvalido
+		case "22023", "22P02", "22007", "23514":
+			return domain.ErrActoAdministracionPerfilesInvalido
+		}
+	}
+	return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 }

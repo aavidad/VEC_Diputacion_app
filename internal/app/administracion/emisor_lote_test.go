@@ -26,8 +26,9 @@ func escenarioEmisorLote(t *testing.T) (*EmisorLote, context.Context, domain.Con
 	snapshot.ControlVigenciaVersionRol.VersionRolRef = snapshot.VersionRol.Referencia()
 	org := snapshot.AsignacionPerfil.Ambitos[0].Valores[0]
 	unidad := snapshot.AsignacionPerfil.Ambitos[1].Valores[0]
+	material := []byte(`{"Esquema":"administracion_perfiles_lote:v3"}`)
 	recurso := domain.RecursoAutorizable{Referencia: "per_" + strings.Repeat("c", 22), ModuloID: "administracion", Tipo: "persona",
-		Ambitos: map[string]string{"organizacion_ref": org, "unidad_ref": unidad}, Atributos: map[string]string{"solicitud_sha256": strings.Repeat("d", 64)}}
+		Ambitos: map[string]string{"organizacion_ref": org, "unidad_ref": unidad}, Atributos: map[string]string{"solicitud_sha256": huellaMaterialLote(material)}}
 	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +42,7 @@ func escenarioEmisorLote(t *testing.T) (*EmisorLote, context.Context, domain.Con
 		t.Fatal(err)
 	}
 	efecto := lote.Efecto{Accion: AccionLoteOrdinarioV3, Audiencia: AudienciaLoteOrdinarioV3, Referencia: recurso.Referencia,
-		Material: []byte(`{"Esquema":"administracion_perfiles_lote:v3"}`), CorrelacionAccesoRef: valor}
+		Material: material, CorrelacionAccesoRef: valor}
 	if snapshot.Validar() != nil || !snapshotLoteValido(snapshot, actor, recurso, e.reloj.Ahora()) {
 		t.Fatal("fixture_de_lote_invalida")
 	}
@@ -50,7 +51,7 @@ func escenarioEmisorLote(t *testing.T) (*EmisorLote, context.Context, domain.Con
 
 func TestEmisorLoteRechazaAntesDePDPEntradasFueraContrato(t *testing.T) {
 	for _, caso := range []string{"autoasignacion", "accion", "audiencia", "tipo", "efecto_ajeno", "sin_concesion", "campos", "obligacion",
-		"ambito_ajeno", "rol_sistemas", "vinculo_no_privilegiado", "correlacion_ajena", "sin_correlacion", "sin_material"} {
+		"ambito_ajeno", "rol_sistemas", "vinculo_no_privilegiado", "correlacion_ajena", "sin_correlacion", "sin_material", "solicitud_ajena", "atributo_extra"} {
 		t.Run(caso, func(t *testing.T) {
 			e, ctx, actor, evidencia, snapshot, recurso, efecto := escenarioEmisorLote(t)
 			switch caso {
@@ -82,6 +83,10 @@ func TestEmisorLoteRechazaAntesDePDPEntradasFueraContrato(t *testing.T) {
 				ctx = context.Background()
 			case "sin_material":
 				efecto.Material = nil
+			case "solicitud_ajena":
+				efecto.Material = []byte(`{"Esquema":"otro"}`)
+			case "atributo_extra":
+				recurso.Atributos["persona_ref"] = recurso.Referencia
 			}
 			salida, err := e.EmitirLoteOrdinario(ctx, actor, evidencia, snapshot, recurso, efecto)
 			if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, domain.ErrAutorizacionDenegada) || salida.ValidarEstructura() == nil {

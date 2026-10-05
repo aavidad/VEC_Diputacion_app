@@ -3,6 +3,8 @@ package administracion
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -81,7 +83,9 @@ func (e *EmisorLote) EmitirLoteOrdinario(ctx context.Context, actor domain.Conte
 	if actor.Validar() != nil || evidencia.ValidarEn(actor, ahora) != nil || !actor.Instantanea.VigenteEn(ahora) ||
 		efecto.Accion != AccionLoteOrdinarioV3 || efecto.Audiencia != AudienciaLoteOrdinarioV3 ||
 		recurso.Validar() != nil || recurso.Referencia != efecto.Referencia || recurso.ModuloID != "administracion" ||
-		recurso.Tipo != "persona" || recurso.Referencia == actor.PersonaRef || len(efecto.Material) == 0 {
+		recurso.Tipo != "persona" || recurso.Referencia == actor.PersonaRef || len(efecto.Material) == 0 ||
+		len(recurso.Ambitos) != 2 || recurso.Ambitos["organizacion_ref"] == "" || recurso.Ambitos["unidad_ref"] == "" ||
+		len(recurso.Atributos) != 1 || recurso.Atributos["solicitud_sha256"] != huellaMaterialLote(efecto.Material) {
 		return vacia, fallo
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
@@ -186,4 +190,11 @@ func validarDecisionLote(d domain.DecisionAutorizacionLigadaV3, confirmacion por
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	return nil
+}
+
+// huellaMaterialLote es la huella de la solicitud que el recurso declara y
+// que AUT44 vuelve a calcular sobre el mismo material.
+func huellaMaterialLote(material []byte) string {
+	h := sha256.Sum256(material)
+	return hex.EncodeToString(h[:])
 }

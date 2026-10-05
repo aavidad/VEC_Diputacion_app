@@ -6,8 +6,8 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-// Vector Python SHA256/JSON con orden explícito: el SQL AD190 reconstruye
-// exactamente estos bytes mediante json_cadena_canonica_go_admin_v1.
+// Vector Python SHA256/JSON con orden explícito: AUT44 reconstruye
+// exactamente estos bytes en recurso_lote_admin_v1.
 func TestLoteHuellaContextoV3IndependienteDeHuellaSolicitud(t *testing.T) {
 	const solicitudSHA = "2309a242dda19bcb4396565a8aae684f35bce0b10abca88dd45ef560f853e492"
 	const contextoSHA = "2fb8a0cc32cce33eeaff3153b8b7be63285f9b0116ea1fff52cf08479fe4cf41"
