@@ -116,7 +116,10 @@ Debe devolver el LOGIN y `true`.
 `config_contexto_admin_pre_v2_v1` no admite cambios ni borrados y su clave es
 el LOGIN. Al vencer `vigente_hasta`, AD192 rechaza cada evento de ese LOGIN y
 el contexto ADMIN deja de registrarse. No se puede alargar la fila ni añadir
-otra para el mismo LOGIN. Se renueva con un LOGIN nuevo:
+otra para el mismo LOGIN. Se renueva con un LOGIN nuevo. A diferencia de IS16,
+el grupo de CA36 admite varios miembros, así que el LOGIN nuevo se da de alta
+antes de retirar el anterior; el servicio sigue con el LOGIN anterior hasta
+el reinicio:
 
 1. Darlo de alta con el procedimiento anterior.
 2. Cambiar la conexión de `pool_contexto` al LOGIN nuevo y reiniciar
@@ -131,7 +134,7 @@ escribió. Por eso conviene renovar cuando no haya peticiones a medias.
 
 ## Corrección del 5 de octubre de 2026
 
-SQL SHA256 `d7b1f8c3027a70795cf42377a818844bb973c42959f064f970db6a09d77cca29`.
+SQL SHA256 `dbce30cfc7916546888bfab4941eb20c9713bfee2dd53188636cae34a3d434a3`.
 Cambios respecto al del 4 de octubre:
 
 - exige AD194 antes de crear nada;
@@ -140,7 +143,8 @@ Cambios respecto al del 4 de octubre:
 - en `registrar_contexto_admin_v1` y `reconciliar_contexto_admin_v1`, un
   conflicto de serialización (40001), un interbloqueo (40P01) o una
   cancelación se relanzan como en IS16. Antes se auditaban como «error» y la
-  transacción seguía.
+  transacción seguía;
+- cada comprobación de acuse AD192 rechaza también secuencia o huella nulas.
 
 Se ensayó con IS16 en el mismo clon desechable de la copia fría de la
 principal, después de AD194. CA36 y su vector `ca36_runtime_acl.sql` terminaron

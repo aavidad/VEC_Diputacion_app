@@ -48,7 +48,12 @@ formato y logs para impedir que salgan identificadores o material SQL.
 Si el proveedor privado o un HMAC fallan, Go revierte el SAVEPOINT que contiene
 la resolución positiva y su auditoría. Fuera de ese SAVEPOINT, dentro de la
 misma transacción, `rechazar_fuente_cuenta_admin_v1` registra el error AD192.
-Un fallo de ese acuse o del COMMIT sigue cerrado.
+Lo mismo ocurre al vincular: si SQL devuelve un vínculo favorable que Go no
+reconoce como el pedido, se revierte el SAVEPOINT con el vínculo y su acuse y
+se registra el error con la acción `vincular_sesion_admin`. Un fallo de ese
+acuse o del COMMIT sigue cerrado. Un conflicto de serialización (40001) o un
+interbloqueo (40P01) se devuelven como conflicto, no como configuración
+incompleta.
 
 ## Vínculo exacto y recuperación
 
@@ -203,6 +208,8 @@ Valores admitidos en la fila de IS16:
 - `proceso`: minúsculas, cifras, punto, guion y guion bajo; empieza por letra
   y tiene de 2 a 80 caracteres.
 - `entorno`: `desarrollo` o `cidonia`.
+- `host_admin`: nombre de host en minúsculas, de 4 a 253 caracteres, con el
+  mismo formato que la política de certificado de IS15.
 - `host_admin` y `audiencia`: los mismos que observa la frontera mTLS de
   `vec-admin` (véase `cmd/vec-admin/README.md`). Si no coinciden, cada petición
   se deniega.
@@ -228,6 +235,11 @@ arranca y las peticiones en curso se deniegan.
 La renovación se hace con un LOGIN nuevo, preferiblemente antes del
 vencimiento y en una ventana de mantenimiento:
 
+Aquí se retira primero el grupo al LOGIN anterior, al revés que en CA36,
+porque el grupo de IS16 sólo admite un miembro. Por eso `vec-admin` se queda
+sin servicio desde el COMMIT de la renovación hasta que se reinicia con el
+LOGIN nuevo.
+
 1. En una sola transacción, retirar el grupo al LOGIN anterior
    (`REVOKE vec_identidad_sesiones_v1_admin_perfiles_runtime FROM <anterior>;`)
    y dar de alta el nuevo con el procedimiento de arriba. Un nombre con la
@@ -248,10 +260,12 @@ El SQL del 4 de octubre declaraba `espacio_identidad` con una repetición
 alta en `config_runtime_admin_perfiles_v1` fallaba con «invalid repetition
 count(s)». El ensayo de ese día sólo cubrió estructura y permisos y no llegó a
 insertar ninguna fila. Ahora el patrón no lleva cota y la longitud se limita
-aparte. IS16 exige además AD194.
+aparte. IS16 exige además AD194, `host_admin` tiene formato y longitud
+comprobados, y `rechazar_fuente_cuenta_admin_v1` recibe la acción rechazada
+(resolver o vincular) para auditar también un vínculo que Go no reconoce.
 
 El SQL corregido tiene SHA256
-`68f7a1643fab2205e7ed16b977ba33d7a2a17f36e8609f9415f3f56c2d7ff261`. Se ensayó
+`bd6a3b5507a556f53623aaff2df34e14e88e9d2c907b4d42887ff052c6a3f73f`. Se ensayó
 en un clon desechable de la copia fría de la principal (PostgreSQL 18.4, sin
 red), donde se aplicaron AD194, IS16 y CA36 una vez cada una. Sin AD194, IS16
 se detuvo con «falta AD194». Con AD194 instalada, el alta de un LOGIN de ensayo

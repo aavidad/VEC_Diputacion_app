@@ -22,7 +22,6 @@ import (
 
 const registrarContexto = `SELECT vec_contexto_actor_v1.registrar_contexto_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,$13,$14,$15)`
 const recuperarContexto = `SELECT vec_contexto_actor_v1.recuperar_contexto_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,$13,$14,$15,$16::jsonb)`
-const reconciliarContexto = `SELECT vec_contexto_actor_v1.reconciliar_contexto_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,$13,$14,$15)`
 
 type ConfiguracionContextoADMIN struct{ Proceso string }
 

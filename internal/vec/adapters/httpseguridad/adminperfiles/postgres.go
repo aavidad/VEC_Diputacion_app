@@ -71,14 +71,8 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 		if err = sub.Rollback(ctx); err != nil {
 			return api.ErrConfiguracionIncompleta
 		}
-		if err = tx.QueryRow(ctx, `SELECT resultado,acuse FROM vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1($1,$2)`, args[9], args[10]).Scan(&bruto, &acuse); err != nil {
-			return errorConsultaIS16(err)
-		}
-		_, decision, err = leerResultadoIS16(bruto, acuse, args[9].(string), args[10].(string), p.reloj.Ahora())
-		if err != nil || decision == nil {
-			return api.ErrConfiguracionIncompleta
-		}
-		return nil
+		decision, err = p.rechazarCotejoIS16(ctx, tx, args[9].(string), args[10].(string), "resolver_cuenta_admin")
+		return err
 	})
 	if err != nil {
 		return CuentaADMIN{}, errorAutoridad(err)

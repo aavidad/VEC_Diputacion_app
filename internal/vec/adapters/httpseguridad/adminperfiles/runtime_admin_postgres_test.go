@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	is "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -157,13 +158,18 @@ func (tx *txIS16Prueba) QueryRow(_ context.Context, consulta string, args ...any
 		p.lecturas++
 		evento = args[9].(string)
 		corr = args[10].(string)
+		if strings.Contains(consulta, "vincular_sesion_admin_perfiles_v1") {
+			evento = args[13].(string)
+			corr = args[14].(string)
+		}
 	} else {
-		if !strings.Contains(consulta, "rechazar_fuente_cuenta_admin_v1") || !p.revertida {
+		if !strings.Contains(consulta, "rechazar_fuente_cuenta_admin_v1") || !p.revertida || len(args) != 3 {
 			panic("error sin revertir lectura positiva")
 		}
 		p.errores++
 		evento = args[0].(string)
 		corr = args[1].(string)
+		p.accionRechazo = args[2].(string)
 	}
 	a, _ := json.Marshal(acuseIS16{Referencia: "aud_v3_ap2_" + evento[7:], Secuencia: 1, Huella: strings.Repeat("f", 64), Correlacion: corr, RegistradaEn: p.ahora})
 	bruto := p.cuenta
@@ -193,6 +199,7 @@ type poolIS16Prueba struct {
 	cuenta                                                                       []byte
 	lecturas, errores, confirmadas, subconfirmadas                               int
 	revertida                                                                    bool
+	accionRechazo                                                                string
 	inicios                                                                      int
 	falloBegin, falloSubBegin, falloSet, falloQuery, falloSubCommit, falloCommit error
 }
@@ -224,8 +231,62 @@ func TestIS16FalloFuenteRevierteLecturaYConfirmaErrorComun(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, err := p.ResolverCuentaADMIN(ctx, o)
-	if !errors.Is(err, api.ErrConfiguracionIncompleta) || c != (CuentaADMIN{}) || pool.lecturas != 1 || pool.errores != 1 || pool.confirmadas != 1 || pool.subconfirmadas != 0 || !pool.revertida {
+	if !errors.Is(err, api.ErrConfiguracionIncompleta) || c != (CuentaADMIN{}) || pool.lecturas != 1 || pool.errores != 1 || pool.confirmadas != 1 || pool.subconfirmadas != 0 || !pool.revertida ||
+		pool.accionRechazo != "resolver_cuenta_admin" {
 		t.Fatal("se devolvió éxito, quedó lectura positiva o no se confirmó el error común")
+	}
+}
+
+func TestIS16VinculoNoCotejadoRevierteYConfirmaErrorComun(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	o := ObservacionADMIN{Entorno: "desarrollo", Host: "admin.example.invalid", Audiencia: "vec.admin.perfiles.v1", CertificadoSHA256: strings.Repeat("a", 64), CASHA256: strings.Repeat("b", 64), AutenticacionVerificadaEn: ahora, RevocacionVerificadaEn: ahora, CRLVigenteHasta: ahora.Add(time.Minute), CertificadoVigenteHasta: ahora.Add(time.Minute)}
+	c := CuentaADMIN{materialCuentaSQL: `{"sintetica":true}`,
+		SujetoID: "admin-persona-v1:per_ABCDEFGHIJKLMNOPQRSTUV", CuentaID: "admin-cuenta-v1:cta_abcdefghijklmnopqrstuv", CuentaOrdinariaID: "admin-cuenta-v1:cta_zyxwvutsrqponmlkjihgfe",
+		PersonaRef: "per_ABCDEFGHIJKLMNOPQRSTUV", CuentaRef: "cta_abcdefghijklmnopqrstuv", CuentaOrdinariaRef: "cta_zyxwvutsrqponmlkjihgfe", PerfilActivoRef: "prf_ABCDEFGHIJKLMNOPQRSTUV",
+		RolID: "administracion_perfiles", VinculoRef: "vca_ABCDEFGHIJKLMNOPQRSTUV", VinculoVersion: 1, SeleccionRevision: 1,
+		PoliticaGarantiaRef: "pga_ABCDEFGHIJKLMNOPQRSTUV", PoliticaGarantiaHuellaSHA256: strings.Repeat("a", 64), GarantiaObservada: domain.AuthAssuranceHigh, VigenteHasta: ahora.Add(time.Minute)}
+	refs := ReferenciasSesionADMIN{AutenticacionRef: "aut_" + strings.Repeat("a", 22), SesionRef: "ses_" + strings.Repeat("a", 22)}
+	// Vínculo bien formado, pero con otra referencia que la pedida por Go.
+	ref := "vis_" + strings.Repeat("e", 32)
+	ajeno, _ := json.Marshal(vinculoSQLIS16{Referencia: ref, Version: 1, Huella: strings.Repeat("d", 64), Autenticacion: refs.AutenticacionRef, Sesion: refs.SesionRef,
+		Persona: c.PersonaRef, Cuenta: c.CuentaRef, Ordinaria: c.CuentaOrdinariaRef, Perfil: c.PerfilActivoRef, Certificado: o.CertificadoSHA256, CA: o.CASHA256,
+		VinculoCertificado: c.VinculoRef, VinculoCertificadoVersion: 1, Politica: c.PoliticaGarantiaRef, PoliticaSHA: c.PoliticaGarantiaHuellaSHA256, Seleccion: 1,
+		Control: "cse_" + strings.Repeat("a", 22), ControlRevision: 1, ControlSHA: strings.Repeat("a", 64), Vinculada: ahora, Hasta: ahora.Add(time.Minute),
+		Fuente: "vinculo_sesion_admin:" + ref[4:], FuenteSHA: strings.Repeat("d", 64)})
+	if _, err := decodificarVinculoIS16(ajeno); err != nil {
+		t.Fatal("el vínculo sintético debe ser válido por sí solo")
+	}
+	for nombre, datos := range map[string][]byte{"vínculo ajeno": ajeno, "vínculo ilegible": []byte(`{"referencia":"vis_x"}`)} {
+		t.Run(nombre, func(t *testing.T) {
+			bruto, _ := json.Marshal(struct {
+				Estado string          `json:"estado"`
+				Datos  json.RawMessage `json:"datos"`
+			}{"permitido", datos})
+			pool := &poolIS16Prueba{ahora: ahora, cuenta: bruto}
+			p := &PostgreSQL{pool: pool, reloj: relojPrueba{ahora}, identificadores: fuenteIDsPruebaADMIN{}, seudonimizador: &seudIDsPruebaADMIN{}}
+			ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			v, err := p.VincularSesionADMINConAcuse(ctx, o, c, refs)
+			if !errors.Is(err, api.ErrConfiguracionIncompleta) || v != (VinculoSesionADMIN{}) || pool.lecturas != 1 || pool.errores != 1 ||
+				pool.confirmadas != 1 || pool.subconfirmadas != 0 || !pool.revertida || pool.accionRechazo != "vincular_sesion_admin" {
+				t.Fatal("vínculo no cotejado devuelto, no revertido o sin error común confirmado")
+			}
+		})
+	}
+}
+
+func TestIS16InterbloqueoYSerializacionSonConflicto(t *testing.T) {
+	for _, codigo := range []string{"40001", "40P01"} {
+		if !errors.Is(errorConsultaIS16(&pgconn.PgError{Code: codigo, Message: "detalle sintético"}), api.ErrConflictoEstado) {
+			t.Fatalf("%s no se trata como conflicto reintentable", codigo)
+		}
+	}
+	for _, codigo := range []string{"42501", "57014", "XX000"} {
+		if !errors.Is(errorConsultaIS16(&pgconn.PgError{Code: codigo}), api.ErrConfiguracionIncompleta) {
+			t.Fatalf("%s no queda como configuración incompleta", codigo)
+		}
 	}
 }
 

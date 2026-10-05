@@ -397,7 +397,7 @@ BEGIN
    'registrar_contexto_admin',p_operacion,'permitido',j->>'persona_ref',p_perfil,j->>'fuente_ref',j->>'fuente_sha256');
   SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
   IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
-   OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+   OR a.secuencia IS NULL OR a.secuencia<1 OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
    OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
   THEN RAISE EXCEPTION 'CA36: acuse AD192 incompatible' USING ERRCODE='42501'; END IF;
   ahora:=clock_timestamp();
@@ -441,7 +441,7 @@ BEGIN
   CASE WHEN fuente_acreditada THEN j->>'fuente_sha256' ELSE NULL END);
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
  IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(evento_fallo,8,32)
-  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.secuencia IS NULL OR a.secuencia<1 OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
  THEN RAISE EXCEPTION 'CA36: acuse negativo incompatible' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('estado',clase,'motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),'contexto',NULL);
@@ -472,7 +472,7 @@ BEGIN
  -- original tampoco acredita una denegación histórica.
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.cotejar_contexto_admin_pre_v2_ca_v1(p_evento_material);
  IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
-  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.secuencia IS NULL OR a.secuencia<1 OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
  THEN RAISE EXCEPTION 'CA36: acuse histórico incompatible' USING ERRCODE='42501'; END IF;
  SELECT * INTO l FROM vec_contexto_actor_v1.enlace_contexto_admin_v1
@@ -572,7 +572,7 @@ BEGIN
    'reconciliar_contexto_admin',p_operacion,'permitido',l.actor_ref,l.perfil_ref,l.fuente_ref,l.fuente_sha256);
   SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
   IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(p_evento,8,32)
-   OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+   OR a.secuencia IS NULL OR a.secuencia<1 OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
    OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
   THEN RAISE EXCEPTION 'CA36: acuse de consulta incompatible' USING ERRCODE='42501'; END IF;
   j_final:=vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(
@@ -604,7 +604,7 @@ BEGIN
   CASE WHEN fuente_acreditada THEN j->>'fuente_sha256' ELSE NULL END);
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_contexto_admin_pre_v2_ca_v1(e);
  IF a.auditoria_ref IS DISTINCT FROM 'aud_v3_ap2_'||substr(evento_fallo,8,32)
-  OR a.secuencia<1 OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR a.secuencia IS NULL OR a.secuencia<1 OR a.huella_sha256 IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
   OR a.correlacion_ref IS DISTINCT FROM p_correlacion OR a.registrada_en IS NULL
  THEN RAISE EXCEPTION 'CA36: acuse negativo de consulta incompatible' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('estado',clase,'motivo_ref',e->>'motivo_ref','evento',e,'acuse',to_jsonb(a),'contexto',NULL);

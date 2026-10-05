@@ -36,7 +36,9 @@ CREATE TABLE vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1(
  identidad_login text PRIMARY KEY,
  proceso text NOT NULL CHECK(proceso ~ '^[a-z][a-z0-9._-]{1,79}$'),
  entorno text NOT NULL CHECK(entorno IN('desarrollo','cidonia')),
- host_admin text NOT NULL,
+ -- Mismo formato de nombre de host que la política de certificado de IS15.
+ host_admin text NOT NULL CHECK(octet_length(host_admin) BETWEEN 4 AND 253
+  AND host_admin ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'),
  audiencia text NOT NULL CHECK(audiencia ~ '^[a-z0-9][a-z0-9._:-]{3,255}$'),
  -- PostgreSQL no admite repeticiones {m,n} mayores que 255: la longitud se
  -- limita aparte (8 de https:// más 500 como máximo).
@@ -88,7 +90,7 @@ BEGIN
  THEN RAISE EXCEPTION 'IS16: requiere SERIALIZABLE READ WRITE UTC' USING ERRCODE='25000'; END IF;
  SELECT * INTO l FROM pg_roles WHERE rolname=session_user;
  SELECT * INTO g FROM pg_roles WHERE rolname='vec_identidad_sesiones_v1_admin_perfiles_runtime';
- fs:=ARRAY[to_regprocedure('vec_identidad_sesiones_v1.acreditar_runtime_admin_perfiles_v1()'),to_regprocedure('vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text)'),
+ fs:=ARRAY[to_regprocedure('vec_identidad_sesiones_v1.acreditar_runtime_admin_perfiles_v1()'),to_regprocedure('vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text,text)'),
   to_regprocedure('vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text)'),
   to_regprocedure('vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text,jsonb,text,text,text)')];
  ns:=to_regnamespace('vec_identidad_sesiones_v1');
@@ -183,17 +185,20 @@ DECLARE e jsonb;a record; BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.auditar_contexto_admin_is16_v1(text,text,text,text,text,jsonb,text,text) FROM PUBLIC;
 
--- Go revierte el SAVEPOINT de la lectura si falla el cotejo privado de los
--- identificadores originales, y registra aquí el error fuera de ese SAVEPOINT.
-CREATE FUNCTION vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(p_evento text,p_correlacion text)
+-- Go revierte el SAVEPOINT de la resolución o del vínculo si falla su cotejo
+-- (identificadores originales o vínculo devuelto) y registra aquí el error,
+-- fuera de ese SAVEPOINT, con la acción que se estaba cotejando.
+CREATE FUNCTION vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(p_evento text,p_correlacion text,p_accion text)
 RETURNS TABLE(resultado jsonb,acuse jsonb)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE cfg vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1;a jsonb; BEGIN
  cfg:=vec_identidad_sesiones_v1.exigir_runtime_admin_perfiles_v1();
- a:=vec_identidad_sesiones_v1.auditar_contexto_admin_is16_v1(p_evento,p_correlacion,cfg.proceso,'resolver_cuenta_admin','error',NULL,NULL,NULL);
+ IF p_accion IS NULL OR p_accion NOT IN('resolver_cuenta_admin','vincular_sesion_admin')
+ THEN RAISE EXCEPTION 'IS16: acción de rechazo inválida' USING ERRCODE='22023'; END IF;
+ a:=vec_identidad_sesiones_v1.auditar_contexto_admin_is16_v1(p_evento,p_correlacion,cfg.proceso,p_accion,'error',NULL,NULL,NULL);
  RETURN QUERY SELECT jsonb_build_object('estado','error','datos',NULL),a->'acuse';
 END $f$;
-REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(
  p_entorno text,p_host text,p_audiencia text,p_certificado text,p_ca text,p_autenticada timestamptz,p_revocada timestamptz,
@@ -316,7 +321,7 @@ REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1
 GRANT EXECUTE ON FUNCTION vec_identidad_sesiones_v1.cotejar_vinculo_sesion_admin_v1(text,numeric,text,text,text,text,text,timestamptz,text) TO vec_contexto_actor_v1_propietario;
 GRANT USAGE ON SCHEMA vec_identidad_sesiones_v1 TO vec_identidad_sesiones_v1_admin_perfiles_runtime;
 GRANT EXECUTE ON FUNCTION vec_identidad_sesiones_v1.acreditar_runtime_admin_perfiles_v1(),
- vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text),
+ vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1(text,text,text),
  vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text),
  vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text,jsonb,text,text,text)
  TO vec_identidad_sesiones_v1_admin_perfiles_runtime;

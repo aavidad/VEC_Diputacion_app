@@ -272,8 +272,13 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 	var v VinculoSesionADMIN
 	var decision error
 	err = p.transaccion(ctx, func(tx pgx.Tx) error {
+		sub, err := tx.Begin(ctx)
+		if err != nil {
+			return api.ErrConfiguracionIncompleta
+		}
+		defer sub.Rollback(ctx)
 		var bruto, acuse []byte
-		if err := tx.QueryRow(ctx, vincularSesion, args...).Scan(&bruto, &acuse); err != nil {
+		if err := sub.QueryRow(ctx, vincularSesion, args...).Scan(&bruto, &acuse); err != nil {
 			return errorConsultaIS16(err)
 		}
 		datos, denegada, err := leerResultadoIS16(bruto, acuse, evento.(string), correlacion.(string), p.reloj.Ahora())
@@ -282,20 +287,21 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 		}
 		decision = denegada
 		// La decisión funcional se devuelve después de confirmar su auditoría.
-		if decision == nil {
-			v, err = decodificarVinculoIS16(datos)
-			if err != nil {
-				return err
-			}
-			if v.Referencia != vis || v.AutenticacionRef != refs.AutenticacionRef || v.SesionRef != refs.SesionRef ||
-				v.PersonaRef != c.PersonaRef || v.CuentaRef != c.CuentaRef || v.CuentaOrdinariaRef != c.CuentaOrdinariaRef || v.PerfilActivoRef != c.PerfilActivoRef ||
-				v.SeleccionRevision != c.SeleccionRevision || v.CertificadoSHA256 != o.CertificadoSHA256 || v.CASHA256 != o.CASHA256 ||
-				v.VinculoCertificadoRef != c.VinculoRef || v.VinculoCertificadoVersion != c.VinculoVersion || v.PoliticaRef != c.PoliticaGarantiaRef || v.PoliticaSHA256 != c.PoliticaGarantiaHuellaSHA256 ||
-				!p.reloj.Ahora().Before(v.VigenteHasta) {
-				return api.ErrConfiguracionIncompleta
-			}
+		if decision != nil {
+			return confirmarSubtransaccionIS16(ctx, sub)
 		}
-		return nil
+		v, err = p.cotejarVinculoIS16(datos, vis, o, c, refs)
+		if err == nil {
+			return confirmarSubtransaccionIS16(ctx, sub)
+		}
+		// SQL dio el vínculo por bueno pero Go no lo reconoce: se deshace el
+		// vínculo y su acuse favorable y queda auditado un error en su lugar.
+		v = VinculoSesionADMIN{}
+		if err = sub.Rollback(ctx); err != nil {
+			return api.ErrConfiguracionIncompleta
+		}
+		decision, err = p.rechazarCotejoIS16(ctx, tx, evento.(string), correlacion.(string), "vincular_sesion_admin")
+		return err
 	})
 	if err != nil {
 		return VinculoSesionADMIN{}, errorAutoridad(err)
@@ -304,6 +310,40 @@ func (p *PostgreSQL) VincularSesionADMINConAcuse(ctx context.Context, o Observac
 		return VinculoSesionADMIN{}, decision
 	}
 	return v, nil
+}
+
+// cotejarVinculoIS16 comprueba que el vínculo devuelto por SQL es exactamente
+// el pedido para esta cuenta, observación y sesión, y que sigue vigente.
+func (p *PostgreSQL) cotejarVinculoIS16(datos []byte, vis string, o ObservacionADMIN, c CuentaADMIN, refs ReferenciasSesionADMIN) (VinculoSesionADMIN, error) {
+	v, err := decodificarVinculoIS16(datos)
+	if err != nil {
+		return VinculoSesionADMIN{}, err
+	}
+	if v.Referencia != vis || v.AutenticacionRef != refs.AutenticacionRef || v.SesionRef != refs.SesionRef ||
+		v.PersonaRef != c.PersonaRef || v.CuentaRef != c.CuentaRef || v.CuentaOrdinariaRef != c.CuentaOrdinariaRef || v.PerfilActivoRef != c.PerfilActivoRef ||
+		v.SeleccionRevision != c.SeleccionRevision || v.CertificadoSHA256 != o.CertificadoSHA256 || v.CASHA256 != o.CASHA256 ||
+		v.VinculoCertificadoRef != c.VinculoRef || v.VinculoCertificadoVersion != c.VinculoVersion || v.PoliticaRef != c.PoliticaGarantiaRef || v.PoliticaSHA256 != c.PoliticaGarantiaHuellaSHA256 ||
+		!p.reloj.Ahora().Before(v.VigenteHasta) {
+		return VinculoSesionADMIN{}, api.ErrConfiguracionIncompleta
+	}
+	return v, nil
+}
+
+const rechazarCotejo = `SELECT resultado,acuse FROM vec_identidad_sesiones_v1.rechazar_fuente_cuenta_admin_v1($1,$2,$3)`
+
+// rechazarCotejoIS16 audita como error un resultado favorable de SQL que Go no
+// ha podido cotejar. Se ejecuta fuera del SAVEPOINT ya revertido; sólo un
+// envelope «error» con acuse válido cuenta como auditoría confirmada.
+func (p *PostgreSQL) rechazarCotejoIS16(ctx context.Context, tx pgx.Tx, evento, correlacion, accion string) (error, error) {
+	var bruto, acuse []byte
+	if err := tx.QueryRow(ctx, rechazarCotejo, evento, correlacion, accion).Scan(&bruto, &acuse); err != nil {
+		return nil, errorConsultaIS16(err)
+	}
+	_, decision, err := leerResultadoIS16(bruto, acuse, evento, correlacion, p.reloj.Ahora())
+	if err != nil || decision == nil {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	return decision, nil
 }
 
 type vinculoSQLIS16 struct {
@@ -353,7 +393,9 @@ var _ FuenteCuentasADMINConAcuse = (*PostgreSQL)(nil)
 // Un 42501 técnico no tiene ese acuse; no se presenta como decisión funcional.
 func errorConsultaIS16(err error) error {
 	var pg *pgconn.PgError
-	if errors.As(err, &pg) && pg.Code == "40001" {
+	// Serialización e interbloqueo son conflictos reintentables, no fallos de
+	// configuración.
+	if errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01") {
 		return api.ErrConflictoEstado
 	}
 	return api.ErrConfiguracionIncompleta
