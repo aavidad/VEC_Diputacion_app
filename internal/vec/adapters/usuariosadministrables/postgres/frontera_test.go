@@ -160,6 +160,24 @@ func TestAcreditacionSoloInspeccionaFronteraNominalYNoLeeDatos(t *testing.T) {
 	}
 }
 
+// El lector carece de USAGE sobre el esquema atestado: to_regprocedure sobre
+// ese esquema aborta la acreditación con 42501 en PostgreSQL 18.
+func TestAcreditacionNoResuelveFuncionesDeEsquemaSinUsage(t *testing.T) {
+	if strings.Contains(acreditarSQL, "to_regprocedure('vec_autorizacion_atestada_v3.") {
+		t.Fatal("la acreditación resuelve una función de un esquema sin USAGE del lector")
+	}
+	for _, fragmento := range []string{
+		"n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_usuarios_admin_v3_atestada'",
+		"pg_catalog.oidvectortypes(p.proargtypes)='text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea'",
+		"AND atestada.oid IS NOT NULL",
+		"NOT pg_catalog.has_function_privilege(current_user,atestada.oid,'EXECUTE')",
+	} {
+		if !strings.Contains(acreditarSQL, fragmento) {
+			t.Fatalf("falta guardia de la función atestada: %s", fragmento)
+		}
+	}
+}
+
 func TestDependenciasSoloExponenDenegacionTipada(t *testing.T) {
 	if !errors.Is(clasificarDependencia(domain.ErrAutorizacionDenegada), domain.ErrAutorizacionDenegada) {
 		t.Fatal("denegación tipada perdida")

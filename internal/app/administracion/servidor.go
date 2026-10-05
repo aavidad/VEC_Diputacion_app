@@ -85,7 +85,7 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		EmisorIdentidad:                     cfg.EmisorIdentidad,
 		RedesPermitidas:                     cfg.RedesPermitidas,
 		DuracionMaximaAsercion:              time.Minute,
-		EdadMaximaAutenticacion:             5 * time.Minute,
+		EdadMaximaAutenticacion:             vidaAutenticacionConexionPerfiles,
 		MetodosAdmitidos:                    []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		FactoresRequeridos:                  []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		MinimoFactoresVerificados:           1,
@@ -143,6 +143,12 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
+		if perfiles != nil && perfiles.reloj != nil &&
+			conexionPerfilesPorRenovar(r.Context(), perfiles.reloj.Ahora().UTC()) {
+			// En HTTP/1.1 net/http cierra la conexión tras esta respuesta; la
+			// siguiente petición llega por un handshake mTLS nuevo.
+			w.Header().Set("Connection", "close")
+		}
 		ctx, err := ports.ConCorrelacionIncidenciasPeticion(r.Context())
 		if err != nil {
 			http.Error(w, "", http.StatusServiceUnavailable)
@@ -190,11 +196,20 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		Addr:              cfg.Escucha,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       duracionMaximaPeticionADMIN,
+		WriteTimeout:      duracionMaximaPeticionADMIN,
+		// La renovación a los 3 minutos (Connection: close) más estos límites
+		// de petición e inactividad garantizan que ninguna petición llegue por
+		// una conexión cuya autenticación ya haya caducado.
+		IdleTimeout: inactividadMaximaConexionADMIN,
 		TLSConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS13,
-			Certificates: []tls.Certificate{cert},
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			ClientCAs:    raices,
+			MinVersion: tls.VersionTLS13,
+			// La frontera rechaza toda sesión reanudada (DidResume): emitir
+			// tickets solo provocaría denegaciones a navegadores legítimos.
+			SessionTicketsDisabled: true,
+			Certificates:           []tls.Certificate{cert},
+			ClientAuth:             tls.RequireAndVerifyClientCert,
+			ClientCAs:              raices,
 		},
 	}, nil
 }

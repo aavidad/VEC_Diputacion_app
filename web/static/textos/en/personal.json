@@ -563,6 +563,8 @@
     "pestana_puestos": "Posts",
     "buscar": "Search by name, code, centre, delegation or group",
     "accion_buscar": "Search",
+    "busqueda_aplicada": "Applied search: {busqueda}",
+    "quitar_busqueda": "Clear search",
     "cargando": "Loading published post structure…",
     "error": "The published post structure could not be checked. No previous data is shown.",
     "fuente": "Source: {documento}. {aviso}",

@@ -165,3 +165,7 @@ y catálogos ES/EN. Semgrep local sobre cuatro archivos de implementación:
 cuatro reglas, ningún hallazgo. No se ejecutaron Go, SQL ni servicios reales.
 La revisión sensible y de usabilidad del candidato final, la cadena de caché y
 los manifiestos corresponden a Dirección antes de integrar.
+
+El valor recibido aparece junto al valor propuesto, antes del motivo y la evidencia.
+La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
+La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.

@@ -76,3 +76,35 @@ límites están en `FECHAS_PROSPECTIVAS_MANTENIMIENTO_AUT46.md`.
 No se acredita todavía lectura nominal HTTP, V2, navegador ni efecto del lote
 AUT44/AD190. La espera temporal con varias sesiones no se ejecutó; no se
 presenta el vector puro como sustituto de ese ensayo.
+
+
+## Ejercicio H10 del 4 de octubre de 2026
+
+El nuevo arranque H10 creó dos APP y un perfil separado de Sistemas mediante
+fuentes, titularidad, unidad y bootstrap oficiales. Sobre una copia de su frío
+post-arranque se prepararon planes nuevos y se aplicó AUT42 antes de AUT45 por
+`vec-mantener-admin-fijo`. Las dos confirmaciones terminaron con salida 0.
+El estado resultante tiene dos administradores efectivos en Rol6, asignaciones
+v3, y una asignación separada de Sistemas. Titulares, cuentas, perfiles, vínculos
+y ámbitos se conservan. El vencimiento sigue siendo el 5 de octubre de 2026 a
+las 00:46:49 UTC; la representación con microsegundos expresa el mismo instante.
+
+AUT45 recuperó el mismo recibo con salida 0, también tras reiniciar PostgreSQL.
+La aprobación divergente fue rechazada por la CLI antes de conectar, con estado
+`sin_confirmar`. Una llamada al mismo puerto SQL desde su LOGIN técnico se
+confirmó como denegada con su auditoría común. Esas comprobaciones tienen
+alcances distintos: el rechazo local de archivos no acredita un evento SQL.
+
+Repetir AUT42 después de AUT45 se denegó y auditó: el puntero actual ya pasó
+de la asignación v2 a v3. La guarda de recuperación exige que el destino de
+AUT42 siga siendo actual; no devuelve un recibo favorable para ese estado
+superado. No se probó su replay durante el intervalo de Rol5, antes de AUT45.
+No se rebajó la guarda ni se modificó la historia para hacerlo pasar.
+
+Al terminar hay 6.261 auditorías. La cabeza previa del arranque, en la secuencia
+6.253, permanece conservada. Se guardó un frío adicional de Rol6, separado del
+frío de arranque y del H9 original, con SHA256
+`2afa4b4bf67440323544e5751724394e65fa13ad5fa3a0af20bdfe208e7b872a`.
+Las actas, planes, aprobaciones, originales nuevos y configuración se conservan
+fuera de Git. El ejercicio no añade SQL ni acredita V2, garantía alta, PDP,
+HTTP, aplicación del lote ordinario o despliegue.

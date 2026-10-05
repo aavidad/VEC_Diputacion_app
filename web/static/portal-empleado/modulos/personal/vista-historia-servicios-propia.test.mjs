@@ -108,6 +108,35 @@ test("fila real prepara y reconsulta con filtros propios antes de revisar, sin e
   assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
 });
 
+test("valor recibido acompaña la propuesta y permanece al cambiar fecha, días, estado o texto", async () => {
+  let llamadas = 0; const { raiz } = montar({ async consultar() { llamadas++; return datos(); } });
+  await enviar(raiz); abrirPreparacion(raiz);
+  const selector = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "campo");
+  const actual = nodos(raiz).find((n) => n.textContent.startsWith("Valor recibido: "));
+  const grupo = actual.parent;
+  assert.equal(grupo.className, "personal-ficha-corte-campo");
+  assert.equal(grupo.children[2].dataset.personalRevisionCampo, "propuesta");
+  const formulario = grupo.parent;
+  const motivo = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "motivo");
+  assert.ok(formulario.children.indexOf(grupo) < formulario.children.indexOf(motivo.parent));
+  for (const [campo, recibido, tipo] of [
+    ["periodo_desde", "1 ene 2019", "date"], ["periodo_hasta", "31 dic 2019", "date"],
+    ["dias_reconocidos", "365", "number"], ["estado", "Reconocido", "select"], ["clase", "<dato fuente>", "text"],
+  ]) {
+    selector.value = campo; selector.listeners.get("change")();
+    const propuesta = nodos(raiz).find((n) => n.dataset.personalRevisionCampo === "propuesta");
+    assert.equal(propuesta.parent, grupo);
+    assert.equal(grupo.children[1], actual);
+    assert.equal(grupo.children[2], propuesta);
+    assert.equal(tipo === "select" ? propuesta.tagName : propuesta.type, tipo);
+    assert.equal(actual.textContent, `Valor recibido: ${recibido}`);
+    assert.equal(nodos(raiz).filter((n) => n.textContent.startsWith("Valor recibido: ")).length, 1);
+  }
+  assert.equal(llamadas, 1);
+  buscar(raiz, "personalRevisionCancelar").listeners.get("click")();
+  assert.equal(nodos(raiz).includes(actual), false);
+});
+
 test("propuesta guiada por dato, errores por campo y foco conservan lo escrito sin consultar", async () => {
   let llamadas = 0; const { raiz } = montar({ async consultar() { llamadas++; return datos(); } });
   await enviar(raiz); abrirPreparacion(raiz);
