@@ -92,6 +92,17 @@ el borrador de Codex-E: el validador de selectores usaba la expresión regular
 validación de un plan; ahora la longitud se comprueba aparte. Y los manejadores
 del parseo capturan sólo `data_exception`.
 
+Sólo vale el plan vigente: `leer_plan_nominal_firma_v1` rechaza una versión si
+hay otra posterior del mismo catálogo publicada, o cualquier otro catálogo de
+plan publicado en el módulo; y publicar se rechaza mientras haya otro catálogo
+de plan publicado. Así, al publicar la versión N+1, las firmas dejan de poder
+fijarse a la N aunque todavía no se haya retirado. Para publicar no basta con
+ser distinto del creador y del último editor: nadie que haya creado o editado
+esa versión puede publicarla. Una actualización no puede cambiar `creado_en`.
+Las fechas `publicado_en`, `retirado_en` y `creado_en` del canon las aporta el
+material (sólo se valida su orden); la hora real de cada operación queda en
+`plan_firma_historia.registrada_en`.
+
 `leer_plan_nominal_firma_v1` acredita que hay un consumo de firma de esta
 transacción, pero no lo liga por sí misma al plan: esa liga la hacen CT176 y
 AD177 con el contexto `plan_firma_sha256`. Sólo el propietario CT puede llamarla.

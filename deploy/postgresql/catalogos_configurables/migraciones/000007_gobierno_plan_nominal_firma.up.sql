@@ -346,6 +346,13 @@ BEGIN
     OR control.publicacion_sha256 IS DISTINCT FROM p_publicacion_sha256
     OR control.modulo_id IS DISTINCT FROM 'contratacion_temporal' THEN
   RAISE EXCEPTION 'CC7: plan retirado o no publicado' USING ERRCODE='42501'; END IF;
+ -- Sólo vale la publicación vigente: ni una versión anterior aún no retirada
+ -- ni otro catálogo de plan del módulo. SERIALIZABLE detecta una publicación
+ -- concurrente que cambie esta lectura.
+ IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control x
+    WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado'
+      AND (x.catalogo_id<>p_catalogo_id OR x.version>p_version)) THEN
+  RAISE EXCEPTION 'CC7: plan sustituido por otra publicación' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT publicacion FROM vec_catalogos_configurables.plan_firma_publicacion p
   WHERE p.catalogo_id=p_catalogo_id AND p.version=p_version;
  IF publicacion.publicacion_sha256 IS DISTINCT FROM control.publicacion_sha256
@@ -539,10 +546,19 @@ BEGIN
    RAISE EXCEPTION 'CC7: CAS de plan fallido' USING ERRCODE='40001'; END IF;
   origen:=pg_catalog.convert_from(actual.canonico_actual,'UTF8')::jsonb;
   IF op='actualizar' THEN
-   IF c->>'publicado_por' IS NOT NULL OR c->>'retirado_por' IS NOT NULL THEN
+   IF c->>'publicado_por' IS NOT NULL OR c->>'retirado_por' IS NOT NULL
+      OR c->>'creado_en' IS DISTINCT FROM origen->>'creado_en' THEN
     RAISE EXCEPTION 'CC7: edición fuera de borrador' USING ERRCODE='42501'; END IF;
   ELSIF op='publicar' THEN
+   -- Un único plan publicado por módulo: no se publica junto a otro catálogo.
+   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:plan_firma:modulo:contratacion_temporal',0));
+   IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control x
+      WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado' AND x.catalogo_id<>cat) THEN
+    RAISE EXCEPTION 'CC7: ya hay otro plan publicado en el módulo' USING ERRCODE='42501'; END IF;
+   -- Separación de funciones: nadie que haya creado o editado esta versión publica.
    IF actor IN (actual.creado_por,actual.ultimo_editor)
+      OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_historia x
+        WHERE x.catalogo_id=cat AND x.version=ver AND x.operacion IN ('crear','actualizar') AND x.actor_ref=actor)
       OR c->>'aprobacion_ref' IS NULL
       OR c - 'estado' - 'publicado_por' - 'publicado_en' - 'aprobacion_ref' - 'motivo_publicacion'
          IS DISTINCT FROM origen - 'estado' - 'publicado_en' THEN
