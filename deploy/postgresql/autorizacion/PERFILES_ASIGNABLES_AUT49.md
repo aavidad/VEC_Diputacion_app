@@ -29,7 +29,9 @@ Por cada perfil del plan:
 Estas exclusiones son una defensa técnica por nombres. La clasificación
 positiva es la aprobación: Alberto revisa la lista exacta del plan antes de
 firmar su huella. Conviene que decida expresamente sobre los roles de gobierno
-de datos, como `organizacion_preparacion` (`personal.organizacion.actualizar`).
+de datos, como `organizacion_preparacion` (`personal.organizacion.actualizar`),
+y confirmar que `entrega-peticion-rrhh-fijo` es un rol ordinario de
+Contratación y no un perfil fijo.
 
 El plan es el texto canónico de `jsonb` (sin claves repetidas), tiene de 1 a 32 perfiles sin repetir, caduca como mucho un día después
 de prepararse y su huella debe coincidir con la que aprobó Alberto. Cualquier
@@ -56,13 +58,16 @@ fallo deja la operación sin efecto.
    \set plan `cat plan.json`
    BEGIN ISOLATION LEVEL SERIALIZABLE;
    SET LOCAL timezone='UTC';
+   SET LOCAL statement_timeout='30s';
    SELECT vec_autorizacion.registrar_perfiles_asignables_admin_v1(:'plan','<huella del plan>');
    COMMIT;
    ```
 
    La respuesta trae `estado` (`permitido`, `denegado` o `error`), el recibo y la
    referencia del intento auditado. No se muestran causas detalladas. La
-   fachada espera como mucho 5 s por un bloqueo y 30 s en total. Si dos
+   fachada espera como mucho 5 s por un bloqueo; el tope total de 30 s lo pone
+   el `SET LOCAL statement_timeout` de la sesión (el de la función no actúa en
+   una llamada anidada). Si dos
    operadores coinciden, PostgreSQL puede abortar con 40001 sin respuesta: se
    repite el mismo paso, que es idempotente.
 5. **Replay.** Repetir el mismo paso devuelve el mismo recibo con

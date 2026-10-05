@@ -38,7 +38,7 @@ Cada minitarea es una PR propia, en este orden salvo donde se indica.
 | Id | Minitarea | Depende de | Estado |
 | --- | --- | --- | --- |
 | A1a | **Perfiles asignables (SQL).** AUT49 + AD196: un operador técnico, con LOGIN propio y una aprobación ligada a la huella del plan, registra versiones de rol ordinarias ya publicadas como asignables. Auditoría común en la misma transacción; replay con el mismo recibo; intentos denegados auditados. Excluye administración, Sistemas, Intervención, roles sensibles y fijos. | — | #699; ensayada en clon, dos revisiones. |
-| A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#700). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #700. Debe entrar antes de registrar planes en la principal. |
+| A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#704). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #704. Debe entrar antes de registrar planes en la principal. |
 | A2 | **Consumidor de autorización del lote (AD190).** Fachada que consume la decisión del administrador para `administracion.perfiles.aplicar_lote_ordinario`, con la puerta de AUT45 (`acreditar_perfil_aplicacion_lote_ordinario_v1`) antes y después del consumo y la persona destinataria ligada al canon. Reconstruye el núcleo sobre la postimagen medida después de AD195 (Personal). | AUT45, AD195 instalada | Pendiente. |
 | A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: consume la decisión (A2), compara por CAS todas las preimágenes, crea o revoca vínculos (CA35) y asignaciones, escribe sellos, historia, auditoría común, outbox y recibo. Replay con la misma referencia devuelve el recibo original; otra huella falla sin efecto. Nadie se asigna a sí mismo; un rol no ordinario anula el lote entero. | A1a, A2 | Pendiente. CA35 tiene borrador. |
 | A4 | **Rol de Aplicación v6 en el entorno.** Aplicar el mantenimiento AUT45 v5→v6 con la CLI existente, después de AUT48. Paso operativo del runbook, sin código nuevo. | AUT48 | Pendiente (operación). |
@@ -87,7 +87,7 @@ AD193 y AUT47, equivalente a la principal H12:
   de un día como máximo, aprobación dentro de la cadena, límites de espera y
   código propio para la comparación de versiones.
 
-Límites: el verificador Go para los tipos nuevos va en A1b (#700) y debe
+Límites: el verificador Go para los tipos nuevos va en A1b (#704) y debe
 integrarse antes de registrar ningún plan en la principal. Las exclusiones son
 una lista de nombres; la clasificación positiva es la aprobación del plan. El
 registro no da permisos a nadie: sólo hace que esos roles puedan asignarse

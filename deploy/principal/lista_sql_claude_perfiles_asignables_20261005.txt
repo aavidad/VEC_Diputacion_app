@@ -3,6 +3,6 @@
 # migración cambia antes ese CHECK, AD196 se detiene con CHECK_sha y hay que medirla de nuevo.
 # Una sola vez cada una; sin DOWN. Instalarlas no registra perfiles ni concede permisos.
 # No registrar ningún plan en la principal hasta que esté integrado el verificador de la cadena
-# para los tipos de AD196 (PR #700); si no, la exportación de auditoría no se podría verificar.
+# para los tipos de AD196 (PR #704); si no, la exportación de auditoría no se podría verificar.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000196_registro_perfiles_asignables_admin.up.sql
 deploy/postgresql/autorizacion/migraciones/000049_perfiles_asignables_admin.up.sql
