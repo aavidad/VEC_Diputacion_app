@@ -39,7 +39,7 @@ const comunes = {
   bases: x => forma(x, { referencia: id, version: id, huella_sha256: validarHuella }),
   catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref'])
     && (Object.hasOwn(x, 'duda_ref') ? id(x.duda_ref) : !x.paquete_ejemplo),
-  pendientes: lista(9, x => typeof x === 'string'),
+  pendientes: lista(8, x => typeof x === 'string'),
   aprobada: x => x === false, publicada: x => x === false, persistida: x => x === false,
 };
 const PROVISIONAL = {
