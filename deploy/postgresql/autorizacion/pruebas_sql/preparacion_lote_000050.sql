@@ -168,7 +168,8 @@ SELECT pg_temp.material_prep('prep_admin:'||repeat('2',32)) AS p4 \gset
 SET SESSION AUTHORIZATION prueba_aut44_lote;
 SELECT pg_temp.preparar(:'p4',pg_temp.decision_prep(:'p4',:'actor'),pg_temp.capacidad_prep(:'p4')) AS r4 \gset
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.comprobar('preparacion_actualizada',:'r4' NOT LIKE 'ERROR%' AND jsonb_array_length((:'r4'::jsonb)->'altas')=1 AND jsonb_array_length((:'r4'::jsonb)->'bajas')=2);
+SELECT pg_temp.comprobar('preparacion_actualizada',:'r4' NOT LIKE 'ERROR%' AND jsonb_array_length((:'r4'::jsonb)->'altas')=1 AND jsonb_array_length((:'r4'::jsonb)->'bajas')=2
+ AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements((:'r4'::jsonb)->'bajas') b WHERE jsonb_typeof(b->'nombre') IS DISTINCT FROM 'string' OR b->>'nombre'=''));
 
 -- 5. Alta del que falta y baja de uno en el mismo lote.
 SELECT pg_temp.orden_desde(:'r4'::jsonb,'acto_admin:'||repeat('e',32),ARRAY['rol:consulta_cuadro_rrhh_desarrollo:v1'],ARRAY['rol:llamamiento_desarrollo:v1']) AS o5 \gset
