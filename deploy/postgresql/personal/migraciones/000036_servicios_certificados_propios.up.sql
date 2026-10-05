@@ -9,6 +9,10 @@
 -- auditoría común en la misma transacción SERIALIZABLE. El recibo es la PK de
 -- esa auditoría común: no hay tabla nueva de recibos ni de auditoría.
 -- Dependencias: Personal16/17/20 y AD195 instaladas. Una sola vez; sin DOWN.
+-- El plazo de la sentencia lo fija la transacción del adaptador (SET LOCAL
+-- statement_timeout); dentro de la función no limitaría a quien la llama.
+-- Una capacidad se consume una vez: si se pierde la respuesta de un COMMIT,
+-- el reintento con la misma capacidad se deniega y hay que pedir otra decisión.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -31,6 +35,9 @@ BEGIN
        'empleado_ref','organismo_ref','clase_ref','dias_reconocidos','periodo_desde','periodo_hasta','estado',
        'vigente_desde','vigente_hasta','conocido_desde','acto_ref','fuente_ref','fuente_version',
        'firma_oficial','eficacia_administrativa','catalogo_snapshot'))<>20
+ OR (SELECT count(*) FROM pg_policy p WHERE p.polrelid IN (to_regclass('vec_personal.servicio_reconocido_historia'),
+       to_regclass('vec_personal.relacion_servicio_historia')) AND p.polname='propietario_interno' AND p.polpermissive AND p.polcmd='*'
+       AND p.polroles=ARRAY['vec_personal_propietario'::regrole::oid] AND pg_get_expr(p.polqual,p.polrelid)='true')<>2
  OR NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=to_regclass('vec_personal.servicio_reconocido_historia')
      AND a.attname='catalogo_snapshot' AND NOT a.attisdropped AND a.attnotnull AND a.atttypid='jsonb'::regtype)
  OR NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='vec_personal_ejecutor' AND NOT r.rolcanlogin
@@ -54,12 +61,12 @@ CREATE FUNCTION vec_personal.consultar_servicios_certificados_propios_v1(
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog, pg_temp SET row_security=on SET timezone='UTC'
- SET datestyle='ISO, YMD' SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+ SET datestyle='ISO, YMD' SET lock_timeout='2s' AS $f$
 DECLARE
  m jsonb; d jsonb; c jsonb; x jsonb; vinculo jsonb; proyeccion record; consumo record;
  fecha date; conocido timestamptz(6); ahora timestamptz(6);
  cap_desde timestamptz; cap_hasta timestamptz; dec_hasta timestamptz;
- actor_desde timestamptz; actor_hasta timestamptz; actor_resuelto timestamptz;
+ actor_desde timestamptz; actor_hasta timestamptz; actor_resuelto timestamptz; v_desde timestamptz; v_hasta timestamptz;
  empleado text; organismo text; persona text;
  material_canon text; material_sha text; contexto_canon text; contexto_sha text;
  servicios jsonb; cardinalidad integer; version_fuente bigint;
@@ -257,11 +264,11 @@ BEGIN
  OR ahora<proyeccion.vigente_desde OR (proyeccion.vigente_hasta IS NOT NULL AND ahora>=proyeccion.vigente_hasta) THEN
   RAISE EXCEPTION 'Personal36: autorización caducada' USING ERRCODE='42501'; END IF;
  FOR vinculo IN SELECT value FROM jsonb_array_elements(x->'vinculos') LOOP
-  IF vinculo->>'estado' IS DISTINCT FROM 'activo'
-  OR vinculo->>'vigente_desde' IS NULL OR vinculo->>'vigente_hasta' IS NULL
-  OR NOT isfinite((vinculo->>'vigente_desde')::timestamptz)
-  OR NOT isfinite((vinculo->>'vigente_hasta')::timestamptz)
-  OR ahora<(vinculo->>'vigente_desde')::timestamptz OR ahora>=(vinculo->>'vigente_hasta')::timestamptz THEN
+  BEGIN
+   v_desde:=(vinculo->>'vigente_desde')::timestamptz; v_hasta:=(vinculo->>'vigente_hasta')::timestamptz;
+  EXCEPTION WHEN others THEN RAISE EXCEPTION 'Personal36: vínculo inválido' USING ERRCODE='42501'; END;
+  IF vinculo->>'estado' IS DISTINCT FROM 'activo' OR v_desde IS NULL OR v_hasta IS NULL
+  OR NOT isfinite(v_desde) OR NOT isfinite(v_hasta) OR ahora<v_desde OR ahora>=v_hasta THEN
    RAISE EXCEPTION 'Personal36: vínculo caducado' USING ERRCODE='42501'; END IF;
  END LOOP;
  -- La cobertura de este registro no está acreditada y sus hechos carecen de

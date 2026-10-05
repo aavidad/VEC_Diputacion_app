@@ -201,8 +201,11 @@ func (p *ProveedorAutorizacionLectorServiciosCertificados) AutorizarServiciosPar
 	}
 	// El actor de la consulta es el de esta petición: otro actor no se presta.
 	canonActor, err := material.Actor().RepresentacionCanonicaVinculadaV2()
-	if err != nil || !bytes.Equal(canonActor, resultado.RepresentacionCanonica) {
+	if err != nil {
 		return vacio, personaldomain.ErrLectorServiciosCertificadosNoDisponible
+	}
+	if !bytes.Equal(canonActor, resultado.RepresentacionCanonica) {
+		return vacio, personaldomain.ErrLectorServiciosCertificadosDenegado
 	}
 	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {

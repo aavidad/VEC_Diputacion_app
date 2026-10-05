@@ -85,7 +85,7 @@ func TestProveedorServiciosCertificadosPideAccionPropiaParaLaIdentidadCapturada(
 	// Un actor distinto del capturado no obtiene concesión prestada.
 	otro := identidadIntentoRPTVigenciaPrueba(t, time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC), "contexto")
 	emisor.llamadas = 0
-	if _, err := p.AutorizarServiciosParaCertificados(contextoIntentoServiciosCertificadosPrueba(t, IdentidadRegistradaLectorServiciosCertificados{Vinculo: otro.Vinculo, Resultado: otro.Resultado}), m); !errors.Is(err, domain.ErrLectorServiciosCertificadosNoDisponible) || emisor.llamadas != 0 {
+	if _, err := p.AutorizarServiciosParaCertificados(contextoIntentoServiciosCertificadosPrueba(t, IdentidadRegistradaLectorServiciosCertificados{Vinculo: otro.Vinculo, Resultado: otro.Resultado}), m); !errors.Is(err, domain.ErrLectorServiciosCertificadosDenegado) || emisor.llamadas != 0 {
 		t.Fatal("actor ajeno admitido", err)
 	}
 }
