@@ -105,7 +105,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     ]);
     // La vista importa el catálogo de fases y el de expedientes. Esperar a los
     // consumidores previos evita leer ese catálogo antes de inicializarlo.
-    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261003-ct-firma-v2-v1");
+    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261005-ct-asignacion-unidad-v1");
     // Auditoría comparte el cargador de textos con CT.
     const [auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
