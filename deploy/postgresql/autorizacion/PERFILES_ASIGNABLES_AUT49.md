@@ -28,14 +28,28 @@ Por cada perfil del plan:
 
 Estas exclusiones son una defensa técnica por nombres. La clasificación
 positiva es la aprobación: Alberto revisa la lista exacta del plan antes de
-firmar su huella. Conviene que decida expresamente sobre los roles de gobierno
-de datos, como `organizacion_preparacion` (`personal.organizacion.actualizar`),
-y confirmar que `entrega-peticion-rrhh-fijo` es un rol ordinario de
-Contratación y no un perfil fijo.
+firmar su huella.
+
+Hasta que se responda la pregunta 141 de `dudas.md`, ningún plan incluye
+`rol:organizacion_preparacion` (modifica la estructura organizativa de
+Personal) ni `rol:entrega-peticion-rrhh-fijo` (entrega peticiones de centro y
+crea solicitudes de Contratación). El operador los quita al preparar el plan y
+quien aprueba rechaza cualquier plan que los contenga. No se excluyen en SQL
+porque la decisión puede ser incluirlos; si la respuesta es que no, una
+migración posterior los añadirá a las exclusiones.
 
 El plan es el texto canónico de `jsonb` (sin claves repetidas), tiene de 1 a 32 perfiles sin repetir, caduca como mucho un día después
 de prepararse y su huella debe coincidir con la que aprobó Alberto. Cualquier
 fallo deja la operación sin efecto.
+
+## Perfiles que podrá dar el lote de la pantalla
+
+El efecto del lote (AUT44) sólo asigna un perfil registrado con la audiencia
+`vec_autorizacion.administracion_perfiles.lote_ordinario.v1` y con
+`ambitos_fijos` exactamente igual a
+`[{"clave":"organizacion_ref","valores":["<organización configurada en vec-admin>"]}]`.
+La unidad la añade cada asignación. Un perfil registrado con otros ámbitos fijos
+queda fuera del lote (42501); para usarlo hay que registrar otra versión del rol.
 
 ## Procedimiento
 

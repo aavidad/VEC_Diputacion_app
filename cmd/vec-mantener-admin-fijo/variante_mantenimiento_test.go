@@ -57,14 +57,63 @@ func TestMantenimientoRol6ConservaCadaEstadoYCommitIncierto(t *testing.T) {
 			}
 		})
 	}
-	for _, v := range []uint64{0, 3, 7, 999} {
+	for _, v := range []uint64{0, 4, 7, 999} {
 		if versionMantenimientoAdmitida(v) {
 			t.Fatal("version_abierta")
 		}
 	}
 	v1, _ := varianteMantenimiento(1)
 	v2, _ := varianteMantenimiento(2)
-	if v1.QuerySQL == v2.QuerySQL || !strings.Contains(v2.QuerySQL, "mantener_version_perfil_fijo_lote_admin_v1(") {
+	v3, _ := varianteMantenimiento(3)
+	if v1.QuerySQL == v2.QuerySQL || v2.QuerySQL == v3.QuerySQL || !strings.Contains(v2.QuerySQL, "mantener_version_perfil_fijo_lote_admin_v1(") ||
+		!strings.Contains(v3.QuerySQL, "mantener_version_perfil_fijo_plan_firma_admin_v1(") {
 		t.Fatal("fachada_no_separada")
+	}
+}
+
+// AUT51: el acuse de Rol7 sólo vale para un plan versión 3 y no se presta a Rol6.
+func TestMantenimientoRol7PlanFirmaConservaEstadosYNoPrestaAcuse(t *testing.T) {
+	for _, estado := range []string{"permitido", "denegado", "error"} {
+		t.Run(estado, func(t *testing.T) {
+			p := planPrueba()
+			p.Version = 3
+			p.RolDestino = json.RawMessage(`{"version":7}`)
+			for i := range p.Asignaciones {
+				p.Asignaciones[i].AsignacionRef = strings.TrimSuffix(p.Asignaciones[i].AsignacionRef, ":v1") + ":v3"
+			}
+			var e envoltura
+			if err := json.Unmarshal(envelopePrueba(estado), &e); err != nil {
+				t.Fatal(err)
+			}
+			if e.Recibo != nil {
+				e.Recibo.Esquema = "vec.admin.mantenimiento-fijo.v3"
+				e.Recibo.RolOrigenRef = "rol:administracion_perfiles:v6"
+				e.Recibo.RolDestinoRef = "rol:administracion_perfiles:v7"
+				for i := range e.Recibo.Asignaciones {
+					e.Recibo.Asignaciones[i].Ref = strings.TrimSuffix(e.Recibo.Asignaciones[i].Ref, ":v2") + ":v4"
+				}
+			}
+			b, err := json.Marshal(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sha := strings.Repeat("a", 64)
+			tx := &txPrueba{resultado: b}
+			abrir := func(context.Context, conexionPrivada, time.Duration) (transaccion, error) { return tx, nil }
+			_, got, err := ejecutarOperacion(context.Background(), conexionPrivada{}, time.Second, []byte("plan_aprobado"), sha, p, abrir)
+			if err != nil || got.Estado != estado || !tx.confirmada || !tx.cerrada {
+				t.Fatal("Rol7_no_confirmado")
+			}
+			if estado == "permitido" {
+				e.Recibo.RolDestinoRef = "rol:administracion_perfiles:v6"
+				b, err = json.Marshal(e)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = validarEnvoltura(b, p, sha); err == nil {
+					t.Fatal("acuse_Rol6_prestado_Rol7")
+				}
+			}
+		})
 	}
 }

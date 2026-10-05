@@ -85,6 +85,35 @@ La política documental existente usa [`conservacion/catalogo.go`](../../interna
 | Registros `slog` existentes | [`bootstrap/auditoria_consulta.go`](../../internal/app/bootstrap/auditoria_consulta.go), `ServeHTTP`: registra fallo de bitácora con correlación/ruta/causa fija. | Formato, nivel, componente y límites homogéneos para procesos. Un `slog.Error` no sustituye el registro nominal de la operación denegada. |
 | Vista y alertas | El catálogo ya contempla errores de arranque, dependencia V3, PostgreSQL y alertas no entregadas. Las rutas revisadas de auditoría son funcionales CT/Bolsa. | Vista técnica solo Sistemas, filtros propios y auditoría de sus consultas; umbrales configurados para arranque, denegaciones anómalas y validador caído. No inferir que exista una instalación central por la presencia del emisor. |
 
+## Lecturas y borradores revisados el 04/10
+
+Los seis PDF de desarrollo de CT comparten
+`POST /api/vec/contratacion-temporal/expedientes/consultas`. La lectura y su
+consumo V3 se confirman antes de renderizar. La acción auditada es
+`contratacion_temporal.expediente.consultar`: no distingue qué borrador se
+ha descargado. Permanecen pendientes el registro nominal de los fallos de
+renderizado y la auditoría positiva de la descarga concreta. El transporte
+tampoco registra actualmente el resultado de escritura de bytes. No se atribuye
+entrega completa por confirmar el permiso de lectura. Originales y firma
+pertenecen al circuito E/Documentos.
+
+En Bolsa, la lectura RRHH de solicitudes documentales pendientes consume
+Bolsa77/AD155 y confirma antes de devolver metadatos. El corte nuevo conecta
+el registrador común AD169 para denegaciones y errores posteriores al contexto
+acreditado, con recurso de participación, acción de consulta y finalidad ya
+existentes. Usa el archivo interno `auditoria-intentos.json`, su LOGIN dedicado
+y su preflight. El acuse se coteja antes de publicar las referencias; un fallo
+del registro o una proyección inválida cierra sin datos. Pruebas sintéticas
+focales; ensayo nominal, reinicio y provisión de K pendientes.
+
+La lista B5 de aspirantes combina lectores y staging, sin consumo nominal único
+acreditado en este inventario. No se la presenta como cubierta por un decorador
+de errores. El histórico B13 usa una acción de cambio preexistente y requiere
+su propio corte. Bolsa conserva referencias y huellas de documentos; no se ha
+localizado aquí una descarga privada de sus bytes fuera de los circuitos
+excluidos. Mi Bolsa e historial y la consulta de auditoría conservan sus cortes
+independientes, sin repetirlos en esta pieza.
+
 ## Cola de piezas sin solapamiento
 
 | Orden | Pieza útil de L | Dependencia y límite |

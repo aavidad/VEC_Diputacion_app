@@ -1,8 +1,10 @@
 # Mantener el perfil fijo de Administración de Aplicación
 
-La CLI invoca la operación técnica AUT42 con un plan y una aprobación externos.
-Actualiza los dos perfiles existentes de Aplicación de Rol4 a Rol5, con historia
-y auditoría común. No solicita perfiles nuevos ni actúa por HTTP.
+La CLI invoca la operación técnica de mantenimiento con un plan y una aprobación
+externos: AUT42 (plan versión 1, Rol4 a Rol5), AUT45 (versión 2, Rol5 a Rol6,
+lote ordinario) o AUT51 (versión 3, Rol6 a Rol7, gobierno del plan nominal de
+firma). Actualiza los dos perfiles existentes de Aplicación, con historia y
+auditoría común. No solicita perfiles nuevos ni actúa por HTTP.
 
 ```sh
 go run -p 8 ./cmd/vec-mantener-admin-fijo \

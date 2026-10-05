@@ -1,0 +1,6 @@
+# Firmas CT: perfiles técnicos y gobierno del plan nominal de firma.
+# Aplicar sólo tras AD193 (lista_sql_codexl_transaccion_origen_20261004.txt) sobre la postimagen medida.
+# AD178 amplía el núcleo y el CHECK de audiencias; AD177 coteja esa postimagen exacta.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN. Si sale 55P03 o 40P01, repetir más tarde.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000178_perfiles_tecnicos_plan_firma_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000177_gobierno_plan_nominal_firma.up.sql

@@ -2,10 +2,12 @@ package application
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // ListarSolicitudesDocumentalesRRHH lee únicamente las pendientes de la
@@ -41,6 +43,9 @@ func (s *ServicioSituacionParticipacion) ListarSolicitudesDocumentalesRRHH(ctx c
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return nil, dominiovec.ErrAutorizacionDenegada
+		}
 		return nil, errorDependenciaSituacion(err)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
