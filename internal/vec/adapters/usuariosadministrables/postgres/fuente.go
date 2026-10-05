@@ -115,10 +115,10 @@ const acreditarSQL = `SELECT COALESCE(
        AND a.grantee IN(l.oid,g.oid,0::oid))))
  AND pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND (SELECT p.oid FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_usuarios_admin_v3_atestada' AND pg_catalog.oidvectortypes(p.proargtypes)='text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea') IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
- AND NOT pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND NOT pg_catalog.has_function_privilege(current_user,(SELECT p.oid FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_usuarios_admin_v3_atestada' AND pg_catalog.oidvectortypes(p.proargtypes)='text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea'),'EXECUTE')
  AND (SELECT count(*)=2 FROM pg_catalog.pg_proc p WHERE p.oid IN (
   pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
   pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
@@ -127,7 +127,7 @@ const acreditarSQL = `SELECT COALESCE(
    WHERE a.grantee=g.oid AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE a.grantee NOT IN(p.proowner,g.oid) OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=(SELECT p.oid FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_usuarios_admin_v3_atestada' AND pg_catalog.oidvectortypes(p.proargtypes)='text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea')
   AND p.proowner=pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') AND p.prosecdef
   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE a.grantee NOT IN(p.proowner,pg_catalog.to_regrole('vec_autorizacion_propietario')) OR a.privilege_type<>'EXECUTE' OR a.is_grantable)),false)
