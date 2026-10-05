@@ -13,7 +13,7 @@ import (
 // elegir perfil. Servir HTML nunca concede una consulta de negocio.
 func (h *handlerPerfilesADMIN) estadoActivosSelector(ctx context.Context, r *http.Request) int {
 	o, err := h.observador.ObservarADMIN(ctx, r)
-	if err == nil && (o.Host != r.Host || "https://"+o.Host != h.origen || o.Audiencia != h.audienciaSelector || !o.Valida(h.reloj.Ahora().UTC())) {
+	if err == nil && (r.Host != h.host.autoridad || o.Host != h.host.nombre || o.Audiencia != h.audienciaSelector || !o.Valida(h.reloj.Ahora().UTC())) {
 		err = api.ErrAutenticacionRequerida
 	}
 	if err == nil {

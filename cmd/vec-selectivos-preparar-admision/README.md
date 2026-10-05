@@ -143,15 +143,54 @@ la huella no coincide. Cada excluida necesita una resolución, y solo una:
 Quien estaba admitido en la provisional sigue admitido. Excluirlo exigiría
 darle audiencia, y eso no forma parte de este borrador. Tampoco se pueden
 incorporar aquí las solicitudes omitidas en la provisional (ni admitidas ni
-excluidas): hoy hay que preparar otra revisión de la provisional que las
-incluya. La salida queda en
+excluidas): hay que preparar antes otra revisión de la provisional que las
+incluya (`--salida revision-provisional`). La salida queda en
 `borrador_pendiente_aprobacion`, sin datos personales, con `aprobada`,
-`publicada` y `persistida` en `false`. Queda pendiente comprobar en el
-registro que cada escrito llegó en plazo.
+`publicada` y `persistida` en `false`. Quedan pendientes comprobar en el
+registro que cada escrito llegó en plazo y que la provisional de la que parte
+es la última revisión publicada: sin un registro de revisiones, el CLI no
+puede saber si existe otra posterior.
 
 `testdata/lista-definitiva-resultado.json` conserva la salida de ese comando.
 Su SHA256 es
-`e5622b12f1901aaf0d81ce2b5e10db4710233fe388b8d04450e581742ae580c9`.
+`1ee46997480bd8e9a3e8bf97e4b32e84daf9dd01e88b4684e49e20c9b46613bb`.
+
+## Incorporar solicitudes omitidas a la provisional
+
+Si una solicitud no aparece en la provisional (ni admitida ni excluida), se
+prepara una nueva revisión de esa provisional con `--salida
+revision-provisional`. El material lleva tres partes:
+
+- `material`: el material completo de la nueva revisión, con la misma
+  `lista_ref`, la `revision` siguiente y todas las solicitudes, las de antes y
+  las nuevas;
+- `anterior`: la provisional anterior tal como la devolvió el CLI;
+- `antecedente_anterior`: la huella de esa anterior, la que da
+  `--salida antecedente-lista` o el campo `anterior` de la revisión previa.
+
+```sh
+go run ./cmd/vec-selectivos-preparar-admision --idioma es \
+  --salida revision-provisional \
+  < cmd/vec-selectivos-preparar-admision/testdata/revision-material.json
+```
+
+El CLI rechaza la anterior si su huella no es la declarada: un archivo
+recortado o con una decisión cambiada no pasa aunque sea coherente por dentro.
+Después prepara la nueva provisional y comprueba que conserva la anterior:
+mismas bases, catálogo y plazo, y cada solicitud anterior con la misma
+decisión y los mismos motivos (el orden de los motivos da igual). Debe añadir al menos una solicitud. Corregir una
+decisión ya tomada es otro acto y aquí se rechaza.
+
+La salida (`vec.seleccion.lista-admision-revision.v1`) contiene la nueva
+provisional completa (`lista`), la huella de la anterior (`anterior`, la misma
+que da `--salida antecedente-lista`) y las solicitudes incorporadas. La lista
+va sin el enlace dentro, de modo que su huella sigue saliendo de su propio
+material y la definitiva puede partir de ella como de cualquier provisional.
+Para las incorporadas, el plazo de subsanación empieza al día siguiente de
+publicar esta revisión.
+
+`testdata/revision-resultado.json` conserva la salida de ese comando. Su
+SHA256 es `c60769202d050c6389766dc08717624d86ac50ca114ebf46dbc412d28269d4bf`.
 
 ## Comprobación focal
 

@@ -2,15 +2,18 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"io"
 	"regexp"
+	"time"
 	"unicode/utf8"
 
-	csvinforme "vec-diputacion-granada/internal/modules/dietas/adapters/informeperiodo"
+	informedoc "vec-diputacion-granada/internal/modules/dietas/adapters/informeperiodo"
 	"vec-diputacion-granada/internal/modules/dietas/application/informeperiodo"
+	"vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 )
 
 var errArgumentosInformePeriodo = errors.New("argumentos_no_admitidos")
@@ -19,7 +22,31 @@ var errArgumentosInformePeriodo = errors.New("argumentos_no_admitidos")
 // escribe la selección en CSV. Catálogo y configuración son ficheros locales
 // elegidos por el operador; los filtros son los mismos que ofrece la vista.
 func ejecutarInformePeriodoCSV(args []string, in io.Reader, out io.Writer) int {
-	fs := flag.NewFlagSet("informe-periodo-csv", flag.ContinueOnError)
+	return ejecutarInformePeriodo(args, in, out, func(textos []byte, informe informeperiodo.Informe) ([]byte, error) {
+		catalogo, err := informedoc.CargarCatalogo(bytes.NewReader(textos))
+		if err != nil {
+			return nil, err
+		}
+		return informedoc.Escribir(catalogo, informe)
+	})
+}
+
+// ejecutarInformePeriodoPDF compone la misma selección con el renderer PDF común.
+func ejecutarInformePeriodoPDF(args []string, in io.Reader, out io.Writer) int {
+	return ejecutarInformePeriodo(args, in, out, func(textos []byte, informe informeperiodo.Informe) ([]byte, error) {
+		catalogo, err := informedoc.CargarCatalogoPDF(bytes.NewReader(textos))
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancelar()
+		return informedoc.PrepararPDF(ctx, pdf.Renderizador{Idioma: catalogo.Idioma}, catalogo, informe)
+	})
+}
+
+func ejecutarInformePeriodo(args []string, in io.Reader, out io.Writer,
+	componer func([]byte, informeperiodo.Informe) ([]byte, error)) int {
+	fs := flag.NewFlagSet("informe-periodo", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	textos := fs.String("textos", "", "")
 	configuracion := fs.String("configuracion", "", "")
@@ -33,10 +60,6 @@ func ejecutarInformePeriodoCSV(args []string, in io.Reader, out io.Writer) int {
 		return escribirFalloPreparacion(out, errArgumentosInformePeriodo)
 	}
 	rawCatalogo, err := leerArchivoInforme(*textos)
-	if err != nil {
-		return escribirFalloPreparacion(out, err)
-	}
-	catalogo, err := csvinforme.CargarCatalogo(bytes.NewReader(rawCatalogo))
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
 	}
@@ -56,7 +79,7 @@ func ejecutarInformePeriodoCSV(args []string, in io.Reader, out io.Writer) int {
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
 	}
-	contenido, err := csvinforme.Escribir(catalogo, informe)
+	contenido, err := componer(rawCatalogo, informe)
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
 	}

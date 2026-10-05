@@ -142,8 +142,11 @@ type Fila struct {
 }
 
 // Informe es la selección resultante. Conceptos fija el orden de las columnas.
+// Desde y Hasta repiten el período pedido; nil significa sin límite.
 type Informe struct {
 	CampoFecha        string
+	Desde             *time.Time
+	Hasta             *time.Time
 	Moneda            string
 	Conceptos         []string
 	Filas             []Fila
@@ -165,7 +168,7 @@ func Preparar(c Configuracion, d Datos, f Filtros) (Informe, error) {
 		return Informe{}, err
 	}
 	conceptos := append([]string(nil), c.Criterio.ConceptosIncluidos...)
-	inf := Informe{CampoFecha: c.Criterio.CampoFecha, Moneda: d.Moneda, Conceptos: conceptos,
+	inf := Informe{CampoFecha: c.Criterio.CampoFecha, Desde: desde, Hasta: hasta, Moneda: d.Moneda, Conceptos: conceptos,
 		Filas: []Fila{}, ConceptosCentimos: make([]int64, len(conceptos))}
 	for _, r := range d.Registros {
 		if !contiene(c.Criterio.EstadosIncluidos, r.Situacion) ||
