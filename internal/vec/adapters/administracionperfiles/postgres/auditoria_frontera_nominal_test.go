@@ -216,3 +216,27 @@ func TestFronteraNominalRespuestaIncompatibleDePersonaAuditaError(t *testing.T) 
 		t.Fatalf("error de ficha mal registrado: %+v", datos)
 	}
 }
+
+// El destino de la preparación es opcional (configuraciones anteriores al
+// lote) y, si está, se valida como los demás. Una clave desconocida no entra.
+func TestFronteraNominalDestinoOpcionalDePreparacion(t *testing.T) {
+	reg := &registroFronteraPrueba{ahora: time.Now()}
+	if _, err := NuevaAuditorFronteraNominal(reg, configFronteraPrueba()); err != nil {
+		t.Fatal("sin destino de preparación:", err)
+	}
+	c := configFronteraPrueba()
+	c.Destinos["preparar_lote_ordinario"] = DestinoFronteraNominal{Accion: "administracion.perfiles.preparar_lote_ordinario",
+		RecursoRef: "administracion:perfiles:preparar_lote_ordinario", FinalidadRef: "gestion_perfiles", TipoRecurso: "fijo"}
+	if _, err := NuevaAuditorFronteraNominal(reg, c); err != nil {
+		t.Fatal("con destino de preparación:", err)
+	}
+	c.Destinos["preparar_lote_ordinario"] = DestinoFronteraNominal{Accion: "otra.accion", RecursoRef: "administracion:perfiles:x", FinalidadRef: "gestion_perfiles", TipoRecurso: "fijo"}
+	if _, err := NuevaAuditorFronteraNominal(reg, c); err == nil {
+		t.Fatal("destino de preparación inválido aceptado")
+	}
+	c = configFronteraPrueba()
+	c.Destinos["desconocida"] = c.Destinos["escribir"]
+	if _, err := NuevaAuditorFronteraNominal(reg, c); err == nil {
+		t.Fatal("destino desconocido aceptado")
+	}
+}
