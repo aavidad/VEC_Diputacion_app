@@ -292,7 +292,12 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 			}
 			return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
 		}
-		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) && !errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) {
+		if errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
+		}
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 			return vacia, errOriginalFirmableCTDenegado
 		}
 		return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
@@ -328,6 +333,9 @@ type originalFirmableCTDesarrollo struct {
 	seudonimizador *seudonimizadorAlmacenDesarrollo
 	politicas      *conservacion.Catalogo
 	autoridad      *docautorizacion.AutoridadOriginalFirmableV3
+	// mapear es la única traducción del expediente CT al documental; la
+	// composición entrega este mismo mapeador a la custodia común.
+	mapear almacen.MapeadorExpedienteOriginalCT
 }
 
 var (
@@ -345,7 +353,8 @@ func nuevoOriginalFirmableCTDesarrollo(pdp pdpOriginalFirmableCTDesarrollo, seud
 		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
 		return nil, puertosvec.ErrOriginalFirmableCTNoDisponible
 	}
-	o := &originalFirmableCTDesarrollo{pdp: pdp, seudonimizador: seudonimizador, politicas: politicas}
+	o := &originalFirmableCTDesarrollo{pdp: pdp, seudonimizador: seudonimizador, politicas: politicas,
+		mapear: almacen.FuncionMapeoExpedienteOriginalCT(ctapplication.ReferenciaExpedienteDocumentalFormalizacion)}
 	autoridad, err := docautorizacion.NuevaAutoridadOriginalFirmableV3(o, o, reloj)
 	if err != nil {
 		return nil, puertosvec.ErrOriginalFirmableCTNoDisponible
@@ -356,14 +365,17 @@ func nuevoOriginalFirmableCTDesarrollo(pdp pdpOriginalFirmableCTDesarrollo, seud
 
 // identidadYExpedienteOriginalCT valida la solicitud CT y deriva la
 // referencia del original y el expediente documental (opaco) de CT.
-func identidadYExpedienteOriginalCT(s puertosvec.SolicitudOriginalFirmableCT, ref string) (almacencanonico.IdentidadOriginalCT, string, bool) {
+func (o *originalFirmableCTDesarrollo) identidadYExpedienteOriginalCT(s puertosvec.SolicitudOriginalFirmableCT, ref string) (almacencanonico.IdentidadOriginalCT, string, bool) {
 	identidad := almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		Documento: s.Documento, Version: s.OriginalVersion}
 	if !identidad.Valida() || ref != identidad.Referencia() || (s.OriginalRef != "" && s.OriginalRef != ref) ||
 		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return identidad, "", false
 	}
-	expediente, err := ctapplication.ReferenciaExpedienteDocumentalFormalizacion(s.ExpedienteRef)
+	if o.mapear == nil {
+		return identidad, "", false
+	}
+	expediente, err := o.mapear.ReferenciaDocumentalCT(s.ExpedienteRef)
 	if err != nil || !docdomain.ReferenciaOpacaValida(expediente) {
 		return identidad, "", false
 	}
@@ -380,7 +392,7 @@ func (o *originalFirmableCTDesarrollo) AutorizarLecturaOriginalCT(ctx context.Co
 	if err := ctx.Err(); err != nil {
 		return vacia, err
 	}
-	_, expediente, ok := identidadYExpedienteOriginalCT(s, ref)
+	_, expediente, ok := o.identidadYExpedienteOriginalCT(s, ref)
 	if !ok {
 		return vacia, puertosvec.ErrOriginalFirmableCTInvalido
 	}
@@ -421,7 +433,7 @@ func (o *originalFirmableCTDesarrollo) PrepararCustodiaOriginalCT(ctx context.Co
 	if err := ctx.Err(); err != nil {
 		return vacia, nil, err
 	}
-	identidad, expediente, ok := identidadYExpedienteOriginalCT(s, ref)
+	identidad, expediente, ok := o.identidadYExpedienteOriginalCT(s, ref)
 	if !ok || len(pdf.Contenido) < 8 || len(pdf.Contenido) > puertosvec.LimiteOriginalFirmableCT ||
 		!bytes.HasPrefix(pdf.Contenido, []byte("%PDF-")) {
 		return vacia, nil, puertosvec.ErrOriginalFirmableCTInvalido

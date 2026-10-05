@@ -480,6 +480,14 @@ func TestOriginalFirmablePDPConsumePerfilFijoDeLaRuta(t *testing.T) {
 		t.Fatalf("fuente caída: %v", err)
 	}
 	e.soporte.autoridadAsignaciones = a
+	registro := e.soporte.registroDecisionesAnalisis
+	e.soporte.registroDecisionesAnalisis = &registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba{
+		errConcesion: puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible}
+	if _, err := e.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso); !errors.Is(err, docports.ErrCapacidadNoDisponible) ||
+		errors.Is(err, docports.ErrAccesoDenegado) {
+		t.Fatalf("registro de concesiones caído: %v", err)
+	}
+	e.soporte.registroDecisionesAnalisis = registro
 	publicada := a.asignaciones[e.perfil.perfilRef()]
 	ahora := e.soporte.reloj.Ahora()
 	publicada.instantanea.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
