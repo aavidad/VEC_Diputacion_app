@@ -493,6 +493,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
 			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta, datos)
+		case rutaOriginalFirmableCTDesarrollo(ruta):
+			valida = solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos)
 		}
 		if !valida {
 			return dominiovec.InstantaneaAutorizacion{}, false
