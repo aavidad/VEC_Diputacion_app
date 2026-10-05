@@ -112,6 +112,12 @@ func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s dom
 		if cambio.Objetivo.RevisionContinuidad != 0 || !referenciaAmbitoLote.MatchString(cambio.Objetivo.UnidadRef) {
 			return vacio, domain.ErrActoAdministracionPerfilesInvalido
 		}
+		// Una baja no exige que el perfil siga ofreciéndose: AUT44 comprueba
+		// que su versión esté registrada como ordinaria. Sólo las altas se
+		// cotejan aquí con el perfil vigente.
+		if cambio.Operacion == domain.OperacionRevocarPerfil {
+			continue
+		}
 		rol, err := a.resolverRolLote(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return vacio, err

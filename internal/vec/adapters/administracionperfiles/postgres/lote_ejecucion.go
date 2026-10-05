@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -136,9 +137,11 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 
 // traducirErrorLoteSQL clasifica los SQLSTATE de AUT44/AD190/CA35 en las
 // categorías del puerto, sin conservar el mensaje de PostgreSQL:
-// 42501 denegado; 40001, 40P01, 55P03, 55000 y P0002 conflicto de estado (preimagen
-// o contexto cambiados); 23505 conflicto (idempotencia o perfil ya asignado);
-// 22023, 22P02, 22007 y 23514 solicitud inválida; el resto, no disponible.
+// 42501 denegado; 40001, 40P01, 55P03, 55000 y P0002 conflicto de estado
+// (preimagen, contexto o cerrojo; se puede reintentar con otra preparación) y
+// 23505 conflicto (idempotencia o perfil ya asignado): 409, auditado como error
+// y no como denegación; 22023, 22P02, 22007 y 23514 solicitud inválida; el
+// resto, no disponible.
 func traducirErrorLoteSQL(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
@@ -149,7 +152,7 @@ func traducirErrorLoteSQL(ctx context.Context, err error) error {
 		case "42501":
 			return domain.ErrAutorizacionDenegada
 		case "40001", "40P01", "55P03", "55000", "P0002", "23505":
-			return domain.ErrControlAdministracionPerfilesInvalido
+			return api.ErrConflictoEstado
 		case "22023", "22P02", "22007", "23514":
 			return domain.ErrActoAdministracionPerfilesInvalido
 		}

@@ -54,6 +54,11 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 				cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && !cambio.Objetivo.VigenteDesde.After(ahora)) {
 			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 		}
+		// Las bajas no exigen que el perfil siga ofreciéndose; la autoridad
+		// comprueba que su versión esté registrada como ordinaria.
+		if cambio.Operacion == domain.OperacionRevocarPerfil {
+			continue
+		}
 		rol, err := s.catalogo.ResolverRolAdministrable(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return domain.ReciboLoteAdministracionPerfiles{}, err

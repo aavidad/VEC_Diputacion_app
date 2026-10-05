@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -155,9 +156,9 @@ func TestLoteOrdinarioConservaDenegacionDelEmisor(t *testing.T) {
 }
 
 func TestTraducirErrorLoteSQL(t *testing.T) {
-	casos := map[string]error{"42501": domain.ErrAutorizacionDenegada, "40001": domain.ErrControlAdministracionPerfilesInvalido,
-		"55000": domain.ErrControlAdministracionPerfilesInvalido, "P0002": domain.ErrControlAdministracionPerfilesInvalido,
-		"23505": domain.ErrControlAdministracionPerfilesInvalido, "55P03": domain.ErrControlAdministracionPerfilesInvalido, "22023": domain.ErrActoAdministracionPerfilesInvalido,
+	casos := map[string]error{"42501": domain.ErrAutorizacionDenegada, "40001": api.ErrConflictoEstado,
+		"55000": api.ErrConflictoEstado, "P0002": api.ErrConflictoEstado,
+		"23505": api.ErrConflictoEstado, "55P03": api.ErrConflictoEstado, "22023": domain.ErrActoAdministracionPerfilesInvalido,
 		"22P02": domain.ErrActoAdministracionPerfilesInvalido, "XX000": ports.ErrAutoridadAdministracionPerfilesNoDisponible}
 	for codigo, esperado := range casos {
 		if err := traducirErrorLoteSQL(context.Background(), &pgconn.PgError{Code: codigo, Message: "SECRETO"}); !errors.Is(err, esperado) {
@@ -166,5 +167,26 @@ func TestTraducirErrorLoteSQL(t *testing.T) {
 	}
 	if err := traducirErrorLoteSQL(context.Background(), errors.New("SECRETO")); !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) {
 		t.Fatal("error ajeno no cerrado")
+	}
+}
+
+// Una baja de un perfil que ya no se ofrece llega al emisor: la clase la
+// comprueba AUT44 sobre el registro, no la vigencia del perfil.
+func TestLoteOrdinarioBajaDePerfilNoVigenteLlegaAlEmisor(t *testing.T) {
+	s, pool, ahora := solicitudLoteOrdinarioPrueba(t)
+	s.Cambios[0].Operacion, s.Cambios[0].InicioVigencia = domain.OperacionRevocarPerfil, ""
+	s.Cambios[0].Objetivo.PerfilVersion, s.Cambios[0].Objetivo.VinculoVersion = 1, 1
+	s.Cambios[0].Objetivo.VigenteDesde, s.Cambios[0].Objetivo.VigenteHasta = time.Time{}, time.Time{}
+	_, h, err := s.CanonicoYHuella()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.HuellaSolicitudSHA256 = h
+	delete(pool.roles, s.Cambios[0].RolVersionRef)
+	emisor := &emisorLotePrueba{}
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLoteValidaPrueba{},
+		reloj: relojFijo(ahora), organizacion: "org_prueba"}
+	if _, err := a.aplicarLoteOrdinario(context.Background(), s); err == nil || emisor.llamadas != 1 {
+		t.Fatalf("baja no llega al emisor: llamadas=%d err=%v", emisor.llamadas, err)
 	}
 }

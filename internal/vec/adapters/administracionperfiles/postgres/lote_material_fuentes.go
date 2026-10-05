@@ -17,8 +17,8 @@ type materialFuentesLote struct {
 	AmbitosPorCambio [][]DimensionFuenteLote `json:"ambitos_por_cambio"`
 }
 
-// Un fallo de fuente se transmite como SQL NULL. AUT44 sólo lo admite si ya
-// existe el efecto original y puede revalidar allí los descriptores guardados.
+// Un fallo de fuente devuelve nil y el adaptador no emite decisión: la orden
+// (también su repetición) responde no disponible hasta que vuelva la fuente.
 func materialFuentesPrivadasLote(ctx context.Context, proveedor ProveedorAmbitosLote,
 	organizacion string, s domain.SolicitudLoteAdministracionPerfiles) []byte {
 	if ctx == nil || ctx.Err() != nil || ausente(proveedor) || len(s.Cambios) == 0 {
