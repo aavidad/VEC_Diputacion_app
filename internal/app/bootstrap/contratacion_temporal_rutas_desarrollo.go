@@ -36,6 +36,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		llamamiento = "contratacion_temporal_comunicacion_llamamiento_desarrollo.go:proveedorComunicacionLlamamientoDesarrollo"
 		centro      = "contratacion_temporal_peticion_centro_http_desarrollo.go:manejadorPeticionCentroDesarrollo"
 		continuidad = "contratacion_temporal_continuidad_nominal.go:autoridadContinuidadNominal"
+		firmasR5V2  = "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo"
 	)
 	return map[string][]metodoRutaCTDesarrollo{
 		// PDP común: 21 pares base, POST de entrega, reincorporación y plantillas opcionales.
@@ -101,6 +102,8 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaRegistroRespuestaRecibida:               {nominalCT(http.MethodPost, "contratacion_temporal_respuesta_recibida_desarrollo.go:proveedorRespuestaRecibidaDesarrollo")},
 		httpinterno.RutaConsultaReciboRespuesta:                 {nominalCT(http.MethodGet, "contratacion_temporal_consulta_recibo_respuesta_desarrollo.go:proveedorConsultaReciboRespuestaDesarrollo")},
 		httpinterno.RutaConsultaComunicacionesExpediente:        {nominalCT(http.MethodGet, "contratacion_temporal_consulta_comunicaciones_expediente_desarrollo.go:proveedorConsultaComunicacionesExpedienteDesarrollo")},
+		httpinterno.RutaConsultaFirmasR5V2:                      {nominalCT(http.MethodPost, firmasR5V2)},
+		httpinterno.RutaRecuperacionFirmasR5V2:                  {nominalCT(http.MethodPost, firmasR5V2)},
 		httpinterno.RutaEventoPlazoLlamamiento:                  {nominalCT(http.MethodPost, "contratacion_temporal_plazo_llamamiento_desarrollo.go:proveedorEventoPlazoDesarrollo")},
 		rutaCatalogosAltaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_catalogos_alta_desarrollo.go:manejadorCatalogosAltaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_catalogos_alta_desarrollo.go:manejadorCatalogosAltaContratacionTemporalDesarrollo")},
 		rutaConfiguracionAnalisisContratacionTemporalDesarrollo: {nominalCT(http.MethodGet, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo")},
@@ -218,6 +221,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
+		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
