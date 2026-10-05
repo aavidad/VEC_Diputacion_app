@@ -30,5 +30,9 @@
         "motivo_propuesta": "Reason for the proposal"
       }
     }
+  },
+  "sin_credito": {
+    "analisis_pendiente": "The post cannot be offered: the HR analysis with the credit reservation is missing. Record it first.",
+    "retencion_rechazada": "The post cannot be offered: the credit reservation was rejected, and nothing proceeds without credit. Ask the Delegation for a valid reservation or the SICAL budget line status, and correct the analysis."
   }
 }
