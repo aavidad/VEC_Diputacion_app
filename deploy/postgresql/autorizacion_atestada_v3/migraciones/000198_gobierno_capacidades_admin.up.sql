@@ -92,7 +92,8 @@ CREATE TABLE vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v
  clave_ids text[] NOT NULL CHECK(array_position(clave_ids,NULL) IS NULL),
  registrada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
  CHECK(resultado='permitido' OR cardinality(clave_ids)=0),
- CHECK(tipo='intento' OR resultado='permitido'));
+ CHECK(tipo='intento' OR resultado='permitido'),
+ CHECK((tipo='confirmacion')=(auditoria_ref LIKE 'aud\_v3\_gu\_%')));
 CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1
  FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion();
 CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1

@@ -45,7 +45,7 @@ operación de AD198, también un intento denegado o con error, se anota además
 en `operacion_gobierno_capacidades_admin_v1`, de solo adición y en la misma
 transacción. Esa tabla guarda la referencia de auditoría, el LOGIN, la huella
 de la solicitud, el conjunto, el resultado y las claves publicadas. Para saber
-si un registro común es de AD188 o de AD198, se cruza por `auditoria_ref`.
+si un registro común es de AD188 o de AD198, se cruza por `auditoria_ref`. Esa fila queda fuera de la cadena con huella: la protegen la ACL del propietario y los disparadores de inmutabilidad, igual que a `clave_capacidad_version`.
 
 Con este conjunto hay que dejar de usar AD188 para la renovación diaria. Las
 dos vías publican configuración y se excluyen por cerrojo y CAS, pero solo
