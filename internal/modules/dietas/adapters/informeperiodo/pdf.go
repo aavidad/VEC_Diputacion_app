@@ -88,6 +88,10 @@ func CargarCatalogoPDF(r io.Reader) (CatalogoPDF, error) {
 		!mapaTextosPDF(c.Situaciones, nil) || !mapaTextosPDF(c.Importes, []string{"valor"}) {
 		return CatalogoPDF{}, ErrCatalogoInvalido
 	}
+	// El separador decimal debe casar con la agrupación que aplica el idioma.
+	if !strings.Contains(message.NewPrinter(idioma).Sprintf("%.1f", 0.5), c.SeparadorDecimal) {
+		return CatalogoPDF{}, ErrCatalogoInvalido
+	}
 	for _, clave := range app.CamposFecha {
 		if !textoPDF(c.CamposFecha[clave], 128) {
 			return CatalogoPDF{}, ErrCatalogoInvalido
@@ -112,8 +116,16 @@ func PrepararPDF(ctx context.Context, renderer vecports.RenderizadorDocumento, c
 	}
 	campo, ok := c.CamposFecha[inf.CampoFecha]
 	plantillaImporte, okImporte := c.Importes[inf.Moneda]
-	if !ok || !okImporte || len(inf.Filas) > maxFilasPDF || len(inf.ConceptosCentimos) != len(inf.Conceptos) {
+	if !ok || !okImporte {
 		return nil, ErrCatalogoInvalido
+	}
+	if len(inf.Filas) > maxFilasPDF || len(inf.ConceptosCentimos) != len(inf.Conceptos) || inf.TotalCentimos < 0 {
+		return nil, app.ErrDatosInvalidos
+	}
+	for _, v := range inf.ConceptosCentimos {
+		if v < 0 {
+			return nil, app.ErrDatosInvalidos
+		}
 	}
 	impresor := message.NewPrinter(language.MustParse(c.Idioma))
 	importe := func(centimos int64) string {
@@ -142,11 +154,12 @@ func PrepararPDF(ctx context.Context, renderer vecports.RenderizadorDocumento, c
 		if !ok {
 			return nil, ErrCatalogoInvalido
 		}
-		if !textoPDF(f.Referencia, 256) || !textoPDF(f.Persona, 256) || !textoPDF(f.Unidad, 256) {
+		if !textoPDF(f.Referencia, 256) || !textoPDF(f.Persona, 256) || !textoPDF(f.Unidad, 256) ||
+			f.ImporteIncluidoCentimos < 0 || f.VersionComision < 1 {
 			return nil, app.ErrDatosInvalidos
 		}
 		parrafos = append(parrafos, sustituirPDF(c.Fila, "referencia", f.Referencia,
-			"version", impresor.Sprintf("%d", f.VersionComision), "persona", f.Persona, "unidad", f.Unidad,
+			"version", strconv.Itoa(f.VersionComision), "persona", f.Persona, "unidad", f.Unidad,
 			"situacion", situacion, "fecha", f.Fecha.Format(c.FormatoFecha), "importe", importe(f.ImporteIncluidoCentimos)))
 	}
 	if len(inf.Filas) == 0 {
