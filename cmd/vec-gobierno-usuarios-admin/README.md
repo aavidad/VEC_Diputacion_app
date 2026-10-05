@@ -45,7 +45,11 @@ salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
 
 1. Preparar. Lee la configuración vigente, deriva las dos claves y escribe en
    la carpeta de salida `material.json`, `configuracion-material.json`,
-   `plan.json` y `aprobacion-candidata.json`.
+   `plan.json` y `aprobacion-candidata.json`. Las claves dependen de la
+   secuencia de la nueva configuración, que crece en cada publicación, así que
+   cada renovación diaria obtiene un `clave_id` y un secreto nuevos (AD188
+   rechaza los ya publicados). Repetir la preparación sin haber aplicado da las
+   mismas claves.
 
    ```sh
    vec-gobierno-usuarios-admin -fase preparar -config /ruta/privada/config.json \
