@@ -181,7 +181,18 @@ precondición sin cambios. Pasan las tres pruebas:
 La prueba de AD193 (`pruebas/000193_transaccion_origen_consumo_v4.sql`) fija la
 postimagen del núcleo de AD193 y deja de cumplirse después de AD178 por diseño.
 
-No hay consumo positivo: no se fabrican filas favorables. Falta el recorrido
+- `pruebas_sql/ad177_ad178_positivo_sintetico_clon.sql` (sólo clon desechable,
+  como superusuario): dentro de una transacción que termina en ROLLBACK retira
+  CHECK y disparadores de las tres tablas, siembra consumo, auditoría v4 y
+  atestación sintéticos sellados con la transacción actual y comprueba que el
+  comprobador de recuperación acepta y devuelve sus ocho claves, que un
+  `decision_ref` de 600 caracteres se rechaza por forma, que un sello NULL se
+  rechaza en la relectura de filas, y que el comprobador de gobierno pasa sus
+  comprobaciones y se detiene en la categoría Aplicación de AUT. Esta prueba
+  habría detectado el fallo de la expresión regular `{2,511}` (PostgreSQL limita
+  las repeticiones a 255), que convertía todo en denegación.
+
+Fuera de esa prueba sintética no hay consumo positivo. Falta el recorrido
 causal con productores reales (CT175 → AD178 → núcleo → AUT41 → comprobador, y
 gobierno AD177 → CC7), que depende de la fuente nominal de K y de CC7, AUT41,
 CT175 y CT176. Nada de esto se ha instalado en la principal ni en cidonia.

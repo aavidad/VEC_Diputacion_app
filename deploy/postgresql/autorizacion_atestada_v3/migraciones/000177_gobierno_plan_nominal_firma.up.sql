@@ -11,6 +11,8 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000177',0));
+-- Mismo bloqueo que toman las migraciones que reconstruyen el núcleo.
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
 DECLARE nucleo regprocedure;
  -- Núcleo y CHECK de audiencias (pg_get_constraintdef(...,true)) después de AD178.
@@ -59,7 +61,7 @@ END $pre$;
 -- La decisión y la auditoría deben pertenecer al efecto y a esta transacción.
 CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(p_consumo jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET TimeZone='UTC'
+SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET statement_timeout='15s' SET TimeZone='UTC'
 AS $f$
 DECLARE r record; capacidad jsonb; decision jsonb; ahora timestamptz(6);
 BEGIN
@@ -153,7 +155,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan
  p_material_exacto bytea,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET TimeZone='UTC'
+SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET statement_timeout='15s' SET TimeZone='UTC'
 AS $f$
 DECLARE m jsonb; original json; c jsonb; d jsonb; catalogo jsonb;
  accion text; estado text; revision text; recurso text; material_sha text; contexto_sha text;
@@ -166,7 +168,7 @@ BEGIN
  BEGIN
   original:=convert_from(p_material_exacto,'UTF8')::json; m:=original::jsonb;
   c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
- EXCEPTION WHEN others THEN
+ EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'AD177 material de gobierno inválido' USING ERRCODE='22023';
  END;
  IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM json_each(original))<>13
@@ -185,7 +187,7 @@ BEGIN
   OR jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object' THEN
   RAISE EXCEPTION 'AD177 material de gobierno inválido' USING ERRCODE='22023'; END IF;
  BEGIN catalogo:=convert_from(decode(m->>'catalogo_canonico_base64','base64'),'UTF8')::jsonb;
- EXCEPTION WHEN others THEN
+ EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'AD177 catálogo de gobierno inválido' USING ERRCODE='22023';
  END;
  accion:='vec.catalogos.'||(m->>'operacion');
@@ -215,6 +217,8 @@ BEGIN
   'gobierno_plan_nominal_firma_ct',p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  comprobado:=vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(to_jsonb(consumo));
+ IF (comprobado->>'decision_valida_hasta')::timestamptz<=clock_timestamp() THEN
+  RAISE EXCEPTION 'AD177 gobierno de plan caducado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT resultado FROM vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(
   p_material_exacto,jsonb_build_object('consumo',to_jsonb(consumo),'actor_ref',comprobado->>'registrador_principal_ref',
    'perfil_ref',comprobado->>'registrador_perfil_ref','accion',comprobado->>'operacion',
@@ -233,7 +237,7 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gob
 -- Una fachada nueva evita ampliar el ACL de AD167 ya instalada.
 CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(p_consumo jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET TimeZone='UTC'
+SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET statement_timeout='15s' SET TimeZone='UTC'
 AS $f$
 BEGIN
  RETURN vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(p_consumo);
