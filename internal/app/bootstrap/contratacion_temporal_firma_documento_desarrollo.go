@@ -655,6 +655,8 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if circuito == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	// Una composición fallida no conserva el verificador de un intento anterior.
+	f.verificadorR5 = nil
 	verificador, err := nuevoVerificadorFirmaDocumentos(cfg, f.emisorResultadosFirma)
 	if err != nil {
 		return nil, err
