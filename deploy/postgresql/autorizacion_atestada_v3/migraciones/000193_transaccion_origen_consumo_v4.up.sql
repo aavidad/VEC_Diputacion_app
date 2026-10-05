@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- AD193 prospectiva: preimágenes medidas en copia fría POST184/185/192; revisión/ensayo causal pendientes.
+-- AD193 prospectiva: preimágenes medidas en copia fría POST184/185/192 y comprobadas sobre POST194/IS16/CA36/AUT47.
+-- Incluye las tres fachadas AD184/AD185 que cotejaban la familia v3 (ensayo causal con vec-admin real).
 -- Las huellas esperadas son literales; no se calculan para aprobar el destino.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -234,5 +235,73 @@ BEGIN
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())) IS DISTINCT FROM compartidas
  THEN RAISE EXCEPTION 'AD193: PARO clave=delta_metadatos esperado=postimagenes_reversion_OID_ACL_dependencias_exactos actual=divergente' USING ERRCODE='55000'; END IF;
 END $helper$;
+DO $fachadas$
+-- AD184/AD185 cotejan la fila de auditoría recién escrita por el núcleo con la
+-- familia literal v3. Tras el sello del núcleo la fila nueva es v4: sin este
+-- delta, listar/consultar usuarios y publicar denominación quedan en 42501.
+-- Las fachadas de consumo fresco exigen la familia v4 y ambos sellos iguales al
+-- TopXID actual; el cotejo de un acuse original admite la v3 histórica sin sello
+-- o la v4 con sellos iguales. El resto del cuerpo, firma, ACL y metadatos se conservan.
+DECLARE caso record;f oid;original text;nueva text;actual text;revertida text;meta jsonb;deps jsonb;compartidas jsonb;
+BEGIN
+ FOR caso IN SELECT * FROM (VALUES
+  ('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_autorizacion_propietario',
+   '43e78f51e869edd813a68041c873b2182f9fd2043bbb18b54a0389f470efb79e','e8d5262258c998096da7fbc717627cd21f7113bff287fb49df8a501a6a869add',
+   '11db82a4b57be54ec37c301778240c55f4bc220f9f0cbd2e6ffc3ea6000faae3','a226462949c6b52fc6d2f84722ba3b87f435687a52855dd0126163c7cada7050',
+   $a$a.tipo_registro='consumo_confirmado_v3' AND a.version_consumo=3$a$,
+   $b$a.tipo_registro='consumo_confirmado_v4' AND a.version_consumo=4 AND a.transaccion_origen=pg_catalog.pg_current_xact_id() AND c.transaccion_origen=a.transaccion_origen$b$),
+  ('vec_autorizacion_atestada_v3.registrar_y_consumir_denominacion_persona_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_contexto_actor_v1_propietario',
+   '0623fbbc5677188938371b339c54ed3ad0c24a893c519fb2dbdc69facc6b62de','d258fa41dddd1b7712637abf7f8de1a488f66eb32fb809f10ec0db05ce66cc17',
+   'b6bb8c1275717954408c1c952741ccdfb7df9aaa8d67dbcbb54c468949a20a0e','4cdde9b7e4a2e3a5b982572073a764934c94507c4dee2076a5db8d4e0106d2fa',
+   $a$a.tipo_registro='consumo_confirmado_v3' AND a.version_consumo=3$a$,
+   $b$a.tipo_registro='consumo_confirmado_v4' AND a.version_consumo=4 AND a.transaccion_origen=pg_catalog.pg_current_xact_id() AND c.transaccion_origen=a.transaccion_origen$b$),
+  ('vec_autorizacion_atestada_v3.cotejar_consumo_denominacion_persona_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)',
+   'vec_contexto_actor_v1_propietario',
+   'd5a25e90be6c7ff7aeb19ba204f79c3bbc5a1257bbc678812751b2bbf1d0ef2b','0e67db2145d2748454a13860265df2672bb82c7090418a65ac1b9e0f763fe63f',
+   '7401579e30a64ac49975d90524782115b1ccb3d4426cea1789fd71f8c10de0bc','6635094c2f930a51202adc6134674cb98a69561b6bb109307871b3415389a658',
+   $a$a.tipo_registro='consumo_confirmado_v3' AND a.version_consumo=3$a$,
+   $b$((a.tipo_registro='consumo_confirmado_v3' AND a.version_consumo=3 AND a.transaccion_origen IS NULL AND s.transaccion_origen IS NULL) OR (a.tipo_registro='consumo_confirmado_v4' AND a.version_consumo=4 AND a.transaccion_origen IS NOT NULL AND s.transaccion_origen=a.transaccion_origen))$b$)
+ ) v(firma,lector,pre_def,pre_src,post_def,post_src,antiguo,nuevo) LOOP
+  f:=to_regprocedure(caso.firma);
+  IF f IS NULL THEN RAISE EXCEPTION 'AD193: PARO clave=fachada_% esperado=presente actual=ausente',split_part(caso.firma,'(',1) USING ERRCODE='55000'; END IF;
+  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc' INTO STRICT original,meta FROM pg_proc p WHERE p.oid=f;
+  actual:=encode(sha256(convert_to(original,'UTF8')),'hex');
+  IF actual IS DISTINCT FROM caso.pre_def
+  THEN RAISE EXCEPTION 'AD193: PARO clave=def_sha_fachada_% esperado=% actual=%',split_part(caso.firma,'(',1),caso.pre_def,actual USING ERRCODE='55000'; END IF;
+  SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') INTO STRICT actual FROM pg_proc WHERE oid=f;
+  IF actual IS DISTINCT FROM caso.pre_src
+  THEN RAISE EXCEPTION 'AD193: PARO clave=src_sha_fachada_% esperado=% actual=%',split_part(caso.firma,'(',1),caso.pre_src,actual USING ERRCODE='55000'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner=current_user::regrole
+   AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u'
+   AND p.proconfig=ARRAY['search_path=pg_catalog','TimeZone=UTC','lock_timeout=2s'])
+  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>2
+  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=f AND (a.privilege_type<>'EXECUTE' OR a.is_grantable OR a.grantor<>p.proowner
+    OR NOT(a.grantee=p.proowner OR a.grantee=caso.lector::regrole)))
+  THEN RAISE EXCEPTION 'AD193: PARO clave=metadatos_ACL_fachada_% esperado=propietario_config_ACL_exactos actual=incompatible',split_part(caso.firma,'(',1) USING ERRCODE='55000'; END IF;
+  IF length(original)-length(replace(original,caso.antiguo,''))<>length(caso.antiguo)
+  THEN RAISE EXCEPTION 'AD193: PARO clave=marca_fachada_% esperado=1 actual=%',split_part(caso.firma,'(',1),(length(original)-length(replace(original,caso.antiguo,'')))/length(caso.antiguo) USING ERRCODE='55000'; END IF;
+  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+  INTO compartidas FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f
+  AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database());
+  nueva:=replace(original,caso.antiguo,caso.nuevo);
+  EXECUTE nueva;
+  SELECT pg_get_functiondef(f) INTO STRICT actual;
+  IF length(actual)-length(replace(actual,caso.nuevo,''))<>length(caso.nuevo)
+  THEN RAISE EXCEPTION 'AD193: PARO clave=marca_nueva_fachada_% esperado=1 actual=distinta',split_part(caso.firma,'(',1) USING ERRCODE='55000'; END IF;
+  revertida:=replace(actual,caso.nuevo,caso.antiguo);
+  IF encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM caso.post_def
+  OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM caso.post_src
+  OR actual IS DISTINCT FROM nueva OR revertida IS DISTINCT FROM original
+  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
+  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())) IS DISTINCT FROM compartidas
+  THEN RAISE EXCEPTION 'AD193: PARO clave=delta_fachada_% esperado=postimagenes_reversion_OID_ACL_dependencias_exactos actual=divergente',split_part(caso.firma,'(',1) USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $fachadas$;
 -- CREATE OR REPLACE conserva las ACL comprobadas; no abre concesiones.
 COMMIT;

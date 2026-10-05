@@ -1,3 +1,4 @@
-# Aplicar sólo tras AD184, AD185 y AD192, sobre la postimagen fría medida.
-# Ensayo estructural POST192 verde; causal nominal y conformidad K pendientes. No reaplicar AD193.
+# Aplicar sólo tras AD184, AD185, AD192 y AD194 (y en la principal también IS16, CA36 y AUT47), sobre la postimagen medida.
+# AD194 tiene número mayor pero se instaló antes: no toca el núcleo, el comprobador, el CHECK ni las fachadas AD184/AD185.
+# AD193 incluye la adaptación de las tres fachadas AD184/AD185 que exigían la familia v3. Una sola vez; sin DOWN.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000193_transaccion_origen_consumo_v4.up.sql
