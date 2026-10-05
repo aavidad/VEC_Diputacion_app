@@ -27,6 +27,13 @@ BEGIN
  EXCEPTION WHEN invalid_parameter_value THEN NULL;
  END;
  BEGIN
+  PERFORM vec_contexto_actor_v1.cuentas_titular_persona_admin_lote_v1('no_es_persona');
+  RAISE EXCEPTION 'CA35: persona invalida aceptada';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ IF vec_contexto_actor_v1.cuentas_titular_persona_admin_lote_v1('per_'||repeat('z',30)) IS DISTINCT FROM '[]'::jsonb
+ THEN RAISE EXCEPTION 'CA35: persona sin cuentas no devuelve lista vacia'; END IF;
+ BEGIN
   PERFORM vec_contexto_actor_v1.registrar_procedencia_acto_admin_lote_v1('prc_x', 'no');
   RAISE EXCEPTION 'CA35: procedencia invalida aceptada';
  EXCEPTION WHEN invalid_parameter_value THEN NULL;
