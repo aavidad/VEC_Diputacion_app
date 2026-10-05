@@ -14,6 +14,8 @@ Sólo el ejecutor CT recibe EXECUTE; las tablas y el lector AUT siguen privados.
 
 Ensayo del 5 de octubre de 2026 en el clon de la principal posterior a AD193, con AD178, AD177 y AUT41: UP único con código 0. `pruebas_sql/recuperacion_firmas_ct175.sql`, ejecutada con un LOGIN del runtime CT, comprueba que el runtime sólo ve esta fachada (no la de AD178 ni la lectura AUT41) y tres rechazos: material con una clave de más (22023), capacidad de otro expediente (42501, antes de consumir) y una decisión con la forma correcta pero sin atestación, que llega al núcleo y se deniega allí.
 
+`pruebas_sql/recuperacion_firmas_ct175_positivo_clon.sql` (sólo clon desechable, ROLLBACK) recorre el camino positivo CT175 → AUT41 → comprobador AD178 reales con un doble de la fachada de consumo y filas sintéticas: devuelve una firma, una revisión y una recuperación con la huella del canon correcta, y un canon manipulado se rechaza en AUT41 (55000). Esa prueba encontró un fallo del borrador: `SELECT revision,... INTO cabeza` chocaba con la variable `revision` (42702) y la función nunca devolvía datos; ahora las columnas van calificadas.
+
 El parseo inicial usa un bloque EXCEPTION antes de consumir. Con el sello `transaccion_origen` de AD193 esto ya no afecta al comprobador: el sello es el TopXID aunque haya subtransacciones.
 
 Pendiente: recorrido causal con un consumo real, adaptador/HTTP con auditoría de denegados y errores, y recorrido con dos firmas y recuperación tras reiniciar.

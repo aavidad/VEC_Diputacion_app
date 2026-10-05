@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- AUT41 tras L/AD178 y AUT41 en clon. Sin concesiones ni evidencia sintética.
-BEGIN;
+-- SERIALIZABLE: así el rechazo sale de la validación del selector, no del aislamiento.
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL statement_timeout='15s';
 DO $prueba$

@@ -110,8 +110,9 @@ BEGIN
    RETURN jsonb_build_object('Encontrado',false,'ExpedienteRef',s->>'ExpedienteRef','Firmas','[]'::jsonb,'RevisionesPDF','[]'::jsonb,'Recuperaciones','[]'::jsonb,
     'HistoriaRevision',0,'HistoriaHuella',vacia,'CoincideFirmanteEnOtroPaso',false,'HistoriaSeparacionAcreditada',false); END IF;
  END IF;
- SELECT revision,huella_sha256 INTO cabeza FROM vec_contratacion_temporal.firma_historia_cabeza_v1
-  WHERE organizacion_ref=s->>'OrganizacionRef' AND expediente_ref=s->>'ExpedienteRef';
+ -- Columnas calificadas: «revision» es también una variable de esta función.
+ SELECT hc.revision,hc.huella_sha256 INTO cabeza FROM vec_contratacion_temporal.firma_historia_cabeza_v1 hc
+  WHERE hc.organizacion_ref=s->>'OrganizacionRef' AND hc.expediente_ref=s->>'ExpedienteRef';
  IF NOT FOUND THEN cabeza.revision:=0; cabeza.huella_sha256:=vacia; END IF;
  IF exacta.firma_ref IS NOT NULL THEN cabeza.revision:=exacta.historia_revision_observada; cabeza.huella_sha256:=exacta.historia_huella_observada; END IF;
 

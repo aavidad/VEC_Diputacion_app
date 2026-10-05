@@ -34,6 +34,11 @@ se coteja con AUT32; el material de consulta V2 no la incorpora. AUT41 tampoco
 exige que el cargo, la asignación o el certificado del firmante anterior sigan
 vigentes. El actor actual autorizado pertenece al circuito de lectura AD178.
 
+El único llamante previsto es CT175, que forma el selector con sus propias
+filas y ya filtra por tipo documental y versión. AUT41 por sí sola sólo liga el
+canon a organización y expediente: cualquier otra función del propietario CT que
+la llame tiene que hacer los mismos cotejos.
+
 La prueba SQL adjunta comprueba estructura, propietario, ACL y rechazo de un
 selector vacío. No fabrica un consumo positivo. Se ensayó el 5 de octubre de
 2026 en el clon de la principal posterior a AD193 (con AD178 y AD177): UP
