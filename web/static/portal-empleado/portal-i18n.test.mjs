@@ -95,7 +95,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-api.js", versionTemas],
     ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
-    ["portal-panel-interno.js", "20261002-r-rrhh18-v4"],
+    ["portal-panel-interno.js", "20261005-b1-carga-v1"],
     ["portal-bolsas-api.js", "20261002-r-rrhh18-v3"],
     ["portal-bolsas-contrato.js", "20261002-r-rrhh18-v3"],
     ["portal-llamamientos-operaciones-api.js", "20261002-r-rrhh18-v3"],
@@ -144,9 +144,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal.js", "20261002-r4-moad-v6"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261005-b-contacto-v3");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261005-b1-carga-v1");
   versionesEspeciales.set("portal-composicion-empleado.js", "20261005-b-contacto-v3");
-  versionesEspeciales.set("portal.js", "20261005-b-contacto-v3");
+  versionesEspeciales.set("portal.js", "20261005-b1-carga-v1");
   versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/solicitudes/fuente-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/personal/vista-contacto-propio.js", "20261004-b-contacto-retoma-v2");
@@ -312,5 +312,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261005-b-contacto-v3");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261005-b1-carga-v1");
 });

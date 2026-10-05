@@ -874,7 +874,8 @@
     "inicio_rrhh_grupo_ver": "Ver peticiones",
     "inicio_rrhh_grupo_ver_aria": "Ver las {total} peticiones de {categoria} en {centro}",
     "inicio_rrhh_grupo_numeros": "Números: {numeros}",
-    "txt_reglas_vigentes": "Reglas vigentes"
+    "txt_reglas_vigentes": "Reglas vigentes",
+    "txt_cargar_bolsa_convoca": "Cargar bolsa desde CONVOCA"
   },
   "panel_interno": {
     "panel_resultado_sin_expediente": "La aceptación o renuncia se registra en el expediente de Peticiones de personal temporal. Bolsa no identifica aquí el expediente de cada llamamiento; búsquelo en el cuadro de peticiones.",

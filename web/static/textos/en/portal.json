@@ -874,7 +874,8 @@
     "inicio_rrhh_grupo_ver": "View requests",
     "inicio_rrhh_grupo_ver_aria": "View the {total} requests for {categoria} at {centro}",
     "inicio_rrhh_grupo_numeros": "Numbers: {numeros}",
-    "txt_reglas_vigentes": "Current rules"
+    "txt_reglas_vigentes": "Current rules",
+    "txt_cargar_bolsa_convoca": "Load a pool from CONVOCA"
   },
   "panel_interno": {
     "panel_resultado_sin_expediente": "Record an acceptance or decline in the Temporary staff requests case. This job pool does not identify the case for each call-up; find it in the requests dashboard.",

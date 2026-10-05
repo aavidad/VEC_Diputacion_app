@@ -27,6 +27,9 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261001-ct-a-i18n-v1";
+
+// Carga de bolsas desde el Excel de CONVOCA (B1).
+const RUTA_PANTALLA_CARGA_CONVOCA = "/portal-empleado/modulos/bolsa/carga-convoca/";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -358,7 +361,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["alerta", i.incidencias_abiertas, traducirPortal("txt_incidencias_abiertas")],
     ];
     return `
-      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_REGLAS}" target="_blank" rel="noopener">${textoPortal("txt_reglas_vigentes")}</a><button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
+      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a><a class="boton-secundario" href="${RUTA_PANTALLA_REGLAS}" target="_blank" rel="noopener">${textoPortal("txt_reglas_vigentes")}</a><button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
       <div class="rejilla-kpi" aria-label="${textoPortal("txt_indicadores_operativos_de_bolsa")}">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>
