@@ -53,7 +53,8 @@ async function escenario(idioma, lectura, errorPreferencias = null) {
       ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` } });
     let consultasBolsa = 0;
     const cliente = { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; } };
-    const estado = await iniciarAreaPersonal({ cliente, preferencias: lectura, errorPreferencias });
+    const vistasDisponibles = new Set(["inicio", "llamamientos", "preferencias"]);
+    const estado = await iniciarAreaPersonal({ cliente, vistasDisponibles, preferencias: lectura, errorPreferencias });
     assert.equal(consultasBolsa, 1);
     assert.equal(estado.datos, null);
     pulsar(eventos, "[data-accion]", "ver-sesion");

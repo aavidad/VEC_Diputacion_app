@@ -4,11 +4,12 @@
  * El catálogo `vistas.json` decide qué vista aparece en el menú y se puede
  * abrir. Una vista sin servicio en el servidor queda desactivada (su código se
  * conserva) y se activa cambiando el catálogo cuando exista su ruta. Lo que el
- * catálogo no nombra queda cerrado.
+ * catálogo no nombra queda cerrado. El servidor sirve los JSON sin caché, así
+ * que el cambio no exige renovar versiones.
  */
-import catalogo from "./vistas.json" with { type: "json" };
-
+const RUTA_CATALOGO = "/area-personal/vistas.json";
 const VERSION_CATALOGO = "area-personal-vistas-v1";
+const MAXIMO_BYTES = 8 * 1024;
 // Destinos a los que vuelve la navegación ante una vista desconocida: no pueden faltar.
 const VISTAS_IMPRESCINDIBLES = Object.freeze(["inicio", "llamamientos"]);
 
@@ -24,4 +25,14 @@ export function leerVistasDisponibles(datos) {
   return Object.freeze(new Set(Object.entries(vistas).filter(([, activa]) => activa).map(([vista]) => vista)));
 }
 
-export const VISTAS_DISPONIBLES = leerVistasDisponibles(catalogo);
+// Sin catálogo válido el área no arranca: nunca se abren vistas por defecto.
+export async function cargarVistasDisponibles({ fetchImpl = globalThis.fetch } = {}) {
+  const respuesta = await fetchImpl(RUTA_CATALOGO, {
+    method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error",
+    referrerPolicy: "no-referrer", headers: { Accept: "application/json" },
+  });
+  if (respuesta?.status !== 200) throw new TypeError("vistas.json");
+  const texto = await respuesta.text();
+  if (new TextEncoder().encode(texto).byteLength > MAXIMO_BYTES) throw new TypeError("vistas.json");
+  return leerVistasDisponibles(JSON.parse(texto));
+}

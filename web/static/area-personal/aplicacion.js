@@ -16,7 +16,6 @@ import { crearControladorContactoPropio, montarContactoPropio } from "./contacto
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
-import { VISTAS_DISPONIBLES } from "./vistas-disponibles.js?v=20261005-b4b-v1";
 
 
 const RUTAS = Object.freeze({
@@ -44,7 +43,7 @@ const OPERACIONES = Object.freeze(new Set([
   "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga",
 ]));
 // Una vista se abre solo si existe y el catálogo `vistas.json` la activa.
-const rutaDisponible = (vista) => Object.hasOwn(RUTAS, vista) && VISTAS_DISPONIBLES.has(vista);
+const rutaDisponible = (estado, vista) => Object.hasOwn(RUTAS, vista) && estado.vistasDisponibles.has(vista);
 const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
 
@@ -79,10 +78,10 @@ export function exigirDatosOperativos(datos) {
   return datos;
 }
 
-function rutaDesdeURL() {
+function rutaDesdeURL(estado) {
   const parametros = new URLSearchParams(window.location.search);
   const vista = parametros.get("vista") || "llamamientos";
-  return rutaDisponible(vista) ? vista : "llamamientos";
+  return rutaDisponible(estado, vista) ? vista : "llamamientos";
 }
 
 function formularioAObjeto(formulario) {
@@ -111,14 +110,14 @@ function crearURL(estado, vista, opciones = {}) {
 }
 
 // Menú y enlaces internos a vistas desactivadas no se muestran.
-function ocultarRutasNoDisponibles() {
+function ocultarRutasNoDisponibles(estado) {
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
-    enlace.hidden = !rutaDisponible(enlace.dataset.ruta || "");
+    enlace.hidden = !rutaDisponible(estado, enlace.dataset.ruta || "");
   });
 }
 
 function actualizarEnlacesNavegacion(estado) {
-  ocultarRutasNoDisponibles();
+  ocultarRutasNoDisponibles(estado);
   const inicioInstitucional = porId("enlace-inicio-institucional");
   if (inicioInstitucional) {
     inicioInstitucional.dataset.ruta = "inicio";
@@ -251,7 +250,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
   if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
-  estado.vista = rutaDisponible(estado.vista) ? estado.vista : "inicio";
+  estado.vista = rutaDisponible(estado, estado.vista) ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
@@ -307,7 +306,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
 }
 
 function navegar(estado, vista, opciones = {}) {
-  if (!rutaDisponible(vista)) vista = "inicio";
+  if (!rutaDisponible(estado, vista)) vista = "inicio";
   estado.vista = vista;
   estado.avisoInicio = false;
   if (vista === "convocatoria") estado.convocatoriaSeleccionada = opciones.id || estado.convocatoriaSeleccionada;
@@ -362,12 +361,12 @@ function alternarMenu() {
   document.querySelector('[data-accion="alternar-menu"]')?.setAttribute("aria-expanded", String(abierto));
   const velo = document.querySelector(".velo-menu");
   if (velo) velo.hidden = !abierto;
-  document.querySelector(".ap-navegacion a[href]")?.focus({ preventScroll: true });
+  document.querySelector(".ap-navegacion a[href]:not([hidden])")?.focus({ preventScroll: true });
 }
 
 function mantenerFocoEnMenu(evento) {
   if (evento.key !== "Tab" || document.body.dataset.menuAbierto !== "true") return;
-  const controles = [...document.querySelectorAll('#navegacion-lateral a[href], #navegacion-lateral button:not([disabled]), #navegacion-lateral [tabindex]:not([tabindex="-1"])')];
+  const controles = [...document.querySelectorAll('#navegacion-lateral a[href]:not([hidden]), #navegacion-lateral button:not([disabled]):not([hidden]), #navegacion-lateral [tabindex]:not([tabindex="-1"]):not([hidden])')];
   if (controles.length === 0) return;
   const primero = controles[0];
   const ultimo = controles.at(-1);
@@ -579,7 +578,7 @@ function conectarEventos(estado) {
     cerrarMenuIdentidad();
     const parametros = new URLSearchParams(window.location.search);
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
-    estado.vista = parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos";
+    estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
     estado.convocatoriaSeleccionada = parametros.get("id") || estado.convocatoriaSeleccionada;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
@@ -639,19 +638,19 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetch,
+export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
-  if (!cliente || typeof cliente.cargar !== "function") {
+  if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
   const parametros = new URLSearchParams(window.location.search);
   exigirParametrosConocidos(parametros);
-  ocultarRutasNoDisponibles();
   const inicioAjeno = inicioAjenoElegido(preferencias?.estado);
   const estado = {
     cliente,
+    vistasDisponibles,
     datos: null,
-    vista: parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos",
+    vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,
     preferencias: { catalogo: preferencias?.catalogo || null, estado: preferencias?.estado || null,
       error: errorPreferencias, recibo: null, pendiente: null, borrador: null,
@@ -676,8 +675,9 @@ export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetc
     fuenteBolsa: "real",
     causaBolsa: "",
   };
+  ocultarRutasNoDisponibles(estado);
   // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
-  if (parametros.has("vista") && !rutaDisponible(parametros.get("vista"))) {
+  if (parametros.has("vista") && !rutaDisponible(estado, parametros.get("vista"))) {
     window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
   }
   await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
