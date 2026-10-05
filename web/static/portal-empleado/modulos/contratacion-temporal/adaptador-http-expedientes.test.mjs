@@ -780,8 +780,7 @@ test("sin análisis, el expediente lleva los datos de la petición para prerrell
   const obtenerDetalle = cliente.consultarDetalleRRHH;
   cliente.consultarDetalleRRHH = async (...args) => {
     const detalle = await obtenerDetalle(...args);
-    delete detalle.analisis;
-    delete detalle.cobertura;
+    delete detalle.analisis; delete detalle.cobertura;
     return detalle;
   };
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
