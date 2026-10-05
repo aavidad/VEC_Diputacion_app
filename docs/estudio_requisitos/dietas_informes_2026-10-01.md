@@ -39,6 +39,38 @@ El gobierno operativo del catálogo, su autorización y su auditoría durable
 siguen esperando el contrato nominal. La pregunta sobre fecha, unidad, estados
 e importes se remite a RRHH en `dudas.md` durante el turno de E.
 
+## Muestra en CSV
+
+La misma selección se puede sacar a una hoja de cálculo desde la terminal:
+
+```sh
+go run -p 2 ./cmd/vec-dietas --informe-periodo-csv \
+  --textos web/static/textos/es/dietas-informes-csv.json \
+  --configuracion data/catalogos/dietas/informes-ejemplo-v1.json \
+  --unidad unidad-demo-01 --desde 2026-09-01 --hasta 2026-09-30 \
+  < data/demo/dietas/informes.json > /tmp/dietas-informes.csv
+```
+
+Los filtros `--persona`, `--unidad`, `--situacion`, `--desde` y `--hasta`
+son los de la vista y se pueden omitir. La selección se hace en el servidor
+(`internal/modules/dietas/application/informeperiodo`) con las mismas
+comprobaciones que la vista: la configuración de ejemplo debe coincidir en
+referencia y versión, y la suma de los conceptos debe dar el total de cada
+comisión. El caso de la vista con fecha de liquidación, solo liquidado y
+manutención entre el 5 y el 20 de septiembre da los mismos dos registros y
+42,50 euros.
+
+Cada fila lleva referencia, versión, persona, unidad, situación, la fecha que
+elige la configuración, un importe por concepto incluido y el importe incluido.
+Los importes van en céntimos enteros, así la hoja no depende del separador
+decimal. No salen las referencias internas de persona ni de unidad. Los textos
+que una hoja interpretaría como fórmula llevan un apóstrofo delante. Para
+inglés se usa el catálogo de `textos/en/`.
+
+Es una muestra local con datos sintéticos. El botón Exportar de la vista sigue
+desactivado y la exportación nominal, con permiso propio y auditoría, sigue
+pendiente.
+
 ## Fuente y decisión
 
 [Odoo Expenses analysis](https://www.odoo.com/documentation/19.0/applications/finance/expenses/expenses_analysis.html)
