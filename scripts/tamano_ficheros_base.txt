@@ -120,7 +120,7 @@
 1510 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 948 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1047 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1051 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
