@@ -406,6 +406,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	firmasR5V2, err := nuevasRutasFirmasR5V2CTDesarrollo(cfg, &alta, derivador, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmasR5V2 != nil {
+		alta.postgresql.cerrarFirmasR5V2 = firmasR5V2.cerrar
+	}
 	for _, descriptor := range descriptoresMaterialIncorporacionB2() {
 		_, seleccionada := alta.postgresql.catalogoMaterial.descriptorPara(descriptor.Audiencia)
 		if seleccionada != b2Configurada {
@@ -887,6 +894,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			soporte: alta.soporte, reloj: reloj,
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
+	}
+	if firmasR5V2 != nil {
+		rutas = append(rutas, firmasR5V2.rutas...)
 	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
 		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)

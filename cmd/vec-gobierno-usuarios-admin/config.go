@@ -32,12 +32,16 @@ type configuracionPrivada struct {
 	DSNOperador           string `json:"dsn_operador"`
 	Salida                string `json:"salida"`
 	HorasValidezClaves    int    `json:"horas_validez_claves"`
+	// ConjuntoCapacidades 0 (o ausente) publica las dos claves de usuarios con
+	// AD188; 1 publica el conjunto 1 de AD198 (usuarios y lote ordinario).
+	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
 }
 
 var errConfiguracion = errors.New("configuracion")
 
 func (c configuracionPrivada) validar(fase string) error {
-	if !rutaAbsoluta(c.Salida) || c.HorasValidezClaves < 0 || c.HorasValidezClaves > 24 {
+	if _, ok := bootstrap.AudienciasConjuntoCapacidadesAdmin(c.ConjuntoCapacidades); !ok ||
+		!rutaAbsoluta(c.Salida) || c.HorasValidezClaves < 0 || c.HorasValidezClaves > 24 {
 		return errConfiguracion
 	}
 	switch fase {

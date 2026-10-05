@@ -95,6 +95,17 @@ salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
      -textos ... -timeout 30s
    ```
 
+## Conjunto de capacidades (AD198)
+
+Con `"conjunto_capacidades": 1` en la configuración, el comando publica en la
+misma operación las dos claves de usuarios y la del lote ordinario de perfiles,
+con la migración 000198. Sin el campo, o con 0, sigue usando AD188 y publica
+solo las dos de usuarios. El LOGIN técnico de un conjunto es miembro de
+`vec_gobierno_capacidades_admin_operador`, y su fila aprobada va en
+`config_gobierno_capacidades_admin_v1` con el número de conjunto. El
+procedimiento está en
+`deploy/postgresql/autorizacion_atestada_v3/GOBIERNO_CAPACIDADES_AD198.md`.
+
 ## Salida
 
 Por consola solo sale un JSON con `codigo`, `mensaje` y `limite`, tomados del

@@ -117,10 +117,10 @@
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1515 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1525 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 936 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1043 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1047 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
