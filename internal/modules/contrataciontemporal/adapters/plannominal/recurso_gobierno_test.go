@@ -137,3 +137,63 @@ func TestRecursoGobiernoPlanFirmaLigaLosBytesExactos(t *testing.T) {
 		t.Fatal("dos serializaciones distintas dan la misma huella")
 	}
 }
+
+// Material con el catálogo canónico sustituido por bytes arbitrarios.
+func materialConCanonPrueba(t *testing.T, canon []byte) []byte {
+	t.Helper()
+	m := map[string]any{"esquema": EsquemaMaterialGobiernoPlanFirma, "operacion": "publicar",
+		"catalogo_id": "ct.plan.firma.sintetico", "version": 1, "revision_esperada": 1,
+		"huella_esperada": strings.Repeat("b", 64), "clave_operacion": "clave-sintetica-0001",
+		"catalogo_canonico_base64": base64.StdEncoding.EncodeToString(canon), "catalogo_sha256": shaPrueba(canon),
+		"traza_canonica_base64": "e30=", "traza_sha256": shaPrueba([]byte("{}")),
+		"evento_canonico_base64": "e30=", "evento_sha256": shaPrueba([]byte("{}"))}
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// Casos en que AD177 rechaza y Go debe rechazar también (paridad con jsonb).
+func TestRecursoGobiernoPlanFirmaParidadConJSONB(t *testing.T) {
+	base := `"id":"ct.plan.firma.sintetico","version":1,"modulo_id":"contratacion_temporal","estado":"publicado"`
+	casos := map[string]string{
+		"revisión en cadena":     `{` + base + `,"revision":"2"}`,
+		"revisión decimal":       `{` + base + `,"revision":2.0}`,
+		"revisión con exponente": `{` + base + `,"revision":2e0}`,
+		"versión en cadena":      `{"id":"ct.plan.firma.sintetico","version":"1","modulo_id":"contratacion_temporal","estado":"publicado","revision":2}`,
+		"texto de sobra":         `{` + base + `,"revision":2} xx`,
+		"estado distinto":        `{"id":"ct.plan.firma.sintetico","version":1,"modulo_id":"contratacion_temporal","estado":"borrador","revision":2}`,
+		"nulo escapado":          `{` + base + `,"revision":2,"nombre":"a\u0000b"}`,
+	}
+	for nombre, canon := range casos {
+		if _, _, err := RecursoGobiernoPlanFirma(materialConCanonPrueba(t, []byte(canon))); !errors.Is(err, ct.ErrPlanCompetenciaFirmaV2) {
+			t.Errorf("%s: aceptado (%v)", nombre, err)
+		}
+	}
+	if _, _, err := RecursoGobiernoPlanFirma(materialConCanonPrueba(t, []byte(`{`+base+`,"revision":2}`))); err != nil {
+		t.Fatalf("canon mínimo válido rechazado: %v", err)
+	}
+	// jsonb distingue mayúsculas: con "estado" y "ESTADO" toma "estado", igual que aquí.
+	_, r, err := RecursoGobiernoPlanFirma(materialConCanonPrueba(t, []byte(`{`+base+`,"revision":2,"ESTADO":"borrador"}`)))
+	if err != nil || r.Atributos["estado"] != "publicado" {
+		t.Fatalf("clave con otras mayúsculas: %v %v", r.Atributos, err)
+	}
+	if _, _, err := RecursoGobiernoPlanFirma(materialConCanonPrueba(t, []byte{'{', 0xff, '}'})); err == nil {
+		t.Fatal("UTF-8 inválido aceptado")
+	}
+}
+
+func TestRecursoGobiernoPlanFirmaAceptaCadaOperacion(t *testing.T) {
+	for operacion, estado := range estadoPorOperacionGobierno {
+		canon := `{"id":"ct.plan.firma.sintetico","version":1,"modulo_id":"contratacion_temporal","estado":"` + estado + `","revision":1}`
+		var m map[string]any
+		_ = json.Unmarshal(materialConCanonPrueba(t, []byte(canon)), &m)
+		m["operacion"] = operacion
+		b, _ := json.Marshal(m)
+		accion, r, err := RecursoGobiernoPlanFirma(b)
+		if err != nil || accion != "vec.catalogos."+operacion || r.Atributos["estado"] != estado {
+			t.Errorf("%s: %s %v %v", operacion, accion, r.Atributos, err)
+		}
+	}
+}

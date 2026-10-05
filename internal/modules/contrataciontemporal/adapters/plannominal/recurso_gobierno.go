@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
+	"unicode/utf8"
 
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vd "vec-diputacion-granada/internal/vec/domain"
@@ -43,7 +44,8 @@ var (
 // AD177/CC7 vuelven a calcular lo mismo en la transacción del efecto.
 func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, error) {
 	var cero vd.RecursoAutorizable
-	if len(material) < 2 || len(material) > maximoMaterialGobiernoPlanFirma || !json.Valid(material) {
+	if len(material) < 2 || len(material) > maximoMaterialGobiernoPlanFirma || !utf8.Valid(material) ||
+		bytes.Contains(material, []byte(`\u0000`)) || !json.Valid(material) {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
 	var m map[string]json.RawMessage
@@ -67,21 +69,21 @@ func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, e
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
 	canon, err := base64.StdEncoding.DecodeString(catalogoB64)
-	if err != nil || hexSHA256(canon) != catalogoSHA {
+	if err != nil || hexSHA256(canon) != catalogoSHA || !utf8.Valid(canon) ||
+		bytes.Contains(canon, []byte(`\u0000`)) || !objetoSinClavesRepetidas(canon) {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
-	var catalogo struct {
-		ID       string      `json:"id"`
-		Version  json.Number `json:"version"`
-		ModuloID string      `json:"modulo_id"`
-		Revision json.Number `json:"revision"`
-		Estado   string      `json:"estado"`
-	}
-	d := json.NewDecoder(bytes.NewReader(canon))
-	d.UseNumber()
-	if d.Decode(&catalogo) != nil || catalogo.ID != catalogoID || catalogo.Version.String() != version.String() ||
-		catalogo.ModuloID != ModuloGobiernoPlanFirma || !enteroGobiernoPlanFirma.MatchString(catalogo.Revision.String()) ||
-		catalogo.Estado != estadoPorOperacionGobierno[operacion] {
+	// Claves exactas, como jsonb (encoding/json emparejaría sin mayúsculas), y
+	// json.Unmarshal rechaza texto de sobra tras el objeto.
+	var c map[string]json.RawMessage
+	var id, modulo, estado string
+	var versionCatalogo, revision json.Number
+	if json.Unmarshal(canon, &c) != nil ||
+		cadenaJSON(c["id"], &id) != nil || id != catalogoID ||
+		numeroJSON(c["version"], &versionCatalogo) != nil || versionCatalogo.String() != version.String() ||
+		cadenaJSON(c["modulo_id"], &modulo) != nil || modulo != ModuloGobiernoPlanFirma ||
+		numeroJSON(c["revision"], &revision) != nil || !enteroGobiernoPlanFirma.MatchString(revision.String()) ||
+		cadenaJSON(c["estado"], &estado) != nil || estado != estadoPorOperacionGobierno[operacion] {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
 	}
 	r := vd.RecursoAutorizable{
@@ -90,9 +92,9 @@ func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, e
 		Tipo:       TipoRecursoGobiernoPlanFirma,
 		Ambitos:    map[string]string{},
 		Atributos: map[string]string{
-			"estado":          catalogo.Estado,
+			"estado":          estado,
 			"material_sha256": hexSHA256(material),
-			"revision":        catalogo.Revision.String(),
+			"revision":        revision.String(),
 		},
 	}
 	if r.Validar() != nil {
@@ -108,8 +110,9 @@ func cadenaJSON(b json.RawMessage, destino *string) error {
 	return json.Unmarshal(b, destino)
 }
 
+// numeroJSON sólo admite un número JSON literal (no una cadena numérica).
 func numeroJSON(b json.RawMessage, destino *json.Number) error {
-	if len(b) == 0 || b[0] == '"' {
+	if len(b) == 0 || b[0] < '0' || b[0] > '9' {
 		return ct.ErrPlanCompetenciaFirmaV2
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
