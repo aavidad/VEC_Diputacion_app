@@ -25,6 +25,11 @@ import (
 // La huella semántica no incluye correlación ni instantánea del acceso actual.
 // El recibo conserva la correlación original del efecto; la auditoría común
 // registra además cada acceso/replay con su correlación y autorización actuales.
+// Contrato v3: la organización viene de la configuración y la SQL la coteja con
+// la fuente central para el actor y para la persona destinataria. «Inmediato»
+// significa el instante del COMMIT; un alta «programada» ya vencida o una
+// vigencia final no posterior al inicio efectivo se rechazan sin efecto. El
+// recibo devuelve la huella de los descriptores de ámbito cotejados.
 type AutoridadLotesAdministracionPerfiles interface {
 	AplicarLoteOrdinario(context.Context, domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error)
 }
