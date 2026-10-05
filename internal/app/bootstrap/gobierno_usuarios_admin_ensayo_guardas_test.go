@@ -34,21 +34,6 @@ func validarConfiguracionEnsayoGobiernoUsuarios(f configuracionEnsayoGobiernoUsu
 	}
 	return nil
 }
-func escribirEnsayoGobiernoUsuarios(root *os.Root, nombre string, data []byte) error {
-	if root == nil || nombre == "" || filepath.Base(nombre) != nombre {
-		return ErrGobiernoUsuariosAdmin
-	}
-	f, err := root.OpenFile(nombre, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return ErrGobiernoUsuariosAdmin
-	}
-	_, err = f.Write(data)
-	cerrar := f.Close()
-	if err != nil || cerrar != nil {
-		return ErrGobiernoUsuariosAdmin
-	}
-	return nil
-}
 func TestGobiernoUsuariosEnsayoRechazaFaseYDestinoAntesConexion(t *testing.T) {
 	f := configuracionEnsayoGobiernoUsuarios{Fase: "preparar", Alcance: "clon_sintetico_desechable", NombreClon: "vec-clon-ensayo", HostPermitido: "/tmp/pg-clon", PuertoPermitido: 5432, BasePermitida: "vec_ensayo", UsuarioPropietario: "owner_ensayo", UsuarioOperador: "operador_ensayo", DSNPropietario: "host=/tmp/pg-clon port=5432 user=owner_ensayo dbname=vec_ensayo sslmode=disable", DSNOperador: "host=/tmp/pg-clon port=5432 user=operador_ensayo dbname=vec_ensayo sslmode=disable", Salida: t.TempDir()}
 	if validarConfiguracionEnsayoGobiernoUsuarios(f) != nil {
@@ -85,10 +70,10 @@ func TestGobiernoUsuariosEnsayoSalidaPrivadaNoTruncaNiSigueEnlace(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer root.Close()
-	if escribirEnsayoGobiernoUsuarios(root, "acta.json", []byte("original")) != nil {
+	if escribirPrivadoGobiernoUsuarios(root, "acta.json", []byte("original")) != nil {
 		t.Fatal("salida inicial")
 	}
-	if escribirEnsayoGobiernoUsuarios(root, "acta.json", []byte("otro")) == nil {
+	if escribirPrivadoGobiernoUsuarios(root, "acta.json", []byte("otro")) == nil {
 		t.Fatal("acta existente truncada")
 	}
 	b, _ := os.ReadFile(filepath.Join(d, "acta.json"))
@@ -102,7 +87,7 @@ func TestGobiernoUsuariosEnsayoSalidaPrivadaNoTruncaNiSigueEnlace(t *testing.T) 
 	if os.Symlink(target, filepath.Join(d, "alias.json")) != nil {
 		t.Fatal("enlace")
 	}
-	if escribirEnsayoGobiernoUsuarios(root, "alias.json", []byte("secreto")) == nil {
+	if escribirPrivadoGobiernoUsuarios(root, "alias.json", []byte("secreto")) == nil {
 		t.Fatal("enlace seguido")
 	}
 	b, _ = os.ReadFile(target)
@@ -116,7 +101,7 @@ func TestGobiernoUsuariosEnsayoSalidaPrivadaNoTruncaNiSigueEnlace(t *testing.T) 
 		r.Close()
 		t.Fatal("directorio publico aceptado")
 	}
-	if !errors.Is(escribirEnsayoGobiernoUsuarios(nil, "x", nil), ErrGobiernoUsuariosAdmin) {
+	if !errors.Is(escribirPrivadoGobiernoUsuarios(nil, "x", nil), ErrGobiernoUsuariosAdmin) {
 		t.Fatal("root nil")
 	}
 }

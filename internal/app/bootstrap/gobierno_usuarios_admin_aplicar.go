@@ -58,7 +58,9 @@ func AplicarGobiernoUsuariosAdmin(ctx context.Context, pool *pgxpool.Pool, planC
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	if tx.Commit(ctx) != nil {
-		return vacio, ErrGobiernoUsuariosAdmin
+		// Tras enviar COMMIT no se sabe si la base lo aplicó: el llamante
+		// recupera con el mismo plan, nunca con plan o material nuevos.
+		return vacio, ErrCommitGobiernoUsuariosIndeterminado
 	}
 	return r, nil
 }
