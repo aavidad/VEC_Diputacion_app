@@ -107,12 +107,25 @@ func (e *EmisorUsuarios) solicitud(ctx context.Context, actor domain.ContextoAct
 	return solicitud, resultado, emision, nil
 }
 
-func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, audiencia string, ahora time.Time) error {
+// La vigencia se comprueba sobre la confirmación durable del registro, no
+// sobre la decisión en memoria: DecisionAutorizacionLigadaV3.VigenteEn falla
+// cerrado por diseño hasta que exista un tipo posterior al COMMIT, y ese tipo
+// es precisamente la confirmación. Se liga a esta decisión, motivo y contexto
+// con la orden de registro antes de mirar su ventana. El consumo SQL vuelve a
+// exigir la decisión registrada; esto sólo evita entregar material caducado.
+func validarDecisionUsuarios(d domain.DecisionAutorizacionLigadaV3, confirmacion ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, solicitud domain.SolicitudAutorizacionLigadaV3, motivo domain.ReferenciaEntradaCatalogo, resultado domain.ResultadoContextoActorRegistradoV2, audiencia string, ahora time.Time) error {
 	concedida, _, err := d.Resultado()
 	if err != nil {
 		return errorEmisorUsuarios(err)
 	}
-	if !concedida || d.ValidarPara(solicitud) != nil || !d.VigenteEn(ahora) {
+	if !concedida || d.ValidarPara(solicitud) != nil {
+		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
+	}
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(solicitud, d, motivo, resultado)
+	if err != nil {
+		return errorEmisorUsuarios(err)
+	}
+	if confirmacion.ValidarPara(orden) != nil || !confirmacion.DentroDeVentanaEn(ahora.UTC().Truncate(time.Microsecond)) {
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	b, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(d)
@@ -152,7 +165,7 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 		return vacia, errorEmisorUsuarios(err)
 	}
 	ahora := e.reloj.Ahora()
-	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || validarDecisionUsuarios(decision, solicitud, emision.Audiencia, ahora) != nil || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
+	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil || validarDecisionUsuarios(decision, confirmacion, solicitud, e.motivos[emision.Audiencia], resultado, emision.Audiencia, ahora) != nil || !evidencia.Vinculo.VigenteEn(ahora, resultado) {
 		return vacia, fallo
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
