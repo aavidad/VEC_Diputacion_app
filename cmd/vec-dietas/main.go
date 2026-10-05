@@ -21,6 +21,9 @@ func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
 	if len(args) > 0 && args[0] == "--informe-periodo-csv" {
 		return ejecutarInformePeriodoCSV(args[1:], in, out)
 	}
+	if len(args) > 0 && args[0] == "--informe-periodo-pdf" {
+		return ejecutarInformePeriodoPDF(args[1:], in, out)
+	}
 	if len(args) == 6 && args[0] == "--comparar-liquidaciones" && args[1] == "--informe" && args[2] == "--textos" && args[4] == "--tema" {
 		return ejecutarInformeComparacion(in, out, args[3], args[5])
 	}

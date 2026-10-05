@@ -77,3 +77,24 @@ func TestInformePeriodoCSVRechazaClavesConOtraCapitalizacionORepetidas(t *testin
 		}
 	}
 }
+
+func TestInformePeriodoPDFEsEnYFallos(t *testing.T) {
+	datos, err := os.ReadFile(csvDatos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, idioma := range []string{"es", "en"} {
+		var out bytes.Buffer
+		codigo := ejecutarConArgumentos([]string{"--informe-periodo-pdf", "--textos", "../../web/static/textos/" + idioma + "/dietas-informes-pdf.json",
+			"--configuracion", csvConfig, "--situacion", "liquidado"}, bytes.NewReader(datos), &out)
+		if codigo != 0 || !strings.HasPrefix(out.String(), "%PDF-") {
+			t.Fatalf("%s: %d %q", idioma, codigo, out.String()[:min(out.Len(), 80)])
+		}
+	}
+	var out bytes.Buffer
+	codigo := ejecutarConArgumentos([]string{"--informe-periodo-pdf", "--textos", csvTextosES, "--configuracion", csvConfig},
+		bytes.NewReader(datos), &out)
+	if codigo != 2 || !strings.HasPrefix(out.String(), `{"codigo":`) {
+		t.Fatalf("catálogo CSV en PDF: %d %q", codigo, out.String())
+	}
+}

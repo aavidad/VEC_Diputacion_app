@@ -73,6 +73,33 @@ Es una muestra local con datos sintéticos. El botón Exportar de la vista sigue
 desactivado y la exportación nominal, con permiso propio y auditoría, sigue
 pendiente.
 
+## Muestra en PDF
+
+La misma selección sale también en PDF con el generador de documentos común:
+
+```sh
+go run -p 2 ./cmd/vec-dietas --informe-periodo-pdf \
+  --textos web/static/textos/es/dietas-informes-pdf.json \
+  --configuracion data/catalogos/dietas/informes-ejemplo-v1.json \
+  --desde 2026-09-01 --hasta 2026-09-30 \
+  < data/demo/dietas/informes.json > /tmp/dietas-informes.pdf
+```
+
+Admite los mismos filtros que el CSV. El documento empieza con el aviso de
+ejemplo sintético y explica qué fecha cuenta para el período. Luego muestra el
+período pedido, el número de informes y el importe incluido, el subtotal de
+cada concepto y una línea por comisión con referencia, versión, persona,
+unidad, situación, fecha e importe. Termina recordando que los importes son
+los conservados y que el documento no acredita liquidación, fiscalización ni
+pago. Los importes llevan el formato del idioma: `1.234,56 €` en castellano y
+`€1,234.56` en inglés. Todos los textos están en
+`textos/{es,en}/dietas-informes-pdf.json`, y un nombre que contenga llaves se
+imprime tal cual, sin tomarse por plantilla.
+
+Igual que en Cronos, el PDF etiquetado y la validación PDF/UA siguen
+pendientes. La muestra sirve para revisar contenido y legibilidad; no habilita
+impresión ni descarga en la vista.
+
 ## Fuente y decisión
 
 [Odoo Expenses analysis](https://www.odoo.com/documentation/19.0/applications/finance/expenses/expenses_analysis.html)
