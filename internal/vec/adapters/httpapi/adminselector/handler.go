@@ -19,22 +19,25 @@ const maxCuerpo = 1024
 const maxRevisionJSON = 1<<53 - 1
 
 type Handler struct {
-	origen, host, audiencia string
-	observador              FuenteObservacion
-	seleccionador           Seleccionador
-	auditor                 api.AuditorFrontera
-	reloj                   httpseguridad.Reloj
+	// host es la autoridad exacta de la cabecera Host (con puerto si no es
+	// 443); nombre, sin puerto, es lo que la frontera ADMIN observa y contrasta
+	// con host_admin de la política de certificado.
+	origen, host, nombre, audiencia string
+	observador                      FuenteObservacion
+	seleccionador                   Seleccionador
+	auditor                         api.AuditorFrontera
+	reloj                           httpseguridad.Reloj
 }
 
 func NuevoHandler(origen, audiencia string, observador FuenteObservacion, seleccionador Seleccionador,
 	auditor api.AuditorFrontera, reloj httpseguridad.Reloj) (*Handler, error) {
 	u, err := url.Parse(origen)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" ||
-		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" || audiencia == "" ||
+		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" || u.Hostname() == "" || audiencia == "" ||
 		nulo(observador) || nulo(seleccionador) || nulo(auditor) || nulo(reloj) {
 		return nil, api.ErrConfiguracionIncompleta
 	}
-	return &Handler{origen: origen, host: u.Host, audiencia: audiencia, observador: observador,
+	return &Handler{origen: origen, host: u.Host, nombre: u.Hostname(), audiencia: audiencia, observador: observador,
 		seleccionador: seleccionador, auditor: auditor, reloj: reloj}, nil
 }
 
@@ -84,7 +87,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.errorObservacion(w, r, err)
 		return
 	}
-	if o.Host != h.host || o.Audiencia != h.audiencia || !o.Valida(h.reloj.Ahora().UTC()) {
+	if o.Host != h.nombre || o.Audiencia != h.audiencia || !o.Valida(h.reloj.Ahora().UTC()) {
 		h.denegar(w, r, http.StatusUnauthorized, "autenticacion_requerida")
 		return
 	}
