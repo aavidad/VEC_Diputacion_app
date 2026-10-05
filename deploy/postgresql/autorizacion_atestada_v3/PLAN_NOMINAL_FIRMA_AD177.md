@@ -107,3 +107,40 @@ CT176 consume dos autorizaciones de firma ligadas en la misma transacción. AD17
 Después del registro CT172, `recuperar_consumo_firma_plan_ct_v1` relee el consumo interior actual desde tablas propias AD, exige que los bytes de decisión sean idénticos a los conservados y lo comprueba mediante AD167. Devuelve sólo los siete campos del recibo; no presta un recibo histórico. CT176 revalida el pin mediante CC7 y conserva ambos vínculos antes de COMMIT. Las fachadas nuevas sólo reciben EXECUTE para el propietario CT; el LOGIN no puede invocarlas directamente.
 
 Los datos compartidos se cotejan con el material y el descriptor. `esquema_contexto`, `mapeo_version` y `mapeo_fuente_ref` se verifican por la publicación íntegra fijada, sin afirmar un cotejo independiente de la derivación del selector. Ninguna de estas preparaciones acredita todavía ensayo, instalación ni firma nominal.
+
+## Grupo técnico dedicado (AD200)
+
+Dirección decidió el 5 de octubre de 2026 que el gobierno del plan no lo ejecute
+el runtime CT, sino un grupo técnico propio con una sola pertenencia, como el
+lote de Administración (AD190). AD200 hace tres cosas, en una transacción:
+
+- crea el grupo NOLOGIN `vec_plan_firma_gobierno_ejecutor`, con `CONNECT` sobre
+  la base y `USAGE` sobre el esquema;
+- añade al núcleo una rama de sesión para `gobierno_plan_nominal_firma_ct` que
+  exige `login_gobierno_plan_firma_valido_v1()` y saca ese perfil de la
+  clasificación genérica del runtime CT; la rama de contrato de AD178 no cambia;
+- retira `EXECUTE` de `registrar_y_confirmar_gobierno_plan_firma_v1` al runtime
+  CT y lo concede al grupo nuevo.
+
+El LOGIN válido no tiene atributos privilegiados ni configuración propia,
+pertenece sólo a ese grupo (con INHERIT, sin SET ni ADMIN) y no usa `SET ROLE`.
+El DBA lo crea fuera de las migraciones, por ejemplo:
+
+```sql
+CREATE ROLE <login_gobierno_plan> LOGIN INHERIT PASSWORD '<secreto fuera de Git>';
+GRANT vec_plan_firma_gobierno_ejecutor TO <login_gobierno_plan> WITH INHERIT TRUE, SET FALSE;
+```
+
+Pertenecer al grupo no acredita a la persona: cada llamada sigue necesitando
+una decisión V3 nominal de la audiencia de gobierno, emitida en la superficie
+`administracion_privilegiada` con cuenta privilegiada y el perfil de Aplicación
+que AUT51 amplió.
+
+Preimagen medida en clon sobre main con AD190, CA35 y AUT44: núcleo
+`05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323`
+(fuente `1a5c3e67…`). Postimagen en ese clon: `87262fdf…` (fuente `e1ca3d0d…`).
+El CHECK de audiencias no cambia. Una segunda aplicación se detiene en la
+precondición. `pruebas_sql/ad200_grupo_gobierno_plan_firma.sql`, dentro de un
+ROLLBACK, comprueba que un LOGIN exclusivo del grupo pasa la rama de sesión, que
+uno con otra pertenencia se rechaza en ella y que el runtime CT ya no tiene
+`EXECUTE` sobre la fachada.
