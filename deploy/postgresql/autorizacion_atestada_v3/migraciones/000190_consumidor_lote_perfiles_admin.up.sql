@@ -1,13 +1,13 @@
 \set ON_ERROR_STOP on
 -- AD190: consumidor nominal del lote ordinario de perfiles de Administración.
--- Acción administracion.perfiles.aplicar_lote_ordinario (rol de Aplicación v6,
--- AUT45), audiencia vec_autorizacion.administracion_perfiles.lote_ordinario.v1,
+-- Acción administracion.perfiles.aplicar_lote_ordinario (rol de Aplicación v6 o
+-- posterior, AUT45/AUT51), audiencia vec_autorizacion.administracion_perfiles.lote_ordinario.v1,
 -- recurso «persona» destinataria. Sólo lo ejecuta el propietario de Autorización
 -- desde su efecto (AUT44); el núcleo exige además que la sesión sea un LOGIN
 -- exclusivo del grupo vec_admin_perfiles_lote_ejecutor. Comprueba la puerta de
 -- AUT45 antes y después del consumo. No concede permisos ni escribe efectos.
--- Preimágenes medidas sobre main tras AD193, AD195, AD196, AUT48 y AUT49
--- (núcleo POST195 y CHECK de audiencias POST195). Una sola vez; sin DOWN.
+-- Preimágenes medidas sobre main tras AD193, AD195, AD196, AUT48, AUT49,
+-- AD178/AD177 y AUT51 (núcleo y CHECK de audiencias POST178). Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -30,8 +30,9 @@ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_servicios_certificados_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.login_usuarios_admin_valido_v1()') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.capacidad_cruda_prevalida(bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_recuperacion_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regrole('vec_admin_perfiles_lote_ejecutor') IS NOT NULL
- THEN RAISE EXCEPTION 'AD190: PARO clave=preimagen actual=incompatible esperado=AD185_AD195_sin_AD190' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD190: PARO clave=preimagen actual=incompatible esperado=AD185_AD195_AD178_sin_AD190' USING ERRCODE='55000'; END IF;
 END $pre$;
 -- Grupo del LOGIN técnico de vec-admin que ejecutará el lote. Sin LOGIN propio,
 -- sin herencia hacia otros grupos; AUT44 le concede sólo su fachada.
@@ -88,11 +89,11 @@ BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'AD190: PARO clave=nucleo esperado=presente actual=ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  h:=encode(sha256(convert_to(original,'UTF8')),'hex');
- IF h IS DISTINCT FROM '728dde660bd784951e6685402a625f62dedc6d08cff35d3e259a1d9af471737a'
- THEN RAISE EXCEPTION 'AD190: PARO clave=nucleo_postAD195_def_SHA actual=% esperado=728dde660bd784951e6685402a625f62dedc6d08cff35d3e259a1d9af471737a',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381'
+ THEN RAISE EXCEPTION 'AD190: PARO clave=nucleo_postAD177_def_SHA actual=% esperado=2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381',h USING ERRCODE='55000'; END IF;
  h:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF h IS DISTINCT FROM '717eba51bc117748907f46dbf9ad1341b53a1aeb1896745b9561eebc3f6d189c'
- THEN RAISE EXCEPTION 'AD190: PARO clave=nucleo_postAD195_src_SHA actual=% esperado=717eba51bc117748907f46dbf9ad1341b53a1aeb1896745b9561eebc3f6d189c',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b'
+ THEN RAISE EXCEPTION 'AD190: PARO clave=nucleo_postAD177_src_SHA actual=% esperado=4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b',h USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
@@ -133,11 +134,11 @@ BEGIN
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  h:=encode(sha256(convert_to(anterior,'UTF8')),'hex');
- -- Preimagen medida tras AD195.
- IF h IS DISTINCT FROM '26497f113bb8468042bffa3fffaf846ce9da5d6db289f0d3b48a0f011703d5f0'
+ -- Preimagen medida tras AD178/AD177.
+ IF h IS DISTINCT FROM 'e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7'
  OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
  OR strpos(anterior,'vec_autorizacion.administracion_perfiles.lote_ordinario.v1')<>0
- THEN RAISE EXCEPTION 'AD190: PARO clave=CHECK_audiencias_SHA actual=% esperado=26497f113bb8468042bffa3fffaf846ce9da5d6db289f0d3b48a0f011703d5f0',h USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD190: PARO clave=CHECK_audiencias_SHA actual=% esperado=e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7',h USING ERRCODE='55000'; END IF;
  nueva:='CHECK (('||substr(anterior,8,length(anterior)-8)||') OR audiencia_consumo = ''vec_autorizacion.administracion_perfiles.lote_ordinario.v1'')';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
@@ -148,7 +149,7 @@ BEGIN
 END $audiencias$;
 
 -- Fachada de consumo: sólo la ejecuta el propietario de Autorización desde el
--- efecto del lote. Comprueba el contrato cerrado y la puerta del rol v6 antes
+-- efecto del lote. Comprueba el contrato cerrado y la puerta del lote (versión vigente del rol) antes
 -- de entrar en el núcleo (firma, gobierno, revocación, origen y vigencia) y
 -- vuelve a comprobar la decisión viva y la puerta después del consumo.
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_lote_perfiles_admin_v3_atestada(
