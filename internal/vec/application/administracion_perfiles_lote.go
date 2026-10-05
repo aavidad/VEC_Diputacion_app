@@ -45,7 +45,15 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 	if err := s.validarAdministrador(ctx, solicitud.InstantaneaAutorizacion); err != nil {
 		return domain.ReciboLoteAdministracionPerfiles{}, err
 	}
+	ahora := s.reloj.Ahora()
 	for _, cambio := range solicitud.Cambios {
+		// Un alta programada empieza en el futuro y ninguna alta puede terminar
+		// ya: la autoridad confirmaría un efecto que el recibo no podría acreditar.
+		if cambio.Operacion == domain.OperacionOtorgarPerfil &&
+			(!cambio.Objetivo.VigenteHasta.After(ahora) ||
+				cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && !cambio.Objetivo.VigenteDesde.After(ahora)) {
+			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
+		}
 		rol, err := s.catalogo.ResolverRolAdministrable(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return domain.ReciboLoteAdministracionPerfiles{}, err

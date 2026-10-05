@@ -140,7 +140,7 @@ func TestAdministracionPerfilesLoteInmediatoUsaInstantePrivadoDelRecibo(t *testi
 	}
 }
 func TestAdministracionPerfilesLoteDeniegaAntesDelPuerto(t *testing.T) {
-	for _, caso := range []string{"autoasignacion", "sistemas", "duplicado", "huella", "CAS", "sensible", "evidencia", "correlacion", "vigencia"} {
+	for _, caso := range []string{"autoasignacion", "sistemas", "duplicado", "huella", "CAS", "sensible", "evidencia", "correlacion", "vigencia", "programado_pasado", "hasta_pasado"} {
 		t.Run(caso, func(t *testing.T) {
 			servicio, s, a, c := lotePerfilesAplicacionPrueba(t)
 			switch caso {
@@ -169,6 +169,21 @@ func TestAdministracionPerfilesLoteDeniegaAntesDelPuerto(t *testing.T) {
 				s.CorrelacionRef = ""
 			case "vigencia":
 				s.Cambios[0].Objetivo.VigenteDesde = time.Time{}
+			case "programado_pasado", "hasta_pasado":
+				for i := range s.Cambios {
+					if s.Cambios[i].Operacion != domain.OperacionOtorgarPerfil {
+						continue
+					}
+					if caso == "programado_pasado" {
+						s.Cambios[i].InicioVigencia = domain.InicioVigenciaLoteProgramado
+						s.Cambios[i].Objetivo.VigenteDesde = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+					} else {
+						s.Cambios[i].InicioVigencia = domain.InicioVigenciaLoteInmediato
+						s.Cambios[i].Objetivo.VigenteDesde = time.Time{}
+						s.Cambios[i].Objetivo.VigenteHasta = time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC)
+					}
+				}
+				sellarLotePerfilesPrueba(t, &s)
 			}
 			_, err := servicio.AplicarLoteOrdinario(context.Background(), s)
 			if err == nil || a.lotes != 0 || a.ordinarios != 0 {

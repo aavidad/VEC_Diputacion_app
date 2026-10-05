@@ -62,6 +62,8 @@ func (c CambioPerfilAdministracion) validarLote() error {
 			return ErrActoAdministracionPerfilesInvalido
 		}
 	case OperacionRevocarPerfil:
+		// CA20 sube juntas las versiones de perfil y vínculo; una lectura que
+		// las desacople debe cambiar también esta comprobación.
 		if c.InicioVigencia != "" || p.PerfilVersion == 0 || p.VinculoVersion == 0 ||
 			p.PerfilVersion != p.VinculoVersion ||
 			!p.VigenteDesde.IsZero() || !p.VigenteHasta.IsZero() {
@@ -157,6 +159,11 @@ func (s SolicitudLoteAdministracionPerfiles) Validar() error {
 
 // ReciboLoteAdministracionPerfiles se emite sólo tras el commit íntegro. Sus
 // recibos por cambio comparten acto, auditoría, fecha y correlación de la orden.
+// FuentesSHA256 es la huella que calcula la autoridad de los descriptores de
+// ámbito (organización y unidad) cotejados con sus fuentes propietarias en la
+// misma transacción; el cliente nunca la aporta. Inicios lleva, por cambio, el
+// instante efectivo: en «inmediato» es el del COMMIT (ConfirmadoEn); en
+// «programado», la fecha futura pedida. Las bajas llevan un inicio vacío.
 type ReciboLoteAdministracionPerfiles struct {
 	OperacionRef          string
 	ActoRef               string
@@ -206,7 +213,7 @@ func (r ReciboLoteAdministracionPerfiles) ValidarPara(s SolicitudLoteAdministrac
 		case OperacionOtorgarPerfil:
 			if recibo.EstadoPosterior != EstadoVinculoContextoActorActivo || recibo.VersionPosterior != 1 ||
 				inicio.Modo != c.InicioVigencia || !inicio.VigenteDesde.Equal(recibo.VigenteDesde) ||
-				!recibo.VigenteHasta.Equal(c.Objetivo.VigenteHasta) {
+				!recibo.VigenteHasta.Equal(c.Objetivo.VigenteHasta) || !recibo.VigenteHasta.After(inicio.VigenteDesde) {
 				return ErrActoAdministracionPerfilesInvalido
 			}
 			if c.InicioVigencia == InicioVigenciaLoteInmediato {

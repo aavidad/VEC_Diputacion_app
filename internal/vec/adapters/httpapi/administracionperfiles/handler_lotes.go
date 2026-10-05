@@ -75,8 +75,12 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 		dtoRecibo.Cambios = append(dtoRecibo.Cambios, reciboDTO(cambio))
 	}
 	for _, inicio := range recibo.Inicios {
-		dtoRecibo.Inicios = append(dtoRecibo.Inicios, InicioEfectivoLote{
-			Modo: string(inicio.Modo), VigenteDesde: inicio.VigenteDesde})
+		dto := InicioEfectivoLote{Modo: string(inicio.Modo)}
+		if !inicio.VigenteDesde.IsZero() {
+			desde := inicio.VigenteDesde
+			dto.VigenteDesde = &desde
+		}
+		dtoRecibo.Inicios = append(dtoRecibo.Inicios, dto)
 	}
 	jsonRespuesta(w, http.StatusOK, struct {
 		Recibo ReciboLote `json:"recibo"`

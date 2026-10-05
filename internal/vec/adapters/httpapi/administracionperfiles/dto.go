@@ -283,8 +283,8 @@ type CambioPerfil struct {
 }
 
 type InicioEfectivoLote struct {
-	Modo         string    `json:"modo"`
-	VigenteDesde time.Time `json:"vigente_desde"`
+	Modo         string     `json:"modo,omitempty"`
+	VigenteDesde *time.Time `json:"vigente_desde,omitempty"`
 }
 
 type ReciboLote struct {
