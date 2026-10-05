@@ -22,10 +22,14 @@ var (
 	ErrCargaConvocaDependencias = errors.New("bolsa: dependencias de la carga CONVOCA requeridas")
 )
 
-// actorActaCargaConvoca es el actor técnico que firma el acta del staging,
-// que solo admite referencias opacas en minúsculas. La persona nominal queda
-// en la decisión consumida y en la constitución.
-const actorActaCargaConvoca = "actor:rrhh:carga-convoca-pantalla"
+// actorActaCargaConvoca es el actor que firma el acta del staging, que solo
+// admite referencias opacas en minúsculas. Se deriva de la persona que carga
+// (seudónimo estable: misma persona, mismo actor), así que el acta queda
+// atribuida aunque la constitución posterior no llegue a consumir la decisión.
+func actorActaCargaConvoca(personaRef string) string {
+	suma := sha256.Sum256([]byte("vec.bolsa.carga_convoca.actor\x1f" + personaRef))
+	return "actor:rrhh:" + hex.EncodeToString(suma[:16])
+}
 
 // ImportadorActaCargaConvoca guarda el lote en el staging protegido. Si el
 // acta del mismo fichero y categoría ya existe no se vuelve a importar: la
@@ -139,7 +143,7 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 		}
 		importado, err := s.importador.Importar(ctx, importacionapp.SolicitudImportacion{
 			CategoriaRef: solicitud.CategoriaRef, BolsaRef: solicitud.BolsaRef, NombreFichero: solicitud.NombreFichero,
-			FicheroCustodiadoRef: custodia, ActorRef: actorActaCargaConvoca, Contenido: solicitud.Contenido})
+			FicheroCustodiadoRef: custodia, ActorRef: actorActaCargaConvoca(actor.PersonaRef), Contenido: solicitud.Contenido})
 		if err != nil {
 			return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
 		}

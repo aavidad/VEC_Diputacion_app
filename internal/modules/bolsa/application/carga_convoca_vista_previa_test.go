@@ -78,7 +78,7 @@ func TestVistaPreviaCargaConvocaLimitesAntesDeLeer(t *testing.T) {
 	if _, err := p.Previsualizar(ctx, "bolsa.xlsx", make([]byte, MaximoBytesCargaConvoca+1)); !errors.Is(err, ErrFicheroCargaConvocaExcesivo) || d.leyo {
 		t.Fatalf("tamaño excesivo: err=%v leyo=%v", err, d.leyo)
 	}
-	for _, nombre := range []string{"", "bolsa.csv", "../bolsa.xlsx", "a/b.xls", " bolsa.xls", ".xlsx", "bolsa\x00.xls"} {
+	for _, nombre := range []string{"", "bolsa.csv", "../bolsa.xlsx", "a/b.xls", " bolsa.xls", ".xlsx", "bolsa\x00.xls", "bolsa\u202exslx.xls"} {
 		if _, err := p.Previsualizar(ctx, nombre, []byte("x")); !errors.Is(err, ErrFicheroCargaConvocaInvalido) || d.leyo {
 			t.Fatalf("nombre %q admitido: err=%v", nombre, err)
 		}

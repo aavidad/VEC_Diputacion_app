@@ -4,7 +4,9 @@
 -- carga (AD203) en la misma transacción SERIALIZABLE que constituir_bolsa_v1;
 -- el consumo deja el asiento en la auditoría común con el acta como recurso.
 -- Si la decisión no vale, no es del actor o no es de esa acta, la transacción
--- se revierte y no queda ni consumo ni bolsa. constituir_bolsa_v1 no cambia y
+-- se revierte y no queda ni consumo ni bolsa. La categoría queda ligada al acta:
+-- la referencia del acta es sha256(huella del fichero || 0x1F || categoría) y
+-- la bolsa canónica debe llevar esa huella, esa categoría y esa bolsa. constituir_bolsa_v1 no cambia y
 -- sigue disponible para la línea de órdenes (constituir-bolsa).
 -- Una sola vez; sin DOWN. Requiere AD203.
 BEGIN;
@@ -43,7 +45,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.constituir_bolsa_carga_convoca_v1(
 RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
-DECLARE consumo record; decision jsonb; recibo jsonb;
+DECLARE consumo record; decision jsonb; recibo jsonb; bolsa jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR pg_catalog.current_setting('transaction_isolation')<>'serializable'
@@ -56,6 +58,15 @@ BEGIN
  IF pg_catalog.jsonb_typeof(decision) IS DISTINCT FROM 'object'
     OR decision->>'principal_id' IS DISTINCT FROM p_actor_ref
     OR decision->>'recurso_ref' IS DISTINCT FROM p_acta_ref THEN
+  RAISE EXCEPTION 'B79: carga de bolsa no autorizada' USING ERRCODE='42501'; END IF;
+ BEGIN bolsa:=pg_catalog.convert_from(p_bolsa_canonica,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'B79: carga de bolsa no autorizada' USING ERRCODE='42501'; END;
+ IF pg_catalog.jsonb_typeof(bolsa) IS DISTINCT FROM 'object'
+    OR bolsa->>'categoria_ref' IS DISTINCT FROM p_categoria_ref
+    OR bolsa->>'bolsa_ref' IS DISTINCT FROM p_bolsa_ref
+    OR bolsa->>'huella_listado_sha256' IS NULL OR bolsa->>'huella_listado_sha256' !~ '^[0-9a-f]{64}$'
+    OR p_acta_ref IS DISTINCT FROM 'acta:importacion-convoca:'||pg_catalog.encode(pg_catalog.sha256(
+         pg_catalog.convert_to((bolsa->>'huella_listado_sha256')||pg_catalog.chr(31)||p_categoria_ref,'UTF8')),'hex') THEN
   RAISE EXCEPTION 'B79: carga de bolsa no autorizada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_carga_convoca_bolsa_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);

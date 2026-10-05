@@ -186,7 +186,7 @@ func TestConfirmarCargaConvocaLigaDecisionAlActaEImporta(t *testing.T) {
 		d.Recurso.Ambitos["unidad_ref"] != "unidad:seleccion" || d.Recurso.Ambitos["ambito_ref"] != "ambito:bolsa" {
 		t.Fatalf("decisión no ligada a la carga: %+v", d)
 	}
-	if e.custodio.llamadas != 1 || len(e.importador.importadas) != 1 || e.importador.importadas[0].ActorRef != actorActaCargaConvoca ||
+	if e.custodio.llamadas != 1 || len(e.importador.importadas) != 1 || e.importador.importadas[0].ActorRef != actorActaCargaConvoca("per_0123456789abcdefghijkl") ||
 		e.importador.importadas[0].BolsaRef != e.solicitud.BolsaRef || e.importador.importadas[0].NombreFichero != "carga_convoca_ejemplo.xlsx" {
 		t.Fatalf("importación inesperada: %+v", e.importador.importadas)
 	}

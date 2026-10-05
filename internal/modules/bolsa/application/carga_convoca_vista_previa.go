@@ -111,7 +111,8 @@ func NombreFicheroCargaConvocaValido(nombre string) bool {
 		return false
 	}
 	for _, r := range nombre {
-		if unicode.IsControl(r) {
+		// También los de formato (U+202E y similares), que disfrazan el nombre.
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return false
 		}
 	}
