@@ -40,8 +40,8 @@ Cada minitarea es una PR propia, en este orden salvo donde se indica.
 | A1a | **Perfiles asignables (SQL).** AUT49 + AD196: un operador técnico, con LOGIN propio y una aprobación ligada a la huella del plan, registra versiones de rol ordinarias ya publicadas como asignables. Auditoría común en la misma transacción; replay con el mismo recibo; intentos denegados auditados. Excluye administración, Sistemas, Intervención, roles sensibles y fijos. | — | #699, en main; ensayada en clon, dos revisiones. |
 | A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#704). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #704, en main. |
 | A2 | **Consumidor de autorización del lote (AD190).** Perfil de mutación `lote_perfiles_admin` en el núcleo, audiencia `vec_autorizacion.administracion_perfiles.lote_ordinario.v1`, recurso persona destinataria distinta del actor, campos `[]`, obligación `auditar`, superficie ADMIN con cuenta privilegiada. Puerta del lote de AUT45 (generalizada por AUT51 a la versión vigente del rol con la concesión exacta) antes y después del consumo y revalidación de la decisión viva. Sólo el propietario de Autorización ejecuta la fachada y el núcleo exige que la sesión sea un LOGIN exclusivo del grupo nuevo `vec_admin_perfiles_lote_ejecutor`. | AUT45, AD195, AD178/AD177, AUT51 | En PR (#720), medida tras AD178/AD177 y AUT51; vector estructural y negativo en clon. El consumo positivo necesita el emisor real y se acredita en A9. |
-| A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: consume la decisión (A2), compara por CAS todas las preimágenes, crea o revoca vínculos (CA35) y asignaciones, escribe sellos, historia, auditoría común, outbox y recibo. Replay con la misma referencia devuelve el recibo original; otra huella falla sin efecto. Nadie se asigna a sí mismo; un rol no ordinario anula el lote entero. | A1a, A2 | Pendiente. CA35 tiene borrador. |
-| A4 | **Rol de Aplicación v6 en el entorno.** Sigue haciendo falta: AUT48 (#692) sólo hace que las lecturas acepten la versión vigente, pero la concesión `aplicar_lote_ordinario` sólo existe desde v6 (y la conserva v7, AUT51). Desde AUT51 la puerta `acreditar_perfil_aplicacion_lote_ordinario_v1` acepta la versión vigente que tenga la concesión exacta. Es el mantenimiento AUT45 v5→v6 con `vec-mantener-admin-fijo` (plan v2), después de v4→v5. Ya no hay que evitar v6: la lectura de usuarios funciona con ella. Sin código nuevo; se ensaya dentro de A9. | AUT48 (en main) | Pendiente (operación del runbook). |
+| A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: recalcula el recurso (persona, organización, unidad y huella de la solicitud) y lo exige igual en la decisión, la capacidad y el acuse del consumo AD190; compara TODAS las preimágenes con el estado anterior al lote y después aplica: registra la procedencia del acto, crea o revoca vínculos (CA35) y asignaciones con su historia, y escribe registro, outbox y recibo. Replay con el mismo recibo; otra huella, 23505. | A1a, A2 | En PR (#721); vector de 18 casos en clon sobre main con AD178/AD177 y AUT51, arranque 2+1 y Rol7 (con el consumo AD190 sustituido sólo dentro de la prueba). |
+| A4 | **Rol de Aplicación con la concesión del lote.** Mantenimiento a la versión vigente que tenga `administracion.perfiles.aplicar_lote_ordinario` (hoy v6 con AUT45; AUT51 la generaliza a la versión vigente con la concesión exacta y prepara v7). Tras el cambio de versión, cada administrador vuelve a elegir perfil para que su asignación actual sea la nueva. Operación de dirección en cidonia, sin código aquí. | AUT48 | Pendiente (operación). |
 | A5a | **Contrato v3 del lote (sin SQL).** Rescate del borrador de K (`25cc6f444`): organización fijada por configuración, inicio inmediato o programado, unidad obligatoria, recibo con huella de fuentes e inicios efectivos; DTO HTTP estricto y `NuevoHandlerLoteOrdinario`. Ninguna autoridad nueva: el efecto sigue cerrado (503). | — | En esta PR. |
 | A5b | **Adaptador Go del lote y emisor de la decisión.** Rescatar `lote_ordinario.go`, `lote_ejecucion.go`, `lote_auditoria.go` y `lote_fuentes.go` del borrador, ajustados a A2/A3. Pruebas focales y de carrera. | A3 | Pendiente. |
 | A6 | **Lecturas que necesita la pantalla.** (a) Perfiles asignables vigentes desde `rol_administrable_exacto_v1`; (b) preparación del cambio: cuenta, versiones de persona y cuenta, procedencia y huella de la preimagen para una persona, un perfil y una unidad, con referencias nuevas de perfil y vínculo. La ficha actual (AUT43) no da esos datos a propósito y el Go de `listar_roles_admin_v1`/`consultar_persona_admin_v1` no tiene SQL. Decisión: ambas lecturas consumen una decisión de autorización por el mismo consumidor que el lote (AD190), con la acción `administracion.perfiles.aplicar_lote_ordinario` y un efecto «preparar» distinto del «aplicar»; así no hace falta una v7 del rol. Por eso A6 también espera a AD195. | A1a, A2 | Pendiente. |
@@ -54,6 +54,30 @@ pantalla (contrato de gobierno de perfiles ya en `domain/administracion_gobierno
 sin SQL), alta y baja de administradores e Intervención con doble control
 (propuesta y cierre de AUT24), selector de perfil activo para los perfiles
 asignados y exportación de la auditoría con valor de prueba.
+
+## Decisiones de A3
+
+- **Procedencia del acto.** CA20 exige una procedencia nueva para revocar y sólo las
+  fuentes iniciales registraban procedencias. Cada lote confirmado registra la suya
+  (`prc_` derivada de la operación, huella = la de la solicitud) en `procedencias` y,
+  aparte, en `procedencia_acto_admin_v1`; CA35 sólo acepta para el alta y la baja de
+  vínculos del lote procedencias de esa tabla. Que CA32/CA33 las excluyan queda en
+  `pendientes_v2.md`. La preimagen del objetivo sigue llevando la procedencia actual
+  de la persona, para el CAS.
+- **Persona administrable.** La destinataria tiene que estar en el conjunto que ve el
+  administrador (alguna asignación actual con la misma organización y unidad, y
+  metadatos de persona administrable), como en la lista de usuarios (AUT43). El
+  administrador tiene que tener esa organización y esa unidad en su asignación.
+- **Ámbitos de la asignación nueva.** Organización y unidad cotejadas con sus fuentes
+  propietarias (AUT37/Personal), las mismas que la lista de usuarios.
+- **Cuenta.** El vínculo se crea con la cuenta de la preimagen, que tiene que ser una
+  cuenta ordinaria activa de la persona: AUT44 rechaza la privilegiada.
+- **Configuración del perfil.** Para dar un perfil, su registro en AUT49 tiene que tener
+  la audiencia del lote y como ámbito fijo exactamente la organización del lote; la
+  unidad la añade cada asignación. Para retirarlo basta que la versión esté registrada
+  como ordinaria, aunque ya no se ofrezca.
+- **Anular un alta programada** antes de que empiece no es posible todavía
+  (`pendientes_v2.md`).
 
 ## A1a: registro de perfiles asignables
 
