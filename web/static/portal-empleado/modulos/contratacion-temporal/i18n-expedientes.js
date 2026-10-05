@@ -311,7 +311,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   organizacion_referencia: "Centros",
   calendarios_laborales: "Calendarios",
   peticiones_centro: "Peticiones y ratificación · certificado del centro",
-  peticiones_centros_rrhh: "Peticiones",
   nueva_peticion_descripcion:
     "Indique la necesidad de personal del centro y revise los datos antes de registrar la solicitud.",
   fase_sin_confirmar: "Sin confirmar",
@@ -662,7 +661,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   organizacion_referencia: "Centres",
   calendarios_laborales: "Calendars",
   peticiones_centro: "Requests and ratification · centre certificate",
-  peticiones_centros_rrhh: "Requests",
   nueva_peticion_descripcion:
     "Enter the centre's staffing need and review the details before recording the request.",
   fase_sin_confirmar: "Unconfirmed",

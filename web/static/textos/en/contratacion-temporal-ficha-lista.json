@@ -29,7 +29,6 @@
     "lista_titulo_uno": "1 request in progress",
     "lista_titulo_varias": "{total} requests in progress",
     "lista_titulo_ninguna": "No requests in progress",
-    "lista_subtitulo": "Sorted by deadline: most urgent first.",
     "lista_nueva_peticion": "New staff request",
     "lista_buscar": "Search",
     "lista_buscar_pista": "Number, unit or category",
@@ -61,6 +60,10 @@
     "lista_col_plazo": "Deadline",
     "lista_sin_plazo": "No deadline",
     "lista_abrir_aria": "Open case {expediente}",
-    "lista_recuento_parcial": "Partial count: there are more requests on the next page."
+    "lista_recuento_parcial": "Partial count: there are more requests on the next page.",
+    "peticiones_centros_rrhh": "Requests received from centres",
+    "abre_otra_pestana": " (opens in a new tab)",
+    "lista_busqueda_parcial": "The search only checks the requests on this page. Select “Next page” to see more.",
+    "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”."
   }
 }

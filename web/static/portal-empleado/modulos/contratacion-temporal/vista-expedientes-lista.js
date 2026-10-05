@@ -10,7 +10,7 @@
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
 import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -67,7 +67,7 @@ function fila(expediente, t, { numeroVisible, centroVisible }, generadoEn) {
     <td class="envuelve" data-etiqueta="${escapar(t("lista_col_centro_categoria"))}"${centro.referencia ? ` title="${escapar(centro.referencia)}"` : ""}>${escapar(centro.etiqueta)}<small>${escapar(expediente.categoria)}</small></td>
     <td data-etiqueta="${escapar(t("lista_col_fase"))}">${escapar(expediente.fase_actual)}${fase
     ? `<small>${escapar(t("fase_rrhh_orden", { orden: fase.orden, total: fase.total }))}</small>` : ""}</td>
-    <td data-etiqueta="${escapar(t("lista_col_estado"))}"><span class="ct-exp-chip ct-fase-${escapar(expediente.estado_clave)}${tienePlazoVencido(expediente) ? " ct-plazo-vencido" : ""}">${escapar(tienePlazoVencido(expediente) ? t("lista_estado_plazo_vencido", { estado: expediente.estado, fecha: expediente.plazo }) : expediente.estado)}</span></td>
+    <td data-etiqueta="${escapar(t("lista_col_estado"))}"><span class="ct-exp-chip ct-fase-${escapar(expediente.estado_clave)}">${escapar(expediente.estado)}</span></td>
     <td data-etiqueta="${escapar(t("lista_col_plazo"))}">${celdaPlazo(expediente, t, generadoEn)}</td>
   </tr>`;
 }
@@ -89,6 +89,13 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
     <button type="button" class="boton-terciario" data-ct-exp-quitar-filtro="todos">${escapar(t("lista_quitar_todos"))}</button></div>`;
 }
 
+// La búsqueda y los filtros de pantalla solo ven la página cargada: si hay
+// más páginas y algún filtro está puesto, se avisa.
+function busquedaParcial(cuadro, filtro) {
+  return Boolean(cuadro.paginacion?.cursor_siguiente)
+    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria);
+}
+
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
 export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
   const cuadro = estado.cuadro;
@@ -100,8 +107,10 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
+    ${busquedaParcial(cuadro, filtroEntrada) ? `<p class="ct-exp-lista-parcial" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
-    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t("lista_sin_resultados"))}</p>`
+    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
+      ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`
     : `<div class="ct-exp-tabla-lista"><table class="tabla-datos tabla-apilable ct-exp-tabla-peticiones">
       <caption class="solo-lectura">${escapar(t("tabla_expedientes"))}</caption>
       <thead><tr>
@@ -126,7 +135,7 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
   const centros = distintos(cuadro.expedientes, "centro");
   const categorias = distintos(cuadro.expedientes, "categoria");
   return `<header class="cabeza-pagina">
-      <div><h3 class="ct-exp-lista-titulo">${escapar(titulo)}</h3><p>${escapar(t("lista_subtitulo"))}</p></div>
+      <div><h3 class="ct-exp-lista-titulo">${escapar(titulo)}</h3></div>
       <button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>
     </header>
     ${parcial ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
