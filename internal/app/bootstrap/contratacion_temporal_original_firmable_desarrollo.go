@@ -365,21 +365,21 @@ func nuevoOriginalFirmableCTDesarrollo(pdp pdpOriginalFirmableCTDesarrollo, seud
 
 // identidadYExpedienteOriginalCT valida la solicitud CT y deriva la
 // referencia del original y el expediente documental (opaco) de CT.
-func (o *originalFirmableCTDesarrollo) identidadYExpedienteOriginalCT(s puertosvec.SolicitudOriginalFirmableCT, ref string) (almacencanonico.IdentidadOriginalCT, string, bool) {
+func (o *originalFirmableCTDesarrollo) identidadYExpedienteOriginalCT(s puertosvec.SolicitudOriginalFirmableCT, ref string) (almacencanonico.IdentidadOriginalCT, string, error) {
 	identidad := almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		Documento: s.Documento, Version: s.OriginalVersion}
 	if !identidad.Valida() || ref != identidad.Referencia() || (s.OriginalRef != "" && s.OriginalRef != ref) ||
-		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
-		return identidad, "", false
-	}
-	if o.mapear == nil {
-		return identidad, "", false
+		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || o.mapear == nil {
+		return identidad, "", puertosvec.ErrOriginalFirmableCTInvalido
 	}
 	expediente, err := o.mapear.ReferenciaDocumentalCT(s.ExpedienteRef)
-	if err != nil || !docdomain.ReferenciaOpacaValida(expediente) {
-		return identidad, "", false
+	if err != nil {
+		return identidad, "", errors.Join(puertosvec.ErrOriginalFirmableCTInvalido, err)
 	}
-	return identidad, expediente, true
+	if !docdomain.ReferenciaOpacaValida(expediente) {
+		return identidad, "", puertosvec.ErrOriginalFirmableCTInvalido
+	}
+	return identidad, expediente, nil
 }
 
 // AutorizarLecturaOriginalCT pide la V3 de documentos.original.descargar para
@@ -392,9 +392,9 @@ func (o *originalFirmableCTDesarrollo) AutorizarLecturaOriginalCT(ctx context.Co
 	if err := ctx.Err(); err != nil {
 		return vacia, err
 	}
-	_, expediente, ok := o.identidadYExpedienteOriginalCT(s, ref)
-	if !ok {
-		return vacia, puertosvec.ErrOriginalFirmableCTInvalido
+	_, expediente, err := o.identidadYExpedienteOriginalCT(s, ref)
+	if err != nil {
+		return vacia, err
 	}
 	consulta := docports.ConsultaDocumento{DocumentoID: ref, Version: s.OriginalVersion}
 	preimagen, err := consulta.PreimagenDescargar()
@@ -433,8 +433,11 @@ func (o *originalFirmableCTDesarrollo) PrepararCustodiaOriginalCT(ctx context.Co
 	if err := ctx.Err(); err != nil {
 		return vacia, nil, err
 	}
-	identidad, expediente, ok := o.identidadYExpedienteOriginalCT(s, ref)
-	if !ok || len(pdf.Contenido) < 8 || len(pdf.Contenido) > puertosvec.LimiteOriginalFirmableCT ||
+	identidad, expediente, err := o.identidadYExpedienteOriginalCT(s, ref)
+	if err != nil {
+		return vacia, nil, err
+	}
+	if len(pdf.Contenido) < 8 || len(pdf.Contenido) > puertosvec.LimiteOriginalFirmableCT ||
 		!bytes.HasPrefix(pdf.Contenido, []byte("%PDF-")) {
 		return vacia, nil, puertosvec.ErrOriginalFirmableCTInvalido
 	}
