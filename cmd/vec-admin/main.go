@@ -67,8 +67,19 @@ func main() {
 			}
 			plan = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan)
-	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" {
+		// La publicación de cargos competenciales, igual: sólo con las lecturas
+		// de usuarios y su propio archivo privado.
+		var cargos *configuracionCargosPrivada
+		if rutaCargos := os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE"); rutaCargos != "" {
+			c, errorCargos := cargarConfiguracionCargosPrivada(rutaCargos, lote, plan, privada, usuarios, runtime)
+			if errorCargos != nil {
+				log.Fatal(errorArranque("cargos_config"))
+			}
+			cargos = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan, cargos)
+	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
+		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" {
 		log.Fatal(errorArranque("lote_sin_usuarios"))
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
