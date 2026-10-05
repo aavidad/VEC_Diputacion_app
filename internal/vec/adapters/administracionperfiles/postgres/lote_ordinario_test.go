@@ -157,7 +157,7 @@ func TestLoteOrdinarioConservaDenegacionDelEmisor(t *testing.T) {
 func TestTraducirErrorLoteSQL(t *testing.T) {
 	casos := map[string]error{"42501": domain.ErrAutorizacionDenegada, "40001": domain.ErrControlAdministracionPerfilesInvalido,
 		"55000": domain.ErrControlAdministracionPerfilesInvalido, "P0002": domain.ErrControlAdministracionPerfilesInvalido,
-		"23505": domain.ErrControlAdministracionPerfilesInvalido, "22023": domain.ErrActoAdministracionPerfilesInvalido,
+		"23505": domain.ErrControlAdministracionPerfilesInvalido, "55P03": domain.ErrControlAdministracionPerfilesInvalido, "22023": domain.ErrActoAdministracionPerfilesInvalido,
 		"22P02": domain.ErrActoAdministracionPerfilesInvalido, "XX000": ports.ErrAutoridadAdministracionPerfilesNoDisponible}
 	for codigo, esperado := range casos {
 		if err := traducirErrorLoteSQL(context.Background(), &pgconn.PgError{Code: codigo, Message: "SECRETO"}); !errors.Is(err, esperado) {
