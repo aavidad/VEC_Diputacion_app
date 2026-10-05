@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare a requirement review from synthetic JSON. Use --salida preparacion, antecedente or aportacion. Select --idioma and --catalogos-dir. Read the material from standard input. Preparing a contribution does not submit or resolve a correction.",
+  "ayuda": "Prepare a requirements review or the draft lists from synthetic JSON. Use --salida preparacion, antecedente, aportacion, lista-provisional, antecedente-lista, lista-definitiva or revision-provisional. Choose --idioma and --catalogos-dir; for the lists, --catalogo-admision-dir and --catalogo-admision. Material is read from standard input. Preparing a submission does not file or resolve a correction, and the draft lists are neither approved nor published.",
   "seleccion_admision_entrada_invalida": "The review could not be prepared. Check the format, references and versions of the supplied material.",
   "seleccion_admision_salida_no_disponible": "The result could not be written. Check the destination and prepare it again.",
   "seleccion_admision_causa_fuentes_no_verificadas": "The source and correspondence of the material remain unverified.",
@@ -24,5 +24,21 @@
   "seleccion_aportacion_admision_pendiente_bases_subsanacion": "Determine whether the contribution may correct the requirement and under what conditions under the applicable terms.",
   "seleccion_aportacion_admision_pendiente_presentacion": "Submit the contribution through an accepted procedure, where applicable.",
   "seleccion_aportacion_admision_pendiente_revision_competente": "Review the contribution and give reasons for the decision through the competent authority.",
-  "seleccion_aportacion_admision_pendiente_sin_soportes": "Proposed support is missing. Prepare references to the fact and documents for review."
+  "seleccion_aportacion_admision_pendiente_sin_soportes": "Proposed support is missing. Prepare references to the fact and documents for review.",
+  "seleccion_lista_admision_entrada_invalida": "The list could not be prepared. Check that there is one decision per review, that all reviews use the same call rules and that every exclusion has reasons from the catalogue.",
+  "seleccion_lista_admision_catalogo_no_disponible": "The exclusion reason catalogue could not be used. Check the reference, the version and the configuration file.",
+  "seleccion_lista_admision_pendiente_aprobacion_competente": "The competent body must approve the list before it is published.",
+  "seleccion_lista_admision_pendiente_identidad_publicacion": "On publication, name, surnames and masked document are added and the list is sorted by surname.",
+  "seleccion_lista_admision_pendiente_vencimiento_al_publicar": "The last day for corrections is calculated with the calendar from the day after publication.",
+  "seleccion_lista_admision_pendiente_publicacion_oficial": "Publish the list in the official gazette and on the site set by the call rules.",
+  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "The reasons and the deadline are examples. Replace them with the ones HR confirms.",
+  "seleccion_lista_definitiva_entrada_invalida": "The final list could not be prepared. Check that the provisional list fingerprint matches and that every exclusion has one resolution consistent with its reasons.",
+  "seleccion_lista_definitiva_pendiente_aprobacion_competente": "The competent body must approve the final list before it is published.",
+  "seleccion_lista_definitiva_pendiente_registro_escritos": "Check that every correction or complaint was registered within the deadline.",
+  "seleccion_lista_definitiva_pendiente_identidad_publicacion": "On publication, name, surnames and masked document are added and the list is sorted by surname.",
+  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publish the final list in the official gazette and on the site set by the call rules.",
+  "seleccion_lista_definitiva_pendiente_pie_recursos": "The decision approving the final list must state the available appeals, the body that hears them and the deadline.",
+  "seleccion_revision_lista_entrada_invalida": "The new revision could not be prepared. Check that it starts from the previous provisional list, uses the next revision number, keeps its decisions and adds at least one new application.",
+  "seleccion_revision_lista_pendiente_plazo_incorporadas": "For the added applications, the correction period starts the day after this revision is published.",
+  "seleccion_lista_definitiva_pendiente_ultima_revision": "Check that the provisional list it starts from is the latest published revision."
 }

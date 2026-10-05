@@ -103,6 +103,7 @@ export function resumirInformesDietas(registros, configuracion, filtros = {}) {
   const campo = configuracion.campo_fecha;
   if (registros.some((fila) => estados.has(fila.situacion) && !fechaValida(fila[campo]))) throw new TypeError("datos");
   const seleccion = registros.filter((fila) => estados.has(fila.situacion)
+    && (!filtros.situacion || fila.situacion === filtros.situacion)
     && (!filtros.persona || fila.persona_ref === filtros.persona)
     && (!filtros.unidad || fila.unidad_ref === filtros.unidad)
     && (!filtros.desde || fila[campo] >= filtros.desde)
@@ -189,6 +190,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   };
   const persona = crearSelect("persona", "todas_personas");
   const unidad = crearSelect("unidad", "todas_unidades");
+  const situacion = crearSelect("situacion", "todas_situaciones");
   const crearFecha = (clave) => {
     const campo = nodo(documento, "input"); campo.type = "date"; campo.name = clave;
     const etiqueta = nodo(documento, "label", t(clave)); etiqueta.className = "campo-filtro";
@@ -229,7 +231,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const elegir = (select, filas, referencia, nombre, aplicado) => {
     const opcionAnterior = [...select.children].find((opcion) => opcion.value === aplicado);
     select.replaceChildren();
-    const inicial = nodo(documento, "option", t(referencia === "persona_ref" ? "todas_personas" : "todas_unidades"));
+    const inicial = nodo(documento, "option", t(referencia === "persona_ref" ? "todas_personas"
+      : referencia === "situacion" ? "todas_situaciones" : "todas_unidades"));
     inicial.value = ""; select.append(inicial);
     const opciones = new Map(filas.map((fila) => [fila[referencia], fila[nombre]]));
     for (const [valor, etiqueta] of [...opciones].sort((a, b) => a[1].localeCompare(b[1], localizacion))) {
@@ -246,6 +249,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     if (!disponible) return;
     avisoEdicion.hidden = persona.value === (filtros.persona || "")
       && unidad.value === (filtros.unidad || "")
+      && situacion.value === (filtros.situacion || "")
       && desde.value === (filtros.desde || "")
       && hasta.value === (filtros.hasta || "");
   }
@@ -253,6 +257,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     const valores = [
       ["persona", filtros.persona && nombreSeleccionado(persona, filtros.persona)],
       ["unidad", filtros.unidad && nombreSeleccionado(unidad, filtros.unidad)],
+      ["situacion", filtros.situacion && nombreSeleccionado(situacion, filtros.situacion)],
       ["desde", filtros.desde && fecha.format(new Date(`${filtros.desde}T00:00:00Z`))],
       ["hasta", filtros.hasta && fecha.format(new Date(`${filtros.hasta}T00:00:00Z`))],
     ].filter(([, valor]) => valor);
@@ -396,6 +401,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       pintarAyuda(criterio);
       elegir(persona, registros, "persona_ref", "persona", filtros.persona || "");
       elegir(unidad, registros, "unidad_ref", "unidad", filtros.unidad || "");
+      elegir(situacion, criterio.estados_incluidos.map((clave) => ({ situacion: clave, etiqueta: t(`situacion_${clave}`) })),
+        "situacion", "etiqueta", filtros.situacion || "");
       desde.value = filtros.desde || ""; hasta.value = filtros.hasta || "";
       limpiarErrorFecha();
       disponible = true; form.hidden = false; filtrosVisibles.hidden = false;
@@ -424,12 +431,13 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       desde.setAttribute("aria-invalid", "true"); hasta.setAttribute("aria-invalid", "true");
       actualizarAvisoEdicion(); mostrarEstado("periodo_error"); estado.focus(); return;
     }
-    filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
+    filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, situacion: situacion.value,
+      desde: desde.value, hasta: hasta.value });
     pagina = 0; pintarFiltrosAplicados(); pintar(); anunciarResultado();
   }
   function borrar() {
     if (!disponible) return;
-    persona.value = ""; unidad.value = ""; desde.value = ""; hasta.value = "";
+    persona.value = ""; unidad.value = ""; situacion.value = ""; desde.value = ""; hasta.value = "";
     limpiarErrorFecha(); filtros = Object.freeze({}); pagina = 0;
     pintarFiltrosAplicados(); pintar(); anunciarResultado();
   }

@@ -154,5 +154,19 @@
     "aprobada": "Proposal approved and change confirmed",
     "rechazada": "Proposal rejected; access unchanged",
     "motivo": "Reason for the proposal"
+  },
+  "metadatos": {
+    "nombre_no_registrado": "Name not registered",
+    "nombre_no_consultado": "Name not read",
+    "persona_en_lista": "Person {numero}: {nombre}",
+    "perfil_en_lista": "Assignment {numero}",
+    "unidad_no_consultada": "Unit name not read",
+    "catalogo_no_consultado": "The role catalogue has not been read.",
+    "alcance": "This view shows assignments and their validity. Role names require a separate query.",
+    "actos_no_consultados": "Role changes are unavailable in this view.",
+    "historia_no_consultada": "The history has not been read.",
+    "ayuda": "Open a record to review assignments and their validity dates. This view does not include names that have not been read, history or role changes.",
+    "titulo_lista": "View users",
+    "filtros_no_disponibles": "You can filter by validity. Name search and role or unit filters are not yet available here."
   }
 }

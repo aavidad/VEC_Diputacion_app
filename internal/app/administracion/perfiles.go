@@ -22,17 +22,18 @@ import (
 // Activos contiene únicamente los archivos públicos del ensamblaje ADMIN.
 type DependenciasPerfiles struct {
 	// ContextoConexion se obtiene del resolver ADMIN, nunca del cliente.
-	ContextoConexion   func(context.Context, net.Conn) context.Context
-	Sesiones           api.ResolvedorSesion
-	Lecturas           api.FuenteLecturas
-	Catalogo           ports.CatalogoRolesAdministrables
-	Actos              ports.AutoridadActosAdministracionPerfiles
-	Auditor            api.AuditorFrontera
-	Reloj              ports.Reloj
-	Activos            fs.FS
-	ObservadorSelector adminselector.FuenteObservacion
-	FuenteSeleccion    FuenteSeleccionAuditadaADMIN
-	AudienciaSelector  string
+	ContextoConexion      func(context.Context, net.Conn) context.Context
+	Sesiones              api.ResolvedorSesion
+	Lecturas              api.FuenteLecturas
+	Catalogo              ports.CatalogoRolesAdministrables
+	Actos                 ports.AutoridadActosAdministracionPerfiles
+	Auditor               api.AuditorFrontera
+	Reloj                 ports.Reloj
+	Activos               fs.FS
+	ObservadorSelector    adminselector.FuenteObservacion
+	FuenteSeleccion       FuenteSeleccionAuditadaADMIN
+	AudienciaSelector     string
+	SoloUsuariosMetadatos bool
 }
 
 type handlerPerfilesADMIN struct {
@@ -79,7 +80,11 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 	if deps.Lecturas == nil {
 		deps.Lecturas = lecturasNoDisponibles{}
 	}
-	handler, err := api.NuevoHandlerLecturas("https://"+cfg.Host, deps.Sesiones, deps.Lecturas, deps.Auditor)
+	constructor := api.NuevoHandlerLecturas
+	if deps.SoloUsuariosMetadatos {
+		constructor = api.NuevoHandlerUsuariosMetadatos
+	}
+	handler, err := constructor("https://"+cfg.Host, deps.Sesiones, deps.Lecturas, deps.Auditor)
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
@@ -101,6 +106,7 @@ func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, orig
 		"/admin/usuarios/vista.js":                     "admin/usuarios/vista.js",
 		"/admin/usuarios/render.js":                    "admin/usuarios/render.js",
 		"/admin/usuarios/contratos.js":                 "admin/usuarios/contratos.js",
+		"/admin/usuarios/metadatos.js":                 "admin/usuarios/metadatos.js",
 		"/admin/usuarios/cliente.js":                   "admin/usuarios/cliente.js",
 		"/admin/usuarios/lecturas-http.js":             "admin/usuarios/lecturas-http.js",
 		"/admin/usuarios/propuestas.js":                "admin/usuarios/propuestas.js",

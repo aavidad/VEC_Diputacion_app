@@ -1,0 +1,37 @@
+{
+  "esquema": "dietas-informes-pdf-v1",
+  "referencia": "dietas-informes-pdf-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006",
+  "separador_decimal": ".",
+  "titulo": "Expenses report by period",
+  "sintetico": "SYNTHETIC SAMPLE. People and amounts are made up. Not a recorded settlement or an authorised export.",
+  "criterio": "The period is counted by the {{campo}} of each trip. The unit is the one recorded in its document.",
+  "campos_fecha": {
+    "fecha_inicio": "start date",
+    "fecha_liquidacion": "settlement date",
+    "fecha_fiscalizacion": "financial review date"
+  },
+  "periodo": "Period consulted: from {{desde}} to {{hasta}}.",
+  "periodo_desde": "Period consulted: from {{desde}}.",
+  "periodo_hasta": "Period consulted: up to {{hasta}}.",
+  "resumen": "Reports included: {{cuenta}}. Included amount: {{importe}}.",
+  "concepto": "{{concepto}}: {{importe}}.",
+  "conceptos": {
+    "manutencion": "Meals",
+    "kilometraje": "Mileage",
+    "otros_gastos": "Other expenses"
+  },
+  "fila": "{{referencia}} (version {{version}}). {{persona}}, {{unidad}}. {{situacion}}, {{fecha}}. Included amount: {{importe}}.",
+  "situaciones": {
+    "orientativo": "Estimate",
+    "liquidado": "Settled",
+    "fiscalizado": "Reviewed"
+  },
+  "importes": {
+    "EUR": "€{{valor}}"
+  },
+  "vacio": "There are no reports for these filters.",
+  "limite": "Amounts are those kept by each trip; they are not recalculated with current rates. This document does not certify settlement, financial review or payment."
+}

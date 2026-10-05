@@ -31,6 +31,7 @@ func (o ObservacionADMIN) Valida(ahora time.Time) bool {
 // CuentaADMIN procede de las fachadas IS12/CA23 y de la asignación nominal
 // vigente. Rol y perfil nunca se eligen mediante la petición HTTP.
 type CuentaADMIN struct {
+	materialCuentaSQL                                          string
 	SujetoID, CuentaID, CuentaOrdinariaID                      string
 	PersonaRef, CuentaRef, CuentaOrdinariaRef, PerfilActivoRef string
 	RolID, VinculoRef                                          string
