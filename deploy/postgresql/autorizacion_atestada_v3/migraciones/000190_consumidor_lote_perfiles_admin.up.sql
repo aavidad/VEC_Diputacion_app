@@ -31,8 +31,9 @@ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.login_usuarios_admin_valido_v1()') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.capacidad_cruda_prevalida(bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_recuperacion_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)') IS NULL
  OR to_regrole('vec_admin_perfiles_lote_ejecutor') IS NOT NULL
- THEN RAISE EXCEPTION 'AD190: PARO clave=preimagen actual=incompatible esperado=AD185_AD195_AD178_sin_AD190' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD190: PARO clave=preimagen actual=incompatible esperado=AD185_AD195_AD178_AD177_sin_AD190' USING ERRCODE='55000'; END IF;
 END $pre$;
 -- Grupo del LOGIN técnico de vec-admin que ejecutará el lote. Sin LOGIN propio,
 -- sin herencia hacia otros grupos; AUT44 le concede sólo su fachada.
