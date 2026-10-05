@@ -1,7 +1,7 @@
 {
   "idioma": "es",
   "mensajes": {
-    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios y, con el conjunto 1, también la del cambio de perfiles por lote. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
+    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios, la del cambio de perfiles por lote con el conjunto 1 y, con el conjunto 2, también la del gobierno del plan de firma. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
     "uso_invalido": "Indique la fase (preparar, aplicar o verificar), la configuración privada, el catálogo de textos y un tiempo máximo positivo. El acuse solo se indica al aplicar.",
     "configuracion_insegura": "No se puede leer la configuración privada. Debe ser un archivo propio con permisos 0600, en una carpeta propia 0700 fuera del repositorio.",
     "configuracion_invalida": "La configuración privada no cumple el formato o le faltan datos para esta fase. Revise los campos, las rutas absolutas, las conexiones y las horas de validez (de 1 a 24).",

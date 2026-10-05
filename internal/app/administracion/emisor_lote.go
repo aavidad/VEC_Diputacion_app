@@ -21,6 +21,10 @@ const (
 	AccionLoteOrdinarioV3    = "administracion.perfiles.aplicar_lote_ordinario"
 	AudienciaLoteOrdinarioV3 = "vec_autorizacion.administracion_perfiles.lote_ordinario.v1"
 	finalidadLoteOrdinario   = "gestion_perfiles"
+	// AudienciaGobiernoPlanFirmaV3 es la del gobierno del plan nominal de firma
+	// de Contratación temporal (AD177/AD178, conjunto 2 de AD202). Tiene que
+	// coincidir con plannominal.AudienciaGobiernoPlanFirma.
+	AudienciaGobiernoPlanFirmaV3 = "vec_catalogos_configurables.plan_nominal_firma.gobierno.v1"
 )
 
 // EmisorLote adapta una orden de lote ya validada a la cadena común V3. El

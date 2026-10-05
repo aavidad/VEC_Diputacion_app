@@ -16,6 +16,7 @@ migración.
 | Versión | Audiencias (en orden) |
 | --- | --- |
 | 1 | `vec.admin.usuarios.listar.v1`, `vec.admin.usuarios.consultar.v1`, `vec_autorizacion.administracion_perfiles.lote_ordinario.v1` |
+| 2 (AD202) | las tres del conjunto 1, en el mismo orden, y `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1` (tramo `catalogos:plan-firma`) |
 
 El programa (`bootstrap.AudienciasConjuntoCapacidadesAdmin`) tiene la misma
 lista. La base vuelve a comprobar audiencia, orden y tramo de cada clave.
@@ -76,3 +77,13 @@ y Rol7, más AD190, CA35/AUT44, AUT50 y AD198:
   (mismo recibo y `replay`) y verificar la cadena (`cadena_verificada`). Se
   publican tres claves, la tercera de la audiencia del lote, y una
   configuración nueva del día.
+
+## Conjunto 2 (AD202)
+
+Añade la clave con la que vec-admin emite las decisiones del gobierno del plan
+nominal de firma. Se prepara con `"conjunto_capacidades": 2` y la configuración
+aprobada del LOGIN lleva `conjunto_version = 2`. Ensayado en el clon: la
+operación publica las cuatro claves, repetirla con otro acuse devuelve el mismo
+recibo y la verificación de la cadena no encuentra diferencias. Al pasar al
+conjunto 2 se deja de renovar con el 1: la clave del gobierno del plan sólo la
+renueva el 2.
