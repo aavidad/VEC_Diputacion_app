@@ -12,14 +12,14 @@ BEGIN
  -- Núcleo y CHECK: postimágenes medidas de AD178.
  f:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex'))
-    IS DISTINCT FROM 'edaf1a31e3c14606913f7c50b19efd06abcec1d664a68cc6ec3fb4eda0f1a7a3'
+    IS DISTINCT FROM '2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381'
  OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f)
-    IS DISTINCT FROM '46f6b843dacd805a512e7cfa38e9d37c0fcdd6acceaabe732272c92d94eba404'
+    IS DISTINCT FROM '4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b'
  THEN RAISE EXCEPTION 'AD177/178 prueba: núcleo divergente'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,false),'UTF8')),'hex') FROM pg_constraint c
      WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
        AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated)
-    IS DISTINCT FROM '7f6a1f530af55acaefeedb0054c6cbc14b78db8a78525948b46489a3be1c9bda'
+    IS DISTINCT FROM 'e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7'
  THEN RAISE EXCEPTION 'AD177/178 prueba: CHECK de audiencias divergente'; END IF;
  -- Los dos comprobadores nuevos usan el sello AD193 y la familia v4, nunca xmin.
  FOREACH nombre IN ARRAY ARRAY[

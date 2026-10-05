@@ -1,13 +1,13 @@
 # Gobierno del plan nominal de firma
 
 AD177 se instala después de AD178 y comprueba dos preimágenes medidas el 5 de
-octubre de 2026 en el clon de la principal (copia fría H10-30 + AD194, IS16,
-CA36, AUT47, AD193 y AD178):
+octubre de 2026 en el clon (copia fría H10-30 + AD194, IS16, CA36, AUT47,
+AD193, AD195, Personal36, AD196, AUT49, AUT48 y AD178):
 
 | Huella | Valor |
 | --- | --- |
-| `pg_get_functiondef` del núcleo tras AD178 | `edaf1a31e3c14606913f7c50b19efd06abcec1d664a68cc6ec3fb4eda0f1a7a3` |
-| CHECK de audiencias tras AD178 (`pg_get_constraintdef(oid,true)`) | `24764e008e7ae88178872ffec2517a05461b84bfa94bd8641394b0360307c849` |
+| `pg_get_functiondef` del núcleo tras AD178 | `2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381` |
+| CHECK de audiencias tras AD178 (`pg_get_constraintdef(oid,true)`) | `2e687cbf9055a1c1a94035a74bdbf80fcf37c91b0613a7a5325f5d55def56e64` |
 
 Si cualquiera difiere, o si sus funciones ya existen, aborta con SQLSTATE
 `55000` antes de crear nada. El CHECK de tipos de auditoría no sustituye el
@@ -96,7 +96,7 @@ La composición debe registrar denegados y errores mediante el puerto común de
 intentos publicado por L, después del rollback del efecto. Este borrador no
 contiene ese montaje ni una fuente nominal sustitutiva.
 
-Orden: AD193 → AD178 → AD177 → CC7. Las fachadas AD177 se refieren a CC7 por
+Orden: AD193 → AD195/AD196 → AD178 → AD177 → CC7. Las fachadas AD177 se refieren a CC7 por
 PL/pgSQL. Al instalar AD177 la fachada de gobierno ya es ejecutable por el
 runtime CT, pero deniega siempre mientras falten CC7 y la extensión de K. Falta el ensayo causal con PostgreSQL real,
 las pruebas de concurrencia y recuperación, y dos revisiones del hash final.

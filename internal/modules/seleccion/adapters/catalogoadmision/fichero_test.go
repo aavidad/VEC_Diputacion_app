@@ -20,7 +20,7 @@ func TestEjemploCargaYTieneTextoPorIdioma(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, idioma := range []string{"es", "en"} {
-		raw, err := os.ReadFile(dirEjemplo + "/" + idioma + "/admision_ejemplo.json")
+		raw, err := os.ReadFile("../../../../../web/static/textos/" + idioma + "/motivos-" + c.Referencia + ".json")
 		var textos map[string]string
 		if err != nil || json.Unmarshal(raw, &textos) != nil || len(textos) != len(c.Motivos) {
 			t.Fatalf("%s: textos incompletos", idioma)

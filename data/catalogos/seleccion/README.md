@@ -13,4 +13,6 @@ preparadas conservan la versión con la que se hicieron.
   `dias_naturales`, `meses`, `anios`). El vencimiento se calcula al publicar
   la lista, desde el día siguiente a la publicación.
 - Una exclusión solo es subsanable si lo son todos sus motivos.
-- Los textos de cada motivo están en `es/` y `en/`, uno por código.
+- Los textos de cada motivo están en el catálogo común de textos,
+  `web/static/textos/<idioma>/motivos-<referencia>.json`, uno por código.
+  Desde ahí los lee el visor de la lista.

@@ -80,10 +80,11 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	}
 	if err != nil || errOpciones != nil || opciones.NArg() != 0 || salida == nil || errores == nil ||
 		(*formato != "preparacion" && *formato != "aportacion" && *formato != "antecedente" && *formato != "lista-provisional" &&
-			*formato != "antecedente-lista" && *formato != "lista-definitiva") {
+			*formato != "antecedente-lista" && *formato != "lista-definitiva" && *formato != "revision-provisional") {
 		return informarError(errores, catalogo, *idioma, domain.ErrAdmisionPreparacion.Error())
 	}
-	if *formato == "lista-provisional" || *formato == "antecedente-lista" || *formato == "lista-definitiva" {
+	if *formato == "lista-provisional" || *formato == "antecedente-lista" || *formato == "lista-definitiva" ||
+		*formato == "revision-provisional" {
 		return ejecutarLista(ctx, *formato, *dirCatalogoAdmision, *ficheroCatalogoAdmision, entrada, salida, errores, catalogo, *idioma)
 	}
 	if *formato != "preparacion" {

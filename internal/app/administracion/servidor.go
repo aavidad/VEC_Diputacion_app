@@ -74,7 +74,11 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	if cfg.RetiradaEn.IsZero() || cfg.RetiradaEn.Location() != time.UTC ||
 		!time.Now().Before(cfg.RetiradaEn) ||
 		cfg.CertificadoServidor == "" || cfg.ClaveServidor == "" || cfg.CAAdministracion == "" ||
-		cfg.CRLAdministracion == "" || cfg.Host == "" {
+		cfg.CRLAdministracion == "" {
+		return nil, ErrConfiguracion
+	}
+	host, hostValido := analizarHostAdmin(cfg.Host)
+	if !hostValido {
 		return nil, ErrConfiguracion
 	}
 	superficie := httpseguridad.ConfiguracionSuperficie{
@@ -115,7 +119,7 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	raices.AddCert(ca)
 	verificar := func(r *http.Request) error {
 		ahora := time.Now()
-		if !ahora.Before(cfg.RetiradaEn) || r.Host != cfg.Host ||
+		if !ahora.Before(cfg.RetiradaEn) || r.Host != host.autoridad ||
 			r.TLS == nil || !r.TLS.HandshakeComplete || r.TLS.DidResume ||
 			len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 			r.TLS.VerifiedChains[0][0] == nil ||
