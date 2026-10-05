@@ -206,7 +206,9 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) RevalidarContextoActorFirmaV2(ctx 
 
 // El candidato es la persona del contexto registrado y revalidado: quien
 // consulta antes de firmar con su propio certificado. La organización es el
-// ámbito único del perfil. La petición no aporta ninguno de los dos.
+// ámbito único del perfil. La petición no aporta ninguno de los dos. Vale sólo
+// para estas lecturas: al preparar una firma el candidato sale de la evidencia
+// de competencia, no de esta fuente.
 func (f *fuenteNominalFirmasR5V2CTDesarrollo) ResolverContextoConsultaFirmasR5V2(ctx context.Context) (consultafirmasv2.Contexto, error) {
 	operativo, _, err := f.contexto(ctx)
 	if err != nil {

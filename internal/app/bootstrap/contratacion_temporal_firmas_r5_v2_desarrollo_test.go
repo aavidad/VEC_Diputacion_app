@@ -13,7 +13,9 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 type escenarioFirmasR5V2Prueba struct {
@@ -104,10 +106,41 @@ func TestFirmasR5V2FuenteDeniegaOtroCanalYPerfilRevocado(t *testing.T) {
 	if _, err := e.fuente.RevalidarContextoActorFirmaV2(e.ctx(httpinterno.RutaConsultaFirmasR5V2, http.MethodPost)); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
 		t.Fatalf("perfil sin asignación publicada aceptado: %v", err)
 	}
-	// Sin perfil consumible la orden de auditoría sigue disponible.
-	ctx := e.ctx(httpinterno.RutaRecuperacionFirmasR5V2, http.MethodPost)
-	if _, err := e.fuente.CrearOrdenIntentoFirma(ctx, "aud_v3_i_"+strings.Repeat("a", 32), ports.AccionConsultarFirmasR5V2, "", dominiovec.ResultadoIntentoAuditoriaDenegado); err == nil {
+	// Sin perfil consumible la orden de auditoría sigue disponible, con la
+	// acción de la ruta sellada y la organización como recurso por defecto.
+	ctx, err := puertosvec.ConCorrelacionIncidenciasPeticion(e.ctx(httpinterno.RutaRecuperacionFirmasR5V2, http.MethodPost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	intento, err := puertosvec.NuevaReferenciaIntentoAuditoria()
+	if err != nil {
+		t.Fatal(err)
+	}
+	orden, err := e.fuente.CrearOrdenIntentoFirma(ctx, intento, ports.AccionRecuperarFirmasR5V2, "", dominiovec.ResultadoIntentoAuditoriaDenegado)
+	if err != nil {
+		t.Fatalf("revocación sin orden de auditoría: %v", err)
+	}
+	o, err := orden.Datos()
+	datos := o.Datos
+	if err != nil || o.ResultadoContexto.Contexto.PerfilActivoRef != e.perfil.perfilRef() || datos.RecursoRef != organizacionAltaContratacionTemporalDesarrollo ||
+		datos.Accion != ports.AccionRecuperarFirmasR5V2 || datos.Proceso != "vec-rrhh" ||
+		datos.Canal != canalIntentosFirmasR5V2CTDesarrollo || datos.Motivo != motivoFirmasR5V2CTDesarrollo() {
+		t.Fatalf("orden de auditoría distinta: %v", err)
+	}
+	if _, err := e.fuente.CrearOrdenIntentoFirma(ctx, intento, ports.AccionConsultarFirmasR5V2, "", dominiovec.ResultadoIntentoAuditoriaDenegado); err == nil {
 		t.Fatal("orden de auditoría con la acción de otra ruta")
+	}
+	// Un principal válido con otro certificado no abre el canal.
+	otro := e.principal
+	otro.Attributes = maps.Clone(e.principal.Attributes)
+	otro.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
+	ahora := e.soporte.reloj.Ahora()
+	ajeno := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{},
+		capacidadConsultaContratacionTemporalDesarrollo{sello: e.soporte.sello, ruta: httpinterno.RutaConsultaFirmasR5V2,
+			metodo: http.MethodPost, principal: otro, certificadoVerificadoEn: ahora.Add(-time.Second),
+			certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
+	if _, err := e.fuente.RevalidarContextoActorFirmaV2(ajeno); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("otro certificado aceptado: %v", err)
 	}
 }
 
@@ -230,9 +263,56 @@ func TestFirmasR5V2RutasInventariadasYAudienciasGobernadas(t *testing.T) {
 }
 
 func TestFirmasR5V2EmisorSoloAtiendeAccionesR5(t *testing.T) {
-	e := &emisorFirmasR5V2CTDesarrollo{}
-	if _, _, _, err := e.EmitirMaterialAutorizacionAtestadaV3(context.Background(), dominiovec.SolicitudAutorizacionLigadaV3{}, dominiovec.ResultadoContextoActorRegistradoV2{}); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+	e := nuevoEscenarioFirmasR5V2Prueba(t)
+	recurso := dominiovec.RecursoAutorizable{Referencia: "expediente:ct:r5v2:001", ModuloID: ports.ModuloContratacion,
+		Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
+		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)}}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := func(accion string) dominiovec.SolicitudAutorizacionLigadaV3 {
+		s, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: e.perfil.contexto.Vinculo, ReferenciaMotivo: motivoFirmasR5V2CTDesarrollo(),
+			Accion: accion, Recurso: recurso, Finalidad: ports.FinalidadFirmaDocumento, Correlacion: correlacion})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	// Sin emisores compuestos: una acción R5 válida no tiene a quién delegar y
+	// una acción de escritura nunca se acepta aunque los hubiera.
+	emisor := &emisorFirmasR5V2CTDesarrollo{}
+	for _, accion := range []string{ports.AccionConsultarFirmasR5V2, ports.AccionRegistrarFirmaVec} {
+		if _, _, _, err := emisor.EmitirMaterialAutorizacionAtestadaV3(context.Background(), solicitud(accion), e.perfil.contexto.Resultado); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+			t.Fatalf("%s: emisión sin emisor de su audiencia", accion)
+		}
+	}
+	if _, _, _, err := emisor.EmitirMaterialAutorizacionAtestadaV3(context.Background(), dominiovec.SolicitudAutorizacionLigadaV3{}, dominiovec.ResultadoContextoActorRegistradoV2{}); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
 		t.Fatal("emisión sin solicitud válida")
+	}
+}
+
+// El caso nuevo del PDP del soporte: con la solicitud exacta en el contexto
+// consume la asignación del perfil fijo; con la de la otra ruta, deniega.
+func TestFirmasR5V2PDPConsumePerfilFijoConSolicitudExacta(t *testing.T) {
+	e := nuevoEscenarioFirmasR5V2Prueba(t)
+	recurso := dominiovec.RecursoAutorizable{Referencia: "expediente:ct:r5v2:001", ModuloID: ports.ModuloContratacion,
+		Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
+		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)}}
+	ctx := e.ctx(httpinterno.RutaRecuperacionFirmasR5V2, http.MethodPost)
+	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionRecuperarFirmasR5V2, Recurso: recurso,
+		Finalidad: ports.FinalidadFirmaDocumento, ReferenciaMotivo: motivoFirmasR5V2CTDesarrollo()}
+	i, ok := e.soporte.instantaneaPerfilFijoParaContexto(context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos), httpinterno.RutaRecuperacionFirmasR5V2, e.perfil)
+	if !ok || i.AsignacionPerfil.PerfilActivoRef != e.perfil.perfilRef() {
+		t.Fatal("la solicitud exacta no consume el perfil fijo")
+	}
+	datos.Accion = ports.AccionConsultarFirmasR5V2
+	if _, ok := e.soporte.instantaneaPerfilFijoParaContexto(context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos), httpinterno.RutaRecuperacionFirmasR5V2, e.perfil); ok {
+		t.Fatal("la ruta de recuperación consume con la acción de consulta")
+	}
+	if _, ok := e.soporte.instantaneaPerfilFijoParaContexto(ctx, httpinterno.RutaRecuperacionFirmasR5V2, e.perfil); ok {
+		t.Fatal("consumo sin solicitud en el contexto")
 	}
 }
 

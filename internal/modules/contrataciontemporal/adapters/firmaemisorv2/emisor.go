@@ -25,7 +25,8 @@ type ContextoActorFirmaV2 struct {
 
 // FuenteContextoActorFirmaV2 debe consultar las autoridades comunes de sesión
 // y contexto registrado en cada invocación, con sus lecturas nominales auditadas,
-// sin perfiles fijos ni datos HTTP. Revalidar no concede permiso de registro.
+// sin datos HTTP; un perfil fijo sólo vale como asignación publicada y
+// consumida tal cual. Revalidar no concede permiso de registro.
 type FuenteContextoActorFirmaV2 interface {
 	RevalidarContextoActorFirmaV2(context.Context) (ContextoActorFirmaV2, error)
 }
