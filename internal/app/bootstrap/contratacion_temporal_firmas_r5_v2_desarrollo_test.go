@@ -147,7 +147,7 @@ func TestFirmasR5V2FuenteDeniegaOtroCanalYPerfilRevocado(t *testing.T) {
 func TestFirmasR5V2ContextoPropioExigePerfilPersonaYCuenta(t *testing.T) {
 	e := nuevoEscenarioFirmasR5V2Prueba(t)
 	propio := e.perfil.contexto.Resultado.Contexto
-	if !contextoPropioFirmasR5V2CTDesarrollo(propio, e.perfil) {
+	if !contextoRegistradoPerfilFijoCTDesarrollo(propio, e.perfil) {
 		t.Fatal("el contexto del perfil fijo se ha rechazado")
 	}
 	for nombre, alterar := range map[string]func(*dominiovec.ContextoActor){
@@ -158,11 +158,11 @@ func TestFirmasR5V2ContextoPropioExigePerfilPersonaYCuenta(t *testing.T) {
 	} {
 		c := propio
 		alterar(&c)
-		if contextoPropioFirmasR5V2CTDesarrollo(c, e.perfil) {
+		if contextoRegistradoPerfilFijoCTDesarrollo(c, e.perfil) {
 			t.Fatalf("%s distinto aceptado", nombre)
 		}
 	}
-	if contextoPropioFirmasR5V2CTDesarrollo(propio, nil) {
+	if contextoRegistradoPerfilFijoCTDesarrollo(propio, nil) {
 		t.Fatal("sin perfil aceptado")
 	}
 }

@@ -426,8 +426,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	if err != nil {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
-	if operativo.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() ||
-		operativo.Resultado.Contexto.PersonaRef != capacidad.principal.ID {
+	// La sesión revalidada debe ser la registrada del perfil de este paso. El
+	// identificador del certificado mTLS no es la persona registrada: ya lo
+	// cotejan capacidadValida y la huella del certificado.
+	if !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, perfil) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	motivo := motivoFirmaDocumentoCTDesarrollo()

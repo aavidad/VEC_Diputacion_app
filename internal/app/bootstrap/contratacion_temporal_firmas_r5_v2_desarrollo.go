@@ -149,17 +149,17 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) operativo(ctx context.Context) (po
 		}
 		return vacio, capacidad, ports.ErrFirmaDocumentoDenegada
 	}
-	if !contextoPropioFirmasR5V2CTDesarrollo(operativo.Resultado.Contexto, f.perfil) {
+	if !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, f.perfil) {
 		return vacio, capacidad, ports.ErrFirmaDocumentoDenegada
 	}
 	return operativo, capacidad, nil
 }
 
-// contextoPropioFirmasR5V2CTDesarrollo exige que la sesión revalidada sea la
+// contextoRegistradoPerfilFijoCTDesarrollo exige que la sesión revalidada sea la
 // del perfil fijo: mismo perfil, persona, principal y cuenta registrados. El
 // identificador del certificado mTLS es otro (lo coteja capacidadValida) y no
 // se compara con la persona registrada.
-func contextoPropioFirmasR5V2CTDesarrollo(c dominiovec.ContextoActor, perfil *perfilFijoCTDesarrollo) bool {
+func contextoRegistradoPerfilFijoCTDesarrollo(c dominiovec.ContextoActor, perfil *perfilFijoCTDesarrollo) bool {
 	if perfil == nil {
 		return false
 	}
