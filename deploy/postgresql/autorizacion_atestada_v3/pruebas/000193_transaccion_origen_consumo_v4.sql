@@ -53,8 +53,8 @@ BEGIN
  IF strpos(definicion,$m$a.tipo_registro='consumo_confirmado_v3' AND a.version_consumo=3 AND a.transaccion_origen IS NULL AND s.transaccion_origen IS NULL$m$)=0
  OR strpos(definicion,$m$a.tipo_registro='consumo_confirmado_v4' AND a.version_consumo=4 AND a.transaccion_origen IS NOT NULL AND s.transaccion_origen=a.transaccion_origen$m$)=0
  THEN RAISE EXCEPTION 'AD193: cotejo de denominación sin familias v3/v4'; END IF;
- IF EXISTS(SELECT 1 FROM pg_proc p WHERE p.pronamespace='vec_autorizacion_atestada_v3'::regnamespace
-  AND p.prosrc LIKE '%consumo_confirmado_v3%' AND p.oid NOT IN(
+ -- En todos los esquemas: un consumidor futuro de otro módulo tampoco puede exigir sólo v3.
+ IF EXISTS(SELECT 1 FROM pg_proc p WHERE p.prosrc LIKE '%consumo_confirmado_v3%' AND p.oid NOT IN(
    'vec_autorizacion_atestada_v3.cotejar_consumo_denominacion_persona_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure))
  THEN RAISE EXCEPTION 'AD193: queda una función que exige sólo la familia v3'; END IF;
  BEGIN
