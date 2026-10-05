@@ -73,9 +73,10 @@ Texto canónico de `jsonb` (sin claves repetidas), de 1 a 16 cargos sin repetir
 
 - `version` 1 exige que el rol no exista; la N exige que la última publicada sea
   N-1 y que su huella sea `version_anterior_sha256` (vacía en la 1).
-  Además, la N-1 debe tener forma de cargo: todas sus concesiones de
-  `contratacion_temporal` y sobre los tipos que publica AUT53. Así no se saca
-  la versión siguiente de un rol ajeno (por ejemplo, de Dietas).
+  Además, la N-1 tiene que haberla publicado AUT53: debe aparecer, con esa
+  misma huella, en el recibo de una operación anterior de este circuito. Así
+  no se saca la versión siguiente de un rol ajeno, ni de Dietas ni de un rol
+  de RRHH de Contratación temporal que no es un cargo.
 - `operaciones_v2`: subconjunto ordenado de `["consultar_r5","firmar_vec"]`.
 - `competencias`: de 1 a 8 objetos `{accion, tipo_recurso, finalidad}`.
 - El perfil asignable lleva `ambitos_fijos` = la organización del cargo y
@@ -128,8 +129,8 @@ cuerpo `4ca98d16…`).
 PostgreSQL 18.4 desechable restaurado de la copia fría posterior a AD197
 (con AD190, AUT44, CA35, AUT49 y AD196). AUT53 se instala con salida 0 y una
 segunda aplicación se para en `dependencias`. El vector
-`pruebas_sql/cargos_firma_000053.sql` (en ROLLBACK) da 30/30: positivo con dos
-cargos, versión siguiente de un rol ajeno, replay tras retirar la versión, concesiones exactas, consulta de AUT32, replay con el mismo recibo,
+`pruebas_sql/cargos_firma_000053.sql` (en ROLLBACK) da 31/31: positivo con dos
+cargos, versión siguiente de un rol ajeno (de Dietas o un rol CT que no publicó AUT53; este último caso falla con la versión anterior del filtro), replay tras retirar la versión, concesiones exactas, consulta de AUT32, replay con el mismo recibo,
 CAS de versión 1 y 2, huella de rol y aprobación divergentes, regla no
 configurada, competencias sobre tipos V3 o de administración, Intervención por
 `rol_id` y por nombre, Sistemas en el plan sin efecto parcial, plan caducado o

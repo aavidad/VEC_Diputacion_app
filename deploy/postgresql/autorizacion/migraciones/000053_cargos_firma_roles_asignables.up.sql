@@ -189,7 +189,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.documento_rol_cargo_firma_v1(jsonb,jsonb
 
 CREATE FUNCTION vec_autorizacion.aplicar_cargos_firma_admin_v1(plan_canonico text,sha_aprobado text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
-DECLARE cfg vec_autorizacion.config_cargos_firma_admin_v1;p jsonb;sha text;c jsonb;d jsonb;ctl jsonb;ref text;h text;hc text;maxv bigint;prev text;prev_doc jsonb;
+DECLARE cfg vec_autorizacion.config_cargos_firma_admin_v1;p jsonb;sha text;c jsonb;d jsonb;ctl jsonb;ref text;h text;hc text;maxv bigint;prev text;
  reg record;lista jsonb:='[]';cargos jsonb:='[]';lista_sha text;e jsonb;aud record;recibo jsonb;previo record;publicador text;instante timestamptz;
 BEGIN
  cfg:=vec_autorizacion.exigir_operador_cargos_firma_admin_v1();
@@ -232,16 +232,17 @@ BEGIN
   -- CAS de versión: la 1 exige que el rol no exista; la N exige que la última
   -- publicada sea N-1 y tenga la huella que el plan declara.
   SELECT max(version) INTO maxv FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id';
-  SELECT huella_sha256,documento INTO prev,prev_doc FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id' AND version=(c->>'version')::bigint-1 FOR SHARE;
+  SELECT huella_sha256 INTO prev FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id' AND version=(c->>'version')::bigint-1 FOR SHARE;
   IF ((c->>'version')::bigint=1 AND maxv IS NOT NULL) OR ((c->>'version')::bigint>1 AND (maxv IS DISTINCT FROM (c->>'version')::bigint-1 OR prev IS DISTINCT FROM c->>'version_anterior_sha256'))
   THEN RAISE EXCEPTION 'AUT53: PARO clave=version actual=divergente esperado=CAS_version_anterior' USING ERRCODE='P0V01'; END IF;
-  -- Sólo se sucede a un rol que ya tiene forma de cargo de firma: todas sus
-  -- concesiones de Contratación temporal y sobre los tipos que publica AUT53.
-  -- Así no se saca la versión siguiente de un rol ajeno (Dietas, Bolsa…).
-  IF (c->>'version')::bigint>1 AND (jsonb_typeof(prev_doc->'concesiones') IS DISTINCT FROM 'array' OR EXISTS(SELECT 1 FROM jsonb_array_elements(prev_doc->'concesiones') q
-   WHERE q->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
-   OR (q->>'tipo_recurso' ~ '^(documento_([a-z0-9_]{1,80}_)?contratacion_temporal|firma_vec_documento_contratacion_temporal|expediente_contratacion_temporal)$') IS NOT TRUE))
-  THEN RAISE EXCEPTION 'AUT53: PARO clave=version_anterior actual=no_es_cargo esperado=rol_con_forma_de_cargo' USING ERRCODE='P0V01'; END IF;
+  -- Sólo se sucede a un cargo que publicó AUT53: la versión N-1 debe figurar,
+  -- con su huella, en el recibo de una operación anterior de este circuito.
+  -- Así no se saca la versión siguiente de un rol ajeno (Dietas, Bolsa o un
+  -- rol de RRHH de Contratación temporal que no es un cargo).
+  IF (c->>'version')::bigint>1 AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.registro_cargos_firma_admin_v1 g
+   CROSS JOIN LATERAL jsonb_array_elements(g.recibo->'cargos') x
+   WHERE x->>'version_rol_ref'='rol:'||(c->>'rol_id')||':v'||((c->>'version')::bigint-1) AND x->>'version_rol_sha256' IS NOT DISTINCT FROM prev)
+  THEN RAISE EXCEPTION 'AUT53: PARO clave=version_anterior actual=no_es_cargo esperado=publicada_por_aut53' USING ERRCODE='P0V01'; END IF;
   SELECT * INTO reg FROM vec_autorizacion.regla_asignacion_cargo_firma_v1 r WHERE r.regla=c->>'regla_asignacion';
   IF NOT FOUND THEN RAISE EXCEPTION 'AUT53: PARO clave=regla_asignacion actual=desconocida esperado=configurada' USING ERRCODE='22023'; END IF;
   IF vec_autorizacion.concesiones_positivas_validas(d) IS NOT TRUE THEN RAISE EXCEPTION 'AUT53: PARO clave=concesiones actual=invalidas esperado=positivas_sin_repetir' USING ERRCODE='22023'; END IF;
