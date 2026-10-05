@@ -1,0 +1,8 @@
+# AD190: consumidor nominal del lote ordinario de perfiles (Administración).
+# Requiere instaladas las listas de AD195, AD196+AUT49, AUT48, firmas AD178/AD177 (y sus AUT41/CT175, CC7/CT176) y AUT51,
+# con las que se midió: núcleo y CHECK de audiencias POST178 (2ccd704a…/4729b666…, e76428d2…).
+# Aunque su número es menor, va después de todas ellas. Si otro consumidor (p. ej. AD197)
+# reescribe antes el núcleo o ese CHECK, AD190 se detiene con PARO sin tocar nada y hay que remedirla.
+# Crea el grupo NOLOGIN vec_admin_perfiles_lote_ejecutor. No concede permisos ni escribe efectos:
+# su único consumidor será el efecto del lote (AUT44). Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000190_consumidor_lote_perfiles_admin.up.sql
