@@ -35,14 +35,28 @@ lista. La base vuelve a comprobar audiencia, orden y tramo de cada clave.
 
 Las comprobaciones son las de AD188 (huellas aprobadas, preimagen, CAS de
 punteros, misma raíz, renovación diaria, claves nuevas de 32 bytes), más el
-conjunto. La confirmación y cada intento quedan en la auditoría común con los
-tipos de AD188 (`gobierno_usuarios_admin` y su intento), así que el
-verificador de la cadena no cambia. El conjunto aplicado queda ligado por la
-huella del plan y por `claves_sha256`.
+conjunto: audiencia por posición, tramo de `clave_id` y órdenes numéricas y
+crecientes.
 
-Con este conjunto hay que dejar de usar AD188 para la renovación diaria: las
+La confirmación y cada intento quedan en la auditoría común con los tipos de
+AD188 (`gobierno_usuarios_admin` y su intento), así que el verificador de la
+cadena no cambia. Esos registros llevan la acción de AD188. Por eso cada
+operación de AD198, también un intento denegado o con error, se anota además
+en `operacion_gobierno_capacidades_admin_v1`, de solo adición y en la misma
+transacción. Esa tabla guarda la referencia de auditoría, el LOGIN, la huella
+de la solicitud, el conjunto, el resultado y las claves publicadas. Para saber
+si un registro común es de AD188 o de AD198, se cruza por `auditoria_ref`.
+
+Con este conjunto hay que dejar de usar AD188 para la renovación diaria. Las
 dos vías publican configuración y se excluyen por cerrojo y CAS, pero solo
-AD198 renueva también la clave del lote.
+AD198 renueva también la clave del lote. Si alguien renueva con AD188, la
+clave del lote deja de servir cuando caduca (falla en cerrado). Lo seguro es
+no dejar ningún LOGIN en `vec_gobierno_usuarios_admin_operador`.
+
+Cada publicación cambia la configuración vigente, y el consumo exige su
+secuencia. Por eso, tras renovar, hay que reconfigurar y reiniciar los
+procesos que la tienen fijada en su configuración privada (por ejemplo,
+`vec-admin`). Es lo mismo que ya ocurría con AD188.
 
 ## Ensayo en el clon (5 de octubre de 2026)
 
@@ -50,8 +64,13 @@ Clon desde la copia fría H10-30 con todas las listas de main, el arranque 2+1
 y Rol7, más AD190, CA35/AUT44, AUT50 y AD198:
 
 - AD198 se instala una vez. El vector `pruebas_sql/ad198_gobierno_capacidades_admin.sql`
-  da 10/10: conjunto cerrado e inmutable, ACL, preimagen y tres intentos
-  denegados que quedan auditados sin publicar claves.
+  da 12/12: conjunto cerrado e inmutable, ACL y preimagen, y tres intentos
+  denegados que quedan auditados y anotados como de AD198, sin publicar
+  claves. El registro de operaciones no se puede borrar.
+- Revisión independiente con nueve negativos armados en SQL: orden cambiado,
+  tramo ajeno o sin `:`, secreto repetido o de 31 bytes, dos claves, conjunto
+  como texto, plan 1 y LOGIN con `rolconfig`. Todos quedan denegados, sin
+  efecto y auditados. La misma base sin cambios queda permitida.
 - Recorrido real con la CLI y un LOGIN técnico: preparar, aplicar
   (`gobierno_confirmado`), reiniciar PostgreSQL, repetir con otro acuse
   (mismo recibo y `replay`) y verificar la cadena (`cadena_verificada`). Se

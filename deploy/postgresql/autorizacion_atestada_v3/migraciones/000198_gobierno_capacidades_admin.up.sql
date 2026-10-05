@@ -7,8 +7,11 @@
 -- Otro conjunto exige otra migración que añada su fila: nunca se edita uno.
 -- AD188/AD191 no se reescriben: se reutilizan su cálculo de huella de la
 -- configuración y sus registros de auditoría común (mismos tipos, sin tocar el
--- CHECK ni el verificador de la cadena). El grupo operador y la configuración
--- aprobada son propios. Requiere AD188, AD191 y AD190 instaladas. Una sola
+-- CHECK ni el verificador de la cadena). Como esos registros llevan la acción de
+-- AD188, cada operación de AD198 (también los intentos denegados) se anota
+-- además en operacion_gobierno_capacidades_admin_v1, de solo adición, en la
+-- misma transacción y ligada a la referencia de auditoría. El grupo operador y
+-- la configuración aprobada son propios. Requiere AD188, AD191 y AD190 instaladas. Una sola
 -- vez; sin DOWN. Instalarla no publica ninguna clave.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -26,7 +29,7 @@ BEGIN
  -- AD188 con la corrección de AD191 (huella de la definición tras AD191).
  SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') INTO efecto FROM pg_proc p
  WHERE p.oid=to_regprocedure('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)');
- IF efecto IS NULL OR strpos((SELECT prosrc FROM pg_proc WHERE oid=to_regprocedure('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)')),'v_confirmacion')=0
+ IF efecto IS DISTINCT FROM 'aadaaa7f9a1029564e4c02587394a175ab4a5dd45c67526d50ea034f8b6ef973'
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_gobierno_usuarios_admin_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.instante_gobierno_usuarios_v1(timestamp with time zone)') IS NULL
@@ -74,6 +77,27 @@ CREATE TABLE vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1(
  vigente_desde timestamptz NOT NULL,vigente_hasta timestamptz NOT NULL CHECK(vigente_hasta>vigente_desde),
  entorno text NOT NULL CHECK(entorno='desarrollo'));
 REVOKE ALL ON TABLE vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1 FROM PUBLIC,vec_gobierno_capacidades_admin_operador;
+
+-- Registro propio de cada operación de AD198, de solo adición. Los registros de
+-- la cadena común llevan la acción de AD188; esta fila, unida por auditoria_ref,
+-- dice que fue AD198, con qué conjunto y qué claves publicó.
+CREATE TABLE vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1(
+ auditoria_ref text PRIMARY KEY CHECK(auditoria_ref ~ '^aud_v3_gui?_[0-9a-f]{32}$'),
+ tipo text NOT NULL CHECK(tipo IN('confirmacion','intento')),
+ funcion text NOT NULL CHECK(funcion='aprovisionar_gobierno_capacidades_admin_v1'),
+ operador_login name NOT NULL,
+ solicitud_sha256 text NOT NULL CHECK(solicitud_sha256 ~ '^[0-9a-f]{64}$'),
+ conjunto_version integer REFERENCES vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1(version),
+ resultado text NOT NULL CHECK(resultado IN('permitido','denegado','error')),
+ clave_ids text[] NOT NULL CHECK(array_position(clave_ids,NULL) IS NULL),
+ registrada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
+ CHECK(resultado='permitido' OR cardinality(clave_ids)=0),
+ CHECK(tipo='intento' OR resultado='permitido'));
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion_atestada_v3.rechazar_truncado();
+REVOKE ALL ON TABLE vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1 FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.exigir_operador_gobierno_capacidades_admin_v1()
 RETURNS vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -204,7 +228,10 @@ BEGIN
  OR (g->>'secuencia')::bigint<=(pre->>'orden_configuracion')::bigint
  THEN RAISE EXCEPTION 'AD198: PARO clave=renovacion actual=incompatible esperado=misma_raiz_diaria_aprobada' USING ERRCODE='42501';END IF;
  FOR k IN SELECT value FROM jsonb_array_elements(claves) LOOP
-  i:=i+1;ord:=(p->'clave_ordenes'->>(i-1))::bigint;
+  i:=i+1;
+  IF jsonb_typeof(p->'clave_ordenes'->(i-1))<>'number' THEN RAISE EXCEPTION 'AD198: PARO clave=orden actual=no_numerica esperado=entero' USING ERRCODE='22023';END IF;
+  ord:=(p->'clave_ordenes'->>(i-1))::bigint;
+  IF i>1 AND ord<=(p->'clave_ordenes'->>(i-2))::bigint THEN RAISE EXCEPTION 'AD198: PARO clave=orden actual=no_creciente esperado=creciente' USING ERRCODE='22023';END IF;
   IF jsonb_typeof(k)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(k))<>10
   OR NOT k ?& ARRAY['audiencia','clave_id','version','revision_gobierno','huella_gobierno_sha256','secreto_hmac','huella_secreto_sha256','emisor_id','valida_desde','valida_hasta']
   OR k->>'audiencia' IS DISTINCT FROM s.audiencias[i]
@@ -232,6 +259,9 @@ BEGIN
  VALUES((g->>'secuencia')::bigint,g->>'revision',(g->>'publicada_en')::timestamptz,'acto:ct:desarrollo:puntero-configuracion:r'||(g->>'secuencia'));
  claves_sha:=encode(sha256(convert_to((SELECT jsonb_agg(value-'secreto_hmac') FROM jsonb_array_elements(claves))::text,'UTF8')),'hex');
  SELECT * INTO v_confirmacion FROM vec_autorizacion_atestada_v3.registrar_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','gobierno_usuarios_admin','evento_ref','evento_'||substr(sha,1,32),'operador_login',session_user::text,'plan_sha256',sha,'preimagen_sha256',c.preimagen_sha256,'configuracion_origen_ref',anterior.revision,'configuracion_destino_ref',g->>'revision','claves_sha256',claves_sha,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||substr(sha,1,32)));
+ INSERT INTO vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1(auditoria_ref,tipo,funcion,operador_login,solicitud_sha256,conjunto_version,resultado,clave_ids)
+ VALUES(v_confirmacion.auditoria_ref,'confirmacion','aprovisionar_gobierno_capacidades_admin_v1',session_user,sha,c.conjunto_version,'permitido',
+  ARRAY(SELECT x->>'clave_id' FROM jsonb_array_elements(claves) x));
  PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_capacidades_admin_v1(p,m);
  RETURN to_jsonb(v_confirmacion)||jsonb_build_object('replay',false,'plan_sha256',sha,'preimagen_sha256',c.preimagen_sha256,'material_sha256',c.material_sha256,'claves_sha256',claves_sha,'configuracion_ref',g->>'revision');
 END $f$;
@@ -241,13 +271,17 @@ END $f$;
 -- AD188 (su acción y recurso son los de ese registro).
 CREATE FUNCTION vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1(p_plan text,p_aprobado text,p_material text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
-DECLARE recibo jsonb;intento record;estado text:='permitido';motivo text:='gobierno_usuarios_registrado';codigo text:='gobierno_usuarios_registrado';solicitud text;
+DECLARE recibo jsonb;intento record;estado text:='permitido';motivo text:='gobierno_usuarios_registrado';codigo text:='gobierno_usuarios_registrado';solicitud text;conjunto integer;
 BEGIN
  solicitud:=encode(sha256(convert_to(coalesce(p_plan,''),'UTF8')),'hex');
+ -- Conjunto aprobado para este LOGIN, si lo hay (también para el intento denegado).
+ SELECT x.conjunto_version INTO conjunto FROM vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1 x WHERE x.identidad_login=session_user;
  BEGIN
   recibo:=vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(p_plan,p_aprobado,p_material);
   IF recibo->>'replay'='true' THEN motivo:='gobierno_usuarios_replay';codigo:=motivo;END IF;
   SELECT * INTO intento FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','intento_gobierno_usuarios_admin','evento_ref','evento_'||replace(gen_random_uuid()::text,'-',''),'operador_login',session_user::text,'solicitud_sha256',solicitud,'accion','aprovisionar_gobierno_usuarios_admin_v1','recurso_ref','solicitud_gobierno_usuarios:'||substr(solicitud,1,32),'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||replace(gen_random_uuid()::text,'-','')));
+  INSERT INTO vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1(auditoria_ref,tipo,funcion,operador_login,solicitud_sha256,conjunto_version,resultado,clave_ids)
+  VALUES(intento.auditoria_ref,'intento','aprovisionar_gobierno_capacidades_admin_v1',session_user,solicitud,conjunto,'permitido',ARRAY(SELECT x->>'clave_id' FROM jsonb_array_elements(p_material::jsonb->'claves') x));
   PERFORM vec_autorizacion_atestada_v3.revalidar_gobierno_capacidades_admin_v1(p_plan::jsonb,p_material::jsonb);
  EXCEPTION WHEN insufficient_privilege OR serialization_failure OR invalid_parameter_value OR invalid_text_representation OR datetime_field_overflow OR unique_violation OR no_data_found THEN
   estado:='denegado';motivo:='gobierno_usuarios_denegado';codigo:=motivo;recibo:=NULL;
@@ -255,6 +289,9 @@ BEGIN
  END;
  IF estado<>'permitido' THEN
   SELECT * INTO intento FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_usuarios_admin_v1(jsonb_build_object('tipo_registro','intento_gobierno_usuarios_admin','evento_ref','evento_'||replace(gen_random_uuid()::text,'-',''),'operador_login',session_user::text,'solicitud_sha256',solicitud,'accion','aprovisionar_gobierno_usuarios_admin_v1','recurso_ref','solicitud_gobierno_usuarios:'||substr(solicitud,1,32),'resultado',estado,'motivo_ref',motivo,'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','gobierno_usuarios_admin','correlacion_ref','correlacion_'||replace(gen_random_uuid()::text,'-','')));
+  -- Sin efecto: el intento denegado o con error queda anotado como de AD198.
+  INSERT INTO vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1(auditoria_ref,tipo,funcion,operador_login,solicitud_sha256,conjunto_version,resultado,clave_ids)
+  VALUES(intento.auditoria_ref,'intento','aprovisionar_gobierno_capacidades_admin_v1',session_user,solicitud,conjunto,estado,'{}');
  END IF;
  RETURN jsonb_build_object('estado',estado,'codigo',codigo,'recibo',recibo,'auditoria_intento',to_jsonb(intento)||jsonb_build_object('solicitud_sha256',solicitud));
 END $f$;
@@ -282,7 +319,7 @@ BEGIN
    AND (a.grantee NOT IN(p.proowner,g) OR a.is_grantable OR a.privilege_type<>'EXECUTE'))
  OR NOT has_function_privilege(g,'vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1(text,text,text)','EXECUTE')
  OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
-   WHERE c.oid IN('vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1'::regclass,'vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1'::regclass)
+   WHERE c.oid IN('vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1'::regclass,'vec_autorizacion_atestada_v3.config_gobierno_capacidades_admin_v1'::regclass,'vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1'::regclass)
    AND a.grantee<>c.relowner)
  THEN RAISE EXCEPTION 'AD198: PARO clave=ACL actual=ampliada esperado=operador_solo_aprovisionar' USING ERRCODE='55000'; END IF;
 END $acl$;

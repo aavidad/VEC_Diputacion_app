@@ -42,6 +42,8 @@ CREATE ROLE prueba_ad198_doble LOGIN;
 GRANT vec_gobierno_capacidades_admin_operador TO prueba_ad198_doble WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 GRANT vec_gobierno_usuarios_admin_operador TO prueba_ad198_doble WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 SELECT secuencia AS aud0 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria WHERE control_id \gset
+SELECT count(*) AS claves0 FROM vec_autorizacion_atestada_v3.clave_capacidad_version \gset
+SELECT count(*) AS operaciones0 FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1 \gset
 SET SESSION AUTHORIZATION prueba_ad198_bueno;
 SELECT vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1('{}',repeat('0',64),'{}')->>'estado' AS sin_config \gset
 RESET SESSION AUTHORIZATION;
@@ -60,6 +62,17 @@ SELECT pg_temp.comprobar('dos_grupos_denegado',:'dos_grupos'='denegado');
 SELECT pg_temp.comprobar('intentos_auditados',(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
  WHERE secuencia>:aud0 AND tipo_registro='intento_gobierno_usuarios_admin' AND resultado='denegado')=3
  AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0 AND tipo_registro='gobierno_usuarios_admin'));
-SELECT pg_temp.comprobar('sin_claves_nuevas',NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version
- WHERE acto_ref LIKE 'acto_tecnico:admin:capacidades:%'));
+SELECT pg_temp.comprobar('sin_claves_nuevas',(SELECT count(*) FROM vec_autorizacion_atestada_v3.clave_capacidad_version)=:claves0);
+-- Cada intento denegado queda anotado como de AD198, ligado a su registro común.
+SELECT pg_temp.comprobar('operaciones_ad198',(SELECT count(*) FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1)=:operaciones0+3
+ AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1 o
+  JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 a ON a.auditoria_ref=o.auditoria_ref
+  WHERE a.secuencia>:aud0 AND o.tipo='intento' AND o.resultado='denegado' AND cardinality(o.clave_ids)=0
+   AND o.funcion='aprovisionar_gobierno_capacidades_admin_v1' AND a.gobierno_usuarios_solicitud_sha256=o.solicitud_sha256)=3
+ AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1 WHERE operador_login='prueba_ad198_bueno' AND conjunto_version IS NULL)=1
+ AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1 WHERE operador_login IN('prueba_ad198_bueno','prueba_ad198_doble') AND conjunto_version=1)=2);
+CREATE FUNCTION pg_temp.mutar_operacion() RETURNS text LANGUAGE plpgsql AS $f$
+BEGIN DELETE FROM vec_autorizacion_atestada_v3.operacion_gobierno_capacidades_admin_v1; RETURN 'borrado';
+EXCEPTION WHEN OTHERS THEN RETURN 'rechazado'; END $f$;
+SELECT pg_temp.comprobar('operaciones_inmutables',pg_temp.mutar_operacion()='rechazado');
 ROLLBACK;
