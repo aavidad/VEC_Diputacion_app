@@ -50,7 +50,8 @@ func nuevaFuentePDFFirmaAnteriorCTDesarrollo(o *originalFirmableCTDesarrollo, se
 
 func (f *fuentePDFFirmaAnteriorCTDesarrollo) ObtenerPDFFirmaAnterior(ctx context.Context, q ports.SolicitudPDFFirmaAnterior) (ports.PDFFirmaAnterior, error) {
 	var vacio ports.PDFFirmaAnterior
-	if f == nil || f.original == nil || f.original.politicas == nil || dependenciaEsNulaContratacionTemporalDesarrollo(f.servicio) || ctx == nil {
+	if f == nil || f.original == nil || f.original.politicas == nil || dependenciaEsNulaContratacionTemporalDesarrollo(f.original.pdp) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(f.servicio) || ctx == nil {
 		return vacio, errPDFFirmaAnteriorCTNoDisponible
 	}
 	if err := ctx.Err(); err != nil {

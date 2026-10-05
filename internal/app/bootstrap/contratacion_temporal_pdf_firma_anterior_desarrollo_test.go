@@ -95,6 +95,32 @@ func TestPDFFirmaAnteriorRechazaOtroDocumentoOAutorizacion(t *testing.T) {
 		}
 	}
 	descarga.documento = original
+	bytesOriginales := descarga.original
+	for nombre, alterar := range map[string]func(*docports.Original){
+		"otros bytes con la huella declarada": func(o *docports.Original) { o.Contenido = []byte("%PDF-1.7\notro\n%%EOF") },
+		"otra huella del objeto":              func(o *docports.Original) { o.HuellaSHA256 = strings.Repeat("3", 64) },
+		"otro MIME":                           func(o *docports.Original) { o.MIME = "application/octet-stream" },
+		"sin cabecera PDF":                    func(o *docports.Original) { o.Contenido = []byte("no es un PDF") },
+		"vacío":                               func(o *docports.Original) { o.Contenido = nil },
+	} {
+		descarga.original = bytesOriginales
+		alterar(&descarga.original)
+		if nombre == "sin cabecera PDF" || nombre == "vacío" {
+			h := sha256HexPrueba(descarga.original.Contenido)
+			descarga.original.HuellaSHA256, descarga.documento.HuellaSHA256 = h, h
+			q2 := q
+			q2.DocumentoHuella = h
+			if _, err := f.ObtenerPDFFirmaAnterior(context.Background(), q2); !errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado) {
+				t.Errorf("%s: %v", nombre, err)
+			}
+			descarga.documento = original
+			continue
+		}
+		if _, err := f.ObtenerPDFFirmaAnterior(context.Background(), q); !errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado) {
+			t.Errorf("%s: %v", nombre, err)
+		}
+	}
+	descarga.original = bytesOriginales
 	pdp.err = errOriginalFirmableCTDenegado
 	if _, err := f.ObtenerPDFFirmaAnterior(context.Background(), q); !errors.Is(err, docports.ErrAccesoDenegado) {
 		t.Fatalf("denegación del PDP: %v", err)

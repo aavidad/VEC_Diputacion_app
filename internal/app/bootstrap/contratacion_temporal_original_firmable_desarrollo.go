@@ -333,8 +333,9 @@ type originalFirmableCTDesarrollo struct {
 	seudonimizador *seudonimizadorAlmacenDesarrollo
 	politicas      *conservacion.Catalogo
 	autoridad      *docautorizacion.AutoridadOriginalFirmableV3
-	// mapear es la única traducción del expediente CT al documental; la
-	// composición entrega este mismo mapeador a la custodia común.
+	// mapear traduce el expediente CT al documental de los originales; la
+	// composición entrega este mismo mapeador a la custodia común. Los PDF
+	// firmados usan otra agrupación (ports.ExpedienteDocumentalRef).
 	mapear almacen.MapeadorExpedienteOriginalCT
 }
 
