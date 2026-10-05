@@ -383,7 +383,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "catalogos"]);
   assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 0);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(llamadas.at(-1), "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
@@ -502,7 +502,7 @@ test("con ficha propia servida, Personal ofrece relaciones y servicios con datos
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
   assert.equal(raiz.querySelector("[data-portal-carga-vista]"), null, "la carga común se retira al montar la ficha");
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "relaciones", "servicios", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "relaciones", "servicios", "catalogos"]);
   raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
   await new Promise((resolve) => setImmediate(resolve));
   const celdas = raiz.querySelectorAll("td").map((celda) => celda.textContent);
@@ -684,7 +684,7 @@ test("los catálogos públicos de Personal van en un cargador opcional incluido 
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
     "vista.js", "vista-ficha-integral.js", "registro-b2.js", "registro-b2-cliente.js",
-    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js"]);
+    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js", "vista-contacto-propio.js"]);
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }
