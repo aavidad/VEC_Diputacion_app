@@ -131,33 +131,11 @@ func (p *Preparador) preparar(ctx context.Context, s ports.SaldoExportable, nomb
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	desde, e1 := time.Parse("2006-01-02", s.Periodo.Desde)
-	hasta, e2 := time.Parse("2006-01-02", s.Periodo.Hasta)
-	if e1 != nil || e2 != nil || hasta.Before(desde) || hasta.After(desde.AddDate(1, 0, 0)) {
-		return cero, ports.ErrExportacionSaldoInvalida
+	desde, hasta, err := validarSaldoExportable(s)
+	if err != nil {
+		return cero, err
 	}
-	// Límite físico de un periodo, sin inventar jornadas o reglas laborales.
-	maximo := int64(hasta.Sub(desde)/(24*time.Hour)+1) * 25 * 60
 	r := s.Resumen
-	if r.TrabajadosMinutos < 0 || r.TrabajadosMinutos > maximo || r.PrevistosMinutos != nil && (*r.PrevistosMinutos < 0 || *r.PrevistosMinutos > maximo) || r.SaldoMinutos != nil && (*r.SaldoMinutos < -maximo || *r.SaldoMinutos > maximo) {
-		return cero, ports.ErrExportacionSaldoInvalida
-	}
-	switch r.Estado {
-	case ports.EstadoSaldoDisponible:
-		if r.PrevistosMinutos == nil || r.SaldoMinutos == nil {
-			return cero, ports.ErrExportacionSaldoInvalida
-		}
-	case ports.EstadoSaldoNoDisponible:
-		if r.PrevistosMinutos != nil || r.SaldoMinutos != nil {
-			return cero, ports.ErrExportacionSaldoInvalida
-		}
-	case ports.EstadoSaldoIncompleto:
-		if r.SaldoMinutos != nil {
-			return cero, ports.ErrExportacionSaldoInvalida
-		}
-	default:
-		return cero, ports.ErrExportacionSaldoInvalida
-	}
 	c := p.catalogo
 	parrafos := []string{}
 	if nombre != "" {
@@ -230,4 +208,35 @@ func dependenciaNula(v any) bool {
 		return r.IsNil()
 	}
 	return false
+}
+
+func validarSaldoExportable(s ports.SaldoExportable) (time.Time, time.Time, error) {
+	desde, e1 := time.Parse("2006-01-02", s.Periodo.Desde)
+	hasta, e2 := time.Parse("2006-01-02", s.Periodo.Hasta)
+	if e1 != nil || e2 != nil || hasta.Before(desde) || hasta.After(desde.AddDate(1, 0, 0)) {
+		return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+	}
+	// Límite físico de un periodo, sin inventar jornadas o reglas laborales.
+	maximo := int64(hasta.Sub(desde)/(24*time.Hour)+1) * 25 * 60
+	r := s.Resumen
+	if r.TrabajadosMinutos < 0 || r.TrabajadosMinutos > maximo || r.PrevistosMinutos != nil && (*r.PrevistosMinutos < 0 || *r.PrevistosMinutos > maximo) || r.SaldoMinutos != nil && (*r.SaldoMinutos < -maximo || *r.SaldoMinutos > maximo) {
+		return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+	}
+	switch r.Estado {
+	case ports.EstadoSaldoDisponible:
+		if r.PrevistosMinutos == nil || r.SaldoMinutos == nil {
+			return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+		}
+	case ports.EstadoSaldoNoDisponible:
+		if r.PrevistosMinutos != nil || r.SaldoMinutos != nil {
+			return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+		}
+	case ports.EstadoSaldoIncompleto:
+		if r.SaldoMinutos != nil {
+			return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+		}
+	default:
+		return time.Time{}, time.Time{}, ports.ErrExportacionSaldoInvalida
+	}
+	return desde, hasta, nil
 }

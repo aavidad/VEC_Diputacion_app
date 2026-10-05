@@ -54,6 +54,7 @@
 .personal-ficha-panel-ancho { grid-column: 1 / -1; }
 .personal-ficha-panel .cuerpo-panel { display: grid; gap: var(--portal-espacio-3); }
 .personal-ficha-panel .cuerpo-panel > p { margin: 0; }
+.personal-ficha-panel dl { min-width: 0; overflow-wrap: anywhere; }
 
 .personal-ficha-bloques {
   display: grid;

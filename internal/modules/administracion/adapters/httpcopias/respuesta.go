@@ -1,6 +1,7 @@
 package httpcopias
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -68,7 +69,8 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, s p.Sesion, er
 	h.denegarStatus(w, r, s, status, code, accion, ref)
 }
 func (h *Handler) denegarStatus(w http.ResponseWriter, r *http.Request, s p.Sesion, status int, code, accion, ref string) {
-	if h.auditor(r.Context(), Denegacion{code, accion, ref, s.Actor.PersonaRef, s.Actor.PerfilActivoRef, s.CorrelacionRef}) != nil {
+	accion, ref = accionAuditoria(r, accion, ref)
+	if h.auditor(context.WithoutCancel(r.Context()), Denegacion{code, accion, ref, s.Actor.PersonaRef, s.Actor.PerfilActivoRef, s.CorrelacionRef}) != nil {
 		fallo(w, p.ErrNoDisponible)
 		return
 	}

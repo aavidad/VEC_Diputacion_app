@@ -1,9 +1,12 @@
 package auditoria
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,11 +57,95 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	TipoRegistro string               `json:"tipo_registro"`
-	Consumo      *RegistroCadenaV3    `json:"consumo,omitempty"`
-	Intento      *RegistroIntentoV2   `json:"intento,omitempty"`
-	Preperfil    *RegistroPreperfilV3 `json:"preperfil,omitempty"`
-	Bootstrap    *RegistroBootstrapV3 `json:"bootstrap,omitempty"`
+	PerfilesAsignables        *RegistroPerfilesAsignablesV1           `json:"perfiles_asignables,omitempty"`
+	IntentoPerfilesAsignables *RegistroIntentoPerfilesAsignablesV1    `json:"intento_perfiles_asignables,omitempty"`
+	ContextoAdminPreV2        *RegistroContextoAdminPreV2             `json:"contexto_admin_pre_v2,omitempty"`
+	FronteraAdminTecnica      *RegistroFronteraAdminTecnicaV1         `json:"frontera_admin_tecnica,omitempty"`
+	GobiernoUsuarios          *RegistroGobiernoUsuariosV1             `json:"gobierno_usuarios,omitempty"`
+	IntentoGobiernoUsuarios   *RegistroIntentoGobiernoUsuariosV1      `json:"intento_gobierno_usuarios,omitempty"`
+	Preservacion              *RegistroPreservacionAuditoriaV1        `json:"preservacion,omitempty"`
+	Periodica                 *RegistroOperacionPeriodicaV1           `json:"periodica,omitempty"`
+	MantenimientoFijo         *RegistroMantenimientoFijoV1            `json:"mantenimiento_fijo,omitempty"`
+	IntentoMantenimientoFijo  *RegistroIntentoMantenimientoFijoV1     `json:"intento_mantenimiento_fijo,omitempty"`
+	IntentoBootstrapCentral   *RegistroIntentoBootstrapCentralV1      `json:"intento_bootstrap_central,omitempty"`
+	UnidadInicial             *RegistroUnidadInicialPersonalV1        `json:"unidad_inicial,omitempty"`
+	IntentoUnidadInicial      *RegistroIntentoUnidadInicialPersonalV1 `json:"intento_unidad_inicial,omitempty"`
+	FuentesIniciales          *RegistroFuentesInicialesV1             `json:"fuentes_iniciales,omitempty"`
+	IntentoFuentesIniciales   *RegistroIntentoFuentesInicialesV1      `json:"intento_fuentes_iniciales,omitempty"`
+	TipoRegistro              string                                  `json:"tipo_registro"`
+	Consumo                   *RegistroCadenaV3                       `json:"-"`
+	ConsumoOrigen             *RegistroConsumoOrigenV2                `json:"-"`
+	ConsumoTransaccion        *RegistroConsumoTransaccionV4           `json:"-"`
+	ConsumoFecha              *RegistroConsumoFechaV3                 `json:"-"`
+	Intento                   *RegistroIntentoV2                      `json:"intento,omitempty"`
+	Preperfil                 *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
+	Bootstrap                 *RegistroBootstrapV3                    `json:"bootstrap,omitempty"`
+}
+
+var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
+
+// Las versiones conservan el mismo objeto JSON consumo. La proyección
+// histórica mantiene su tipo Go; el discriminador elige una sola versión.
+func (r RegistroMixtoV2) MarshalJSON() ([]byte, error) {
+	type alias RegistroMixtoV2
+	var consumo any
+	for _, presente := range []bool{r.Consumo != nil, r.ConsumoOrigen != nil, r.ConsumoFecha != nil, r.ConsumoTransaccion != nil} {
+		if presente && consumo != nil {
+			return nil, errRegistroMixtoJSON
+		}
+		if presente {
+			switch {
+			case r.Consumo != nil:
+				consumo = r.Consumo
+			case r.ConsumoOrigen != nil:
+				consumo = r.ConsumoOrigen
+			case r.ConsumoFecha != nil:
+				consumo = r.ConsumoFecha
+			case r.ConsumoTransaccion != nil:
+				consumo = r.ConsumoTransaccion
+			}
+		}
+	}
+	return json.Marshal(struct {
+		alias
+		Consumo any `json:"consumo,omitempty"`
+	}{alias(r), consumo})
+}
+
+func (r *RegistroMixtoV2) UnmarshalJSON(b []byte) error {
+	type alias RegistroMixtoV2
+	var registro RegistroMixtoV2
+	objeto := struct {
+		*alias
+		Consumo json.RawMessage `json:"consumo"`
+	}{alias: (*alias)(&registro)}
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&objeto) != nil {
+		return errRegistroMixtoJSON
+	}
+	if len(objeto.Consumo) > 0 {
+		var destino any
+		switch registro.TipoRegistro {
+		case "consumo_confirmado":
+			destino = &registro.Consumo
+		case TipoConsumoOrigenV2:
+			destino = &registro.ConsumoOrigen
+		case TipoConsumoFechaV3:
+			destino = &registro.ConsumoFecha
+		case TipoConsumoTransaccionV4:
+			destino = &registro.ConsumoTransaccion
+		default:
+			return errRegistroMixtoJSON
+		}
+		decoder = json.NewDecoder(bytes.NewReader(objeto.Consumo))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(destino) != nil {
+			return errRegistroMixtoJSON
+		}
+	}
+	*r = registro
+	return nil
 }
 
 type DocumentoVerificacionMixta struct {
@@ -101,12 +188,53 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	anterior := checkpoint.AnteriorSHA256
 	auditorias, decisiones, consumos, intentos := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	eventos := map[string]bool{}
+	var historicosSinFecha, fechaLigada bool
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
+		if r.ContextoAdminPreV2 != nil && r.TipoRegistro != "contexto_admin_pre_v2" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if r.ConsumoTransaccion != nil && r.TipoRegistro != TipoConsumoTransaccionV4 {
+			return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+		}
+		if (r.PerfilesAsignables != nil || r.IntentoPerfilesAsignables != nil) && r.TipoRegistro != "perfiles_asignables_admin" && r.TipoRegistro != "intento_perfiles_asignables_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if r.FronteraAdminTecnica != nil && r.TipoRegistro != "frontera_admin_tecnica" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if (r.GobiernoUsuarios != nil || r.IntentoGobiernoUsuarios != nil) && r.TipoRegistro != "gobierno_usuarios_admin" && r.TipoRegistro != "intento_gobierno_usuarios_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if r.Preservacion != nil && r.TipoRegistro != TipoOperacionPreservacionAuditoria {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if r.Periodica != nil && r.TipoRegistro != TipoOperacionPeriodica {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if (r.MantenimientoFijo != nil || r.IntentoMantenimientoFijo != nil) && r.TipoRegistro != "mantenimiento_perfil_fijo_admin" && r.TipoRegistro != "intento_mantenimiento_perfil_fijo_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
+		if r.IntentoBootstrapCentral != nil && r.TipoRegistro != "intento_bootstrap_central_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
+		if (r.UnidadInicial != nil || r.IntentoUnidadInicial != nil) && r.TipoRegistro != "unidad_inicial_personal" && r.TipoRegistro != "intento_unidad_inicial_personal" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+
+		if (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil) && r.TipoRegistro != "provision_fuentes_iniciales_admin" && r.TipoRegistro != "intento_fuentes_iniciales_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
+		if (r.ConsumoOrigen != nil || r.ConsumoFecha != nil) && r.TipoRegistro != TipoConsumoOrigenV2 && r.TipoRegistro != TipoConsumoFechaV3 {
+			return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+		}
+
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
-			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+			if r.Consumo == nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 			}
 			c := *r.Consumo
@@ -132,8 +260,50 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			if c.HuellaSHA256 != huella {
 				return fallar("huella_distinta", "huella_sha256", huella, c.HuellaSHA256, secuencia)
 			}
+			historicosSinFecha = true
+		case TipoConsumoOrigenV2, TipoConsumoFechaV3, TipoConsumoTransaccionV4:
+			if r.Consumo != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+			}
+			var c RegistroCadenaV3
+			var fallo *FalloVerificacion
+			switch r.TipoRegistro {
+			case TipoConsumoOrigenV2:
+				if r.ConsumoOrigen == nil || r.ConsumoFecha != nil || r.ConsumoTransaccion != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoOrigen.RegistroCadenaV3
+				fallo = CotejarConsumoOrigenV2(*r.ConsumoOrigen)
+				historicosSinFecha = true
+			case TipoConsumoFechaV3:
+				if r.ConsumoFecha == nil || r.ConsumoOrigen != nil || r.ConsumoTransaccion != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoFecha.RegistroCadenaV3
+				fallo = CotejarConsumoFechaV3(*r.ConsumoFecha)
+				fechaLigada = true
+			case TipoConsumoTransaccionV4:
+				if r.ConsumoTransaccion == nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoTransaccion.RegistroCadenaV3
+				fallo = CotejarConsumoTransaccionV4(*r.ConsumoTransaccion)
+				fechaLigada = true
+			}
+			if c.Secuencia != secuencia {
+				return fallar("secuencia_distinta", "secuencia", strconv.FormatUint(secuencia, 10), strconv.FormatUint(c.Secuencia, 10), secuencia)
+			}
+			if fallo != nil {
+				informe.Fallo = fallo
+				return informe
+			}
+			if decisiones[c.DecisionRef] || consumos[c.ConsumoHuellaSHA256] {
+				return fallar("consumo_duplicado", "decision_o_consumo", "unico", "duplicado", secuencia)
+			}
+			decisiones[c.DecisionRef], consumos[c.ConsumoHuellaSHA256] = true, true
+			referencia, previo, huella = c.AuditoriaRef, c.AnteriorSHA256, c.HuellaSHA256
 		case "intento_nominal":
-			if r.Intento == nil || r.Consumo != nil || r.Preperfil != nil || r.Bootstrap != nil {
+			if r.Intento == nil || r.Consumo != nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "intento_exclusivo", "invalido", secuencia)
 			}
 			a := *r.Intento
@@ -156,12 +326,148 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if esquema != EsquemaVerificacionPreperfil {
+			if (!esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad171_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
+			if r.TipoRegistro == "intento_fuentes_iniciales_admin" {
+				evento, codigo, clave = cotejarIntentoFuentesInicialesV1(r, secuencia)
+			}
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad174_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "unidad_inicial_personal", "intento_unidad_inicial_personal":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarRegistroUnidadInicialV1(r, secuencia)
+			if r.TipoRegistro == "intento_unidad_inicial_personal" {
+				evento, codigo, clave = cotejarIntentoUnidadInicialV1(r, secuencia)
+			}
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad176_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "intento_bootstrap_central_admin":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarIntentoBootstrapCentralV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad179_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "contexto_admin_pre_v2":
+			if !esquemaAdmiteFamiliasAdmin(esquema) {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			e, codigo, clave := cotejarContextoAdminPreV2(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad192_valido", "no_admitido", secuencia)
+			}
+			if eventos[e.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[e.EventoRef] = true
+			referencia, previo, huella = e.AuditoriaRef, e.AnteriorSHA256, e.HuellaSHA256
+		case "frontera_admin_tecnica":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 || r.FronteraAdminTecnica == nil || r.GobiernoUsuarios != nil || r.IntentoGobiernoUsuarios != nil || r.Preservacion != nil || r.Periodica != nil || r.MantenimientoFijo != nil || r.IntentoMantenimientoFijo != nil || r.IntentoBootstrapCentral != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil || r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.Consumo != nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+				return fallar("tipo_invalido", "tipo_registro", "frontera_exclusiva", "invalido", secuencia)
+			}
+			evento, codigo, clave := CotejarRegistroFronteraAdminTecnicaV1(*r.FronteraAdminTecnica, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad189_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "perfiles_asignables_admin", "intento_perfiles_asignables_admin":
+			if esquema != EsquemaVerificacionPerfilesAsignables {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarPerfilesAsignablesV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad196_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "gobierno_usuarios_admin", "intento_gobierno_usuarios_admin":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarGobiernoUsuariosV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad188_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "mantenimiento_perfil_fijo_admin", "intento_mantenimiento_perfil_fijo_admin":
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarMantenimientoFijoV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad183_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case TipoOperacionPreservacionAuditoria:
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarPreservacionAuditoriaV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad187_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case TipoOperacionPeriodica:
+			if !esquemaAdmiteFamiliasAdmin(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarOperacionPeriodicaV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad186_valido", "no_admitido", secuencia)
 			}
 			if eventos[evento.EventoRef] {
 				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
@@ -186,6 +492,8 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	informe.Estado = "verificada"
 	informe.MaterialIntentoRecalculado = len(intentos) > 0
 	informe.ActorPerfilContextoCotejados = len(intentos) > 0
+	informe.ConsumosHistoricosSinFechaLigada = historicosSinFecha
+	informe.FechaConsumoLigadaCotejada = fechaLigada
 	return informe
 }
 

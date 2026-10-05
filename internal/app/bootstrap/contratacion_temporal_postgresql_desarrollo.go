@@ -22,6 +22,7 @@ import (
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -79,6 +80,10 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
+	auditoriaLecturasBolsa            puertosvec.RegistradorIntentosAuditoria
+	procesoAuditoriaLecturasBolsa     string
+	cerrarAuditoriaLecturasBolsa      func()
+	cerrarFirmasR5V2                  func()
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
 	calculadorPoliticaOfertas         *pgxpool.Pool
@@ -144,6 +149,12 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
 	if d == nil {
 		return
+	}
+	if d.cerrarAuditoriaLecturasBolsa != nil {
+		d.cerrarAuditoriaLecturasBolsa()
+	}
+	if d.cerrarFirmasR5V2 != nil {
+		d.cerrarFirmasR5V2()
 	}
 	if d.cerrarUnaVez != nil {
 		d.cerrarUnaVez()

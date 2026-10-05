@@ -64,6 +64,8 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	dir := opciones.String("catalogos-dir", "web/static/textos", "")
 	idioma := opciones.String("idioma", i18n.DefaultLocale, "")
 	formato := opciones.String("salida", "preparacion", "")
+	dirCatalogoAdmision := opciones.String("catalogo-admision-dir", "data/catalogos/seleccion", "")
+	ficheroCatalogoAdmision := opciones.String("catalogo-admision", "admision_ejemplo.json", "")
 	errOpciones := opciones.Parse(args)
 	catalogo, err := cargarCatalogo(*dir, *idioma)
 	if errOpciones == flag.ErrHelp && err == nil && salida != nil {
@@ -77,8 +79,13 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		return 0
 	}
 	if err != nil || errOpciones != nil || opciones.NArg() != 0 || salida == nil || errores == nil ||
-		(*formato != "preparacion" && *formato != "aportacion" && *formato != "antecedente") {
+		(*formato != "preparacion" && *formato != "aportacion" && *formato != "antecedente" && *formato != "lista-provisional" &&
+			*formato != "antecedente-lista" && *formato != "lista-definitiva" && *formato != "revision-provisional") {
 		return informarError(errores, catalogo, *idioma, domain.ErrAdmisionPreparacion.Error())
+	}
+	if *formato == "lista-provisional" || *formato == "antecedente-lista" || *formato == "lista-definitiva" ||
+		*formato == "revision-provisional" {
+		return ejecutarLista(ctx, *formato, *dirCatalogoAdmision, *ficheroCatalogoAdmision, entrada, salida, errores, catalogo, *idioma)
 	}
 	if *formato != "preparacion" {
 		return ejecutarAportacion(ctx, *formato, entrada, salida, errores, catalogo, *idioma)

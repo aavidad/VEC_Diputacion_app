@@ -26,7 +26,7 @@ type entrada struct {
 	Comando     *operacionescopias.Comando   `json:"comando,omitempty"`
 }
 
-var claves = []string{"argumentos_invalidos", "catalogo_invalido", "entrada_invalida", "salida_fallida", "aviso_registro", "listado_registrado", "registro_configuracion_invalida", "registro_entrada_invalida", "registro_historia_incompleta", "registro_no_existe", "registro_no_disponible", "registro_destino_ocupado", "operacion_entrada_invalida", "operacion_conflicto_idempotencia", "operacion_conflicto_version", "operacion_vinculo_distinto", "operacion_transicion_invalida", "operacion_historia_invalida", "revalidar_antes_de_captura", "conciliar_captura_sin_repetir", "revalidar_antes_de_ensayos", "conciliar_ensayos_pendientes", "autenticar_evidencias_antes_de_uso", "revisar_ensayo_fallido", "historia_invalida"}
+var claves = []string{"argumentos_invalidos", "catalogo_invalido", "entrada_invalida", "salida_fallida", "aviso_registro", "listado_registrado", "registro_configuracion_invalida", "registro_entrada_invalida", "registro_historia_incompleta", "registro_no_existe", "registro_no_disponible", "registro_destino_ocupado", "revisar_abandono_confirmado", "operacion_abandono_no_confirmado", "registro_abandono_no_autorizado", "operacion_entrada_invalida", "operacion_conflicto_idempotencia", "operacion_conflicto_version", "operacion_vinculo_distinto", "operacion_transicion_invalida", "operacion_historia_invalida", "revalidar_antes_de_captura", "conciliar_captura_sin_repetir", "revalidar_antes_de_ensayos", "conciliar_ensayos_pendientes", "autenticar_evidencias_antes_de_uso", "revisar_ensayo_fallido", "historia_invalida"}
 
 func main() {
 	timer := time.AfterFunc(30*time.Second, func() { os.Exit(2) })

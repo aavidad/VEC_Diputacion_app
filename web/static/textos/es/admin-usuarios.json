@@ -154,5 +154,19 @@
     "aprobada": "Propuesta aprobada y cambio confirmado",
     "rechazada": "Propuesta rechazada; acceso sin cambios",
     "motivo": "Motivo de la propuesta"
+  },
+  "metadatos": {
+    "nombre_no_registrado": "Nombre sin registrar",
+    "nombre_no_consultado": "Nombre no consultado",
+    "persona_en_lista": "Persona {numero}: {nombre}",
+    "perfil_en_lista": "Asignación {numero}",
+    "unidad_no_consultada": "Nombre de la unidad no consultado",
+    "catalogo_no_consultado": "El catálogo de perfiles no se ha consultado.",
+    "alcance": "Esta consulta muestra las asignaciones y su vigencia. Los nombres de los perfiles requieren otra consulta.",
+    "actos_no_consultados": "Los cambios de perfiles no están disponibles en esta consulta.",
+    "historia_no_consultada": "El historial no se ha consultado.",
+    "ayuda": "Puede abrir una ficha para revisar sus asignaciones y las fechas de vigencia. Esta consulta no incluye los nombres que todavía no se hayan leído, el historial ni los cambios de perfiles.",
+    "titulo_lista": "Consultar usuarios",
+    "filtros_no_disponibles": "Puede filtrar por vigencia. La búsqueda por nombre y los filtros de perfil y unidad aún no están disponibles aquí."
   }
 }

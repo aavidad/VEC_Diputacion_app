@@ -1,7 +1,13 @@
 # Informes de Dietas: preparación sintética — 1 de octubre de 2026
 
 RRHH puede revisar una vista de informes por persona, unidad y periodo con un
-paquete sintético. La exportación y la impresión esperan el permiso nominal
+paquete sintético. Puede filtrar también por situación del ejemplo. Las opciones
+proceden de las situaciones incluidas en su configuración; el filtro no amplía
+ese conjunto. Lista, recuento y subtotales usan la misma selección.
+
+La situación elegida se aplica con los demás filtros y se conserva al recargar.
+Si una nueva configuración deja de incluirla, el resultado queda vacío hasta
+cambiar o quitar el filtro. La exportación y la impresión esperan el permiso nominal
 con auditoría de D. Este corte no consulta expedientes reales ni acredita una
 liquidación, una fiscalización o un pago.
 
@@ -32,6 +38,67 @@ el resultado como «Importe incluido».
 El gobierno operativo del catálogo, su autorización y su auditoría durable
 siguen esperando el contrato nominal. La pregunta sobre fecha, unidad, estados
 e importes se remite a RRHH en `dudas.md` durante el turno de E.
+
+## Muestra en CSV
+
+La misma selección se puede sacar a una hoja de cálculo desde la terminal:
+
+```sh
+go run -p 2 ./cmd/vec-dietas --informe-periodo-csv \
+  --textos web/static/textos/es/dietas-informes-csv.json \
+  --configuracion data/catalogos/dietas/informes-ejemplo-v1.json \
+  --unidad unidad-demo-01 --desde 2026-09-01 --hasta 2026-09-30 \
+  < data/demo/dietas/informes.json > /tmp/dietas-informes.csv
+```
+
+Los filtros `--persona`, `--unidad`, `--situacion`, `--desde` y `--hasta`
+son los de la vista y se pueden omitir. La selección se hace en el código Go
+del módulo (`internal/modules/dietas/application/informeperiodo`) con las
+mismas comprobaciones que la vista, más límites de tamaño y un esquema cerrado:
+la configuración de ejemplo debe coincidir en referencia y versión, y la suma
+de los conceptos debe dar el total de cada comisión. El caso de la vista con fecha de liquidación, solo liquidado y
+manutención entre el 5 y el 20 de septiembre da los mismos dos registros y
+42,50 euros.
+
+Cada fila lleva referencia, versión, persona, unidad, situación, la fecha que
+elige la configuración, un importe por concepto incluido y el importe incluido.
+Los importes van en céntimos enteros, así la hoja no depende del separador
+decimal. No salen las referencias internas de persona ni de unidad. Los textos
+que una hoja interpretaría como fórmula llevan un apóstrofo delante. Para
+inglés se usa el catálogo de `textos/en/`. Si algo falla, la orden termina
+con código 2 y el fichero solo contiene un código de error en JSON; conviene
+mirar el código de salida antes de abrir el `.csv`.
+
+Es una muestra local con datos sintéticos. El botón Exportar de la vista sigue
+desactivado y la exportación nominal, con permiso propio y auditoría, sigue
+pendiente.
+
+## Muestra en PDF
+
+La misma selección sale también en PDF con el generador de documentos común:
+
+```sh
+go run -p 2 ./cmd/vec-dietas --informe-periodo-pdf \
+  --textos web/static/textos/es/dietas-informes-pdf.json \
+  --configuracion data/catalogos/dietas/informes-ejemplo-v1.json \
+  --desde 2026-09-01 --hasta 2026-09-30 \
+  < data/demo/dietas/informes.json > /tmp/dietas-informes.pdf
+```
+
+Admite los mismos filtros que el CSV. El documento empieza con el aviso de
+ejemplo sintético y explica qué fecha cuenta para el período. Luego muestra el
+período pedido, el número de informes y el importe incluido, el subtotal de
+cada concepto y una línea por comisión con referencia, versión, persona,
+unidad, situación, fecha e importe. Termina recordando que los importes son
+los conservados y que el documento no acredita liquidación, fiscalización ni
+pago. Los importes llevan el formato del idioma: `1.234,56 €` en castellano y
+`€1,234.56` en inglés. Todos los textos están en
+`textos/{es,en}/dietas-informes-pdf.json`, y un nombre que contenga llaves se
+imprime tal cual, sin tomarse por plantilla.
+
+Igual que en Cronos, el PDF etiquetado y la validación PDF/UA siguen
+pendientes. La muestra sirve para revisar contenido y legibilidad; no habilita
+impresión ni descarga en la vista.
 
 ## Fuente y decisión
 

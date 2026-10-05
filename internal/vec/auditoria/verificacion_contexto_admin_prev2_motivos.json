@@ -1,0 +1,62 @@
+[
+  {
+    "accion": "resolver_cuenta_admin",
+    "resultado": "permitido",
+    "motivo_ref": "contexto_admin_pre_v2_permitido"
+  },
+  {
+    "accion": "resolver_cuenta_admin",
+    "resultado": "denegado",
+    "motivo_ref": "contexto_admin_pre_v2_denegado"
+  },
+  {
+    "accion": "resolver_cuenta_admin",
+    "resultado": "error",
+    "motivo_ref": "contexto_admin_pre_v2_error"
+  },
+  {
+    "accion": "vincular_sesion_admin",
+    "resultado": "permitido",
+    "motivo_ref": "contexto_admin_pre_v2_permitido"
+  },
+  {
+    "accion": "vincular_sesion_admin",
+    "resultado": "denegado",
+    "motivo_ref": "contexto_admin_pre_v2_denegado"
+  },
+  {
+    "accion": "vincular_sesion_admin",
+    "resultado": "error",
+    "motivo_ref": "contexto_admin_pre_v2_error"
+  },
+  {
+    "accion": "registrar_contexto_admin",
+    "resultado": "permitido",
+    "motivo_ref": "contexto_admin_pre_v2_permitido"
+  },
+  {
+    "accion": "registrar_contexto_admin",
+    "resultado": "denegado",
+    "motivo_ref": "contexto_admin_pre_v2_denegado"
+  },
+  {
+    "accion": "registrar_contexto_admin",
+    "resultado": "error",
+    "motivo_ref": "contexto_admin_pre_v2_error"
+  },
+  {
+    "accion": "reconciliar_contexto_admin",
+    "resultado": "permitido",
+    "motivo_ref": "contexto_admin_pre_v2_permitido"
+  },
+  {
+    "accion": "reconciliar_contexto_admin",
+    "resultado": "denegado",
+    "motivo_ref": "contexto_admin_pre_v2_denegado"
+  },
+  {
+    "accion": "reconciliar_contexto_admin",
+    "resultado": "error",
+    "motivo_ref": "contexto_admin_pre_v2_error"
+  }
+]

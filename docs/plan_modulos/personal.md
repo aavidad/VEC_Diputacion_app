@@ -137,3 +137,73 @@ auditoría en la transacción de la fuente. Quedan sin implementación, SQL, HTT
 composición ni autorización operativa. Las fuentes actuales de CER y H05 siguen
 siendo de ensayo. Los DTO no contienen nombre, DNI ni correo y no sustituyen
 las proyecciones puras de dominio ni crean otra ficha de persona.
+
+### Servicios para Certificados: primer corte, autoservicio (5 de octubre de 2026)
+
+`LectorServiciosParaCertificadosV1` ya tiene implementación y se añade
+`LectorServiciosParaCertificadosV2`, con la misma consulta y los días
+reconocidos que guarda Personal17. V1 sigue disponible y es la misma lectura
+sin los días.
+
+- Sólo autoservicio: el empleado tiene que ser el único empleado canónico de
+  la persona que consulta. Se comprueba en Go con el ContextoActor y otra vez en
+  SQL con la proyección de Personal16. Si se pide otro empleado, se deniega. La
+  consulta de RRHH sobre otra persona necesita una competencia propia y queda
+  para otro corte.
+- Fuente: `vec_personal.consultar_servicios_certificados_propios_v1`
+  (Personal36). Toma la última revisión conocida de cada servicio en el
+  organismo pedido, vigente en la fecha del corte y ya comenzado entonces. El
+  periodo y los días salen tal como constan, sin recalcular. Cobertura y certeza
+  van como «no acreditada», porque la fuente no tiene eficacia administrativa.
+  Con más de 200 servicios la consulta da error y no devuelve datos.
+- Autorización: consumidor propio AD195 (`personal.servicios_certificados.consultar`,
+  audiencia `vec_personal.servicios_certificados.v1`, finalidad
+  `consultar_servicios_para_certificados`). Consumo, lectura y auditoría común
+  van en la misma transacción. El recibo es la referencia de esa auditoría. Los
+  rechazos se registran en la auditoría común de intentos.
+- Código: `ports/servicios_para_certificados.go` (V2),
+  `ports/lector_servicios_certificados.go`, `domain/lector_servicios_certificados.go`,
+  `application/lector_servicios_certificados.go`,
+  `adapters/postgres/lector_servicios_certificados.go` y
+  `adapters/composicion/lector_servicios_certificados.go`
+  (`ComponerLectorServiciosCertificados`).
+- SQL en orden: `deploy/principal/lista_sql_claude_personal_servicios_certificados_20261005.txt`.
+  Va después de AD193. AD195 mide el núcleo posterior a AD193: si otra
+  migración lo reescribe antes, se detiene sin cambiar nada y hay que medirla
+  de nuevo. Comprobación: `pruebas_sql/servicios_certificados_propios_000036.sql`.
+
+Falta todavía montar la ruta del consumidor (Certificados), dar el permiso en
+administración, configurar el origen técnico de consumo para el LOGIN de
+Personal y pasar el traductor de Certificados a V2.
+
+## Preparación propia de una revisión de servicios — 4 de octubre de 2026
+
+La historia propia de servicios incorpora «Preparar revisión» en cada fila
+recibida. Permite elegir un dato de esa revisión y describir propuesta, motivo
+y evidencia declarada. El estado permanece «Preparación sin presentar».
+Discutir el dato no determina que sea jurídicamente rectificable.
+
+«Revisar borrador» vuelve a consultar la historia propia por su cliente
+autorizado existente, con las mismas fechas y sin enviar referencias de persona,
+empleado, propuesta, motivo ni evidencia. Comprueba las revisiones del servicio,
+sus valores, fuente, acto y versiones. Si cambian o falla el acceso, retira la
+historia anterior y el borrador. La procedencia del borrador revisado conserva
+servicio, revisión, fuente, acto, corte y referencia de la consulta nueva.
+
+La preparación vive únicamente en memoria y se limpia al descartarla, actualizar
+la historia, cambiar fechas o desmontar la vista. No tiene descarga, portapapeles,
+adjuntos, envío, registro, SQL ni permiso de escritura. Personal no utiliza el
+circuito de rectificación de Dietas. El circuito de presentación y decisión
+competente continúa pendiente; este corte no cierra PER-005.
+
+Las 23 pruebas Node focales de preparación, vista e HTTP lector existente pasan
+con Node 20.19.2. Incluyen selector ajeno, revisión sustituida, revocación,
+dependencia caída, respuestas tardías, limpieza, texto hostil mediante textContent
+y catálogos ES/EN. Semgrep local sobre cuatro archivos de implementación:
+cuatro reglas, ningún hallazgo. No se ejecutaron Go, SQL ni servicios reales.
+La revisión sensible y de usabilidad del candidato final, la cadena de caché y
+los manifiestos corresponden a Dirección antes de integrar.
+
+El valor recibido aparece junto al valor propuesto, antes del motivo y la evidencia.
+La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
+La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.

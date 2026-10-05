@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "concesiones": [
+    {
+      "accion": "administracion.usuarios.listar",
+      "modulo_id": "administracion",
+      "tipo_recurso": "conjunto_usuarios",
+      "finalidades": [
+        "gestion_usuarios"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "denominacion_version",
+        "perfiles",
+        "persona_ref",
+        "siguiente_cursor",
+        "unidad_ref"
+      ],
+      "obligaciones": [
+        "auditar"
+      ]
+    },
+    {
+      "accion": "administracion.usuarios.consultar",
+      "modulo_id": "administracion",
+      "tipo_recurso": "persona_administrable",
+      "finalidades": [
+        "gestion_usuarios"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "denominacion_version",
+        "perfiles",
+        "persona_ref",
+        "unidad_ref"
+      ],
+      "obligaciones": [
+        "auditar"
+      ]
+    }
+  ],
+  "dimensiones_ambito": [
+    "organizacion_ref",
+    "unidad_ref"
+  ],
+  "proyeccion_perfiles": [
+    "perfil_ref",
+    "rol_version_ref",
+    "version",
+    "estado",
+    "vigente_desde",
+    "vigente_hasta"
+  ]
+}

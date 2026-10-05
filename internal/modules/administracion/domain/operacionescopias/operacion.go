@@ -20,6 +20,7 @@ const (
 	Verificando         Estado = "verificando"
 	VerificadaDeclarada Estado = "verificada_declarada"
 	NoValidaDeclarada   Estado = "no_valida_declarada"
+	AbandonadaDeclarada Estado = "abandonada_declarada"
 )
 
 var (
@@ -29,6 +30,7 @@ var (
 	ErrVinculo    = errors.New("operacion_vinculo_distinto")
 	ErrTransicion = errors.New("operacion_transicion_invalida")
 	ErrHistoria   = errors.New("operacion_historia_invalida")
+	ErrAbandono   = errors.New("operacion_abandono_no_confirmado")
 	refPattern    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,95}$`)
 )
 
@@ -54,13 +56,29 @@ type Evidencia struct {
 }
 
 type Comando struct {
-	Clave            string     `json:"clave"`
-	VersionEsperada  uint64     `json:"version_esperada"`
-	SolicitudSHA256  string     `json:"solicitud_sha256"`
-	Accion           string     `json:"accion"`
-	ManifiestoSHA256 string     `json:"manifiesto_sha256,omitempty"`
-	Ejecucion        string     `json:"ejecucion,omitempty"`
-	Evidencia        *Evidencia `json:"evidencia,omitempty"`
+	Clave            string               `json:"clave"`
+	VersionEsperada  uint64               `json:"version_esperada"`
+	SolicitudSHA256  string               `json:"solicitud_sha256"`
+	Accion           string               `json:"accion"`
+	ManifiestoSHA256 string               `json:"manifiesto_sha256,omitempty"`
+	Ejecucion        string               `json:"ejecucion,omitempty"`
+	Evidencia        *Evidencia           `json:"evidencia,omitempty"`
+	Abandono         *ObservacionAbandono `json:"abandono,omitempty"`
+}
+
+// ObservacionAbandono binds a known stopped effect and cancelled lease supplied
+// by the trusted executor. The model records it without issuing authority.
+type ObservacionAbandono struct {
+	Operacion         string `json:"operacion"`
+	Destino           string `json:"destino"`
+	FalloReferencia   string `json:"fallo_referencia"`
+	FalloSHA256       string `json:"fallo_sha256"`
+	Lease             string `json:"lease"`
+	EstadoEfecto      string `json:"estado_efecto"`
+	EstadoLease       string `json:"estado_lease"`
+	EstadoPlataforma  string `json:"estado_plataforma"`
+	EstadoVerificador string `json:"estado_verificador,omitempty"`
+	EstadoVentana     string `json:"estado_ventana,omitempty"`
 }
 
 // Evento is a model receipt; it is not an audit record or durable receipt.
@@ -151,8 +169,32 @@ func (o Operacion) Aplicar(c Comando) (Operacion, Evento, bool, error) {
 }
 
 func (o *Operacion) transicion(c Comando) error {
+	if c.Accion != "abandonar_captura" && c.Abandono != nil {
+		return ErrEntrada
+	}
 	// Reject unused fields, which would otherwise allow ambiguous semantic seals.
 	switch c.Accion {
+	case "abandonar_captura":
+		if (o.estado != Solicitada && o.estado != Capturando && o.estado != Capturada && o.estado != Verificando) || c.Abandono == nil || c.ManifiestoSHA256 != "" || c.Ejecucion != "" || c.Evidencia != nil {
+			return ErrTransicion
+		}
+		a := c.Abandono
+		if a.Operacion != o.solicitud.Operacion || a.Destino != o.solicitud.Destino {
+			return ErrVinculo
+		}
+		if !referencia(a.FalloReferencia) || !huella(a.FalloSHA256) {
+			return ErrEntrada
+		}
+		if !referencia(a.Lease) || a.EstadoEfecto != "inactivo" || a.EstadoLease != "cancelada" || a.EstadoPlataforma != "sin_efectos_pendientes" {
+			return ErrAbandono
+		}
+		if (a.EstadoVerificador != "" && a.EstadoVerificador != "detenido") || (a.EstadoVentana != "" && a.EstadoVentana != "inactiva") {
+			return ErrAbandono
+		}
+		if (o.estado == Capturada || o.estado == Verificando || a.FalloReferencia == "verificacion_fallida") && (a.EstadoVerificador == "" || a.EstadoVentana == "") {
+			return ErrAbandono
+		}
+		o.estado = AbandonadaDeclarada
 	case "iniciar_captura":
 		if o.estado != Solicitada || !sinDatos(c) {
 			return ErrTransicion
@@ -233,6 +275,8 @@ func (o Operacion) Reconciliar() string {
 		return "autenticar_evidencias_antes_de_uso"
 	case NoValidaDeclarada:
 		return "revisar_ensayo_fallido"
+	case AbandonadaDeclarada:
+		return "revisar_abandono_confirmado"
 	default:
 		return "historia_invalida"
 	}
@@ -263,6 +307,10 @@ func clonarEvento(e Evento) Evento {
 	if e.Comando.Evidencia != nil {
 		v := *e.Comando.Evidencia
 		e.Comando.Evidencia = &v
+	}
+	if e.Comando.Abandono != nil {
+		v := *e.Comando.Abandono
+		e.Comando.Abandono = &v
 	}
 	return e
 }

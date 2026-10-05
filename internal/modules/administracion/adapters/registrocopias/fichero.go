@@ -31,8 +31,9 @@ type Config struct {
 // Fichero holds no cached state or open descriptors. Every call reopens under
 // flock and verifies the complete committed journal before returning a receipt.
 type Fichero struct {
-	directorio    string
-	limiteListado int
+	directorio         string
+	limiteListado      int
+	observadorAbandono port.ObservadorAbandono
 }
 
 func Abrir(c Config) (*Fichero, error) {
@@ -187,6 +188,15 @@ func (f *Fichero) ejecutar(ctx context.Context, p peticion) (port.Resultado, err
 		return vacio, err
 	}
 	instante := time.Now().UTC().Format(time.RFC3339Nano)
+	if p.Accion == "abandonar_captura" {
+		p, err = f.confirmarAbandono(ctx, p)
+		if err != nil {
+			p.AbandonoDenegado = errors.Is(err, port.ErrAbandonoNoAutorizado)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
 	res, evento, efectoErr := m.procesar(p, instante)
 	r := registro{Secuencia: m.secuencia + 1, Anterior: m.anterior, Instante: instante, Peticion: p, Recibo: res.Recibo, Auditoria: res.Auditoria, Evento: evento}
 	t := trama{Registro: r, SHA256: sello(r)}

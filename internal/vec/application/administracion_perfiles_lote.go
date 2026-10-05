@@ -45,7 +45,20 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 	if err := s.validarAdministrador(ctx, solicitud.InstantaneaAutorizacion); err != nil {
 		return domain.ReciboLoteAdministracionPerfiles{}, err
 	}
+	ahora := s.reloj.Ahora()
 	for _, cambio := range solicitud.Cambios {
+		// Un alta programada empieza en el futuro y ninguna alta puede terminar
+		// ya: la autoridad confirmaría un efecto que el recibo no podría acreditar.
+		if cambio.Operacion == domain.OperacionOtorgarPerfil &&
+			(!cambio.Objetivo.VigenteHasta.After(ahora) ||
+				cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && !cambio.Objetivo.VigenteDesde.After(ahora)) {
+			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
+		}
+		// Las bajas no exigen que el perfil siga ofreciéndose; la autoridad
+		// comprueba que su versión esté registrada como ordinaria.
+		if cambio.Operacion == domain.OperacionRevocarPerfil {
+			continue
+		}
 		rol, err := s.catalogo.ResolverRolAdministrable(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return domain.ReciboLoteAdministracionPerfiles{}, err
@@ -53,7 +66,7 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 		if rol.ValidarEn(s.reloj.Ahora()) != nil || rol.VersionRef != cambio.RolVersionRef ||
 			rol.Clase != domain.ClaseControlPerfilOrdinario || (rol.UnidadRequerida && cambio.Objetivo.UnidadRef == "") ||
 			(cambio.Operacion == domain.OperacionOtorgarPerfil &&
-				(cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) ||
+				(cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) ||
 					cambio.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
 			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 		}

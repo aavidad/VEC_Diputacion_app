@@ -60,6 +60,9 @@ func main() {
 }
 
 func ejecutar(args []string, salida io.Writer) int {
+	if len(args) > 2 && args[0] == "preparar" {
+		return ejecutarPreparacion(args[1:], salida)
+	}
 	if len(args) != 2 || !shaValido.MatchString(args[1]) {
 		registrarRechazo(errMaterial, "argumentos")
 		return 2

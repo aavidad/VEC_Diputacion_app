@@ -81,8 +81,9 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	superficie  core.SuperficieAutenticacionActorV1
 	logins      map[string]bool
 	// «Mis correos» (5.08b): autoridad hermana con su propia ruta exacta.
-	proveedorCorreos *proveedorCorreosUsuarios
-	correos          *autoridadPreferenciasUsuariosDesarrollo
+	proveedorCorreos        *proveedorCorreosUsuarios
+	correos                 *autoridadPreferenciasUsuariosDesarrollo
+	intentosConsultaCorreos *registroIntentosConsultaCorreos
 	// «Mi imagen» (5.08c): otra autoridad hermana con su ruta exacta.
 	proveedorImagen *proveedorImagenUsuarios
 	imagen          *autoridadPreferenciasUsuariosDesarrollo
@@ -297,6 +298,14 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			return
 		}
 		ctx := context.WithValue(r.Context(), claveContextoPreferenciasUsuarios{}, contextoPreferenciasUsuarios{autoridad: a, vinculo: vinculo, resultado: resultado, certificado: cert})
+		if a.intentosConsultaCorreos != nil && r.Method == http.MethodGet {
+			ctx, err = a.capturarIntentoConsultaCorreos(ctx)
+			if err != nil {
+				a.registrarFallo(r.Context(), err)
+				fallo(503, "no_disponible")
+				return
+			}
+		}
 		ctx, err = vechttp.ConActorVerificadoAuditoriaPreferenciasUsuarios(ctx, resultado.Contexto)
 		if err != nil {
 			a.registrarFallo(r.Context(), err)
@@ -443,9 +452,13 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
 	}
 	var pools []*pgxpool.Pool
+	var cerrarIntentosCorreos func()
 	var unaVez sync.Once
 	cerrar := func() {
 		unaVez.Do(func() {
+			if cerrarIntentosCorreos != nil {
+				cerrarIntentosCorreos()
+			}
 			for _, p := range pools {
 				p.Close()
 			}
@@ -486,6 +499,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		return nil, errComposicionUsuariosPreferencias
 	}
 	pools = append(pools, registradorPool)
+	logins[login] = true
 	repositorio, err := usuariospg.NuevoRegistroPreferenciasPostgreSQL(ctx, ejecutor, superficie)
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
@@ -555,7 +569,20 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		return nil, errComposicionUsuariosPreferencias
 	}
 	if correos != nil {
-		a.correos, err = montarCorreosUsuariosSuperficie(ctx, a, ejecutor, autorizador, c, correos)
+		var intentos *registroIntentosConsultaCorreos
+		if superficie == core.SuperficieAutenticacionInternaCorporativaV1 {
+			reservados := make([]string, 0, len(logins))
+			for login := range logins {
+				reservados = append(reservados, login)
+			}
+			intentos, cerrarIntentosCorreos, err = abrirRegistroIntentosConsultaCorreos(ctx, func() (vecports.RegistradorIntentosAuditoria, string, func(), error) {
+				return AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, ejecutor, reservados)
+			}, c.MotivoConsulta)
+			if err != nil {
+				return nil, errComposicionUsuariosCorreos
+			}
+		}
+		a.correos, err = montarCorreosUsuariosSuperficie(ctx, a, ejecutor, autorizador, c, correos, intentos)
 		if err != nil {
 			return nil, errComposicionUsuariosPreferencias
 		}

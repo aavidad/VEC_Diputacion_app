@@ -16,6 +16,10 @@ const maxCuerpo = 16 * 1024
 
 type ResolverSesion func(context.Context, *http.Request) (p.Sesion, error)
 type Denegacion struct{ Codigo, Accion, RecursoRef, ActorPersonaRef, PerfilActivoRef, CorrelacionRef string }
+
+// AuditorFrontera debe conservar denegados y errores mediante la autoridad
+// común, con un plazo propio acotado incluso si el cliente se desconecta.
+// Antes de sesión utiliza la frontera sin fabricar identidad nominal.
 type AuditorFrontera func(context.Context, Denegacion) error
 
 // Existing ADMIN composition must recheck CA/CRL/network/session before invoking this handler.
@@ -82,7 +86,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Context().Err() != nil {
-		fallo(w, p.ErrNoDisponible)
+		h.denegar(w, r, ses, p.ErrNoDisponible, "", "")
 		return
 	}
 	if r.Method == http.MethodGet {

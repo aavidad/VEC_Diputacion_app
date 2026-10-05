@@ -212,6 +212,9 @@ static/portal-empleado/modulos/personal/i18n-exportacion-servicios.js
 static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
+static/portal-empleado/modulos/personal/vista-contacto-propio.js
+static/textos/es/personal-contacto.json
+static/textos/en/personal-contacto.json
 static/portal-empleado/modulos/personal/ficha-propia-corte.js
 static/portal-empleado/modulos/personal/registro-b2.js
 static/portal-empleado/modulos/personal/vacantes-b2-vista.js
@@ -550,6 +553,7 @@ static/textos/es/contratacion-temporal-firma-remision.json
 static/textos/es/contratacion-temporal-seguimiento-cese.json
 static/textos/es/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/es/contratacion-temporal-firma-incorporacion-expedientes.json
+static/textos/es/contratacion-temporal-recuperacion-firmas-v2.json
 static/textos/es/dietas-catalogo.json
 static/textos/es/dietas-informes.json
 static/textos/en/contratacion-temporal-circuito-firma.json
@@ -558,6 +562,7 @@ static/textos/en/contratacion-temporal-firma-remision.json
 static/textos/en/contratacion-temporal-seguimiento-cese.json
 static/textos/en/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/en/contratacion-temporal-firma-incorporacion-expedientes.json
+static/textos/en/contratacion-temporal-recuperacion-firmas-v2.json
 static/textos/en/dietas-catalogo.json
 static/textos/en/dietas-informes.json
 static/textos/es/formacion.json
@@ -641,6 +646,15 @@ static/portal-empleado/modulos/seleccion/preparacion-admision/controlador.js
 static/portal-empleado/modulos/seleccion/preparacion-admision/preparacion-admision.css
 static/textos/es/selectivos-admision-visor.json
 static/textos/en/selectivos-admision-visor.json
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/index.html
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/entrada.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/modelo.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/vista.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/preparacion-lista-admision.css
+static/textos/es/selectivos-lista-admision-visor.json
+static/textos/en/selectivos-lista-admision-visor.json
+static/textos/es/motivos-seleccion-admision-ejemplo.json
+static/textos/en/motivos-seleccion-admision-ejemplo.json
 static/portal-empleado/modulos/seleccion/preparacion-acta/index.html
 static/portal-empleado/modulos/seleccion/preparacion-acta/entrada.js
 static/portal-empleado/modulos/seleccion/preparacion-acta/modelo.js
@@ -654,6 +668,11 @@ static/textos/en/personal-exportacion-servicios.json
 static/portal-empleado/modulos/personal/cliente-http-historia-servicios-propia.js
 static/portal-empleado/modulos/personal/vista-historia-servicios-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-servicios-propia.js
+static/portal-empleado/modulos/personal/preparacion-rectificacion-propia.js
+static/portal-empleado/modulos/personal/vista-preparacion-rectificacion-propia.js
+static/portal-empleado/modulos/personal/i18n-preparacion-rectificacion-propia.js
+static/textos/es/personal-preparacion-rectificacion.json
+static/textos/en/personal-preparacion-rectificacion.json
 static/textos/es/personal-historia-servicios.json
 static/textos/en/personal-historia-servicios.json
 static/portal-empleado/modulos/personal/cliente-http-historia-relaciones-propia.js

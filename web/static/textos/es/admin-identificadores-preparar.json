@@ -1,0 +1,20 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "El comando solo prepara el archivo privado de identificadores para el arranque de administración. No conecta con la base de datos ni muestra identificadores; entregue la huella por el canal privado de aprobación.",
+    "uso_invalido": "Indique originales, certificados, fuente, acuse, material, proveedor, salida y catálogo de textos, cada uno en una ruta distinta. La configuración de vec-admin es opcional y también debe ir en una ruta propia.",
+    "entrada_insegura": "No se puede leer un archivo privado. Use archivos 0600 propios, de hasta 64 KiB, en un directorio 0700 fuera de cualquier repositorio y sin enlaces.",
+    "entrada_invalida": "Algún archivo de entrada no tiene el formato esperado o contiene campos de más o de menos.",
+    "entradas_divergentes": "Los archivos no pertenecen a la misma preparación: no coinciden las personas, las cuentas del acuse, la autoridad de certificación o la huella del material. No se ha escrito nada.",
+    "configuracion_admin_divergente": "La configuración de identidad del arranque de administración no usa el mismo proveedor que proveedor.json. No se ha escrito nada.",
+    "proveedor_no_disponible": "No se ha podido cargar el proveedor de seudónimos con la configuración indicada. No se ha escrito nada.",
+    "coordenadas_divergentes": "El proveedor usa otro esquema, dominio o clave que el material confirmado. No se ha escrito nada.",
+    "sujeto_divergente": "La huella del sujeto calculada ahora no coincide con la confirmada. No se ha escrito nada.",
+    "cuenta_divergente": "La huella de la cuenta de administración calculada ahora no coincide con la confirmada. No se ha escrito nada.",
+    "alias_ordinario_divergente": "La huella de la cuenta ordinaria que calculará el arranque no coincide con la confirmada. No se ha escrito nada.",
+    "salida_insegura": "No se puede crear la salida: ya existe, su directorio no es privado (0700 y propio) o está dentro de un repositorio.",
+    "salida_rechazada_retirada": "El cargador del arranque no acepta el archivo escrito. Se ha retirado.",
+    "salida_rechazada_sin_retirar": "El cargador del arranque no acepta el archivo escrito y no se ha podido retirar. Bórrelo a mano antes de repetir y no lo configure.",
+    "identificadores_preparados": "Archivo de identificadores preparado. Configure su ruta y esta huella en el arranque de administración."
+  }
+}

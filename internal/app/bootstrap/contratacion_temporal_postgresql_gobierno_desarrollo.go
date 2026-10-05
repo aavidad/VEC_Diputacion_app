@@ -161,9 +161,12 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		   FROM vec_autorizacion_atestada_v3.puntero_clave_emision p
 		   JOIN vec_autorizacion_atestada_v3.clave_capacidad_version c
 		     ON (c.clave_id,c.version)=(p.clave_id,p.version)
-		  WHERE p.orden=(SELECT max(orden) FROM
-		         vec_autorizacion_atestada_v3.puntero_clave_emision
-		         WHERE establecida_en <= pg_catalog.statement_timestamp())
+		  WHERE p.orden=(SELECT max(pc.orden) FROM
+		         vec_autorizacion_atestada_v3.puntero_clave_emision pc
+		         JOIN vec_autorizacion_atestada_v3.clave_capacidad_version kc
+		           ON (kc.clave_id,kc.version)=(pc.clave_id,pc.version)
+		         WHERE pc.establecida_en <= pg_catalog.statement_timestamp()
+		           AND kc.audiencia_consumo = ANY($2::text[]))
 		    AND pg_catalog.left(p.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:puntero-clave:'))=
 		        'acto:ct:desarrollo:puntero-clave:'
@@ -266,6 +269,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
 		ports.AudienciaConsultaFirmasDocumentoV3,
+		// Consulta (AD162) y recuperación (AD178) de firmas V2; sólo con
+		// VEC_CT_FIRMAS_R5_V2_ENABLED.
+		ports.AudienciaConsultaFirmasR5V2,
+		ports.AudienciaRecuperacionFirmasR5V2,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,

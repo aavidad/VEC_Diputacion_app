@@ -102,8 +102,8 @@
 973 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1879 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1276 web/static/portal-empleado/portal-modulos-coordinador.js
-1294 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1282 web/static/portal-empleado/portal-modulos-coordinador.js
+1342 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1022 web/static/portal-empleado/portal-componentes.css
 1167 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
@@ -117,10 +117,10 @@
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1485 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1510 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 941 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1036 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1047 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -131,4 +131,4 @@
 812 deploy/postgresql/autorizacion/migraciones/000024_actos_admin_centrales_v1.up.sql
 1226 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
 810 deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
-1154 scripts/recorridos/propuesta_firma/recorrer.py
+1196 scripts/recorridos/propuesta_firma/recorrer.py

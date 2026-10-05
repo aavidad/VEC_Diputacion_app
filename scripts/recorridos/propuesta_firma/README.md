@@ -69,6 +69,30 @@ Usar los argumentos habituales y `--comparar /ruta/privada/segunda.json --reinic
 
 El guion exige HTTPS local, Chrome del sistema, Playwright de Python, mTLS sintético y certificado confiable por el sistema. Bloquea solicitudes HTTP a otros orígenes y las redirecciones. Solo al usar `--firmar` admite el WebSocket de AutoFirma en `wss://127.0.0.1:63117`. Informa estados HTTP, tamaño y SHA-256 de cada PDF; no guarda los PDF ni el contenido firmado en el informe. No incluye credenciales, bytes de documentos ni nombres de personas. Conserva recibos V2 técnicos y la clave de la operación solo en el informe privado; la salida de consola omite el intento con su clave.
 
+## Recuperación nominal preparada
+
+Cuando esté montada la recuperación autorizada de 48 campos, añada
+`--recuperacion-nominal` a las tres ejecuciones: primera firma, continuación
+con la segunda identidad y comparación tras reiniciar. El guion consulta
+`POST /api/vec/contratacion-temporal/firmas-documento/recuperaciones-v2`
+con la clave real conservada. Si la ruta falta, deniega o falla, se detiene;
+la consulta técnica anterior no sustituye esta lectura.
+
+El servidor valida la competencia histórica con el modelo común Go. El
+guion coteja la huella de los bytes exactos del canon y la huella del material
+contra cada recibo. Guarda únicamente referencias y huellas en
+`recuperacion_nominal_v2`, dentro del informe privado. No conserva el canon
+ni lo imprime. Antes de firmar el segundo paso vuelve a comprobar el primero;
+tras reiniciar compara las dos evidencias con las guardadas previamente.
+Un informe antiguo sin esa evidencia permanece pendiente.
+
+Una comparación favorable devuelve `RECUPERACION_NOMINAL_CONFIRMADA` y código
+0, después de los controles finales del navegador. Conserva `e2e=false` y
+`verificacion_criptografica_repetida=false`: este modo no repite GrxFirma ni
+acredita auditoría propia de la descarga. Las pruebas sintéticas del guion
+preparan esa comprobación; no prueban montaje nominal, firmas ni reinicio real.
+Sin la opción nueva se conserva el resultado parcial anterior.
+
 ## Prueba focal y dependencias
 
 ```sh

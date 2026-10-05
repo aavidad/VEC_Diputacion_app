@@ -46,25 +46,36 @@ def cargar_recursos(raiz, modulo):
     visor_bases = modulo == "seleccion-bases-preparacion"
     visor_admision = modulo == "selectivos-admision-visor"
     visor_acta = modulo == "selectivos-acta-visor"
-    visor_archivo = visor_bases or visor_admision or visor_acta
+    visor_lista = modulo == "selectivos-lista-admision-visor"
+    visor_archivo = visor_bases or visor_admision or visor_acta or visor_lista
     prefijo = "portal-empleado/modulos/seleccion/preparacion-bases" if visor_bases else (
         "portal-empleado/modulos/seleccion/preparacion-admision" if visor_admision else (
-            "portal-empleado/modulos/seleccion/preparacion-acta" if visor_acta else f"portal-empleado/modulos/{modulo}"
+            "portal-empleado/modulos/seleccion/preparacion-acta" if visor_acta else (
+                "portal-empleado/modulos/seleccion/preparacion-lista-admision" if visor_lista else f"portal-empleado/modulos/{modulo}"
+            )
         )
     )
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
     propios = ("preparacion-bases.css", "cliente-http.js", "contrato-http.js") if visor_bases else (
         ("preparacion-admision.css", "controlador.js") if visor_admision else (
-            ("preparacion-acta.css",) if visor_acta else (f"{modulo}.css", "escenario.json")
+            ("preparacion-acta.css",) if visor_acta else (
+                ("preparacion-lista-admision.css",) if visor_lista else (f"{modulo}.css", "escenario.json")
+            )
         )
     )
-    if visor_admision or visor_acta:
+    if visor_admision or visor_acta or visor_lista:
         rutas.extend((
             "portal-empleado/modulos/seleccion/preparacion-bases/modelo.js",
             "portal-empleado/modulos/seleccion/preparacion-bases/contrato-http.js",
         ))
     if visor_acta:
         rutas.append("portal-empleado/modulos/seleccion/dom.js")
+    if visor_lista:
+        rutas.append("portal-empleado/modulos/seleccion/preparacion-admision/controlador.js")
+        # Textos de motivos de cada catálogo de admisión, por idioma; sólo JSON regulares.
+        for idioma in indice["idiomas"]:
+            carpeta = raiz / "textos" / idioma["codigo"]
+            rutas.extend(f"textos/{idioma['codigo']}/{a.name}" for a in sorted(carpeta.glob("motivos-*.json")) if a.is_file())
     for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", *propios):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():
@@ -132,7 +143,7 @@ def handler_para(recursos):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion", "selectivos-admision-visor", "selectivos-acta-visor"), required=True)
+    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion", "selectivos-admision-visor", "selectivos-acta-visor", "selectivos-lista-admision-visor"), required=True)
     parser.add_argument("--web-dir", type=Path, default=Path(__file__).resolve().parents[1] / "web/static")
     args = parser.parse_args()
     recursos, entrada = cargar_recursos(args.web_dir, args.modulo)

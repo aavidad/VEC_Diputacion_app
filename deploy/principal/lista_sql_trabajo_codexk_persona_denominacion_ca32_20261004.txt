@@ -1,0 +1,1 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000032_denominacion_persona_cifrada.up.sql

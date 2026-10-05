@@ -101,7 +101,12 @@ func (p *preparadorMiBolsaDesarrollo) PrepararMiBolsa(r *http.Request) (mibolsa.
 	if candidatos != 1 {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	var correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2
+	if capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial {
+		correlacion, err = puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+	} else {
+		correlacion, err = dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	}
 	if err != nil {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
@@ -636,22 +641,26 @@ func nuevaRutaMiBolsaDesarrollo(
 			return nil, errMiBolsaNoDisponible
 		}
 	}
+	servicioHistorial, err := mibolsa.NuevoHistorial(consulta, autorizadorPropio, proveedorHistorialMiBolsaDesarrollo{delegado: alta.postgresql.proveedorMaterialHistorialMiBolsa}, reloj)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	lecturasAuditadas, err := nuevasLecturasMiBolsaAuditadas(servicio, servicioHistorial, alta.postgresql.auditoriaLecturasBolsa, alta.postgresql.procesoAuditoriaLecturasBolsa)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
 	preparador := &preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}
 	var consultaHTTP http.Handler
 	if campos == nil {
-		consultaHTTP, err = bolsapersonal.Nuevo(preparador, servicio)
+		consultaHTTP, err = bolsapersonal.Nuevo(preparador, lecturasAuditadas)
 	} else {
-		consultaHTTP, err = bolsapersonal.NuevoConCampos(preparador, servicio, campos)
+		consultaHTTP, err = bolsapersonal.NuevoConCampos(preparador, lecturasAuditadas, campos)
 	}
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsapersonal.RutaMiBolsa, Manejador: consultaHTTP}}
-	servicioHistorial, err := mibolsa.NuevoHistorial(consulta, autorizadorPropio, proveedorHistorialMiBolsaDesarrollo{delegado: alta.postgresql.proveedorMaterialHistorialMiBolsa}, reloj)
-	if err != nil {
-		return nil, errMiBolsaNoDisponible
-	}
-	historialHTTP, err := bolsapersonal.NuevoHistorial(preparador, servicioHistorial)
+	historialHTTP, err := bolsapersonal.NuevoHistorial(preparador, lecturasAuditadas)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}

@@ -1,0 +1,29 @@
+rules:
+  - id: denominacion-no-crypto-paralelo
+    languages: [go]
+    severity: ERROR
+    message: Usar el protector criptográfico existente.
+    pattern-either:
+      - pattern: aes.NewCipher(...)
+      - pattern: cipher.NewGCM(...)
+      - pattern: hmac.New(...)
+  - id: denominacion-no-log-claro
+    languages: [go]
+    severity: ERROR
+    message: No registrar el nombre o material privado.
+    pattern-either:
+      - pattern: log.Printf(...)
+      - pattern: slog.Info(...)
+      - pattern: slog.Error(...)
+  - id: denominacion-no-secreto-por-defecto
+    languages: [go]
+    severity: ERROR
+    message: Cargar el material maestro privado existente.
+    pattern: $X := [32]byte{$V, ...}
+  - id: denominacion-no-archivo-publico
+    languages: [go]
+    severity: ERROR
+    message: El artefacto requiere permisos privados.
+    pattern-either:
+      - pattern: os.WriteFile($P, $B, 0644)
+      - pattern: $R.OpenFile($P, $F, 0644)

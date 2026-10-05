@@ -102,21 +102,19 @@ func (r *RegistroSesionesExternoPostgreSQL) ConsumirAsercionYRegistrar(
 	if alta.EspacioIdentidad != base.espacioIdentidad {
 		return httpseguridad.ConfirmacionAltaSesion{}, httpseguridad.ErrSesionNoValida
 	}
-	seudonimos, err := base.seudonimizador.SeudonimizarAlta(ctx, IdentificadoresAlta{
+	seudonimos, aliasOrdinario, err := SeudonimizarAltaConAliasCuentaOrdinaria(ctx, base.seudonimizador, IdentificadoresAlta{
 		EspacioIdentidad: alta.EspacioIdentidad,
 		AsercionID:       alta.AsercionID, SesionID: alta.SesionID,
 		SujetoID: alta.SujetoID, CuentaID: alta.CuentaID,
-	})
-	if err != nil || !seudonimos.valida(
-		base.espacioIdentidad, base.dominioHMACRef, false,
-	) {
+	}, base.espacioIdentidad, base.dominioHMACRef)
+	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
 	operacionRef, err := nuevaReferenciaOperacion(base.aleatorio)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
-	argumentos := argumentosAlta(operacionRef, seudonimos, alta)
+	argumentos := argumentosAlta(operacionRef, seudonimos, aliasOrdinario, alta)
 	respuesta, err := r.ejecutarAlta(ctx, argumentos)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, err

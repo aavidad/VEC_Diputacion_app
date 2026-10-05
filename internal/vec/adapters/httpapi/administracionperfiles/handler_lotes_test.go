@@ -45,9 +45,18 @@ func (a *autoridadLoteHTTP) AplicarLoteOrdinario(_ context.Context, s domain.Sol
 	}
 	r := domain.ReciboLoteAdministracionPerfiles{OperacionRef: s.OperacionRef, ActoRef: s.OperacionRef,
 		ReciboRef: "recibo_admin:" + strings.Repeat("a", 32), AuditoriaRef: "auditoria:prueba:lote",
-		HuellaSolicitudSHA256: s.HuellaSolicitudSHA256, ConfirmadoEn: s.Actor.ResueltoEn}
+		HuellaSolicitudSHA256: s.HuellaSolicitudSHA256, FuentesSHA256: strings.Repeat("b", 64),
+		ConfirmadoEn: s.Actor.ResueltoEn}
 	for _, cambio := range s.Cambios {
 		p := cambio.Objetivo
+		inicio := domain.InicioEfectivoLoteAdministracion{Modo: cambio.InicioVigencia, VigenteDesde: p.VigenteDesde}
+		if cambio.InicioVigencia == domain.InicioVigenciaLoteInmediato {
+			inicio.VigenteDesde = r.ConfirmadoEn
+		}
+		if cambio.Operacion == domain.OperacionRevocarPerfil {
+			inicio = domain.InicioEfectivoLoteAdministracion{}
+		}
+		r.Inicios = append(r.Inicios, inicio)
 		version, estado := uint64(1), domain.EstadoVinculoContextoActorActivo
 		if cambio.Operacion == domain.OperacionRevocarPerfil {
 			version, estado = p.VinculoVersion+1, domain.EstadoVinculoContextoActorRevocado
@@ -58,7 +67,7 @@ func (a *autoridadLoteHTTP) AplicarLoteOrdinario(_ context.Context, s domain.Sol
 			AsignacionPerfilRef: s.InstantaneaAutorizacion.AsignacionPerfil.Referencia(), CorrelacionRef: s.CorrelacionRef,
 			ObjetivoPersonaRef: p.PersonaRef, PerfilRef: p.PerfilRef, VinculoRef: p.VinculoRef,
 			UnidadRef: p.UnidadRef, CentroRef: p.CentroRef, RolVersionRef: cambio.RolVersionRef,
-			VersionPosterior: version, EstadoPosterior: estado, VigenteDesde: p.VigenteDesde, VigenteHasta: p.VigenteHasta,
+			VersionPosterior: version, EstadoPosterior: estado, VigenteDesde: inicio.VigenteDesde, VigenteHasta: p.VigenteHasta,
 			HuellaAntesSHA256: p.HuellaSHA256, HuellaDespuesSHA256: strings.Repeat("f", 64),
 			Motivo: s.Motivo, ReferenciaActo: s.ReferenciaActo})
 	}
@@ -85,19 +94,19 @@ func loteHTTPPrueba(t *testing.T) (*Handler, SolicitudLote, *autoridadLoteHTTP, 
 		ref := []string{"rol:dietas_liquidacion_rrhh:v1", "rol:gestor_cronos:v1"}[i]
 		catalogo[ref] = domain.RolAdministrable{VersionRef: ref, Clase: domain.ClaseControlPerfilOrdinario,
 			HuellaSHA256: strings.Repeat("a", 64), VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), UnidadRequerida: true}
-		dto.Cambios = append(dto.Cambios, CambioPerfil{Operacion: "otorgar", RolVersionRef: ref,
+		dto.Cambios = append(dto.Cambios, CambioPerfil{Operacion: "otorgar", InicioVigencia: "programado", RolVersionRef: ref,
 			Objetivo: Objetivo{UnidadRef: "unidad:prueba", CuentaRef: "cta_" + strings.Repeat("f", 22), CuentaVersion: 1,
 				PersonaRef: "per_" + strings.Repeat("f", 22), PersonaVersion: 1, PerfilRef: "prf_" + strings.Repeat(letra, 22),
 				VinculoRef: "vca_" + strings.Repeat(letra, 22), HuellaSHA256: strings.Repeat("c", 64),
 				ProcedenciaRef: "procedencia:maestra:prueba", ProcedenciaVersion: 1, ProcedenciaHuellaSHA256: strings.Repeat("d", 64),
-				VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour)}})
+				VigenteDesde: ahora.Add(time.Minute), VigenteHasta: ahora.Add(time.Hour)}})
 	}
 	autoridad, auditor := &autoridadLoteHTTP{}, &auditorPrueba{}
 	servicio, err := application.NuevoServicioAdministracionPerfiles(catalogo, autoridad, relojFocal{ahora})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := NuevoHandler("https://admin.example.test", sesion, &lecturasPrueba{}, catalogo, servicio, auditor)
+	h, err := NuevoHandlerLoteOrdinario("org_prueba", "https://admin.example.test", sesion, &lecturasPrueba{}, catalogo, servicio, auditor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +128,8 @@ func TestHTTPLoteEntregaOrdenIndivisibleYReciboCompleto(t *testing.T) {
 	h, dto, autoridad, sesion, auditor, _ := loteHTTPPrueba(t)
 	// La segunda fila revoca un vínculo existente; la primera otorga uno nuevo.
 	dto.Cambios[1].Operacion = "revocar"
-	dto.Cambios[1].Objetivo.PerfilVersion, dto.Cambios[1].Objetivo.VinculoVersion = 2, 3
+	dto.Cambios[1].InicioVigencia = ""
+	dto.Cambios[1].Objetivo.PerfilVersion, dto.Cambios[1].Objetivo.VinculoVersion = 3, 3
 	dto.Cambios[1].Objetivo.VigenteDesde, dto.Cambios[1].Objetivo.VigenteHasta = time.Time{}, time.Time{}
 	w := postLotePrueba(t, h, dto)
 	if w.Code != http.StatusOK || len(autoridad.solicitudes) != 1 || autoridad.llamada != nil || auditor.llamadas != 0 {
@@ -127,6 +137,7 @@ func TestHTTPLoteEntregaOrdenIndivisibleYReciboCompleto(t *testing.T) {
 	}
 	solicitud := autoridad.solicitudes[0]
 	if solicitud.Validar() != nil || solicitud.Evidencia.ValidarPara(sesion.resultado.Actor) != nil ||
+		solicitud.OrganizacionRef != "org_prueba" ||
 		solicitud.Actor.PersonaRef != sesion.resultado.Actor.PersonaRef || solicitud.CorrelacionRef != sesion.resultado.CorrelacionRef ||
 		solicitud.ReferenciaActo != dto.ReferenciaActo || solicitud.Motivo != dto.Motivo.dominio() {
 		t.Fatal("orden perdió identidad confiable o material del efecto")
@@ -142,6 +153,20 @@ func TestHTTPLoteEntregaOrdenIndivisibleYReciboCompleto(t *testing.T) {
 	}
 	if w.Header().Get("Set-Cookie") != "" || w.Header().Get("Cache-Control") != "no-store, no-transform" {
 		t.Fatal("recibo introduce persistencia web")
+	}
+}
+
+func TestHTTPLoteSinOrganizacionPrivadaPermaneceCerrado(t *testing.T) {
+	h, dto, autoridad, sesiones, auditor, catalogo := loteHTTPPrueba(t)
+	_, err := NuevoHandlerLoteOrdinario("org_ajena*", "https://admin.example.test", sesiones,
+		&lecturasPrueba{}, catalogo, h.actos, auditor)
+	if err == nil {
+		t.Fatal("organizacion privada invalida")
+	}
+	h.organizacionLote = ""
+	w := postLotePrueba(t, h, dto)
+	if w.Code != http.StatusServiceUnavailable || len(autoridad.solicitudes) != 0 || auditor.llamadas != 1 {
+		t.Fatal("lote abierto sin organizacion privada")
 	}
 }
 
@@ -175,7 +200,8 @@ func TestHTTPLoteDeniegaAntesDelEfectoYAudita(t *testing.T) {
 				rol := catalogo[sesion.resultado.InstantaneaAutorizacion.VersionRol.Referencia()]
 				rol.CategoriaAdmin = "sistemas"
 				catalogo[rol.VersionRef] = rol
-				estado = http.StatusServiceUnavailable
+				// Sin la categoría del lote: denegación, igual que en la preparación.
+				estado = http.StatusForbidden
 			case "sin_lote":
 				h.actos, estado = &actosPrueba{}, http.StatusServiceUnavailable
 			case "lecturas":
@@ -195,7 +221,7 @@ func TestHTTPLoteDeniegaAntesDelEfectoYAudita(t *testing.T) {
 }
 
 func TestHTTPLoteRechazaCamposNoConfiablesYLimitaCuerpo(t *testing.T) {
-	for _, campo := range []string{"actor", "evidencia", "instantanea_autorizacion", "correlacion_ref", "huella_solicitud_sha256", "proponente_nombre", "clase"} {
+	for _, campo := range []string{"actor", "evidencia", "instantanea_autorizacion", "correlacion_ref", "huella_solicitud_sha256", "organizacion_ref", "proponente_nombre", "clase"} {
 		t.Run(campo, func(t *testing.T) {
 			h, dto, autoridad, _, auditor, _ := loteHTTPPrueba(t)
 			cuerpo, _ := json.Marshal(dto)

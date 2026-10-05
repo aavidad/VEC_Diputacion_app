@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"perfiles_asignables_registrado"},
+  {"resultado":"permitido","motivo_ref":"perfiles_asignables_replay"},
+  {"resultado":"denegado","motivo_ref":"perfiles_asignables_denegado"},
+  {"resultado":"error","motivo_ref":"perfiles_asignables_error"}
+]

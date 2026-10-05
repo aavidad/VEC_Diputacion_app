@@ -406,6 +406,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	firmasR5V2, err := nuevasRutasFirmasR5V2CTDesarrollo(cfg, &alta, derivador, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmasR5V2 != nil {
+		alta.postgresql.cerrarFirmasR5V2 = firmasR5V2.cerrar
+	}
 	for _, descriptor := range descriptoresMaterialIncorporacionB2() {
 		_, seleccionada := alta.postgresql.catalogoMaterial.descriptorPara(descriptor.Audiencia)
 		if seleccionada != b2Configurada {
@@ -873,6 +880,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
 	}
+	if firmasR5V2 != nil {
+		rutas = append(rutas, firmasR5V2.rutas...)
+	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
 		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
 		if err != nil {
@@ -1099,6 +1109,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, errMiBolsaNoDisponible
 			}
 			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
+		}
+		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil || alta.postgresql.bolsa == nil {
+			return nil, nil, nil, errMiBolsaNoDisponible
+		}
+		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), 30*time.Second)
+		reservadosIntentosBolsa := []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+			alta.postgresql.ejecucion.Config().ConnConfig.User,
+		}
+		alta.postgresql.auditoriaLecturasBolsa, alta.postgresql.procesoAuditoriaLecturasBolsa, alta.postgresql.cerrarAuditoriaLecturasBolsa, err =
+			AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctxIntentosBolsa, cfg, alta.postgresql.bolsa, reservadosIntentosBolsa)
+		cancelarIntentosBolsa()
+		if err != nil {
+			return nil, nil, nil, err
 		}
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,

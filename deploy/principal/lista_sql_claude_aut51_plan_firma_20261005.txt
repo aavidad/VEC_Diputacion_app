@@ -1,0 +1,5 @@
+# AUT51: estructura del mantenimiento Rol6→Rol7 (gobierno del plan nominal de firma)
+# y puerta del lote a la versión vigente. Requiere AUT45 y AUT48 instaladas.
+# Instalar la estructura NO publica Rol7: eso lo hace después vec-mantener-admin-fijo
+# con un plan versión 3 aprobado. Una sola vez, sin DOWN.
+deploy/postgresql/autorizacion/migraciones/000051_mantenimiento_perfil_fijo_plan_firma.up.sql

@@ -1,5 +1,5 @@
 import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-b-revision-valor-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
@@ -10,7 +10,7 @@ import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=
 import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
 
 const PESTANAS = Object.freeze([
-  ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
+  ["ficha", "ficha_tab_ficha"], ["contacto", "ficha_tab_contacto"], ["relaciones", "ficha_tab_relaciones"],
   ["servicios", "ficha_tab_servicios"], ["tiempo", "ficha_tab_tiempo"],
   ["formacion", "ficha_tab_formacion"], ["economia", "ficha_tab_economia"],
   ["documentos", "ficha_tab_documentos"], ["catalogos", "ficha_tab_catalogos"],
@@ -48,9 +48,12 @@ function ayuda(d, t) {
   detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto, corte);
   return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; corte.textContent = clave === "ficha_servicios_ayuda" ? traducirCorteServicios("ayuda") : ""; } };
 }
-function accesos(d, t, navegarModulo, destinosDisponibles) {
+function accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
   for (const [destino, etiqueta] of [["dietas", "ficha_ir_dietas"], ["cronos", "ficha_ir_cronos"]]) {
+    // Un destino que no figura en la disponibilidad inyectada es un módulo que
+    // este despliegue no muestra (VEC_PORTAL_MODULOS_VISIBLES): no se ofrece.
+    if (!Object.hasOwn(destinosDisponibles, destino)) continue;
     const boton = nodo(d, "button", t(etiqueta)); boton.type = "button"; boton.dataset.personalFichaDestino = destino;
     // La disponibilidad de una ruta se inyecta por destino; no acredita permiso.
     const disponible = typeof navegarModulo === "function" && Object.hasOwn(destinosDisponibles, destino) && destinosDisponibles[destino] === true;
@@ -58,10 +61,16 @@ function accesos(d, t, navegarModulo, destinosDisponibles) {
     if (!disponible) { boton.title = t("ficha_navegacion_pendiente"); boton.setAttribute("aria-label", `${t(etiqueta)}. ${t("ficha_navegacion_pendiente")}`); }
     boton.addEventListener("click", () => { if (disponible) navegarModulo(destino); }); acciones.append(boton);
   }
+  if (typeof abrirCorreos === "function") {
+    const boton = nodo(d, "button", t("ficha_ir_mis_correos")); boton.type = "button";
+    boton.className = "boton-secundario"; boton.dataset.personalFichaCorreos = "";
+    boton.title = t("ficha_mis_correos_destino");
+    boton.addEventListener("click", abrirCorreos); acciones.append(boton);
+  }
   return acciones;
 }
-function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente) {
-  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho");
+function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos) {
+  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos)], "personal-ficha-panel-ancho");
   if (ocultarSinFuente && visibles.length === 0) return [accesosPanel];
   const bloques = nodo(d, "div"); bloques.className = "personal-ficha-bloques";
   for (const clave of visibles) {
@@ -178,9 +187,11 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
  * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
  * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, montarContacto, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
+      (montarContacto !== undefined && typeof montarContacto !== "function") ||
+      (abrirCorreos !== undefined && typeof abrirCorreos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
       !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
@@ -190,11 +201,19 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     Object.hasOwn(fuentes, clave) && typeof fuentes[clave]?.consultarPropios === "function"
       ? (fuentes[clave].estadoInicial === "error" ? "error" : "sin_consulta") : "no_configurado"]));
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
-  const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
+  const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "contacto" && montarContacto) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
   let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
   let vuelo; let vueloExportacion; let limpiarHistoria; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
   const limpiar = () => { limpiarHistoria?.(); limpiarHistoria = undefined; const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); limpiar(); contenedor.remove?.(); };
+  const caducarSesion = () => {
+    try { for (const fuente of Object.values(fuentes)) fuente?.actualizar?.(); }
+    finally {
+      desmontar();
+      const aviso = mensaje(d, t("ficha_sesion_caducada"), "alert"); aviso.setAttribute("tabindex", "-1");
+      raiz.append(aviso); aviso.focus?.(); anunciar(aviso.textContent, "error");
+    }
+  };
   registrarDesmontar?.(desmontar);
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista";
   const ayudaFicha = ayuda(d, t);
@@ -205,30 +224,34 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const pintar = (clave, enfocarAccion = false) => {
     if (!activa) return;
     limpiarHistoria?.(); limpiarHistoria = undefined;
-    if (actual === "catalogos") limpiar();
+    if (actual === "catalogos" || actual === "contacto") limpiar();
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
     serviciosDescargables = undefined;
     secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); vueloExportacion = undefined; vuelo = undefined; actual = clave;
-    ayudaFicha.mostrar(clave === "ficha" ? "ficha_accesos_ayuda" : BLOQUES[clave]?.ayuda);
+    ayudaFicha.mostrar(clave === "ficha" ? "ficha_accesos_ayuda" : clave === "contacto" ? "ficha_contacto_ayuda" : BLOQUES[clave]?.ayuda);
     for (const [valor] of pestanas) {
       const tab = tabs.querySelector?.(`[data-personal-ficha-tab="${valor}"]`);
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
-    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente)); return; }
-    if (clave === "catalogos") {
-      const hueco = nodo(d, "div"); hueco.dataset.personalFichaCatalogos = "";
-      principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
-      if (!montarCatalogos) { hueco.append(mensaje(d, t("ficha_catalogos_pendiente"))); return; }
+    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos)); return; }
+    if (clave === "catalogos" || clave === "contacto") {
+      const contacto = clave === "contacto", montarComplemento = contacto ? montarContacto : montarCatalogos;
+      const hueco = nodo(d, "div"); hueco.dataset[contacto ? "personalFichaContacto" : "personalFichaCatalogos"] = "";
+      if (contacto) hueco.className = "personal-ficha-panel-ancho";
+      principal.replaceChildren(contacto ? hueco : panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
+      if (!montarComplemento) { hueco.append(mensaje(d, t("ficha_catalogos_pendiente"))); return; }
       const turno = secuencia;
-      Promise.resolve().then(() => montarCatalogos({ raiz: hueco, anunciar, registrarDesmontar: (fn) => {
+      Promise.resolve().then(() => {
+        if (!activa || actual !== clave || turno !== secuencia) return;
+        return montarComplemento({ raiz: hueco, anunciar, ...(contacto ? { abrirCorreos, alCaducarSesion: caducarSesion } : {}), registrarDesmontar: (fn) => {
         if (typeof fn !== "function") throw new TypeError("limpieza de catálogos de Personal no válida");
-        if (activa && actual === "catalogos" && turno === secuencia) limpiarCatalogos = fn; else fn();
-      } })).then((montaje) => {
+        if (activa && actual === clave && turno === secuencia) limpiarCatalogos = fn; else fn();
+      } }); }).then((montaje) => {
         if (!montaje?.desmontar) return;
-        if (!activa || actual !== "catalogos" || turno !== secuencia) { montaje.desmontar(); return; }
-        const previo = limpiarCatalogos; limpiarCatalogos = () => { montaje.desmontar(); previo?.(); };
-      }).catch(() => { if (activa && actual === "catalogos" && turno === secuencia) hueco.replaceChildren(mensaje(d, t("ficha_catalogos_error"), "alert")); });
+        if (!activa || actual !== clave || turno !== secuencia) { montaje.desmontar(); return; }
+        const previo = limpiarCatalogos; limpiarCatalogos = previo === montaje.desmontar ? previo : () => { montaje.desmontar(); previo?.(); };
+      }).catch(() => { if (activa && actual === clave && turno === secuencia) hueco.replaceChildren(mensaje(d, t("ficha_catalogos_error"), "alert")); });
       return;
     }
     const consultar = Object.hasOwn(fuentes, clave) ? fuentes[clave]?.consultarPropios : undefined;

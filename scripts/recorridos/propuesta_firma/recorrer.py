@@ -28,6 +28,8 @@ import ssl
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import recuperacion_nominal
+
 
 DOCUMENTOS = (
     ("informe-definitivo", "informe-definitivo-borrador.pdf"),
@@ -133,6 +135,7 @@ def argumentos(argv=None):
     p.add_argument("--continuar", type=Path, help="informe privado confirmado de la primera firma, para la segunda identidad")
     p.add_argument("--reinicio", type=Path, help="acta privada del reinicio externo para --comparar")
     p.add_argument("--comparar", type=Path, help="informe anterior, para comprobar recuperación tras reinicio externo")
+    p.add_argument("--recuperacion-nominal", action="store_true", help="recuperacion_nominal_v2")
     p.add_argument("--salida", type=Path, help="informe JSON sin documentos ni secretos")
     p.add_argument("--captura-movil", type=Path, help="PNG sintético de 390 px, en ruta privada externa")
     p.add_argument("--captura-escritorio", type=Path, help="PNG sintético de 1440 px, en ruta privada externa")
@@ -767,28 +770,45 @@ def validar_consulta_tecnica_v2(datos, informe, firmas):
     return json.loads(json.dumps(datos))
 
 
-def consultar_metadatos_v2(page,informe,firmas):
-    solicitud=solicitud_consulta_tecnica_v2(informe,firmas)
-    respuesta=page.evaluate(r"""async ([ruta, solicitud]) => {
+def consultar_json_firmas_v2(page, ruta, solicitud, limite):
+    respuesta=page.evaluate(r"""async ([ruta, solicitud, limite]) => {
+      const control=new AbortController();
+      const plazo=setTimeout(()=>control.abort(),30000);
+      try {
       const r=await fetch(ruta,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
-        body:JSON.stringify(solicitud),mode:'same-origin',credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer'});
+        body:JSON.stringify(solicitud),mode:'same-origin',credentials:'same-origin',cache:'no-store',redirect:'error',
+        referrerPolicy:'no-referrer',signal:control.signal});
       if(r.status!==200)return {status:r.status,data:null};
       if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(r.headers.get('Content-Type')||''))return {status:200,data:null};
       const lector=r.body?.getReader();if(!lector)return {status:200,data:null};
       const partes=[];let total=0;
       try {for(;;){const {done,value}=await lector.read();if(done)break;total+=value.byteLength;
-        if(total>262144)return {status:200,data:null};partes.push(value);}}
+        if(total>limite)return {status:200,data:null};partes.push(value);}}
       finally {void lector.cancel().catch(()=>{});}
       const bytes=new Uint8Array(total);let offset=0;for(const parte of partes){bytes.set(parte,offset);offset+=parte.byteLength;}
       try {return {status:200,data:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))};}
       catch{return {status:200,data:null};}
-    }""",[RUTA_CONSULTA_TECNICA_V2,solicitud])
+      } catch {return {status:0,data:null};}
+      finally {clearTimeout(plazo);control.abort();}
+    }""",[ruta,solicitud,limite])
     if respuesta["status"]!=200:
         raise Corte("consulta_v2_pendiente",f"consulta técnica V2 no disponible o denegada: HTTP {respuesta['status']}")
     envoltorio=respuesta.get("data")
     if not isinstance(envoltorio,dict) or set(envoltorio)!={"data"}:
         raise Corte("contrato_http","la consulta técnica V2 no devuelve datos acotados")
-    return validar_consulta_tecnica_v2(envoltorio["data"],informe,firmas)
+    return envoltorio["data"]
+
+
+def consultar_metadatos_v2(page,informe,firmas):
+    solicitud=solicitud_consulta_tecnica_v2(informe,firmas)
+    datos=consultar_json_firmas_v2(page,RUTA_CONSULTA_TECNICA_V2,solicitud,262144)
+    return validar_consulta_tecnica_v2(datos,informe,firmas)
+
+
+def consultar_recuperacion_nominal_v2(page,informe,firmas):
+    solicitud=solicitud_consulta_tecnica_v2(informe,firmas)
+    datos=consultar_json_firmas_v2(page,recuperacion_nominal.RUTA,solicitud,recuperacion_nominal.MAX_RESPUESTA)
+    return recuperacion_nominal.validar(datos,informe,firmas,validar_consulta_tecnica_v2,Corte)
 
 
 def descargar_revision_v2(page, a, recibo):
@@ -825,6 +845,8 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
                 or any(previo.get(k) != informe.get(k) for k in ("expediente_ref","documento","binario_sha256","propuesta","pdf")):
             raise Corte("recuperacion", "se requieren los dos recibos V2 confirmados del mismo clon")
         firmas = recibos_guardados_v2(previo,2)
+        if a.recuperacion_nominal is True and not previo.get("recuperacion_nominal_v2"):
+            raise Corte("recuperacion_nominal", "baseline_recuperacion_nominal_ausente_o_distinta")
         baseline = previo.get("consulta_tecnica_v2")
         validar_consulta_tecnica_v2(baseline,previo,firmas)
         informe["reinicio"] = comprobar_reinicio(leer_informe_privado(a.reinicio), informe)
@@ -839,6 +861,12 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
                        pendiente="material_root_sha256_y_canon_nominal_no_expuestos", e2e=False,
                        campos_no_revalidados_por_consulta=["material_root_sha256","canon_nominal"],
                        verificacion_criptografica_repetida=False)
+        if a.recuperacion_nominal is True:
+            nominal = consultar_recuperacion_nominal_v2(page,previo,firmas)
+            recuperacion_nominal.comparar(previo.get("recuperacion_nominal_v2"),nominal,Corte)
+            informe.update(recuperacion_nominal_v2=nominal,estado="RECUPERACION_NOMINAL_CONFIRMADA",
+                           campos_no_revalidados_por_consulta=[],
+                           pendiente="recorrido_real_y_auditoria_descarga_pendientes")
         return
     if not a.firmar:
         raise Corte("autoridad_pendiente", "pendiente firma nominal V2; no se abrió AutoFirma")
@@ -847,13 +875,20 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
     previo = leer_informe_privado(a.continuar) if a.continuar else None
     anteriores = validar_continuacion(previo,informe,canal) if previo else []
     informe["firmas_v2"] = anteriores[:]
+    nominal_antecedente = None
     if anteriores:
+        if a.recuperacion_nominal is True and not previo.get("recuperacion_nominal_v2"):
+            raise Corte("recuperacion_nominal", "baseline_recuperacion_nominal_ausente_o_distinta")
         comparar_estado_v2(consultar_estado_v2(page,a),anteriores,a.documento)
         informe["pdf_primera_revision"] = descargar_revision_v2(page,a,anteriores[0])
         baseline = previo.get("consulta_tecnica_v2")
         validar_consulta_tecnica_v2(baseline,previo,anteriores)
         if consultar_metadatos_v2(page,previo,anteriores) != baseline:
             raise Corte("recuperacion","los metadatos de la primera firma cambiaron antes del segundo paso")
+        if a.recuperacion_nominal is True:
+            nominal = consultar_recuperacion_nominal_v2(page,previo,anteriores)
+            recuperacion_nominal.comparar(previo.get("recuperacion_nominal_v2"),nominal,Corte)
+            nominal_antecedente = nominal
     detalles = page.locator("[data-ct-firma-detalles]")
     detalles.wait_for(timeout=20_000)
     detalles.evaluate("e => e.open = true")
@@ -947,6 +982,13 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
     # La interfaz vuelve a consultar y repinta la descarga tras el registro real.
     informe["pdf_firmado"]=descargar_revision_v2(page,a,recibo)
     informe["consulta_tecnica_v2"]=consultar_metadatos_v2(page,informe,informe["firmas_v2"])
+    if a.recuperacion_nominal is True:
+        nominal=consultar_recuperacion_nominal_v2(page,informe,informe["firmas_v2"])
+        if nominal_antecedente is not None:
+            referencias={f["firma_ref"] for f in nominal_antecedente}
+            recuperacion_nominal.comparar(nominal_antecedente,
+                [f for f in nominal if f["firma_ref"] in referencias],Corte)
+        informe["recuperacion_nominal_v2"]=nominal
     if informe["consulta_tecnica_v2"]["firmas"]:
         actual = next(f for f in informe["consulta_tecnica_v2"]["firmas"] if f["firma_ref"]==recibo["firma_ref"])
         if actual["revision_pdf"]["revision_longitud"]!=informe["pdf_firmado"]["bytes"]:
@@ -1137,7 +1179,7 @@ def main(argv=None):
     # Las claves idempotentes se conservan solo en el informe privado para reconciliar.
     publico = informe_publico(informe)
     print(json.dumps(publico,ensure_ascii=False,sort_keys=True))
-    return 0 if informe["estado"] in ("COMPLETO","PRIMERA_FIRMA_CONFIRMADA") else 2
+    return 0 if informe["estado"] in ("COMPLETO","PRIMERA_FIRMA_CONFIRMADA","RECUPERACION_NOMINAL_CONFIRMADA") else 2
 
 
 # Se aplica también a quienes importan únicamente GuardiaNavegador: el módulo

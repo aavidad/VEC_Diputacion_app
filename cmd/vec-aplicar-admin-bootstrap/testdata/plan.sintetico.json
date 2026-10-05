@@ -1,0 +1,230 @@
+{
+  "plan": {
+    "version": 3,
+    "preparado_en": "2026-10-03T23:26:00Z",
+    "caduca_en": "2026-10-04T00:26:00Z",
+    "control_continuidad_revision_esperada": 1,
+    "bootstrap_estado_esperado": "pendiente",
+    "rol": {
+      "version_ref": "rol:administracion_perfiles:v4",
+      "huella_sha256": "4f3454d6a164b2fc1f5e52a7fe571d26386f128fc2acc761d87c13e80cabfaba",
+      "control_revision": 1,
+      "control_huella_sha256": "fb6fac960a53818d755bd879c7b45bf2cfce4ccf39b01fd514e53b2e442fc6a9"
+    },
+    "fuente_identidad": {
+      "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+      "version": 1,
+      "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+    },
+    "fuente_ca_admin": {
+      "referencia": "fuente:ca_sintetica_real_bootstrap",
+      "version": 1,
+      "huella_sha256": "dd95203e6caf2f93cc122fef3a7087ee4fcb4e064da889fea86c8570e3a2cf05"
+    },
+    "personas": [
+      {
+        "cuenta_ref": "cta_12aa6f7650242f095607a5965b877502303b",
+        "cuenta_version": 1,
+        "persona_ref": "per_a9c7e62482ea6c925ac9bb520131cf310",
+        "persona_version": 1,
+        "perfil_ref": "prf_a145f204d0ca60877df3977e95acd613",
+        "vinculo_ref": "vca_35fe7b38c91515ca86b650376ccfc32a",
+        "preimagen_huella_sha256": "c48692bfd553ce116462f189fe0947c086d1cafa861c1b76c1f8261f3364154c",
+        "procedencia": {
+          "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+          "version": 1,
+          "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+        },
+        "vigente_hasta": "2026-10-04T03:26:00Z",
+        "certificado_admin": {
+          "persona_ref": "per_a9c7e62482ea6c925ac9bb520131cf310",
+          "cuenta_ref": "cta_12aa6f7650242f095607a5965b877502303b",
+          "huella_sha256": "a58b34d03f1d4b4efd7645628334afa7d2c96100d5c2b99345bdc8da8f022d63",
+          "ca_huella_sha256": "dd95203e6caf2f93cc122fef3a7087ee4fcb4e064da889fea86c8570e3a2cf05",
+          "acreditacion": {
+            "referencia": "prc_af06ec2357c3bfbb9525903ae736ff32",
+            "version": 1,
+            "huella_sha256": "1bd4c6343dc1de5ea26b98ea3084d0489c814b8ef03718a3254f6b6ebe70d1ab"
+          }
+        },
+        "sistemas": [
+          {
+            "rol": {
+              "version_ref": "rol:operador_plataforma:v1",
+              "huella_sha256": "bc7a0713d490b9c3fe4a0d1ef5c0183fe41b3a8163ce7bde83073e24fccede51",
+              "control_revision": 1,
+              "control_huella_sha256": "f75b345d0e96efa3819f435a6bce2d3203f640124ab0c964ad1fbeae23fdd20c"
+            },
+            "perfil_ref": "prf_ea7cceaa9509e65f3dadb727b3d44d1b",
+            "vinculo_ref": "vca_79fe3a3dfc733267d02547dcdff52fcb",
+            "vigente_hasta": "2026-10-04T03:26:00Z",
+            "ambitos": [
+              {
+                "dimension": "organizacion_ref",
+                "valores": [
+                  "org_7dd5a6044939f4b485e940673a3029e6"
+                ],
+                "fuente": {
+                  "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+                  "version": 1,
+                  "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+                }
+              }
+            ]
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "organizacion_ref",
+            "valores": [
+              "org_7dd5a6044939f4b485e940673a3029e6"
+            ],
+            "fuente": {
+              "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+              "version": 1,
+              "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+            }
+          },
+          {
+            "dimension": "unidad_ref",
+            "valores": [
+              "unidad_admin_sintetica"
+            ],
+            "fuente": {
+              "referencia": "fuente:unidad_admin_sintetica_20261004",
+              "version": 1,
+              "huella_sha256": "3e25817942b85011a5368296962a2fa96107a7f0f756100ab3a958a20965d5ce"
+            }
+          }
+        ]
+      },
+      {
+        "cuenta_ref": "cta_cc89ccc4a17d6ca6cd57dd9cbe6fe3299649",
+        "cuenta_version": 1,
+        "persona_ref": "per_b4b1bbf931ab7011e40bea94bcbbf4189",
+        "persona_version": 1,
+        "perfil_ref": "prf_85dd09f06dc4028c8b6f893d0e8ba45f",
+        "vinculo_ref": "vca_b314160a3d1901bd8ce228c3175ac927",
+        "preimagen_huella_sha256": "558463c83c092421d3cc3aca6484ae7404393007bb1d1601f857ca29b1b07f9a",
+        "procedencia": {
+          "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+          "version": 1,
+          "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+        },
+        "vigente_hasta": "2026-10-04T03:26:00Z",
+        "certificado_admin": {
+          "persona_ref": "per_b4b1bbf931ab7011e40bea94bcbbf4189",
+          "cuenta_ref": "cta_cc89ccc4a17d6ca6cd57dd9cbe6fe3299649",
+          "huella_sha256": "8f91fd20ef51f8549d33d1b805dfca55d086b4c07462c8fe196c8f8564bf3254",
+          "ca_huella_sha256": "dd95203e6caf2f93cc122fef3a7087ee4fcb4e064da889fea86c8570e3a2cf05",
+          "acreditacion": {
+            "referencia": "prc_f31150e829c37941623deb99f5ccdf10",
+            "version": 1,
+            "huella_sha256": "36bb37490be7dfc5a48784bd048968d55cd08ea16b6749c6ddb43a0fb8cae47a"
+          }
+        },
+        "sistemas": [],
+        "ambitos": [
+          {
+            "dimension": "organizacion_ref",
+            "valores": [
+              "org_7dd5a6044939f4b485e940673a3029e6"
+            ],
+            "fuente": {
+              "referencia": "prc_2c00092cc058b99bf03119f47b8835a7",
+              "version": 1,
+              "huella_sha256": "30194bfe2d2cf28090387b56626080c2257236666fbf64590928113a9e0f49c5"
+            }
+          },
+          {
+            "dimension": "unidad_ref",
+            "valores": [
+              "unidad_admin_sintetica"
+            ],
+            "fuente": {
+              "referencia": "fuente:unidad_admin_sintetica_20261004",
+              "version": 1,
+              "huella_sha256": "3e25817942b85011a5368296962a2fa96107a7f0f756100ab3a958a20965d5ce"
+            }
+          }
+        ]
+      }
+    ],
+    "gobierno": {
+      "audiencia_selector_admin": "admin:selector:ensayo:v1",
+      "audiencia_administrativa": "admin:ensayo:v1",
+      "politica_certificado_ref": "pga_dd717035b7ad29ec52dcd3e60be4a684",
+      "politica_certificado_huella_sha256": "9cda489b178e1eb582353949ecd212ecff596c7d87fa0a4a74f6246a44ab6047",
+      "roles": [
+        {
+          "version_ref": "rol:administracion_perfiles:v4",
+          "huella_sha256": "4f3454d6a164b2fc1f5e52a7fe571d26386f128fc2acc761d87c13e80cabfaba",
+          "clase": "administrador",
+          "categoria_admin": "aplicacion",
+          "unidad_requerida": true,
+          "ambitos_fijos": [
+            {
+              "clave": "organizacion_ref",
+              "valores": [
+                "org_7dd5a6044939f4b485e940673a3029e6"
+              ]
+            },
+            {
+              "clave": "unidad_ref",
+              "valores": [
+                "unidad_admin_sintetica"
+              ]
+            }
+          ],
+          "vigente_desde": "2026-10-03T23:26:00Z",
+          "vigente_hasta": "2026-10-04T03:26:00Z",
+          "duracion_propuesta_segundos": 1800,
+          "fuente_categoria": {
+            "referencia": "rol:administracion_perfiles:v4",
+            "version": 4,
+            "huella_sha256": "4f3454d6a164b2fc1f5e52a7fe571d26386f128fc2acc761d87c13e80cabfaba"
+          },
+          "dimensiones_ambito": [
+            "organizacion_ref",
+            "unidad_ref"
+          ],
+          "rol_id": "administracion_perfiles"
+        },
+        {
+          "version_ref": "rol:operador_plataforma:v1",
+          "huella_sha256": "bc7a0713d490b9c3fe4a0d1ef5c0183fe41b3a8163ce7bde83073e24fccede51",
+          "clase": "administrador",
+          "categoria_admin": "sistemas",
+          "unidad_requerida": false,
+          "ambitos_fijos": [
+            {
+              "clave": "organizacion_ref",
+              "valores": [
+                "org_7dd5a6044939f4b485e940673a3029e6"
+              ]
+            }
+          ],
+          "vigente_desde": "2026-10-03T23:26:00Z",
+          "vigente_hasta": "2026-10-04T03:26:00Z",
+          "duracion_propuesta_segundos": 1800,
+          "fuente_categoria": {
+            "referencia": "catalogo:administracion:acciones_sistemas:v1",
+            "version": 1,
+            "huella_sha256": "c079851725613a0aa019addb2fdc803c58f7a10b3c889e4fa205227409c31961"
+          },
+          "dimensiones_ambito": [
+            "organizacion_ref"
+          ],
+          "rol_id": "operador_plataforma"
+        }
+      ],
+      "motivos": []
+    },
+    "fuente_reparto_aprobado": {
+      "referencia": "fuente:reparto_admin_sintetico_2mas1",
+      "version": 1,
+      "huella_sha256": "f901a6532f486801319746e987aa9f644fd5f395022ed0c0d571cc4e9c80e004"
+    }
+  },
+  "huella_plan_sha256": "ba301a89265b83194d95358b9ea7dd2cb6c3cb3196dd47ce696693219cf80bad"
+}

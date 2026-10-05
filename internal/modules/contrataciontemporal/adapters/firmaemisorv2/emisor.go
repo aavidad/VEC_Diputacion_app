@@ -25,7 +25,8 @@ type ContextoActorFirmaV2 struct {
 
 // FuenteContextoActorFirmaV2 debe consultar las autoridades comunes de sesión
 // y contexto registrado en cada invocación, con sus lecturas nominales auditadas,
-// sin perfiles fijos ni datos HTTP. Revalidar no concede permiso de registro.
+// sin datos HTTP; un perfil fijo sólo vale como asignación publicada y
+// consumida tal cual. Revalidar no concede permiso de registro.
 type FuenteContextoActorFirmaV2 interface {
 	RevalidarContextoActorFirmaV2(context.Context) (ContextoActorFirmaV2, error)
 }
@@ -88,6 +89,17 @@ func (e *Emisor) ObtenerPerfilActivoOperadorFirmaV2(ctx context.Context) (string
 }
 
 func (e *Emisor) AutorizarMaterialFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return e.autorizarMaterial(ctx, m, r, "descriptor_firma_sha256")
+}
+
+// AutorizarMaterialPlanFirmaV2 usa la misma autoridad nominal. El recurso
+// exterior procede de RecursoPlanAutorizadoFirmaV2; el consumidor SQL coteja
+// ese envoltorio y su decisión interior antes de confirmar el efecto.
+func (e *Emisor) AutorizarMaterialPlanFirmaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return e.autorizarMaterial(ctx, m, r, "plan_firma_sha256")
+}
+
+func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable, claveHuella string) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var cero vp.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	if ctx == nil || e == nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
@@ -97,7 +109,7 @@ func (e *Emisor) AutorizarMaterialFirmaVerificadaV2(ctx context.Context, m ports
 	}
 	m.EvidenciaFirmasCanonica = bytes.Clone(m.EvidenciaFirmasCanonica)
 	r.Ambitos, r.Atributos = maps.Clone(r.Ambitos), maps.Clone(r.Atributos)
-	if m.Validar() != nil || !recursoExacto(m, r) {
+	if m.Validar() != nil || !recursoExactoConHuella(m, r, claveHuella) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	base, err := e.contexto(ctx)
@@ -167,14 +179,18 @@ func (e *Emisor) AutorizarMaterialFirmaVerificadaV2(ctx context.Context, m ports
 // El descriptor ya fue congelado por AutorizadorNominalFirmaV2. Este puerto
 // recibe su SHA256 y exige la preimagen exacta de RecursoFirmaVerificadaV2.
 func recursoExacto(m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) bool {
+	return recursoExactoConHuella(m, r, "descriptor_firma_sha256")
+}
+
+func recursoExactoConHuella(m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable, claveHuella string) bool {
 	h, err := m.HuellaSHA256()
 	tipo := ports.TipoRecursoFirmaExterna
 	if m.Via == ports.ViaFirmaCertificadoVEC {
 		tipo = ports.TipoRecursoFirmaVec
 	}
-	return err == nil && r.Validar() == nil && r.Referencia == m.RecursoRef() && r.ModuloID == ports.ModuloContratacion && r.Tipo == tipo &&
+	return (claveHuella == "descriptor_firma_sha256" || claveHuella == "plan_firma_sha256") && err == nil && r.Validar() == nil && r.Referencia == m.RecursoRef() && r.ModuloID == ports.ModuloContratacion && r.Tipo == tipo &&
 		maps.Equal(r.Ambitos, map[string]string{"organizacion_ref": m.OrganizacionRef}) && len(r.Atributos) == 2 &&
-		r.Atributos["material_sha256"] == h && ctdomain.HuellaSHA256FirmaValida(r.Atributos["descriptor_firma_sha256"])
+		r.Atributos["material_sha256"] == h && ctdomain.HuellaSHA256FirmaValida(r.Atributos[claveHuella])
 }
 
 func opaco(ctx context.Context, causa error) error {
@@ -203,3 +219,5 @@ func nulo(v any) bool {
 
 var _ ports.EmisorMaterialFirmaVerificadaV2 = (*Emisor)(nil)
 var _ EmisorComunV3 = (*confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3)(nil)
+
+var _ ports.EmisorMaterialPlanFirmaV2 = (*Emisor)(nil)

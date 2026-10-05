@@ -17,8 +17,10 @@ import (
 	"strings"
 	"time"
 
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
@@ -72,7 +74,11 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	if cfg.RetiradaEn.IsZero() || cfg.RetiradaEn.Location() != time.UTC ||
 		!time.Now().Before(cfg.RetiradaEn) ||
 		cfg.CertificadoServidor == "" || cfg.ClaveServidor == "" || cfg.CAAdministracion == "" ||
-		cfg.CRLAdministracion == "" || cfg.Host == "" {
+		cfg.CRLAdministracion == "" {
+		return nil, ErrConfiguracion
+	}
+	host, hostValido := analizarHostAdmin(cfg.Host)
+	if !hostValido {
 		return nil, ErrConfiguracion
 	}
 	superficie := httpseguridad.ConfiguracionSuperficie{
@@ -83,7 +89,7 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		EmisorIdentidad:                     cfg.EmisorIdentidad,
 		RedesPermitidas:                     cfg.RedesPermitidas,
 		DuracionMaximaAsercion:              time.Minute,
-		EdadMaximaAutenticacion:             5 * time.Minute,
+		EdadMaximaAutenticacion:             vidaAutenticacionConexionPerfiles,
 		MetodosAdmitidos:                    []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		FactoresRequeridos:                  []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		MinimoFactoresVerificados:           1,
@@ -113,7 +119,7 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	raices.AddCert(ca)
 	verificar := func(r *http.Request) error {
 		ahora := time.Now()
-		if !ahora.Before(cfg.RetiradaEn) || r.Host != cfg.Host ||
+		if !ahora.Before(cfg.RetiradaEn) || r.Host != host.autoridad ||
 			r.TLS == nil || !r.TLS.HandshakeComplete || r.TLS.DidResume ||
 			len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 			r.TLS.VerifiedChains[0][0] == nil ||
@@ -141,6 +147,18 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
+		if perfiles != nil && perfiles.reloj != nil &&
+			conexionPerfilesPorRenovar(r.Context(), perfiles.reloj.Ahora().UTC()) {
+			// En HTTP/1.1 net/http cierra la conexión tras esta respuesta; la
+			// siguiente petición llega por un handshake mTLS nuevo.
+			w.Header().Set("Connection", "close")
+		}
+		ctx, err := ports.ConCorrelacionIncidenciasPeticion(r.Context())
+		if err != nil {
+			http.Error(w, "", http.StatusServiceUnavailable)
+			return
+		}
+		r = r.WithContext(ctx)
 		if err := verificar(r); err != nil {
 			switch {
 			case errors.Is(err, errCRLNoDisponible):
@@ -149,6 +167,16 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 				log.Print(errCRLInvalida)
 			case errors.Is(err, errParRemotoInvalido):
 				log.Print(errParRemotoInvalido)
+			}
+			if perfiles != nil {
+				codigo := "acceso_denegado"
+				if errors.Is(err, errCRLNoDisponible) || errors.Is(err, errCRLInvalida) || errors.Is(err, errParRemotoInvalido) {
+					codigo = "servicio_no_disponible"
+				}
+				if perfiles.auditor == nil || perfiles.auditor.RegistrarDenegacionADMIN(r.Context(), api.DenegacionADMIN{Codigo: codigo}) != nil {
+					http.Error(w, "", http.StatusServiceUnavailable)
+					return
+				}
 			}
 			http.Error(w, "", http.StatusForbidden)
 			return
@@ -172,11 +200,20 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		Addr:              cfg.Escucha,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       duracionMaximaPeticionADMIN,
+		WriteTimeout:      duracionMaximaPeticionADMIN,
+		// La renovación a los 3 minutos (Connection: close) más estos límites
+		// de petición e inactividad garantizan que ninguna petición llegue por
+		// una conexión cuya autenticación ya haya caducado.
+		IdleTimeout: inactividadMaximaConexionADMIN,
 		TLSConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS13,
-			Certificates: []tls.Certificate{cert},
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			ClientCAs:    raices,
+			MinVersion: tls.VersionTLS13,
+			// La frontera rechaza toda sesión reanudada (DidResume): emitir
+			// tickets solo provocaría denegaciones a navegadores legítimos.
+			SessionTicketsDisabled: true,
+			Certificates:           []tls.Certificate{cert},
+			ClientAuth:             tls.RequireAndVerifyClientCert,
+			ClientCAs:              raices,
 		},
 	}, nil
 }

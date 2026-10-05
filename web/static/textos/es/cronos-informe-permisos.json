@@ -1,6 +1,6 @@
 {
   "referencia": "cronos-informe-permisos-es",
-  "version": "1",
+  "version": "2",
   "idioma": "es-ES",
   "formato_fecha": "02/01/2006 15:04 MST",
   "zona_horaria": "Europe/Madrid",
@@ -8,13 +8,13 @@
   "ejercicio": "Ejercicio: {{ejercicio}}",
   "corte": "Datos al {{corte}}",
   "alcance": "Alcance: resumen parcial de los permisos propios incluidos en este informe.",
-  "fila": "{{etiqueta}}. Unidad: {{unidad}}; cómputo: {{computo}}. Pendiente de resolver: {{pendiente}}. Concedido: {{concedido}}. Restante: {{restante}}. Conciliación: {{estado}}.",
+  "fila": "{{campos}}.",
   "dias": "{{cantidad}}",
   "duracion": "{{horas}} h {{minutos}} min",
   "duracion_corta": "{{minutos}} min",
   "desconocido": "No disponible",
   "vacio": "No hay filas disponibles para este informe.",
-  "limite": "Cada fila conserva su unidad. Los valores no disponibles siguen pendientes; no equivalen a cero.",
+  "limite": "Los valores no disponibles siguen pendientes; no equivalen a cero.",
   "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. Las reglas del ejemplo no están aprobadas. La descarga para personas empleadas sigue pendiente.",
   "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
   "unidades": {
@@ -28,5 +28,15 @@
   "estados": {
     "conciliado": "Conciliado",
     "sin_conciliar": "Pendiente de conciliar"
+  },
+  "separador_campos": "; ",
+  "campos": {
+    "etiqueta": "{{valor}}",
+    "unidad": "Unidad: {{valor}}",
+    "computo": "Cómputo: {{valor}}",
+    "pendiente_resolver": "Pendiente de resolver: {{valor}}",
+    "concedido": "Concedido: {{valor}}",
+    "restante": "Restante: {{valor}}",
+    "conciliacion": "Conciliación: {{valor}}"
   }
 }

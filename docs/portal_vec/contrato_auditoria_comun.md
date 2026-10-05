@@ -112,3 +112,42 @@ El contraste se limita a patrones de diseño. No se instalaron estos productos n
 El [ENS, RD 311/2022](https://www.boe.es/buscar/act.php?id=BOE-A-2022-7191), artículo 24 y anexo II `op.exp.8`/`op.exp.9`, fundamenta registro de actividad e incidentes, revisión, protección y conservación conforme a política. No establece en esos apartados un plazo universal que pueda inventarse para todas las series. El [protocolo RFC 3161](https://www.rfc-editor.org/rfc/rfc3161) define solicitud/respuesta y token de sello de tiempo; se exige verificar el token y la confianza aplicable antes de atribuirle esa función.
 
 El consenso con Astra publicado en el canal mantiene la autoridad común y su cadena, añade verificador/anclaje y reutiliza el recolector local de JSONL catalogado. El encaje acordado sigue pendiente de implementar por piezas. Este documento y el inventario no declaran captura universal, certificación ENS ni firma/sello legal.
+
+## 9. Paquete verificable de desarrollo — 04/10
+
+El manifiesto `vec.auditoria.exportacion.desarrollo.v1` liga tamaño y SHA256
+exactos del archivo de cadena, cobertura, aviso de fechas históricas, referencias
+de captura y acuse, fecha declarada y política/proveedores versionados. El
+proveedor conserva KMS/TSA de desarrollo con un dominio de firma exclusivo de
+exportación. El recibo checkpoint anterior no cambia.
+
+El contrato nuevo está en
+[`ports/auditoria_exportacion.go`](../../internal/vec/ports/auditoria_exportacion.go):
+
+```go
+type FuenteCapturaExportacionAuditoria interface {
+    CapturarAuditoriaParaExportacion(context.Context) (CapturaParaExportacionAuditoria, error)
+}
+```
+
+La composición vincula cada instancia de fuente a la solicitud y al contexto
+nominal acreditados. El adaptador futuro deberá confirmar en una sola transacción
+la autorización, el rango coherente y el registro común de captura antes de
+devolver bytes. Fija la cabeza previa; el evento de captura queda fuera de su
+propio rango. La aplicación valida el archivo con el verificador común y firma
+tras ese COMMIT. Ausencia, fallo, cancelación o captura inválida impiden el recibo
+y la salida de datos.
+
+La CLI existente incorpora `verificar-exportacion` para comprobar un paquete,
+el archivo y la raíz/pin externos. Separa firma, integridad de archivo y cadena;
+siempre informa `origen_extraccion: no_acreditado`, TSA no verificada offline,
+sin tiempo independiente ni firma legal. Una huella de acuse firmada no
+autentica su autoridad. Las [instrucciones](../../cmd/vec-auditoria-checkpoint/README.md)
+explican esos límites y la comprobación de alteraciones.
+
+No hay emisor CLI que acepte una captura JSON libre ni adaptador de captura
+activado. Faltan las acciones, proyección y ámbito propios de Aplicación,
+la fachada nominal durable y la auditoría de recuperación/entrega. La consulta
+común actual de CT/Bolsa no concede esos permisos; Sistemas sólo consulta
+registros técnicos. Continúan pendientes la captura judicial, periodicidad
+y conservación por serie.

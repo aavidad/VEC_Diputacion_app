@@ -18,6 +18,8 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 # completos de las rutas CT, httpapi y vec/application: de ahi proceden tambien
 # dependencias de Personal, Bolsa, Dietas, Cronos y Administracion. Estar en el
 # grafo no registra sus rutas; la composicion y sus pruebas mantienen esa guarda.
+# El verificador común de auditoría aporta el cotejo de los paquetes de
+# exportación; compilarlo no monta una captura, ruta o fuente nominal.
 # No admitir nuevas importaciones por prefijo ni normalizar la lista con go list.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
@@ -108,6 +110,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/vec/adapters/seguridad/verificacioncose" | \
 			"${modulo}/internal/vec/adapters/seudonimizacionpkcs11" | \
 			"${modulo}/internal/vec/application" | \
+			"${modulo}/internal/vec/auditoria" | \
 			"${modulo}/internal/vec/canonico/almacen" | \
 			"${modulo}/internal/vec/canonico/documental" | \
 			"${modulo}/internal/vec/canonico/pagos" | \

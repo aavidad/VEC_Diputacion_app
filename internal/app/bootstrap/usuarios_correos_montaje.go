@@ -127,8 +127,13 @@ func rutaCorreosSuperficie(superficie core.SuperficieAutenticacionActorV1) strin
 // su propio manejador, proveedor V3 y ruta exacta. No posee pools.
 func montarCorreosUsuariosSuperficie(ctx context.Context, preferencias *autoridadPreferenciasUsuariosDesarrollo, ejecutor *pgxpool.Pool,
 	autorizador vecports.AutorizadorSolicitudLigadaV3, c configuracionUsuariosPreferenciasDesarrollo, d *dependenciasCorreosUsuariosDesarrollo,
+	intentos *registroIntentosConsultaCorreos,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	if ctx == nil || preferencias == nil || ejecutor == nil || autorizador == nil || d == nil || d.cripto == nil || d.transporte == nil {
+		return nil, errComposicionUsuariosCorreos
+	}
+	if preferencias.superficie == core.SuperficieAutenticacionInternaCorporativaV1 && intentos == nil ||
+		preferencias.superficie != core.SuperficieAutenticacionInternaCorporativaV1 && intentos != nil {
 		return nil, errComposicionUsuariosCorreos
 	}
 	ruta := rutaCorreosSuperficie(preferencias.superficie)
@@ -157,9 +162,15 @@ func montarCorreosUsuariosSuperficie(ctx context.Context, preferencias *autorida
 	}
 	correos := *preferencias
 	correos.ruta, correos.cerrar, correos.manejador, correos.proveedor, correos.correos = ruta, nil, nil, nil, nil
+	correos.intentosConsultaCorreos = intentos
 	correos.proveedorCorreos = &proveedorCorreosUsuarios{autoridad: &correos, emisores: emisores,
 		motivoConsulta: c.MotivoConsulta, motivoActualizacion: c.MotivoActualizacion}
-	manejador, err := usuarioshttp.NuevoManejadorCorreosEnRuta(servicio, &correos, &correos, ruta)
+	var manejador *usuarioshttp.ManejadorCorreos
+	if intentos != nil {
+		manejador, err = usuarioshttp.NuevoManejadorConsultaCorreosInternaConIntentos(servicio, &correos, &correos, &correos)
+	} else {
+		manejador, err = usuarioshttp.NuevoManejadorCorreosEnRuta(servicio, &correos, &correos, ruta)
+	}
 	if err != nil {
 		return nil, errComposicionUsuariosCorreos
 	}

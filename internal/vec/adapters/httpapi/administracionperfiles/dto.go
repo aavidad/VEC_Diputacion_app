@@ -59,8 +59,9 @@ type Persona struct {
 }
 
 type PaginaPersonas struct {
-	Personas        []Persona `json:"personas"`
-	SiguienteCursor string    `json:"siguiente_cursor,omitempty"`
+	Metadatos       *PaginaPersonasMetadatos `json:"-"`
+	Personas        []Persona                `json:"personas"`
+	SiguienteCursor string                   `json:"siguiente_cursor,omitempty"`
 }
 
 type Perfil struct {
@@ -177,14 +178,15 @@ type Historia struct {
 }
 
 type FichaPersona struct {
-	UnidadRef        string           `json:"unidad_ref"`
-	UnidadClaveI18N  string           `json:"unidad_clave_i18n"`
-	PersonaRef       string           `json:"persona_ref"`
-	Nombre           string           `json:"nombre"`
-	UnidadNombre     string           `json:"unidad_nombre"`
-	Perfiles         []Perfil         `json:"perfiles"`
-	ActosDisponibles []ActoDisponible `json:"actos_disponibles"`
-	Historia         []Historia       `json:"historia"`
+	Metadatos        *FichaPersonaMetadatos `json:"-"`
+	UnidadRef        string                 `json:"unidad_ref"`
+	UnidadClaveI18N  string                 `json:"unidad_clave_i18n"`
+	PersonaRef       string                 `json:"persona_ref"`
+	Nombre           string                 `json:"nombre"`
+	UnidadNombre     string                 `json:"unidad_nombre"`
+	Perfiles         []Perfil               `json:"perfiles"`
+	ActosDisponibles []ActoDisponible       `json:"actos_disponibles"`
+	Historia         []Historia             `json:"historia"`
 }
 
 type Propuesta struct {
@@ -274,17 +276,25 @@ type SolicitudLote struct {
 }
 
 type CambioPerfil struct {
-	Operacion     string   `json:"operacion"`
-	RolVersionRef string   `json:"rol_version_ref"`
-	Objetivo      Objetivo `json:"objetivo"`
+	Operacion      string   `json:"operacion"`
+	InicioVigencia string   `json:"inicio_vigencia,omitempty"`
+	RolVersionRef  string   `json:"rol_version_ref"`
+	Objetivo       Objetivo `json:"objetivo"`
+}
+
+type InicioEfectivoLote struct {
+	Modo         string     `json:"modo,omitempty"`
+	VigenteDesde *time.Time `json:"vigente_desde,omitempty"`
 }
 
 type ReciboLote struct {
-	OperacionRef          string    `json:"operacion_ref"`
-	ActoRef               string    `json:"acto_ref"`
-	ReciboRef             string    `json:"recibo_ref"`
-	AuditoriaRef          string    `json:"auditoria_ref"`
-	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
-	ConfirmadoEn          time.Time `json:"confirmado_en"`
-	Cambios               []Recibo  `json:"cambios"`
+	OperacionRef          string               `json:"operacion_ref"`
+	ActoRef               string               `json:"acto_ref"`
+	ReciboRef             string               `json:"recibo_ref"`
+	AuditoriaRef          string               `json:"auditoria_ref"`
+	HuellaSolicitudSHA256 string               `json:"huella_solicitud_sha256"`
+	FuentesSHA256         string               `json:"fuentes_sha256"`
+	ConfirmadoEn          time.Time            `json:"confirmado_en"`
+	Cambios               []Recibo             `json:"cambios"`
+	Inicios               []InicioEfectivoLote `json:"inicios"`
 }

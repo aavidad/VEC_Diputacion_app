@@ -121,3 +121,28 @@ func TestCLIIdiomaYRespaldoProcedenDelIndice(t *testing.T) {
 		t.Fatal("language or format was compiled")
 	}
 }
+
+func TestCLIAceptaLaMuestraConFormaDePersonalV1(t *testing.T) {
+	for _, idioma := range []string{"es", "en"} {
+		d := filepath.Join(t.TempDir(), "salida")
+		args := argumentos(t, idioma, d)
+		args[2] = "../../internal/modules/certificados/adapters/personalv1/testdata/servicios-personal-v1.ensayo.json"
+		var out, err bytes.Buffer
+		if codigo := ejecutar(args, &out, &err); codigo != 0 {
+			t.Fatalf("%s: code=%d error=%s", idioma, codigo, &err)
+		}
+		b, e := os.ReadFile(filepath.Join(d, "borrador.json"))
+		var borrador domain.Borrador
+		if e != nil || json.Unmarshal(b, &borrador) != nil || borrador.Fuente.Cobertura != "parcial" || borrador.Estado != "borrador" {
+			t.Fatalf("%s: %v", idioma, e)
+		}
+		texto := strings.Join(borrador.Contenido.Parrafos, "\n")
+		if strings.Contains(texto, "{{") || !strings.Contains(texto, "ensayo:resolucion-2024-119") {
+			t.Fatalf("%s: %s", idioma, texto)
+		}
+		pdf, e := os.ReadFile(filepath.Join(d, "borrador.pdf"))
+		if e != nil || !bytes.HasPrefix(pdf, []byte("%PDF-")) {
+			t.Fatalf("%s: sin PDF", idioma)
+		}
+	}
+}

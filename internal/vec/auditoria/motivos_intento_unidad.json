@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"unidad_registrada"},
+  {"resultado":"permitido","motivo_ref":"unidad_replay"},
+  {"resultado":"denegado","motivo_ref":"unidad_denegada"},
+  {"resultado":"error","motivo_ref":"unidad_error"}
+]

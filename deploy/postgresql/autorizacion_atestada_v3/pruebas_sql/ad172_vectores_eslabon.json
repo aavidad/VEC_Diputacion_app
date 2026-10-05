@@ -1,0 +1,167 @@
+{
+  "esquema": "vec.auditoria.origen-consumo.vectores.v1",
+  "vectores": [
+    {
+      "caso": "valido",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": ""
+    },
+    {
+      "caso": "cambio_proceso_otro_proceso",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "otro_proceso",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "huella_distinta"
+    },
+    {
+      "caso": "cambio_canal_administracion_privilegiada",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "administracion_privilegiada",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "huella_distinta"
+    },
+    {
+      "caso": "cambio_version_consumo_1",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 1,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "tipo_invalido"
+    },
+    {
+      "caso": "cambio_tipo_registro_consumo_confirmado",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "tipo_invalido"
+    },
+    {
+      "caso": "cambio_canal_http_libre",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "http_libre",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "registro_invalido"
+    },
+    {
+      "caso": "cambio_proceso_*",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "*",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "registro_invalido"
+    },
+    {
+      "caso": "cambio_secuencia_0",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 0,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "registro_invalido"
+    },
+    {
+      "caso": "cambio_auditoria_ref_aud_v3_cccccccccccccccccccccccccccccccc",
+      "registro": {
+        "auditoria_ref": "aud_v3_cccccccccccccccccccccccccccccccc",
+        "secuencia": 7,
+        "decision_ref": "decision:ad172:prueba",
+        "efecto_ref": "efecto:ad172:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "82d759097556f17a8c4549006433ba250c388bcdc7d1cc9a2a76c43f454fcec9"
+      },
+      "codigo": "referencia_distinta"
+    }
+  ]
+}

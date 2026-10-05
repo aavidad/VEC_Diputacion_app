@@ -19,6 +19,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
@@ -145,11 +148,124 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if got, _ := peticion("/livez", "otro.example.test", true); got != http.StatusForbidden {
 		t.Fatalf("host ajeno: %d", got)
 	}
+	// VEC_ADMIN_HOST con puerto público: la cabecera Host debe llevar
+	// exactamente ese puerto; «:443» equivale al nombre solo.
+	for _, caso := range []struct {
+		configurado string
+		aceptados   []string
+		rechazados  []string
+	}{
+		{"admin.example.test:8444", []string{"admin.example.test:8444"}, []string{"admin.example.test", "admin.example.test:443", "admin.example.test:8443", "admin.example.test:08444", "otro.example.test:8444"}},
+		{"admin.example.test:443", []string{"admin.example.test"}, []string{"admin.example.test:443", "admin.example.test:8444"}},
+		{"admin.example.test", []string{"admin.example.test"}, []string{"admin.example.test:443", "admin.example.test:8444"}},
+	} {
+		cfgPuerto := cfg
+		cfgPuerto.Host = caso.configurado
+		servidorPuerto, err := NuevoServidor(cfgPuerto)
+		if err != nil {
+			t.Fatalf("%s: %v", caso.configurado, err)
+		}
+		pruebaPuerto := httptest.NewUnstartedServer(servidorPuerto.Handler)
+		pruebaPuerto.TLS = servidorPuerto.TLSConfig.Clone()
+		pruebaPuerto.StartTLS()
+		original := prueba.URL
+		prueba.URL = pruebaPuerto.URL
+		for _, host := range caso.aceptados {
+			if got, err := peticion("/livez", host, true); err != nil || got != http.StatusNoContent {
+				t.Fatalf("%s: host %s rechazado: %d %v", caso.configurado, host, got, err)
+			}
+		}
+		for _, host := range caso.rechazados {
+			if got, _ := peticion("/livez", host, true); got != http.StatusForbidden {
+				t.Fatalf("%s: host %s admitido: %d", caso.configurado, host, got)
+			}
+		}
+		prueba.URL = original
+		pruebaPuerto.Close()
+	}
+	// ObservarADMIN con puerto público: exige la autoridad exacta en Host y
+	// entrega el nombre sin puerto para host_admin y la autoridad aparte.
+	cfgObservada := cfg
+	cfgObservada.Host = "admin.example.test:8444"
+	servidorObservado, err := NuevoServidor(cfgObservada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	redObservada, err := httpseguridad.NuevaPoliticaRed(superficieSesionPerfiles(cfgObservada))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostObservado, _ := analizarHostAdmin(cfgObservada.Host)
+	relojObservado := relojActivosPrueba{ahora: time.Now().UTC()}
+	resolvedor := &resolvedorSesionPerfiles{cfg: cfgObservada, host: hostObservado, ca: ca.Raw, red: redObservada, reloj: relojObservado}
+	contextoObservado, err := NuevoContextoConexionPerfiles(relojObservado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaObservada := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		o, err := resolvedor.ObservarADMIN(r.Context(), r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("X-Prueba-Host", o.Host)
+		w.Header().Set("X-Prueba-Autoridad", o.Autoridad)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	pruebaObservada.Config.ConnContext = contextoObservado
+	pruebaObservada.TLS = servidorObservado.TLSConfig.Clone()
+	pruebaObservada.StartTLS()
+	observar := func(configurado string, casos map[string]int) {
+		t.Helper()
+		cfgCaso := cfgObservada
+		cfgCaso.Host = configurado
+		hostCaso, _ := analizarHostAdmin(configurado)
+		resolvedor = &resolvedorSesionPerfiles{cfg: cfgCaso, host: hostCaso, ca: ca.Raw, red: redObservada, reloj: relojObservado}
+		for host, esperado := range casos {
+			transporte := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cliente}}}
+			req, _ := http.NewRequest(http.MethodGet, pruebaObservada.URL+"/", nil)
+			req.Host = host
+			resp, err := (&http.Client{Transport: transporte}).Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			transporte.CloseIdleConnections()
+			if resp.StatusCode != esperado {
+				t.Fatalf("ObservarADMIN %s con Host %s: %d, esperado %d", configurado, host, resp.StatusCode, esperado)
+			}
+			if esperado == http.StatusNoContent && (resp.Header.Get("X-Prueba-Host") != "admin.example.test" || resp.Header.Get("X-Prueba-Autoridad") != hostCaso.autoridad) {
+				t.Fatalf("observación con host %q y autoridad %q", resp.Header.Get("X-Prueba-Host"), resp.Header.Get("X-Prueba-Autoridad"))
+			}
+		}
+	}
+	observar("admin.example.test:8444", map[string]int{"admin.example.test:8444": http.StatusNoContent, "admin.example.test": http.StatusUnauthorized, "admin.example.test:443": http.StatusUnauthorized, "admin.example.test:8443": http.StatusUnauthorized})
+	observar("admin.example.test:443", map[string]int{"admin.example.test": http.StatusNoContent, "admin.example.test:443": http.StatusUnauthorized, "admin.example.test:8444": http.StatusUnauthorized})
+	pruebaObservada.Close()
+	for _, invalido := range []string{"Admin.Example.Test", "admin.example.test:0", "admin.example.test:65536", "admin.example.test:08444", "admin.example.test:", ":8444", "admin.example.test:8444:1", "[::1]:8444", "admin.example.test.", " admin.example.test"} {
+		cfgInvalida := cfg
+		cfgInvalida.Host = invalido
+		if _, err := NuevoServidor(cfgInvalida); !errors.Is(err, ErrConfiguracion) {
+			t.Fatalf("host %q admitido: %v", invalido, err)
+		}
+	}
 	if _, err := peticion("/livez", cfg.Host, false); err == nil {
 		t.Fatal("TLS acepto cliente sin certificado")
 	}
 	var llamadasPerfiles atomic.Int64
-	perfilHandler := &handlerPerfilesADMIN{api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	correlaciones := make(chan string, 2)
+	perfilHandler := &handlerPerfilesADMIN{auditor: &auditorActivosPrueba{}, api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ref, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		canon, err := ref.ValorCanonico()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		correlaciones <- canon
 		llamadasPerfiles.Add(1)
 		w.WriteHeader(http.StatusAccepted)
 	}), rutas: map[string]string{}}
@@ -169,6 +285,7 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 			t.Fatal(err)
 		}
 		req.Host = cfg.Host
+		req.Header.Set("X-Correlation-ID", strings.Repeat("a", 32))
 		respuesta, err := (&http.Client{Transport: transporte}).Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -179,8 +296,16 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if got := peticionPerfil(); got != http.StatusAccepted || llamadasPerfiles.Load() != 1 {
 		t.Fatalf("perfil tras frontera=%d llamadas=%d", got, llamadasPerfiles.Load())
 	}
+	primera := <-correlaciones
+	if got := peticionPerfil(); got != http.StatusAccepted || llamadasPerfiles.Load() != 2 {
+		t.Fatalf("segunda petición=%d llamadas=%d", got, llamadasPerfiles.Load())
+	}
+	segunda := <-correlaciones
+	if primera == segunda || primera == "correlacion_"+strings.Repeat("a", 32) || segunda == "correlacion_"+strings.Repeat("a", 32) {
+		t.Fatal("correlacion_de_cliente_o_reutilizada")
+	}
 	actualizarCRL(true)
-	if got := peticionPerfil(); got != http.StatusForbidden || llamadasPerfiles.Load() != 1 {
+	if got := peticionPerfil(); got != http.StatusForbidden || llamadasPerfiles.Load() != 2 {
 		t.Fatalf("revocado llegó al handler=%d llamadas=%d", got, llamadasPerfiles.Load())
 	}
 	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {

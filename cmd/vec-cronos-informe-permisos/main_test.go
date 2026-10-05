@@ -39,6 +39,51 @@ func TestCLIPermisosSoloSintetica(t *testing.T) {
 		t.Fatal("catálogo inglés no produjo el idioma pedido", err)
 	}
 }
+
+func TestCLIPermisosExigeCamposExplicitosYEmiteSubconjunto(t *testing.T) {
+	base, err := os.ReadFile("testdata/ejemplo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo := "../../web/static/textos/es/cronos-informe-permisos.json"
+	completa := []byte(`"campos_permitidos": ["etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"]`)
+	for _, caso := range []struct {
+		nombre    string
+		reemplazo []byte
+		valido    bool
+	}{
+		{"subconjunto", []byte(`"campos_permitidos": ["etiqueta", "unidad", "concedido"]`), true},
+		{"sin_campos", []byte(`"campos_permitidos": []`), false},
+		{"cantidad_sin_unidad", []byte(`"campos_permitidos": ["etiqueta", "concedido"]`), false},
+		{"campo_ajeno", []byte(`"campos_permitidos": ["motivo"]`), false},
+		{"campo_duplicado", []byte(`"campos_permitidos": ["unidad", "unidad"]`), false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ruta := t.TempDir() + "/ejemplo.json"
+			if err := os.WriteFile(ruta, bytes.Replace(base, completa, caso.reemplazo, 1), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var salida bytes.Buffer
+			err := ejecutar(context.Background(), []string{catalogo, ruta}, &salida)
+			if caso.valido && (err != nil || !bytes.HasPrefix(salida.Bytes(), []byte("%PDF-"))) {
+				t.Fatal(err)
+			}
+			if !caso.valido && (err == nil || salida.Len() != 0) {
+				t.Fatal("salida con campos inválidos", err)
+			}
+		})
+	}
+	// Ausencia del campo también debe fallar; no se adopta todos por defecto.
+	ruta := t.TempDir() + "/sin-lista.json"
+	sinLista := bytes.Replace(base, append(append([]byte(nil), completa...), ',', '\n'), nil, 1)
+	if err := os.WriteFile(ruta, sinLista, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var salida bytes.Buffer
+	if err := ejecutar(context.Background(), []string{catalogo, ruta}, &salida); err == nil || salida.Len() != 0 {
+		t.Fatal("lista implícita admitida", err)
+	}
+}
 func TestCLIPermisosErrorSinDatos(t *testing.T) {
 	var salida bytes.Buffer
 	if err := informarError(&salida, errors.New("Carmen Molina /ruta/privada")); err != nil {

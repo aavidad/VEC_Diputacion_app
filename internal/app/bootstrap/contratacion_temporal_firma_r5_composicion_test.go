@@ -5,10 +5,17 @@ import (
 	"errors"
 	"testing"
 
+	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	vd "vec-diputacion-granada/internal/vec/domain"
+	vp "vec-diputacion-granada/internal/vec/ports"
 )
+
+// El adaptador PostgreSQL real ofrece la consulta CT172 y el registro CT176.
+var _ registroFirmaV2DurableDesarrollo = (*postgrescontratacion.RegistroFirmasVerificadasPostgreSQL)(nil)
 
 type dependenciasR5PresentesPrueba struct{}
 
@@ -42,7 +49,7 @@ func (dependenciasR5PresentesPrueba) PoliticaMismaPersonaEnPasos(context.Context
 
 func dependenciasCompletasR5Prueba() dependenciasFirmaR5Desarrollo {
 	p := dependenciasR5PresentesPrueba{}
-	return dependenciasFirmaR5Desarrollo{original: p, registro: p, consulta: p,
+	return dependenciasFirmaR5Desarrollo{original: p, registro: p, descriptorPlan: p, emisorPlan: p, consulta: p,
 		autorizar: p, verificador: p, pdfAnterior: p, competencia: p, politicaFirmantes: p}
 }
 
@@ -77,6 +84,15 @@ func TestComposicionFirmasR5NoConsumeOriginalSiFaltaBase(t *testing.T) {
 
 func (dependenciasR5PresentesPrueba) RegistrarFirmaVerificadaV2(context.Context, ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
 	return ports.ReciboFirmaDocumento{}, nil
+}
+func (dependenciasR5PresentesPrueba) RegistrarFirmaConPlanV2(context.Context, ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaConPlanV2) (ports.ReciboFirmaDocumento, error) {
+	return ports.ReciboFirmaDocumento{}, nil
+}
+func (dependenciasR5PresentesPrueba) DescriptorPlanFijadoFirmaV2(context.Context, ports.MaterialFirmaVerificadaV2) (ports.DescriptorPlanFijadoFirmaV2, error) {
+	return ports.DescriptorPlanFijadoFirmaV2{}, nil
+}
+func (dependenciasR5PresentesPrueba) AutorizarMaterialPlanFirmaV2(context.Context, ports.MaterialFirmaVerificadaV2, vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, nil
 }
 func (dependenciasR5PresentesPrueba) ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2, ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
 	return ports.LecturaFirmasR5V2{}, nil
@@ -138,6 +154,8 @@ func TestComposicionFirmasR5CadaDependenciaV2EsObligatoria(t *testing.T) {
 	for nombre, omitir := range map[string]func(*dependenciasFirmaR5Desarrollo){
 		"original":     func(d *dependenciasFirmaR5Desarrollo) { d.original = nil },
 		"registro":     func(d *dependenciasFirmaR5Desarrollo) { d.registro = nil },
+		"plan":         func(d *dependenciasFirmaR5Desarrollo) { d.descriptorPlan = nil },
+		"emisor_plan":  func(d *dependenciasFirmaR5Desarrollo) { d.emisorPlan = nil },
 		"consulta":     func(d *dependenciasFirmaR5Desarrollo) { d.consulta = nil },
 		"autorizador":  func(d *dependenciasFirmaR5Desarrollo) { d.autorizar = nil },
 		"verificador":  func(d *dependenciasFirmaR5Desarrollo) { d.verificador = nil },
@@ -157,5 +175,51 @@ func TestComposicionFirmasR5CadaDependenciaV2EsObligatoria(t *testing.T) {
 				t.Fatalf("fallo ocupó original/base: %v", err)
 			}
 		})
+	}
+}
+
+// registroDirectoContado tiene también el registro directo de CT172, como el
+// adaptador PostgreSQL real; el montaje no debe poder alcanzarlo.
+type registroDirectoContado struct {
+	dependenciasR5PresentesPrueba
+	directas, consultas int
+}
+
+func (r *registroDirectoContado) RegistrarFirmaVerificadaV2(context.Context, ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
+	r.directas++
+	return ports.ReciboFirmaDocumento{}, nil
+}
+func (r *registroDirectoContado) ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2, ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
+	r.consultas++
+	return ports.LecturaFirmasR5V2{}, nil
+}
+
+// La garantía principal es de compilación: registroFirmaV2DurableDesarrollo
+// no ofrece RegistrarFirmaVerificadaV2, así que d.registro no puede pasarse a
+// las vías R5. Esta prueba fija además el comportamiento en ejecución.
+func TestComposicionFirmasR5RegistraSiempreConPlanCT176(t *testing.T) {
+	f := &firmaDocumentoCTDesarrollo{servicio: baseR5MontajePrueba(t), custodiaR5Compuesta: true}
+	d := dependenciasCompletasR5Prueba()
+	durable := &registroDirectoContado{}
+	d.registro = durable
+	if err := f.componerFirmasR5(d); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.registroR5.(*firmaautorizacionv2.RegistroConPlanV2); !ok {
+		t.Fatalf("las vías R5 no reciben el registro con plan: %T", f.registroR5)
+	}
+	if _, err := f.registroR5.RegistrarFirmaVerificadaV2(t.Context(), ports.MaterialFirmaVerificadaV2{}, ports.CapacidadFirmaVerificadaV2{}); err == nil {
+		t.Fatal("registro sin material aceptado")
+	}
+	if _, err := f.registroR5.ConsultarFirmasAutorizadasV2(t.Context(), ports.MaterialConsultaFirmasR5V2{}, ports.CapacidadConsultaFirmasR5V2{}); err != nil || durable.consultas != 1 {
+		t.Fatalf("consulta no delegada: %d, %v", durable.consultas, err)
+	}
+	// El adaptador de consulta que recibe el decorador nunca escribe por CT172.
+	c := consultaFirmasV2SinRegistroDirecto{durable}
+	if _, err := c.RegistrarFirmaVerificadaV2(t.Context(), ports.MaterialFirmaVerificadaV2{}, ports.CapacidadFirmaVerificadaV2{}); !errors.Is(err, ports.ErrRegistroFirmaDocumentoNoDisponible) {
+		t.Fatalf("registro directo no rechazado: %v", err)
+	}
+	if durable.directas != 0 {
+		t.Fatalf("el montaje llamó %d veces al registro directo CT172", durable.directas)
 	}
 }

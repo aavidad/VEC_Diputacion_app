@@ -55,12 +55,12 @@ func TestPreparacionConservaServiciosSinSumarNiCambiarEstados(t *testing.T) {
 		t.Fatal("source changed")
 	}
 	for i, g := range x.Borrador.Grupos {
-		if len(g.Servicios) != 1 || g.Servicios[0] != f.Servicios[i] || g.Estado != f.Servicios[i].Estado {
+		if len(g.Servicios) != 1 || !reflect.DeepEqual(g.Servicios[0], f.Servicios[i]) || g.Estado != f.Servicios[i].Estado {
 			t.Fatal("state changed")
 		}
 	}
-	f.Servicios[0].Dias = 999
-	if x.Borrador.Fuente.Servicios[0].Dias == 999 {
+	*f.Servicios[0].Dias = 999
+	if *x.Borrador.Fuente.Servicios[0].Dias == 999 || *x.Borrador.Grupos[0].Servicios[0].Dias == 999 {
 		t.Fatal("mutable alias")
 	}
 }

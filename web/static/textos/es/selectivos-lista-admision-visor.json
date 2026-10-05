@@ -1,0 +1,124 @@
+{
+  "titulo": "Listas de admitidos y excluidos",
+  "contexto": "Procesos selectivos · Admisión",
+  "portal": "Portal RRHH",
+  "organizacion": "Diputación de Granada",
+  "saltar": "Saltar al contenido",
+  "navegacion": "Listas de admitidos y excluidos",
+  "idioma": "Idioma",
+  "ayuda_signo": "?",
+  "ayuda": "Ayuda de esta pantalla",
+  "ayuda_pasos": {
+    "1": "Prepare la lista provisional o la definitiva con el preparador de admisión y ábrala en «Abrir lista preparada».",
+    "2": "En la provisional, cada excluida muestra sus motivos y si puede subsanar. Si un motivo no se puede subsanar, la persona sigue excluida aunque corrija los demás.",
+    "3": "En la definitiva, cada admitida indica si ya lo estaba o si entró tras subsanar o reclamar, y cada excluida muestra los motivos que siguen y qué se resolvió.",
+    "4": "La lista es un borrador: no está aprobada ni publicada, y no muestra nombres hasta su publicación. El archivo solo se abre en este equipo y se retira al cerrarlo o al salir."
+  },
+  "abrir": "Abrir lista preparada",
+  "archivo": "Archivo de la lista · Obligatorio",
+  "archivo_pista": "Archivo .json que genera la preparación de admisión. Hasta 8 MB.",
+  "vacio": "Abra una lista para revisarla.",
+  "cargando": "Leyendo el archivo…",
+  "cargado": "Lista abierta.",
+  "descargar": "Descargar archivo abierto",
+  "cerrar": "Cerrar archivo",
+  "descarga_lista": "Descarga preparada con el archivo original.",
+  "nombre_descarga": "lista-admision-original.json",
+  "error_tamano": "No se puede abrir el archivo: está vacío o pasa de 8 MB. Elija el archivo que genera la preparación de admisión.",
+  "error_formato": "No se puede abrir el archivo: no es una lista del preparador de admisión. Genérela de nuevo y selecciónela.",
+  "error_catalogo": "No se han podido cargar los textos. Recargue la pantalla antes de abrir un archivo.",
+  "resumen": "Resumen de la lista",
+  "kpi": {
+    "solicitudes": "Solicitudes",
+    "admitidas": "Admitidas",
+    "excluidas": "Excluidas",
+    "subsanables": "Pueden subsanar",
+    "tras_escrito": "De ellas, tras subsanar o reclamar"
+  },
+  "estado_borrador": "Borrador · Pendiente de aprobación",
+  "catalogo_ejemplo": "Motivos y plazo de ejemplo",
+  "plazo": "Plazo de subsanación",
+  "plazo_duracion": "Duración",
+  "unidades": {
+    "dias_habiles": {
+      "one": "{cuenta} día hábil",
+      "other": "{cuenta} días hábiles"
+    },
+    "dias_naturales": {
+      "one": "{cuenta} día natural",
+      "other": "{cuenta} días naturales"
+    },
+    "meses": {
+      "one": "{cuenta} mes",
+      "other": "{cuenta} meses"
+    },
+    "anios": {
+      "one": "{cuenta} año",
+      "other": "{cuenta} años"
+    }
+  },
+  "plazo_inicio": "Empieza",
+  "plazo_inicio_valor": "El día siguiente a la publicación",
+  "plazo_ultimo_dia": "Último día",
+  "plazo_ultimo_dia_valor": "Se calcula al publicar",
+  "excluidas": "Excluidas",
+  "admitidas": "Admitidas",
+  "recuento": {
+    "one": "{cuenta} solicitud",
+    "other": "{cuenta} solicitudes"
+  },
+  "sin_excluidas": "No hay solicitudes excluidas.",
+  "sin_admitidas": "No hay solicitudes admitidas.",
+  "solicitud": "Nº de solicitud",
+  "motivos": "Motivos de exclusión",
+  "subsanacion": "Subsanación",
+  "motivo_sin_texto": "Motivo «{codigo}» sin texto en este idioma",
+  "puede_subsanar": "Puede subsanar",
+  "no_puede_subsanar": "No puede subsanar",
+  "que_falta": "Qué falta para publicar",
+  "pendientes": {
+    "aprobacion_competente": "Aprobación de la lista por el órgano competente.",
+    "identidad_publicacion": "Nombre, apellidos y documento enmascarado de cada persona, y orden por apellidos.",
+    "vencimiento_al_publicar": "Cálculo del último día para subsanar, desde el día siguiente a la publicación.",
+    "publicacion_oficial": "Publicación en el boletín y en la sede que fijen las bases.",
+    "catalogo_ejemplo": "Sustituir los motivos y el plazo de ejemplo por los que confirme RRHH."
+  },
+  "detalle_archivo": "Datos del archivo",
+  "ver_detalle": "Ver detalle técnico",
+  "lista_ref": "Referencia de la lista",
+  "revision": "Revisión",
+  "catalogo_ref": "Catálogo de motivos",
+  "catalogo_version": "Versión del catálogo",
+  "bases_ref": "Bases",
+  "bases_version": "Versión de las bases",
+  "huella_bases": "Huella de las bases",
+  "motivo_no_subsanable": "{motivo} (no subsanable)",
+  "tipo_provisional": "Lista provisional",
+  "tipo_definitiva": "Lista definitiva",
+  "motivos_persistentes": "Motivos que siguen",
+  "resolucion": "Resolución",
+  "resoluciones": {
+    "no_presentada": "No presentó subsanación ni reclamación",
+    "desestimada_subsanacion": "Subsanación desestimada",
+    "desestimada_reclamacion": "Reclamación desestimada"
+  },
+  "origen": "Cómo se admitió",
+  "origenes": {
+    "provisional": "Ya en la provisional",
+    "subsanacion": "Tras subsanar",
+    "reclamacion": "Tras reclamar"
+  },
+  "pendientes_definitiva": {
+    "aprobacion_competente": "Aprobación de la lista definitiva por el órgano competente.",
+    "pie_recursos": "Indicar en la resolución los recursos que caben, ante quién y en qué plazo.",
+    "ultima_revision": "Comprobar que la provisional de la que parte es la última revisión publicada.",
+    "registro_escritos": "Comprobar que cada subsanación o reclamación consta en el registro dentro de plazo.",
+    "identidad_publicacion": "Nombre, apellidos y documento enmascarado de cada persona, y orden por apellidos.",
+    "publicacion_oficial": "Publicación en el boletín y en la sede que fijen las bases.",
+    "catalogo_ejemplo": "Sustituir los motivos de ejemplo por los que confirme RRHH."
+  },
+  "provisional_ref": "Lista provisional de la que parte",
+  "provisional_revision": "Revisión de la provisional",
+  "huella_provisional": "Huella de la provisional",
+  "catalogo_ejemplo_definitiva": "Motivos de ejemplo"
+}

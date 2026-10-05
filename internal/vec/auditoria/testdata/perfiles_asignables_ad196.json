@@ -1,0 +1,109 @@
+{
+    "esquema": "vec.auditoria.verificacion.perfiles-asignables-admin.v1",
+    "registros": [
+        {
+            "tipo_registro": "perfiles_asignables_admin",
+            "perfiles_asignables": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "registrar_perfiles_asignables_admin_v1",
+                "proceso": "postgresql",
+                "modulo_id": "administracion",
+                "resultado": "permitido",
+                "secuencia": 6256,
+                "evento_ref": "evento_624ebd54648794ce642cf5ac0ae7538c",
+                "motivo_ref": "perfiles_asignables_registrado",
+                "plan_sha256": "624ebd54648794ce642cf5ac0ae7538cd5f9677d277f4e9a91abe20131a340f6",
+                "recurso_ref": "perfiles_asignables:624ebd54648794ce642cf5ac0ae7538c",
+                "auditoria_ref": "aud_v3_pa_624ebd54648794ce642cf5ac0ae7538c",
+                "finalidad_ref": "perfiles_asignables_admin",
+                "huella_sha256": "f5d5e4e7b1d3136c814f701ffe2232760a0351a2b9173bebc1df704865969521",
+                "operacion_ref": "rpa_ensayo_clon_20261005_0001",
+                "registrada_en": "2026-10-05T12:36:55.849848Z",
+                "operador_login": "vec_ensayo_pa_20261005",
+                "anterior_sha256": "e42b3ce80d7f912fe4dd6a7d765c858456efd934f3e865d50862d52ee3f0c32f",
+                "correlacion_ref": "correlacion_d5f9677d277f4e9a91abe20131a340f6",
+                "perfiles_numero": "3",
+                "perfiles_sha256": "f55aec023c647252376b452121598493fb272671c9d8bbaeea9106d825f1943c",
+                "aprobacion_sha256": "c6a533689b612b9a4fb9e6e12088dc3d826ef3dbda66c55035ccafb85fe0f4cf",
+                "evento_material_sha256": "26e986c5435943d75edc9fcc0de1e245b4be66ae702f575eb33f9d90fe74abcc"
+            }
+        },
+        {
+            "tipo_registro": "intento_perfiles_asignables_admin",
+            "intento_perfiles_asignables": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "registrar_perfiles_asignables_admin_v1",
+                "proceso": "postgresql",
+                "modulo_id": "administracion",
+                "resultado": "permitido",
+                "secuencia": 6257,
+                "evento_ref": "evento_26f715ac2def44e59c18798b6abf9036",
+                "motivo_ref": "perfiles_asignables_registrado",
+                "recurso_ref": "solicitud_perfiles_asignables:ff0dacc4946e4f99a825af017ec53fcd",
+                "auditoria_ref": "aud_v3_pai_26f715ac2def44e59c18798b6abf9036",
+                "finalidad_ref": "perfiles_asignables_admin",
+                "huella_sha256": "6d3a258cd1cd607be3d95e542277d9b971915e32e43e23f2477c28a4ebb92fe4",
+                "registrada_en": "2026-10-05T12:36:55.853861Z",
+                "operador_login": "vec_ensayo_pa_20261005",
+                "anterior_sha256": "f5d5e4e7b1d3136c814f701ffe2232760a0351a2b9173bebc1df704865969521",
+                "correlacion_ref": "correlacion_889cc5ca1ac84c7faf3bedb3d1ed2cc0",
+                "solicitud_sha256": "0fdf2aceed1ecf4118611f68aa759903f18bdab308c32069c538705bb6177203",
+                "evento_material_sha256": "339e319fbc595502f79eab46cdf11c1a856f9c9449b191bfbe447aeb3f68083a"
+            }
+        },
+        {
+            "tipo_registro": "intento_perfiles_asignables_admin",
+            "intento_perfiles_asignables": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "registrar_perfiles_asignables_admin_v1",
+                "proceso": "postgresql",
+                "modulo_id": "administracion",
+                "resultado": "permitido",
+                "secuencia": 6258,
+                "evento_ref": "evento_fb162e1a55904dc38df2b10976ec1ed6",
+                "motivo_ref": "perfiles_asignables_replay",
+                "recurso_ref": "solicitud_perfiles_asignables:5721bd91362f461e979f4c72161c9eb5",
+                "auditoria_ref": "aud_v3_pai_fb162e1a55904dc38df2b10976ec1ed6",
+                "finalidad_ref": "perfiles_asignables_admin",
+                "huella_sha256": "fbd0a0716cf6f5111b3052c29118c1714579da728ce11548766fa22774ae5b3d",
+                "registrada_en": "2026-10-05T12:36:58.219160Z",
+                "operador_login": "vec_ensayo_pa_20261005",
+                "anterior_sha256": "6d3a258cd1cd607be3d95e542277d9b971915e32e43e23f2477c28a4ebb92fe4",
+                "correlacion_ref": "correlacion_335e28c989d046f3bd63abaa56e15af0",
+                "solicitud_sha256": "0fdf2aceed1ecf4118611f68aa759903f18bdab308c32069c538705bb6177203",
+                "evento_material_sha256": "99ef81308ae683c11c0ad6639a8a7dbc7ee89b4578f707e73348a6b703eb0156"
+            }
+        },
+        {
+            "tipo_registro": "intento_perfiles_asignables_admin",
+            "intento_perfiles_asignables": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "registrar_perfiles_asignables_admin_v1",
+                "proceso": "postgresql",
+                "modulo_id": "administracion",
+                "resultado": "denegado",
+                "secuencia": 6259,
+                "evento_ref": "evento_29da21601bda45f89b4510d751544c9a",
+                "motivo_ref": "perfiles_asignables_denegado",
+                "recurso_ref": "solicitud_perfiles_asignables:fd34cc1c9c9f45bca0a22c8016ca1613",
+                "auditoria_ref": "aud_v3_pai_29da21601bda45f89b4510d751544c9a",
+                "finalidad_ref": "perfiles_asignables_admin",
+                "huella_sha256": "304f46878898f8d65fa305da7229ecfd51a266e4bad8c230b1705b02eada2214",
+                "registrada_en": "2026-10-05T12:36:58.308316Z",
+                "operador_login": "vec_ensayo_pa_20261005",
+                "anterior_sha256": "fbd0a0716cf6f5111b3052c29118c1714579da728ce11548766fa22774ae5b3d",
+                "correlacion_ref": "correlacion_440843cd841e4d15a3a65b86d29c0387",
+                "solicitud_sha256": "65607ec0f0a2ad5b21c3a0dd1529ee75325caf6962c55729c3154a7da8c46a22",
+                "evento_material_sha256": "f4ab45a3eba74a33ea4cff8c6c3fbd075c75c1ef3e29dc9195d18e1c935111a5"
+            }
+        }
+    ],
+    "manifiesto": {
+        "cadena_id": "cadena:comun:interna",
+        "registros": 4,
+        "cabeza_sha256": "304f46878898f8d65fa305da7229ecfd51a266e4bad8c230b1705b02eada2214",
+        "anterior_sha256": "e42b3ce80d7f912fe4dd6a7d765c858456efd934f3e865d50862d52ee3f0c32f",
+        "ultima_secuencia": 6259,
+        "primera_secuencia": 6256
+    }
+}

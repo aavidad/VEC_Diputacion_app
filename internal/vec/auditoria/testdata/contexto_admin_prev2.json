@@ -1,0 +1,94 @@
+{
+  "esquema": "vec.auditoria.verificacion.contexto-admin-pre-v2.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:comun:interna",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 3,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "de15bca3884c62a1eabecc1af014224caec6e2ab434a600bcd0c9b5acf7fedde",
+    "registros": 3
+  },
+  "registros": [
+    {
+      "tipo_registro": "contexto_admin_pre_v2",
+      "contexto_admin_pre_v2": {
+        "tipo_registro": "contexto_admin_pre_v2",
+        "evento_ref": "evento_00000000000000000000000000000001",
+        "operador_login": "login_cuentas_admin_ensayo",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbbbb",
+        "accion": "resolver_cuenta_admin",
+        "recurso_ref": "solicitud_admin:dddddddddddddddddddddddddddddddd",
+        "resultado": "permitido",
+        "motivo_ref": "contexto_admin_pre_v2_permitido",
+        "proceso": "vec_admin",
+        "canal": "administracion_privilegiada",
+        "finalidad_ref": "establecer_contexto_admin",
+        "correlacion_ref": "correlacion_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "fuente_ref": "fuente_admin:cccccccccccccccccccccccccccccccc",
+        "fuente_sha256": "4329faa6f84f76e36fc826eeffea939c08eb1626446d03ed53638c4367c3559a",
+        "auditoria_ref": "aud_v3_ap2_00000000000000000000000000000001",
+        "secuencia": 1,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "registrada_en": "2026-10-04T14:00:00.000001Z",
+        "modulo_id": "administracion",
+        "evento_material_sha256": "43c4ec239335842f6e809982b36bd4c697f3d95137d33bc552a964c8e5bec3ea",
+        "huella_sha256": "a743222412d0d9a70e534bb552f7204b36a3a9f92fefb39ea867818c70572e16"
+      }
+    },
+    {
+      "tipo_registro": "contexto_admin_pre_v2",
+      "contexto_admin_pre_v2": {
+        "tipo_registro": "contexto_admin_pre_v2",
+        "evento_ref": "evento_00000000000000000000000000000002",
+        "operador_login": "login_cuentas_admin_ensayo",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": null,
+        "accion": "resolver_cuenta_admin",
+        "recurso_ref": "solicitud_admin:dddddddddddddddddddddddddddddddd",
+        "resultado": "denegado",
+        "motivo_ref": "contexto_admin_pre_v2_denegado",
+        "proceso": "vec_admin",
+        "canal": "administracion_privilegiada",
+        "finalidad_ref": "establecer_contexto_admin",
+        "correlacion_ref": "correlacion_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "fuente_ref": "fuente_admin:cccccccccccccccccccccccccccccccc",
+        "fuente_sha256": "4329faa6f84f76e36fc826eeffea939c08eb1626446d03ed53638c4367c3559a",
+        "auditoria_ref": "aud_v3_ap2_00000000000000000000000000000002",
+        "secuencia": 2,
+        "anterior_sha256": "a743222412d0d9a70e534bb552f7204b36a3a9f92fefb39ea867818c70572e16",
+        "registrada_en": "2026-10-04T14:00:00.000001Z",
+        "modulo_id": "administracion",
+        "evento_material_sha256": "cc30b9b0b44a7a3ec12cda84544bbcd8e84768e6cf51ad4919314709ab536bc8",
+        "huella_sha256": "b746892857fce0f899ee8a3585736716a773c63c59820baa5a5e54897c227d2b"
+      }
+    },
+    {
+      "tipo_registro": "contexto_admin_pre_v2",
+      "contexto_admin_pre_v2": {
+        "tipo_registro": "contexto_admin_pre_v2",
+        "evento_ref": "evento_00000000000000000000000000000003",
+        "operador_login": "login_cuentas_admin_ensayo",
+        "actor_ref": null,
+        "perfil_activo_ref": null,
+        "accion": "resolver_cuenta_admin",
+        "recurso_ref": "solicitud_admin:dddddddddddddddddddddddddddddddd",
+        "resultado": "error",
+        "motivo_ref": "contexto_admin_pre_v2_error",
+        "proceso": "vec_admin",
+        "canal": "administracion_privilegiada",
+        "finalidad_ref": "establecer_contexto_admin",
+        "correlacion_ref": "correlacion_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "fuente_ref": null,
+        "fuente_sha256": null,
+        "auditoria_ref": "aud_v3_ap2_00000000000000000000000000000003",
+        "secuencia": 3,
+        "anterior_sha256": "b746892857fce0f899ee8a3585736716a773c63c59820baa5a5e54897c227d2b",
+        "registrada_en": "2026-10-04T14:00:00.000001Z",
+        "modulo_id": "administracion",
+        "evento_material_sha256": "6d1abf124faf169b066dba70ef58b5e484b1f967689cdfd12967923ad3d7dcd5",
+        "huella_sha256": "de15bca3884c62a1eabecc1af014224caec6e2ab434a600bcd0c9b5acf7fedde"
+      }
+    }
+  ]
+}

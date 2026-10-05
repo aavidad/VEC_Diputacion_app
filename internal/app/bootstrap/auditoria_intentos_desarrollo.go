@@ -30,11 +30,15 @@ type configuracionAuditoriaIntentosDesarrollo struct {
 }
 
 func leerConfiguracionAuditoriaIntentosDesarrollo(cfg config.Config) (configuracionAuditoriaIntentosDesarrollo, error) {
+	return leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg, "auditoria-intentos.json", string(core.SuperficieAutenticacionInternaCorporativaV1))
+}
+
+func leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg config.Config, nombre, canal string) (configuracionAuditoriaIntentosDesarrollo, error) {
 	var c configuracionAuditoriaIntentosDesarrollo
 	if !filepath.IsAbs(cfg.DevelopmentMaterialDir) || dentroDeRepositorioGit(cfg.DevelopmentMaterialDir) || validarArbolMaterialDesarrollo(cfg.DevelopmentMaterialDir) != nil {
 		return c, errAuditoriaIntentosDesarrollo
 	}
-	b, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "auditoria-intentos.json"), 16<<10)
+	b, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, nombre), 16<<10)
 	if err != nil {
 		return c, errAuditoriaIntentosDesarrollo
 	}
@@ -43,7 +47,7 @@ func leerConfiguracionAuditoriaIntentosDesarrollo(cfg config.Config) (configurac
 	d.DisallowUnknownFields()
 	if validarClavesJSONUnicas(b) != nil || d.Decode(&c) != nil || d.Decode(new(any)) != io.EOF ||
 		c.Esquema != "vec.auditoria.intentos.servidor.v1" || !filepath.IsLocal(c.DSNFile) ||
-		c.Canal != string(core.SuperficieAutenticacionInternaCorporativaV1) || c.LimiteSegundos < 1 || c.LimiteSegundos > 30 {
+		c.Canal != canal || c.LimiteSegundos < 1 || c.LimiteSegundos > 30 {
 		return configuracionAuditoriaIntentosDesarrollo{}, errAuditoriaIntentosDesarrollo
 	}
 	if !procesoAuditoriaIntentosConfigurado(c.Proceso) {
@@ -75,6 +79,24 @@ func AbrirRegistradorIntentosAuditoriaDesarrollo(ctx context.Context, cfg config
 	if err != nil {
 		return nil, "", nil, err
 	}
+	return abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx, cfg, referencia, reservados, c)
+}
+
+// AbrirRegistradorIntentosAuditoriaExternaDesarrollo usa un archivo y LOGIN
+// dedicados al canal personal externo. No reutiliza la cuenta ni configuración
+// del canal corporativo; la base coteja su proceso/canal en el mismo preflight.
+func AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctx context.Context, cfg config.Config, referencia *pgxpool.Pool, reservados []string) (vecports.RegistradorIntentosAuditoria, string, func(), error) {
+	if ctx == nil || ctx.Err() != nil || referencia == nil {
+		return nil, "", nil, errAuditoriaIntentosDesarrollo
+	}
+	c, err := leerConfiguracionAuditoriaIntentosParaCanalDesarrollo(cfg, "auditoria-intentos-externa.json", string(core.SuperficieAutenticacionExternaPersonalV1))
+	if err != nil {
+		return nil, "", nil, err
+	}
+	return abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx, cfg, referencia, reservados, c)
+}
+
+func abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx context.Context, cfg config.Config, referencia *pgxpool.Pool, reservados []string, c configuracionAuditoriaIntentosDesarrollo) (vecports.RegistradorIntentosAuditoria, string, func(), error) {
 	raiz, err := os.OpenRoot(cfg.DevelopmentMaterialDir)
 	if err != nil {
 		return nil, "", nil, errAuditoriaIntentosDesarrollo

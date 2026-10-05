@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000192_contexto_admin_pre_v2.up.sql
