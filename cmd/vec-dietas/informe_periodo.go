@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"regexp"
 	"unicode/utf8"
 
 	csvinforme "vec-diputacion-granada/internal/modules/dietas/adapters/informeperiodo"
@@ -69,10 +70,13 @@ func ejecutarInformePeriodoCSV(args []string, in io.Reader, out io.Writer) int {
 	return 0
 }
 
-// decodificarEstricto exige UTF-8, un único valor JSON y ningún campo desconocido.
+// decodificarEstricto exige UTF-8, claves en minúscula sin repetir, un único valor JSON y ningún campo desconocido.
 func decodificarEstricto(r io.Reader, destino any) error {
 	b, err := io.ReadAll(r)
 	if err != nil || len(b) > limiteEntrada || !utf8.Valid(b) {
+		return errJSON
+	}
+	if clavesExactas(b) != nil {
 		return errJSON
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
@@ -81,4 +85,55 @@ func decodificarEstricto(r io.Reader, destino any) error {
 		return errJSON
 	}
 	return nil
+}
+
+var patronClaveJSON = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// clavesExactas impide que encoding/json case una clave con otra en distinta
+// capitalización o se quede con la última de dos repetidas: todos los
+// esquemas de este informe usan claves en minúscula.
+func clavesExactas(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	type nivel struct {
+		objeto bool
+		clave  bool
+		vistas map[string]struct{}
+	}
+	var pila []*nivel
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil || len(pila) > 32 {
+			return errJSON
+		}
+		var actual *nivel
+		if len(pila) > 0 {
+			actual = pila[len(pila)-1]
+		}
+		if d, ok := tok.(json.Delim); ok && (d == '}' || d == ']') {
+			pila = pila[:len(pila)-1]
+			if len(pila) > 0 && pila[len(pila)-1].objeto {
+				pila[len(pila)-1].clave = true
+			}
+			continue
+		}
+		if actual != nil && actual.objeto && actual.clave {
+			clave, _ := tok.(string)
+			if _, repetida := actual.vistas[clave]; repetida || !patronClaveJSON.MatchString(clave) {
+				return errJSON
+			}
+			actual.vistas[clave] = struct{}{}
+			actual.clave = false
+			continue
+		}
+		if d, ok := tok.(json.Delim); ok {
+			pila = append(pila, &nivel{objeto: d == '{', clave: d == '{', vistas: map[string]struct{}{}})
+			continue
+		}
+		if actual != nil && actual.objeto {
+			actual.clave = true
+		}
+	}
 }

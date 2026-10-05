@@ -56,3 +56,24 @@ func TestInformePeriodoCSVFallaSinEscribirCSV(t *testing.T) {
 		}
 	}
 }
+
+func TestInformePeriodoCSVRechazaClavesConOtraCapitalizacionORepetidas(t *testing.T) {
+	datos, err := os.ReadFile(csvDatos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, alterado := range map[string]string{
+		"mayusculas": strings.Replace(string(datos), `"persona_ref"`, `"PERSONA_REF"`, 1),
+		"repetida":   strings.Replace(string(datos), `"persona": "Ana Molina"`, `"persona": "Ana Molina", "persona": "Otra"`, 1),
+	} {
+		if alterado == string(datos) {
+			t.Fatalf("%s: la alteración no se aplicó", nombre)
+		}
+		var out bytes.Buffer
+		codigo := ejecutarConArgumentos([]string{"--informe-periodo-csv", "--textos", csvTextosES, "--configuracion", csvConfig},
+			strings.NewReader(alterado), &out)
+		if codigo != 2 || strings.Contains(out.String(), "DI-0") {
+			t.Fatalf("%s: %d %q", nombre, codigo, out.String())
+		}
+	}
+}

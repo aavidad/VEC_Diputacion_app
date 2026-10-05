@@ -82,14 +82,14 @@ type Datos struct {
 	Registros            []Registro `json:"registros"`
 }
 
-// FechaOpcional distingue una fecha ausente del JSON de una fecha nula.
-type FechaOpcional struct {
+// TextoOpcional distingue un campo ausente del JSON de un campo nulo.
+type TextoOpcional struct {
 	Presente bool
 	Valor    *string
 }
 
 // UnmarshalJSON marca el campo como presente también cuando vale null.
-func (f *FechaOpcional) UnmarshalJSON(b []byte) error {
+func (f *TextoOpcional) UnmarshalJSON(b []byte) error {
 	f.Presente = true
 	if string(b) == "null" {
 		f.Valor = nil
@@ -113,9 +113,9 @@ type Registro struct {
 	UnidadRef          string           `json:"unidad_ref"`
 	Unidad             string           `json:"unidad"`
 	FechaInicio        string           `json:"fecha_inicio"`
-	FechaLiquidacion   FechaOpcional    `json:"fecha_liquidacion"`
-	FechaFiscalizacion FechaOpcional    `json:"fecha_fiscalizacion"`
-	Moneda             *string          `json:"moneda,omitempty"`
+	FechaLiquidacion   TextoOpcional    `json:"fecha_liquidacion"`
+	FechaFiscalizacion TextoOpcional    `json:"fecha_fiscalizacion"`
+	Moneda             TextoOpcional    `json:"moneda"`
 	TotalCentimos      int64            `json:"total_centimos"`
 	ConceptosCentimos  map[string]int64 `json:"conceptos_centimos"`
 }
@@ -224,7 +224,7 @@ func validarDatos(d Datos, cr Criterio) error {
 		if !texto(r.Referencia) || !texto(r.PersonaRef) || !texto(r.Persona) || !texto(r.UnidadRef) ||
 			!texto(r.Unidad) || !fechaValida(r.FechaInicio) || !opcionalValida(r.FechaLiquidacion) ||
 			!opcionalValida(r.FechaFiscalizacion) || r.VersionComision < 1 || !patronClave.MatchString(r.Situacion) ||
-			(r.Moneda != nil && *r.Moneda != d.Moneda) {
+			(r.Moneda.Presente && (r.Moneda.Valor == nil || *r.Moneda.Valor != d.Moneda)) {
 			return ErrDatosInvalidos
 		}
 		if contiene(cr.EstadosIncluidos, r.Situacion) {
@@ -306,7 +306,7 @@ func fechaDia(s string) (time.Time, bool) {
 
 func fechaValida(s string) bool { _, ok := fechaDia(s); return ok }
 
-func opcionalValida(f FechaOpcional) bool {
+func opcionalValida(f TextoOpcional) bool {
 	return f.Presente && (f.Valor == nil || fechaValida(*f.Valor))
 }
 

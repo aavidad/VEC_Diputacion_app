@@ -52,11 +52,11 @@ go run -p 2 ./cmd/vec-dietas --informe-periodo-csv \
 ```
 
 Los filtros `--persona`, `--unidad`, `--situacion`, `--desde` y `--hasta`
-son los de la vista y se pueden omitir. La selección se hace en el servidor
-(`internal/modules/dietas/application/informeperiodo`) con las mismas
-comprobaciones que la vista: la configuración de ejemplo debe coincidir en
-referencia y versión, y la suma de los conceptos debe dar el total de cada
-comisión. El caso de la vista con fecha de liquidación, solo liquidado y
+son los de la vista y se pueden omitir. La selección se hace en el código Go
+del módulo (`internal/modules/dietas/application/informeperiodo`) con las
+mismas comprobaciones que la vista, más límites de tamaño y un esquema cerrado:
+la configuración de ejemplo debe coincidir en referencia y versión, y la suma
+de los conceptos debe dar el total de cada comisión. El caso de la vista con fecha de liquidación, solo liquidado y
 manutención entre el 5 y el 20 de septiembre da los mismos dos registros y
 42,50 euros.
 
@@ -65,7 +65,9 @@ elige la configuración, un importe por concepto incluido y el importe incluido.
 Los importes van en céntimos enteros, así la hoja no depende del separador
 decimal. No salen las referencias internas de persona ni de unidad. Los textos
 que una hoja interpretaría como fórmula llevan un apóstrofo delante. Para
-inglés se usa el catálogo de `textos/en/`.
+inglés se usa el catálogo de `textos/en/`. Si algo falla, la orden termina
+con código 2 y el fichero solo contiene un código de error en JSON; conviene
+mirar el código de salida antes de abrir el `.csv`.
 
 Es una muestra local con datos sintéticos. El botón Exportar de la vista sigue
 desactivado y la exportación nominal, con permiso propio y auditoría, sigue

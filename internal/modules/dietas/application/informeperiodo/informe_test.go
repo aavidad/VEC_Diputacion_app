@@ -108,7 +108,7 @@ func TestRechazaDatosIncoherentes(t *testing.T) {
 		"no sintetico":        func(_ *Configuracion, d *Datos) { d.Naturaleza = "real" },
 		"total alterado":      func(_ *Configuracion, d *Datos) { d.Registros[0].TotalCentimos++ },
 		"referencia repetida": func(_ *Configuracion, d *Datos) { d.Registros[1].Referencia = d.Registros[0].Referencia },
-		"fecha ausente":       func(_ *Configuracion, d *Datos) { d.Registros[0].FechaLiquidacion = FechaOpcional{} },
+		"fecha ausente":       func(_ *Configuracion, d *Datos) { d.Registros[0].FechaLiquidacion = TextoOpcional{} },
 		"concepto ausente":    func(_ *Configuracion, d *Datos) { delete(d.Registros[0].ConceptosCentimos, "kilometraje") },
 		"importe negativo": func(_ *Configuracion, d *Datos) {
 			d.Registros[0].ConceptosCentimos["otros_gastos"] = -1
@@ -116,6 +116,7 @@ func TestRechazaDatosIncoherentes(t *testing.T) {
 		},
 		"fecha del periodo nula": func(c *Configuracion, _ *Datos) { c.Criterio.CampoFecha = "fecha_liquidacion" },
 		"actor no de ejemplo":    func(c *Configuracion, _ *Datos) { c.Historia[0].ActorRef = "actor:real:1" },
+		"moneda nula":            func(_ *Configuracion, d *Datos) { d.Registros[0].Moneda = TextoOpcional{Presente: true} },
 		"moneda sin centimos":    func(_ *Configuracion, d *Datos) { d.Moneda = "JPY" },
 		"campo de fecha libre":   func(c *Configuracion, _ *Datos) { c.Criterio.CampoFecha = "fecha_pago" },
 	}
