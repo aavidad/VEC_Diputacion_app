@@ -95,7 +95,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-api.js", versionTemas],
     ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
-    ["portal-panel-interno.js", "20261002-r-rrhh18-v4"],
+    ["portal-panel-interno.js", "20261005-bolsa-usabilidad-v1"],
     ["portal-bolsas-api.js", "20261002-r-rrhh18-v3"],
     ["portal-bolsas-contrato.js", "20261002-r-rrhh18-v3"],
     ["portal-llamamientos-operaciones-api.js", "20261002-r-rrhh18-v3"],
