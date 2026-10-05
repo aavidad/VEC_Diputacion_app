@@ -17,27 +17,48 @@ import (
 // solicitudes de domain.MaximoSolicitudesLista con material de tamaño normal.
 const maximoEntradaLista = 16 * 1024 * 1024
 
-// ejecutarListaProvisional compone el borrador con el catálogo configurado en
+// ejecutarLista atiende las salidas de listas con el catálogo configurado en
 // fichero. Sin catálogo válido no se produce ninguna salida.
-func ejecutarListaProvisional(ctx context.Context, dir, nombre string, entrada io.Reader, salida, errores io.Writer, catalogo *i18n.Catalog, idioma string) int {
+//   - lista-provisional: borrador de la provisional.
+//   - antecedente-lista: huella de esa provisional, para citarla en la definitiva.
+//   - lista-definitiva: borrador de la definitiva desde la provisional y las resoluciones.
+func ejecutarLista(ctx context.Context, formato, dir, nombre string, entrada io.Reader, salida, errores io.Writer, catalogo *i18n.Catalog, idioma string) int {
+	invalida := domain.ErrListaAdmision.Error()
+	if formato == "lista-definitiva" {
+		invalida = domain.ErrListaDefinitiva.Error()
+	}
 	catalogos, err := catalogoadmision.Cargar(dir, nombre)
 	if err != nil {
 		return informarError(errores, catalogo, idioma, application.ErrCatalogoAdmisionNoDisponible.Error())
 	}
-	var material ports.MaterialListaAdmision
-	if leerJSONHasta(entrada, &material, maximoEntradaLista) != nil {
-		return informarError(errores, catalogo, idioma, domain.ErrListaAdmision.Error())
+	var resultado any
+	switch formato {
+	case "lista-definitiva":
+		var material ports.MaterialListaDefinitiva
+		if leerJSONHasta(entrada, &material, maximoEntradaLista) != nil {
+			return informarError(errores, catalogo, idioma, invalida)
+		}
+		resultado, err = application.PrepararListaAdmisionDefinitiva(ctx, material, catalogos)
+	default:
+		var material ports.MaterialListaAdmision
+		if leerJSONHasta(entrada, &material, maximoEntradaLista) != nil {
+			return informarError(errores, catalogo, idioma, invalida)
+		}
+		if formato == "antecedente-lista" {
+			resultado, err = application.IdentificarListaProvisional(ctx, material, catalogos)
+		} else {
+			resultado, err = application.PrepararListaAdmisionProvisional(ctx, material, catalogos)
+		}
 	}
-	lista, err := application.PrepararListaAdmisionProvisional(ctx, material, catalogos)
 	if errors.Is(err, application.ErrCatalogoAdmisionNoDisponible) {
 		return informarError(errores, catalogo, idioma, application.ErrCatalogoAdmisionNoDisponible.Error())
 	}
 	if err != nil {
-		return informarError(errores, catalogo, idioma, domain.ErrListaAdmision.Error())
+		return informarError(errores, catalogo, idioma, invalida)
 	}
 	enc := json.NewEncoder(salida)
 	enc.SetIndent("", "  ")
-	if enc.Encode(lista) != nil {
+	if enc.Encode(resultado) != nil {
 		return informarError(errores, catalogo, idioma, "seleccion.admision.salida_no_disponible")
 	}
 	return 0

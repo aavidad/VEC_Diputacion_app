@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare una revisión de requisitos o el borrador de la lista provisional desde JSON sintético. Use --salida preparacion, antecedente, aportacion o lista-provisional. Elija --idioma y --catalogos-dir; para la lista, --catalogo-admision-dir y --catalogo-admision. Lea el material por la entrada estándar. Preparar una aportación no presenta ni resuelve una subsanación, y el borrador de lista no está aprobado ni publicado.",
+  "ayuda": "Prepare una revisión de requisitos o los borradores de las listas desde JSON sintético. Use --salida preparacion, antecedente, aportacion, lista-provisional, antecedente-lista o lista-definitiva. Elija --idioma y --catalogos-dir; para las listas, --catalogo-admision-dir y --catalogo-admision. Lea el material por la entrada estándar. Preparar una aportación no presenta ni resuelve una subsanación, y los borradores de lista no están aprobados ni publicados.",
   "seleccion_admision_entrada_invalida": "No se pudo preparar la revisión. Compruebe el formato, las referencias y las versiones del material aportado.",
   "seleccion_admision_salida_no_disponible": "No se pudo escribir el resultado. Compruebe el destino y repita la preparación.",
   "seleccion_admision_causa_fuentes_no_verificadas": "La procedencia y la correspondencia del material siguen sin verificar.",
@@ -31,5 +31,10 @@
   "seleccion_lista_admision_pendiente_identidad_publicacion": "Al publicar, se añaden nombre, apellidos y documento enmascarado, y se ordena por apellidos.",
   "seleccion_lista_admision_pendiente_vencimiento_al_publicar": "El último día para subsanar se calcula con el calendario desde el día siguiente a la publicación.",
   "seleccion_lista_admision_pendiente_publicacion_oficial": "Publicar la lista en el boletín y en la sede que fijen las bases.",
-  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "Los motivos y el plazo son de ejemplo. Sustitúyalos por los que confirme RRHH."
+  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "Los motivos y el plazo son de ejemplo. Sustitúyalos por los que confirme RRHH.",
+  "seleccion_lista_definitiva_entrada_invalida": "No se pudo preparar la lista definitiva. Compruebe que la huella de la provisional coincide y que cada exclusión tiene una sola resolución coherente con sus motivos.",
+  "seleccion_lista_definitiva_pendiente_aprobacion_competente": "El órgano competente debe aprobar la lista definitiva antes de publicarla.",
+  "seleccion_lista_definitiva_pendiente_registro_escritos": "Comprobar que cada subsanación o reclamación consta en el registro dentro de plazo.",
+  "seleccion_lista_definitiva_pendiente_identidad_publicacion": "Al publicar, se añaden nombre, apellidos y documento enmascarado, y se ordena por apellidos.",
+  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publicar la lista definitiva en el boletín y en la sede que fijen las bases."
 }

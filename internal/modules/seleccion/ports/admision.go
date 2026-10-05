@@ -38,3 +38,14 @@ type MaterialListaAdmision struct {
 	RevisionesS4    []MaterialAdmisionPreparacion `json:"revisiones_s4"`
 	Decisiones      []domain.DecisionAdmision     `json:"decisiones"`
 }
+
+// MaterialListaDefinitiva parte del material exacto de la provisional, que se
+// recompone, y de una resolución por cada exclusión de esa provisional.
+type MaterialListaDefinitiva struct {
+	ListaRef     string                         `json:"lista_ref"`
+	Revision     int                            `json:"revision"`
+	Alcance      string                         `json:"alcance"`
+	Provisional  MaterialListaAdmision          `json:"provisional"`
+	Antecedente  domain.AntecedenteLista        `json:"antecedente_provisional"`
+	Resoluciones []domain.ResolucionSubsanacion `json:"resoluciones"`
+}

@@ -109,6 +109,47 @@ El resultado es un borrador `borrador_pendiente_aprobacion`, con `aprobada`,
 `7505719610fac014f11d36b14ffe975b35f1740c463d247c6bf0983925f7ba1b`. La
 entrada de esta salida admite hasta 16 MiB y 2.000 solicitudes.
 
+## Borrador de la lista definitiva
+
+La definitiva parte de una provisional concreta. Primero se obtiene su huella:
+
+```sh
+go run ./cmd/vec-selectivos-preparar-admision --salida antecedente-lista \
+  < cmd/vec-selectivos-preparar-admision/testdata/lista-material.json
+```
+
+Después, `--salida lista-definitiva` recibe el material completo de esa
+provisional, la huella anterior (`antecedente_provisional`) y una resolución
+por cada excluida:
+
+```sh
+go run ./cmd/vec-selectivos-preparar-admision --idioma es \
+  --salida lista-definitiva \
+  < cmd/vec-selectivos-preparar-admision/testdata/lista-definitiva-material.json
+```
+
+El CLI recompone la provisional con el mismo catálogo y rechaza el material si
+la huella no coincide. Cada excluida necesita una resolución, y solo una:
+
+- `estimada`, con `via` `subsanacion` o `reclamacion`: pasa a admitida y
+  `origen` guarda la vía. Por subsanación solo se estima una exclusión
+  subsanable; una reclamación puede corregir cualquier motivo, incluido un
+  error al preparar la provisional.
+- `desestimada`, con su vía y `motivos_persistentes`: sigue excluida con los
+  motivos que quedan sin resolver, que deben estar entre los de la provisional.
+  No se añaden motivos nuevos.
+- `no_presentada`, sin vía: sigue excluida con los mismos motivos.
+
+Quien estaba admitido en la provisional sigue admitido. Excluirlo exigiría
+darle audiencia, y eso no forma parte de este borrador. La salida queda en
+`borrador_pendiente_aprobacion`, sin datos personales, con `aprobada`,
+`publicada` y `persistida` en `false`. Queda pendiente comprobar en el
+registro que cada escrito llegó en plazo.
+
+`testdata/lista-definitiva-resultado.json` conserva la salida de ese comando.
+Su SHA256 es
+`8ad4b38d652225436b5e2c54efab7795a35b95f0edc00c823d520472393cde15`.
+
 ## Comprobación focal
 
 ```sh
