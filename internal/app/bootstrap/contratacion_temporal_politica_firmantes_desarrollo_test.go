@@ -45,9 +45,9 @@ func TestPoliticaFirmantesDesdeCircuitoVigente(t *testing.T) {
 			if err != nil || permitido != caso.permite {
 				t.Fatalf("la aplicación no resuelve la misma política: %v, %v", permitido, err)
 			}
-			otraVersion := strings.TrimSuffix(c.CatalogoRef, ":1") + ":2"
+			otraVersion := c.CatalogoRef + "0"
 			for nombre, par := range map[string][2]string{
-				"otra huella":  {c.CatalogoRef, strings.Repeat("0", 64)},
+				"otra huella":  {c.CatalogoRef, otraHuellaValida(c.HuellaCatalogo)},
 				"otra versión": {otraVersion, c.HuellaCatalogo},
 			} {
 				if _, err := fuente.PoliticaMismaPersonaEnPasos(t.Context(), par[0], par[1]); !errors.Is(err, ctdomain.ErrCircuitoFirmaIncoherente) {
@@ -66,4 +66,12 @@ func TestPoliticaFirmantesDesdeCircuitoVigente(t *testing.T) {
 	if _, err := con.PoliticaMismaPersonaEnPasos(cancelado, "vec.contratacion_temporal.circuito_firma:1", strings.Repeat("a", 64)); err == nil {
 		t.Fatal("contexto cancelado aceptado")
 	}
+}
+
+// otraHuellaValida devuelve una huella SHA-256 bien formada y distinta.
+func otraHuellaValida(h string) string {
+	if h == strings.Repeat("a", 64) {
+		return strings.Repeat("b", 64)
+	}
+	return strings.Repeat("a", 64)
 }
