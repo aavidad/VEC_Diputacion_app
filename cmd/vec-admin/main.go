@@ -47,7 +47,19 @@ func main() {
 		if errorConfig != nil {
 			log.Fatal(errorArranque("usuarios_config"))
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConRuntime(configServidor, privada, usuarios, runtime)
+		// El lote sólo existe junto a las lecturas de usuarios y con su propio
+		// archivo privado; sin él, el proceso no abre ninguna escritura.
+		var lote *configuracionLotePrivada
+		if rutaLote := os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE"); rutaLote != "" {
+			c, errorLote := cargarConfiguracionLotePrivada(rutaLote, privada, usuarios, runtime)
+			if errorLote != nil {
+				log.Fatal(errorArranque("lote_config"))
+			}
+			lote = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote)
+	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" {
+		log.Fatal(errorArranque("lote_sin_usuarios"))
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
 	}

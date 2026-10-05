@@ -111,6 +111,10 @@ func rutaPreparacionLote(p string) (string, bool) {
 }
 
 func unidadPreparacionLote(raw string) (string, bool) {
+	// unidad_ref= y 128 caracteres como mucho: se corta antes de interpretar.
+	if len(raw) > 256 {
+		return "", false
+	}
 	// Sólo «unidad_ref=<valor>»: el valor del patrón cerrado admite «:», que el
 	// navegador envía como %3A. Cualquier otra clave, escape o separador deja
 	// un valor que no cumple el patrón y se rechaza.
