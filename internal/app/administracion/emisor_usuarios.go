@@ -190,5 +190,5 @@ func (e *EmisorUsuarios) EmitirLecturaUsuariosAdministrables(ctx context.Context
 // snapshotUsuariosValido exige además la concesión exacta de usuarios en esa
 // versión y la autoridad PostgreSQL (AUT48) la vuelve a comprobar.
 func versionRolUsuariosEmisorAdmitida(v string) bool {
-	return formato.VersionRolAplicacionAdmitida(v)
+	return domain.VersionRolAplicacionAdmitida(v)
 }

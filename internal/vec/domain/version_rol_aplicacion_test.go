@@ -1,8 +1,8 @@
-package postgres
+package domain
 
 import "testing"
 
-func TestVersionRolAplicacionAdmitidaFormato(t *testing.T) {
+func TestVersionRolAplicacionAdmitida(t *testing.T) {
 	for _, v := range []string{"rol:administracion_perfiles:v5", "rol:administracion_perfiles:v6", "rol:administracion_perfiles:v7", "rol:administracion_perfiles:v123456789"} {
 		if !VersionRolAplicacionAdmitida(v) {
 			t.Fatalf("debe admitir %q", v)

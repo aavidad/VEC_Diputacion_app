@@ -121,6 +121,12 @@ BEGIN
   OR pg_catalog.current_setting('transaction_read_only')<>'off'
   OR (version_ref ~ '^rol:administracion_perfiles:v[1-9][0-9]{0,8}$') IS NOT TRUE
   OR org IS NULL OR org !~ '^org_[a-z0-9]{16,80}$' THEN RETURN false; END IF;
+ -- Además de la v6: sólo versiones con metadatos de perfil fijo de Aplicación
+ -- (v4 en adelante). Sin esto, una asignación v1-v3 pasaría la comprobación.
+ IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol r JOIN vec_autorizacion.perfil_fijo_categoria_nominal_v1 meta
+  ON meta.version_rol_ref=r.version_rol_ref AND meta.fuente_ref=r.version_rol_ref AND meta.fuente_version=r.version AND meta.version_rol_huella_sha256=r.huella_sha256
+  WHERE r.version_rol_ref=version_ref AND r.rol_id='administracion_perfiles' AND r.version_rol_ref='rol:administracion_perfiles:v'||r.version::text
+  AND meta.categoria_administrativa='aplicacion' AND meta.tipo_perfil='fijo_sistema') THEN RETURN false; END IF;
  SELECT x.* INTO a FROM vec_autorizacion.asignacion_perfil_actual p
  JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
  WHERE p.asignacion_ref=p_asignacion_ref FOR SHARE OF p,x;

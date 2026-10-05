@@ -83,6 +83,17 @@ la causa raíz.
 3. Las v5 y v6 pasan también por la comprobación genérica, para que el ensayo con
    vec-admin real pruebe ese camino. Las funciones de AUT42 y AUT45 quedan sin uso.
 
+## Lo que queda fuera
+
+- `acreditar_perfil_aplicacion_lote_ordinario_v1` (AUT45) sigue fijada a v6:
+  una v7 dejaría sin acreditar el lote ordinario hasta generalizarla igual. La
+  siguiente minitarea, que crea la v7, debe incluirla.
+- La comprobación de ámbito de certificados exige ahora además metadatos de
+  perfil fijo de Aplicación para la versión (v4 en adelante); antes, en v6, sólo
+  miraba la asignación.
+- No hay DOWN. Para volver atrás habría que reinstalar los despachadores de
+  AUT45; las funciones por versión de AUT42 y AUT45 siguen instaladas.
+
 ## Instalación
 
 `deploy/principal/lista_sql_claude_aut48_version_rol_20261005.txt`, una vez y

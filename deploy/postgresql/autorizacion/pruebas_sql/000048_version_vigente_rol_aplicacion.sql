@@ -3,7 +3,7 @@
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog;
 DO $p$
-DECLARE f record;s text;
+DECLARE f record;s text;a record;
 BEGIN
  FOR f IN SELECT p.oid,p.proname,p.prosrc FROM pg_proc p WHERE p.pronamespace='vec_autorizacion'::regnamespace AND p.proname LIKE '%\_vigente\_aut48' LOOP
   IF f.prosrc ~ 'administracion_perfiles:v[0-9]' OR f.prosrc ~ 'version=[0-9]' OR f.prosrc ~ 'fuente_version=[0-9]'
@@ -25,5 +25,19 @@ BEGIN
  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1('rol:administracion_perfiles:v99','asignacion:x','org_0123456789abcdef') IS NOT FALSE
  OR vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1('rol:administracion_perfiles:v99','a','p','f','administracion.usuarios.listar','administracion','conjunto_usuarios','gestion_usuarios','[]','{}') IS NOT FALSE
  THEN RAISE EXCEPTION 'AUT48: versión inexistente aceptada'; END IF;
+ -- Con datos reales, si existen: la versión actual de la asignación pasa; otra
+ -- versión existente pero no actual, y v1, no.
+ SELECT x.asignacion_ref,x.version_rol_ref,x.documento#>>'{ambitos,0,valores,0}' AS org INTO a
+ FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
+ WHERE x.version_rol_ref LIKE 'rol:administracion_perfiles:v%' AND x.documento->>'estado'='activa' AND x.documento#>>'{ambitos,0,clave}'='organizacion_ref'
+ ORDER BY x.asignacion_ref LIMIT 1;
+ IF FOUND THEN
+  IF vec_autorizacion.acreditar_ambito_certificado_nominal_v1(a.version_rol_ref,a.asignacion_ref,a.org) IS NOT TRUE
+  THEN RAISE EXCEPTION 'AUT48: la versión actual de la asignación no acredita el ámbito'; END IF;
+  FOREACH s IN ARRAY ARRAY['rol:administracion_perfiles:v1','rol:administracion_perfiles:v3','rol:administracion_perfiles:v5','rol:administracion_perfiles:v6'] LOOP
+   IF s<>a.version_rol_ref AND vec_autorizacion.acreditar_ambito_certificado_nominal_v1(s,a.asignacion_ref,a.org) IS NOT FALSE
+   THEN RAISE EXCEPTION 'AUT48: versión no actual % aceptada',s; END IF;
+  END LOOP;
+ END IF;
 END $p$;
 ROLLBACK;
