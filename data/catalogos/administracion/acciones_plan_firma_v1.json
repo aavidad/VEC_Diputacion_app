@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "concesiones": [
+    {
+      "accion": "vec.catalogos.crear",
+      "modulo_id": "contratacion_temporal",
+      "tipo_recurso": "catalogo_configurable",
+      "finalidades": [
+        "gestionar_contratacion_temporal"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [],
+      "obligaciones": []
+    },
+    {
+      "accion": "vec.catalogos.actualizar",
+      "modulo_id": "contratacion_temporal",
+      "tipo_recurso": "catalogo_configurable",
+      "finalidades": [
+        "gestionar_contratacion_temporal"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [],
+      "obligaciones": []
+    },
+    {
+      "accion": "vec.catalogos.publicar",
+      "modulo_id": "contratacion_temporal",
+      "tipo_recurso": "catalogo_configurable",
+      "finalidades": [
+        "gestionar_contratacion_temporal"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [],
+      "obligaciones": []
+    },
+    {
+      "accion": "vec.catalogos.retirar",
+      "modulo_id": "contratacion_temporal",
+      "tipo_recurso": "catalogo_configurable",
+      "finalidades": [
+        "gestionar_contratacion_temporal"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [],
+      "obligaciones": []
+    }
+  ],
+  "dimensiones_ambito": [
+    "organizacion_ref",
+    "unidad_ref"
+  ],
+  "audiencia_consumo": "vec_catalogos_configurables.plan_nominal_firma.gobierno.v1"
+}
