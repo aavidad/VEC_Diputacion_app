@@ -56,7 +56,11 @@ BEGIN
  -- La fachada exterior de gobierno es la única abierta al runtime CT (grupo, no LOGIN directo).
  IF NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
- THEN RAISE EXCEPTION 'AD177/178 prueba: fachada de gobierno sin runtime CT'; END IF;
+ OR (SELECT array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text) FROM pg_proc p
+     CROSS JOIN LATERAL aclexplode(p.proacl) a
+     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+    IS DISTINCT FROM ARRAY['vec_autorizacion_atestada_v3_propietario','vec_contratacion_temporal_ejecutor']
+ THEN RAISE EXCEPTION 'AD177/178 prueba: ACL de la fachada de gobierno divergente'; END IF;
  -- Ninguna fila histórica recibió sello: sin backfill.
  IF EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
    WHERE tipo_registro<>'consumo_confirmado_v4' AND transaccion_origen IS NOT NULL)

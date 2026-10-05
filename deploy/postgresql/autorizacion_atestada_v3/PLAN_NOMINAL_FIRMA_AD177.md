@@ -38,9 +38,24 @@ un consumo de firma vigente, sin conceder permisos de gobierno al firmante.
 
 AD178 añade el perfil técnico de gobierno al núcleo; el de lectura del plan
 sigue sin contrato. La fachada de gobierno está preparada; falta completar la
-consulta nominal. Ningún LOGIN recibe
-EXECUTE de los comprobadores privados de este borrador. La fachada exterior
-admite el ejecutor técnico CT existente; ese grupo no acredita a la persona.
+consulta nominal. Ningún LOGIN recibe EXECUTE directo de los comprobadores
+privados; los LOGIN que heredan un grupo propietario (por ejemplo el de
+gobierno H9, que hereda el propietario AUT) sí pueden llamarlos, pero no pueden
+producir un consumo de esta transacción, así que siempre deniegan. La fachada
+exterior `registrar_y_confirmar_gobierno_plan_firma_v1` sólo tiene EXECUTE para
+el grupo runtime CT, porque el núcleo exige que `session_user` pertenezca a él;
+ese grupo no acredita a la persona. Hoy hay dos LOGIN en ese grupo. Antes de
+activar el gobierno conviene decidir si se usa un grupo técnico de gobierno
+dedicado con una sola pertenencia, como en las ramas de administración.
+
+El comprobador de gobierno repite las condiciones de la rama del núcleo
+(superficie `administracion_privilegiada`, `cuenta_privilegiada=true` y forma
+`catalogo_id:version` del recurso) y exige la acreditación de categoría
+Aplicación de AUT, de modo que no depende de que sólo esta fachada use el
+perfil. El tipo de recurso es el genérico `catalogo_configurable`: CC7 debe
+rechazar cualquier catálogo que no sea el plan nominal de firma, y K debe
+limitar la extensión de `acreditar_perfil_aplicacion_nominal_v1` a estas
+acciones sobre el plan.
 
 `comprobar_consumo_gobierno_plan_firma_v1(jsonb)` acepta los siete campos del
 resultado de consumo y coteja las filas, la decisión, el efecto, la vigencia y
@@ -81,9 +96,9 @@ La composición debe registrar denegados y errores mediante el puerto común de
 intentos publicado por L, después del rollback del efecto. Este borrador no
 contiene ese montaje ni una fuente nominal sustitutiva.
 
-Orden previsto: delta de perfiles/audiencias de L → AD177 → CC7. Las fachadas
-AD177 podrán referirse a CC7 mediante PL/pgSQL, pero no se invocan ni se exponen
-antes de completar esa cadena. Falta el ensayo causal con PostgreSQL real,
+Orden: AD193 → AD178 → AD177 → CC7. Las fachadas AD177 se refieren a CC7 por
+PL/pgSQL. Al instalar AD177 la fachada de gobierno ya es ejecutable por el
+runtime CT, pero deniega siempre mientras falten CC7 y la extensión de K. Falta el ensayo causal con PostgreSQL real,
 las pruebas de concurrencia y recuperación, y dos revisiones del hash final.
 
 

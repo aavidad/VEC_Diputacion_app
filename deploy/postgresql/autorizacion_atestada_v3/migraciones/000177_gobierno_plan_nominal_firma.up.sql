@@ -118,6 +118,9 @@ BEGIN
   OR decision->>'tipo_recurso' IS DISTINCT FROM 'catalogo_configurable'
   OR decision->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
   OR decision#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'administracion_privilegiada'
+  -- Repite la rama del núcleo: no depende de que sólo una fachada use este perfil.
+  OR decision#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS DISTINCT FROM 'true'
+  OR (decision->>'recurso_ref' ~ '^[a-z][a-z0-9._-]{2,127}:[1-9][0-9]{0,9}$') IS NOT TRUE
   OR decision->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR decision->'obligaciones' IS DISTINCT FROM '[]'::jsonb
   OR decision->>'principal_id' IS NULL OR decision->>'perfil_activo_ref' IS NULL
   OR r.actor_ref IS DISTINCT FROM decision->>'principal_id'
@@ -156,7 +159,9 @@ DECLARE m jsonb; original json; c jsonb; d jsonb; catalogo jsonb;
  accion text; estado text; revision text; recurso text; material_sha text; contexto_sha text;
  consumo record; resultado record; comprobado jsonb;
 BEGIN
- IF p_material_exacto IS NULL OR octet_length(p_material_exacto) NOT BETWEEN 2 AND 4194304 THEN
+ IF p_material_exacto IS NULL OR octet_length(p_material_exacto) NOT BETWEEN 2 AND 4194304
+  OR p_capacidad IS NULL OR octet_length(p_capacidad) NOT BETWEEN 2 AND 32768
+  OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 2 AND 524288 THEN
   RAISE EXCEPTION 'AD177 material de gobierno inválido' USING ERRCODE='22023'; END IF;
  BEGIN
   original:=convert_from(p_material_exacto,'UTF8')::json; m:=original::jsonb;
@@ -220,8 +225,7 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(
  bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(
- bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_catalogos_configurables_propietario;
+-- Sólo el runtime CT: el núcleo exige que session_user pertenezca a ese grupo.
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_contratacion_temporal_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_confirmar_gobierno_plan_firma_v1(
  bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
@@ -258,18 +262,17 @@ BEGIN
   -- Retira también concesiones heredadas de privilegios predeterminados.
   FOR permiso IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL
    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
-   WHERE p.oid=f AND x.grantee NOT IN(propietario,catalogos)
-     AND (NOT exterior OR x.grantee<>runtime_ct) LOOP
+   WHERE p.oid=f AND x.grantee NOT IN(propietario,CASE WHEN exterior THEN runtime_ct ELSE catalogos END) LOOP
    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
     CASE WHEN permiso.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(permiso.grantee)) END);
   END LOOP;
   IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL
-    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>(CASE WHEN exterior THEN 3 ELSE 2 END)
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>2
    OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
     aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f
-    AND ((x.grantee NOT IN(propietario,catalogos) AND (NOT exterior OR x.grantee<>runtime_ct)) OR x.grantor<>propietario
+    AND (x.grantee NOT IN(propietario,CASE WHEN exterior THEN runtime_ct ELSE catalogos END) OR x.grantor<>propietario
       OR x.privilege_type<>'EXECUTE' OR x.is_grantable)) THEN
-   RAISE EXCEPTION 'AD177 clave=acl_funcion observado=incompatible esperado=AD_y_CC_EXECUTE_sin_grant_option' USING ERRCODE='55000';
+   RAISE EXCEPTION 'AD177 clave=acl_funcion observado=incompatible esperado=AD_y_CC_o_runtime_CT_EXECUTE_sin_grant_option' USING ERRCODE='55000';
   END IF;
  END LOOP;
 END $acl$;
@@ -339,6 +342,8 @@ BEGIN
  IF jsonb_typeof(s) IS DISTINCT FROM 'object' OR jsonb_typeof(e) IS DISTINCT FROM 'object'
   OR jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
   OR jsonb_typeof(interior) IS DISTINCT FROM 'object'
+  -- json conserva claves repetidas y jsonb no: distinto recuento delata duplicados.
+  OR (SELECT count(*) FROM json_each(p_solicitud::json))<>(SELECT count(*) FROM jsonb_object_keys(s))
   OR (SELECT count(*) FROM json_each(original))<>4 OR (SELECT count(*) FROM jsonb_object_keys(e))<>4
   OR NOT(e ?& ARRAY['esquema','descriptor','plan','decision_interior_sha256'])
   OR e->>'esquema' IS DISTINCT FROM 'ct.plan-autorizado-firma.v2'

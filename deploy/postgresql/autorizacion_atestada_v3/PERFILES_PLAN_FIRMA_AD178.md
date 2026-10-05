@@ -133,7 +133,7 @@ El recurso de gobierno es `catalogo_id:version`. El ID cumple
 `^[a-z][a-z0-9._-]{2,127}$`; la versión es decimal positiva. El predicado no acepta
 comodines ni referencias de recurso libres. La fachada exterior AD177, propia
 de E, verifica los límites de versión, material, actor y pin/CAS; recibe EXECUTE
-únicamente el ejecutor CT según el contrato de E. Esta pieza no modifica AD177
+únicamente el grupo runtime CT (AD177 retira el EXECUTE que el borrador daba al propietario de catálogos). Esta pieza no modifica AD177
 ni añade una fachada de gobierno alternativa.
 
 La huella de contexto es SHA256 UTF-8 de esta representación canónica:
