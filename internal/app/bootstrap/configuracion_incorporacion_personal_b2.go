@@ -17,6 +17,8 @@ import (
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
 
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
+
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
@@ -33,6 +35,10 @@ type archivoIncorporacionPersonalB2 struct {
 	ModuloRPTID   string                                     `json:"modulo_rpt_id"`
 	Pools         map[string]string                          `json:"dsn_files"`
 	Operaciones   map[string]archivoOperacionIncorporacionB2 `json:"operaciones"`
+	// CeseFechaEfecto decide cómo la fecha de efectos del cese CT termina la
+	// relación en Personal (duda 140, pendiente de RRHH). Sin valor no se
+	// compone el fin en Personal; un valor desconocido impide arrancar.
+	CeseFechaEfecto string `json:"cese_fecha_efecto,omitempty"`
 }
 type archivoOperacionIncorporacionB2 struct {
 	Motivo    core.ReferenciaEntradaCatalogo  `json:"motivo"`
@@ -132,7 +138,8 @@ var rolesPoolsIncorporacionB2 = map[string]string{
 
 func validarConfiguracionIncorporacionB2(c *archivoIncorporacionPersonalB2) error {
 	f := ct.ErrComposicionIncorporacionAplicacion
-	if c == nil || c.Protocolo != "personal_b2_v1" || c.OrganismoRef == "" || c.CatalogoRPTID == "" || c.ModuloRPTID == "" || len(c.Pools) != len(rolesPoolsIncorporacionB2) || len(c.Operaciones) != len(operacionesIncorporacionB2()) {
+	if c == nil || c.Protocolo != "personal_b2_v1" || c.OrganismoRef == "" || c.CatalogoRPTID == "" || c.ModuloRPTID == "" || len(c.Pools) != len(rolesPoolsIncorporacionB2) || len(c.Operaciones) != len(operacionesIncorporacionB2()) ||
+		(c.CeseFechaEfecto != "" && !inc.ReglaFechaCesePersonalB2(c.CeseFechaEfecto).Valida()) {
 		return f
 	}
 	for k := range rolesPoolsIncorporacionB2 {

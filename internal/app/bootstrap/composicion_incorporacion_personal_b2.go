@@ -207,18 +207,27 @@ func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaCo
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
 		if (previo.ruta == httpct.RutaPlanB2 && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) {
-			if _, ok := soporte.capacidadValida(r.Context()); ok {
-				ctx, e := subconsultaDetalleContratacionTemporalDesarrollo(r.Context(), soporte, fronteras)
-				if e == nil {
-					ctx = context.WithValue(ctx, claveIncorporacionV2Desarrollo{}, soporte.sello)
-					ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, previo)
-					ctx = context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
-					r = r.WithContext(ctx)
-				}
+			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
+				r = r.WithContext(ctx)
 			}
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// contextoNominalIncorporacionPersonalB2 deriva de la petición autenticada el
+// contexto con el que operan los perfiles nominales B2 en la ruta indicada.
+func contextoNominalIncorporacionPersonalB2(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo, ruta rutaPeticionIncorporacionB2) (context.Context, bool) {
+	if _, ok := soporte.capacidadValida(ctx); !ok {
+		return nil, false
+	}
+	ctx, e := subconsultaDetalleContratacionTemporalDesarrollo(ctx, soporte, fronteras)
+	if e != nil {
+		return nil, false
+	}
+	ctx = context.WithValue(ctx, claveIncorporacionV2Desarrollo{}, soporte.sello)
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, ruta)
+	return context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{}), true
 }
 func (a *autoridadIncorporacionPersonalB2) ResolverContextoIncorporacionEjercicioV2(ctx context.Context) error {
 	_, e := a.contexto(ctx, ct.AccionLeerPlanNominalB2)
@@ -233,7 +242,9 @@ var _ httpct.EjecutorIncorporacionPersonalB2 = (*fachadaIncorporacionPersonalB2)
 type montajeIncorporacionPersonalB2 struct {
 	fachada   *fachadaIncorporacionPersonalB2
 	autoridad *autoridadIncorporacionPersonalB2
-	cerrar    func()
+	// cese es nil si la configuración no fija cese_fecha_efecto.
+	cese   *inc.CesePersonalB2
+	cerrar func()
 }
 
 func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) ([]httpapi.RutaExacta, error) {
@@ -399,6 +410,10 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 		return nil, e
 	}
 	fachada := &fachadaIncorporacionPersonalB2{organizacionRef: org, ct: servicioCT, opciones: fuentes, planes: planes, personal: consumidor, autoridad: autoridad, fuentes: fuentes}
+	cese, e := componerCesePersonalB2(c, nuevos["personal_actos"], autoridad, fuentes, servicioCT, fuenteFicha, reloj)
+	if e != nil {
+		return nil, e
+	}
 	completo = true
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cerrar: cerrar}, nil
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, cerrar: cerrar}, nil
 }
