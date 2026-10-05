@@ -73,7 +73,8 @@ type ResultadoServiciosParaCertificadosV1 struct {
 	Evidencia EvidenciaRegistroEmpleadoB2
 }
 
-// LectorServiciosParaCertificadosV1 es un contrato preparado, sin montaje.
+// LectorServiciosParaCertificadosV1 lo implementa application.ServicioLectorServiciosCertificados
+// sobre la fachada Personal36/AD195; su montaje en una ruta lo hace el consumidor.
 // La fuente exige concesión central positiva, exacta y vigente para la acción
 // y audiencia anteriores, actor, empleado, organismo, corte, finalidad, perfil,
 // campos y obligaciones. Revalida y consume esa autorización junto a la lectura
@@ -86,4 +87,38 @@ type ResultadoServiciosParaCertificadosV1 struct {
 // no emite certificado, firma ni entrega y no sustituye FuenteServicios de ensayo.
 type LectorServiciosParaCertificadosV1 interface {
 	ConsultarServiciosParaCertificados(context.Context, ConsultaServiciosParaCertificadosV1) (ResultadoServiciosParaCertificadosV1, error)
+}
+
+// ServicioParaCertificadosV2 añade a V1 los días reconocidos que constan en la
+// fuente. Son el dato registrado por Personal, no un cómputo: el consumidor no
+// los recalcula ni los suma, y un periodo sin días acreditados no se infiere.
+type ServicioParaCertificadosV2 struct {
+	ServicioParaCertificadosV1
+	DiasReconocidos int64
+}
+
+type ResultadoServiciosParaCertificadosV2 struct {
+	EmpleadoRef, OrganismoRef string
+	Version                   int64
+	Corte                     domain.CorteEmpleadoB2
+	Cobertura                 CoberturaPersonalNominalV1
+	Servicios                 []ServicioParaCertificadosV2
+	Evidencia                 EvidenciaRegistroEmpleadoB2
+}
+
+// V1 proyecta la respuesta V2 sobre el contrato anterior, sin los días. Copia
+// la lista para que el consumidor V1 no comparta memoria con la respuesta V2.
+func (r ResultadoServiciosParaCertificadosV2) V1() ResultadoServiciosParaCertificadosV1 {
+	v := ResultadoServiciosParaCertificadosV1{EmpleadoRef: r.EmpleadoRef, OrganismoRef: r.OrganismoRef, Version: r.Version,
+		Corte: r.Corte, Cobertura: r.Cobertura, Evidencia: r.Evidencia, Servicios: make([]ServicioParaCertificadosV1, 0, len(r.Servicios))}
+	for _, s := range r.Servicios {
+		v.Servicios = append(v.Servicios, s.ServicioParaCertificadosV1)
+	}
+	return v
+}
+
+// LectorServiciosParaCertificadosV2 recibe la misma consulta que V1 y aplica
+// sus mismas garantías de autorización, auditoría, cardinalidad y cobertura.
+type LectorServiciosParaCertificadosV2 interface {
+	ConsultarServiciosParaCertificadosV2(context.Context, ConsultaServiciosParaCertificadosV1) (ResultadoServiciosParaCertificadosV2, error)
 }

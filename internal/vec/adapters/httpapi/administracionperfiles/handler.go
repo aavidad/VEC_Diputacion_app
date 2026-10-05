@@ -90,15 +90,16 @@ type ServicioLotes interface {
 
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
-	origen        string
-	host          string
-	sesiones      ResolvedorSesion
-	lecturas      FuenteLecturas
-	catalogo      ports.CatalogoRolesAdministrables
-	actos         ServicioActos
-	soloLectura   bool
-	soloMetadatos bool
-	auditor       AuditorFrontera
+	origen           string
+	host             string
+	organizacionLote string
+	sesiones         ResolvedorSesion
+	lecturas         FuenteLecturas
+	catalogo         ports.CatalogoRolesAdministrables
+	actos            ServicioActos
+	soloLectura      bool
+	soloMetadatos    bool
+	auditor          AuditorFrontera
 }
 
 func NuevoHandler(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas,

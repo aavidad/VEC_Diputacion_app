@@ -276,17 +276,25 @@ type SolicitudLote struct {
 }
 
 type CambioPerfil struct {
-	Operacion     string   `json:"operacion"`
-	RolVersionRef string   `json:"rol_version_ref"`
-	Objetivo      Objetivo `json:"objetivo"`
+	Operacion      string   `json:"operacion"`
+	InicioVigencia string   `json:"inicio_vigencia,omitempty"`
+	RolVersionRef  string   `json:"rol_version_ref"`
+	Objetivo       Objetivo `json:"objetivo"`
+}
+
+type InicioEfectivoLote struct {
+	Modo         string     `json:"modo,omitempty"`
+	VigenteDesde *time.Time `json:"vigente_desde,omitempty"`
 }
 
 type ReciboLote struct {
-	OperacionRef          string    `json:"operacion_ref"`
-	ActoRef               string    `json:"acto_ref"`
-	ReciboRef             string    `json:"recibo_ref"`
-	AuditoriaRef          string    `json:"auditoria_ref"`
-	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
-	ConfirmadoEn          time.Time `json:"confirmado_en"`
-	Cambios               []Recibo  `json:"cambios"`
+	OperacionRef          string               `json:"operacion_ref"`
+	ActoRef               string               `json:"acto_ref"`
+	ReciboRef             string               `json:"recibo_ref"`
+	AuditoriaRef          string               `json:"auditoria_ref"`
+	HuellaSolicitudSHA256 string               `json:"huella_solicitud_sha256"`
+	FuentesSHA256         string               `json:"fuentes_sha256"`
+	ConfirmadoEn          time.Time            `json:"confirmado_en"`
+	Cambios               []Recibo             `json:"cambios"`
+	Inicios               []InicioEfectivoLote `json:"inicios"`
 }
