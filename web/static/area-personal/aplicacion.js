@@ -12,10 +12,11 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js?v=20261005-b4-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4b-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
+import { VISTAS_DISPONIBLES } from "./vistas-disponibles.js?v=20261005-b4b-v1";
 
 
 const RUTAS = Object.freeze({
@@ -42,6 +43,8 @@ const OPERACIONES = Object.freeze(new Set([
   "incorporar_merito", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje",
   "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga",
 ]));
+// Una vista se abre solo si existe y el catálogo `vistas.json` la activa.
+const rutaDisponible = (vista) => Object.hasOwn(RUTAS, vista) && VISTAS_DISPONIBLES.has(vista);
 const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
 
@@ -79,7 +82,7 @@ export function exigirDatosOperativos(datos) {
 function rutaDesdeURL() {
   const parametros = new URLSearchParams(window.location.search);
   const vista = parametros.get("vista") || "llamamientos";
-  return RUTAS[vista] ? vista : "llamamientos";
+  return rutaDisponible(vista) ? vista : "llamamientos";
 }
 
 function formularioAObjeto(formulario) {
@@ -107,7 +110,15 @@ function crearURL(estado, vista, opciones = {}) {
   return `${url.pathname}${url.search}`;
 }
 
+// Menú y enlaces internos a vistas desactivadas no se muestran.
+function ocultarRutasNoDisponibles() {
+  document.querySelectorAll("[data-ruta]").forEach((enlace) => {
+    enlace.hidden = !rutaDisponible(enlace.dataset.ruta || "");
+  });
+}
+
 function actualizarEnlacesNavegacion(estado) {
+  ocultarRutasNoDisponibles();
   const inicioInstitucional = porId("enlace-inicio-institucional");
   if (inicioInstitucional) {
     inicioInstitucional.dataset.ruta = "inicio";
@@ -240,7 +251,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
   if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
-  estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
+  estado.vista = rutaDisponible(estado.vista) ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
@@ -296,7 +307,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
 }
 
 function navegar(estado, vista, opciones = {}) {
-  if (!RUTAS[vista]) vista = "inicio";
+  if (!rutaDisponible(vista)) vista = "inicio";
   estado.vista = vista;
   estado.avisoInicio = false;
   if (vista === "convocatoria") estado.convocatoriaSeleccionada = opciones.id || estado.convocatoriaSeleccionada;
@@ -635,6 +646,7 @@ export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetc
   }
   const parametros = new URLSearchParams(window.location.search);
   exigirParametrosConocidos(parametros);
+  ocultarRutasNoDisponibles();
   const inicioAjeno = inicioAjenoElegido(preferencias?.estado);
   const estado = {
     cliente,
@@ -665,7 +677,7 @@ export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetc
     causaBolsa: "",
   };
   // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
-  if (parametros.has("vista") && !RUTAS[parametros.get("vista")]) {
+  if (parametros.has("vista") && !rutaDisponible(parametros.get("vista"))) {
     window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
   }
   await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
