@@ -246,8 +246,8 @@ func (e *Ejecutor) aplicar(ctx context.Context, s Solicitud) (Recibo, string, st
 }
 
 // errorSQL clasifica sin conservar el mensaje de PostgreSQL: 42501 denegado;
-// 40001/40P01/55P03/23505 conflicto; 22023/22P02 material inválido; el resto,
-// no disponible.
+// 40001/40P01/55P03/23505 conflicto; clase 22 material inválido; el resto, no
+// disponible.
 func errorSQL(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
@@ -259,7 +259,10 @@ func errorSQL(ctx context.Context, err error) error {
 			return vd.ErrAutorizacionDenegada
 		case "40001", "40P01", "55P03", "23505":
 			return ErrConflicto
-		case "22023", "22P02":
+		}
+		// Clase 22: datos del material que la base no admite (formato,
+		// fechas, números): es una petición inválida, no una caída.
+		if strings.HasPrefix(pg.Code, "22") {
 			return vd.ErrActoAdministracionPerfilesInvalido
 		}
 	}

@@ -26,6 +26,9 @@ func componerCargosCompetencialesADMIN(ctx context.Context, base configuracionPe
 	if acreditarPoolCentral(ctx, poolCargos, grupoCargosCompetenciales) != nil {
 		return nil, errorArranque("cargos_pool")
 	}
+	if acreditarZonaHorariaUTC(ctx, poolCargos) != nil {
+		return nil, errorArranque("cargos_zona_horaria")
+	}
 	meta, err := decodificarMetadatosConfianzaPerfiles(c.ConfianzaJSON)
 	if err != nil {
 		return nil, errorArranque("cargos_confianza_metadatos")

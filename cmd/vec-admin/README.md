@@ -247,3 +247,15 @@ Antes de arrancar con cargos hay que tener Personal28 y AD166 instaladas y:
    renovación diaria con el conjunto de capacidades 3 (AD204).
 4. El rol de Aplicación con la concesión `personal.cargo_competencial.publicar`
    (Rol7 la trae).
+
+El proceso fija `TimeZone=UTC` en ese pool y lo comprueba al arrancar, porque
+Personal28 lo exige. Al ser miembro de `vec_personal_ejecutor`, el LOGIN hereda
+también EXECUTE sobre otras fachadas de Personal. Cada una exige una decisión V3
+de su propia audiencia, y vec-admin solo tiene el material de la de cargos.
+Queda pendiente un grupo propio con EXECUTE solo sobre
+`publicar_cargo_competencial_v1`, que exige cambiar las guardas de Personal28 y
+de AD166.
+
+Los intentos fallidos anotan, en vez de la referencia `car_…`/`enc_…`, una
+referencia derivada estable (tipo y SHA-256 truncado, sin secreto). Quien
+conozca la referencia del objeto puede enlazarla con el intento.

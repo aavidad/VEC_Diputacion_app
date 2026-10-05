@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	efecto "vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 )
@@ -51,4 +52,4 @@ func (s *ServicioEfectoNominal) AplicarEfectoNominal(ctx context.Context, x api.
 }
 
 // MaximoMaterialCargoCompetencial es el límite de Personal28 para el material.
-const MaximoMaterialCargoCompetencial = 32768
+const MaximoMaterialCargoCompetencial = personalpg.MaximoMaterialPublicacionCargo

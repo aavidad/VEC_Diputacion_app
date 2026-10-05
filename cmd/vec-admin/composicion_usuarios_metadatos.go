@@ -92,7 +92,11 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_dsn")
 		}
-		pc, err := configurarPoolADMIN(dsn)
+		configurar := configurarPoolADMIN
+		if cargos != nil && i == indiceCargos {
+			configurar = configurarPoolCargosADMIN
+		}
+		pc, err := configurar(dsn)
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_config")
 		}

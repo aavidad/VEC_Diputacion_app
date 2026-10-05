@@ -372,7 +372,8 @@ func TestEjecutorCargoDejaIntentoConClase(t *testing.T) {
 		"sql_denegado":    {filaCargoPrueba{err: &pgconn.PgError{Code: "42501"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrAutorizacionDenegada},
 		"sql_conflicto":   {filaCargoPrueba{err: &pgconn.PgError{Code: "40001"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrConflicto},
 		"sql_invalido":    {filaCargoPrueba{err: &pgconn.PgError{Code: "22023"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
-		"sql_caido":       {filaCargoPrueba{err: &pgconn.PgError{Code: "2201B"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrNoDisponible},
+		"sql_caido":       {filaCargoPrueba{err: &pgconn.PgError{Code: "XX000"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrNoDisponible},
+		"sql_fecha_mala":  {filaCargoPrueba{err: &pgconn.PgError{Code: "22007"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
 		"emisor_denegado": {filaCargoPrueba{}, vd.ErrAutorizacionDenegada, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrAutorizacionDenegada},
 		"ilegible":        {filaCargoPrueba{}, nil, []byte(`{"x":1}`), vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
 	} {

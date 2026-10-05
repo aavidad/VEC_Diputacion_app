@@ -25,7 +25,8 @@ const (
 	tipoCargoCompetencial              = "cargo_competencial"
 	finalidadCargoCompetencial         = "administrar_cargos_competenciales"
 	esquemaPublicacionCargo            = "vec.personal.cargo-competencial.publicacion.v1"
-	maximoMaterialCargo                = 32768
+	// MaximoMaterialPublicacionCargo es el límite de Personal28 (1..32768).
+	MaximoMaterialPublicacionCargo = 32768
 
 	publicarCargoCompetencialSQL = `SELECT vec_personal.publicar_cargo_competencial_v1($1::bytea,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)::text`
 )
@@ -65,7 +66,7 @@ func ContratoPublicacionCargoCompetencial() efecto.Contrato {
 // comprueban el emisor y el PDP. No autoriza nada: la fachada lo recalcula.
 func RecursoPublicacionCargoCompetencial(material []byte, _ vd.AsignacionPerfil) (string, vd.RecursoAutorizable, error) {
 	var cero vd.RecursoAutorizable
-	if len(material) < 2 || len(material) > maximoMaterialCargo || !utf8.Valid(material) ||
+	if len(material) < 2 || len(material) > MaximoMaterialPublicacionCargo || !utf8.Valid(material) ||
 		bytes.Contains(material, []byte(`\u0000`)) || !json.Valid(material) {
 		return "", cero, errMaterialCargo
 	}
