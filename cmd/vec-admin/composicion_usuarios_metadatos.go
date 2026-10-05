@@ -22,13 +22,17 @@ import (
 // mantiene un LOGIN distinto. No construye autoridades de actos ni usa la
 // función histórica de auditoría de frontera que nunca se instaló.
 func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada) (*http.Server, func(), error) {
+	return componerProcesoUsuariosMetadatosADMINConRuntime(cfg, base, u, configuracionRuntimeADMIN{})
+}
+
+func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (*http.Server, func(), error) {
 	fallo := func() (*http.Server, func(), error) { return nil, nil, administracion.ErrConfiguracion }
-	if validarConfiguracionPerfilesPrivada(base) != nil || validarConfiguracionUsuariosMetadatosPrivada(u, base) != nil || !base.Identidad.IncluirCuentaOrdinaria {
+	if validarConfiguracionPerfilesPrivada(base) != nil || validarConfiguracionUsuariosMetadatosPrivada(u, base) != nil || validarConfiguracionRuntimeADMIN(runtime, base) != nil || runtime.PoolContexto == u.PoolLector || runtime.PoolContexto == u.PoolIntentos || runtime.PoolContexto == u.PoolSelector || runtime.PoolContexto == u.PoolFronteraTecnica || !base.Identidad.IncluirCuentaOrdinaria {
 		return fallo()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(base.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
-	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica}
+	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica, runtime.PoolContexto}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
 	cerrar := func() {
@@ -154,8 +158,13 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 		return fallo()
 	}
 	cierres = append(cierres, cerrarSeudonimos)
+	fuenteIdentificadores, err := selector.NuevaFuenteIdentificadoresADMINDesdeArchivo(runtime.FuenteIdentificadoresArchivo, runtime.FuenteIdentificadoresSHA256)
+	if err != nil {
+		return fallo()
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
-		Confianza: cadena, PoolCuentas: pools[5], PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
+		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
+		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
 		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true})
 	if err != nil {

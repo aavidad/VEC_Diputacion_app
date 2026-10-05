@@ -29,6 +29,9 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 		nulo(deps.Contextos) || nulo(deps.Autorizacion) || nulo(deps.Reloj) {
 		return nil, api.ErrConfiguracionIncompleta
 	}
+	if _, ok := deps.Cuentas.(FuenteCuentasADMINConAcuse); !ok {
+		return nil, api.ErrConfiguracionIncompleta
+	}
 	config.RedesPermitidas = append([]string(nil), config.RedesPermitidas...)
 	config.HuellasProxyTLSPermitidas = append([]string(nil), config.HuellasProxyTLSPermitidas...)
 	config.IdentidadesSANProxyPermitidas = append([]string(nil), config.IdentidadesSANProxyPermitidas...)
@@ -104,10 +107,19 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 		auditoria.Superficie() != h.SuperficieAdministracionPrivilegiada {
 		return vacia, api.ErrAccesoDenegado
 	}
-	if err = p.deps.Cuentas.VincularSesionADMIN(ctx, o, cuenta, ReferenciasSesionADMIN{
+	conAcuse, ok := p.deps.Cuentas.(FuenteCuentasADMINConAcuse)
+	if !ok {
+		return vacia, api.ErrConfiguracionIncompleta
+	}
+	ligadura, err := conAcuse.VincularSesionADMINConAcuse(ctx, o, cuenta, ReferenciasSesionADMIN{
 		AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef(),
-	}); err != nil {
+	})
+	if err != nil {
 		return vacia, errorAutoridad(err)
+	}
+	ctx, err = ContextoConVinculoSesionADMIN(ctx, ligadura)
+	if err != nil {
+		return vacia, api.ErrConfiguracionIncompleta
 	}
 	vinculo, resultado, err := domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, p.deps.Revalidador,
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},

@@ -100,3 +100,31 @@ auditado. Sin pool, permiso, clave o fuente real no hay lectura sustitutiva.
 El montaje no acredita todavía un recorrido de navegador ni instalación SQL
 en el entorno de destino. La frontera anterior a V2 sigue devolviendo
 indisponibilidad hasta que disponga de una autoridad técnica propia.
+
+
+## Configuración del runtime nominal
+
+El arranque requiere también `VEC_ADMIN_RUNTIME_CONFIG_FILE`. Es un JSON privado
+0600, dentro de un directorio propio 0700 y fuera de Git. Si falta o no pasa el
+cotejo, el proceso termina sin recurrir a los constructores heredados. El formato
+de `VEC_ADMIN_PERFILES_CONFIG_FILE` conserva sus campos.
+
+| Campo | Contenido |
+| --- | --- |
+| `version` | `1`, formato de este fichero. |
+| `pool_contexto` | Ruta del JSON de conexión del LOGIN exclusivo de CA36. |
+| `fuente_identificadores_archivo` | Ruta del archivo de originales entregado por el productor de fuentes ADMIN. |
+| `fuente_identificadores_sha256` | SHA256 aprobado de los bytes de ese archivo. |
+| `proceso_contexto` | Proceso configurado para el contexto ADMIN. |
+
+El pool de contexto tiene un LOGIN distinto del de cuentas, registro,
+revalidación, selector, lecturas y auditoría. Los constructores acreditan las
+fachadas de IS16 y CA36; no conceden acceso a sus tablas. La fuente privada
+conserva SujetoID y las cuentas privilegiada y ordinaria originales, ligados a
+Persona, certificados y fuente HMAC. No se obtiene desde nombres ni digests.
+
+La composición usa esa fuente y el proveedor existente para resolver la cuenta.
+El contexto utiliza su propio pool y transmite el vínculo de sesión auditado de
+IS16. La selección del perfil propio sigue el circuito IS14/CA31. Instalar las
+estructuras o aceptar esta configuración no acredita todavía una sesión
+favorable, garantía alta, PDP ni recorrido HTTPS; el ensayo nominal está pendiente.

@@ -1,0 +1,27 @@
+rules:
+  - id: is16-public-execute
+    languages: [generic]
+    severity: ERROR
+    message: Una fachada ADMIN no concede EXECUTE a PUBLIC.
+    pattern: GRANT EXECUTE ON FUNCTION ... TO PUBLIC
+  - id: is16-public-table
+    languages: [generic]
+    severity: ERROR
+    message: Una tabla ADMIN no concede acceso a PUBLIC.
+    pattern: GRANT ... ON TABLE ... TO PUBLIC
+  - id: is16-log-original-identifiers
+    languages: [go]
+    severity: ERROR
+    message: Los identificadores originales no se escriben en logs.
+    patterns:
+      - pattern-either:
+          - pattern: fmt.Printf($FMT, ..., $X.SujetoID, ...)
+          - pattern: fmt.Printf($FMT, ..., $X.CuentaID, ...)
+          - pattern: fmt.Printf($FMT, ..., $X.CuentaOrdinariaID, ...)
+          - pattern: log.Printf($FMT, ..., $X.SujetoID, ...)
+          - pattern: slog.String($KEY, $X.SujetoID)
+  - id: is16-forward-database-error
+    languages: [go]
+    severity: ERROR
+    message: La frontera ADMIN devuelve errores nominales sin SQL ni DSN.
+    pattern: fmt.Errorf($FMT, ..., $ERR)

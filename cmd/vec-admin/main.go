@@ -33,6 +33,10 @@ func main() {
 	if err != nil {
 		log.Fatal(administracion.ErrConfiguracion)
 	}
+	runtime, err := cargarConfiguracionRuntimeADMIN(os.Getenv("VEC_ADMIN_RUNTIME_CONFIG_FILE"), privada)
+	if err != nil {
+		log.Fatal(administracion.ErrConfiguracion)
+	}
 	var servidor *http.Server
 	var cerrar func()
 	if rutaUsuarios := os.Getenv("VEC_ADMIN_USUARIOS_CONFIG_FILE"); rutaUsuarios != "" {
@@ -42,9 +46,9 @@ func main() {
 		if errorConfig != nil {
 			log.Fatal(administracion.ErrConfiguracion)
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMIN(configServidor, privada, usuarios)
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConRuntime(configServidor, privada, usuarios, runtime)
 	} else {
-		servidor, cerrar, err = componerProcesoADMIN(configServidor, privada)
+		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
 	}
 	if err != nil {
 		log.Fatal(administracion.ErrConfiguracion)

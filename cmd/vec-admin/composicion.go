@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/internal/app/administracion"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	pg "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
+	selector "vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -22,13 +23,17 @@ type relojADMIN struct{}
 func (relojADMIN) Ahora() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
 
 func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPerfilesPrivada) (*http.Server, func(), error) {
+	return componerProcesoADMINConRuntime(cfg, priv, configuracionRuntimeADMIN{})
+}
+
+func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv configuracionPerfilesPrivada, runtime configuracionRuntimeADMIN) (*http.Server, func(), error) {
 	fallo := func() (*http.Server, func(), error) { return nil, nil, administracion.ErrConfiguracion }
-	if validarConfiguracionPerfilesPrivada(priv) != nil || !priv.Identidad.IncluirCuentaOrdinaria {
+	if validarConfiguracionPerfilesPrivada(priv) != nil || validarConfiguracionRuntimeADMIN(runtime, priv) != nil || !priv.Identidad.IncluirCuentaOrdinaria {
 		return fallo()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(priv.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
-	rutas := []string{priv.Pools.FuenteAutorizacion, priv.Pools.RegistroAutorizacion, priv.Pools.Motivos, priv.Pools.RegistroSesiones, priv.Pools.RevalidacionSesiones, priv.Pools.CuentasADMIN, priv.Pools.AuditoriaFrontera}
+	rutas := []string{priv.Pools.FuenteAutorizacion, priv.Pools.RegistroAutorizacion, priv.Pools.Motivos, priv.Pools.RegistroSesiones, priv.Pools.RevalidacionSesiones, priv.Pools.CuentasADMIN, priv.Pools.AuditoriaFrontera, runtime.PoolContexto}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
 	cerrar := func() {
@@ -118,8 +123,13 @@ func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPe
 	if err != nil {
 		return fallo()
 	}
+	fuenteIdentificadores, err := selector.NuevaFuenteIdentificadoresADMINDesdeArchivo(runtime.FuenteIdentificadoresArchivo, runtime.FuenteIdentificadoresSHA256)
+	if err != nil {
+		return fallo()
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
-		Confianza: cadena, PoolCuentas: pools[5], PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
+		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[7],
+		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: priv.Identidad.EspacioIdentidad, DominioHMACRef: priv.Identidad.DominioRef,
 		Auditor: auditor, Reloj: reloj, Activos: os.DirFS(priv.ActivosDirectorio)})
 	if err != nil {
