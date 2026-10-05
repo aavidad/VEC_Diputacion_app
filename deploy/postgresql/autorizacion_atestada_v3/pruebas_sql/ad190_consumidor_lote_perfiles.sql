@@ -20,12 +20,15 @@ SELECT pg_temp.comprobar('grupo_ejecutor',EXISTS(SELECT 1 FROM pg_roles WHERE ro
  AND has_database_privilege('vec_admin_perfiles_lote_ejecutor',current_database(),'CONNECT'));
 SELECT pg_temp.comprobar('nucleo',(SELECT (length(p.prosrc)-length(replace(p.prosrc,'lote_perfiles_admin','')))/length('lote_perfiles_admin')=4
  AND strpos(p.prosrc,'acreditar_perfil_aplicacion_lote_ordinario_v1')>0 AND strpos(p.prosrc,'servicios_certificados_propios')>0
- AND strpos(p.prosrc,'resolver_origen_consumo_v1')>0
+ AND strpos(p.prosrc,'resolver_origen_consumo_v1')>0 AND strpos(p.prosrc,'''recuperacion_firmas_r5_ct_v2''')>0
+ AND strpos(p.prosrc,'''gobierno_plan_nominal_firma_ct''')>0
  FROM pg_proc p WHERE p.oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure));
 SELECT pg_temp.comprobar('audiencia',(SELECT count(*) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated
  AND strpos(pg_get_constraintdef(c.oid,false),'vec_autorizacion.administracion_perfiles.lote_ordinario.v1')>0
- AND strpos(pg_get_constraintdef(c.oid,false),'vec_personal.servicios_certificados.v1')>0)=1);
+ AND strpos(pg_get_constraintdef(c.oid,false),'vec_personal.servicios_certificados.v1')>0
+ AND strpos(pg_get_constraintdef(c.oid,false),'vec_contratacion_temporal.firmas_r5.recuperar.v2')>0
+ AND strpos(pg_get_constraintdef(c.oid,false),'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1')>0)=1);
 
 -- 2. Función de LOGIN: sólo un LOGIN mínimo, miembro único del grupo.
 CREATE FUNCTION pg_temp.login_valido() RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $f$
