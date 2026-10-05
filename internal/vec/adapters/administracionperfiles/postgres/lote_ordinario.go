@@ -1,8 +1,10 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -99,13 +101,17 @@ func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s dom
 	if s.Validar() != nil || s.Evidencia.ValidarEn(s.Actor, a.reloj.Ahora()) != nil ||
 		s.OrganizacionRef != a.organizacion ||
 		s.InstantaneaAutorizacion.VersionRol.RolID != "administracion_perfiles" ||
-		s.InstantaneaAutorizacion.VersionRol.Version != 6 ||
+		!domain.VersionRolAplicacionAdmitida(s.InstantaneaAutorizacion.VersionRol.Referencia()) ||
 		s.InstantaneaAutorizacion.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
 		s.InstantaneaAutorizacion.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada ||
 		!s.InstantaneaAutorizacion.AsignacionPerfil.VigenteEn(a.reloj.Ahora()) {
 		return vacio, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	for _, cambio := range s.Cambios {
+		// AUT44 rechaza estos casos; se cierran aquí para no gastar una decisión.
+		if cambio.Objetivo.RevisionContinuidad != 0 || !referenciaAmbitoLote.MatchString(cambio.Objetivo.UnidadRef) {
+			return vacio, domain.ErrActoAdministracionPerfilesInvalido
+		}
 		rol, err := a.resolverRolLote(ctx, cambio.RolVersionRef)
 		if err != nil {
 			return vacio, err
@@ -149,10 +155,15 @@ func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s dom
 	}
 	fuentes := materialFuentesPrivadasLote(ctx, a.proveedor, a.organizacion, s)
 	defer clear(fuentes)
+	// Sin fuentes de ámbito no se emite ninguna decisión: sería un consumo que
+	// AUT44 rechazaría, y la falta de fuente no es una denegación.
+	if len(fuentes) == 0 {
+		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
 	var recibo domain.ReciboLoteAdministracionPerfiles
 	err = a.ejecutarLote(ctx, actor, evidencia, instantanea, recurso, efecto, fuentes, func(bruto []byte) error {
 		var x reciboLoteOrdinarioJSON
-		if decodificar(bruto, &x) != nil || len(x.Cambios) != len(s.Cambios) || len(x.Inicios) != len(s.Cambios) {
+		if decodificarReciboLote(bruto, &x) != nil || len(x.Cambios) != len(s.Cambios) || len(x.Inicios) != len(s.Cambios) {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		for _, c := range x.Cambios {
@@ -170,4 +181,24 @@ func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s dom
 		return vacio, err
 	}
 	return recibo, nil
+}
+
+// Un lote válido de 32 cambios produce recibos de más de 64 KiB; el tope del
+// recibo del lote es propio y sigue rechazando duplicados y campos ajenos.
+const maximoReciboLoteBytes = 256 * 1024
+
+func decodificarReciboLote(b []byte, destino any) error {
+	if len(b) == 0 || len(b) > maximoReciboLoteBytes {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	objeto := bytes.TrimSpace(b)
+	if len(objeto) == 0 || objeto[0] != '{' {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(destino) != nil || d.Decode(new(any)) != io.EOF {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	return nil
 }

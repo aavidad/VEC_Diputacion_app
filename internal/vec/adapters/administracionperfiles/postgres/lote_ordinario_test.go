@@ -27,6 +27,16 @@ func (fuenteLotePrueba) ResolverUnidadLote(context.Context, string, string) (Amb
 	return AmbitosFuenteLote{}, errors.New("fuente_no_conectada")
 }
 
+// fuenteLoteValidaPrueba devuelve descriptores válidos para que las pruebas
+// lleguen hasta el emisor cuando no hay otra causa de rechazo.
+type fuenteLoteValidaPrueba struct{}
+
+func (fuenteLoteValidaPrueba) ResolverUnidadLote(_ context.Context, org, unidad string) (AmbitosFuenteLote, error) {
+	return AmbitosFuenteLote{OrganizacionRef: org, UnidadRef: unidad, Descriptores: []DimensionFuenteLote{
+		{Dimension: "organizacion_ref", Valores: []string{org}, Fuente: FuenteDescriptorLote{Referencia: "prc_fuente_organizacion", Version: 1, HuellaSHA256: strings.Repeat("a", 64)}},
+		{Dimension: "unidad_ref", Valores: []string{unidad}, Fuente: FuenteDescriptorLote{Referencia: "fuente:unidad:prueba", Version: 1, HuellaSHA256: strings.Repeat("b", 64)}}}}, nil
+}
+
 func solicitudLoteOrdinarioPrueba(t *testing.T) (domain.SolicitudLoteAdministracionPerfiles, *poolCatalogoPrueba, time.Time) {
 	t.Helper()
 	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
@@ -71,9 +81,9 @@ func TestLoteOrdinarioRechazaRolSensibleAntesDeEmitirYEscribir(t *testing.T) {
 	}
 	pool.roles[rol.VersionRef] = b
 	emisor := &emisorLotePrueba{}
-	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLotePrueba{},
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLoteValidaPrueba{},
 		reloj: relojFijo(ahora), organizacion: "org_prueba"}
-	recibo, err := a.AplicarLoteOrdinario(context.Background(), s)
+	recibo, err := a.aplicarLoteOrdinario(context.Background(), s)
 	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 || emisor.llamadas != 0 {
 		t.Fatal("rol_sensible_entro_en_lote_ordinario")
 	}
@@ -83,10 +93,36 @@ func TestLoteOrdinarioNoAdmiteAutoaltaAntesDeBD(t *testing.T) {
 	s, pool, ahora := solicitudLoteOrdinarioPrueba(t)
 	s.Cambios[0].Objetivo.PersonaRef = s.Actor.PersonaRef
 	emisor := &emisorLotePrueba{}
-	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLotePrueba{},
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLoteValidaPrueba{},
 		reloj: relojFijo(ahora), organizacion: "org_prueba"}
-	recibo, err := a.AplicarLoteOrdinario(context.Background(), s)
+	recibo, err := a.aplicarLoteOrdinario(context.Background(), s)
 	if err == nil || recibo.OperacionRef != "" || len(recibo.Cambios) != 0 || pool.comienzos != 0 || emisor.llamadas != 0 {
 		t.Fatal("autoalta_entro_en_bd")
+	}
+}
+
+// Control positivo: sin causa de rechazo, la orden llega al emisor. Así las
+// pruebas negativas anteriores fallarían si se quitara su comprobación.
+func TestLoteOrdinarioSinRechazoLlegaAlEmisor(t *testing.T) {
+	s, pool, ahora := solicitudLoteOrdinarioPrueba(t)
+	categoria, unidad := "", true
+	rol := rolJSON{VersionRef: s.Cambios[0].RolVersionRef, Clase: domain.ClaseControlPerfilOrdinario,
+		CategoriaAdmin: &categoria, HuellaSHA256: strings.Repeat("f", 64),
+		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(24 * time.Hour), UnidadRequerida: &unidad}
+	b, err := json.Marshal(rol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool.roles[rol.VersionRef] = b
+	emisor := &emisorLotePrueba{}
+	a := &AutoridadLoteOrdinario{pool: pool, emisor: emisor, proveedor: fuenteLoteValidaPrueba{},
+		reloj: relojFijo(ahora), organizacion: "org_prueba"}
+	if _, err := a.aplicarLoteOrdinario(context.Background(), s); err == nil || emisor.llamadas != 1 || pool.comienzos != 0 {
+		t.Fatalf("control positivo no llega al emisor: llamadas=%d err=%v", emisor.llamadas, err)
+	}
+	emisor.llamadas = 0
+	a.proveedor = fuenteLotePrueba{}
+	if _, err := a.aplicarLoteOrdinario(context.Background(), s); err == nil || emisor.llamadas != 0 {
+		t.Fatal("sin fuentes se emitio una decision")
 	}
 }
