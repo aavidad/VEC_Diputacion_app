@@ -16,15 +16,15 @@
   },
   "abrir": "Open prepared list",
   "archivo": "List file · Required",
-  "archivo_pista": "JSON output of the admission preparer. Maximum 4 MiB.",
+  "archivo_pista": "The .json file produced by admission preparation. Up to 8 MB.",
   "vacio": "Open a list to review it.",
   "cargando": "Reading the file…",
   "cargado": "List opened.",
-  "descargar": "Download original",
+  "descargar": "Download opened file",
   "cerrar": "Close file",
   "descarga_lista": "Download prepared with the original file.",
   "nombre_descarga": "provisional-list-original.json",
-  "error_tamano": "The file cannot be opened: it is empty or larger than 4 MiB. Select the preparer output.",
+  "error_tamano": "The file cannot be opened: it is empty or larger than 8 MB. Choose the file produced by admission preparation.",
   "error_formato": "The file cannot be opened: it is not a provisional list from the preparer. Generate it again and select it.",
   "error_catalogo": "The texts could not be loaded. Reload the screen before opening a file.",
   "resumen": "List summary",
@@ -37,7 +37,7 @@
   "estado_borrador": "Draft · Pending approval",
   "catalogo_ejemplo": "Example reasons and deadline",
   "plazo": "Correction period",
-  "plazo_duracion": "Length",
+  "plazo_duracion": "Duration",
   "unidades": {
     "dias_habiles": {
       "one": "{cuenta} working day",
@@ -68,7 +68,7 @@
   },
   "sin_excluidas": "There are no excluded applications.",
   "sin_admitidas": "There are no admitted applications.",
-  "solicitud": "Application",
+  "solicitud": "Application no.",
   "motivos": "Exclusion reasons",
   "subsanacion": "Correction",
   "motivo_sin_texto": "Reason \"{codigo}\" has no text in this language",
@@ -90,5 +90,6 @@
   "catalogo_version": "Catalogue version",
   "bases_ref": "Call rules",
   "bases_version": "Call rules version",
-  "huella_bases": "Call rules fingerprint"
+  "huella_bases": "Call rules fingerprint",
+  "motivo_no_subsanable": "{motivo} (cannot be corrected)"
 }

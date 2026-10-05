@@ -18,7 +18,19 @@ async function textosMotivos(idioma, dto) {
   if (!ruta) return new Map();
   try { return leerTextosMotivos(await leerRecursoJSON(new URL(ruta, import.meta.url))); } catch { return new Map(); }
 }
-function pintar() { if (carga) pintarLista({ raiz, dto: carga.dto, textos, motivos: carga.motivos }); }
+function pintar() {
+  if (!carga) return;
+  pintarLista({ raiz, dto: carga.dto, textos, motivos: carga.motivos });
+  // Un archivo abierto durante un cambio de idioma trae motivos del idioma anterior.
+  const actual = carga;
+  if (actual.idiomaMotivos !== textos.idioma) {
+    const idioma = textos.idioma;
+    void textosMotivos(idioma, actual.dto).then(m => {
+      if (carga !== actual || textos.idioma !== idioma) return;
+      actual.motivos = m; actual.idiomaMotivos = idioma; pintar();
+    });
+  }
+}
 function mensaje(clave, error = false) {
   estadoActual = { clave, error }; estado.textContent = textos.traducir(clave);
   estado.setAttribute('role', error ? 'alert' : 'status');
@@ -30,7 +42,10 @@ function retirar() {
   urls.forEach(url => URL.revokeObjectURL(url)); urls.clear();
 }
 const controlador = crearCargaLocal({
-  async leer(f) { const r = await leerArchivo(f); return { ...r, motivos: await textosMotivos(textos.idioma, r.dto) }; },
+  async leer(f) {
+    const r = await leerArchivo(f); const idioma = textos.idioma;
+    return { ...r, idiomaMotivos: idioma, motivos: await textosMotivos(idioma, r.dto) };
+  },
   retirar,
   mostrar(resultado) { carga = resultado; pintar(); descargar.disabled = false; cerrar.disabled = false; },
   anunciar: mensaje,
@@ -65,10 +80,7 @@ function pintarIdioma(siguiente) {
 selector.addEventListener('change', async () => {
   selector.disabled = true;
   try {
-    const siguiente = await cargarTextos(MODULO, { idioma: selector.value });
-    const actual = carga;
-    if (actual) actual.motivos = await textosMotivos(siguiente.idioma, actual.dto);
-    pintarIdioma(siguiente);
+    pintarIdioma(await cargarTextos(MODULO, { idioma: selector.value }));
   } catch { controlador.cerrar(); mensaje('error_catalogo', true); }
   finally { selector.value = textos.idioma; selector.disabled = false; }
 }, { signal: eventos.signal });

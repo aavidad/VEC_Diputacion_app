@@ -8,7 +8,7 @@
 .modulo-lista-admision .lista-admision-tabla :is(td, th) { white-space: normal; vertical-align: top; }
 .modulo-lista-admision .lista-admision-tabla th[scope="row"] { width: 32%; font-weight: 600; }
 .modulo-lista-admision .lista-motivos { margin: 0; padding-left: 18px; }
-.modulo-lista-admision .lista-comprobacion p { margin: 0; }
+.modulo-lista-admision .lista-comprobacion p { margin: 0; font-size: .875rem; }
 .modulo-lista-admision .tabla-contenedor { max-height: min(440px, 60vh); }
 .modulo-lista-admision .estado-subsanacion { display: inline-flex; align-items: center; gap: 8px; }
 .modulo-lista-admision .estado-subsanacion::before { content: ""; width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--portal-aviso); }
@@ -20,3 +20,6 @@
 @media (max-width: 1100px) { .modulo-lista-admision .lista-archivo-acciones { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .modulo-lista-admision .lista-admision-tabla th[scope="row"] { width: auto; } }
 .modulo-lista-admision .lista-admision-tabla tbody tr:last-child > th { border-bottom: 0; }
+/* El armazón común recorta con overflow:hidden y el navegador lo desplaza al
+   enfocar contenido del borde; clip recorta igual sin permitir ese desplazamiento. */
+@media (min-width: 1024px) { .modulo-lista-admision .portal-empleado-shell { overflow: clip; } }

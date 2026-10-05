@@ -1,8 +1,9 @@
 import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
 import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=20261003-s2-consulta-v2';
 
-// La lista admite 2.000 solicitudes; su salida indentada cabe holgadamente aquí.
-export const MAXIMO_BYTES = 4 * 1024 * 1024;
+// 2.000 solicitudes con motivos y referencias largos ocupan algo más de 5 MiB
+// indentados; 8 MiB cubren ese caso extremo sin abrir archivos arbitrarios.
+export const MAXIMO_BYTES = 8 * 1024 * 1024;
 const MAXIMO_SOLICITUDES = 2000;
 export const PENDIENTES = Object.freeze(['aprobacion_competente', 'identidad_publicacion', 'vencimiento_al_publicar', 'publicacion_oficial', 'catalogo_ejemplo']);
 const OBLIGATORIOS = PENDIENTES.slice(0, 4);
@@ -18,7 +19,8 @@ const motivo = v => forma(v, { codigo, subsanable: logico });
 const excluida = v => forma(v, { antecedente, motivos: lista(16, motivo), subsanable: logico })
   && v.motivos.length > 0 && new Set(v.motivos.map(m => m.codigo)).size === v.motivos.length
   && v.subsanable === v.motivos.every(m => m.subsanable);
-const UNIDADES = Object.freeze(['dias_habiles', 'dias_naturales', 'meses', 'anios']);
+// Máximos por unidad de Calendarios (calendarios/domain/plazo.go).
+const MAXIMO_POR_UNIDAD = Object.freeze({ dias_habiles: 250, dias_naturales: 730, meses: 60, anios: 5 });
 
 /** Forma de la salida `lista-provisional` del CLI. No verifica huellas ni catálogo. */
 export function leerSalida(bytes) {
@@ -30,8 +32,10 @@ export function leerSalida(bytes) {
     esquema: x => x === 'vec.seleccion.lista-admision-provisional.v1', lista_ref: id, revision: validarRevision,
     alcance: x => x === 'preparacion_sintetica', estado: x => x === 'borrador_pendiente_aprobacion',
     bases: x => forma(x, { referencia: id, version: id, huella_sha256: validarHuella }),
-    catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref']) && (!Object.hasOwn(x, 'duda_ref') || id(x.duda_ref)),
-    plazo_subsanacion: x => forma(x, { unidad: u => UNIDADES.includes(u), cantidad: entero(1, 730) }),
+    catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref'])
+      && (Object.hasOwn(x, 'duda_ref') ? id(x.duda_ref) : !x.paquete_ejemplo),
+    plazo_subsanacion: x => forma(x, { unidad: u => Object.hasOwn(MAXIMO_POR_UNIDAD, u), cantidad: entero(1, 730) })
+      && x.cantidad <= MAXIMO_POR_UNIDAD[x.unidad],
     vencimiento_subsanacion: x => x === 'pendiente_publicacion',
     admitidas: lista(MAXIMO_SOLICITUDES, x => forma(x, { antecedente })),
     excluidas: lista(MAXIMO_SOLICITUDES, excluida),

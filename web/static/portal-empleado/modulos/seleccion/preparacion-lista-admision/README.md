@@ -33,4 +33,4 @@ python3 -m unittest scripts.tests.test_servir_preparacion_rrhh
 
 El modelo exige el contrato exacto del CLI (borrador, sin aprobar ni publicar,
 recuentos coherentes, subsanable igual a «todos sus motivos subsanables») y
-rechaza claves duplicadas, campos de más y archivos de más de 4 MiB.
+rechaza claves duplicadas, campos de más y archivos de más de 8 MiB.

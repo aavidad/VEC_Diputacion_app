@@ -15,7 +15,7 @@ function panel(d, titulo, recuento) {
 function tabla(d, etiqueta, columnas) {
   const region = nodo(d, 'div', undefined, 'tabla-contenedor'); region.tabIndex = 0;
   region.setAttribute('role', 'region'); region.setAttribute('aria-label', etiqueta);
-  const t = nodo(d, 'table', undefined, 'tabla-datos tabla-apilable lista-admision-tabla');
+  const t = nodo(d, 'table', undefined, 'tabla-datos tabla-apilable lista-admision-tabla'); t.append(nodo(d, 'caption', etiqueta));
   const head = nodo(d, 'thead'); const fila = nodo(d, 'tr');
   for (const c of columnas) { const th = nodo(d, 'th', c); th.scope = 'col'; fila.append(th); }
   head.append(fila); const body = nodo(d, 'tbody'); t.append(head, body); region.append(t);
@@ -27,6 +27,8 @@ const ICONOS = {
   excluidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   subsanables: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
 };
+// Número de solicitud legible: la referencia sin su prefijo técnico («preparacion:»).
+const numeroSolicitud = ref => ref.slice(ref.indexOf(':') + 1);
 function kpis(d, textos, dto) {
   const t = textos.traducir;
   const rejilla = nodo(d, 'section', undefined, 'rejilla-kpi cuatro'); rejilla.setAttribute('aria-label', t('resumen'));
@@ -64,9 +66,12 @@ export function pintarLista({ raiz, dto, textos, motivos = new Map() }) {
   else {
     const { region, body } = tabla(d, t('excluidas'), [t('solicitud'), t('motivos'), t('subsanacion')]);
     for (const e of dto.excluidas) {
-      const tr = nodo(d, 'tr'); const ref = nodo(d, 'th', e.antecedente.preparacion_ref); ref.scope = 'row';
+      const tr = nodo(d, 'tr'); const ref = nodo(d, 'th', numeroSolicitud(e.antecedente.preparacion_ref)); ref.scope = 'row';
       const tdMotivos = nodo(d, 'td'); tdMotivos.dataset.etiqueta = t('motivos'); const ul = nodo(d, 'ul', undefined, 'lista-motivos');
-      for (const m of e.motivos) ul.append(nodo(d, 'li', motivos.get(m.codigo) ?? t('motivo_sin_texto', { codigo: m.codigo })));
+      for (const m of e.motivos) {
+        const texto = motivos.get(m.codigo) ?? t('motivo_sin_texto', { codigo: m.codigo });
+        ul.append(nodo(d, 'li', m.subsanable ? texto : t('motivo_no_subsanable', { motivo: texto })));
+      }
       tdMotivos.append(ul);
       const tdSub = nodo(d, 'td'); tdSub.dataset.etiqueta = t('subsanacion');
       const marca = nodo(d, 'span', t(e.subsanable ? 'puede_subsanar' : 'no_puede_subsanar'), 'estado-subsanacion');
@@ -81,7 +86,7 @@ export function pintarLista({ raiz, dto, textos, motivos = new Map() }) {
   if (!dto.admitidas.length) admitidas.cuerpo.append(nodo(d, 'p', t('sin_admitidas')));
   else {
     const { region, body } = tabla(d, t('admitidas'), [t('solicitud')]);
-    for (const a of dto.admitidas) { const tr = nodo(d, 'tr'); const th = nodo(d, 'th', a.antecedente.preparacion_ref); th.scope = 'row'; tr.append(th); body.append(tr); }
+    for (const a of dto.admitidas) { const tr = nodo(d, 'tr'); const th = nodo(d, 'th', numeroSolicitud(a.antecedente.preparacion_ref)); th.scope = 'row'; tr.append(th); body.append(tr); }
     admitidas.cuerpo.append(region);
   }
   f.append(admitidas.n);

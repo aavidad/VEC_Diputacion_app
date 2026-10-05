@@ -26,6 +26,7 @@ test('incoherencias, actos falsos y datos de más se rechazan', () => {
     d => { d.catalogo.paquete_ejemplo = false; }, d => { d.pendientes = d.pendientes.slice(1); },
     d => { d.plazo_subsanacion.unidad = 'horas'; }, d => { d.vencimiento_subsanacion = '2026-11-02'; },
     d => { d.esquema = 'vec.seleccion.lista-admision-definitiva.v1'; },
+    d => { d.plazo_subsanacion = { unidad: 'meses', cantidad: 61 }; }, d => { delete d.catalogo.duda_ref; },
   ]) { const d = base(); mutar(d); assert.throws(() => leerSalida(codificar(d)), /formato/); }
   for (const s of ['{"revision":1,"revision":2}', '{"__proto__":{}}']) assert.throws(() => leerSalida(new TextEncoder().encode(s)), /formato/);
 });
@@ -61,6 +62,10 @@ test('vista: motivos traducidos, subsanación en texto, tablas accesibles y sin 
     pintarLista({ raiz, dto: leerSalida(bytes), textos, motivos: new Map([...motivos, ['solicitud_fuera_de_plazo', '<img src=x onerror=alert(1)>']]) });
     const texto = raiz.textContent;
     assert.ok(texto.includes(motivos.get('tasa_no_justificada')) && texto.includes('<img src=x onerror=alert(1)>'));
+    assert.ok(texto.includes(textos.traducir('motivo_no_subsanable', { motivo: '<img src=x onerror=alert(1)>' })));
+    const filas = elementos(raiz).filter(n => n.tagName === 'th' && n.scope === 'row').map(n => n.textContent);
+    assert.ok(filas.includes('aux-adm-2026-0012') && filas.every(f => !f.startsWith('preparacion:')));
+    assert.ok(elementos(raiz).some(n => n.tagName === 'caption'));
     assert.ok(texto.includes(textos.traducir('no_puede_subsanar')) && texto.includes(textos.traducir('puede_subsanar')));
     assert.ok(texto.includes(textos.traducir('estado_borrador')));
     assert.ok(texto.includes(textos.plural('unidades.dias_habiles', 10)));
