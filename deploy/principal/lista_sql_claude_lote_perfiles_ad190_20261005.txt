@@ -1,5 +1,6 @@
 # AD190: consumidor nominal del lote ordinario de perfiles (Administración).
-# Requiere AD195 instalada: mide el núcleo y el CHECK de audiencias POST195. Si otro consumidor
+# Requiere AD195 instalada (y en la principal también AUT48, AD196 y AUT49, con las que se midió):
+# mide el núcleo y el CHECK de audiencias POST195. Aunque su número es menor, va después de AD195/AD196. Si otro consumidor
 # reescribe antes el núcleo o ese CHECK, AD190 se detiene con PARO sin tocar nada y hay que remedirla.
 # Crea el grupo NOLOGIN vec_admin_perfiles_lote_ejecutor. No concede permisos ni escribe efectos:
 # su único consumidor será el efecto del lote (AUT44). Una sola vez; sin DOWN.
