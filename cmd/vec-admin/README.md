@@ -183,7 +183,10 @@ de Git, con `modo` exactamente `lote_v1`.
 | `unidades` | Unidades donde se puede aplicar el lote. Cada una lleva su `unidad_ref` y los descriptores (referencia, versión y huella) de la fuente de organización y de la de unidad, tal como los dejó el arranque. |
 
 La organización, el proceso, el canal y los motivos de denegación y error son
-los del overlay de usuarios. Con este archivo, el proceso abre solo:
+los del overlay de usuarios. Ese overlay debe llevar además el destino de
+auditoría `preparar_lote_ordinario` (tipo `fijo`), para que una preparación
+denegada no quede registrada como si fuera aplicar un lote. Sin el lote, ese
+destino es opcional. Con este archivo, el proceso abre solo:
 
 - `GET /api/admin/perfiles/v1/personas/{persona_ref}/preparacion-lote?unidad_ref=…`
   (AUT50): cuenta, versiones y huellas de cada alta o baja posible.
@@ -201,8 +204,9 @@ Antes de arrancar con el lote hay que tener, además de la lista SQL del lote
 2. Una fila en `vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`
    para ese LOGIN, con la audiencia y la acción del lote y la superficie
    `administracion_privilegiada`.
-3. La clave HMAC de la capacidad del lote registrada y vigente. Su gobierno
-   todavía no existe (minitarea A7d); sin ella el lote responde 503.
+3. La clave HMAC de la capacidad del lote registrada y vigente. La publica la
+   renovación diaria con `vec-gobierno-usuarios-admin` y el conjunto de
+   capacidades 1 (AD198). Sin ella, el lote responde 503.
 4. El rol de Aplicación con la concesión del lote (v6 o posterior). Tras cada
    cambio de versión, cada administrador debe volver a elegir perfil para que
    su asignación actual apunte a la nueva.

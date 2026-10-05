@@ -14,6 +14,11 @@ func loteADMINPrueba(t *testing.T) (configuracionLotePrivada, configuracionPerfi
 	t.Helper()
 	base := configuracionPrivadaPrueba(t)
 	u := usuariosMetadatosPrueba(t, base)
+	u.Destinos["preparar_lote_ordinario"] = destinoUsuariosPrivado{Accion: "administracion.perfiles.preparar_lote_ordinario",
+		RecursoRef: "administracion:perfiles:preparar_lote_ordinario", FinalidadRef: "gestion_perfiles", TipoRecurso: "fijo"}
+	if err := validarConfiguracionUsuariosMetadatosPrivada(u, base); err != nil {
+		t.Fatal("overlay de usuarios con destino de preparación:", err)
+	}
 	dir := filepath.Dir(base.Pools.CuentasADMIN)
 	runtime := configuracionRuntimeADMIN{Version: 1, PoolContexto: filepath.Join(dir, "contexto.json"),
 		FuenteIdentificadoresArchivo: filepath.Join(dir, "originales.json"),
@@ -79,6 +84,16 @@ func TestOverlayLoteFallaCerrado(t *testing.T) {
 			t.Fatal(err)
 		}
 		return b
+	}
+	sinDestino := u
+	sinDestino.Destinos = map[string]destinoUsuariosPrivado{}
+	for k, v := range u.Destinos {
+		if k != "preparar_lote_ordinario" {
+			sinDestino.Destinos[k] = v
+		}
+	}
+	if validarConfiguracionLotePrivada(c, base, sinDestino, runtime) == nil {
+		t.Fatal("lote sin destino de auditoría de la preparación aceptado")
 	}
 	for nombre, mutar := range map[string]func(*configuracionLotePrivada){
 		"modo":                 func(x *configuracionLotePrivada) { x.Modo = "metadatos_v1" },

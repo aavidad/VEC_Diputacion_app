@@ -52,6 +52,10 @@ func cargarConfiguracionLotePrivada(ruta string, base configuracionPerfilesPriva
 }
 
 func validarConfiguracionLotePrivada(c configuracionLotePrivada, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) error {
+	// Con el lote, la preparación necesita su destino de auditoría propio.
+	if _, ok := u.Destinos["preparar_lote_ordinario"]; !ok {
+		return errConfiguracionPrivadaPerfiles
+	}
 	if c.Modo != modoLoteADMIN || !rutaPrivadaPerfilesValida(c.PoolLote) || contieneClavePrivadaInline(c.ConfianzaJSON) ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(c.MotivoLote) || c.MotivoLote.CatalogoID != base.CatalogoMotivosID {
 		return errConfiguracionPrivadaPerfiles
