@@ -60,3 +60,9 @@ La competencia del firmante (AUT35) exige tres fuentes nominales de la misma per
 - Además no hay versiones de rol publicadas para los cargos del plan, ni un circuito gobernado para publicar roles ordinarios (hoy los publica el bootstrap de desarrollo; ver tarea 5).
 
 Corte mínimo propuesto: publicar las versiones de rol de los cargos, registrarlas como asignables (AUT49) y asignarlas con el lote ordinario de Administración (AD190/AUT44, pantalla A8), y añadir a vec-admin el emisor y la llamada de AD165 y AD166. Eso sustituye el doble control de AD164 por el control del lote, así que depende de la respuesta a la pregunta 142 de `dudas.md`. Hasta entonces la asignación de cargos de firma sigue cerrada.
+
+## Gobierno del plan: bloqueo de ámbitos (hallado el 05/10)
+
+AD177 y `plannominal.RecursoGobiernoPlanFirma` fijan el recurso de gobierno sin ámbitos (`"ambitos":{}` en la huella de contexto). El PDP común exige que el recurso tenga exactamente las dimensiones de la asignación (`AsignacionPerfil.Cubre`), y una asignación siempre tiene al menos un ámbito; la del administrador con Rol7 tiene organización y unidad, y el catálogo nominal de Rol7 declara esas dos dimensiones para `vec.catalogos.*`. Resultado: cualquier decisión de gobierno del plan se deniega con `ambito_no_autorizado` antes de llegar a AD177. Ningún ensayo lo había detectado porque nadie emitía todavía esa decisión.
+
+Propuesta para decidir con K antes del emisor de vec-admin: que el recurso de gobierno lleve `organizacion_ref` y `unidad_ref` de la asignación del administrador, y una migración nueva que sustituya `registrar_y_confirmar_gobierno_plan_firma_v1` para recibirlos, cotejarlos con la asignación de la decisión consumida (fachada AUT) y calcular con ellos la huella de contexto. El material del kit (13 claves) y CC7 no cambian.
