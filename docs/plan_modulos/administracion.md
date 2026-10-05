@@ -89,7 +89,7 @@ AD193 y AUT47, equivalente a la principal H12:
 
 Límites: el verificador Go de los tipos nuevos ya está en main (#704).
 `organizacion_preparacion` y `entrega-peticion-rrhh-fijo` quedan fuera de
-los planes hasta que se responda la pregunta 140 de `dudas.md`. Las exclusiones son
+los planes hasta que se responda la pregunta 141 de `dudas.md`. Las exclusiones son
 una lista de nombres; la clasificación positiva es la aprobación del plan. El
 registro no da permisos a nadie: sólo hace que esos roles puedan asignarse
 cuando existan A2-A7. `vec-admin` no cambia en este corte.

@@ -30,7 +30,7 @@ Estas exclusiones son una defensa técnica por nombres. La clasificación
 positiva es la aprobación: Alberto revisa la lista exacta del plan antes de
 firmar su huella.
 
-Hasta que se responda la pregunta 140 de `dudas.md`, ningún plan incluye
+Hasta que se responda la pregunta 141 de `dudas.md`, ningún plan incluye
 `rol:organizacion_preparacion` (modifica la estructura organizativa de
 Personal) ni `rol:entrega-peticion-rrhh-fijo` (entrega peticiones de centro y
 crea solicitudes de Contratación). El operador los quita al preparar el plan y
