@@ -96,7 +96,11 @@ BEGIN
   PERFORM vec_autorizacion_atestada_v3.comprobar_consumo_recuperacion_firmas_ct_v2(material,
    consumo||jsonb_build_object('huella_efecto_sha256',contexto,'consumida_en',r.consumida_en::text));
   RAISE EXCEPTION 'AD177/178 prueba: recuperación aceptó un consumo ajeno';
- EXCEPTION WHEN insufficient_privilege THEN NULL;
+ EXCEPTION WHEN insufficient_privilege THEN
+  -- Debe llegar a la relectura de filas, no caer antes por un error del validador.
+  IF SQLERRM NOT LIKE '%clave=filas%' THEN
+   RAISE EXCEPTION 'AD177/178 prueba: rechazo de recuperación por causa inesperada: %',SQLERRM;
+  END IF;
  END;
  -- Fachada de gobierno: material malformado se rechaza antes de consumir.
  BEGIN

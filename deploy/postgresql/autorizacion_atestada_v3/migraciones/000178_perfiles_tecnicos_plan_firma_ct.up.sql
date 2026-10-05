@@ -247,8 +247,9 @@ BEGIN
  OR p_consumo->'consumo_nuevo' IS DISTINCT FROM 'true'::jsonb
  OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_consumo) AS k(nombre)
   WHERE k.nombre<>'consumo_nuevo' AND jsonb_typeof(p_consumo->k.nombre) IS DISTINCT FROM 'string')
- OR (p_consumo->>'decision_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,511}$') IS NOT TRUE
- OR (p_consumo->>'auditoria_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,511}$') IS NOT TRUE
+ -- PostgreSQL limita {m,n} a 255: la longitud se comprueba aparte.
+ OR (p_consumo->>'decision_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]*$') IS NOT TRUE OR length(p_consumo->>'decision_ref') NOT BETWEEN 3 AND 512
+ OR (p_consumo->>'auditoria_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]*$') IS NOT TRUE OR length(p_consumo->>'auditoria_ref') NOT BETWEEN 3 AND 512
  OR (p_consumo->>'consumo_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
  OR p_consumo->>'efecto_ref' IS DISTINCT FROM s->>'ExpedienteRef'
  OR p_consumo->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h THEN
