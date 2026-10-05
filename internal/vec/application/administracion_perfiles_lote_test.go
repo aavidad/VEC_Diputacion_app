@@ -175,8 +175,10 @@ func TestAdministracionPerfilesLoteDeniegaAntesDelPuerto(t *testing.T) {
 						continue
 					}
 					if caso == "programado_pasado" {
+						// El fixture programa a ahora+1min y el rol rige desde ahora-1h:
+						// ahora-1min está dentro del rol pero ya no es futuro.
 						s.Cambios[i].InicioVigencia = domain.InicioVigenciaLoteProgramado
-						s.Cambios[i].Objetivo.VigenteDesde = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+						s.Cambios[i].Objetivo.VigenteDesde = s.Cambios[i].Objetivo.VigenteDesde.Add(-2 * time.Minute)
 					} else {
 						s.Cambios[i].InicioVigencia = domain.InicioVigenciaLoteInmediato
 						s.Cambios[i].Objetivo.VigenteDesde = time.Time{}
@@ -352,5 +354,31 @@ func TestAdministracionPerfilesNoAdmiteOtroRolAunqueCatalogoLoClasifiqueAplicaci
 	}
 	if _, err := servicio.AplicarLoteOrdinario(context.Background(), solicitud); err == nil || autoridad.lotes != 0 || autoridad.ordinarios != 0 {
 		t.Fatal("otro rol de categoría Aplicación recibió autoridad nominal de perfiles")
+	}
+}
+
+// Un recibo cuyo inicio efectivo inmediato no queda antes del fin de la
+// vigencia no acredita el alta, aunque el resto coincida con la solicitud.
+func TestAdministracionPerfilesLoteReciboConFinNoPosteriorAlInicio(t *testing.T) {
+	servicio, s, a, _ := lotePerfilesAplicacionPrueba(t)
+	for i := range s.Cambios {
+		if s.Cambios[i].Operacion == domain.OperacionOtorgarPerfil {
+			s.Cambios[i].InicioVigencia = domain.InicioVigenciaLoteInmediato
+			s.Cambios[i].Objetivo.VigenteDesde = time.Time{}
+		}
+	}
+	sellarLotePerfilesPrueba(t, &s)
+	a.mutar = func(r *domain.ReciboLoteAdministracionPerfiles) {
+		fin := s.Cambios[0].Objetivo.VigenteHasta
+		r.ConfirmadoEn = fin
+		for i := range r.Cambios {
+			r.Cambios[i].ConfirmadoEn = fin
+			if r.Inicios[i].Modo == domain.InicioVigenciaLoteInmediato {
+				r.Inicios[i].VigenteDesde, r.Cambios[i].VigenteDesde = fin, fin
+			}
+		}
+	}
+	if _, err := servicio.AplicarLoteOrdinario(context.Background(), s); err == nil || a.lotes != 1 {
+		t.Fatalf("recibo con fin no posterior al inicio aceptado: %v", err)
 	}
 }
