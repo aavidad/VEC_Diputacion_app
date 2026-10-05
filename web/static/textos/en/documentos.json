@@ -1,17 +1,17 @@
 {
   "general": {
-    "error_vista": "Documents not available",
+    "error_vista": "Documents are not available",
     "miga": "Employee Portal → Documents",
     "titulo": "Case file documents",
     "ayuda_etiqueta": "Help about documents",
-    "aclaracion_firma": "Official signature pending means no officially valid signature is recorded yet. A test-signed PDF may be stored without changing that status. The VEC number is internal. Preparing a notice does not prove delivery. If another system keeps the original, VEC stores only its fingerprint.",
+    "aclaracion_firma": "Official signature pending means no officially valid signature is recorded yet. A test-signed PDF may be stored without changing that status. The document number is internal to VEC. Preparing a notice does not prove delivery. If another system keeps the original, VEC stores only its fingerprint.",
     "cargar_mas": "Load more",
     "sin_expediente": "Open the documents from a case file.",
     "no_configurado": "Document search is not available.",
     "cargando": "Checking documents…",
     "disponible": "Documents available",
     "vacio": "There are no documents in this case file.",
-    "denegado": "You do not have permission to view these documents.",
+    "denegado": "You do not have permission to view these documents. If you think you should, ask your manager for access.",
     "error": "The documents could not be loaded. Open the case file again; if it keeps failing, contact IT support.",
     "descargando": "Retrieving the original…",
     "descarga_iniciada": "Download started.",
@@ -32,7 +32,7 @@
     "descargar": "Download original",
     "descargar_de": "Download original of document {numero}",
     "custodia_externa": "The original is held in another system",
-    "conservacion_provisional": "Provisional retention period",
+    "conservacion_provisional": "Provisional retention",
     "huella_abreviada": "Show digital fingerprint"
   }
 }

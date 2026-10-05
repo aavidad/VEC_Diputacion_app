@@ -1,17 +1,17 @@
 {
   "general": {
-    "error_vista": "Documentos no disponible",
+    "error_vista": "Los documentos no están disponibles",
     "miga": "Portal del Empleado → Documentos",
     "titulo": "Documentos del expediente",
     "ayuda_etiqueta": "Ayuda sobre documentos",
-    "aclaracion_firma": "Firma oficial pendiente significa que aún no consta una firma con validez oficial. Puede haber un PDF firmado de prueba en custodia sin que cambie ese estado. El número VEC es interno. Preparar una notificación no acredita su entrega. Si otro sistema guarda el original, VEC solo conserva su huella.",
+    "aclaracion_firma": "Firma oficial pendiente significa que aún no consta una firma con validez oficial. Puede haber un PDF firmado de prueba en custodia sin que cambie ese estado. El número del documento es interno de VEC. Preparar una notificación no acredita su entrega. Si otro sistema guarda el original, VEC solo conserva su huella.",
     "cargar_mas": "Cargar más",
     "sin_expediente": "Abra los documentos desde un expediente.",
     "no_configurado": "La consulta de documentos no está disponible.",
     "cargando": "Consultando documentos…",
     "disponible": "Documentos disponibles",
     "vacio": "No hay documentos en este expediente.",
-    "denegado": "No tiene permiso para ver estos documentos.",
+    "denegado": "No tiene permiso para ver estos documentos. Si cree que debería verlos, pida acceso a su responsable.",
     "error": "No se han podido cargar los documentos. Vuelva a abrir el expediente; si sigue igual, avise a Informática.",
     "descargando": "Recuperando el original…",
     "descarga_iniciada": "Descarga iniciada.",
@@ -32,7 +32,7 @@
     "descargar": "Descargar original",
     "descargar_de": "Descargar original del documento {numero}",
     "custodia_externa": "El original está en otro sistema",
-    "conservacion_provisional": "Plazo de conservación provisional",
+    "conservacion_provisional": "Conservación provisional",
     "huella_abreviada": "Ver huella digital"
   }
 }

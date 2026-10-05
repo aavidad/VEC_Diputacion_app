@@ -364,6 +364,7 @@ export function crearCoordinadorModulosPortal({
     let alta = null;
     let altaResuelta = false;
     let promesaCentrosOrganizacion = null;
+    let centrosOrganizacionResueltos = null;
     // Sin catálogo del alta (perfil que no da de alta peticiones), los nombres
     // de centro salen de la estructura pública de Organización. Una sola
     // consulta por carga; si falla, la lista sigue con la referencia.
@@ -372,7 +373,8 @@ export function crearCoordinadorModulosPortal({
       promesaCentrosOrganizacion ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1")
         .then((modulo) => modulo.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }).obtener())
         .then((estructura) => centrosDeOrganizacion(estructura.unidades))
-        .catch(() => null);
+        .catch(() => null)
+        .then((centros) => { centrosOrganizacionResueltos = centros; return centros; });
       return promesaCentrosOrganizacion;
     };
     // La jornada completa de referencia y las etiquetas de las modalidades
@@ -403,7 +405,12 @@ export function crearCoordinadorModulosPortal({
       } catch {
         alta = null;
       }
-    }, () => { alta = null; }).finally(() => { altaResuelta = true; });
+    }, () => { alta = null; }).finally(() => {
+      altaResuelta = true;
+      // Sin alta, se piden ya los nombres de Organización y se avisa para
+      // repintar Inicio y la lista con ellos.
+      if (alta === null) void centrosOrganizacion()?.then((centros) => { if (centros) notificar(); });
+    });
     const consultaCuadro = consultar((opciones) => fuente.listar(opciones));
     const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
@@ -502,7 +509,8 @@ export function crearCoordinadorModulosPortal({
             expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
               ...e,
               numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
-              centro: etiqueta(alta?.catalogos?.centros, e.centro),
+              centro: etiqueta(alta?.catalogos?.centros ?? (centrosOrganizacionResueltos
+                ? [...centrosOrganizacionResueltos].map(([referencia, nombre]) => ({ referencia, etiqueta: nombre })) : null), e.centro),
               categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
             }))),
             parcial: listadoCuadro.hay_mas === true
