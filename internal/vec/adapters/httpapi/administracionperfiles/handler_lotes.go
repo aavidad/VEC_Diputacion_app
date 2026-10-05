@@ -47,6 +47,9 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 	}
 	solicitud.HuellaSolicitudSHA256 = huella
 	for _, cambio := range solicitud.Cambios {
+		if cambio.Operacion == domain.OperacionRevocarPerfil {
+			continue
+		}
 		rol, err := h.catalogo.ResolverRolAdministrable(r.Context(), cambio.RolVersionRef)
 		if err != nil {
 			h.denegarLoteError(w, r, s, err)
