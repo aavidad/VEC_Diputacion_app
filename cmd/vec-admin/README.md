@@ -180,6 +180,7 @@ de Git, con `modo` exactamente `lote_v1`.
 | `pool_lote` | Ruta del JSON de conexión del LOGIN del lote. Es un archivo propio, distinto de los demás pools y secretos. |
 | `confianza` | Metadatos V3 con una sola capacidad, la de `vec_autorizacion.administracion_perfiles.lote_ordinario.v1`. Usa la misma raíz que el firmante y su propio archivo de material HMAC. |
 | `motivo_lote` | Referencia opaca (`motivo_` y 32 hexadecimales) del catálogo de motivos, para la decisión del lote. |
+| `motivos_cambio` | Lista cerrada (1 a 16) de motivos que la pantalla ofrece al dar o quitar un perfil. Cada uno lleva la referencia de catálogo y la `clave_i18n` con la que se nombra en `web/static/textos/{es,en}/admin-usuarios.json` (`lote.motivos.<clave>`). El lote solo acepta uno de estos motivos. |
 | `unidades` | Unidades donde se puede aplicar el lote. Cada una lleva su `unidad_ref` y los descriptores (referencia, versión y huella) de la fuente de organización y de la de unidad, tal como los dejó el arranque. |
 
 La organización, el proceso, el canal y los motivos de denegación y error son

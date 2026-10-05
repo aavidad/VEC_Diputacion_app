@@ -47,7 +47,7 @@ func handlerConLotePrueba(t *testing.T) (*Handler, *lotesADMINPrueba, *sesionPru
 	t.Helper()
 	base, dto, autoridad, sesion, auditor, catalogo := loteHTTPPrueba(t)
 	lotes := &lotesADMINPrueba{autoridadLoteHTTP: autoridad}
-	h, err := NuevoHandlerUsuariosMetadatosConLote("https://admin.example.test", "org_prueba", sesion,
+	h, err := NuevoHandlerUsuariosMetadatosConLote("https://admin.example.test", "org_prueba", []MotivoLote{{Motivo: dto.Motivo, ClaveI18N: "alta_funciones"}}, sesion,
 		base.lecturas, catalogo, lotes, auditor)
 	if err != nil {
 		t.Fatal(err)
@@ -205,5 +205,36 @@ func TestHTTPSinConcesionDelLoteGETyPOSTDan403(t *testing.T) {
 	}
 	if auditor.llamadas != 2 || auditor.ultima.Accion != "aplicar_lote_ordinario" {
 		t.Fatal("denegaciones sin auditar")
+	}
+}
+
+// La preparación entrega los motivos configurados; el lote sólo admite uno de ellos.
+func TestHTTPLoteMotivosConfigurados(t *testing.T) {
+	h, lotes, _, auditor, dto := handlerConLotePrueba(t)
+	w := getPreparacionPrueba(h, personaPreparacionPrueba, "unidad_ref=unidad:prueba")
+	var r struct {
+		Preparacion PreparacionLote `json:"preparacion"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &r) != nil || len(r.Preparacion.Motivos) != 1 ||
+		r.Preparacion.Motivos[0].ClaveI18N != "alta_funciones" || r.Preparacion.Motivos[0].Motivo != dto.Motivo {
+		t.Fatalf("motivos no entregados: %s", w.Body.String())
+	}
+	dto.Motivo.EntradaClave = "otro_motivo"
+	if w := postLotePrueba(t, h, dto); w.Code != http.StatusBadRequest || len(lotes.solicitudes) != 0 || auditor.llamadas != 1 {
+		t.Fatalf("motivo no admitido aceptado: %d", w.Code)
+	}
+}
+
+func TestHTTPConLoteExigeMotivosValidos(t *testing.T) {
+	base, dto, autoridad, sesion, auditor, catalogo := loteHTTPPrueba(t)
+	lotes := &lotesADMINPrueba{autoridadLoteHTTP: autoridad}
+	for nombre, motivos := range map[string][]MotivoLote{
+		"sin_motivos": nil,
+		"clave_mala":  {{Motivo: dto.Motivo, ClaveI18N: "Alta Funciones"}},
+		"repetido":    {{Motivo: dto.Motivo, ClaveI18N: "a1"}, {Motivo: dto.Motivo, ClaveI18N: "a2"}},
+	} {
+		if _, err := NuevoHandlerUsuariosMetadatosConLote("https://admin.example.test", "org_prueba", motivos, sesion, base.lecturas, catalogo, lotes, auditor); err == nil {
+			t.Fatal(nombre)
+		}
 	}
 }

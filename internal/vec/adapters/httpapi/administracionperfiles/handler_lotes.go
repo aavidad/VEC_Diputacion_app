@@ -29,7 +29,7 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 		h.denegarActor(w, r, s, estado, "solicitud_invalida", "aplicar_lote_ordinario", "")
 		return
 	}
-	if len(dto.Cambios) == 0 || len(dto.Cambios) > domain.MaximoCambiosLoteAdministracionPerfiles {
+	if len(dto.Cambios) == 0 || len(dto.Cambios) > domain.MaximoCambiosLoteAdministracionPerfiles || !h.motivoLoteAdmitido(dto.Motivo) {
 		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "aplicar_lote_ordinario", "")
 		return
 	}

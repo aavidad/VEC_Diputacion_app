@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"regexp"
 
 	"vec-diputacion-granada/internal/app/administracion"
 	pg "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -36,7 +38,26 @@ type configuracionLotePrivada struct {
 	ConfianzaJSON json.RawMessage                  `json:"confianza"`
 	MotivoLote    domain.ReferenciaEntradaCatalogo `json:"motivo_lote"`
 	Unidades      []unidadLotePrivada              `json:"unidades"`
+	// MotivosCambio son los motivos que la pantalla ofrece al dar o quitar un
+	// perfil, con la clave de texto que los nombra en los catálogos es/en.
+	MotivosCambio []motivoCambioPrivado `json:"motivos_cambio"`
 }
+
+type motivoCambioPrivado struct {
+	Motivo    domain.ReferenciaEntradaCatalogo `json:"motivo"`
+	ClaveI18N string                           `json:"clave_i18n"`
+}
+
+func (c configuracionLotePrivada) motivosCambio() []api.MotivoLote {
+	r := make([]api.MotivoLote, 0, len(c.MotivosCambio))
+	for _, m := range c.MotivosCambio {
+		r = append(r, api.MotivoLote{Motivo: api.Motivo{CatalogoID: m.Motivo.CatalogoID, CatalogoVersion: m.Motivo.CatalogoVersion,
+			CatalogoHuellaSHA256: m.Motivo.CatalogoHuellaSHA256, EntradaClave: m.Motivo.EntradaClave}, ClaveI18N: m.ClaveI18N})
+	}
+	return r
+}
+
+var claveMotivoCambio = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
 
 func cargarConfiguracionLotePrivada(ruta string, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (configuracionLotePrivada, error) {
 	b, err := leerArchivoPrivadoPerfiles(ruta)
@@ -91,6 +112,16 @@ func validarConfiguracionLotePrivada(c configuracionLotePrivada, base configurac
 	}
 	if _, err := c.proveedorAmbitos(u.OrganizacionRef); err != nil {
 		return errConfiguracionPrivadaPerfiles
+	}
+	if len(c.MotivosCambio) == 0 || len(c.MotivosCambio) > 16 {
+		return errConfiguracionPrivadaPerfiles
+	}
+	motivos, claves := map[domain.ReferenciaEntradaCatalogo]bool{}, map[string]bool{}
+	for _, m := range c.MotivosCambio {
+		if m.Motivo.Validar() != nil || !claveMotivoCambio.MatchString(m.ClaveI18N) || motivos[m.Motivo] || claves[m.ClaveI18N] {
+			return errConfiguracionPrivadaPerfiles
+		}
+		motivos[m.Motivo], claves[m.ClaveI18N] = true, true
 	}
 	return nil
 }
