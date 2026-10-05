@@ -3,6 +3,7 @@ package mibolsa
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -91,7 +92,7 @@ func TestLecturasPropiasAuditanDenegacionYFalloTrasRetorno(t *testing.T) {
 			datos, err := r.ordenes[0].Datos()
 			exigir(t, err)
 			if datos.Datos.Resultado != caso.resultado || datos.Datos.Accion != bolsa.AccionConsultarMiBolsa ||
-				datos.Datos.RecursoRef != "mi-bolsa:"+referenciaServicioContextoActorPrueba("can_", "c") ||
+				datos.Datos.RecursoRef != recursoIntentoMiBolsa(referenciaServicioContextoActorPrueba("can_", "c")) ||
 				datos.Datos.Motivo != e.orden.Motivo || datos.Datos.Canal != "externa_personal" ||
 				datos.ResultadoContexto.RegistroContextoRef != e.orden.ResultadoContexto.RegistroContextoRef {
 				t.Fatal("sobre nominal sustituido")
@@ -162,5 +163,22 @@ func TestLecturaCanceladaAuditaIdentidadHistoricaSinInventarla(t *testing.T) {
 	_, err = s.Consultar(ctx, e.orden)
 	if !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) || len(r.ordenes) != 1 {
 		t.Fatal("se fabricó identidad o acuse")
+	}
+}
+
+// Las referencias reales de candidato son base64url con mayúsculas; la
+// auditoría común (Go y SQL de AD169) sólo admite minúsculas.
+func TestRecursoIntentoMiBolsaAdmiteReferenciasRealesDeCandidato(t *testing.T) {
+	candidato := "can_5RckYrhrUeIrAYLjLTAkqnoyUdzdmqMtL0YX-41TK9c"
+	ref := recursoIntentoMiBolsa(candidato)
+	if !regexp.MustCompile(`^[a-z0-9][a-z0-9._:-]{0,199}$`).MatchString(ref) || ref != recursoIntentoMiBolsa(candidato) ||
+		ref == recursoIntentoMiBolsa("can_5rckyrhrueirayljltakqnoyudzdmqmtl0yx-41tk9c") || strings.Contains(ref, candidato) {
+		t.Fatalf("referencia de recurso no admitida: %q", ref)
+	}
+	datos := domain.DatosIntentoAuditoria{Accion: bolsa.AccionConsultarMiBolsa, ModuloID: bolsa.ModuloMiBolsa, RecursoRef: ref,
+		FinalidadRef: bolsa.FinalidadMiBolsa, Resultado: domain.ResultadoIntentoAuditoriaDenegado, Motivo: nuevoEntorno(t).orden.Motivo,
+		Proceso: "vec-portal-personal", Canal: "externa_personal", CorrelacionRef: "correlacion_00000000000000000000000000000000"}
+	if err := datos.Validar(); err != nil {
+		t.Fatal(err)
 	}
 }
