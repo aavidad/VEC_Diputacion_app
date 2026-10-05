@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000081_cese_sin_candidato.up.sql

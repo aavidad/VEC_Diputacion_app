@@ -362,9 +362,11 @@ Cuando Contratación temporal registra un cese, un relevo propio lo lleva a
 Bolsa para aplicar la restricción de cinco o nueve meses al candidato. Usa su
 **propia conexión**:
 
-- Requisitos ya instalados: CT129 y Bolsa 000045, que crea el grupo
-  `vec_bolsa_llamamientos_relevo_cese` sin LOGIN. Detección:
-  `SELECT to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NOT NULL`.
+- Requisitos: CT129, Bolsa 000045, que crea el grupo
+  `vec_bolsa_llamamientos_relevo_cese` sin LOGIN, y Bolsa 000081
+  (`lista_sql_claude_relevo_ceses_b81_20261005.txt`). Sin 000081 el relevo no
+  arranca. Detección:
+  `SELECT to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL`.
 - LOGIN nominal fuera de Git, miembro **solo** de ese grupo (INHERIT, sin
   ADMIN), con la misma línea `hostssl` de `pg_hba.conf` que las demás. En la
   principal no existía: el grupo no tenía miembros.
@@ -383,7 +385,22 @@ Límite conocido (5/10/2026): el llamamiento que abre Contratación temporal en
 Bolsa elige entre tres participaciones sintéticas que genera el propio puente
 (`contratacion_temporal_llamamiento_bolsa_desarrollo.go`), no entre las de una
 bolsa constituida. Esas participaciones no tienen candidato
-(`vinculo_candidato`), así que todo cese de esos expedientes falla con
-«candidato de cese no resuelto en B13», el cursor no avanza y el relevo lo
-reintenta cada 30 segundos. Mientras no cambie el origen del llamamiento,
-encender el relevo no devuelve a nadie a la bolsa.
+(`vinculo_candidato`). Desde Bolsa 000081, el cese de un expediente así queda
+registrado y auditado en `cese_sin_candidato_bolsa` y el relevo sigue con los
+siguientes; antes se reintentaba cada 30 segundos y bloqueaba todos los
+posteriores. Nadie vuelve a la bolsa por ese cese, porque no hay candidato.
+Si la participación es de una bolsa constituida y solo falta su vínculo, el
+cese sigue pendiente hasta rellenar los vínculos (apartado D3-B11-D). En la
+copia fría de la principal solo la bolsa de administrativo tiene vínculos
+(41); las otras once están sin rellenar.
+
+Orden para encenderlo en la principal, con copia fría previa:
+
+1. Instalar Bolsa 000081 una sola vez
+   (`lista_sql_claude_relevo_ceses_b81_20261005.txt`).
+2. Crear el LOGIN con el guion privado, primero `ensayo` y después `aplicar`.
+3. Rellenar los vínculos de las once actas que no los tienen (apartado
+   D3-B11-D: `vec-server rellenar-vinculos-bolsa`, ensayo y `--aplicar` por
+   acta, y comprobar que un segundo `--aplicar` da `nuevos=0`).
+4. Añadir las dos variables de entorno, sumar una conexión al contador y
+   reiniciar. Exige B-BACK encendido.

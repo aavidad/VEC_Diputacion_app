@@ -40,6 +40,8 @@ type entregaContratosCTBolsa struct {
 // resultadoEntregaContratosCT resume una pasada para el registro técnico.
 type resultadoEntregaContratosCT struct {
 	nuevos, reentregas, rechazados int
+	// sinCandidato cuenta ceses B81 sin candidato de bolsa constituida.
+	sinCandidato int
 }
 
 // entregar hace una pasada completa desde el cursor del inbox. CT solo
@@ -133,8 +135,9 @@ func mantenerEntregaCTBolsa(nombre string, entregar func(context.Context) (resul
 			cancelarPasada()
 			if err != nil && ctx.Err() == nil {
 				slog.Error("entrega CT a Bolsa no disponible; se reintentará", "relevo", nombre, "causa", err)
-			} else if r.nuevos > 0 || r.rechazados > 0 {
-				slog.Info("entrega CT a Bolsa", "relevo", nombre, "nuevos", r.nuevos, "reentregas", r.reentregas, "rechazados", r.rechazados)
+			} else if r.nuevos > 0 || r.rechazados > 0 || r.sinCandidato > 0 {
+				slog.Info("entrega CT a Bolsa", "relevo", nombre, "nuevos", r.nuevos, "reentregas", r.reentregas,
+					"rechazados", r.rechazados, "sin_candidato", r.sinCandidato)
 			}
 			if esperar(ctx, intervalo) != nil {
 				return
@@ -205,9 +208,23 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 				}
 				// Un cese sin llamamiento Bolsa también queda acreditado. Si el
 				// llamamiento existe pero falta su vínculo, SQL deniega y reintenta.
-				if err := e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
-					evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
-					return resultado, falloRelevoCeseBolsaDesarrollo(err)
+				err = e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
+					evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada)
+				if err != nil {
+					if !errors.As(err, &pg) || pg.Code != "23503" {
+						return resultado, falloRelevoCeseBolsaDesarrollo(err)
+					}
+					// B81: la participación elegida no pertenece a ninguna bolsa
+					// constituida y nunca tendrá candidato. Queda auditado y el
+					// cursor avanza; con bolsa constituida SQL vuelve a negar con
+					// 23503 y el cese sigue pendiente.
+					if err := e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1($1,$2,$3)`,
+						evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
+						return resultado, falloRelevoCeseBolsaDesarrollo(err)
+					}
+					if !reutilizada {
+						resultado.sinCandidato++
+					}
 				}
 			} else if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
 				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
@@ -252,7 +269,8 @@ func iniciarEntregaCesesCTBolsaDesarrollo(ctx context.Context, cfg config.Config
 		FROM unnest(ARRAY[
 			'vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)',
 			'vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()',
-			'vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint)']) f`).Scan(&instalada)
+			'vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint)',
+			'vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)']) f`).Scan(&instalada)
 	if err != nil || !instalada {
 		pool.Close()
 		return nada, puertosbolsa.ErrContratosParticipacionNoDisponible
