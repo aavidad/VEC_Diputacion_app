@@ -17,6 +17,7 @@ type txSelectorAuditadoPrueba struct {
 	pgx.Tx
 	bruto                  string
 	errConsulta, errCommit error
+	carrerasPendientes     int
 	auditoriaCruzada       bool
 	args                   []any
 	commits, rollbacks     int
@@ -35,6 +36,10 @@ func (t *txSelectorAuditadoPrueba) Rollback(context.Context) error { t.rollbacks
 type filaSelectorAuditadaPrueba struct{ tx *txSelectorAuditadoPrueba }
 
 func (f filaSelectorAuditadaPrueba) Scan(destinos ...any) error {
+	if f.tx.carrerasPendientes > 0 {
+		f.tx.carrerasPendientes--
+		return &pgconn.PgError{Code: "40001", Message: "detalle interno sintético"}
+	}
 	if f.tx.errConsulta != nil {
 		return f.tx.errConsulta
 	}
@@ -125,11 +130,28 @@ func TestSelectorDenegadoConfirmaAuditoriaAntesDeDevolverError(t *testing.T) {
 }
 
 func TestSelectorConflictoTecnicoNoEsCASObsoleto(t *testing.T) {
-	tx := &txSelectorAuditadoPrueba{errConsulta: &pgconn.PgError{Code: "40001", Message: "detalle interno sintético"}}
+	for _, codigo := range []string{"40001", "40P01"} {
+		tx := &txSelectorAuditadoPrueba{errConsulta: &pgconn.PgError{Code: codigo, Message: "detalle interno sintético"}}
+		s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
+		// El plazo corta los reintentos; agotados, el conflicto sigue sin ser CAS.
+		ctx, cancelar := context.WithTimeout(ctx, 150*time.Millisecond)
+		_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+		cancelar()
+		if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, api.ErrConflictoEstado) || tx.commits != 0 || tx.rollbacks < 2 {
+			t.Fatalf("%s: se convirtió un conflicto técnico en CAS denegado o no se reintentó (rollbacks=%d)", codigo, tx.rollbacks)
+		}
+	}
+}
+
+// Varias peticiones simultáneas de la misma página chocan en la cadena común:
+// la transacción abortada se repite entera y la lectura termina confirmada.
+func TestSelectorRepiteTransaccionTrasCarreraSerializable(t *testing.T) {
+	const documento = `{"revision":0,"perfil_activo_ref":"","perfiles":[{"perfil_ref":"prf_aaaaaaaaaaaaaaaaaaaaaa","rol_version_ref":"rol:administracion_perfiles:v4","clave_i18n":"administracion.perfiles.rol","categoria_admin":"aplicacion"}]}`
+	tx := &txSelectorAuditadoPrueba{bruto: documento, carrerasPendientes: 2}
 	s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
-	_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
-	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, api.ErrConflictoEstado) || tx.commits != 0 || tx.rollbacks != 1 {
-		t.Fatal("se convirtió un conflicto técnico en CAS denegado")
+	r, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+	if err != nil || len(r.Propios.Perfiles) != 1 || r.AuditoriaComunRef == "" || tx.commits != 1 || tx.rollbacks != 3 {
+		t.Fatalf("la carrera no se repitió con transacción nueva: err=%v commits=%d rollbacks=%d", err, tx.commits, tx.rollbacks)
 	}
 }
 

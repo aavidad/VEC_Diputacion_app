@@ -6,14 +6,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -130,41 +129,53 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 	var ref string
 	var denegada error
 	var resultadoValidado bool
-	err := s.base.transaccion(ctx, func(tx pgx.Tx) error {
-		var bruto []byte
-		if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto, &ref); err != nil {
-			return err
-		}
-		if ref != "aud_v3_p_"+hexEvento || decodificarSelectorAuditado(bruto, &salida) != nil {
-			return api.ErrConfiguracionIncompleta
-		}
-		if salida.Estado == "denegado" {
-			if salida.Perfiles != nil || salida.PerfilActivoRef != "" || salida.PerfilRef != "" || salida.Revision != 0 || salida.SeleccionRevision != 0 || !salida.SeleccionadaEn.IsZero() {
+	// Cada activo de la página pasa por este selector y escribe en la cadena
+	// común de auditoría; con varias peticiones a la vez PostgreSQL aborta
+	// algunas con 40001. El aborto revierte la transacción entera, así que se
+	// repite con otra nueva según la política común. Nunca se repite una
+	// respuesta ya validada: su COMMIT puede haberse aplicado.
+	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		salida, ref, denegada, resultadoValidado = resultadoSelectorAuditado{}, "", nil, false
+		err := s.base.transaccion(ctx, func(tx pgx.Tx) error {
+			var bruto []byte
+			if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto, &ref); err != nil {
+				return err
+			}
+			if ref != "aud_v3_p_"+hexEvento || decodificarSelectorAuditado(bruto, &salida) != nil {
 				return api.ErrConfiguracionIncompleta
 			}
-			switch salida.MotivoRef {
-			case "seleccion_revision_obsoleta":
-				denegada = api.ErrConflictoEstado
-			case "seleccion_material_invalido":
-				denegada = api.ErrAccesoDenegado
-			case "perfil_propio_no_acreditado":
-				denegada = api.ErrAccesoDenegado
-			default:
+			if salida.Estado == "denegado" {
+				if salida.Perfiles != nil || salida.PerfilActivoRef != "" || salida.PerfilRef != "" || salida.Revision != 0 || salida.SeleccionRevision != 0 || !salida.SeleccionadaEn.IsZero() {
+					return api.ErrConfiguracionIncompleta
+				}
+				switch salida.MotivoRef {
+				case "seleccion_revision_obsoleta":
+					denegada = api.ErrConflictoEstado
+				case "seleccion_material_invalido":
+					denegada = api.ErrAccesoDenegado
+				case "perfil_propio_no_acreditado":
+					denegada = api.ErrAccesoDenegado
+				default:
+					return api.ErrConfiguracionIncompleta
+				}
+				// La denegación acreditada ya tiene registro común. Confirmamos
+				// primero ese asiento; después devolvemos el error al transporte.
+				resultadoValidado = true
+				return nil
+			}
+			if salida.Estado != "" || salida.MotivoRef != "" {
 				return api.ErrConfiguracionIncompleta
 			}
-			// La denegación acreditada ya tiene registro común. Confirmamos
-			// primero ese asiento; después devolvemos el error al transporte.
+			if err := validar(salida); err != nil {
+				return err
+			}
 			resultadoValidado = true
 			return nil
-		}
-		if salida.Estado != "" || salida.MotivoRef != "" {
+		})
+		if err != nil && resultadoValidado {
 			return api.ErrConfiguracionIncompleta
 		}
-		if err := validar(salida); err != nil {
-			return err
-		}
-		resultadoValidado = true
-		return nil
+		return err
 	})
 	if err != nil {
 		if resultadoValidado {
@@ -172,10 +183,9 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 			// funcional al error de cerrar una respuesta ya validada.
 			return resultadoSelectorAuditado{}, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
-		var pg *pgconn.PgError
-		if errors.As(err, &pg) && pg.Code == "40001" {
-			// Una colisión técnica requiere una transacción nueva; no acredita
-			// que la revisión seleccionada por la persona esté obsoleta.
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			// Agotados los reintentos, la colisión técnica no acredita que la
+			// revisión seleccionada por la persona esté obsoleta.
 			return resultadoSelectorAuditado{}, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		return resultadoSelectorAuditado{}, "", errorAutoridad(err)
