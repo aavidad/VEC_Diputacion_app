@@ -61,6 +61,7 @@
     "lista_col_plazo": "Plazo",
     "lista_sin_plazo": "Sin plazo",
     "lista_abrir_aria": "Abrir el expediente {expediente}",
-    "lista_recuento_parcial": "Recuento parcial: hay más peticiones en la página siguiente."
+    "lista_recuento_parcial": "Recuento parcial: hay más peticiones en la página siguiente.",
+    "centro_visible": "Centro con código {numero}"
   }
 }

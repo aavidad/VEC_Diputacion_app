@@ -774,3 +774,16 @@ test("el centro con la clave de la organización se nombra con su entrada del ca
   assert.equal(etiquetaCatalogo(centros, "centro-999"), "centro-999");
   assert.equal(etiquetaCatalogo(null, "centro-520"), "centro-520");
 });
+
+test("sin catálogo del alta, el centro se nombra con Organización", async () => {
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: clienteFalso([]),
+    obtenerCentrosOrganizacion: async () => new Map([["centro:001", "DEPORTES"]]),
+  });
+  const cuadro = await adaptador.listar();
+  assert.equal(cuadro.expedientes[0].centro, "DEPORTES");
+  const fallida = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: clienteFalso([]), obtenerCentrosOrganizacion: async () => { throw new Error("caída"); },
+  });
+  assert.equal((await fallida.listar()).expedientes[0].centro, "centro:001");
+});

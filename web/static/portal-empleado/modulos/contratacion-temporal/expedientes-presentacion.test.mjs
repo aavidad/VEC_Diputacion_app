@@ -166,8 +166,8 @@ test("la lista presenta una referencia de centro legible y deja la técnica en t
   const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
     demostracion: false, indicadores: [], expedientes: [{ expediente_ref: "expediente:ct:centro", numero_visible: "2026/CT-000042", centro: "centro:desarrollo:001", categoria: "Auxiliar", modalidad: "Sustitución", estado_clave: "en_curso", estado: "En curso", fase_actual: "Solicitud", plazo: "Sin plazo" }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
-  assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001<small>Auxiliar<\/small>/u);
-  assert.match(html, /<option value="centro:desarrollo:001">Centro desarrollo · 001<\/option>/u);
+  assert.match(html, /title="centro:desarrollo:001">Centro con código 001<small>Auxiliar<\/small>/u);
+  assert.match(html, /<option value="centro:desarrollo:001">Centro con código 001<\/option>/u);
 });
 
 test("sin plazo calculado la lista lo dice sin inventar fecha", () => {

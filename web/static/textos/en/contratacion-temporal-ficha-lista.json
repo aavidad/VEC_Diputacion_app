@@ -61,6 +61,7 @@
     "lista_col_plazo": "Deadline",
     "lista_sin_plazo": "No deadline",
     "lista_abrir_aria": "Open case {expediente}",
-    "lista_recuento_parcial": "Partial count: there are more requests on the next page."
+    "lista_recuento_parcial": "Partial count: there are more requests on the next page.",
+    "centro_visible": "Centre with code {numero}"
   }
 }
