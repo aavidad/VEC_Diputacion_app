@@ -35,7 +35,22 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
-	config := httpseguridad.ConfiguracionSuperficie{
+	config := superficieSesionPerfiles(cfg)
+	red, err := httpseguridad.NuevaPoliticaRed(config)
+	if err != nil {
+		return nil, ErrConfiguracion
+	}
+	proveedor, err := adminperfiles.Nuevo(config, deps)
+	if err != nil {
+		return nil, ErrConfiguracion
+	}
+	return &resolvedorSesionPerfiles{cfg: cfg, host: host, ca: ca.Raw, red: red, proveedor: proveedor, reloj: deps.Reloj}, nil
+}
+
+// superficieSesionPerfiles fija la superficie ADMIN directa: certificado como
+// único factor, garantía alta y cuenta privilegiada.
+func superficieSesionPerfiles(cfg Configuracion) httpseguridad.ConfiguracionSuperficie {
+	return httpseguridad.ConfiguracionSuperficie{
 		Superficie:       httpseguridad.SuperficieAdministracionPrivilegiada,
 		ZonaRed:          httpseguridad.ZonaRedAdministracion,
 		DireccionEscucha: cfg.Escucha, Audiencia: cfg.Audiencia, EmisorIdentidad: cfg.EmisorIdentidad,
@@ -48,15 +63,6 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 		PoliticaAdministracion:           httpseguridad.PoliticaAdministracionCertificadoTemporal,
 		RetiradaPoliticaAdministracionEn: cfg.RetiradaEn, CertificadoClienteDirecto: true,
 	}
-	red, err := httpseguridad.NuevaPoliticaRed(config)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	proveedor, err := adminperfiles.Nuevo(config, deps)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	return &resolvedorSesionPerfiles{cfg: cfg, host: host, ca: ca.Raw, red: red, proveedor: proveedor, reloj: deps.Reloj}, nil
 }
 
 func (s *resolvedorSesionPerfiles) ResolverSesionADMIN(ctx context.Context, r *http.Request) (api.SesionConfiable, error) {
@@ -111,7 +117,7 @@ func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Re
 	}
 	certSHA, caSHA := sha256.Sum256(hoja.Raw), sha256.Sum256(ca.Raw)
 	return adminperfiles.ObservacionADMIN{
-		Entorno: s.cfg.Entorno, Host: s.host.nombre, Audiencia: s.cfg.Audiencia,
+		Entorno: s.cfg.Entorno, Host: s.host.nombre, Autoridad: s.host.autoridad, Audiencia: s.cfg.Audiencia,
 		CertificadoSHA256: hex.EncodeToString(certSHA[:]), CASHA256: hex.EncodeToString(caSHA[:]),
 		AutenticacionVerificadaEn: autenticada, RevocacionVerificadaEn: ahora,
 		CRLVigenteHasta: crlHasta.UTC().Truncate(time.Microsecond), CertificadoVigenteHasta: hoja.NotAfter.UTC().Truncate(time.Microsecond),

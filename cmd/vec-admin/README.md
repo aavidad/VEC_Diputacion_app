@@ -42,10 +42,16 @@ Notas sobre estas variables, comprobadas en el ensayo del 5 de octubre de 2026:
   forma (sin puerto, otro puerto, `:443` explícito) recibe 403 o 401. El nombre
   va en minúsculas; si el valor no es un nombre DNS válido o el puerto no está
   entre 1 y 65535 sin ceros a la izquierda, el arranque falla.
-- La política de certificado de IS15 (`host_admin`) guarda solo el nombre, sin
-  puerto, y se compara con el nombre de `VEC_ADMIN_HOST`.
+- PostgreSQL guarda `host_admin` solo con el nombre, sin puerto, en la política
+  de certificado de IS15 y en las configuraciones de ejecución ADMIN
+  (migraciones 000014 y 000016 de `identidad_sesiones_v1`). Las tres se comparan
+  con el nombre de `VEC_ADMIN_HOST`.
 - El puente que lleve el puerto público hasta el proceso no puede terminar TLS:
   el certificado cliente tiene que llegar en el mismo handshake.
+- Con un puente TCP delante, `VEC_ADMIN_REDES_PERMITIDAS` ve la dirección del
+  puente, no la del navegador. Poner ahí la IP del puente no filtra clientes:
+  esa restricción queda en manos del puente o del cortafuegos, y el certificado
+  cliente sigue siendo obligatorio.
 - El emisor de la aserción es el espacio de identidad de la sesión y el
   registro de sesiones lo compara con `identidad.espacio_identidad`. Si
   `VEC_ADMIN_EMISOR_IDENTIDAD` no coincide, el arranque falla con

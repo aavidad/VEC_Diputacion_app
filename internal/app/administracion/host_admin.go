@@ -45,8 +45,9 @@ func puertoCanonico(puerto string) bool {
 
 func (h hostAdmin) origen() string { return "https://" + h.autoridad }
 
-// nombreHostAdminValido sigue la misma regla que host_admin en PostgreSQL:
-// etiquetas DNS en minúscula y al menos un punto.
+// nombreHostAdminValido sigue la regla de host_admin de la migración 000016 de
+// identidad_sesiones_v1 (etiquetas DNS en minúscula y al menos un punto), más
+// estricta que el CHECK de 000009.
 func nombreHostAdminValido(nombre string) bool {
 	if len(nombre) < 4 || len(nombre) > 253 || !strings.Contains(nombre, ".") {
 		return false

@@ -2,10 +2,13 @@ package administracion
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/adapters/httpapi/adminselector"
 )
 
 func TestAnalizarHostAdminFormaCerrada(t *testing.T) {
@@ -66,6 +69,42 @@ func TestGateActivosConPuertoPublico(t *testing.T) {
 		}
 		if caso.esperado != http.StatusOK && f.llamadas != 0 {
 			t.Fatalf("Host %q consultó la autoridad", caso.cabecera)
+		}
+	}
+}
+
+// La composición entrega al selector el origen con el puerto público: un
+// Origin sin puerto u otro puerto se rechaza antes de consultar la autoridad.
+func TestMontajeSelectorUsaOrigenConPuertoPublico(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	host, ok := analizarHostAdmin("admin.invalid:8444")
+	if !ok {
+		t.Fatal("host sintético inválido")
+	}
+	for origen, esperado := range map[string]int{
+		"https://admin.invalid:8444": http.StatusOK,
+		"https://admin.invalid":      http.StatusForbidden,
+		"https://admin.invalid:443":  http.StatusForbidden,
+		"https://admin.invalid:8443": http.StatusForbidden,
+	} {
+		f := &fuenteActivosPrueba{resultado: LecturaPropiosAuditadaADMIN{Propios: propiosActivosPrueba(), AuditoriaComunRef: "auditoria:prueba:lectura"}}
+		deps := DependenciasPerfiles{Activos: activosMapaPrueba(), ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx },
+			ObservadorSelector: observadorActivosPrueba{o: observacionActivosPrueba(ahora)}, FuenteSeleccion: f,
+			AudienciaSelector: "audiencia:admin", Auditor: &auditorActivosPrueba{}, Reloj: relojActivosPrueba{ahora}}
+		h, err := montarActivosPerfiles(http.NotFoundHandler(), deps, host)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodGet, "https://admin.invalid:8444"+adminselector.RutaPropios, nil)
+		r.Host = "admin.invalid:8444"
+		r.Header.Set("Origin", origen)
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Sec-Fetch-Mode", "cors")
+		r.Header.Set("Sec-Fetch-Dest", "empty")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != esperado || (f.llamadas != 0) != (esperado == http.StatusOK) {
+			t.Fatalf("Origin %q: %d (esperado %d) consultas=%d", origen, w.Code, esperado, f.llamadas)
 		}
 	}
 }

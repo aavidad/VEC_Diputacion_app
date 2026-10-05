@@ -46,7 +46,7 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o ObservacionADMIN) (api.SesionConfiable, error) {
 	var vacia api.SesionConfiable
 	if p == nil || ctx == nil || ctx.Err() != nil || r == nil || r.TLS == nil ||
-		!r.TLS.HandshakeComplete || r.TLS.DidResume || nombreHostPeticion(r.Host) != o.Host ||
+		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != o.Autoridad || nombreHostPeticion(o.Autoridad) != o.Host ||
 		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 		r.TLS.VerifiedChains[0][0] == nil || r.TLS.VerifiedChains[0][1] == nil ||
 		o.Audiencia != p.config.Audiencia || !o.Valida(p.deps.Reloj.Ahora().UTC()) {
@@ -199,10 +199,10 @@ func errorAutoridad(err error) error {
 	return api.ErrConfiguracionIncompleta
 }
 
-// nombreHostPeticion quita el puerto de la cabecera Host ya comprobada por la
-// frontera ADMIN, que exige la autoridad exacta configurada. La observación
-// lleva solo el nombre (host_admin de la política). Una forma inválida devuelve
-// "" y nunca coincide con una observación válida.
+// nombreHostPeticion quita el puerto de la autoridad que la frontera ADMIN
+// exigió en la cabecera Host. La observación lleva aparte el nombre (host_admin
+// de la política). Una forma inválida devuelve "" y nunca coincide con una
+// observación válida.
 func nombreHostPeticion(autoridad string) string {
 	if strings.ContainsAny(autoridad, "[]") {
 		return ""

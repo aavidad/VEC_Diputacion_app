@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -182,6 +183,56 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 		prueba.URL = original
 		pruebaPuerto.Close()
 	}
+	// ObservarADMIN con puerto público: exige la autoridad exacta en Host y
+	// entrega el nombre sin puerto para host_admin y la autoridad aparte.
+	cfgObservada := cfg
+	cfgObservada.Host = "admin.example.test:8444"
+	servidorObservado, err := NuevoServidor(cfgObservada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	redObservada, err := httpseguridad.NuevaPoliticaRed(superficieSesionPerfiles(cfgObservada))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostObservado, _ := analizarHostAdmin(cfgObservada.Host)
+	relojObservado := relojActivosPrueba{ahora: time.Now().UTC()}
+	resolvedor := &resolvedorSesionPerfiles{cfg: cfgObservada, host: hostObservado, ca: ca.Raw, red: redObservada, reloj: relojObservado}
+	contextoObservado, err := NuevoContextoConexionPerfiles(relojObservado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaObservada := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		o, err := resolvedor.ObservarADMIN(r.Context(), r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("X-Prueba-Host", o.Host)
+		w.Header().Set("X-Prueba-Autoridad", o.Autoridad)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	pruebaObservada.Config.ConnContext = contextoObservado
+	pruebaObservada.TLS = servidorObservado.TLSConfig.Clone()
+	pruebaObservada.StartTLS()
+	for host, esperado := range map[string]int{"admin.example.test:8444": http.StatusNoContent, "admin.example.test": http.StatusUnauthorized, "admin.example.test:443": http.StatusUnauthorized, "admin.example.test:8443": http.StatusUnauthorized} {
+		transporte := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cliente}}}
+		req, _ := http.NewRequest(http.MethodGet, pruebaObservada.URL+"/", nil)
+		req.Host = host
+		resp, err := (&http.Client{Transport: transporte}).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		transporte.CloseIdleConnections()
+		if resp.StatusCode != esperado {
+			t.Fatalf("ObservarADMIN Host %s: %d, esperado %d", host, resp.StatusCode, esperado)
+		}
+		if esperado == http.StatusNoContent && (resp.Header.Get("X-Prueba-Host") != "admin.example.test" || resp.Header.Get("X-Prueba-Autoridad") != "admin.example.test:8444") {
+			t.Fatalf("observación con host %q y autoridad %q", resp.Header.Get("X-Prueba-Host"), resp.Header.Get("X-Prueba-Autoridad"))
+		}
+	}
+	pruebaObservada.Close()
 	for _, invalido := range []string{"Admin.Example.Test", "admin.example.test:0", "admin.example.test:65536", "admin.example.test:08444", "admin.example.test:", ":8444", "admin.example.test:8444:1", "[::1]:8444", "admin.example.test.", " admin.example.test"} {
 		cfgInvalida := cfg
 		cfgInvalida.Host = invalido
