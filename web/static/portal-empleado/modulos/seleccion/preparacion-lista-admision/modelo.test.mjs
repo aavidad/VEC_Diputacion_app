@@ -79,3 +79,54 @@ test('vista: motivos traducidos, subsanación en texto, tablas accesibles y sin 
     assert.ok(sinTextos.textContent.includes('tasa_no_justificada'));
   }
 });
+
+// Lista definitiva: el mismo visor la reconoce por su esquema.
+const bytesDef = new Uint8Array(await readFile(new URL('../../../../../../cmd/vec-selectivos-preparar-admision/testdata/lista-definitiva-resultado.json', import.meta.url)));
+const baseDef = () => JSON.parse(new TextDecoder().decode(bytesDef));
+
+test('la definitiva del CLI se abre como borrador que parte de una provisional', () => {
+  const dto = leerSalida(bytesDef);
+  assert.equal(dto.esquema, 'vec.seleccion.lista-admision-definitiva.v1'); assert.equal(dto.aprobada, false);
+  assert.equal(dto.provisional.esquema, 'seleccion.admision.lista-provisional.v1');
+  for (const mutar of [
+    d => { d.publicada = true; }, d => { d.resumen.admitidas_tras_escrito = 0; }, d => { d.resumen.excluidas_sin_escrito = 1; },
+    d => { d.admitidas[0].origen = 'recurso'; }, d => { d.excluidas[0].resolucion = 'estimada'; },
+    d => { delete d.excluidas[0].via; }, d => { d.excluidas[0].via = 'recurso'; },
+    d => { d.excluidas[0].resolucion = 'no_presentada'; d.resumen.excluidas_sin_escrito = 1; },
+    d => { d.provisional.lista_ref = d.lista_ref; }, d => { d.pendientes = d.pendientes.filter(p => !p.endsWith('pie_recursos')); },
+    d => { d.pendientes.push('seleccion.lista_admision.pendiente.vencimiento_al_publicar'); },
+    d => { d.plazo_subsanacion = { unidad: 'dias_habiles', cantidad: 10 }; }, d => { d.excluidas[0].subsanable = true; },
+    d => { d.admitidas.push({ antecedente: d.excluidas[0].antecedente, origen: 'provisional' }); },
+  ]) { const d = baseDef(); mutar(d); assert.throws(() => leerSalida(codificar(d)), /formato/); }
+  // Una provisional no se acepta con campos de la definitiva, ni al revés.
+  const mezcla = base(); mezcla.provisional = baseDef().provisional;
+  assert.throws(() => leerSalida(codificar(mezcla)), /formato/);
+});
+test('vista de la definitiva: origen de admitidas, resolución de excluidas y sus pendientes', async () => {
+  for (const idioma of ['es', 'en']) {
+    const d = { createElement: tag => new Nodo(d, tag), createDocumentFragment: () => new Nodo(d, '#fragmento') };
+    const raiz = d.createElement('div'); const textos = await cargarTextos('selectivos-lista-admision-visor', { idioma });
+    pintarLista({ raiz, dto: leerSalida(bytesDef), textos, motivos: await motivosDe(idioma) });
+    const texto = raiz.textContent;
+    for (const clave of ['tipo_definitiva', 'origenes.reclamacion', 'origenes.provisional', 'resoluciones.desestimada_subsanacion', 'kpi.tras_escrito'])
+      assert.ok(texto.includes(textos.traducir(clave)), `${idioma}: ${clave}`);
+    assert.ok(!texto.includes(textos.traducir('plazo')) && !texto.includes(textos.traducir('puede_subsanar')));
+    for (const p of baseDef().pendientes) {
+      const final = p.slice(p.lastIndexOf('.') + 1);
+      assert.ok(texto.includes(textos.traducir(`pendientes_definitiva.${final}`)));
+    }
+    assert.ok(!texto.includes(textos.traducir('pendientes.catalogo_ejemplo')));
+    // El resto de resoluciones y orígenes, con un borrador coherente mutado.
+    const otra = baseDef();
+    otra.excluidas[0].resolucion = 'no_presentada'; delete otra.excluidas[0].via; otra.resumen.excluidas_sin_escrito = 1;
+    otra.admitidas[2].origen = 'subsanacion';
+    const raiz2 = d.createElement('div'); pintarLista({ raiz: raiz2, dto: leerSalida(codificar(otra)), textos });
+    for (const clave of ['resoluciones.no_presentada', 'origenes.subsanacion']) assert.ok(raiz2.textContent.includes(textos.traducir(clave)));
+    const otra2 = baseDef(); otra2.excluidas[0].via = 'reclamacion';
+    const raiz3 = d.createElement('div'); pintarLista({ raiz: raiz3, dto: leerSalida(codificar(otra2)), textos });
+    assert.ok(raiz3.textContent.includes(textos.traducir('resoluciones.desestimada_reclamacion')));
+    assert.ok(!raiz3.textContent.includes(textos.traducir('motivo_no_subsanable', { motivo: '' }).trim()));
+    assert.ok(elementos(raiz).filter(n => n.tagName === 'td').every(n => n.dataset.etiqueta));
+    assert.deepEqual(textos.faltantes, []);
+  }
+});

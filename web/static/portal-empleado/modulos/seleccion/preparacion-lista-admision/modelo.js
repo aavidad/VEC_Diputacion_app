@@ -5,52 +5,82 @@ import { validarHuella, validarRevision } from '../preparacion-bases/contrato-ht
 // indentados; 8 MiB cubren ese caso extremo sin abrir archivos arbitrarios.
 export const MAXIMO_BYTES = 8 * 1024 * 1024;
 const MAXIMO_SOLICITUDES = 2000;
-export const PENDIENTES = Object.freeze(['aprobacion_competente', 'identidad_publicacion', 'vencimiento_al_publicar', 'publicacion_oficial', 'catalogo_ejemplo']);
-const OBLIGATORIOS = PENDIENTES.slice(0, 4);
-const prefijo = 'seleccion.lista_admision.pendiente.';
+export const ESQUEMA_PROVISIONAL = 'vec.seleccion.lista-admision-provisional.v1';
+export const ESQUEMA_DEFINITIVA = 'vec.seleccion.lista-admision-definitiva.v1';
+const PENDIENTE_EJEMPLO = 'seleccion.lista_admision.pendiente.catalogo_ejemplo';
+// Pendientes obligatorios de cada lista, como los fija el dominio Go.
+const OBLIGATORIOS = Object.freeze({
+  [ESQUEMA_PROVISIONAL]: ['aprobacion_competente', 'identidad_publicacion', 'vencimiento_al_publicar', 'publicacion_oficial']
+    .map(p => `seleccion.lista_admision.pendiente.${p}`),
+  [ESQUEMA_DEFINITIVA]: ['aprobacion_competente', 'pie_recursos', 'registro_escritos', 'identidad_publicacion', 'publicacion_oficial']
+    .map(p => `seleccion.lista_definitiva.pendiente.${p}`),
+});
 const id = v => typeof v === 'string' && /^[A-Za-z0-9:._-]{1,256}$/u.test(v);
 const codigo = v => typeof v === 'string' && /^[A-Za-z0-9:._-]{1,64}$/u.test(v);
 const logico = v => typeof v === 'boolean';
 const entero = (min, max) => v => Number.isSafeInteger(v) && v >= min && v <= max;
 const lista = (maximo, validar) => v => Array.isArray(v) && v.length <= maximo && v.every(validar);
+const cuenta = entero(0, MAXIMO_SOLICITUDES);
 const antecedente = v => forma(v, { esquema_material: x => x === 'seleccion.admision.material-local.v1',
   preparacion_ref: id, revision: validarRevision, huella_material_sha256: validarHuella });
 const motivo = v => forma(v, { codigo, subsanable: logico });
-const excluida = v => forma(v, { antecedente, motivos: lista(16, motivo), subsanable: logico })
-  && v.motivos.length > 0 && new Set(v.motivos.map(m => m.codigo)).size === v.motivos.length
-  && v.subsanable === v.motivos.every(m => m.subsanable);
+const motivos = v => lista(16, motivo)(v) && v.length > 0 && new Set(v.map(m => m.codigo)).size === v.length;
+const excluidaProvisional = v => forma(v, { antecedente, motivos, subsanable: logico }) && v.subsanable === v.motivos.every(m => m.subsanable);
+const VIAS = Object.freeze(['subsanacion', 'reclamacion']);
+const excluidaDefinitiva = v => forma(v, { antecedente, motivos, resolucion: x => x === 'desestimada' || x === 'no_presentada' }, ['via'])
+  && (v.resolucion === 'desestimada' ? VIAS.includes(v.via) : !Object.hasOwn(v, 'via'));
+const admitidaDefinitiva = v => forma(v, { antecedente, origen: x => x === 'provisional' || VIAS.includes(x) });
 // Máximos por unidad de Calendarios (calendarios/domain/plazo.go).
 const MAXIMO_POR_UNIDAD = Object.freeze({ dias_habiles: 250, dias_naturales: 730, meses: 60, anios: 5 });
 
-/** Forma de la salida `lista-provisional` del CLI. No verifica huellas ni catálogo. */
+const comunes = {
+  lista_ref: id, revision: validarRevision,
+  alcance: x => x === 'preparacion_sintetica', estado: x => x === 'borrador_pendiente_aprobacion',
+  bases: x => forma(x, { referencia: id, version: id, huella_sha256: validarHuella }),
+  catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref'])
+    && (Object.hasOwn(x, 'duda_ref') ? id(x.duda_ref) : !x.paquete_ejemplo),
+  pendientes: lista(8, x => typeof x === 'string'),
+  aprobada: x => x === false, publicada: x => x === false, persistida: x => x === false,
+};
+const PROVISIONAL = {
+  ...comunes, esquema: x => x === ESQUEMA_PROVISIONAL,
+  plazo_subsanacion: x => forma(x, { unidad: u => Object.hasOwn(MAXIMO_POR_UNIDAD, u), cantidad: entero(1, 730) })
+    && x.cantidad <= MAXIMO_POR_UNIDAD[x.unidad],
+  vencimiento_subsanacion: x => x === 'pendiente_publicacion',
+  admitidas: lista(MAXIMO_SOLICITUDES, x => forma(x, { antecedente })),
+  excluidas: lista(MAXIMO_SOLICITUDES, excluidaProvisional),
+  resumen: x => forma(x, { solicitudes: entero(1, MAXIMO_SOLICITUDES), admitidas: cuenta, excluidas: cuenta, excluidas_subsanables: cuenta }),
+};
+const DEFINITIVA = {
+  ...comunes, esquema: x => x === ESQUEMA_DEFINITIVA,
+  provisional: x => forma(x, { esquema: e => e === 'seleccion.admision.lista-provisional.v1', lista_ref: id, revision: validarRevision, huella_sha256: validarHuella }),
+  admitidas: lista(MAXIMO_SOLICITUDES, admitidaDefinitiva),
+  excluidas: lista(MAXIMO_SOLICITUDES, excluidaDefinitiva),
+  resumen: x => forma(x, { solicitudes: entero(1, MAXIMO_SOLICITUDES), admitidas: cuenta, admitidas_tras_escrito: cuenta, excluidas: cuenta, excluidas_sin_escrito: cuenta }),
+};
+
+/** Recuentos que el dominio calcula a partir de las propias listas. */
+function resumenCoherente(dto) {
+  const r = dto.resumen;
+  const base = r.admitidas === dto.admitidas.length && r.excluidas === dto.excluidas.length && r.solicitudes === r.admitidas + r.excluidas;
+  if (dto.esquema === ESQUEMA_PROVISIONAL) return base && r.excluidas_subsanables === dto.excluidas.filter(e => e.subsanable).length;
+  return base && dto.provisional.lista_ref !== dto.lista_ref
+    && r.admitidas_tras_escrito === dto.admitidas.filter(a => a.origen !== 'provisional').length
+    && r.excluidas_sin_escrito === dto.excluidas.filter(e => e.resolucion === 'no_presentada').length;
+}
+
+/** Forma de las salidas `lista-provisional` y `lista-definitiva` del CLI. No verifica huellas ni catálogo. */
 export function leerSalida(bytes) {
   if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0 || bytes.byteLength > MAXIMO_BYTES) throw new TypeError('tamano');
   let dto;
   try { const texto = new TextDecoder('utf-8', { fatal: true }).decode(bytes); comprobarClaves(texto); dto = JSON.parse(texto); }
   catch { throw new TypeError('formato'); }
-  const valido = forma(dto, {
-    esquema: x => x === 'vec.seleccion.lista-admision-provisional.v1', lista_ref: id, revision: validarRevision,
-    alcance: x => x === 'preparacion_sintetica', estado: x => x === 'borrador_pendiente_aprobacion',
-    bases: x => forma(x, { referencia: id, version: id, huella_sha256: validarHuella }),
-    catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref'])
-      && (Object.hasOwn(x, 'duda_ref') ? id(x.duda_ref) : !x.paquete_ejemplo),
-    plazo_subsanacion: x => forma(x, { unidad: u => Object.hasOwn(MAXIMO_POR_UNIDAD, u), cantidad: entero(1, 730) })
-      && x.cantidad <= MAXIMO_POR_UNIDAD[x.unidad],
-    vencimiento_subsanacion: x => x === 'pendiente_publicacion',
-    admitidas: lista(MAXIMO_SOLICITUDES, x => forma(x, { antecedente })),
-    excluidas: lista(MAXIMO_SOLICITUDES, excluida),
-    resumen: x => forma(x, { solicitudes: entero(1, MAXIMO_SOLICITUDES), admitidas: entero(0, MAXIMO_SOLICITUDES),
-      excluidas: entero(0, MAXIMO_SOLICITUDES), excluidas_subsanables: entero(0, MAXIMO_SOLICITUDES) }),
-    pendientes: lista(PENDIENTES.length, x => PENDIENTES.some(p => x === prefijo + p)),
-    aprobada: x => x === false, publicada: x => x === false, persistida: x => x === false,
-  });
-  if (!valido) throw new TypeError('formato');
+  const campos = dto?.esquema === ESQUEMA_DEFINITIVA ? DEFINITIVA : PROVISIONAL;
+  if (!forma(dto, campos) || !resumenCoherente(dto)) throw new TypeError('formato');
   const refs = [...dto.admitidas, ...dto.excluidas].map(x => x.antecedente.preparacion_ref);
-  const r = dto.resumen;
-  if (new Set(refs).size !== refs.length || r.admitidas !== dto.admitidas.length || r.excluidas !== dto.excluidas.length
-    || r.solicitudes !== refs.length || r.excluidas_subsanables !== dto.excluidas.filter(e => e.subsanable).length
-    || new Set(dto.pendientes).size !== dto.pendientes.length || OBLIGATORIOS.some(p => !dto.pendientes.includes(prefijo + p))
-    || dto.pendientes.includes(prefijo + 'catalogo_ejemplo') !== dto.catalogo.paquete_ejemplo) throw new TypeError('formato');
+  const esperados = [...OBLIGATORIOS[dto.esquema], ...(dto.catalogo.paquete_ejemplo ? [PENDIENTE_EJEMPLO] : [])];
+  if (new Set(refs).size !== refs.length || dto.pendientes.length !== esperados.length
+    || esperados.some(p => !dto.pendientes.includes(p))) throw new TypeError('formato');
   return dto;
 }
 
