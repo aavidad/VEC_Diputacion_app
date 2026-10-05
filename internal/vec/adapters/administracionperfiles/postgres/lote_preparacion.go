@@ -10,6 +10,11 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+// AccionPreparacionLote nombra en la auditoría común los intentos fallidos de
+// preparar. La decisión que se consume es la de la acción del lote; el
+// registro distingue así preparar de aplicar.
+const AccionPreparacionLote = "administracion.perfiles.preparar_lote_ordinario"
+
 const prepararLoteOrdinarioSQL = `SELECT vec_autorizacion.preparar_lote_ordinario_admin_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 // La preparación (AUT50) devuelve como mucho 64 altas y 64 bajas; el tope del
@@ -100,7 +105,7 @@ func (a *AutoridadLoteOrdinario) PrepararLoteOrdinario(ctx context.Context, s do
 	if err == nil {
 		return p, nil
 	}
-	if a.registrarFalloConsumo(ctx, s.Actor, s.Evidencia, s.CorrelacionRef, s.PersonaRef, err) != nil ||
+	if a.registrarFalloConsumo(ctx, AccionPreparacionLote, s.Actor, s.Evidencia, s.CorrelacionRef, s.PersonaRef, err) != nil ||
 		errors.Is(err, errCommitLoteIndeterminado) {
 		return vacia, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}

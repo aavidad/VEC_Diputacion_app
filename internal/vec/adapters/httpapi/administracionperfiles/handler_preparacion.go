@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -132,7 +131,8 @@ func nuevaReferenciaPreparacion() (string, error) {
 }
 
 func (h *Handler) getPreparacionLote(w http.ResponseWriter, r *http.Request, s SesionConfiable, persona string) {
-	const accion = "aplicar_lote_ordinario"
+	// Destino propio en la auditoría: una preparación no es aplicar un lote.
+	const accion = "preparar_lote_ordinario"
 	if h.lotes == nil || h.organizacionLote == "" {
 		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", accion, "")
 		return
@@ -157,13 +157,7 @@ func (h *Handler) getPreparacionLote(w http.ResponseWriter, r *http.Request, s S
 	}
 	p, err := h.lotes.PrepararLoteOrdinario(r.Context(), solicitud)
 	if err != nil {
-		// Un administrador sin la concesión del lote no puede preparar: 403.
-		// El resto sigue la traducción del lote (409 conflicto, 503 otros).
-		if errors.Is(err, domain.ErrControlAdministracionPerfilesInvalido) {
-			h.denegarActor(w, r, s, http.StatusForbidden, "acceso_denegado", accion, persona)
-			return
-		}
-		h.denegarLoteError(w, r, s, err)
+		h.denegarErrorLote(w, r, s, err, accion, persona)
 		return
 	}
 	if p.ValidarPara(solicitud) != nil {

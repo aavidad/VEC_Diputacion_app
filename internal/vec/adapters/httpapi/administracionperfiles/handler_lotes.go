@@ -94,16 +94,24 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 }
 
 func (h *Handler) denegarLoteError(w http.ResponseWriter, r *http.Request, s SesionConfiable, err error) {
+	h.denegarErrorLote(w, r, s, err, "aplicar_lote_ordinario", "")
+}
+
+// denegarErrorLote traduce igual los errores de aplicar y de preparar. Un
+// administrador sin la concesión del lote (ErrControlAdministracionPerfilesInvalido)
+// recibe 403 en los dos casos.
+func (h *Handler) denegarErrorLote(w http.ResponseWriter, r *http.Request, s SesionConfiable, err error, accion, recurso string) {
 	estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
 	switch {
 	case errors.Is(err, ErrAutenticacionRequerida):
 		estado, codigo = http.StatusUnauthorized, "autenticacion_requerida"
-	case errors.Is(err, ErrAccesoDenegado), errors.Is(err, domain.ErrAutorizacionDenegada):
+	case errors.Is(err, ErrAccesoDenegado), errors.Is(err, domain.ErrAutorizacionDenegada),
+		errors.Is(err, domain.ErrControlAdministracionPerfilesInvalido):
 		estado, codigo = http.StatusForbidden, "acceso_denegado"
 	case errors.Is(err, ErrConflictoEstado):
 		estado, codigo = http.StatusConflict, "conflicto_estado"
 	case errors.Is(err, ErrRecursoNoEncontrado):
 		estado, codigo = http.StatusNotFound, "recurso_no_encontrado"
 	}
-	h.denegarActor(w, r, s, estado, codigo, "aplicar_lote_ordinario", "")
+	h.denegarActor(w, r, s, estado, codigo, accion, recurso)
 }
