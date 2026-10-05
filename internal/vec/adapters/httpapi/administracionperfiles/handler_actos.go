@@ -19,6 +19,11 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "escribir", "")
 		return
 	}
+	// Con sólo la autoridad del lote montada, cualquier otra escritura no existe.
+	if h.lotes != nil && h.actos == nil && p != PrefijoV1+"/lotes-ordinarios" {
+		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
+		return
+	}
 	switch {
 	case p == PrefijoV1+"/lotes-ordinarios":
 		h.postLoteOrdinario(w, r, s)

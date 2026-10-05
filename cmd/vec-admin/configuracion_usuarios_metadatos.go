@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"regexp"
 	"strings"
 	"time"
@@ -47,6 +48,10 @@ var procesoUsuarios = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 var recursoFijoUsuarios = regexp.MustCompile(`^administracion:[a-z0-9_:-]{1,185}$`)
 var conjuntoUsuarios = regexp.MustCompile(`^conjunto_admin:[0-9a-f]{32}$`)
 
+// clavesDestinoOpcionalesUsuarios sólo hacen falta con el lote montado
+// (VEC_ADMIN_LOTE_CONFIG_FILE); un overlay anterior sigue siendo válido.
+var clavesDestinoOpcionalesUsuarios = map[string]struct{}{"preparar_lote_ordinario": {}}
+
 var clavesDestinoUsuarios = map[string]struct{}{
 	"consultar": {}, "buscar_personas": {}, "consultar_persona": {}, "consultar_recibo": {},
 	"escribir": {}, "aplicar_ordinario": {}, "proponer": {}, "cerrar_propuesta": {}, "aplicar_lote_ordinario": {},
@@ -78,7 +83,7 @@ func validarConfiguracionUsuariosMetadatosPrivada(c configuracionUsuariosMetadat
 	if c.Modo != modoUsuariosMetadatos || !referenciaAmbitoUsuarios.MatchString(c.OrganizacionRef) || !referenciaAmbitoUsuarios.MatchString(c.UnidadRef) ||
 		!procesoUsuarios.MatchString(c.Proceso) || c.Canal != "administracion_privilegiada" || c.PlazoAuditoriaMS <= 0 || c.PlazoAuditoriaMS > 2000 ||
 		c.MotivoDenegado.Validar() != nil || c.MotivoError.Validar() != nil || c.MotivoDenegado.CatalogoID != base.CatalogoMotivosID || c.MotivoError.CatalogoID != base.CatalogoMotivosID ||
-		len(c.MotivosUsuarios) != 2 || len(c.Destinos) != len(clavesDestinoUsuarios) || contieneClavePrivadaInline(c.ConfianzaJSON) {
+		len(c.MotivosUsuarios) != 2 || len(c.Destinos) != len(clavesDestinoUsuariosDe(c)) || contieneClavePrivadaInline(c.ConfianzaJSON) {
 		return errConfiguracionPrivadaPerfiles
 	}
 	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, base.Pools.AuditoriaFrontera, c.PoolLector, c.PoolIntentos, c.PoolSelector, c.PoolFronteraTecnica, base.Firmante.ClavePrivadaArchivo, base.Identidad.RutaConfiguracionHMAC}
@@ -118,7 +123,7 @@ func validarConfiguracionUsuariosMetadatosPrivada(c configuracionUsuariosMetadat
 		}
 	}
 	conjunto := referenciaConjuntoUsuarios(c.OrganizacionRef, c.UnidadRef)
-	for clave := range clavesDestinoUsuarios {
+	for clave := range clavesDestinoUsuariosDe(c) {
 		d, ok := c.Destinos[clave]
 		if !ok || !strings.HasPrefix(d.Accion, "administracion.") || !strings.HasPrefix(d.FinalidadRef, "gestion_") || strings.ContainsAny(d.Accion+d.FinalidadRef, "* \t\r\n") {
 			return errConfiguracionPrivadaPerfiles
@@ -139,6 +144,17 @@ func validarConfiguracionUsuariosMetadatosPrivada(c configuracionUsuariosMetadat
 		}
 	}
 	return nil
+}
+
+// clavesDestinoUsuariosDe son las obligatorias más las opcionales presentes.
+func clavesDestinoUsuariosDe(c configuracionUsuariosMetadatosPrivada) map[string]struct{} {
+	claves := maps.Clone(clavesDestinoUsuarios)
+	for clave := range clavesDestinoOpcionalesUsuarios {
+		if _, ok := c.Destinos[clave]; ok {
+			claves[clave] = struct{}{}
+		}
+	}
+	return claves
 }
 
 func (c configuracionUsuariosMetadatosPrivada) destinosAuditoria() map[string]pg.DestinoFronteraNominal {

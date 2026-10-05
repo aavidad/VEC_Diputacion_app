@@ -63,26 +63,6 @@ func resultadoFalloLote(err error) domain.ResultadoIntentoAuditoria {
 }
 
 func (a *AutoridadLoteOrdinario) registrarFalloLote(ctx context.Context, s domain.SolicitudLoteAdministracionPerfiles, fallo error) error {
-	if a == nil || ctx == nil || ausente(a.registrador) || a.auditoria.validar() != nil ||
-		!domain.ReferenciaCorrelacionAutorizacionV2Valida(s.CorrelacionRef) {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	actor, err := s.Actor.Clonar()
-	if err != nil {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
-	if err != nil {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
-	if evidencia.ValidarPara(actor) != nil {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	vinculo, err := evidencia.Vinculo.Datos()
-	if err != nil || string(vinculo.Superficie) != a.auditoria.Canal || !vinculo.CuentaPrivilegiada {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
 	recursoRef := ""
 	if len(s.Cambios) > 0 {
 		recursoRef = s.Cambios[0].Objetivo.PersonaRef
@@ -93,8 +73,37 @@ func (a *AutoridadLoteOrdinario) registrarFalloLote(ctx context.Context, s domai
 			}
 		}
 	}
+	return a.registrarFalloConsumo(ctx, accionLoteOrdinario, s.Actor, s.Evidencia, s.CorrelacionRef, recursoRef, fallo)
+}
+
+// registrarFalloConsumo deja el intento común (denegado o error) de una orden
+// del lote o de su preparación, cada una con su acción. Sin persona
+// destinataria válida usa una referencia derivada de la correlación, nunca un
+// dato de la petición.
+func (a *AutoridadLoteOrdinario) registrarFalloConsumo(ctx context.Context, accion string, actorOrigen domain.ContextoActor,
+	evidenciaOrigen domain.EvidenciaSesionAdministracionPerfiles, correlacion, recursoRef string, fallo error) error {
+	if a == nil || ctx == nil || ausente(a.registrador) || a.auditoria.validar() != nil ||
+		!domain.ReferenciaCorrelacionAutorizacionV2Valida(correlacion) {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	actor, err := actorOrigen.Clonar()
+	if err != nil {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	resultado, err := evidenciaOrigen.ResultadoContexto.Clonar()
+	if err != nil {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: evidenciaOrigen.Vinculo}
+	if evidencia.ValidarPara(actor) != nil {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	vinculo, err := evidencia.Vinculo.Datos()
+	if err != nil || string(vinculo.Superficie) != a.auditoria.Canal || !vinculo.CuentaPrivilegiada {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
 	if len(recursoRef) > 128 || !personaFronteraNominal.MatchString(recursoRef) {
-		huella := sha256.Sum256([]byte("vec.admin.lote.solicitud.v1\n" + s.CorrelacionRef))
+		huella := sha256.Sum256([]byte("vec.admin.lote.solicitud.v1\n" + correlacion))
 		recursoRef = "solicitud_admin:" + hex.EncodeToString(huella[:16])
 	}
 	clase := resultadoFalloLote(fallo)
@@ -102,9 +111,9 @@ func (a *AutoridadLoteOrdinario) registrarFalloLote(ctx context.Context, s domai
 	if clase == domain.ResultadoIntentoAuditoriaDenegado {
 		motivo = a.auditoria.MotivoDenegado
 	}
-	datos := domain.DatosIntentoAuditoria{Accion: accionLoteOrdinario, ModuloID: "administracion",
+	datos := domain.DatosIntentoAuditoria{Accion: accion, ModuloID: "administracion",
 		RecursoRef: recursoRef, FinalidadRef: "gestion_perfiles", Resultado: clase, Motivo: motivo,
-		Proceso: a.auditoria.Proceso, Canal: a.auditoria.Canal, CorrelacionRef: s.CorrelacionRef}
+		Proceso: a.auditoria.Proceso, Canal: a.auditoria.Canal, CorrelacionRef: correlacion}
 	if datos.Validar() != nil {
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
