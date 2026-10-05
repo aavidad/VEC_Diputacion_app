@@ -87,7 +87,9 @@ fuente del borrador, sin reglas de cómputo:
 
 - el periodo de Personal es semiabierto, [desde, hasta): el último día del
   servicio es el anterior a «hasta». Un «hasta» vacío es un periodo abierto y
-  el borrador lo presenta así, sin inventar una fecha de fin;
+  el borrador lo presenta así, sin inventar una fecha de fin. V1 no recorta los
+  periodos al corte: si el fin previsto es posterior a la fecha de referencia
+  (un temporal en activo), el servicio se presenta en curso a esa fecha;
 - V1 no trae días. El borrador no los muestra ni los calcula y cambia el
   bloque de criterio por uno que lo dice;
 - se conservan la cobertura (completa, parcial o no acreditada), la certeza de
@@ -96,6 +98,9 @@ fuente del borrador, sin reglas de cómputo:
   de sustentar un certificado. Un declarado o comprobado no se convierte en
   reconocido;
 - V1 no trae el nombre: llega aparte, desde la autoridad de identidad.
+
+La forma V1 solo entra por este traductor: el adaptador de fichero de ensayo
+rechaza una fuente que ya venga con el esquema V1 escrito a mano.
 
 Con la muestra sintética
 `adapters/personalv1/testdata/servicios-personal-v1.ensayo.json` el CLI
@@ -106,7 +111,10 @@ Queda para el paso siguiente: que Personal implemente el lector con su
 autorización y auditoría, y montar en el servidor la consulta propia del
 empleado con identidad y permiso. Para RRHH conviene además que el contrato
 V1 aporte los días reconocidos, que Personal ya guarda; es una decisión de su
-dueño.
+dueño. Antes de emitir, el borrador debe conservar también la versión de la
+respuesta, las referencias de empleado y organismo y la fuente y versión de
+cada procedencia, para trazar el certificado a su origen; la traducción de
+ensayo aún no las guarda.
 
 ## Verificación focal
 

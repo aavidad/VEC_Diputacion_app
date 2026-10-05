@@ -52,11 +52,14 @@ type Servicio struct {
 	Fin          string `json:"fin"`
 	Clase        string `json:"clase"`
 	ClaseVersion int64  `json:"clase_version,omitempty"`
-	Dias         *int64 `json:"dias,omitempty"`
-	Estado       string `json:"estado"`
-	Certeza      string `json:"certeza,omitempty"`
-	ServicioRef  string `json:"servicio_ref,omitempty"`
-	ActoRef      string `json:"acto_ref,omitempty"`
+	// EnCursoAlCorte: el fin previsto es posterior a la fecha de referencia;
+	// Fin se recorta a esa fecha y el borrador lo dice.
+	EnCursoAlCorte bool   `json:"en_curso_al_corte,omitempty"`
+	Dias           *int64 `json:"dias,omitempty"`
+	Estado         string `json:"estado"`
+	Certeza        string `json:"certeza,omitempty"`
+	ServicioRef    string `json:"servicio_ref,omitempty"`
+	ActoRef        string `json:"acto_ref,omitempty"`
 }
 
 // SustentaCertificacion: solo un servicio reconocido y con procedencia
@@ -118,6 +121,9 @@ func (f FuenteServicios) ValidarEnsayo() error {
 			(s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") {
 			return ErrEntrada
 		}
+		if s.EnCursoAlCorte && (!v1 || s.Fin != f.Corte.VigenteEn) {
+			return ErrEntrada
+		}
 		if v1 {
 			// V1 no trae días: no se inventan ni se calculan.
 			if s.Dias != nil || !certezas[s.Certeza] || s.ClaseVersion < 1 || !referenciaFuente.MatchString(s.ServicioRef) || !referenciaFuente.MatchString(s.ActoRef) {
@@ -169,7 +175,7 @@ var claves = []string{"titulo", "limite", "persona", "corte", "fuente", "plantil
 	"declarado", "comprobado", "reconocido", "servicio", "vacio", "revision", "sin_servicios",
 	"cli_indice_idiomas", "cli_uso", "cli_fuente", "cli_plantilla", "cli_version", "cli_idioma", "cli_textos", "cli_salida", "cli_ensayo", "cli_ok",
 	"error_argumentos", "error_entrada", "error_catalogo", "error_salida", "error_no_disponible",
-	"servicio_v1", "servicio_v1_abierto", "criterio_v1", "certeza_acreditado", "certeza_pendiente", "certeza_no_acreditado",
+	"servicio_v1", "servicio_v1_abierto", "servicio_v1_al_corte", "criterio_v1", "certeza_acreditado", "certeza_pendiente", "certeza_no_acreditado",
 	"sustenta_si", "sustenta_no", "cobertura_completa", "cobertura_parcial", "cobertura_no_acreditada"}
 
 func (t Textos) Validar() error {

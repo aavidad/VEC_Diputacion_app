@@ -41,7 +41,8 @@
     "cobertura_parcial": "Personal indica que la muestra es parcial: puede haber servicios que no aparecen.",
     "cobertura_no_acreditada": "Personal no acredita si la muestra está completa: no se puede concluir que falten o sobren servicios.",
     "servicio_v1_abierto": "Desde el {{inicio}}, sin fecha de fin (periodo abierto). Clase: {{clase}}, versión {{clase_version}}. Acto: {{acto}}. Procedencia: {{certeza}}. {{sustenta}}",
-    "criterio_v1": "Personal no aporta días y este borrador no los calcula. Solo un servicio reconocido con procedencia acreditada puede sustentar un certificado; un servicio declarado o comprobado no se convierte en reconocido."
+    "criterio_v1": "Personal no aporta días y este borrador no los calcula. Solo un servicio reconocido con procedencia acreditada puede sustentar un certificado; un servicio declarado o comprobado no se convierte en reconocido.",
+    "servicio_v1_al_corte": "Desde el {{inicio}}, en curso a la fecha de referencia ({{fin}}); su fin previsto es posterior. Clase: {{clase}}, versión {{clase_version}}. Acto: {{acto}}. Procedencia: {{certeza}}. {{sustenta}}"
   },
   "formato_fecha": "02/01/2006",
   "formato_instante": "02/01/2006 15:04:05 UTC"

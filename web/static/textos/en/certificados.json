@@ -41,7 +41,8 @@
     "cobertura_parcial": "Personnel states that the sample is partial: some services may be missing.",
     "cobertura_no_acreditada": "Personnel does not state whether the sample is complete: no conclusion can be drawn about missing or extra services.",
     "servicio_v1_abierto": "From {{inicio}}, with no end date (open period). Class: {{clase}}, version {{clase_version}}. Act: {{acto}}. Source: {{certeza}}. {{sustenta}}",
-    "criterio_v1": "Personnel does not provide days and this draft does not calculate them. Only a recognised service with a proven source can support a certificate; a declared or checked service does not become recognised."
+    "criterio_v1": "Personnel does not provide days and this draft does not calculate them. Only a recognised service with a proven source can support a certificate; a declared or checked service does not become recognised.",
+    "servicio_v1_al_corte": "From {{inicio}}, ongoing at the reference date ({{fin}}); its planned end is later. Class: {{clase}}, version {{clase_version}}. Act: {{acto}}. Source: {{certeza}}. {{sustenta}}"
   },
   "formato_fecha": "2006-01-02",
   "formato_instante": "2006-01-02 15:04:05 UTC"

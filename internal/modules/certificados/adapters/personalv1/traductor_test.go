@@ -57,13 +57,13 @@ func TestFicheroMuestraRechazaMuestrasNoValidas(t *testing.T) {
 		t.Fatal(err)
 	}
 	casos := map[string]func(string) string{
-		"no_sintetica":    func(s string) string { return strings.Replace(s, `"sintetica": true`, `"sintetica": false`, 1) },
-		"estado_ajeno":    func(s string) string { return strings.Replace(s, `"estado": "declarado"`, `"estado": "propuesto"`, 1) },
-		"certeza_ajena":   func(s string) string { return strings.Replace(s, `"certeza": "pendiente"`, `"certeza": "probable"`, 1) },
-		"cobertura_ajena": func(s string) string { return strings.Replace(s, `"cobertura": "parcial"`, `"cobertura": "casi"`, 1) },
-		"con_dias":        func(s string) string { return strings.Replace(s, `"version": 7,`, `"version": 7, "dias": 30,`, 1) },
-		"hasta_antes":     func(s string) string { return strings.Replace(s, `"hasta": "2019-09-01"`, `"hasta": "2019-02-01"`, 1) },
-		"tras_el_corte":   func(s string) string { return strings.Replace(s, `"hasta": "2024-01-10"`, `"hasta": "2027-01-10"`, 1) },
+		"no_sintetica":      func(s string) string { return strings.Replace(s, `"sintetica": true`, `"sintetica": false`, 1) },
+		"estado_ajeno":      func(s string) string { return strings.Replace(s, `"estado": "declarado"`, `"estado": "propuesto"`, 1) },
+		"certeza_ajena":     func(s string) string { return strings.Replace(s, `"certeza": "pendiente"`, `"certeza": "probable"`, 1) },
+		"cobertura_ajena":   func(s string) string { return strings.Replace(s, `"cobertura": "parcial"`, `"cobertura": "casi"`, 1) },
+		"con_dias":          func(s string) string { return strings.Replace(s, `"version": 7,`, `"version": 7, "dias": 30,`, 1) },
+		"hasta_antes":       func(s string) string { return strings.Replace(s, `"hasta": "2019-09-01"`, `"hasta": "2019-02-01"`, 1) },
+		"inicio_tras_corte": func(s string) string { return strings.Replace(s, `"desde": "2024-01-10"`, `"desde": "2026-11-01"`, 1) },
 		"sin_acto": func(s string) string {
 			return strings.Replace(s, `"acto_ref": "ensayo:declaracion-2019"`, `"acto_ref": ""`, 1)
 		},
@@ -87,5 +87,24 @@ func TestFicheroMuestraRechazaMuestrasNoValidas(t *testing.T) {
 	var m Muestra
 	if json.Unmarshal(raw, &m) != nil || m.Nombre == "" {
 		t.Fatal("muestra ilegible")
+	}
+}
+
+func TestServicioConFinPrevistoTrasElCorteQuedaEnCurso(t *testing.T) {
+	r := personalports.ResultadoServiciosParaCertificadosV1{Cobertura: "completa",
+		Corte: personaldomain.CorteEmpleadoB2{VigenteEn: "2026-10-01", ConocidoEn: time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)},
+		Servicios: []personalports.ServicioParaCertificadosV1{{ServicioRef: "s:1", ClaseRef: "c", ClaseVersion: 1, Estado: "reconocido",
+			Periodo:     personalports.PeriodoPersonalNominalV1{Desde: "2026-03-01", Hasta: "2027-01-01"},
+			Procedencia: personalports.ProcedenciaPersonalNominalV1{ActoRef: "a:1", Certeza: "acreditado"}}}}
+	f, err := Traducir(r, "Elena Martín Robles", "ensayo:x", true)
+	if err != nil || f.ValidarEnsayo() != nil {
+		t.Fatal(err)
+	}
+	if s := f.Servicios[0]; !s.EnCursoAlCorte || s.Fin != "2026-10-01" {
+		t.Fatalf("%+v", s)
+	}
+	f.Servicios[0].Fin = "2026-09-30"
+	if f.ValidarEnsayo() == nil {
+		t.Fatal("en curso con un fin distinto de la fecha de referencia")
 	}
 }

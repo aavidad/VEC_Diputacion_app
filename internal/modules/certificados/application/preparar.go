@@ -139,15 +139,18 @@ func parrafoServicio(textos domain.Textos, fecha func(string) string, s domain.S
 	if !v1 {
 		return textos.Mensaje("servicio", "inicio", fecha(s.Inicio), "fin", fecha(s.Fin), "clase", s.Clase, "dias", strconv.FormatInt(*s.Dias, 10))
 	}
-	clave, fin := "servicio_v1_abierto", ""
+	plantillaTexto, fin := "servicio_v1_abierto", ""
 	if s.Fin != "" {
-		clave, fin = "servicio_v1", fecha(s.Fin)
+		plantillaTexto, fin = "servicio_v1", fecha(s.Fin)
+	}
+	if s.EnCursoAlCorte {
+		plantillaTexto = "servicio_v1_al_corte"
 	}
 	sustenta := "sustenta_no"
 	if s.SustentaCertificacion() {
 		sustenta = "sustenta_si"
 	}
-	return textos.Mensaje(clave, "inicio", fecha(s.Inicio), "fin", fin, "clase", s.Clase,
+	return textos.Mensaje(plantillaTexto, "inicio", fecha(s.Inicio), "fin", fin, "clase", s.Clase,
 		"clase_version", strconv.FormatInt(s.ClaseVersion, 10), "acto", s.ActoRef,
 		"certeza", textos.Mensaje("certeza_"+s.Certeza), "sustenta", textos.Mensaje(sustenta))
 }

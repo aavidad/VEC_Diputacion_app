@@ -34,7 +34,13 @@ func Traducir(r personalports.ResultadoServiciosParaCertificadosV1, nombre, proc
 			}
 			fin = hasta.AddDate(0, 0, -1).Format("2006-01-02")
 		}
-		f.Servicios = append(f.Servicios, domain.Servicio{Inicio: string(s.Periodo.Desde), Fin: fin, Clase: s.ClaseRef,
+		// V1 no recorta los periodos al corte: un fin previsto posterior (un
+		// temporal en activo) se presenta en curso a la fecha de referencia.
+		enCurso := fin > f.Corte.VigenteEn
+		if enCurso {
+			fin = f.Corte.VigenteEn
+		}
+		f.Servicios = append(f.Servicios, domain.Servicio{Inicio: string(s.Periodo.Desde), Fin: fin, EnCursoAlCorte: enCurso, Clase: s.ClaseRef,
 			ClaseVersion: s.ClaseVersion, Estado: s.Estado, Certeza: string(s.Procedencia.Certeza),
 			ServicioRef: s.ServicioRef, ActoRef: s.Procedencia.ActoRef})
 	}
