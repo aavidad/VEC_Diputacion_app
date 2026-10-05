@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,7 +46,7 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o ObservacionADMIN) (api.SesionConfiable, error) {
 	var vacia api.SesionConfiable
 	if p == nil || ctx == nil || ctx.Err() != nil || r == nil || r.TLS == nil ||
-		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != o.Host ||
+		!r.TLS.HandshakeComplete || r.TLS.DidResume || nombreHostPeticion(r.Host) != o.Host ||
 		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 		r.TLS.VerifiedChains[0][0] == nil || r.TLS.VerifiedChains[0][1] == nil ||
 		o.Audiencia != p.config.Audiencia || !o.Valida(p.deps.Reloj.Ahora().UTC()) {
@@ -196,4 +197,22 @@ func errorAutoridad(err error) error {
 		return api.ErrAccesoDenegado
 	}
 	return api.ErrConfiguracionIncompleta
+}
+
+// nombreHostPeticion quita el puerto de la cabecera Host ya comprobada por la
+// frontera ADMIN, que exige la autoridad exacta configurada. La observación
+// lleva solo el nombre (host_admin de la política). Una forma inválida devuelve
+// "" y nunca coincide con una observación válida.
+func nombreHostPeticion(autoridad string) string {
+	if strings.ContainsAny(autoridad, "[]") {
+		return ""
+	}
+	nombre, puerto, conPuerto := strings.Cut(autoridad, ":")
+	if !conPuerto {
+		return autoridad
+	}
+	if nombre == "" || puerto == "" || strings.Trim(puerto, "0123456789") != "" {
+		return ""
+	}
+	return nombre
 }

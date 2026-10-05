@@ -86,6 +86,31 @@ func TestResolverVerificaTLSAntesDeConsultarCuentaNominal(t *testing.T) {
 	}
 }
 
+// La cabecera Host puede llevar el puerto público ya exigido por la frontera;
+// la observación conserva el nombre sin puerto de host_admin.
+func TestResolverComparaNombreDeHostSinPuerto(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	estado := estadoTLSReal(t, ahora)
+	o := observacionTLS(estado, ahora)
+	for host, llamadas := range map[string]int{
+		o.Host:                      1,
+		o.Host + ":8444":            1,
+		"otro.example.invalid:8444": 0,
+		o.Host + ":":                0,
+		o.Host + ":8444:1":          0,
+		"[" + o.Host + "]:8444":     0,
+		o.Host + "x:8444":           0,
+	} {
+		cuentas := &cuentasDenegadas{}
+		e := estado
+		p := &Proveedor{config: configADMINPrueba(ahora), deps: Dependencias{Cuentas: cuentas, Registro: registroDenegado{}, Reloj: relojPrueba{ahora}}}
+		_, err := p.Resolver(context.Background(), &http.Request{Host: host, TLS: &e}, o)
+		if cuentas.llamadas != llamadas || (llamadas == 0) != errors.Is(err, api.ErrAutenticacionRequerida) {
+			t.Fatalf("Host %q: consultas=%d error=%v", host, cuentas.llamadas, err)
+		}
+	}
+}
+
 func configADMINPrueba(ahora time.Time) h.ConfiguracionSuperficie {
 	return h.ConfiguracionSuperficie{
 		Superficie: h.SuperficieAdministracionPrivilegiada, ZonaRed: h.ZonaRedAdministracion,

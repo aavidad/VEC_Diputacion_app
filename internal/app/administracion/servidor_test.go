@@ -147,6 +147,48 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if got, _ := peticion("/livez", "otro.example.test", true); got != http.StatusForbidden {
 		t.Fatalf("host ajeno: %d", got)
 	}
+	// VEC_ADMIN_HOST con puerto público: la cabecera Host debe llevar
+	// exactamente ese puerto; «:443» equivale al nombre solo.
+	for _, caso := range []struct {
+		configurado string
+		aceptados   []string
+		rechazados  []string
+	}{
+		{"admin.example.test:8444", []string{"admin.example.test:8444"}, []string{"admin.example.test", "admin.example.test:443", "admin.example.test:8443", "admin.example.test:08444", "otro.example.test:8444"}},
+		{"admin.example.test:443", []string{"admin.example.test"}, []string{"admin.example.test:443", "admin.example.test:8444"}},
+		{"admin.example.test", []string{"admin.example.test"}, []string{"admin.example.test:443", "admin.example.test:8444"}},
+	} {
+		cfgPuerto := cfg
+		cfgPuerto.Host = caso.configurado
+		servidorPuerto, err := NuevoServidor(cfgPuerto)
+		if err != nil {
+			t.Fatalf("%s: %v", caso.configurado, err)
+		}
+		pruebaPuerto := httptest.NewUnstartedServer(servidorPuerto.Handler)
+		pruebaPuerto.TLS = servidorPuerto.TLSConfig.Clone()
+		pruebaPuerto.StartTLS()
+		original := prueba.URL
+		prueba.URL = pruebaPuerto.URL
+		for _, host := range caso.aceptados {
+			if got, err := peticion("/livez", host, true); err != nil || got != http.StatusNoContent {
+				t.Fatalf("%s: host %s rechazado: %d %v", caso.configurado, host, got, err)
+			}
+		}
+		for _, host := range caso.rechazados {
+			if got, _ := peticion("/livez", host, true); got != http.StatusForbidden {
+				t.Fatalf("%s: host %s admitido: %d", caso.configurado, host, got)
+			}
+		}
+		prueba.URL = original
+		pruebaPuerto.Close()
+	}
+	for _, invalido := range []string{"Admin.Example.Test", "admin.example.test:0", "admin.example.test:65536", "admin.example.test:08444", "admin.example.test:", ":8444", "admin.example.test:8444:1", "[::1]:8444", "admin.example.test.", " admin.example.test"} {
+		cfgInvalida := cfg
+		cfgInvalida.Host = invalido
+		if _, err := NuevoServidor(cfgInvalida); !errors.Is(err, ErrConfiguracion) {
+			t.Fatalf("host %q admitido: %v", invalido, err)
+		}
+	}
 	if _, err := peticion("/livez", cfg.Host, false); err == nil {
 		t.Fatal("TLS acepto cliente sin certificado")
 	}

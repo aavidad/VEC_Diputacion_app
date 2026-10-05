@@ -18,7 +18,7 @@ El arranque requiere estas variables privadas:
 | --- | --- |
 | `VEC_ADMIN_ENTORNO` | `desarrollo` (ver nota) |
 | `VEC_ADMIN_ESCUCHA` | Dirección IP concreta y puerto; no admite `0.0.0.0` ni `::` |
-| `VEC_ADMIN_HOST` | Host HTTP exacto del subdominio ADMIN, sin puerto |
+| `VEC_ADMIN_HOST` | Nombre del subdominio ADMIN, o `nombre:puerto` si se publica en un puerto propio (ver nota) |
 | `VEC_ADMIN_AUDIENCIA` | Audiencia propia de ADMIN |
 | `VEC_ADMIN_EMISOR_IDENTIDAD` | El mismo valor que `identidad.espacio_identidad` |
 | `VEC_ADMIN_TLS_CERT_FILE`, `VEC_ADMIN_TLS_KEY_FILE` | Certificado y clave del servidor |
@@ -34,9 +34,18 @@ Notas sobre estas variables, comprobadas en el ensayo del 5 de octubre de 2026:
   acceso para `desarrollo` y el selector compara con este valor. Con `cidonia`
   todas las peticiones se deniegan hasta que exista una política para ese
   entorno.
-- El servidor compara la cabecera `Host` tal cual. Si el navegador entra por un
-  puerto distinto del 443, la cabecera lleva el puerto y la respuesta es 403;
-  hace falta escuchar en el 443 o poner delante un puente que lo ofrezca.
+- `VEC_ADMIN_HOST` fija el puerto público por el que entra el navegador, que
+  no tiene por qué coincidir con el de `VEC_ADMIN_ESCUCHA`. Con `admin.ejemplo.es`
+  (o `admin.ejemplo.es:443`) la cabecera `Host` debe ser `admin.ejemplo.es`
+  exactamente. Con `admin.ejemplo.es:8444` debe ser `admin.ejemplo.es:8444`, y
+  el `Origin` de las peticiones, `https://admin.ejemplo.es:8444`. Cualquier otra
+  forma (sin puerto, otro puerto, `:443` explícito) recibe 403 o 401. El nombre
+  va en minúsculas; si el valor no es un nombre DNS válido o el puerto no está
+  entre 1 y 65535 sin ceros a la izquierda, el arranque falla.
+- La política de certificado de IS15 (`host_admin`) guarda solo el nombre, sin
+  puerto, y se compara con el nombre de `VEC_ADMIN_HOST`.
+- El puente que lleve el puerto público hasta el proceso no puede terminar TLS:
+  el certificado cliente tiene que llegar en el mismo handshake.
 - El emisor de la aserción es el espacio de identidad de la sesión y el
   registro de sesiones lo compara con `identidad.espacio_identidad`. Si
   `VEC_ADMIN_EMISOR_IDENTIDAD` no coincide, el arranque falla con

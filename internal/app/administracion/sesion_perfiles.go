@@ -17,6 +17,7 @@ import (
 
 type resolvedorSesionPerfiles struct {
 	cfg       Configuracion
+	host      hostAdmin
 	ca        []byte
 	red       httpseguridad.PoliticaRed
 	proveedor *adminperfiles.Proveedor
@@ -26,7 +27,8 @@ type resolvedorSesionPerfiles struct {
 // NuevoResolverSesionPerfiles reutiliza la frontera ADMIN directa de F. La
 // cuenta y el perfil se resuelven después en las autoridades centrales.
 func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependencias) (*resolvedorSesionPerfiles, error) {
-	if (cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia") || deps.Reloj == nil {
+	host, hostValido := analizarHostAdmin(cfg.Host)
+	if (cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia") || deps.Reloj == nil || !hostValido {
 		return nil, ErrConfiguracion
 	}
 	ca, err := cargarCA(cfg.CAAdministracion)
@@ -54,7 +56,7 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
-	return &resolvedorSesionPerfiles{cfg: cfg, ca: ca.Raw, red: red, proveedor: proveedor, reloj: deps.Reloj}, nil
+	return &resolvedorSesionPerfiles{cfg: cfg, host: host, ca: ca.Raw, red: red, proveedor: proveedor, reloj: deps.Reloj}, nil
 }
 
 func (s *resolvedorSesionPerfiles) ResolverSesionADMIN(ctx context.Context, r *http.Request) (api.SesionConfiable, error) {
@@ -70,7 +72,7 @@ func (s *resolvedorSesionPerfiles) ResolverSesionADMIN(ctx context.Context, r *h
 func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Request) (adminperfiles.ObservacionADMIN, error) {
 	var vacia adminperfiles.ObservacionADMIN
 	if s == nil || ctx == nil || ctx.Err() != nil || r == nil || r.TLS == nil ||
-		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != s.cfg.Host ||
+		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != s.host.autoridad ||
 		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 		len(r.TLS.PeerCertificates) != 1 || r.TLS.PeerCertificates[0] == nil {
 		return vacia, api.ErrAutenticacionRequerida
@@ -109,7 +111,7 @@ func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Re
 	}
 	certSHA, caSHA := sha256.Sum256(hoja.Raw), sha256.Sum256(ca.Raw)
 	return adminperfiles.ObservacionADMIN{
-		Entorno: s.cfg.Entorno, Host: s.cfg.Host, Audiencia: s.cfg.Audiencia,
+		Entorno: s.cfg.Entorno, Host: s.host.nombre, Audiencia: s.cfg.Audiencia,
 		CertificadoSHA256: hex.EncodeToString(certSHA[:]), CASHA256: hex.EncodeToString(caSHA[:]),
 		AutenticacionVerificadaEn: autenticada, RevocacionVerificadaEn: ahora,
 		CRLVigenteHasta: crlHasta.UTC().Truncate(time.Microsecond), CertificadoVigenteHasta: hoja.NotAfter.UTC().Truncate(time.Microsecond),
