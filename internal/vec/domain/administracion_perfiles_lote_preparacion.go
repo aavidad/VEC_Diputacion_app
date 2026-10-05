@@ -102,6 +102,7 @@ type AltaPosibleLoteAdministracion struct {
 // persona en la organización y unidad, con las versiones que el lote compara.
 type BajaPosibleLoteAdministracion struct {
 	RolVersionRef  string
+	Nombre         string
 	PerfilRef      string
 	VinculoRef     string
 	PerfilVersion  uint64
@@ -153,7 +154,7 @@ func (p PreparacionLoteAdministracionPerfiles) ValidarPara(s SolicitudPreparacio
 		perfiles[a.PerfilRef], vinculos[a.VinculoRef] = true, true
 	}
 	for _, b := range p.Bajas {
-		if !rolVersionAdministracionPerfiles(b.RolVersionRef) ||
+		if !rolVersionAdministracionPerfiles(b.RolVersionRef) || len(b.Nombre) > 256 ||
 			!referenciaOpacaAdministracionPerfiles(b.PerfilRef, "prf_") || !referenciaOpacaAdministracionPerfiles(b.VinculoRef, "vca_") ||
 			b.PerfilVersion == 0 || b.VinculoVersion == 0 || !huellaAdministracionPerfiles(b.HuellaSHA256) ||
 			b.VigenteDesde.IsZero() || !b.VigenteHasta.After(b.VigenteDesde) ||

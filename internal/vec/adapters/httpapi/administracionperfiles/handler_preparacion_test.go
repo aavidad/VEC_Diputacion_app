@@ -34,7 +34,7 @@ func (l *lotesADMINPrueba) PrepararLoteOrdinario(_ context.Context, s domain.Sol
 		Altas: []domain.AltaPosibleLoteAdministracion{{RolVersionRef: "rol:gestor_cronos:v1", Nombre: "Gestor",
 			VigenteHastaMaxima: ahora.Add(24 * time.Hour), DuracionPropuesta: time.Hour,
 			PerfilRef: "prf_" + strings.Repeat("1", 32), VinculoRef: "vca_" + strings.Repeat("2", 32), HuellaSHA256: strings.Repeat("3", 64)}},
-		Bajas: []domain.BajaPosibleLoteAdministracion{{RolVersionRef: "rol:dietas_liquidacion_rrhh:v1",
+		Bajas: []domain.BajaPosibleLoteAdministracion{{RolVersionRef: "rol:dietas_liquidacion_rrhh:v1", Nombre: "Liquidación de dietas",
 			PerfilRef: "prf_" + strings.Repeat("4", 32), VinculoRef: "vca_" + strings.Repeat("5", 32), PerfilVersion: 1, VinculoVersion: 3,
 			VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), HuellaSHA256: strings.Repeat("6", 64)}}}
 	if l.alterar != nil {
@@ -82,7 +82,7 @@ func TestHTTPPreparacionLoteDevuelveOpcionesConOrganizacionPrivada(t *testing.T)
 		Preparacion PreparacionLote `json:"preparacion"`
 	}
 	if json.Unmarshal(w.Body.Bytes(), &r) != nil || r.Preparacion.CuentaVersion != 2 || len(r.Preparacion.Altas) != 1 ||
-		r.Preparacion.Altas[0].DuracionPropuestaSegundos != 3600 || r.Preparacion.Bajas[0].VinculoVersion != 3 ||
+		r.Preparacion.Altas[0].DuracionPropuestaSegundos != 3600 || r.Preparacion.Bajas[0].VinculoVersion != 3 || r.Preparacion.Bajas[0].Nombre != "Liquidación de dietas" ||
 		strings.Contains(w.Body.String(), "org_prueba") {
 		t.Fatal("respuesta de preparación incompleta o con la organización privada")
 	}
