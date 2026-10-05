@@ -170,3 +170,29 @@ func hexSHA256(b []byte) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
+
+// AmbitoGobiernoPlanFirmaDeAsignacion toma organización y unidad de la
+// asignación del administrador que gobierna el plan. Exige exactamente esas dos
+// dimensiones con un único valor cada una: con varias unidades no se elige
+// ninguna por la petición.
+func AmbitoGobiernoPlanFirmaDeAsignacion(a vd.AsignacionPerfil) (AmbitoGobiernoPlanFirma, error) {
+	var ambito AmbitoGobiernoPlanFirma
+	if len(a.Ambitos) != 2 {
+		return ambito, ct.ErrPlanCompetenciaFirmaV2
+	}
+	for _, x := range a.Ambitos {
+		if len(x.Valores) != 1 {
+			return AmbitoGobiernoPlanFirma{}, ct.ErrPlanCompetenciaFirmaV2
+		}
+		switch x.Clave {
+		case "organizacion_ref":
+			ambito.OrganizacionRef = x.Valores[0]
+		case "unidad_ref":
+			ambito.UnidadRef = x.Valores[0]
+		}
+	}
+	if !organizacionGobiernoPlanFirma.MatchString(ambito.OrganizacionRef) || !unidadGobiernoPlanFirma.MatchString(ambito.UnidadRef) {
+		return AmbitoGobiernoPlanFirma{}, ct.ErrPlanCompetenciaFirmaV2
+	}
+	return ambito, nil
+}
