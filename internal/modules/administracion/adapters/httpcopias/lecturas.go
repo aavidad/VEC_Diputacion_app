@@ -25,7 +25,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		}
 		c, err := h.servicio.Capacidades(r.Context(), s)
 		if err != nil {
-			fallo(w, err)
+			h.denegar(w, r, s, err, string(p.Consultar), "copias")
 			return
 		}
 		respuesta(w, 200, struct {
@@ -33,7 +33,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		}{c})
 		return
 	}
-	var ref string
+	ref := "copias"
 	var result any
 	var err error
 	switch path {
@@ -117,7 +117,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		}{v}
 	}
 	if err != nil {
-		fallo(w, err)
+		h.denegar(w, r, s, err, string(p.Consultar), ref)
 		return
 	}
 	respuesta(w, 200, result)

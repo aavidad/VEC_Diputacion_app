@@ -1,0 +1,33 @@
+{
+  "sintetica": true,
+  "orden": {
+    "orden": "orden:uno",
+    "operacion": "operacion:uno",
+    "accion": "restaurar_conjunto",
+    "solicitud_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "conjunto": "conjunto:uno",
+    "manifiesto_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "preimagen_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "destino": "destino:uno",
+    "proponente_persona": "persona:uno",
+    "aprobador_persona": "persona:dos",
+    "politica": "politica:uno",
+    "politica_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "decision_v3": "decision:uno",
+    "decision_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "consumo_v3": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "auditoria": "auditoria:uno",
+    "outbox": "outbox:uno",
+    "epoca": "epoca:uno",
+    "fence": 1,
+    "version_cas": 1,
+    "emitida_en": "2026-10-01T10:00:00Z",
+    "caduca_en": "2026-10-01T11:00:00Z"
+  },
+  "instante": "2026-10-01T10:00:00Z",
+  "pasos": [
+    "verificar",
+    "aceptar",
+    "replay"
+  ]
+}

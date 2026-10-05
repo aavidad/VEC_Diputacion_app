@@ -28,6 +28,18 @@ class PreparacionLocalTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "alcance_invalido"):
                 cargar_recursos(raiz, "formacion")
 
+    def test_visor_lista_admision_sirve_textos_de_motivos(self):
+        raiz = Path(__file__).resolve().parents[2] / "web/static"
+        recursos, entrada = cargar_recursos(raiz, "selectivos-lista-admision-visor")
+        self.assertEqual(entrada, "/portal-empleado/modulos/seleccion/preparacion-lista-admision/")
+        for ruta in ("/textos/es/motivos-seleccion-admision-ejemplo.json", "/textos/en/motivos-seleccion-admision-ejemplo.json",
+                     "/portal-empleado/modulos/seleccion/preparacion-admision/controlador.js",
+                     "/textos/es/selectivos-lista-admision-visor.json"):
+            self.assertIn(ruta, recursos)
+        # Textos de otros módulos no entran en este visor.
+        self.assertNotIn("/textos/es/selectivos-admision.json", recursos)
+        self.assertFalse(any(r.endswith(".test.mjs") for r in recursos))
+
     def test_host_rutas_y_escrituras(self):
         recursos = {"/entrada.js": (b"export const ok = true;", "text/javascript")}
         with ThreadingHTTPServer(("127.0.0.1", 0), handler_para(recursos)) as servidor:

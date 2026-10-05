@@ -16,13 +16,14 @@ import (
 )
 
 type peticion struct {
-	Orden       *port.RecepcionOrden         `json:"orden,omitempty"`
-	Accion      string                       `json:"accion"`
-	Declaracion port.Declaracion             `json:"declaracion"`
-	Operacion   string                       `json:"operacion"`
-	Solicitud   *operacionescopias.Solicitud `json:"solicitud,omitempty"`
-	Comando     *operacionescopias.Comando   `json:"comando,omitempty"`
-	Consulta    *port.Consulta               `json:"consulta,omitempty"`
+	AbandonoDenegado bool                         `json:"abandono_denegado,omitempty"`
+	Orden            *port.RecepcionOrden         `json:"orden,omitempty"`
+	Accion           string                       `json:"accion"`
+	Declaracion      port.Declaracion             `json:"declaracion"`
+	Operacion        string                       `json:"operacion"`
+	Solicitud        *operacionescopias.Solicitud `json:"solicitud,omitempty"`
+	Comando          *operacionescopias.Comando   `json:"comando,omitempty"`
+	Consulta         *port.Consulta               `json:"consulta,omitempty"`
 }
 type registro struct {
 	Secuencia uint64                    `json:"secuencia"`
@@ -63,7 +64,7 @@ var huella = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // Shape checks keep paths, free prose and credentials out of journal records.
 func validar(p peticion) error {
-	if app.ValidarDeclaracion(p.Declaracion) != nil || (p.Accion != "listar" && !referencia.MatchString(p.Operacion)) || (p.Accion != "listar" && p.Consulta != nil) || (p.Accion != "aceptar_orden" && p.Orden != nil) {
+	if app.ValidarDeclaracion(p.Declaracion) != nil || (p.Accion != "listar" && !referencia.MatchString(p.Operacion)) || (p.Accion != "listar" && p.Consulta != nil) || (p.Accion != "aceptar_orden" && p.Orden != nil) || (p.Accion != "abandonar_captura" && p.AbandonoDenegado) {
 		return port.ErrEntrada
 	}
 	switch p.Accion {
@@ -86,11 +87,17 @@ func validar(p peticion) error {
 		if p.Solicitud != nil || p.Comando != nil {
 			return port.ErrEntrada
 		}
-	case "aplicar":
+	case "aplicar", "abandonar_captura":
 		if p.Solicitud != nil || p.Comando == nil {
 			return port.ErrEntrada
 		}
 		c := p.Comando
+		if p.Accion == "aplicar" && (c.Abandono != nil || c.Accion == "abandonar_captura") {
+			return port.ErrEntrada
+		}
+		if p.Accion == "abandonar_captura" && (c.Accion != "abandonar_captura" || c.Abandono == nil || c.Abandono.Operacion != p.Operacion || !observacionSegura(*c.Abandono)) {
+			return port.ErrEntrada
+		}
 		if !referencia.MatchString(c.Clave) || !huella.MatchString(c.SolicitudSHA256) || !referencia.MatchString(c.Accion) || (c.ManifiestoSHA256 != "" && !huella.MatchString(c.ManifiestoSHA256)) || (c.Ejecucion != "" && !referencia.MatchString(c.Ejecucion)) {
 			return port.ErrEntrada
 		}
@@ -139,7 +146,7 @@ func (m *motor) procesar(p peticion, instante string) (port.Resultado, *operacio
 		}
 		if s == nil {
 			for _, existente := range m.operaciones {
-				if existente.Solicitud.Destino == p.Solicitud.Destino && existente.Operacion.Estado() != operacionescopias.VerificadaDeclarada && existente.Operacion.Estado() != operacionescopias.NoValidaDeclarada {
+				if existente.Solicitud.Destino == p.Solicitud.Destino && existente.Operacion.Estado() != operacionescopias.VerificadaDeclarada && existente.Operacion.Estado() != operacionescopias.NoValidaDeclarada && existente.Operacion.Estado() != operacionescopias.AbandonadaDeclarada {
 					err = port.ErrDestinoOcupado
 					break
 				}
@@ -164,7 +171,11 @@ func (m *motor) procesar(p peticion, instante string) (port.Resultado, *operacio
 		if e == nil {
 			res.Recibo = s.Reserva
 		}
-	case "aplicar":
+	case "aplicar", "abandonar_captura":
+		if p.AbandonoDenegado {
+			err = port.ErrAbandonoNoAutorizado
+			break
+		}
 		if s == nil {
 			err = port.ErrNoExiste
 			break
@@ -226,7 +237,7 @@ func (m *motor) recuperar(t trama) error {
 
 // Codigo maps only nominal errors; callers never expose filesystem error text.
 func Codigo(err error) string {
-	for _, e := range []error{port.ErrConfiguracion, port.ErrEntrada, port.ErrCorrupto, port.ErrNoExiste, port.ErrIO, port.ErrDestinoOcupado, port.ErrOrdenConflicto, port.ErrFence, operacionescopias.ErrEntrada, operacionescopias.ErrConflicto, operacionescopias.ErrVersion, operacionescopias.ErrVinculo, operacionescopias.ErrTransicion, operacionescopias.ErrHistoria} {
+	for _, e := range []error{port.ErrConfiguracion, port.ErrEntrada, port.ErrCorrupto, port.ErrNoExiste, port.ErrIO, port.ErrDestinoOcupado, port.ErrAbandonoNoAutorizado, operacionescopias.ErrAbandono, port.ErrOrdenConflicto, port.ErrFence, operacionescopias.ErrEntrada, operacionescopias.ErrConflicto, operacionescopias.ErrVersion, operacionescopias.ErrVinculo, operacionescopias.ErrTransicion, operacionescopias.ErrHistoria} {
 		if errors.Is(err, e) {
 			return e.Error()
 		}

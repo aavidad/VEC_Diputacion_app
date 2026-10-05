@@ -18,18 +18,19 @@ type PaquetePreparacionOrganizacion struct {
 }
 
 type InformeRevisionPreparacionOrganizacion struct {
-	Valido                 bool           `json:"valido"`
-	Estado                 string         `json:"estado"`
-	ClaveError             string         `json:"clave_error,omitempty"`
-	Seccion                string         `json:"seccion,omitempty"`
-	FilaFallida            int            `json:"fila_fallida,omitempty"`
-	Hechos                 int            `json:"hechos"`
-	Decisiones             int            `json:"decisiones"`
-	RecuentosClase         map[string]int `json:"recuentos_clase"`
-	RecuentosDecision      map[string]int `json:"recuentos_decision"`
-	ManifiestoHuellaSHA256 string         `json:"manifiesto_huella_sha256,omitempty"`
-	PaqueteHuellaSHA256    string         `json:"paquete_huella_sha256,omitempty"`
-	PendientesPublicacion  []string       `json:"pendientes_publicacion"`
+	Valido                 bool                               `json:"valido"`
+	Estado                 string                             `json:"estado"`
+	ClaveError             string                             `json:"clave_error,omitempty"`
+	Seccion                string                             `json:"seccion,omitempty"`
+	FilaFallida            int                                `json:"fila_fallida,omitempty"`
+	Hechos                 int                                `json:"hechos"`
+	Decisiones             int                                `json:"decisiones"`
+	RecuentosClase         map[string]int                     `json:"recuentos_clase"`
+	RecuentosDecision      map[string]int                     `json:"recuentos_decision"`
+	ManifiestoHuellaSHA256 string                             `json:"manifiesto_huella_sha256,omitempty"`
+	PaqueteHuellaSHA256    string                             `json:"paquete_huella_sha256,omitempty"`
+	PendientesPublicacion  []string                           `json:"pendientes_publicacion"`
+	CoberturaConciliacion  *CoberturaConciliacionOrganizacion `json:"cobertura_conciliacion,omitempty"`
 }
 
 // RevisarPreparacionOrganizacion solo comprueba material en memoria. No consulta
@@ -105,6 +106,41 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	if err != nil {
 		return fallo("manifiesto_invalido", "manifiesto", 0)
 	}
+	p = normalizarPreparacionOrganizacion(p)
+	material, err := json.Marshal(p)
+	if err != nil {
+		return fallo("paquete_invalido", "paquete", 0)
+	}
+	h := sha256.Sum256(material)
+	r.ManifiestoHuellaSHA256 = manifiestoHuella
+	r.PaqueteHuellaSHA256, r.Valido = hex.EncodeToString(h[:]), true
+	r.CoberturaConciliacion = revisarCoberturaConciliacionOrganizacion(p)
+	return r
+}
+
+func compactarPendientes(p []string) []string {
+	n := 0
+	for _, s := range p {
+		if n == 0 || p[n-1] != s {
+			p[n] = s
+			n++
+		}
+	}
+	return p[:n]
+}
+
+// PrepararPaqueteOrganizacion devuelve el material revisado en el mismo orden
+// canónico que identifica PaqueteHuellaSHA256. Nunca devuelve material inválido.
+// La revisión sigue siendo local y no acredita fuentes ni concede publicación.
+func PrepararPaqueteOrganizacion(p PaquetePreparacionOrganizacion) (PaquetePreparacionOrganizacion, InformeRevisionPreparacionOrganizacion) {
+	r := RevisarPreparacionOrganizacion(p)
+	if !r.Valido {
+		return PaquetePreparacionOrganizacion{}, r
+	}
+	return normalizarPreparacionOrganizacion(p), r
+}
+
+func normalizarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) PaquetePreparacionOrganizacion {
 	p.Hechos = append([]domain.HechoImportacionOrganizacion(nil), p.Hechos...)
 	p.Decisiones = append([]domain.DecisionConciliacionOrganizacion(nil), p.Decisiones...)
 	sort.Slice(p.Hechos, func(i, j int) bool {
@@ -121,23 +157,5 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 		}
 		return a.FilaFuenteRef < b.FilaFuenteRef
 	})
-	material, err := json.Marshal(p)
-	if err != nil {
-		return fallo("paquete_invalido", "paquete", 0)
-	}
-	h := sha256.Sum256(material)
-	r.ManifiestoHuellaSHA256 = manifiestoHuella
-	r.PaqueteHuellaSHA256, r.Valido = hex.EncodeToString(h[:]), true
-	return r
-}
-
-func compactarPendientes(p []string) []string {
-	n := 0
-	for _, s := range p {
-		if n == 0 || p[n-1] != s {
-			p[n] = s
-			n++
-		}
-	}
-	return p[:n]
+	return p
 }

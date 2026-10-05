@@ -29,7 +29,7 @@ Componer las pantallas, en este orden cuando sus partes existan:
 7. acciones principales al final del bloque que modifican.
 
 Reutilizar primero los componentes de `web/static/portal-empleado/portal-componentes.css`
-y los tokens de `portal.css`. No crear un componente paralelo si el común expresa
+y los tokens de `web/static/comun/tema-vec.css`. No crear un componente paralelo si el común expresa
 la misma función. Las variantes de tema solo redefinen tokens `--portal-*`.
 
 ## Reglas de decisión
@@ -52,9 +52,8 @@ Comparar temas sobre el mismo mini-recorrido: navegación, KPI, panel, formulari
 botón, estado, tabla y mapa. Cambiar únicamente tokens de color y, si se justifica,
 radio/sombra. No variar contenido ni distribución para favorecer una alternativa.
 
-La galería mantenida en `web/static/presentacion/temas/` es el catálogo de decisión.
-Cuando dirección elija un tema, trasladar sus tokens a la raíz común y comprobar al
-menos Portal, Dietas, Cronos, Personal y Bolsa en escritorio y móvil. El tema de alto
+Los tokens del tema viven en `web/static/comun/tema-vec.css`. Al cambiar el tema,
+comprobar al menos Portal, Dietas, Cronos, Personal y Bolsa en escritorio y móvil. El tema de alto
 contraste sigue siendo una capa de accesibilidad independiente de la paleta elegida.
 
 ## Comprobación

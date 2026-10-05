@@ -59,8 +59,9 @@ type Persona struct {
 }
 
 type PaginaPersonas struct {
-	Personas        []Persona `json:"personas"`
-	SiguienteCursor string    `json:"siguiente_cursor,omitempty"`
+	Metadatos       *PaginaPersonasMetadatos `json:"-"`
+	Personas        []Persona                `json:"personas"`
+	SiguienteCursor string                   `json:"siguiente_cursor,omitempty"`
 }
 
 type Perfil struct {
@@ -177,14 +178,15 @@ type Historia struct {
 }
 
 type FichaPersona struct {
-	UnidadRef        string           `json:"unidad_ref"`
-	UnidadClaveI18N  string           `json:"unidad_clave_i18n"`
-	PersonaRef       string           `json:"persona_ref"`
-	Nombre           string           `json:"nombre"`
-	UnidadNombre     string           `json:"unidad_nombre"`
-	Perfiles         []Perfil         `json:"perfiles"`
-	ActosDisponibles []ActoDisponible `json:"actos_disponibles"`
-	Historia         []Historia       `json:"historia"`
+	Metadatos        *FichaPersonaMetadatos `json:"-"`
+	UnidadRef        string                 `json:"unidad_ref"`
+	UnidadClaveI18N  string                 `json:"unidad_clave_i18n"`
+	PersonaRef       string                 `json:"persona_ref"`
+	Nombre           string                 `json:"nombre"`
+	UnidadNombre     string                 `json:"unidad_nombre"`
+	Perfiles         []Perfil               `json:"perfiles"`
+	ActosDisponibles []ActoDisponible       `json:"actos_disponibles"`
+	Historia         []Historia             `json:"historia"`
 }
 
 type Propuesta struct {

@@ -1,5 +1,10 @@
 # Organización y RPT: inventario y trabajo siguiente
 
+La consulta publicada permite quitar la búsqueda aplicada y volver a la primera
+página, conservando la pestaña. El buscador mantiene el texto aún sin enviar y
+el foco durante la carga. Esta mejora no cambia la fuente de la RPT ni acredita
+ocupación, vacantes o vigencia administrativa.
+
 Fecha: 1 de octubre de 2026. Base contrastada: `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
 Este plan recoge código publicado y candidatas separadas; no declara ORG/RPT completos.
 El inventario se hizo sobre esa base. Main avanzó a `f49e01089` con CT159;
@@ -240,3 +245,59 @@ La ronda posterior aplica la decisión de Dirección de las 17:40: RPT-005/006
 pertenecen a M; B aporta relación/persona por puerto y conserva los archivos
 mixtos hasta acordar su transición. Se evita una segunda autoridad de ocupación.
 La tarea 5 se estima una sola vez en M. PLA-001/002 quedan para después.
+
+
+## Consulta de plazas: búsqueda en la página — 4 de octubre de 2026
+
+Inventario sobre `origin/main@7141dedb5`: la consulta B2 de vacantes está montada
+con autorización nominal y lectura PostgreSQL. Aporta plazas de plantilla sin
+ocupación registrada y conserva corte, versión estructural, acto y fuente.
+La hoja ya distingue ese resultado de la ocupación del puesto y de la necesidad
+cubrible, que siguen pendientes de sus fuentes y criterios.
+
+La hoja añade búsqueda por código literal de plaza, denominación de unidad o
+puesto, dentro de la página recibida. Indica coincidencias y total de esa página;
+permite limpiar la búsqueda y distingue filtro sin coincidencias de consulta
+sin registros. La búsqueda no cambia ámbito, corte, origen ni autorización y
+no consulta más páginas. Cada hoja nueva parte sin filtro; los estados de fallo
+no reutilizan la lista anterior. Los padres y sus versiones de caché los actualiza
+Dirección en su turno de integración.
+
+Esta mejora usa el consumidor existente. No añade descarga ni publica fuentes,
+ocupaciones o reservas. Para obtener puestos sin ocupante y necesidades cubribles
+faltan lecturas nominales propias, cobertura de ocupaciones/reservas, vínculos y
+criterios acreditados. El contrato `LectorRelacionParaRPTV1` sigue preparado:
+una concesión B2 no lo convierte en una lectura autorizada para otro consumidor.
+La política de acreditación de fuentes de Personal 000011 continúa pendiente de
+una autoridad admitida; el revisor local ya integrado no la sustituye.
+
+## Preparación reutilizable de fuente — 4 de octubre de 2026
+
+Inventario sobre `origin/main@66233cc3e`: Personal 000011 conserva los contratos,
+el servicio de preparación/conciliación/publicación y el repositorio PostgreSQL.
+`vec-revisar-organizacion` revisa el paquete en memoria; `vec-organizacion-semilla`
+genera la semilla del catálogo preparatorio de Contratación, sin publicar historia
+Personal. La política de acreditación de fuentes sigue siendo un puerto: este
+corte no aporta una autoridad institucional ni verifica la instalación SQL.
+La corrección de decisiones de clase ajena de [#585](https://github.com/aavidad/VEC_Diputacion_app/pull/585)
+ya está integrada en esta base y se conserva.
+
+Se amplía el [revisor existente](../../cmd/vec-revisar-organizacion/README.md)
+con `--preparar`: además del informe entrega el paquete válido en el orden de
+su huella, reutilizable por el mismo lector. El rechazo conserva el informe y
+omite el paquete. Se reutilizan reglas, límites y pendientes de publicación;
+no se fabrica actor ni se ejecuta otro importador.
+
+Este corte aporta preparación local a la tarea 4. Para publicar y montar la
+consulta histórica siguen pendientes la fuente admitida, diccionario, actos,
+custodia, catálogos y concesiones nominales, con aprobación separada y consumo
+transaccional de autorización/auditoría. No cierra las tareas de plantilla,
+ocupación, reserva o vacantes; la ausencia de una fuente mantiene incertidumbre.
+
+
+Comprobación local: pruebas normales y de carrera, y `go vet`, verdes en
+`cmd/vec-revisar-organizacion` y `personal/application`. El ejemplo se exportó
+con `--preparar`, se extrajo y se volvió a leer con el mismo comando: conservó
+la huella `900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6`.
+Semgrep con cuatro reglas locales y gosec focal no comunicaron hallazgos.
+La revisión independiente y la integración corresponden a Dirección.
