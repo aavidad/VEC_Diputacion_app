@@ -22,10 +22,14 @@ const maximoEntradaLista = 16 * 1024 * 1024
 //   - lista-provisional: borrador de la provisional.
 //   - antecedente-lista: huella de esa provisional, para citarla en la definitiva.
 //   - lista-definitiva: borrador de la definitiva desde la provisional y las resoluciones.
+//   - revision-provisional: nueva revisión de la provisional con solicitudes omitidas.
 func ejecutarLista(ctx context.Context, formato, dir, nombre string, entrada io.Reader, salida, errores io.Writer, catalogo *i18n.Catalog, idioma string) int {
 	invalida := domain.ErrListaAdmision.Error()
-	if formato == "lista-definitiva" {
+	switch formato {
+	case "lista-definitiva":
 		invalida = domain.ErrListaDefinitiva.Error()
+	case "revision-provisional":
+		invalida = domain.ErrRevisionLista.Error()
 	}
 	catalogos, err := catalogoadmision.Cargar(dir, nombre)
 	if err != nil {
@@ -33,6 +37,12 @@ func ejecutarLista(ctx context.Context, formato, dir, nombre string, entrada io.
 	}
 	var resultado any
 	switch formato {
+	case "revision-provisional":
+		var material ports.MaterialRevisionProvisional
+		if leerJSONHasta(entrada, &material, maximoEntradaLista) != nil {
+			return informarError(errores, catalogo, idioma, invalida)
+		}
+		resultado, err = application.PrepararRevisionProvisional(ctx, material, catalogos)
 	case "lista-definitiva":
 		var material ports.MaterialListaDefinitiva
 		if leerJSONHasta(entrada, &material, maximoEntradaLista) != nil {

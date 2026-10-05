@@ -49,3 +49,10 @@ type MaterialListaDefinitiva struct {
 	Antecedente  domain.AntecedenteLista        `json:"antecedente_provisional"`
 	Resoluciones []domain.ResolucionSubsanacion `json:"resoluciones"`
 }
+
+// MaterialRevisionProvisional reúne el material completo de la nueva revisión
+// de la provisional y la provisional anterior tal como se preparó.
+type MaterialRevisionProvisional struct {
+	Material MaterialListaAdmision           `json:"material"`
+	Anterior domain.ListaAdmisionProvisional `json:"anterior"`
+}
