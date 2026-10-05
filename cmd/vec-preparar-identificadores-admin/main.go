@@ -11,6 +11,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -81,10 +82,10 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	if parseErr != nil || f.NArg() != 0 || !r.distintas(rutaTextos) {
 		return emitir(errores, diagnostico{Codigo: "uso_invalido"})
 	}
-	doc, codigo := preparar(r)
+	doc, err := preparar(r)
 	defer clear(doc)
-	if codigo != "" {
-		return emitir(errores, diagnostico{Codigo: codigo})
+	if err != nil {
+		return emitir(errores, diagnostico{Codigo: codigoDe(err)})
 	}
 	if crearExclusivo(r.salida, doc) != nil {
 		return emitir(errores, diagnostico{Codigo: "salida_insegura"})
@@ -120,7 +121,7 @@ func (r rutas) distintas(textos string) bool {
 
 // preparar lee y coteja todas las entradas; devuelve el documento v1 o el
 // código del primer rechazo.
-func preparar(r rutas) ([]byte, string) {
+func preparar(r rutas) ([]byte, error) {
 	leidos := map[string][]byte{}
 	defer func() {
 		for _, b := range leidos {
@@ -130,7 +131,7 @@ func preparar(r rutas) ([]byte, string) {
 	for _, ruta := range []string{r.originales, r.certificados, r.fuente, r.acuse, r.material, r.proveedor} {
 		b, err := leerPrivado(ruta)
 		if err != nil {
-			return nil, "entrada_insegura"
+			return nil, fallo("entrada_insegura", err)
 		}
 		leidos[ruta] = b
 	}
@@ -143,24 +144,24 @@ func preparar(r rutas) ([]byte, string) {
 		prov  proveedorHMAC
 	)
 	for ruta, destino := range map[string]any{r.originales: &orig, r.certificados: &certs, r.fuente: &plan, r.acuse: &acuse, r.material: &mat, r.proveedor: &prov} {
-		if decodificarEstricto(leidos[ruta], destino) != nil {
-			return nil, "entrada_invalida"
+		if err := decodificarEstricto(leidos[ruta], destino); err != nil {
+			return nil, fallo("entrada_invalida", err)
 		}
 	}
 	_, huellaPlan, err := plan.CanonicoYHuella()
 	if err != nil {
-		return nil, "entrada_invalida"
+		return nil, fallo("entrada_invalida", err)
 	}
 	e := entradasCotejadas{plan: plan, originales: orig, certificados: certs, material: mat, proveedor: prov,
 		materialSHA256: huellaSHA256(leidos[r.material])}
 	cuentas, ok := cuentasDesdeAcuse(acuse, plan, huellaPlan)
 	if !ok {
-		return nil, "entradas_divergentes"
+		return nil, fallo("entradas_divergentes", nil)
 	}
 	e.cuentas = cuentas
 	if r.configuracionAdmin != "" {
-		if codigo := cotejarConfiguracionAdmin(r.configuracionAdmin, prov); codigo != "" {
-			return nil, codigo
+		if err := cotejarConfiguracionAdmin(r.configuracionAdmin, prov); err != nil {
+			return nil, err
 		}
 	}
 	return e.documento()
@@ -169,23 +170,50 @@ func preparar(r rutas) ([]byte, string) {
 // cotejarConfiguracionAdmin lee solo el bloque "identidad" de la configuración
 // privada de vec-admin (sin claves repetidas) y exige el mismo proveedor que
 // proveedor.json. Así el archivo se coteja con lo que usará el runtime.
-func cotejarConfiguracionAdmin(ruta string, prov proveedorHMAC) string {
+func cotejarConfiguracionAdmin(ruta string, prov proveedorHMAC) error {
 	b, err := leerPrivadoHasta(ruta, limiteConfiguracionAdmin)
 	if err != nil {
-		return "entrada_insegura"
+		return fallo("entrada_insegura", err)
 	}
 	defer clear(b)
 	var cfg struct {
 		Identidad json.RawMessage `json:"identidad"`
 	}
 	var admin proveedorHMAC
-	if clavesUnicas(b) != nil || json.Unmarshal(b, &cfg) != nil || len(cfg.Identidad) == 0 || decodificarEstricto(cfg.Identidad, &admin) != nil {
-		return "entrada_invalida"
+	if err := errors.Join(clavesUnicas(b), json.Unmarshal(b, &cfg)); err != nil {
+		return fallo("entrada_invalida", err)
+	}
+	if len(cfg.Identidad) == 0 {
+		return fallo("entrada_invalida", nil)
+	}
+	if err := decodificarEstricto(cfg.Identidad, &admin); err != nil {
+		return fallo("entrada_invalida", err)
 	}
 	if !mismoProveedor(admin, prov) {
-		return "configuracion_admin_divergente"
+		return fallo("configuracion_admin_divergente", nil)
 	}
-	return ""
+	return nil
+}
+
+// falloPreparacion lleva el código público del catálogo y conserva la causa
+// para quien la inspeccione con errors.Is/As. El diagnóstico solo muestra el
+// código: la causa puede contener rutas o contenido privado.
+type falloPreparacion struct {
+	codigo string
+	causa  error
+}
+
+func (f *falloPreparacion) Error() string { return f.codigo }
+func (f *falloPreparacion) Unwrap() error { return f.causa }
+
+func fallo(codigo string, causa error) error { return &falloPreparacion{codigo: codigo, causa: causa} }
+
+func codigoDe(err error) string {
+	var f *falloPreparacion
+	if errors.As(err, &f) {
+		return f.codigo
+	}
+	return "entrada_invalida"
 }
 
 type datosTextos struct {

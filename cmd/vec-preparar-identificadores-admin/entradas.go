@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strings"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -200,17 +201,22 @@ func huellaValida(v string) bool {
 	return domain.HuellaAdministracionPerfilesValida(v) && v != strings.Repeat("0", 64)
 }
 
-func hmacHex(v string) ([32]byte, bool) {
+var errHMACInvalida = errors.New("hmac_invalida")
+
+func hmacHex(v string) ([32]byte, error) {
 	var r [32]byte
 	if !huellaValida(v) {
-		return r, false
+		return r, errHMACInvalida
 	}
 	b, err := hex.DecodeString(v)
-	if err != nil || len(b) != 32 {
-		return r, false
+	if err != nil {
+		return r, err
+	}
+	if len(b) != 32 {
+		return r, errHMACInvalida
 	}
 	copy(r[:], b)
-	return r, true
+	return r, nil
 }
 
 func referenciaOpaca(v, prefijo string) bool {
