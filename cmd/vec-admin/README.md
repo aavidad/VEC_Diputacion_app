@@ -259,3 +259,30 @@ de AD166.
 Los intentos fallidos anotan, en vez de la referencia `car_…`/`enc_…`, una
 referencia derivada estable (tipo y SHA-256 truncado, sin secreto). Quien
 conozca la referencia del objeto puede enlazarla con el intento.
+
+## Publicación de certificados nominales de firmante
+
+`VEC_ADMIN_CERTIFICADOS_CONFIG_FILE` es opcional y funciona igual que el de
+cargos: el mismo formato (`pool`, `confianza` con una sola capacidad, la de
+`vec_contexto_actor.certificado_nominal.publicar.v1`, y `motivo`). Pool y
+material deben ser distintos de los de todos los demás, incluidos los cargos.
+
+Con este archivo, el proceso abre
+`POST /api/admin/perfiles/v1/certificados-nominales/publicacion`, con cuerpo
+`{"material_base64": …}`. El material es el descriptor exacto de CA25 (esquema
+`vec.contexto-actor.certificado-firmante.publicacion.v2`, 16 KiB como máximo).
+Su estado decide la acción: `vigente` publica y `retirado` retira. La
+organización del destino debe ser la de la asignación del administrador.
+El recurso lleva la organización y la unidad de esa asignación y el SHA-256 del
+descriptor. Lo consume la fachada v4 de AD205, que devuelve el recibo de CA25
+(en un reintento, el original) y el consumo de este acceso.
+
+Antes de arrancar con certificados hay que tener AD205 y:
+
+1. Un LOGIN propio, miembro único del grupo
+   `vec_autorizacion_certificado_nominal_ejecutor` (INHERIT, sin SET ni ADMIN).
+2. Su fila en `configuracion_origen_consumos_v1`, una por cada operación
+   (`administracion.certificados.nominal.publicar` y `…retirar`), con la
+   superficie `administracion_privilegiada`.
+3. La clave de esa capacidad, que publica la renovación diaria con el conjunto
+   de capacidades 4.

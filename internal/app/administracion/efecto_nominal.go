@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	efecto "vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 )
@@ -13,7 +12,7 @@ import (
 // la de la audiencia del efecto (por ejemplo, la de cargos competenciales del
 // conjunto 3 de AD204).
 func NuevaConfianzaEfectoNominalV3(cfg ConfiguracionConfianzaPerfilesV3, deps DependenciasConfianzaPerfilesV3, audiencia string) (ConfianzaPerfilesV3, error) {
-	if audiencia != AudienciaCargoCompetencialV3 {
+	if audiencia != AudienciaCargoCompetencialV3 && audiencia != AudienciaCertificadoNominalV3 {
 		return ConfianzaPerfilesV3{}, ErrConfiguracion
 	}
 	return nuevaConfianzaConAudienciasV3(cfg, deps, []string{audiencia})
@@ -51,5 +50,10 @@ func (s *ServicioEfectoNominal) AplicarEfectoNominal(ctx context.Context, x api.
 	return api.ReciboEfectoNominalADMIN{Cuerpo: r.Cuerpo, ConsumoAuditoriaRef: r.ConsumoAuditoriaRef}, nil
 }
 
-// MaximoMaterialCargoCompetencial es el límite de Personal28 para el material.
-const MaximoMaterialCargoCompetencial = personalpg.MaximoMaterialPublicacionCargo
+// EfectoNominalMontado es un efecto ya compuesto: su ruta fija, el límite de
+// su material y el servicio.
+type EfectoNominalMontado struct {
+	Ruta     string
+	Maximo   int
+	Servicio api.ServicioEfectoNominalADMIN
+}

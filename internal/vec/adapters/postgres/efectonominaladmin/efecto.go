@@ -257,7 +257,7 @@ func errorSQL(ctx context.Context, err error) error {
 		switch pg.Code {
 		case "42501":
 			return vd.ErrAutorizacionDenegada
-		case "40001", "40P01", "55P03", "23505":
+		case "40001", "40P01", "55P03", "23505", "23514":
 			return ErrConflicto
 		}
 		// Clase 22: datos del material que la base no admite (formato,

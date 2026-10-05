@@ -35,7 +35,7 @@ func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configur
 // su pool y LOGIN propios, su cadena V3 de una capacidad, el emisor, la
 // autoridad PostgreSQL y el servicio de aplicación del lote. Sin overlay, el
 // proceso es exactamente el de las lecturas de usuarios.
-func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, cargos *configuracionCargosPrivada) (*http.Server, func(), error) {
+func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
@@ -51,8 +51,16 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if plan != nil && validarConfiguracionPlanFirmaPrivada(*plan, lote, base, u, runtime) != nil {
 		return fallo("plan_firma_configuracion")
 	}
-	if cargos != nil && validarConfiguracionCargosPrivada(*cargos, lote, plan, base, u, runtime) != nil {
-		return fallo("cargos_configuracion")
+	for i, e := range efectos {
+		otros := make([]configuracionEfectoPrivada, 0, len(efectos)-1)
+		for j, o := range efectos {
+			if j != i {
+				otros = append(otros, o.cfg)
+			}
+		}
+		if validarConfiguracionEfectoPrivada(e.cfg, e.audiencia, otros, lote, plan, base, u, runtime) != nil {
+			return fallo(e.nombre + "_configuracion")
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(base.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
@@ -65,10 +73,12 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if plan != nil {
 		rutas = append(rutas, plan.Pool) // índice 11 sin lote, 12 con lote
 	}
-	// Los cargos van detrás de los opcionales anteriores que estén presentes.
-	indiceCargos := len(rutas)
-	if cargos != nil {
-		rutas = append(rutas, cargos.Pool)
+	// Los efectos van detrás de los opcionales anteriores, en su orden.
+	indiceEfectos := len(rutas)
+	utc := map[int]bool{}
+	for i, e := range efectos {
+		rutas = append(rutas, e.cfg.Pool)
+		utc[indiceEfectos+i] = e.utc
 	}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
@@ -93,7 +103,7 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 			return fallo("pool_" + strconv.Itoa(i) + "_dsn")
 		}
 		configurar := configurarPoolADMIN
-		if cargos != nil && i == indiceCargos {
+		if utc[i] {
 			configurar = configurarPoolCargosADMIN
 		}
 		pc, err := configurar(dsn)
@@ -224,19 +234,19 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if gobiernoPlan != nil {
 		servicioPlan = gobiernoPlan
 	}
-	var servicioCargos api.ServicioEfectoNominalADMIN
-	if cargos != nil {
-		s, err := componerCargosCompetencialesADMIN(ctx, base, u, *cargos, pools[0], pools[1], pools[2], pools[indiceCargos], firmante, registrador, reloj)
+	montados := make([]administracion.EfectoNominalMontado, 0, len(efectos))
+	for i, e := range efectos {
+		m, err := componerEfectoADMIN(ctx, base, u, e, pools[0], pools[1], pools[2], pools[indiceEfectos+i], firmante, registrador, reloj)
 		if err != nil {
 			return nil, nil, err
 		}
-		servicioCargos = s
+		montados = append(montados, m)
 	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
 		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
 		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
-		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, CargosCompetenciales: servicioCargos})
+		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, Efectos: montados})
 	if err != nil {
 		return fallo("servidor")
 	}

@@ -35,7 +35,8 @@ type configuracionPrivada struct {
 	// ConjuntoCapacidades 0 (o ausente) publica las dos claves de usuarios con
 	// AD188; 1 publica el conjunto 1 de AD198 (usuarios y lote ordinario); 2, el
 	// conjunto 2 de AD202 (además, el gobierno del plan nominal de firma); 3, el
-	// conjunto 3 de AD204 (además, la publicación de cargos competenciales).
+	// conjunto 3 de AD204 (además, la publicación de cargos competenciales); 4,
+	// el conjunto 4 de AD205 (además, los certificados nominales de firmante).
 	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
 }
 

@@ -36,7 +36,7 @@ type DependenciasPerfiles struct {
 	SoloUsuariosMetadatos bool
 	Lote                  *LoteADMIN
 	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
-	CargosCompetenciales  api.ServicioEfectoNominalADMIN
+	Efectos               []EfectoNominalMontado
 }
 
 type handlerPerfilesADMIN struct {
@@ -116,10 +116,9 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 			return nil, ErrConfiguracion
 		}
 	}
-	if !dependenciaComposicionNula(deps.CargosCompetenciales) {
-		// La publicación de cargos sólo se monta junto a las lecturas de usuarios.
-		if !deps.SoloUsuariosMetadatos || handler.ConEfectoNominal(api.RutaPublicacionCargoCompetencial,
-			MaximoMaterialCargoCompetencial, deps.CargosCompetenciales) != nil {
+	for _, e := range deps.Efectos {
+		// Los efectos nominales sólo se montan junto a las lecturas de usuarios.
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(e.Servicio) || handler.ConEfectoNominal(e.Ruta, e.Maximo, e.Servicio) != nil {
 			return nil, ErrConfiguracion
 		}
 	}

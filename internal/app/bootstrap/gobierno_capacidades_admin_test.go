@@ -26,7 +26,7 @@ func TestConjuntoCeroConservaDescriptoresAD188(t *testing.T) {
 		d[1].PrefijoClave != "clave:capacidad:admin:usuarios:consultar:s7:" || d[1].Version != 6 || d[1].RevisionGobierno != 11 {
 		t.Fatalf("descriptores del conjunto 0 distintos de AD188: %+v", d)
 	}
-	if _, ok := AudienciasConjuntoCapacidadesAdmin(4); ok {
+	if _, ok := AudienciasConjuntoCapacidadesAdmin(5); ok {
 		t.Fatal("conjunto desconocido aceptado")
 	}
 }
@@ -197,5 +197,24 @@ func TestConjuntoTresAnadeCargosCompetenciales(t *testing.T) {
 	if err != nil || len(conf.EntradasCapacidad) != 5 || conf.EntradasCapacidad[4].Audiencia != administracion.AudienciaCargoCompetencialV3 ||
 		!strings.HasPrefix(conf.EntradasCapacidad[4].ClaveID, "clave:capacidad:admin:personal:cargo-competencial:") {
 		t.Fatal("material del conjunto 3 sin la clave de cargos competenciales")
+	}
+}
+
+// El conjunto 4 (AD205) conserva el 3 y añade la audiencia de certificados
+// nominales, con su tramo.
+func TestConjuntoCuatroAnadeCertificadosNominales(t *testing.T) {
+	tres, _ := AudienciasConjuntoCapacidadesAdmin(3)
+	cuatro, ok := AudienciasConjuntoCapacidadesAdmin(4)
+	if administracion.AudienciaCertificadoNominalV3 != "vec_contexto_actor.certificado_nominal.publicar.v1" {
+		t.Fatal("la audiencia de vec-admin no es la de AD165")
+	}
+	if !ok || len(cuatro) != 6 || cuatro[5].Audiencia != administracion.AudienciaCertificadoNominalV3 || cuatro[5].Segmento != "certificados:nominal" ||
+		!regexp.MustCompile(`^emisor:admin:[a-z0-9:._-]{1,120}$`).MatchString(cuatro[5].EmisorID) {
+		t.Fatalf("conjunto 4 distinto de AD205: %+v", cuatro)
+	}
+	for i := range tres {
+		if cuatro[i] != tres[i] {
+			t.Fatalf("el conjunto 4 cambia la audiencia %d del conjunto 3", i)
+		}
 	}
 }
