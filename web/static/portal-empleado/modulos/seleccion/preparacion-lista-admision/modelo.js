@@ -98,8 +98,7 @@ export function leerTextosMotivos(datos) {
   return new Map(entradas);
 }
 
-/** Ruta relativa de los textos de motivos del catálogo, por idioma. */
-export function rutaTextosMotivos(idioma, referencia) {
-  if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/u.test(idioma) || !/^[a-z0-9-]{1,64}$/u.test(referencia)) return null;
-  return `../../../../textos/${idioma}/motivos-${referencia}.json`;
+/** Catálogo de textos de los motivos de una lista (`motivos-<referencia>`), o null si la referencia no es simple. */
+export function moduloTextosMotivos(referencia) {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(referencia) && referencia.length <= 64 ? `motivos-${referencia}` : null;
 }
