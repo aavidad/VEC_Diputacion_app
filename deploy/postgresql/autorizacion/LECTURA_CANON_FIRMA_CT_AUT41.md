@@ -41,6 +41,6 @@ la llame tiene que hacer los mismos cotejos.
 
 La prueba SQL adjunta comprueba estructura, propietario, ACL y rechazo de un
 selector vacío. No fabrica un consumo positivo. Se ensayó el 5 de octubre de
-2026 en el clon de la principal posterior a AD193 (con AD178 y AD177): UP
+2026 en el clon de la principal posterior a AD193 (repetido sobre main con AD195 y AD196) (con AD178 y AD177): UP
 único con código 0 y prueba verde. Falta el recorrido causal con un consumo
 real de recuperación, que depende de la fuente nominal y del montaje CT.
