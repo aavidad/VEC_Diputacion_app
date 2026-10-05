@@ -301,7 +301,7 @@
     }
   },
   "capacidad": {
-    "noHabilitada": "{operacion} no está habilitada para la identidad y el expediente actuales.",
+    "noHabilitada": "{operacion}: esta gestión todavía no está disponible en el área personal.",
     "accionNoReconocida": "La acción no está reconocida por esta superficie.",
     "operacionNoDisponible": "Operación no disponible."
   },
@@ -407,7 +407,7 @@
       "publicada": "Publicada el {fecha}",
       "verDetalle": "Ver detalle y requisitos",
       "titulo": "Convocatorias y procesos selectivos",
-      "descripcion": "Consulte bases, requisitos, plazos y estado antes de iniciar una solicitud.",
+      "descripcion": "Consulte bases, requisitos, plazos y estado de cada convocatoria.",
       "filtros": {
         "buscar": "Buscar",
         "buscarEjemplo": "Título, referencia o categoría",
@@ -445,13 +445,7 @@
         "requisitosSubtitulo": "La comprobación definitiva se realizará según las bases",
         "requisitosNota": "Revise las bases completas. Esta lista facilita la consulta, pero no sustituye al texto aprobado.",
         "documentacion": "Documentación pública",
-        "documentacionSubtitulo": "Bases, anexos y baremo",
-        "antes": "Antes de empezar",
-        "antesSubtitulo": "El asistente comprobará cada paso",
-        "paso1": "Datos personales y contacto.",
-        "paso2": "Requisitos y méritos reutilizables.",
-        "paso3": "Autobaremación.",
-        "paso4": "Pago, firma y registro."
+        "documentacionSubtitulo": "Bases, anexos y baremo"
       }
     },
     "perfil": {

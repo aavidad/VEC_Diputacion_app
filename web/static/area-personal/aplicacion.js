@@ -664,6 +664,10 @@ export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetc
     fuenteBolsa: "real",
     causaBolsa: "",
   };
+  // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
+  if (parametros.has("vista") && !RUTAS[parametros.get("vista")]) {
+    window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
+  }
   await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);

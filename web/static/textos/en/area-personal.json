@@ -49,7 +49,7 @@
     }
   },
   "capacidad": {
-    "noHabilitada": "{operacion} is not enabled for the current identity and application.",
+    "noHabilitada": "{operacion}: this action is not yet available in the personal area.",
     "accionNoReconocida": "This action is not recognised here.",
     "operacionNoDisponible": "This action is unavailable."
   },
@@ -407,7 +407,7 @@
       "publicada": "Published on {fecha}",
       "verDetalle": "View details and requirements",
       "titulo": "Calls for applications and selection processes",
-      "descripcion": "Check the terms, requirements, deadlines and status before starting an application.",
+      "descripcion": "Check the terms, requirements, deadlines and status of each call.",
       "filtros": {
         "buscar": "Search",
         "buscarEjemplo": "Title, reference or category",
@@ -445,13 +445,7 @@
         "requisitosSubtitulo": "The final check will be carried out according to the terms",
         "requisitosNota": "Read the full terms. This list is for convenience and does not replace the approved text.",
         "documentacion": "Public documents",
-        "documentacionSubtitulo": "Terms, annexes and scoring scale",
-        "antes": "Before you start",
-        "antesSubtitulo": "The assistant will check each step",
-        "paso1": "Personal and contact details.",
-        "paso2": "Requirements and reusable merits.",
-        "paso3": "Self-assessment of points.",
-        "paso4": "Payment, signature and registration."
+        "documentacionSubtitulo": "Terms, annexes and scoring scale"
       }
     },
     "perfil": {

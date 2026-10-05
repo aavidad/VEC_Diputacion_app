@@ -102,6 +102,5 @@ export function renderizarDetalleConvocatoria(datos, estado) {
       ${panel(c("detalle.requisitos"), c("detalle.requisitosSubtitulo"), `<ul>${requisitos}</ul><p class="nota aviso">${escaparHTML(c("detalle.requisitosNota"))}</p>`)}
     </div><aside>
       ${panel(c("detalle.documentacion"), c("detalle.documentacionSubtitulo"), `<ul class="lista-documentos">${documentos}</ul>`)}
-      ${panel(c("detalle.antes"), c("detalle.antesSubtitulo"), `<ol><li>${escaparHTML(c("detalle.paso1"))}</li><li>${escaparHTML(c("detalle.paso2"))}</li><li>${escaparHTML(c("detalle.paso3"))}</li><li>${escaparHTML(c("detalle.paso4"))}</li></ol>`)}
     </aside></div>`;
 }
