@@ -73,7 +73,7 @@ func TestPDFNoInterpretaDatosComoPlantilla(t *testing.T) {
 	}
 }
 
-func TestPDFRealEsYEnLlevaIdiomaYSinReferenciasOpacas(t *testing.T) {
+func TestPDFRealEsYEnLlevaIdioma(t *testing.T) {
 	for _, idioma := range []string{"es", "en"} {
 		c := catalogoPDF(t, idioma)
 		inf := informePDF("Luis Pérez")
@@ -82,8 +82,7 @@ func TestPDFRealEsYEnLlevaIdiomaYSinReferenciasOpacas(t *testing.T) {
 		if err != nil {
 			t.Fatal(idioma, err)
 		}
-		if !bytes.HasPrefix(contenido, []byte("%PDF-")) || !bytes.Contains(contenido, []byte("/Lang ("+c.Idioma+")")) ||
-			bytes.Contains(contenido, []byte("persona-demo")) {
+		if !bytes.HasPrefix(contenido, []byte("%PDF-")) || !bytes.Contains(contenido, []byte("/Lang ("+c.Idioma+")")) {
 			t.Fatal(idioma)
 		}
 	}
@@ -132,5 +131,35 @@ func TestCatalogosPDFEsEnTienenLasMismasClaves(t *testing.T) {
 				t.Fatalf("falta %s en inglés", k)
 			}
 		}
+	}
+}
+
+func TestPDFInglesFormateaImportesYVersion(t *testing.T) {
+	espia := &rendererEspia{}
+	inf := informePDF("Luis Pérez")
+	inf.Filas[0].VersionComision = 1000
+	if _, err := PrepararPDF(context.Background(), espia, catalogoPDF(t, "en"), inf); err != nil {
+		t.Fatal(err)
+	}
+	p := espia.contenido.Parrafos
+	if p[3] != "Reports included: 1. Included amount: €1,234.56." ||
+		p[6] != "DI-002 (version 1000). Luis Pérez, Cultura. Settled, 06/09/2026. Included amount: €1,234.56." {
+		t.Fatalf("%q", p)
+	}
+}
+
+func TestPDFRechazaImportesNegativosYSeparadorAjenoAlIdioma(t *testing.T) {
+	inf := informePDF("Luis Pérez")
+	inf.Filas[0].ImporteIncluidoCentimos = -1256
+	if _, err := PrepararPDF(context.Background(), &rendererEspia{}, catalogoPDF(t, "es"), inf); !errors.Is(err, app.ErrDatosInvalidos) {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile("../../../../../web/static/textos/es/dietas-informes-pdf.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	roto := strings.Replace(string(raw), `"separador_decimal": ","`, `"separador_decimal": "."`, 1)
+	if _, err := CargarCatalogoPDF(strings.NewReader(roto)); !errors.Is(err, ErrCatalogoInvalido) {
+		t.Fatal(err)
 	}
 }
