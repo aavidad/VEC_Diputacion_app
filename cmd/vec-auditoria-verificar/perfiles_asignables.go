@@ -26,7 +26,7 @@ func clavesDocumentoPerfilesAsignables(o map[string]json.RawMessage) error {
 		var extras []string
 		switch tipo {
 		case "perfiles_asignables_admin":
-			objeto, extras = "perfiles_asignables", []string{"plan_sha256", "operacion_ref", "perfiles_sha256", "perfiles_numero"}
+			objeto, extras = "perfiles_asignables", []string{"plan_sha256", "operacion_ref", "perfiles_sha256", "perfiles_numero", "aprobacion_sha256"}
 		case "intento_perfiles_asignables_admin":
 			objeto, extras = "intento_perfiles_asignables", []string{"solicitud_sha256"}
 		default:

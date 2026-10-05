@@ -28,6 +28,9 @@ func TestPerfilesAsignablesVerificaRegistrosRealesYRechazaCambios(t *testing.T) 
 		"lista": func(d *DocumentoVerificacionMixta) {
 			d.Registros[0].PerfilesAsignables.PerfilesSHA256 = strings.Repeat("e", 64)
 		},
+		"aprobacion": func(d *DocumentoVerificacionMixta) {
+			d.Registros[0].PerfilesAsignables.AprobacionSHA256 = strings.Repeat("a", 64)
+		},
 		"numero": func(d *DocumentoVerificacionMixta) { d.Registros[0].PerfilesAsignables.PerfilesNumero = "03" },
 		"operador": func(d *DocumentoVerificacionMixta) {
 			d.Registros[1].IntentoPerfilesAsignables.OperadorLogin = "otro_login"

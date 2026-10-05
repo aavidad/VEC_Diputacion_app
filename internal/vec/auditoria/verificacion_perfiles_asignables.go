@@ -27,13 +27,15 @@ var (
 )
 
 // RegistroPerfilesAsignablesV1 replica las columnas que AD196 compromete en el
-// material del evento. La lista registrada queda en AUT49; aquí sólo su huella.
+// material del evento. La lista registrada queda en AUT49; aquí sólo su huella
+// y la de la aprobación externa del plan.
 type RegistroPerfilesAsignablesV1 struct {
 	RegistroOperacionMantenimientoV1
-	PlanSHA256     string `json:"plan_sha256"`
-	OperacionRef   string `json:"operacion_ref"`
-	PerfilesSHA256 string `json:"perfiles_sha256"`
-	PerfilesNumero string `json:"perfiles_numero"`
+	PlanSHA256       string `json:"plan_sha256"`
+	OperacionRef     string `json:"operacion_ref"`
+	PerfilesSHA256   string `json:"perfiles_sha256"`
+	PerfilesNumero   string `json:"perfiles_numero"`
+	AprobacionSHA256 string `json:"aprobacion_sha256"`
 }
 type RegistroIntentoPerfilesAsignablesV1 struct {
 	RegistroOperacionMantenimientoV1
@@ -80,11 +82,11 @@ func cotejarPerfilesAsignablesV1(r RegistroMixtoV2, secuencia uint64) (RegistroE
 		if base.Resultado != "permitido" || base.MotivoRef != "perfiles_asignables_registrado" || base.RecursoRef != "perfiles_asignables:"+m.PlanSHA256[:32] {
 			return e, "registro_invalido", "perfiles_asignables"
 		}
-		if !operacionPerfilesAsignables.MatchString(m.OperacionRef) || !huellaCadenaValida(m.PerfilesSHA256) ||
+		if !operacionPerfilesAsignables.MatchString(m.OperacionRef) || !huellaCadenaValida(m.PerfilesSHA256) || !huellaCadenaValida(m.AprobacionSHA256) ||
 			!numeroPerfilesAsignables.MatchString(m.PerfilesNumero) {
 			return e, "registro_invalido", "detalle_perfiles_asignables"
 		}
-		campos = []string{r.TipoRegistro, base.EventoRef, base.OperadorLogin, m.PlanSHA256, m.OperacionRef, m.PerfilesSHA256, m.PerfilesNumero, base.Proceso, base.Canal, base.FinalidadRef, base.CorrelacionRef}
+		campos = []string{r.TipoRegistro, base.EventoRef, base.OperadorLogin, m.PlanSHA256, m.OperacionRef, m.PerfilesSHA256, m.PerfilesNumero, m.AprobacionSHA256, base.Proceso, base.Canal, base.FinalidadRef, base.CorrelacionRef}
 	} else {
 		if r.IntentoPerfilesAsignables == nil || r.PerfilesAsignables != nil {
 			return e, "tipo_invalido", "tipo_registro"
