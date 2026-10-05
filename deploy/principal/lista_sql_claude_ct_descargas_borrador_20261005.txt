@@ -1,0 +1,12 @@
+# CT: descargas de borradores RRHH (PDF/DOCX) con acción propia y registro de solo adición (corte B de auditoría).
+# AD199 amplía el núcleo de consultas RRHH (consumir_consulta_rrhh_v3_interna, sin cambios desde AD140) y el CHECK
+# de audiencias. El núcleo se fija por huella; el CHECK se amplía de forma aditiva, así que no depende del orden con
+# otras listas que también lo amplían (AD190, AD197...). No toca el núcleo de mutaciones.
+# Instalar la SQL antes del binario: el binario nuevo publica la clave de capacidad de la audiencia
+# vec_contratacion_temporal.borrador_rrhh.descargar.v1, que sólo admite el CHECK de AD199.
+# No necesita fila de origen AD172: el núcleo de consultas RRHH no la usa.
+# El rol de consulta del expediente (perfil dinámico del técnico RRHH) concede la descarga sin provisión. El perfil
+# fijo de un lector RRHH conserva su plantilla y su descarga se deniega (403, intento «denegado»).
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000199_consumidor_descarga_borrador_rrhh_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000177_registro_descargas_borrador_rrhh.up.sql
