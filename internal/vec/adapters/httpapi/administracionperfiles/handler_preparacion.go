@@ -53,6 +53,7 @@ type AltaPreparacion struct {
 
 type BajaPreparacion struct {
 	RolVersionRef  string    `json:"rol_version_ref"`
+	Nombre         string    `json:"nombre"`
 	PerfilRef      string    `json:"perfil_ref"`
 	PerfilVersion  uint64    `json:"perfil_version"`
 	VinculoRef     string    `json:"vinculo_ref"`
@@ -94,7 +95,7 @@ func preparacionDTO(p domain.PreparacionLoteAdministracionPerfiles) PreparacionL
 			VinculoRef: a.VinculoRef, HuellaSHA256: a.HuellaSHA256})
 	}
 	for _, b := range p.Bajas {
-		r.Bajas = append(r.Bajas, BajaPreparacion{RolVersionRef: b.RolVersionRef, PerfilRef: b.PerfilRef,
+		r.Bajas = append(r.Bajas, BajaPreparacion{RolVersionRef: b.RolVersionRef, Nombre: b.Nombre, PerfilRef: b.PerfilRef,
 			PerfilVersion: b.PerfilVersion, VinculoRef: b.VinculoRef, VinculoVersion: b.VinculoVersion,
 			VigenteDesde: b.VigenteDesde, VigenteHasta: b.VigenteHasta, HuellaSHA256: b.HuellaSHA256})
 	}
