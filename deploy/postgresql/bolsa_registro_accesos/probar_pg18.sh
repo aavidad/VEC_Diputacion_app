@@ -78,14 +78,15 @@ psql_archivo /repo/deploy/postgresql/bolsa_registro_accesos/cerrar_acl_dba.sql
 
 psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/acl_y_falsificacion.sql
+# Antes de doble_autorizacion_mecanica, que sustituye la frontera por un doble.
+psql_archivo \
+    /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/regex_referencias_v2.sql
 psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/mecanica_registro.sql
 psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/doble_autorizacion_mecanica.sql
 psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/consulta_mecanica.sql
-psql_archivo \
-    /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/regex_referencias_v2.sql
 
 docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" --command \

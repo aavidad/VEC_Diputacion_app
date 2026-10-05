@@ -9,6 +9,9 @@ BEGIN;
 DO $prueba$
 DECLARE patron text;n int:=0;fallos int:=0;
 BEGIN
+ IF (SELECT l.lanname FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+   WHERE p.oid='vec_autorizacion.revalidar_decision_registro_accesos_bolsa_v2(jsonb,bytea,bytea,text,text,text,jsonb,text,text,text)'::regprocedure)<>'plpgsql'
+ THEN RAISE EXCEPTION 'FALLO frontera_real (no es la función plpgsql instalada)'; END IF;
  FOR patron IN SELECT replace(m[1],'''''','''') FROM pg_proc p,
    regexp_matches(p.prosrc,'~\s*''((?:[^'']|'''')*)''','g') AS m
   WHERE p.oid='vec_autorizacion.revalidar_decision_registro_accesos_bolsa_v2(jsonb,bytea,bytea,text,text,text,jsonb,text,text,text)'::regprocedure
