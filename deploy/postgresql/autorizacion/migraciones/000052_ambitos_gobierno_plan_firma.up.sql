@@ -46,7 +46,7 @@ BEGIN
  ahora:=pg_catalog.clock_timestamp();
  IF NOT FOUND OR a.version_rol_ref<>version_ref OR a.principal_id IS DISTINCT FROM principal_ref
   OR a.documento->>'estado'<>'activa'
-  OR ahora<(a.documento->>'vigente_desde')::timestamptz OR ahora>=(a.documento->>'vigente_hasta')::timestamptz THEN RETURN false; END IF;
+  OR (ahora>=(a.documento->>'vigente_desde')::timestamptz AND ahora<(a.documento->>'vigente_hasta')::timestamptz) IS NOT TRUE THEN RETURN false; END IF;
  RETURN a.documento->'ambitos' @> pg_catalog.jsonb_build_array(
    pg_catalog.jsonb_build_object('clave','organizacion_ref','valores',pg_catalog.jsonb_build_array(org)))
   AND a.documento->'ambitos' @> pg_catalog.jsonb_build_array(
