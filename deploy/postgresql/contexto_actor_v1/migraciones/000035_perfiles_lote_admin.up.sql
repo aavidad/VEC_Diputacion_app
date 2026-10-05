@@ -227,11 +227,11 @@ REVOKE ALL ON FUNCTION vec_contexto_actor_v1.registrar_procedencia_acto_admin_lo
 -- Cuentas de las que la persona es titular hoy, para que la preparación del
 -- lote proponga su cuenta ordinaria. Sólo referencias; sin datos personales.
 CREATE FUNCTION vec_contexto_actor_v1.cuentas_titular_persona_admin_lote_v1(p_persona text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE r jsonb;
 BEGIN
- IF vec_contexto_actor_v1.referencia_valida(p_persona,'per_') IS NOT TRUE OR octet_length(p_persona)>128
+ IF vec_contexto_actor_v1.referencia_valida(p_persona,'per_') IS NOT TRUE
  THEN RAISE EXCEPTION 'CA35: persona invalida' USING ERRCODE='22023'; END IF;
  SELECT coalesce(jsonb_agg(DISTINCT t.cuenta_ref),'[]'::jsonb) INTO r FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t
  WHERE t.persona_ref=p_persona AND clock_timestamp()>=t.vigente_desde AND clock_timestamp()<t.vigente_hasta;
