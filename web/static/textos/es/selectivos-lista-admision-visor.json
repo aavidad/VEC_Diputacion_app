@@ -111,6 +111,7 @@
   "pendientes_definitiva": {
     "aprobacion_competente": "Aprobación de la lista definitiva por el órgano competente.",
     "pie_recursos": "Indicar en la resolución los recursos que caben, ante quién y en qué plazo.",
+    "ultima_revision": "Comprobar que la provisional de la que parte es la última revisión publicada.",
     "registro_escritos": "Comprobar que cada subsanación o reclamación consta en el registro dentro de plazo.",
     "identidad_publicacion": "Nombre, apellidos y documento enmascarado de cada persona, y orden por apellidos.",
     "publicacion_oficial": "Publicación en el boletín y en la sede que fijen las bases.",

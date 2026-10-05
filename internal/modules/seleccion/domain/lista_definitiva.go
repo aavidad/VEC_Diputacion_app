@@ -118,6 +118,9 @@ func ComponerListaDefinitiva(listaRef string, revision int, provisional ListaAdm
 		Excluidas: []SolicitudExcluidaDefinitiva{},
 		Pendientes: []string{"seleccion.lista_definitiva.pendiente.aprobacion_competente",
 			"seleccion.lista_definitiva.pendiente.pie_recursos",
+			// Sin registro de revisiones publicadas, nadie puede comprobar aquí que
+			// no exista una revisión posterior de la provisional: lo comprueba RRHH.
+			"seleccion.lista_definitiva.pendiente.ultima_revision",
 			"seleccion.lista_definitiva.pendiente.registro_escritos", "seleccion.lista_definitiva.pendiente.identidad_publicacion",
 			"seleccion.lista_definitiva.pendiente.publicacion_oficial"},
 	}

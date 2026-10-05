@@ -111,6 +111,7 @@
   "pendientes_definitiva": {
     "aprobacion_competente": "Approval of the final list by the competent body.",
     "pie_recursos": "State in the decision the available appeals, the body that hears them and the deadline.",
+    "ultima_revision": "Check that the provisional list it starts from is the latest published revision.",
     "registro_escritos": "Check that every correction or complaint was registered within the deadline.",
     "identidad_publicacion": "Name, surnames and masked document of each applicant, sorted by surname.",
     "publicacion_oficial": "Publication in the official gazette and on the site set by the call rules.",

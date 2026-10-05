@@ -146,12 +146,14 @@ incorporar aquí las solicitudes omitidas en la provisional (ni admitidas ni
 excluidas): hay que preparar antes otra revisión de la provisional que las
 incluya (`--salida revision-provisional`). La salida queda en
 `borrador_pendiente_aprobacion`, sin datos personales, con `aprobada`,
-`publicada` y `persistida` en `false`. Queda pendiente comprobar en el
-registro que cada escrito llegó en plazo.
+`publicada` y `persistida` en `false`. Quedan pendientes comprobar en el
+registro que cada escrito llegó en plazo y que la provisional de la que parte
+es la última revisión publicada: sin un registro de revisiones, el CLI no
+puede saber si existe otra posterior.
 
 `testdata/lista-definitiva-resultado.json` conserva la salida de ese comando.
 Su SHA256 es
-`e5622b12f1901aaf0d81ce2b5e10db4710233fe388b8d04450e581742ae580c9`.
+`1ee46997480bd8e9a3e8bf97e4b32e84daf9dd01e88b4684e49e20c9b46613bb`.
 
 ## Incorporar solicitudes omitidas a la provisional
 

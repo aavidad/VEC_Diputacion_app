@@ -39,5 +39,6 @@
   "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publicar la lista definitiva en el boletín y en la sede que fijen las bases.",
   "seleccion_lista_definitiva_pendiente_pie_recursos": "La resolución que apruebe la lista definitiva debe indicar los recursos que caben, el órgano y el plazo para presentarlos.",
   "seleccion_revision_lista_entrada_invalida": "No se pudo preparar la nueva revisión. Compruebe que parte de la provisional anterior, con el número de revisión siguiente, sin cambiar sus decisiones y con al menos una solicitud nueva.",
-  "seleccion_revision_lista_pendiente_plazo_incorporadas": "Para las solicitudes incorporadas, el plazo de subsanación empieza al día siguiente de publicar esta revisión."
+  "seleccion_revision_lista_pendiente_plazo_incorporadas": "Para las solicitudes incorporadas, el plazo de subsanación empieza al día siguiente de publicar esta revisión.",
+  "seleccion_lista_definitiva_pendiente_ultima_revision": "Comprobar que la provisional de la que parte es la última revisión publicada."
 }
