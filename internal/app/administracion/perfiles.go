@@ -37,38 +37,43 @@ type DependenciasPerfiles struct {
 }
 
 type handlerPerfilesADMIN struct {
-	contextoConexion          func(context.Context, net.Conn) context.Context
-	api                       http.Handler
-	activos                   fs.FS
-	rutas                     map[string]string
-	sesiones                  api.ResolvedorSesion
-	lecturas                  api.FuenteLecturas
-	auditor                   api.AuditorFrontera
-	selector                  *adminselector.Handler
-	observador                adminselector.FuenteObservacion
-	fuenteSeleccion           FuenteSeleccionAuditadaADMIN
-	origen, audienciaSelector string
-	reloj                     ports.Reloj
+	contextoConexion  func(context.Context, net.Conn) context.Context
+	api               http.Handler
+	activos           fs.FS
+	rutas             map[string]string
+	sesiones          api.ResolvedorSesion
+	lecturas          api.FuenteLecturas
+	auditor           api.AuditorFrontera
+	selector          *adminselector.Handler
+	observador        adminselector.FuenteObservacion
+	fuenteSeleccion   FuenteSeleccionAuditadaADMIN
+	host              hostAdmin
+	audienciaSelector string
+	reloj             ports.Reloj
 }
 
 func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*http.Server, error) {
-	handler, err := nuevoHandlerPerfiles("https://"+cfg.Host, deps)
+	host, hostValido := analizarHostAdmin(cfg.Host)
+	if !hostValido {
+		return nil, ErrConfiguracion
+	}
+	handler, err := nuevoHandlerPerfiles(host, deps)
 	if err != nil {
 		return nil, err
 	}
 	return nuevoServidor(cfg, handler)
 }
 
-func nuevoHandlerPerfiles(origen string, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
+func nuevoHandlerPerfiles(host hostAdmin, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
 	servicio, err := application.NuevoServicioAdministracionPerfiles(deps.Catalogo, deps.Actos, deps.Reloj)
 	if err != nil || deps.Activos == nil {
 		return nil, ErrConfiguracion
 	}
-	handler, err := api.NuevoHandler(origen, deps.Sesiones, deps.Lecturas, deps.Catalogo, servicio, deps.Auditor)
+	handler, err := api.NuevoHandler(host.origen(), deps.Sesiones, deps.Lecturas, deps.Catalogo, servicio, deps.Auditor)
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
-	return montarActivosPerfiles(handler, deps, origen)
+	return montarActivosPerfiles(handler, deps, host)
 }
 
 // NuevoServidorConLecturas monta la consulta ADMIN sin autoridad de escritura.
@@ -80,23 +85,27 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 	if deps.Lecturas == nil {
 		deps.Lecturas = lecturasNoDisponibles{}
 	}
+	host, hostValido := analizarHostAdmin(cfg.Host)
+	if !hostValido {
+		return nil, ErrConfiguracion
+	}
 	constructor := api.NuevoHandlerLecturas
 	if deps.SoloUsuariosMetadatos {
 		constructor = api.NuevoHandlerUsuariosMetadatos
 	}
-	handler, err := constructor("https://"+cfg.Host, deps.Sesiones, deps.Lecturas, deps.Auditor)
+	handler, err := constructor(host.origen(), deps.Sesiones, deps.Lecturas, deps.Auditor)
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
-	montaje, err := montarActivosPerfiles(handler, deps, "https://"+cfg.Host)
+	montaje, err := montarActivosPerfiles(handler, deps, host)
 	if err != nil {
 		return nil, err
 	}
 	return nuevoServidor(cfg, montaje)
 }
 
-func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, origen string) (*handlerPerfilesADMIN, error) {
-	if handler == nil || deps.Activos == nil || deps.ContextoConexion == nil {
+func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, host hostAdmin) (*handlerPerfilesADMIN, error) {
+	if handler == nil || deps.Activos == nil || deps.ContextoConexion == nil || host.nombre == "" || host.autoridad == "" {
 		return nil, ErrConfiguracion
 	}
 	rutas := map[string]string{
@@ -160,12 +169,12 @@ func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, orig
 	var selector *adminselector.Handler
 	if deps.ObservadorSelector != nil || deps.FuenteSeleccion != nil {
 		var err error
-		selector, err = adminselector.NuevoHandler(origen, deps.AudienciaSelector, deps.ObservadorSelector, seleccionAuditadaADMIN{fuente: deps.FuenteSeleccion}, deps.Auditor, deps.Reloj)
+		selector, err = adminselector.NuevoHandler(host.origen(), deps.AudienciaSelector, deps.ObservadorSelector, seleccionAuditadaADMIN{fuente: deps.FuenteSeleccion}, deps.Auditor, deps.Reloj)
 		if err != nil {
 			return nil, ErrConfiguracion
 		}
 	}
-	return &handlerPerfilesADMIN{api: handler, activos: deps.Activos, rutas: rutas, sesiones: deps.Sesiones, lecturas: deps.Lecturas, auditor: deps.Auditor, contextoConexion: deps.ContextoConexion, selector: selector, observador: deps.ObservadorSelector, fuenteSeleccion: deps.FuenteSeleccion, origen: origen, audienciaSelector: deps.AudienciaSelector, reloj: deps.Reloj}, nil
+	return &handlerPerfilesADMIN{api: handler, activos: deps.Activos, rutas: rutas, sesiones: deps.Sesiones, lecturas: deps.Lecturas, auditor: deps.Auditor, contextoConexion: deps.ContextoConexion, selector: selector, observador: deps.ObservadorSelector, fuenteSeleccion: deps.FuenteSeleccion, host: host, audienciaSelector: deps.AudienciaSelector, reloj: deps.Reloj}, nil
 }
 
 func (h *handlerPerfilesADMIN) atiende(ruta string) bool {

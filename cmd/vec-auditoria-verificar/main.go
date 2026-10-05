@@ -61,6 +61,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			return responderFallo(salida, "documento_invalido", "entrada", 2)
 		}
 		informe = auditoria.VerificarCadenaContextoAdminPreV2(d, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionPerfilesAsignables:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONPerfilesAsignables(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaPerfilesAsignablesV1(d, checkpoint, *maxRegistros)
 	case auditoria.EsquemaVerificacionFronteraAdminTecnicaV1:
 		var documento auditoria.DocumentoVerificacionMixta
 		if decodificarJSONEstricto(contenido, &documento) != nil {

@@ -1,0 +1,6 @@
+# Firmas CT: gobierno del plan nominal de firma (CC7) y firma V2 con plan fijado (CT176).
+# Aplicar tras lista_sql_claude_firmas_ad178_ad177_20261005.txt (AD177 aporta los comprobadores y el consumo ligado).
+# CC7 extiende CatalogoConfigurable; CT176 consume dos decisiones ligadas y revalida el pin con CC7.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/catalogos_configurables/migraciones/000007_gobierno_plan_nominal_firma.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000176_plan_autorizado_firma_v2.up.sql

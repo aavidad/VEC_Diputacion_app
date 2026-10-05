@@ -1,0 +1,6 @@
+# Firmas CT: recuperación histórica de firmas V2 (48 campos).
+# Aplicar tras lista_sql_claude_firmas_ad178_ad177_20261005.txt (AD178 aporta la fachada y el comprobador).
+# AUT41 lee el canon original de AUT32 con el consumo actual; CT175 es la fachada CT que lo usa.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion/migraciones/000041_lectura_canon_historico_firma_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000175_recuperacion_nominal_firmas_v2.up.sql
