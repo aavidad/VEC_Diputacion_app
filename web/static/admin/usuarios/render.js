@@ -1,4 +1,4 @@
-import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261004-admin-usuarios-metadata-v1";
+import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
 export const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 export function crearRender({ root, id, textos, metadatos = false }) {
@@ -68,13 +68,14 @@ export function crearRender({ root, id, textos, metadatos = false }) {
       <div class="tabla-contenedor" tabindex="0" aria-label="${tx("catalogo.tabla")}"><table class="tabla-datos"><caption>${tx("catalogo.tabla")}</caption><thead><tr><th scope="col">${tx("catalogo.nombre")}</th><th scope="col">${tx("catalogo.circuito")}</th><th scope="col">${tx("catalogo.definicion")}</th></tr></thead><tbody>
       ${roles.map((r) => `<tr><th scope="row">${escapar(r.etiqueta)}</th><td>${tx(r.clase === "ordinario" ? "catalogo.ordinario" : "catalogo.doble")}</td><td>${tx(r.fijo ? "catalogo.fijo" : "catalogo.gestionado")}</td></tr>`).join("")}</tbody></table></div>`;
   }
-  function ficha(datos, roles, disponibles) {
+  function ficha(datos, roles, disponibles, puedeCambiar = false) {
     if (datos.proyeccion === "metadatos_v1") {
-      el("detalle").innerHTML = `<div class="cabecera-panel"><div><h3>${escapar(nombre(datos))}</h3><p>${tx("metadatos.unidad_no_consultada")}</p></div>${boton("volver", "general.volver")}</div><div class="cuerpo-panel">
+      el("detalle").innerHTML = `<div class="cabecera-panel"><div><h3>${escapar(nombre(datos))}</h3><p>${tx("metadatos.unidad_no_consultada")}</p></div><div class="acciones-ficha">${puedeCambiar ? boton("cambiar-perfiles", "lote.cambiar", "", "boton-primario") : ""}${boton("volver", "general.volver")}</div></div><div class="cuerpo-panel">
         <p class="texto-secundario">${tx("metadatos.alcance")}</p><h4>${tx("detalle.perfiles")}</h4>
         ${datos.perfiles.length ? `<ul class="usuarios-perfiles">${datos.perfiles.map((p, i) => `<li><div class="usuarios-fila-perfil"><strong>${tx("metadatos.perfil_en_lista", { numero: textos.numero(i + 1) })}</strong>${estado(p.estado)}</div>
           <dl class="resumen-expediente">${campo("detalle.desde", fecha(p.vigente_desde))}${campo("detalle.hasta", fecha(p.vigente_hasta))}</dl>${tecnico(p.perfil_ref)}</li>`).join("")}</ul>` : `<p>${tx("detalle.sin_perfiles")}</p>`}
-        <p>${tx("metadatos.actos_no_consultados")}</p><p>${tx("metadatos.historia_no_consultada")}</p>${tecnico(datos.persona_ref)}</div>`;
+        ${puedeCambiar ? "" : `<p>${tx("metadatos.actos_no_consultados")}</p>`}
+        <p>${tx("metadatos.historia_no_consultada")}</p>${tecnico(datos.persona_ref)}</div>`;
       return;
     }
     rolesHistoria = roles;

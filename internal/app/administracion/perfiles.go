@@ -128,6 +128,8 @@ func montarActivosPerfiles(handler http.Handler, deps DependenciasPerfiles, host
 		"/admin/usuarios/contratos.js":                 "admin/usuarios/contratos.js",
 		"/admin/usuarios/metadatos.js":                 "admin/usuarios/metadatos.js",
 		"/admin/usuarios/cliente.js":                   "admin/usuarios/cliente.js",
+		"/admin/usuarios/cambio-perfiles.js":           "admin/usuarios/cambio-perfiles.js",
+		"/admin/usuarios/cambio-contratos.js":          "admin/usuarios/cambio-contratos.js",
 		"/admin/usuarios/lecturas-http.js":             "admin/usuarios/lecturas-http.js",
 		"/admin/usuarios/propuestas.js":                "admin/usuarios/propuestas.js",
 		"/admin/usuarios/propuestas-contratos.js":      "admin/usuarios/propuestas-contratos.js",

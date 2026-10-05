@@ -1,6 +1,8 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261004-admin-usuarios-metadata-v1";
-import { crearRender } from "./render.js?v=20261004-admin-usuarios-metadata-v1";
-import { montarPropuestas } from "./propuestas.js?v=20261004-admin-usuarios-metadata-v1";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261005-admin-lote-pantalla-v1";
+import { crearRender } from "./render.js?v=20261005-admin-lote-pantalla-v1";
+import { montarPropuestas } from "./propuestas.js?v=20261005-admin-lote-pantalla-v1";
+import { montarCambioPerfiles } from "./cambio-perfiles.js?v=20261005-admin-lote-pantalla-v1";
+import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {
@@ -46,6 +48,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     }
   }
   function limpiarDatos() {
+    cerrarCambio();
     detalle = null; decision = null; personas = []; roles = []; unidades = []; capacidades = []; siguiente = "";
     for (const parte of ["resultados", "detalle", "revision", "panel-perfiles", "filtros-activos"]) el(parte).replaceChildren();
     filtros([], []);
@@ -75,7 +78,19 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       try { return seleccionarActos(detalle, roles, capacidades, operacion, [indice]); } catch { return []; }
     });
   }
-  function pintarFicha() { ficha(detalle, roles, disponibles("otorgar")); etapa("detalle"); }
+  // El cambio de perfiles sólo se ofrece si el servidor monta el lote.
+  const puedeCambiar = () => metadatos && typeof cliente.preparar === "function" && typeof cliente.aplicarLote === "function";
+  let cambio = null;
+  function cerrarCambio() { cambio?.desmontar(); cambio = null; }
+  function abrirCambio() {
+    if (!detalle || !puedeCambiar() || bloqueado || enviando) return;
+    cerrarCambio();
+    const ref = detalle.persona_ref;
+    etapa("revision");
+    cambio = montarCambioPerfiles(el("revision"), { textos, cliente, cripto, persona: ref, nombre: etiquetaNombreMetadatos(detalle, t),
+      unidadRef: detalle.unidad_ref, alVolver: () => { cerrarCambio(); void cargarPersona(ref); } });
+  }
+  function pintarFicha() { cerrarCambio(); ficha(detalle, roles, disponibles("otorgar"), puedeCambiar()); etapa("detalle"); }
   async function buscar(anadir = false) {
     if (!vivo || bloqueado || enviando || !puedeLeer() || typeof cliente.buscar !== "function") return;
     peticiones.get("persona")?.abort();
@@ -99,6 +114,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   }
   async function cargarPersona(ref) {
     if (!vivo || enviando || bloqueado || !puedeLeer() || typeof cliente.persona !== "function") return;
+    cerrarCambio();
     const control = iniciar("persona");
     detalle = null; decision = null; conflicto = false; el("detalle").replaceChildren(); el("revision").replaceChildren();
     el("estado").textContent = t("detalle.cargando"); etapa("detalle");
@@ -185,6 +201,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     const boton = evento.target.closest("[data-accion]"); if (!boton || !root.contains(boton) || boton.disabled) return;
     const accion = boton.dataset.accion;
     if (bloqueado && accion !== "recargar" || enviando || incierto && accion !== "confirmar") return;
+    if (accion === "cambiar-perfiles") { abrirCambio(); return; }
     if (["usuarios", "perfiles", "propuestas"].includes(accion)) pestaña(accion);
     else if (accion === "recargar") void cargar();
     else if (accion === "persona") void cargarPersona(boton.dataset.ref);
@@ -230,7 +247,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   ventana?.addEventListener("beforeunload", avisarSalida);
   const listo = cargar();
   return Object.freeze({ listo, cargar, desmontar() { if (!vivo) return; vivo = false;
-    pendientes.desmontar();
+    pendientes.desmontar(); cerrarCambio();
     for (const c of peticiones.values()) c.abort(); listeners.forEach(([tipo, fn]) => root.removeEventListener(tipo, fn)); root.replaceChildren();
     ventana?.removeEventListener("beforeunload", avisarSalida);
     if (lenguajePrevio === null) root.removeAttribute("lang"); else root.setAttribute("lang", lenguajePrevio);

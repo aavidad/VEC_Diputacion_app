@@ -43,6 +43,18 @@
 .usuarios .acciones-paso { flex-wrap: wrap; }
 .usuarios-ayuda { max-width: 68ch; }
 .usuarios-ayuda p { padding: 12px; background: var(--portal-superficie-alterna); }
+/* Cambio de perfiles por lote: dos vías al principio, pasos y errores de campo. */
+.cambio-vias { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 16px; }
+.boton-via { display: grid; gap: 4px; min-height: 88px; padding: 16px 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); text-align: start; cursor: pointer; }
+.boton-via strong { color: var(--portal-azul-700); font-size: 1.05rem; }
+.boton-via span { color: var(--portal-muted); }
+.boton-via:hover:not(:disabled), .boton-via:focus-visible { border-color: var(--portal-azul-700); background: var(--portal-azul-100); }
+.boton-via:disabled { cursor: not-allowed; opacity: 0.6; }
+.cambio-paso { margin: 0 0 4px; color: var(--portal-muted); font-size: 0.85rem; }
+.usuarios .error-campo { color: var(--portal-peligro); font-weight: 600; }
+.usuarios .obligatorio, .usuarios .opcional { color: var(--portal-muted); font-weight: 400; font-size: inherit; }
+.usuarios fieldset.grupo-campo { margin: 0; padding: 0; border: 0; }
+.usuarios .acciones-ficha { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 850px) { .usuarios-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-height: 650px) { .usuarios { max-height: none; } .usuarios-trabajo { overflow: visible; } }
 @media (max-width: 600px) {
@@ -52,4 +64,5 @@
   .usuarios .cabecera-panel { flex-wrap: wrap; }
   .usuarios .cuerpo-panel { padding: 16px; }
   .usuarios .acciones-paso button { flex: 0 1 auto; width: 100%; min-height: 44px; }
+  .cambio-vias { grid-template-columns: minmax(0, 1fr); }
 }
