@@ -23,9 +23,13 @@ const (
 	// de que caduque su autenticación: el navegador abre otra con handshake
 	// completo en vez de reutilizar una ya caducada.
 	inactividadMaximaConexionADMIN = vidaAutenticacionConexionPerfiles / 5
+	// duracionMaximaPeticionADMIN acota lectura y escritura de cada petición:
+	// sin ella, una respuesta lenta empezada antes del umbral de renovación
+	// podría dejar viva la conexión más allá de su autenticación.
+	duracionMaximaPeticionADMIN = 45 * time.Second
 	// renovacionConexionPerfiles es la edad a partir de la cual cada respuesta
-	// pide cerrar la conexión. Deja margen para una espera ociosa completa y
-	// para leer cabeceras y atender la petición siguiente.
+	// pide cerrar la conexión. Deja margen para terminar la petición en curso,
+	// una espera ociosa completa y la lectura de cabeceras de la siguiente.
 	renovacionConexionPerfiles = vidaAutenticacionConexionPerfiles - 2*inactividadMaximaConexionADMIN
 )
 

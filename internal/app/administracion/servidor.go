@@ -85,7 +85,7 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		EmisorIdentidad:                     cfg.EmisorIdentidad,
 		RedesPermitidas:                     cfg.RedesPermitidas,
 		DuracionMaximaAsercion:              time.Minute,
-		EdadMaximaAutenticacion:             5 * time.Minute,
+		EdadMaximaAutenticacion:             vidaAutenticacionConexionPerfiles,
 		MetodosAdmitidos:                    []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		FactoresRequeridos:                  []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		MinimoFactoresVerificados:           1,
@@ -196,7 +196,11 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 		Addr:              cfg.Escucha,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		// Una conexión ociosa nunca sobrevive a su autenticación de conexión.
+		ReadTimeout:       duracionMaximaPeticionADMIN,
+		WriteTimeout:      duracionMaximaPeticionADMIN,
+		// La renovación a los 3 minutos (Connection: close) más estos límites
+		// de petición e inactividad garantizan que ninguna petición llegue por
+		// una conexión cuya autenticación ya haya caducado.
 		IdleTimeout: inactividadMaximaConexionADMIN,
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,

@@ -38,7 +38,7 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 		ZonaRed:          httpseguridad.ZonaRedAdministracion,
 		DireccionEscucha: cfg.Escucha, Audiencia: cfg.Audiencia, EmisorIdentidad: cfg.EmisorIdentidad,
 		RedesPermitidas:        cfg.RedesPermitidas,
-		DuracionMaximaAsercion: time.Minute, EdadMaximaAutenticacion: 5 * time.Minute,
+		DuracionMaximaAsercion: time.Minute, EdadMaximaAutenticacion: vidaAutenticacionConexionPerfiles,
 		MetodosAdmitidos:          []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		FactoresRequeridos:        []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		MinimoFactoresVerificados: 1, MinimoGruposCriptograficosDistintos: 1,

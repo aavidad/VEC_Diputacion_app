@@ -118,9 +118,12 @@ func TestServidorAdminSinTicketsYConexionOciosaAcotada(t *testing.T) {
 	if servidor.IdleTimeout <= 0 || servidor.IdleTimeout >= vidaAutenticacionConexionPerfiles {
 		t.Fatalf("IdleTimeout=%v no queda por debajo de la vida autenticada %v", servidor.IdleTimeout, vidaAutenticacionConexionPerfiles)
 	}
-	// Una conexión que responde justo antes del umbral de renovación debe
-	// recibir la petición siguiente dentro de su vida autenticada.
-	if renovacionConexionPerfiles+servidor.IdleTimeout+servidor.ReadHeaderTimeout >= vidaAutenticacionConexionPerfiles {
+	if servidor.ReadTimeout <= 0 || servidor.WriteTimeout <= 0 {
+		t.Fatal("petición sin límite de lectura o escritura")
+	}
+	// Una petición que entra justo antes del umbral de renovación debe
+	// terminar y dejar paso a la siguiente dentro de la vida autenticada.
+	if renovacionConexionPerfiles+servidor.WriteTimeout+servidor.IdleTimeout+servidor.ReadHeaderTimeout >= vidaAutenticacionConexionPerfiles {
 		t.Fatal("sin margen entre renovación, inactividad y caducidad")
 	}
 }
