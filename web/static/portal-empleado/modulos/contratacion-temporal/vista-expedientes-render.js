@@ -50,7 +50,7 @@ export function renderizarNavegacion(estado, t) {
 // Estos enlaces abren otra pestaña: se dice con un símbolo y, para el lector
 // de pantalla, con texto.
 function avisoOtraPestana(t) {
-  return ` <span aria-hidden="true">↗</span><span class="solo-lectura">${escaparHTML(t("abre_otra_pestana"))}</span>`;
+  return ` <span aria-hidden="true">↗</span><span class="solo-lectura"> ${escaparHTML(t("abre_otra_pestana"))}</span>`;
 }
 
 // Centros, Peticiones, Calendarios y Reglas son acciones de la bandeja: van a la derecha del título.

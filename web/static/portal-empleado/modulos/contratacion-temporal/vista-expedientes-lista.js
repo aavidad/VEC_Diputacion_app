@@ -107,7 +107,7 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
-    ${busquedaParcial(cuadro, filtroEntrada) ? `<p class="ct-exp-lista-parcial" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
+    ${busquedaParcial(cuadro, filtroEntrada) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
     ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
       ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`
@@ -132,6 +132,9 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
   const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
     : (resumen.enTramite === 1 ? t("lista_titulo_uno") : t("lista_titulo_varias", { total: resumen.enTramite }));
   const parcial = Boolean(cuadro.paginacion?.cursor_siguiente);
+  // Sin ninguna petición ni filtro del servidor, sobran buscador y filtros.
+  const sinPeticiones = cuadro.expedientes.length === 0 && !parcial
+    && !Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
   const centros = distintos(cuadro.expedientes, "centro");
   const categorias = distintos(cuadro.expedientes, "categoria");
   return `<header class="cabeza-pagina">
@@ -141,7 +144,7 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
     ${parcial ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
     <section class="panel ct-exp-listado" aria-labelledby="ct-exp-lista-titulo-panel">
       <h3 class="solo-lectura" id="ct-exp-lista-titulo-panel">${escapar(t("tabla_expedientes"))}</h3>
-      <form class="filtros-quitables" data-ct-exp-filtros-locales role="search" aria-label="${escapar(t("filtros"))}">
+      ${sinPeticiones ? "" : `<form class="filtros-quitables" data-ct-exp-filtros-locales role="search" aria-label="${escapar(t("filtros"))}">
         <label><span>${escapar(t("lista_buscar"))}</span>
           <input type="search" name="texto" value="${escapar(filtro.texto)}" maxlength="80" autocomplete="off"
             placeholder="${escapar(t("lista_buscar_pista"))}"></label>
@@ -159,8 +162,9 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
               <select name="mostrar">${OPCIONES_MOSTRAR.map((clave) => opcion(clave, t(`lista_mostrar_${clave}`), filtro.mostrar)).join("")}</select></label>
           </div>
         </details>
-      </form>
-      ${renderizarResultadosLista(estado, t, filtro, ayudas)}
+      </form>`}
+      ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t("lista_vacia_crear"))}</p>`
+    : renderizarResultadosLista(estado, t, filtro, ayudas)}
       ${paginacion}
     </section>`;
 }

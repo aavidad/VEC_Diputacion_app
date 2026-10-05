@@ -62,7 +62,7 @@
     "lista_abrir_aria": "Open case {expediente}",
     "lista_recuento_parcial": "Partial count: there are more requests on the next page.",
     "peticiones_centros_rrhh": "Requests received from centres",
-    "abre_otra_pestana": " (opens in a new tab)",
+    "abre_otra_pestana": "(opens in a new tab)",
     "lista_busqueda_parcial": "The search only checks the requests on this page. Select “Next page” to see more.",
     "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”."
   }
