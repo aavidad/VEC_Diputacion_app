@@ -95,7 +95,7 @@ export function fechasAlta(alta, { hasta, empieza, desde }, ahora) {
   if (empieza === "fecha") {
     const inicio = instanteMadrid(desde, 0, 0, 0);
     if (inicio === null || inicio <= ahora) return { error: "fecha_desde" };
-    if (finReal <= inicio) return { error: "fecha_hasta" };
+    if (finReal <= inicio) return { error: "fecha_hasta_inicio" };
     return { inicio_vigencia: "programado", vigente_desde: iso(inicio), vigente_hasta: iso(finReal) };
   }
   if (empieza !== "ahora") return { error: "fecha_desde" };

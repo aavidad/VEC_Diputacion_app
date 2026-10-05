@@ -52,6 +52,7 @@ test("las fechas se interpretan en Madrid y respetan el máximo del perfil", () 
   assert.equal(fechasAlta(alta, { hasta: "2027-09-30", empieza: "ahora" }, AHORA).vigente_hasta, "2027-09-30T15:11:06Z");
   assert.equal(fechasAlta(alta, { hasta: "2026-10-04", empieza: "ahora" }, AHORA).error, "fecha_hasta");
   assert.equal(fechasAlta(alta, { hasta: "2026-11-04", empieza: "fecha", desde: "2026-10-05" }, AHORA).error, "fecha_desde");
+  assert.equal(fechasAlta(alta, { hasta: "2026-10-10", empieza: "fecha", desde: "2026-10-20" }, AHORA).error, "fecha_hasta_inicio");
   assert.equal(fechasAlta(alta, { hasta: "", empieza: "ahora" }, AHORA).error, "fecha_hasta");
 });
 

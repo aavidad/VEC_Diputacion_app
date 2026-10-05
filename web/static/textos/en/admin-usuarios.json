@@ -236,7 +236,8 @@
       "fecha_hasta": "Enter an end date between today and {maxima}.",
       "fecha_desde": "Enter a start date from tomorrow onwards.",
       "perfil_requerido": "Choose a profile.",
-      "referencia": "The reference is too long or contains invalid characters."
+      "referencia": "The reference is too long or contains invalid characters.",
+      "fecha_hasta_inicio": "The end date must be after the start date."
     },
     "hasta_pista": "No later than {maxima}.",
     "motivo_otro": "Other reason"

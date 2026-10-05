@@ -46,7 +46,7 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
 
   async function preparar() {
     abortar(); prep = null; cambio = null; cuerpo = null;
-    pintar(`${cabecera("lote.titulo")}<div class="cuerpo-panel"><p>${tx("lote.cargando")}</p></div>`); avisar("lote.cargando");
+    pintar(cabecera("lote.titulo")); avisar("lote.cargando");
     const c = new AbortController(); control = c;
     try {
       const datos = await cliente.preparar(persona, unidadRef, c.signal);

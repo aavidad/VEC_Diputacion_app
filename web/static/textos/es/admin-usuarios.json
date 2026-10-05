@@ -236,7 +236,8 @@
       "fecha_hasta": "Indique una fecha de fin entre hoy y el {maxima}.",
       "fecha_desde": "Indique una fecha de inicio a partir de mañana.",
       "perfil_requerido": "Elija un perfil.",
-      "referencia": "La referencia es demasiado larga o tiene caracteres no válidos."
+      "referencia": "La referencia es demasiado larga o tiene caracteres no válidos.",
+      "fecha_hasta_inicio": "La fecha de fin debe ser posterior a la de inicio."
     },
     "hasta_pista": "Como máximo, el {maxima}.",
     "motivo_otro": "Otro motivo"
