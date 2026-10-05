@@ -1,5 +1,5 @@
 import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-personal-rectificacion-v2";
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-b-revision-valor-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
@@ -51,6 +51,9 @@ function ayuda(d, t) {
 function accesos(d, t, navegarModulo, destinosDisponibles, abrirCorreos) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
   for (const [destino, etiqueta] of [["dietas", "ficha_ir_dietas"], ["cronos", "ficha_ir_cronos"]]) {
+    // Un destino que no figura en la disponibilidad inyectada es un módulo que
+    // este despliegue no muestra (VEC_PORTAL_MODULOS_VISIBLES): no se ofrece.
+    if (!Object.hasOwn(destinosDisponibles, destino)) continue;
     const boton = nodo(d, "button", t(etiqueta)); boton.type = "button"; boton.dataset.personalFichaDestino = destino;
     // La disponibilidad de una ruta se inyecta por destino; no acredita permiso.
     const disponible = typeof navegarModulo === "function" && Object.hasOwn(destinosDisponibles, destino) && destinosDisponibles[destino] === true;

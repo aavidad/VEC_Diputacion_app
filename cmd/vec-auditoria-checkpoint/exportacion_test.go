@@ -15,7 +15,24 @@ import (
 )
 
 func TestCLIVerificaPaqueteExportacionDesarrollo(t *testing.T) {
-	cb, err := os.ReadFile("../vec-auditoria-verificar/testdata/union_consumos_fuentes_ad173_ad174.json")
+	for _, caso := range []struct {
+		nombre    string
+		archivo   string
+		historico bool
+	}{
+		{"consumos_fuentes", "../vec-auditoria-verificar/testdata/union_consumos_fuentes_ad173_ad174.json", true},
+		{"gobierno_usuarios", "testdata/exportacion_ad188.json", false},
+		{"frontera_admin", "testdata/exportacion_ad189.json", false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			verificarPaqueteExportacionPrueba(t, caso.archivo, caso.historico)
+		})
+	}
+}
+
+func verificarPaqueteExportacionPrueba(t *testing.T, archivo string, historico bool) {
+	t.Helper()
+	cb, err := os.ReadFile(archivo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +59,7 @@ func TestCLIVerificaPaqueteExportacionDesarrollo(t *testing.T) {
 	m := domain.ManifiestoExportacionAuditoriaDesarrollo{
 		Esquema: domain.EsquemaExportacionAuditoriaDesarrollo, Politica: cfg.Politica,
 		Captura:   domain.CapturaExportacionAuditoria{Referencia: "captura:sintetica", AuditoriaRef: "aud_v3_sintetica", AuditoriaSHA256: strings.Repeat("a", 64), CapturadaEn: "2026-10-04T01:00:00.000000Z"},
-		Documento: domain.DocumentoExportacionAuditoria{Esquema: cabecera.Esquema, Bytes: int64(len(cb)), SHA256: domain.HuellaCheckpoint(cb)}, Cobertura: cabecera.Manifiesto, HistoricosSinFechaLigada: true,
+		Documento: domain.DocumentoExportacionAuditoria{Esquema: cabecera.Esquema, Bytes: int64(len(cb)), SHA256: domain.HuellaCheckpoint(cb)}, Cobertura: cabecera.Manifiesto, HistoricosSinFechaLigada: historico,
 	}
 	tsa, err := p.SellarExportacionAuditoria(context.Background(), m)
 	if err != nil {
@@ -72,7 +89,11 @@ func TestCLIVerificaPaqueteExportacionDesarrollo(t *testing.T) {
 	if run(args, &out, &log) != 0 {
 		t.Fatalf("verificacion: %s", out.String())
 	}
-	for _, want := range []string{`"estado":"verificada"`, `"origen_extraccion":"no_acreditado"`, `"historicos_sin_fecha_ligada":true`, `"firma_legal":false`, `"tiempo_independiente":false`} {
+	avisoHistorico := `"historicos_sin_fecha_ligada":false`
+	if historico {
+		avisoHistorico = `"historicos_sin_fecha_ligada":true`
+	}
+	for _, want := range []string{`"estado":"verificada"`, `"origen_extraccion":"no_acreditado"`, avisoHistorico, `"firma_legal":false`, `"tiempo_independiente":false`} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatal(out.String())
 		}

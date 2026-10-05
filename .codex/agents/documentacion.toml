@@ -1,6 +1,6 @@
 name = "documentacion"
 description = "Seguimiento y manuales existentes con resultados verificables."
-model = "gpt-5.6-sol"
+model = "gpt-6-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 
