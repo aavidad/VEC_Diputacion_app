@@ -111,9 +111,19 @@ func NuevoMaterialLectorServiciosCertificados(s SolicitudLectorServiciosCertific
 }
 
 func (m MaterialLectorServiciosCertificados) Actor() core.ContextoActor {
-	a, err := m.solicitud.Actor.Clonar()
-	if err != nil {
-		return core.ContextoActor{}
+	// Copia defensiva sin error posible: el actor ya se clonó al crear el material.
+	a := m.solicitud.Actor
+	if a.Instantanea.Vinculos != nil {
+		a.Instantanea.Vinculos = append([]core.VinculoReferenciaContextoActor{}, a.Instantanea.Vinculos...)
+	}
+	if a.Principal.Roles != nil {
+		a.Principal.Roles = append([]string{}, a.Principal.Roles...)
+	}
+	if a.Principal.Permissions != nil {
+		a.Principal.Permissions = append([]string{}, a.Principal.Permissions...)
+	}
+	if a.Principal.Attributes != nil {
+		a.Principal.Attributes = copiarMapaRelacion(a.Principal.Attributes)
 	}
 	return a
 }
