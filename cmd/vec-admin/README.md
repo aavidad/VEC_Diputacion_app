@@ -16,17 +16,37 @@ El arranque requiere estas variables privadas:
 
 | Variable | Contenido |
 | --- | --- |
-| `VEC_ADMIN_ENTORNO` | `desarrollo` o `cidonia` |
-| `VEC_ADMIN_ESCUCHA` | Dirección IP y puerto exclusivos del proceso |
-| `VEC_ADMIN_HOST` | Host HTTP exacto del subdominio ADMIN |
+| `VEC_ADMIN_ENTORNO` | `desarrollo` (ver nota) |
+| `VEC_ADMIN_ESCUCHA` | Dirección IP concreta y puerto; no admite `0.0.0.0` ni `::` |
+| `VEC_ADMIN_HOST` | Host HTTP exacto del subdominio ADMIN, sin puerto |
 | `VEC_ADMIN_AUDIENCIA` | Audiencia propia de ADMIN |
-| `VEC_ADMIN_EMISOR_IDENTIDAD` | Emisor propio de ADMIN |
+| `VEC_ADMIN_EMISOR_IDENTIDAD` | El mismo valor que `identidad.espacio_identidad` |
 | `VEC_ADMIN_TLS_CERT_FILE`, `VEC_ADMIN_TLS_KEY_FILE` | Certificado y clave del servidor |
 | `VEC_ADMIN_CA_FILE` | Único certificado de la CA cliente ADMIN |
 | `VEC_ADMIN_CRL_FILE` | Lista de revocación vigente, firmada por esa CA |
 | `VEC_ADMIN_REDES_PERMITIDAS` | CIDR explícitas, separadas por comas |
 | `VEC_ADMIN_RETIRADA_EN` | Fin de la excepción temporal, RFC 3339 en UTC |
 | `VEC_ADMIN_PERFILES_CONFIG_FILE` | Archivo privado de configuración de perfiles |
+
+Notas sobre estas variables, comprobadas en el ensayo del 5 de octubre de 2026:
+
+- `VEC_ADMIN_ENTORNO` admite `cidonia`, pero IS15 sólo registra la política de
+  acceso para `desarrollo` y el selector compara con este valor. Con `cidonia`
+  todas las peticiones se deniegan hasta que exista una política para ese
+  entorno.
+- El servidor compara la cabecera `Host` tal cual. Si el navegador entra por un
+  puerto distinto del 443, la cabecera lleva el puerto y la respuesta es 403;
+  hace falta escuchar en el 443 o poner delante un puente que lo ofrezca.
+- El emisor de la aserción es el espacio de identidad de la sesión y el
+  registro de sesiones lo compara con `identidad.espacio_identidad`. Si
+  `VEC_ADMIN_EMISOR_IDENTIDAD` no coincide, el arranque falla con
+  `etapa=emisor_identidad`.
+
+Si el arranque falla, el registro dice `administracion: configuracion no valida: etapa=…`. La
+etapa es un código fijo (por ejemplo `perfiles_config`, `pool_6_grupo`,
+`lector_usuarios` o `servidor`) que señala el paso de la composición donde se
+cerró. Nunca incluye rutas, valores de la configuración ni mensajes de
+PostgreSQL.
 
 La lista de revocación se lee en cada petición. Si falta, caduca o incluye
 el certificado cliente, se deniega el acceso. El servidor solo admite TLS 1.3
@@ -88,7 +108,12 @@ de lectura, los motivos de denegación y error, un plazo acotado y los nueve
 destinos de auditoría. La referencia del conjunto de usuarios debe corresponder
 al ámbito privado. También señala tres archivos DSN distintos para el lector
 AUT43/AD185, el registrador común AD169 y el selector IS14. Cada uno usa un
-LOGIN propio y el proceso verifica su grupo antes de montar la fuente. La
+LOGIN propio y el proceso verifica su grupo antes de montar la fuente. AUT43
+no concede `CONNECT` sobre la base al grupo `vec_admin_usuarios_lector`; hasta
+que una migración lo haga, el DBA debe concederlo, porque `PUBLIC` no lo tiene
+en la principal. Todos los pools fijan los límites de sesión que exige
+VEC-AD-3 (10 s por sentencia, 2 s de bloqueo y 15 s de inactividad en
+transacción). La
 configuración `confianza` del overlay admite exactamente las dos audiencias
 de usuarios; el material HMAC, la semilla de firma y los seudónimos siguen
 procediendo de archivos protegidos.

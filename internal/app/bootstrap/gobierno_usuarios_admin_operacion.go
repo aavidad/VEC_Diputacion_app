@@ -77,6 +77,21 @@ type instantaneaGobiernoUsuarios struct {
 
 const consultaInstantaneaGobiernoUsuarios = `SELECT jsonb_build_object('revision',c.revision,'secuencia',c.secuencia,'spki',encode(r.clave_publica_spki,'base64'),'clave_id',r.clave_id,'version',r.version,'audiencia',r.audiencia_despliegue,'desde',r.valida_desde,'hasta',r.valida_hasta,'orden',(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_clave_emision),'max_version',(SELECT max(version) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'max_revision',(SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'pre_sha',encode(sha256(convert_to(vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()::text,'UTF8')),'hex')) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c ON c.revision=p.configuracion_revision JOIN vec_autorizacion_atestada_v3.configuracion_raiz cr ON cr.configuracion_revision=c.revision JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r ON r.clave_id=cr.raiz_clave_id AND r.version=cr.raiz_version ORDER BY p.orden DESC LIMIT 1`
 
+// descriptoresClavesUsuariosAdmin fija las dos claves de capacidad de una
+// publicación. La derivación es determinista y AD188 rechaza un clave_id o un
+// secreto ya publicados; con dominio y prefijo fijos sólo podía publicarse una
+// vez. La secuencia del gobierno, única y creciente, entra en el dominio de
+// derivación y en el identificador: cada renovación obtiene claves nuevas y
+// repetir la preparación de una publicación no aplicada da las mismas.
+func descriptoresClavesUsuariosAdmin(secuencia, maxVersion, maxRevision uint64, ahora time.Time, validez time.Duration) []DescriptorClaveUsuariosAdmin {
+	s := strconv.FormatUint(secuencia, 10)
+	var entradas []DescriptorClaveUsuariosAdmin
+	for i, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
+		entradas = append(entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3.s" + s, PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":s" + s + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: maxVersion + uint64(i) + 1, RevisionGobierno: maxRevision + uint64(i) + 1, ValidaDesde: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(validez)})
+	}
+	return entradas
+}
+
 // PrepararGobiernoUsuariosAdmin lee la configuración vigente con un pool de
 // lectura, deriva las dos claves con el proveedor existente y escribe plan,
 // material y configuración en la carpeta privada. No publica nada.
@@ -112,9 +127,7 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if cfg.Gobierno.HuellaSHA256, err = g.HuellaSHA256ParaGobierno(); err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	for i, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
-		cfg.Entradas = append(cfg.Entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3", PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: actual.MaxVersion + uint64(i) + 1, RevisionGobierno: actual.MaxRevision + uint64(i) + 1, ValidaDesde: now.Add(-time.Minute), ValidaHasta: now.Add(origen.ValidezClaves)})
-	}
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(cfg.Gobierno.Secuencia, actual.MaxVersion, actual.MaxRevision, now, origen.ValidezClaves)
 	m, err := PrepararMaterialUsuariosAdmin(ctx, cfg, reloj)
 	if err != nil {
 		return vacio, err

@@ -33,9 +33,16 @@ configuración, validación, proveedor o cancelación devuelven indisponibilidad
 sin mensaje bruto ni exportación. La respuesta coteja audiencia, acción,
 recurso, contexto, registro y versiones CA con la evidencia original.
 
+La vigencia de la concesión se mide con la confirmación durable que devuelve
+el PDP, ligada a la misma decisión, motivo y contexto mediante la orden de
+registro. `DecisionAutorizacionLigadaV3.VigenteEn` siempre responde que no,
+porque la decisión en memoria no prueba el registro; usarla dejaba sin lectura
+toda concesión. El consumo SQL vuelve a exigir la decisión registrada.
+
 Las pruebas construyen ambas factorías con la cadena común y pools sin abrir,
-y comprueban solicitudes sintéticas y rechazos anteriores al PDP. No invocan
-una autorización favorable falsa ni acreditan una emisión con PostgreSQL.
+y comprueban solicitudes sintéticas y rechazos anteriores al PDP. Una prueba
+fabrica la confirmación con un registro que no persiste nada, sólo para medir
+la ventana y la ligadura; no acredita una emisión con PostgreSQL.
 El montaje operativo requiere los pools y el firmante reales, el gobierno y
 las dos claves privadas aprobadas, el catálogo de motivos y el árbol SQL
 AUT42/AD184/CA32/CA34/AUT43/AD185. Esta pieza no modifica SQL ni monta rutas.

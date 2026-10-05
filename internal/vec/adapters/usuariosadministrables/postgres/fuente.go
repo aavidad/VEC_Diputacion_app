@@ -73,6 +73,10 @@ func nueva(ctx context.Context, pool conexion, emisor ports.EmisorLecturaUsuario
 	return &Fuente{pool: pool, emisor: emisor, fuente: fuente, intentos: intentos, reloj: reloj, config: config, ambito: a}, nil
 }
 
+// acreditarSQL sólo lee el catálogo. El lector no tiene ni debe tener USAGE
+// sobre vec_autorizacion_atestada_v3, y to_regprocedure sobre un esquema sin
+// USAGE falla con 42501 en vez de devolver NULL; por eso la función atestada
+// se localiza en pg_proc por esquema, nombre y tipos (LATERAL atestada).
 const acreditarSQL = `SELECT COALESCE(
  current_user=session_user AND current_setting('role')='none' AND l.rolcanlogin AND l.rolinherit
  AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls) AND l.rolconfig IS NULL
@@ -115,10 +119,10 @@ const acreditarSQL = `SELECT COALESCE(
        AND a.grantee IN(l.oid,g.oid,0::oid))))
  AND pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND atestada.oid IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
- AND NOT pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND NOT pg_catalog.has_function_privilege(current_user,atestada.oid,'EXECUTE')
  AND (SELECT count(*)=2 FROM pg_catalog.pg_proc p WHERE p.oid IN (
   pg_catalog.to_regprocedure('vec_autorizacion.listar_usuarios_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
   pg_catalog.to_regprocedure('vec_autorizacion.consultar_usuario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
@@ -127,11 +131,15 @@ const acreditarSQL = `SELECT COALESCE(
    WHERE a.grantee=g.oid AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE a.grantee NOT IN(p.proowner,g.oid) OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_usuarios_admin_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=atestada.oid
   AND p.proowner=pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') AND p.prosecdef
   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE a.grantee NOT IN(p.proowner,pg_catalog.to_regrole('vec_autorizacion_propietario')) OR a.privilege_type<>'EXECUTE' OR a.is_grantable)),false)
- FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_auth_members m ON m.member=l.oid JOIN pg_catalog.pg_roles g ON g.oid=m.roleid WHERE l.rolname=session_user`
+ FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_auth_members m ON m.member=l.oid JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+ LEFT JOIN LATERAL (SELECT p.oid FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_usuarios_admin_v3_atestada'
+   AND pg_catalog.oidvectortypes(p.proargtypes)='text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea') atestada ON true
+ WHERE l.rolname=session_user`
 
 func ausente(v any) bool {
 	if v == nil {
