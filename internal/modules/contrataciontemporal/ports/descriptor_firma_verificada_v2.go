@@ -41,4 +41,28 @@ type DescriptorConstructorFirmaV2 struct {
 type EmisorMaterialFirmaVerificadaV2 interface {
 	AutorizarMaterialFirmaVerificadaV2(context.Context, MaterialFirmaVerificadaV2, vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 	FuentePerfilActivoOperadorFirmaV2
+	FuenteAmbitosOperadorFirmaV2
+}
+
+// AmbitosOperadorFirmaV2 son los ámbitos de la asignación vigente de quien
+// actúa: la organización y, sólo si la asignación la tiene, la unidad. El PDP
+// exige que el recurso tenga exactamente las dimensiones de esa asignación,
+// y AD206 las vuelve a leer en el consumo para calcular la huella.
+type AmbitosOperadorFirmaV2 struct {
+	OrganizacionRef, UnidadRef string
+}
+
+// Mapa devuelve los ámbitos del recurso; la unidad vacía no es una dimensión.
+func (a AmbitosOperadorFirmaV2) Mapa() map[string]string {
+	m := map[string]string{"organizacion_ref": a.OrganizacionRef}
+	if a.UnidadRef != "" {
+		m["unidad_ref"] = a.UnidadRef
+	}
+	return m
+}
+
+// FuenteAmbitosOperadorFirmaV2 lee la asignación vigente del perfil activo
+// revalidado. No acepta ámbitos del material ni de la petición.
+type FuenteAmbitosOperadorFirmaV2 interface {
+	ObtenerAmbitosOperadorFirmaV2(context.Context) (AmbitosOperadorFirmaV2, error)
 }
