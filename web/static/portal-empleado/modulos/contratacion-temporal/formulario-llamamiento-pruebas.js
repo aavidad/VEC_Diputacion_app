@@ -3,7 +3,7 @@ import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261002-ct-fin-moad-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261003-ct-firma-v2-v1";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261005-ct-asignacion-unidad-v1";
 
 export const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 export const EXPEDIENTE = "expediente:ct:sintetico:001";
