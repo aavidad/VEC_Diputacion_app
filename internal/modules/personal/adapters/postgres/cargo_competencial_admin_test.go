@@ -173,21 +173,69 @@ func (e *emisorCargoPrueba) Emitir(_ context.Context, actor vd.ContextoActor, ev
 	return efecto.Emision{Accion: accion, Recurso: recurso, Material: m}, nil
 }
 
-type registradorCargoPrueba struct{ llamadas int }
+type registradorCargoPrueba struct {
+	llamadas int
+	acepta   bool
+	datos    []vd.DatosIntentoAuditoria
+}
 
-func (r *registradorCargoPrueba) AppendIntentoAuditoria(context.Context, vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+func (r *registradorCargoPrueba) AppendIntentoAuditoria(_ context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
 	r.llamadas++
-	return vp.AcuseIntentoAuditoria{}, errors.New("sin registro en la prueba")
+	if !r.acepta {
+		return vp.AcuseIntentoAuditoria{}, errors.New("sin registro en la prueba")
+	}
+	d, err := o.Datos()
+	if err != nil {
+		return vp.AcuseIntentoAuditoria{}, err
+	}
+	r.datos = append(r.datos, d.Datos)
+	return vp.AcuseIntentoAuditoria{AuditoriaRef: "auditoria_intento_prueba", Secuencia: 1, HuellaSHA256: strings.Repeat("a", 64),
+		CorrelacionRef: d.Datos.CorrelacionRef, RegistradaEn: time.Now().UTC()}, nil
+}
+
+type revalidadorCargoPrueba struct{ valor vd.AutenticacionRevalidadaV1 }
+
+func (r revalidadorCargoPrueba) RevalidarAutenticacionActorV1(context.Context, vd.SolicitudRevalidacionAutenticacionActorV1) (vd.AutenticacionRevalidadaV1, error) {
+	return r.valor, nil
+}
+
+type contextoCargoPrueba struct {
+	valor vd.ResultadoContextoActorRegistradoV2
+}
+
+func (r contextoCargoPrueba) ResolverContextoActorRegistradoV2(context.Context, vd.SolicitudContextoActor) (vd.ResultadoContextoActorRegistradoV2, error) {
+	return r.valor, nil
+}
+
+// sesionADMINCargoPrueba es una sesión de la superficie de administración
+// privilegiada, como la que resuelve la frontera de vec-admin.
+func sesionADMINCargoPrueba(t *testing.T, ahora time.Time) (vd.ResultadoContextoActorRegistradoV2, vd.VinculoAutenticacionActorV2) {
+	t.Helper()
+	resultado, v, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora, "per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22),
+		vd.AuthMethodCertificate, vd.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := v.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := datos.Autenticacion()
+	a.CuentaOrdinariaRef, a.CuentaPrivilegiada, a.Superficie = "cta_"+strings.Repeat("f", 24), true, vd.SuperficieAutenticacionAdministracionPrivilegiadaV1
+	v, resultado, err = vd.CrearVinculoAutenticacionActorV2ConResultado(context.Background(), revalidadorCargoPrueba{a},
+		vd.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: a.AutenticacionRef, SesionRef: a.SesionRef}, contextoCargoPrueba{resultado},
+		vd.SolicitudContextoActor{Cuenta: vd.CuentaAutenticadaContextoActor{CuentaRef: resultado.Contexto.Instantanea.CuentaRef,
+			Metodo: vd.AuthMethodCertificate, Garantia: vd.AuthAssuranceHigh}, PerfilActivoRef: resultado.Contexto.PerfilActivoRef}, relojCargoPrueba{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resultado, v
 }
 
 func escenarioCargoAdmin(t *testing.T) (*efecto.Ejecutor, *poolCargoPrueba, *emisorCargoPrueba, *registradorCargoPrueba, efecto.Solicitud) {
 	t.Helper()
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora, "per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22),
-		vd.AuthMethodCertificate, vd.AuthAssuranceHigh)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resultado, vinculo := sesionADMINCargoPrueba(t, ahora)
 	pool := &poolCargoPrueba{tx: &txCargoPrueba{}}
 	emisor := &emisorCargoPrueba{t: t, ahora: ahora}
 	registrador := &registradorCargoPrueba{}
@@ -305,6 +353,44 @@ func TestEjecutorCargoNoConfirmaIncoherencias(t *testing.T) {
 			}
 			if caso == "material_ilegible" && (emisor.llamadas != 0 || pool.inicios != 0) {
 				t.Fatal("material ilegible alcanzó el PDP o la base")
+			}
+		})
+	}
+}
+
+// Con el registro común disponible, cada fallo deja su intento con la clase
+// correcta y una referencia de recurso que la auditoría admite (las de
+// Personal llevan mayúsculas), y el error conserva su clase para el 403/400.
+func TestEjecutorCargoDejaIntentoConClase(t *testing.T) {
+	for caso, x := range map[string]struct {
+		fila      filaCargoPrueba
+		emisorErr error
+		material  []byte
+		clase     vd.ResultadoIntentoAuditoria
+		err       error
+	}{
+		"sql_denegado":    {filaCargoPrueba{err: &pgconn.PgError{Code: "42501"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrAutorizacionDenegada},
+		"sql_conflicto":   {filaCargoPrueba{err: &pgconn.PgError{Code: "40001"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrConflicto},
+		"sql_invalido":    {filaCargoPrueba{err: &pgconn.PgError{Code: "22023"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
+		"sql_caido":       {filaCargoPrueba{err: &pgconn.PgError{Code: "2201B"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrNoDisponible},
+		"emisor_denegado": {filaCargoPrueba{}, vd.ErrAutorizacionDenegada, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrAutorizacionDenegada},
+		"ilegible":        {filaCargoPrueba{}, nil, []byte(`{"x":1}`), vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
+	} {
+		t.Run(caso, func(t *testing.T) {
+			e, pool, emisor, registrador, s := escenarioCargoAdmin(t)
+			registrador.acepta, pool.tx.fila, emisor.err = true, x.fila, x.emisorErr
+			if x.material != nil {
+				s.Material = x.material
+			}
+			_, err := e.Aplicar(t.Context(), s)
+			if !errors.Is(err, x.err) || pool.tx.commits != 0 || len(registrador.datos) != 1 {
+				t.Fatalf("error o intento distintos: %v (%d intentos)", err, len(registrador.datos))
+			}
+			d := registrador.datos[0]
+			if d.Resultado != x.clase || d.ModuloID != "personal" || d.FinalidadRef != "administrar_cargos_competenciales" ||
+				d.Accion != "personal.cargo_competencial.publicar" || strings.ToLower(d.RecursoRef) != d.RecursoRef ||
+				strings.Contains(d.RecursoRef, objetoCargoAdminPrueba) {
+				t.Fatalf("intento distinto: %+v", d)
 			}
 		})
 	}

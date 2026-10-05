@@ -304,7 +304,13 @@ func (e *Ejecutor) registrarFallo(ctx context.Context, s Solicitud, accion, recu
 		FinalidadRef: e.contrato.Finalidad, Resultado: clase, Motivo: motivo, Proceso: e.auditoria.Proceso,
 		Canal: string(vd.SuperficieAutenticacionAdministracionPrivilegiadaV1), CorrelacionRef: s.CorrelacionRef}
 	if datos.Validar() != nil {
-		return ErrNoDisponible
+		// Las referencias opacas de algunos módulos llevan mayúsculas que la
+		// auditoría de intentos no admite: se anota una derivada estable.
+		h := sha256.Sum256([]byte("vec.admin.efecto-nominal.recurso.v1\n" + e.contrato.Audiencia + "\n" + datos.RecursoRef))
+		datos.RecursoRef = e.contrato.Tipo + ":" + hex.EncodeToString(h[:16])
+		if datos.Validar() != nil {
+			return ErrNoDisponible
+		}
 	}
 	intento, err := vp.NuevaReferenciaIntentoAuditoria()
 	if err != nil {
