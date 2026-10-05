@@ -165,7 +165,7 @@
     "alcance": "This view shows assignments and their validity. Role names require a separate query.",
     "actos_no_consultados": "Role changes are unavailable in this view.",
     "historia_no_consultada": "The history has not been read.",
-    "ayuda": "You can open a record to check its assignments and validity dates. If your profile allows it, select «Change profiles» to assign or remove a profile: choose what to do, fill in the details, review them and confirm. This view does not include names that have not been read yet or the history.",
+    "ayuda": "You can open a record to check its assignments and validity dates. If your profile allows it, select “Change profiles” to assign or remove a profile: choose what to do, fill in the details, review them and confirm. This view does not include names that have not been read yet or the history.",
     "titulo_lista": "View users",
     "filtros_no_disponibles": "You can filter by validity. Name search and role or unit filters are not yet available here."
   },
@@ -199,8 +199,8 @@
     "hasta": "Until (inclusive)",
     "motivo": "Reason",
     "elegir_motivo": "Choose a reason",
-    "referencia": "Act reference",
-    "referencia_pista": "For example, the decision or case number.",
+    "referencia": "Reference (decision or case number)",
+    "referencia_pista": "If there is one, for example “Decision 1234/2026”.",
     "atras": "Back",
     "revisar": "Review the change",
     "vigente": "valid from {desde} to {hasta}",
@@ -225,18 +225,20 @@
       "correccion": "Correcting a mistake"
     },
     "errores": {
-      "servicio": "This could not be completed. Select «Start again». If it keeps happening, contact IT.",
+      "servicio": "This could not be completed. Select “Start again”. If it keeps happening, contact IT.",
       "denegado": "Your profile does not allow you to change this person's profiles.",
       "no_disponible": "Profiles cannot be changed in this installation yet.",
-      "conflicto": "The person's details changed while you were preparing the change. Select «Start again» to see them again.",
-      "invalido": "Some details are not valid. Select «Start again» and check them.",
-      "incierto": "We do not know whether the change was saved. Go back to the record and check before trying again.",
+      "conflicto": "The person's details changed while you were preparing the change. Select “Start again” to see them again.",
+      "invalido": "Some details are not valid. Select “Start again” and check them.",
+      "incierto": "We do not know whether the change was saved. Before trying again, go back to the record, select “Change profiles” and check whether the profile is already listed under “Remove a profile”.",
       "resumen": "Check these details:",
       "motivo_requerido": "Choose a reason.",
-      "fecha_hasta": "Enter an end date after today and within the period allowed for this profile.",
+      "fecha_hasta": "Enter an end date between today and {maxima}.",
       "fecha_desde": "Enter a start date from tomorrow onwards.",
       "perfil_requerido": "Choose a profile.",
       "referencia": "The reference is too long or contains invalid characters."
-    }
+    },
+    "hasta_pista": "No later than {maxima}.",
+    "motivo_otro": "Other reason"
   }
 }

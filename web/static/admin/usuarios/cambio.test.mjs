@@ -48,7 +48,8 @@ test("las fechas se interpretan en Madrid y respetan el máximo del perfil", () 
   const programado = fechasAlta(alta, { hasta: "2026-11-04", empieza: "fecha", desde: "2026-10-10" }, AHORA);
   assert.equal(programado.inicio_vigencia, "programado");
   assert.equal(programado.vigente_desde, "2026-10-09T22:00:00Z");
-  assert.equal(fechasAlta(alta, { hasta: "2030-01-01", empieza: "ahora" }, AHORA).vigente_hasta, "2027-09-30T15:11:06Z");
+  assert.equal(fechasAlta(alta, { hasta: "2030-01-01", empieza: "ahora" }, AHORA).error, "fecha_hasta");
+  assert.equal(fechasAlta(alta, { hasta: "2027-09-30", empieza: "ahora" }, AHORA).vigente_hasta, "2027-09-30T15:11:06Z");
   assert.equal(fechasAlta(alta, { hasta: "2026-10-04", empieza: "ahora" }, AHORA).error, "fecha_hasta");
   assert.equal(fechasAlta(alta, { hasta: "2026-11-04", empieza: "fecha", desde: "2026-10-05" }, AHORA).error, "fecha_desde");
   assert.equal(fechasAlta(alta, { hasta: "", empieza: "ahora" }, AHORA).error, "fecha_hasta");
@@ -85,10 +86,13 @@ test("el recibo debe ser el de la orden enviada", () => {
 });
 
 // Contenedor mínimo: guarda el HTML y responde a los selectores por id.
+class Hijo { constructor() { this.html = ""; this.textContent = ""; this.disabled = false; } set innerHTML(v) { this.html = v; } get innerHTML() { return this.html; } focus() {} }
 class Contenedor {
-  constructor() { this.id = "c"; this.html = ""; this.listeners = {}; }
-  set innerHTML(v) { this.html = v; } get innerHTML() { return this.html; }
-  querySelector() { return { focus() {}, textContent: "", disabled: false }; }
+  constructor() { this.id = "c"; this.html = ""; this.listeners = {}; this.hijos = new Map(); }
+  set innerHTML(v) { this.html = v; for (const [, i] of v.matchAll(/id="([^"]+)"/gu)) if (!this.hijos.has(i)) this.hijos.set(i, new Hijo()); }
+  get innerHTML() { return this.html; }
+  get panel() { return this.hijos.get("c-panel").html; }
+  querySelector(sel) { return this.hijos.get(sel.slice(1)) || new Hijo(); }
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
   removeEventListener() {}
   contains() { return true; }
@@ -100,12 +104,13 @@ test("la pantalla traduce los fallos de preparación y ofrece las dos vías", as
   const base = { textos, cripto, persona: PERSONA, nombre: "Antonio Reyes Álvarez", unidadRef: UNIDAD, ahora: () => AHORA, alVolver() {} };
   const fallo = new Contenedor();
   await montarCambioPerfiles(fallo, { ...base, cliente: { preparar: async () => { throw Object.assign(new Error("x"), { estado: 404 }); }, aplicarLote: async () => ({}) } }).listo;
-  assert.match(fallo.html, new RegExp(textos.traducir("lote.errores.no_disponible").slice(0, 20), "u"));
+  assert.match(fallo.panel, new RegExp(textos.traducir("lote.errores.no_disponible").slice(0, 20), "u"));
+  assert.doesNotMatch(fallo.panel, /data-cambio="preparar"/u);
   const bien = new Contenedor();
   await montarCambioPerfiles(bien, { ...base, cliente: { preparar: async () => preparacion(), aplicarLote: async () => ({}) } }).listo;
-  assert.match(bien.html, /data-cambio="via-asignar"/u);
-  assert.match(bien.html, /data-cambio="via-retirar"/u);
-  assert.doesNotMatch(bien.html, /per_|prf_|rol:/u);
+  assert.match(bien.panel, /data-cambio="via-asignar"/u);
+  assert.match(bien.panel, /data-cambio="via-retirar"/u);
+  assert.doesNotMatch(bien.panel, /per_|prf_|rol:/u);
   for (const clave of ["lote.titulo", "lote.errores.incierto", "lote.motivos.alta_funciones", "lote.paso"]) {
     assert.notEqual(textos.traducir(clave), clave, clave);
   }

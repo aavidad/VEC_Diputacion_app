@@ -88,7 +88,9 @@ const iso = (ms) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace
 export function fechasAlta(alta, { hasta, empieza, desde }, ahora) {
   const maxima = Date.parse(alta.vigente_hasta_maxima);
   const fin = instanteMadrid(hasta, 23, 59, 59);
-  if (fin === null) return { error: "fecha_hasta" };
+  // Un día posterior al máximo es un error que se explica; el mismo día del
+  // máximo termina a la hora máxima permitida.
+  if (fin === null || hasta > diaMadrid(maxima)) return { error: "fecha_hasta" };
   const finReal = Math.min(fin, maxima);
   if (empieza === "fecha") {
     const inicio = instanteMadrid(desde, 0, 0, 0);

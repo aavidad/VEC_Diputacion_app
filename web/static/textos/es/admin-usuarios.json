@@ -199,8 +199,8 @@
     "hasta": "Hasta (incluido)",
     "motivo": "Motivo",
     "elegir_motivo": "Elija un motivo",
-    "referencia": "Referencia del acto",
-    "referencia_pista": "Por ejemplo, el número de resolución o de expediente.",
+    "referencia": "Referencia (resolución o expediente)",
+    "referencia_pista": "Si la hay, por ejemplo «Resolución 1234/2026».",
     "atras": "Atrás",
     "revisar": "Revisar el cambio",
     "vigente": "vigente del {desde} al {hasta}",
@@ -230,13 +230,15 @@
       "no_disponible": "En esta instalación no se pueden cambiar perfiles todavía.",
       "conflicto": "Los datos de la persona han cambiado mientras preparaba el cambio. Pulse «Volver a empezar» para verlos de nuevo.",
       "invalido": "Algún dato no es válido. Pulse «Volver a empezar» y revíselo.",
-      "incierto": "No sabemos si el cambio se ha guardado. Vuelva a la ficha y compruébelo antes de repetirlo.",
+      "incierto": "No sabemos si el cambio se ha guardado. Antes de repetirlo, vuelva a la ficha, pulse «Cambiar perfiles» y mire si el perfil aparece ya en «Retirar un perfil».",
       "resumen": "Revise estos datos:",
       "motivo_requerido": "Elija un motivo.",
-      "fecha_hasta": "Indique una fecha de fin posterior a hoy y dentro del plazo permitido para este perfil.",
+      "fecha_hasta": "Indique una fecha de fin entre hoy y el {maxima}.",
       "fecha_desde": "Indique una fecha de inicio a partir de mañana.",
       "perfil_requerido": "Elija un perfil.",
       "referencia": "La referencia es demasiado larga o tiene caracteres no válidos."
-    }
+    },
+    "hasta_pista": "Como máximo, el {maxima}.",
+    "motivo_otro": "Otro motivo"
   }
 }
