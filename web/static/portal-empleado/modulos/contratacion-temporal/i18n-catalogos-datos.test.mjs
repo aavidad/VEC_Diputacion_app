@@ -54,9 +54,10 @@ const PREIMAGEN = {
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
-    // Excepción a la preimagen: cuatro correcciones EN de renuncia posteriores al traslado.
-    "MENSAJES_LLAMAMIENTO_EN": "6d0fd18d0572e0d98000134069e36b44389253c4c6a04cc6579f993697c86399",
-    "MENSAJES_LLAMAMIENTO_ES": "d30865364e6e13be558dfd6ae65f7296dd4c5e1f745c37e2e936c89b5d9618fe"
+    // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
+    // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
+    "MENSAJES_LLAMAMIENTO_EN": "562f5d48164e4675d0aa6bf4cf44c30547be48cb7d5f4db3ef286cead0d2857c",
+    "MENSAJES_LLAMAMIENTO_ES": "3c810aa31b09b5c685fe7ec05e1a015d5e9ebfd37e6ad928c3c31055d616a4ef"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "64125e70d662c685f79970383cc504776bf0923b034ea24825d30209c139833a",
