@@ -23,6 +23,10 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.postGobiernoPlanFirma(w, r, s)
 		return
 	}
+	if e, ok := h.efectos[p]; ok {
+		h.postEfectoNominal(w, r, s, e)
+		return
+	}
 	// Sin actos singulares montados sólo existe el lote (si está compuesto).
 	if h.actos == nil && (h.lotes == nil || p != PrefijoV1+"/lotes-ordinarios") {
 		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
