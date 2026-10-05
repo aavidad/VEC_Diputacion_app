@@ -7,7 +7,9 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -38,7 +40,9 @@ var (
 	reTipo        = regexp.MustCompile(`^documento_([a-z0-9_]{1,80}_)?contratacion_temporal$`)
 	reFinalidad   = regexp.MustCompile(`^[a-z][a-z0-9_]{2,127}$`)
 	reIntervencio = regexp.MustCompile(`(?i)(fiscaliz|intervenc)`)
-	reOperacion   = regexp.MustCompile(`^rpa_cf_[A-Za-z0-9_-]{19,121}$`)
+	// Roles que la defensa de clases de AUT49 nunca registra como asignables.
+	reRolVedado = regexp.MustCompile(`^intervencion|^candidato_|extern|^administracion_perfiles$|^operador_plataforma$`)
+	reOperacion = regexp.MustCompile(`^rpa_cf_[A-Za-z0-9_-]{19,121}$`)
 )
 
 type competencia struct {
@@ -113,8 +117,9 @@ func concesionV2(op string) (vd.ConcesionRol, bool) {
 }
 
 func validarCargo(c cargoEntrada) error {
-	if !reRolID.MatchString(c.RolID) || c.Version < 1 || c.Version > 999999999 ||
+	if !reRolID.MatchString(c.RolID) || reRolVedado.MatchString(c.RolID) || c.Version < 1 || c.Version > 999999999 ||
 		utf8.RuneCountInString(c.Nombre) < 3 || utf8.RuneCountInString(c.Nombre) > 200 || reIntervencio.MatchString(c.Nombre) ||
+		strings.TrimSpace(c.Nombre) != c.Nombre || strings.IndexFunc(c.Nombre, unicode.IsControl) >= 0 ||
 		(c.Version == 1) != (c.VersionAnteriorSHA256 == "") || (c.Version > 1 && !reHuella.MatchString(c.VersionAnteriorSHA256)) ||
 		len(c.OperacionesV2) > 2 || len(c.Competencias) < 1 || len(c.Competencias) > 8 ||
 		!reRegla.MatchString(c.ReglaAsignacion) || !reOrg.MatchString(c.OrganizacionRef) ||

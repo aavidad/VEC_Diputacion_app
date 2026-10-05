@@ -77,6 +77,12 @@ func TestPrepararRechazaCargosNoAdmitidos(t *testing.T) {
 		"duracion_corta":         func(c *cargoEntrada) { c.DuracionPropuestaSegundos = 59 },
 		"vigencia_al_reves":      func(c *cargoEntrada) { c.VigenteHasta = c.VigenteDesde },
 		"rol_con_mayusculas":     func(c *cargoEntrada) { c.RolID = "CT_Direccion" },
+		"rol_de_intervencion":    func(c *cargoEntrada) { c.RolID = "intervencion_firmas" },
+		"rol_externo":            func(c *cargoEntrada) { c.RolID = "ct_firma_externa" },
+		"rol_de_candidato":       func(c *cargoEntrada) { c.RolID = "candidato_firma" },
+		"rol_de_administracion":  func(c *cargoEntrada) { c.RolID = "administracion_perfiles" },
+		"nombre_sin_recortar":    func(c *cargoEntrada) { c.Nombre = " Dirección de RRHH" },
+		"nombre_con_control":     func(c *cargoEntrada) { c.Nombre = "Dirección\tde RRHH" },
 	}
 	for nombre, cambiar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -106,7 +112,10 @@ func TestAplicarRechazaPlanEditadoSinConectar(t *testing.T) {
 	_, b := planPrueba(t)
 	editado := bytes.Replace(b, []byte(`"resolver_contratacion_temporal"`), []byte(`"ampliar_contratacion_temporal"`), 1)
 	huella := []byte(`"33f40d4af8293301b7ac2f93a721919d851d94d5e47647db41611ff7df18932a"`)
-	editadoHuella := bytes.Replace(b, huella, bytes.Repeat([]byte("a"), 1), 1)
+	editadoHuella := bytes.Replace(b, huella, []byte(`"`+strings.Repeat("a", 64)+`"`), 1)
+	if bytes.Equal(editadoHuella, b) {
+		t.Fatal("la huella de prueba no está en el plan")
+	}
 	for _, plan := range [][]byte{editado, editadoHuella, append(append([]byte{}, b...), '\n')} {
 		dir := dirPrivado(t)
 		h := sha256.Sum256(plan)
