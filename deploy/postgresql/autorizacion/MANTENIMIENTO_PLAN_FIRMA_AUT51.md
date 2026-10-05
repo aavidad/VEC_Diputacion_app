@@ -46,3 +46,25 @@ DOWN, después de AUT45 y AUT48. Luego, con la ventana de la aprobación, prepar
 el plan versión 3 y aplicarlo con la CLI. Si el programador de administración ha
 instalado antes otra versión del rol, el plan detecta la preimagen distinta y se
 para sin escribir.
+
+## Ensayo del 5 de octubre de 2026
+
+Clon desechable de la copia fría H10-30 con las listas de main hasta AD177
+(AD194/IS16/CA36, AUT47, AD193, AUT48, AD195 y Personal36, AD196 y AUT49,
+AD178 y AD177), PostgreSQL 18.4 con 2 GB, arranque 2+1 real y vec-admin de la
+rama. Resultado:
+
+| Paso | Resultado |
+| --- | --- |
+| Rol5 → Rol6 (AUT45) por la CLI, y replay | confirmado; replay con el mismo recibo |
+| Huella de la puerta del lote antes de AUT51 | coincide con la de AUT45 (`f6cbcb22…`) |
+| AUT51 y su prueba estructural | salida 0; `AUT51-ESTRUCTURA-OK` |
+| Segunda aplicación de AUT51 | se para en `dependencias` sin cambios |
+| Rol6 → Rol7 por la CLI (plan versión 3), y replay | confirmado; replay con el mismo recibo |
+| Lista y ficha de usuarios en vec-admin con Rol7 | 200 para las dos personas |
+| Prueba positiva con una decisión real de vec-admin | la puerta del lote acredita Rol7 y no Rol6; la categoría acredita `vec.catalogos.publicar` y rechaza otro módulo, otro tipo y otra acción; AD177 acepta el gobierno sin sustituir la categoría |
+| Aprobación divergente desde el LOGIN operador | `denegado` con su intento en la auditoría común |
+| Reinicio de PostgreSQL y vec-admin | usuarios en 200; replay de Rol7 con el mismo recibo |
+
+La prueba de AUT48 sigue pasando. El catálogo de Rol7 conserva las entradas de
+Rol6 en su revisión siguiente y añade las cuatro de catálogos en la revisión 1.
