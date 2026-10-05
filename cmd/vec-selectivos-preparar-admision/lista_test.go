@@ -131,3 +131,47 @@ func TestListaDefinitivaSinSalidaAnteErrores(t *testing.T) {
 		}
 	}
 }
+
+func TestRevisionProvisionalContratoYErrores(t *testing.T) {
+	material, err := os.ReadFile("testdata/revision-material.json")
+	esperado, err2 := os.ReadFile("testdata/revision-resultado.json")
+	if err != nil || err2 != nil {
+		t.Fatal(err, err2)
+	}
+	args := func(idioma string) []string {
+		return append(argumentos(idioma), "--salida", "revision-provisional", "--catalogo-admision-dir", "../../data/catalogos/seleccion")
+	}
+	for _, idioma := range []string{"es", "en"} {
+		var salida, errores bytes.Buffer
+		if codigo := ejecutar(context.Background(), args(idioma), bytes.NewReader(material), &salida, &errores); codigo != 0 || !bytes.Equal(esperado, salida.Bytes()) {
+			t.Fatalf("%s: %d %s", idioma, codigo, errores.String())
+		}
+		var r domain.RevisionListaProvisional
+		catalogo, err := cargarCatalogo("../../web/static/textos", idioma)
+		if json.Unmarshal(salida.Bytes(), &r) != nil || err != nil || r.Lista.Aprobada || r.Lista.Publicada {
+			t.Fatal(salida.String())
+		}
+		for _, clave := range r.Pendientes {
+			if _, ok := mensajeCatalogo(catalogo, idioma, clave); !ok {
+				t.Fatalf("%s: falta %s", idioma, clave)
+			}
+		}
+	}
+	casos := map[string]string{
+		"misma_revision":    strings.Replace(string(material), `"revision": 2,`, `"revision": 1,`, 1),
+		"anterior_alterada": strings.Replace(string(material), `"excluidas_subsanables": 1`, `"excluidas_subsanables": 2`, 1),
+		"campo_de_mas":      strings.Replace(string(material), `"anterior": {`, `"anterior": {"nota": "x",`, 1),
+		"sin_huella":        strings.Replace(string(material), `"antecedente_anterior"`, `"antecedente_otro"`, 1),
+		"huella_ajena":      strings.Replace(string(material), `"a0de31453bd8555d34f2573aae10b1ff6097a4e07dee4e4adff0a4b8443f42f0"`, `"`+strings.Repeat("0", 64)+`"`, 1),
+	}
+	for nombre, entrada := range casos {
+		if entrada == string(material) {
+			t.Fatalf("%s: el caso no cambia el material", nombre)
+		}
+		var salida, errores bytes.Buffer
+		if codigo := ejecutar(context.Background(), args("es"), strings.NewReader(entrada), &salida, &errores); codigo != 1 || salida.Len() != 0 ||
+			!strings.Contains(errores.String(), `"error_clave":"seleccion.revision_lista.entrada_invalida"`) {
+			t.Errorf("%s: %d %q", nombre, codigo, errores.String())
+		}
+	}
+}
