@@ -1,0 +1,29 @@
+{
+  "esquema": "cronos-permisos-csv-v1",
+  "referencia": "cronos-informe-permisos-csv-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_corte": "02/01/2006 15:04 MST",
+  "zona_horaria": "Europe/Madrid",
+  "cabeceras": {
+    "registro": "Record",
+    "persona_ejemplo": "Example person",
+    "ejercicio": "Year",
+    "corte": "Data as of",
+    "aviso": "Notice",
+    "etiqueta": "Leave type",
+    "unidad": "Quantity unit",
+    "computo": "Calculation",
+    "pendiente_resolver": "Awaiting decision",
+    "concedido": "Granted",
+    "restante": "Remaining",
+    "conciliacion": "Reconciliation"
+  },
+  "unidades": {"dia": "Days", "hora": "Minutes"},
+  "computos": {"laborables": "Working days", "naturales": "Calendar days"},
+  "estados": {"conciliado": "Reconciled", "sin_conciliar": "Awaiting reconciliation"},
+  "desconocido": "Not available",
+  "contexto": "Context",
+  "permiso": "Leave",
+  "sintetico": "SYNTHETIC EXAMPLE. Not valid for administrative use. Employee downloads remain pending."
+}

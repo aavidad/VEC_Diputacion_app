@@ -1,12 +1,14 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v5";
-import { crearRender } from "./render.js?v=20261003-admin-usuarios-v5";
-import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v5";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261004-admin-usuarios-metadata-v1";
+import { crearRender } from "./render.js?v=20261004-admin-usuarios-metadata-v1";
+import { montarPropuestas } from "./propuestas.js?v=20261004-admin-usuarios-metadata-v1";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {
   if (!root || typeof textos?.traducir !== "function" || typeof textos.fecha !== "function" || typeof textos.numero !== "function") throw new TypeError("montaje_invalido");
   const prefijo = `admin-usuarios-${++montaje}`;
-  const { pantalla, filtros, activos, tabla, catalogo, ficha, opciones, revision, resultado, el, t } = crearRender({ root, id: (c) => `${prefijo}-${c}`, textos });
+  const metadatos = cliente.proyeccion === "metadatos_v1";
+  const puedeLeer = () => metadatos || capacidades.includes("consultar");
+  const { pantalla, filtros, activos, tabla, catalogo, ficha, opciones, revision, resultado, el, t } = crearRender({ root, id: (c) => `${prefijo}-${c}`, textos, metadatos });
   let vivo = true, enviando = false, bloqueado = false, conflicto = false, incierto = false;
   let roles = [], unidades = [], capacidades = [], personas = [], detalle = null, decision = null, consulta = filtrosVacios(), siguiente = "";
   const peticiones = new Map();
@@ -24,11 +26,13 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   const actual = (tipo, control) => vivo && !control.signal.aborted && peticiones.get(tipo) === control;
   function controles(permitidos) {
     for (const campo of ["consulta", "perfil", "vigencia", "buscar-boton", "limpiar"]) el(campo).disabled = !permitidos;
+    if (metadatos) for (const campo of ["consulta", "perfil"]) el(campo).disabled = true;
     el("unidad").disabled = !permitidos || unidades.length === 0;
     el("recargar").disabled = enviando || incierto;
     el("tab-usuarios").disabled = bloqueado || enviando || incierto;
     el("tab-perfiles").disabled = bloqueado || enviando || incierto;
     el("tab-propuestas").disabled = bloqueado || enviando || incierto;
+    if (metadatos) for (const campo of ["tab-perfiles", "tab-propuestas"]) el(campo).disabled = true;
   }
   function etapa(nombre) {
     for (const parte of ["listado", "detalle", "revision"]) el(parte).hidden = parte !== nombre;
@@ -66,14 +70,14 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       : error?.codigo === "respuesta_incompatible" ? "errores.incompatible" : "errores.servicio");
   }
   function disponibles(operacion) {
-    if (!detalle) return [];
+    if (!detalle || detalle.proyeccion === "metadatos_v1") return [];
     return detalle.actos_disponibles.flatMap((acto, indice) => {
       try { return seleccionarActos(detalle, roles, capacidades, operacion, [indice]); } catch { return []; }
     });
   }
   function pintarFicha() { ficha(detalle, roles, disponibles("otorgar")); etapa("detalle"); }
   async function buscar(anadir = false) {
-    if (!vivo || bloqueado || enviando || !capacidades.includes("consultar") || typeof cliente.buscar !== "function") return;
+    if (!vivo || bloqueado || enviando || !puedeLeer() || typeof cliente.buscar !== "function") return;
     peticiones.get("persona")?.abort();
     detalle = null; decision = null; el("detalle").replaceChildren(); el("revision").replaceChildren(); etapa("listado");
     const control = iniciar("buscar");
@@ -84,6 +88,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       const respuesta = await cliente.buscar({ ...consulta, cursor: anadir ? siguiente : "" }, control.signal);
       if (!actual("buscar", control)) return;
       const pagina = validarPersonas(respuesta);
+      if (metadatos && pagina.proyeccion !== "metadatos_v1") throw incompatible();
       const nuevas = anadir ? [...personas, ...pagina.personas] : pagina.personas;
       if (nuevas.length > 2000 || new Set(nuevas.map((p) => p.persona_ref)).size !== nuevas.length) throw incompatible();
       personas = nuevas; siguiente = pagina.siguiente_cursor || "";
@@ -93,25 +98,32 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     finally { if (actual("buscar", control)) controles(!bloqueado); }
   }
   async function cargarPersona(ref) {
-    if (!vivo || enviando || bloqueado || !capacidades.includes("consultar") || typeof cliente.persona !== "function") return;
+    if (!vivo || enviando || bloqueado || !puedeLeer() || typeof cliente.persona !== "function") return;
     const control = iniciar("persona");
     detalle = null; decision = null; conflicto = false; el("detalle").replaceChildren(); el("revision").replaceChildren();
     el("estado").textContent = t("detalle.cargando"); etapa("detalle");
     try {
       const respuesta = await cliente.persona(ref, control.signal);
       if (!actual("persona", control)) return;
-      detalle = validarFicha(respuesta, ref); pintarFicha(); el("estado").textContent = t("detalle.lista");
+      detalle = validarFicha(respuesta, ref);
+      if (metadatos && detalle.proyeccion !== "metadatos_v1") throw incompatible();
+      pintarFicha(); el("estado").textContent = t("detalle.lista");
     } catch (e) { if (actual("persona", control)) fallarLectura(e); }
   }
   async function cargar() {
     if (!vivo || enviando || incierto) return;
     for (const c of peticiones.values()) c.abort();
     bloqueado = false; conflicto = false; limpiarDatos();
-    if (!["capacidades", "roles", "buscar", "persona"].every((m) => typeof cliente[m] === "function")) {
+    if (!(metadatos ? ["buscar", "persona"] : ["capacidades", "roles", "buscar", "persona"]).every((m) => typeof cliente[m] === "function")) {
       el("estado").textContent = t("errores.sin_conexion"); return;
     }
     const control = iniciar("inicio"); el("estado").textContent = t("busqueda.cargando");
     try {
+      if (metadatos) {
+        filtros([], []); el("panel-perfiles").textContent = t("metadatos.catalogo_no_consultado");
+        el("consulta").setAttribute("aria-describedby", `${prefijo}-estado`);
+        controles(true); await buscar(); return;
+      }
       const [cap, cat] = await Promise.all([cliente.capacidades(control.signal), cliente.roles(control.signal)]);
       if (!actual("inicio", control)) return;
       const capacidad = validarCapacidades(cap); capacidades = [...capacidad.acciones]; actor = capacidad.actor_persona_ref;
@@ -127,7 +139,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     return { busqueda: el("consulta").value.trim(), perfil_ref: el("perfil").value, unidad_ref: el("unidad").value, estado: el("vigencia").value, cursor: "" };
   }
   function seleccionar() {
-    if (!detalle || enviando || bloqueado) return;
+    if (!detalle || enviando || bloqueado || metadatos) return;
     const indices = [...el("opciones").querySelectorAll("[data-seleccion]:checked")].map((n) => Number(n.dataset.seleccion));
     const motivos = Object.fromEntries([...el("opciones").querySelectorAll("[data-motivo]")].filter((n) => n.value !== "").map((n) => [n.dataset.motivo, Number(n.value)]));
     try {
@@ -163,7 +175,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     }
   }
   function pestaña(nombre) {
-    if (bloqueado || enviando || incierto) return;
+    if (bloqueado || enviando || incierto || metadatos && nombre !== "usuarios") return;
     if (nombre !== "propuestas") pendientes.cancelarLectura();
     mostrarPanel(nombre);
     el("estado").textContent = nombre === "usuarios" ? t(detalle ? "detalle.lista" : personas.length ? "busqueda.lista" : "busqueda.vacia") : "";
@@ -205,6 +217,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     el("opciones").innerHTML = opciones(disponibles(el("operacion").value)); el("revisar").disabled = disponibles(el("operacion").value).length === 0; el("error-seleccion").hidden = true;
   } }
   function teclado(evento) {
+    if (metadatos) return;
     if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || bloqueado || enviando || incierto) return;
     const nombres = ["usuarios", "perfiles", "propuestas"], indice = nombres.findIndex((n) => evento.target === el(`tab-${n}`));
     evento.preventDefault(); const nombre = evento.key === "Home" ? nombres[0] : evento.key === "End" ? nombres.at(-1) : nombres[(indice + (evento.key === "ArrowRight" ? 1 : 2)) % nombres.length];

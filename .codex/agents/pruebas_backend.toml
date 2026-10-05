@@ -1,6 +1,6 @@
 name = "pruebas_backend"
 description = "Pruebas focales de dominio, aplicación y adaptadores backend."
-model = "gpt-5.6-terra"
+model = "gpt-6-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 

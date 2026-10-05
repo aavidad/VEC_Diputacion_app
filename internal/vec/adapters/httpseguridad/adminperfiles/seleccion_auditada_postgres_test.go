@@ -17,6 +17,8 @@ type txSelectorAuditadoPrueba struct {
 	pgx.Tx
 	bruto                  string
 	errConsulta, errCommit error
+	carrerasPendientes     int
+	carrerasCommit         int
 	auditoriaCruzada       bool
 	args                   []any
 	commits, rollbacks     int
@@ -29,12 +31,23 @@ func (t *txSelectorAuditadoPrueba) QueryRow(_ context.Context, _ string, args ..
 	t.args = append([]any(nil), args...)
 	return filaSelectorAuditadaPrueba{t}
 }
-func (t *txSelectorAuditadoPrueba) Commit(context.Context) error   { t.commits++; return t.errCommit }
+func (t *txSelectorAuditadoPrueba) Commit(context.Context) error {
+	t.commits++
+	if t.carrerasCommit > 0 {
+		t.carrerasCommit--
+		return &pgconn.PgError{Code: "40001", Message: "detalle interno sintético"}
+	}
+	return t.errCommit
+}
 func (t *txSelectorAuditadoPrueba) Rollback(context.Context) error { t.rollbacks++; return nil }
 
 type filaSelectorAuditadaPrueba struct{ tx *txSelectorAuditadoPrueba }
 
 func (f filaSelectorAuditadaPrueba) Scan(destinos ...any) error {
+	if f.tx.carrerasPendientes > 0 {
+		f.tx.carrerasPendientes--
+		return &pgconn.PgError{Code: "40001", Message: "detalle interno sintético"}
+	}
 	if f.tx.errConsulta != nil {
 		return f.tx.errConsulta
 	}
@@ -59,10 +72,19 @@ func (f filaSelectorAuditadaPrueba) Scan(destinos ...any) error {
 type poolSelectorAuditadoPrueba struct {
 	tx       *txSelectorAuditadoPrueba
 	opciones pgx.TxOptions
+	plazos   []time.Time
+	sinPlazo bool
+	inicios  int
 }
 
-func (p *poolSelectorAuditadoPrueba) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
+func (p *poolSelectorAuditadoPrueba) BeginTx(ctx context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
 	p.opciones = opciones
+	p.inicios++
+	if limite, ok := ctx.Deadline(); ok {
+		p.plazos = append(p.plazos, limite)
+	} else {
+		p.sinPlazo = true
+	}
 	return p.tx, nil
 }
 func (*poolSelectorAuditadoPrueba) QueryRow(context.Context, string, ...any) pgx.Row {
@@ -125,11 +147,28 @@ func TestSelectorDenegadoConfirmaAuditoriaAntesDeDevolverError(t *testing.T) {
 }
 
 func TestSelectorConflictoTecnicoNoEsCASObsoleto(t *testing.T) {
-	tx := &txSelectorAuditadoPrueba{errConsulta: &pgconn.PgError{Code: "40001", Message: "detalle interno sintético"}}
+	for _, codigo := range []string{"40001", "40P01"} {
+		tx := &txSelectorAuditadoPrueba{errConsulta: &pgconn.PgError{Code: codigo, Message: "detalle interno sintético"}}
+		s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
+		// El plazo corta los reintentos; agotados, el conflicto sigue sin ser CAS.
+		ctx, cancelar := context.WithTimeout(ctx, 150*time.Millisecond)
+		_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+		cancelar()
+		if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, api.ErrConflictoEstado) || tx.commits != 0 || tx.rollbacks < 2 {
+			t.Fatalf("%s: se convirtió un conflicto técnico en CAS denegado o no se reintentó (rollbacks=%d)", codigo, tx.rollbacks)
+		}
+	}
+}
+
+// Varias peticiones simultáneas de la misma página chocan en la cadena común:
+// la transacción abortada se repite entera y la lectura termina confirmada.
+func TestSelectorRepiteTransaccionTrasCarreraSerializable(t *testing.T) {
+	const documento = `{"revision":0,"perfil_activo_ref":"","perfiles":[{"perfil_ref":"prf_aaaaaaaaaaaaaaaaaaaaaa","rol_version_ref":"rol:administracion_perfiles:v4","clave_i18n":"administracion.perfiles.rol","categoria_admin":"aplicacion"}]}`
+	tx := &txSelectorAuditadoPrueba{bruto: documento, carrerasPendientes: 2}
 	s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
-	_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
-	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, api.ErrConflictoEstado) || tx.commits != 0 || tx.rollbacks != 1 {
-		t.Fatal("se convirtió un conflicto técnico en CAS denegado")
+	r, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+	if err != nil || len(r.Propios.Perfiles) != 1 || r.AuditoriaComunRef == "" || tx.commits != 1 || tx.rollbacks != 3 {
+		t.Fatalf("la carrera no se repitió con transacción nueva: err=%v commits=%d rollbacks=%d", err, tx.commits, tx.rollbacks)
 	}
 }
 
@@ -170,5 +209,63 @@ func TestSeleccionAuditadaAdmiteUTCPostgreSQLYReeleccion(t *testing.T) {
 				t.Fatal("se confirmó precisión no admitida")
 			}
 		})
+	}
+}
+
+// vec-admin no acota el contexto de la petición: el selector pone su propio
+// plazo a toda la operación, reintentos incluidos.
+func TestSelectorAcotaReintentosConPlazoPropio(t *testing.T) {
+	const documento = `{"revision":0,"perfil_activo_ref":"","perfiles":[{"perfil_ref":"prf_aaaaaaaaaaaaaaaaaaaaaa","rol_version_ref":"rol:administracion_perfiles:v4","clave_i18n":"administracion.perfiles.rol","categoria_admin":"aplicacion"}]}`
+	tx := &txSelectorAuditadoPrueba{bruto: documento, carrerasPendientes: 1}
+	s, ctx, o, pool := escenarioSelectorAuditadoPrueba(t, tx)
+	antes := time.Now()
+	if _, err := s.ListarPropiosAuditadosADMIN(ctx, o); err != nil {
+		t.Fatal(err)
+	}
+	if pool.sinPlazo || len(pool.plazos) != 2 || pool.plazos[0] != pool.plazos[1] || pool.plazos[0].After(antes.Add(plazoSelectorAuditado+time.Second)) || plazoSelectorAuditado > 15*time.Second {
+		t.Fatalf("los intentos no comparten un plazo acotado: %v sin_plazo=%v", pool.plazos, pool.sinPlazo)
+	}
+}
+
+// Un 40001 en el COMMIT garantiza que no se aplicó nada: se repite entero.
+func TestSelectorRepiteCommitAbortadoPorSerializacion(t *testing.T) {
+	const documento = `{"revision":0,"perfil_activo_ref":"","perfiles":[{"perfil_ref":"prf_aaaaaaaaaaaaaaaaaaaaaa","rol_version_ref":"rol:administracion_perfiles:v4","clave_i18n":"administracion.perfiles.rol","categoria_admin":"aplicacion"}]}`
+	tx := &txSelectorAuditadoPrueba{bruto: documento, carrerasCommit: 1}
+	s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
+	r, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+	if err != nil || len(r.Propios.Perfiles) != 1 || r.AuditoriaComunRef == "" || tx.commits != 2 {
+		t.Fatalf("COMMIT abortado no repetido: err=%v commits=%d", err, tx.commits)
+	}
+	// La marca conserva la clase de error para los demás consumidores.
+	tx2 := &txSelectorAuditadoPrueba{carrerasCommit: 1}
+	_, _, _, pool := escenarioSelectorAuditadoPrueba(t, tx2)
+	err = (&PostgreSQL{pool: pool, reloj: relojSeleccion{time.Now()}}).transaccion(context.Background(), func(pgx.Tx) error { return nil })
+	if !errors.Is(err, api.ErrConfiguracionIncompleta) || strings.Contains(err.Error(), "detalle interno") {
+		t.Fatalf("COMMIT abortado sin clase o con detalle del proveedor: %v", err)
+	}
+}
+
+type relojSecuenciaSelector struct {
+	instantes []time.Time
+	llamadas  *int
+}
+
+func (r relojSecuenciaSelector) Ahora() time.Time {
+	i := min(*r.llamadas, len(r.instantes)-1)
+	*r.llamadas++
+	return r.instantes[i]
+}
+
+// Si la observación mTLS caduca entre dos intentos, no se abre otro.
+func TestSelectorRevalidaObservacionEnCadaIntento(t *testing.T) {
+	tx := &txSelectorAuditadoPrueba{carrerasPendientes: 1}
+	s, ctx, o, pool := escenarioSelectorAuditadoPrueba(t, tx)
+	ahora := time.Date(2026, 10, 3, 14, 0, 0, 0, time.UTC)
+	llamadas := 0
+	// Comprobación inicial y primer intento vigentes; después, CRL caducada.
+	s.base.reloj = relojSecuenciaSelector{instantes: []time.Time{ahora, ahora, ahora.Add(2 * time.Minute)}, llamadas: &llamadas}
+	_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
+	if !errors.Is(err, api.ErrAutenticacionRequerida) || pool.inicios != 1 || tx.commits != 0 {
+		t.Fatalf("reintento con observación caducada: err=%v transacciones=%d", err, pool.inicios)
 	}
 }

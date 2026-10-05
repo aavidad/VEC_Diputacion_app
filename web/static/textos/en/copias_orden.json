@@ -1,0 +1,10 @@
+{
+  "aviso_sintetico": "Synthetic data and authenticated envelope test. It does not consume real V3 permissions, retain a durable acceptance, or execute backups or restores.",
+  "argumentos_invalidos": "Provide configuration and text files with --config and --textos, and send JSON through standard input.",
+  "catalogo_invalido": "The text catalogue could not be read.",
+  "entrada_invalida": "Check the synthetic input and step sequence.",
+  "orden_invalida": "The order is incomplete or its commitments are invalid.",
+  "orden_denegada": "The authenticated envelope, validity window or current anchor prevents order acceptance.",
+  "salida_fallida": "The result could not be written.",
+  "configuracion_invalida": "Check private configuration and existing key provider material."
+}

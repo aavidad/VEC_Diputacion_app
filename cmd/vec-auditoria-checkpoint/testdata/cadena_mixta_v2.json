@@ -1,0 +1,43 @@
+{
+  "esquema": "vec.auditoria.verificacion.v2",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:checkpoint-historico",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 2,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95",
+    "registros": 2
+  },
+  "registros": [
+    {
+      "tipo_registro": "consumo_confirmado",
+      "consumo": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 1,
+        "decision_ref": "decision:ad173:1",
+        "efecto_ref": "efecto:ad173:1",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "huella_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v2",
+      "consumo": {
+        "auditoria_ref": "aud_v3_cccccccccccccccccccccccccccccccc",
+        "secuencia": 2,
+        "decision_ref": "decision:ad173:2",
+        "efecto_ref": "efecto:ad173:2",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7",
+        "consumo_huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95"
+      }
+    }
+  ]
+}

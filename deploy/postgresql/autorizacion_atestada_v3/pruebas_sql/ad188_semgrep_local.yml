@@ -1,0 +1,22 @@
+rules:
+  - id: ad188-no-public-execute
+    languages: [generic]
+    severity: ERROR
+    message: La provisión técnica exige ejecución privada.
+    pattern: GRANT EXECUTE ON FUNCTION ... TO PUBLIC
+  - id: ad188-verificador-readonly
+    paths:
+      include: [internal/vec/auditoria/**]
+    languages: [go]
+    severity: ERROR
+    message: El verificador offline no escribe ni ejecuta procesos.
+    pattern-either:
+      - pattern: os.WriteFile(...)
+      - pattern: os.Create(...)
+      - pattern: exec.Command(...)
+      - pattern: exec.CommandContext(...)
+  - id: ad188-no-tls-bypass
+    languages: [go]
+    severity: ERROR
+    message: No desactivar la verificación TLS.
+    pattern: 'tls.Config{..., InsecureSkipVerify: true, ...}'

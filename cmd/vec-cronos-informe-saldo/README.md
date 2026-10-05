@@ -1,9 +1,9 @@
-# Ejemplo PDF del saldo de Cronos
+# Ejemplos PDF y CSV del saldo de Cronos
 
 Desde la raíz del repositorio:
 
 ```sh
-TMPDIR=/tmp GOCACHE=/dev/shm/go-build go run ./cmd/vec-cronos-informe-saldo \
+TMPDIR=/tmp GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-cronos-informe-saldo \
   web/static/textos/es/cronos-informe-saldo.json \
   internal/modules/cronos/adapters/informesaldo/escenario_sintetico.json > /tmp/cronos-saldo-ejemplo.pdf
 ```
@@ -36,7 +36,7 @@ cumplir el esquema cerrado y estar marcado como sintético antes de emitir bytes
 El mismo programa genera una lista de fichajes de ensayo:
 
 ```sh
-TMPDIR=/tmp GOCACHE=/dev/shm/go-build go run ./cmd/vec-cronos-informe-saldo \
+TMPDIR=/tmp GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-cronos-informe-saldo \
   --vista=movimientos \
   web/static/textos/es/cronos-informe-movimientos.json \
   cmd/vec-cronos-informe-saldo/testdata/movimientos.json > /tmp/cronos-movimientos-ejemplo.pdf
@@ -66,3 +66,27 @@ consume autorizaciones ni confirma auditoría. El permiso nominal, los tipos y
 campos exportables aprobados y la política de exportación siguen pendientes
 (duda 118 de RRHH y DPD). No habilita descarga, impresión ni una ruta HTTP.
 El PDF etiquetado y la validación PDF/UA siguen pendientes.
+
+## Saldo en CSV
+
+El saldo del mismo ejemplo también se puede abrir en una hoja de cálculo:
+
+```sh
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-cronos-informe-saldo \
+  --formato=csv \
+  web/static/textos/es/cronos-informe-saldo-csv.json \
+  internal/modules/cronos/adapters/informesaldo/escenario_sintetico.json > /tmp/cronos-saldo-ejemplo.csv
+```
+
+Para inglés, cambie el catálogo por el de `textos/en/`. Cada fila conserva
+persona sintética, período, estado, aviso de ejemplo y cantidades en minutos
+enteros. El saldo negativo sigue siendo un número; «No disponible» conserva
+un dato desconocido. El CSV no incluye referencias de empleado o de fuente.
+Las celdas de texto que podrían interpretarse como fórmulas llevan un apóstrofo
+inicial. Las cantidades validadas siguen siendo números para poder operar con ellas.
+
+Se reutilizan las comprobaciones del PDF, sin recalcular el saldo. El catálogo
+CSV y el de PDF no son intercambiables. `--vista=movimientos` conserva su
+funcionamiento; no se combina con `--formato=csv` en esta herramienta.
+La salida sigue siendo una muestra local: no consulta datos personales ni
+habilita la exportación nominal pendiente de la pregunta 118.
