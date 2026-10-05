@@ -82,9 +82,12 @@ func Recurso(material []byte, asignacion vd.AsignacionPerfil) (string, vd.Recurs
 	if cadena(d["esquema"], &esquema) != nil || esquema != esquemaDescriptor ||
 		cadena(d["clave"], &clave) != nil || !hex32.MatchString(clave) ||
 		cadena(d["certificado_der_sha256"], &der) != nil || !hex64.MatchString(der) || der == ceros ||
-		cadena(d["organizacion_ref"], &destino) != nil || destino != org ||
+		cadena(d["organizacion_ref"], &destino) != nil || !organizacion.MatchString(destino) ||
 		cadena(d["estado"], &estado) != nil {
 		return "", cero, errDescriptor
+	}
+	if destino != org {
+		return "", cero, efecto.ErrAmbitoNoCubierto
 	}
 	accion := map[string]string{"vigente": AccionPublicar, "retirado": AccionRetirar}[estado]
 	if accion == "" {
@@ -124,26 +127,49 @@ func cadena(b json.RawMessage, destino *string) error {
 // Recibo es lo que ve el administrador: el recibo de CA25 (en un reintento,
 // el original) y si es nuevo o recuperado.
 type Recibo struct {
-	Esquema              string          `json:"esquema"`
-	Clave                string          `json:"clave"`
-	VinculoRef           string          `json:"vinculo_ref"`
-	Version              json.Number     `json:"version"`
-	CertificadoDERSHA256 string          `json:"certificado_der_sha256"`
-	Estado               string          `json:"estado"`
-	DecisionRef          string          `json:"decision_ref"`
-	AuditoriaRef         string          `json:"auditoria_ref"`
-	ReciboRef            string          `json:"recibo_ref"`
-	DescriptorSHA256     string          `json:"descriptor_sha256"`
-	OrganizacionDestino  json.RawMessage `json:"organizacion_destino"`
-	RegistradaEn         string          `json:"registrada_en"`
-	EstadoReplay         string          `json:"estado_replay,omitempty"`
+	Esquema              string              `json:"esquema"`
+	Clave                string              `json:"clave"`
+	VinculoRef           string              `json:"vinculo_ref"`
+	Version              json.Number         `json:"version"`
+	CertificadoDERSHA256 string              `json:"certificado_der_sha256"`
+	Estado               string              `json:"estado"`
+	DecisionRef          string              `json:"decision_ref"`
+	AuditoriaRef         string              `json:"auditoria_ref"`
+	ReciboRef            string              `json:"recibo_ref"`
+	DescriptorSHA256     string              `json:"descriptor_sha256"`
+	OrganizacionDestino  OrganizacionDestino `json:"organizacion_destino"`
+	RegistradaEn         string              `json:"registrada_en"`
+	EstadoReplay         string              `json:"estado_replay,omitempty"`
+}
+
+// OrganizacionDestino es lo que el administrador ve de la acreditación de la
+// organización del destino: la organización y su versión. Las referencias de
+// vínculo corporativo y procedencia que devuelve CA25 se leen y se descartan.
+type OrganizacionDestino struct {
+	OrganizacionRef     string      `json:"organizacion_ref"`
+	OrganizacionVersion json.Number `json:"organizacion_version"`
+}
+
+type organizacionDestinoCA25 struct {
+	OrganizacionRef                string      `json:"organizacion_ref"`
+	OrganizacionVersion            json.Number `json:"organizacion_version"`
+	OrganizacionHuellaSHA256       string      `json:"organizacion_huella_sha256"`
+	OrganizacionProcedenciaRef     string      `json:"organizacion_procedencia_ref"`
+	OrganizacionProcedenciaVersion json.Number `json:"organizacion_procedencia_version"`
+	OrganizacionProcedenciaSHA256  string      `json:"organizacion_procedencia_sha256"`
+	VinculoCorporativoRef          string      `json:"vinculo_corporativo_ref"`
+	VinculoCorporativoVersion      json.Number `json:"vinculo_corporativo_version"`
+	VinculoCorporativoHuellaSHA256 string      `json:"vinculo_corporativo_huella_sha256"`
 }
 
 // recibo lee la respuesta exacta de AD205: el recibo de CA25 y el consumo de
 // este acceso. Es «recuperada» si el recibo es de otra decisión.
 func recibo(bruto []byte, accion string, recurso vd.RecursoAutorizable) (efecto.Recibo, error) {
 	var r struct {
-		Recibo  Recibo `json:"recibo"`
+		Recibo struct {
+			Recibo
+			OrganizacionDestino organizacionDestinoCA25 `json:"organizacion_destino"`
+		} `json:"recibo"`
 		Consumo struct {
 			DecisionRef  string `json:"decision_ref"`
 			AuditoriaRef string `json:"auditoria_ref"`
@@ -155,13 +181,15 @@ func recibo(bruto []byte, accion string, recurso vd.RecursoAutorizable) (efecto.
 	if dec.Decode(&r) != nil || dec.Decode(new(any)) != io.EOF {
 		return efecto.Recibo{}, errDescriptor
 	}
-	p, c := r.Recibo, r.Consumo
+	p, c, o := r.Recibo.Recibo, r.Consumo, r.Recibo.OrganizacionDestino
+	p.OrganizacionDestino = OrganizacionDestino{OrganizacionRef: o.OrganizacionRef, OrganizacionVersion: o.OrganizacionVersion}
 	estado := map[string]string{AccionPublicar: "vigente", AccionRetirar: "retirado"}[accion]
 	if p.Esquema != "vec.contexto-actor.certificado-firmante.recibo.v2" || !hex32.MatchString(p.Clave) ||
 		"certificado-nominal:"+p.CertificadoDERSHA256 != recurso.Referencia || p.Estado != estado ||
 		p.DescriptorSHA256 != recurso.Atributos["descriptor_sha256"] || p.ReciboRef != "recibo_certificado_nominal:"+p.Clave ||
 		!auditoria.MatchString(p.AuditoriaRef) || p.DecisionRef == "" || p.RegistradaEn == "" || p.EstadoReplay != "" ||
-		!auditoria.MatchString(c.AuditoriaRef) || c.DecisionRef == "" || len(p.OrganizacionDestino) == 0 {
+		!auditoria.MatchString(c.AuditoriaRef) || c.DecisionRef == "" ||
+		o.OrganizacionRef != recurso.Ambitos["organizacion_ref"] || o.OrganizacionVersion == "" {
 		return efecto.Recibo{}, errDescriptor
 	}
 	switch {

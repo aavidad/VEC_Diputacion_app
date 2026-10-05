@@ -107,3 +107,27 @@ func TestHTTPEfectoNominalCargos(t *testing.T) {
 		}
 	}
 }
+
+// Las dos rutas fijas se montan a la vez, cada una una sola vez, y cada POST
+// llega a su servicio.
+func TestHTTPEfectosNominalesDosRutas(t *testing.T) {
+	_, _, _, sesion, auditor, _ := loteHTTPPrueba(t)
+	h, err := NuevoHandlerUsuariosMetadatos("https://admin.example.test", sesion, &lecturasPrueba{}, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cargos := &efectoHTTPPrueba{recibo: ReciboEfectoNominalADMIN{Cuerpo: json.RawMessage(`{"recibo_ref":"percar_x"}`), ConsumoAuditoriaRef: "aud_v3_c"}}
+	certs := &efectoHTTPPrueba{recibo: ReciboEfectoNominalADMIN{Cuerpo: json.RawMessage(`{"recibo_ref":"recibo_certificado_nominal:x"}`), ConsumoAuditoriaRef: "aud_v3_k"}}
+	if h.ConEfectoNominal(RutaPublicacionCargoCompetencial, 64, cargos) != nil || h.ConEfectoNominal(RutaPublicacionCertificadoNominal, 64, certs) != nil ||
+		h.ConEfectoNominal(RutaPublicacionCertificadoNominal, 64, cargos) == nil || h.ConEfectoNominal(RutaPublicacionCertificadoNominal, 64, nil) == nil {
+		t.Fatal("montaje de dos efectos distinto del esperado")
+	}
+	cuerpo := `{"material_base64":"` + base64.StdEncoding.EncodeToString([]byte(`{"x":1}`)) + `"}`
+	for ruta, s := range map[string]*efectoHTTPPrueba{RutaPublicacionCargoCompetencial: cargos, RutaPublicacionCertificadoNominal: certs} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionADMIN(http.MethodPost, ruta, cuerpo))
+		if w.Code != http.StatusOK || len(s.solicitudes) != 1 || !strings.Contains(w.Body.String(), s.recibo.ConsumoAuditoriaRef) {
+			t.Fatalf("%s no llegó a su servicio: %d %s", ruta, w.Code, w.Body.String())
+		}
+	}
+}

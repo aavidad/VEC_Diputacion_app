@@ -71,7 +71,7 @@ func main() {
 		// nominales), igual: sólo con las lecturas de usuarios y cada uno con
 		// su propio archivo privado.
 		var efectos []efectoConfigurado
-		for _, e := range efectosADMIN {
+		for _, e := range efectosADMIN() {
 			ruta := os.Getenv(e.variable)
 			if ruta == "" {
 				continue

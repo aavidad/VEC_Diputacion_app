@@ -108,7 +108,7 @@ func TestOverlayCargosFallaCerrado(t *testing.T) {
 // ruta y contrato coherentes; sólo los cargos piden UTC.
 func TestEfectosADMINCoherentes(t *testing.T) {
 	vistos := map[string]bool{}
-	for _, e := range efectosADMIN {
+	for _, e := range efectosADMIN() {
 		c := e.contrato()
 		if vistos[e.variable] || vistos[e.ruta] || vistos[e.grupo] || c.Audiencia != e.audiencia || !c.Valido() ||
 			e.maximo < 2 || e.utc != (e.nombre == "cargos") {
@@ -116,7 +116,7 @@ func TestEfectosADMINCoherentes(t *testing.T) {
 		}
 		vistos[e.variable], vistos[e.ruta], vistos[e.grupo] = true, true, true
 	}
-	if len(efectosADMIN) != 2 {
+	if len(efectosADMIN()) != 2 {
 		t.Fatal("lista de efectos distinta")
 	}
 }

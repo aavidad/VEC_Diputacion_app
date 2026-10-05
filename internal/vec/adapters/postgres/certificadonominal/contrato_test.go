@@ -4,9 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
+	efecto "vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 	vd "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -59,14 +61,13 @@ func TestRecursoCertificadoCoincideConAD205(t *testing.T) {
 		t.Fatal("retirada sin su acción")
 	}
 	for nombre, cambiar := range map[string]func(map[string]any){
-		"otro_esquema":      func(d map[string]any) { d["esquema"] = "vec.otro.v1" },
-		"der_ceros":         func(d map[string]any) { d["certificado_der_sha256"] = strings.Repeat("0", 64) },
-		"der_mayusculas":    func(d map[string]any) { d["certificado_der_sha256"] = strings.Repeat("C", 64) },
-		"estado_raro":       func(d map[string]any) { d["estado"] = "suspendido" },
-		"otra_organizacion": func(d map[string]any) { d["organizacion_ref"] = "org_" + strings.Repeat("d", 32) },
-		"clave_de_mas":      func(d map[string]any) { d["extra"] = 1 },
-		"clave_de_menos":    func(d map[string]any) { delete(d, "evidencia_ref") },
-		"clave_corta":       func(d map[string]any) { d["clave"] = "abc" },
+		"otro_esquema":   func(d map[string]any) { d["esquema"] = "vec.otro.v1" },
+		"der_ceros":      func(d map[string]any) { d["certificado_der_sha256"] = strings.Repeat("0", 64) },
+		"der_mayusculas": func(d map[string]any) { d["certificado_der_sha256"] = strings.Repeat("C", 64) },
+		"estado_raro":    func(d map[string]any) { d["estado"] = "suspendido" },
+		"clave_de_mas":   func(d map[string]any) { d["extra"] = 1 },
+		"clave_de_menos": func(d map[string]any) { delete(d, "evidencia_ref") },
+		"clave_corta":    func(d map[string]any) { d["clave"] = "abc" },
 	} {
 		if _, _, err := Recurso(descriptorPrueba(t, cambiar), asignacionPrueba()); err == nil {
 			t.Fatalf("%s aceptado", nombre)
@@ -94,7 +95,10 @@ func respuestaPrueba(t *testing.T, material []byte, decisionRecibo, auditoriaRec
 	r := map[string]any{"esquema": "vec.contexto-actor.certificado-firmante.recibo.v2", "clave": strings.Repeat("a", 32), "vinculo_ref": "vcc_x",
 		"version": 1, "certificado_der_sha256": derPrueba, "estado": "vigente", "decision_ref": decisionRecibo, "auditoria_ref": auditoriaRecibo,
 		"recibo_ref": "recibo_certificado_nominal:" + strings.Repeat("a", 32), "descriptor_sha256": hex.EncodeToString(suma[:]),
-		"organizacion_destino": map[string]any{"organizacion_ref": orgPrueba}, "registrada_en": "2026-10-05T20:00:00.000000Z"}
+		"organizacion_destino": map[string]any{"organizacion_ref": orgPrueba, "organizacion_version": 1,
+			"organizacion_huella_sha256": strings.Repeat("1", 64), "organizacion_procedencia_ref": "prc_x", "organizacion_procedencia_version": 1,
+			"organizacion_procedencia_sha256": strings.Repeat("2", 64), "vinculo_corporativo_ref": "vcr_x", "vinculo_corporativo_version": 1,
+			"vinculo_corporativo_huella_sha256": strings.Repeat("3", 64)}, "registrada_en": "2026-10-05T20:00:00.000000Z"}
 	if cambiar != nil {
 		cambiar(r)
 	}
@@ -112,7 +116,8 @@ func TestReciboCertificado(t *testing.T) {
 		r, err := recibo(respuestaPrueba(t, material, x[0], x[1], x[2], x[3], nil), accion, recurso)
 		var cuerpo map[string]any
 		if err != nil || r.ConsumoAuditoriaRef != x[3] || json.Unmarshal(r.Cuerpo, &cuerpo) != nil || cuerpo["estado_replay"] != estado ||
-			cuerpo["auditoria_ref"] != a1 {
+			cuerpo["auditoria_ref"] != a1 || strings.Contains(string(r.Cuerpo), "vinculo_corporativo") ||
+			strings.Contains(string(r.Cuerpo), "procedencia") {
 			t.Fatalf("%s: %v %s", estado, err, r.Cuerpo)
 		}
 	}
@@ -124,9 +129,24 @@ func TestReciboCertificado(t *testing.T) {
 		"campo_de_mas": respuestaPrueba(t, material, "dec1", a1, "dec1", a1, func(r map[string]any) { r["persona_ref"] = "per_x" }),
 		"auditoria":    respuestaPrueba(t, material, "dec1", "aud-x", "dec1", "aud-x", nil),
 		"recibo_ref":   respuestaPrueba(t, material, "dec1", a1, "dec1", a1, func(r map[string]any) { r["recibo_ref"] = "recibo:x" }),
+		"otra_org_destino": respuestaPrueba(t, material, "dec1", a1, "dec1", a1, func(r map[string]any) {
+			r["organizacion_destino"].(map[string]any)["organizacion_ref"] = "org_" + strings.Repeat("d", 32)
+		}),
+		"campo_destino_de_mas": respuestaPrueba(t, material, "dec1", a1, "dec1", a1, func(r map[string]any) {
+			r["organizacion_destino"].(map[string]any)["persona_ref"] = "per_x"
+		}),
 	} {
 		if _, err := recibo(b, accion, recurso); err == nil {
 			t.Fatalf("%s aceptado", nombre)
 		}
+	}
+}
+
+// Un destino de otra organización es denegación (ámbito no cubierto), no
+// petición inválida.
+func TestRecursoCertificadoOtraOrganizacionEsDenegacion(t *testing.T) {
+	_, _, err := Recurso(descriptorPrueba(t, func(d map[string]any) { d["organizacion_ref"] = "org_" + strings.Repeat("d", 32) }), asignacionPrueba())
+	if !errors.Is(err, efecto.ErrAmbitoNoCubierto) {
+		t.Fatalf("otra organización sin denegación: %v", err)
 	}
 }

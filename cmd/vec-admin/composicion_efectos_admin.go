@@ -28,14 +28,17 @@ type efectoADMIN struct {
 	contrato  func() efectonominaladmin.Contrato
 }
 
-// efectosADMIN es la lista cerrada, en el orden en que se abren sus pools.
-var efectosADMIN = []efectoADMIN{
-	{nombre: "cargos", variable: "VEC_ADMIN_CARGOS_CONFIG_FILE", audiencia: administracion.AudienciaCargoCompetencialV3,
-		grupo: "vec_personal_ejecutor", utc: true, ruta: api.RutaPublicacionCargoCompetencial,
-		maximo: personalpg.MaximoMaterialPublicacionCargo, contrato: personalpg.ContratoPublicacionCargoCompetencial},
-	{nombre: "certificados", variable: "VEC_ADMIN_CERTIFICADOS_CONFIG_FILE", audiencia: administracion.AudienciaCertificadoNominalV3,
-		grupo: "vec_autorizacion_certificado_nominal_ejecutor", ruta: api.RutaPublicacionCertificadoNominal,
-		maximo: certificadonominal.MaximoDescriptor, contrato: certificadonominal.Contrato},
+// efectosADMIN devuelve la lista cerrada, nueva en cada llamada, en el orden
+// en que se abren sus pools.
+func efectosADMIN() []efectoADMIN {
+	return []efectoADMIN{
+		{nombre: "cargos", variable: "VEC_ADMIN_CARGOS_CONFIG_FILE", audiencia: administracion.AudienciaCargoCompetencialV3,
+			grupo: "vec_personal_ejecutor", utc: true, ruta: api.RutaPublicacionCargoCompetencial,
+			maximo: personalpg.MaximoMaterialPublicacionCargo, contrato: personalpg.ContratoPublicacionCargoCompetencial},
+		{nombre: "certificados", variable: "VEC_ADMIN_CERTIFICADOS_CONFIG_FILE", audiencia: administracion.AudienciaCertificadoNominalV3,
+			grupo: "vec_autorizacion_certificado_nominal_ejecutor", ruta: api.RutaPublicacionCertificadoNominal,
+			maximo: certificadonominal.MaximoDescriptor, contrato: certificadonominal.Contrato},
+	}
 }
 
 // efectoConfigurado es un efecto de la lista con su archivo privado cargado.

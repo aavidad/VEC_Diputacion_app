@@ -71,6 +71,9 @@ func (e *EmisorEfectoNominalADMIN) Emitir(ctx context.Context, actor domain.Cont
 		return vacia, fallo
 	}
 	accion, recurso, err := e.contrato.Recurso(bytes.Clone(material), snapshot.AsignacionPerfil)
+	if errors.Is(err, efecto.ErrAmbitoNoCubierto) {
+		return vacia, domain.ErrAutorizacionDenegada
+	}
 	if err != nil || !slices.Contains(e.contrato.Acciones, accion) || recurso.Validar() != nil ||
 		recurso.ModuloID != e.contrato.Modulo || recurso.Tipo != e.contrato.Tipo {
 		return vacia, domain.ErrActoAdministracionPerfilesInvalido

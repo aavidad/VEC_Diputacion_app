@@ -30,6 +30,9 @@ import (
 var (
 	ErrNoDisponible = errors.New("vec: efecto nominal de administración no disponible")
 	ErrConflicto    = errors.New("vec: efecto nominal de administración en conflicto")
+	// ErrAmbitoNoCubierto lo devuelve un Recurso cuando el material apunta a
+	// un ámbito que la asignación del administrador no cubre: es denegación.
+	ErrAmbitoNoCubierto = errors.New("vec: ámbito del efecto no cubierto por la asignación")
 
 	procesoEfecto   = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,63}$`)
 	sentenciaEfecto = regexp.MustCompile(`^SELECT [a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\(\$1::bytea,\$2::bytea,\$3::bytea,\$4::bytea,\$5::bytea,\$6::numeric,\$7::numeric,\$8::bytea,\$9::bytea,\$10::bytea,\$11::bytea\)::text$`)
@@ -175,6 +178,9 @@ func (e *Ejecutor) aplicar(ctx context.Context, s Solicitud) (Recibo, string, st
 	material := bytes.Clone(s.Material)
 	defer clear(material)
 	accion, recurso, err := e.contrato.Recurso(bytes.Clone(material), s.Instantanea.AsignacionPerfil)
+	if errors.Is(err, ErrAmbitoNoCubierto) {
+		return vacio, "", "", vd.ErrAutorizacionDenegada
+	}
 	if err != nil || !slices.Contains(e.contrato.Acciones, accion) || recurso.Validar() != nil ||
 		recurso.ModuloID != e.contrato.Modulo || recurso.Tipo != e.contrato.Tipo {
 		return vacio, "", "", vd.ErrActoAdministracionPerfilesInvalido
