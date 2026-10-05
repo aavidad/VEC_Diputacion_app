@@ -158,7 +158,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactos(ctx 
 	if err != nil {
 		return puertosbolsa.ConsultaContactosParticipacion{}, err
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	correlacion, err := p.correlacionConsultaContactos(ctx)
 	if err != nil {
 		return puertosbolsa.ConsultaContactosParticipacion{}, err
 	}
@@ -170,7 +170,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactosBolsa
 	if err != nil {
 		return puertosbolsa.ConsultaContactosBolsa{}, err
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	correlacion, err := p.correlacionConsultaContactos(ctx)
 	if err != nil {
 		return puertosbolsa.ConsultaContactosBolsa{}, err
 	}
@@ -728,7 +728,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerContacto, err := bolsahttp.NuevoHandlerContactoParticipacion(preparador, servicioContacto)
+	// Mismo registrador AD169 y mismo cierre que la consulta documental.
+	contactosAuditados, err := aplicacionbolsa.NuevosContactosRRHHAuditados(servicioContacto, registradorDocumentales, procesoDocumentales)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerContacto, err := bolsahttp.NuevoHandlerContactoParticipacion(preparador, contactosAuditados)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
