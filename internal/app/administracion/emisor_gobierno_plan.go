@@ -58,7 +58,13 @@ func snapshotGobiernoPlanFirmaValido(s domain.InstantaneaAutorizacion, actor dom
 		!s.AsignacionPerfil.VigenteEn(ahora) || !s.AsignacionPerfil.Cubre(recurso) {
 		return false
 	}
-	return slices.ContainsFunc(s.VersionRol.Concesiones, func(c domain.ConcesionRol) bool { return concesionGobiernoPlanFirma(c, accion) })
+	// Como en el lote: decide la primera concesión de esa acción, módulo y tipo.
+	for _, c := range s.VersionRol.Concesiones {
+		if c.Accion == accion && c.ModuloID == moduloGobiernoPlanFirma && c.TipoRecurso == tipoGobiernoPlanFirma {
+			return concesionGobiernoPlanFirma(c, accion)
+		}
+	}
+	return false
 }
 
 // EmitirGobiernoPlanFirma deriva acción y recurso de los bytes exactos del

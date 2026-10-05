@@ -66,7 +66,10 @@ func (h *Handler) ConGobiernoPlanFirma(s ServicioGobiernoPlanFirmaADMIN) error {
 }
 
 func (h *Handler) postGobiernoPlanFirma(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
-	const accion = "gobernar_plan_firma"
+	// Las denegaciones de frontera usan el destino «escribir» del overlay de
+	// usuarios, que siempre existe; el fallo de la autoridad deja su propio
+	// intento con la acción de catálogo exacta.
+	const accion = "escribir"
 	if dependenciaNula(h.gobiernoPlan) {
 		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", accion, "")
 		return

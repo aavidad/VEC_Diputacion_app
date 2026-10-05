@@ -76,9 +76,10 @@ type emisorGobiernoPrueba struct {
 	alterar  string
 	err      error
 	llamadas int
+	ahora    time.Time
 }
 
-func (e *emisorGobiernoPrueba) EmitirGobiernoPlanFirma(_ context.Context, _ vd.ContextoActor, _ vd.EvidenciaSesionAdministracionPerfiles,
+func (e *emisorGobiernoPrueba) EmitirGobiernoPlanFirma(_ context.Context, actor vd.ContextoActor, evidencia vd.EvidenciaSesionAdministracionPerfiles,
 	_ vd.InstantaneaAutorizacion, material []byte, _ string) (EmisionGobiernoPlanFirma, error) {
 	e.llamadas++
 	if e.err != nil {
@@ -94,20 +95,23 @@ func (e *emisorGobiernoPrueba) EmitirGobiernoPlanFirma(_ context.Context, _ vd.C
 		audiencia = "vec.admin.usuarios.consultar.v1"
 	case "recurso":
 		recurso.Atributos["revision"] = "9"
+	case "contexto":
+		evidencia.ResultadoContexto.HuellaSHA256 = strings.Repeat("c", 64)
 	}
 	huella, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	ahora := e.ahora
 	resumen, err := vp.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"ctx_prueba", strings.Repeat("c", 64), accion, recurso.Referencia, huella, audiencia, ahora, ahora.Add(3*time.Second))
+		evidencia.ResultadoContexto.RegistroContextoRef, evidencia.ResultadoContexto.HuellaSHA256, accion, recurso.Referencia, huella, audiencia, ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		e.t.Fatal(err)
 	}
 	raiz, _ := hex.DecodeString("302a300506032b65700321002152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
 	m, err := vp.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte("x"), 512), resumen, []byte("decision"),
-		[]byte("motivo"), []byte("contexto"), 1, 1, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+		[]byte("motivo"), bytes.Clone(evidencia.ResultadoContexto.RepresentacionCanonica),
+		actor.Instantanea.PersonaVersion, actor.Instantanea.PerfilVersion, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -130,7 +134,7 @@ func escenarioGobiernoPostgres(t *testing.T, respuesta filaGobiernoPrueba) (*Aut
 		t.Fatal(err)
 	}
 	pool := &poolGobiernoPrueba{tx: &txGobiernoPrueba{fila: respuesta}}
-	emisor := &emisorGobiernoPrueba{t: t, ambito: ambitoPrueba}
+	emisor := &emisorGobiernoPrueba{t: t, ambito: ambitoPrueba, ahora: ahora}
 	registrador := &registradorGobiernoPrueba{}
 	motivo := vd.ReferenciaEntradaCatalogo{CatalogoID: "motivos_admin", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_gobierno"}
 	a, err := NuevaAutoridadGobiernoPlanFirmaPostgreSQL(pool, emisor, registrador, ConfiguracionAuditoriaGobiernoPlanFirma{
@@ -185,12 +189,12 @@ func TestGobiernoPlanFirmaConfirmaConAD201(t *testing.T) {
 // rechazado o asignación sin ámbitos únicos. Sin sesión ADMIN válida para
 // auditar, la respuesta es indisponibilidad y nunca un permiso o un 403.
 func TestGobiernoPlanFirmaNoConfirmaIncoherencias(t *testing.T) {
-	for _, caso := range []string{"audiencia", "recurso", "consumo_repetido", "sql_denegado", "sql_conflicto", "dos_unidades", "emisor_denegado"} {
+	for _, caso := range []string{"audiencia", "recurso", "contexto", "consumo_repetido", "sql_denegado", "sql_conflicto", "dos_unidades", "emisor_denegado"} {
 		t.Run(caso, func(t *testing.T) {
 			a, pool, emisor, registrador, s := escenarioGobiernoPostgres(t, filaGobiernoPrueba{})
 			pool.tx.fila = respuestaGobiernoPrueba(t, s, true)
 			switch caso {
-			case "audiencia", "recurso":
+			case "audiencia", "recurso", "contexto":
 				emisor.alterar = caso
 			case "consumo_repetido":
 				pool.tx.fila = respuestaGobiernoPrueba(t, s, false)
@@ -210,7 +214,7 @@ func TestGobiernoPlanFirmaNoConfirmaIncoherencias(t *testing.T) {
 			if caso == "dos_unidades" && (emisor.llamadas != 0 || pool.inicios != 0) {
 				t.Fatal("ámbito ambiguo alcanzó el PDP o la base")
 			}
-			if (caso == "audiencia" || caso == "recurso" || caso == "emisor_denegado") && pool.inicios != 0 {
+			if (caso == "audiencia" || caso == "recurso" || caso == "contexto" || caso == "emisor_denegado") && pool.inicios != 0 {
 				t.Fatal("emisión ajena alcanzó la base")
 			}
 			_ = registrador

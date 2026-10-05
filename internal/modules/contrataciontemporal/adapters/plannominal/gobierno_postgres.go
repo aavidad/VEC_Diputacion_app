@@ -177,9 +177,15 @@ func (a *AutoridadGobiernoPlanFirmaPostgreSQL) gobernar(ctx context.Context, s S
 	huella, err := recurso.HuellaContextoAutorizacionSHA256()
 	m := emision.Material
 	r := m.ResumenCapacidad()
+	ahora := a.reloj.Ahora()
+	resultado := s.Evidencia.ResultadoContexto
 	if err != nil || emision.Accion != accion || emision.Ambito != ambito || emision.Recurso.Referencia != recurso.Referencia ||
 		m.ValidarEstructura() != nil || r.Operacion() != accion || r.AudienciaConsumo() != AudienciaGobiernoPlanFirma ||
-		r.EfectoRef() != recurso.Referencia || r.EfectoHuellaSHA256() != huella || !a.reloj.Ahora().Before(r.ExpiraEn()) {
+		r.EfectoRef() != recurso.Referencia || r.EfectoHuellaSHA256() != huella ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) ||
+		r.ContextoRef() != resultado.RegistroContextoRef || r.ContextoHuellaSHA256() != resultado.HuellaSHA256 ||
+		!bytes.Equal(m.ContextoActorCanonico(), resultado.RepresentacionCanonica) ||
+		m.PersonaVersion() != s.Actor.Instantanea.PersonaVersion || m.PerfilVersion() != s.Actor.Instantanea.PerfilVersion {
 		return vacio, accion, recurso.Referencia, ErrGobiernoPlanFirmaNoDisponible
 	}
 	args := []any{material, ambito.OrganizacionRef, ambito.UnidadRef, m.CapacidadCanonica(), m.DecisionCanonica(),
