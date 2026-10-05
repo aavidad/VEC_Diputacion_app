@@ -12,7 +12,7 @@ const PENDIENTE_EJEMPLO = 'seleccion.lista_admision.pendiente.catalogo_ejemplo';
 const OBLIGATORIOS = Object.freeze({
   [ESQUEMA_PROVISIONAL]: ['aprobacion_competente', 'identidad_publicacion', 'vencimiento_al_publicar', 'publicacion_oficial']
     .map(p => `seleccion.lista_admision.pendiente.${p}`),
-  [ESQUEMA_DEFINITIVA]: ['aprobacion_competente', 'pie_recursos', 'registro_escritos', 'identidad_publicacion', 'publicacion_oficial']
+  [ESQUEMA_DEFINITIVA]: ['aprobacion_competente', 'pie_recursos', 'ultima_revision', 'registro_escritos', 'identidad_publicacion', 'publicacion_oficial']
     .map(p => `seleccion.lista_definitiva.pendiente.${p}`),
 });
 const id = v => typeof v === 'string' && /^[A-Za-z0-9:._-]{1,256}$/u.test(v);
@@ -39,7 +39,7 @@ const comunes = {
   bases: x => forma(x, { referencia: id, version: id, huella_sha256: validarHuella }),
   catalogo: x => forma(x, { referencia: id, version: id, paquete_ejemplo: logico }, ['duda_ref'])
     && (Object.hasOwn(x, 'duda_ref') ? id(x.duda_ref) : !x.paquete_ejemplo),
-  pendientes: lista(8, x => typeof x === 'string'),
+  pendientes: lista(9, x => typeof x === 'string'),
   aprobada: x => x === false, publicada: x => x === false, persistida: x => x === false,
 };
 const PROVISIONAL = {

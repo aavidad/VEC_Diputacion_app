@@ -39,5 +39,6 @@
   "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publish the final list in the official gazette and on the site set by the call rules.",
   "seleccion_lista_definitiva_pendiente_pie_recursos": "The decision approving the final list must state the available appeals, the body that hears them and the deadline.",
   "seleccion_revision_lista_entrada_invalida": "The new revision could not be prepared. Check that it starts from the previous provisional list, uses the next revision number, keeps its decisions and adds at least one new application.",
-  "seleccion_revision_lista_pendiente_plazo_incorporadas": "For the added applications, the correction period starts the day after this revision is published."
+  "seleccion_revision_lista_pendiente_plazo_incorporadas": "For the added applications, the correction period starts the day after this revision is published.",
+  "seleccion_lista_definitiva_pendiente_ultima_revision": "Check that the provisional list it starts from is the latest published revision."
 }
