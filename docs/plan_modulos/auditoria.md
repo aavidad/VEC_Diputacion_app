@@ -62,6 +62,26 @@ Comparte el montaje de `bolsa_borrador_llamamiento_desarrollo.go` y la correlaci
 de la petición con #591, así que se apila sobre su rama. Como las otras cuatro,
 el ensayo nominal por HTTP necesita la identidad RRHH CA26/IS13.
 
+Estado: PR #719 (apilada sobre #591) cubre `ListarContactosParticipacion` y
+`ListarContactosBolsa`, con revisión independiente GO. La consulta de datos de
+contacto queda para el corte C.
+
+### Corte C: consulta de datos de contacto (hueco de autorización latente)
+
+`ServicioDatosContactoParticipacion.Consultar` devuelve correo y teléfonos en
+claro (`GET …/candidatos/{p}/datos-contacto?ver=completo`) sin decisión V3 propia:
+la frontera común sólo exige sesión mTLS y el perfil activo de Bolsa RRHH, y en el
+catálogo esa frontera cuelga de la acción de *registrar* datos de contacto. Sólo
+queda el registro de intentos HTTP propio de Bolsa, sin la participación ni si se
+pidió el detalle completo. Hoy no es explotable porque la sesión RRHH de Bolsa
+admite un único principal sintético cuyo rol ya incluye contactos, pero lo será en
+cuanto haya varios usuarios con el perfil de Bolsa. Corrección prevista: acción,
+finalidad y motivo propios de la consulta, emitir y consumir la V3 en `Consultar`
+con la participación como recurso, ligar la frontera a esa acción, el mismo
+decorador AD169 y corregir el comentario de
+`adapters/httpinterno/datos_contacto_participacion.go`. Necesita catálogo y
+consumidor SQL, así que va con reserva, ensayo y revisión SQL.
+
 ### Corte B: descargas de borradores de Contratación temporal
 
 Hoy la descarga PDF/DOCX de un borrador RRHH es la consulta del detalle del
