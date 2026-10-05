@@ -2,10 +2,12 @@ package adminperfiles
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
@@ -122,9 +124,22 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			// Un 40001/40P01 en el COMMIT garantiza que no se aplicó nada. Se
+			// conserva la clase sin el error del proveedor para que el
+			// consumidor que lo admita repita la transacción entera.
+			return errors.Join(api.ErrConfiguracionIncompleta, errCommitCarreraSerializable{})
+		}
 		return api.ErrConfiguracionIncompleta
 	}
 	return nil
 }
+
+// errCommitCarreraSerializable marca un COMMIT abortado por serialización o
+// interbloqueo. Sigue siendo ErrConfiguracionIncompleta para errors.Is.
+type errCommitCarreraSerializable struct{}
+
+func (errCommitCarreraSerializable) Error() string             { return "commit_carrera_serializable" }
+func (errCommitCarreraSerializable) CarreraSerializable() bool { return true }
 
 var _ FuenteCuentasADMIN = (*PostgreSQL)(nil)

@@ -18,6 +18,10 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+// plazoSelectorAuditado acota cada lectura o selección auditada, reintentos
+// incluidos.
+const plazoSelectorAuditado = 10 * time.Second
+
 const listarPropiosAuditadoSQL = `SELECT resultado,auditoria_comun_ref FROM vec_identidad_sesiones_v1.listar_perfiles_admin_auditado_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
 const seleccionarPerfilAuditadoSQL = `SELECT resultado,auditoria_comun_ref FROM vec_identidad_sesiones_v1.seleccionar_perfil_admin_auditado_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`
 
@@ -134,8 +138,16 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 	// algunas con 40001. El aborto revierte la transacción entera, así que se
 	// repite con otra nueva según la política común. Nunca se repite una
 	// respuesta ya validada: su COMMIT puede haberse aplicado.
+	// vec-admin no acota el contexto de la petición: el plazo propio limita
+	// los reintentos muy por debajo de los 45 s de lectura y escritura HTTP.
+	ctx, cancelar := context.WithTimeout(ctx, plazoSelectorAuditado)
+	defer cancelar()
 	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
 		salida, ref, denegada, resultadoValidado = resultadoSelectorAuditado{}, "", nil, false
+		// La observación mTLS debe seguir vigente en cada intento.
+		if !o.Valida(s.base.reloj.Ahora().UTC()) {
+			return api.ErrAutenticacionRequerida
+		}
 		err := s.base.transaccion(ctx, func(tx pgx.Tx) error {
 			var bruto []byte
 			if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto, &ref); err != nil {
@@ -172,7 +184,9 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 			resultadoValidado = true
 			return nil
 		})
-		if err != nil && resultadoValidado {
+		// Un COMMIT abortado por serialización no aplicó nada y se repite;
+		// cualquier otro fallo tras validar es incierto y no se repite.
+		if err != nil && resultadoValidado && !postgresqlcomun.EsCarreraSerializable(err) {
 			return api.ErrConfiguracionIncompleta
 		}
 		return err
