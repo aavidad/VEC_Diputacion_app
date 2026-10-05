@@ -96,3 +96,19 @@ consumo no deja rastro. Hay dos partes:
    propia de descarga con su concesión en el catálogo RRHH, o ligar el tipo y el
    formato al recurso de la consulta antes de consumir. Se coordina con E
    (Documentos/firma) y se escribe aquí antes de programar.
+
+Decisión y estado (05/10, rama `trabajo/claude-ct-descargas-auditadas-20261005`,
+apilada sobre #713): acción propia `contratacion_temporal.borrador_rrhh.descargar`,
+con la finalidad y el motivo de la consulta del expediente. La consulta del
+detalle no cambia; después de generar y validar el archivo, la descarga pide
+otra decisión cuyo recurso es el expediente y cuya huella de contexto liga el
+tipo de borrador, el formato, el SHA256 y el tamaño del archivo. AD199 añade el
+perfil al núcleo de consultas RRHH (no al de mutaciones, así que no compite con
+AD190/AD197) y CT177 la consume en la misma transacción que escribe la fila de
+`descarga_borrador_rrhh_v1`. Solo entonces se entrega el archivo, con
+`X-Audit-Ref` y `X-VEC-Documento-SHA256`. Las denegaciones y los errores, también
+los de la consulta y los de generación cuando se pidió una descarga, van al
+registrador AD169 con la acción de descarga. El perfil fijo del lector RRHH no
+recibe la concesión: su descarga queda denegada hasta una provisión aparte. La
+descarga de plantillas publicadas (CT133, `/expedientes/borradores`) ya tiene su
+acción con tipo y formato; añadirle la huella del archivo queda pendiente.

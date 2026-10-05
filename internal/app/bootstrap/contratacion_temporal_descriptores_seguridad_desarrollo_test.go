@@ -134,8 +134,10 @@ func TestDescriptoresContratacionTemporalAutorizacionRechazanCruces(t *testing.T
 		t.Fatal(err)
 	}
 	descriptores := descriptoresAutorizacionContratacionTemporalDesarrollo(politicaDescriptoresCTPrueba(t))
-	if len(descriptores) != len(fronteras)+1 {
-		t.Fatalf("autorizaciones=%d, want %d", len(descriptores), len(fronteras)+1)
+	// Además de una por frontera: la entrega de peticiones y la descarga de
+	// borradores, que comparte la frontera de detalle.
+	if len(descriptores) != len(fronteras)+2 {
+		t.Fatalf("autorizaciones=%d, want %d", len(descriptores), len(fronteras)+2)
 	}
 	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptores)
 	if err != nil {
@@ -172,8 +174,8 @@ func TestFronterasReincorporacionTitularExigenPerfilPropio(t *testing.T) {
 
 func TestDescriptoresMaterialContratacionTemporalSonNominales(t *testing.T) {
 	descriptores := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
-	if len(descriptores) != 4 {
-		t.Fatalf("materiales=%d, want 4", len(descriptores))
+	if len(descriptores) != 5 {
+		t.Fatalf("materiales=%d, want 5", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {
@@ -184,6 +186,7 @@ func TestDescriptoresMaterialContratacionTemporalSonNominales(t *testing.T) {
 		ctports.AudienciaConsumoConsultaDetalleRRHHV3,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
+		ctports.AudienciaConsumoDescargaBorradorRRHHV3,
 	} {
 		if _, ok := catalogo.descriptorPara(audiencia); !ok {
 			t.Fatalf("audiencia CT ausente: %s", audiencia)

@@ -18,7 +18,10 @@ var ErrRutasContratacionTemporalInvalidas = errors.New(
 // La identidad corporativa, PostgreSQL y los proveedores criptograficos
 // pertenecen a fronteras anteriores de la raiz de composicion.
 type DependenciasRutas struct {
-	PresentacionFlujoRRHH           httpinterno.ResolutorPresentacionFlujoRRHH
+	PresentacionFlujoRRHH httpinterno.ResolutorPresentacionFlujoRRHH
+	// DescargaBorradorRRHH, si existe, autoriza y registra cada descarga de
+	// borrador de la ruta de detalle con su acción propia.
+	DescargaBorradorRRHH            ports.RegistradorDescargaBorradorRRHH
 	IncorporacionV2                 *inc.ServidorV2PostgreSQL
 	AutoridadAlta                   httpinterno.AutoridadContextoCanal
 	EjecutorAlta                    httpinterno.EjecutorAlta
@@ -147,6 +150,14 @@ func NuevasRutas(
 	if dependencias.PresentacionFlujoRRHH != nil {
 		detalleRRHH, err = httpinterno.ConfigurarPresentacionConsultaDetalleRRHH(
 			detalleRRHH, dependencias.PresentacionFlujoRRHH,
+		)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
+	}
+	if dependencias.DescargaBorradorRRHH != nil {
+		detalleRRHH, err = httpinterno.ConfigurarDescargaAuditadaConsultaDetalleRRHH(
+			detalleRRHH, dependencias.DescargaBorradorRRHH,
 		)
 		if err != nil {
 			return nil, ErrRutasContratacionTemporalInvalidas

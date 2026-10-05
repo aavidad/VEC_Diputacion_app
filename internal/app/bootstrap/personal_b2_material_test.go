@@ -15,6 +15,7 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 )
@@ -113,6 +114,7 @@ func TestDescriptoresPreviosIntactosByteAByte(t *testing.T) {
 	// llegaron después: deben existir una vez y conservar la preimagen anterior.
 	nuevas := map[string]bool{
 		personalports.AudienciaSolicitarRectificacionDietas:              true,
+		ctports.AudienciaConsumoDescargaBorradorRRHHV3:                   true,
 		personalports.AudienciaConsultarRectificacionDietas:              true,
 		personalports.AudienciaConsultarRectificacionesCompetentesDietas: true,
 		personalports.AudienciaResolverRectificacionDietas:               true,
