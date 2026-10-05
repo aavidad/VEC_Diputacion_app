@@ -10,8 +10,8 @@
 import {
   PERIODOS_ESTADISTICAS,
   validarRespuestaEstadisticas,
-} from "./contrato-estadisticas.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+} from "./contrato-estadisticas.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

@@ -1,0 +1,6 @@
+# Delta único AD151; revisión exacta pendiente, PR borrador.
+# SQL SHA256 78a642daa482e9d7c6dbc33b9ec51d96dfabc66cd194d1290a4670f82a6593cf.
+# Prefijo requerido: H7/H8, AD155 corregida, B77 y XLSX5 ya instaladas.
+# Orden posterior: AD156 → AD157 → AD158 → AD162 → AD159 → CT170.
+# No reaplicar prefijos ni ejecutar DOWN. Un cambio de preimagen requiere reanclaje y revisión.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql

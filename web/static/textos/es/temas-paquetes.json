@@ -1,0 +1,18 @@
+{
+  "temas": {
+    "paquetes": {
+      "error": {
+        "argumentos": "Indique la política revisada y su huella SHA-256. Pase el paquete por la entrada estándar.",
+        "entrada": "No se pudo leer el documento. Compruebe el formato JSON, el tamaño y las claves.",
+        "huella_politica": "La política no coincide con la huella esperada. Use la versión revisada por la plataforma.",
+        "politica": "La política no cumple el contrato. Revise sus límites, tokens y pares de contraste.",
+        "paquete": "El paquete no cumple la política. Revise las referencias, los nombres y los colores de ambas variantes.",
+        "contraste": "Un par de colores no alcanza el contraste exigido. Revise ambas variantes del paquete.",
+        "salida": "No se pudo escribir el resultado. Compruebe el destino y vuelva a validar el paquete."
+      },
+      "estado": {
+        "validado_sin_instalar": "Paquete validado localmente. La instalación sigue pendiente."
+      }
+    }
+  }
+}

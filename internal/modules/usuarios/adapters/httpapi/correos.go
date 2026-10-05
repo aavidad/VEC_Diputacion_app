@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 
 	"vec-diputacion-granada/internal/modules/usuarios/application"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
@@ -24,11 +25,19 @@ type ResolverOrdenCorreos interface {
 	ResolverOrdenCorreos(context.Context) (ports.OrdenCorreos, error)
 }
 
+// AuditorIntentosConsultaCorreos recibe únicamente el resultado de la consulta
+// interna tras capturar su identidad en la frontera. Nunca recibe el cuerpo.
+type AuditorIntentosConsultaCorreos interface {
+	PrepararIntentoConsultaCorreos(context.Context) error
+	AuditarIntentoConsultaCorreos(context.Context, int) error
+}
+
 type ManejadorCorreos struct {
-	servicio *application.ServicioCorreos
-	orden    ResolverOrdenCorreos
-	auditor  AuditorDenegacion
-	ruta     string
+	servicio         *application.ServicioCorreos
+	orden            ResolverOrdenCorreos
+	auditor          AuditorDenegacion
+	ruta             string
+	intentosConsulta AuditorIntentosConsultaCorreos
 }
 
 func NuevoManejadorCorreosEnRuta(servicio *application.ServicioCorreos, orden ResolverOrdenCorreos, auditor AuditorDenegacion, ruta string) (*ManejadorCorreos, error) {
@@ -36,6 +45,20 @@ func NuevoManejadorCorreosEnRuta(servicio *application.ServicioCorreos, orden Re
 		return nil, ports.ErrCorreosNoDisponible
 	}
 	return &ManejadorCorreos{servicio: servicio, orden: orden, auditor: auditor, ruta: ruta}, nil
+}
+
+// El montaje interno usa este constructor estricto. POST y el constructor
+// anterior mantienen su auditoría de frontera y sus contratos existentes.
+func NuevoManejadorConsultaCorreosInternaConIntentos(servicio *application.ServicioCorreos, orden ResolverOrdenCorreos, auditor AuditorDenegacion, intentos AuditorIntentosConsultaCorreos) (*ManejadorCorreos, error) {
+	if intentos == nil || reflect.ValueOf(intentos).Kind() == reflect.Pointer && reflect.ValueOf(intentos).IsNil() {
+		return nil, ports.ErrCorreosNoDisponible
+	}
+	m, err := NuevoManejadorCorreosEnRuta(servicio, orden, auditor, RutaMisCorreos)
+	if err != nil {
+		return nil, err
+	}
+	m.intentosConsulta = intentos
+	return m, nil
 }
 
 // peticionCorreosHTTP es el único cuerpo admitido. «operacion» elige el caso
@@ -90,6 +113,12 @@ func (m *ManejadorCorreos) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responder(w, http.StatusMethodNotAllowed, map[string]any{"error": map[string]string{"codigo": "metodo_no_permitido", "clave_i18n": "api.usuarios.correos.error.metodo_no_permitido"}})
 		return
 	}
+	if r.Method == http.MethodGet && m.intentosConsulta != nil {
+		if m.intentosConsulta.PrepararIntentoConsultaCorreos(r.Context()) != nil {
+			responderErrorCorreos(w, ports.ErrCorreosNoDisponible)
+			return
+		}
+	}
 	orden, err := m.orden.ResolverOrdenCorreos(r.Context())
 	if err != nil {
 		m.responderError(w, r, err)
@@ -97,7 +126,7 @@ func (m *ManejadorCorreos) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodGet {
 		if r.ContentLength > 0 || r.Body != nil && r.ContentLength != 0 {
-			responderErrorCorreos(w, ports.ErrCorreosInvalidos)
+			m.responderError(w, r, ports.ErrCorreosInvalidos)
 			return
 		}
 		vista, err := m.servicio.Consultar(r.Context(), orden)
@@ -143,7 +172,12 @@ func (m *ManejadorCorreos) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (m *ManejadorCorreos) responderError(w http.ResponseWriter, r *http.Request, err error) {
 	estado, _ := clasificarErrorCorreos(err)
-	if estado == http.StatusUnauthorized || estado == http.StatusForbidden {
+	if r.Method == http.MethodGet && m.intentosConsulta != nil {
+		if m.intentosConsulta.AuditarIntentoConsultaCorreos(r.Context(), estado) != nil {
+			responderErrorCorreos(w, ports.ErrCorreosNoDisponible)
+			return
+		}
+	} else if estado == http.StatusUnauthorized || estado == http.StatusForbidden {
 		if m.auditor.AuditarDenegacionPreferencias(r.Context(), estado) != nil {
 			responderErrorCorreos(w, ports.ErrCorreosNoDisponible)
 			return

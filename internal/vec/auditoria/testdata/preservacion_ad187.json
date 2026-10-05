@@ -1,0 +1,151 @@
+{
+  "esquema": "vec.auditoria.verificacion.preservacion-provisional.v1",
+  "registros": [
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "consultar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6251,
+        "evento_ref": "evento_7e3d978bd0c84d37b33d01e82a499179",
+        "motivo_ref": "preservacion_ausente",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_7e3d978bd0c84d37b33d01e82a499179",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "0e92eab44a0e04aae2a9d911c2d87e1d9c9b1111400bfa3ca8a7452a63bef6b0",
+        "registrada_en": "2026-10-04T06:14:41.196323Z",
+        "operador_login": "diego_ruiz_preservacion_sintetico",
+        "anterior_sha256": "96c9abdc067c0ccda70267b54b29e7cd5d4162ff4bee65ee8cf8f69ccc91721c",
+        "correlacion_ref": "correlacion_b90b9f061f1e830637dfcf5ebf61ff53",
+        "evento_material_sha256": "a8a61664204776d8c046a7fb56892206e4c772ad00725ed37726a184d9745349",
+        "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wcmVzZXJ2YWNpb25fY29uc3Vs\ndG9yIiwgInZlcnNpb25fc29saWNpdGFkYSI6IDB9"
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    },
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "configurar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6252,
+        "evento_ref": "evento_a73c6c76b3e2400eadc5f0cae4c56b65",
+        "motivo_ref": "preservacion_publicada",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_a73c6c76b3e2400eadc5f0cae4c56b65",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "666879622f01b28434ee7304b8f566e44af5cb436c6e8e3266d29580b484ee6c",
+        "registrada_en": "2026-10-04T06:14:41.243200Z",
+        "operador_login": "marta_sanchez_preservacion_sintetica",
+        "anterior_sha256": "0e92eab44a0e04aae2a9d911c2d87e1d9c9b1111400bfa3ca8a7452a63bef6b0",
+        "correlacion_ref": "correlacion_1c75fb95ca551c76192380a422d56eb6",
+        "evento_material_sha256": "2ed3259db5fa5b40a1a5b85ffafb96e9edc4d3824de469e5c05125c93bac616e",
+        "detalle_canonico_base64": "eyJlc3RhZG8iOiAicHJvdmlzaW9uYWwiLCAibWVkaWRhIjogImNvbnNlcnZhcl90b2RvX3Npbl9l\neHB1cmdvIiwgInZlcnNpb24iOiAxLCAicHVibGljYWNpb25fcmVmIjogInByZXNlcnZhY2lvbl85\nNmMzZTBkMzU3Njg0NTcwOWE3NTQ3NzBjNDU0MzdiNiIsICJwcmVpbWFnZW5fc2hhMjU2IjogIjAw\nMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw\nMDAwMDAiLCAicGVyZmlsX3RlY25pY29fcmVmIjogInZlY19hdWRpdG9yaWFfcHJlc2VydmFjaW9u\nX2NvbmZpZ3VyYWRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICJjZDllOTI5ZTk0MWJiNDAx\nMjg4MzEyNWM0ZTdlY2E4YWQ4NzA3NmY1ZDkxZTcwZTg5NTVkODlhZTAzMmY4YzgxIiwgImRlY2lz\naW9uX3RlY25pY2FfcmVmIjogImRlY2lzaW9uX3RlY25pY2FfZTFkZjA2MDRkZGI4NDIyZmE2NmZh\nNzU1YmRiNWQzMzYifQ=="
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    },
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "configurar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6253,
+        "evento_ref": "evento_983cab102ba2469d816be046ec2e4003",
+        "motivo_ref": "preservacion_replay",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_983cab102ba2469d816be046ec2e4003",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "84acbf2a63571503e715cc54c4b441fe03a16619bc55c722ed124861846be4ae",
+        "registrada_en": "2026-10-04T06:14:41.280149Z",
+        "operador_login": "marta_sanchez_preservacion_sintetica",
+        "anterior_sha256": "666879622f01b28434ee7304b8f566e44af5cb436c6e8e3266d29580b484ee6c",
+        "correlacion_ref": "correlacion_b6f52c6b432a09eebaca206df1094b3b",
+        "evento_material_sha256": "65df3fadd89ac3ade5e5c76c6d77d5d1a372f2525bae3aeb4f1f113096ec2ec7",
+        "detalle_canonico_base64": "eyJlc3RhZG8iOiAicHJvdmlzaW9uYWwiLCAibWVkaWRhIjogImNvbnNlcnZhcl90b2RvX3Npbl9l\neHB1cmdvIiwgInZlcnNpb24iOiAxLCAicHVibGljYWNpb25fcmVmIjogInByZXNlcnZhY2lvbl85\nNmMzZTBkMzU3Njg0NTcwOWE3NTQ3NzBjNDU0MzdiNiIsICJwcmVpbWFnZW5fc2hhMjU2IjogIjAw\nMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw\nMDAwMDAiLCAicGVyZmlsX3RlY25pY29fcmVmIjogInZlY19hdWRpdG9yaWFfcHJlc2VydmFjaW9u\nX2NvbmZpZ3VyYWRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICJjZDllOTI5ZTk0MWJiNDAx\nMjg4MzEyNWM0ZTdlY2E4YWQ4NzA3NmY1ZDkxZTcwZTg5NTVkODlhZTAzMmY4YzgxIiwgImRlY2lz\naW9uX3RlY25pY2FfcmVmIjogImRlY2lzaW9uX3RlY25pY2FfZTFkZjA2MDRkZGI4NDIyZmE2NmZh\nNzU1YmRiNWQzMzYifQ=="
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    },
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "consultar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6254,
+        "evento_ref": "evento_9109e33f064f4aecb84d93e98782b305",
+        "motivo_ref": "preservacion_consultada",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_9109e33f064f4aecb84d93e98782b305",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "39372ae238d34904200aae6cc0e7e9261568ec201cdef0f924a3bd006c12f772",
+        "registrada_en": "2026-10-04T06:14:41.316099Z",
+        "operador_login": "diego_ruiz_preservacion_sintetico",
+        "anterior_sha256": "84acbf2a63571503e715cc54c4b441fe03a16619bc55c722ed124861846be4ae",
+        "correlacion_ref": "correlacion_307e1c9a5067f0d3101331d1199bdc42",
+        "evento_material_sha256": "399585fc6af6355ec1765b2a4a42a33fbabe3e46c887bcca07624d383cd958da",
+        "detalle_canonico_base64": "eyJ2ZXJzaW9uIjogMSwgInB1YmxpY2FjaW9uX3JlZiI6ICJwcmVzZXJ2YWNpb25fOTZjM2UwZDM1\nNzY4NDU3MDlhNzU0NzcwYzQ1NDM3YjYiLCAicGVyZmlsX3RlY25pY29fcmVmIjogInZlY19hdWRp\ndG9yaWFfcHJlc2VydmFjaW9uX2NvbnN1bHRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICJj\nZDllOTI5ZTk0MWJiNDAxMjg4MzEyNWM0ZTdlY2E4YWQ4NzA3NmY1ZDkxZTcwZTg5NTVkODlhZTAz\nMmY4YzgxIn0="
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    },
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "consultar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6255,
+        "evento_ref": "evento_f48fb172306548d19f6da877f4971497",
+        "motivo_ref": "preservacion_consultada",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_f48fb172306548d19f6da877f4971497",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "32d47e06a7d75c6d785985dde2ef8cab4a76da94cd6a026b9f8e354fa5783e71",
+        "registrada_en": "2026-10-04T06:14:41.970001Z",
+        "operador_login": "diego_ruiz_preservacion_sintetico",
+        "anterior_sha256": "39372ae238d34904200aae6cc0e7e9261568ec201cdef0f924a3bd006c12f772",
+        "correlacion_ref": "correlacion_75f20a014702f2182a42307e9a6cb461",
+        "evento_material_sha256": "eb570945e6d744d16573f2f01e9d7bce890f623b069f5fa95b103c4f0d5414f3",
+        "detalle_canonico_base64": "eyJ2ZXJzaW9uIjogMSwgInB1YmxpY2FjaW9uX3JlZiI6ICJwcmVzZXJ2YWNpb25fOTZjM2UwZDM1\nNzY4NDU3MDlhNzU0NzcwYzQ1NDM3YjYiLCAicGVyZmlsX3RlY25pY29fcmVmIjogInZlY19hdWRp\ndG9yaWFfcHJlc2VydmFjaW9uX2NvbnN1bHRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICJj\nZDllOTI5ZTk0MWJiNDAxMjg4MzEyNWM0ZTdlY2E4YWQ4NzA3NmY1ZDkxZTcwZTg5NTVkODlhZTAz\nMmY4YzgxIn0="
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    },
+    {
+      "preservacion": {
+        "canal": "operacion_tecnica_privada",
+        "accion": "configurar_preservacion_auditoria_v1",
+        "proceso": "postgresql",
+        "modulo_id": "auditoria",
+        "resultado": "permitido",
+        "secuencia": 6256,
+        "evento_ref": "evento_39c5fac8e0c34bdca8ab9a2db4f3d334",
+        "motivo_ref": "preservacion_replay",
+        "recurso_ref": "auditoria_periodica:comun_interna",
+        "auditoria_ref": "aud_v3_pre_39c5fac8e0c34bdca8ab9a2db4f3d334",
+        "finalidad_ref": "preservacion_provisional_auditoria",
+        "huella_sha256": "69f0761347ed70a5885a45e24390e434df037d45dd1bcf67accd6703181d7d40",
+        "registrada_en": "2026-10-04T06:14:42.017473Z",
+        "operador_login": "marta_sanchez_preservacion_sintetica",
+        "anterior_sha256": "32d47e06a7d75c6d785985dde2ef8cab4a76da94cd6a026b9f8e354fa5783e71",
+        "correlacion_ref": "correlacion_a476f03ae39c63f610ad0cba188ce726",
+        "evento_material_sha256": "0f6a19d1ecc88bb3e2a50a3ccb8ff083c1c1ac986e7cde0b4b1bcc217f1a1dc6",
+        "detalle_canonico_base64": "eyJlc3RhZG8iOiAicHJvdmlzaW9uYWwiLCAibWVkaWRhIjogImNvbnNlcnZhcl90b2RvX3Npbl9l\neHB1cmdvIiwgInZlcnNpb24iOiAxLCAicHVibGljYWNpb25fcmVmIjogInByZXNlcnZhY2lvbl85\nNmMzZTBkMzU3Njg0NTcwOWE3NTQ3NzBjNDU0MzdiNiIsICJwcmVpbWFnZW5fc2hhMjU2IjogIjAw\nMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw\nMDAwMDAiLCAicGVyZmlsX3RlY25pY29fcmVmIjogInZlY19hdWRpdG9yaWFfcHJlc2VydmFjaW9u\nX2NvbmZpZ3VyYWRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICJjZDllOTI5ZTk0MWJiNDAx\nMjg4MzEyNWM0ZTdlY2E4YWQ4NzA3NmY1ZDkxZTcwZTg5NTVkODlhZTAzMmY4YzgxIiwgImRlY2lz\naW9uX3RlY25pY2FfcmVmIjogImRlY2lzaW9uX3RlY25pY2FfZTFkZjA2MDRkZGI4NDIyZmE2NmZh\nNzU1YmRiNWQzMzYifQ=="
+      },
+      "tipo_registro": "operacion_tecnica_preservacion_auditoria"
+    }
+  ],
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:auditoria_comun_interna",
+    "registros": 6,
+    "cabeza_sha256": "69f0761347ed70a5885a45e24390e434df037d45dd1bcf67accd6703181d7d40",
+    "anterior_sha256": "96c9abdc067c0ccda70267b54b29e7cd5d4162ff4bee65ee8cf8f69ccc91721c",
+    "ultima_secuencia": 6256,
+    "primera_secuencia": 6251
+  }
+}

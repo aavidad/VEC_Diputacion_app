@@ -192,7 +192,8 @@ func TestFirmaVerificacionNombreServidorTLSConfigurable(t *testing.T) {
 	huella := sha256.Sum256(original)
 	solicitud := docports.SolicitudVerificacionFirma{
 		DocumentoID: "ref:" + strings.Repeat("1", 64), Version: 1,
-		HuellaOriginalSHA256: hex.EncodeToString(huella[:]), ContenidoOriginal: original, ContenidoFirmado: []byte{0x30},
+		HuellaOriginalSHA256: hex.EncodeToString(huella[:]), ContenidoOriginal: original,
+		ContenidoFirmado: append(append([]byte(nil), original...), []byte("revision sintetica firmada")...),
 	}
 	// El certificado de httptest cubre example.com y 127.0.0.1, no otro nombre.
 	for nombre, esperado := range map[string]docports.MotivoVerificacionFirma{

@@ -1,0 +1,31 @@
+{
+  "formato": {
+    "referencia": "personal:servicios_propios:csv",
+    "version": "1",
+    "nombre_archivo": "servicios.csv"
+  },
+  "csv": {
+    "fecha_inicio": "Inicio",
+    "fecha_fin": "Fin",
+    "clase": "Procedencia",
+    "dias": "Días",
+    "estado": "Estado"
+  },
+  "general": {
+    "descargar": "Descargar resumen CSV",
+    "preparando": "Preparando el resumen…",
+    "preparada": "El servidor ha preparado el resumen y se ha iniciado su descarga.",
+    "error": "No se ha podido preparar el resumen. Vuelva a intentarlo.",
+    "denegado": "No se puede exportar esta consulta. Actualice los datos y vuelva a intentarlo.",
+    "sin_consulta": "Actualice la consulta antes de descargar el resumen.",
+    "alcance": "Incluye los servicios de esta consulta. No calcula antigüedad ni acredita derechos.",
+    "no_disponible": "La exportación no está disponible ahora. Vuelva a intentarlo.",
+    "respuesta_no_valida": "No se ha podido comprobar el archivo recibido. Vuelva a intentarlo.",
+    "sesion_caducada": "Su sesión ha finalizado. Identifíquese de nuevo y actualice la consulta."
+  },
+  "estados": {
+    "declarado": "Declarado",
+    "comprobado": "Comprobado",
+    "reconocido": "Reconocido"
+  }
+}

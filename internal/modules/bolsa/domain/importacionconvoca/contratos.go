@@ -369,7 +369,7 @@ func (a ActaImportacion) Validar() error {
 		len(a.NombreFichero) < 5 || len(a.NombreFichero) > 255 ||
 		!utf8.ValidString(a.NombreFichero) ||
 		strings.ContainsAny(a.NombreFichero, `/\`) ||
-		!strings.HasSuffix(strings.ToLower(a.NombreFichero), ".xls") ||
+		!nombreFicheroExportacionValido(a.NombreFichero) ||
 		!actorOpaco.MatchString(a.ActorRef) || a.RegistradaEn.IsZero() ||
 		a.RegistradaEn.Location() != time.UTC || a.RegistradaEn.Nanosecond()%1000 != 0 {
 		return ErrLoteImportacionInvalido
@@ -394,6 +394,12 @@ func (a ActaImportacion) Validar() error {
 		return ErrLoteImportacionInvalido
 	}
 	return nil
+}
+
+func nombreFicheroExportacionValido(nombre string) bool {
+	nombre = strings.ToLower(nombre)
+	return (len(nombre) > len(".xls") && strings.HasSuffix(nombre, ".xls")) ||
+		(len(nombre) > len(".xlsx") && strings.HasSuffix(nombre, ".xlsx"))
 }
 
 func textoIncidenciaValido(valor string, maximo int) bool {

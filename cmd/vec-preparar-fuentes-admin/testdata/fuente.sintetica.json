@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "operacion_ref": "pfi_zzzzzzzzzzzzzzzzzzzzzz",
+  "preparado_en": "2026-10-03T12:00:00Z",
+  "caduca_en": "2026-10-03T13:00:00Z",
+  "entorno": "desarrollo",
+  "alcance_fuente": "sintetico_declarado",
+  "procedencia": {
+    "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
+    "version": 1,
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "organizacion": {
+    "organizacion_ref": "org_aaaaaaaaaaaaaaaa",
+    "version_esperada": 0,
+    "vigente_hasta": "2026-10-05T12:00:00Z"
+  },
+  "personas": [
+    {
+      "persona_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+      "version_esperada": 0,
+      "vigente_hasta": "2026-10-04T12:00:00Z",
+      "operacion_cuenta_ordinaria_ref": "opr_aaaaaaaaaaaaaaaaaaaaaao",
+      "operacion_cuenta_privilegiada_ref": "opr_aaaaaaaaaaaaaaaaaaaaaap",
+      "fuente_titularidad": {
+        "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
+        "version": 1,
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "persona_ref": "per_bbbbbbbbbbbbbbbbbbbbbb",
+      "version_esperada": 0,
+      "vigente_hasta": "2026-10-04T12:00:00Z",
+      "operacion_cuenta_ordinaria_ref": "opr_bbbbbbbbbbbbbbbbbbbbbbo",
+      "operacion_cuenta_privilegiada_ref": "opr_bbbbbbbbbbbbbbbbbbbbbbp",
+      "fuente_titularidad": {
+        "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
+        "version": 1,
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ],
+  "fuente_hmac": {
+    "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
+    "version": 1,
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "politica_admin": {
+    "politica_ref": "pga_pppppppppppppppppppppp",
+    "host_admin": "admin.example.invalid",
+    "ca_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "huella_aprobacion_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "maxima_edad_revocacion_segundos": 60,
+    "vigente_hasta": "2026-10-04T12:00:00Z"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "general": {
+    "titulo": "Work profile",
+    "resumen": "Choose the profile you will use. Only its permissions will apply.",
+    "leyenda": "Profiles assigned to your account",
+    "perfil_sin_nombre": "Profile name unavailable. Reference: {referencia}",
+    "activo": "In use",
+    "ver_referencia": "Show profile reference",
+    "usar_perfil": "Use this profile",
+    "actualizar": "Refresh profiles",
+    "cargando": "Checking your profiles…",
+    "sin_perfiles": "Your account has no available profiles. Contact IT.",
+    "perfil_en_uso": "A profile is already in use. You can choose another from the list.",
+    "elegir_perfil": "Choose a profile to continue.",
+    "cambiando": "Changing profile…",
+    "cambio_confirmado": "Profile changed and checked. You can continue.",
+    "conflicto": "The profile changed in another window. Review the current list before continuing.",
+    "estado_comprobado": "The current profile has been checked. The earlier change could not be confirmed.",
+    "estado_cambiado": "The profile changed again. Review the current list before continuing.",
+    "estado_no_comprobado": "The current profile could not be checked. Select ‘Refresh profiles’ before continuing.",
+    "error_carga": "Your profiles could not be loaded. Select ‘Refresh profiles’ or contact IT.",
+    "denegado": "Your access is not authorised. Contact IT.",
+    "no_instalado": "Profile selection is not yet available in this environment."
+  },
+  "perfiles": {
+    "administracion": {
+      "perfiles": {
+        "rol": "Application administration"
+      }
+    }
+  }
+}

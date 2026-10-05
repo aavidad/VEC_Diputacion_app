@@ -161,9 +161,12 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		   FROM vec_autorizacion_atestada_v3.puntero_clave_emision p
 		   JOIN vec_autorizacion_atestada_v3.clave_capacidad_version c
 		     ON (c.clave_id,c.version)=(p.clave_id,p.version)
-		  WHERE p.orden=(SELECT max(orden) FROM
-		         vec_autorizacion_atestada_v3.puntero_clave_emision
-		         WHERE establecida_en <= pg_catalog.statement_timestamp())
+		  WHERE p.orden=(SELECT max(pc.orden) FROM
+		         vec_autorizacion_atestada_v3.puntero_clave_emision pc
+		         JOIN vec_autorizacion_atestada_v3.clave_capacidad_version kc
+		           ON (kc.clave_id,kc.version)=(pc.clave_id,pc.version)
+		         WHERE pc.establecida_en <= pg_catalog.statement_timestamp()
+		           AND kc.audiencia_consumo = ANY($2::text[]))
 		    AND pg_catalog.left(p.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:puntero-clave:'))=
 		        'acto:ct:desarrollo:puntero-clave:'
@@ -207,8 +210,12 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 // publicación siguiente, el gobierno como «ajeno» y tumbara el arranque. Cada
 // audiencia es nominal y la admite su migración AD3; no hay comodines.
 func audienciasConsumoGobiernoCTDesarrollo() []string {
+	s2 := DescriptoresMaterialPreparacionBasesV3()
+	meritos := descriptoresMaterialMeritosInternosDesarrollo()
 	return []string{
 		audienciaConsumoAltaContratacionTemporal,
+		s2[0].Audiencia,
+		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
@@ -274,11 +281,15 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
 		// Gobierno de borradores de baremo: descriptor propio de composición.
 		DescriptorMaterialGobiernoReglasBaremoV3().Audiencia,
+		// Registro y consulta propia de Méritos: sólo preparación interna nominal.
+		meritos[0].Audiencia, meritos[1].Audiencia,
 		auditoria.AudienciaConsumo,
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
+		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
+		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,
 		// Confirmación del contacto propio (AD3-86); solo con el portal.
 		puertosbolsa.AudienciaConfirmarContactoPropio,
 		audienciaConsumoPersonalDietasDesarrollo,
@@ -349,6 +360,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaHistorialMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
+		personal.AudienciaExportacionServiciosPropios,
+		personal.AudienciaHistoriaServiciosPropia,
+		personal.AudienciaHistoriaRelacionesPropia,
 	}
 }
 

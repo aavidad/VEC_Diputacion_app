@@ -39,6 +39,10 @@ func (o *observadorReal) Observar(ctx context.Context, entorno puertos.Entorno) 
 		o.t.Logf("dato testigo: %q error %v", b, err)
 		return puertos.Observacion{}, fmt.Errorf("dato_restaurado_no_comprobable")
 	}
+	if err := comprobarPlantillasReales(ctx, entorno, o.t); err != nil {
+		o.t.Logf("plantillas error %v", err)
+		return puertos.Observacion{}, err
+	}
 	// Testigo real archivado: psql de la misma imagen, recuperado desde su TAR.
 	// No se presenta como binario VEC ni como consulta funcional autorizada.
 	b, err = r.EjecutarArchivado(ctx, "fisica:testigo", []string{"--version"}, nil, 4096)
@@ -85,15 +89,9 @@ func TestFisicaPG18RealAislada(t *testing.T) {
 	if os.Mkdir(datos, 0700) != nil {
 		t.Fatal("pgdata")
 	}
-	c := Configuracion{ImagenSHA256: imagen, VersionPostgreSQL: "18.4", UsuarioBootstrap: "cs06_fixture", LimiteArchivoBytes: 128 << 20, LimiteExtraidoBytes: 128 << 20, LimiteEntradas: 10000, CPUs: 1, MemoriaBytes: 512 << 20, TiempoLimite: 90 * time.Second}
+	c := Configuracion{ImagenSHA256: imagen, VersionPostgreSQL: "18.4", UsuarioBootstrap: "cs06_fixture", LimiteArchivoBytes: 128 << 20, LimiteExtraidoBytes: 128 << 20, LimiteEntradas: 10000, CPUs: 1, MemoriaBytes: 2 << 30, TiempoLimite: 90 * time.Second}
 	e := Ensayador{Configuracion: c}
 	opciones := e.opcionesAisladas(nombre)
-	for i, a := range opciones {
-		if a == "--rm" {
-			opciones = append(opciones[:i], opciones[i+1:]...)
-			break
-		}
-	}
 	cmd := append(opciones, "-d", "-v", datos+":/data:rw", "-e", "PGDATA=/data", "-e", "POSTGRES_USER=cs06_fixture", "-e", "POSTGRES_HOST_AUTH_METHOD=trust", "sha256:"+imagen, "postgres", "-c", "listen_addresses=", "-c", "unix_socket_directories=/var/run/postgresql")
 	if _, err = docker(ctx, nil, 4096, cmd...); err != nil {
 		t.Fatal("iniciar fixture", err)

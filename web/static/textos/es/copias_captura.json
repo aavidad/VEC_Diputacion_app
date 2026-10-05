@@ -1,0 +1,12 @@
+{
+  "copias_captura_parcial": "Captura lógica terminada. Falta reunir la copia física y los ficheros, cifrar el conjunto y comprobar sus restauraciones. Todavía no sirve para recuperar VEC.",
+  "copias_captura_argumentos": "Indique el archivo de configuración con -config.",
+  "copias_captura_configuracion": "Revise la configuración del ensayo local, sus límites y sus herramientas.",
+  "copias_captura_inventario": "El inventario no coincide con la versión prevista o no se puede comprobar.",
+  "copias_captura_destino": "No se puede crear la captura privada. Use un directorio nuevo y un directorio de bloqueos compartido por las capturas del mismo origen.",
+  "copias_captura_precondicion": "La ventana no está abierta o faltan datos obligatorios.",
+  "copias_captura_control": "No se pudo excluir y comprobar a todos los escritores. La captura queda bloqueada.",
+  "copias_captura_fallo": "La captura falló. Los archivos que puedan quedar son parciales y no se deben publicar ni restaurar.",
+  "copias_captura_liberacion": "No se pudo terminar la reapertura o liberar la exclusión. Compruebe los servicios antes de continuar.",
+  "copias_captura_salida": "No se pudo entregar el resultado de la captura."
+}

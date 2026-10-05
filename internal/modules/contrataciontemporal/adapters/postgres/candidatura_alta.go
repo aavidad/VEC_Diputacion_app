@@ -19,6 +19,7 @@ const (
 )
 
 var _ ports.ResolutorCandidaturaAlta = (*ResolutorCandidaturaAltaPostgreSQL)(nil)
+var _ ports.RecuperadorCandidaturaAlta = (*ResolutorCandidaturaAltaPostgreSQL)(nil)
 
 // ResolutorCandidaturaAltaPostgreSQL conserva solo coordenadas técnicas. La
 // función SQL que invoca carece de autoridad para reservar o confirmar.
@@ -89,6 +90,21 @@ func (r *ResolutorCandidaturaAltaPostgreSQL) ResolverCandidaturaAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverCandidaturaAlta,
 ) (ports.CandidaturaAlta, error) {
+	return r.resolver(ctx, solicitud, false)
+}
+
+func (r *ResolutorCandidaturaAltaPostgreSQL) RecuperarCandidaturaAlta(
+	ctx context.Context,
+	solicitud ports.SolicitudResolverCandidaturaAlta,
+) (ports.CandidaturaAlta, error) {
+	return r.resolver(ctx, solicitud, true)
+}
+
+func (r *ResolutorCandidaturaAltaPostgreSQL) resolver(
+	ctx context.Context,
+	solicitud ports.SolicitudResolverCandidaturaAlta,
+	soloRecuperacion bool,
+) (ports.CandidaturaAlta, error) {
 	if ctx == nil || r == nil || dependenciaNula(r.pool) {
 		return ports.CandidaturaAlta{}, ports.ErrPreparacionAltaInvalida
 	}
@@ -100,7 +116,7 @@ func (r *ResolutorCandidaturaAltaPostgreSQL) ResolverCandidaturaAlta(
 		return ports.CandidaturaAlta{}, err
 	}
 	for intento := 1; intento <= maximoIntentosCandidaturaAlta; intento++ {
-		candidatura, causa := r.resolverEnTransaccion(ctx, solicitud, entrada)
+		candidatura, causa := r.resolverEnTransaccion(ctx, solicitud, entrada, soloRecuperacion)
 		if causa == nil {
 			return candidatura, nil
 		}
@@ -133,6 +149,7 @@ func (r *ResolutorCandidaturaAltaPostgreSQL) resolverEnTransaccion(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverCandidaturaAlta,
 	entrada entradaResolverCandidaturaAlta,
+	soloRecuperacion bool,
 ) (ports.CandidaturaAlta, error) {
 	tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
 	if err != nil {
@@ -161,6 +178,9 @@ func (r *ResolutorCandidaturaAltaPostgreSQL) resolverEnTransaccion(
 	)
 	if err != nil {
 		return ports.CandidaturaAlta{}, err
+	}
+	if soloRecuperacion && fila.resultado != "recuperada" {
+		return ports.CandidaturaAlta{}, ports.ErrClaveIdempotenciaUsada
 	}
 	candidatura, err := fila.restaurar(solicitud, entrada.propuesta)
 	if err != nil {
@@ -195,6 +215,7 @@ func (f filaCandidaturaAlta) restaurar(
 		ActorRef:               f.actorRef,
 		PerfilRef:              f.perfilRef,
 		InstanteEfecto:         f.instanteEfecto.UTC(),
+		Recuperada:             f.resultado == "recuperada",
 	}
 	candidatura, err := ports.NuevaCandidaturaAlta(datos)
 	if err != nil || solicitud.ValidarResultado(candidatura) != nil {
@@ -231,6 +252,9 @@ func iniciarTransaccionAltaCandidata(
 }
 
 func normalizarErrorCandidatura(causa error) error {
+	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) {
+		return ports.ErrClaveIdempotenciaUsada
+	}
 	if errors.Is(causa, ports.ErrPreparacionAltaInvalida) {
 		return ports.ErrPreparacionAltaInvalida
 	}

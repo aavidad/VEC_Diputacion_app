@@ -373,7 +373,9 @@ func coordenadasComunesCoinciden(
 		primera.FinalidadRef == otra.FinalidadRef &&
 		primera.CategoriaRef == otra.CategoriaRef &&
 		primera.Periodo.Inicio.Equal(otra.Periodo.Inicio) &&
-		primera.Periodo.Fin.Equal(otra.Periodo.Fin)
+		primera.Periodo.Fin.Equal(otra.Periodo.Fin) &&
+		primera.Periodo.CausaFin == otra.Periodo.CausaFin &&
+		primera.Periodo.PoliticaFin == otra.Periodo.PoliticaFin
 }
 
 func clonarConjuntosOrdenados(

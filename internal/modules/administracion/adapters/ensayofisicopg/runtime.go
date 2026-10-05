@@ -21,6 +21,7 @@ var argumentoEnv = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,95}$`)
 // RuntimeObservacion sólo recibe nombres generados por el ensayador y una raíz
 // privada. Se exporta para reutilizar el mismo hook en el restaurador lógico.
 type RuntimeObservacion struct {
+	fisico                      *anclajeFisicoRuntime
 	Nombre                      string
 	Raiz                        string
 	ImagenSHA256                string
@@ -52,6 +53,8 @@ func (r RuntimeObservacion) EjecutarPostgreSQL(ctx context.Context, herramienta 
 	return docker(ctx, bytes.NewReader(entrada), limite, append(cmd, args...)...)
 }
 func (r RuntimeObservacion) EjecutarArchivado(ctx context.Context, id string, args []string, env map[string]string, limite int) ([]byte, error) {
+	desbloquear := r.faseArchivada()
+	defer desbloquear()
 	if ctx == nil || limite < 1 || limite > 1<<20 || len(args) > 64 || len(env) > 128 {
 		return nil, errRuntime
 	}
@@ -208,4 +211,27 @@ func sinNuevosPrivilegios(opciones []string) bool {
 		}
 	}
 	return admitida
+}
+
+// escritorPlantillas excluye el comienzo de procesos archivados mientras se
+// modifica el clon técnico. Tras cualquier arranque no se presume que el
+// binario coopere: el ensayo sólo puede limpiar su contenedor completo.
+func (r RuntimeObservacion) escritorPlantillas() (func(), error) {
+	if r.fisico == nil {
+		return nil, falloPlantilla("fase_fisica_ausente")
+	}
+	r.fisico.fase.Lock()
+	if r.fisico.archivadosIniciados {
+		r.fisico.fase.Unlock()
+		return nil, falloPlantilla("fase_archivada_iniciada")
+	}
+	return r.fisico.fase.Unlock, nil
+}
+func (r RuntimeObservacion) faseArchivada() func() {
+	if r.fisico == nil {
+		return func() {}
+	}
+	r.fisico.fase.Lock()
+	r.fisico.archivadosIniciados = true
+	return r.fisico.fase.Unlock
 }

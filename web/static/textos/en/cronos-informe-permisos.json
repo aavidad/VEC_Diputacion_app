@@ -1,6 +1,6 @@
 {
   "referencia": "cronos-informe-permisos-en",
-  "version": "1",
+  "version": "2",
   "idioma": "en-GB",
   "formato_fecha": "02/01/2006 15:04 MST",
   "zona_horaria": "Europe/Madrid",
@@ -8,13 +8,13 @@
   "ejercicio": "Year: {{ejercicio}}",
   "corte": "Data as of {{corte}}",
   "alcance": "Scope: partial summary of your own leave included in this report.",
-  "fila": "{{etiqueta}}. Unit: {{unidad}}; calculation: {{computo}}. Awaiting decision: {{pendiente}}. Granted: {{concedido}}. Remaining: {{restante}}. Reconciliation: {{estado}}.",
+  "fila": "{{campos}}.",
   "dias": "{{cantidad}}",
   "duracion": "{{horas}} h {{minutos}} min",
   "duracion_corta": "{{minutos}} min",
   "desconocido": "Not available",
   "vacio": "No rows are available for this report.",
-  "limite": "Each row retains its unit. Unavailable values remain pending; they do not mean zero.",
+  "limite": "Unavailable values remain pending; they do not mean zero.",
   "sintetico": "SYNTHETIC EXAMPLE. Not valid for administrative use. The example rules are not approved. Employee downloads remain pending.",
   "nombre_sintetico": "Example employee: {{nombre}}",
   "unidades": {
@@ -28,5 +28,15 @@
   "estados": {
     "conciliado": "Reconciled",
     "sin_conciliar": "Awaiting reconciliation"
+  },
+  "separador_campos": "; ",
+  "campos": {
+    "etiqueta": "{{valor}}",
+    "unidad": "Unit: {{valor}}",
+    "computo": "Calculation: {{valor}}",
+    "pendiente_resolver": "Awaiting decision: {{valor}}",
+    "concedido": "Granted: {{valor}}",
+    "restante": "Remaining: {{valor}}",
+    "conciliacion": "Reconciliation: {{valor}}"
   }
 }

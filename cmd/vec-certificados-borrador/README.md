@@ -9,7 +9,7 @@ existente y crea los archivos con permisos privados.
 
 ```sh
 mkdir -m 700 /var/tmp/vec-cer-ensayo
-GOCACHE=/dev/shm/go-build TMPDIR=/var/tmp/vec-cer-ensayo go run -p 8 \
+TMPDIR=/var/tmp/vec-cer-ensayo go run -p 4 \
   ./cmd/vec-certificados-borrador \
   -ensayo-sintetico \
   -fuente internal/modules/certificados/adapters/fichero/testdata/servicios.ensayo.json \
@@ -22,10 +22,22 @@ La marca sintética confirma el uso de ensayo: no detecta ni anonimiza datos
 personales. Use únicamente muestras ficticias.
 
 ```sh
-GOCACHE=/dev/shm/go-build TMPDIR=/var/tmp/vec-cer-ensayo go test -race -p 8 \
+TMPDIR=/var/tmp/vec-cer-ensayo go test -race -p 4 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
-GOCACHE=/dev/shm/go-build TMPDIR=/var/tmp/vec-cer-ensayo go vet -p 8 \
+TMPDIR=/var/tmp/vec-cer-ensayo go vet -p 4 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
+```
+
+`-fuente` admite también una muestra con la forma de la respuesta del contrato
+`LectorServiciosParaCertificadosV1` de Personal; el CLI la reconoce por su
+esquema y la traduce con el mismo adaptador que usará la respuesta real:
+
+```sh
+TMPDIR=/var/tmp/vec-cer-ensayo go run -p 4 \
+  ./cmd/vec-certificados-borrador \
+  -ensayo-sintetico \
+  -fuente internal/modules/certificados/adapters/personalv1/testdata/servicios-personal-v1.ensayo.json \
+  -salida /var/tmp/vec-cer-ensayo/salida-v1
 ```
 
 La pieza no conecta con Personal, HTTP, PostgreSQL ni proveedores de firma.

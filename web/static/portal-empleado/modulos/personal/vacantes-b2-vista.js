@@ -35,7 +35,7 @@ function celdaEstado(d, codigoMensaje, t, tono = "info", ayuda) {
   if (ayuda) { const detalle = nodo(d, "small", t(ayuda)); detalle.className = "personal-registro-b2-secundario"; celda.append(detalle); }
   return celda;
 }
-function tabla(d, modelo, formatos, agregar, t) {
+function tabla(d, modelo, formatos, agregar, t, filas = modelo.filas) {
   const region = nodo(d, "div"); region.className = "tabla-contenedor";
   region.setAttribute("role", "region"); region.setAttribute("tabindex", "0"); region.setAttribute("aria-label", t("titulo"));
   const tabla = nodo(d, "table"); tabla.className = "tabla-datos"; tabla.append(nodo(d, "caption", t("titulo")));
@@ -44,7 +44,8 @@ function tabla(d, modelo, formatos, agregar, t) {
     const celda = nodo(d, "th", t(codigoMensaje)); celda.setAttribute("scope", "col"); filaCabecera.append(celda);
   }
   cabecera.append(filaCabecera); const cuerpo = nodo(d, "tbody");
-  for (const [indice, fila] of modelo.filas.entries()) {
+  for (const fila of filas) {
+    const indice = modelo.filas.indexOf(fila);
     const registro = nodo(d, "tr"); registro.dataset.personalVacante = "";
     const plaza = nodo(d, "th", fila.codigoPlaza || t("sin_codigo")); plaza.setAttribute("scope", "row");
     const puesto = celdaEstado(d, fila.puestoMensaje, t, "neutro", "ocupacion_no_determinada");
@@ -69,7 +70,8 @@ export function crearVistaVacantesB2({ documento: d, pagina, estado = "disponibl
   if (estado !== "disponible") { cuerpo.append(mensaje(d, traducir(estado), ["error", "denegado", "cobertura_no_acreditada"].includes(estado))); return panel; }
   if (!formatos || !["fecha", "instante", "numero"].every((tipo) => typeof formatos[tipo] === "function") || typeof anadirDatoTraza !== "function") throw new TypeError("formato de vacantes no disponible");
   const modelo = proyectarPaginaVacantesB2(pagina);
-  cabecera.append(nodo(d, "span", traducir("recuento", { cuenta: modelo.filas.length })));
+  const recuento = nodo(d, "span"); recuento.setAttribute("role", "status");
+  recuento.setAttribute("aria-live", "polite"); recuento.setAttribute("aria-atomic", "true"); cabecera.append(recuento);
   const ayuda = nodo(d, "details"); ayuda.className = "personal-registro-b2-ayuda";
   const abrirAyuda = nodo(d, "summary", "?"); abrirAyuda.setAttribute("aria-label", traducir("ayuda_abrir"));
   ayuda.append(abrirAyuda, nodo(d, "p", traducir("ayuda"))); cabecera.append(ayuda);
@@ -82,8 +84,26 @@ export function crearVistaVacantesB2({ documento: d, pagina, estado = "disponibl
   ], formatos, anadirDatoTraza, traducir));
   const tecnico = nodo(d, "details"); tecnico.className = "personal-registro-b2-traza-tecnica";
   tecnico.append(nodo(d, "summary", traducir("detalle_tecnico")), listaDatos(d, [{ codigoMensaje: "organismo_ref", valor: modelo.ambitoRef, tipo: "texto" }], formatos, anadirDatoTraza, traducir));
-  alcance.append(tecnico); cuerpo.append(alcance);
-  cuerpo.append(modelo.filas.length ? tabla(d, modelo, formatos, anadirDatoTraza, traducir) : mensaje(d, traducir("vacio")));
+  alcance.append(tecnico);
+  const busqueda = nodo(d, "div"); busqueda.className = "personal-registro-b2-toolbar";
+  const etiqueta = nodo(d, "label", traducir("buscar_pagina"));
+  const campo = nodo(d, "input"); campo.type = "search"; campo.value = ""; campo.autocomplete = "off"; campo.spellcheck = false;
+  campo.disabled = modelo.filas.length === 0; etiqueta.append(campo);
+  const limpiar = nodo(d, "button", traducir("limpiar_busqueda")); limpiar.type = "button"; limpiar.disabled = true;
+  busqueda.append(etiqueta, limpiar);
+  const resultado = nodo(d, "div");
+  function filtrar() {
+    const consulta = campo.value.trim().normalize("NFC").toLowerCase();
+    const filas = modelo.filas.filter((fila) => [fila.codigoPlaza, fila.unidad, fila.puesto]
+      .some((valor) => valor.normalize("NFC").toLowerCase().includes(consulta)));
+    limpiar.disabled = campo.value === "";
+    recuento.textContent = traducir(consulta ? "coincidencias_pagina" : "recuento", { cuenta: filas.length, total: modelo.filas.length });
+    resultado.replaceChildren(filas.length ? tabla(d, modelo, formatos, anadirDatoTraza, traducir, filas)
+      : mensaje(d, traducir(modelo.filas.length ? "sin_coincidencias" : "vacio")));
+  }
+  campo.addEventListener("input", filtrar);
+  limpiar.addEventListener("click", () => { campo.value = ""; filtrar(); campo.focus(); });
+  filtrar(); cuerpo.append(busqueda, alcance, resultado);
   if (modelo.hayPaginaSiguiente) cuerpo.append(nodo(d, "p", traducir("paginas")));
   return panel;
 }

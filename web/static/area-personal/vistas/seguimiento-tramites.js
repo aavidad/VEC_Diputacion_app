@@ -4,7 +4,7 @@ import {
 } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js";
@@ -18,7 +18,7 @@ const h = (texto) => escaparHTML(texto);
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
   pendiente_incorporacion: "aviso", renuncia: "aviso", excluido: "error",
-  disponible_desde: "aviso",
+  disponible_desde: "aviso", en_revision: "merito",
 });
 
 function fechaSituacion(valor) {

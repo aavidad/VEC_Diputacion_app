@@ -2,7 +2,7 @@
 -- DOWN AD149 preparado, nunca ejecutado en este ensayo.
 -- Personal26 debe retirarse primero y sólo sin recibos; cualquier clave propia
 -- CRN11 registrada impide retirar la frontera, aun revocada. No borrar historia.
--- Requiere postimagen propia exacta y restaura POST144, Baremo y sus ACL.
+-- Requiere postimagen propia exacta y restaura la preimagen fría y sus ACL.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -36,10 +36,10 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Postimagen149 derivada exactamente del POST144 capturado y extensión propia;
- -- no se ejecuta DOWN ni se elimina Baremo.
- esperada_def_sha256 text:=$esperada_def_sha256$8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9$esperada_fuente_sha256$;
+ -- Postimagen149 derivada de la preimagen fría capturada y extensión propia.
+ -- Esta fuente sólo se revisa; no ejecutar DOWN sobre la base conservada.
+ esperada_def_sha256 text:=$esperada_def_sha256$d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -49,7 +49,7 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -64,7 +64,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
            )
            OR (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
@@ -132,12 +132,13 @@ BEGIN
     OR length(original)-length(replace(original,excl_nuevo,''))<>length(excl_nuevo)
     OR length(original)-length(replace(original,runtime_nuevo,''))<>length(runtime_nuevo)
     OR length(original)-length(replace(original,extension,''))<>length(extension)
-    OR strpos(original,'meritos.hecho.declarar')=0
-    OR strpos(original,'meritos.hecho.rectificar')=0
-    OR strpos(original,'meritos.hecho.rechazar')=0
-    OR strpos(original,'gobierno_borrador_reglas_baremo')=0
-    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
- THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN
+  RAISE EXCEPTION 'PARO clave=AD149.nucleo_preimagen, actual=def:%/src:%/runtime:%/config:%, esperado=def:%/src:%/runtime:1/config:search_path=pg_catalog, pg_temp;lock_timeout=2s',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),
+   (length(original)-length(replace(original,runtime_nuevo,'')))/length(runtime_nuevo),
+   config,esperada_def_sha256,esperada_fuente_sha256 USING ERRCODE='55000';
+ END IF;
  nuevo:=replace(original,extension||marca,marca);
  nuevo:=replace(nuevo,excl_nuevo,excl);
  nuevo:=replace(nuevo,runtime_nuevo,runtime);
@@ -145,7 +146,7 @@ BEGIN
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo
     OR replace(replace(replace(actual,runtime,runtime_nuevo),excl,excl_nuevo),marca,extension||marca) IS DISTINCT FROM original
-    OR encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '0ffdcfcc7fa46d2555d07cad67de1686de7a9b21f6dedc17e5ea38216b1bbbd6'
+    OR encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330'
     OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
     OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
@@ -164,12 +165,14 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6'
     OR length(d)-length(replace(d,retirar,''))<>length(retirar) THEN
-  RAISE EXCEPTION 'AD149: postimagen de audiencias incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD149.audiencias_postimagen, actual=sha256:%/extension:%, esperado=sha256:0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6/extension:1',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),
+   (length(d)-length(replace(d,retirar,'')))/length(retirar) USING ERRCODE='55000';
  END IF;
  nueva:=replace(d,retirar,'');
- IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM '5fb403d54926bc89ea7c5cf53fe0538ec8936f22000cbb0bce72c9a731d6cabc' THEN
+ IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626' THEN
   RAISE EXCEPTION 'AD149: reversión de audiencias divergente' USING ERRCODE='55000';
  END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

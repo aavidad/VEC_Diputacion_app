@@ -27,3 +27,28 @@ no basta. La firma local mantiene `firma_eficaz=false` y no sustituye al circuit
 corporativo. Los certificados distintos de una misma persona necesitan una
 relación nominal aprobada; el canal de desarrollo exige el mismo certificado
 para autenticarse y firmar.
+
+## Cofirma PAdES de un mismo PDF
+
+El diseño aprobado conserva el visto bueno de Dirección o Jefatura y la firma
+de la Diputada como dos PDF distintos sobre un mismo original, que debe quedar
+custodiado antes de firmar. Cada PDF tendrá un firmante verificado, su recibo
+y su referencia de custodia. No se presentará como un PDF con dos firmas.
+
+Si más adelante se necesita una cofirma incremental en un único PDF, GrxFirma
+y el puerto de verificación deberán identificar el certificado de cada firma
+con su revisión y `ByteRange`, comprobar que las firmas anteriores siguen
+válidas y rechazar cambios no permitidos. El dictamen actual solo acredita un
+firmante y rechaza la identidad ambigua en un PDF con varios. Este cambio queda
+para V2; no condiciona el recorrido de dos evidencias separadas aprobado por
+dirección el 2 de octubre de 2026.
+
+## Verificación integrada del fin por causa
+
+El kit local de recorridos mTLS está fijado a un plan SQL anterior. Para probar la rama de fin por causa en un clon completo hay que ampliar su lista de migraciones a CT165, CT166, CT167 y Bolsa B74, y proyectar los catálogos de reglas CT v3 y plantillas v2 con sus huellas. La adaptación debe conservar las comprobaciones de fuente, perfil, versión y preimagen; no se acepta saltarlas con variables sueltas. Después se acredita un POST real desde el navegador hasta recibo, replay y reinicio, antes del despliegue en cidonia.
+
+Una reserva de alta que todavía no se ha confirmado carece de expediente histórico del que recuperar la política de fin. Si RRHH cambia c12 durante esa ventana, hará falta conservar la instantánea junto a la reserva para permitir su reintento sin reinterpretar la regla. Las operaciones ya confirmadas recuperan su política original mediante CT167.
+
+## Selección: omitidas que reclaman en plazo
+
+Hoy una solicitud omitida en la provisional entra con una nueva revisión de esa provisional, que abre su propio plazo de subsanación. Cuando la persona reclamó la omisión dentro del plazo original y cumple los requisitos, la práctica habitual es incluirla directamente en la definitiva como reclamación estimada. Habría que permitir ese camino en la definitiva, con su antecedente S4, sin pasar por otra provisional.

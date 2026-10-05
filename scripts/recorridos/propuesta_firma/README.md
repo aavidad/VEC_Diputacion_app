@@ -1,8 +1,8 @@
 # Recorrido de propuesta, borradores y firma
 
-Este guion abre en Chrome un expediente sintético de contratación temporal. Comprueba que la propuesta figura en la versión indicada del historial y recupera su recibo desde la consulta de seguimiento. Descarga los seis PDF de formalización y calcula la huella de sus bytes originales. Puede abrir AutoFirma del puesto para una firma de prueba del informe definitivo y contrastar el recibo con la consulta del registro. GrxFirma interviene después, desde VEC, como verificador; el navegador no lo usa para firmar.
+Este guion abre en Chrome un expediente sintético de contratación temporal. Comprueba que la propuesta figura en la versión indicada del historial y recupera su recibo desde la consulta de seguimiento. Descarga los seis PDF de formalización y calcula la huella de sus bytes originales. Puede registrar los dos pasos de firma de prueba de un documento con AutoFirma, en dos ejecuciones y con certificados de canal distintos. Consume el preflight y el recibo V2, comprueba la revisión de entrada y descarga el PDF custodiado. GrxFirma interviene después, desde VEC, como verificador; el navegador no lo usa para firmar.
 
-El resultado se detiene en el primer punto sin evidencia. `NO EJECUTADO` significa que ni siquiera se abrió el navegador. `CORTE` identifica el paso alcanzado y lo que falta. Un recibo de firma de prueba no da validez legal ni eficacia administrativa. CT118 conserva referencias y huellas, pero este recorrido no encuentra todavía un recibo de custodia verificable de los bytes originales y firmados. Tampoco acredita envío a Firmadoc.
+El resultado se detiene en el primer punto sin evidencia. `NO EJECUTADO` significa que ni siquiera se abrió el navegador. `CORTE` identifica el paso alcanzado y lo que falta. Un recibo de firma de prueba no da validez legal ni eficacia administrativa. La consulta técnica V2 recupera referencias de firma y recibo, fecha, custodia, revisión PDF, rangos de bytes, huella de evidencia e historia. No devuelve `material_root_sha256` ni el canon nominal. Por eso la recuperación queda parcial aunque el PDF descargado sea idéntico. El guion no acredita envío a Firmadoc ni un E2E completo.
 
 ## Preparación
 
@@ -46,17 +46,58 @@ Con `--captura-escritorio` también guarda la pantalla a 1440 × 900. Si el reco
 
 El directorio padre de las capturas y del informe debe existir, pertenecer al usuario actual y tener permisos `0700`. El guion rechaza cualquier ruta dentro de un repositorio o worktree Git, las rutas con `..` y los enlaces simbólicos. Comprueba estas condiciones antes de abrir Chrome y otra vez al crear cada archivo.
 
-Sin `--firmar` se comprueban la propuesta, los seis borradores en ambos anchos y el catálogo de firma. El corte esperado es `firma_admitida`. Con `--firmar`, Chrome abre con ventana y pulsa una sola vez «Firmar» para el informe definitivo. Una persona debe completar o cancelar AutoFirma en el puesto. El guion espera hasta tres minutos el único `POST` de registro; no reintenta una firma ni sustituye el firmante. Si VEC devuelve un recibo con `verificacion.estado=valida`, `motivo=verificada` y `firma_eficaz=false`, consulta de nuevo el mismo recibo. El corte final sigue siendo `custodia` mientras no exista evidencia de custodia.
+Sin `--firmar` se comprueban la propuesta, los seis borradores en ambos anchos y el catálogo de firma. El resultado indica `autoridad_pendiente`; no abre AutoFirma. Si el montaje no ofrece el original o el preflight nominal, el guion informa esa dependencia antes de pulsar la firma.
 
-Tras reiniciar externamente la aplicación y PostgreSQL **del clon**, usar `--comparar /ruta/privada/recorrido-antes.json` con las demás opciones y otra salida. Si se guarda otra captura móvil, debe tener un nombre nuevo. Ese modo solo lee: vuelve a descargar los seis PDF, compara sus huellas y la propuesta y, si el informe anterior conserva una firma, consulta el recibo, fecha, estado y orden del paso sin repetir el `POST` de firma. La consulta CT118 no devuelve `firma_ref` ni la huella del PDF firmado; el informe las conserva solo como historia del recibo original y las señala como no revalidadas. No se puede combinar `--comparar` con `--firmar`.
+Para el primer paso, añadir a la orden anterior `--firmar --paso 1 --documento informe_definitivo` y usar una salida nueva, por ejemplo `/ruta/privada/primera.json`. Para el segundo, repetir los argumentos del clon y expediente con el certificado y clave de la otra identidad, `--firmar --paso 2 --continuar /ruta/privada/primera.json --salida /ruta/privada/segunda.json`. El certificado de canal distinto no acredita por sí solo otra persona: esa correspondencia y su competencia las decide la autoridad central. Se admiten los seis documentos mediante `--documento`; cada continuación corresponde al mismo documento.
 
-El guion exige HTTPS local, Chrome del sistema, Playwright de Python, mTLS sintético y certificado confiable por el sistema. Bloquea solicitudes HTTP a otros orígenes y las redirecciones. Solo al usar `--firmar` admite el WebSocket de AutoFirma en `wss://127.0.0.1:63117`. Informa estados HTTP, tamaño y SHA-256 de cada PDF; no guarda los PDF ni el contenido firmado en el informe. No incluye credenciales, documentos, nombres de personas ni respuestas completas de API.
+La interfaz pulsa «Comprobar» y después la vía «certificado_vec» que habilita el servidor. Una persona completa o cancela AutoFirma en el puesto. El guion espera hasta tres minutos un único `POST /api/vec/contratacion-temporal/firmas-documento/registro-vec`; exige el esquema `vec.contratacion-temporal.registro-firma-vec.v2`, custodia, revisión PDF, huellas y verificación técnica positiva. Antes del segundo paso descarga la primera revisión custodiada y exige que el preflight la señale como entrada. Cada registro conserva `firma_eficaz=false`.
 
-## Prueba focal y estado inicial
+Después de cada firma se exige `POST /api/vec/contratacion-temporal/firmas-documento/consultas-v2`, con la misma clave real conservada en el intento privado, sin generar otra operación ni enviar organización, persona candidata o perfil. Antes del segundo paso se coteja también la primera revisión con su consulta conservada. Una ruta ausente, denegada o sin las revisiones esperadas deja `consulta_v2_pendiente`; la consulta V1 del DOM no sustituye esa prueba. El resultado `PRIMERA_FIRMA_CONFIRMADA` permite continuar con la otra identidad. `COMPLETO` indica dos recibos confirmados y PDF custodiado descargado; sigue pendiente recuperar la trazabilidad V2 tras reinicio. Ambos informes declaran `e2e=false`. Los recibos de los informes anteriores deben cumplir el esquema cerrado V2; cualquier campo extra impide continuar. La consola proyecta solo los campos técnicos permitidos. La salida privada se reserva antes de abrir Chrome. Antes de pulsar AutoFirma queda marcada la operación incierta; la clave idempotente se conserva solo en ese archivo y no se imprime. Un corte posterior al POST bloquea otra escritura con ese informe. No borrar ni editar el estado para repetir el registro; requiere reconciliación por el responsable del clon.
+
+Después del reinicio externo de aplicación y PostgreSQL del clon, crear un acta privada con este contenido:
+
+```json
+{
+  "expediente_ref": "expediente:SINTETICO",
+  "aplicacion_reiniciada": true,
+  "postgresql_reiniciado": true,
+  "instante_utc": "2026-10-03T15:00:00Z"
+}
+```
+
+Usar los argumentos habituales y `--comparar /ruta/privada/segunda.json --reinicio /ruta/privada/reinicio.json --salida /ruta/privada/recuperada.json`, sin `--firmar` ni `--continuar`. El acta es una declaración externa; el guion no observa el reinicio. Este modo solo consulta y descarga: coteja los dos recibos, fechas, orden, custodia y el PDF final, sin POST de firma ni original. La consulta técnica V2 debe conservar exactamente referencias, rangos de bytes, entrada, revisión, huella de evidencia e historia respecto al informe anterior. Sigue devolviendo `RECUPERACION_PARCIAL`, código 2 y `e2e=false`: el endpoint declara ausentes `material_root_sha256` y `canon_nominal`. No vuelve a ejecutar la verificación criptográfica de GrxFirma. Los informes anteriores sin intento privado o consulta V2 confirmada quedan pendientes; no se completan con claves o metadatos inventados.
+
+El guion exige HTTPS local, Chrome del sistema, Playwright de Python, mTLS sintético y certificado confiable por el sistema. Bloquea solicitudes HTTP a otros orígenes y las redirecciones. Solo al usar `--firmar` admite el WebSocket de AutoFirma en `wss://127.0.0.1:63117`. Informa estados HTTP, tamaño y SHA-256 de cada PDF; no guarda los PDF ni el contenido firmado en el informe. No incluye credenciales, bytes de documentos ni nombres de personas. Conserva recibos V2 técnicos y la clave de la operación solo en el informe privado; la salida de consola omite el intento con su clave.
+
+## Recuperación nominal preparada
+
+Cuando esté montada la recuperación autorizada de 48 campos, añada
+`--recuperacion-nominal` a las tres ejecuciones: primera firma, continuación
+con la segunda identidad y comparación tras reiniciar. El guion consulta
+`POST /api/vec/contratacion-temporal/firmas-documento/recuperaciones-v2`
+con la clave real conservada. Si la ruta falta, deniega o falla, se detiene;
+la consulta técnica anterior no sustituye esta lectura.
+
+El servidor valida la competencia histórica con el modelo común Go. El
+guion coteja la huella de los bytes exactos del canon y la huella del material
+contra cada recibo. Guarda únicamente referencias y huellas en
+`recuperacion_nominal_v2`, dentro del informe privado. No conserva el canon
+ni lo imprime. Antes de firmar el segundo paso vuelve a comprobar el primero;
+tras reiniciar compara las dos evidencias con las guardadas previamente.
+Un informe antiguo sin esa evidencia permanece pendiente.
+
+Una comparación favorable devuelve `RECUPERACION_NOMINAL_CONFIRMADA` y código
+0, después de los controles finales del navegador. Conserva `e2e=false` y
+`verificacion_criptografica_repetida=false`: este modo no repite GrxFirma ni
+acredita auditoría propia de la descarga. Las pruebas sintéticas del guion
+preparan esa comprobación; no prueban montaje nominal, firmas ni reinicio real.
+Sin la opción nueva se conserva el resultado parcial anterior.
+
+## Prueba focal y dependencias
 
 ```sh
 python3 -m unittest discover -s scripts/recorridos/propuesta_firma -p 'test_*.py'
 python3 scripts/recorridos/propuesta_firma/recorrer.py
 ```
 
-En el corte actual no hay clon H3-H5 y binario acreditados para este guion. La segunda orden debe producir `NO EJECUTADO`, `corte=precondiciones`, sin conexión de red. Preparar y comprobar ese clon es la primera dependencia. Después se necesita una firma admitida de prueba en AutoFirma; por último, el contrato de custodia y su recibo verificable.
+Sin inventario y binario acreditados, la segunda orden produce `NO EJECUTADO`, `corte=precondiciones`, sin conexión de red. Antes del navegador se necesitan montaje R5, sesión y contexto registrados, publicaciones nominales autorizadas, canon central, custodia y TLS verificado del clon y del verificador. Las pruebas de contratos no acreditan esas autoridades ni el recorrido.

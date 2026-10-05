@@ -2,13 +2,53 @@ package ports
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"io"
 	"sync/atomic"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
+type claveCorrelacionIncidenciasPeticion struct{}
+
+// ErrCorrelacionIncidenciasNoDisponible no revela errores ni detalles de la
+// fuente aleatoria.
+var ErrCorrelacionIncidenciasNoDisponible = errors.New("incidencias: correlacion no disponible")
+
+// ConCorrelacionIncidenciasPeticion crea una correlación interna aleatoria.
+// Debe invocarse una vez en la frontera, nunca a partir de cabeceras, rutas ni
+// datos de personas. El contexto derivado se propaga a adaptadores y efectos.
+func ConCorrelacionIncidenciasPeticion(ctx context.Context) (context.Context, error) {
+	return conCorrelacionIncidenciasPeticion(ctx, rand.Reader)
+}
+
+func conCorrelacionIncidenciasPeticion(ctx context.Context, aleatorio io.Reader) (context.Context, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var bruto [16]byte
+	if _, err := io.ReadFull(aleatorio, bruto[:]); err != nil {
+		// Sombrea también una eventual correlación anterior: ninguna petición
+		// fallida hereda una coincidencia de otro contexto.
+		return context.WithValue(ctx, claveCorrelacionIncidenciasPeticion{}, ""), ErrCorrelacionIncidenciasNoDisponible
+	}
+	return context.WithValue(ctx, claveCorrelacionIncidenciasPeticion{}, hex.EncodeToString(bruto[:])), nil
+}
+
+// CorrelacionIncidenciasPeticion consulta únicamente la clave privada que
+// coloca la frontera. Ausencia y fallo nunca constituyen una coincidencia.
+func CorrelacionIncidenciasPeticion(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	correlacion, ok := ctx.Value(claveCorrelacionIncidenciasPeticion{}).(string)
+	return correlacion, ok && domain.EsCorrelacionTecnicaValida(correlacion)
+}
+
 // El emisor de incidencias técnicas se inyecta por constructor (opciones del
-// adaptador); el contexto de la petición solo transporta una marca: si en
+// adaptador); junto a la correlación, el contexto transporta una marca: si en
 // esa petición ya se declaró una incidencia específica del catálogo, el
 // middleware común no añade HTTP_INTERNO_FALLIDO por el mismo fallo.
 
@@ -39,7 +79,11 @@ func EmitirIncidenciaTecnicaEnPeticion(ctx context.Context, emisor EmisorInciden
 	if emisor == nil {
 		return
 	}
-	emisor.Emitir(solicitud)
+	if contextual, ok := emisor.(EmisorIncidenciasTecnicasConContexto); ok {
+		contextual.EmitirConContexto(ctx, solicitud)
+	} else {
+		emisor.Emitir(solicitud)
+	}
 	if ctx == nil {
 		return
 	}

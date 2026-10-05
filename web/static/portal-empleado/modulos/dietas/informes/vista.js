@@ -103,6 +103,7 @@ export function resumirInformesDietas(registros, configuracion, filtros = {}) {
   const campo = configuracion.campo_fecha;
   if (registros.some((fila) => estados.has(fila.situacion) && !fechaValida(fila[campo]))) throw new TypeError("datos");
   const seleccion = registros.filter((fila) => estados.has(fila.situacion)
+    && (!filtros.situacion || fila.situacion === filtros.situacion)
     && (!filtros.persona || fila.persona_ref === filtros.persona)
     && (!filtros.unidad || fila.unidad_ref === filtros.unidad)
     && (!filtros.desde || fila[campo] >= filtros.desde)
@@ -189,6 +190,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   };
   const persona = crearSelect("persona", "todas_personas");
   const unidad = crearSelect("unidad", "todas_unidades");
+  const situacion = crearSelect("situacion", "todas_situaciones");
   const crearFecha = (clave) => {
     const campo = nodo(documento, "input"); campo.type = "date"; campo.name = clave;
     const etiqueta = nodo(documento, "label", t(clave)); etiqueta.className = "campo-filtro";
@@ -200,11 +202,17 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const limpiar = nodo(documento, "button", t("limpiar")); limpiar.type = "button"; limpiar.className = "boton-secundario";
   const accionesFiltro = nodo(documento, "div"); accionesFiltro.className = "acciones-filtro";
   accionesFiltro.append(aplicar, limpiar); form.append(accionesFiltro);
+  const filtrosVisibles = nodo(documento, "section"); filtrosVisibles.className = "filtros-activos";
+  filtrosVisibles.dataset.dietasInformesAplicados = "";
+  filtrosVisibles.setAttribute("aria-label", t("filtros_aplicados"));
+  const avisoEdicion = nodo(documento, "span", t("cambios_sin_aplicar"));
+  avisoEdicion.className = "estado-chip info"; avisoEdicion.hidden = true;
+  avisoEdicion.setAttribute("role", "status");
   const resumen = nodo(documento, "section"); resumen.dataset.dietasInformesResumen = "";
   resumen.setAttribute("tabindex", "-1");
   const listado = nodo(documento, "section"); listado.dataset.dietasInformesListado = "";
-  form.hidden = true; resumen.hidden = true; listado.hidden = true;
-  cuerpo.append(origen, estado, reintentar, subtitulo, form, resumen, listado, limite);
+  form.hidden = true; filtrosVisibles.hidden = true; resumen.hidden = true; listado.hidden = true;
+  cuerpo.append(origen, estado, reintentar, subtitulo, form, filtrosVisibles, resumen, listado, limite);
   raiz.append(cabecera, ayuda, cuerpo); contenedor.append(raiz);
 
   let activa = true; let disponible = false; let controlador; let generacion = 0; let registros = Object.freeze([]);
@@ -223,7 +231,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const elegir = (select, filas, referencia, nombre, aplicado) => {
     const opcionAnterior = [...select.children].find((opcion) => opcion.value === aplicado);
     select.replaceChildren();
-    const inicial = nodo(documento, "option", t(referencia === "persona_ref" ? "todas_personas" : "todas_unidades"));
+    const inicial = nodo(documento, "option", t(referencia === "persona_ref" ? "todas_personas"
+      : referencia === "situacion" ? "todas_situaciones" : "todas_unidades"));
     inicial.value = ""; select.append(inicial);
     const opciones = new Map(filas.map((fila) => [fila[referencia], fila[nombre]]));
     for (const [valor, etiqueta] of [...opciones].sort((a, b) => a[1].localeCompare(b[1], localizacion))) {
@@ -233,6 +242,34 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     if (aplicado && !opciones.has(aplicado) && opcionAnterior) select.append(opcionAnterior);
     select.value = aplicado;
   };
+
+  const nombreSeleccionado = (select, valor) => [...select.children]
+    .find((opcion) => opcion.value === valor)?.textContent;
+  function actualizarAvisoEdicion() {
+    if (!disponible) return;
+    avisoEdicion.hidden = persona.value === (filtros.persona || "")
+      && unidad.value === (filtros.unidad || "")
+      && situacion.value === (filtros.situacion || "")
+      && desde.value === (filtros.desde || "")
+      && hasta.value === (filtros.hasta || "");
+  }
+  function pintarFiltrosAplicados() {
+    const valores = [
+      ["persona", filtros.persona && nombreSeleccionado(persona, filtros.persona)],
+      ["unidad", filtros.unidad && nombreSeleccionado(unidad, filtros.unidad)],
+      ["situacion", filtros.situacion && nombreSeleccionado(situacion, filtros.situacion)],
+      ["desde", filtros.desde && fecha.format(new Date(`${filtros.desde}T00:00:00Z`))],
+      ["hasta", filtros.hasta && fecha.format(new Date(`${filtros.hasta}T00:00:00Z`))],
+    ].filter(([, valor]) => valor);
+    filtrosVisibles.replaceChildren(nodo(documento, "strong", t("filtros_aplicados")));
+    if (!valores.length) filtrosVisibles.append(nodo(documento, "span", t("sin_filtros")));
+    for (const [campo, valor] of valores) {
+      const etiqueta = nodo(documento, "span", t("filtro_valor", { campo: t(campo), valor }));
+      etiqueta.className = "estado-chip neutro"; filtrosVisibles.append(etiqueta);
+    }
+    filtrosVisibles.append(avisoEdicion);
+    actualizarAvisoEdicion();
+  }
 
   function pintarAyuda(criterio) {
     const dato = (lista, clave, valor, idioma) => {
@@ -351,7 +388,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     controlador?.abort(); const propia = ++generacion;
     controlador = new AbortController(); disponible = false; mostrarEstado("cargando"); reintentar.hidden = true;
     if (focoReintento) estado.focus();
-    form.hidden = true; resumen.hidden = true; listado.hidden = true; ayuda.hidden = true;
+    form.hidden = true; filtrosVisibles.hidden = true; resumen.hidden = true; listado.hidden = true; ayuda.hidden = true;
     abrirAyuda.hidden = true; abrirAyuda.setAttribute("aria-expanded", "false");
     try {
       const [datos, catalogo] = await Promise.all([
@@ -364,9 +401,13 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       pintarAyuda(criterio);
       elegir(persona, registros, "persona_ref", "persona", filtros.persona || "");
       elegir(unidad, registros, "unidad_ref", "unidad", filtros.unidad || "");
+      elegir(situacion, criterio.estados_incluidos.map((clave) => ({ situacion: clave, etiqueta: t(`situacion_${clave}`) })),
+        "situacion", "etiqueta", filtros.situacion || "");
       desde.value = filtros.desde || ""; hasta.value = filtros.hasta || "";
       limpiarErrorFecha();
-      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false; abrirAyuda.hidden = false;
+      disponible = true; form.hidden = false; filtrosVisibles.hidden = false;
+      resumen.hidden = false; listado.hidden = false; abrirAyuda.hidden = false;
+      pintarFiltrosAplicados();
       pagina = 0; pintar(); anunciarResultado();
       if (focoReintento && documento.activeElement === estado) resumen.focus();
     } catch (error) {
@@ -384,19 +425,21 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     const fechasInvalidas = [desde, hasta].filter((campo) => campo.value && !fechaValida(campo.value));
     if (fechasInvalidas.length) {
       for (const campo of fechasInvalidas) campo.setAttribute("aria-invalid", "true");
-      mostrarEstado("fecha_error"); estado.focus(); return;
+      actualizarAvisoEdicion(); mostrarEstado("fecha_error"); estado.focus(); return;
     }
     if (desde.value && hasta.value && desde.value > hasta.value) {
       desde.setAttribute("aria-invalid", "true"); hasta.setAttribute("aria-invalid", "true");
-      mostrarEstado("periodo_error"); estado.focus(); return;
+      actualizarAvisoEdicion(); mostrarEstado("periodo_error"); estado.focus(); return;
     }
-    filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
-    pagina = 0; pintar(); anunciarResultado();
+    filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, situacion: situacion.value,
+      desde: desde.value, hasta: hasta.value });
+    pagina = 0; pintarFiltrosAplicados(); pintar(); anunciarResultado();
   }
   function borrar() {
     if (!disponible) return;
-    persona.value = ""; unidad.value = ""; desde.value = ""; hasta.value = "";
-    limpiarErrorFecha(); filtros = Object.freeze({}); pagina = 0; pintar(); anunciarResultado();
+    persona.value = ""; unidad.value = ""; situacion.value = ""; desde.value = ""; hasta.value = "";
+    limpiarErrorFecha(); filtros = Object.freeze({}); pagina = 0;
+    pintarFiltrosAplicados(); pintar(); anunciarResultado();
   }
   function paginar(evento) {
     const destino = evento.target?.dataset?.dietasInformesPagina;
@@ -406,12 +449,14 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     pagina = nueva; pintar(); listado.querySelector?.("[data-dietas-informes-cuenta]")?.focus();
   }
   form.addEventListener("submit", enviar); limpiar.addEventListener("click", borrar);
+  form.addEventListener("input", actualizarAvisoEdicion); form.addEventListener("change", actualizarAvisoEdicion);
   abrirAyuda.addEventListener("click", cambiarAyuda);
   reintentar.addEventListener("click", cargar); listado.addEventListener("click", paginar);
   cargar();
   function desmontar() {
     if (!activa) return; activa = false; generacion += 1; controlador?.abort();
     form.removeEventListener("submit", enviar); limpiar.removeEventListener("click", borrar);
+    form.removeEventListener("input", actualizarAvisoEdicion); form.removeEventListener("change", actualizarAvisoEdicion);
     abrirAyuda.removeEventListener("click", cambiarAyuda);
     reintentar.removeEventListener("click", cargar); listado.removeEventListener("click", paginar); raiz.remove();
   }

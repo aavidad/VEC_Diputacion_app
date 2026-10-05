@@ -1,0 +1,8 @@
+# AD169 en la corriente común. No aplicar sobre principal hasta ensayo y dos GO.
+# CA26 e IS13 son cotejos históricos RW de sus autoridades propietarias.
+# El DBA debe insertar una configuración login/proceso/canal sintética sólo en
+# el clon de ensayo; en principal, configuración privada gobernada tras revisión.
+deploy/postgresql/autorizacion_atestada_v3/roles_intentos_up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000026_cotejo_historico_auditoria_intentos.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000013_cotejo_historico_auditoria_intentos.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000169_intentos_nominales_auditoria_comun.up.sql

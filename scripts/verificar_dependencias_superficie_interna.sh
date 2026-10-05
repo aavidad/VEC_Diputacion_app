@@ -18,6 +18,8 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 # completos de las rutas CT, httpapi y vec/application: de ahi proceden tambien
 # dependencias de Personal, Bolsa, Dietas, Cronos y Administracion. Estar en el
 # grafo no registra sus rutas; la composicion y sus pruebas mantienen esa guarda.
+# El verificador común de auditoría aporta el cotejo de los paquetes de
+# exportación; compilarlo no monta una captura, ruta o fuente nominal.
 # No admitir nuevas importaciones por prefijo ni normalizar la lista con go list.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
@@ -71,6 +73,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/modules/administracion" | \
 			"${modulo}/internal/modules/bolsa" | \
+			"${modulo}/internal/modules/contrataciontemporal/adapters/auditoriafirma" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/ginpixfichero" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/historiaincorporacion" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/httpinterno" | \
@@ -78,7 +81,9 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" | \
 			"${modulo}/internal/modules/contrataciontemporal/application" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmas" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmasv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/firmaautorizacionv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
 			"${modulo}/internal/modules/contrataciontemporal/domain" | \
 			"${modulo}/internal/modules/contrataciontemporal/ports" | \
@@ -105,6 +110,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/vec/adapters/seguridad/verificacioncose" | \
 			"${modulo}/internal/vec/adapters/seudonimizacionpkcs11" | \
 			"${modulo}/internal/vec/application" | \
+			"${modulo}/internal/vec/auditoria" | \
 			"${modulo}/internal/vec/canonico/almacen" | \
 			"${modulo}/internal/vec/canonico/documental" | \
 			"${modulo}/internal/vec/canonico/pagos" | \
