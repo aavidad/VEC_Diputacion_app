@@ -330,12 +330,10 @@ func monedaDosDecimales(s string) bool {
 	if !patronMoneda.MatchString(s) {
 		return false
 	}
+	// Un código desconocido no es moneda válida: el error se traduce en false.
 	unidad, err := currency.ParseISO(s)
-	if err != nil {
-		return false
-	}
 	escala, _ := currency.Standard.Rounding(unidad)
-	return escala == 2
+	return err == nil && escala == 2
 }
 
 func listaClaves(v []string) bool {
