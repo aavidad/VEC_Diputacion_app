@@ -53,7 +53,7 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 		if rol.ValidarEn(s.reloj.Ahora()) != nil || rol.VersionRef != cambio.RolVersionRef ||
 			rol.Clase != domain.ClaseControlPerfilOrdinario || (rol.UnidadRequerida && cambio.Objetivo.UnidadRef == "") ||
 			(cambio.Operacion == domain.OperacionOtorgarPerfil &&
-				(cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) ||
+				(cambio.InicioVigencia == domain.InicioVigenciaLoteProgramado && cambio.Objetivo.VigenteDesde.Before(rol.VigenteDesde) ||
 					cambio.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
 			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 		}

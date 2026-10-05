@@ -8,6 +8,10 @@ import (
 )
 
 func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
+	if h.organizacionLote == "" {
+		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", "aplicar_lote_ordinario", "")
+		return
+	}
 	servicio, ok := h.actos.(ServicioLotes)
 	if !ok || dependenciaNula(servicio) {
 		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", "aplicar_lote_ordinario", "")
@@ -27,11 +31,14 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 		return
 	}
 	solicitud := domain.SolicitudLoteAdministracionPerfiles{OperacionRef: dto.OperacionRef,
-		Actor: s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+		OrganizacionRef: h.organizacionLote,
+		Actor:           s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
 		Motivo: dto.Motivo.dominio(), ReferenciaActo: dto.ReferenciaActo, CorrelacionRef: s.CorrelacionRef}
 	for _, cambio := range dto.Cambios {
 		solicitud.Cambios = append(solicitud.Cambios, domain.CambioPerfilAdministracion{
-			Operacion: domain.OperacionAdministracionPerfiles(cambio.Operacion), RolVersionRef: cambio.RolVersionRef, Objetivo: cambio.Objetivo.dominio()})
+			Operacion:      domain.OperacionAdministracionPerfiles(cambio.Operacion),
+			InicioVigencia: domain.InicioVigenciaLoteAdministracion(cambio.InicioVigencia),
+			RolVersionRef:  cambio.RolVersionRef, Objetivo: cambio.Objetivo.dominio()})
 	}
 	_, huella, err := solicitud.CanonicoYHuella()
 	if err != nil {
@@ -61,10 +68,15 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 		return
 	}
 	dtoRecibo := ReciboLote{OperacionRef: recibo.OperacionRef, ActoRef: recibo.ActoRef, ReciboRef: recibo.ReciboRef,
-		AuditoriaRef: recibo.AuditoriaRef, HuellaSolicitudSHA256: recibo.HuellaSolicitudSHA256, ConfirmadoEn: recibo.ConfirmadoEn,
+		AuditoriaRef: recibo.AuditoriaRef, HuellaSolicitudSHA256: recibo.HuellaSolicitudSHA256,
+		FuentesSHA256: recibo.FuentesSHA256, ConfirmadoEn: recibo.ConfirmadoEn,
 		Cambios: make([]Recibo, 0, len(recibo.Cambios))}
 	for _, cambio := range recibo.Cambios {
 		dtoRecibo.Cambios = append(dtoRecibo.Cambios, reciboDTO(cambio))
+	}
+	for _, inicio := range recibo.Inicios {
+		dtoRecibo.Inicios = append(dtoRecibo.Inicios, InicioEfectivoLote{
+			Modo: string(inicio.Modo), VigenteDesde: inicio.VigenteDesde})
 	}
 	jsonRespuesta(w, http.StatusOK, struct {
 		Recibo ReciboLote `json:"recibo"`
