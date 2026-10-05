@@ -222,5 +222,7 @@ SELECT pg_temp.comprobar('lote_dos_programadas',:'r11' NOT LIKE 'ERROR%' AND jso
 SELECT pg_temp.comprobar('acl',has_function_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.aplicar_lote_ordinario_admin_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.preimagen_cambio_lote_admin_v1(jsonb,text)','EXECUTE')
  AND NOT has_function_privilege('vec_admin_perfiles_lote_ejecutor','vec_contexto_actor_v1.registrar_procedencia_acto_admin_lote_v1(text,text)','EXECUTE')
+ AND has_function_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.resolver_rol_administrable_v1(text)','EXECUTE')
+ AND NOT has_table_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.rol_administrable_exacto_v1','SELECT')
  AND NOT has_table_privilege('vec_admin_perfiles_lote_ejecutor','vec_autorizacion.registro_lote_admin_v1','SELECT'));
 ROLLBACK;

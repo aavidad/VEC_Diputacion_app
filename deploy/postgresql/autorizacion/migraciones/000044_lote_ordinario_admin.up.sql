@@ -355,6 +355,10 @@ REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_lote_ordinario_admin_v1(text,jso
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_perfiles_lote_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.aplicar_lote_ordinario_admin_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
  vec_autorizacion.acreditar_login_lote_ordinario_admin_v1() TO vec_admin_perfiles_lote_ejecutor;
+-- El adaptador del lote coteja cada alta con el perfil registrado (AUT24
+-- resolver_rol_administrable_v1, sólo lectura del catálogo) antes de gastar una
+-- decisión. Sin este permiso toda alta acabaría en 42501 en la composición real.
+GRANT EXECUTE ON FUNCTION vec_autorizacion.resolver_rol_administrable_v1(text) TO vec_admin_perfiles_lote_ejecutor;
 RESET ROLE;
 DO $acl$
 DECLARE g oid:=to_regrole('vec_admin_perfiles_lote_ejecutor');f text;
@@ -370,6 +374,10 @@ BEGIN
   OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f::regprocedure AND p.proowner='vec_autorizacion_propietario'::regrole AND p.prosecdef)
   THEN RAISE EXCEPTION 'AUT44: PARO clave=ACL_fachada actual=ampliada esperado=propietario_y_grupo %',f USING ERRCODE='55000'; END IF;
  END LOOP;
+ IF EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid='vec_autorizacion.resolver_rol_administrable_v1(text)'::regprocedure AND (a.grantee NOT IN(p.proowner,g) OR a.is_grantable))
+ OR NOT has_function_privilege(g,'vec_autorizacion.resolver_rol_administrable_v1(text)','EXECUTE')
+ THEN RAISE EXCEPTION 'AUT44: PARO clave=ACL_catalogo actual=divergente esperado=propietario_y_grupo' USING ERRCODE='55000'; END IF;
  IF EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
   WHERE c.oid IN('vec_autorizacion.registro_lote_admin_v1'::regclass,'vec_autorizacion.outbox_lote_admin_v1'::regclass) AND a.grantee<>c.relowner)
  THEN RAISE EXCEPTION 'AUT44: PARO clave=ACL_tablas actual=ampliada esperado=solo_propietario' USING ERRCODE='55000'; END IF;
