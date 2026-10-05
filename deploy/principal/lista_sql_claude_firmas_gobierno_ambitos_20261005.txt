@@ -1,0 +1,7 @@
+# AD201: el recurso de gobierno del plan nominal de firma lleva organización y unidad.
+# Requiere AD200 (lista_sql_claude_firmas_gobierno_grupo_20261005.txt). No toca el núcleo ni el
+# CHECK de audiencias, así que no depende del orden de otros consumidores. Crea la fachada
+# registrar_y_confirmar_gobierno_plan_firma_v2 para el grupo vec_plan_firma_gobierno_ejecutor y
+# deja la v1 (recurso sin ámbitos, nunca autorizable) sólo para su propietario.
+# Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000201_gobierno_plan_firma_ambitos.up.sql

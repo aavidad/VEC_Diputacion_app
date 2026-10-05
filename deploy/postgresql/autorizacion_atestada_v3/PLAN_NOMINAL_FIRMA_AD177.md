@@ -160,3 +160,26 @@ uno con otra pertenencia se rechaza en ella y que el runtime CT ya no tiene
 `pruebas_sql/ad177_ad178_post_ad193.sql` es anterior a AD190: mide el núcleo
 previo y espera el `EXECUTE` del runtime CT, así que no se ejecuta tras AD190 ni
 tras AD200.
+
+## Ámbitos del recurso de gobierno (AD201)
+
+AD177 calculaba la huella de contexto del recurso de gobierno sin ámbitos. El
+PDP común exige que el recurso tenga exactamente las dimensiones de la
+asignación del actor, y la del administrador con Rol7 tiene organización y
+unidad, así que toda decisión de gobierno se denegaba (`ambito_no_autorizado`).
+Dirección aprobó el 5 de octubre de 2026 que el recurso lleve esos dos ámbitos.
+
+AD201 crea `registrar_y_confirmar_gobierno_plan_firma_v2(material, organizacion_ref,
+unidad_ref, …)`, con el resto de argumentos y comprobaciones de la v1. Calcula la
+huella con `{"ambitos":{"organizacion_ref":…,"unidad_ref":…},"atributos":{…}}`,
+exige que la decisión consumida sea la recibida y vuelve a acreditar la
+organización contra la asignación vigente con
+`vec_autorizacion.acreditar_ambito_certificado_nominal_v1`. La unidad queda
+ligada por la huella de la decisión, que el PDP evaluó contra esa asignación.
+La v1 deja de ser ejecutable por el grupo dedicado. En Go,
+`plannominal.RecursoGobiernoPlanFirma(material, AmbitoGobiernoPlanFirma)`
+construye el mismo recurso. El material del kit y CC7 no cambian.
+
+`pruebas_sql/ad201_gobierno_plan_firma_ambitos.sql` (ROLLBACK): la v2 con la
+huella con ámbitos llega al núcleo; con la huella antigua la fachada la deniega;
+una organización mal formada se rechaza antes; la v1 ya no es ejecutable.
