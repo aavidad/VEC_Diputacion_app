@@ -16,7 +16,9 @@
 -- consumo de este acceso. El grupo ejecutor pasa de la v3 a la v4.
 -- Añade también el conjunto 4 de capacidades ADMIN (el 3 más la audiencia de
 -- certificados nominales, tramo certificados:nominal) para que vec-admin
--- emita esas decisiones. No toca el núcleo ni el CHECK de audiencias.
+-- emita esas decisiones, y corrige destino_no_administrador_certificado_
+-- nominal_v1 (AUT33), que fallaba siempre con un USING ambiguo. No toca el
+-- núcleo ni el CHECK de audiencias.
 -- Requiere AD165, AD198 y AD204. Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -39,6 +41,13 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_autorizacion.operar_certificado_nominal_v4(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion.ambitos_asignacion_aplicacion_v1(text,text,text)') IS NOT NULL
  THEN RAISE EXCEPTION 'AD205: PARO clave=preimagen actual=incompatible esperado=AD165_sin_v4' USING ERRCODE='55000'; END IF;
+ -- AUT33 dejó destino_no_administrador_certificado_nominal_v1 con un USING
+ -- ambiguo (version_rol_ref aparece dos veces a la izquierda): cualquier
+ -- destino ordinario acababa en error 42702. Se exige su definición exacta.
+ IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(
+   'vec_autorizacion.destino_no_administrador_certificado_nominal_v1(text,text)'::regprocedure),'UTF8')),'hex')
+   IS DISTINCT FROM '5e29d343d81975df7c86473c4c81ed681effb264e10d94f80161a05db69459bb'
+ THEN RAISE EXCEPTION 'AD205: PARO clave=destino_no_administrador actual=distinto esperado=AUT33' USING ERRCODE='55000'; END IF;
  IF pg_catalog.to_regclass('vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1') IS NULL
  OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=4)
  THEN RAISE EXCEPTION 'AD205: PARO clave=conjuntos actual=incompatible esperado=AD198_sin_conjunto_4' USING ERRCODE='55000'; END IF;
@@ -97,6 +106,41 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
   '},"atributos":{"descriptor_sha256":'||pg_catalog.to_jsonb(descriptor_sha)::text||'}}','UTF8')),'hex')
 $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.huella_recurso_certificado_nominal_v1(jsonb,text) FROM PUBLIC;
+
+-- Corrección del USING ambiguo de AUT33: misma función, con el cruce de la
+-- revisión de control escrito explícito. Conserva propietario y ACL.
+CREATE OR REPLACE FUNCTION vec_autorizacion.destino_no_administrador_certificado_nominal_v1(cuenta text, persona text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+ SET lock_timeout TO '2s'
+AS $function$
+DECLARE privilegiada boolean;ahora timestamptz;
+BEGIN
+ IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
+  OR pg_catalog.current_setting('transaction_read_only')<>'off'
+  OR cuenta IS NULL OR persona IS NULL THEN RETURN false; END IF;
+ privilegiada:=vec_identidad_sesiones_v1.clasificar_cuenta_privilegiada_nominal_v1(cuenta);
+ IF privilegiada IS DISTINCT FROM false THEN RETURN false; END IF;
+ -- Impide una asignación administrativa concurrente, incluida una sobre
+ -- otro perfil activo de la misma persona, hasta el COMMIT del certificado.
+ LOCK TABLE vec_autorizacion.asignacion_perfil_actual IN SHARE MODE;
+ LOCK TABLE vec_autorizacion.control_vigencia_version_rol_actual IN SHARE MODE;
+ ahora:=pg_catalog.clock_timestamp();
+ RETURN NOT EXISTS(
+  SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual x
+  JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref)
+  JOIN vec_autorizacion.rol_sensible_exacto s ON s.version_rol_ref=a.version_rol_ref
+  JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=s.version_rol_ref
+  JOIN vec_autorizacion.control_vigencia_version_rol_actual ca ON ca.version_rol_ref=r.version_rol_ref
+  JOIN vec_autorizacion.control_vigencia_version_rol cv ON cv.version_rol_ref=ca.version_rol_ref AND cv.revision=ca.revision
+  WHERE a.principal_id=persona AND s.clase='administrador' AND s.huella_sha256=r.huella_sha256
+   AND a.documento->>'estado'='activa' AND r.documento->>'estado'='publicada'
+   AND cv.estado='habilitada'
+   AND ahora>=(a.documento->>'vigente_desde')::timestamptz
+   AND ahora<(a.documento->>'vigente_hasta')::timestamptz);
+END $function$;
 
 CREATE FUNCTION vec_autorizacion.operar_certificado_nominal_v4(
  p_descriptor bytea,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -191,6 +235,14 @@ BEGIN
    WHERE p.oid=ANY(internas) AND x.grantee<>p.proowner)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=ANY(internas) AND proowner<>'vec_autorizacion_propietario'::regrole)
  THEN RAISE EXCEPTION 'AD205: PARO clave=acl_post actual=divergente esperado=v4_solo_grupo_y_v3_cerrada' USING ERRCODE='55000'; END IF;
+ IF pg_catalog.strpos(pg_catalog.pg_get_functiondef('vec_autorizacion.destino_no_administrador_certificado_nominal_v1(text,text)'::regprocedure),
+   'USING(version_rol_ref,revision)')<>0
+ OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid='vec_autorizacion.destino_no_administrador_certificado_nominal_v1(text,text)'::regprocedure)
+   <>'vec_autorizacion_propietario'::regrole
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) x
+   WHERE p.oid='vec_autorizacion.destino_no_administrador_certificado_nominal_v1(text,text)'::regprocedure
+   AND x.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))
+ THEN RAISE EXCEPTION 'AD205: PARO clave=destino_no_administrador_post actual=divergente esperado=sin_USING_y_misma_ACL' USING ERRCODE='55000'; END IF;
  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=4
    AND audiencias=ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1',
     'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1','vec_personal.cargo_competencial.publicar.v1','vec_contexto_actor.certificado_nominal.publicar.v1']
