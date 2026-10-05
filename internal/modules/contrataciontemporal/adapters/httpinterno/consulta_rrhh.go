@@ -54,6 +54,9 @@ type manejadorConsultaDetalleRRHH struct {
 	renderizador               ports.RenderizadorBorradorRRHH
 	renderizadorDOCX           RenderizadorBorradorRRHHDOCX
 	presentacion               ResolutorPresentacionFlujoRRHH
+	// descargas, si está configurado, autoriza y registra cada descarga de
+	// borrador y deja en la auditoría común sus intentos fallidos.
+	descargas ports.RegistradorDescargaBorradorRRHH
 }
 
 func NuevoManejadorConsultaDetalleRRHHConPresentacion(consultor ConsultorDetalleRRHH, presentacion ResolutorPresentacionFlujoRRHH, renderizadores ...ports.RenderizadorBorradorRRHH) (http.Handler, error) {
@@ -272,20 +275,29 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
+	borrador, esDescarga := borradorRRHHSolicitado(r.Header)
+	// En una descarga, un fallo de la consulta es una descarga fallida.
+	responderFallo := func(causa error, problema errorPublicoConsultaRRHH) {
+		if esDescarga {
+			h.fallarDescargaRRHH(w, r, solicitud.ExpedienteRef(), causa, problema)
+			return
+		}
+		responderErrorConsultaRRHH(w, r, causa, problema)
+	}
 	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
+		responderFallo(errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	if err != nil {
-		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
+		responderFallo(err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	if err := detalle.ValidarContenidoPublicablePara(solicitud); err != nil {
-		responderErrorConsultaRRHH(w, r, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPublicable, Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, Causa: err}, errorResultadoConsultaRRHHNoConfiable)
+		responderFallo(&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPublicable, Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, Causa: err}, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
-	if borrador, solicitado := borradorRRHHSolicitado(r.Header); solicitado {
+	if esDescarga {
 		h.responderBorrador(w, r, detalle, borrador)
 		return
 	}
@@ -309,6 +321,10 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	detalle ports.DetalleExpedienteRRHH,
 	borrador representacionBorradorRRHH,
 ) {
+	expedienteRef := detalle.Resumen.ExpedienteRef
+	fallar := func(causa error, problema errorPublicoConsultaRRHH) {
+		h.fallarDescargaRRHH(w, r, expedienteRef, causa, problema)
+	}
 	tipoContenido := borrador.tipoContenido
 	// Las pruebas y llamadas internas anteriores construyen la representación
 	// PDF directamente; la ausencia de formato conserva esa semántica.
@@ -316,15 +332,15 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		tipoContenido = "application/pdf"
 	}
 	if tipoContenido == MIMEDOCXBorradorRRHH && dependenciaConsultaRRHHNula(h.renderizadorDOCX) {
-		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
+		fallar(nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if tipoContenido == "application/pdf" && dependenciaConsultaRRHHNula(h.renderizador) {
-		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
+		fallar(nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
+		fallar(err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	// Los seis borradores siguen representando el original de propuesta v7.
@@ -334,24 +350,24 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	if requiereOriginalPropuestaRRHH(detalle) {
 		solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
 		if err != nil {
-			responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
+			fallar(nil, errorResultadoConsultaRRHHNoConfiable)
 			return
 		}
 		consultorOriginal := h.consultor
 		if detalle.Resumen.Version == 9 {
 			if dependenciaConsultaRRHHNula(h.consultorOriginalPropuesta) {
-				responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
+				fallar(nil, errorServicioConsultaRRHHNoDisponible)
 				return
 			}
 			consultorOriginal = h.consultorOriginalPropuesta
 		}
 		original, err := consultorOriginal.Consultar(r.Context(), solicitud)
 		if r.Context().Err() != nil {
-			responderErrorConsultaRRHH(w, r, r.Context().Err(), clasificarErrorConsultaRRHH(r.Context().Err()))
+			fallar(r.Context().Err(), clasificarErrorConsultaRRHH(r.Context().Err()))
 			return
 		}
 		if err != nil || original.ValidarContenidoPublicablePara(solicitud) != nil {
-			responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
+			fallar(nil, errorServicioConsultaRRHHNoDisponible)
 			return
 		}
 		detalle = original
@@ -364,25 +380,32 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	case MIMEDOCXBorradorRRHH:
 		contenido, err = h.renderizadorDOCX.RenderizarBorradorDOCX(r.Context(), borrador.tipo, detalle.Clonar())
 	default:
-		responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
+		fallar(nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
+		fallar(errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	if errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
-		responderErrorConsultaRRHH(w, r, nil, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
+		fallar(nil, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
 		return
 	}
 	if err != nil {
-		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
+		fallar(err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	if len(contenido) > MaximoPDFBorradorRRHHBytes ||
 		(tipoContenido == "application/pdf" && !bytes.HasPrefix(contenido, []byte("%PDF-"))) ||
 		(tipoContenido == MIMEDOCXBorradorRRHH && !bytes.HasPrefix(contenido, []byte("PK\x03\x04"))) {
-		responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
+		fallar(nil, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
+	formato := ports.FormatoBorradorRRHHPDF
+	if tipoContenido == MIMEDOCXBorradorRRHH {
+		formato = ports.FormatoBorradorRRHHDOCX
+	}
+	if !h.autorizarEntregaBorradorRRHH(w, r, detalle, borrador, formato, contenido) {
 		return
 	}
 	aplicarCabecerasCobertura(w)
