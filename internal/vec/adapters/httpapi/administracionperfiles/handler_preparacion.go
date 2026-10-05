@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -116,11 +115,18 @@ func unidadPreparacionLote(raw string) (string, bool) {
 	if len(raw) > 256 {
 		return "", false
 	}
-	q, err := url.ParseQuery(raw)
-	if err != nil || len(q) != 1 || len(q["unidad_ref"]) != 1 || !organizacionPrivadaLote.MatchString(q["unidad_ref"][0]) {
+	// Sólo «unidad_ref=<valor>»: el valor del patrón cerrado admite «:», que el
+	// navegador envía como %3A. Cualquier otra clave, escape o separador deja
+	// un valor que no cumple el patrón y se rechaza.
+	valor, ok := strings.CutPrefix(raw, "unidad_ref=")
+	if !ok {
 		return "", false
 	}
-	return q["unidad_ref"][0], true
+	valor = strings.ReplaceAll(strings.ReplaceAll(valor, "%3A", ":"), "%3a", ":")
+	if !organizacionPrivadaLote.MatchString(valor) {
+		return "", false
+	}
+	return valor, true
 }
 
 func nuevaReferenciaPreparacion() (string, error) {
