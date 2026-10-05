@@ -40,7 +40,7 @@ Cada minitarea es una PR propia, en este orden salvo donde se indica.
 | A1a | **Perfiles asignables (SQL).** AUT49 + AD196: un operador técnico, con LOGIN propio y una aprobación ligada a la huella del plan, registra versiones de rol ordinarias ya publicadas como asignables. Auditoría común en la misma transacción; replay con el mismo recibo; intentos denegados auditados. Excluye administración, Sistemas, Intervención, roles sensibles y fijos. | — | #699; ensayada en clon, dos revisiones. |
 | A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#704). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #704. Debe entrar antes de registrar planes en la principal. |
 | A2 | **Consumidor de autorización del lote (AD190).** Perfil de mutación `lote_perfiles_admin` en el núcleo, audiencia `vec_autorizacion.administracion_perfiles.lote_ordinario.v1`, recurso persona destinataria distinta del actor, campos `[]`, obligación `auditar`, superficie ADMIN con cuenta privilegiada. Puerta de AUT45 (v6) antes y después del consumo y revalidación de la decisión viva. Sólo el propietario de Autorización ejecuta la fachada y el núcleo exige que la sesión sea un LOGIN exclusivo del grupo nuevo `vec_admin_perfiles_lote_ejecutor`. | AUT45, AD195 | En PR; vector estructural y negativo en clon. El consumo positivo necesita el emisor real y se acredita en A9. |
-| A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: consume la decisión (A2), compara por CAS todas las preimágenes, crea o revoca vínculos (CA35) y asignaciones, escribe sellos, historia, auditoría común, outbox y recibo. Replay con la misma referencia devuelve el recibo original; otra huella falla sin efecto. Nadie se asigna a sí mismo; un rol no ordinario anula el lote entero. | A1a, A2 | Pendiente. CA35 tiene borrador. |
+| A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: recalcula el recurso (persona, organización, unidad y huella de la solicitud) y lo exige igual en la decisión, la capacidad y el acuse del consumo AD190; compara TODAS las preimágenes con el estado anterior al lote y después aplica: registra la procedencia del acto, crea o revoca vínculos (CA35) y asignaciones con su historia, y escribe registro, outbox y recibo. Replay con el mismo recibo; otra huella, 23505. | A1a, A2 | En PR; vector de 16 casos en clon (con el consumo AD190 sustituido sólo dentro de la prueba). |
 | A4 | **Rol de Aplicación v6 en el entorno.** Aplicar el mantenimiento AUT45 v5→v6 con la CLI existente, después de AUT48. Paso operativo del runbook, sin código nuevo. | AUT48 | Pendiente (operación). |
 | A5a | **Contrato v3 del lote (sin SQL).** Rescate del borrador de K (`25cc6f444`): organización fijada por configuración, inicio inmediato o programado, unidad obligatoria, recibo con huella de fuentes e inicios efectivos; DTO HTTP estricto y `NuevoHandlerLoteOrdinario`. Ninguna autoridad nueva: el efecto sigue cerrado (503). | — | En esta PR. |
 | A5b | **Adaptador Go del lote y emisor de la decisión.** Rescatar `lote_ordinario.go`, `lote_ejecucion.go`, `lote_auditoria.go` y `lote_fuentes.go` del borrador, ajustados a A2/A3. Pruebas focales y de carrera. | A3 | Pendiente. |
@@ -54,6 +54,23 @@ pantalla (contrato de gobierno de perfiles ya en `domain/administracion_gobierno
 sin SQL), alta y baja de administradores e Intervención con doble control
 (propuesta y cierre de AUT24), selector de perfil activo para los perfiles
 asignados y exportación de la auditoría con valor de prueba.
+
+## Decisiones de A3
+
+- **Procedencia del acto.** CA20 exige una procedencia nueva para revocar y sólo las
+  fuentes iniciales registraban procedencias. Cada lote confirmado registra la suya
+  (`prc_` derivada de la operación, huella = la de la solicitud, autoridad maestra
+  acreditada): VEC es la autoridad de las asignaciones de sus perfiles y el acto,
+  autorizado y auditado, es su fuente. La preimagen del objetivo sigue llevando la
+  procedencia actual de la persona, para el CAS.
+- **Persona administrable.** La destinataria tiene que estar en el conjunto que ve el
+  administrador (alguna asignación actual con la misma organización y unidad, y
+  metadatos de persona administrable), como en la lista de usuarios (AUT43). El
+  administrador tiene que tener esa organización y esa unidad en su asignación.
+- **Ámbitos de la asignación nueva.** Organización y unidad cotejadas con sus fuentes
+  propietarias (AUT37/Personal), las mismas que la lista de usuarios.
+- **Cuenta.** El vínculo se crea con la cuenta que indique la preimagen; la
+  preparación (A6) debe proponer la cuenta ordinaria de la persona, no la privilegiada.
 
 ## A1a: registro de perfiles asignables
 
