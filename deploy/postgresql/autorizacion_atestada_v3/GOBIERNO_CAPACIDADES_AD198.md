@@ -17,6 +17,7 @@ migración.
 | --- | --- |
 | 1 | `vec.admin.usuarios.listar.v1`, `vec.admin.usuarios.consultar.v1`, `vec_autorizacion.administracion_perfiles.lote_ordinario.v1` |
 | 2 (AD202) | las tres del conjunto 1, en el mismo orden, y `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1` (tramo `catalogos:plan-firma`) |
+| 3 (AD204) | las cuatro del conjunto 2, en el mismo orden, y `vec_personal.cargo_competencial.publicar.v1` (tramo `personal:cargo-competencial`) |
 
 El programa (`bootstrap.AudienciasConjuntoCapacidadesAdmin`) tiene la misma
 lista. La base vuelve a comprobar audiencia, orden y tramo de cada clave.
@@ -87,3 +88,14 @@ operación publica las cuatro claves, repetirla con otro acuse devuelve el mismo
 recibo y la verificación de la cadena no encuentra diferencias. Al pasar al
 conjunto 2 se deja de renovar con el 1: la clave del gobierno del plan sólo la
 renueva el 2.
+
+## Conjunto 3 (AD204)
+
+Añade la clave con la que vec-admin emite las decisiones de publicación de
+cargos competenciales de Personal (AD166 y Personal28). Se prepara con
+`"conjunto_capacidades": 3` y la configuración aprobada del LOGIN lleva
+`conjunto_version = 3`. Al pasar al conjunto 3 se deja de renovar con el 2.
+Ensayado en un PostgreSQL 18.4 desechable (AD198, AD202 y AD204 con salida 0;
+repetir AD204 se para en la preimagen) y en el clon del gobierno del plan: la
+operación publica las cinco claves, repetirla devuelve el mismo recibo y la
+verificación de la cadena no encuentra diferencias.
