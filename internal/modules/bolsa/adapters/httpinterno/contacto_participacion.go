@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -155,6 +156,7 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 	}
 	p, e := h.operador.ListarContactosParticipacion(r.Context(), consulta)
 	if e != nil {
+		publicarAcuseConsultaContactos(w, e)
 		responderErrorContacto(w, e)
 		return
 	}
@@ -219,6 +221,7 @@ func (h *HandlerContactoParticipacion) listarOferta(w http.ResponseWriter, r *ht
 	q.OfertaRef = oferta[0]
 	p, err := h.operador.ListarContactosBolsa(r.Context(), q)
 	if err != nil {
+		publicarAcuseConsultaContactos(w, err)
 		responderErrorContacto(w, err)
 		return
 	}
@@ -267,6 +270,15 @@ func responderErrorContacto(w http.ResponseWriter, err error) {
 		responderContacto(w, 404, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})
 	default:
 		responderContacto(w, 503, map[string]any{"error": map[string]string{"codigo": "servicio_no_disponible"}})
+	}
+}
+
+// publicarAcuseConsultaContactos solo expone referencias de un intento AD169
+// cuyo acuse ya validó la aplicación; nunca datos del contacto.
+func publicarAcuseConsultaContactos(w http.ResponseWriter, err error) {
+	if acuse, confirmado := application.AcuseConsultaContactosFallida(err); confirmado {
+		w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+		w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
 	}
 }
 func responderContacto(w http.ResponseWriter, estado int, v any) {

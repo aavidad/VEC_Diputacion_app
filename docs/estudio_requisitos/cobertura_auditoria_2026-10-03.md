@@ -106,6 +106,18 @@ y su preflight. El acuse se coteja antes de publicar las referencias; un fallo
 del registro o una proyección inválida cierra sin datos. Pruebas sintéticas
 focales; ensayo nominal, reinicio y provisión de K pendientes.
 
+Las dos lecturas RRHH de contactos de Bolsa (por participación y por oferta de
+la bolsa) consumen `bolsa.contacto_participacion.consultar` con finalidad
+`consulta_contactos_participacion`. El corte A del 05/10 les pone el mismo
+decorador AD169, con el mismo registrador y cierre que la consulta documental.
+El recurso es la participación o la bolsa. El servicio distingue ya la
+denegación explícita del emisor V3 de un fallo técnico. Las dos rutas toman la
+correlación de la petición; el registro de contactos y la página RRHH de la
+bolsa conservan la suya. Ninguna orden lleva correo, teléfonos ni anotaciones.
+La consulta de datos de contacto (`datos-contacto`, también con
+`?ver=completo`) queda fuera: hoy no consume V3 ni tiene acción, finalidad o
+motivo de consulta propios, y crearlos es una decisión de permisos pendiente.
+
 La lista B5 de aspirantes combina lectores y staging, sin consumo nominal único
 acreditado en este inventario. No se la presenta como cubierta por un decorador
 de errores. El histórico B13 usa una acción de cambio preexistente y requiere
