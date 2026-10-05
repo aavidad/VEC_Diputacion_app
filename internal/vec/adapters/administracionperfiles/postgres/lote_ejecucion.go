@@ -47,9 +47,24 @@ func (a *AutoridadLoteOrdinario) resolverRolLote(ctx context.Context, ref string
 func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.ContextoActor,
 	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
 	recurso domain.RecursoAutorizable, efecto Efecto, fuentes []byte, validar func([]byte) error) error {
+	var fuentesArg any
+	if len(fuentes) != 0 {
+		fuentesArg = string(fuentes)
+	}
+	return a.ejecutarConsumoLote(ctx, actor, evidencia, instantanea, recurso, efecto, aplicarLoteOrdinarioSQL,
+		[]any{string(efecto.Material), fuentesArg}, validar)
+}
+
+// ejecutarConsumoLote pide la decisión al emisor y llama, en una transacción
+// SERIALIZABLE, a una fachada que consume esa decisión por AD190 (aplicar o
+// preparar). iniciales son los argumentos propios de la fachada, que preceden
+// a los diez del material V3.
+func (a *AutoridadLoteOrdinario) ejecutarConsumoLote(ctx context.Context, actor domain.ContextoActor,
+	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
+	recurso domain.RecursoAutorizable, efecto Efecto, sql string, iniciales []any, validar func([]byte) error) error {
 	fallo := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if a == nil || ctx == nil || ctx.Err() != nil || ausente(a.pool) || ausente(a.emisor) ||
-		ausente(a.reloj) || validar == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
+		ausente(a.reloj) || validar == nil || sql == "" || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(efecto.CorrelacionAccesoRef) {
 		return fallo
 	}
@@ -93,14 +108,10 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) || ctx.Err() != nil {
 		return fallo
 	}
-	var fuentesArg any
-	if len(fuentes) != 0 {
-		fuentesArg = string(fuentes)
-	}
-	args := []any{string(efecto.Material), fuentesArg, material.CapacidadCanonica(), material.DecisionCanonica(),
+	args := append(append(make([]any, 0, len(iniciales)+10), iniciales...), material.CapacidadCanonica(), material.DecisionCanonica(),
 		material.MotivoCanonico(), material.ContextoActorCanonico(),
 		strconv.FormatUint(material.PersonaVersion(), 10), strconv.FormatUint(material.PerfilVersion(), 10),
-		material.PayloadVECAD3(), material.SobreCOSESign1(), material.EvidenciaVerificacion(), material.RaizPublicaSPKI()}
+		material.PayloadVECAD3(), material.SobreCOSESign1(), material.EvidenciaVerificacion(), material.RaizPublicaSPKI())
 	defer func() {
 		for _, arg := range args {
 			if b, ok := arg.([]byte); ok {
@@ -118,7 +129,7 @@ func (a *AutoridadLoteOrdinario) ejecutarLote(ctx context.Context, actor domain.
 		_ = tx.Rollback(rollbackCtx)
 	}()
 	var bruto []byte
-	if err := tx.QueryRow(ctx, aplicarLoteOrdinarioSQL, args...).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&bruto); err != nil {
 		return traducirErrorLoteSQL(ctx, err)
 	}
 	if err := validar(bruto); err != nil {

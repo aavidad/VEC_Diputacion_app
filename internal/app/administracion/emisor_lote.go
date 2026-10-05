@@ -85,7 +85,7 @@ func (e *EmisorLote) EmitirLoteOrdinario(ctx context.Context, actor domain.Conte
 		recurso.Validar() != nil || recurso.Referencia != efecto.Referencia || recurso.ModuloID != "administracion" ||
 		recurso.Tipo != "persona" || recurso.Referencia == actor.PersonaRef || len(efecto.Material) == 0 ||
 		len(recurso.Ambitos) != 2 || recurso.Ambitos["organizacion_ref"] == "" || recurso.Ambitos["unidad_ref"] == "" ||
-		len(recurso.Atributos) != 1 || recurso.Atributos["solicitud_sha256"] != huellaMaterialLote(efecto.Material) {
+		!atributoMaterialLote(recurso.Atributos, efecto.Material) {
 		return vacia, fallo
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
@@ -190,6 +190,17 @@ func validarDecisionLote(d domain.DecisionAutorizacionLigadaV3, confirmacion por
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	return nil
+}
+
+// atributoMaterialLote exige un único atributo, el del lote o el de su
+// preparación, con la huella exacta del material. AUT44 y AUT50 recalculan el
+// contexto con su propio nombre de atributo: una decisión no sirve para el otro.
+func atributoMaterialLote(atributos map[string]string, material []byte) bool {
+	if len(atributos) != 1 {
+		return false
+	}
+	h := huellaMaterialLote(material)
+	return atributos[lote.AtributoSolicitudLote] == h || atributos[lote.AtributoPreparacionLote] == h
 }
 
 // huellaMaterialLote es la huella de la solicitud que el recurso declara y

@@ -14,6 +14,13 @@ import (
 
 const accionLoteOrdinario = "administracion.perfiles.aplicar_lote_ordinario"
 const audienciaLoteOrdinario = "vec_autorizacion.administracion_perfiles.lote_ordinario.v1"
+
+// Atributo del recurso que liga la decisión a su material: el lote usa la
+// huella de la solicitud (AUT44) y la preparación la suya propia (AUT50).
+const (
+	AtributoSolicitudLote   = "solicitud_sha256"
+	AtributoPreparacionLote = "preparacion_sha256"
+)
 const aplicarLoteOrdinarioSQL = `SELECT vec_autorizacion.aplicar_lote_ordinario_admin_v1($1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
 
 // El emisor recibe el recurso V3 exacto. El ámbito privado se coteja de nuevo
@@ -155,7 +162,7 @@ func (a *AutoridadLoteOrdinario) aplicarLoteOrdinario(ctx context.Context, s dom
 		Referencia: s.Cambios[0].Objetivo.PersonaRef, Material: canonico, CorrelacionAccesoRef: s.CorrelacionRef}
 	recurso := domain.RecursoAutorizable{Referencia: efecto.Referencia, ModuloID: "administracion", Tipo: "persona",
 		Ambitos:   map[string]string{"organizacion_ref": a.organizacion, "unidad_ref": s.Cambios[0].Objetivo.UnidadRef},
-		Atributos: map[string]string{"solicitud_sha256": huella}}
+		Atributos: map[string]string{AtributoSolicitudLote: huella}}
 	if recurso.Validar() != nil || s.Cambios[0].Objetivo.CentroRef != "" {
 		return vacio, domain.ErrActoAdministracionPerfilesInvalido
 	}
