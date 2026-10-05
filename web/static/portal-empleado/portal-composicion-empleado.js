@@ -242,9 +242,19 @@ export function componerPersonalVisible(recursos, entorno, {
   };
   const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
     raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+    montarContacto: typeof recursos.contacto?.montarVistaContactoPropio === "function" && typeof entorno.fetch === "function"
+      ? (entrada) => recursos.contacto.montarVistaContactoPropio({ ...entrada, fetchImpl: entorno.fetch.bind(entorno) }) : undefined,
+    // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.
+    abrirCorreos: entorno.location ? () => {
+      entorno.location.hash = "#mis-preferencias";
+      entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+    } : undefined,
     destinosDisponibles: destinosDisponibles(),
     navegarModulo: (modulo) => {
-      if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
+      if (["dietas", "cronos"].includes(modulo) && entorno.location) {
+        entorno.location.hash = `#${modulo}`;
+        entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+      }
     },
   });
   // Ficha propia servida por Personal: una consulta al entrar decide qué

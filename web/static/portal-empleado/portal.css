@@ -509,7 +509,7 @@ summary:focus-visible,
   .portal-empleado-shell {
     height: 100vh;
     min-height: 0;
-    overflow: hidden;
+    overflow: clip;
   }
 
   .aviso-presentacion:not([hidden]) ~ .portal-empleado-shell {

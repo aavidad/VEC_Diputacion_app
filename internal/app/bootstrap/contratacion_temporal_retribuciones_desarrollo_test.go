@@ -140,6 +140,7 @@ func TestRetribucionesQueReproducenLaTablaAnteriorDanElMismoCoste(t *testing.T) 
 		periodo domain.PeriodoPrevisto
 		jornada domain.JornadaDiezmilesimas
 	}{
+		"sin horizonte":       {domain.PeriodoPrevisto{Inicio: inicio}, domain.JornadaCompletaDiezmilesimas},
 		"periodo invertido":   {domain.PeriodoPrevisto{Inicio: fin, Fin: inicio}, domain.JornadaCompletaDiezmilesimas},
 		"jornada cero":        {domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, 0},
 		"periodo desmesurado": {domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(11, 0, 0)}, domain.JornadaCompletaDiezmilesimas},

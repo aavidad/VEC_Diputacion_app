@@ -62,10 +62,17 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	opciones.SetOutput(io.Discard)
 	dir := opciones.String("catalogos-dir", "web/static/textos", "")
 	idioma := opciones.String("idioma", i18n.DefaultLocale, "")
-	if opciones.Parse(args) != nil || opciones.NArg() != 0 || salida == nil || errores == nil {
+	formato := opciones.String("salida", "preparacion", "")
+	if opciones.Parse(args) != nil || opciones.NArg() != 0 || salida == nil || errores == nil || (*formato != "preparacion" && *formato != "solicitud-s2") {
 		return informarError(errores, nil, *idioma, errEntradaJSON.Error())
 	}
 	catalogo, err := cargarCatalogo(*dir, *idioma)
+	if *formato == "solicitud-s2" {
+		if err != nil {
+			return informarError(errores, catalogo, *idioma, err.Error())
+		}
+		return ejecutarSolicitudS2(ctx, entrada, salida, errores, catalogo, *idioma)
+	}
 	var material ports.MaterialBasesPropuesto
 	if err == nil {
 		err = leerJSON(entrada, &material)

@@ -16,7 +16,7 @@ import (
 
 	reglasapp "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
-	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -44,6 +44,9 @@ type ProveedorGobiernoReglasBaremoV3 struct {
 	pool     *pgxpool.Pool
 	rutas    RutasGobiernoReglasBaremoV3
 	reloj    relojContratacionTemporalDesarrollo
+	// Sólo la composición HTTP conecta el auditor común. La invocación
+	// directa conserva su contrato; ningún cliente puede suministrar el callback.
+	auditarAntesPDP func(context.Context, error, *contextoSeguridadComunDesarrollo) error
 }
 
 // NuevoProveedorGobiernoReglasBaremoV3 no recibe un publicador. El perfil ya
@@ -60,7 +63,7 @@ func NuevoProveedorGobiernoReglasBaremoV3(p *PerfilGobiernoReglasBaremoV3,
 		pool == nil || !rutas.valida() || dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
 		return nil, errPerfilGobiernoReglasBaremoV3
 	}
-	return &ProveedorGobiernoReglasBaremoV3{p, sesion, pdp, material, pool, rutas, reloj}, nil
+	return &ProveedorGobiernoReglasBaremoV3{perfil: p, sesion: sesion, pdp: pdp, material: material, pool: pool, rutas: rutas, reloj: reloj}, nil
 }
 
 // Credenciales obtiene actor y vínculo únicamente de la sesión mTLS de esta
@@ -76,8 +79,18 @@ func (p *ProveedorGobiernoReglasBaremoV3) Credenciales(ctx context.Context) (reg
 
 func (p *ProveedorGobiernoReglasBaremoV3) contexto(ctx context.Context, operacion string) (contextoSeguridadComunDesarrollo, error) {
 	vacio := contextoSeguridadComunDesarrollo{}
+	if ctx != nil && ctx.Err() != nil {
+		// Una cancelación no invalida la identidad ya acreditada por la raíz.
+		// Sólo la frontera nominal sellada permite conservar esa categoría.
+		capacidad, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if p != nil && p.sesion != nil && ok && p.rutaOperacion(capacidad.ruta, operacion) &&
+			p.sesion.sesionGobiernoReglasBaremoHTTPV3(ctx, capacidad.ruta) {
+			return vacio, reglasapp.ErrGobiernoV3NoDisponible
+		}
+		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
+	}
 	if p == nil || p.perfil == nil || p.sesion == nil || p.pdp == nil ||
-		p.perfil.soporte == nil || ctx == nil || ctx.Err() != nil {
+		p.perfil.soporte == nil || ctx == nil {
 		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
 	}
 	capacidad, ok := p.perfil.soporte.capacidadValida(ctx)
@@ -108,9 +121,14 @@ func (p *ProveedorGobiernoReglasBaremoV3) contexto(ctx context.Context, operacio
 			operativo.Vinculo.ValidarPara(operativo.Resultado) == nil &&
 			mismoContextoEsperadoRegistradoDesarrollo(p.perfil.soporte.contextoEsperadoRegistrado, operativo.Resultado) {
 			holder.contexto.Vinculo, holder.contexto.Resultado = operativo.Vinculo, operativo.Resultado
+		} else if errors.Is(err, ctports.ErrConsultaRRHHNoDisponible) || ctx.Err() != nil {
+			holder.err = reglasapp.ErrGobiernoV3NoDisponible
 		} else {
-			holder.err = reglasapp.ErrGobiernoV3NoAutenticado
+			holder.err = reglasapp.ErrGobiernoV3Prohibido
 		}
+	}
+	if holder.err != nil {
+		return vacio, holder.err
 	}
 	ahora := p.reloj.Ahora()
 	if holder.soporte != p.perfil.soporte || holder.err != nil ||
@@ -152,15 +170,16 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	operativo, err := p.contexto(ctx, pedido.Operacion)
 	if err != nil {
-		return vacio, err
+		return vacio, p.denegarAntesPDP(ctx, err)
 	}
 	datos, err := vinculo.Datos()
 	actuales, errActual := operativo.Vinculo.Datos()
+	vincularRecursoIntentoGobiernoBaremoHTTPV3(ctx, pedido.Recurso.Referencia)
 	if err != nil || errActual != nil || datos != actuales || vinculo.ValidarPara(operativo.Resultado) != nil {
-		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3NoAutenticado, operativo)
 	}
 	if err := p.validarPedido(pedido, operativo.Resultado.Contexto, p.reloj.Ahora()); err != nil {
-		return vacio, err
+		return vacio, p.denegarAntesPDP(ctx, err, operativo)
 	}
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, p.pool, p.perfil.PerfilRef())
 	if err != nil {
@@ -168,12 +187,12 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	}
 	if !existe || publicada.actoAsignacion != actoAsignacionGobiernoReglasBaremoV3 ||
 		publicada.actoControl != actoControlGobiernoReglasBaremoV3 {
-		return vacio, reglasapp.ErrGobiernoV3Prohibido
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
 	if _, ok := instantaneaConsumible(publicada, p.perfil.plantilla, p.reloj.Ahora()); !ok {
-		return vacio, reglasapp.ErrGobiernoV3Prohibido
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	correlacion, err := correlacionIntentoGobiernoBaremoHTTPV3(ctx)
 	if err != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible
 	}
@@ -182,10 +201,20 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 		Accion: pedido.Accion, Recurso: pedido.Recurso, Finalidad: pedido.Finalidad, Correlacion: correlacion,
 	})
 	if err != nil {
-		return vacio, reglasapp.ErrGobiernoV3Prohibido
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
+	// A partir de este punto el PDP registra su decisión. El decorador HTTP
+	// registra además el resultado observado en la cadena nominal común.
+	return p.emitirMaterialTrasPDP(ctx, solicitud, operativo, pedido)
+}
+
+func (p *ProveedorGobiernoReglasBaremoV3) emitirMaterialTrasPDP(ctx context.Context,
+	solicitud vecdomain.SolicitudAutorizacionLigadaV3, operativo contextoSeguridadComunDesarrollo,
+	pedido bolsapuertos.SolicitudMaterialGobiernoReglasV3,
+) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
-	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+	if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 		return vacio, reglasapp.ErrGobiernoV3Prohibido
 	}
 	if err != nil || decision.ValidarPara(solicitud) != nil {
@@ -202,6 +231,24 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible
 	}
 	return exportado, nil
+}
+
+func (p *ProveedorGobiernoReglasBaremoV3) denegarAntesPDP(ctx context.Context, err error, contextos ...contextoSeguridadComunDesarrollo) error {
+	if !errors.Is(err, reglasapp.ErrGobiernoV3NoAutenticado) && !errors.Is(err, reglasapp.ErrGobiernoV3Prohibido) {
+		return err
+	}
+	var operativo *contextoSeguridadComunDesarrollo
+	if len(contextos) == 1 {
+		operativo = &contextos[0]
+	}
+	if p != nil && p.auditarAntesPDP != nil {
+		if p.auditarAntesPDP(ctx, err, operativo) != nil {
+			return errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3NoDisponible, false}
+		}
+		return errorAuditadoGobiernoBaremoHTTPV3{err, true}
+	}
+	// El proveedor directo conserva su contrato. El montaje HTTP exige el auditor.
+	return err
 }
 
 func (p *ProveedorGobiernoReglasBaremoV3) validarPedido(s bolsapuertos.SolicitudMaterialGobiernoReglasV3,

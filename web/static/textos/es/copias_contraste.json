@@ -1,0 +1,14 @@
+{
+  "alcance": "Contraste lógico de PostgreSQL. La verificación de la copia requiere también restauración física, ficheros y arranque de VEC.",
+  "igual": "Los inventarios y contenidos comprobados coinciden. Continúe las comprobaciones pendientes de la copia.",
+  "diferente": "Las restauraciones presentan diferencias. No dé la copia por válida; revise los motivos y repita el ensayo corregido.",
+  "no_comprobable": "El inventario está incompleto o contiene objetos que este lector no admite. Complete su comprobación antes de validar la copia.",
+  "captura_completada": "Inventario lógico capturado. Conserve el archivo protegido junto a la evidencia de exclusión de escritores.",
+  "copias_contraste_error_argumentos": "Los argumentos están incompletos o no corresponden al modo elegido. Consulte la ayuda y repita la orden.",
+  "copias_contraste_error_catalogo": "No se ha podido leer el catálogo de mensajes completo. Compruebe el archivo del idioma elegido.",
+  "copias_contraste_error_entrada": "No se ha podido leer un inventario válido. Compruebe el formato y el tamaño de los archivos.",
+  "copias_contraste_error_configuracion": "La configuración no es válida. Compruebe la conexión privada, la versión de PostgreSQL, los límites y las referencias declaradas.",
+  "copias_contraste_error_captura": "No se ha podido completar la lectura de PostgreSQL. Compruebe el destino aislado y sus permisos; repita la captura.",
+  "copias_contraste_error_salida": "No se ha podido escribir el resultado. Compruebe el destino de salida y repita la orden.",
+  "ayuda": "Capture: --modo capturar --configuracion ARCHIVO --catalogo CATÁLOGO. Compare: --modo comparar --esperado INVENTARIO --observado INVENTARIO --catalogo CATÁLOGO. La captura requiere PostgreSQL 18 aislado, de solo lectura y sin escritores. Los archivos contienen evidencia privada. Salida 0: captura completa o igualdad; 1: diferencia o no comprobable; 2: error."
+}

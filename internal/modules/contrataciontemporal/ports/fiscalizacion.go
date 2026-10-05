@@ -188,6 +188,11 @@ func (p PreparacionFiscalizacion) ValidarPara(
 }
 
 func antecedenteFiscalizacionValido(expediente domain.Expediente) bool {
+	// El circuito RRHH nuevo exige acreditar previamente firma y cargo de
+	// Jefatura con una fuente positiva; este lector histórico no los aporta.
+	if expediente.Circuito != nil {
+		return false
+	}
 	if expediente.Asignacion == nil || expediente.InformeJuridico == nil {
 		return false
 	}

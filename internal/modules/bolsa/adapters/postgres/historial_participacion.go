@@ -63,6 +63,10 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarHistorial(ctx contex
 		return vacio, errorSituacionParticipacion(rows.Err())
 	}
 	rows.Close()
+	h.Vigente.ParticipacionRef = ref
+	if err := tx.QueryRow(ctx, `SELECT situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.leer_situacion_participacion_v1($1)`, ref).Scan(&h.Vigente.Situacion, &h.Vigente.Desde, &h.Vigente.FechaDisponible); err != nil {
+		return vacio, errorSituacionParticipacion(err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return vacio, errorSituacionParticipacion(err)
 	}

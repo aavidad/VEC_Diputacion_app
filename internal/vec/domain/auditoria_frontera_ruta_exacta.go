@@ -15,6 +15,8 @@ const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato
 
 // Aspirantes no guarda `per_`: sus denegaciones de frontera nunca llevan actor.
 const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases = "api.seleccion.preparacion_bases.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo = "api.bolsa.reglas_baremo.ruta_exacta"
 
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
@@ -51,7 +53,10 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
 					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
-		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") {
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases &&
+			(o.ActorRef != "" || o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado)) ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo && o.ActorRef != "") {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
@@ -98,11 +103,19 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return ruta == "/api/vec/bolsa/mi-bolsa" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/historial" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/solicitudes" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/solicitudes-documentales" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/respuestas" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/disposiciones" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/contacto"
 	case SuperficieAuditoriaFronteraRutaExactaAspirantes:
 		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
+	case SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases:
+		return ruta == "/api/vec/seleccion/preparacion-bases/guardar" ||
+			ruta == "/api/vec/seleccion/preparacion-bases/consultar"
+	case SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo:
+		return ruta == "/api/vec/bolsa/reglas-baremo/borradores/alta" ||
+			ruta == "/api/vec/bolsa/reglas-baremo/versiones/consultar" ||
+			ruta == "/api/vec/bolsa/reglas-baremo/recibos/recuperar"
 	default:
 		return false
 	}

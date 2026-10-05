@@ -27,6 +27,11 @@ const (
 	reglaUrgenciaAnalisisCT = reglas.CTUrgencia
 
 	atributoDuracionReglaCT    = "duracion_regla"
+	atributoFechaFinReglaCT    = "fecha_fin"
+	atributoCausaFinReglaCT    = "causa_fin"
+	fechaFinObligatoriaCT      = "obligatoria"
+	fechaFinOpcionalCT         = "opcional"
+	fechaFinNoAplicaCT         = "no_aplica"
 	atributoAlSuperarCT        = "al_superar"
 	alSuperarBloquearCT        = "bloquear"
 	alSuperarAvisarCT          = "avisar"
@@ -51,9 +56,50 @@ type duracionMaximaAnalisisCT struct {
 }
 
 type modalidadAnalisisCT struct {
-	Clave    domain.ClaveCatalogo
-	Etiqueta string
-	Duracion *duracionMaximaAnalisisCT
+	Clave                domain.ClaveCatalogo
+	Etiqueta             string
+	Duracion             *duracionMaximaAnalisisCT
+	FechaFin             string
+	CausaFin             domain.ClaveCatalogo
+	ReglaRef             string
+	CatalogoVersion      uint64
+	CatalogoHuellaSHA256 string
+}
+
+// periodoValido aplica exclusivamente la regla publicada para esta modalidad.
+// El periodo ya ha pasado la validación estructural del dominio.
+func (m modalidadAnalisisCT) periodoValido(periodo domain.PeriodoPrevisto) bool {
+	if periodo.Validar() != nil {
+		return false
+	}
+	if periodo.Fin.IsZero() {
+		return (m.FechaFin == fechaFinOpcionalCT || m.FechaFin == fechaFinNoAplicaCT) &&
+			periodo.CausaFin == m.CausaFin
+	}
+	return m.FechaFin != fechaFinNoAplicaCT && periodo.CausaFin == ""
+}
+
+func (m modalidadAnalisisCT) periodoConPolitica(periodo domain.PeriodoPrevisto) (domain.PeriodoPrevisto, error) {
+	if periodo.PoliticaFin != (domain.PoliticaFin{}) || !m.periodoValido(periodo) {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	// Los periodos fechados conservan canon y HMAC de las operaciones previas.
+	if !periodo.Fin.IsZero() {
+		return periodo, nil
+	}
+	// La fuente previa a la gobernanza c12 sólo admite periodos fechados.
+	if m.ReglaRef == "" || m.CatalogoVersion == 0 || m.CatalogoHuellaSHA256 == "" {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	periodo.PoliticaFin = domain.PoliticaFin{
+		ReglaRef: m.ReglaRef, CatalogoVersion: m.CatalogoVersion,
+		CatalogoHuellaSHA256: m.CatalogoHuellaSHA256,
+		FechaFin:             m.FechaFin, CausaFin: m.CausaFin,
+	}
+	if periodo.Validar() != nil {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	return periodo, nil
 }
 
 type entradaRCAnalisisCT struct {
@@ -85,11 +131,11 @@ type opcionesAnalisisCTDesarrollo struct {
 func opcionesAnalisisPredeterminadas() *opcionesAnalisisCTDesarrollo {
 	return &opcionesAnalisisCTDesarrollo{
 		modalidades: []modalidadAnalisisCT{
-			{Clave: "sustitucion", Etiqueta: "Sustitución"},
-			{Clave: "vacante", Etiqueta: "Vacante"},
-			{Clave: "acumulacion_tareas", Etiqueta: "Acumulación de tareas"},
-			{Clave: "programa", Etiqueta: "Programa"},
-			{Clave: "relevo", Etiqueta: "Relevo"},
+			{Clave: "sustitucion", Etiqueta: "Sustitución", FechaFin: fechaFinObligatoriaCT},
+			{Clave: "vacante", Etiqueta: "Vacante", FechaFin: fechaFinObligatoriaCT},
+			{Clave: "acumulacion_tareas", Etiqueta: "Acumulación de tareas", FechaFin: fechaFinObligatoriaCT},
+			{Clave: "programa", Etiqueta: "Programa", FechaFin: fechaFinObligatoriaCT},
+			{Clave: "relevo", Etiqueta: "Relevo", FechaFin: fechaFinObligatoriaCT},
 		},
 		causas: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 			Clave: string(causaAnalisisContratacionTemporalDesarrollo), Etiqueta: "Necesidad temporal",
@@ -190,7 +236,22 @@ func modalidadDesdeReglaCT(regla reglas.Regla, porClave map[string]reglas.Regla)
 	if err != nil {
 		return modalidadAnalisisCT{}, err
 	}
-	modalidad := modalidadAnalisisCT{Clave: clave, Etiqueta: regla.Etiqueta}
+	modo := regla.Atributos[atributoFechaFinReglaCT]
+	if modo == "" { // Catálogos anteriores conservan su contrato exigente.
+		modo = fechaFinObligatoriaCT
+	}
+	causa := domain.ClaveCatalogo(regla.Atributos[atributoCausaFinReglaCT])
+	if (modo != fechaFinObligatoriaCT && modo != fechaFinOpcionalCT && modo != fechaFinNoAplicaCT) ||
+		(modo == fechaFinObligatoriaCT && causa != "") ||
+		(modo != fechaFinObligatoriaCT && !causa.Valida()) ||
+		regla.ReferenciaEntrada.CatalogoVersion < 1 {
+		return modalidadAnalisisCT{}, errOpcionesAnalisisNoValidas
+	}
+	modalidad := modalidadAnalisisCT{
+		Clave: clave, Etiqueta: regla.Etiqueta, FechaFin: modo, CausaFin: causa,
+		ReglaRef: regla.Referencia, CatalogoVersion: uint64(regla.ReferenciaEntrada.CatalogoVersion),
+		CatalogoHuellaSHA256: regla.HuellaCatalogo,
+	}
 	referencia, conDuracion := regla.Atributos[atributoDuracionReglaCT]
 	if !conDuracion {
 		return modalidad, nil
@@ -343,11 +404,33 @@ func (c *catalogosAltaContratacionTemporalDesarrollo) opcionesAnalisis() *opcion
 	return c.analisis
 }
 
+func (c *catalogosAltaContratacionTemporalDesarrollo) PrepararPeriodoModalidad(
+	ctx context.Context, clave domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
+) (domain.PeriodoPrevisto, error) {
+	if c == nil || ctx == nil || ctx.Err() != nil {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	modalidad, existe := c.opcionesAnalisis().modalidad(clave)
+	if !existe {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	return modalidad.periodoConPolitica(periodo)
+}
+
 // componerOpcionesAnalisis fija las opciones resueltas del catálogo de reglas.
 // Se llama una sola vez al componer, antes de servir.
 func (c *catalogosAltaContratacionTemporalDesarrollo) componerOpcionesAnalisis(opciones *opcionesAnalisisCTDesarrollo) {
 	if c != nil && opciones != nil {
 		c.analisis = opciones
+		c.Motivos = make([]opcionClaveCatalogosAltaContratacionTemporalDesarrollo, 0, len(opciones.modalidades))
+		for _, modalidad := range opciones.modalidades {
+			c.Motivos = append(c.Motivos, opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+				Clave: string(modalidad.Clave), Etiqueta: modalidad.Etiqueta,
+				FechaFin: modalidad.FechaFin, CausaFin: string(modalidad.CausaFin),
+				ReglaRef: modalidad.ReglaRef, CatalogoVersion: modalidad.CatalogoVersion,
+				CatalogoHuellaSHA256: modalidad.CatalogoHuellaSHA256,
+			})
+		}
 	}
 }
 

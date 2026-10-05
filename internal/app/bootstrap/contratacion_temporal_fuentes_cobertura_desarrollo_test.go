@@ -386,3 +386,46 @@ func TestFuenteCoberturaDesarrolloRespondePorCualquierCategoriaDelCatalogo(t *te
 		t.Fatal("una categoría ajena al catálogo no debe tener respuesta")
 	}
 }
+
+func TestFuenteCoberturaDesarrolloNoConfundeCausasDeFin(t *testing.T) {
+	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
+	t.Cleanup(dependencias.cerrar)
+	fuente := dependencias.fuente.(*fuenteComprobacionCoberturaDesarrollo)
+	periodo := domain.PeriodoPrevisto{
+		Inicio:   time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC),
+		CausaFin: "reincorporacion_titular",
+		PoliticaFin: domain.PoliticaFin{
+			ReglaRef: "regla:modalidad:sustitucion:v2", CatalogoVersion: 2,
+			CatalogoHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			FechaFin:             "no_aplica", CausaFin: "reincorporacion_titular",
+		},
+	}
+	fuente.registros = []registroCoberturaSinteticaDesarrollo{{
+		categoriaRef: categoriaAltaContratacionTemporalDesarrollo,
+		periodo:      periodo, viaClave: "bolsa_vigente",
+		comprobacion: "existe_bolsa_vigente", procedencia: "bolsa",
+		resultado: domain.ComprobacionNegativa,
+	}}
+	consulta := func(p domain.PeriodoPrevisto) domain.ResultadoComprobacion {
+		r, ok := fuente.resultadoPara(categoriaAltaContratacionTemporalDesarrollo,
+			p, "bolsa_vigente", "existe_bolsa_vigente", "bolsa")
+		if !ok {
+			t.Fatal("no se encontró respuesta de la fuente sintética")
+		}
+		return r
+	}
+	if consulta(periodo) != domain.ComprobacionNegativa {
+		t.Fatal("se perdió el resultado exacto")
+	}
+	distinta := periodo
+	distinta.CausaFin = "cobertura_reglamentaria"
+	distinta.PoliticaFin.CausaFin = distinta.CausaFin
+	if consulta(distinta) != domain.ComprobacionAfirmativa {
+		t.Fatal("un resultado de otra causa se reutilizó")
+	}
+	mismaCausaOtraRegla := periodo
+	mismaCausaOtraRegla.PoliticaFin.CatalogoVersion++
+	if consulta(mismaCausaOtraRegla) != domain.ComprobacionAfirmativa {
+		t.Fatal("un resultado de otra versión de regla se reutilizó")
+	}
+}

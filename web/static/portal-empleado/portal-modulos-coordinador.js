@@ -15,8 +15,9 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261002-codexe-d7c-web-v1";
+} from "./portal-composicion-empleado.js?v=20261005-b-contacto-v3";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { cargarTextos } from "../comun/textos.js";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -25,6 +26,9 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
+  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
+])).then(Object.fromEntries).catch(() => null);
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -92,32 +96,38 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js"),
-      import("./modulos/contratacion-temporal/cliente-http.js"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
+    const [contrato, cliente, presentador, adaptador, incorporacionB2] = await Promise.all([
+      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
+    ]);
+    // La vista importa el catálogo de fases y el de expedientes. Esperar a los
+    // consumidores previos evita leer ese catálogo antes de inicializarlo.
+    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261003-ct-firma-v2-v1");
+    // Auditoría comparte el cargador de textos con CT.
+    const [auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
-      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
   },
   personal: async () => {
-    const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
+    const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261002-personal-servicios-csv-v2"),
-      import("./modulos/personal/registro-b2.js?v=20261002-b-base-401-acumulada-v3"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20261005-b-contacto-v3"),
+      import("./modulos/personal/registro-b2.js?v=20261004-personal-vacantes-filtro-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261002-personal-servicios-csv-v1"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261004-personal-relaciones-v1"),
+      import("./modulos/personal/vista-contacto-propio.js?v=20261004-b-contacto-retoma-v2"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
-      ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia });
+      ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto });
   },
   // Catálogos públicos de Personal (RPT publicada y estructura de referencia).
   // Van en todos los paquetes web (el import nunca da 404); solo se ofrecen si
@@ -125,7 +135,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-busqueda-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-servicios-sync-v3"),
     ]);
@@ -217,8 +227,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261004-b-tramites-devoluciones-v2"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261004-b-tramites-devoluciones-v2"),
     ]);
     return { fuente, vista };
   },
@@ -317,9 +327,18 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
-    const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-      : {};
+    const idiomaCircuito = locale === "en-GB" ? "en" : "es";
+    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
+    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
+    const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
+      .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    const mensajesExpedientes = {
+      ...(idiomaCircuito === "en"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {}),
+      ...rotulosCircuito("contratacion_temporal.fase."),
+      ...rotulosCircuito("etiqueta_fase_"),
+    };
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
@@ -514,7 +533,12 @@ export function crearCoordinadorModulosPortal({
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
       ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
-        destinosDisponibles: () => ({ dietas: vistaDisponible("dietas"), cronos: vistaDisponible("cronos") }),
+        // Abrir un destino diferido no exige haberlo visitado antes. Esto
+        // sólo ofrece navegación propia; su lectura se autoriza al entrar.
+        // Sólo se ofrecen destinos del catálogo; un módulo oculto no aparece.
+        destinosDisponibles: () => Object.fromEntries(["dietas", "cronos"]
+          .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
+          .map((clave) => [clave, [ESTADO_DIFERIDO, "cargando", "disponible"].includes(estadoCargaModulo(clave))])),
       })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
@@ -945,7 +969,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261001-ct-a-i18n-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261002-ct-fin-moad-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

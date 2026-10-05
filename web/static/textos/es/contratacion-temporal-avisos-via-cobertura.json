@@ -15,6 +15,7 @@
     "avisos_via_propuesta_oferta_sae_titulo": "Oferta al Servicio Andaluz de Empleo",
     "avisos_via_propuesta_oferta_sae_detalle": "Duración máxima de {meses} meses: el nombramiento no podría pasar del {fin_maximo}.",
     "avisos_via_propuesta_oferta_sae_excede": "El fin previsto del análisis ({fin_previsto}) supera esa duración máxima.",
+    "avisos_via_propuesta_oferta_sae_sin_fin": "Sin fecha de fin prevista. La duración máxima se aplicará cuando se fije el fin.",
     "avisos_via_nueva_convocatoria_titulo": "Nueva convocatoria de bolsa",
     "avisos_via_motivo_vigencia_superada": "La bolsa superó su vigencia el {vigencia_hasta} (constituida el {constituida_en}).",
     "avisos_via_motivo_bolsa_agotada": "La bolsa está agotada.",

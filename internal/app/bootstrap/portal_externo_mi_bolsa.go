@@ -443,7 +443,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
-	for _, ruta := range []string{bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaRespuestas} {
+	for _, ruta := range []string{bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaSolicitudesDocumentales, bolsahttp.RutaMiBolsaRespuestas} {
 		h, err := bolsahttp.NuevoPortal(ruta, preparador, portal)
 		if err != nil {
 			return nil, errMiBolsaNoDisponible

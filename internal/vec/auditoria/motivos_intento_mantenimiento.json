@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"mantenimiento_registrado"},
+  {"resultado":"permitido","motivo_ref":"mantenimiento_replay"},
+  {"resultado":"denegado","motivo_ref":"mantenimiento_denegado"},
+  {"resultado":"error","motivo_ref":"mantenimiento_error"}
+]

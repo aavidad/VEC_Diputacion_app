@@ -54,6 +54,37 @@ go test -p 8 ./cmd/vec-selectivos-preparar-bases ./internal/modules/seleccion/..
 El corte solo cubre la preparación parcial de S2 descrita en
 `docs/plan_modulos/selectivos.md`. No cierra aprobación, firma o publicación.
 
+## Exportar una petición para S2
+
+Con `--salida solicitud-s2`, la entrada contiene tres campos: `material_propuesto`
+con el mismo material local de los ejemplos, `esperada` con la preimagen del
+guardado y `clave_operacion` con la clave estable elegida para esa intención.
+
+```sh
+go run ./cmd/vec-selectivos-preparar-bases \
+  --catalogos-dir web/static/textos --idioma es --salida solicitud-s2 \
+  < propuesta-con-preimagen.json > solicitud-s2.json
+```
+
+Para una preparación nueva, `esperada` contiene `preparacion_ref`, `revision: 0`
+y `huella_material_sha256: ""`. Para editar una existente, debe contener la
+referencia, revisión y huella recuperadas del servidor. Estos campos son
+obligatorios: el comando no genera referencias, claves ni preimágenes. La
+revisión `version_material` del archivo local no determina la revisión durable.
+
+La salida contiene exclusivamente `esperada`, `material` y `clave_operacion`,
+con la estructura que acepta la ruta S2 de guardado ya existente. Las diez
+referencias propuestas conservan ID, versión y huella de contenido, incluido el
+baremo; las ausencias se conservan. Siguen pendientes su comprobación y los
+actos de aprobación, firma y publicación. Se aplica el canon de material de
+Bolsa, que admite propuestas incompletas y limita tamaño y contenido.
+
+La exportación no envía la petición ni la guarda. El servidor resuelve identidad,
+perfil y ámbito, exige autorización actual, registra auditoría y comprueba la
+preimagen. Una preimagen obsoleta permanece en la petición para que el CAS del
+servidor la rechace. Reutilizar la misma petición y clave permite recuperar el
+guardado original; cambiar la intención requiere otra clave.
+
 Prácticas públicas consultadas para separar los pasos:
 
 - [BOP de Granada: anuncio de admisión, tribunal y ejercicio](https://bop.dipgra.es/publica/buscador-anuncios/anuncio/LISTADO-DEFINITIVO-DE-PERSONAS-ADMITIDAS-TRIBUNAL-Y-FECHA-DEL-PRIMER-EJERCICIO-DEL-PROCESO-SELECTIVO-CONVOCADO-PARA-LA-COBERTURA-DE-3-PLAZAS-DE-TECNICO-A-DE-ADMINISTRACION-GENERAL-GRUPO-A-SUBGRUPO/): cada anuncio identifica administración, fecha y documento.

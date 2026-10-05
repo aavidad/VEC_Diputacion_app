@@ -2,7 +2,7 @@ import {
   validarCatalogosAlta,
   validarComandoAlta,
   validarReciboAlta,
-} from "./contrato.js";
+} from "./contrato.js?v=20261002-ct-fin-moad-v1";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;

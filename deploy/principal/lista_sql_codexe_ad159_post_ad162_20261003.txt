@@ -1,0 +1,6 @@
+# Delta único AD159: requiere AD151/156/157/158 reancladas y AD162 ya instaladas.
+# Núcleo post-AD162: definición 8ee729ac5b3740fadc260dbd2a686cc03d411abde71e13b2b213330696cbabbf.
+# Sin provisión funcional en instalación: cada lectura revalida el rol y asignación vigentes por V3.
+# AD149/AD161 u otro cambio de núcleo previo exige capturar y revisar otra preimagen.
+# No reaplicar prefijos ni ejecutar DOWN sobre la historia conservada. CT170 va después.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000159_consulta_firmas_ct170.up.sql

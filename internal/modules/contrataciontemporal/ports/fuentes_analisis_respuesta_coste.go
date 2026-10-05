@@ -233,7 +233,19 @@ func canonRespuestaCalculoCoste(
 	canon.texto(string(s.ModalidadClave))
 	canon.texto(string(s.CausaClave))
 	canon.instante(s.Periodo.Inicio)
-	canon.instante(s.Periodo.Fin)
+	if s.Periodo.Fin.IsZero() {
+		canon.texto(string(s.Periodo.CausaFin))
+	} else {
+		canon.instante(s.Periodo.Fin)
+	}
+	if s.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		p := s.Periodo.PoliticaFin
+		canon.texto(p.ReglaRef)
+		canon.entero64(p.CatalogoVersion)
+		canon.texto(p.CatalogoHuellaSHA256)
+		canon.texto(p.FechaFin)
+		canon.texto(string(p.CausaFin))
+	}
 	canon.entero16(uint16(s.Jornada))
 	canon.instante(s.SolicitadaEn)
 	canon.texto(fuenteRef)

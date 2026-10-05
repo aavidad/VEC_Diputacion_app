@@ -1,7 +1,7 @@
 /**
  * Controladores de interacción del Portal del Empleado.
  *
- * Recibe sus dependencias desde `portal.js`: no conoce repositorios ni decide
+ * Recibe sus dependencias desde `portal.js?v=20261002-ct-fin-modalidad-v1`: no conoce repositorios ni decide
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */

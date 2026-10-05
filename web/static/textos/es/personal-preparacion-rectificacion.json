@@ -1,0 +1,53 @@
+{
+  "general": {
+    "titulo": "Revisión de un servicio",
+    "estado": "Preparación sin presentar",
+    "acciones": "Revisión del dato",
+    "preparar": "Preparar revisión",
+    "ayuda": "Ayuda sobre la preparación de una revisión",
+    "ayuda_texto": "Elija un dato recibido y describa su propuesta. Prepararlo no determina que pueda rectificarse. Al revisar, se vuelve a consultar su historia autorizada. El borrador se borra al salir o actualizar la historia.",
+    "campo": "Dato discutido (obligatorio)",
+    "propuesta": "Valor propuesto (obligatorio)",
+    "elegir_estado": "Seleccione un estado",
+    "motivo": "Motivo de la revisión (obligatorio)",
+    "evidencia": "Evidencia que declara tener (obligatorio)",
+    "actual": "Valor recibido: {valor}",
+    "actual_etiqueta": "Valor recibido",
+    "revisar": "Revisar borrador",
+    "cancelar": "Descartar preparación",
+    "invalido": "Revise los campos señalados. El borrador sigue sin presentar.",
+    "comprobando": "Comprobando de nuevo el acceso y la revisión del servicio…",
+    "sin_presentar": "El circuito de presentación aún no está disponible. Este borrador no se ha enviado ni registrado.",
+    "revision_sustituida": "La revisión del servicio ha cambiado. El borrador se ha retirado. Consulte la historia y prepare una nueva revisión.",
+    "no_consta": "No consta",
+    "procedencia": "Ver procedencia del borrador",
+    "servicio": "Referencia del servicio",
+    "revision": "Revisión",
+    "fuente": "Referencia de la fuente",
+    "version_fuente": "Versión de la fuente",
+    "acto": "Referencia del acto",
+    "corte_desde": "Efectos desde (incluido)",
+    "corte_hasta": "Efectos hasta (no incluido)",
+    "conocido_en": "Información conocida hasta",
+    "recibo": "Referencia de la consulta"
+  },
+  "campos": {
+    "periodo_desde": "Inicio del servicio",
+    "periodo_hasta": "Fin del servicio",
+    "dias_reconocidos": "Días inscritos",
+    "estado": "Estado",
+    "clase": "Clase"
+  },
+  "errores": {
+    "obligatorio": "Complete este campo.",
+    "fecha": "Seleccione una fecha válida.",
+    "dias": "Escriba un número entero de días, igual o mayor que cero.",
+    "estado": "Seleccione un estado de la lista.",
+    "clase": "Escriba una clase de hasta 300 caracteres, sin saltos de línea ni caracteres de control."
+  },
+  "estados": {
+    "declarado": "Declarado",
+    "comprobado": "Comprobado",
+    "reconocido": "Reconocido"
+  }
+}

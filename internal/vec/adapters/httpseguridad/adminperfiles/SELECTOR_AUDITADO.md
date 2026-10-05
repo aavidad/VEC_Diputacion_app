@@ -1,0 +1,11 @@
+# Fuente PostgreSQL de selección ADMIN auditada
+
+`NuevaSeleccionAuditadaPostgreSQL` consume únicamente las fachadas de IS14. El LOGIN tiene la membresía técnica exclusiva que acredita su preflight; el proceso procede de configuración privada. La observación debe proceder de la frontera mTLS verificada.
+
+La correlación se obtiene del contexto de petición creado por la frontera. El adaptador genera una referencia de evento propia; exige que el acuse SQL corresponda a esa referencia y limita el tamaño y la estructura del resultado. No envía una persona, una cuenta ni un perfil activo fabricados para consultar la lista.
+
+Listado y selección usan SERIALIZABLE y escritura para conservar su auditoría en la misma transacción. Una denegación nominal se confirma antes de devolver el error. Una respuesta positiva solo sale tras COMMIT; un cierre incierto entrega indisponibilidad, sin datos ni acuse. Un `40001` o `40P01` técnico, antes de validar respuesta, se repite con una transacción nueva según la política común de `internal/shared/postgresql`: cada activo de la página pasa por el selector y escribe en la cadena común, y con unas veinte peticiones a la vez algunas chocan. También se repite un `40001`/`40P01` en el COMMIT, porque garantiza que no se aplicó nada; cualquier otro fallo tras validar es incierto y no se repite. Cada intento vuelve a comprobar que la observación mTLS sigue vigente, y la operación entera, reintentos incluidos, tiene un plazo propio de 10 s, porque vec-admin no acota el contexto de la petición. Si se agotan los intentos o el plazo, entrega indisponibilidad; nunca se presenta como revisión obsoleta.
+
+Dependencias: AD171, CA31 e IS14, configuración del consumidor, política y vínculos ADMIN y bootstrap gobernado. La interfaz de composición conserva sus nombres mediante alias de los tipos del adaptador, sin ciclos con `internal/app`.
+
+Este corte no monta el proveedor en `vec-admin`, no provisiona administradores y no abre permisos de negocio. El selector web debe admitir la referencia común `aud_v3_p_…` al conectarlo; su contrato histórico por sí solo no acredita el acuse nuevo. Las pruebas con transacciones inyectadas comprueban retirada de datos, correlación, acuse, COMMIT incierto y denegación, sin acreditar persistencia real.
