@@ -16,7 +16,7 @@ type configuracionPlanFirmaPrivada struct {
 	Motivo        domain.ReferenciaEntradaCatalogo `json:"motivo"`
 }
 
-func cargarConfiguracionPlanFirmaPrivada(ruta string, lote configuracionLotePrivada, base configuracionPerfilesPrivada,
+func cargarConfiguracionPlanFirmaPrivada(ruta string, lote *configuracionLotePrivada, base configuracionPerfilesPrivada,
 	u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (configuracionPlanFirmaPrivada, error) {
 	b, err := leerArchivoPrivadoPerfiles(ruta)
 	if err != nil {
@@ -33,13 +33,18 @@ func cargarConfiguracionPlanFirmaPrivada(ruta string, lote configuracionLotePriv
 // validarConfiguracionPlanFirmaPrivada exige pool y material propios, distintos
 // de todos los demás, una sola capacidad (la del gobierno del plan) con la
 // misma raíz y un motivo del catálogo común.
-func validarConfiguracionPlanFirmaPrivada(p configuracionPlanFirmaPrivada, lote configuracionLotePrivada, base configuracionPerfilesPrivada,
+func validarConfiguracionPlanFirmaPrivada(p configuracionPlanFirmaPrivada, lote *configuracionLotePrivada, base configuracionPerfilesPrivada,
 	u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) error {
-	if validarConfiguracionLotePrivada(lote, base, u, runtime) != nil {
-		return errConfiguracionPrivadaPerfiles
+	// El lote es opcional; si está, su pool y su material tampoco se comparten.
+	confianzas, poolLote := []json.RawMessage{base.ConfianzaJSON, u.ConfianzaJSON}, ""
+	if lote != nil {
+		if validarConfiguracionLotePrivada(*lote, base, u, runtime) != nil {
+			return errConfiguracionPrivadaPerfiles
+		}
+		confianzas, poolLote = append(confianzas, lote.ConfianzaJSON), lote.PoolLote
 	}
 	materiales := map[string]bool{}
-	for _, raw := range []json.RawMessage{base.ConfianzaJSON, u.ConfianzaJSON, lote.ConfianzaJSON} {
+	for _, raw := range confianzas {
 		otros, err := decodificarMetadatosConfianzaPerfiles(raw)
 		if err != nil {
 			return errConfiguracionPrivadaPerfiles
@@ -55,7 +60,7 @@ func validarConfiguracionPlanFirmaPrivada(p configuracionPlanFirmaPrivada, lote 
 	for _, ruta := range []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos,
 		base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, base.Pools.ActosADMIN,
 		base.Pools.AuditoriaFrontera, base.Firmante.ClavePrivadaArchivo, base.Identidad.RutaConfiguracionHMAC,
-		u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica, runtime.PoolContexto, runtime.FuenteIdentificadoresArchivo, lote.PoolLote} {
+		u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica, runtime.PoolContexto, runtime.FuenteIdentificadoresArchivo, poolLote} {
 		if ruta == p.Pool {
 			return errConfiguracionPrivadaPerfiles
 		}

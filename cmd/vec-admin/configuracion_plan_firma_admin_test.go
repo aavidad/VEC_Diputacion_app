@@ -30,15 +30,19 @@ func planFirmaADMINPrueba(t *testing.T, c configuracionLotePrivada) configuracio
 func TestOverlayPlanFirmaFallaCerrado(t *testing.T) {
 	c, base, u, runtime := loteADMINPrueba(t)
 	p := planFirmaADMINPrueba(t, c)
-	if err := validarConfiguracionPlanFirmaPrivada(p, c, base, u, runtime); err != nil {
+	if err := validarConfiguracionPlanFirmaPrivada(p, &c, base, u, runtime); err != nil {
 		t.Fatalf("gobierno del plan válido rechazado: %v", err)
 	}
 	b, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if leida, err := cargarConfiguracionPlanFirmaPrivada(archivoPrivadoPrueba(t, string(b)), c, base, u, runtime); err != nil || leida.Pool != p.Pool {
+	if leida, err := cargarConfiguracionPlanFirmaPrivada(archivoPrivadoPrueba(t, string(b)), &c, base, u, runtime); err != nil || leida.Pool != p.Pool {
 		t.Fatalf("gobierno del plan no conservado: %v", err)
+	}
+	// También sin lote: entonces sólo se cruza con los pools y materiales base.
+	if err := validarConfiguracionPlanFirmaPrivada(p, nil, base, u, runtime); err != nil {
+		t.Fatalf("gobierno del plan sin lote rechazado: %v", err)
 	}
 	otra := func(mutar func(*metadatosConfianzaPerfilesPrivados)) json.RawMessage {
 		var m metadatosConfianzaPerfilesPrivados
@@ -77,7 +81,7 @@ func TestOverlayPlanFirmaFallaCerrado(t *testing.T) {
 		t.Run(nombre, func(t *testing.T) {
 			alterado := p
 			mutar(&alterado)
-			if validarConfiguracionPlanFirmaPrivada(alterado, c, base, u, runtime) == nil {
+			if validarConfiguracionPlanFirmaPrivada(alterado, &c, base, u, runtime) == nil {
 				t.Fatalf("%s aceptado", nombre)
 			}
 		})

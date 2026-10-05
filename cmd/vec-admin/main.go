@@ -57,14 +57,11 @@ func main() {
 			}
 			lote = &c
 		}
-		// El gobierno del plan de firma sólo existe junto al lote (comparte su
-		// superficie de escritura) y con su propio archivo privado.
+		// El gobierno del plan de firma sólo existe junto a las lecturas de
+		// usuarios y con su propio archivo privado.
 		var plan *configuracionPlanFirmaPrivada
 		if rutaPlan := os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE"); rutaPlan != "" {
-			if lote == nil {
-				log.Fatal(errorArranque("plan_firma_sin_lote"))
-			}
-			c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, *lote, privada, usuarios, runtime)
+			c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, lote, privada, usuarios, runtime)
 			if errorPlan != nil {
 				log.Fatal(errorArranque("plan_firma_config"))
 			}

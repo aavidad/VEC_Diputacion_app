@@ -54,13 +54,14 @@ type solicitudGobiernoPlanFirmaDTO struct {
 	MaterialBase64 string `json:"material_base64"`
 }
 
-// ConGobiernoPlanFirma abre la ruta del gobierno del plan en un handler con
-// escrituras. Se llama durante la composición, antes de servir.
+// ConGobiernoPlanFirma abre la ruta del gobierno del plan en el handler de
+// usuarios (con o sin lote). Es la única escritura que añade: sin actos ni
+// lote, cualquier otro POST no existe. Se llama durante la composición.
 func (h *Handler) ConGobiernoPlanFirma(s ServicioGobiernoPlanFirmaADMIN) error {
-	if h == nil || dependenciaNula(s) || h.soloLectura || h.gobiernoPlan != nil {
+	if h == nil || dependenciaNula(s) || !h.soloMetadatos || h.gobiernoPlan != nil {
 		return ErrConfiguracionIncompleta
 	}
-	h.gobiernoPlan = s
+	h.gobiernoPlan, h.soloLectura = s, false
 	return nil
 }
 

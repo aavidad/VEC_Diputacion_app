@@ -45,8 +45,26 @@ func TestHTTPGobiernoPlanFirma(t *testing.T) {
 		t.Fatalf("ruta abierta sin servicio: %d", w.Code)
 	}
 	servicio := &gobiernoPlanHTTPPrueba{}
+	// El handler de actos no es el de usuarios: no admite el gobierno del plan.
+	if h.ConGobiernoPlanFirma(servicio) == nil {
+		t.Fatal("gobierno del plan compuesto fuera del handler de usuarios")
+	}
+	h, err := NuevoHandlerUsuariosMetadatos("https://admin.example.test", sesion, &lecturasPrueba{}, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := postPlanPrueba(h, cuerpo); w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("handler de sólo lectura con escritura: %d", w.Code)
+	}
 	if h.ConGobiernoPlanFirma(servicio) != nil || h.ConGobiernoPlanFirma(servicio) == nil {
 		t.Fatal("el servicio se compone una sola vez")
+	}
+	// Con sólo el gobierno del plan, cualquier otra escritura no existe.
+	if w := httptest.NewRecorder(); true {
+		h.ServeHTTP(w, peticionADMIN(http.MethodPost, PrefijoV1+"/lotes-ordinarios", `{}`))
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("otra escritura abierta: %d", w.Code)
+		}
 	}
 	w := postPlanPrueba(h, cuerpo)
 	var r struct {
