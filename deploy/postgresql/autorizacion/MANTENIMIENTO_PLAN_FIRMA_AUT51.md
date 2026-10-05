@@ -58,7 +58,8 @@ rama. Resultado:
 | --- | --- |
 | Rol5 → Rol6 (AUT45) por la CLI, y replay | confirmado; replay con el mismo recibo |
 | Huella de la puerta del lote antes de AUT51 | coincide con la de AUT45 (`f6cbcb22…`) |
-| AUT51 y su prueba estructural | salida 0; `AUT51-ESTRUCTURA-OK` |
+| AUT51 (SHA256 `f23e8dd6…`) y su prueba estructural | salida 0; `AUT51-ESTRUCTURA-OK`; la poscondición de la puerta del lote pasa |
+| Puerta del lote nueva con Rol6, antes de publicar Rol7 | acredita una decisión real de vec-admin en Rol6 |
 | Segunda aplicación de AUT51 | se para en `dependencias` sin cambios |
 | Rol6 → Rol7 por la CLI (plan versión 3), y replay | confirmado; replay con el mismo recibo |
 | Lista y ficha de usuarios en vec-admin con Rol7 | 200 para las dos personas |
