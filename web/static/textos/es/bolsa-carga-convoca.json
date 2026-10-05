@@ -9,16 +9,16 @@
     "volver": "Volver a las bolsas",
     "ayudaAbrir": "Ayuda de esta pantalla",
     "ayudaTitulo": "Cómo cargar una bolsa desde CONVOCA",
-    "ayudaPaso1": "1. Exporte desde CONVOCA el resumen por persona de la lista definitiva (fichero .xls o .xlsx).",
-    "ayudaPaso2": "2. Elija el fichero y la categoría de la bolsa y pulse «Revisar el fichero». Todavía no se guarda nada.",
-    "ayudaPaso3": "3. Revise la lista: el orden es el que tendrá la bolsa. Las filas con errores no entran; corríjalas en el Excel y vuelva a empezar, o márquelas para dejarlas fuera.",
-    "ayudaPaso4": "4. Pulse «Cargar la bolsa». Si ya había una bolsa de esa categoría, la nueva la sustituye.",
-    "ayudaAvisos": "Una fila con aviso coincide en documento y nombre con otra: entra en la bolsa, pero no se vincula a la persona hasta que RRHH la revise.",
+    "ayudaPaso1": "Exporte desde CONVOCA el resumen por persona de la lista definitiva (fichero .xls o .xlsx).",
+    "ayudaPaso2": "Elija el fichero y la categoría de la bolsa y pulse «Revisar el fichero». Todavía no se guarda nada.",
+    "ayudaPaso3": "Revise la lista: el orden es el que tendrá la bolsa. Las filas con errores no pueden entrar. Corríjalas en el Excel y vuelva a empezar, o marque la casilla «Cargar la bolsa sin…» para dejarlas fuera.",
+    "ayudaPaso4": "Pulse «Cargar la bolsa». Si ya había una bolsa de esa categoría, la nueva la sustituye.",
+    "ayudaAvisos": "Una fila con aviso coincide en documento y nombre con otra. Entra en la bolsa con su orden, pero no queda unida a la persona: no la verá en su área personal hasta que se compruebe en CONVOCA si son la misma persona.",
     "ayudaCerrar": "Cerrar la ayuda",
     "pasos": "Pasos de la carga",
     "paso1": "Elegir fichero",
     "paso2": "Revisar",
-    "paso3": "Bolsa cargada",
+    "paso3": "Resultado",
     "pasoActual": "paso actual",
     "pasoHecho": "hecho",
     "elegirTitulo": "1. Elegir el fichero",
@@ -48,7 +48,7 @@
     "filtroErrores": "Con errores",
     "filtroAvisos": "Con aviso",
     "tablaTitulo": "Filas del fichero en el orden de la bolsa",
-    "colPosicion": "Puesto",
+    "colPosicion": "Orden",
     "colPersona": "Persona",
     "colDocumento": "Documento",
     "colPuntuacion": "Puntuación",
@@ -56,36 +56,54 @@
     "colDetalle": "Detalle",
     "estadoCargara": "Entra",
     "estadoError": "Con errores",
-    "estadoAviso": "Revisar",
     "fila": "Fila {numero} del Excel",
     "sinFilasFiltro": "No hay filas con este filtro.",
-    "cuentaFilas": { "one": "{cuenta} fila", "other": "{cuenta} filas" },
+    "cuentaFilas": {
+      "one": "{cuenta} fila",
+      "other": "{cuenta} filas"
+    },
     "paginaEstado": "Página {pagina} de {total}",
     "paginacion": "Páginas de la lista",
     "anterior": "Anterior",
     "siguiente": "Siguiente",
-    "excluir": { "one": "Cargar la bolsa sin la fila con errores", "other": "Cargar la bolsa sin las {cuenta} filas con errores" },
+    "excluir": {
+      "one": "Cargar la bolsa sin la fila con errores",
+      "other": "Cargar la bolsa sin las {cuenta} filas con errores"
+    },
     "cargar": "Cargar la bolsa",
     "cargando": "Cargando la bolsa…",
     "otroFichero": "Elegir otro fichero",
     "faltaExcluir": "Marque la casilla para cargar sin las filas con errores, o corrija el Excel.",
     "confirmarTitulo": "¿Cargar la bolsa?",
-    "confirmarTexto": { "one": "Se cargará la bolsa de {categoria} con {cuenta} persona. Si ya hay una bolsa de esta categoría, quedará sustituida.", "other": "Se cargará la bolsa de {categoria} con {cuenta} personas. Si ya hay una bolsa de esta categoría, quedará sustituida." },
+    "confirmarTexto": {
+      "one": "Se cargará la bolsa de {categoria} con {cuenta} persona. Si ya hay una bolsa de esta categoría, quedará sustituida.",
+      "other": "Se cargará la bolsa de {categoria} con {cuenta} personas. Si ya hay una bolsa de esta categoría, quedará sustituida."
+    },
     "confirmarSi": "Sí, cargar la bolsa",
     "confirmarNo": "No, volver a la lista",
     "hechoTitulo": "3. Bolsa cargada",
     "hechoNueva": "La bolsa de {categoria} ya está en VEC.",
     "hechoRepetida": "Esta bolsa ya estaba cargada con este mismo fichero. No se ha cambiado nada.",
-    "hechoCargadas": { "one": "{cuenta} persona en la bolsa", "other": "{cuenta} personas en la bolsa" },
-    "hechoExcluidas": { "one": "{cuenta} fila con errores no ha entrado", "other": "{cuenta} filas con errores no han entrado" },
-    "hechoSustituye": { "one": "Sustituye a {cuenta} bolsa anterior de la misma categoría", "other": "Sustituye a {cuenta} bolsas anteriores de la misma categoría" },
-    "hechoPendientes": "Filas pendientes de revisar por RRHH",
+    "hechoCargadas": {
+      "one": "{cuenta} persona en la bolsa",
+      "other": "{cuenta} personas en la bolsa"
+    },
+    "hechoExcluidas": {
+      "one": "{cuenta} fila con errores no ha entrado",
+      "other": "{cuenta} filas con errores no han entrado"
+    },
+    "hechoSustituye": {
+      "one": "Sustituye a {cuenta} bolsa anterior de la misma categoría",
+      "other": "Sustituye a {cuenta} bolsas anteriores de la misma categoría"
+    },
+    "hechoPendientes": "Filas que debe comprobar",
     "hechoFecha": "Cargada el {fecha}",
     "detalleTecnico": "Ver detalle técnico",
     "detalleRegistro": "Registro de auditoría: {referencia}",
     "detalleHuella": "Huella del fichero: {huella}",
     "verBolsas": "Ver las bolsas",
-    "otraCarga": "Cargar otra bolsa"
+    "otraCarga": "Cargar otra bolsa",
+    "sinCategorias": "No hay categorías en la RPT vigente. Pida a quien gestiona las categorías que las dé de alta."
   },
   "campos": {
     "dni_nie": "Documento",
@@ -102,7 +120,7 @@
   },
   "codigos": {
     "valor_requerido": "{campo}: falta el dato.",
-    "tipo_celda_invalido": "{campo}: el tipo de celda no es válido.",
+    "tipo_celda_invalido": "{campo}: la celda no tiene un formato válido. Escriba el dato como texto o número.",
     "formula_prohibida": "{campo}: tiene una fórmula; debe llevar el valor.",
     "texto_invalido": "{campo}: contiene caracteres no permitidos.",
     "texto_demasiado_largo": "{campo}: el texto es demasiado largo.",
@@ -114,7 +132,7 @@
     "otro": "{campo}: el dato no es válido."
   },
   "avisos": {
-    "identidad_ambigua": "Mismo documento y nombre que otra fila. Entra en la bolsa, pero RRHH debe revisarla.",
+    "identidad_ambigua": "Mismo documento y nombre que otra fila. Entra en la bolsa, pero no se une a la persona hasta comprobar en CONVOCA si es la misma.",
     "otro": "Revise esta fila."
   },
   "bloqueos": {

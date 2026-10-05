@@ -9,16 +9,16 @@
     "volver": "Back to job pools",
     "ayudaAbrir": "Help for this page",
     "ayudaTitulo": "How to load a pool from CONVOCA",
-    "ayudaPaso1": "1. Export the per-person summary of the final list from CONVOCA (.xls or .xlsx file).",
-    "ayudaPaso2": "2. Choose the file and the pool category and press “Check the file”. Nothing is saved yet.",
-    "ayudaPaso3": "3. Check the list: the order is the one the pool will have. Rows with errors are left out; fix them in the spreadsheet and start again, or tick the box to leave them out.",
-    "ayudaPaso4": "4. Press “Load the pool”. If there was already a pool for that category, the new one replaces it.",
-    "ayudaAvisos": "A row with a warning has the same document and name as another row. It goes into the pool, but it is not linked to the person until HR reviews it.",
+    "ayudaPaso1": "Export the per-person summary of the final list from CONVOCA (.xls or .xlsx file).",
+    "ayudaPaso2": "Choose the file and the pool category and press “Check the file”. Nothing is saved yet.",
+    "ayudaPaso3": "Check the list: the order is the one the pool will have. Rows with errors cannot go in. Fix them in the spreadsheet and start again, or tick the “Load the pool without…” box to leave them out.",
+    "ayudaPaso4": "Press “Load the pool”. If there was already a pool for that category, the new one replaces it.",
+    "ayudaAvisos": "A row with a warning has the same document and name as another row. It enters the pool in its place, but it is not linked to the person: they will not see it in their personal area until someone checks in CONVOCA whether they are the same person.",
     "ayudaCerrar": "Close help",
     "pasos": "Loading steps",
     "paso1": "Choose file",
     "paso2": "Check",
-    "paso3": "Pool loaded",
+    "paso3": "Result",
     "pasoActual": "current step",
     "pasoHecho": "done",
     "elegirTitulo": "1. Choose the file",
@@ -48,7 +48,7 @@
     "filtroErrores": "With errors",
     "filtroAvisos": "With a warning",
     "tablaTitulo": "File rows in pool order",
-    "colPosicion": "Place",
+    "colPosicion": "Rank",
     "colPersona": "Person",
     "colDocumento": "Document",
     "colPuntuacion": "Score",
@@ -56,36 +56,54 @@
     "colDetalle": "Details",
     "estadoCargara": "Enters",
     "estadoError": "With errors",
-    "estadoAviso": "Review",
     "fila": "Spreadsheet row {numero}",
     "sinFilasFiltro": "No rows match this filter.",
-    "cuentaFilas": { "one": "{cuenta} row", "other": "{cuenta} rows" },
+    "cuentaFilas": {
+      "one": "{cuenta} row",
+      "other": "{cuenta} rows"
+    },
     "paginaEstado": "Page {pagina} of {total}",
     "paginacion": "List pages",
     "anterior": "Previous",
     "siguiente": "Next",
-    "excluir": { "one": "Load the pool without the row with errors", "other": "Load the pool without the {cuenta} rows with errors" },
+    "excluir": {
+      "one": "Load the pool without the row with errors",
+      "other": "Load the pool without the {cuenta} rows with errors"
+    },
     "cargar": "Load the pool",
     "cargando": "Loading the pool…",
     "otroFichero": "Choose another file",
     "faltaExcluir": "Tick the box to load without the rows with errors, or fix the spreadsheet.",
     "confirmarTitulo": "Load the pool?",
-    "confirmarTexto": { "one": "The {categoria} pool will be loaded with {cuenta} person. If there is already a pool for this category, it will be replaced.", "other": "The {categoria} pool will be loaded with {cuenta} people. If there is already a pool for this category, it will be replaced." },
+    "confirmarTexto": {
+      "one": "The {categoria} pool will be loaded with {cuenta} person. If there is already a pool for this category, it will be replaced.",
+      "other": "The {categoria} pool will be loaded with {cuenta} people. If there is already a pool for this category, it will be replaced."
+    },
     "confirmarSi": "Yes, load the pool",
     "confirmarNo": "No, back to the list",
     "hechoTitulo": "3. Pool loaded",
     "hechoNueva": "The {categoria} pool is now in VEC.",
     "hechoRepetida": "This pool was already loaded from this same file. Nothing has changed.",
-    "hechoCargadas": { "one": "{cuenta} person in the pool", "other": "{cuenta} people in the pool" },
-    "hechoExcluidas": { "one": "{cuenta} row with errors was left out", "other": "{cuenta} rows with errors were left out" },
-    "hechoSustituye": { "one": "Replaces {cuenta} earlier pool of the same category", "other": "Replaces {cuenta} earlier pools of the same category" },
-    "hechoPendientes": "Rows HR still has to review",
+    "hechoCargadas": {
+      "one": "{cuenta} person in the pool",
+      "other": "{cuenta} people in the pool"
+    },
+    "hechoExcluidas": {
+      "one": "{cuenta} row with errors was left out",
+      "other": "{cuenta} rows with errors were left out"
+    },
+    "hechoSustituye": {
+      "one": "Replaces {cuenta} earlier pool of the same category",
+      "other": "Replaces {cuenta} earlier pools of the same category"
+    },
+    "hechoPendientes": "Rows you need to check",
     "hechoFecha": "Loaded on {fecha}",
     "detalleTecnico": "Show technical details",
     "detalleRegistro": "Audit record: {referencia}",
     "detalleHuella": "File fingerprint: {huella}",
     "verBolsas": "See the pools",
-    "otraCarga": "Load another pool"
+    "otraCarga": "Load another pool",
+    "sinCategorias": "There are no categories in the current staff list. Ask the person who manages categories to add them."
   },
   "campos": {
     "dni_nie": "Document",
@@ -102,7 +120,7 @@
   },
   "codigos": {
     "valor_requerido": "{campo}: value missing.",
-    "tipo_celda_invalido": "{campo}: the cell type is not valid.",
+    "tipo_celda_invalido": "{campo}: the cell does not have a valid format. Enter the value as text or a number.",
     "formula_prohibida": "{campo}: contains a formula; it must hold the value.",
     "texto_invalido": "{campo}: contains characters that are not allowed.",
     "texto_demasiado_largo": "{campo}: the text is too long.",
@@ -114,7 +132,7 @@
     "otro": "{campo}: the value is not valid."
   },
   "avisos": {
-    "identidad_ambigua": "Same document and name as another row. It enters the pool, but HR must review it.",
+    "identidad_ambigua": "Same document and name as another row. It enters the pool, but it is not linked to the person until you check in CONVOCA whether they are the same.",
     "otro": "Check this row."
   },
   "bloqueos": {

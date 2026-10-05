@@ -31,9 +31,9 @@
 
       <div class="contenido-portal carga-convoca">
         <ol class="carga-pasos" data-i18n-label="pasos">
-          <li id="marca-paso-1" aria-current="step"><span class="carga-pasos__numero" aria-hidden="true">1</span><span data-i18n="paso1"></span></li>
-          <li id="marca-paso-2"><span class="carga-pasos__numero" aria-hidden="true">2</span><span data-i18n="paso2"></span></li>
-          <li id="marca-paso-3"><span class="carga-pasos__numero" aria-hidden="true">3</span><span data-i18n="paso3"></span></li>
+          <li id="marca-paso-1" aria-current="step"><span class="carga-pasos__numero" aria-hidden="true">1</span><span data-i18n="paso1"></span><span class="carga-oculto carga-pasos__estado"></span></li>
+          <li id="marca-paso-2"><span class="carga-pasos__numero" aria-hidden="true">2</span><span data-i18n="paso2"></span><span class="carga-oculto carga-pasos__estado"></span></li>
+          <li id="marca-paso-3"><span class="carga-pasos__numero" aria-hidden="true">3</span><span data-i18n="paso3"></span><span class="carga-oculto carga-pasos__estado"></span></li>
         </ol>
 
         <section class="panel" id="paso-elegir" tabindex="-1" aria-labelledby="elegir-titulo">
@@ -60,6 +60,7 @@
                 <button type="button" class="boton-secundario" id="categorias-reintentar" hidden data-i18n="reintentar"></button>
               </div>
               <p id="estado-elegir" class="carga-estado" role="status" aria-live="polite"></p>
+              <p id="error-elegir" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
               <div class="carga-acciones">
                 <button type="submit" class="boton-primario" id="revisar" data-i18n="revisar"></button>
               </div>
@@ -90,15 +91,15 @@
             </fieldset>
             <p id="cuenta" aria-live="polite"></p>
           </div>
-          <div class="tabla-contenedor" id="tabla-contenedor" tabindex="0" data-i18n-label="tablaTitulo">
+          <div class="tabla-contenedor" id="tabla-contenedor" role="region" tabindex="0" data-i18n-label="tablaTitulo">
             <table class="tabla-datos carga-tabla">
               <caption class="carga-oculto" data-i18n="tablaTitulo"></caption>
               <thead><tr>
                 <th scope="col" class="carga-numero" data-i18n="colPosicion"></th>
                 <th scope="col" data-i18n="colPersona"></th>
+                <th scope="col" data-i18n="colEstado"></th>
                 <th scope="col" data-i18n="colDocumento"></th>
                 <th scope="col" class="carga-numero" data-i18n="colPuntuacion"></th>
-                <th scope="col" data-i18n="colEstado"></th>
                 <th scope="col" data-i18n="colDetalle"></th>
               </tr></thead>
               <tbody id="filas"></tbody>
@@ -148,10 +149,12 @@
 
       <dialog id="ayuda" class="carga-dialogo" aria-labelledby="ayuda-titulo">
         <h2 id="ayuda-titulo" data-i18n="ayudaTitulo"></h2>
-        <p data-i18n="ayudaPaso1"></p>
-        <p data-i18n="ayudaPaso2"></p>
-        <p data-i18n="ayudaPaso3"></p>
-        <p data-i18n="ayudaPaso4"></p>
+        <ol>
+          <li data-i18n="ayudaPaso1"></li>
+          <li data-i18n="ayudaPaso2"></li>
+          <li data-i18n="ayudaPaso3"></li>
+          <li data-i18n="ayudaPaso4"></li>
+        </ol>
         <p data-i18n="ayudaAvisos"></p>
         <div class="carga-acciones"><button type="button" class="boton-secundario" id="ayuda-cerrar" data-i18n="ayudaCerrar"></button></div>
       </dialog>

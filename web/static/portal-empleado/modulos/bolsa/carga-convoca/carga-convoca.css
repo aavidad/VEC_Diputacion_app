@@ -49,6 +49,7 @@
 .carga-filtro { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3); margin: var(--portal-espacio-3) 0 0; padding: 0; border: 0; }
 .carga-filtro legend { float: left; margin-right: var(--portal-espacio-2); font-weight: 600; }
 .carga-filtro label { display: inline-flex; min-height: 24px; align-items: center; gap: var(--portal-espacio-1); }
+.carga-filtro input { width: 20px; height: 20px; margin: 0; }
 
 .carga-tabla .carga-numero { text-align: right; font-variant-numeric: tabular-nums; }
 .carga-tabla td:last-child { min-width: 240px; }
@@ -75,7 +76,14 @@
 .carga-dialogo::backdrop { background: color-mix(in srgb, var(--portal-azul-950) 55%, transparent); }
 .carga-dialogo h2 { margin-top: 0; }
 
+.carga-campo input[type="file"]::file-selector-button {
+  min-height: 40px; margin-right: var(--portal-espacio-3); padding: 0 var(--portal-espacio-4);
+  border: 1px solid var(--portal-borde-control); border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie); color: var(--portal-azul-700); font: inherit; font-weight: 600; cursor: pointer;
+}
+
 @media (max-width: 640px) {
+  .rejilla-kpi.rejilla-kpi--compacta.carga-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .carga-pasos li + li::before { display: none; }
   .carga-acciones { flex-direction: column-reverse; align-items: stretch; }
 }

@@ -4,6 +4,7 @@ import {
 } from "./modelo.js?v=20261005-b1-carga-v1";
 
 const ZONA = "Europe/Madrid";
+const CODIGOS_FICHERO = new Set(["fichero_no_valido", "fichero_demasiado_grande", "demasiadas_filas", "peticion_no_valida"]);
 
 function traducirFijos(doc, t) {
   doc.querySelectorAll("[data-i18n]").forEach((e) => { e.textContent = t(e.getAttribute("data-i18n")); });
@@ -40,6 +41,8 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       const marca = $(`marca-paso-${i}`);
       if (i === numero) marca.setAttribute("aria-current", "step"); else marca.removeAttribute("aria-current");
       marca.classList.toggle("carga-pasos--hecho", i < numero);
+      marca.querySelector(".carga-pasos__numero").textContent = i < numero ? "✓" : String(i);
+      marca.querySelector(".carga-pasos__estado").textContent = i < numero ? ` (${t("pasoHecho")})` : i === numero ? ` (${t("pasoActual")})` : "";
     }
     pasos[numero].focus();
   }
@@ -58,6 +61,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("categorias-estado").textContent = t("categoriasCargando");
     try {
       const opciones = await categorias.listarOpciones({ signal: nuevaPeticion() });
+      const previa = select.value;
       select.replaceChildren(select.options[0]);
       for (const opcion of opciones) {
         if (!claveCategoria(opcion.referencia)) continue;
@@ -66,8 +70,11 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
         elemento.textContent = opcion.etiqueta;
         select.append(elemento);
       }
-      select.disabled = false;
-      $("categorias-estado").textContent = "";
+      // Volver a elegir fichero no obliga a repetir la categoría.
+      if ([...select.options].some((o) => o.value === previa)) select.value = previa;
+      const hay = select.options.length > 1;
+      select.disabled = !hay;
+      $("categorias-estado").textContent = hay ? "" : t("sinCategorias");
     } catch (error) {
       if (error?.name === "AbortError") return;
       const denegado = error?.estado === 401 || error?.estado === 403;
@@ -94,6 +101,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     const valida = select.value && claveCategoria(select.value);
     marcarCampo("categoria", valida ? "" : t("faltaCategoria"));
     if (!valida) errores.push(["categoria", t("faltaCategoria")]);
+    if (errores.length) { pintarResumenErrores(errores); return null; }
+    $("resumen-errores").hidden = true;
+    return { fichero, categoria: { referencia: select.value, etiqueta: elegida?.textContent ?? "" } };
+  }
+
+  function pintarResumenErrores(errores) {
     const resumen = $("resumen-errores");
     $("lista-errores").replaceChildren(...errores.map(([id, texto]) => {
       const li = doc.createElement("li");
@@ -104,14 +117,29 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       li.append(a);
       return li;
     }));
-    resumen.hidden = errores.length === 0;
-    if (errores.length) { resumen.focus(); return null; }
-    return { fichero, categoria: { referencia: select.value, etiqueta: elegida?.textContent ?? "" } };
+    resumen.hidden = false;
+    resumen.focus();
+  }
+
+  // Un fallo del fichero se marca en su campo, como los del formulario; los
+  // demás salen en un aviso destacado.
+  function mostrarErrorElegir(error) {
+    const texto = textoError(textos, error);
+    if (CODIGOS_FICHERO.has(error?.codigo)) {
+      marcarCampo("fichero", texto);
+      pintarResumenErrores([["fichero", texto]]);
+      return;
+    }
+    const aviso = $("error-elegir");
+    aviso.textContent = texto;
+    aviso.hidden = false;
+    aviso.focus();
   }
 
   async function revisar(evento) {
     evento.preventDefault();
     if (estado.ocupado) return;
+    $("error-elegir").hidden = true;
     const datos = validarFormulario();
     if (!datos) return;
     estado.ocupado = true;
@@ -132,7 +160,8 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     } catch (error) {
       if (error?.name === "AbortError") return;
       estado.base64 = "";
-      $("estado-elegir").textContent = textoError(textos, error);
+      $("estado-elegir").textContent = "";
+      mostrarErrorElegir(error);
     } finally {
       estado.ocupado = false;
       $("revisar").disabled = false;
@@ -164,20 +193,19 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       const persona = doc.createElement("th");
       persona.scope = "row";
       persona.textContent = aceptada ? nombrePersona(fila) : t("fila", { numero: n(fila.numero) });
-      tr.append(persona, celda(fila.documento ?? ""),
-        celda(fila.total ? n(Number(fila.total)) : "", "carga-numero"));
       const chip = doc.createElement("span");
       const conAviso = fila.avisos.length > 0;
       chip.className = `estado-chip ${aceptada ? (conAviso ? "" : "exito") : "peligro"}`.trim();
-      chip.textContent = t(aceptada ? (conAviso ? "estadoAviso" : "estadoCargara") : "estadoError");
+      chip.textContent = t(aceptada ? (conAviso ? "filtroAvisos" : "estadoCargara") : "estadoError");
       const tdEstado = doc.createElement("td");
       tdEstado.append(chip);
+      tr.append(persona, tdEstado, celda(fila.documento ?? ""), celda(fila.total ? n(Number(fila.total)) : "", "carga-numero"));
       const tdDetalle = doc.createElement("td");
       const mensajes = [...fila.errores.map((e) => textoIncidencia(textos, e)), ...fila.avisos.map((a) => textoAviso(textos, a))];
       // En las aceptadas se añade la fila del Excel para poder localizarla.
       tdDetalle.textContent = aceptada && mensajes.length
         ? `${t("fila", { numero: n(fila.numero) })}: ${mensajes.join(" ")}` : mensajes.join(" ");
-      tr.append(tdEstado, tdDetalle);
+      tr.append(tdDetalle);
       return tr;
     }));
   }
