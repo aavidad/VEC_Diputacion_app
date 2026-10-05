@@ -99,7 +99,7 @@ func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Re
 		}
 	}
 	autenticada, err := autenticacionConexionPerfiles(ctx, r)
-	if err != nil || autenticada.After(ahora) || !ahora.Before(autenticada.Add(5*time.Minute)) {
+	if err != nil || autenticada.After(ahora) || !ahora.Before(autenticada.Add(vidaAutenticacionConexionPerfiles)) {
 		return vacia, api.ErrAutenticacionRequerida
 	}
 	hoja := r.TLS.VerifiedChains[0][0]
