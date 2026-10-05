@@ -34,9 +34,10 @@ func TestDefinitivaRecomponeLaProvisionalYCompruebaSuHuella(t *testing.T) {
 		"huella_declarada": func(m *ports.MaterialListaDefinitiva) {
 			m.Antecedente.HuellaSHA256 = m.Provisional.Decisiones[0].Antecedente.HuellaMaterialSHA256
 		},
+		// Mismas excluidas y resoluciones con otro motivo subsanable: solo la
+		// huella de la provisional puede detectar el cambio.
 		"provisional_modificada": func(m *ports.MaterialListaDefinitiva) {
-			m.Provisional.Decisiones[0].Decision = domain.DecisionExcluida
-			m.Provisional.Decisiones[0].Motivos = []string{"titulacion_no_acreditada"}
+			m.Provisional.Decisiones[1].Motivos = []string{"tasa_no_justificada"}
 		},
 		"alcance": func(m *ports.MaterialListaDefinitiva) { m.Alcance = "oficial" },
 	}

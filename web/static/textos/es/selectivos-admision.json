@@ -36,5 +36,6 @@
   "seleccion_lista_definitiva_pendiente_aprobacion_competente": "El órgano competente debe aprobar la lista definitiva antes de publicarla.",
   "seleccion_lista_definitiva_pendiente_registro_escritos": "Comprobar que cada subsanación o reclamación consta en el registro dentro de plazo.",
   "seleccion_lista_definitiva_pendiente_identidad_publicacion": "Al publicar, se añaden nombre, apellidos y documento enmascarado, y se ordena por apellidos.",
-  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publicar la lista definitiva en el boletín y en la sede que fijen las bases."
+  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publicar la lista definitiva en el boletín y en la sede que fijen las bases.",
+  "seleccion_lista_definitiva_pendiente_pie_recursos": "La resolución que apruebe la lista definitiva debe indicar los recursos que caben, el órgano y el plazo para presentarlos."
 }

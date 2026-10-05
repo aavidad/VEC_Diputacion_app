@@ -141,14 +141,17 @@ la huella no coincide. Cada excluida necesita una resolución, y solo una:
 - `no_presentada`, sin vía: sigue excluida con los mismos motivos.
 
 Quien estaba admitido en la provisional sigue admitido. Excluirlo exigiría
-darle audiencia, y eso no forma parte de este borrador. La salida queda en
+darle audiencia, y eso no forma parte de este borrador. Tampoco se pueden
+incorporar aquí las solicitudes omitidas en la provisional (ni admitidas ni
+excluidas): hoy hay que preparar otra revisión de la provisional que las
+incluya. La salida queda en
 `borrador_pendiente_aprobacion`, sin datos personales, con `aprobada`,
 `publicada` y `persistida` en `false`. Queda pendiente comprobar en el
 registro que cada escrito llegó en plazo.
 
 `testdata/lista-definitiva-resultado.json` conserva la salida de ese comando.
 Su SHA256 es
-`8ad4b38d652225436b5e2c54efab7795a35b95f0edc00c823d520472393cde15`.
+`e5622b12f1901aaf0d81ce2b5e10db4710233fe388b8d04450e581742ae580c9`.
 
 ## Comprobación focal
 

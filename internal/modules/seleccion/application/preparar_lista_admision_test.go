@@ -23,7 +23,8 @@ func (f catalogoFijo) CatalogoAdmision(_ context.Context, ref, version string) (
 func catalogoEjemplo(*testing.T) catalogoFijo {
 	return catalogoFijo{domain.CatalogoAdmision{Referencia: "seleccion-admision-ejemplo", Version: "ejemplo-1", PaqueteEjemplo: true, DudaRef: "dudas-139",
 		PlazoSubsanacion: domain.PlazoSubsanacion{Unidad: "dias_habiles", Cantidad: 10},
-		Motivos:          []domain.MotivoExclusion{{Codigo: "titulacion_no_acreditada", Subsanable: true}}}}
+		Motivos: []domain.MotivoExclusion{{Codigo: "titulacion_no_acreditada", Subsanable: true},
+			{Codigo: "tasa_no_justificada", Subsanable: true}}}}
 }
 
 func materialLista(t *testing.T) ports.MaterialListaAdmision {

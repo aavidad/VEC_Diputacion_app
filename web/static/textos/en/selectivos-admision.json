@@ -36,5 +36,6 @@
   "seleccion_lista_definitiva_pendiente_aprobacion_competente": "The competent body must approve the final list before it is published.",
   "seleccion_lista_definitiva_pendiente_registro_escritos": "Check that every correction or complaint was registered within the deadline.",
   "seleccion_lista_definitiva_pendiente_identidad_publicacion": "On publication, name, surnames and masked document are added and the list is sorted by surname.",
-  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publish the final list in the official gazette and on the site set by the call rules."
+  "seleccion_lista_definitiva_pendiente_publicacion_oficial": "Publish the final list in the official gazette and on the site set by the call rules.",
+  "seleccion_lista_definitiva_pendiente_pie_recursos": "The decision approving the final list must state the available appeals, the body that hears them and the deadline."
 }

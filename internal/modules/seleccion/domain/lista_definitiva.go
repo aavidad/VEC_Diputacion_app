@@ -117,6 +117,7 @@ func ComponerListaDefinitiva(listaRef string, revision int, provisional ListaAdm
 		Admitidas: make([]SolicitudAdmitidaDefinitiva, 0, len(provisional.Admitidas)+len(provisional.Excluidas)),
 		Excluidas: []SolicitudExcluidaDefinitiva{},
 		Pendientes: []string{"seleccion.lista_definitiva.pendiente.aprobacion_competente",
+			"seleccion.lista_definitiva.pendiente.pie_recursos",
 			"seleccion.lista_definitiva.pendiente.registro_escritos", "seleccion.lista_definitiva.pendiente.identidad_publicacion",
 			"seleccion.lista_definitiva.pendiente.publicacion_oficial"},
 	}
