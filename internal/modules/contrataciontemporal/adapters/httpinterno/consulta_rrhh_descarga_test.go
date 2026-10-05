@@ -51,7 +51,7 @@ func (r *registradorDescargaPrueba) RegistrarDescarga(_ context.Context, s ports
 func (r *registradorDescargaPrueba) RegistrarFalloDescarga(_ context.Context, _ string, causa error) error {
 	r.fallos = append(r.fallos, causa)
 	if r.sinAnotarFallo {
-		return nil
+		return ports.ErrDescargaBorradorRRHHSinAnotar
 	}
 	if r.errFallo != nil {
 		return r.errFallo

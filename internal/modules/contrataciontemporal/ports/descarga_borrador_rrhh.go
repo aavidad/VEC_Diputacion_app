@@ -33,6 +33,9 @@ var (
 	ErrDescargaBorradorRRHHInvalida       = errors.New("contratacion temporal: descarga de borrador RRHH invalida")
 	ErrDescargaBorradorRRHHNoDisponible   = errors.New("contratacion temporal: registro de descarga de borrador RRHH no disponible")
 	ErrDescargaBorradorRRHHVersionAusente = errors.New("contratacion temporal: version de expediente de la descarga inexistente")
+	// ErrDescargaBorradorRRHHSinAnotar indica que no había nada que anotar:
+	// sin registrador AD169 o sin actor resuelto en la petición.
+	ErrDescargaBorradorRRHHSinAnotar = errors.New("contratacion temporal: fallo de descarga sin actor que anotar")
 
 	tipoBorradorDescargaValido = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
 	huellaDescargaValida       = regexp.MustCompile(`^[0-9a-f]{64}$`)

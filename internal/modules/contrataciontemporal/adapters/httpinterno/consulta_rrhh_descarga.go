@@ -40,10 +40,11 @@ func (h *manejadorConsultaDetalleRRHH) fallarDescargaRRHH(w http.ResponseWriter,
 			// cuenta como error técnico, nunca como denegación.
 			motivo = ports.ErrDescargaBorradorRRHHNoDisponible
 		}
-		// nil: no había nada que anotar (sin registrador o sin actor).
+		// ErrDescargaBorradorRRHHSinAnotar: no había nada que anotar (sin
+		// registrador o sin actor); se responde con el error original.
 		registrado := h.descargas.RegistrarFalloDescarga(r.Context(), expedienteRef, motivo)
 		var auditado ports.FalloLecturaAuditado
-		if registrado != nil && !errors.As(registrado, &auditado) {
+		if !errors.As(registrado, &auditado) && !errors.Is(registrado, ports.ErrDescargaBorradorRRHHSinAnotar) {
 			responderErrorConsultaRRHH(w, r, registrado, errorServicioConsultaRRHHNoDisponible)
 			return
 		}

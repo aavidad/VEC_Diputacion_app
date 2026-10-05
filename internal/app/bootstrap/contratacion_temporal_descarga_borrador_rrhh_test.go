@@ -77,7 +77,7 @@ func TestDescargaBorradorClasificaDenegacionYFallo(t *testing.T) {
 	if _, err := r.RegistrarDescarga(context.Background(), ports.SolicitudDescargaBorradorRRHH{}); err == nil {
 		t.Fatal("registro nulo admitido")
 	}
-	if err := r.RegistrarFalloDescarga(context.Background(), "expediente:ct:1", errors.New("x")); err != nil {
+	if err := r.RegistrarFalloDescarga(context.Background(), "expediente:ct:1", errors.New("x")); !errors.Is(err, ports.ErrDescargaBorradorRRHHSinAnotar) {
 		t.Fatalf("fallo sin registrador debería no anotar nada: %v", err)
 	}
 }

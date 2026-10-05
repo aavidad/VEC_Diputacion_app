@@ -65,9 +65,9 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) RegistrarDescarga(ctx contex
 	// El actor y la correlación se fijan antes de autorizar y sin depender de
 	// la cancelación de la petición: una revocación, una desconexión o un plazo
 	// agotado después no borran el intento ni cambian su identidad.
-	z, ok := r.actorDePeticion(ctx)
-	if !ok {
-		return vacio, ports.ErrDescargaBorradorRRHHNoDisponible
+	z, err := r.actorDePeticion(ctx)
+	if err != nil {
+		return vacio, errors.Join(ports.ErrDescargaBorradorRRHHNoDisponible, err)
 	}
 	correlacion, err := puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
@@ -124,27 +124,34 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) autorizarYRegistrar(ctx cont
 }
 
 // RegistrarFalloDescarga anota un intento fallido anterior al registro.
-// Devuelve nil si no hay nada que anotar: sin registrador AD169 configurado o
-// sin actor resuelto (la consulta ni siquiera identificó a la persona).
+// Devuelve ErrDescargaBorradorRRHHSinAnotar si no hay nada que anotar: sin
+// registrador AD169 configurado o sin actor resuelto (la consulta ni siquiera
+// identificó a la persona).
 func (r *registradorDescargaBorradorRRHHDesarrollo) RegistrarFalloDescarga(ctx context.Context, expedienteRef string, causa error) error {
 	if r == nil || contextoInterfazNulo(ctx) || causa == nil || r.auditoria == nil {
-		return nil
+		return ports.ErrDescargaBorradorRRHHSinAnotar
 	}
-	z, ok := r.actorDePeticion(ctx)
-	if !ok {
-		return nil
+	z, err := r.actorDePeticion(ctx)
+	if err != nil {
+		return errors.Join(ports.ErrDescargaBorradorRRHHSinAnotar, err)
 	}
 	return r.anotarFallo(ctx, z, expedienteRef, causa)
 }
 
 // actorDePeticion devuelve el contexto de la consulta ya resuelto para esta
 // petición. Ignora la cancelación: conserva los valores de la petición.
-func (r *registradorDescargaBorradorRRHHDesarrollo) actorDePeticion(ctx context.Context) (ports.ContextoAutorizacionAltaV3, bool) {
+func (r *registradorDescargaBorradorRRHHDesarrollo) actorDePeticion(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
 	z, err := r.autoridad.contextoConsultaRRHHDesarrollo(context.WithoutCancel(ctx))
-	if err != nil || z.Resultado.Validar() != nil || z.Vinculo.ValidarPara(z.Resultado) != nil {
-		return ports.ContextoAutorizacionAltaV3{}, false
+	if err != nil {
+		return ports.ContextoAutorizacionAltaV3{}, err
 	}
-	return z, true
+	if errValidar := z.Resultado.Validar(); errValidar != nil {
+		return ports.ContextoAutorizacionAltaV3{}, errValidar
+	}
+	if errVinculo := z.Vinculo.ValidarPara(z.Resultado); errVinculo != nil {
+		return ports.ContextoAutorizacionAltaV3{}, errVinculo
+	}
+	return z, nil
 }
 
 func (r *registradorDescargaBorradorRRHHDesarrollo) anotarFallo(ctx context.Context, z ports.ContextoAutorizacionAltaV3,
@@ -210,7 +217,7 @@ func (m multiplexorDescargasLectoresRRHHDesarrollo) RegistrarDescarga(ctx contex
 func (m multiplexorDescargasLectoresRRHHDesarrollo) RegistrarFalloDescarga(ctx context.Context, expedienteRef string, causa error) error {
 	r, ok := m.registrador(ctx)
 	if !ok {
-		return nil
+		return ports.ErrDescargaBorradorRRHHSinAnotar
 	}
 	return r.RegistrarFalloDescarga(ctx, expedienteRef, causa)
 }

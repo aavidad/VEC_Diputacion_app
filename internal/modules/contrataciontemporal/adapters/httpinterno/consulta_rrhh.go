@@ -350,7 +350,7 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	if requiereOriginalPropuestaRRHH(detalle) {
 		solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
 		if err != nil {
-			fallar(nil, errorResultadoConsultaRRHHNoConfiable)
+			fallar(err, errorResultadoConsultaRRHHNoConfiable)
 			return
 		}
 		consultorOriginal := h.consultor
@@ -366,8 +366,12 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 			fallar(r.Context().Err(), clasificarErrorConsultaRRHH(r.Context().Err()))
 			return
 		}
-		if err != nil || original.ValidarContenidoPublicablePara(solicitud) != nil {
-			fallar(nil, errorServicioConsultaRRHHNoDisponible)
+		if err != nil {
+			fallar(err, errorServicioConsultaRRHHNoDisponible)
+			return
+		}
+		if errPublicable := original.ValidarContenidoPublicablePara(solicitud); errPublicable != nil {
+			fallar(errPublicable, errorServicioConsultaRRHHNoDisponible)
 			return
 		}
 		detalle = original
