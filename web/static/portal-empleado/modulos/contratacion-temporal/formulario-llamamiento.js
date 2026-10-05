@@ -684,7 +684,7 @@ export function montarFormularioLlamamiento({
         if (typeof clave !== "string" || !clave) throw new TypeError();
         paso.valores.clave_idempotencia = clave;
       } catch {
-        paso.mensaje = "llamamiento_validacion";
+        paso.mensaje = "llamamiento_preparacion_error";
         paso.tono = "error";
         repintar(operacion);
         return;
