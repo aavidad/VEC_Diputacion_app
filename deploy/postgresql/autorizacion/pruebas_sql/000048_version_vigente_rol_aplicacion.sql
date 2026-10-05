@@ -20,6 +20,8 @@ BEGIN
   OR (SELECT prosrc FROM pg_proc WHERE pronamespace='vec_autorizacion'::regnamespace AND proname=s) ~ 'administracion_perfiles:v[5-9]'
   THEN RAISE EXCEPTION 'AUT48: despachador % no usa la genérica',s; END IF;
  END LOOP;
+ IF strpos((SELECT prosrc FROM pg_proc WHERE pronamespace='vec_autorizacion'::regnamespace AND proname='acreditar_ambito_certificado_nominal_vigente_aut48'),'perfil_fijo_categoria_nominal_v1')=0
+ THEN RAISE EXCEPTION 'AUT48: el ámbito no exige metadatos de perfil fijo de Aplicación'; END IF;
  -- Fuera del rol de Aplicación o sin runtime: la genérica deniega antes de leer.
  IF vec_autorizacion.acreditar_ambito_certificado_nominal_v1('rol:otro_rol:v7','asignacion:x','org_0123456789abcdef') IS NOT FALSE
  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1('rol:administracion_perfiles:v99','asignacion:x','org_0123456789abcdef') IS NOT FALSE
@@ -38,6 +40,8 @@ BEGIN
    IF s<>a.version_rol_ref AND vec_autorizacion.acreditar_ambito_certificado_nominal_v1(s,a.asignacion_ref,a.org) IS NOT FALSE
    THEN RAISE EXCEPTION 'AUT48: versión no actual % aceptada',s; END IF;
   END LOOP;
+ ELSE
+  RAISE NOTICE 'AUT48: sin asignación de Aplicación; se omiten los casos con datos reales';
  END IF;
 END $p$;
 ROLLBACK;
