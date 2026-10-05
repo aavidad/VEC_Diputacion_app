@@ -1,6 +1,6 @@
-import { leerArchivo, leerTextosMotivos, rutaTextosMotivos } from './modelo.js?v=20261005-s4-lista-v1';
+import { leerArchivo, leerTextosMotivos, rutaTextosMotivos } from './modelo.js?v=20261005-s4-lista-v2';
 import { crearCargaLocal } from '../preparacion-admision/controlador.js?v=20261003-s4-visor-v3';
-import { pintarLista } from './vista.js?v=20261005-s4-lista-v1';
+import { pintarLista } from './vista.js?v=20261005-s4-lista-v2';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 

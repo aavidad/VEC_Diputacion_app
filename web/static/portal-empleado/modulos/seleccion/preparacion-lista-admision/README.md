@@ -1,9 +1,15 @@
-# Visor de la lista provisional de admitidos y excluidos
+# Visor de las listas de admitidos y excluidos
 
-Abre la salida `lista-provisional` del preparador de admisión y la muestra
-como la revisará RRHH: un resumen con solicitudes, admitidas, excluidas y las
+Abre la salida `lista-provisional` o `lista-definitiva` del preparador de
+admisión, la reconoce por su esquema y la muestra como la revisará RRHH. En la
+provisional: un resumen con solicitudes, admitidas, excluidas y las
 que pueden subsanar; el plazo de subsanación; las excluidas con sus motivos y
 si pueden subsanar; las admitidas y lo que falta para publicar.
+
+En la definitiva no hay plazo. Cada admitida indica si ya lo estaba en la
+provisional o si entró tras subsanar o reclamar; cada excluida, los motivos que
+siguen y si su escrito se desestimó o no presentó ninguno. El detalle técnico
+añade la provisional de la que parte (referencia, revisión y huella).
 
 ```sh
 go run ./cmd/vec-selectivos-preparar-admision --salida lista-provisional \
