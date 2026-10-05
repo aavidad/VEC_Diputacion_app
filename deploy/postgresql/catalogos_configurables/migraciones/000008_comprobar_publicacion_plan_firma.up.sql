@@ -64,7 +64,9 @@ BEGIN
  IF documento->>'id' IS DISTINCT FROM p_catalogo_id
     OR documento->>'version' IS DISTINCT FROM p_version::text
     OR documento->>'estado' IS DISTINCT FROM 'publicado'
-    OR (documento->>'publicado_en')::timestamptz IS DISTINCT FROM publicacion.publicada_en THEN
+    OR (documento->>'publicado_en')::timestamptz IS DISTINCT FROM publicacion.publicada_en
+    OR documento->>'publicado_por' IS DISTINCT FROM publicacion.publicado_por
+    OR documento->>'aprobacion_ref' IS DISTINCT FROM publicacion.aprobacion_ref THEN
   RAISE EXCEPTION 'CC8: publicación ajena' USING ERRCODE='55000'; END IF;
  RETURN QUERY SELECT publicacion.publicada_en,publicacion.revision;
 END $f$;

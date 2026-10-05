@@ -46,7 +46,10 @@ func (p *PublicacionPlanFirmaPostgreSQL) ComprobarPublicacionPlanFirmaV2(ctx con
 		return err
 	}
 	if !idPublicacionPlanFirma.MatchString(c.ID) || c.Version < 1 || c.Revision < 1 || c.ModuloID != "contratacion_temporal" || !shaPublicacionPlanFirma.MatchString(sha) ||
-		c.PublicadoEn.IsZero() || en.IsZero() || c.PublicadoEn.After(en) {
+		c.PublicadoEn.IsZero() || en.IsZero() || c.PublicadoEn.After(en) ||
+		// PostgreSQL redondea al microsegundo y Go truncaría: una fecha con más
+		// precisión nunca coincidiría y se rechaza aquí de forma explícita.
+		c.PublicadoEn.Nanosecond()%1000 != 0 {
 		return ct.ErrPlanCompetenciaFirmaV2
 	}
 	var bruto []byte
