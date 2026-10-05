@@ -157,7 +157,7 @@ BEGIN
  OR NOT c ?& ARRAY['rol_id','version','nombre','version_anterior_sha256','operaciones_v2','competencias','version_rol_sha256','regla_asignacion','organizacion_ref','vigente_desde','vigente_hasta','duracion_propuesta_segundos']
  OR jsonb_typeof(c->'rol_id') IS DISTINCT FROM 'string' OR c->>'rol_id' !~ '^[a-z][a-z0-9_]{2,63}$'
  OR jsonb_typeof(c->'version') IS DISTINCT FROM 'number' OR c->>'version' !~ '^[1-9][0-9]{0,8}$'
- OR jsonb_typeof(c->'nombre') IS DISTINCT FROM 'string' OR char_length(c->>'nombre') NOT BETWEEN 3 AND 200 OR c->>'nombre'<>btrim(c->>'nombre') OR c->>'nombre' ~ '[[:cntrl:]]'
+ OR jsonb_typeof(c->'nombre') IS DISTINCT FROM 'string' OR char_length(c->>'nombre') NOT BETWEEN 3 AND 200 OR c->>'nombre'<>btrim(c->>'nombre') OR c->>'nombre' ~ '[[:cntrl:]]' OR c->>'nombre' ~ '^[[:space:]]|[[:space:]]$'
  OR jsonb_typeof(c->'version_anterior_sha256') IS DISTINCT FROM 'string'
  OR ((c->>'version')='1' AND c->>'version_anterior_sha256'<>'') OR ((c->>'version')<>'1' AND c->>'version_anterior_sha256' !~ '^[0-9a-f]{64}$')
  OR jsonb_typeof(c->'operaciones_v2') IS DISTINCT FROM 'array' OR jsonb_array_length(c->'operaciones_v2')>2
@@ -189,7 +189,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.documento_rol_cargo_firma_v1(jsonb,jsonb
 
 CREATE FUNCTION vec_autorizacion.aplicar_cargos_firma_admin_v1(plan_canonico text,sha_aprobado text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
-DECLARE cfg vec_autorizacion.config_cargos_firma_admin_v1;p jsonb;sha text;c jsonb;d jsonb;ctl jsonb;ref text;h text;hc text;maxv bigint;prev text;
+DECLARE cfg vec_autorizacion.config_cargos_firma_admin_v1;p jsonb;sha text;c jsonb;d jsonb;ctl jsonb;ref text;h text;hc text;maxv bigint;prev text;prev_doc jsonb;
  reg record;lista jsonb:='[]';cargos jsonb:='[]';lista_sha text;e jsonb;aud record;recibo jsonb;previo record;publicador text;instante timestamptz;
 BEGIN
  cfg:=vec_autorizacion.exigir_operador_cargos_firma_admin_v1();
@@ -212,12 +212,15 @@ BEGIN
  SELECT * INTO previo FROM vec_autorizacion.registro_cargos_firma_admin_v1 WHERE operacion_ref=p->>'operacion_ref' FOR SHARE;
  IF FOUND THEN
   -- Replay: mismo plan exacto; el recibo original sólo se devuelve si cada
-  -- versión publicada sigue con su huella y registrada como ordinaria.
+  -- versión publicada sigue con su huella, habilitada y registrada como ordinaria.
   IF previo.plan IS DISTINCT FROM convert_to(plan_canonico,'UTF8') OR previo.plan_sha256 IS DISTINCT FROM sha
   THEN RAISE EXCEPTION 'AUT53: PARO clave=replay actual=material_distinto esperado=plan_original' USING ERRCODE='23505'; END IF;
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(previo.recibo->'cargos') x LEFT JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=x->>'version_rol_ref'
    LEFT JOIN vec_autorizacion.rol_administrable_exacto_v1 a ON a.version_rol_ref=r.version_rol_ref
-   WHERE r.version_rol_ref IS NULL OR r.huella_sha256 IS DISTINCT FROM x->>'version_rol_sha256' OR a.version_rol_ref IS NULL OR a.clase<>'ordinario' OR a.huella_sha256 IS DISTINCT FROM r.huella_sha256)
+   LEFT JOIN vec_autorizacion.control_vigencia_version_rol_actual ca ON ca.version_rol_ref=r.version_rol_ref
+   LEFT JOIN vec_autorizacion.control_vigencia_version_rol v ON v.version_rol_ref=ca.version_rol_ref AND v.revision=ca.revision
+   WHERE r.version_rol_ref IS NULL OR r.huella_sha256 IS DISTINCT FROM x->>'version_rol_sha256' OR a.version_rol_ref IS NULL OR a.clase<>'ordinario' OR a.huella_sha256 IS DISTINCT FROM r.huella_sha256
+   OR v.estado IS DISTINCT FROM 'habilitada')
   THEN RAISE EXCEPTION 'AUT53: PARO clave=replay_cargos actual=divergente esperado=registro_original' USING ERRCODE='P0V01'; END IF;
   RETURN jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
@@ -229,9 +232,16 @@ BEGIN
   -- CAS de versión: la 1 exige que el rol no exista; la N exige que la última
   -- publicada sea N-1 y tenga la huella que el plan declara.
   SELECT max(version) INTO maxv FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id';
-  SELECT huella_sha256 INTO prev FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id' AND version=(c->>'version')::bigint-1 FOR SHARE;
+  SELECT huella_sha256,documento INTO prev,prev_doc FROM vec_autorizacion.version_rol WHERE rol_id=c->>'rol_id' AND version=(c->>'version')::bigint-1 FOR SHARE;
   IF ((c->>'version')::bigint=1 AND maxv IS NOT NULL) OR ((c->>'version')::bigint>1 AND (maxv IS DISTINCT FROM (c->>'version')::bigint-1 OR prev IS DISTINCT FROM c->>'version_anterior_sha256'))
   THEN RAISE EXCEPTION 'AUT53: PARO clave=version actual=divergente esperado=CAS_version_anterior' USING ERRCODE='P0V01'; END IF;
+  -- Sólo se sucede a un rol que ya tiene forma de cargo de firma: todas sus
+  -- concesiones de Contratación temporal y sobre los tipos que publica AUT53.
+  -- Así no se saca la versión siguiente de un rol ajeno (Dietas, Bolsa…).
+  IF (c->>'version')::bigint>1 AND (jsonb_typeof(prev_doc->'concesiones') IS DISTINCT FROM 'array' OR EXISTS(SELECT 1 FROM jsonb_array_elements(prev_doc->'concesiones') q
+   WHERE q->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+   OR (q->>'tipo_recurso' ~ '^(documento_([a-z0-9_]{1,80}_)?contratacion_temporal|firma_vec_documento_contratacion_temporal|expediente_contratacion_temporal)$') IS NOT TRUE))
+  THEN RAISE EXCEPTION 'AUT53: PARO clave=version_anterior actual=no_es_cargo esperado=rol_con_forma_de_cargo' USING ERRCODE='P0V01'; END IF;
   SELECT * INTO reg FROM vec_autorizacion.regla_asignacion_cargo_firma_v1 r WHERE r.regla=c->>'regla_asignacion';
   IF NOT FOUND THEN RAISE EXCEPTION 'AUT53: PARO clave=regla_asignacion actual=desconocida esperado=configurada' USING ERRCODE='22023'; END IF;
   IF vec_autorizacion.concesiones_positivas_validas(d) IS NOT TRUE THEN RAISE EXCEPTION 'AUT53: PARO clave=concesiones actual=invalidas esperado=positivas_sin_repetir' USING ERRCODE='22023'; END IF;
@@ -281,7 +291,9 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_te
 DECLARE respuesta jsonb;estado text:='permitido';codigo text;motivo text;aud record;sol text;evento text;corr text;solsha text;
 BEGIN
  sol:='solicitud_perfiles_asignables:'||replace(gen_random_uuid()::text,'-','');evento:='evento_'||replace(gen_random_uuid()::text,'-','');corr:='correlacion_'||replace(gen_random_uuid()::text,'-','');
- solsha:=encode(sha256(convert_to(jsonb_build_object('plan',plan_canonico,'sha_aprobado',sha_aprobado,'operacion','publicar_cargos_firma_admin_v1')::text,'UTF8')),'hex');
+ -- La huella de la solicitud sólo se calcula sobre un plan dentro del límite.
+ solsha:=encode(sha256(convert_to(jsonb_build_object('plan',CASE WHEN octet_length(plan_canonico)<=65536 THEN plan_canonico ELSE '' END,
+  'sha_aprobado',CASE WHEN octet_length(sha_aprobado)<=128 THEN sha_aprobado ELSE '' END,'operacion','publicar_cargos_firma_admin_v1')::text,'UTF8')),'hex');
  BEGIN
   respuesta:=vec_autorizacion.aplicar_cargos_firma_admin_v1(plan_canonico,sha_aprobado);
   motivo:=CASE WHEN (respuesta->>'replay')::boolean THEN 'perfiles_asignables_replay' ELSE 'perfiles_asignables_registrado' END;

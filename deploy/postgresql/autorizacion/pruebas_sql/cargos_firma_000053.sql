@@ -200,6 +200,28 @@ SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(:'plan_v2',:'sha_v2')->>'
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.comprobar('version2_cas',:'e_v2'='permitido' AND EXISTS(SELECT 1 FROM vec_autorizacion.rol_administrable_exacto_v1 WHERE version_rol_ref='rol:ct_prueba_secretaria:v2' AND clase='ordinario'));
 
+-- 14b. No se saca la versión siguiente de un rol ajeno (Dietas) aunque la CAS cuadre.
+SELECT pg_temp.plan('rpa_cf_prueba_aut53_ajeno_0001',jsonb_build_array(pg_temp.cargo('dietas_r1d_provisional',2,
+ (SELECT huella_sha256 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:dietas_r1d_provisional:v1')))) AS plan_aj \gset
+SELECT pg_temp.operador('prueba_aut53_aj',:'plan_aj') AS sha_aj \gset
+SET SESSION AUTHORIZATION prueba_aut53_aj;
+SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(:'plan_aj',:'sha_aj')->>'estado' AS e_aj \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('rol_ajeno_v2_denegado',:'e_aj'='denegado' AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:dietas_r1d_provisional:v2'));
+
+-- 14c. Retirada la versión v2 por su control, el replay ya no devuelve el recibo.
+SET LOCAL ROLE vec_autorizacion_propietario;
+INSERT INTO vec_autorizacion.control_vigencia_version_rol(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
+ SELECT 'rol:ct_prueba_secretaria:v2',2,'retirada',repeat('9',64),date_trunc('second',now()),
+  jsonb_build_object('version_rol_ref','rol:ct_prueba_secretaria:v2','revision',2,'estado','retirada','actualizado_por','prueba:aut53',
+   'actualizado_en',pg_temp.fecha(interval '0'),'acto_ref','acto:prueba:aut53','motivo_codigo','prueba');
+UPDATE vec_autorizacion.control_vigencia_version_rol_actual SET revision=2 WHERE version_rol_ref='rol:ct_prueba_secretaria:v2';
+RESET ROLE;
+SET SESSION AUTHORIZATION prueba_aut53_v2;
+SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(:'plan_v2',:'sha_v2') AS r_ret \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('replay_retirada_denegado',(:'r_ret'::jsonb)->>'estado'='denegado' AND (:'r_ret'::jsonb)->'recibo'='null'::jsonb);
+
 -- 15. LOGIN del grupo sin configuración aprobada: denegado y auditado.
 SELECT pg_temp.operador('prueba_aut53_sin',NULL) AS sha_sin \gset
 SET SESSION AUTHORIZATION prueba_aut53_sin;
