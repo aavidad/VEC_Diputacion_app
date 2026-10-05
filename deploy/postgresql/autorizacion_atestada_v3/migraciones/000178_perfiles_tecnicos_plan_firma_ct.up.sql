@@ -64,13 +64,13 @@ $gobierno$;
 BEGIN
  IF esperada_def IS NULL OR esperada_src IS NULL OR esperada_audiencias IS NULL
  OR esperada_post_def IS NULL OR esperada_post_src IS NULL OR esperada_post_audiencias IS NULL THEN
-  RAISE EXCEPTION 'AD178: PARO clave=pre_post_aprobadas actual=NULL esperado=medidas_post_AD193' USING ERRCODE='55000';
+  RAISE EXCEPTION 'AD178: PARO clave=pre_post_aprobadas actual=NULL esperado=medidas_post_AD195_AD196' USING ERRCODE='55000';
  END IF;
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR current_user<>'vec_autorizacion_atestada_v3_propietario' OR getdatabaseencoding()<>'UTF8'
  OR f IS NULL OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_recuperacion_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
-  RAISE EXCEPTION 'AD178: PARO clave=objetos actual=incompatible esperado=post_AD193_sin_AD178' USING ERRCODE='55000';
+  RAISE EXCEPTION 'AD178: PARO clave=objetos actual=incompatible esperado=post_AD196_sin_AD178' USING ERRCODE='55000';
  END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  def_sha:=encode(sha256(convert_to(original,'UTF8')),'hex');src_sha:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
