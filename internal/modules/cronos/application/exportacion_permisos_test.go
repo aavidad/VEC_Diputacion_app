@@ -138,8 +138,14 @@ func TestExportacionPermisosDenegacionesSinBytes(t *testing.T) {
 		{"politica_tipo_duplicado", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
 			f.datos.Politica.TiposPermitidos = append(f.datos.Politica.TiposPermitidos, "tipo_ejemplo")
 		}},
-		{"campo_ausente", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
-			f.datos.Politica.CamposPermitidos = f.datos.Politica.CamposPermitidos[:6]
+		{"sin_campos", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = nil
+		}},
+		{"cantidad_sin_unidad", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = []string{"etiqueta", "concedido"}
+		}},
+		{"campo_duplicado", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
+			f.datos.Politica.CamposPermitidos = []string{"etiqueta", "etiqueta"}
 		}},
 		{"campo_sensible", func(_ *ServicioExportacionPermisos, f *fuenteInformePermisosPrueba, _ *preparadorInformePermisosPrueba, _ *registroInformePermisosPrueba) {
 			f.datos.Politica.CamposPermitidos[0] = "motivo"
@@ -179,6 +185,91 @@ func TestExportacionPermisosDenegacionesSinBytes(t *testing.T) {
 			}
 			if c.nombre == "tipo_excluido" && (p.llamadas != 0 || r.llamadas != 0) {
 				t.Fatal("tipo excluido dejó huella en el informe")
+			}
+		})
+	}
+}
+
+func TestExportacionPermisosSubconjuntoBorraCamposYConservaPolitica(t *testing.T) {
+	s, o, f, p, r := prepararInformePermisosPrueba(t)
+	f.datos.Politica.CamposPermitidos = []string{"etiqueta", "unidad", "concedido"}
+	original := append([]string(nil), f.datos.Politica.CamposPermitidos...)
+	p.alPreparar = func() { f.datos.Politica.CamposPermitidos[0] = "conciliacion" }
+	resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+	if err != nil || r.llamadas != 1 || len(resultado.Contenido) == 0 {
+		t.Fatal(err)
+	}
+	got := p.recibido
+	if len(got.CamposPermitidos) != 3 || got.CamposPermitidos[0] != original[0] ||
+		got.Filas[0].Etiqueta != "Permiso de ejemplo" || got.Filas[0].Unidad != domain.LeaveUnitDay || *got.Filas[0].Concedido != 3 ||
+		got.Filas[0].Computo != "" || got.Filas[0].PendienteResolver != nil || got.Filas[0].Restante != nil || got.Filas[0].Conciliacion != "" {
+		t.Fatal("el preparador recibió un campo excluido o lista mutable", got)
+	}
+	e := resultado.Confirmacion.Evidencia
+	if e.PoliticaRef != "politica_ejemplo" || e.PoliticaVersion != 1 || e.PoliticaSHA256 != strings.Repeat("c", 64) || e.FuenteRef != "fuente_ejemplo" || e.FuenteSHA256 != strings.Repeat("a", 64) {
+		t.Fatal("origen y política no conservados", e)
+	}
+}
+
+func TestExportacionPermisosAdmiteFuenteYaMinimizada(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		campos []string
+		fila   ports.FilaInformePermisos
+		valido bool
+	}{
+		{"solo_etiqueta", []string{"etiqueta"}, ports.FilaInformePermisos{Etiqueta: "Permiso de ejemplo"}, true},
+		{"solo_computo", []string{"computo"}, ports.FilaInformePermisos{Computo: domain.ComputoLaborables}, true},
+		{"restante_con_metadato_interno", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4), Conciliacion: ports.ConciliacionPermisosConfirmada}, true},
+		{"restante_sin_conciliacion", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4)}, false},
+		{"restante_no_conciliado", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadPermisosPrueba(4), Conciliacion: ports.ConciliacionPermisosPendiente}, false},
+		{"restante_desconocido_sin_metadato", []string{"unidad", "restante"}, ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay}, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, o, fuente, preparador, registro := prepararInformePermisosPrueba(t)
+			fuente.datos.Politica.CamposPermitidos = caso.campos
+			fuente.datos.Filas[0].Resumen = caso.fila
+			resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+			if caso.valido {
+				if err != nil || preparador.llamadas != 1 || registro.llamadas != 1 || len(resultado.Contenido) == 0 {
+					t.Fatal("fuente filtrada rechazada", err)
+				}
+				if !contieneCampoPermisos(caso.campos, "conciliacion") && preparador.recibido.Filas[0].Conciliacion != "" {
+					t.Fatal("metadato interno llegó al preparador")
+				}
+			} else if err == nil || preparador.llamadas != 0 || registro.llamadas != 0 || len(resultado.Contenido) != 0 {
+				t.Fatal("fuente inconsistente aceptada", err)
+			}
+		})
+	}
+}
+
+func cantidadPermisosPrueba(v int64) *int64 { return &v }
+func contieneCampoPermisos(campos []string, buscado string) bool {
+	for _, campo := range campos {
+		if campo == buscado {
+			return true
+		}
+	}
+	return false
+}
+
+func TestExportacionPermisosValidaOriginalAntesDeMinimizar(t *testing.T) {
+	for _, caso := range []struct {
+		nombre  string
+		alterar func(*ports.FilaInformePermisos)
+	}{
+		{"estado_excluido_invalido", func(f *ports.FilaInformePermisos) { f.Conciliacion = "estado_inventado" }},
+		{"cantidad_excluida_negativa", func(f *ports.FilaInformePermisos) { n := int64(-1); f.PendienteResolver = &n }},
+		{"restante_incompatible_excluido", func(f *ports.FilaInformePermisos) { n := int64(2); f.Restante = &n }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, o, fuente, p, r := prepararInformePermisosPrueba(t)
+			fuente.datos.Politica.CamposPermitidos = []string{"etiqueta"}
+			caso.alterar(&fuente.datos.Filas[0].Resumen)
+			resultado, err := s.ExportarPermisosPropios(context.Background(), o)
+			if err == nil || len(resultado.Contenido) != 0 || p.llamadas != 0 || r.llamadas != 0 {
+				t.Fatal("dato original inválido pasó por proyección", err)
 			}
 		})
 	}

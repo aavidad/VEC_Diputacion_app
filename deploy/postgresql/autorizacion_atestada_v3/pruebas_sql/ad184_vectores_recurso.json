@@ -1,0 +1,12 @@
+[
+  {
+    "material_canonico": "{\"esquema\":\"vec.persona.denominacion.publicar.v1\",\"persona_ref\":\"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"version_esperada\":0,\"procedencia_ref\":\"prc_cccccccccccccccccccccccccccccccc\",\"procedencia_version\":1,\"procedencia_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"procedencia_autoridad\":\"no_autoritativa\",\"sobre_sha256\":\"733383a01e4a25530c2985e4a1bbb820ce9b122efde41bfaf75ad39fc5680e9d\",\"sobre\":{\"Esquema\":\"vec.persona.denominacion.aead.v1\",\"PersonaRef\":\"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"ClaveRef\":\"clave:denominacion:cifrado:prueba:v1\",\"Version\":1,\"Nonce\":\"AAAAAAAAAAAAAAAA\",\"Cifrado\":\"AAAAAAAAAAAAAAAAAAAAAAA=\",\"Indice\":{\"AmbitoRef\":\"ambito:denominacion:prueba\",\"NormaRef\":\"norma:denominacion:prueba:v1\",\"NormaSHA256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"ClaveRef\":\"clave:denominacion:busqueda:prueba:v1\",\"Tokens\":[\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"]}},\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"}}",
+    "contexto_recurso_canonico": "{\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"},\"atributos\":{\"material_sha256\":\"66a0c2c19a8d8658353b6685ba7b47006d28898d76dd9eb30e64f71513b8ceea\",\"procedencia_autoridad\":\"no_autoritativa\",\"procedencia_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"procedencia_version\":\"1\"}}",
+    "contexto_recurso_sha256": "979b62c5e85ac67c5db4cae8c2cd04f0d83e618a3078c248ec61a15167629c9f"
+  },
+  {
+    "material_canonico": "{\"esquema\":\"vec.persona.denominacion.leer.v1\",\"persona_ref\":\"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"version\":1,\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"}}",
+    "contexto_recurso_canonico": "{\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"},\"atributos\":{\"material_sha256\":\"cc2c49b0a1409c936b453d0675a978b2a29d08f682fe73789fe7796f30f490b6\"}}",
+    "contexto_recurso_sha256": "8ca1e459795f57dd96bc4c7e0b88c09a80be9fd73c3723680cf2dc30ac05c023"
+  }
+]

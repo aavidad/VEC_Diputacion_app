@@ -4,7 +4,8 @@ const BASE = "/api/admin/seleccion-perfil/v1";
 const MAX_JSON = 64 * 1024;
 const REF_PERFIL = /^prf_[A-Za-z0-9_-]{22,128}$/u;
 const REF_OPACA = /^[A-Za-z0-9][A-Za-z0-9:._-]{1,255}$/u;
-const REF_AUDITORIA = /^auditoria_seleccion_admin:[a-f0-9]{64}$/u;
+// Referencia de la auditoría común (IS14/AD171) o la heredada del selector.
+const REF_AUDITORIA = /^(?:aud_v3_p_[a-f0-9]{32}|auditoria_seleccion_admin:[a-f0-9]{64})$/u;
 
 export class ErrorSelectorPerfil extends Error {
   constructor(estado = 0, codigo = "servicio_no_disponible") {

@@ -1,0 +1,29 @@
+{
+  "esquema": "cronos-permisos-csv-v1",
+  "referencia": "cronos-informe-permisos-csv-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_corte": "02/01/2006 15:04 MST",
+  "zona_horaria": "Europe/Madrid",
+  "cabeceras": {
+    "registro": "Registro",
+    "persona_ejemplo": "Persona del ejemplo",
+    "ejercicio": "Ejercicio",
+    "corte": "Datos al",
+    "aviso": "Aviso",
+    "etiqueta": "Permiso",
+    "unidad": "Unidad de las cantidades",
+    "computo": "Cómputo",
+    "pendiente_resolver": "Pendiente de resolver",
+    "concedido": "Concedido",
+    "restante": "Restante",
+    "conciliacion": "Conciliación"
+  },
+  "unidades": {"dia": "Días", "hora": "Minutos"},
+  "computos": {"laborables": "Días laborables", "naturales": "Días naturales"},
+  "estados": {"conciliado": "Conciliado", "sin_conciliar": "Pendiente de conciliar"},
+  "desconocido": "No disponible",
+  "contexto": "Contexto",
+  "permiso": "Permiso",
+  "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. La descarga para personas empleadas sigue pendiente."
+}

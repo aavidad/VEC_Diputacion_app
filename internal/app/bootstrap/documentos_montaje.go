@@ -550,7 +550,15 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, err
 	}
-	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg)
+	// El mismo emisor técnico de Documentos se resuelve cuando el servidor ya
+	// terminó de componerlo; el verificador conserva su instancia inicial.
+	var incidencias *observabilidad.EmisorJSONLines
+	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg, func() vecports.EmisorResultadosTecnicosConContexto {
+		if incidencias == nil {
+			return nil
+		}
+		return incidencias
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -705,7 +713,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
-	incidencias, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: registroIncidenciasSeguro(registroIncidencias),
+	incidencias, err = observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: registroIncidenciasSeguro(registroIncidencias),
 		Capacidad: 256, Entorno: os.Getenv("VEC_ENTORNO")})
 	if err != nil {
 		return nil, errDocumentosEn()

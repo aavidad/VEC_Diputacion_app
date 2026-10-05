@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"gobierno_usuarios_registrado"},
+  {"resultado":"permitido","motivo_ref":"gobierno_usuarios_replay"},
+  {"resultado":"denegado","motivo_ref":"gobierno_usuarios_denegado"},
+  {"resultado":"error","motivo_ref":"gobierno_usuarios_error"}
+]

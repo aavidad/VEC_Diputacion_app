@@ -16,8 +16,10 @@ import (
 
 	"vec-diputacion-granada/internal/modules/certificados/adapters/fichero"
 	"vec-diputacion-granada/internal/modules/certificados/adapters/pdf"
+	"vec-diputacion-granada/internal/modules/certificados/adapters/personalv1"
 	"vec-diputacion-granada/internal/modules/certificados/application"
 	"vec-diputacion-granada/internal/modules/certificados/domain"
+	"vec-diputacion-granada/internal/modules/certificados/ports"
 )
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr)) }
@@ -110,7 +112,7 @@ func ejecutar(args []string, salida, diagnostico io.Writer) int {
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
-	preparador := application.Preparador{Fuente: fichero.FuenteServicios{Ruta: fuente},
+	preparador := application.Preparador{Fuente: elegirFuente(fuente),
 		Catalogo: fichero.CatalogoPlantillas{RutaPlantilla: plantilla, RutaTextos: rutaTextos}, Renderizador: pdf.Renderizador{}}
 	r, e := preparador.PrepararEnsayo(ctx, application.Orden{PlantillaID: definicion.ID, Version: version, Idioma: idioma})
 	if e != nil {
@@ -174,4 +176,16 @@ func guardar(destino string, r application.Resultado) error {
 	}
 	completo = true
 	return nil
+}
+
+// elegirFuente compone el adaptador según el esquema de la muestra: el formato
+// de ensayo propio o la forma de la respuesta V1 de Personal. Una muestra
+// ilegible sigue al adaptador de ensayo, que la rechaza con su error.
+func elegirFuente(ruta string) ports.FuenteServicios {
+	var cabecera map[string]json.RawMessage
+	var esquema string
+	if fichero.LeerJSON(ruta, &cabecera) == nil && json.Unmarshal(cabecera["esquema"], &esquema) == nil && esquema == personalv1.EsquemaMuestra {
+		return personalv1.FicheroMuestra{Ruta: ruta}
+	}
+	return fichero.FuenteServicios{Ruta: ruta}
 }
