@@ -1,0 +1,6 @@
+# Efecto del lote ordinario de perfiles: CA35 y después AUT44.
+# Requiere AD190 (lista_sql_claude_lote_perfiles_ad190_20261005.txt) y AUT49 instaladas.
+# Instalarlas no asigna ni retira nada: sólo lo hará un LOGIN del grupo vec_admin_perfiles_lote_ejecutor
+# con una decisión nominal válida. Una sola vez cada una; sin DOWN.
+deploy/postgresql/contexto_actor_v1/migraciones/000035_perfiles_lote_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000044_lote_ordinario_admin.up.sql

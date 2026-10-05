@@ -42,6 +42,15 @@ El plan es el texto canónico de `jsonb` (sin claves repetidas), tiene de 1 a 32
 de prepararse y su huella debe coincidir con la que aprobó Alberto. Cualquier
 fallo deja la operación sin efecto.
 
+## Perfiles que podrá dar el lote de la pantalla
+
+El efecto del lote (AUT44) sólo asigna un perfil registrado con la audiencia
+`vec_autorizacion.administracion_perfiles.lote_ordinario.v1` y con
+`ambitos_fijos` exactamente igual a
+`[{"clave":"organizacion_ref","valores":["<organización configurada en vec-admin>"]}]`.
+La unidad la añade cada asignación. Un perfil registrado con otros ámbitos fijos
+queda fuera del lote (42501); para usarlo hay que registrar otra versión del rol.
+
 ## Procedimiento
 
 1. **Plan.** El operador prepara `plan.json` con una consulta de sólo lectura

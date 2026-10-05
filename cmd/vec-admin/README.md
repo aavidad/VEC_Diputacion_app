@@ -168,3 +168,47 @@ El contexto utiliza su propio pool y transmite el vínculo de sesión auditado d
 IS16. La selección del perfil propio sigue el circuito IS14/CA31. Instalar las
 estructuras o aceptar esta configuración no acredita todavía una sesión
 favorable, garantía alta, PDP ni recorrido HTTPS; el ensayo nominal está pendiente.
+
+## Lote ordinario de perfiles y su preparación
+
+`VEC_ADMIN_LOTE_CONFIG_FILE` es opcional y solo vale junto al modo de metadatos
+de usuarios; sin ese modo, el arranque se detiene. Es un JSON privado 0600 fuera
+de Git, con `modo` exactamente `lote_v1`.
+
+| Campo | Contenido |
+| --- | --- |
+| `pool_lote` | Ruta del JSON de conexión del LOGIN del lote. Es un archivo propio, distinto de los demás pools y secretos. |
+| `confianza` | Metadatos V3 con una sola capacidad, la de `vec_autorizacion.administracion_perfiles.lote_ordinario.v1`. Usa la misma raíz que el firmante y su propio archivo de material HMAC. |
+| `motivo_lote` | Referencia opaca (`motivo_` y 32 hexadecimales) del catálogo de motivos, para la decisión del lote. |
+| `unidades` | Unidades donde se puede aplicar el lote. Cada una lleva su `unidad_ref` y los descriptores (referencia, versión y huella) de la fuente de organización y de la de unidad, tal como los dejó el arranque. |
+
+La organización, el proceso, el canal y los motivos de denegación y error son
+los del overlay de usuarios. Ese overlay debe llevar además el destino de
+auditoría `preparar_lote_ordinario` (tipo `fijo`), para que una preparación
+denegada no quede registrada como si fuera aplicar un lote. Sin el lote, ese
+destino es opcional. Con este archivo, el proceso abre solo:
+
+- `GET /api/admin/perfiles/v1/personas/{persona_ref}/preparacion-lote?unidad_ref=…`
+  (AUT50): cuenta, versiones y huellas de cada alta o baja posible.
+- `POST /api/admin/perfiles/v1/lotes-ordinarios` (AUT44).
+
+Cualquier otra escritura responde 404 y queda auditada.
+
+Antes de arrancar con el lote hay que tener, además de la lista SQL del lote
+(AD190, CA35/AUT44 y AUT50):
+
+1. Un LOGIN propio, miembro único del grupo `vec_admin_perfiles_lote_ejecutor`
+   (INHERIT, sin SET ni ADMIN, sin `rolconfig`), con `CONNECT` sobre la base.
+   Los límites de sesión los fija el proceso: 10 s por sentencia y 15 s de
+   inactividad en transacción.
+2. Una fila en `vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`
+   para ese LOGIN, con la audiencia y la acción del lote y la superficie
+   `administracion_privilegiada`.
+3. La clave HMAC de la capacidad del lote registrada y vigente. La publica la
+   renovación diaria con `vec-gobierno-usuarios-admin` y el conjunto de
+   capacidades 1 (AD198). Sin ella, el lote responde 503.
+4. El rol de Aplicación con la concesión del lote (v6 o posterior). Tras cada
+   cambio de versión, cada administrador debe volver a elegir perfil para que
+   su asignación actual apunte a la nueva.
+5. Perfiles registrados con AUT49 cuyos `ambitos_fijos` sean exactamente la
+   organización configurada. La preparación solo ofrece esos.

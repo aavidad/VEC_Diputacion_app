@@ -81,6 +81,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaConsultaCircuitoRRHH ||
+		rutaFirmasR5V2CTDesarrollo(ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
 }
@@ -540,6 +541,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoDetalleRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDetalleRRHH)
 	case httpinterno.RutaConsultaCircuitoRRHH:
 		return motivoConsultaCircuitoRRHHDesarrollo(), true
+	case httpinterno.RutaConsultaFirmasR5V2, httpinterno.RutaRecuperacionFirmasR5V2:
+		return motivoFirmasR5V2CTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
 	case httpinterno.RutaAltaSolicitudes:
 		return s.motivo, true
 	case httpinterno.RutaPropuestaCobertura:
