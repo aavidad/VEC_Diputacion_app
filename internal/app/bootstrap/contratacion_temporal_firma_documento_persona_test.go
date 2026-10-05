@@ -105,12 +105,20 @@ func TestFirmaDocumentoV1PerfilNominalLlegaAlPDPConLaPersonaRegistrada(t *testin
 		t.Fatalf("la firma V1 no llegó al PDP con la persona registrada: llamadas=%d", espia.llamadas)
 	}
 
-	// Una sesión de otra persona sigue denegada antes del PDP.
-	ajena := perfil.contexto
-	ajena.Resultado.Contexto.PersonaRef = "per_otra_persona"
-	perfil.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: ajena}
+	// La sesión registrada válida de otro perfil, aunque coincida con el
+	// contexto esperado, se deniega en el cotejo con el perfil antes del PDP.
+	otro, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, "otro_cargo_prueba",
+		[]string{httpinterno.RutaConsultaFirmaDocumento},
+		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+		})
+	if err != nil || otro.contexto.Resultado.Validar() != nil {
+		t.Fatal("perfil ajeno no compuesto", err)
+	}
+	perfil.contextoEsperadoRegistrado = otro.contexto.Resultado
+	perfil.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: otro.contexto}
 	ctx = contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaFirmaDocumento)
 	if _, err := f.AutorizarFirmaDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || espia.llamadas != 1 {
-		t.Fatalf("una sesión de otra persona alcanzó el PDP: %v, llamadas=%d", err, espia.llamadas)
+		t.Fatalf("la sesión de otro perfil alcanzó el PDP: %v, llamadas=%d", err, espia.llamadas)
 	}
 }
