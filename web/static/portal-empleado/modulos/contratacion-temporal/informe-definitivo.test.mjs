@@ -137,7 +137,7 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
   };
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /Documentos preparatorios disponibles/u);
-  assert.match(html, /Documento preparatorio\. Sin firma/u);
+  assert.match(html, /Son borradores: no están firmados/u);
   assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
   assert.match(html, /data-ct-exp-resultado-descarga="informe-definitivo"[^>]*>Aún no se ha solicitado esta descarga/u);
   assert.match(html, /data-ct-exp-accion="reintentar-descarga-informe-definitivo" disabled hidden/u);

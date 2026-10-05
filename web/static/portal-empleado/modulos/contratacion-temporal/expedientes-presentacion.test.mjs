@@ -63,7 +63,7 @@ test("documentos explica ficha manual y seguimiento con textos inyectados escapa
   assert.match(html, /Ficha manual para GINPIX/u);
   assert.doesNotMatch(html, /Sin transmisión/u);
   assert.match(html, /Seguimiento de la incorporación/u);
-  assert.match(html, /El seguimiento original se consulta desde el mismo recibo/u);
+  assert.match(html, /El seguimiento se consulta en el expediente/u);
   assert.match(html, /data-ct-exp-vista="expediente">Expediente/u);
   assert.doesNotMatch(html, /<externa>|data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar/u);
 });

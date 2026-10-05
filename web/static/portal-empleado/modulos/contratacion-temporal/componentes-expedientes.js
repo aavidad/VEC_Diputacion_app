@@ -159,7 +159,7 @@ function renderizarBorradoresFormalizacion(t) {
   return `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
     <div class="ct-exp-borradores-cabecera"><div>
       <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
-      <p>${escaparHTML(t("borrador_sin_firma"))}</p>
+      <p>${escaparHTML(t("borradores_aviso"))}</p>
     </div><button type="button" class="boton-terciario" data-ct-exp-accion="cancelar-descarga" disabled>${escaparHTML(t("cancelar_descarga"))}</button></div>
     <ul>${BORRADORES_FORMALIZACION.map(([clave, accion]) => `<li>
       <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>

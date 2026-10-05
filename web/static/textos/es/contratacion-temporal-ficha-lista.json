@@ -75,6 +75,7 @@
     "estado_confirmada_actualizacion_pendiente": "Actuación guardada. Vuelva a abrir el expediente para ver el cambio; no la repita.",
     "estado_resultado_indeterminado": "No sabemos si la actuación se guardó. No la repita: vuelva a abrir el expediente dentro de unos minutos. Si sigue igual, avise a Informática.",
     "numero_expediente_sin_asignar": "Sin número asignado",
-    "ficha_titulo_modulo_sin_numero": "Expediente sin número asignado"
+    "ficha_titulo_modulo_sin_numero": "Expediente sin número asignado",
+    "borradores_aviso": "Son borradores: no están firmados, no se han enviado y no nombran ni dan de alta a nadie."
   }
 }
