@@ -1,0 +1,17 @@
+# Bolsa: consulta RRHH del correo y los teléfonos completos con decisión propia (corte C de auditoría).
+# Aplicar después de las listas de main del 05/10, en este orden: codexk_admin_runtime, aut47,
+# codexl_transaccion_origen, personal_servicios_certificados, perfiles_asignables, aut48,
+# firmas_ad178_ad177, firmas_recuperacion y firmas_plan. AD197 mide el núcleo y el CHECK de
+# audiencias que dejan AD178/AD177: si otra migración los cambia antes, se detiene con PARO sin tocar
+# nada y hay que medirla de nuevo.
+# Instalar la SQL antes del binario: el binario nuevo publica la clave de capacidad de la audiencia
+# vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1, que sólo admite el CHECK de AD197.
+# Fila de origen AD172 que el DBA añade después (inmutable; revisar antes el LOGIN real de la
+# principal). Sin ella la consulta completa responde 403 y queda el intento «denegado»:
+#   vec_bolsa_llamamientos_desarrollo|vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1|bolsa.datos_contacto_participacion.consultar|vec-rrhh|interna_corporativa
+# La concesión al perfil RRHH de Bolsa llega con la provisión aprobada (VEC_BOLSA_DOCUMENTAL_PROVISION_*,
+# con las dos huellas del aviso de arranque): el rol pasa a la v13-v16, que incluye también la consulta
+# documental. Mientras tanto la vista enmascarada sigue igual y la completa responde 403.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000197_consumidor_consulta_datos_contacto_participacion.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000078_consulta_datos_contacto_rrhh.up.sql

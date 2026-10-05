@@ -16,6 +16,11 @@ const (
 	FinalidadRegistrarDatosContactoParticipacion = "gestion_datos_contacto_participacion"
 	AudienciaRegistrarDatosContactoParticipacion = "vec_bolsa_llamamientos.datos_contacto_participacion.registrar.v1"
 	ClaveRefSobreDatosContactoDesarrollo         = "clave:kms:desarrollo:datos-contacto-participacion:v1"
+	// Consulta RRHH del correo y los teléfonos completos: acción, finalidad y
+	// audiencia propias, distintas de las de registro (AD197/B78).
+	AccionConsultarDatosContactoParticipacion    = "bolsa.datos_contacto_participacion.consultar"
+	FinalidadConsultarDatosContactoParticipacion = "consulta_datos_contacto_participacion"
+	AudienciaConsultarDatosContactoParticipacion = "vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1"
 )
 
 var (
@@ -72,6 +77,11 @@ type DatosContactoParticipacionLeidos struct {
 	// existen si la versión vigente es de origen CONVOCA.
 	Origen       *dominiobolsa.MarcaOrigenDatosContacto
 	EstadoOrigen string
+	// AuditoriaRef y DecisionRef solo existen en la consulta completa: son el
+	// asiento de la auditoría común y la decisión V3 que se consumieron en la
+	// misma transacción que la lectura. La consulta enmascarada no los tiene.
+	AuditoriaRef string
+	DecisionRef  string
 }
 
 type SolicitudRegistrarDatosContactoParticipacion struct {
@@ -100,11 +110,39 @@ func (s SolicitudRegistrarDatosContactoParticipacion) Validar() error {
 }
 
 // SolicitudConsultarDatosContactoParticipacion es la lectura de RRHH desde la
-// ficha B5: exige el mismo contexto de unidad y ámbito que la escritura.
+// ficha B5: exige el mismo contexto de unidad y ámbito que la escritura. Sin
+// Completo solo se entregan la forma enmascarada y el origen; con Completo el
+// caso de uso emite y consume la decisión V3 propia de la consulta, ligada a
+// la participación, antes de devolver el claro.
 type SolicitudConsultarDatosContactoParticipacion struct {
-	ContextoActor    dominiovec.ContextoActor
-	BolsaRef         string
-	ParticipacionRef string
+	ContextoActor      dominiovec.ContextoActor
+	Vinculo            dominiovec.VinculoAutenticacionActorV2
+	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
+	BolsaRef           string
+	ParticipacionRef   string
+	Completo           bool
+	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
+	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
+}
+
+// ValidarCompleta exige lo que necesita la decisión V3 de la consulta completa.
+func (s SolicitudConsultarDatosContactoParticipacion) ValidarCompleta() error {
+	if !s.Completo || s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
+		s.BolsaRef == "" || s.ParticipacionRef == "" || s.ResultadoContexto.Contexto.PersonaRef == "" ||
+		s.ContextoActor.PersonaRef != s.ResultadoContexto.Contexto.PersonaRef ||
+		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
+		return ErrDatosContactoParticipacionNoDisponibles
+	}
+	return nil
+}
+
+// LecturaDatosContactoAutorizada es la versión vigente leída en la misma
+// transacción que consumió la decisión de consulta, con su acuse común.
+type LecturaDatosContactoAutorizada struct {
+	Registro     RegistroDatosContactoParticipacion
+	DecisionRef  string
+	AuditoriaRef string
+	ConsumidaEn  time.Time
 }
 
 type ComandoRegistrarDatosContactoParticipacion struct {
@@ -138,4 +176,10 @@ type RepositorioDatosContactoParticipacion interface {
 	// BuscarRegistroDatosContacto recupera por clave de idempotencia.
 	BuscarRegistroDatosContacto(context.Context, string, string) (RegistroDatosContactoParticipacion, error)
 	RegistrarDatosContacto(context.Context, ComandoRegistrarDatosContactoParticipacion) (RegistroDatosContactoParticipacion, error)
+	// ConsultarDatosContactoAutorizados consume el material de la consulta
+	// completa y lee la versión vigente en una sola transacción. Llama a
+	// entregar antes del COMMIT: si no hay datos, la participación no es de la
+	// bolsa, la decisión no vale o entregar falla (p. ej., no se puede
+	// descifrar), se revierte y no queda consumo.
+	ConsultarDatosContactoAutorizados(ctx context.Context, bolsaRef, participacionRef, actorRef string, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, entregar func(LecturaDatosContactoAutorizada) error) (LecturaDatosContactoAutorizada, error)
 }
