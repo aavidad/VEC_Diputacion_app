@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- Prueba de AD200 ANTES de AD201 (después la v1 ya no es ejecutable por el grupo; ver ad201_gobierno_plan_firma_ambitos.sql).
+-- Prueba causal de AD200 en un clon desechable con AD200 instalada y ANTES de AD201 (después la v1
+-- ya no es ejecutable por el grupo; ver ad201_gobierno_plan_firma_ambitos.sql). Todo dentro
 -- de una transacción que termina en ROLLBACK: crea LOGIN sintéticos y llama a la
 -- fachada de gobierno con un material coherente y una decisión sin firma.
 -- Esperado:
