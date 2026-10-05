@@ -53,7 +53,7 @@ test("la cabecera no lleva sobrelínea, descripción ni aviso de presentación y
 });
 
 test("el número técnico anterior a la numeración figura sin numerar; el legible no cambia", () => {
-  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "Sin numerar");
+  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "Sin número asignado");
   assert.equal(numeroExpedienteVisible("2026/CT-000013"), "2026/CT-000013");
   assert.equal(numeroExpedienteVisible(null), "");
 });

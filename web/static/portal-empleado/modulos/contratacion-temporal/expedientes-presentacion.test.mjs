@@ -45,7 +45,8 @@ test("la continuidad real abre el índice documental sin fingir envío GINPIX ni
 
   assert.match(html, /Documentos y continuidad de la incorporación/u);
   assert.match(html, /data-ct-exp-vista="documentos">Consultar documentos del expediente/u);
-  assert.match(html, /recibo de incorporación confirmado/u);
+  // Las explicaciones de límites van a la ayuda «?», no a la pantalla.
+  assert.doesNotMatch(html, /recibo de incorporación confirmado y consultas disponibles/u);
   assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar|ginpix\.enviar/u);
   assert.doesNotMatch(renderizarExpediente({ ...estado, navegacion: { documentos: false } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
   assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
@@ -60,7 +61,7 @@ test("documentos explica ficha manual y seguimiento con textos inyectados escapa
   const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
 
   assert.match(html, /Ficha manual para GINPIX/u);
-  assert.match(html, /Sin transmisión &lt;externa&gt;/u);
+  assert.doesNotMatch(html, /Sin transmisión/u);
   assert.match(html, /Seguimiento de la incorporación/u);
   assert.match(html, /El seguimiento original se consulta desde el mismo recibo/u);
   assert.match(html, /data-ct-exp-vista="expediente">Expediente/u);
@@ -690,7 +691,7 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
   // El identificador técnico anterior a la numeración no se muestra: figura sin numerar.
-  assert.ok(html.includes(">Expediente Sin numerar</h2>"));
+  assert.ok(html.includes(">Expediente sin número asignado</h2>"));
   assert.ok(!html.includes(expediente.numero_visible));
   assert.match(html, /ct-exp-ficha-cabecera/u);
   const diseno = await readFile(new URL("./expedientes-diseno.css", import.meta.url), "utf8");

@@ -64,6 +64,17 @@
     "peticiones_centros_rrhh": "Requests received from centres",
     "abre_otra_pestana": "(opens in a new tab)",
     "lista_busqueda_parcial": "The search only checks the requests on this page. Select “Next page” to see more.",
-    "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”."
+    "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”.",
+    "cabecera_resultado_rc": "Budget commitment",
+    "cabecera_decision_gobernada": "Staffing route decided",
+    "estado_inicial": "Ready to load the requests.",
+    "estado_denegado": "You do not have permission to view this page.",
+    "estado_denegado_expediente": "You do not have permission to view this case file.",
+    "estado_cargando_expediente": "Loading the case file.",
+    "estado_accion_denegada": "You do not have permission for this action.",
+    "estado_confirmada_actualizacion_pendiente": "Action saved. Open the case file again to see the change; do not repeat it.",
+    "estado_resultado_indeterminado": "We do not know whether the action was saved. Do not repeat it: open the case file again in a few minutes. If nothing has changed, contact IT support.",
+    "numero_expediente_sin_asignar": "No number assigned",
+    "ficha_titulo_modulo_sin_numero": "Case file with no number assigned"
   }
 }
