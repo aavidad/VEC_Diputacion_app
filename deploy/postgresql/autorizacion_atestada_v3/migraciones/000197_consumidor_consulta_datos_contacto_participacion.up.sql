@@ -8,9 +8,10 @@
 -- consulta de contactos. No concede permisos ni toca la rama de registro.
 -- Preimágenes medidas en la copia fría H10-30 tras las listas de main del 05/10
 -- (AD194/IS16/CA36, AUT47, AD193, AD195/P36, AD196/AUT49, AUT48, AD178/AD177,
--- AUT41/CT175, CC7/CT176). Un núcleo o un CHECK distintos detienen la migración
--- antes de modificar nada y hay que medirla de nuevo.
--- Una sola vez; sin DOWN. Orden: (listas anteriores) -> AD197 -> B78.
+-- AUT41/CT175, CC7/CT176, AUT51) y AD190 (lote de perfiles, #720), que se instala
+-- antes. Un núcleo o un CHECK distintos detienen la migración antes de modificar
+-- nada y hay que medirla de nuevo.
+-- Una sola vez; sin DOWN. Orden: (listas anteriores) -> AD190 -> AD197 -> B78.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -55,11 +56,11 @@ BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'AD197: PARO clave=nucleo esperado=presente actual=ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  h:=encode(sha256(convert_to(original,'UTF8')),'hex');
- IF h IS DISTINCT FROM '2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381'
- THEN RAISE EXCEPTION 'AD197: PARO clave=nucleo_def_SHA actual=% esperado=2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323'
+ THEN RAISE EXCEPTION 'AD197: PARO clave=nucleo_def_SHA actual=% esperado=05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323',h USING ERRCODE='55000'; END IF;
  h:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF h IS DISTINCT FROM '4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b'
- THEN RAISE EXCEPTION 'AD197: PARO clave=nucleo_src_SHA actual=% esperado=4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087'
+ THEN RAISE EXCEPTION 'AD197: PARO clave=nucleo_src_SHA actual=% esperado=1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087',h USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
@@ -100,11 +101,11 @@ BEGIN
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  h:=encode(sha256(convert_to(anterior,'UTF8')),'hex');
- -- Preimagen medida tras AD178 (último en ampliar este CHECK en main).
- IF h IS DISTINCT FROM 'e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7'
+ -- Preimagen medida tras AD190 (último en ampliar este CHECK antes de AD197).
+ IF h IS DISTINCT FROM '018e8a442f674aff0e72c6e01416b88737e94e72db2fb46527331d94e2b7ab51'
  OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
  OR strpos(anterior,'vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1')<>0
- THEN RAISE EXCEPTION 'AD197: PARO clave=CHECK_audiencias_SHA actual=% esperado=e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7',h USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD197: PARO clave=CHECK_audiencias_SHA actual=% esperado=018e8a442f674aff0e72c6e01416b88737e94e72db2fb46527331d94e2b7ab51',h USING ERRCODE='55000'; END IF;
  nueva:='CHECK (('||substr(anterior,8,length(anterior)-8)||') OR audiencia_consumo = ''vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1'')';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;

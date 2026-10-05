@@ -76,8 +76,9 @@ catálogo esa frontera colgaba de la acción de *registrar* datos de contacto.
 Estado: rama `trabajo/claude-bolsa-contacto-consulta-20261005`, apilada sobre #719
 y #712. La consulta completa tiene acción, finalidad y motivo propios; AD197 (núcleo
 y fachada) y B78 (lectura con consumo) la consumen en la misma transacción que la
-lectura, y sus fallos van al registrador AD169. Ensayo nominal en el clon H10-30 con
-las listas de main: 403 sin concesión y sin fila de origen, 200 con asiento común,
+lectura, y sus fallos van al registrador AD169. AD197 está medida sobre main + AD190
+(#720), que se instala antes. Ensayo nominal en el clon H10-30 con las listas de main,
+AUT51 y AD190: 403 sin concesión y sin fila de origen, 200 con asiento común,
 503 con intento `error` y sin consumo, y 200 tras reiniciar. Para instalar:
 `deploy/principal/lista_sql_claude_bolsa_contacto_consulta_20261005.txt`, con la fila
 de origen AD172 y la provisión del rol v13-v16 que explica. La vista enmascarada
