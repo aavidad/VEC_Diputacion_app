@@ -56,7 +56,7 @@ func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv confi
 		if err != nil {
 			return fallo()
 		}
-		pc, err := pgxpool.ParseConfig(dsn)
+		pc, err := configurarPoolADMIN(dsn)
 		if err != nil {
 			return fallo()
 		}

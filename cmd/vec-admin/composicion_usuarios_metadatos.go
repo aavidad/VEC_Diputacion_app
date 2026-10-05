@@ -55,7 +55,7 @@ func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configur
 		if err != nil {
 			return fallo()
 		}
-		pc, err := pgxpool.ParseConfig(dsn)
+		pc, err := configurarPoolADMIN(dsn)
 		if err != nil {
 			return fallo()
 		}
