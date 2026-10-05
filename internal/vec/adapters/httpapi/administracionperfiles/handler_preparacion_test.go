@@ -181,3 +181,28 @@ func TestHTTPMetadatosSinLoteNoPrepara(t *testing.T) {
 		t.Fatal("preparación servida sin autoridad del lote")
 	}
 }
+
+// La preparación se audita con su propia clave de destino.
+func TestHTTPPreparacionLoteAuditaConSuAccion(t *testing.T) {
+	h, _, _, auditor, _ := handlerConLotePrueba(t)
+	getPreparacionPrueba(h, personaPreparacionPrueba, "")
+	if auditor.llamadas != 1 || auditor.ultima.Accion != "preparar_lote_ordinario" {
+		t.Fatalf("acción auditada: %q", auditor.ultima.Accion)
+	}
+}
+
+// Sin la concesión del lote, GET y POST responden igual: 403 auditado.
+func TestHTTPSinConcesionDelLoteGETyPOSTDan403(t *testing.T) {
+	h, lotes, _, auditor, dto := handlerConLotePrueba(t)
+	lotes.err = domain.ErrControlAdministracionPerfilesInvalido
+	lotes.autoridadLoteHTTP.err = domain.ErrControlAdministracionPerfilesInvalido
+	if w := getPreparacionPrueba(h, personaPreparacionPrueba, "unidad_ref=unidad:prueba"); w.Code != http.StatusForbidden {
+		t.Fatalf("GET %d", w.Code)
+	}
+	if w := postLotePrueba(t, h, dto); w.Code != http.StatusForbidden {
+		t.Fatalf("POST %d", w.Code)
+	}
+	if auditor.llamadas != 2 || auditor.ultima.Accion != "aplicar_lote_ordinario" {
+		t.Fatal("denegaciones sin auditar")
+	}
+}

@@ -44,6 +44,11 @@ var accionesFronteraNominal = map[string]struct{}{
 	"consultar": {}, "buscar_personas": {}, "consultar_persona": {}, "consultar_recibo": {},
 	"escribir": {}, "aplicar_ordinario": {}, "proponer": {}, "cerrar_propuesta": {}, "aplicar_lote_ordinario": {},
 }
+
+// accionesOpcionalesFronteraNominal pueden faltar en configuraciones previas
+// al lote; si están, se validan igual. El proceso con lote las exige.
+var accionesOpcionalesFronteraNominal = map[string]struct{}{"preparar_lote_ordinario": {}}
+
 var claveFronteraNominal = regexp.MustCompile(`^[a-z][a-z0-9._:-]{1,127}$`)
 var procesoFronteraNominal = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 var recursoFronteraNominal = regexp.MustCompile(`^administracion:[a-z0-9_:-]{1,185}$`)
@@ -56,10 +61,19 @@ func falloFronteraNominal(_ error) error { return ports.ErrAutoridadAdministraci
 
 func NuevaAuditorFronteraNominal(registrador ports.RegistradorIntentosAuditoria, c ConfiguracionAuditoriaFronteraNominal) (*AuditorFronteraNominal, error) {
 	if ausente(registrador) || !procesoFronteraNominal.MatchString(c.Proceso) || c.Canal != "administracion_privilegiada" || c.MotivoDenegado.Validar() != nil || c.MotivoError.Validar() != nil ||
-		c.Plazo <= 0 || c.Plazo > 2*time.Second || len(c.Destinos) != len(accionesFronteraNominal) {
+		c.Plazo <= 0 || c.Plazo > 2*time.Second {
 		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
-	for clave := range accionesFronteraNominal {
+	claves := maps.Clone(accionesFronteraNominal)
+	for clave := range accionesOpcionalesFronteraNominal {
+		if _, ok := c.Destinos[clave]; ok {
+			claves[clave] = struct{}{}
+		}
+	}
+	if len(c.Destinos) != len(claves) {
+		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	for clave := range claves {
 		d, ok := c.Destinos[clave]
 		if !ok || !claveFronteraNominal.MatchString(d.Accion) || !strings.HasPrefix(d.Accion, "administracion.") ||
 			!claveFronteraNominal.MatchString(d.FinalidadRef) || !strings.HasPrefix(d.FinalidadRef, "gestion_") ||
