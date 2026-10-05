@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare una revisión de requisitos desde JSON sintético. Use --salida preparacion, antecedente o aportacion. Elija --idioma y --catalogos-dir. Lea el material por la entrada estándar. Preparar una aportación no presenta ni resuelve una subsanación.",
+  "ayuda": "Prepare una revisión de requisitos o el borrador de la lista provisional desde JSON sintético. Use --salida preparacion, antecedente, aportacion o lista-provisional. Elija --idioma y --catalogos-dir; para la lista, --catalogo-admision-dir y --catalogo-admision. Lea el material por la entrada estándar. Preparar una aportación no presenta ni resuelve una subsanación, y el borrador de lista no está aprobado ni publicado.",
   "seleccion_admision_entrada_invalida": "No se pudo preparar la revisión. Compruebe el formato, las referencias y las versiones del material aportado.",
   "seleccion_admision_salida_no_disponible": "No se pudo escribir el resultado. Compruebe el destino y repita la preparación.",
   "seleccion_admision_causa_fuentes_no_verificadas": "La procedencia y la correspondencia del material siguen sin verificar.",
@@ -24,5 +24,12 @@
   "seleccion_aportacion_admision_pendiente_bases_subsanacion": "Determinar si la aportación puede subsanar el requisito y bajo qué condiciones según las bases.",
   "seleccion_aportacion_admision_pendiente_presentacion": "Presentar la aportación por el circuito admitido, cuando corresponda.",
   "seleccion_aportacion_admision_pendiente_revision_competente": "Revisar la aportación y motivar la decisión mediante la autoridad competente.",
-  "seleccion_aportacion_admision_pendiente_sin_soportes": "Faltan soportes propuestos. Prepare las referencias del hecho y de los documentos para revisión."
+  "seleccion_aportacion_admision_pendiente_sin_soportes": "Faltan soportes propuestos. Prepare las referencias del hecho y de los documentos para revisión.",
+  "seleccion_lista_admision_entrada_invalida": "No se pudo preparar la lista. Compruebe que hay una decisión por cada revisión, que todas usan las mismas bases y que cada exclusión lleva motivos del catálogo.",
+  "seleccion_lista_admision_catalogo_no_disponible": "No se pudo usar el catálogo de motivos de exclusión. Revise la referencia, la versión y el fichero de configuración.",
+  "seleccion_lista_admision_pendiente_aprobacion_competente": "El órgano competente debe aprobar la lista antes de publicarla.",
+  "seleccion_lista_admision_pendiente_identidad_publicacion": "Al publicar, se añaden nombre, apellidos y documento enmascarado, y se ordena por apellidos.",
+  "seleccion_lista_admision_pendiente_vencimiento_al_publicar": "El último día para subsanar se calcula con el calendario desde el día siguiente a la publicación.",
+  "seleccion_lista_admision_pendiente_publicacion_oficial": "Publicar la lista en el boletín y en la sede que fijen las bases.",
+  "seleccion_lista_admision_pendiente_catalogo_ejemplo": "Los motivos y el plazo son de ejemplo. Sustitúyalos por los que confirme RRHH."
 }

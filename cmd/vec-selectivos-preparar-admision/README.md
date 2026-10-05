@@ -66,11 +66,53 @@ decisiones y aprobar las listas. Este corte no calcula plazos, admite, excluye,
 publica, persiste, firma, autentica ni consulta permisos. `persistido` y
 `admision_oficial` permanecen en `false`.
 
+## Borrador de la lista provisional
+
+Con `--salida lista-provisional` el CLI reparte las solicitudes en admitidas y
+excluidas a partir de la decisión que propone RRHH para cada revisión:
+
+```sh
+go run ./cmd/vec-selectivos-preparar-admision --idioma es \
+  --salida lista-provisional \
+  < cmd/vec-selectivos-preparar-admision/testdata/lista-material.json
+```
+
+El material lleva las revisiones de requisitos (`revisiones_s4`, el mismo
+contrato de la salida `preparacion`) y una decisión por revisión. Cada decisión
+nombra su revisión por el antecedente que devuelve `--salida antecedente`; el
+CLI lo recalcula y rechaza la lista si falta una decisión, sobra otra, cambia
+una huella o las revisiones vienen de bases distintas.
+
+Una exclusión necesita al menos un motivo y una admisión ninguno. Los motivos
+y el plazo de subsanación salen del catálogo configurable
+`data/catalogos/seleccion/admision_ejemplo.json` (se cambia con
+`--catalogo-admision-dir` y `--catalogo-admision`). El material elige la
+referencia y versión exactas; si no existen, no hay salida. Una exclusión es
+subsanable si lo son todos sus motivos. El catálogo actual es de ejemplo y lo
+marca como pendiente hasta que RRHH responda la pregunta 139 de `dudas.md`.
+
+El resultado es un borrador `borrador_pendiente_aprobacion`, con `aprobada`,
+`publicada` y `persistida` en `false`. Quedan para pasos posteriores:
+
+- la aprobación por el perfil competente (pregunta 110);
+- el nombre, apellidos y documento enmascarado de cada persona, y el orden por
+  apellidos, que se obtienen al publicar por la autoridad de identidad;
+  mientras tanto la lista se ordena por referencia de revisión;
+- el último día para subsanar (`vencimiento_subsanacion`), que se calcula con
+  el puerto de Calendarios desde el día siguiente a la publicación;
+- la publicación oficial.
+
+`testdata/lista-resultado.json` conserva la salida de ese comando. Su SHA256 es
+`7505719610fac014f11d36b14ffe975b35f1740c463d247c6bf0983925f7ba1b`. La
+entrada de esta salida admite hasta 16 MiB y 2.000 solicitudes.
+
 ## Comprobación focal
 
 ```sh
 go test -p 8 -timeout 120s \
+  ./internal/modules/seleccion/domain \
   ./internal/modules/seleccion/application \
+  ./internal/modules/seleccion/adapters/catalogoadmision \
   ./cmd/vec-selectivos-preparar-admision
 go vet -p 8 ./internal/modules/seleccion/application \
   ./cmd/vec-selectivos-preparar-admision
