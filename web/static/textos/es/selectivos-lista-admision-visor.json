@@ -9,7 +9,7 @@
   "ayuda_signo": "?",
   "ayuda": "Ayuda de esta pantalla",
   "ayuda_pasos": {
-    "1": "Prepare la lista con el preparador de admisión (salida «lista-provisional» o «lista-definitiva») y ábrala en «Abrir lista preparada».",
+    "1": "Prepare la lista provisional o la definitiva con el preparador de admisión y ábrala en «Abrir lista preparada».",
     "2": "En la provisional, cada excluida muestra sus motivos y si puede subsanar. Si un motivo no se puede subsanar, la persona sigue excluida aunque corrija los demás.",
     "3": "En la definitiva, cada admitida indica si ya lo estaba o si entró tras subsanar o reclamar, y cada excluida muestra los motivos que siguen y qué se resolvió.",
     "4": "La lista es un borrador: no está aprobada ni publicada, y no muestra nombres hasta su publicación. El archivo solo se abre en este equipo y se retira al cerrarlo o al salir."
@@ -33,7 +33,7 @@
     "admitidas": "Admitidas",
     "excluidas": "Excluidas",
     "subsanables": "Pueden subsanar",
-    "tras_escrito": "Admitidas tras subsanar o reclamar"
+    "tras_escrito": "De ellas, tras subsanar o reclamar"
   },
   "estado_borrador": "Borrador · Pendiente de aprobación",
   "catalogo_ejemplo": "Motivos y plazo de ejemplo",
@@ -113,7 +113,8 @@
     "pie_recursos": "Indicar en la resolución los recursos que caben, ante quién y en qué plazo.",
     "registro_escritos": "Comprobar que cada subsanación o reclamación consta en el registro dentro de plazo.",
     "identidad_publicacion": "Nombre, apellidos y documento enmascarado de cada persona, y orden por apellidos.",
-    "publicacion_oficial": "Publicación en el boletín y en la sede que fijen las bases."
+    "publicacion_oficial": "Publicación en el boletín y en la sede que fijen las bases.",
+    "catalogo_ejemplo": "Sustituir los motivos de ejemplo por los que confirme RRHH."
   },
   "provisional_ref": "Lista provisional de la que parte",
   "provisional_revision": "Revisión de la provisional",

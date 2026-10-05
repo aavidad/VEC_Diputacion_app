@@ -112,8 +112,19 @@ test('vista de la definitiva: origen de admitidas, resolución de excluidas y su
     assert.ok(!texto.includes(textos.traducir('plazo')) && !texto.includes(textos.traducir('puede_subsanar')));
     for (const p of baseDef().pendientes) {
       const final = p.slice(p.lastIndexOf('.') + 1);
-      assert.ok(texto.includes(textos.traducir(p.startsWith('seleccion.lista_definitiva.') ? `pendientes_definitiva.${final}` : `pendientes.${final}`)));
+      assert.ok(texto.includes(textos.traducir(`pendientes_definitiva.${final}`)));
     }
+    assert.ok(!texto.includes(textos.traducir('pendientes.catalogo_ejemplo')));
+    // El resto de resoluciones y orígenes, con un borrador coherente mutado.
+    const otra = baseDef();
+    otra.excluidas[0].resolucion = 'no_presentada'; delete otra.excluidas[0].via; otra.resumen.excluidas_sin_escrito = 1;
+    otra.admitidas[2].origen = 'subsanacion';
+    const raiz2 = d.createElement('div'); pintarLista({ raiz: raiz2, dto: leerSalida(codificar(otra)), textos });
+    for (const clave of ['resoluciones.no_presentada', 'origenes.subsanacion']) assert.ok(raiz2.textContent.includes(textos.traducir(clave)));
+    const otra2 = baseDef(); otra2.excluidas[0].via = 'reclamacion';
+    const raiz3 = d.createElement('div'); pintarLista({ raiz: raiz3, dto: leerSalida(codificar(otra2)), textos });
+    assert.ok(raiz3.textContent.includes(textos.traducir('resoluciones.desestimada_reclamacion')));
+    assert.ok(!raiz3.textContent.includes(textos.traducir('motivo_no_subsanable', { motivo: '' }).trim()));
     assert.ok(elementos(raiz).filter(n => n.tagName === 'td').every(n => n.dataset.etiqueta));
     assert.deepEqual(textos.faltantes, []);
   }

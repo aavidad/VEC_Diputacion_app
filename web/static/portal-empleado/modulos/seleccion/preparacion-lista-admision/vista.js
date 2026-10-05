@@ -1,3 +1,4 @@
+import { ESQUEMA_DEFINITIVA } from './modelo.js?v=20261005-s4-lista-v2';
 function nodo(d, etiqueta, texto, clase) {
   const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n;
 }
@@ -25,15 +26,16 @@ const ICONOS = {
   solicitudes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/></svg>',
   admitidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4 10-10"/></svg>',
   excluidas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  tras_escrito: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg>',
   subsanables: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
 };
 // Número de solicitud legible: la referencia sin su prefijo técnico («preparacion:»).
 const numeroSolicitud = ref => ref.slice(ref.indexOf(':') + 1);
-const esDefinitiva = dto => dto.esquema === 'vec.seleccion.lista-admision-definitiva.v1';
+const esDefinitiva = dto => dto.esquema === ESQUEMA_DEFINITIVA;
 function kpis(d, textos, dto) {
   const t = textos.traducir; const r = dto.resumen;
   const rejilla = nodo(d, 'section', undefined, 'rejilla-kpi cuatro'); rejilla.setAttribute('aria-label', t('resumen'));
-  const cuarta = esDefinitiva(dto) ? ['tras_escrito', r.admitidas_tras_escrito, 'kpi--exito', 'subsanables'] : ['subsanables', r.excluidas_subsanables, 'kpi--advertencia', 'subsanables'];
+  const cuarta = esDefinitiva(dto) ? ['tras_escrito', r.admitidas_tras_escrito, 'kpi--exito', 'tras_escrito'] : ['subsanables', r.excluidas_subsanables, 'kpi--advertencia', 'subsanables'];
   const valores = [['solicitudes', r.solicitudes, '', 'solicitudes'], ['admitidas', r.admitidas, 'kpi--exito', 'admitidas'],
     ['excluidas', r.excluidas, 'kpi--peligro', 'excluidas'], cuarta];
   for (const [clave, valor, clase, icono] of valores) {
@@ -46,20 +48,21 @@ function kpis(d, textos, dto) {
   }
   return rejilla;
 }
-function listaMotivos(d, t, motivosDeLaFila, motivos) {
+// En la definitiva la subsanación ya terminó: no se marca el motivo no subsanable.
+function listaMotivos(d, t, motivosDeLaFila, motivos, marcarNoSubsanables) {
   const ul = nodo(d, 'ul', undefined, 'lista-motivos');
   for (const m of motivosDeLaFila) {
     const texto = motivos.get(m.codigo) ?? t('motivo_sin_texto', { codigo: m.codigo });
-    ul.append(nodo(d, 'li', m.subsanable ? texto : t('motivo_no_subsanable', { motivo: texto })));
+    ul.append(nodo(d, 'li', m.subsanable || !marcarNoSubsanables ? texto : t('motivo_no_subsanable', { motivo: texto })));
   }
   return ul;
 }
 function celda(d, etiqueta, ...hijos) { const td = nodo(d, 'td'); td.dataset.etiqueta = etiqueta; td.append(...hijos); return td; }
 function cabeceraFila(d, ref) { const th = nodo(d, 'th', numeroSolicitud(ref)); th.scope = 'row'; return th; }
 /** Clave de texto de un pendiente: los de la definitiva tienen su propia sección. */
-function clavePendiente(p) {
+function clavePendiente(p, definitiva) {
   const final = p.slice(p.lastIndexOf('.') + 1);
-  return p.startsWith('seleccion.lista_definitiva.') ? `pendientes_definitiva.${final}` : `pendientes.${final}`;
+  return definitiva ? `pendientes_definitiva.${final}` : `pendientes.${final}`;
 }
 
 /**
@@ -98,7 +101,7 @@ export function pintarLista({ raiz, dto, textos, motivos = new Map() }) {
         const marca = nodo(d, 'span', t(e.subsanable ? 'puede_subsanar' : 'no_puede_subsanar'), 'estado-subsanacion');
         marca.dataset.subsanable = String(e.subsanable); ultima = celda(d, columnas[2], marca);
       }
-      tr.append(cabeceraFila(d, e.antecedente.preparacion_ref), celda(d, columnas[1], listaMotivos(d, t, e.motivos, motivos)), ultima);
+      tr.append(cabeceraFila(d, e.antecedente.preparacion_ref), celda(d, columnas[1], listaMotivos(d, t, e.motivos, motivos, !definitiva)), ultima);
       body.append(tr);
     }
     excluidas.cuerpo.append(region);
@@ -120,7 +123,7 @@ export function pintarLista({ raiz, dto, textos, motivos = new Map() }) {
   f.append(admitidas.n);
 
   const falta = panel(d, t('que_falta')); const lista = nodo(d, 'ul', undefined, 'lista-comprobacion');
-  for (const p of dto.pendientes) { const li = nodo(d, 'li', undefined, 'pendiente'); li.append(nodo(d, 'p', t(clavePendiente(p)))); lista.append(li); }
+  for (const p of dto.pendientes) { const li = nodo(d, 'li', undefined, 'pendiente'); li.append(nodo(d, 'p', t(clavePendiente(p, definitiva)))); lista.append(li); }
   falta.cuerpo.append(lista); f.append(falta.n);
 
   const tecnico = panel(d, t('detalle_archivo')); const detalle = nodo(d, 'details');
