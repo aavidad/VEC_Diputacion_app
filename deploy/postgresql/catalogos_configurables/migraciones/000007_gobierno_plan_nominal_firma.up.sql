@@ -487,7 +487,7 @@ BEGIN
     OR v3->>'proceso' IS NULL OR v3->>'canal' IS NULL
     OR v3->>'proceso' IS DISTINCT FROM p_consumo->>'proceso'
     OR v3->>'canal' IS DISTINCT FROM p_consumo->>'canal'
-    OR (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+    OR (v3->>'decision_valida_hasta' IS NULL OR (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp()) THEN
   RAISE EXCEPTION 'CC7: decisión o consumo no ligado' USING ERRCODE='42501'; END IF;
  accion_evento:=CASE op WHEN 'crear' THEN 'vec.catalogos.borrador.creado'
   WHEN 'actualizar' THEN 'vec.catalogos.borrador.actualizado'
@@ -521,7 +521,7 @@ BEGIN
    WHERE x.recibo_ref=previo.recibo_ref AND x.evento_sha256=m->>'evento_sha256';
   IF NOT FOUND THEN
    RAISE EXCEPTION 'CC7: recibo histórico sin outbox original' USING ERRCODE='55000'; END IF;
-  IF (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+  IF (v3->>'decision_valida_hasta' IS NULL OR (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp()) THEN
    RAISE EXCEPTION 'CC7: decisión de replay caducada' USING ERRCODE='42501'; END IF;
   RETURN QUERY SELECT previo.recibo_ref,previo.estado,previo.revision,previo.huella_resultado,
    previo.publicacion_sha256_resultado,previo.actor_ref,previo.confirmado_en,previo.auditoria_ref,outbox_original;
@@ -607,7 +607,7 @@ BEGIN
     AND o.evento_sha256=m->>'evento_sha256';
  IF NOT FOUND OR actor_original IS NULL OR fecha_original IS NULL OR auditoria_original IS NULL OR outbox_original IS NULL THEN
   RAISE EXCEPTION 'CC7: efecto confirmado sin outbox original' USING ERRCODE='55000'; END IF;
- IF (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+ IF (v3->>'decision_valida_hasta' IS NULL OR (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp()) THEN
   RAISE EXCEPTION 'CC7: decisión caducada antes del efecto' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT recibo,c->>'estado',rev,h,h_publicacion,
   actor_original,fecha_original,auditoria_original,outbox_original;

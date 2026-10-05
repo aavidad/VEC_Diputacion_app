@@ -103,6 +103,15 @@ Las fechas `publicado_en`, `retirado_en` y `creado_en` del canon las aporta el
 material (sólo se valida su orden); la hora real de cada operación queda en
 `plan_firma_historia.registrada_en`.
 
+`pruebas_sql/plan_nominal_firma_positivo_clon.sql` (sólo clon desechable,
+ROLLBACK) recorre con consumos sintéticos sellados crear, reintento con la misma
+clave (mismo recibo), actualizar, publicar con separación de funciones, segundo
+catálogo rechazado, leer y retirar (después, leer se rechaza). Para ello sustituye
+dentro del ROLLBACK la categoría Aplicación de AUT, que hoy no admite
+`vec.catalogos.*`. Pendiente menor: el CAS fallido usa 40001, que un reintentador
+genérico repetiría; la fecha `publicado_en` y las demás del canon admiten valores
+imposibles que darían 22008 en vez de 22023.
+
 `leer_plan_nominal_firma_v1` acredita que hay un consumo de firma de esta
 transacción, pero no lo liga por sí misma al plan: esa liga la hacen CT176 y
 AD177 con el contexto `plan_firma_sha256`. Sólo el propietario CT puede llamarla.

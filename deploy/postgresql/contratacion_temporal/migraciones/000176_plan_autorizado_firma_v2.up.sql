@@ -288,8 +288,11 @@ BEGIN
    exterior->>'decision_ref',exterior->>'consumo_huella_sha256',exterior->>'auditoria_ref',
    original.registrada_en);
  ELSE
-  SELECT * INTO STRICT hija FROM vec_contratacion_temporal.firma_documento_plan_v2 p
+  SELECT * INTO hija FROM vec_contratacion_temporal.firma_documento_plan_v2 p
    WHERE p.firma_ref=original.firma_ref FOR KEY SHARE;
+  -- Una firma V2 anterior a CT176 no tiene plan: no se le asigna uno ahora.
+  IF NOT FOUND THEN
+   RAISE EXCEPTION 'CT176 firma registrada sin plan; no admite reintento con plan' USING ERRCODE='55000'; END IF;
   IF hija.recibo_ref IS DISTINCT FROM original.recibo_ref
      OR hija.solicitud_huella_sha256 IS DISTINCT FROM h
      OR hija.descriptor_huella_sha256 IS DISTINCT FROM dh
