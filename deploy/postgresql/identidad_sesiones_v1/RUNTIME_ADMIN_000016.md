@@ -2,8 +2,11 @@
 
 IS16 conecta la cuenta privilegiada nominativa con una sesión real de IS y con
 la selección vigente de CA31. No concede perfiles ni cambia el núcleo V2.
-Requiere IS14/15, CA31 y la familia de auditoría AD192. CA36 consume después el
-vínculo desde su propietario, con otro LOGIN y pool.
+Requiere IS14/15, CA31 y la familia de auditoría AD192 ya corregida por AD194.
+CA36 consume después el vínculo desde su propietario, con otro LOGIN y pool.
+El orden de instalación está en
+`deploy/principal/lista_sql_codexk_admin_runtime_20261005.txt`: AD194, IS16 y
+CA36. Cada una se aplica una sola vez y ninguna tiene DOWN.
 
 El candidato IS16 tiene dos revisiones independientes. Su estructura se instaló
 una vez en el clon aislado
@@ -147,3 +150,112 @@ mTLS, CRL y vínculo del canal. Para el ensayo se prepararon con la misma CA
 sintética una CRL firmada y un certificado de servidor, además del archivo de
 originales de las dos cuentas de Aplicación. No son una sesión favorable ni una
 prueba de PDP. Los detalles de configuración están en `cmd/vec-admin/README.md`.
+
+
+## Dependencia de AD194
+
+IS16 deja su auditoría en AD192. AD192, tal como está instalada, falla cuando
+se repite un evento que ya existe: devuelve la secuencia como `numeric` en una
+salida declarada `bigint` y PostgreSQL aborta la llamada. AD194 corrige las dos
+funciones internas afectadas.
+
+Antes de crear nada, IS16 comprueba que esa versión defectuosa ya no está en
+uso y, si sigue, se detiene con «IS16: falta AD194». La comprobación compara la
+fuente instalada de AD192 con su huella conocida, así que no depende del texto
+exacto de AD194. CA36 hace la misma comprobación.
+
+## Alta del LOGIN de cuentas ADMIN
+
+`vec-admin` usa un LOGIN propio para el pool de cuentas ADMIN. IS16 sólo lo
+acepta si el DBA ha preparado tres cosas, como superusuario y en una única
+transacción:
+
+1. El LOGIN, sin privilegios especiales y miembro del grupo
+   `vec_identidad_sesiones_v1_admin_perfiles_runtime` con herencia, sin SET y
+   sin ADMIN. No puede pertenecer a otro rol, ser dueño de objetos, tener
+   permisos propios ni ajustes con `ALTER ROLE … SET`. El grupo admite un solo
+   miembro: si hay dos, IS16 no acredita a ninguno.
+2. Su fila en `vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1`.
+3. Su fila en `vec_autorizacion_atestada_v3.config_contexto_admin_pre_v2_v1`,
+   la configuración de AD192. El `proceso` tiene que ser el mismo en las dos
+   filas, porque IS16 envía el suyo en cada evento y AD192 rechaza el evento si
+   no coincide.
+
+```sql
+BEGIN;
+CREATE ROLE <login> LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_identidad_sesiones_v1_admin_perfiles_runtime TO <login>
+  WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
+INSERT INTO vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1
+  (identidad_login, proceso, entorno, host_admin, audiencia, espacio_identidad, vigente_hasta)
+VALUES ('<login>', '<proceso>', '<desarrollo|cidonia>', '<host>', '<audiencia>',
+        'https://<espacio de identidad>', '<fin de vigencia>');
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.config_contexto_admin_pre_v2_v1
+  (login_nombre, proceso, canal, vigente_desde, vigente_hasta)
+VALUES ('<login>', '<proceso>', 'administracion_privilegiada', clock_timestamp(), '<fin de vigencia>');
+COMMIT;
+```
+
+Valores admitidos en la fila de IS16:
+
+- `proceso`: minúsculas, cifras, punto, guion y guion bajo; empieza por letra
+  y tiene de 2 a 80 caracteres.
+- `entorno`: `desarrollo` o `cidonia`.
+- `host_admin` y `audiencia`: los mismos que observa la frontera mTLS de
+  `vec-admin` (véase `cmd/vec-admin/README.md`). Si no coinciden, cada petición
+  se deniega.
+- `espacio_identidad`: empieza por `https://`, sin espacios y con 508
+  caracteres como máximo.
+- `vigente_hasta`: una fecha finita posterior al momento del alta.
+
+Para comprobar el alta, el DBA se conecta con el nuevo LOGIN, abre una
+transacción `SERIALIZABLE` con zona `UTC` y ejecuta
+`SELECT * FROM vec_identidad_sesiones_v1.acreditar_runtime_admin_perfiles_v1();`.
+Debe devolver el LOGIN, `true` y el proceso. Es la misma llamada que hace
+`vec-admin` al arrancar. La contraseña o el certificado del LOGIN quedan fuera
+de Git.
+
+## Cuando caduca la vigencia
+
+Las dos tablas de configuración no admiten cambios ni borrados, y su clave es
+el LOGIN. Una fila caducada no se puede alargar ni sustituir por otra del mismo
+LOGIN. Cuando vence `vigente_hasta` en cualquiera de las dos filas, o el
+`VALID UNTIL` del LOGIN si se fijó, IS16 deja de acreditarlo: `vec-admin` no
+arranca y las peticiones en curso se deniegan.
+
+La renovación se hace con un LOGIN nuevo, preferiblemente antes del
+vencimiento y en una ventana de mantenimiento:
+
+1. En una sola transacción, retirar el grupo al LOGIN anterior
+   (`REVOKE vec_identidad_sesiones_v1_admin_perfiles_runtime FROM <anterior>;`)
+   y dar de alta el nuevo con el procedimiento de arriba. Un nombre con la
+   fecha ayuda a distinguirlos.
+2. Cambiar la conexión del pool de cuentas ADMIN de `vec-admin` al LOGIN nuevo
+   y reiniciar el proceso.
+3. Dejar el LOGIN anterior sin conexión (`ALTER ROLE <anterior> NOLOGIN;`) y no
+   borrarlo. Sus filas de configuración, sus vínculos y sus eventos de
+   auditoría lo citan por nombre y se conservan como historia.
+
+Los vínculos de sesión creados con el LOGIN anterior no se pueden repetir con
+el nuevo. Esas sesiones tienen que volver a identificarse.
+
+## Corrección del 5 de octubre de 2026
+
+El SQL del 4 de octubre declaraba `espacio_identidad` con una repetición
+`{1,500}`. PostgreSQL no admite repeticiones de más de 255, así que cualquier
+alta en `config_runtime_admin_perfiles_v1` fallaba con «invalid repetition
+count(s)». El ensayo de ese día sólo cubrió estructura y permisos y no llegó a
+insertar ninguna fila. Ahora el patrón no lleva cota y la longitud se limita
+aparte. IS16 exige además AD194.
+
+El SQL corregido tiene SHA256
+`68f7a1643fab2205e7ed16b977ba33d7a2a17f36e8609f9415f3f56c2d7ff261`. Se ensayó
+en un clon desechable de la copia fría de la principal (PostgreSQL 18.4, sin
+red), donde se aplicaron AD194, IS16 y CA36 una vez cada una. Sin AD194, IS16
+se detuvo con «falta AD194». Con AD194 instalada, el alta de un LOGIN de ensayo
+siguiendo el procedimiento anterior funcionó y la acreditación devolvió `true`.
+Repetir un mismo evento de rechazo devolvió el acuse original sin añadir otra
+fila. El vínculo favorable con una sesión real sigue pendiente, porque la
+copia fría no tiene fuentes de arranque.

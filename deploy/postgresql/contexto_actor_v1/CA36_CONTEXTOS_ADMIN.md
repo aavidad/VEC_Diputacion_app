@@ -6,9 +6,13 @@ deben seguir vigentes después de las últimas esperas. El vínculo IS procede
 de la misma petición y se comprueba por referencia, versión y huella exactas;
 buscar la última sesión de una cuenta no acredita esa relación.
 
-La fachada CA tiene un grupo de ejecución exclusivo. El LOGIN CA aún no está
-aprovisionado; deberá carecer del grupo general de ContextoActor y de permisos
-sobre sus tablas. El cuerpo medido
+CA36 se instala después de AD194 e IS16, según
+`deploy/principal/lista_sql_codexk_admin_runtime_20261005.txt`. Igual que IS16,
+se detiene con «CA36: falta AD194» si la repetición de AD192 sigue sin corregir.
+
+La fachada CA tiene un grupo de ejecución exclusivo. El LOGIN CA no tiene el
+grupo general de ContextoActor ni permisos sobre sus tablas; su alta se
+describe más abajo. El cuerpo medido
 del núcleo V2 se extrajo a dos helpers privados del propietario CA. Las entradas
 generales conservan su acreditación, su propietario, configuración y ACL. Las
 fachadas ADMIN comprueban su grupo propio y el vínculo IS16 exacto antes de
@@ -76,3 +80,72 @@ la misma cuenta rechazada; retirada del perfil o vencimiento mientras espera
 un bloqueo; denegación auditada sin contexto; recuperación tras COMMIT incierto
 del resultado positivo y del negativo con el evento original; ausencia de
 acuse sin éxito; y acceso directo al núcleo o a la tabla denegado al LOGIN CA.
+
+## Alta del LOGIN de contexto ADMIN
+
+El pool `pool_contexto` de `vec-admin` usa un LOGIN propio, distinto del de
+cuentas ADMIN y del resto de pools. CA36 no tiene tabla de configuración; la
+única fila que necesita está en AD192. El DBA la prepara como superusuario y
+en una sola transacción:
+
+```sql
+BEGIN;
+CREATE ROLE <login> LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_contexto_actor_v1_admin_contexto TO <login>
+  WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.config_contexto_admin_pre_v2_v1
+  (login_nombre, proceso, canal, vigente_desde, vigente_hasta)
+VALUES ('<login>', '<proceso_contexto>', 'administracion_privilegiada', clock_timestamp(), '<fin de vigencia>');
+COMMIT;
+```
+
+El LOGIN sólo puede ser miembro de ese grupo, con herencia, sin SET y sin
+ADMIN. No puede ser dueño de objetos, tener permisos propios ni ajustes con
+`ALTER ROLE … SET`. El `proceso` de la fila tiene que ser el valor
+`proceso_contexto` del fichero `VEC_ADMIN_RUNTIME_CONFIG_FILE`; si no coincide,
+AD192 rechaza cada evento.
+
+Para comprobarlo, el DBA se conecta con ese LOGIN, abre una transacción
+`SERIALIZABLE` y ejecuta
+`SELECT * FROM vec_contexto_actor_v1.acreditar_runtime_contexto_admin_v1();`.
+Debe devolver el LOGIN y `true`.
+
+## Cuando caduca la vigencia
+
+`config_contexto_admin_pre_v2_v1` no admite cambios ni borrados y su clave es
+el LOGIN. Al vencer `vigente_hasta`, AD192 rechaza cada evento de ese LOGIN y
+el contexto ADMIN deja de registrarse. No se puede alargar la fila ni añadir
+otra para el mismo LOGIN. Se renueva con un LOGIN nuevo:
+
+1. Darlo de alta con el procedimiento anterior.
+2. Cambiar la conexión de `pool_contexto` al LOGIN nuevo y reiniciar
+   `vec-admin`.
+3. Retirar el grupo al LOGIN anterior
+   (`REVOKE vec_contexto_actor_v1_admin_contexto FROM <anterior>;`), dejarlo
+   sin conexión (`ALTER ROLE <anterior> NOLOGIN;`) y no borrarlo. Los enlaces
+   y eventos que lo citan se conservan como historia.
+
+Una recuperación tras un COMMIT incierto coteja el evento con el LOGIN que lo
+escribió. Por eso conviene renovar cuando no haya peticiones a medias.
+
+## Corrección del 5 de octubre de 2026
+
+SQL SHA256 `d7b1f8c3027a70795cf42377a818844bb973c42959f064f970db6a09d77cca29`.
+Cambios respecto al del 4 de octubre:
+
+- exige AD194 antes de crear nada;
+- la extracción de los dos cuerpos del núcleo exige que la cabecera aparezca
+  una sola vez en la definición, igual que la marca de runtime;
+- en `registrar_contexto_admin_v1` y `reconciliar_contexto_admin_v1`, un
+  conflicto de serialización (40001), un interbloqueo (40P01) o una
+  cancelación se relanzan como en IS16. Antes se auditaban como «error» y la
+  transacción seguía.
+
+Se ensayó con IS16 en el mismo clon desechable de la copia fría de la
+principal, después de AD194. CA36 y su vector `ca36_runtime_acl.sql` terminaron
+bien. Un LOGIN de ensayo dado de alta con el procedimiento anterior quedó
+acreditado. Un registro con un vínculo inexistente quedó denegado y auditado
+sin contexto ni enlace, y su recuperación en `READ COMMITTED` devolvió la misma
+denegación. El registro favorable de punta a punta sigue pendiente, porque la
+copia fría no tiene fuentes de arranque ni sesiones reales.

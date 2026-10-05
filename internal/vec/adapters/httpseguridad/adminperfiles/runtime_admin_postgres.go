@@ -41,6 +41,11 @@ func NuevoPostgreSQLConFuenteADMIN(ctx context.Context, pool *pgxpool.Pool, relo
 	return p, nil
 }
 
+// toleranciaRelojAcuseIS16 admite que el reloj de PostgreSQL vaya algo por
+// delante del de la aplicación: un acuse fechado hasta dos segundos después
+// de «ahora» no se trata como fabricado.
+const toleranciaRelojAcuseIS16 = 2 * time.Second
+
 type acuseIS16 struct {
 	Referencia   string    `json:"auditoria_ref"`
 	Secuencia    uint64    `json:"secuencia"`
@@ -52,7 +57,7 @@ type acuseIS16 struct {
 func leerResultadoIS16(bruto, acuse []byte, evento, correlacion string, ahora time.Time) (json.RawMessage, error, error) {
 	var a acuseIS16
 	if jsonCerradoIS16(acuse, &a) != nil || !hexConPrefijoIS16(evento, "evento_") || a.Referencia != "aud_v3_ap2_"+evento[7:] || a.Secuencia == 0 || a.Secuencia > 1<<53-1 ||
-		!huella(a.Huella) || a.Correlacion != correlacion || !instante(a.RegistradaEn.UTC()) || a.RegistradaEn.After(ahora) {
+		!huella(a.Huella) || a.Correlacion != correlacion || !instante(a.RegistradaEn.UTC()) || a.RegistradaEn.After(ahora.Add(toleranciaRelojAcuseIS16)) {
 		return nil, nil, api.ErrConfiguracionIncompleta
 	}
 	var x struct {

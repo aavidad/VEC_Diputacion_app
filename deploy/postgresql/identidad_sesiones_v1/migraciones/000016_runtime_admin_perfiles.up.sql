@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 -- IS16: cuenta nominal y vínculo exacto de sesión antes de contexto V2.
+-- Orden: AD194 -> IS16 -> CA36 (deploy/principal/lista_sql_codexk_admin_runtime_20261005.txt).
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -16,6 +17,19 @@ DO $pre$ BEGIN
  OR to_regrole('vec_identidad_sesiones_v1_admin_perfiles_runtime') IS NOT NULL
  THEN RAISE EXCEPTION 'IS16: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+-- AD192 tal como se instaló falla al repetir un evento (secuencia numeric en
+-- una salida bigint). AD194 lo corrige. Se exige que la cadena defectuosa ya
+-- no esté en vigor sin depender del texto exacto de la corrección: basta con
+-- que la fachada ya no llame a la interna de AD192 o que esta haya cambiado.
+DO $ad194$ BEGIN
+ IF EXISTS(SELECT 1 FROM(VALUES
+   ('registrar_contexto_admin_pre_v2_is_v1(jsonb)','registrar_contexto_admin_pre_v2_interna_v1','90219f669dccc426c8ba66958937bb0a85d028ae515868b40cdea788aec2fdf1'),
+   ('cotejar_contexto_admin_pre_v2_is_v1(jsonb)','cotejar_contexto_admin_pre_v2_interna_v1','ff9c375abc732eb4ace4d2bc942b130cabe7623c9874e63802798aa450892b4c')) d(fachada,interna,sha_ad192)
+  JOIN pg_proc f ON f.oid=to_regprocedure('vec_autorizacion_atestada_v3.'||d.fachada)
+  JOIN pg_proc i ON i.oid=to_regprocedure('vec_autorizacion_atestada_v3.'||d.interna||'(jsonb,text)')
+  WHERE position(d.interna||'(' IN f.prosrc)>0 AND encode(sha256(convert_to(i.prosrc,'UTF8')),'hex')=d.sha_ad192)
+ THEN RAISE EXCEPTION 'IS16: falta AD194 (repetición AD192 sin corregir)' USING ERRCODE='55000'; END IF;
+END $ad194$;
 CREATE ROLE vec_identidad_sesiones_v1_admin_perfiles_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
 CREATE TABLE vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1(
@@ -24,7 +38,9 @@ CREATE TABLE vec_identidad_sesiones_v1.config_runtime_admin_perfiles_v1(
  entorno text NOT NULL CHECK(entorno IN('desarrollo','cidonia')),
  host_admin text NOT NULL,
  audiencia text NOT NULL CHECK(audiencia ~ '^[a-z0-9][a-z0-9._:-]{3,255}$'),
- espacio_identidad text NOT NULL CHECK(espacio_identidad ~ '^https://[^[:space:]]{1,500}$'),
+ -- PostgreSQL no admite repeticiones {m,n} mayores que 255: la longitud se
+ -- limita aparte (8 de https:// más 500 como máximo).
+ espacio_identidad text NOT NULL CHECK(espacio_identidad ~ '^https://[^[:space:]]+$' AND length(espacio_identidad)<=508),
  configurada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
  vigente_hasta timestamptz NOT NULL CHECK(isfinite(vigente_hasta)),
  CHECK(vigente_hasta>configurada_en)

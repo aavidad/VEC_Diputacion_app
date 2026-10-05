@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- CA36: contexto ADMIN con runtime segregado. Borrador cerrado hasta IS16/AD192.
+-- CA36: contexto ADMIN con runtime segregado.
+-- Orden: AD194 -> IS16 -> CA36 (deploy/principal/lista_sql_codexk_admin_runtime_20261005.txt).
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -53,6 +54,19 @@ BEGIN
   OR r.definicion_sha IS DISTINCT FROM 'dbaa84ba1a9878e1410c38cf5e8eb25d25ceabed16ecff49a406dce0cf92c79c'
  THEN RAISE EXCEPTION 'CA36: runtime general divergente' USING ERRCODE='55000'; END IF;
 END $pre$;
+-- AD192 tal como se instaló falla al repetir un evento (secuencia numeric en
+-- una salida bigint). AD194 lo corrige. Se exige que la cadena defectuosa ya
+-- no esté en vigor sin depender del texto exacto de la corrección: basta con
+-- que la fachada ya no llame a la interna de AD192 o que esta haya cambiado.
+DO $ad194$ BEGIN
+ IF EXISTS(SELECT 1 FROM(VALUES
+   ('registrar_contexto_admin_pre_v2_ca_v1(jsonb)','registrar_contexto_admin_pre_v2_interna_v1','90219f669dccc426c8ba66958937bb0a85d028ae515868b40cdea788aec2fdf1'),
+   ('cotejar_contexto_admin_pre_v2_ca_v1(jsonb)','cotejar_contexto_admin_pre_v2_interna_v1','ff9c375abc732eb4ace4d2bc942b130cabe7623c9874e63802798aa450892b4c')) d(fachada,interna,sha_ad192)
+  JOIN pg_proc f ON f.oid=to_regprocedure('vec_autorizacion_atestada_v3.'||d.fachada)
+  JOIN pg_proc i ON i.oid=to_regprocedure('vec_autorizacion_atestada_v3.'||d.interna||'(jsonb,text)')
+  WHERE position(d.interna||'(' IN f.prosrc)>0 AND encode(sha256(convert_to(i.prosrc,'UTF8')),'hex')=d.sha_ad192)
+ THEN RAISE EXCEPTION 'CA36: falta AD194 (repetición AD192 sin corregir)' USING ERRCODE='55000'; END IF;
+END $ad194$;
 CREATE ROLE vec_contexto_actor_v1_admin_contexto NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO $base$ BEGIN
  EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_contexto_actor_v1_admin_contexto',current_database());
@@ -78,6 +92,7 @@ BEGIN
   END IF;
   marca:='    PERFORM vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1();';
   IF left(definicion,length(cabecera)) IS DISTINCT FROM cabecera
+   OR (length(definicion)-length(replace(definicion,cabecera,''))) IS DISTINCT FROM length(cabecera)
    OR (length(definicion)-length(replace(definicion,marca,''))) IS DISTINCT FROM length(marca)
   THEN RAISE EXCEPTION 'CA36: extracción privada no exacta' USING ERRCODE='55000'; END IF;
   EXECUTE replace(replace(definicion,cabecera,nombre),marca,'');
@@ -407,7 +422,8 @@ BEGIN
     'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
     'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
     'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
- EXCEPTION WHEN OTHERS THEN
+ EXCEPTION WHEN serialization_failure OR deadlock_detected OR query_canceled THEN RAISE;
+ WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
   clase:=CASE WHEN codigo IN('42501','22023','23505','P0002','VCA31') THEN 'denegado' ELSE 'error' END;
  END;
@@ -571,7 +587,8 @@ BEGIN
     'manifiesto_procedencia_canonico_base64',encode(r.manifiesto_procedencia_canonico,'base64'),
     'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
     'autoridad_efectiva',r.autoridad_efectiva,'resuelto_en',r.resuelto_en));
- EXCEPTION WHEN OTHERS THEN
+ EXCEPTION WHEN serialization_failure OR deadlock_detected OR query_canceled THEN RAISE;
+ WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
   clase:=CASE WHEN codigo IN('42501','22023','23505','P0002','VCA31') THEN 'denegado' ELSE 'error' END;
  END;
@@ -598,6 +615,7 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.acreditar_runtime_contexto_admin
  vec_contexto_actor_v1.recuperar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text,jsonb),
  vec_contexto_actor_v1.reconciliar_contexto_admin_v1(text,text,text,text,text,text,timestamptz,text,numeric,text,text,text,text,text,text)
  TO vec_contexto_actor_v1_admin_contexto;
--- El bloqueo $pre$ permanece hasta cotejar la versión final de IS16/AD192,
--- dos revisiones independientes y ensayo PostgreSQL del escritor único.
+-- Instalación única: no reaplicar ni ejecutar DOWN una vez haya enlaces.
+-- Conflictos de serialización, interbloqueos y cancelaciones se relanzan:
+-- la transacción entera falla sin auditar un «error» y se puede repetir.
 COMMIT;
