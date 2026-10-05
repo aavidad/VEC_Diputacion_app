@@ -109,6 +109,14 @@ func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if ruta == RutaVistaPreviaCargaConvoca {
 		operacion = OperacionVistaPreviaCargaConvoca
 	}
+	// La vista previa no necesita el cuerpo para comprobar el permiso: se
+	// comprueba antes de leerlo.
+	if operacion == OperacionVistaPreviaCargaConvoca {
+		if err := h.preparador.PrepararVistaPreviaCargaConvoca(r.Context()); err != nil {
+			h.fallar(w, r, operacion, err)
+			return
+		}
+	}
 	cuerpo, contenido, err := leerCuerpoCargaConvoca(w, r, operacion)
 	if err != nil {
 		h.fallar(w, r, operacion, err)
@@ -123,10 +131,6 @@ func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
-	if err := h.preparador.PrepararVistaPreviaCargaConvoca(r.Context()); err != nil {
-		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
-		return
-	}
 	vista, err := h.operador.Previsualizar(r.Context(), cuerpo.NombreFichero, contenido)
 	if err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
@@ -246,7 +250,7 @@ func clasificarFalloCargaConvoca(err error) (int, string) {
 		return http.StatusUnprocessableEntity, "categoria_no_valida"
 	case errors.Is(err, puertosbolsa.ErrConstitucionBolsaEnConflicto):
 		return http.StatusConflict, "bolsa_en_conflicto"
-	case errors.Is(err, errEntradaCargaConvoca), errors.Is(err, puertosbolsa.ErrCargaConvocaInvalida):
+	case errors.Is(err, errEntradaCargaConvoca):
 		return http.StatusBadRequest, "peticion_no_valida"
 	default:
 		return http.StatusServiceUnavailable, "servicio_no_disponible"

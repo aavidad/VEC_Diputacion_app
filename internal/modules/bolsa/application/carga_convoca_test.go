@@ -160,8 +160,10 @@ func TestConfirmarCargaConvocaExigeAceptarLasFilasConErrores(t *testing.T) {
 	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, false); !errors.Is(err, ErrCargaConvocaConErrores) {
 		t.Fatalf("cargó con filas con errores sin aceptarlo: %v", err)
 	}
-	if len(e.autorizador.solicitudes) != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 0 {
-		t.Fatal("pidió decisión o escribió antes de aceptar las filas con errores")
+	// El permiso se comprueba antes de leer el libro; sin aceptar los errores
+	// no se custodia, ni se importa, ni se constituye.
+	if len(e.autorizador.solicitudes) != 1 || e.custodio.llamadas != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 0 {
+		t.Fatal("escribió antes de aceptar las filas con errores")
 	}
 }
 
@@ -203,6 +205,15 @@ func TestConfirmarCargaConvocaReutilizaActaExistente(t *testing.T) {
 	resultado, err := e.servicio.Confirmar(context.Background(), e.solicitud, true)
 	if err != nil || !resultado.ActaReutilizada || e.custodio.llamadas != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 1 {
 		t.Fatalf("acta existente reimportada: %+v err=%v", resultado, err)
+	}
+}
+
+func TestConfirmarCargaConvocaDenegadaNoLeeElLibro(t *testing.T) {
+	e := nuevoEscenarioCargaConvoca(t)
+	e.autorizador.base.err = puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3
+	e.solicitud.Contenido = []byte("no es un libro")
+	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatalf("sin permiso debe denegar antes de validar el fichero: %v", err)
 	}
 }
 

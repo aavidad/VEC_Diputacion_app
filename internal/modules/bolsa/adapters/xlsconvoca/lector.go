@@ -33,8 +33,10 @@ type Lector struct{ maximoFilas int }
 
 func NuevoLector() *Lector { return &Lector{} }
 
-// NuevoLectorConLimiteFilas corta la lectura en cuanto la hoja declara o
-// alcanza más filas que el tope (cabecera incluida), antes de leer sus celdas.
+// NuevoLectorConLimiteFilas rechaza la hoja con más filas que el tope
+// (cabecera incluida). En XLSX corta al alcanzarlo, antes de leer más celdas;
+// en XLS el libro ya está leído (acotado por su tamaño) y se rechaza antes de
+// recorrer las filas.
 func NuevoLectorConLimiteFilas(filas int) *Lector { return &Lector{maximoFilas: filas} }
 
 func (l *Lector) limiteFilas() int {

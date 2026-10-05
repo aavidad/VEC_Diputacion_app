@@ -25,6 +25,9 @@ const (
 	codigoTotalIncoherente     = "total_incoherente"
 )
 
+// maximoBytesNumeroCelda acota las celdas numéricas antes de recortarlas.
+const maximoBytesNumeroCelda = 64
+
 var decimalConvoca = regexp.MustCompile(`^[0-9]{1,9}([.,][0-9]{1,4})?$`)
 
 // ValidarHoja ejecuta la zona de ensayo. Las filas validas y las incidencias
@@ -158,8 +161,9 @@ func leerTexto(fila FilaStaging, columna int, requerido bool, maximo int) (strin
 	if celda.Tipo != CeldaVacia && celda.Tipo != CeldaTexto {
 		return "", codigoTipoCeldaInvalido
 	}
-	// Un texto muy por encima del máximo se descarta antes de normalizar: la
-	// composición NFC no reduce una cadena a menos de 1/32 de sus bytes.
+	// Un texto muy por encima del máximo se descarta antes de recortar y
+	// normalizar, que recorren la celda entera. Falla del lado seguro: un valor
+	// válido seguido de miles de espacios también sale como demasiado largo.
 	if len(celda.Valor) > 32*maximo+64 {
 		return "", codigoTextoExcesivo
 	}
@@ -187,6 +191,11 @@ func leerDecimal(fila FilaStaging, columna int, requerido bool) (string, string)
 	if celda.Tipo != CeldaVacia && celda.Tipo != CeldaTexto && celda.Tipo != CeldaNumero {
 		return "", codigoTipoCeldaInvalido
 	}
+	// Un número de CONVOCA cabe en pocos caracteres: lo demás se rechaza sin
+	// recorrer la celda.
+	if len(celda.Valor) > maximoBytesNumeroCelda {
+		return "", codigoDecimalInvalido
+	}
 	valor := strings.TrimSpace(celda.Valor)
 	if valor == "" {
 		if requerido {
@@ -210,6 +219,9 @@ func leerOrdenGrupo(fila FilaStaging, columna int) (uint32, string) {
 			return 0, codigoValorRequerido
 		}
 		return 0, codigoTipoCeldaInvalido
+	}
+	if len(celda.Valor) > maximoBytesNumeroCelda {
+		return 0, codigoOrdenGrupoInvalido
 	}
 	valor := strings.TrimSpace(celda.Valor)
 	if valor == "" || strings.IndexFunc(valor, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {

@@ -93,15 +93,10 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if solicitud.Validar() != nil {
 		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaInvalida
 	}
-	vista, err := s.previsualizador.Previsualizar(ctx, solicitud.NombreFichero, solicitud.Contenido)
-	if err != nil {
-		return ResultadoCargaConvoca{}, err
-	}
-	if vista.Bloqueo != "" {
-		return ResultadoCargaConvoca{}, ErrCargaConvocaBloqueada
-	}
-	if vista.Rechazadas > 0 && !excluirConErrores {
-		return ResultadoCargaConvoca{}, ErrCargaConvocaConErrores
+	// El permiso se comprueba antes de leer el libro: sin decisión no se gasta
+	// CPU en decodificar ni validar un fichero.
+	if len(solicitud.Contenido) > MaximoBytesCargaConvoca {
+		return ResultadoCargaConvoca{}, ErrFicheroCargaConvocaExcesivo
 	}
 	suma := sha256.Sum256(solicitud.Contenido)
 	huella := hex.EncodeToString(suma[:])
@@ -131,6 +126,16 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, ports.AudienciaConfirmarCargaConvoca) {
 		return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
+	}
+	vista, err := s.previsualizador.Previsualizar(ctx, solicitud.NombreFichero, solicitud.Contenido)
+	if err != nil {
+		return ResultadoCargaConvoca{}, err
+	}
+	if vista.Bloqueo != "" {
+		return ResultadoCargaConvoca{}, ErrCargaConvocaBloqueada
+	}
+	if vista.Rechazadas > 0 && !excluirConErrores {
+		return ResultadoCargaConvoca{}, ErrCargaConvocaConErrores
 	}
 	reutilizada, err := s.importador.ActaImportada(ctx, huella, solicitud.CategoriaRef)
 	if err != nil {
