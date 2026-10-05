@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"reflect"
 	"sort"
 
 	meritos "vec-diputacion-granada/internal/modules/meritos/domain"
@@ -89,7 +88,7 @@ func ComprobarRevisionProvisional(anterior, nueva ListaAdmisionProvisional) ([]s
 		previas[a.Antecedente.PreparacionRef] = true
 	}
 	for _, e := range anterior.Excluidas {
-		if actual, ok := excluidas[e.Antecedente.PreparacionRef]; !ok || !reflect.DeepEqual(actual, e) {
+		if actual, ok := excluidas[e.Antecedente.PreparacionRef]; !ok || !mismaExclusion(actual, e) {
 			return nil, ErrRevisionLista
 		}
 		previas[e.Antecedente.PreparacionRef] = true
@@ -110,4 +109,22 @@ func ComprobarRevisionProvisional(anterior, nueva ListaAdmisionProvisional) ([]s
 	}
 	sort.Strings(incorporadas)
 	return incorporadas, nil
+}
+
+// mismaExclusion compara antecedente, subsanabilidad y motivos como conjunto:
+// reordenar los motivos en el material no cambia la decisión.
+func mismaExclusion(a, b SolicitudExcluida) bool {
+	if a.Antecedente != b.Antecedente || a.Subsanable != b.Subsanable || len(a.Motivos) != len(b.Motivos) {
+		return false
+	}
+	previos := make(map[MotivoAplicado]bool, len(b.Motivos))
+	for _, m := range b.Motivos {
+		previos[m] = true
+	}
+	for _, m := range a.Motivos {
+		if !previos[m] {
+			return false
+		}
+	}
+	return true
 }

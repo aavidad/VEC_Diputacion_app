@@ -27,7 +27,11 @@ func materialRevision(t *testing.T) ports.MaterialRevisionProvisional {
 	}
 	segunda.RevisionesS4 = append(segunda.RevisionesS4, s4)
 	segunda.Decisiones = append(segunda.Decisiones, domain.DecisionAdmision{Antecedente: a, Decision: domain.DecisionAdmitida})
-	return ports.MaterialRevisionProvisional{Material: segunda, Anterior: anterior}
+	huella, err := application.IdentificarListaProvisional(context.Background(), primera, catalogoEjemplo(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ports.MaterialRevisionProvisional{Material: segunda, Anterior: anterior, Antecedente: huella}
 }
 
 func TestRevisionEnlazaLaAnteriorPorLaMismaHuellaQueLaDefinitiva(t *testing.T) {
@@ -44,6 +48,40 @@ func TestRevisionEnlazaLaAnteriorPorLaMismaHuellaQueLaDefinitiva(t *testing.T) {
 	if _, err := application.IdentificarListaProvisional(context.Background(), m.Material, catalogoEjemplo(t)); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Ataque de la revisión independiente: una anterior coherente por dentro pero
+// recortada, con la excluida no subsanable convertida en «incorporada» admitida.
+func TestRevisionRechazaAnteriorQueNoEsLaDeclarada(t *testing.T) {
+	m := materialRevision(t)
+	excluida := m.Anterior.Excluidas[0]
+	m.Anterior.Excluidas = nil
+	m.Anterior.Resumen = domain.ResumenListaAdmision{Solicitudes: 1, Admitidas: 1}
+	for i, d := range m.Material.Decisiones {
+		if d.Antecedente == excluida.Antecedente {
+			m.Material.Decisiones[i] = domain.DecisionAdmision{Antecedente: d.Antecedente, Decision: domain.DecisionAdmitida}
+		}
+	}
+	if _, err := domain.ComprobarRevisionProvisional(m.Anterior, mustLista(t, m.Material)); err != nil {
+		t.Fatalf("el ataque debe ser coherente por dentro para que la prueba tenga sentido: %v", err)
+	}
+	if _, err := application.PrepararRevisionProvisional(context.Background(), m, catalogoEjemplo(t)); !errors.Is(err, domain.ErrRevisionLista) {
+		t.Fatalf("anterior recortada aceptada: %v", err)
+	}
+	sinHuella := materialRevision(t)
+	sinHuella.Antecedente = domain.AntecedenteLista{}
+	if _, err := application.PrepararRevisionProvisional(context.Background(), sinHuella, catalogoEjemplo(t)); !errors.Is(err, domain.ErrRevisionLista) {
+		t.Fatalf("sin huella declarada: %v", err)
+	}
+}
+
+func mustLista(t *testing.T, m ports.MaterialListaAdmision) domain.ListaAdmisionProvisional {
+	t.Helper()
+	l, err := application.PrepararListaAdmisionProvisional(context.Background(), m, catalogoEjemplo(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
 }
 
 func TestRevisionRechazaDecisionesCambiadasYCatalogoCaido(t *testing.T) {

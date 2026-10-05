@@ -161,6 +161,8 @@ func TestRevisionProvisionalContratoYErrores(t *testing.T) {
 		"misma_revision":    strings.Replace(string(material), `"revision": 2,`, `"revision": 1,`, 1),
 		"anterior_alterada": strings.Replace(string(material), `"excluidas_subsanables": 1`, `"excluidas_subsanables": 2`, 1),
 		"campo_de_mas":      strings.Replace(string(material), `"anterior": {`, `"anterior": {"nota": "x",`, 1),
+		"sin_huella":        strings.Replace(string(material), `"antecedente_anterior"`, `"antecedente_otro"`, 1),
+		"huella_ajena":      strings.Replace(string(material), `"a0de31453bd8555d34f2573aae10b1ff6097a4e07dee4e4adff0a4b8443f42f0"`, `"`+strings.Repeat("0", 64)+`"`, 1),
 	}
 	for nombre, entrada := range casos {
 		if entrada == string(material) {

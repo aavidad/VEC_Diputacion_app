@@ -31,6 +31,24 @@ func TestRevisionConservaLaAnteriorYDevuelveLasIncorporadas(t *testing.T) {
 	}
 }
 
+func TestRevisionAceptaMotivosReordenados(t *testing.T) {
+	catalogo := catalogoPrueba()
+	dos := []string{"tasa_no_justificada", "solicitud_fuera_de_plazo"}
+	anterior, err := ComponerListaProvisional("lista:1", 1, basesPrueba, catalogo, []DecisionAdmision{{Antecedente: antecedentePrueba("p:b"), Decision: DecisionExcluida, Motivos: dos}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nueva, err := ComponerListaProvisional("lista:1", 2, basesPrueba, catalogo, []DecisionAdmision{
+		{Antecedente: antecedentePrueba("p:b"), Decision: DecisionExcluida, Motivos: []string{dos[1], dos[0]}},
+		{Antecedente: antecedentePrueba("p:c"), Decision: DecisionAdmitida}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ComprobarRevisionProvisional(anterior, nueva); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRevisionRechazaCambiosSobreLaAnterior(t *testing.T) {
 	extra := DecisionAdmision{Antecedente: antecedentePrueba("p:c"), Decision: DecisionAdmitida}
 	cambios := map[string]func(a, n *ListaAdmisionProvisional){

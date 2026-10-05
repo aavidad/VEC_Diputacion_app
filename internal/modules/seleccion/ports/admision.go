@@ -51,8 +51,11 @@ type MaterialListaDefinitiva struct {
 }
 
 // MaterialRevisionProvisional reúne el material completo de la nueva revisión
-// de la provisional y la provisional anterior tal como se preparó.
+// de la provisional, la provisional anterior tal como se preparó y la huella
+// que RRHH declara de ella (la de --salida antecedente-lista o la del
+// envoltorio de la revisión previa). Sin esa huella la anterior no está anclada.
 type MaterialRevisionProvisional struct {
-	Material MaterialListaAdmision           `json:"material"`
-	Anterior domain.ListaAdmisionProvisional `json:"anterior"`
+	Material    MaterialListaAdmision           `json:"material"`
+	Anterior    domain.ListaAdmisionProvisional `json:"anterior"`
+	Antecedente domain.AntecedenteLista         `json:"antecedente_anterior"`
 }

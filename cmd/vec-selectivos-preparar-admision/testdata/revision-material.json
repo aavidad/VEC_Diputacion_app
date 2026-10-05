@@ -597,5 +597,11 @@
     "aprobada": false,
     "publicada": false,
     "persistida": false
+  },
+  "antecedente_anterior": {
+    "esquema": "seleccion.admision.lista-provisional.v1",
+    "lista_ref": "lista:aux-adm-2026-provisional",
+    "revision": 1,
+    "huella_sha256": "a0de31453bd8555d34f2573aae10b1ff6097a4e07dee4e4adff0a4b8443f42f0"
   }
 }

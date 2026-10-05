@@ -14,7 +14,7 @@ import (
 // publica ni persiste.
 func PrepararRevisionProvisional(ctx context.Context, m ports.MaterialRevisionProvisional, catalogos ports.CatalogoAdmision) (domain.RevisionListaProvisional, error) {
 	cero := domain.RevisionListaProvisional{}
-	if ctx == nil {
+	if ctx == nil || m.Antecedente.Validar() != nil {
 		return cero, domain.ErrRevisionLista
 	}
 	nueva, err := PrepararListaAdmisionProvisional(ctx, m.Material, catalogos)
@@ -31,8 +31,10 @@ func PrepararRevisionProvisional(ctx context.Context, m ports.MaterialRevisionPr
 	if err != nil {
 		return cero, err
 	}
+	// La anterior debe ser exactamente la declarada: un archivo recortado o con
+	// una decisión cambiada, aunque sea coherente por dentro, no coincide.
 	anterior, err := identificarLista(m.Anterior)
-	if err != nil {
+	if err != nil || anterior != m.Antecedente {
 		return cero, domain.ErrRevisionLista
 	}
 	if err := ctx.Err(); err != nil {

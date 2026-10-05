@@ -162,7 +162,9 @@ revision-provisional`. El material lleva dos partes:
 - `material`: el material completo de la nueva revisión, con la misma
   `lista_ref`, la `revision` siguiente y todas las solicitudes, las de antes y
   las nuevas;
-- `anterior`: la provisional anterior tal como la devolvió el CLI.
+- `anterior`: la provisional anterior tal como la devolvió el CLI;
+- `antecedente_anterior`: la huella de esa anterior, la que da
+  `--salida antecedente-lista` o el campo `anterior` de la revisión previa.
 
 ```sh
 go run ./cmd/vec-selectivos-preparar-admision --idioma es \
@@ -170,9 +172,11 @@ go run ./cmd/vec-selectivos-preparar-admision --idioma es \
   < cmd/vec-selectivos-preparar-admision/testdata/revision-material.json
 ```
 
-El CLI prepara la nueva provisional y comprueba que conserva la anterior:
+El CLI rechaza la anterior si su huella no es la declarada: un archivo
+recortado o con una decisión cambiada no pasa aunque sea coherente por dentro.
+Después prepara la nueva provisional y comprueba que conserva la anterior:
 mismas bases, catálogo y plazo, y cada solicitud anterior con la misma
-decisión y los mismos motivos. Debe añadir al menos una solicitud. Corregir una
+decisión y los mismos motivos (el orden de los motivos da igual). Debe añadir al menos una solicitud. Corregir una
 decisión ya tomada es otro acto y aquí se rechaza.
 
 La salida (`vec.seleccion.lista-admision-revision.v1`) contiene la nueva

@@ -14,7 +14,8 @@ import (
 )
 
 // La lista reúne una revisión S4 por solicitud; 16 MiB cubren el máximo de
-// solicitudes de domain.MaximoSolicitudesLista con material de tamaño normal.
+// solicitudes de domain.MaximoSolicitudesLista con material de tamaño normal,
+// también cuando la revisión de la provisional añade la lista anterior.
 const maximoEntradaLista = 16 * 1024 * 1024
 
 // ejecutarLista atiende las salidas de listas con el catálogo configurado en
