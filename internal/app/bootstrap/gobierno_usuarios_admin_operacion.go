@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,8 +48,11 @@ const limiteArchivoGobiernoUsuarios = 16384
 // proveedor HMAC y semilla del firmante de la raíz ya publicada.
 type MaterialOrigenGobiernoUsuariosAdmin struct {
 	DirectorioMaterial, RutaConfiguracionHMAC, ArchivoSemillaRaiz string
-	// ValidezClaves acota la ventana de las dos claves nuevas (1 h a 24 h).
+	// ValidezClaves acota la ventana de las claves nuevas (1 h a 24 h).
 	ValidezClaves time.Duration
+	// ConjuntoVersion 0: gobierno de usuarios (AD188). 1 o más: conjunto de
+	// capacidades ADMIN de AD198 (incluye el lote ordinario de perfiles).
+	ConjuntoVersion uint64
 }
 
 // PreparacionGobiernoUsuariosAdmin devuelve sólo huellas: el DBA las fija en
@@ -83,14 +87,21 @@ const consultaInstantaneaGobiernoUsuarios = `SELECT jsonb_build_object('revision
 // vez. La secuencia del gobierno, única y creciente, entra en el dominio de
 // derivación y en el identificador: cada renovación obtiene claves nuevas y
 // repetir la preparación de una publicación no aplicada da las mismas.
-func descriptoresClavesUsuariosAdmin(secuencia, maxVersion, maxRevision uint64, ahora time.Time, validez time.Duration) []DescriptorClaveUsuariosAdmin {
+// Una clave por audiencia del conjunto, en su orden. Para el conjunto 0
+// produce exactamente los descriptores de AD188 (usuarios listar/consultar).
+func descriptoresClavesUsuariosAdmin(conjunto []AudienciaCapacidadAdmin, secuencia, maxVersion, maxRevision uint64, ahora time.Time, validez time.Duration) []DescriptorClaveUsuariosAdmin {
 	s := strconv.FormatUint(secuencia, 10)
 	var entradas []DescriptorClaveUsuariosAdmin
-	for i, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
-		entradas = append(entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3.s" + s, PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":s" + s + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: maxVersion + uint64(i) + 1, RevisionGobierno: maxRevision + uint64(i) + 1, ValidaDesde: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(validez)})
+	for i, e := range conjunto {
+		entradas = append(entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.Audiencia, Dominio: "vec.admin.desarrollo." + strings.ReplaceAll(e.Segmento, ":", ".") + ".capacidad-v3.s" + s, PrefijoClave: "clave:capacidad:admin:" + e.Segmento + ":s" + s + ":", EmisorID: e.EmisorID, Version: maxVersion + uint64(i) + 1, RevisionGobierno: maxRevision + uint64(i) + 1, ValidaDesde: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(validez)})
 	}
 	return entradas
 }
+
+// La misma instantánea con la preimagen del conjunto de AD198 ($1).
+var consultaInstantaneaGobiernoCapacidades = strings.Replace(consultaInstantaneaGobiernoUsuarios,
+	"vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()",
+	"vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1($1::integer)", 1)
 
 // PrepararGobiernoUsuariosAdmin lee la configuración vigente con un pool de
 // lectura, deriva las dos claves con el proveedor existente y escribe plan,
@@ -100,8 +111,16 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if ctx == nil || lectura == nil || salida == nil || dependenciaBootstrapNula(reloj) || origen.ValidezClaves < time.Hour || origen.ValidezClaves > 24*time.Hour {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
+	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(origen.ConjuntoVersion)
+	if !ok {
+		return vacio, ErrGobiernoUsuariosAdmin
+	}
+	consulta, argumentos := consultaInstantaneaGobiernoUsuarios, []any{}
+	if origen.ConjuntoVersion != 0 {
+		consulta, argumentos = consultaInstantaneaGobiernoCapacidades, []any{int64(origen.ConjuntoVersion)}
+	}
 	var raw []byte
-	if lectura.QueryRow(ctx, consultaInstantaneaGobiernoUsuarios).Scan(&raw) != nil {
+	if lectura.QueryRow(ctx, consulta, argumentos...).Scan(&raw) != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	var actual instantaneaGobiernoUsuarios
@@ -127,7 +146,8 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if cfg.Gobierno.HuellaSHA256, err = g.HuellaSHA256ParaGobierno(); err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	cfg.Entradas = descriptoresClavesUsuariosAdmin(cfg.Gobierno.Secuencia, actual.MaxVersion, actual.MaxRevision, now, origen.ValidezClaves)
+	cfg.ConjuntoVersion = origen.ConjuntoVersion
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(conjunto, cfg.Gobierno.Secuencia, actual.MaxVersion, actual.MaxRevision, now, origen.ValidezClaves)
 	m, err := PrepararMaterialUsuariosAdmin(ctx, cfg, reloj)
 	if err != nil {
 		return vacio, err
@@ -144,7 +164,13 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if cfg.Gobierno.ExpiraEn.Before(caduca) {
 		caduca = cfg.Gobierno.ExpiraEn
 	}
-	p := planGobiernoUsuariosAdmin{Version: 1, OperacionRef: "gcu_" + actual.PreSHA[:32], PreparadoEn: now, CaducaEn: caduca, PreimagenSHA256: actual.PreSHA, Ordenes: []uint64{actual.Orden + 1, actual.Orden + 2}}
+	p := planGobiernoUsuariosAdmin{Version: 1, OperacionRef: "gcu_" + actual.PreSHA[:32], PreparadoEn: now, CaducaEn: caduca, PreimagenSHA256: actual.PreSHA}
+	if origen.ConjuntoVersion != 0 {
+		p.Version, p.OperacionRef, p.ConjuntoVersion = 2, "gca_"+actual.PreSHA[:32], origen.ConjuntoVersion
+	}
+	for i := range conjunto {
+		p.Ordenes = append(p.Ordenes, actual.Orden+uint64(i)+1)
+	}
 	p.Configuracion.Revision = cfg.Gobierno.Revision
 	p.Configuracion.Secuencia = cfg.Gobierno.Secuencia
 	p.Configuracion.Huella = cfg.Gobierno.HuellaSHA256

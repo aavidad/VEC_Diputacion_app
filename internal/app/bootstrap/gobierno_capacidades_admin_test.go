@@ -1,0 +1,135 @@
+package bootstrap
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"vec-diputacion-granada/internal/app/administracion"
+)
+
+// El conjunto 0 conserva byte a byte los descriptores de AD188.
+func TestConjuntoCeroConservaDescriptoresAD188(t *testing.T) {
+	usuarios, ok := AudienciasConjuntoCapacidadesAdmin(0)
+	ahora := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	d := descriptoresClavesUsuariosAdmin(usuarios, 7, 4, 9, ahora, time.Hour)
+	if !ok || len(d) != 2 ||
+		d[0].Audiencia != administracion.AudienciaUsuariosListarV3 || d[0].Dominio != "vec.admin.desarrollo.usuarios.listar.capacidad-v3.s7" ||
+		d[0].PrefijoClave != "clave:capacidad:admin:usuarios:listar:s7:" || d[0].EmisorID != "emisor:admin:usuarios:desarrollo:v1" ||
+		d[1].Audiencia != administracion.AudienciaUsuariosConsultarV3 || d[1].Dominio != "vec.admin.desarrollo.usuarios.consultar.capacidad-v3.s7" ||
+		d[1].PrefijoClave != "clave:capacidad:admin:usuarios:consultar:s7:" || d[1].Version != 6 || d[1].RevisionGobierno != 11 {
+		t.Fatalf("descriptores del conjunto 0 distintos de AD188: %+v", d)
+	}
+	if _, ok := AudienciasConjuntoCapacidadesAdmin(2); ok {
+		t.Fatal("conjunto desconocido aceptado")
+	}
+}
+
+// El conjunto 1 añade la clave del lote, en tercer lugar y con su segmento,
+// con el mismo formato que exige AD198.
+func TestConjuntoUnoDerivaClaveDelLote(t *testing.T) {
+	formatoAD198 := regexp.MustCompile(`^clave:capacidad:admin:[a-z0-9:._-]{1,160}$`)
+	cfg, reloj := configuracionGobiernoUsuariosPrueba(t)
+	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(1)
+	if !ok || len(conjunto) != 3 {
+		t.Fatal("conjunto 1 incompleto")
+	}
+	cfg.ConjuntoVersion = 1
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(conjunto, 20261006, 4, 9, reloj.Ahora(), time.Hour)
+	m, err := PrepararMaterialUsuariosAdmin(context.Background(), cfg, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Cerrar()
+	conf, _, err := m.Configuracion()
+	if err != nil || len(conf.EntradasCapacidad) != 3 {
+		t.Fatal("material del conjunto 1 incompleto")
+	}
+	vistas := map[string]bool{}
+	for i, e := range conf.EntradasCapacidad {
+		if e.Audiencia != conjunto[i].Audiencia || !formatoAD198.MatchString(e.ClaveID) ||
+			!strings.HasPrefix(e.ClaveID, "clave:capacidad:admin:"+conjunto[i].Segmento+":") || vistas[string(e.Material)] {
+			t.Fatalf("clave %d fuera del conjunto o repetida: %s", i, e.ClaveID)
+		}
+		vistas[string(e.Material)] = true
+	}
+	if conf.EntradasCapacidad[2].Audiencia != administracion.AudienciaLoteOrdinarioV3 || conf.EntradasCapacidad[2].EmisorID != "emisor:admin:perfiles:desarrollo:v1" {
+		t.Fatal("la tercera clave no es la del lote")
+	}
+}
+
+// Un material de un conjunto no admite las entradas de otro ni otro orden.
+func TestConjuntoRechazaEntradasAjenasODesordenadas(t *testing.T) {
+	cfg, reloj := configuracionGobiernoUsuariosPrueba(t)
+	uno, _ := AudienciasConjuntoCapacidadesAdmin(1)
+	cero, _ := AudienciasConjuntoCapacidadesAdmin(0)
+	for nombre, caso := range map[string]struct {
+		conjunto uint64
+		entradas []DescriptorClaveUsuariosAdmin
+	}{
+		"cero_con_tres": {0, descriptoresClavesUsuariosAdmin(uno, 9, 4, 9, reloj.Ahora(), time.Hour)},
+		"uno_con_dos":   {1, descriptoresClavesUsuariosAdmin(cero, 9, 4, 9, reloj.Ahora(), time.Hour)},
+		"uno_desordenado": {1, func() []DescriptorClaveUsuariosAdmin {
+			d := descriptoresClavesUsuariosAdmin(uno, 9, 4, 9, reloj.Ahora(), time.Hour)
+			d[0], d[2] = d[2], d[0]
+			return d
+		}()},
+		"conjunto_inexistente": {5, descriptoresClavesUsuariosAdmin(uno, 9, 4, 9, reloj.Ahora(), time.Hour)},
+	} {
+		c := cfg
+		c.ConjuntoVersion, c.Entradas = caso.conjunto, caso.entradas
+		if m, err := PrepararMaterialUsuariosAdmin(context.Background(), c, reloj); err == nil {
+			m.Cerrar()
+			t.Fatalf("%s aceptado", nombre)
+		}
+	}
+}
+
+// El plan 2 (AD198) exige el conjunto del material, gca_ y una orden por
+// clave; el plan 1 no sirve para un material de conjunto ni al revés.
+func TestPlanDosLigadoAlConjuntoDelMaterial(t *testing.T) {
+	cfg, reloj := configuracionGobiernoUsuariosPrueba(t)
+	uno, _ := AudienciasConjuntoCapacidadesAdmin(1)
+	cfg.ConjuntoVersion = 1
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(uno, 9, 4, 9, reloj.Ahora(), time.Hour)
+	m, err := PrepararMaterialUsuariosAdmin(context.Background(), cfg, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Cerrar()
+	base, _ := planGobiernoUsuariosPrueba(t, m)
+	firmar := func(mutar func(*planGobiernoUsuariosAdmin)) (string, string) {
+		var p planGobiernoUsuariosAdmin
+		if err := json.Unmarshal([]byte(base), &p); err != nil {
+			t.Fatal(err)
+		}
+		p.Version, p.OperacionRef, p.ConjuntoVersion, p.Ordenes = 2, "gca_"+strings.Repeat("x", 22), 1, []uint64{101, 102, 103}
+		mutar(&p)
+		b, err := json.Marshal(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := sha256.Sum256(b)
+		return string(b), hex.EncodeToString(h[:])
+	}
+	if plan, sha := firmar(func(*planGobiernoUsuariosAdmin) {}); validarPlanGobiernoUsuariosAdmin(plan, sha, m) != nil {
+		t.Fatal("plan 2 válido rechazado")
+	}
+	for nombre, mutar := range map[string]func(*planGobiernoUsuariosAdmin){
+		"version_1":      func(p *planGobiernoUsuariosAdmin) { p.Version = 1 },
+		"prefijo_gcu":    func(p *planGobiernoUsuariosAdmin) { p.OperacionRef = "gcu_" + strings.Repeat("x", 22) },
+		"otro_conjunto":  func(p *planGobiernoUsuariosAdmin) { p.ConjuntoVersion = 2 },
+		"sin_conjunto":   func(p *planGobiernoUsuariosAdmin) { p.ConjuntoVersion = 0 },
+		"dos_ordenes":    func(p *planGobiernoUsuariosAdmin) { p.Ordenes = p.Ordenes[:2] },
+		"orden_repetida": func(p *planGobiernoUsuariosAdmin) { p.Ordenes[2] = p.Ordenes[1] },
+	} {
+		if plan, sha := firmar(mutar); validarPlanGobiernoUsuariosAdmin(plan, sha, m) == nil {
+			t.Fatalf("%s aceptado", nombre)
+		}
+	}
+}

@@ -160,18 +160,19 @@ func TestConfiguracionInvalida(t *testing.T) {
 		fase   string
 		cambio func(*escenario, map[string]any)
 	}{
-		"campo_extra":      {"preparar", func(e *escenario, m map[string]any) { m["dsn_propietario"] = e.dsnLectura }},
-		"horas_cero":       {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 0 }},
-		"horas_25":         {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 25 }},
-		"horas_negativas":  {"verificar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = -1 }},
-		"ruta_relativa":    {"preparar", func(e *escenario, m map[string]any) { m["directorio_material"] = "material" }},
-		"salida_relativa":  {"verificar", func(e *escenario, m map[string]any) { m["salida"] = "salida" }},
-		"sin_dsn_operador": {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = "" }},
-		"operador_igual":   {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnLectura }},
-		"dsn_con_role":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " role=vec_propietario" }},
-		"dsn_con_ROLE":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " ROLE=x" }},
-		"url_con_Role":     {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "postgres://l@" + "localhost/v?Role=x" }},
-		"dsn_search_path":  {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " search_path=x" }},
+		"campo_extra":          {"preparar", func(e *escenario, m map[string]any) { m["dsn_propietario"] = e.dsnLectura }},
+		"horas_cero":           {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 0 }},
+		"horas_25":             {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 25 }},
+		"horas_negativas":      {"verificar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = -1 }},
+		"conjunto_inexistente": {"preparar", func(e *escenario, m map[string]any) { m["conjunto_capacidades"] = 9 }},
+		"ruta_relativa":        {"preparar", func(e *escenario, m map[string]any) { m["directorio_material"] = "material" }},
+		"salida_relativa":      {"verificar", func(e *escenario, m map[string]any) { m["salida"] = "salida" }},
+		"sin_dsn_operador":     {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = "" }},
+		"operador_igual":       {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnLectura }},
+		"dsn_con_role":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " role=vec_propietario" }},
+		"dsn_con_ROLE":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " ROLE=x" }},
+		"url_con_Role":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "postgres://l@" + "localhost/v?Role=x" }},
+		"dsn_search_path":      {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " search_path=x" }},
 		"dsn_transaccion": {"verificar", func(e *escenario, m map[string]any) {
 			m["dsn_lectura"] = e.dsnLectura + " default_transaction_read_only=off"
 		}},

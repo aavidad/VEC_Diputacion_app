@@ -1,7 +1,7 @@
 {
   "idioma": "en",
   "mensajes": {
-    "limite": "This command prepares, applies and verifies the two Administration user management keys. The DBA creates the technical LOGIN and the approved configuration. The receipt only counts after COMMIT.",
+    "limite": "This command prepares, applies and verifies the Administration keys: the two user management keys and, with set 1, also the key for batch profile changes. The DBA creates the technical LOGIN and the approved configuration. The receipt only counts after COMMIT.",
     "uso_invalido": "Give the phase (preparar, aplicar or verificar), the private configuration, the text catalogue and a positive time limit. Give the receipt only when applying.",
     "configuracion_insegura": "The private configuration cannot be read. It must be your own file with 0600 permissions, in your own 0700 folder outside the repository.",
     "configuracion_invalida": "The private configuration has the wrong format or lacks data for this phase. Check the fields, absolute paths, connections and validity hours (1 to 24).",

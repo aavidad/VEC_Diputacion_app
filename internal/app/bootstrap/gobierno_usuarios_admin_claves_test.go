@@ -21,7 +21,8 @@ func TestGobiernoUsuariosClavesNuevasEnCadaPublicacion(t *testing.T) {
 	derivar := func(secuencia uint64) []clave {
 		t.Helper()
 		c := cfg
-		c.Entradas = descriptoresClavesUsuariosAdmin(secuencia, 4, 9, reloj.Ahora(), time.Hour)
+		usuarios, _ := AudienciasConjuntoCapacidadesAdmin(0)
+		c.Entradas = descriptoresClavesUsuariosAdmin(usuarios, secuencia, 4, 9, reloj.Ahora(), time.Hour)
 		m, err := PrepararMaterialUsuariosAdmin(context.Background(), c, reloj)
 		if err != nil {
 			t.Fatal(err)

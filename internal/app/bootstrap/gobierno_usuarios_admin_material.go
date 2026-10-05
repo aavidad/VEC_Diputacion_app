@@ -28,6 +28,33 @@ type ConfiguracionMaterialUsuariosAdmin struct {
 	Gobierno                                  administracion.GobiernoConfianzaPerfilesV3
 	Entradas                                  []DescriptorClaveUsuariosAdmin
 	PrefijoEvidencia                          string
+	// ConjuntoVersion 0 conserva el gobierno de usuarios de AD188; otro valor
+	// es un conjunto de AD198. Se omite en JSON cuando es 0.
+	ConjuntoVersion uint64 `json:",omitempty"`
+}
+
+// AudienciaCapacidadAdmin es una audiencia de un conjunto cerrado de
+// capacidades ADMIN: su segmento fija el tramo de clave_id y del dominio de
+// derivación, y su emisor el emisor_id de la clave.
+type AudienciaCapacidadAdmin struct {
+	Audiencia, Segmento, EmisorID string
+}
+
+// AudienciasConjuntoCapacidadesAdmin devuelve las audiencias, en orden, de un
+// conjunto. El 0 es el gobierno de usuarios de AD188 (dos audiencias); el 1 es
+// el conjunto 1 de AD198 (usuarios y lote ordinario de perfiles). Debe coincidir
+// con conjunto_audiencias_capacidad_admin_v1: AD198 lo vuelve a comprobar.
+func AudienciasConjuntoCapacidadesAdmin(version uint64) ([]AudienciaCapacidadAdmin, bool) {
+	usuarios := []AudienciaCapacidadAdmin{
+		{administracion.AudienciaUsuariosListarV3, "usuarios:listar", "emisor:admin:usuarios:desarrollo:v1"},
+		{administracion.AudienciaUsuariosConsultarV3, "usuarios:consultar", "emisor:admin:usuarios:desarrollo:v1"}}
+	switch version {
+	case 0:
+		return usuarios, true
+	case 1:
+		return append(usuarios, AudienciaCapacidadAdmin{administracion.AudienciaLoteOrdinarioV3, "perfiles:lote", "emisor:admin:perfiles:desarrollo:v1"}), true
+	}
+	return nil, false
 }
 
 type DescriptorClaveUsuariosAdmin struct {
@@ -40,6 +67,7 @@ type DescriptorClaveUsuariosAdmin struct {
 // Cerrar invalida también el firmante; la preparación no acredita publicación.
 type MaterialUsuariosAdmin struct {
 	mu             sync.RWMutex
+	conjunto       uint64
 	config         administracion.ConfiguracionConfianzaUsuariosV3
 	firmante       ports.FirmanteAtestacionesAutorizacionV3
 	cerrarFirmante func()
@@ -57,7 +85,8 @@ func (m *MaterialUsuariosAdmin) MarshalJSON() ([]byte, error) {
 // existentes. La raíz debe coincidir con la pública externa fijada: nunca rota
 // una raíz ni genera un maestro para obtener un positivo.
 func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMaterialUsuariosAdmin, reloj ports.Reloj) (*MaterialUsuariosAdmin, error) {
-	if ctx == nil || ctx.Err() != nil || dependenciaBootstrapNula(reloj) || len(cfg.Entradas) != 2 || cfg.ArchivoSemillaRaiz == "" || !identificadorSesionDesarrolloValido(cfg.PrefijoEvidencia) {
+	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(cfg.ConjuntoVersion)
+	if ctx == nil || ctx.Err() != nil || dependenciaBootstrapNula(reloj) || !ok || len(cfg.Entradas) != len(conjunto) || cfg.ArchivoSemillaRaiz == "" || !identificadorSesionDesarrolloValido(cfg.PrefijoEvidencia) {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	material, err := cargarMaterialIdempotenciaDesarrollo(cfg.DirectorioMaterial, cfg.RutaConfiguracionHMAC)
@@ -96,18 +125,22 @@ func PrepararMaterialUsuariosAdmin(ctx context.Context, cfg ConfiguracionMateria
 	if err != nil || h != cfg.Gobierno.HuellaSHA256 {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
-	admitidas := map[string]bool{administracion.AudienciaUsuariosListarV3: false, administracion.AudienciaUsuariosConsultarV3: false}
+	admitidas := make(map[string]bool, len(conjunto))
+	for _, a := range conjunto {
+		admitidas[a.Audiencia] = false
+	}
 	dominios := map[string]bool{}
 	prefijos := map[string]bool{}
-	m := &MaterialUsuariosAdmin{config: cabecera}
+	m := &MaterialUsuariosAdmin{conjunto: cfg.ConjuntoVersion, config: cabecera}
 	correcto := false
 	defer func() {
 		if !correcto {
 			m.Cerrar()
 		}
 	}()
-	for _, e := range cfg.Entradas {
-		if usada, ok := admitidas[e.Audiencia]; !ok || usada || dominios[e.Dominio] || prefijos[e.PrefijoClave] || !identificadorSesionDesarrolloValido(e.Dominio) || !identificadorSesionDesarrolloValido(e.PrefijoClave) || e.Version == 0 || e.RevisionGobierno == 0 || reloj.Ahora().Before(e.ValidaDesde) || !reloj.Ahora().Before(e.ValidaHasta) {
+	for i, e := range cfg.Entradas {
+		// Mismo orden que el conjunto: la base asigna cada clave por posición.
+		if usada, ok := admitidas[e.Audiencia]; !ok || usada || e.Audiencia != conjunto[i].Audiencia || dominios[e.Dominio] || prefijos[e.PrefijoClave] || !identificadorSesionDesarrolloValido(e.Dominio) || !identificadorSesionDesarrolloValido(e.PrefijoClave) || e.Version == 0 || e.RevisionGobierno == 0 || reloj.Ahora().Before(e.ValidaDesde) || !reloj.Ahora().Before(e.ValidaHasta) {
 			return nil, ErrGobiernoUsuariosAdmin
 		}
 		admitidas[e.Audiencia] = true
