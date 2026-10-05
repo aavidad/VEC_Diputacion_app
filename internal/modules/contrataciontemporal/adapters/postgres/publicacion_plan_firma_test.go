@@ -88,6 +88,9 @@ func TestPublicacionPlanFirmaCotejaFechaYRevision(t *testing.T) {
 		"otro módulo":       func(c *vd.CatalogoConfigurable, _ *string, _ *time.Time) { c.ModuloID = "bolsa" },
 		"publicado después": func(_ *vd.CatalogoConfigurable, _ *string, e *time.Time) { *e = c.PublicadoEn.Add(-time.Second) },
 		"sin publicación":   func(c *vd.CatalogoConfigurable, _ *string, _ *time.Time) { c.PublicadoEn = time.Time{} },
+		"submicrosegundo": func(c *vd.CatalogoConfigurable, _ *string, _ *time.Time) {
+			c.PublicadoEn = c.PublicadoEn.Add(123456700 * time.Nanosecond)
+		},
 	}
 	for nombre, mutar := range malos {
 		cc, s, e := c, sha, en
