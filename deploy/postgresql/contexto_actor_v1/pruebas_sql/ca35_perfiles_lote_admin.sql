@@ -8,7 +8,8 @@ BEGIN
  FOREACH nombre IN ARRAY ARRAY[
   'crear_perfil_vinculo_admin_lote_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz,timestamptz,timestamptz)',
   'revocar_perfil_vinculo_admin_lote_v1(text,text,text,text,numeric,numeric,numeric,numeric,text,numeric,text,timestamptz)',
-  'registrar_procedencia_acto_admin_lote_v1(text,text)'
+  'registrar_procedencia_acto_admin_lote_v1(text,text)',
+  'cuentas_titular_persona_admin_lote_v1(text)'
  ] LOOP
   f:=to_regprocedure('vec_contexto_actor_v1.'||nombre);
   SELECT proowner,prosecdef,proconfig,proacl INTO STRICT p FROM pg_proc WHERE oid=f;
