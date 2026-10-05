@@ -159,6 +159,10 @@ type firmaDocumentoCTDesarrollo struct {
 	firmaVec     *ctapplication.ServicioFirmaVec
 	// Registro que reciben ambas vías: siempre el decorador con plan (CT176).
 	registroR5 ports.RegistroFirmasVerificadasV2
+	// verificadorR5 es el mismo cliente GrxFirma de la vía V1, visto como
+	// verificador acumulado de firmas múltiples. Nil sin verificación: entonces
+	// R5 no se compone (componerFirmasR5 exige d.verificador).
+	verificadorR5 docports.VerificadorFirmasDocumento
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
@@ -630,6 +634,19 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 	return salida, nil
 }
 
+// verificadorFirmasR5 conserva el cliente sólo si también verifica firmas
+// múltiples. Un verificador motivado que no lo haga deja R5 sin componer.
+func verificadorFirmasR5(v docports.VerificadorFirmaMotivado) docports.VerificadorFirmasDocumento {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(v) {
+		return nil
+	}
+	multiple, ok := v.(docports.VerificadorFirmasDocumento)
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(multiple) {
+		return nil
+	}
+	return multiple
+}
+
 // rutas compone las dos rutas exactas. Sin circuito no hay firma.
 func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.Resolutor) ([]vechttp.RutaExacta, error) {
 	if f == nil {
@@ -653,6 +670,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.servicio = servicio
+	f.verificadorR5 = verificadorFirmasR5(verificador)
 	f.custodiaR5Compuesta = false
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
