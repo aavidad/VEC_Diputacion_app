@@ -55,7 +55,7 @@ func TestGobiernoUsuariosRootDEVSetupPrivado(t *testing.T) {
 	defer rootSalida.Close()
 	escribir := func(n string, b []byte) {
 		t.Helper()
-		if escribirEnsayoGobiernoUsuarios(rootSalida, n, b) != nil {
+		if escribirPrivadoGobiernoUsuarios(rootSalida, n, b) != nil {
 			t.Fatal("setup_salida_no_privada")
 		}
 	}
