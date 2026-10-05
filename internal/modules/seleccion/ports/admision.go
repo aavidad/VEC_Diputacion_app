@@ -1,6 +1,8 @@
 package ports
 
 import (
+	"context"
+
 	meritos "vec-diputacion-granada/internal/modules/meritos/ports"
 	"vec-diputacion-granada/internal/modules/seleccion/domain"
 )
@@ -15,4 +17,24 @@ type MaterialAdmisionPreparacion struct {
 	SolicitudContexto *domain.ContextoSolicitudLocal `json:"solicitud_contexto,omitempty"`
 	Requisitos        []domain.RequisitoAdmision     `json:"requisitos"`
 	Hechos            *meritos.HechosPreparados      `json:"hechos,omitempty"`
+}
+
+// CatalogoAdmision entrega la versión exacta del catálogo de motivos de
+// exclusión y plazo de subsanación de una convocatoria. Debe fallar si no la
+// conoce; nunca sustituye otra versión.
+type CatalogoAdmision interface {
+	CatalogoAdmision(ctx context.Context, referencia, version string) (domain.CatalogoAdmision, error)
+}
+
+// MaterialListaAdmision reúne las revisiones S4 de una convocatoria y la
+// decisión que RRHH propone para cada una.
+type MaterialListaAdmision struct {
+	ListaRef        string                        `json:"lista_ref"`
+	Revision        int                           `json:"revision"`
+	Alcance         string                        `json:"alcance"`
+	Bases           domain.BasesAdmision          `json:"bases"`
+	CatalogoRef     string                        `json:"catalogo_ref"`
+	CatalogoVersion string                        `json:"catalogo_version"`
+	RevisionesS4    []MaterialAdmisionPreparacion `json:"revisiones_s4"`
+	Decisiones      []domain.DecisionAdmision     `json:"decisiones"`
 }

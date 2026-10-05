@@ -14,11 +14,16 @@ const maximoEntradaJSON = 1024 * 1024
 var errEntradaJSON = errors.New("seleccion.admision.entrada_invalida")
 
 func leerJSON(r io.Reader, destino any) error {
+	return leerJSONHasta(r, destino, maximoEntradaJSON)
+}
+
+// leerJSONHasta admite un límite propio para la lista, que reúne muchas revisiones.
+func leerJSONHasta(r io.Reader, destino any, limite int) error {
 	if r == nil {
 		return errEntradaJSON
 	}
-	material, err := io.ReadAll(io.LimitReader(r, maximoEntradaJSON+1))
-	if err != nil || len(material) > maximoEntradaJSON || !utf8.Valid(material) {
+	material, err := io.ReadAll(io.LimitReader(r, int64(limite)+1))
+	if err != nil || len(material) > limite || !utf8.Valid(material) {
 		return errEntradaJSON
 	}
 	tokens := json.NewDecoder(bytes.NewReader(material))
