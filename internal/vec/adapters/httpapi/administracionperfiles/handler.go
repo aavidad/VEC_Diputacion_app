@@ -97,6 +97,7 @@ type Handler struct {
 	lecturas         FuenteLecturas
 	catalogo         ports.CatalogoRolesAdministrables
 	actos            ServicioActos
+	lotes            ServicioLotesADMIN
 	soloLectura      bool
 	soloMetadatos    bool
 	auditor          AuditorFrontera
@@ -150,7 +151,7 @@ func dependenciaNula(v any) bool {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.sesiones == nil || h.lecturas == nil || (!h.soloLectura && (h.catalogo == nil || h.actos == nil)) || h.auditor == nil {
+	if h == nil || h.sesiones == nil || h.lecturas == nil || (!h.soloLectura && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) || h.auditor == nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -229,6 +230,11 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 	p := r.URL.Path
 	if h.soloMetadatos && p != PrefijoV1+"/personas" && !strings.HasPrefix(p, PrefijoV1+"/personas/") {
 		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "consultar", "")
+		return
+	}
+	// La preparación sólo existe donde se montó la autoridad del lote.
+	if persona, ok := rutaPreparacionLote(p); ok && h.lotes != nil {
+		h.getPreparacionLote(w, r, s, persona)
 		return
 	}
 	ctx := r.Context()

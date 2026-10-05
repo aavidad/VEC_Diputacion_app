@@ -12,8 +12,11 @@ func (h *Handler) postLoteOrdinario(w http.ResponseWriter, r *http.Request, s Se
 		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", "aplicar_lote_ordinario", "")
 		return
 	}
-	servicio, ok := h.actos.(ServicioLotes)
-	if !ok || dependenciaNula(servicio) {
+	var servicio ServicioLotes = h.lotes
+	if h.lotes == nil {
+		servicio, _ = h.actos.(ServicioLotes)
+	}
+	if dependenciaNula(servicio) {
 		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", "aplicar_lote_ordinario", "")
 		return
 	}

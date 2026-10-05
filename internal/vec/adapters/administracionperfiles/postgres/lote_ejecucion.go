@@ -18,6 +18,14 @@ import (
 // expone la indisponibilidad y no se reintenta la operación automáticamente.
 var errCommitLoteIndeterminado = errors.New("vec.admin.lote.commit_indeterminado")
 
+var _ ports.CatalogoRolesAdministrables = (*AutoridadLoteOrdinario)(nil)
+
+// ResolverRolAdministrable expone al servicio y al HTTP del lote el mismo
+// cotejo con el perfil registrado (AUT24, con el LOGIN del lote).
+func (a *AutoridadLoteOrdinario) ResolverRolAdministrable(ctx context.Context, ref string) (ports.RolAdministrable, error) {
+	return a.resolverRolLote(ctx, ref)
+}
+
 func (a *AutoridadLoteOrdinario) resolverRolLote(ctx context.Context, ref string) (ports.RolAdministrable, error) {
 	var vacio ports.RolAdministrable
 	if ctx == nil || ctx.Err() != nil || a == nil || ausente(a.pool) || !domain.RolVersionAdministracionPerfilesValido(ref) {
