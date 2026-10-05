@@ -569,6 +569,15 @@ static/portal-empleado/modulos/seleccion/preparacion-admision/controlador.js
 static/portal-empleado/modulos/seleccion/preparacion-admision/preparacion-admision.css
 static/textos/es/selectivos-admision-visor.json
 static/textos/en/selectivos-admision-visor.json
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/index.html
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/entrada.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/modelo.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/vista.js
+static/portal-empleado/modulos/seleccion/preparacion-lista-admision/preparacion-lista-admision.css
+static/textos/es/selectivos-lista-admision-visor.json
+static/textos/en/selectivos-lista-admision-visor.json
+static/textos/es/motivos-seleccion-admision-ejemplo.json
+static/textos/en/motivos-seleccion-admision-ejemplo.json
 static/portal-empleado/modulos/seleccion/preparacion-acta/index.html
 static/portal-empleado/modulos/seleccion/preparacion-acta/entrada.js
 static/portal-empleado/modulos/seleccion/preparacion-acta/modelo.js
