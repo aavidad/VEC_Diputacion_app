@@ -128,10 +128,13 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE c jsonb; d jsonb; x record;
 BEGIN
- IF current_user<>'vec_autorizacion_atestada_v3_propietario'
-    OR current_setting('transaction_isolation')<>'serializable'
+ -- Una transacción mal configurada es un fallo técnico, no una denegación.
+ IF current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
-    OR current_setting('TimeZone')<>'UTC'
+    OR current_setting('TimeZone')<>'UTC' THEN
+  RAISE EXCEPTION 'AD197: transacción de consulta de datos de contacto no admitida' USING ERRCODE='55000';
+ END IF;
+ IF current_user<>'vec_autorizacion_atestada_v3_propietario'
     OR p_capacidad IS NULL OR vec_autorizacion_atestada_v3.capacidad_cruda_prevalida(p_capacidad) IS NOT TRUE
     OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
     OR p_contexto IS NULL OR octet_length(p_contexto) NOT BETWEEN 1 AND 262144

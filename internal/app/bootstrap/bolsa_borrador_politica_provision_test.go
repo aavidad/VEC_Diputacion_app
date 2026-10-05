@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -155,6 +156,15 @@ func TestProvisionBolsaConservaCompletaYRechazaHuellaORamaAjena(t *testing.T) {
 	aprobarProvisionBolsaPrueba(t, politica, autoridad, datos, 9)
 	if err := politica.PublicarInicial(context.Background()); err == nil || autoridad.publicadas != 0 || politica.publicada {
 		t.Fatalf("aprobación de otra huella aceptada: err=%v publicadas=%d", err, autoridad.publicadas)
+	}
+	// Aprobación de la provisión documental anterior aún en el entorno: con
+	// v9 publicada no coincide su preimagen; se ignora y se conserva v9.
+	politica, autoridad, _ = politicaProvisionBolsaPrueba(t, 9)
+	t.Setenv("VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF", "aprobacion:prueba-b77-anterior")
+	t.Setenv("VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256", strings.Repeat("a", 64))
+	t.Setenv("VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256", strings.Repeat("b", 64))
+	if err := politica.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 || politica.instantanea.VersionRol.Version != 9 {
+		t.Fatalf("aprobación anterior impidió el arranque: err=%v publicadas=%d versión=%d", err, autoridad.publicadas, politica.instantanea.VersionRol.Version)
 	}
 	// Una versión de otra rama (reincorporación) no se toma por la propia.
 	politica, autoridad, _ = politicaProvisionBolsaPrueba(t, 15)

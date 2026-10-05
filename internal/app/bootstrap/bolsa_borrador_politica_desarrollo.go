@@ -130,6 +130,16 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 		preimagenIndicada, objetivoIndicado := os.Getenv(envPreimagen), os.Getenv(envObjetivo)
 		sinAprobacion := aprobacion == "" && preimagenIndicada == "" && objetivoIndicado == ""
 		documental := encontrada && version == versionRol+saltoProvisionDocumentalBolsa
+		// Con la documental ya aplicada, una aprobación cuya preimagen no es la
+		// asignación publicada es la de aquella provisión: no concede nada nuevo
+		// y no debe impedir el arranque. Se ignora con aviso.
+		if documental && !sinAprobacion {
+			if preimagenPublicada, err := publicada.instantanea.AsignacionPerfil.HuellaSHA256(); err != nil || preimagenIndicada != preimagenPublicada {
+				slog.Warn("aprobación de provisión RRHH Bolsa anterior ignorada", "perfil_ref", datos.PerfilActivoRef,
+					"recibido_preimagen", huellaDocumentalBolsaVisible(preimagenIndicada))
+				sinAprobacion = true
+			}
+		}
 		if encontrada && version >= 9 && !documental && version != objetivoVersion {
 			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 		}

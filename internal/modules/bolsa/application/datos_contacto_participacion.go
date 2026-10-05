@@ -221,7 +221,8 @@ func (s *ServicioDatosContactoParticipacion) consultarCompletos(ctx context.Cont
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionConsultarDatosContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadConsultarDatosContactoParticipacion, Correlacion: solicitud.Correlacion})
 	if err != nil {
-		return puertosbolsa.DatosContactoParticipacionLeidos{}, dominiovec.ErrAutorizacionDenegada
+		// La solicitud se arma con datos del servidor: es un fallo técnico.
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, ErrRegistroDatosContactoParticipacionNoDisponible
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, solicitud.ResultadoContexto)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {

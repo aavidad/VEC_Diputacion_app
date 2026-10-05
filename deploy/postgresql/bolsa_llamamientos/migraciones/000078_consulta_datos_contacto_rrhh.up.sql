@@ -43,7 +43,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.consultar_datos_contacto_participacion_rr
 RETURNS TABLE(version bigint,clave_ref text,nonce bytea,cifrado bytea,registrada_en timestamptz,recibo_ref text,
  origen text,vigente_hasta timestamptz,ultimo_dia date,regla_ref text,regla_huella_sha256 text,confirmada_en timestamptz,
  decision_ref text,auditoria_ref text,consumida_en timestamptz)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE consumo record; decision jsonb; dato record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
