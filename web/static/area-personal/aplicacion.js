@@ -6,22 +6,16 @@ import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPer
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
-} from "./vistas/inicio-convocatorias.js?v=20261001-codexf-accesibilidad-v1";
-import {
-  renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud,
-} from "./vistas/perfil-meritos-solicitud.js";
+} from "./vistas/inicio-convocatorias.js?v=20261005-b4-v1";
+import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261002-rrhh17-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261005-b4-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261002-rrhh17-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
-import {
-  aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
-  declaracionFinalConfirmada, localizarSolicitudEdicion,
-} from "./flujo-solicitud.js";
 
 
 const RUTAS = Object.freeze({
@@ -32,8 +26,6 @@ const RUTAS = Object.freeze({
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
-  solicitud: ["areaPersonal.rutas.solicitud", renderizarSolicitud],
-  autobaremacion: ["areaPersonal.rutas.autobaremacion", renderizarAutobaremacion],
   seguimiento: ["areaPersonal.rutas.seguimiento", renderizarSeguimiento],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
   subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
@@ -43,13 +35,12 @@ const RUTAS = Object.freeze({
   ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
-// Operaciones que la superficie admite; su título visible está en el catálogo
-// (`areaPersonal.operacion.<operación>`).
+// Operaciones que todavía pintan las vistas; su título visible está en el
+// catálogo (`areaPersonal.operacion.<operación>`). Ninguna tiene servicio en el
+// servidor: los controles quedan bloqueados y solo avisan de que no está disponible.
 const OPERACIONES = Object.freeze(new Set([
-  "actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo", "iniciar_pago",
-  "firmar_solicitud", "registrar_solicitud", "responder_llamamiento",
-  "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones",
-  "solicitar_certificado", "solicitar_descarga",
+  "incorporar_merito", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje",
+  "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga",
 ]));
 const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
@@ -59,10 +50,6 @@ export function conservarResultadoContactoPropio(estado, { reciboRef, version, c
   estado.contactoPropioRecibo = { reciboRef, version };
   estado.datos = structuredClone(estado.datos);
   estado.datos.perfil.correo = correo;
-}
-export function excluirCorreoDeActualizacionContacto(payload) {
-  const { correo: _correo, ...sinCorreo } = payload;
-  return sinCorreo;
 }
 
 const porId = (id) => document.getElementById(id);
@@ -407,139 +394,11 @@ function verDocumento(estado, id) {
   mostrarDetalle(documento.nombre, listaDatos([[t("documento.referencia"), escaparHTML(documento.id)], [t("documento.tipo"), escaparHTML(documento.tipo)], [t("documento.fecha"), escaparHTML(documento.fecha)], [t("documento.estado"), escaparHTML(documento.estado)], [t("documento.huella"), escaparHTML(documento.huella || t("documento.huellaPendiente"))]]));
 }
 
-function prepararOperacion(estado, operacion, {
-  id = "", descripcion = "", payload = {}, alCompletar = null,
-} = {}) {
-  if (!OPERACIONES.has(operacion)) {
-    notificar(traducir("areaPersonal.capacidad.accionNoReconocida"));
-    return;
-  }
-  if (estado.datos.capacidades[operacion] !== true) {
-    notificar(traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) }));
-    anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
-    return;
-  }
-  estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion, alCompletar };
-  porId("titulo-confirmacion").textContent = tituloOperacion(operacion);
-  porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || tituloOperacion(operacion))}</p><dl class="dato-lista"><dt>${escaparHTML(t("confirmacion.accion"))}</dt><dd>${escaparHTML(operacion)}</dd><dt>${escaparHTML(t("confirmacion.objeto"))}</dt><dd>${escaparHTML(id || t("confirmacion.expediente"))}</dd><dt>${escaparHTML(t("confirmacion.resultado"))}</dt><dd>${escaparHTML(t("confirmacion.resultadoDetalle"))}</dd></dl><p class="nota aviso">${escaparHTML(t("confirmacion.nota"))}</p>`;
-  const confirmar = porId("formulario-confirmacion").querySelector('[value="confirmar"]');
-  confirmar.textContent = t("confirmar");
-  porId("dialogo-confirmacion").showModal();
-}
-
-async function ejecutarPendiente(estado) {
-  const pendiente = estado.operacionPendiente;
-  estado.operacionPendiente = null;
-  if (!pendiente) return;
-  try {
-    const resultado = await estado.cliente.ejecutar({
-      accion: pendiente.operacion,
-      payload: pendiente.payload,
-      confirmacion: true,
-      capacidad: estado.datos.capacidades[pendiente.operacion] === true,
-    });
-    if (resultado?.recibo?.presentacion !== false) {
-      throw new TypeError(t("reciboNoValido"));
-    }
-    const datosActualizados = resultado.datos?.meta
-      ? exigirDatosOperativos(resultado.datos)
-      : exigirDatosOperativos(datosDeRespuesta(await estado.cliente.cargar()));
-    estado.datos = datosActualizados;
-    estado.ultimoRecibo = resultado.recibo;
-    if (pendiente.alCompletar?.seleccionarBorrador === true) {
-      const solicitud = localizarSolicitudEdicion(estado.datos, {
-        solicitudId: pendiente.payload.id,
-        convocatoriaId: pendiente.payload.convocatoria_id,
-      });
-      if (!solicitud) throw new Error(t("borradorSinReferencia"));
-      estado.solicitudEdicionId = solicitud.id;
-    }
-    if (Number.isInteger(pendiente.alCompletar?.pasoSolicitud)) {
-      estado.pasoSolicitud = pendiente.alCompletar.pasoSolicitud;
-    }
-    estado.errorPasoSolicitud = "";
-    renderizar(estado);
-    mostrarRecibo(estado, resultado.recibo);
-  } catch (error) {
-    notificar(error instanceof Error ? error.message : t("operacionFallida"));
-    anunciar(t("operacionNoCompletada"));
-  }
-}
-
-function mostrarRecibo(estado, recibo) {
-  if (recibo?.presentacion !== false) throw new TypeError(t("reciboAjeno"));
-  porId("contenido-recibo").innerHTML = `<div><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([[t("recibo.referencia"), escaparHTML(recibo.referencia)], [t("recibo.accion"), escaparHTML(recibo.accion)], [t("recibo.objetivo"), escaparHTML(recibo.objetivo)], [t("recibo.fecha"), escaparHTML(recibo.fecha)], [t("recibo.actor"), escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
-  const botonDescarga = document.querySelector('[data-accion="descargar-recibo"]');
-  if (botonDescarga) {
-    botonDescarga.textContent = recibo.accion === "solicitar_certificado"
-      ? t("descargarCertificado") : t("descargarRecibo");
-  }
-  porId("dialogo-recibo").showModal();
-  anunciar(t("operacionCompletada", { recibo: recibo.referencia }));
-}
-
-export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) {
-  if (!recibo || typeof recibo !== "object" || Array.isArray(recibo)) {
-    throw new TypeError(t("pdf.reciboNoValido"));
-  }
-  if (recibo.presentacion !== false) throw new TypeError(t("pdf.reciboPresentacion"));
-  const esCertificado = recibo.accion === "solicitar_certificado";
-  const certificado = esCertificado
-    ? certificados.find((item) => item.id === recibo.objetivo)
-    : null;
-  if (esCertificado && !certificado) {
-    throw new TypeError(t("pdf.certificadoAjeno"));
-  }
-  const urlVerificacion = new URL("/verificar/", origen);
-  urlVerificacion.searchParams.set("ref", recibo.referencia);
-  const prefijoArchivo = esCertificado ? "certificado" : "recibo";
-  return Object.freeze({
-    referencia: recibo.referencia,
-    tipo_documento: esCertificado ? t("pdf.tipoCertificado") : t("pdf.tipoRecibo"),
-    titulo: certificado?.tipo || t("pdf.titulo"),
-    subtitulo: t("pdf.subtitulo"),
-    marca: t("pdf.marca"),
-    filas: Object.freeze([
-      Object.freeze({ etiqueta: t("pdf.actuacion"), valor: recibo.accion }),
-      Object.freeze({ etiqueta: t("pdf.resultado"), valor: recibo.resultado }),
-      Object.freeze({ etiqueta: t("pdf.referencia"), valor: recibo.objetivo }),
-      Object.freeze({ etiqueta: t("pdf.fecha"), valor: recibo.fecha }),
-      Object.freeze({ etiqueta: t("pdf.identidad"), valor: recibo.actor }),
-    ]),
-    comprobacion: Object.freeze({ qr_contenido: urlVerificacion.href }),
-    nombre_archivo: `${prefijoArchivo}-${recibo.referencia.toLowerCase()}.pdf`,
-    texto_certificacion: certificado
-      ? t("pdf.certificacionCertificado")
-      : t("pdf.certificacionRecibo"),
-  });
-}
-
-async function descargarRecibo(estado) {
-  if (!estado.ultimoRecibo) {
-    notificar(t("sinRecibo"));
-    return;
-  }
-  if (typeof estado.descargarReciboPDF !== "function") {
-    notificar(t("sinGenerador"));
-    anunciar(t("sinDocumento"));
-    return;
-  }
-  const recibo = estado.ultimoRecibo;
-  try {
-    await estado.descargarReciboPDF(crearDescriptorPDFRecibo({
-      recibo,
-      certificados: estado.datos.certificados,
-      origen: window.location.origin,
-    }));
-    notificar(recibo.accion === "solicitar_certificado"
-      ? t("certificadoPreparado")
-      : t("reciboPreparado"));
-  } catch {
-    notificar(recibo.accion === "solicitar_certificado"
-      ? t("certificadoFallido")
-      : t("reciboFallido"));
-    anunciar(t("sinDescarga"));
-  }
+function avisarOperacionNoDisponible(operacion) {
+  notificar(OPERACIONES.has(operacion)
+    ? traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) })
+    : traducir("areaPersonal.capacidad.accionNoReconocida"));
+  anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
 }
 
 function leerPantalla(estado) {
@@ -645,7 +504,6 @@ function atenderAccion(estado, boton) {
     if (ayuda) { ayuda.hidden = !ayuda.hidden; boton.setAttribute("aria-expanded", String(!ayuda.hidden)); }
     return;
   }
-  if (accion === "descargar-recibo") return void descargarRecibo(estado);
   if (accion === "reintentar") return cargar(estado);
   if (accion === "pagina-participaciones") {
     estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
@@ -653,55 +511,13 @@ function atenderAccion(estado, boton) {
   }
   if (accion === "abrir-convocatoria") return navegar(estado, "convocatoria", { id: boton.dataset.id });
   if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
-  if (accion === "iniciar-solicitud") {
-    estado.convocatoriaSolicitud = boton.dataset.id;
-    estado.progresoSolicitud = crearProgresoSolicitud(boton.dataset.id);
-    estado.solicitudEdicionId = "";
-    estado.errorPasoSolicitud = "";
-    estado.pasoSolicitud = 1;
-    return navegar(estado, "solicitud");
-  }
-  if (accion === "paso-anterior") { estado.pasoSolicitud = Math.max(1, estado.pasoSolicitud - 1); return renderizar(estado); }
-  if (accion === "seleccionar-convocatoria") {
-    if (estado.convocatoriaSolicitud !== boton.value) {
-      estado.convocatoriaSolicitud = boton.value;
-      estado.progresoSolicitud = crearProgresoSolicitud(boton.value);
-      estado.solicitudEdicionId = "";
-    }
-    return;
-  }
   if (accion === "abrir-expediente") { estado.expedienteSeleccionado = boton.dataset.id; return navegar(estado, "seguimiento", { id: boton.dataset.id }); }
   if (accion === "abrir-documento") return verDocumento(estado, boton.dataset.id);
   if (accion === "enfocar-nuevo-merito") {
     document.querySelector(".panel-nuevo-merito")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return document.querySelector("#merito-tipo")?.focus();
   }
-  if (accion === "preparar-operacion") {
-    let id = boton.dataset.id || "";
-    const payload = {};
-    if (boton.dataset.operacion === "responder_llamamiento") {
-      const [llamamiento, respuesta = "aceptar"] = id.split("|");
-      id = llamamiento;
-      payload.respuesta = respuesta;
-    }
-    if (boton.dataset.operacion === "calcular_autobaremo") {
-      const borrador = localizarSolicitudEdicion(estado.datos, {
-        solicitudId: estado.solicitudEdicionId,
-        convocatoriaId: id,
-      });
-      const seleccionados = estado.progresoSolicitud?.convocatoria_id === id
-        && estado.progresoSolicitud.meritos_ids?.length
-        ? estado.progresoSolicitud.meritos_ids
-        : borrador?.meritos_ids?.length ? borrador.meritos_ids : estado.datos.meritos.map((item) => item.id);
-      payload.convocatoria_id = id;
-      payload.meritos_ids = [...seleccionados];
-    }
-    if (["iniciar_pago", "firmar_solicitud"].includes(boton.dataset.operacion) && !id) {
-      notificar(t("guardeBorrador"));
-      return;
-    }
-    return prepararOperacion(estado, boton.dataset.operacion, { id, descripcion: boton.dataset.descripcion, payload });
-  }
+  if (accion === "preparar-operacion") return avisarOperacionNoDisponible(boton.dataset.operacion);
 }
 
 function conectarEventos(estado) {
@@ -745,64 +561,7 @@ function conectarEventos(estado) {
       renderizar(estado);
       return;
     }
-    if (formulario.id === "formulario-solicitud-paso") {
-      try {
-        const paso = Number(formulario.dataset.paso);
-        const progreso = aplicarPasoSolicitud(estado.progresoSolicitud, paso, formularioAObjeto(formulario));
-        estado.progresoSolicitud = progreso;
-        estado.convocatoriaSolicitud = progreso.convocatoria_id;
-        estado.errorPasoSolicitud = "";
-        if (paso < 4) {
-          estado.pasoSolicitud = paso + 1;
-          renderizar(estado, { enfocar: true });
-          return;
-        }
-        const solicitud = localizarSolicitudEdicion(estado.datos, {
-          solicitudId: estado.solicitudEdicionId,
-          convocatoriaId: progreso.convocatoria_id,
-        });
-        const payload = crearPayloadBorrador(progreso, solicitud?.id || "");
-        prepararOperacion(estado, "guardar_borrador", {
-          id: solicitud?.id || "",
-          descripcion: t("guardarBorradorDescripcion"),
-          payload,
-          alCompletar: { seleccionarBorrador: true, pasoSolicitud: 5 },
-        });
-      } catch (error) {
-        estado.errorPasoSolicitud = error instanceof Error ? error.message : t("pasoNoValido");
-        anunciar(t("revisarCampos"));
-        renderizar(estado);
-      }
-      return;
-    }
-    if (formulario.dataset.operacion) {
-      if (estado.datos.capacidades[formulario.dataset.operacion] !== true) {
-        notificar(t("accionNoHabilitadaExpediente"));
-        anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
-        return;
-      }
-      const payloadInicial = formularioAObjeto(formulario);
-      const payload = formulario.dataset.operacion === "actualizar_contacto"
-        ? excluirCorreoDeActualizacionContacto(payloadInicial) : payloadInicial;
-      if (formulario.dataset.operacion === "registrar_solicitud") {
-        if (!declaracionFinalConfirmada(payload.declaracion_final)) {
-          estado.errorPasoSolicitud = t("sinDeclaracion");
-          anunciar(t("sinDeclaracionAnuncio"));
-          renderizar(estado);
-          return;
-        }
-        payload.declaracion_final = true;
-      }
-      prepararOperacion(estado, formulario.dataset.operacion, {
-        id: formulario.dataset.id || "",
-        descripcion: tituloOperacion(formulario.dataset.operacion),
-        payload,
-      });
-    }
-  });
-  porId("dialogo-confirmacion").addEventListener("close", () => {
-    if (porId("dialogo-confirmacion").returnValue === "confirmar") ejecutarPendiente(estado);
-    else estado.operacionPendiente = null;
+    if (formulario.dataset.operacion) avisarOperacionNoDisponible(formulario.dataset.operacion);
   });
   window.addEventListener("popstate", () => {
     cerrarMenu();
@@ -862,10 +621,6 @@ async function cargar(estado) {
     estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
-    if (!estado.convocatoriaSolicitud) {
-      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto")?.id || "";
-      estado.progresoSolicitud = crearProgresoSolicitud(estado.convocatoriaSolicitud);
-    }
     estado.error = null;
     renderizar(estado);
   } catch (error) {
@@ -873,9 +628,9 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch,
+export async function iniciarAreaPersonal({ cliente, fetchImpl = globalThis.fetch,
   clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
-  if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
+  if (!cliente || typeof cliente.cargar !== "function") {
     throw new TypeError(t("clienteNoValido"));
   }
   const parametros = new URLSearchParams(window.location.search);
@@ -883,7 +638,6 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
   const inicioAjeno = inicioAjenoElegido(preferencias?.estado);
   const estado = {
     cliente,
-    descargarReciboPDF,
     datos: null,
     vista: parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,
@@ -896,15 +650,8 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     filasPreferidas: preferencias?.estado.valores.filas || 20,
     filtros: { termino: "", estado: "", categoria: "" },
     consultaAyuda: "",
-    pasoSolicitud: 1,
     convocatoriaSeleccionada: parametros.get("id") || "",
-    convocatoriaSolicitud: "",
     expedienteSeleccionado: parametros.get("id") || "",
-    progresoSolicitud: crearProgresoSolicitud(),
-    solicitudEdicionId: "",
-    errorPasoSolicitud: "",
-    operacionPendiente: null,
-    ultimoRecibo: null,
     contactoPropio: null,
     contactoPropioRecibo: null,
     controladorContactoPropio: null,

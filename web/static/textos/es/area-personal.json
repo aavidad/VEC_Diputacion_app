@@ -258,8 +258,6 @@
     "convocatoria": "Detalle de convocatoria",
     "perfil": "Perfil y contacto",
     "meritos": "Méritos y documentos",
-    "solicitud": "Nueva solicitud",
-    "autobaremacion": "Autobaremación",
     "seguimiento": "Mis expedientes",
     "llamamientos": "Disponibilidad y llamamientos",
     "subsanaciones": "Subsanaciones",
@@ -331,8 +329,6 @@
   },
   "vista": {
     "comun": {
-      "porcentaje": "{valor} %",
-      "porcentajeLeido": "{valor} por ciento",
       "campoObligatorio": "(obligatorio)",
       "campoOpcional": "(opcional)"
     },
@@ -410,7 +406,6 @@
       "todas": "Todas",
       "publicada": "Publicada el {fecha}",
       "verDetalle": "Ver detalle y requisitos",
-      "iniciarSolicitud": "Iniciar solicitud",
       "titulo": "Convocatorias y procesos selectivos",
       "descripcion": "Consulte bases, requisitos, plazos y estado antes de iniciar una solicitud.",
       "filtros": {
@@ -561,106 +556,6 @@
         "tabla": "Documentos aportados u obtenidos de oficio"
       }
     },
-    "solicitud": {
-      "pasos": {
-        "convocatoria": "Convocatoria",
-        "datos": "Datos",
-        "meritos": "Méritos",
-        "autobaremo": "Autobaremo",
-        "registro": "Pago, firma y registro",
-        "titulo": "Pasos de la solicitud",
-        "numero": "Paso {numero}"
-      },
-      "guardarBorradorContinuar": "Guardar borrador y continuar",
-      "guardarContinuar": "Guardar y continuar",
-      "anterior": "Anterior",
-      "paso1": {
-        "leyenda": "Convocatoria con plazo abierto",
-        "comprobacion": "El servicio comprobará el plazo vigente",
-        "declaracion": "He leído las bases y declaro cumplir los requisitos",
-        "declaracionDetalle": "El servicio volverá a comprobar plazo, requisitos y causas de exclusión antes del registro."
-      },
-      "paso2": {
-        "identidad": "Identidad",
-        "identificador": "Identificador",
-        "correo": "Correo",
-        "telefono": "Teléfono",
-        "verificacion": "Verificación",
-        "declaracion": "Confirmo que mis datos personales y de contacto son correctos",
-        "declaracionDetalle": "Puede modificarlos desde Perfil y contacto antes de continuar."
-      },
-      "paso3": {
-        "leyenda": "Méritos que desea asociar",
-        "nota": "Seleccione al menos un mérito. Los documentos se reutilizan sin duplicar el fichero y la solicitud conserva la referencia y versión exactas."
-      },
-      "paso4": {
-        "total": "Total autobaremado para los méritos seleccionados y datos de oficio",
-        "provisionales": "puntos provisionales",
-        "nota": "El cálculo usa los méritos elegidos y los conceptos obtenidos de oficio para esta convocatoria. No vincula a RRHH y cada concepto será revisado conforme a las bases."
-      },
-      "paso5": {
-        "sinBorrador": "Borrador no disponible.",
-        "sinBorradorDetalle": "Vuelva al paso anterior y guárdelo antes de iniciar pago, firma o registro.",
-        "pagoConfirmado": "Pago o exención confirmado",
-        "pagar": "Pagar o acreditar exención",
-        "pagarDescripcion": "Confirmar el pago o la acreditación de exención",
-        "firmaConfirmada": "Firma confirmada",
-        "firmar": "Firmar solicitud",
-        "firmarDescripcion": "Firmar electrónicamente la solicitud",
-        "firmaBloqueadaAyuda": "Confirme antes el pago o la exención",
-        "firmaBloqueada": "Firma bloqueada hasta confirmar pago o exención",
-        "registrada": "Solicitud registrada.",
-        "registradaDetalle": "Conserve el recibo y el asiento devueltos por el servicio.",
-        "declaracion": "Confirmo la solicitud completa que se va a presentar",
-        "declaracionDetalle": "He revisado convocatoria, requisitos, datos, méritos, autobaremación, tasa o exención y firma.",
-        "registrar": "Registrar solicitud",
-        "registroBloqueado": "Registro bloqueado.",
-        "registroBloqueadoDetalle": "Debe confirmar primero el pago o la exención y la firma.",
-        "borrador": "Borrador seleccionado:",
-        "tasa": "1. Tasa o exención",
-        "importe": "Importe mostrado:",
-        "firma": "2. Firma electrónica",
-        "firmaDetalle": "Se firmará la representación exacta de la solicitud.",
-        "registro": "3. Registro",
-        "registroDetalle": "El registro es el acto que presenta la solicitud y solo se habilita tras pago o exención y firma."
-      },
-      "error": "No se puede continuar.",
-      "pasoDe": "Paso {paso} de {total}",
-      "revisionFinal": "Revisión final",
-      "enPreparacion": "En preparación",
-      "titulo": "Nueva solicitud",
-      "sinGuardar": "Borrador sin guardar"
-    },
-    "autobaremo": {
-      "recalculado": "Resultado recalculado.",
-      "meritos": {
-        "one": "{cuenta} mérito.",
-        "other": "{cuenta} méritos."
-      },
-      "titulo": "Autobaremación desglosada",
-      "descripcion": "Estimación trazable aplicada a la versión de bases de la convocatoria.",
-      "recalcular": "Recalcular autobaremo",
-      "recalcularDescripcion": "Recalcular la autobaremación con los méritos seleccionados",
-      "criterios": "Criterios aplicados",
-      "criteriosSubtitulo": "{convocatoria} · versión vigente de bases",
-      "convocatoriaSeleccionada": "Convocatoria seleccionada",
-      "resultado": "Resultado provisional",
-      "resultadoSubtitulo": {
-        "one": "{cuenta} mérito seleccionado más conceptos de oficio",
-        "other": "{cuenta} méritos seleccionados más conceptos de oficio"
-      },
-      "estimada": "Puntuación estimada",
-      "deMaximo": "de {maximo} posibles",
-      "nota": "No constituye puntuación oficial. RRHH aceptará, rechazará o ajustará cada concepto con motivación y trazabilidad.",
-      "provisional": "Provisional",
-      "reglas": "Qué se tendrá en cuenta",
-      "reglasSubtitulo": "Reglas parametrizadas desde las bases",
-      "regla1": "Periodos exactos y solapamientos.",
-      "regla2": "Porcentaje de jornada y reducciones.",
-      "regla3": "Administración, categoría y rama.",
-      "regla4": "Topes por bloque y puntuación máxima.",
-      "regla5": "Documentos de oficio y aportados."
-    },
     "seguimiento": {
       "titulo": "Mis expedientes y seguimiento",
       "descripcion": "Estado, puntuación, posición, documentos y próximos pasos.",
@@ -773,7 +668,6 @@
       "consta": "La alegación consta como {estado}.",
       "titulo": "Alegaciones y revisión",
       "descripcion": "Discuta una puntuación o decisión provisional con fundamento y evidencia.",
-      "verPuntuacion": "Ver puntuación desglosada",
       "vacio": {
         "titulo": "Sin alegaciones",
         "subtitulo": "No existen alegaciones asociadas",
@@ -887,27 +781,10 @@
       }
     }
   },
-  "autobaremo": {
-    "pendienteRegla": "{tipo} · pendiente de regla aplicable"
-  },
-  "flujo": {
-    "pasoNoValido": "El paso de solicitud no es válido.",
-    "sinConvocatoria": "Seleccione una convocatoria con plazo abierto.",
-    "sinRequisitos": "Debe confirmar que ha leído las bases y que cumple los requisitos declarados.",
-    "completarPaso1": "Complete primero la convocatoria y la declaración de requisitos.",
-    "sinDatos": "Debe confirmar que sus datos personales y de contacto son correctos.",
-    "completarPaso2": "Confirme sus datos antes de seleccionar méritos.",
-    "sinMeritos": "Seleccione al menos un mérito para continuar.",
-    "sinMeritosAutobaremo": "Seleccione al menos un mérito antes de revisar la autobaremación.",
-    "borradorIncompleto": "El borrador no reúne convocatoria, requisitos, datos, méritos y autobaremación revisada."
-  },
   "cliente": {
-    "sinEnvelope": "{nombre} no contiene el envelope data esperado.",
     "tipoRespuesta": "El servicio no devolvió JSON UTF-8.",
     "respuestaExcesiva": "La respuesta supera el límite permitido.",
     "jsonInvalido": "El servicio devolvió JSON no válido.",
-    "idempotencia": "No se puede garantizar la idempotencia de la operación.",
-    "solicitudExcesiva": "La solicitud supera el límite permitido.",
     "http401": "La identificación ha caducado o no está disponible.",
     "http403": "La sesión no dispone de permiso para esta operación.",
     "http409": "El expediente cambió. Recargue la información antes de continuar.",
@@ -917,11 +794,7 @@
     "sinTransporte": "El cliente HTTP no está disponible.",
     "sinConexion": "No se pudo establecer una conexión segura con el servicio.",
     "contactoNoValido": "El estado del contacto no es válido.",
-    "reciboContacto": "El recibo del contacto no coincide.",
-    "sinCapacidad": "El servidor no ha concedido capacidad para esta acción.",
-    "sinConfirmacion": "La acción requiere confirmación explícita.",
-    "accionNoAdmitida": "La acción solicitada no está admitida por este cliente.",
-    "sinCargaDocumental": "La carga documental segura todavía no está conectada. No se ha enviado el fichero."
+    "reciboContacto": "El recibo del contacto no coincide."
   },
   "app": {
     "parametrosNoAdmitidos": "La dirección contiene parámetros no admitidos en el área personal.",
@@ -940,79 +813,16 @@
       "huella": "Huella",
       "huellaPendiente": "Pendiente del servicio documental"
     },
-    "confirmacion": {
-      "accion": "Acción",
-      "objeto": "Objeto",
-      "expediente": "Expediente personal",
-      "resultado": "Resultado esperado",
-      "resultadoDetalle": "Confirmación emitida por el servicio autorizado",
-      "nota": "El servidor volverá a comprobar identidad, permiso, estado e idempotencia."
-    },
-    "confirmar": "Confirmar operación",
-    "reciboNoValido": "El servicio no devolvió un recibo válido para el área personal.",
-    "borradorSinReferencia": "El servicio guardó el borrador, pero no devolvió su referencia autorizada.",
-    "operacionFallida": "No se pudo completar la operación.",
-    "operacionNoCompletada": "Operación no completada.",
-    "reciboAjeno": "El recibo no pertenece al área personal habilitada.",
-    "recibo": {
-      "referencia": "Referencia",
-      "accion": "Acción",
-      "objetivo": "Objetivo",
-      "fecha": "Fecha UTC",
-      "actor": "Actor"
-    },
-    "descargarCertificado": "Descargar certificado PDF",
-    "descargarRecibo": "Descargar recibo PDF",
-    "operacionCompletada": "Operación completada. Recibo {recibo}.",
-    "pdf": {
-      "reciboNoValido": "El recibo documental no es válido.",
-      "reciboPresentacion": "El recibo de presentación no está admitido en esta superficie.",
-      "certificadoAjeno": "El certificado solicitado no pertenece al expediente visible.",
-      "tipoCertificado": "CERTIFICADO",
-      "tipoRecibo": "RECIBO DE ACTUACIÓN",
-      "titulo": "Recibo de actuación del Portal de Recursos Humanos",
-      "subtitulo": "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
-      "marca": "Documento emitido por el sistema de gestión de Recursos Humanos",
-      "actuacion": "Actuación",
-      "resultado": "Resultado",
-      "referencia": "Referencia del trámite",
-      "fecha": "Fecha de emisión (UTC)",
-      "identidad": "Identidad actuante",
-      "certificacionCertificado": "La emisión del certificado corresponde al servicio documental autorizado y requiere su firma o sello verificable.",
-      "certificacionRecibo": "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. El servicio autorizado debe emitir y custodiar el recibo."
-    },
-    "sinRecibo": "No existe un recibo disponible para descargar.",
-    "sinGenerador": "El generador documental autorizado no está disponible.",
-    "sinDocumento": "No se ha generado ningún documento.",
-    "certificadoPreparado": "Certificado PDF preparado para descarga.",
-    "reciboPreparado": "Recibo PDF preparado para descarga.",
-    "certificadoFallido": "No se pudo generar el certificado PDF.",
-    "reciboFallido": "No se pudo generar el recibo PDF.",
-    "sinDescarga": "No se ha descargado ningún documento.",
     "lectura": {
       "aviso": "La lectura de expedientes privados requiere un conector y una política aprobados. Consulte la guía textual de Ayuda.",
       "anuncio": "Lectura por voz no iniciada. Se abre la guía textual de Ayuda."
     },
     "respuestaAjena": "La respuesta no corresponde a la identidad consultada.",
-    "guardeBorrador": "Guarde primero el borrador y espere a que el servicio devuelva su referencia.",
-    "guardarBorradorDescripcion": "Guardar el borrador completo antes de pago, firma y registro",
-    "pasoNoValido": "El paso no supera las validaciones.",
-    "revisarCampos": "No se puede continuar. Revise los campos indicados.",
-    "accionNoHabilitadaExpediente": "La acción no está habilitada para la identidad y el expediente actuales.",
-    "sinDeclaracion": "Debe confirmar la declaración final antes de registrar la solicitud.",
-    "sinDeclaracionAnuncio": "No se puede registrar sin la declaración final.",
     "clienteNoValido": "El cliente inyectado no respeta el contrato del área personal."
   },
   "operacion": {
-    "actualizar_contacto": "Actualizar datos de contacto",
     "incorporar_merito": "Incorporar mérito y evidencia",
-    "guardar_borrador": "Guardar borrador",
-    "calcular_autobaremo": "Calcular autobaremación",
-    "iniciar_pago": "Realizar pago o acreditar exención",
-    "firmar_solicitud": "Firmar solicitud",
-    "registrar_solicitud": "Registrar solicitud",
     "cambiar_disponibilidad": "Cambiar disponibilidad",
-    "responder_llamamiento": "Responder llamamiento",
     "presentar_subsanacion": "Presentar subsanación",
     "presentar_alegacion": "Presentar alegación",
     "marcar_mensaje": "Marcar mensaje como leído",
@@ -1052,12 +862,6 @@
     "accesibilidad": "Accesibilidad",
     "proteccionDatos": "Protección de datos",
     "ayuda": "Ayuda",
-    "confirmacionNecesaria": "Confirmación necesaria",
-    "confirmarAccion": "Confirmar acción",
-    "cancelar": "Cancelar",
-    "resultadoOperacion": "Resultado de la operación",
-    "recibo": "Recibo",
-    "descargarPDF": "Descargar PDF",
     "cerrar": "Cerrar",
     "informacionDetallada": "Información detallada",
     "detalle": "Detalle",

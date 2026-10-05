@@ -5,8 +5,6 @@
     "convocatoria": "Call for applications details",
     "perfil": "Profile and contact details",
     "meritos": "Merits and documents",
-    "solicitud": "New application",
-    "autobaremacion": "Self-assessment of points",
     "seguimiento": "My case files",
     "llamamientos": "Availability and call-ups",
     "subsanaciones": "Corrections",
@@ -331,8 +329,6 @@
   },
   "vista": {
     "comun": {
-      "porcentaje": "{valor}%",
-      "porcentajeLeido": "{valor} percent",
       "campoObligatorio": "(required)",
       "campoOpcional": "(optional)"
     },
@@ -410,7 +406,6 @@
       "todas": "All",
       "publicada": "Published on {fecha}",
       "verDetalle": "View details and requirements",
-      "iniciarSolicitud": "Start application",
       "titulo": "Calls for applications and selection processes",
       "descripcion": "Check the terms, requirements, deadlines and status before starting an application.",
       "filtros": {
@@ -561,106 +556,6 @@
         "tabla": "Documents provided or obtained ex officio"
       }
     },
-    "solicitud": {
-      "pasos": {
-        "convocatoria": "Call for applications",
-        "datos": "Details",
-        "meritos": "Merits",
-        "autobaremo": "Self-assessment",
-        "registro": "Payment, signature and registration",
-        "titulo": "Application steps",
-        "numero": "Step {numero}"
-      },
-      "guardarBorradorContinuar": "Save draft and continue",
-      "guardarContinuar": "Save and continue",
-      "anterior": "Previous",
-      "paso1": {
-        "leyenda": "Call for applications with an open deadline",
-        "comprobacion": "The service will check the current deadline",
-        "declaracion": "I have read the terms and declare that I meet the requirements",
-        "declaracionDetalle": "The service will check the deadline, requirements and grounds for exclusion again before registration."
-      },
-      "paso2": {
-        "identidad": "Identity",
-        "identificador": "Identifier",
-        "correo": "Email",
-        "telefono": "Telephone",
-        "verificacion": "Verification",
-        "declaracion": "I confirm that my personal and contact details are correct",
-        "declaracionDetalle": "You can change them in Profile and contact details before continuing."
-      },
-      "paso3": {
-        "leyenda": "Merits you want to include",
-        "nota": "Select at least one merit. Documents are reused without duplicating the file, and the application keeps the exact reference and version."
-      },
-      "paso4": {
-        "total": "Self-assessed total for the selected merits and ex officio data",
-        "provisionales": "provisional points",
-        "nota": "The calculation uses the merits you chose and the items obtained ex officio for this call for applications. It is not binding on HR, and each item will be reviewed according to the terms."
-      },
-      "paso5": {
-        "sinBorrador": "Draft not available.",
-        "sinBorradorDetalle": "Go back to the previous step and save it before starting payment, signature or registration.",
-        "pagoConfirmado": "Payment or exemption confirmed",
-        "pagar": "Pay or prove exemption",
-        "pagarDescripcion": "Confirm the payment or proof of exemption",
-        "firmaConfirmada": "Signature confirmed",
-        "firmar": "Sign application",
-        "firmarDescripcion": "Sign the application electronically",
-        "firmaBloqueadaAyuda": "Confirm the payment or exemption first",
-        "firmaBloqueada": "Signing locked until payment or exemption is confirmed",
-        "registrada": "Application registered.",
-        "registradaDetalle": "Keep the receipt and registry entry returned by the service.",
-        "declaracion": "I confirm the complete application to be submitted",
-        "declaracionDetalle": "I have reviewed the call for applications, requirements, details, merits, self-assessment, fee or exemption and signature.",
-        "registrar": "Register application",
-        "registroBloqueado": "Registration locked.",
-        "registroBloqueadoDetalle": "You must first confirm the payment or exemption and the signature.",
-        "borrador": "Selected draft:",
-        "tasa": "1. Fee or exemption",
-        "importe": "Amount shown:",
-        "firma": "2. Electronic signature",
-        "firmaDetalle": "The exact representation of the application will be signed.",
-        "registro": "3. Registration",
-        "registroDetalle": "Registration is the act that submits the application and is only enabled after payment or exemption and signature."
-      },
-      "error": "You cannot continue.",
-      "pasoDe": "Step {paso} of {total}",
-      "revisionFinal": "Final review",
-      "enPreparacion": "In preparation",
-      "titulo": "New application",
-      "sinGuardar": "Unsaved draft"
-    },
-    "autobaremo": {
-      "recalculado": "Result recalculated.",
-      "meritos": {
-        "one": "{cuenta} merit.",
-        "other": "{cuenta} merits."
-      },
-      "titulo": "Itemised self-assessment",
-      "descripcion": "Traceable estimate applied to the version of the recruitment notice terms.",
-      "recalcular": "Recalculate self-assessment",
-      "recalcularDescripcion": "Recalculate the self-assessment with the selected merits",
-      "criterios": "Criteria applied",
-      "criteriosSubtitulo": "{convocatoria} · current version of the terms",
-      "convocatoriaSeleccionada": "Selected recruitment notice",
-      "resultado": "Provisional result",
-      "resultadoSubtitulo": {
-        "one": "{cuenta} selected merit plus ex officio items",
-        "other": "{cuenta} selected merits plus ex officio items"
-      },
-      "estimada": "Estimated score",
-      "deMaximo": "out of {maximo} possible",
-      "nota": "This is not an official score. HR will accept, reject or adjust each item with reasons and an audit trail.",
-      "provisional": "Provisional",
-      "reglas": "What will be taken into account",
-      "reglasSubtitulo": "Rules configured from the terms",
-      "regla1": "Exact periods and overlaps.",
-      "regla2": "Working-hours percentage and reductions.",
-      "regla3": "Administration, category and branch.",
-      "regla4": "Caps per block and maximum score.",
-      "regla5": "Ex officio and submitted documents."
-    },
     "seguimiento": {
       "titulo": "My files and progress",
       "descripcion": "Status, score, position, documents and next steps.",
@@ -773,7 +668,6 @@
       "consta": "The representation is recorded as {estado}.",
       "titulo": "Representations and review",
       "descripcion": "Challenge a provisional score or decision with grounds and evidence.",
-      "verPuntuacion": "View itemised score",
       "vacio": {
         "titulo": "No representations",
         "subtitulo": "There are no linked representations",
@@ -887,27 +781,10 @@
       }
     }
   },
-  "autobaremo": {
-    "pendienteRegla": "{tipo} · applicable rule pending"
-  },
-  "flujo": {
-    "pasoNoValido": "The application step is not valid.",
-    "sinConvocatoria": "Select a call for applications that is open for applications.",
-    "sinRequisitos": "You must confirm that you have read the terms and meet the declared requirements.",
-    "completarPaso1": "First complete the call for applications and the declaration of requirements.",
-    "sinDatos": "You must confirm that your personal and contact details are correct.",
-    "completarPaso2": "Confirm your details before selecting merits.",
-    "sinMeritos": "Select at least one merit to continue.",
-    "sinMeritosAutobaremo": "Select at least one merit before reviewing the self-assessment.",
-    "borradorIncompleto": "The draft does not include the call for applications, requirements, details, merits and a reviewed self-assessment."
-  },
   "cliente": {
-    "sinEnvelope": "{nombre} does not contain the expected data envelope.",
     "tipoRespuesta": "The service did not return UTF-8 JSON.",
     "respuestaExcesiva": "The response exceeds the permitted size.",
     "jsonInvalido": "The service returned invalid JSON.",
-    "idempotencia": "The operation cannot be guaranteed to run only once.",
-    "solicitudExcesiva": "The request exceeds the permitted size.",
     "http401": "Your identification has expired or is not available.",
     "http403": "Your session does not have permission for this operation.",
     "http409": "The file has changed. Reload the information before continuing.",
@@ -917,11 +794,7 @@
     "sinTransporte": "The HTTP client is not available.",
     "sinConexion": "A secure connection to the service could not be established.",
     "contactoNoValido": "The contact status is not valid.",
-    "reciboContacto": "The contact receipt does not match.",
-    "sinCapacidad": "The server has not granted permission for this action.",
-    "sinConfirmacion": "This action requires explicit confirmation.",
-    "accionNoAdmitida": "The requested action is not supported by this client.",
-    "sinCargaDocumental": "Secure document upload is not connected yet. The file has not been sent."
+    "reciboContacto": "The contact receipt does not match."
   },
   "app": {
     "parametrosNoAdmitidos": "The address contains parameters that the personal area does not accept.",
@@ -940,79 +813,16 @@
       "huella": "Fingerprint",
       "huellaPendiente": "Pending from the document service"
     },
-    "confirmacion": {
-      "accion": "Action",
-      "objeto": "Subject",
-      "expediente": "Personal file",
-      "resultado": "Expected result",
-      "resultadoDetalle": "Confirmation issued by the authorised service",
-      "nota": "The server will check identity, permission, status and duplicate submission again."
-    },
-    "confirmar": "Confirm operation",
-    "reciboNoValido": "The service did not return a valid receipt for the personal area.",
-    "borradorSinReferencia": "The service saved the draft but did not return its authorised reference.",
-    "operacionFallida": "The operation could not be completed.",
-    "operacionNoCompletada": "Operation not completed.",
-    "reciboAjeno": "The receipt does not belong to the enabled personal area.",
-    "recibo": {
-      "referencia": "Reference",
-      "accion": "Action",
-      "objetivo": "Target",
-      "fecha": "Date (UTC)",
-      "actor": "Actor"
-    },
-    "descargarCertificado": "Download certificate (PDF)",
-    "descargarRecibo": "Download receipt (PDF)",
-    "operacionCompletada": "Operation completed. Receipt {recibo}.",
-    "pdf": {
-      "reciboNoValido": "The document receipt is not valid.",
-      "reciboPresentacion": "A presentation receipt is not accepted here.",
-      "certificadoAjeno": "The requested certificate does not belong to the file shown.",
-      "tipoCertificado": "CERTIFICATE",
-      "tipoRecibo": "ACTION RECEIPT",
-      "titulo": "Human Resources Portal action receipt",
-      "subtitulo": "Diputación de Granada (Granada Provincial Council) · Human Resources and Internal Affairs",
-      "marca": "Document issued by the Human Resources management system",
-      "actuacion": "Action",
-      "resultado": "Result",
-      "referencia": "Procedure reference",
-      "fecha": "Date of issue (UTC)",
-      "identidad": "Acting identity",
-      "certificacionCertificado": "The certificate is issued by the authorised document service and requires its verifiable signature or seal.",
-      "certificacionRecibo": "This records the action indicated, its result and a verification reference. The authorised service must issue and keep the receipt."
-    },
-    "sinRecibo": "There is no receipt available to download.",
-    "sinGenerador": "The authorised document generator is not available.",
-    "sinDocumento": "No document has been generated.",
-    "certificadoPreparado": "Certificate PDF ready to download.",
-    "reciboPreparado": "Receipt PDF ready to download.",
-    "certificadoFallido": "The certificate PDF could not be generated.",
-    "reciboFallido": "The receipt PDF could not be generated.",
-    "sinDescarga": "No document has been downloaded.",
     "lectura": {
       "aviso": "Reading private files aloud requires an approved connector and policy. See the text guide in Help.",
       "anuncio": "Read-aloud not started. Opening the text guide in Help."
     },
     "respuestaAjena": "The response does not match the identity requested.",
-    "guardeBorrador": "Save the draft first and wait for the service to return its reference.",
-    "guardarBorradorDescripcion": "Save the complete draft before payment, signature and registration",
-    "pasoNoValido": "This step does not pass the checks.",
-    "revisarCampos": "You cannot continue. Check the fields indicated.",
-    "accionNoHabilitadaExpediente": "This action is not enabled for the current identity and file.",
-    "sinDeclaracion": "You must confirm the final declaration before registering the application.",
-    "sinDeclaracionAnuncio": "The application cannot be registered without the final declaration.",
     "clienteNoValido": "The injected client does not meet the personal area contract."
   },
   "operacion": {
-    "actualizar_contacto": "Update contact details",
     "incorporar_merito": "Add merit and evidence",
-    "guardar_borrador": "Save draft",
-    "calcular_autobaremo": "Calculate self-assessment",
-    "iniciar_pago": "Make payment or prove exemption",
-    "firmar_solicitud": "Sign application",
-    "registrar_solicitud": "Register application",
     "cambiar_disponibilidad": "Change availability",
-    "responder_llamamiento": "Respond to call-up",
     "presentar_subsanacion": "Submit correction",
     "presentar_alegacion": "Submit representation",
     "marcar_mensaje": "Mark message as read",
@@ -1052,12 +862,6 @@
     "accesibilidad": "Accessibility",
     "proteccionDatos": "Data protection",
     "ayuda": "Help",
-    "confirmacionNecesaria": "Confirmation required",
-    "confirmarAccion": "Confirm action",
-    "cancelar": "Cancel",
-    "resultadoOperacion": "Operation result",
-    "recibo": "Receipt",
-    "descargarPDF": "Download PDF",
     "cerrar": "Close",
     "informacionDetallada": "Detailed information",
     "detalle": "Details",

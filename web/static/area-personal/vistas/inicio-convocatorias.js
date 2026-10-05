@@ -64,8 +64,7 @@ export function renderizarConvocatorias(datos, estado) {
       && (filtroCategoria === todas || item.categoria === filtroCategoria);
   });
   const tarjetas = resultados.map((convocatoria) => {
-    const permiteSolicitud = convocatoria.estado === "Plazo abierto";
-    return `<article class="tarjeta-convocatoria"><div><div class="metadatos"><span>${escaparHTML(convocatoria.cve_bop || convocatoria.referencia)}</span>${chip(convocatoria.estado)}<span>${escaparHTML(convocatoria.categoria)}</span></div><h3>${escaparHTML(convocatoria.titulo)}</h3><p>${escaparHTML(convocatoria.descripcion)}</p><div class="metadatos"><strong>${escaparHTML(convocatoria.plazo)}</strong>${convocatoria.publicada_en ? `<span>${escaparHTML(c("publicada", { fecha: convocatoria.publicada_en }))}</span>` : ""}</div></div><div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="abrir-convocatoria" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(c("verDetalle"))}</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(c("iniciarSolicitud"))}</button>` : ""}</div></article>`;
+    return `<article class="tarjeta-convocatoria"><div><div class="metadatos"><span>${escaparHTML(convocatoria.cve_bop || convocatoria.referencia)}</span>${chip(convocatoria.estado)}<span>${escaparHTML(convocatoria.categoria)}</span></div><h3>${escaparHTML(convocatoria.titulo)}</h3><p>${escaparHTML(convocatoria.descripcion)}</p><div class="metadatos"><strong>${escaparHTML(convocatoria.plazo)}</strong>${convocatoria.publicada_en ? `<span>${escaparHTML(c("publicada", { fecha: convocatoria.publicada_en }))}</span>` : ""}</div></div><div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="abrir-convocatoria" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(c("verDetalle"))}</button></div></article>`;
   }).join("");
 
   return `${encabezadoVista(c("titulo"), c("descripcion"))}
@@ -92,8 +91,7 @@ export function renderizarDetalleConvocatoria(datos, estado) {
       : botonOperacion("solicitar_descarga", c("detalle.descargar"), { id: convocatoria.id, clase: "boton-secundario", descripcion: c("detalle.prepararDescarga", { titulo: descriptor.titulo }) });
     return `<li><span class="fecha-bloque" aria-hidden="true">${indice + 1}</span><span><strong>${escaparHTML(descriptor.titulo)}</strong><small>${escaparHTML(descriptor.aviso || c("detalle.documentoPublico"))}</small></span>${accion}</li>`;
   }).join("");
-  const permiteSolicitud = convocatoria.estado === "Plazo abierto";
-  const acciones = `<button type="button" class="boton-secundario" data-accion="volver-convocatorias">${escaparHTML(c("detalle.volver"))}</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(c("iniciarSolicitud"))}</button>` : ""}`;
+  const acciones = `<button type="button" class="boton-secundario" data-accion="volver-convocatorias">${escaparHTML(c("detalle.volver"))}</button>`;
   return `${encabezadoVista(convocatoria.titulo, convocatoria.referencia, acciones)}
     <div class="rejilla-principal"><div>
       ${panel(c("detalle.resumen"), convocatoria.descripcion, listaDatos([
