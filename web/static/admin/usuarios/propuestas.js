@@ -1,4 +1,4 @@
-import { escapar } from "./render.js?v=20261004-admin-usuarios-metadata-v1";
+import { escapar } from "./render.js?v=20261005-admin-lote-pantalla-v1";
 import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre } from "./propuestas-contratos.js?v=20261004-admin-usuarios-metadata-v1";
 /** Segunda persona: la pista de la lectura nunca sustituye el cierre autorizado. */
 export function montarPropuestas(host, { textos, contexto, bloquear, denegar, fallarLectura, cripto }) {
