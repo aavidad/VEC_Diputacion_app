@@ -214,10 +214,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",
-  analisis_recibo_descripcion:
-    "El recibo corresponde a la operación, el expediente y la versión enviados.",
   analisis_recibo_expediente: "Referencia del expediente",
-  analisis_recibo_version: "Versión resultante",
   analisis_recibo_referencia: "Justificante",
   analisis_recibo_fecha: "Fecha de confirmación",
   cobertura_titulo: "Decidir la vía de cobertura",
@@ -653,9 +650,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   analisis_error_observaciones: "Comments cannot exceed 4,000 characters or contain prohibited characters.",
   analisis_error_motivo: "Select an available reason for correction.",
   analisis_error_contrato: "Review the assessment details before continuing.",
-  analisis_recibo_descripcion: "The receipt matches the submitted operation, case and version.",
   analisis_recibo_expediente: "Case reference",
-  analisis_recibo_version: "Resulting version",
   analisis_recibo_referencia: "Receipt",
   analisis_recibo_fecha: "Confirmation date",
 
