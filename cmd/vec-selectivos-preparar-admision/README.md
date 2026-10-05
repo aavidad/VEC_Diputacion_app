@@ -144,7 +144,7 @@ Quien estaba admitido en la provisional sigue admitido. Excluirlo exigiría
 darle audiencia, y eso no forma parte de este borrador. Tampoco se pueden
 incorporar aquí las solicitudes omitidas en la provisional (ni admitidas ni
 excluidas): hay que preparar antes otra revisión de la provisional que las
-incluya. La salida queda en
+incluya (`--salida revision-provisional`). La salida queda en
 `borrador_pendiente_aprobacion`, sin datos personales, con `aprobada`,
 `publicada` y `persistida` en `false`. Queda pendiente comprobar en el
 registro que cada escrito llegó en plazo.
