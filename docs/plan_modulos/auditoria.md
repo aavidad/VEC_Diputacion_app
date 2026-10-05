@@ -82,7 +82,10 @@ AUT51 y AD190: 403 sin concesión y sin fila de origen, 200 con asiento común,
 503 con intento `error` y sin consumo, y 200 tras reiniciar. Para instalar:
 `deploy/principal/lista_sql_claude_bolsa_contacto_consulta_20261005.txt`, con la fila
 de origen AD172 y la provisión del rol v13-v16 que explica. La vista enmascarada
-sigue sin decisión propia; si se quiere auditar también, va en otro corte.
+sigue sin decisión propia; si se quiere auditar también, va en otro corte. La
+decisión firmada lleva la participación como recurso; la bolsa se comprueba por
+pertenencia en B78, no forma parte de la firma. Revisión SQL y de seguridad
+independientes: GO sobre `a0c4a4d64`.
 
 ### Corte B: descargas de borradores de Contratación temporal
 
