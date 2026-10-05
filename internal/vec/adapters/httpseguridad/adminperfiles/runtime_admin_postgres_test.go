@@ -99,7 +99,9 @@ func TestIS16RechazaAcuseAjenoIncompletoODuplicado(t *testing.T) {
 		{"otro evento", func(a *acuseIS16) { a.Referencia = "aud_v3_ap2_" + strings.Repeat("d", 32) }, false},
 		{"sin secuencia", func(a *acuseIS16) { a.Secuencia = 0 }, false},
 		{"sin huella", func(a *acuseIS16) { a.Huella = "" }, false},
-		{"fecha futura", func(a *acuseIS16) { a.RegistradaEn = ahora.Add(time.Second) }, false},
+		{"reloj SQL un segundo adelantado", func(a *acuseIS16) { a.RegistradaEn = ahora.Add(time.Second) }, true},
+		{"en el límite de tolerancia", func(a *acuseIS16) { a.RegistradaEn = ahora.Add(toleranciaRelojAcuseIS16) }, true},
+		{"fecha futura", func(a *acuseIS16) { a.RegistradaEn = ahora.Add(toleranciaRelojAcuseIS16 + time.Microsecond) }, false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			v := a
