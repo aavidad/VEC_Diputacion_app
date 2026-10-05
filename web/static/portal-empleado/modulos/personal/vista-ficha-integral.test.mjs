@@ -52,6 +52,7 @@ test("una sesión caducada en Contacto cierra toda la ficha y retira sus fuentes
   tab(ficha, "contacto").click(); await completar(); caducar();
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null); assert.equal(invalidaciones, 1); assert.equal(limpiezas, 1);
   assert.doesNotMatch(texto(raiz), /Periodo reconocido/); assert.equal(raiz.children[0].atributos.get("role"), "alert");
+  assert.match(texto(raiz), /Su sesión ha caducado. Identifíquese de nuevo para volver a ver su ficha/u);
   assert.equal(raiz.ownerDocument.activeElement, raiz.children[0]); servicios.click(); await completar(); assert.equal(lecturas, 1);
 });
 

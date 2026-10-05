@@ -43,32 +43,36 @@ export function montarVistaContactoPropio({ raiz, fetchImpl, cliente, abrirCorre
     if (!activa) return;
     const restaurarFoco = d.activeElement === actualizar;
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo; const turno = ++secuencia;
-    contenido.replaceChildren(); estado.setAttribute("role", "status"); estado.textContent = t("cargando"); actualizar.disabled = true; panel.setAttribute("aria-busy", "true");
+    contenido.replaceChildren(); estado.className = "personal-ficha-procedencia"; estado.hidden = false; estado.setAttribute("role", "status"); estado.textContent = t("cargando"); actualizar.disabled = true; panel.setAttribute("aria-busy", "true");
     try {
       const datos = await fuente.consultar({ signal: vuelo.signal });
       if (!activa || turno !== secuencia || vuelo.signal.aborted) return;
       validar(datos);
-      estado.textContent = t(datos.correos.length ? "fuente" : "vacio");
+      estado.textContent = datos.correos.length ? "" : t("vacio"); estado.hidden = datos.correos.length > 0;
       if (datos.correos.length) {
         const region = nodo(d, "div"); region.className = "tabla-contenedor personal-ficha-tabla";
         region.setAttribute("role", "region"); region.setAttribute("tabindex", "0"); region.setAttribute("aria-label", t("titulo"));
-        const tabla = nodo(d, "table"); tabla.className = "tabla-datos"; tabla.append(nodo(d, "caption", t("titulo")));
+        const tabla = nodo(d, "table"); tabla.className = "tabla-datos tabla-apilable"; tabla.append(nodo(d, "caption", t("titulo")));
         const encabezado = nodo(d, "thead"), fila = nodo(d, "tr");
         for (const clave of ["direccion", "estado", "alta"]) { const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); fila.append(th); }
         encabezado.append(fila); const filas = nodo(d, "tbody");
         for (const correo of datos.correos) {
           const fila = nodo(d, "tr");
           const fecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(correo.creado_utc));
-          fila.append(nodo(d, "td", correo.direccion), nodo(d, "td", t(correo.activo ? "activo" : correo.estado)), nodo(d, "td", fecha)); filas.append(fila);
+          const celdas = [["direccion", correo.direccion], ["estado", t(correo.activo ? "activo" : correo.estado)], ["alta", fecha]].map(([clave, valor]) => {
+            const td = nodo(d, "td", valor); td.dataset.etiqueta = t(clave); if (clave === "direccion") td.className = "correos-direccion"; return td;
+          });
+          fila.append(...celdas); filas.append(fila);
         }
         tabla.append(encabezado, filas); region.append(tabla); contenido.append(region);
       }
     } catch (error) {
       if (!activa || turno !== secuencia || vuelo.signal.aborted) return;
-      contenido.replaceChildren(); estado.setAttribute("role", "alert");
+      contenido.replaceChildren(); estado.className = "personal-ficha-mensaje"; estado.hidden = false; estado.setAttribute("role", "alert");
       const clave = error?.estado === 401 ? "sesion" : error?.estado === 403 ? "denegado" : error?.estado === 404 ? "no_configurado" : "error";
-      estado.textContent = t(clave); anunciar(estado.textContent, "error");
-      if (error?.estado === 401) alCaducarSesion();
+      estado.textContent = t(clave);
+      // Con la sesión caducada avisa la ficha al cerrarse; aquí no se anuncia dos veces.
+      if (error?.estado === 401) alCaducarSesion(); else anunciar(estado.textContent, "error");
     } finally {
       if (activa && turno === secuencia) {
         actualizar.disabled = false; panel.setAttribute("aria-busy", "false");

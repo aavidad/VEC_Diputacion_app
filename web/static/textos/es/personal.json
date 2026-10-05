@@ -468,6 +468,7 @@
     "ficha_ir_cronos": "Ir a Cronos",
     "ficha_ir_mis_correos": "Ver mis correos",
     "ficha_tab_contacto": "Contacto",
+    "ficha_sesion_caducada": "Su sesión ha caducado. Identifíquese de nuevo para volver a ver su ficha.",
     "ficha_contacto_ayuda": "Consulte sus correos registrados. Para añadirlos, verificarlos o elegir el preferido para avisos, abra Gestionar mis correos.",
     "ficha_mis_correos_destino": "Abre Mis preferencias, donde puede consultar y gestionar sus correos.",
     "ficha_catalogos_titulo": "Catálogos y estructura de referencia",

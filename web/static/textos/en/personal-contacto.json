@@ -3,16 +3,15 @@
   "direccion": "Email address",
   "estado": "Status",
   "alta": "Added on",
-  "activo": "Verified · For notifications",
+  "activo": "Verified. Receives notifications",
   "verificado": "Verified",
   "pendiente": "Awaiting verification",
   "actualizar": "Refresh",
   "gestionar": "Manage my email addresses",
   "cargando": "Loading your email addresses…",
-  "fuente": "Source: My email addresses. The date shows when each address was added.",
-  "vacio": "You have no registered addresses. You can add them in My preferences.",
+  "vacio": "You have no registered email addresses. Select Manage my email addresses to add one.",
   "sesion": "Your session has expired. Sign in again to view your email addresses.",
-  "denegado": "Your active profile does not allow this query.",
-  "no_configurado": "The email query is not connected. Contact IT.",
-  "error": "Your email addresses could not be loaded. Select Refresh to try again."
+  "denegado": "You cannot view your email addresses with your active profile. Switch profile or, if you think this is a mistake, contact IT.",
+  "no_configurado": "Your email addresses cannot be viewed right now. Contact IT.",
+  "error": "Your email addresses could not be loaded. Select Refresh. If it keeps happening, contact IT."
 }

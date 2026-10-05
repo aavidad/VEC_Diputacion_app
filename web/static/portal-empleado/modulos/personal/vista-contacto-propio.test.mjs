@@ -29,7 +29,7 @@ test("consulta sólo el GET interno de Usuarios, muestra la fecha de alta y no e
   assert.equal(llamadas[0].opciones.method, "GET"); assert.equal(llamadas[0].opciones.body, undefined);
   assert.equal(llamadas[0].opciones.credentials, "same-origin"); assert.equal(llamadas[0].opciones.cache, "no-store");
   assert.equal(llamadas[0].opciones.redirect, "error"); assert.equal(llamadas[0].opciones.referrerPolicy, "no-referrer");
-  assert.match(texto(raiz), /carmen.ruiz@example.org/); assert.match(texto(raiz), /Fecha de alta/); assert.match(texto(raiz), /Para avisos/);
+  assert.match(texto(raiz), /carmen.ruiz@example.org/); assert.match(texto(raiz), /Fecha de alta/); assert.match(texto(raiz), /Recibe los avisos/);
   assert.doesNotMatch(texto(raiz), /correo:|persona:|Empleado|certificado/i);
 });
 
@@ -42,7 +42,7 @@ test("actualizar retira las direcciones antes de consultar y un rechazo no conse
   const actualizar = nodos(raiz).find(n => Object.hasOwn(n.dataset, "personalContactoActualizar"));
   const intento = actualizar.click(); assert.doesNotMatch(texto(raiz), /carmen.ruiz@example.org/);
   siguiente({ estado: 403 }); await intento;
-  assert.match(texto(raiz), /perfil activo/); assert.doesNotMatch(texto(raiz), /carmen.ruiz@example.org/); assert.equal(actualizar.disabled, false);
+  assert.match(texto(raiz), /perfil que tiene activo/); assert.doesNotMatch(texto(raiz), /carmen.ruiz@example.org/); assert.equal(actualizar.disabled, false);
 });
 
 test("al desmontar cancela el transporte y descarta una respuesta tardía de otro contexto", async () => {
@@ -59,4 +59,27 @@ test("una sesión caducada retira datos y avisa al shell; un conjunto inválido 
   const invalida = raizFalsa();
   montarVistaContactoPropio({ raiz: invalida, cliente: { consultar: async () => ({ ...datos, correos: [correo, { ...correo, direccion: "luis.martin@example.org" }] }) } }); await completar();
   assert.doesNotMatch(texto(invalida), /carmen.ruiz@example.org|luis.martin@example.org/); assert.match(texto(invalida), /No se han podido/);
+});
+
+test("en el móvil cada fila se apila con su etiqueta y la dirección larga se parte", async () => {
+  const raiz = raizFalsa();
+  montarVistaContactoPropio({ raiz, cliente: { consultar: async () => datos } }); await completar();
+  const tabla = nodos(raiz).find(n => n.tagName === "table");
+  assert.equal(tabla.className, "tabla-datos tabla-apilable");
+  const celdas = nodos(tabla).filter(n => n.tagName === "td");
+  assert.deepEqual(celdas.map(c => c.dataset.etiqueta), ["Dirección", "Estado", "Fecha de alta"]);
+  assert.equal(celdas[0].className, "correos-direccion");
+  const estado = nodos(raiz).find(n => Object.hasOwn(n.dataset, "personalContactoEstado"));
+  assert.equal(estado.textContent, ""); assert.equal(estado.hidden, true);
+});
+
+test("un rechazo se muestra como aviso y se anuncia; la sesión caducada la anuncia sólo la ficha", async () => {
+  const anuncios = [];
+  const raiz = raizFalsa();
+  montarVistaContactoPropio({ raiz, anunciar: (t) => anuncios.push(t), cliente: { consultar: async () => { throw { estado: 403 }; } } }); await completar();
+  const estado = nodos(raiz).find(n => Object.hasOwn(n.dataset, "personalContactoEstado"));
+  assert.equal(estado.className, "personal-ficha-mensaje"); assert.equal(estado.hidden, false); assert.equal(anuncios.length, 1);
+  const caducada = raizFalsa(); let avisos = 0;
+  montarVistaContactoPropio({ raiz: caducada, anunciar: () => { avisos += 1; }, alCaducarSesion: () => {}, cliente: { consultar: async () => { throw { estado: 401 }; } } }); await completar();
+  assert.equal(avisos, 0);
 });

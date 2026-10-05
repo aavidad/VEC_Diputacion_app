@@ -210,7 +210,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     try { for (const fuente of Object.values(fuentes)) fuente?.actualizar?.(); }
     finally {
       desmontar();
-      const aviso = mensaje(d, traducirExportacionServicios("sesion_caducada"), "alert"); aviso.setAttribute("tabindex", "-1");
+      const aviso = mensaje(d, t("ficha_sesion_caducada"), "alert"); aviso.setAttribute("tabindex", "-1");
       raiz.append(aviso); aviso.focus?.(); anunciar(aviso.textContent, "error");
     }
   };

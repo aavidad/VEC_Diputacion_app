@@ -468,6 +468,7 @@
     "ficha_ir_cronos": "Go to Cronos",
     "ficha_ir_mis_correos": "View my email addresses",
     "ficha_tab_contacto": "Contact",
+    "ficha_sesion_caducada": "Your session has expired. Sign in again to view your record.",
     "ficha_contacto_ayuda": "View your registered email addresses. To add or verify an address or choose one for notifications, open Manage my email addresses.",
     "ficha_mis_correos_destino": "Opens My preferences, where you can view and manage your email addresses.",
     "ficha_catalogos_titulo": "Reference catalogues and structure",
