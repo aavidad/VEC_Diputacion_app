@@ -114,9 +114,17 @@ El recurso es la participación o la bolsa. El servicio distingue ya la
 denegación explícita del emisor V3 de un fallo técnico. Las dos rutas toman la
 correlación de la petición; el registro de contactos y la página RRHH de la
 bolsa conservan la suya. Ninguna orden lleva correo, teléfonos ni anotaciones.
-La consulta de datos de contacto (`datos-contacto`, también con
-`?ver=completo`) queda fuera: hoy no consume V3 ni tiene acción, finalidad o
-motivo de consulta propios, y crearlos es una decisión de permisos pendiente.
+La consulta completa de datos de contacto (`datos-contacto?ver=completo`, que
+devuelve correo y teléfonos en claro) tiene desde el corte C su propia acción,
+`bolsa.datos_contacto_participacion.consultar`, con finalidad
+`consulta_datos_contacto_participacion`, motivo en un catálogo aparte y la
+participación como recurso. B78 consume la decisión (AD197) en la misma
+transacción que lee el sobre cifrado, y el caso de uso descifra antes del
+COMMIT: si no puede entregar el claro, no queda consumo. La respuesta publica
+el asiento en `X-Audit-Ref`. Denegaciones y errores van al registrador AD169
+como en el corte A. La ruta GET ya no admite la acción de registro. La vista
+enmascarada (sin `?ver=completo`) no cambia: devuelve la forma enmascarada y el
+origen sin decisión propia ni asiento común.
 
 La lista B5 de aspirantes combina lectores y staging, sin consumo nominal único
 acreditado en este inventario. No se la presenta como cubierta por un decorador
