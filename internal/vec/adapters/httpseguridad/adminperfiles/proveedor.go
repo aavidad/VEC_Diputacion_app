@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type Proveedor struct {
@@ -27,6 +27,9 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 		config.PoliticaAdministracion != h.PoliticaAdministracionCertificadoTemporal ||
 		nulo(deps.Cuentas) || nulo(deps.Registro) || nulo(deps.Revalidador) ||
 		nulo(deps.Contextos) || nulo(deps.Autorizacion) || nulo(deps.Reloj) {
+		return nil, api.ErrConfiguracionIncompleta
+	}
+	if _, ok := deps.Cuentas.(FuenteCuentasADMINConAcuse); !ok {
 		return nil, api.ErrConfiguracionIncompleta
 	}
 	config.RedesPermitidas = append([]string(nil), config.RedesPermitidas...)
@@ -104,10 +107,19 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 		auditoria.Superficie() != h.SuperficieAdministracionPrivilegiada {
 		return vacia, api.ErrAccesoDenegado
 	}
-	if err = p.deps.Cuentas.VincularSesionADMIN(ctx, o, cuenta, ReferenciasSesionADMIN{
+	conAcuse, ok := p.deps.Cuentas.(FuenteCuentasADMINConAcuse)
+	if !ok {
+		return vacia, api.ErrConfiguracionIncompleta
+	}
+	ligadura, err := conAcuse.VincularSesionADMINConAcuse(ctx, o, cuenta, ReferenciasSesionADMIN{
 		AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef(),
-	}); err != nil {
+	})
+	if err != nil {
 		return vacia, errorAutoridad(err)
+	}
+	ctx, err = ContextoConVinculoSesionADMIN(ctx, ligadura)
+	if err != nil {
+		return vacia, api.ErrConfiguracionIncompleta
 	}
 	vinculo, resultado, err := domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, p.deps.Revalidador,
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},
@@ -148,7 +160,7 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 	if _, _, err = identidad.ProyectarCuentaAutenticada(ctx, sesion); err != nil {
 		return vacia, api.ErrAccesoDenegado
 	}
-	correlacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil || ctx.Err() != nil {
 		return vacia, api.ErrConfiguracionIncompleta
 	}

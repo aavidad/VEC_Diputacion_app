@@ -196,6 +196,7 @@ type Config struct {
 	CTPreimagenesPerfilesRRHH                   string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
+	PortalModulosVisiblesLista                  string
 	FirmaVerificacionEnabled                    string
 	FirmaVerificacionURL                        string
 	FirmaVerificacionCAFile                     string
@@ -317,6 +318,7 @@ func Load() Config {
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
 		DocumentosEnabled:                  envFirst(EnvDocumentosEnabled),
+		PortalModulosVisiblesLista:         envFirst(EnvPortalModulosVisibles),
 		FirmaVerificacionEnabled:           envFirst(EnvFirmaVerificacionEnabled),
 		FirmaVerificacionURL:               envFirst(EnvFirmaVerificacionURL),
 		FirmaVerificacionCAFile:            envFirst(EnvFirmaVerificacionCAFile),
@@ -464,6 +466,7 @@ func (c Config) Normalize() Config {
 	c.CTPreimagenesPerfilesRRHH = strings.TrimSpace(c.CTPreimagenesPerfilesRRHH)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
+	c.PortalModulosVisiblesLista = strings.TrimSpace(c.PortalModulosVisiblesLista)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)
 	c.FirmaVerificacionURL = strings.TrimSpace(c.FirmaVerificacionURL)
 	c.FirmaVerificacionCAFile = strings.TrimSpace(c.FirmaVerificacionCAFile)

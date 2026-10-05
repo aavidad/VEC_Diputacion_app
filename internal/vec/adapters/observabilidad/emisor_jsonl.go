@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -44,6 +46,9 @@ var ErrDestinoIncidenciasAusente = errors.New("observabilidad: destino de incide
 
 // OpcionesEmisor configura un EmisorJSONLines.
 type OpcionesEmisor struct {
+	// Catalogo es una instantánea validada. Nil usa el catálogo embebido
+	// seleccionado por el índice común de idiomas.
+	Catalogo *catalogoincidencias.Catalogo
 	// Destino recibe líneas JSON completas, una llamada Write por línea.
 	Destino io.Writer
 	// Capacidad de la cola; 0 usa la predeterminada y se acota a CapacidadMaxima.
@@ -72,6 +77,7 @@ type elementoCola struct {
 // EmisorJSONLines es seguro para uso concurrente. Un puntero nil es un
 // emisor inerte válido: Emitir no hace nada.
 type EmisorJSONLines struct {
+	catalogo  *catalogoincidencias.Catalogo
 	destino   io.Writer
 	entorno   domain.EntornoIncidenciaTecnica
 	version   string
@@ -117,6 +123,17 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 	if o.Destino == nil {
 		return nil, ErrDestinoIncidenciasAusente
 	}
+	catalogo := o.Catalogo
+	if catalogo == nil {
+		var err error
+		catalogo, err = catalogoincidencias.Predeterminado()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !catalogo.Valido() {
+		return nil, os.ErrInvalid
+	}
 	capacidad := o.Capacidad
 	if capacidad <= 0 {
 		capacidad = CapacidadPredeterminada
@@ -137,6 +154,7 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 		periodo = PeriodoInformeDescartesPredeterminado
 	}
 	e := &EmisorJSONLines{
+		catalogo:  catalogo,
 		destino:   o.Destino,
 		entorno:   domain.NormalizarEntornoIncidenciaTecnica(o.Entorno),
 		version:   domain.NormalizarVersionBinario(o.VersionBinario),
@@ -304,6 +322,11 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 		}
 	}
 	incidencia := domain.NuevaIncidenciaTecnica(c, instante, e.entorno, e.version, correlacion)
+	plantilla, ok := e.catalogo.Plantilla(incidencia.Codigo)
+	if !ok {
+		e.fallosEscritura.Add(1)
+		return
+	}
 	linea := lineaIncidencia{
 		Esquema:        incidencia.Esquema,
 		Instante:       incidencia.Instante.Format(formatoInstante),
@@ -315,7 +338,7 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 		VersionBinario: incidencia.VersionBinario,
 		Correlacion:    incidencia.Correlacion,
 		Recuento:       incidencia.Recuento,
-		Mensaje:        incidencia.Mensaje,
+		Mensaje:        plantilla,
 	}
 	datos, err := json.Marshal(linea)
 	if err != nil {

@@ -17,6 +17,39 @@ export function decimalPuntos(micro) {
   return String(micro / 1000000);
 }
 
+/** Sólo notas de las solicitudes y pruebas que aporta el ejemplo del servidor. */
+export function validarNotasEjemplo(ejemplo) {
+  const notas = ejemplo.notas_prueba ?? [];
+  if (!Array.isArray(notas) || notas.length > 128) throw new Error('seleccion.notas');
+  const pares = new Set();
+  for (const nota of notas) {
+    const fase = ejemplo.configuracion.fases.find(f => f.referencia === nota?.fase_ref);
+    const par = `${nota?.solicitud_ref}\0${nota?.fase_ref}`;
+    if (!cadena(nota?.solicitud_ref) || !cadena(nota?.nombre) || !fase || fase.tipo !== 'prueba'
+      || pares.has(par) || !Object.hasOwn(nota, 'puntos_micropuntos')
+      || !(nota.puntos_micropuntos === null || (entero(nota.puntos_micropuntos)
+        && nota.puntos_micropuntos <= fase.maximo_micropuntos))) throw new Error('seleccion.notas');
+    pares.add(par);
+  }
+  return notas;
+}
+
+export function validarNotasPropuestas(ejemplo, configuracion, propuestas) {
+  const notas = validarNotasEjemplo(ejemplo); const errores = []; const pares = new Set();
+  for (const nota of propuestas) {
+    const indice = notas.findIndex(n => n.solicitud_ref === nota.solicitud_ref && n.fase_ref === nota.fase_ref);
+    const fase = configuracion.fases.find(f => f.referencia === nota.fase_ref);
+    const par = `${nota.solicitud_ref}\0${nota.fase_ref}`;
+    if (indice < 0 || !fase || fase.tipo !== 'prueba' || pares.has(par)
+      || !(nota.puntos_micropuntos === null || (entero(nota.puntos_micropuntos)
+        && nota.puntos_micropuntos <= fase.maximo_micropuntos))) {
+      errores.push({ campo: `seleccion-nota-${Math.max(0, indice)}`, clave: 'validacion.nota' });
+    }
+    pares.add(par);
+  }
+  return errores;
+}
+
 export function validarConfiguracion(configuracion) {
   const c = configuracion; const errores = [];
   if (!MODALIDADES.includes(c?.modalidad)) errores.push({ campo: 'seleccion-ejemplo', clave: 'validacion.modalidad' });
@@ -48,6 +81,7 @@ export function validarEjemplos(datos) {
       || c.fases.some(f => !cadena(f.referencia) || !['prueba', 'meritos'].includes(f.tipo) || !entero(f.maximo_micropuntos) || f.maximo_micropuntos < 1 || f.maximo_micropuntos > 1000000000)
       || new Set(c.fases.map(f => f.referencia)).size !== c.fases.length) throw new Error('seleccion.catalogo');
     referencias.add(ejemplo.referencia);
+    validarNotasEjemplo(ejemplo);
   }
   return datos.ejemplos;
 }
@@ -79,7 +113,7 @@ export function validarResultado(r, datos) {
         || f.minimo_micropuntos !== c.fases[i].minimo_micropuntos || f.maximo_micropuntos !== c.fases[i].maximo_micropuntos
         || !(f.puntos_micropuntos === null || entero(f.puntos_micropuntos))
         || !['superada', 'no_superada', 'pendiente'].includes(f.estado)
-        || !['prueba_embebida', 'motor_bolsa'].includes(f.origen)
+        || !['prueba_embebida', 'prueba_editada', 'motor_bolsa'].includes(f.origen)
         || !Array.isArray(f.reglas) || f.reglas.length > 256
         || f.reglas.some(regla => !cadena(regla.referencia) || !entero(regla.puntos_micropuntos)))) throw new Error('seleccion.resultado');
     referencias.add(s.referencia);

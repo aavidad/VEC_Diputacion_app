@@ -1,0 +1,8 @@
+{
+  "cadena_id": "cadena:sintetica:ad173",
+  "primera_secuencia": 1,
+  "ultima_secuencia": 5,
+  "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "cabeza_sha256": "8feed05f4839d28e621d3694ab3e30440e80f98c1649a4a70e0c3d2b97554ce1",
+  "registros": 5
+}

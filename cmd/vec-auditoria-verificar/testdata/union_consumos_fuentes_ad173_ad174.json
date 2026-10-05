@@ -1,0 +1,217 @@
+{
+  "esquema": "vec.auditoria.verificacion.fuentes-iniciales.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:ad173",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 9,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "626311d1f95fbeac62e92f0ccb1bddf3d89a48a622a0e28891e816252d5843af",
+    "registros": 9
+  },
+  "registros": [
+    {
+      "tipo_registro": "consumo_confirmado",
+      "consumo": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 1,
+        "decision_ref": "decision:ad173:1",
+        "efecto_ref": "efecto:ad173:1",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "huella_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v2",
+      "consumo": {
+        "auditoria_ref": "aud_v3_cccccccccccccccccccccccccccccccc",
+        "secuencia": 2,
+        "decision_ref": "decision:ad173:2",
+        "efecto_ref": "efecto:ad173:2",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7",
+        "consumo_huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v3",
+      "consumo": {
+        "auditoria_ref": "aud_v3_dddddddddddddddddddddddddddddddd",
+        "secuencia": 3,
+        "decision_ref": "decision:ad173:3",
+        "efecto_ref": "efecto:ad173:3",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95",
+        "consumo_huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "2026-10-03T12:34:56.123456Z",
+        "consumida_en": "2026-10-03T12:34:56.123456Z",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbb",
+        "finalidad_ref": "gestion_personal",
+        "huella_sha256": "1fd09b6a02575affc13f73bb77df2fe9ea4f797d711063a13d97e280afb3d034"
+      }
+    },
+    {
+      "tipo_registro": "provision_fuentes_iniciales_admin",
+      "fuentes_iniciales": {
+        "evento_ref": "evento_00000000000000000000000000000001",
+        "operador_login": "operador_fuentes_sintetico",
+        "plan_ref": "plan_fuentes:ad174:1",
+        "plan_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "preimagen_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "configuracion_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "aprobacion_ref": "aprobacion:ad174:1",
+        "alcance_fuente": "sintetico_declarado",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "plan_fuentes:ad174:1",
+        "resultado": "permitido",
+        "motivo_ref": "admin.fuentes.permitido",
+        "proceso": "fuentes_sinteticas",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000000001",
+        "fuente_ref": "recibos_fuentes:ad174:1",
+        "fuente_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "auditoria_ref": "aud_v3_f_00000000000000000000000000000001",
+        "secuencia": 4,
+        "anterior_sha256": "1fd09b6a02575affc13f73bb77df2fe9ea4f797d711063a13d97e280afb3d034",
+        "huella_sha256": "5ad7efbd3c2be73fa1e5165293b17b39c8fbfda92bd378f71349e43c4438623b",
+        "registrada_en": "2026-10-03T21:00:00.123456Z",
+        "evento_material_sha256": "534bb859b593e9311143555caf163ba942bf8689889cef7d1ee81a51cefd0ef5",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "provision_fuentes_iniciales_admin",
+      "fuentes_iniciales": {
+        "evento_ref": "evento_00000000000000000000000000000002",
+        "operador_login": "operador_ámbito_sintético",
+        "plan_ref": "plan_fuentes:ad174:2",
+        "plan_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "preimagen_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "configuracion_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "aprobacion_ref": "aprobacion:ad174:2",
+        "alcance_fuente": "sintetico_declarado",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "plan_fuentes:ad174:2",
+        "resultado": "permitido",
+        "motivo_ref": "admin.fuentes.permitido",
+        "proceso": "fuentes_sinteticas",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000000002",
+        "fuente_ref": "recibos_fuentes:ad174:2",
+        "fuente_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "auditoria_ref": "aud_v3_f_00000000000000000000000000000002",
+        "secuencia": 5,
+        "anterior_sha256": "5ad7efbd3c2be73fa1e5165293b17b39c8fbfda92bd378f71349e43c4438623b",
+        "huella_sha256": "e540583c47b99a8ab7a4d8af33dc8325c7ed13bd3a2bce45e01bf94e3705bfef",
+        "registrada_en": "2026-10-03T21:00:00.123456Z",
+        "evento_material_sha256": "231c70e826293a7e53cad01a2090b17ae4a12009d25784744a99d6ab77568873",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_fuentes_iniciales_admin",
+      "intento_fuentes_iniciales": {
+        "evento_ref": "evento_000000000000000000000000000043f9",
+        "operador_login": "operador_fuentes_sintetico",
+        "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "solicitud_fuentes:00000000000000000000000000000001",
+        "resultado": "permitido",
+        "motivo_ref": "fuentes_registradas",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000043f9",
+        "auditoria_ref": "aud_v3_fi_000000000000000000000000000043f9",
+        "secuencia": 6,
+        "anterior_sha256": "e540583c47b99a8ab7a4d8af33dc8325c7ed13bd3a2bce45e01bf94e3705bfef",
+        "huella_sha256": "6d746e3d0d967c785718d0aea2aa11d7201f3584517eff8f10929f630bfd7b69",
+        "registrada_en": "2026-10-03T21:00:01.123456Z",
+        "evento_material_sha256": "ea99a77e81e7cd2bfb45763a765c35634bfaa908eae5432ada1bf0da99d34710",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_fuentes_iniciales_admin",
+      "intento_fuentes_iniciales": {
+        "evento_ref": "evento_000000000000000000000000000043fa",
+        "operador_login": "operador_ámbito_sintético",
+        "solicitud_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "solicitud_fuentes:00000000000000000000000000000002",
+        "resultado": "permitido",
+        "motivo_ref": "fuentes_replay",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000043fa",
+        "auditoria_ref": "aud_v3_fi_000000000000000000000000000043fa",
+        "secuencia": 7,
+        "anterior_sha256": "6d746e3d0d967c785718d0aea2aa11d7201f3584517eff8f10929f630bfd7b69",
+        "huella_sha256": "1403884b6dfc745a77836ccf1d61bd088811835e3aaaf43f966ad56de9c16191",
+        "registrada_en": "2026-10-03T21:00:01.123456Z",
+        "evento_material_sha256": "e0d478de107b10ab6195cef641b19bc34e9fe1584cb2a8f55248aa73d1dbcb13",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_fuentes_iniciales_admin",
+      "intento_fuentes_iniciales": {
+        "evento_ref": "evento_000000000000000000000000000043fb",
+        "operador_login": "operador_fuentes_sintetico",
+        "solicitud_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "solicitud_fuentes:00000000000000000000000000000003",
+        "resultado": "denegado",
+        "motivo_ref": "fuentes_denegadas",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000043fb",
+        "auditoria_ref": "aud_v3_fi_000000000000000000000000000043fb",
+        "secuencia": 8,
+        "anterior_sha256": "1403884b6dfc745a77836ccf1d61bd088811835e3aaaf43f966ad56de9c16191",
+        "huella_sha256": "7fb63195519480d9790f6c043b5c5170c451df1b3d6c50ee067d676296319a42",
+        "registrada_en": "2026-10-03T21:00:01.123456Z",
+        "evento_material_sha256": "4901344da7871d63d1e41964bc499da49666b92986bc300ca04cf898a304f89f",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_fuentes_iniciales_admin",
+      "intento_fuentes_iniciales": {
+        "evento_ref": "evento_000000000000000000000000000043fc",
+        "operador_login": "operador_fuentes_sintetico",
+        "solicitud_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "accion": "provisionar_fuentes_iniciales_admin_v1",
+        "recurso_ref": "solicitud_fuentes:00000000000000000000000000000004",
+        "resultado": "error",
+        "motivo_ref": "fuentes_error",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "provision_fuentes_iniciales_admin",
+        "correlacion_ref": "correlacion_000000000000000000000000000043fc",
+        "auditoria_ref": "aud_v3_fi_000000000000000000000000000043fc",
+        "secuencia": 9,
+        "anterior_sha256": "7fb63195519480d9790f6c043b5c5170c451df1b3d6c50ee067d676296319a42",
+        "huella_sha256": "626311d1f95fbeac62e92f0ccb1bddf3d89a48a622a0e28891e816252d5843af",
+        "registrada_en": "2026-10-03T21:00:01.123456Z",
+        "evento_material_sha256": "fc998352e04aea5a89a8551e930844530ea0e0cd4f85ed075d30cb8d47b1c400",
+        "modulo_id": "administracion"
+      }
+    }
+  ]
+}

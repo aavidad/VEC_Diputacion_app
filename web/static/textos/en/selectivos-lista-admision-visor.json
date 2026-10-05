@@ -1,0 +1,124 @@
+{
+  "titulo": "Lists of admitted and excluded applicants",
+  "contexto": "Selection processes · Admission",
+  "portal": "HR Portal",
+  "organizacion": "Diputación de Granada",
+  "saltar": "Skip to content",
+  "navegacion": "Lists of admitted and excluded applicants",
+  "idioma": "Language",
+  "ayuda_signo": "?",
+  "ayuda": "Help for this screen",
+  "ayuda_pasos": {
+    "1": "Prepare the provisional or final list with the admission preparer and open it in \"Open prepared list\".",
+    "2": "In the provisional list, each excluded application shows its reasons and whether it can be corrected. If one reason cannot be corrected, the applicant stays excluded even after correcting the others.",
+    "3": "In the final list, each admitted application shows whether it was already admitted or got in after a correction or complaint, and each excluded one shows the remaining reasons and what was decided.",
+    "4": "The list is a draft: it is neither approved nor published, and shows no names until publication. The file is only opened on this device and is removed when you close it or leave."
+  },
+  "abrir": "Open prepared list",
+  "archivo": "List file · Required",
+  "archivo_pista": "The .json file produced by admission preparation. Up to 8 MB.",
+  "vacio": "Open a list to review it.",
+  "cargando": "Reading the file…",
+  "cargado": "List opened.",
+  "descargar": "Download opened file",
+  "cerrar": "Close file",
+  "descarga_lista": "Download prepared with the original file.",
+  "nombre_descarga": "admission-list-original.json",
+  "error_tamano": "The file cannot be opened: it is empty or larger than 8 MB. Choose the file produced by admission preparation.",
+  "error_formato": "The file cannot be opened: it is not a list from the admission preparer. Generate it again and select it.",
+  "error_catalogo": "The texts could not be loaded. Reload the screen before opening a file.",
+  "resumen": "List summary",
+  "kpi": {
+    "solicitudes": "Applications",
+    "admitidas": "Admitted",
+    "excluidas": "Excluded",
+    "subsanables": "Can correct",
+    "tras_escrito": "Of which, after correction or complaint"
+  },
+  "estado_borrador": "Draft · Pending approval",
+  "catalogo_ejemplo": "Example reasons and deadline",
+  "plazo": "Correction period",
+  "plazo_duracion": "Duration",
+  "unidades": {
+    "dias_habiles": {
+      "one": "{cuenta} working day",
+      "other": "{cuenta} working days"
+    },
+    "dias_naturales": {
+      "one": "{cuenta} calendar day",
+      "other": "{cuenta} calendar days"
+    },
+    "meses": {
+      "one": "{cuenta} month",
+      "other": "{cuenta} months"
+    },
+    "anios": {
+      "one": "{cuenta} year",
+      "other": "{cuenta} years"
+    }
+  },
+  "plazo_inicio": "Starts",
+  "plazo_inicio_valor": "The day after publication",
+  "plazo_ultimo_dia": "Last day",
+  "plazo_ultimo_dia_valor": "Calculated on publication",
+  "excluidas": "Excluded",
+  "admitidas": "Admitted",
+  "recuento": {
+    "one": "{cuenta} application",
+    "other": "{cuenta} applications"
+  },
+  "sin_excluidas": "There are no excluded applications.",
+  "sin_admitidas": "There are no admitted applications.",
+  "solicitud": "Application no.",
+  "motivos": "Exclusion reasons",
+  "subsanacion": "Correction",
+  "motivo_sin_texto": "Reason \"{codigo}\" has no text in this language",
+  "puede_subsanar": "Can correct",
+  "no_puede_subsanar": "Cannot correct",
+  "que_falta": "What is missing before publication",
+  "pendientes": {
+    "aprobacion_competente": "Approval of the list by the competent body.",
+    "identidad_publicacion": "Name, surnames and masked document of each applicant, sorted by surname.",
+    "vencimiento_al_publicar": "Calculation of the last day for corrections, from the day after publication.",
+    "publicacion_oficial": "Publication in the official gazette and on the site set by the call rules.",
+    "catalogo_ejemplo": "Replace the example reasons and deadline with the ones HR confirms."
+  },
+  "detalle_archivo": "File data",
+  "ver_detalle": "View technical details",
+  "lista_ref": "List reference",
+  "revision": "Revision",
+  "catalogo_ref": "Reason catalogue",
+  "catalogo_version": "Catalogue version",
+  "bases_ref": "Call rules",
+  "bases_version": "Call rules version",
+  "huella_bases": "Call rules fingerprint",
+  "motivo_no_subsanable": "{motivo} (cannot be corrected)",
+  "tipo_provisional": "Provisional list",
+  "tipo_definitiva": "Final list",
+  "motivos_persistentes": "Remaining reasons",
+  "resolucion": "Decision",
+  "resoluciones": {
+    "no_presentada": "No correction or complaint filed",
+    "desestimada_subsanacion": "Correction rejected",
+    "desestimada_reclamacion": "Complaint rejected"
+  },
+  "origen": "How it was admitted",
+  "origenes": {
+    "provisional": "Already in the provisional list",
+    "subsanacion": "After correction",
+    "reclamacion": "After complaint"
+  },
+  "pendientes_definitiva": {
+    "aprobacion_competente": "Approval of the final list by the competent body.",
+    "pie_recursos": "State in the decision the available appeals, the body that hears them and the deadline.",
+    "ultima_revision": "Check that the provisional list it starts from is the latest published revision.",
+    "registro_escritos": "Check that every correction or complaint was registered within the deadline.",
+    "identidad_publicacion": "Name, surnames and masked document of each applicant, sorted by surname.",
+    "publicacion_oficial": "Publication in the official gazette and on the site set by the call rules.",
+    "catalogo_ejemplo": "Replace the example reasons with the ones HR confirms."
+  },
+  "provisional_ref": "Provisional list it comes from",
+  "provisional_revision": "Provisional list revision",
+  "huella_provisional": "Provisional list fingerprint",
+  "catalogo_ejemplo_definitiva": "Example reasons"
+}

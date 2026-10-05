@@ -1,0 +1,10 @@
+{
+  "aviso_sintetico": "Ensayo con datos sintéticos y sobre autenticado. No consume permisos V3 reales, no conserva una aceptación durable ni ejecuta copias o restauraciones.",
+  "argumentos_invalidos": "Indique los archivos de configuración y textos con --config y --textos; envíe la entrada JSON por la entrada estándar.",
+  "catalogo_invalido": "No se ha podido leer el catálogo de textos.",
+  "entrada_invalida": "Revise la entrada sintética y la secuencia de pasos.",
+  "orden_invalida": "La orden está incompleta o sus compromisos no son válidos.",
+  "orden_denegada": "El sobre autenticado, la vigencia o el anclaje actual no permiten aceptar la orden.",
+  "salida_fallida": "No se ha podido escribir el resultado.",
+  "configuracion_invalida": "Revise la configuración privada y el material existente del proveedor de claves."
+}

@@ -1,0 +1,7 @@
+{
+  "tasa_no_justificada": "Payment of the examination fee is not proven.",
+  "solicitud_no_cumplimentada": "The application was not submitted or not completed.",
+  "documento_identidad_no_aportado": "The identity document is missing or expired.",
+  "titulacion_no_acreditada": "The qualification required by the call is not proven.",
+  "solicitud_fuera_de_plazo": "The application was submitted after the deadline."
+}

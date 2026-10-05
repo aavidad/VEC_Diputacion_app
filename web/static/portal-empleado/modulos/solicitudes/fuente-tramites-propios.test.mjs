@@ -78,6 +78,66 @@ test("Dietas omite metadatos ausentes y no fabrica un recibo", async () => {
   assert.equal(Object.hasOwn(resultado.items[0].comision, "version"), false);
 });
 
+function dietasDevuelta() {
+  const original = dietas();
+  Object.assign(original.items[0].comision, { estado: "devuelta", version: 4,
+    devolucion: { etapa: "revision", motivo: "Corrige el recorrido declarado.", version: 3, devuelta_en: "2026-10-03T10:00:00.123456Z" } });
+  return original;
+}
+
+test("Dietas conserva la devolución propia exacta, separada del motivo de la comisión e inmutable", async () => {
+  const original = dietasDevuelta();
+  const resultado = await crearFuenteTramitesPropios({ listarComisiones: async () => original }).consultarDietas();
+  const comision = resultado.items[0].comision;
+  assert.equal(comision.estado, "devuelta");
+  assert.deepEqual(comision.devolucion, original.items[0].comision.devolucion);
+  assert.deepEqual(Object.keys(comision.devolucion), ["etapa", "motivo", "version", "devuelta_en"]);
+  assert.ok(Object.isFrozen(comision.devolucion));
+  assert.deepEqual(resultado.items[0].recibo, { referencia: `rcd_${"c".repeat(22)}`, version: 3,
+    registrado_en: "2026-10-01T10:00:00.123456Z", repeticion: false });
+  assert.doesNotMatch(JSON.stringify(resultado), /Dato reservado|relacion_ref|persona reservada|plazo|vencimiento/);
+  original.items[0].comision.devolucion.motivo = "Alterado";
+  assert.equal(comision.devolucion.motivo, "Corrige el recorrido declarado.");
+  assert.throws(() => comision.devolucion.version = 4, TypeError);
+});
+
+test("la devolución respeta etapas, estado en corrección y texto sin transformarlo en HTML ni plazo", async () => {
+  for (const estado of ["devuelta", "borrador"]) for (const etapa of ["revision", "autorizacion", "liquidacion", "fiscalizacion"]) {
+    const original = dietasDevuelta();
+    original.items[0].comision.estado = estado;
+    Object.assign(original.items[0].comision.devolucion, { etapa, motivo: '<img src=x onerror="alert(1)"> & \'', version: 4 });
+    const resultado = await crearFuenteTramitesPropios({ listarComisiones: async () => original }).consultarDietas();
+    assert.equal(resultado.items[0].comision.estado, estado);
+    assert.deepEqual(resultado.items[0].comision.devolucion, original.items[0].comision.devolucion);
+  }
+  const original = dietasDevuelta(); original.items[0].comision.devolucion.motivo = "é".repeat(300);
+  const resultado = await crearFuenteTramitesPropios({ listarComisiones: async () => original }).consultarDietas();
+  assert.equal(resultado.items[0].comision.devolucion.motivo, "é".repeat(300));
+});
+
+test("devoluciones ajenas al contrato, incompatibles con la comisión o malformadas se rechazan sin detalle", async () => {
+  for (const modificar of [
+    c => c.devolucion = null, c => c.devolucion = [], c => c.devolucion = "devuelta",
+    c => c.devolucion.actor_ref = "dato reservado", c => delete c.devolucion.motivo,
+    c => c.devolucion.etapa = "otra", c => c.devolucion.etapa = {},
+    c => c.estado = "fiscalizada", c => c.estado = "enviado_pendiente_revision",
+    c => c.devolucion.version = 2, c => c.devolucion.version = 5, c => c.devolucion.version = "3",
+    c => c.devolucion.version = 3.1, c => c.devolucion.version = Number.MAX_SAFE_INTEGER + 1,
+    c => delete c.version, c => c.devolucion.motivo = "ab", c => c.devolucion.motivo = {},
+    c => c.devolucion.motivo = "x".repeat(601), c => c.devolucion.motivo = "é".repeat(301),
+    c => c.devolucion.motivo = " motivo", c => c.devolucion.motivo = "motivo\u0085",
+    c => c.devolucion.motivo = "motivo\ncontenido", c => c.devolucion.motivo = "motivo\u007fcontenido",
+    c => c.devolucion.devuelta_en = "2026-02-30T10:00:00.123456Z",
+    c => c.devolucion.devuelta_en = "2026-10-03T24:00:00.123456Z",
+    c => c.devolucion.devuelta_en = "2026-10-03T10:00:00.123Z",
+    c => c.devolucion.devuelta_en = "2026-10-03T10:00:00.123456+00:00",
+    c => c.devolucion.devuelta_en = "2026-10-03", c => c.devolucion.devuelta_en = {},
+  ]) {
+    const original = dietasDevuelta(); modificar(original.items[0].comision);
+    await assert.rejects(crearFuenteTramitesPropios({ listarComisiones: async () => original }).consultarDietas(), codigo("respuesta_incompatible"));
+  }
+});
+
 test("no acepta identidad, relación, límite o cursores Cronos suministrados por el consumidor", async () => {
   let llamadas = 0;
   const fuente = crearFuenteTramitesPropios({ consultarPermisos: async () => { llamadas++; return cronos(); }, listarComisiones: async () => { llamadas++; return dietas(); } });
