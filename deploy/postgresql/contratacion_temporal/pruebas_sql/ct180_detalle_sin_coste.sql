@@ -12,6 +12,7 @@
 BEGIN;
 SET LOCAL timezone='UTC';
 SET LOCAL statement_timeout='60s';
+SET LOCAL lock_timeout='2s';
 DO $guarda$
 BEGIN
  IF pg_catalog.current_setting('vec.ensayo_clon',true) IS DISTINCT FROM 'si'

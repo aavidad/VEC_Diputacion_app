@@ -18,6 +18,8 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_catalog.pg_advisory_xact_lock(
+  pg_catalog.hashtextextended('vec_contratacion_temporal:o4_04:migraciones',0));
+SELECT pg_catalog.pg_advisory_xact_lock(
   pg_catalog.hashtextextended('vec_contratacion_temporal:migracion:000180',0));
 DO $cambio$
 DECLARE
