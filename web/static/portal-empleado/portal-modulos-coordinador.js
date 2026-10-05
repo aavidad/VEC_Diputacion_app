@@ -1031,6 +1031,12 @@ export function crearCoordinadorModulosPortal({
           incorporacionPersonalB2: composicion.contratacionTemporal.clienteIncorporacionB2,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           auditoriaComun: composicion.contratacionTemporal.auditoriaComun,
+          // Lista común de documentos en la ficha, solo si el portal publica
+          // el módulo de Documentos para esta sesión (se consulta al pintar).
+          documentosComun: Object.freeze({
+            montar: (opciones) => (typeof composicion?.documentos?.montar === "function"
+              ? composicion.documentos.montar(opciones) : null),
+          }),
           confirmarOperacion,
           anunciar,
           resolverBolsa: typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,
