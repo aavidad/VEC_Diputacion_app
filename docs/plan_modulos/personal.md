@@ -138,6 +138,44 @@ composición ni autorización operativa. Las fuentes actuales de CER y H05 sigue
 siendo de ensayo. Los DTO no contienen nombre, DNI ni correo y no sustituyen
 las proyecciones puras de dominio ni crean otra ficha de persona.
 
+### Servicios para Certificados: primer corte, autoservicio (5 de octubre de 2026)
+
+`LectorServiciosParaCertificadosV1` ya tiene implementación y se añade
+`LectorServiciosParaCertificadosV2`, con la misma consulta y los días
+reconocidos que guarda Personal17. V1 sigue disponible y es la misma lectura
+sin los días.
+
+- Sólo autoservicio: el empleado tiene que ser el único empleado canónico de
+  la persona que consulta. Se comprueba en Go con el ContextoActor y otra vez en
+  SQL con la proyección de Personal16. Si se pide otro empleado, se deniega. La
+  consulta de RRHH sobre otra persona necesita una competencia propia y queda
+  para otro corte.
+- Fuente: `vec_personal.consultar_servicios_certificados_propios_v1`
+  (Personal36). Toma la última revisión conocida de cada servicio en el
+  organismo pedido, vigente en la fecha del corte y ya comenzado entonces. El
+  periodo y los días salen tal como constan, sin recalcular. Cobertura y certeza
+  van como «no acreditada», porque la fuente no tiene eficacia administrativa.
+  Con más de 200 servicios la consulta da error y no devuelve datos.
+- Autorización: consumidor propio AD195 (`personal.servicios_certificados.consultar`,
+  audiencia `vec_personal.servicios_certificados.v1`, finalidad
+  `consultar_servicios_para_certificados`). Consumo, lectura y auditoría común
+  van en la misma transacción. El recibo es la referencia de esa auditoría. Los
+  rechazos se registran en la auditoría común de intentos.
+- Código: `ports/servicios_para_certificados.go` (V2),
+  `ports/lector_servicios_certificados.go`, `domain/lector_servicios_certificados.go`,
+  `application/lector_servicios_certificados.go`,
+  `adapters/postgres/lector_servicios_certificados.go` y
+  `adapters/composicion/lector_servicios_certificados.go`
+  (`ComponerLectorServiciosCertificados`).
+- SQL en orden: `deploy/principal/lista_sql_claude_personal_servicios_certificados_20261005.txt`.
+  Va después de AD193. AD195 mide el núcleo posterior a AD193: si otra
+  migración lo reescribe antes, se detiene sin cambiar nada y hay que medirla
+  de nuevo. Comprobación: `pruebas_sql/servicios_certificados_propios_000036.sql`.
+
+Falta todavía montar la ruta del consumidor (Certificados), dar el permiso en
+administración, configurar el origen técnico de consumo para el LOGIN de
+Personal y pasar el traductor de Certificados a V2.
+
 ## Preparación propia de una revisión de servicios — 4 de octubre de 2026
 
 La historia propia de servicios incorpora «Preparar revisión» en cada fila

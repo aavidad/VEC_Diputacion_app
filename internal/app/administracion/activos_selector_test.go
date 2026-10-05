@@ -66,7 +66,7 @@ func TestGateActivosExigeLecturaAuditadaSinPerfilActivo(t *testing.T) {
 			obs := o
 			f := &fuenteActivosPrueba{resultado: LecturaPropiosAuditadaADMIN{Propios: propiosActivosPrueba(), AuditoriaComunRef: "auditoria:prueba:lectura"}}
 			a := &auditorActivosPrueba{}
-			h := handlerPerfilesADMIN{observador: observadorActivosPrueba{o: obs}, fuenteSeleccion: f, auditor: a, origen: "https://admin.invalid", audienciaSelector: "audiencia:admin", reloj: relojActivosPrueba{ahora}}
+			h := handlerPerfilesADMIN{observador: observadorActivosPrueba{o: obs}, fuenteSeleccion: f, auditor: a, host: hostAdmin{nombre: "admin.invalid", autoridad: "admin.invalid"}, audienciaSelector: "audiencia:admin", reloj: relojActivosPrueba{ahora}}
 			esperado := http.StatusServiceUnavailable
 			switch caso {
 			case "ausente":
@@ -108,7 +108,7 @@ func TestGateActivosExigeLecturaAuditadaSinPerfilActivo(t *testing.T) {
 }
 func TestListaActivosIncluyeGrafoUsuariosSelectorYExcluyePruebas(t *testing.T) {
 	activos := activosMapaPrueba()
-	h, err := montarActivosPerfiles(http.NotFoundHandler(), DependenciasPerfiles{Activos: activos, ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx }}, "https://admin.invalid")
+	h, err := montarActivosPerfiles(http.NotFoundHandler(), DependenciasPerfiles{Activos: activos, ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx }}, hostAdmin{nombre: "admin.invalid", autoridad: "admin.invalid"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestMontajeSinObservadorSoloAdmiteVersionProtocolaria1(t *testing.T) {
 	for _, version := range []string{"1", "v1", "", "2"} {
 		t.Run(version, func(t *testing.T) {
 			deps := DependenciasPerfiles{Activos: activosMapaPrueba(), ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx }, Sesiones: sesionActivosStub{sesion}, Lecturas: capacidadesActivosStub{datos: api.Capacidades{Version: version, ActorPersonaRef: sesion.Actor.PersonaRef, Acciones: []string{"consultar"}}}}
-			h, err := montarActivosPerfiles(http.NotFoundHandler(), deps, "https://admin.invalid")
+			h, err := montarActivosPerfiles(http.NotFoundHandler(), deps, hostAdmin{nombre: "admin.invalid", autoridad: "admin.invalid"})
 			if err != nil || h.observador != nil {
 				t.Fatal("constructor de lectura alterado", err)
 			}

@@ -1,8 +1,8 @@
 \set ON_ERROR_STOP on
 -- AD178: perfiles técnicos fijos de recuperación R5 de 48 campos y de gobierno
 -- del plan nominal de firma CT. Preimágenes medidas el 05/10/2026 sobre la
--- principal posterior a AD193/AD194 (clon H10-30 + AD194/IS16/CA36/AUT47/AD193).
--- Una sola vez; sin DOWN. Orden: AD193 → AD178 → AD177 → CC7.
+-- principal posterior a AD195/AD196 (clon H10-30 + AD194/IS16/CA36/AUT47/AD193/AD195/P36/AD196/AUT49/AUT48).
+-- Una sola vez; sin DOWN. Orden: AD193 → AD195/AD196 → AD178 → AD177 → CC7.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -14,13 +14,13 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucl
 DO $delta$
 DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- -- Medidas sobre el núcleo y el CHECK posteriores a AD193 (pg_get_constraintdef(...,false)).
- esperada_def text:='f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b';
- esperada_src text:='bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b';
- esperada_audiencias text:='62ad0be0944790785a298a8387dca798b03e392d3208b5d59adf06793a6f4236';
- esperada_post_def text:='edaf1a31e3c14606913f7c50b19efd06abcec1d664a68cc6ec3fb4eda0f1a7a3';
- esperada_post_src text:='46f6b843dacd805a512e7cfa38e9d37c0fcdd6acceaabe732272c92d94eba404';
- esperada_post_audiencias text:='7f6a1f530af55acaefeedb0054c6cbc14b78db8a78525948b46489a3be1c9bda';
+ -- Medidas sobre el núcleo y el CHECK posteriores a AD195/AD196 (pg_get_constraintdef(...,false)).
+ esperada_def text:='728dde660bd784951e6685402a625f62dedc6d08cff35d3e259a1d9af471737a';
+ esperada_src text:='717eba51bc117748907f46dbf9ad1341b53a1aeb1896745b9561eebc3f6d189c';
+ esperada_audiencias text:='26497f113bb8468042bffa3fffaf846ce9da5d6db289f0d3b48a0f011703d5f0';
+ esperada_post_def text:='2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381';
+ esperada_post_src text:='4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b';
+ esperada_post_audiencias text:='e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7';
  original text;fuente text;nueva text;actual text;audiencias text;audiencias_nuevas text;
  def_sha text;src_sha text;aud_sha text;meta jsonb;deps jsonb;compartidas jsonb;
  audiencia text:='vec_contratacion_temporal.firmas_r5.recuperar.v2';

@@ -5,7 +5,7 @@ campos y el gobierno del plan nominal de firma CT. No crea perfiles humanos,
 LOGIN, grupos técnicos, membresías ni concesiones nominales, y no define el
 tercer lector del plan. El borrador original es de Codex-L
 (`trabajo/codexl-perfiles-plan-firma-20261004`, `2c699a007`); el 5 de octubre
-se reancló sobre la principal posterior a AD193 dentro de la cadena de firmas.
+se reancló sobre main posterior a AD195/AD196 dentro de la cadena de firmas.
 
 ## Contrato preparado
 
@@ -95,15 +95,19 @@ clasificación runtime (los dos perfiles caen en el runtime CT existente), firma
 V2, cálculo del consumo, replay, origen AD172, eslabón AD173 ni filas históricas.
 
 Huellas medidas el 5 de octubre de 2026 en el clon de la principal
-(copia fría H10-30 + AD194, IS16, CA36, AUT47 y AD193, en ese orden):
+(copia fría H10-30 + AD194, IS16, CA36, AUT47, AD193, AD195, Personal36, AD196,
+AUT49 y AUT48, en ese orden; es lo que tendrá la principal al aplicar las listas
+de main):
 
 | Huella | Antes | Después |
 | --- | --- | --- |
-| `pg_get_functiondef` del núcleo | `f581dbf9aa01d454caa6906ece774f97cf16cca9e9b8910d0eb348e23ef8c34b` | `edaf1a31e3c14606913f7c50b19efd06abcec1d664a68cc6ec3fb4eda0f1a7a3` |
-| `prosrc` del núcleo | `bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b` | `46f6b843dacd805a512e7cfa38e9d37c0fcdd6acceaabe732272c92d94eba404` |
-| CHECK de audiencias (`pg_get_constraintdef(oid,false)`) | `62ad0be0944790785a298a8387dca798b03e392d3208b5d59adf06793a6f4236` | `7f6a1f530af55acaefeedb0054c6cbc14b78db8a78525948b46489a3be1c9bda` |
+| `pg_get_functiondef` del núcleo | `728dde660bd784951e6685402a625f62dedc6d08cff35d3e259a1d9af471737a` | `2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381` |
+| `prosrc` del núcleo | `717eba51bc117748907f46dbf9ad1341b53a1aeb1896745b9561eebc3f6d189c` | `4729b6666065a8a3582443d803bf8535940f0eae650b27a315aca260f3183b8b` |
+| CHECK de audiencias (`pg_get_constraintdef(oid,false)`) | `26497f113bb8468042bffa3fffaf846ce9da5d6db289f0d3b48a0f011703d5f0` | `e76428d2ecd1c79da88a827cf33138f5c75026ed2138858c67f93420e932eae7` |
 
-Las preimágenes del núcleo coinciden con la postimagen que publicó AD193. La
+Las preimágenes son las del núcleo y el CHECK que dejan AD195 (consumidor de
+servicios certificados de Personal) y AD196 en main. Cualquier otra migración
+que reescriba el núcleo antes que AD178 obliga a remedir. La
 migración compara las seis huellas, propietario, configuración, ACL y
 dependencias del núcleo; revierte el delta en memoria para demostrar que el resto
 del cuerpo no cambia; y aborta con SQLSTATE `55000` ante cualquier diferencia o
@@ -155,7 +159,7 @@ recurso y campos exactos de E. Tampoco tiene una rama aceptada. La revalidación
 privada del pin en COMMIT CT de CC7 consume la firma vigente; no convierte al
 firmante en administrador ni acredita una lectura administrativa nueva.
 
-El orden causal es AD193 → AD178 → AD177 → CC7. AD177 exige la postimagen de
+El orden causal es AD193 → AD195/AD196 → AD178 → AD177 → CC7. AD177 exige la postimagen de
 AD178, pese a tener un número menor. AD178 prepara los dos clasificadores, pero
 no habilita el circuito por sí solo: falta la fuente nominal de K (incluida la
 extensión de `acreditar_perfil_aplicacion_nominal_v1` a las acciones

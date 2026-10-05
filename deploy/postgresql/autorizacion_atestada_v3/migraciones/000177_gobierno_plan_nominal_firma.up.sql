@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD177: fachadas de gobierno del plan nominal de firma CT y consumo ligado
 -- del plan para CT176. Requiere AD193 y AD178 instaladas; preimágenes medidas
--- el 05/10/2026 tras AD178 sobre la principal posterior a AD193/AD194.
+-- el 05/10/2026 tras AD178 sobre main posterior a AD195/AD196.
 -- No modifica AD167/AD172–176 ni publica concesiones o perfiles por petición.
 -- Una sola vez; sin DOWN.
 BEGIN;
@@ -16,8 +16,8 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucl
 DO $pre$
 DECLARE nucleo regprocedure;
  -- Núcleo y CHECK de audiencias (pg_get_constraintdef(...,true)) después de AD178.
- esperado_nucleo_sha256 text := 'edaf1a31e3c14606913f7c50b19efd06abcec1d664a68cc6ec3fb4eda0f1a7a3';
- esperado_audiencias_sha256 text := '24764e008e7ae88178872ffec2517a05461b84bfa94bd8641394b0360307c849';
+ esperado_nucleo_sha256 text := '2ccd704afe6140d604faa626631e9743edda8f785517d1136054c746cb9b1381';
+ esperado_audiencias_sha256 text := '2e687cbf9055a1c1a94035a74bdbf80fcf37c91b0613a7a5325f5d55def56e64';
  observado_nucleo_sha256 text;
  observado_audiencias_sha256 text;
  columnas_sello_xid8 bigint;
