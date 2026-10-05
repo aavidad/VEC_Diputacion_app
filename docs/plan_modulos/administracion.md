@@ -37,11 +37,11 @@ Cada minitarea es una PR propia, en este orden salvo donde se indica.
 
 | Id | Minitarea | Depende de | Estado |
 | --- | --- | --- | --- |
-| A1a | **Perfiles asignables (SQL).** AUT49 + AD196: un operador técnico, con LOGIN propio y una aprobación ligada a la huella del plan, registra versiones de rol ordinarias ya publicadas como asignables. Auditoría común en la misma transacción; replay con el mismo recibo; intentos denegados auditados. Excluye administración, Sistemas, Intervención, roles sensibles y fijos. | — | #699; ensayada en clon, dos revisiones. |
-| A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#704). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #704. Debe entrar antes de registrar planes en la principal. |
+| A1a | **Perfiles asignables (SQL).** AUT49 + AD196: un operador técnico, con LOGIN propio y una aprobación ligada a la huella del plan, registra versiones de rol ordinarias ya publicadas como asignables. Auditoría común en la misma transacción; replay con el mismo recibo; intentos denegados auditados. Excluye administración, Sistemas, Intervención, roles sensibles y fijos. | — | #699, en main; ensayada en clon, dos revisiones. |
+| A1b | **Verificador de la cadena para los tipos nuevos de AD196** (#704). Esquema nuevo en `internal/vec/auditoria` y `cmd/vec-auditoria-verificar` que acepte todos los tipos anteriores más `perfiles_asignables_admin` e `intento_perfiles_asignables_admin`. | A1a | #704, en main. |
 | A2 | **Consumidor de autorización del lote (AD190).** Fachada que consume la decisión del administrador para `administracion.perfiles.aplicar_lote_ordinario`, con la puerta de AUT45 (`acreditar_perfil_aplicacion_lote_ordinario_v1`) antes y después del consumo y la persona destinataria ligada al canon. Reconstruye el núcleo sobre la postimagen medida después de AD195 (Personal). | AUT45, AD195 instalada | Pendiente. |
 | A3 | **Efecto del lote (CA35 + AUT44).** Una transacción SERIALIZABLE: consume la decisión (A2), compara por CAS todas las preimágenes, crea o revoca vínculos (CA35) y asignaciones, escribe sellos, historia, auditoría común, outbox y recibo. Replay con la misma referencia devuelve el recibo original; otra huella falla sin efecto. Nadie se asigna a sí mismo; un rol no ordinario anula el lote entero. | A1a, A2 | Pendiente. CA35 tiene borrador. |
-| A4 | **Rol de Aplicación v6 en el entorno.** Aplicar el mantenimiento AUT45 v5→v6 con la CLI existente, después de AUT48. Paso operativo del runbook, sin código nuevo. | AUT48 | Pendiente (operación). |
+| A4 | **Rol de Aplicación v6 en el entorno.** Sigue haciendo falta: AUT48 (#692) sólo hace que las lecturas acepten la versión vigente, pero la concesión `aplicar_lote_ordinario` existe únicamente en v6 y la puerta `acreditar_perfil_aplicacion_lote_ordinario_v1` está fijada a v6. Es el mantenimiento AUT45 v5→v6 con `vec-mantener-admin-fijo` (plan v2), después de v4→v5. Ya no hay que evitar v6: la lectura de usuarios funciona con ella. Sin código nuevo; se ensaya dentro de A9. | AUT48 (en main) | Pendiente (operación del runbook). |
 | A5 | **Adaptador Go del lote y emisor de la decisión.** Rescatar `lote_ordinario.go`, `lote_ejecucion.go`, `lote_auditoria.go` y `lote_fuentes.go` del borrador, ajustados a A2/A3. Pruebas focales y de carrera. | A3 | Pendiente. |
 | A6 | **Lecturas que necesita la pantalla.** Perfiles asignables vigentes (desde `rol_administrable_exacto_v1`) y preimagen del objetivo (versiones de persona, cuenta, procedencia y vínculo con su huella) para una persona. Sólo lectura, auditada como las demás lecturas de usuarios. | A1a, AUT48 | Pendiente. |
 | A7 | **Composición en `vec-admin`.** Pool y LOGIN propios del lote, emisor y configuración privada; abre `POST /api/admin/perfiles/v1/lotes-ordinarios` sólo con autoridad real. Sin pool o sin permiso, 503 o 403 auditado. | A5, A6 | Pendiente. |
@@ -87,8 +87,9 @@ AD193 y AUT47, equivalente a la principal H12:
   de un día como máximo, aprobación dentro de la cadena, límites de espera y
   código propio para la comparación de versiones.
 
-Límites: el verificador Go para los tipos nuevos va en A1b (#704) y debe
-integrarse antes de registrar ningún plan en la principal. Las exclusiones son
+Límites: el verificador Go de los tipos nuevos ya está en main (#704).
+`organizacion_preparacion` y `entrega-peticion-rrhh-fijo` quedan fuera de
+los planes hasta que se responda la pregunta 140 de `dudas.md`. Las exclusiones son
 una lista de nombres; la clasificación positiva es la aprobación del plan. El
 registro no da permisos a nadie: sólo hace que esos roles puedan asignarse
 cuando existan A2-A7. `vec-admin` no cambia en este corte.
