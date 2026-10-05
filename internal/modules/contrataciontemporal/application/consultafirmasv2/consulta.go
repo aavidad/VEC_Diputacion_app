@@ -13,8 +13,9 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// Contexto procede de una fuente nominal registrada y revalidada. La persona
-// candidata no se deduce del actor operativo, certificado, cargo ni petición.
+// Contexto procede de una fuente nominal registrada y revalidada, nunca del
+// certificado, el cargo o la petición. En consulta y recuperación HTTP la
+// persona candidata es la del contexto registrado de quien consulta.
 type Contexto struct {
 	OrganizacionRef               string
 	FirmantePrincipalCandidatoRef string

@@ -200,7 +200,8 @@ func TestHTTPLoteDeniegaAntesDelEfectoYAudita(t *testing.T) {
 				rol := catalogo[sesion.resultado.InstantaneaAutorizacion.VersionRol.Referencia()]
 				rol.CategoriaAdmin = "sistemas"
 				catalogo[rol.VersionRef] = rol
-				estado = http.StatusServiceUnavailable
+				// Sin la categoría del lote: denegación, igual que en la preparación.
+				estado = http.StatusForbidden
 			case "sin_lote":
 				h.actos, estado = &actosPrueba{}, http.StatusServiceUnavailable
 			case "lecturas":

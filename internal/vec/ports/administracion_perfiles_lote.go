@@ -33,3 +33,13 @@ import (
 type AutoridadLotesAdministracionPerfiles interface {
 	AplicarLoteOrdinario(context.Context, domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error)
 }
+
+// PreparadorLotesAdministracionPerfiles devuelve, para una persona y unidad del
+// conjunto del administrador, lo que hace falta para construir un lote: cuenta,
+// versiones, procedencia y la huella de cada alta o baja posible. No cambia
+// asignaciones; consume una decisión propia de la acción del lote (efecto
+// «preparar», atributo preparacion_sha256) y deja registro y auditoría en la
+// misma transacción. Una preparación no reserva nada: el lote compara de nuevo.
+type PreparadorLotesAdministracionPerfiles interface {
+	PrepararLoteOrdinario(context.Context, domain.SolicitudPreparacionLoteAdministracionPerfiles) (domain.PreparacionLoteAdministracionPerfiles, error)
+}

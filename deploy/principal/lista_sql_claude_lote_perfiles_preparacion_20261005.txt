@@ -1,0 +1,4 @@
+# Preparación del cambio de perfiles para la pantalla (AUT50).
+# Requiere CA35 y AUT44 (lista_sql_claude_lote_perfiles_efecto_20261005.txt). No escribe efectos:
+# sólo consume una decisión nominal por AD190 y deja su registro. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion/migraciones/000050_preparacion_lote_admin.up.sql

@@ -83,6 +83,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	auditoriaLecturasBolsa            puertosvec.RegistradorIntentosAuditoria
 	procesoAuditoriaLecturasBolsa     string
 	cerrarAuditoriaLecturasBolsa      func()
+	cerrarFirmasR5V2                  func()
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
 	calculadorPoliticaOfertas         *pgxpool.Pool
@@ -151,6 +152,9 @@ func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
 	}
 	if d.cerrarAuditoriaLecturasBolsa != nil {
 		d.cerrarAuditoriaLecturasBolsa()
+	}
+	if d.cerrarFirmasR5V2 != nil {
+		d.cerrarFirmasR5V2()
 	}
 	if d.cerrarUnaVez != nil {
 		d.cerrarUnaVez()
