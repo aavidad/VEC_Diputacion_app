@@ -87,7 +87,7 @@ func respuestaPreparacionPrueba(s domain.SolicitudPreparacionLoteAdministracionP
 			"unidad_requerida": false, "vigente_hasta_maxima": instante(ahora.Add(400 * 24 * time.Hour)),
 			"duracion_propuesta_segundos": 86400, "perfil_ref": "prf_" + strings.Repeat("1", 32),
 			"vinculo_ref": "vca_" + strings.Repeat("2", 32), "huella_sha256": strings.Repeat("3", 64)}},
-		"bajas": []any{map[string]any{"rol_version_ref": "rol:llamamiento_desarrollo:v1",
+		"bajas": []any{map[string]any{"rol_version_ref": "rol:llamamiento_desarrollo:v1", "nombre": "Llamamientos",
 			"perfil_ref": "prf_" + strings.Repeat("4", 32), "vinculo_ref": "vca_" + strings.Repeat("5", 32),
 			"perfil_version": 1, "vinculo_version": 2, "vigente_desde": "2026-01-01T00:00:00Z",
 			"vigente_hasta": "2036-01-01T00:00:00Z", "huella_sha256": strings.Repeat("6", 64)}},
@@ -135,18 +135,19 @@ func TestPreparacionLoteConsumeConAtributoPropioYDevuelveOpciones(t *testing.T) 
 		t.Fatal("recurso de la preparación sin su atributo propio")
 	}
 	if len(p.Altas) != 1 || len(p.Bajas) != 1 || p.Altas[0].DuracionPropuesta != 24*time.Hour ||
-		p.Bajas[0].VinculoVersion != 2 || p.CuentaRef == "" || p.ValidarPara(s) != nil {
+		p.Bajas[0].VinculoVersion != 2 || p.Bajas[0].Nombre != "Llamamientos" || p.CuentaRef == "" || p.ValidarPara(s) != nil {
 		t.Fatal("preparación mal traducida")
 	}
 }
 
 func TestPreparacionLoteRechazaRespuestaAjenaYAudita(t *testing.T) {
 	for nombre, cambiar := range map[string]func(map[string]any){
-		"otra_persona":  func(r map[string]any) { r["persona_ref"] = "per_" + strings.Repeat("z", 32) },
-		"otra_unidad":   func(r map[string]any) { r["unidad_ref"] = "unidad:otra" },
-		"campo_extra":   func(r map[string]any) { r["extra"] = true },
-		"sin_truncado":  func(r map[string]any) { delete(r, "truncado") },
-		"duracion_cero": func(r map[string]any) { r["altas"].([]any)[0].(map[string]any)["duracion_propuesta_segundos"] = 0 },
+		"otra_persona":    func(r map[string]any) { r["persona_ref"] = "per_" + strings.Repeat("z", 32) },
+		"otra_unidad":     func(r map[string]any) { r["unidad_ref"] = "unidad:otra" },
+		"campo_extra":     func(r map[string]any) { r["extra"] = true },
+		"sin_truncado":    func(r map[string]any) { delete(r, "truncado") },
+		"baja_sin_nombre": func(r map[string]any) { delete(r["bajas"].([]any)[0].(map[string]any), "nombre") },
+		"duracion_cero":   func(r map[string]any) { r["altas"].([]any)[0].(map[string]any)["duracion_propuesta_segundos"] = 0 },
 		"vinculo_repetido": func(r map[string]any) {
 			r["bajas"].([]any)[0].(map[string]any)["vinculo_ref"] = "vca_" + strings.Repeat("2", 32)
 		},
