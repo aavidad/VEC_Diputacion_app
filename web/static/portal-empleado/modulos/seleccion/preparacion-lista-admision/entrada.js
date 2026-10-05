@@ -1,4 +1,4 @@
-import { leerArchivo, leerTextosMotivos, rutaTextosMotivos } from './modelo.js?v=20261005-s4-lista-v1';
+import { leerArchivo, leerTextosMotivos, moduloTextosMotivos } from './modelo.js?v=20261005-s4-lista-v2';
 import { crearCargaLocal } from '../preparacion-admision/controlador.js?v=20261003-s4-visor-v3';
 import { pintarLista } from './vista.js?v=20261005-s4-lista-v1';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
@@ -12,11 +12,14 @@ const selector = document.querySelector('#lista-idioma');
 const eventos = new AbortController(); const urls = new Set(); let textos, carga = null, frame;
 let estadoActual = { clave: 'vacio', error: false };
 
+/** Catálogos de motivos que conoce el visor; se leen con el lector común de textos. */
+const cargarMotivos = idioma => Promise.all(['motivos-seleccion-admision-ejemplo']
+  .map(modulo => cargarTextos(modulo, { idioma }).catch(() => null)));
 /** Textos de motivos del catálogo de la lista; si faltan, la vista muestra el código. */
 async function textosMotivos(idioma, dto) {
-  const ruta = rutaTextosMotivos(idioma, dto.catalogo.referencia);
-  if (!ruta) return new Map();
-  try { return leerTextosMotivos(await leerRecursoJSON(new URL(ruta, import.meta.url))); } catch { return new Map(); }
+  const modulo = moduloTextosMotivos(dto.catalogo.referencia);
+  const catalogo = (await cargarMotivos(idioma)).find(t => t !== null && t.modulo === modulo);
+  return catalogo ? leerTextosMotivos(catalogo.mensajes) : new Map();
 }
 function pintar() {
   if (!carga) return;

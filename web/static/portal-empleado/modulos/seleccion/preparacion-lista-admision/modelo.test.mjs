@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { leerArchivo, leerSalida, leerTextosMotivos, rutaTextosMotivos, MAXIMO_BYTES } from './modelo.js';
+import { leerArchivo, leerSalida, leerTextosMotivos, moduloTextosMotivos, MAXIMO_BYTES } from './modelo.js';
 import { pintarLista } from './vista.js';
 import { cargarTextos } from '../../../../comun/textos.js';
 
@@ -9,7 +9,7 @@ import { cargarTextos } from '../../../../comun/textos.js';
 const bytes = new Uint8Array(await readFile(new URL('../../../../../../cmd/vec-selectivos-preparar-admision/testdata/lista-resultado.json', import.meta.url)));
 const base = () => JSON.parse(new TextDecoder().decode(bytes));
 const codificar = dto => new TextEncoder().encode(JSON.stringify(dto));
-const motivosDe = async idioma => leerTextosMotivos(JSON.parse(await readFile(new URL(rutaTextosMotivos(idioma, 'seleccion-admision-ejemplo'), import.meta.url))));
+const motivosDe = async idioma => leerTextosMotivos((await cargarTextos(moduloTextosMotivos('seleccion-admision-ejemplo'), { idioma })).mensajes);
 
 test('la salida del CLI se abre como borrador sin aprobar ni publicar', async () => {
   const dto = leerSalida(bytes);
@@ -33,8 +33,9 @@ test('incoherencias, actos falsos y datos de más se rechazan', () => {
 test('tamaño comprobado antes de leer el archivo', async () => {
   for (const size of [0, MAXIMO_BYTES + 1]) await assert.rejects(leerArchivo({ size, arrayBuffer() { throw Error('no_leer'); } }), /tamano/);
 });
-test('textos de motivos: ruta cerrada y archivo válido o nada', async () => {
-  assert.equal(rutaTextosMotivos('es', '../x'), null); assert.equal(rutaTextosMotivos('ES', 'a'), null);
+test('textos de motivos: catálogo cerrado y archivo válido o nada', async () => {
+  assert.equal(moduloTextosMotivos('../x'), null); assert.equal(moduloTextosMotivos('A'), null);
+  assert.equal(moduloTextosMotivos('seleccion-admision-ejemplo'), 'motivos-seleccion-admision-ejemplo');
   assert.equal(leerTextosMotivos({ a: 1 }).size, 0); assert.equal(leerTextosMotivos([]).size, 0);
   for (const idioma of ['es', 'en']) {
     const motivos = await motivosDe(idioma);
