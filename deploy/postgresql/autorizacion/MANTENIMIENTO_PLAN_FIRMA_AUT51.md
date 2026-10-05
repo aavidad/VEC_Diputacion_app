@@ -68,3 +68,12 @@ rama. Resultado:
 
 La prueba de AUT48 sigue pasando. El catálogo de Rol7 conserva las entradas de
 Rol6 en su revisión siguiente y añade las cuatro de catálogos en la revisión 1.
+
+## Límite que hay que respetar en el futuro
+
+Con Rol7, la categoría de Aplicación acredita `vec.catalogos.*` sobre cualquier
+`catalogo_configurable` de Contratación temporal: AUT48 no mira qué catálogo es.
+Hoy sólo lo consume AD177, que exige la audiencia y el esquema del plan de firma.
+Cualquier fachada futura de catálogos que use esta categoría tiene que exigir su
+propia audiencia y su `catalogo_id`; si no, el administrador de Aplicación podría
+gobernar otros catálogos del módulo.

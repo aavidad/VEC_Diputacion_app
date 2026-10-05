@@ -235,6 +235,10 @@ GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_mantenimiento_plan_firma_eje
 GRANT EXECUTE ON FUNCTION vec_autorizacion.mantener_version_perfil_fijo_plan_firma_admin_v1(text,text) TO vec_admin_mantenimiento_plan_firma_ejecutor;
 RESET ROLE;
 
+-- Metadatos de la puerta del lote antes de sustituirla (salvo el cuerpo).
+CREATE TEMP TABLE aut51_puerta_lote_antes ON COMMIT DROP AS
+ SELECT p.oid,p.proowner,p.prosecdef,p.provolatile,p.proconfig,p.proacl,p.proargtypes,p.prorettype
+ FROM pg_proc p WHERE p.oid='vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)'::regprocedure;
 -- Puerta del lote a la versión vigente (como AUT48): la versión es la de la
 -- asignación actual y su concesión de lote debe ser exacta en rol y catálogo.
 -- Sin esto, Rol7 dejaría sin acreditar el lote ordinario (AD190/AUT44).
@@ -288,4 +292,14 @@ BEGIN
   AND EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(r.documento->'concesiones') c WHERE c=concesion_lote);
 END $f$;
 RESET ROLE;
+-- Poscondición: CREATE OR REPLACE conserva OID, propietario, SECURITY DEFINER,
+-- volatilidad, configuración, ACL y firma de la puerta del lote.
+DO $post$ BEGIN
+ IF (SELECT count(*) FROM pg_proc p JOIN aut51_puerta_lote_antes a USING(oid)
+     WHERE p.proowner=a.proowner AND p.prosecdef=a.prosecdef AND p.provolatile=a.provolatile
+       AND p.proconfig IS NOT DISTINCT FROM a.proconfig AND p.proacl IS NOT DISTINCT FROM a.proacl
+       AND p.proargtypes=a.proargtypes AND p.prorettype=a.prorettype AND p.prosecdef
+       AND p.proconfig=ARRAY['search_path=pg_catalog'])<>1
+ THEN RAISE EXCEPTION 'AUT51: PARO clave=puerta_lote_metadatos actual=divergente esperado=OID_propietario_ACL_configuracion_conservados' USING ERRCODE='55000';END IF;
+END $post$;
 COMMIT;
