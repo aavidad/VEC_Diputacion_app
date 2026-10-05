@@ -1,0 +1,14 @@
+# B1: carga de bolsas desde el Excel de CONVOCA por RRHH. AD203 añade al núcleo V3 el perfil de
+# mutación carga_convoca_bolsa (LOGIN de ejecución de Bolsa), la audiencia
+# vec_bolsa_llamamientos.carga_convoca.confirmar.v1 y su fachada; B79 constituye la bolsa de un acta
+# ya importada consumiendo esa decisión en la misma transacción.
+# Aplicar después de las listas de main del 05/10 (hasta AD190, CA35/AUT44, AUT50 y AD198). AD203 mide
+# el núcleo 05e6753a…/1a5c3e67… y el CHECK de audiencias 018e8a44…: si AD197 (#727), AD199 (#734) o
+# AD200 (#737) entran antes, AD203 se detiene con PARO sin tocar nada y hay que medirla de nuevo.
+# Instalar la SQL antes del binario que publique la clave de capacidad de esa audiencia.
+# Fila de origen AD172 que el DBA añade después (inmutable; revisar antes el LOGIN real de Bolsa en la
+# principal). Sin ella la confirmación responde 403 y queda el intento «denegado»:
+#   vec_bolsa_llamamientos_desarrollo|vec_bolsa_llamamientos.carga_convoca.confirmar.v1|bolsa.carga_convoca.confirmar|vec-rrhh|interna_corporativa
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000203_consumidor_carga_convoca_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000079_constitucion_carga_convoca_autorizada.up.sql

@@ -109,7 +109,7 @@ func (s *Servicio) Importar(
 	lote := dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
 			CategoriaRef: solicitud.CategoriaRef, BolsaRef: solicitud.BolsaRef,
-			ActaRef: "acta:importacion-convoca:" + referenciaContexto(huella, solicitud.CategoriaRef), ImportacionRef: "importacion:convoca:" + referenciaContexto(huella, solicitud.CategoriaRef),
+			ActaRef: ReferenciaActa(huella, solicitud.CategoriaRef), ImportacionRef: "importacion:convoca:" + referenciaContexto(huella, solicitud.CategoriaRef),
 			HuellaFicheroSHA256:  huella,
 			FicheroCustodiadoRef: solicitud.FicheroCustodiadoRef,
 			NombreFichero:        solicitud.NombreFichero,
@@ -159,6 +159,13 @@ func solicitudValida(s SolicitudImportacion) bool {
 func nombreExportacionConvocaValido(nombre string) bool {
 	extension := strings.ToLower(filepath.Ext(nombre))
 	return len(nombre) > len(extension) && (extension == ".xls" || extension == ".xlsx")
+}
+
+// ReferenciaActa es la referencia del acta de un fichero (por su huella
+// SHA-256) importado con una categoría. Es determinista: la pantalla de carga
+// la conoce antes de importar y la usa como recurso de la decisión.
+func ReferenciaActa(huellaSHA256, categoriaRef string) string {
+	return "acta:importacion-convoca:" + referenciaContexto(huellaSHA256, categoriaRef)
 }
 
 func referenciaContexto(huella, categoria string) string {
