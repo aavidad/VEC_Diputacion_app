@@ -209,6 +209,24 @@ SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(:'plan_aj',:'sha_aj')->>'
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.comprobar('rol_ajeno_v2_denegado',:'e_aj'='denegado' AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:dietas_r1d_provisional:v2'));
 
+-- 14d. Tampoco la de un rol de Contratación temporal que no publicó AUT53,
+-- aunque todas sus concesiones sean de expedientes o documentos CT.
+SELECT rol_id AS rol_ct FROM vec_autorizacion.version_rol v WHERE rol_id NOT LIKE 'ct_prueba%'
+ AND jsonb_typeof(documento->'concesiones')='array' AND jsonb_array_length(documento->'concesiones')>0
+ AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(documento->'concesiones') q WHERE q->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+  OR (q->>'tipo_recurso' ~ '^(documento_([a-z0-9_]{1,80}_)?contratacion_temporal|firma_vec_documento_contratacion_temporal|expediente_contratacion_temporal)$') IS NOT TRUE)
+ AND version=(SELECT max(version) FROM vec_autorizacion.version_rol w WHERE w.rol_id=v.rol_id)
+ ORDER BY rol_id LIMIT 1 \gset
+SELECT version AS ver_ct,huella_sha256 AS huella_ct FROM vec_autorizacion.version_rol
+ WHERE rol_id=:'rol_ct' ORDER BY version DESC LIMIT 1 \gset
+SELECT pg_temp.plan('rpa_cf_prueba_aut53_ajenoct_01',jsonb_build_array(pg_temp.cargo(:'rol_ct',:ver_ct+1,:'huella_ct'))) AS plan_act \gset
+SELECT pg_temp.operador('prueba_aut53_act',:'plan_act') AS sha_act \gset
+SET SESSION AUTHORIZATION prueba_aut53_act;
+SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(:'plan_act',:'sha_act')->>'estado' AS e_act \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('rol_ct_ajeno_siguiente_denegado',:'e_act'='denegado'
+ AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id=:'rol_ct' AND version=:ver_ct+1));
+
 -- 14c. Retirada la versión v2 por su control, el replay ya no devuelve el recibo.
 SET LOCAL ROLE vec_autorizacion_propietario;
 INSERT INTO vec_autorizacion.control_vigencia_version_rol(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
