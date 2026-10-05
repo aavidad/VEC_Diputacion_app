@@ -383,7 +383,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "catalogos"]);
   assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 0);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(llamadas.at(-1), "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
@@ -395,6 +395,54 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.ok(raiz.querySelectorAll("[data-personal-ficha-destino]").every((boton) => boton.disabled === true));
   coordinador.desmontarVistaActual();
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
+
+test("Mi ficha ofrece destinos propios diferidos sin cargarlos ni consultar sus datos", async () => {
+  for (const destinos of [[], ["cronos"], ["dietas"], ["cronos", "dietas"]]) {
+    const peticiones = []; const cargadas = []; const location = { hash: "#personal" };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { location, fetch: async (ruta) => {
+        peticiones.push(ruta);
+        if (ruta === "/api/interna/personal/mi-ficha") return respuestaPersonalJSON({ data: {
+          ficha: { corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" },
+            relaciones: [], servicios: [] },
+          recibo_ref: "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100", consultada_en: "2026-09-25T09:00:00.000000Z",
+        } });
+        return new Response(null, { status: 404 });
+      } },
+      cargarCatalogoInterno: async () => [{ clave: "personal" }, ...destinos.map((clave) => ({ clave }))],
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+        personal_catalogos_publicos: async () => { throw new Error("sin catálogos públicos"); },
+        cronos: async () => { cargadas.push("cronos"); throw new Error("no disponible"); },
+        dietas: async () => { cargadas.push("dietas"); throw new Error("no disponible"); },
+      },
+    });
+    await coordinador.cargarInterno();
+    assert.deepEqual(peticiones, []);
+    await coordinador.prepararVista("personal");
+    const raiz = raizDietasFalsa();
+    assert.equal(await coordinador.montarVista("personal", raiz), true);
+    const botones = raiz.querySelectorAll("[data-personal-ficha-destino]");
+    for (const boton of botones) {
+      const destino = boton.dataset.personalFichaDestino;
+      assert.equal(boton.disabled, !destinos.includes(destino), destino);
+      assert.equal(coordinador.vistaDisponible(destino), false, "navegar no equivale a tener el destino montado");
+      boton.listeners.click();
+      if (destinos.includes(destino)) assert.equal(location.hash, `#${destino}`);
+    }
+    assert.deepEqual(cargadas, [], "la ficha no carga los destinos");
+    assert.deepEqual(peticiones, ["/api/interna/personal/mi-ficha"], "sólo consulta la ficha propia");
+    if (destinos.length) {
+      await coordinador.prepararVista(destinos[0]);
+      assert.equal(coordinador.obtenerAccesosEmpleado()[destinos[0]].estado, "no_disponible");
+      await coordinador.montarVista("personal", raiz);
+      assert.equal(raiz.querySelector(`[data-personal-ficha-destino="${destinos[0]}"]`).disabled, true,
+        "un destino cuya carga ha fallado deja de ofrecerse");
+    }
+    coordinador.desmontarVistaActual();
+  }
 });
 
 test("la ficha propia muestra el estado de carga común y salir de Personal cancela su consulta", async () => {
@@ -454,7 +502,7 @@ test("con ficha propia servida, Personal ofrece relaciones y servicios con datos
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
   assert.equal(raiz.querySelector("[data-portal-carga-vista]"), null, "la carga común se retira al montar la ficha");
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "relaciones", "servicios", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "relaciones", "servicios", "catalogos"]);
   raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
   await new Promise((resolve) => setImmediate(resolve));
   const celdas = raiz.querySelectorAll("td").map((celda) => celda.textContent);
@@ -636,7 +684,7 @@ test("los catálogos públicos de Personal van en un cargador opcional incluido 
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
     "vista.js", "vista-ficha-integral.js", "registro-b2.js", "registro-b2-cliente.js",
-    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js"]);
+    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js", "vista-contacto-propio.js"]);
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }

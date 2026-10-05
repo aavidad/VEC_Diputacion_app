@@ -96,6 +96,54 @@ El ensayo de devengo anterior sigue disponible sin argumentos. Los catálogos
 de idioma y el tema se eligen mediante rutas explícitas del operador; los
 errores no muestran esas rutas ni el contenido de los archivos.
 
+## Recuperar una propuesta guardada
+
+Conserve el JSON completo que devuelve el preparador. Puede volver a consultar
+esa propuesta y generar su informe con los importes y el catálogo conservados,
+sin aplicar las tarifas actuales.
+
+Desde la raíz del repositorio, prepare el ejemplo con gastos y recupérelo:
+
+```sh
+ensayo_dietas="$(mktemp -d)"
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas --preparar-liquidacion \
+  < cmd/vec-dietas/testdata/preparacion_liquidacion_gastos.json \
+  > "$ensayo_dietas/propuesta.json"
+
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas \
+  --preparar-liquidacion --desde-instantanea \
+  < "$ensayo_dietas/propuesta.json" > "$ensayo_dietas/recuperada.json"
+
+cmp "$ensayo_dietas/propuesta.json" "$ensayo_dietas/recuperada.json"
+```
+
+Si `cmp` termina sin mostrar diferencias, ambos archivos son idénticos. Para
+leer el informe de la propuesta guardada, ejecute en la misma terminal:
+
+```sh
+GOCACHE="$HOME/.cache/go-build" go run -p 8 ./cmd/vec-dietas \
+  --preparar-liquidacion --desde-instantanea --informe \
+  --textos web/static/textos/es/dietas-liquidacion-informe.json \
+  --tema web/static/comun/tema-vec.css \
+  < "$ensayo_dietas/propuesta.json" > "$ensayo_dietas/informe.html"
+```
+
+Abra `informe.html` de esa carpeta en el navegador. Para inglés, cambie `es`
+por `en` en la ruta del catálogo de textos. El idioma modifica los rótulos,
+no los importes ni la propuesta conservada.
+
+La recuperación comprueba las huellas y la coherencia de la instantánea antes
+de generar el informe. Si la copia está alterada o incompleta, devuelve un
+código de error y no emite un informe parcial. Esta comprobación no acredita
+quién aprobó la propuesta. El resultado sigue siendo una preparación local,
+con `liquidable:false`, sin registro, firma ni recibo administrativo.
+
+Después de revisar el ejemplo, retire sus archivos temporales:
+
+```sh
+rm -r -- "$ensayo_dietas"
+```
+
 ## Comparar dos propuestas locales
 
 `--comparar-liquidaciones` recibe dos instantáneas completas en un objeto
@@ -137,11 +185,29 @@ huellas de las instantáneas. Estas huellas comprueban coherencia local, sin
 acreditar autenticidad ni aprobación. La salida conserva `liquidable:false`
 y la procedencia `comparacion_local_sin_registrar`.
 
+El mismo JSON de entrada puede generar un informe HTML local en castellano. Guarde
+el objeto con `esquema`, `anterior` y `propuesta` del comando anterior como
+`comparacion-entrada.json` y ejecute:
+
+```sh
+go run ./cmd/vec-dietas --comparar-liquidaciones --informe \
+  --textos web/static/textos/es/dietas-comparacion-liquidacion-informe.json \
+  --tema web/static/comun/tema-vec.css \
+  < comparacion-entrada.json > comparacion-dietas.html
+```
+
+El catálogo equivalente en `textos/en/` produce el informe en inglés. El HTML
+se puede leer e imprimir sin conexión. Muestra por línea los importes de ambas
+propuestas y sus diferencias, reglas y motivos, además de las versiones y
+huellas de los dos catálogos. Reutiliza la comparación ya validada: no vuelve
+a calcular tarifas ni a registrar una liquidación. Un error de entrada o de
+catálogo deja la salida sin HTML y devuelve un código cerrado.
+
 La entrada completa tiene un límite de 1 MiB. Las claves duplicadas, campos
 desconocidos, valores nulos y documentos adicionales se rechazan. Un error
 devuelve únicamente un código JSON y termina con estado 2; no incluye datos
-de las propuestas ni una comparación parcial. El comando no admite informe
-HTML, no publica tarifas y no registra una liquidación.
+de las propuestas ni una comparación parcial. El informe HTML local tampoco
+publica tarifas ni registra una liquidación. No es el documento liquidado D9.
 
 ## Contraste con fuentes públicas
 

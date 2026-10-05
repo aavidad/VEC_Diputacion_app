@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000171_auditoria_admin_preperfil.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000031_seleccion_admin_auditoria_comun.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000014_seleccion_admin_auditoria_comun.up.sql

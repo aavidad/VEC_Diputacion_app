@@ -1,0 +1,17 @@
+{
+  "titulo": "Mis correos",
+  "direccion": "Dirección",
+  "estado": "Estado",
+  "alta": "Fecha de alta",
+  "activo": "Verificado. Recibe los avisos",
+  "verificado": "Verificado",
+  "pendiente": "Pendiente de verificación",
+  "actualizar": "Actualizar",
+  "gestionar": "Gestionar mis correos",
+  "cargando": "Consultando sus correos…",
+  "vacio": "No tiene correos registrados. Pulse Gestionar mis correos para añadir uno.",
+  "sesion": "Su sesión ha caducado. Identifíquese de nuevo para consultar sus correos.",
+  "denegado": "No puede consultar sus correos con el perfil que tiene activo. Cambie de perfil o, si cree que es un error, avise a Informática.",
+  "no_configurado": "Ahora no se pueden consultar sus correos. Avise a Informática.",
+  "error": "No se han podido consultar sus correos. Pulse Actualizar. Si sigue igual, avise a Informática."
+}

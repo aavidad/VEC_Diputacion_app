@@ -1,6 +1,6 @@
 import { cargarTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS } from '../../../comun/idioma.js';
-import { montarSeleccion } from './montaje.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { montarSeleccion } from './montaje.js?v=20261004-codexa-s6-notas-v1';
 
 const textos = await cargarTextos('seleccion');
 const t = textos.traducir;

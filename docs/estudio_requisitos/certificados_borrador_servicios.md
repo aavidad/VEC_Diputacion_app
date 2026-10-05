@@ -14,7 +14,7 @@ Personal, la base de datos o los proveedores de firma.
 Desde la raíz de este worktree, elija una carpeta de salida que aún no exista:
 
 ```sh
-GOCACHE=/dev/shm/go-build TMPDIR=/tmp go run ./cmd/vec-certificados-borrador \
+TMPDIR=/tmp go run ./cmd/vec-certificados-borrador \
   -ensayo-sintetico \
   -fuente internal/modules/certificados/adapters/fichero/testdata/servicios.ensayo.json \
   -salida /tmp/vec-certificado-servicios
@@ -77,14 +77,53 @@ castellano. El contenido puede estar traducido, pero el PDF en inglés no
 acredita accesibilidad lingüística completa. Este corte tampoco acredita
 PDF etiquetado ni PDF/UA. Su corrección pertenece al generador común.
 
+## Fuente con la forma del contrato V1 de Personal (CER-002)
+
+Personal publica el contrato `LectorServiciosParaCertificadosV1`
+(`internal/modules/personal/ports/servicios_para_certificados.go`). Todavía
+no tiene implementación ni montaje. El adaptador
+`internal/modules/certificados/adapters/personalv1` traduce su respuesta a la
+fuente del borrador, sin reglas de cómputo:
+
+- el periodo de Personal es semiabierto, [desde, hasta): el último día del
+  servicio es el anterior a «hasta». Un «hasta» vacío es un periodo abierto y
+  el borrador lo presenta así, sin inventar una fecha de fin. V1 no recorta los
+  periodos al corte: si el fin previsto es posterior a la fecha de referencia
+  (un temporal en activo), el servicio se presenta en curso a esa fecha;
+- V1 no trae días. El borrador no los muestra ni los calcula y cambia el
+  bloque de criterio por uno que lo dice;
+- se conservan la cobertura (completa, parcial o no acreditada), la certeza de
+  la procedencia, el acto y la versión de la clase de cada servicio;
+- solo un servicio reconocido con procedencia acreditada se marca como capaz
+  de sustentar un certificado. Un declarado o comprobado no se convierte en
+  reconocido;
+- V1 no trae el nombre: llega aparte, desde la autoridad de identidad.
+
+La forma V1 solo entra por este traductor: el adaptador de fichero de ensayo
+rechaza una fuente que ya venga con el esquema V1 escrito a mano.
+
+Con la muestra sintética
+`adapters/personalv1/testdata/servicios-personal-v1.ensayo.json` el CLI
+prepara el mismo tipo de borrador. Una fuente no sintética se sigue
+rechazando: este consumidor no tiene autorización para datos reales.
+
+Queda para el paso siguiente: que Personal implemente el lector con su
+autorización y auditoría, y montar en el servidor la consulta propia del
+empleado con identidad y permiso. Para RRHH conviene además que el contrato
+V1 aporte los días reconocidos, que Personal ya guarda; es una decisión de su
+dueño. Antes de emitir, el borrador debe conservar también la versión de la
+respuesta, las referencias de empleado y organismo y la fuente y versión de
+cada procedencia, para trazar el certificado a su origen; la traducción de
+ensayo aún no las guarda.
+
 ## Verificación focal
 
 ```sh
-GOCACHE=/dev/shm/go-build TMPDIR=/tmp go test -race -p 8 \
+TMPDIR=$HOME/.cache/vec-claude-t go test -race -p 4 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
-GOCACHE=/dev/shm/go-build go vet -p 8 \
+TMPDIR=$HOME/.cache/vec-claude-t go vet -p 4 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
-GOCACHE=/dev/shm/go-build ~/go/bin/gosec -quiet -fmt text \
+~/go/bin/gosec -quiet -fmt text \
   ./cmd/vec-certificados-borrador/... ./internal/modules/certificados/...
 semgrep --metrics=off --config p/golang --error \
   cmd/vec-certificados-borrador internal/modules/certificados

@@ -21,8 +21,11 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		return
 	}
 	var result any
+	var accion p.Operacion
+	recurso := "copias"
 	switch r.URL.Path {
 	case PrefijoV1 + "/lanzamientos":
+		accion = p.Lanzar
 		var v p.SolicitudLanzamiento
 		if !h.decode(w, r, s, &v) {
 			return
@@ -38,6 +41,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		recibo, err = h.servicio.Cambios.Lanzar(r.Context(), s, v)
 		result = envolverRecibo(recibo, v.OperacionRef, &err)
 	case PrefijoV1 + "/calendario":
+		accion = p.ConfigurarCalendario
 		var v p.SolicitudPolitica
 		if !h.decode(w, r, s, &v) {
 			return
@@ -53,6 +57,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		recibo, err = h.servicio.Cambios.ConfigurarCalendario(r.Context(), s, v)
 		result = envolverRecibo(recibo, v.OperacionRef, &err)
 	case PrefijoV1 + "/retencion":
+		accion = p.ConfigurarRetencion
 		var v p.SolicitudPolitica
 		if !h.decode(w, r, s, &v) {
 			return
@@ -68,6 +73,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		recibo, err = h.servicio.Cambios.ConfigurarRetencion(r.Context(), s, v)
 		result = envolverRecibo(recibo, v.OperacionRef, &err)
 	case PrefijoV1 + "/propuestas":
+		accion = p.Proponer
 		var v p.SolicitudPropuesta
 		if !h.decode(w, r, s, &v) {
 			return
@@ -76,6 +82,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 			h.denegar(w, r, s, p.ErrSolicitud, "proponer", "")
 			return
 		}
+		recurso = v.ConjuntoRef
 		if !h.autorizado(w, r, s, p.Proponer, v.ConjuntoRef, h.servicio.Control) {
 			return
 		}
@@ -106,6 +113,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		if parts[1] == "ejecucion" {
 			op = p.Ejecutar
 		}
+		accion, recurso = op, parts[0]
 		if !h.autorizado(w, r, s, op, parts[0], h.servicio.Control) {
 			return
 		}
@@ -129,7 +137,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 		}
 	}
 	if err != nil {
-		fallo(w, err)
+		h.denegar(w, r, s, err, string(accion), recurso)
 		return
 	}
 	respuesta(w, 200, result)

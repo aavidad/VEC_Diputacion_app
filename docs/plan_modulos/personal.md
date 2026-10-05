@@ -137,3 +137,35 @@ auditoría en la transacción de la fuente. Quedan sin implementación, SQL, HTT
 composición ni autorización operativa. Las fuentes actuales de CER y H05 siguen
 siendo de ensayo. Los DTO no contienen nombre, DNI ni correo y no sustituyen
 las proyecciones puras de dominio ni crean otra ficha de persona.
+
+## Preparación propia de una revisión de servicios — 4 de octubre de 2026
+
+La historia propia de servicios incorpora «Preparar revisión» en cada fila
+recibida. Permite elegir un dato de esa revisión y describir propuesta, motivo
+y evidencia declarada. El estado permanece «Preparación sin presentar».
+Discutir el dato no determina que sea jurídicamente rectificable.
+
+«Revisar borrador» vuelve a consultar la historia propia por su cliente
+autorizado existente, con las mismas fechas y sin enviar referencias de persona,
+empleado, propuesta, motivo ni evidencia. Comprueba las revisiones del servicio,
+sus valores, fuente, acto y versiones. Si cambian o falla el acceso, retira la
+historia anterior y el borrador. La procedencia del borrador revisado conserva
+servicio, revisión, fuente, acto, corte y referencia de la consulta nueva.
+
+La preparación vive únicamente en memoria y se limpia al descartarla, actualizar
+la historia, cambiar fechas o desmontar la vista. No tiene descarga, portapapeles,
+adjuntos, envío, registro, SQL ni permiso de escritura. Personal no utiliza el
+circuito de rectificación de Dietas. El circuito de presentación y decisión
+competente continúa pendiente; este corte no cierra PER-005.
+
+Las 23 pruebas Node focales de preparación, vista e HTTP lector existente pasan
+con Node 20.19.2. Incluyen selector ajeno, revisión sustituida, revocación,
+dependencia caída, respuestas tardías, limpieza, texto hostil mediante textContent
+y catálogos ES/EN. Semgrep local sobre cuatro archivos de implementación:
+cuatro reglas, ningún hallazgo. No se ejecutaron Go, SQL ni servicios reales.
+La revisión sensible y de usabilidad del candidato final, la cadena de caché y
+los manifiestos corresponden a Dirección antes de integrar.
+
+El valor recibido aparece junto al valor propuesto, antes del motivo y la evidencia.
+La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
+La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.

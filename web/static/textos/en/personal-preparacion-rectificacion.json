@@ -1,0 +1,53 @@
+{
+  "general": {
+    "titulo": "Service review",
+    "estado": "Preparation not submitted",
+    "acciones": "Review the data",
+    "preparar": "Prepare a review",
+    "ayuda": "Help with preparing a review",
+    "ayuda_texto": "Choose a received value and describe your proposal. Preparing it does not establish that it can be corrected. Reviewing the draft checks your authorised history again. The draft is cleared when you leave or refresh the history.",
+    "campo": "Disputed field (required)",
+    "propuesta": "Proposed value (required)",
+    "elegir_estado": "Select a status",
+    "motivo": "Reason for review (required)",
+    "evidencia": "Evidence you declare you have (required)",
+    "actual": "Received value: {valor}",
+    "actual_etiqueta": "Received value",
+    "revisar": "Review draft",
+    "cancelar": "Discard preparation",
+    "invalido": "Check the highlighted fields. The draft has not been submitted.",
+    "comprobando": "Checking access and the service revision again…",
+    "sin_presentar": "Submission is not available yet. This draft has not been sent or registered.",
+    "revision_sustituida": "The service revision has changed. The draft has been cleared. Check the history and prepare a new review.",
+    "no_consta": "Not recorded",
+    "procedencia": "View draft provenance",
+    "servicio": "Service reference",
+    "revision": "Revision",
+    "fuente": "Source reference",
+    "version_fuente": "Source version",
+    "acto": "Act reference",
+    "corte_desde": "Effective from (included)",
+    "corte_hasta": "Effective until (excluded)",
+    "conocido_en": "Information known as of",
+    "recibo": "Query reference"
+  },
+  "campos": {
+    "periodo_desde": "Service start",
+    "periodo_hasta": "Service end",
+    "dias_reconocidos": "Recorded days",
+    "estado": "Status",
+    "clase": "Class"
+  },
+  "errores": {
+    "obligatorio": "Complete this field.",
+    "fecha": "Select a valid date.",
+    "dias": "Enter a whole number of days, zero or greater.",
+    "estado": "Select a status from the list.",
+    "clase": "Enter a class of up to 300 characters, without line breaks or control characters."
+  },
+  "estados": {
+    "declarado": "Declared",
+    "comprobado": "Checked",
+    "reconocido": "Recognised"
+  }
+}

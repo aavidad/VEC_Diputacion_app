@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"fuentes_registradas"},
+  {"resultado":"permitido","motivo_ref":"fuentes_replay"},
+  {"resultado":"denegado","motivo_ref":"fuentes_denegadas"},
+  {"resultado":"error","motivo_ref":"fuentes_error"}
+]

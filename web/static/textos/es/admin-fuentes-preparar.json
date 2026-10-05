@@ -1,0 +1,12 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "Preparar este plan no crea fuentes ni cuentas y no concede permisos. El proveedor debe comprobar la configuración privada, la preimagen y la aprobación antes de aplicarlo.",
+    "uso_invalido": "Indique fuente, plan y catálogo de textos. Para comprobar un plan existente, añada --cotejar.",
+    "fuente_insegura": "No se puede leer la fuente. Use un archivo privado de hasta 64 KiB en un directorio privado fuera del repositorio.",
+    "fuente_invalida": "La fuente no cumple el contrato de fuentes iniciales sintéticas o ha caducado. Revise versiones, referencias y vigencias.",
+    "plan_inseguro": "No se puede leer el plan privado para cotejarlo.",
+    "plan_divergente": "El plan existente no coincide con la fuente o el destino no es seguro. No se ha sobrescrito.",
+    "plan_preparado": "El plan está preparado y su huella se ha calculado. Guárdelo para su revisión."
+  }
+}
