@@ -1,0 +1,132 @@
+{
+  "esquema": "vec.seleccion.lista-admision-revision.v1",
+  "lista": {
+    "esquema": "vec.seleccion.lista-admision-provisional.v1",
+    "lista_ref": "lista:aux-adm-2026-provisional",
+    "revision": 2,
+    "alcance": "preparacion_sintetica",
+    "estado": "borrador_pendiente_aprobacion",
+    "bases": {
+      "referencia": "bases:sinteticas",
+      "version": "1",
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "catalogo": {
+      "referencia": "seleccion-admision-ejemplo",
+      "version": "ejemplo-1",
+      "paquete_ejemplo": true,
+      "duda_ref": "dudas-139"
+    },
+    "plazo_subsanacion": {
+      "unidad": "dias_habiles",
+      "cantidad": 10
+    },
+    "vencimiento_subsanacion": "pendiente_publicacion",
+    "admitidas": [
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0003",
+          "revision": 1,
+          "huella_material_sha256": "c162034906b585ac9dbfb4f7e3d58ccf716bf5d51b46a0d431b5882f9a08396e"
+        }
+      },
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0007",
+          "revision": 1,
+          "huella_material_sha256": "5b80defac135762488bdf7338f56798e01db6aad4ae3a4e8d39a3a29c6474491"
+        }
+      },
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0024",
+          "revision": 1,
+          "huella_material_sha256": "c4340e6f004381d2e26cc784a11b32a3b0f42d03ed8bfe8480a2627b9dd4b4a2"
+        }
+      }
+    ],
+    "excluidas": [
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0012",
+          "revision": 1,
+          "huella_material_sha256": "683c9e36c182579789a3eb0305b3fa9f053e6635c99bb987ae21c50586382b4d"
+        },
+        "motivos": [
+          {
+            "codigo": "tasa_no_justificada",
+            "subsanable": true
+          },
+          {
+            "codigo": "documento_identidad_no_aportado",
+            "subsanable": true
+          }
+        ],
+        "subsanable": true
+      },
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0019",
+          "revision": 1,
+          "huella_material_sha256": "cce4a0bb6f7f1dc8c1b77addd4bd7071c7b013da108b4c5072f3108a31bb8e96"
+        },
+        "motivos": [
+          {
+            "codigo": "solicitud_fuera_de_plazo",
+            "subsanable": false
+          }
+        ],
+        "subsanable": false
+      },
+      {
+        "antecedente": {
+          "esquema_material": "seleccion.admision.material-local.v1",
+          "preparacion_ref": "preparacion:aux-adm-2026-0031",
+          "revision": 1,
+          "huella_material_sha256": "09da39aa0089ca58a7080f5a69a75fab89056acba281abbf8bf481a9bff21ad7"
+        },
+        "motivos": [
+          {
+            "codigo": "titulacion_no_acreditada",
+            "subsanable": true
+          }
+        ],
+        "subsanable": true
+      }
+    ],
+    "resumen": {
+      "solicitudes": 6,
+      "admitidas": 3,
+      "excluidas": 3,
+      "excluidas_subsanables": 2
+    },
+    "pendientes": [
+      "seleccion.lista_admision.pendiente.aprobacion_competente",
+      "seleccion.lista_admision.pendiente.identidad_publicacion",
+      "seleccion.lista_admision.pendiente.vencimiento_al_publicar",
+      "seleccion.lista_admision.pendiente.publicacion_oficial",
+      "seleccion.lista_admision.pendiente.catalogo_ejemplo"
+    ],
+    "aprobada": false,
+    "publicada": false,
+    "persistida": false
+  },
+  "anterior": {
+    "esquema": "seleccion.admision.lista-provisional.v1",
+    "lista_ref": "lista:aux-adm-2026-provisional",
+    "revision": 1,
+    "huella_sha256": "a0de31453bd8555d34f2573aae10b1ff6097a4e07dee4e4adff0a4b8443f42f0"
+  },
+  "incorporadas": [
+    "preparacion:aux-adm-2026-0024",
+    "preparacion:aux-adm-2026-0031"
+  ],
+  "pendientes": [
+    "seleccion.revision_lista.pendiente.plazo_incorporadas"
+  ]
+}

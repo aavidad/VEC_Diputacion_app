@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion/migraciones/000039_fuentes_iniciales_admin.up.sql

@@ -1,0 +1,37 @@
+{
+  "esquema": "dietas-informes-pdf-v1",
+  "referencia": "dietas-informes-pdf-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_fecha": "02/01/2006",
+  "separador_decimal": ",",
+  "titulo": "Informe de dietas por período",
+  "sintetico": "EJEMPLO SINTÉTICO. Las personas y los importes son inventados. No es una liquidación registrada ni una exportación autorizada.",
+  "criterio": "El período se cuenta por la {{campo}} de cada comisión. La unidad es la que constaba en su documento.",
+  "campos_fecha": {
+    "fecha_inicio": "fecha de inicio",
+    "fecha_liquidacion": "fecha de liquidación",
+    "fecha_fiscalizacion": "fecha de fiscalización"
+  },
+  "periodo": "Período consultado: del {{desde}} al {{hasta}}.",
+  "periodo_desde": "Período consultado: desde el {{desde}}.",
+  "periodo_hasta": "Período consultado: hasta el {{hasta}}.",
+  "resumen": "Informes incluidos: {{cuenta}}. Importe incluido: {{importe}}.",
+  "concepto": "{{concepto}}: {{importe}}.",
+  "conceptos": {
+    "manutencion": "Manutención",
+    "kilometraje": "Kilometraje",
+    "otros_gastos": "Otros gastos"
+  },
+  "fila": "{{referencia}} (versión {{version}}). {{persona}}, {{unidad}}. {{situacion}}, {{fecha}}. Importe incluido: {{importe}}.",
+  "situaciones": {
+    "orientativo": "Orientativo",
+    "liquidado": "Liquidado",
+    "fiscalizado": "Fiscalizado"
+  },
+  "importes": {
+    "EUR": "{{valor}} €"
+  },
+  "vacio": "No hay informes para estos filtros.",
+  "limite": "Los importes son los que conservó cada comisión; no se recalculan con las tarifas actuales. Este documento no acredita liquidación, fiscalización ni pago."
+}

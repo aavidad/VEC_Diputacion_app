@@ -1,0 +1,34 @@
+[
+  {
+    "codigo_ref": "autenticacion_requerida",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "acceso_denegado",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "metodo_no_permitido",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "solicitud_invalida",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "conflicto_estado",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "recurso_no_encontrado",
+    "resultado": "denegado"
+  },
+  {
+    "codigo_ref": "servicio_no_disponible",
+    "resultado": "error"
+  },
+  {
+    "codigo_ref": "respuesta_incompatible",
+    "resultado": "error"
+  }
+]

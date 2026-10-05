@@ -40,6 +40,17 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 		}
 		return r.delegado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 	}
+	// La guarda de vigencia del dispatcher puede rechazar después de capturar
+	// el GET interno. Ese intento conserva identidad y correlación originales;
+	// la orden de frontera no sustituye actor, motivo ni material capturados.
+	if ctx != nil {
+		if intento, presente := ctx.Value(claveIntentoConsultaCorreos{}).(*intentoConsultaCorreos); presente {
+			if intento == nil || intento.autoridad == nil || orden.Ruta != usuarioshttp.RutaMisCorreos {
+				return errComposicionUsuariosCorreos
+			}
+			return intento.autoridad.AuditarIntentoConsultaCorreos(ctx, http.StatusForbidden)
+		}
+	}
 	var seleccionado registradorDenegacionPreferenciasUsuarios
 	switch orden.Ruta {
 	case usuarioshttp.RutaMisPreferencias, usuarioshttp.RutaMisCorreos, usuarioshttp.RutaMiImagen:

@@ -1,0 +1,32 @@
+{
+  "esquema": "dietas-informes-csv-v1",
+  "referencia": "dietas-informes-csv-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006",
+  "cabeceras": {
+    "referencia": "Reference",
+    "version_comision": "Version",
+    "persona": "Person",
+    "unidad": "Unit",
+    "situacion": "Sample status",
+    "importe_incluido_centimos": "Included amount (cents)",
+    "aviso": "Notice"
+  },
+  "campos_fecha": {
+    "fecha_inicio": "Start date",
+    "fecha_liquidacion": "Settlement date",
+    "fecha_fiscalizacion": "Financial review date"
+  },
+  "conceptos": {
+    "manutencion": "Meals (cents)",
+    "kilometraje": "Mileage (cents)",
+    "otros_gastos": "Other expenses (cents)"
+  },
+  "situaciones": {
+    "orientativo": "Estimate",
+    "liquidado": "Settled",
+    "fiscalizado": "Reviewed"
+  },
+  "sintetico": "SYNTHETIC SAMPLE. Not a recorded settlement or an authorised export."
+}

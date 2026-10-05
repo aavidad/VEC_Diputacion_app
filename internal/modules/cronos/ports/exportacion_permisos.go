@@ -71,7 +71,11 @@ type PermisosExportables struct {
 
 // El adaptador futuro autoriza empleado propio+ejercicio+exportar_pdf y filtra
 // tipos/campos en la lectura durable auditada. Una consulta completa de permisos
-// no satisface este puerto. Filas excluidas no dejan subtotales ni huecos.
+// no satisface este puerto. Los campos excluidos pueden llegar vacíos; si una
+// fila trae restante conocido, incluye conciliación como metadato interno
+// confirmado aunque ese campo no sea exportable. La aplicación lo borra antes
+// del preparador cuando la política lo excluye. Filas excluidas no dejan
+// subtotales ni huecos.
 type FuenteExportacionPermisos interface {
 	LeerResumenPropioParaExportar(context.Context, OrdenExportacionPermisos) (PermisosExportables, error)
 }
@@ -89,9 +93,10 @@ type FilaInformePermisos struct {
 	Conciliacion      string                `json:"conciliacion"`
 }
 type ResumenPermisosInforme struct {
-	Ejercicio int                   `json:"ejercicio"`
-	CorteUTC  time.Time             `json:"corte_utc"`
-	Filas     []FilaInformePermisos `json:"filas"`
+	Ejercicio        int                   `json:"ejercicio"`
+	CorteUTC         time.Time             `json:"corte_utc"`
+	CamposPermitidos []string              `json:"campos_permitidos"`
+	Filas            []FilaInformePermisos `json:"filas"`
 }
 
 type DocumentoPermisosPreparado struct {

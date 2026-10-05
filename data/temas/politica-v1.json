@@ -1,0 +1,235 @@
+{
+  "esquema": 1,
+  "politica_ref": "vec-temas-color-v1",
+  "sistema_diseno_ref": "vec-diseno-color-v1",
+  "tokens": [
+    "--portal-acento",
+    "--portal-aviso",
+    "--portal-aviso-suave",
+    "--portal-azul-100",
+    "--portal-azul-600",
+    "--portal-azul-700",
+    "--portal-azul-800",
+    "--portal-azul-900",
+    "--portal-azul-950",
+    "--portal-borde",
+    "--portal-borde-control",
+    "--portal-cabecera-panel",
+    "--portal-cian",
+    "--portal-cian-fuerte",
+    "--portal-cian-suave",
+    "--portal-exito",
+    "--portal-exito-suave",
+    "--portal-foco",
+    "--portal-fondo",
+    "--portal-fondo-logo",
+    "--portal-lateral-fondo",
+    "--portal-lateral-muted",
+    "--portal-lateral-texto",
+    "--portal-morado",
+    "--portal-muted",
+    "--portal-naranja",
+    "--portal-naranja-suave",
+    "--portal-neutro-suave",
+    "--portal-oliva",
+    "--portal-peligro",
+    "--portal-peligro-suave",
+    "--portal-superficie",
+    "--portal-superficie-alterna",
+    "--portal-texto-inverso",
+    "--portal-tinta",
+    "--portal-tinta-suave",
+    "--portal-turquesa",
+    "--portal-violeta",
+    "--portal-violeta-suave"
+  ],
+  "idiomas_requeridos": [
+    "es",
+    "en"
+  ],
+  "valores_fijos": {
+    "--portal-fondo-logo": "#ffffff"
+  },
+  "contrastes": [
+    {
+      "primer_plano": "--portal-tinta",
+      "fondo": "--portal-superficie",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-tinta-suave",
+      "fondo": "--portal-superficie",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-muted",
+      "fondo": "--portal-superficie",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-azul-700",
+      "fondo": "--portal-superficie",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-tinta",
+      "fondo": "--portal-superficie-alterna",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-tinta-suave",
+      "fondo": "--portal-superficie-alterna",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-muted",
+      "fondo": "--portal-superficie-alterna",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-azul-700",
+      "fondo": "--portal-superficie-alterna",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-tinta",
+      "fondo": "--portal-cabecera-panel",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-tinta-suave",
+      "fondo": "--portal-cabecera-panel",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-muted",
+      "fondo": "--portal-cabecera-panel",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-azul-700",
+      "fondo": "--portal-cabecera-panel",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-texto-inverso",
+      "fondo": "--portal-azul-700",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-texto-inverso",
+      "fondo": "--portal-azul-800",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-texto-inverso",
+      "fondo": "--portal-azul-900",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-texto-inverso",
+      "fondo": "--portal-azul-950",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-texto-inverso",
+      "fondo": "--portal-peligro",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-lateral-texto",
+      "fondo": "--portal-lateral-fondo",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-lateral-muted",
+      "fondo": "--portal-lateral-fondo",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-azul-900",
+      "fondo": "--portal-azul-100",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-foco",
+      "fondo": "--portal-superficie",
+      "tipo": "componente",
+      "minimo": 3
+    },
+    {
+      "primer_plano": "--portal-foco",
+      "fondo": "--portal-fondo",
+      "tipo": "componente",
+      "minimo": 3
+    },
+    {
+      "primer_plano": "--portal-borde-control",
+      "fondo": "--portal-superficie",
+      "tipo": "componente",
+      "minimo": 3
+    },
+    {
+      "primer_plano": "--portal-exito",
+      "fondo": "--portal-exito-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-aviso",
+      "fondo": "--portal-aviso-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-peligro",
+      "fondo": "--portal-peligro-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-violeta",
+      "fondo": "--portal-violeta-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-cian-fuerte",
+      "fondo": "--portal-cian-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    },
+    {
+      "primer_plano": "--portal-naranja",
+      "fondo": "--portal-naranja-suave",
+      "tipo": "texto",
+      "minimo": 4.5
+    }
+  ],
+  "limites": {
+    "bytes": 65536,
+    "tokens": 64,
+    "idiomas": 32,
+    "nombre": 100
+  }
+}

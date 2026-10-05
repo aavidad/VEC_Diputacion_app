@@ -115,6 +115,12 @@ type ConfianzaPerfilesV3 struct {
 // su verificador y las once capacidades nominales. No abre conexiones,
 // publica gobierno ni registra decisiones durante la construcción.
 func NuevaConfianzaPerfilesV3(cfg ConfiguracionConfianzaPerfilesV3, deps DependenciasConfianzaPerfilesV3) (ConfianzaPerfilesV3, error) {
+	return nuevaConfianzaConAudienciasV3(cfg, deps, audienciasConfianzaPerfilesV3())
+}
+
+// La selección es privada y sólo procede de las dos factorías de conjuntos
+// cerrados. Configuración y HTTP no pueden ampliar sus audiencias.
+func nuevaConfianzaConAudienciasV3(cfg ConfiguracionConfianzaPerfilesV3, deps DependenciasConfianzaPerfilesV3, requeridas []string) (ConfianzaPerfilesV3, error) {
 	vacia := ConfianzaPerfilesV3{}
 	if deps.PoolFuente == nil || deps.PoolRegistro == nil || deps.PoolMotivos == nil ||
 		deps.PoolFuente == deps.PoolRegistro || deps.PoolFuente == deps.PoolMotivos || deps.PoolRegistro == deps.PoolMotivos ||
@@ -129,7 +135,7 @@ func NuevaConfianzaPerfilesV3(cfg ConfiguracionConfianzaPerfilesV3, deps Depende
 	if err != nil {
 		return vacia, ErrConfiguracion
 	}
-	claves, err := clavesConfianzaPerfilesV3(cfg.EntradasCapacidad, cfg.Cabecera.ClaveID, ahora)
+	claves, err := clavesConfianzaConAudienciasV3(cfg.EntradasCapacidad, cfg.Cabecera.ClaveID, ahora, requeridas)
 	if err != nil {
 		return vacia, ErrConfiguracion
 	}
@@ -192,18 +198,31 @@ func configuracionConfianzaPerfilesV3(cfg ConfiguracionConfianzaPerfilesV3, ahor
 	return configuracion, nil
 }
 
+func audienciasConfianzaPerfilesV3() []string {
+	return []string{AudienciaPerfilesOrdinarioV3, AudienciaPerfilesPropuestaV3, AudienciaPerfilesCierreV3, AudienciaPerfilesConsultaV3,
+		AudienciaPerfilesCapacidadesV3, AudienciaPerfilesBuscarPersonasV3, AudienciaPerfilesPersonaV3,
+		AudienciaPerfilesRolesV3, AudienciaPerfilesPropuestasV3, AudienciaPerfilesPropuestaLecturaV3, AudienciaPerfilesReciboV3}
+}
+
 func clavesConfianzaPerfilesV3(entradas []MaterialCapacidadPerfilesV3, raizID string, ahora time.Time) (map[string]confianza.ClaveHMACCapacidadAtestacionV3, error) {
-	if len(entradas) != 11 {
+	return clavesConfianzaConAudienciasV3(entradas, raizID, ahora, audienciasConfianzaPerfilesV3())
+}
+
+func clavesConfianzaConAudienciasV3(entradas []MaterialCapacidadPerfilesV3, raizID string, ahora time.Time, requeridas []string) (map[string]confianza.ClaveHMACCapacidadAtestacionV3, error) {
+	if len(entradas) != len(requeridas) || len(requeridas) == 0 {
 		return nil, ErrConfiguracion
 	}
-	claves := make(map[string]confianza.ClaveHMACCapacidadAtestacionV3, 11)
+	admitidas := make(map[string]bool, len(requeridas))
+	for _, audiencia := range requeridas {
+		if audiencia == "" || admitidas[audiencia] {
+			return nil, ErrConfiguracion
+		}
+		admitidas[audiencia] = true
+	}
+	claves := make(map[string]confianza.ClaveHMACCapacidadAtestacionV3, len(requeridas))
 	identificadores := map[string]bool{raizID: true}
 	for i, entrada := range entradas {
-		switch entrada.Audiencia {
-		case AudienciaPerfilesOrdinarioV3, AudienciaPerfilesPropuestaV3, AudienciaPerfilesCierreV3, AudienciaPerfilesConsultaV3,
-			AudienciaPerfilesCapacidadesV3, AudienciaPerfilesBuscarPersonasV3, AudienciaPerfilesPersonaV3,
-			AudienciaPerfilesRolesV3, AudienciaPerfilesPropuestasV3, AudienciaPerfilesPropuestaLecturaV3, AudienciaPerfilesReciboV3:
-		default:
+		if !admitidas[entrada.Audiencia] {
 			return nil, ErrConfiguracion
 		}
 		if _, existe := claves[entrada.Audiencia]; entrada.Estado != confianza.EstadoClaveHMACCapacidadAtestacionV3Emision || existe || identificadores[entrada.ClaveID] || ahora.Before(entrada.ValidaDesde) || !ahora.Before(entrada.ValidaHasta) {
