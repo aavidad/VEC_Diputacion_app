@@ -7,9 +7,9 @@
 -- vec_plan_firma_gobierno_ejecutor, con una sola pertenencia, como el lote de
 -- AD190. No cambia el contrato de la decisión, el CHECK de audiencias ni CC7, no
 -- crea LOGIN (lo hace el DBA) y no concede otro permiso.
--- Preimagen medida en clon sobre main con AD190/CA35/AUT44 (núcleo 05e6753a…,
--- fuente 1a5c3e67…). Si otro consumidor reescribe antes el núcleo (AD197,
--- AD198, AD199…), se detiene con PARO sin tocar nada y hay que remedirla.
+-- Preimagen medida en clon sobre main con AD190/CA35/AUT44 y AD197/B78 (#727):
+-- núcleo c4d11c9e…, fuente e689c573…. Va después de AD197. Si otro consumidor
+-- reescribe antes el núcleo, se detiene con PARO sin tocar nada y hay que remedirla.
 -- Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -29,7 +29,7 @@ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.login_gobierno_plan_firma_valido_v1()') IS NOT NULL
  OR to_regrole('vec_plan_firma_gobierno_ejecutor') IS NOT NULL
  OR to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
- THEN RAISE EXCEPTION 'AD200: PARO clave=preimagen actual=incompatible esperado=AD177_AD190_sin_AD200' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD200: PARO clave=preimagen actual=incompatible esperado=AD177_AD190_AD197_sin_AD200' USING ERRCODE='55000'; END IF;
  -- La fachada tiene exactamente el ACL que dejó AD177: propietario y runtime CT.
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=fachada AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef)
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=fachada)<>2
@@ -77,11 +77,11 @@ BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'AD200: PARO clave=nucleo esperado=presente actual=ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  h:=encode(sha256(convert_to(original,'UTF8')),'hex');
- IF h IS DISTINCT FROM '05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323'
- THEN RAISE EXCEPTION 'AD200: PARO clave=nucleo_postAD190_def_SHA actual=% esperado=05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM 'c4d11c9e7a39726df85f25bc040ef0cb33a387032d8d147ba3420d5fa24b6e24'
+ THEN RAISE EXCEPTION 'AD200: PARO clave=nucleo_postAD197_def_SHA actual=% esperado=c4d11c9e7a39726df85f25bc040ef0cb33a387032d8d147ba3420d5fa24b6e24',h USING ERRCODE='55000'; END IF;
  h:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF h IS DISTINCT FROM '1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087'
- THEN RAISE EXCEPTION 'AD200: PARO clave=nucleo_postAD190_src_SHA actual=% esperado=1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM 'e689c573a5a71ebeba120a19accd4eec785bf47ea32dfd946ef6fef27e10fa69'
+ THEN RAISE EXCEPTION 'AD200: PARO clave=nucleo_postAD197_src_SHA actual=% esperado=e689c573a5a71ebeba120a19accd4eec785bf47ea32dfd946ef6fef27e10fa69',h USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1

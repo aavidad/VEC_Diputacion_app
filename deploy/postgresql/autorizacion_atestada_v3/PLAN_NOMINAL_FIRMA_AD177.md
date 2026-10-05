@@ -148,9 +148,10 @@ una decisión V3 nominal de la audiencia de gobierno, emitida en la superficie
 `administracion_privilegiada` con cuenta privilegiada y el perfil de Aplicación
 que AUT51 amplió.
 
-Preimagen medida en clon sobre main con AD190, CA35 y AUT44: núcleo
-`05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323`
-(fuente `1a5c3e67…`). Postimagen en ese clon: `87262fdf…` (fuente `e1ca3d0d…`).
+Preimagen medida en clon sobre main con AD190, CA35, AUT44 y la lista de Bolsa
+contacto (AD197/B78, #727), que entra antes: núcleo
+`c4d11c9e7a39726df85f25bc040ef0cb33a387032d8d147ba3420d5fa24b6e24`
+(fuente `e689c573…`). Postimagen en ese clon: `546f341d…` (fuente `d02bb7f3…`).
 El CHECK de audiencias no cambia. Una segunda aplicación se detiene en la
 precondición. `pruebas_sql/ad200_grupo_gobierno_plan_firma.sql`, dentro de un
 ROLLBACK, comprueba que un LOGIN exclusivo del grupo pasa la rama de sesión, que
