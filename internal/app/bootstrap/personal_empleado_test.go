@@ -20,6 +20,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
+	personalcomp "vec-diputacion-granada/internal/modules/personal/adapters/composicion"
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
@@ -28,11 +29,15 @@ import (
 )
 
 type registroDenegacionPersonalPrueba struct {
-	denegaciones []personalports.DenegacionFichaPropia
+	denegaciones []personalports.IntentoFichaPropia
 	err          error
 }
 
-func (r *registroDenegacionPersonalPrueba) RegistrarDenegacionFichaPropia(_ context.Context, d personalports.DenegacionFichaPropia) error {
+func (r *registroDenegacionPersonalPrueba) VerificarRegistroFichaPropia(context.Context) error {
+	return r.err
+}
+
+func (r *registroDenegacionPersonalPrueba) RegistrarIntentoFichaPropia(_ context.Context, d personalports.IntentoFichaPropia) error {
 	r.denegaciones = append(r.denegaciones, d)
 	return r.err
 }
@@ -108,7 +113,7 @@ func TestPersonalEmpleadoActivadoFallaCerradoSinDependencias(t *testing.T) {
 
 func TestComponerManejadorFichaPropiaFallaCerradoSinIdentidad(t *testing.T) {
 	zona, _ := time.LoadLocation("Europe/Madrid")
-	if _, err := componerManejadorFichaPropia(nil, seguridadPersonalEmpleadoDesarrollo{}, nil, core.ReferenciaEntradaCatalogo{}, nil, zona); !errors.Is(err, ErrComposicionPersonalEmpleadoNoDisponible) {
+	if _, err := componerManejadorFichaPropia(nil, seguridadPersonalEmpleadoDesarrollo{}, nil, core.ReferenciaEntradaCatalogo{}, nil, zona, 2*time.Second); !errors.Is(err, ErrComposicionPersonalEmpleadoNoDisponible) {
 		t.Fatal("compone sin dependencias", err)
 	}
 	// Pool perezoso: la composición no abre conexiones ni lee datos.
@@ -120,20 +125,20 @@ func TestComponerManejadorFichaPropiaFallaCerradoSinIdentidad(t *testing.T) {
 	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_personal", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
 	identidad := seguridadPersonalEmpleadoDesarrollo{autoridad: &autoridadPersonalEmpleadoDesarrollo{reloj: relojRutasDietas{}}}
 	registro := &registroDenegacionPersonalPrueba{}
-	manejador, err := componerManejadorFichaPropia(pool, identidad, emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}, motivo, registro, zona)
+	manejador, err := componerManejadorFichaPropia(pool, identidad, emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}, motivo, registro, zona, 2*time.Second)
 	if err != nil || manejador == nil {
 		t.Fatal("ficha propia no compuesta", err)
 	}
 	w := httptest.NewRecorder()
 	manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, personalhttp.RutaFichaPropia, nil))
-	if w.Code != http.StatusServiceUnavailable || len(registro.denegaciones) != 1 {
+	if w.Code != http.StatusServiceUnavailable || len(registro.denegaciones) != 0 {
 		t.Fatal("manejador sin identidad registrada no falla cerrado", w.Code)
 	}
 }
 
 // TLS y resolvedor de certificado son reales; sesión, contexto y auditoría
 // son dobles. Acredita la frontera, no PostgreSQL ni el recorrido publicado.
-func TestPersonalEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
+func TestPersonalEmpleadoFronteraMTLSNoAtribuyeSinContexto(t *testing.T) {
 	cfg, rutasMaterial := generarMaterialDesarrolloPrueba(t)
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
 	if err != nil {
@@ -155,12 +160,12 @@ func TestPersonalEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
 	cuentas := map[string]cuentaRutasDietasDesarrollo{huella: cuenta}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: &revalidadorSesionConsultaPrueba{registro: registro}, contextos: contextos, reloj: reloj, instancia: strings.Repeat("a", 64)}
 	auditoria := &registroDenegacionPersonalPrueba{}
-	autoridad := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registro: auditoria}
+	autoridad := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas}
 	datos := 0
 	autoridad.rutas = map[string]http.Handler{personalhttp.RutaFichaPropia: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s := seguridadPersonalEmpleadoDesarrollo{autoridad: autoridad}
-		actor, err := s.ResolverActorFichaPropia(r.Context())
 		id, errID := s.ResolverIdentidadFichaPropia(r.Context())
+		actor, err := id.Resultado.Contexto.Clonar()
 		if err != nil || errID != nil || actor.PersonaRef != fixture.resultado.Contexto.PersonaRef || id.Resultado.Contexto.PersonaRef != actor.PersonaRef {
 			t.Error("la identidad registrada no llega al manejador", err, errID)
 		}
@@ -200,18 +205,17 @@ func TestPersonalEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
 	}
 	pedir(prefijoRutasPersonalEmpleado+"empleados/emp_otro", http.StatusNotFound, "no_disponible")
 	contextos.motivo = vp.ErrProyeccionEmpleadoContextoActorAusente
-	pedir(personalhttp.RutaFichaPropia, http.StatusForbidden, "sin_empleado")
+	pedir(personalhttp.RutaFichaPropia, http.StatusServiceUnavailable, "no_disponible")
 	contextos.motivo = vp.ErrProyeccionEmpleadoContextoActorAmbigua
-	pedir(personalhttp.RutaFichaPropia, http.StatusForbidden, "empleado_ambiguo")
+	pedir(personalhttp.RutaFichaPropia, http.StatusServiceUnavailable, "no_disponible")
 	contextos.motivo = errors.New("contexto caído")
 	pedir(personalhttp.RutaFichaPropia, http.StatusServiceUnavailable, "no_disponible")
-	if len(auditoria.denegaciones) != 4 || auditoria.denegaciones[0].Motivo != "no_encontrada" || auditoria.denegaciones[1].Motivo != "sin_empleado" ||
-		auditoria.denegaciones[2].Motivo != "empleado_ambiguo" || auditoria.denegaciones[3].EstadoHTTP != http.StatusServiceUnavailable {
-		t.Fatalf("denegaciones sin motivo auditado: %+v", auditoria.denegaciones)
+	if len(auditoria.denegaciones) != 0 {
+		t.Fatal("un fallo previo al contexto no permite atribución nominal")
 	}
 	contextos.motivo = nil
 	delete(cuentas, huella)
-	pedir(personalhttp.RutaFichaPropia, http.StatusForbidden, "acceso_denegado")
+	pedir(personalhttp.RutaFichaPropia, http.StatusServiceUnavailable, "no_disponible")
 	cuentas[huella] = cuenta
 	auditoria.err = errors.New("auditor caído")
 	contextos.motivo = vp.ErrProyeccionEmpleadoContextoActorAusente
@@ -275,10 +279,10 @@ func TestPersonalEmpleadoFronteraAceptaCadenaClienteConCA(t *testing.T) {
 	cuentas := map[string]cuentaRutasDietasDesarrollo{huella: cuenta}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: &revalidadorSesionConsultaPrueba{registro: registro}, contextos: contextos, reloj: reloj, instancia: strings.Repeat("a", 64)}
 	auditoria := &registroDenegacionPersonalPrueba{}
-	autoridad := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registro: auditoria}
+	autoridad := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas}
 	datos := 0
 	autoridad.rutas = map[string]http.Handler{personalhttp.RutaFichaPropia: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := (seguridadPersonalEmpleadoDesarrollo{autoridad: autoridad}).ResolverActorFichaPropia(r.Context()); err != nil {
+		if _, err := (seguridadPersonalEmpleadoDesarrollo{autoridad: autoridad}).ResolverIdentidadFichaPropia(r.Context()); err != nil {
 			t.Error("la identidad registrada no llega al manejador", err)
 		}
 		datos++
@@ -301,5 +305,56 @@ func TestPersonalEmpleadoFronteraAceptaCadenaClienteConCA(t *testing.T) {
 	cuerpo, _ := io.ReadAll(res.Body)
 	if res.ProtoMajor != 2 || res.StatusCode != http.StatusOK || datos != 1 || len(auditoria.denegaciones) != 0 || res.Header.Get("Set-Cookie") != "" {
 		t.Fatalf("cadena cliente con CA por %s: %d %s, datos=%d, auditoría=%+v", res.Proto, res.StatusCode, cuerpo, datos, auditoria.denegaciones)
+	}
+}
+
+type registradorIntentoPersonalCaducidadPrueba struct{ ordenes []vp.OrdenIntentoAuditoria }
+
+func (r *registradorIntentoPersonalCaducidadPrueba) PreflightIntentoAuditoria(context.Context) error {
+	return nil
+}
+func (r *registradorIntentoPersonalCaducidadPrueba) AppendIntentoAuditoria(_ context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+	r.ordenes = append(r.ordenes, o)
+	d, err := o.Datos()
+	if err != nil {
+		return vp.AcuseIntentoAuditoria{}, err
+	}
+	return vp.AcuseIntentoAuditoria{AuditoriaRef: "auditoria_prueba", Secuencia: 1, HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: d.Datos.CorrelacionRef, RegistradaEn: time.Now().UTC().Truncate(time.Microsecond)}, nil
+}
+
+func TestPersonalEmpleadoCapturaSelloTrasCaducidadSinAutorizarLectura(t *testing.T) {
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dp.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	datosSolicitud, err := fixture.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo := datosSolicitud.VinculoAutenticacionActor
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	autoridad := &autoridadPersonalEmpleadoDesarrollo{reloj: reloj}
+	ctx := context.WithValue(context.Background(), claveContextoPersonalEmpleado{}, contextoPersonalEmpleado{autoridad: autoridad, seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: fixture.resultado}})
+	ctx, err = vp.ConCorrelacionIncidenciasPeticion(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj.ahora = fixture.ahora.Add(24 * time.Hour)
+	if vinculo.VigenteEn(reloj.ahora, fixture.resultado) {
+		t.Fatal("el vínculo de lectura sigue vigente")
+	}
+	ctx, err = personalcomp.PrepararContextoIntentoFichaPropia(ctx, seguridadPersonalEmpleadoDesarrollo{autoridad: autoridad}, time.Second)
+	if err != nil {
+		t.Fatal("se perdió el sello original", err)
+	}
+	destino := &registradorIntentoPersonalCaducidadPrueba{}
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_personal", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
+	registro, err := personalcomp.NuevoRegistroIntentosFichaPropia(destino, personalcomp.ConfiguracionIntentosFichaPropia{Proceso: "vec_personal_prueba", Canal: string(core.SuperficieAutenticacionInternaCorporativaV1), RecursoEntradaInvalida: "personal:ficha_propia:entrada_invalida", MotivoDenegado: motivo, MotivoEntradaInvalida: motivo, MotivoNoDisponible: motivo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registro.RegistrarIntentoFichaPropia(ctx, personalports.IntentoFichaPropia{Motivo: "no_disponible"}); err != nil || len(destino.ordenes) != 1 {
+		t.Fatal("intento nominal no confirmado", err)
+	}
+	datos, err := destino.ordenes[0].Datos()
+	if err != nil || datos.ResultadoContexto.HuellaSHA256 != fixture.resultado.HuellaSHA256 || datos.ResultadoContexto.Contexto.PerfilActivoRef != fixture.resultado.Contexto.PerfilActivoRef {
+		t.Fatal("atribución distinta al sello original", err)
 	}
 }

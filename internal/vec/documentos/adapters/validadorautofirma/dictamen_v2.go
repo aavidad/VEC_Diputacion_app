@@ -129,6 +129,7 @@ func (c *Cliente) verificarDictamenV2(ctx context.Context, s ports.SolicitudVeri
 	if !dictamenLigadoV2(d, s) {
 		return dictamenV2{}, ports.MotivoRespuestaNoInterpretable, nil
 	}
+	c.observarDisponibilidad(ctx, true)
 	return *d, "", nil
 }
 

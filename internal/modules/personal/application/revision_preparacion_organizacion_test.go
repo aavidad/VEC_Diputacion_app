@@ -1,6 +1,9 @@
 package application
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -75,6 +78,10 @@ func TestRevisionPreparacionFalloSituado(t *testing.T) {
 			p.Decisiones = decisionRevisionPrueba()
 			p.Decisiones[0].FilaFuenteRef = "fila:ausente"
 		}},
+		{"decisión de otra clase sobre una fila existente", "decision_invalida", "decisiones", 1, func(p *PaquetePreparacionOrganizacion) {
+			p.Decisiones = decisionRevisionPrueba()
+			p.Decisiones[0].Clase = "plaza"
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -85,6 +92,24 @@ func TestRevisionPreparacionFalloSituado(t *testing.T) {
 				t.Fatalf("informe: %+v", r)
 			}
 		})
+	}
+}
+
+func TestRevisionPreparacionAdmiteClasesDeHechosConLaMismaFila(t *testing.T) {
+	p := paqueteRevisionPrueba()
+	h := p.Hechos[0]
+	h.Clase = "puesto_tipo"
+	h.HechoRef = "33333333-3333-4333-8333-333333333333"
+	h.CatalogoEntradaClave, h.TipoUnidad = "", ""
+	h.CodigoFuente, h.ClasificacionRef = "P-1", "categoria:sintetica"
+	p.Hechos = append(p.Hechos, h)
+	p.Decisiones = []domain.DecisionConciliacionOrganizacion{
+		{FilaFuenteRef: "fila:1", Clase: "unidad", Resultado: "pendiente", Motivo: "Unidad por comprobar", EvidenciaRef: "evidencia:sintetica"},
+		{FilaFuenteRef: "fila:1", Clase: "puesto_tipo", Resultado: "pendiente", Motivo: "Puesto por comprobar", EvidenciaRef: "evidencia:sintetica"},
+		{FilaFuenteRef: "fila:1", Clase: "clasificacion", Resultado: "pendiente", Motivo: "Clasificación por comprobar", EvidenciaRef: "evidencia:sintetica"},
+	}
+	if r := RevisarPreparacionOrganizacion(p); !r.Valido {
+		t.Fatalf("decisiones de la fila sellada: %+v", r)
 	}
 }
 
@@ -150,5 +175,39 @@ func TestRevisionPreparacionLimites(t *testing.T) {
 	p.Hechos = append(p.Hechos, original)
 	if r := RevisarPreparacionOrganizacion(p); r.ClaveError != "cantidad_hechos_invalida" {
 		t.Fatalf("exceso hechos: %+v", r)
+	}
+}
+
+func TestPreparacionExportadaNoModificaNiComparteEntrada(t *testing.T) {
+	p := paqueteRevisionPrueba()
+	p.Hechos = append(p.Hechos, p.Hechos[0])
+	p.Hechos[0].HechoRef = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+	p.Hechos[0].FilaFuenteRef = "fila:2"
+	p.Decisiones = decisionRevisionPrueba()
+	p.Decisiones = append(p.Decisiones, p.Decisiones[0])
+	p.Decisiones[0].FilaFuenteRef = "fila:2"
+	original, _ := json.Marshal(p)
+	normalizado, informe := PrepararPaqueteOrganizacion(p)
+	if !informe.Valido || normalizado.Hechos[0].FilaFuenteRef != "fila:1" || normalizado.Decisiones[0].FilaFuenteRef != "fila:1" {
+		t.Fatal("normalización ausente")
+	}
+	material, err := json.Marshal(normalizado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(material)
+	if hex.EncodeToString(h[:]) != informe.PaqueteHuellaSHA256 {
+		t.Fatal("huella divergente")
+	}
+	normalizado.Hechos[0].Denominacion = "Otra denominación"
+	normalizado.Decisiones[0].Motivo = "Otro motivo"
+	despues, _ := json.Marshal(p)
+	if string(original) != string(despues) {
+		t.Fatal("entrada modificada o compartida")
+	}
+	p.Hechos[0].VigenteDesde = "2026-02-30"
+	vacio, fallo := PrepararPaqueteOrganizacion(p)
+	if fallo.Valido || !reflect.DeepEqual(vacio, PaquetePreparacionOrganizacion{}) || fallo.PaqueteHuellaSHA256 != "" {
+		t.Fatal("material inválido retornado")
 	}
 }

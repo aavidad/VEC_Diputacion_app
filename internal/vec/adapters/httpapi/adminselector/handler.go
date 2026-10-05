@@ -265,9 +265,15 @@ func codigoOpaco(v string) bool {
 	return true
 }
 
+// auditoriaValida admite las dos formas que entrega el selector: la referencia
+// de la auditoría común (IS14/AD171, «aud_v3_p_» y 32 hex) y la heredada
+// propia del selector («auditoria_seleccion_admin:» y 64 hex).
 func auditoriaValida(v string) bool {
-	const prefijo = "auditoria_seleccion_admin:"
-	if !strings.HasPrefix(v, prefijo) || len(v) != len(prefijo)+64 {
+	return hexMinusculaConPrefijo(v, "aud_v3_p_", 32) || hexMinusculaConPrefijo(v, "auditoria_seleccion_admin:", 64)
+}
+
+func hexMinusculaConPrefijo(v, prefijo string, n int) bool {
+	if !strings.HasPrefix(v, prefijo) || len(v) != len(prefijo)+n {
 		return false
 	}
 	for _, c := range v[len(prefijo):] {

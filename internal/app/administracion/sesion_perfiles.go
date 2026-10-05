@@ -38,7 +38,7 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 		ZonaRed:          httpseguridad.ZonaRedAdministracion,
 		DireccionEscucha: cfg.Escucha, Audiencia: cfg.Audiencia, EmisorIdentidad: cfg.EmisorIdentidad,
 		RedesPermitidas:        cfg.RedesPermitidas,
-		DuracionMaximaAsercion: time.Minute, EdadMaximaAutenticacion: 5 * time.Minute,
+		DuracionMaximaAsercion: time.Minute, EdadMaximaAutenticacion: vidaAutenticacionConexionPerfiles,
 		MetodosAdmitidos:          []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		FactoresRequeridos:        []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado},
 		MinimoFactoresVerificados: 1, MinimoGruposCriptograficosDistintos: 1,
@@ -99,7 +99,7 @@ func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Re
 		}
 	}
 	autenticada, err := autenticacionConexionPerfiles(ctx, r)
-	if err != nil || autenticada.After(ahora) || !ahora.Before(autenticada.Add(5*time.Minute)) {
+	if err != nil || autenticada.After(ahora) || !ahora.Before(autenticada.Add(vidaAutenticacionConexionPerfiles)) {
 		return vacia, api.ErrAutenticacionRequerida
 	}
 	hoja := r.TLS.VerifiedChains[0][0]

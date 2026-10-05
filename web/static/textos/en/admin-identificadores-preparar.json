@@ -1,0 +1,20 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "This command only prepares the private identifier file for the administration runtime. It does not connect to the database or show identifiers; hand over the fingerprint through the private approval channel.",
+    "uso_invalido": "Provide originals, certificates, source, acknowledgement, material, provider, output and text catalogue, each at a different path. The vec-admin configuration is optional and must also use its own path.",
+    "entrada_insegura": "A private file cannot be read. Use owned 0600 files of up to 64 KiB in a 0700 directory outside any repository and without links.",
+    "entrada_invalida": "An input file does not have the expected format or has missing or extra fields.",
+    "entradas_divergentes": "The files do not belong to the same preparation: people, acknowledged accounts, certificate authority or material fingerprint differ. Nothing was written.",
+    "configuracion_admin_divergente": "The administration runtime identity configuration does not use the same provider as proveedor.json. Nothing was written.",
+    "proveedor_no_disponible": "The pseudonym provider could not be loaded with the given configuration. Nothing was written.",
+    "coordenadas_divergentes": "The provider uses a different scheme, domain or key than the confirmed material. Nothing was written.",
+    "sujeto_divergente": "The subject fingerprint computed now does not match the confirmed one. Nothing was written.",
+    "cuenta_divergente": "The administration account fingerprint computed now does not match the confirmed one. Nothing was written.",
+    "alias_ordinario_divergente": "The ordinary account fingerprint the runtime will compute does not match the confirmed one. Nothing was written.",
+    "salida_insegura": "The output cannot be created: it already exists, its directory is not private (0700 and owned) or it is inside a repository.",
+    "salida_rechazada_retirada": "The runtime loader does not accept the written file. It was removed.",
+    "salida_rechazada_sin_retirar": "The runtime loader does not accept the written file and it could not be removed. Delete it manually before retrying and do not configure it.",
+    "identificadores_preparados": "Identifier file prepared. Configure its path and this fingerprint in the administration runtime."
+  }
+}

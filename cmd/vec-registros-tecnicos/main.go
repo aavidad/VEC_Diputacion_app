@@ -38,7 +38,7 @@ func leerArchivoRecolector(ruta string, destino any) error {
 	defer clear(b)
 	permitidas := []string{"esquema", "ayuda", "terminado", "error"}
 	if _, configuracion := destino.(*observabilidad.ConfiguracionRecolector); configuracion {
-		permitidas = []string{"directorio", "max_linea_bytes", "max_archivo_bytes", "max_archivos", "retencion_segundos", "ventana_alertas_segundos", "umbrales_alerta", "umbrales_resultado"}
+		permitidas = []string{"directorio", "max_linea_bytes", "max_archivo_bytes", "max_archivos", "retencion_segundos", "ventana_alertas_segundos", "umbrales_alerta", "umbrales_resultado", "catalogo_incidencias"}
 	}
 	if clavesUnicasCLI(b, permitidas) != nil {
 		return os.ErrInvalid
@@ -72,6 +72,12 @@ func clavesUnicasCLI(datos []byte, permitidas []string) error {
 		var valor json.RawMessage
 		if d.Decode(&valor) != nil {
 			return os.ErrInvalid
+		}
+		if clave == "catalogo_incidencias" {
+			var ruta string
+			if json.Unmarshal(valor, &ruta) != nil || ruta == "" {
+				return os.ErrInvalid
+			}
 		}
 		if clave == "umbrales_alerta" || clave == "umbrales_resultado" {
 			codigos := []string{}

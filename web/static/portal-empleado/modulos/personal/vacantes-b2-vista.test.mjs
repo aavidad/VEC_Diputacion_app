@@ -5,7 +5,7 @@ import { cargarTextos } from "../../../comun/textos.js";
 import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js";
 
 function documento() {
-  return { createElement(tipo) { return { tagName: tipo, textContent: "", children: [], dataset: {}, atributos: {}, append(...hijos) { this.children.push(...hijos); }, setAttribute(nombre, valor) { this.atributos[nombre] = valor; } }; } };
+  return { createElement(tipo) { return { tagName: tipo, textContent: "", children: [], dataset: {}, atributos: {}, eventos: {}, value: "", addEventListener(tipo, accion) { this.eventos[tipo] = accion; }, replaceChildren(...hijos) { this.children = hijos; }, focus() { this.enfocado = true; }, append(...hijos) { this.children.push(...hijos); }, setAttribute(nombre, valor) { this.atributos[nombre] = valor; } }; } };
 }
 function nodos(n) { return [n, ...n.children.flatMap(nodos)]; }
 function visible(n) { return [n.textContent, ...(n.tagName === "details" && !n.open ? n.children.slice(0, 1) : n.children).map(visible)].join(" "); }
@@ -64,4 +64,61 @@ test("una denominación larga válida sigue llegando a las celdas, sin perder re
   assert.ok(nodos(hoja).some((n) => n.textContent === nombre));
   assert.ok(nodos(hoja).some((n) => n.textContent === "U".repeat(257)));
   assert.equal(nodos(hoja).filter((n) => n.dataset.personalVacante !== undefined).length, 1);
+});
+
+function escribir(hoja, consulta) {
+  const campo = nodos(hoja).find((n) => n.tagName === "input" && n.type === "search");
+  campo.value = consulta; campo.eventos.input(); return campo;
+}
+function filas(hoja) { return nodos(hoja).filter((n) => n.dataset.personalVacante !== undefined); }
+
+test("búsqueda literal por campos visibles de esta página, sin interpretar expresión ni referencias privadas", () => {
+  const pagina = dto(); pagina.vacantes.push({ ...pagina.vacantes[0], plaza_ref: "plaza_segunda", codigo_plaza_fuente: "00902", unidad_denominacion: "Archivo Provincial", puesto_denominacion: "Administrativo/a" });
+  const entrada = JSON.stringify(pagina); const hoja = crearVistaVacantesB2(opciones(pagina));
+  const campo = escribir(hoja, "  00902  ");
+  assert.equal(filas(hoja).length, 1); assert.match(visible(hoja), /00902/u);
+  assert.match(visible(hoja), /1 coincidencia de 2 plazas en esta página/u);
+  escribir(hoja, "archivo"); assert.equal(filas(hoja).length, 1);
+  escribir(hoja, "ADMINISTRATIVO"); assert.equal(filas(hoja).length, 1);
+  escribir(hoja, "te\u0301cnico"); assert.equal(filas(hoja).length, 1, "normaliza Unicode sin cambiar la fuente");
+  escribir(hoja, "<script>"); assert.equal(filas(hoja).length, 1); assert.ok(!nodos(hoja).some((n) => n.tagName === "script"));
+  for (const consulta of [".*", "plaza_privada", "acto_privado"]) {
+    escribir(hoja, consulta); assert.equal(filas(hoja).length, 0);
+    assert.match(visible(hoja), /Ninguna plaza de esta página coincide/u);
+    assert.doesNotMatch(visible(hoja), /No hay resultados para el ámbito/u);
+  }
+  const limpiar = nodos(hoja).find((n) => n.tagName === "button");
+  limpiar.eventos.click(); assert.equal(campo.value, ""); assert.ok(campo.enfocado); assert.ok(limpiar.disabled);
+  assert.equal(filas(hoja).length, 2); assert.equal(JSON.stringify(pagina), entrada);
+  assert.match(visible(hoja), /fecha 2026-10-01.*instante 2026-10-01T12:00:00Z/u);
+  assert.ok(nodos(hoja).some((n) => n.atributos["aria-live"] === "polite"));
+  assert.ok(nodos(hoja).some((n) => n.tagName === "label" && n.children.includes(campo)), "etiqueta visible asociada");
+});
+
+test("una página o corte nuevo arranca sin búsqueda; vacío y denegación no reutilizan resultados", () => {
+  const hoja = crearVistaVacantesB2(opciones()); escribir(hoja, "no existe");
+  const siguiente = dto(); siguiente.corte.vigente_en = "2026-11-01"; siguiente.cursor_siguiente = "";
+  const nueva = crearVistaVacantesB2(opciones(siguiente));
+  assert.equal(nodos(nueva).find((n) => n.type === "search").value, ""); assert.equal(filas(nueva).length, 1);
+  assert.match(visible(nueva), /fecha 2026-11-01/u);
+  for (const estado of ["cargando", "denegado", "error", "cobertura_no_acreditada"]) {
+    const fallo = crearVistaVacantesB2({ documento: documento(), estado, pagina: siguiente });
+    assert.equal(filas(fallo).length, 0); assert.ok(!nodos(fallo).some((n) => n.type === "search"));
+  }
+  const vacia = dto(); vacia.vacantes = [];
+  const sinRegistros = crearVistaVacantesB2(opciones(vacia));
+  assert.ok(nodos(sinRegistros).find((n) => n.type === "search").disabled);
+  assert.match(visible(sinRegistros), /No hay resultados para el ámbito/u);
+  assert.doesNotMatch(visible(sinRegistros), /Ninguna plaza de esta página coincide/u);
+});
+
+test("búsqueda y recuento traducidos al inglés conservan el número original de fila y el origen", async () => {
+  const en = await cargarTextos("personal-vacantes", { idioma: "en" });
+  const pagina = dto(); pagina.vacantes.push({ ...pagina.vacantes[0], plaza_ref: "plaza_segunda", codigo_plaza_fuente: "00902", unidad_denominacion: "Archivo" });
+  const hoja = crearVistaVacantesB2({ ...opciones(pagina), traducir: (clave, variables) => en.traducir(`general.${clave}`, variables) });
+  escribir(hoja, "00902");
+  assert.match(visible(hoja), /1 match out of 2 posts on this page/u);
+  assert.ok(nodos(hoja).some((n) => n.atributos["aria-label"]?.includes("00902") && n.atributos["aria-label"]?.includes("2")), "fila original de la página");
+  escribir(hoja, "no match"); assert.match(visible(hoja), /No posts on this page match the search/u);
+  assert.equal(en.traducir("general.coincidencias_pagina", { cuenta: 2, total: 2 }), "2 matches out of 2 posts on this page");
 });

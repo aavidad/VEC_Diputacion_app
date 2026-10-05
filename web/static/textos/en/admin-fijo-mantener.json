@@ -1,0 +1,17 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "catalogo_no_disponible": "The message catalogue cannot be read.",
+    "uso_invalido": "Provide plan, connection, approval, new acknowledgement and timeout.",
+    "entrada_insegura": "A private file cannot be read.",
+    "entrada_invalida": "The private documents do not match the contract.",
+    "aprobacion_divergente": "Approval does not match the plan bytes.",
+    "acuse_inseguro": "A new private acknowledgement cannot be reserved.",
+    "commit_no_confirmado": "COMMIT was not confirmed; retain the original operation.",
+    "operacion_no_confirmada": "The operation has not confirmed its result.",
+    "acuse_no_guardado": "The database committed the operation but its acknowledgement could not be saved.",
+    "mantenimiento_confirmado": "Maintenance committed with common audit.",
+    "mantenimiento_rechazado": "Maintenance denied and audited.",
+    "mantenimiento_no_disponible": "Maintenance recorded an error and its audit."
+  }
+}

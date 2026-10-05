@@ -91,6 +91,54 @@ test("período invertido muestra error y el filtro vacío se puede limpiar", asy
   vista.desmontar();
 });
 
+test("el resumen distingue los filtros aplicados de las ediciones aún sin aplicar en ambos idiomas", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("dietas-informes", { idioma });
+    assert.deepEqual(textos.faltantes, []);
+    const traducir = (clave, variables) => textos.traducir(`general.${clave}`, variables);
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+      cargarConfiguracion, traducir, localizacion: textos.localizacion });
+    await esperar();
+    const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+    const aplicados = contenedor.querySelector("[data-dietas-informes-aplicados]");
+    const [persona, unidad] = form.querySelectorAll("select");
+    const [desde, hasta] = form.querySelectorAll("input");
+    const aviso = aplicados.children.at(-1);
+    assert.equal(aplicados.attrs["aria-label"], traducir("filtros_aplicados"));
+    assert.equal(aplicados.children[1].textContent, traducir("sin_filtros"));
+    assert.equal(aviso.hidden, true);
+
+    persona.value = "persona-demo-01"; unidad.value = "unidad-demo-01";
+    desde.value = "2026-09-10"; hasta.value = "2026-09-30";
+    desde.focus(); form.listeners.input();
+    assert.equal(aviso.hidden, false);
+    assert.equal(contenedor.ownerDocument.activeElement, desde);
+    assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+    form.listeners.submit({ preventDefault() {} });
+    const fecha = new Intl.DateTimeFormat(textos.localizacion, { dateStyle: "medium", timeZone: "UTC" });
+    assert.equal(aviso.hidden, true);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    assert.match(texto(aplicados), /Servicios Generales/u);
+    assert.ok(texto(aplicados).includes(fecha.format(new Date("2026-09-10T00:00:00Z"))));
+    assert.ok(texto(aplicados).includes(fecha.format(new Date("2026-09-30T00:00:00Z"))));
+    assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+
+    persona.value = "persona-demo-02"; form.listeners.change();
+    assert.equal(aviso.hidden, false);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    assert.doesNotMatch(texto(aplicados), /persona-demo-02/u);
+    await vista.recargar();
+    assert.equal(persona.value, "persona-demo-01");
+    assert.equal(aviso.hidden, true);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    form.querySelectorAll("button")[1].listeners.click();
+    assert.equal(aplicados.children[1].textContent, traducir("sin_filtros"));
+    assert.equal(aviso.hidden, true);
+    vista.desmontar();
+  }
+});
+
 test("cada fecha inválida se marca por separado, con error traducido y filtros confirmados conservados", async () => {
   for (const idioma of ["es", "en"]) {
     const textos = await cargarTextos("dietas-informes", { idioma });
@@ -183,6 +231,9 @@ test("recargar conserva una persona y unidad aplicadas aunque desaparezcan de la
   assert.deepEqual([persona.value, unidad.value], ["persona-demo-04", "unidad-demo-03"]);
   assert.equal(persona.children.find((opcion) => opcion.value === persona.value).textContent, "Eva Torres");
   assert.equal(unidad.children.find((opcion) => opcion.value === unidad.value).textContent, "Medio Ambiente");
+  const aplicados = contenedor.querySelector("[data-dietas-informes-aplicados]");
+  assert.match(texto(aplicados), /Eva Torres/u);
+  assert.match(texto(aplicados), /Medio Ambiente/u);
   assert.equal(contenedor.querySelectorAll("tbody").length, 0);
   assert.match(texto(contenedor), /No hay informes/u);
   form.querySelectorAll("button")[1].listeners.click();
@@ -380,6 +431,73 @@ test("una fecha obligatoria ausente cierra la carga sin publicar un total parcia
     assert.equal(contenedor.querySelectorAll("tbody").length, 0);
     assert.equal(contenedor.querySelector("[data-dietas-informes-resumen]").hidden, true);
     assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+    vista.desmontar();
+  }
+});
+
+test("filtrar por situación mantiene la intersección del catálogo y sus importes conservados", () => {
+  for (const [situacion, cuenta, total] of [["orientativo", 3, 16015], ["liquidado", 3, 13600], ["fiscalizado", 2, 11805]]) {
+    const resumen = resumirInformesDietas(datos.registros, configuracion.criterio, { situacion });
+    assert.equal(resumen.registros.length, cuenta);
+    assert.equal(resumen.total_centimos, total);
+    assert.ok(resumen.registros.every((fila) => fila.situacion === situacion));
+    assert.equal(Object.values(resumen.conceptos_centimos).reduce((a, b) => a + b, 0), total);
+  }
+  const limitado = { ...configuracion.criterio, estados_incluidos: ["liquidado"] };
+  assert.equal(resumirInformesDietas(datos.registros, limitado, { situacion: "orientativo" }).registros.length, 0);
+  assert.equal(resumirInformesDietas(datos.registros, limitado, { situacion: "inventado" }).total_centimos, 0);
+  const conjunto = resumirInformesDietas(datos.registros, configuracion.criterio, {
+    situacion: "fiscalizado", persona: "persona-demo-01", unidad: "unidad-demo-01", desde: "2026-09-10", hasta: "2026-09-30",
+  });
+  assert.deepEqual(conjunto.registros.map((fila) => fila.referencia), ["DI-004"]);
+  assert.equal(conjunto.total_centimos, 6090);
+});
+
+test("situaciones configuradas: aplicar, recargar sin ampliar el filtro y limpiar en ambos idiomas", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("dietas-informes", { idioma });
+    assert.deepEqual(textos.faltantes, []);
+    const traducir = (clave, variables) => textos.traducir(`general.${clave}`, variables);
+    let criterio = configuracion;
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+      cargarConfiguracion: async () => criterio, traducir, localizacion: textos.localizacion });
+    await esperar();
+    const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+    const situacion = form.querySelectorAll("select")[2];
+    const aplicados = contenedor.querySelector("[data-dietas-informes-aplicados]");
+    const aviso = aplicados.children.at(-1);
+    assert.equal(situacion.parent.textContent, traducir("situacion"));
+    assert.equal(situacion.children[0].textContent, traducir("todas_situaciones"));
+    assert.deepEqual(new Set(situacion.children.map((opcion) => opcion.value)), new Set(["", ...criterio.criterio.estados_incluidos]));
+    const siguiente = contenedor.querySelectorAll("button").find((boton) => boton.dataset.dietasInformesPagina === "1");
+    contenedor.querySelector("[data-dietas-informes-listado]").listeners.click({ target: siguiente });
+    situacion.value = "liquidado"; situacion.focus(); form.listeners.change();
+    assert.equal(aviso.hidden, false);
+    assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 2);
+    form.listeners.submit({ preventDefault() {} });
+    assert.equal(aviso.hidden, true);
+    assert.equal(contenedor.ownerDocument.activeElement, situacion);
+    assert.ok(texto(aplicados).includes(traducir("situacion_liquidado")));
+    assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-002", "DI-006", "DI-007"]);
+    assert.equal(contenedor.querySelectorAll("button").find((boton) => boton.dataset.dietasInformesPagina === "-1").disabled, true);
+    situacion.value = "orientativo"; form.listeners.change();
+    await vista.recargar();
+    assert.equal(situacion.value, "liquidado");
+    assert.equal(aviso.hidden, true);
+    criterio = { ...configuracion, criterio: { ...configuracion.criterio, estados_incluidos: ["orientativo"] } };
+    await vista.recargar();
+    assert.equal(situacion.value, "liquidado");
+    assert.equal(situacion.children.find((opcion) => opcion.value === "liquidado").textContent, traducir("situacion_liquidado"));
+    assert.ok(texto(aplicados).includes(traducir("situacion_liquidado")));
+    assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+    assert.ok(texto(contenedor).includes(traducir("vacio")));
+    assert.equal(contenedor.querySelector("[data-dietas-informes-estado]").textContent, traducir("resultado_filtro", { cuenta: "0" }));
+    form.querySelectorAll("button")[1].listeners.click();
+    assert.equal(situacion.value, "");
+    assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 3);
+    assert.equal(aplicados.children[1].textContent, traducir("sin_filtros"));
+    for (const clave of ["exportar", "imprimir"]) assert.equal(contenedor.querySelectorAll("button").find((boton) => boton.textContent === traducir(clave)).disabled, true);
     vista.desmontar();
   }
 });

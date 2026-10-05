@@ -1,0 +1,135 @@
+{
+  "titulo": "Borrador para una sesión propuesta",
+  "preparacion": {
+    "estado": "borrador_propuesto",
+    "material_propuesto": {
+      "alcance": "preparacion_sintetica",
+      "identidad_material": "acta:ejemplo-sintetico",
+      "version_material": 1,
+      "antecedente_tribunal": {
+        "identidad_material": "tribunal:ejemplo-sintetico",
+        "version_material": 1,
+        "huella_aportada_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "fase_propuesta": "fase:ejemplo-sintetico",
+      "sesion_ref": "sesion:ejemplo-sintetico",
+      "orden_dia_propuesto": [
+        {
+          "punto_ref": "punto:ejemplo-a",
+          "texto_propuesto": "Revisar el material sintético de preparación del tribunal."
+        }
+      ],
+      "acuerdos_propuestos": [
+        {
+          "propuesta_ref": "acuerdo:ejemplo-a",
+          "punto_ref": "punto:ejemplo-a",
+          "texto_propuesto": "Propuesta para completar las referencias pendientes antes de preparar actuaciones."
+        }
+      ]
+    },
+    "pendientes": [
+      {
+        "campo": "antecedente_tribunal",
+        "codigo": "antecedente_no_cotejado"
+      },
+      {
+        "campo": "fase_propuesta",
+        "codigo": "pertenencia_no_verificada"
+      },
+      {
+        "campo": "designacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "habilitacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "sesion_celebrada",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "asistencia",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "deliberaciones",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "acuerdos_adoptados",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "aprobacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "firma",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "fecha_propuesta",
+        "codigo": "material_ausente"
+      }
+    ]
+  },
+  "limite": "Material sintético para revisión. El antecedente del tribunal y su huella no se han cotejado. No acredita una reunión, asistencia, acuerdos adoptados, aprobación ni firma.",
+  "mensajes": [
+    {
+      "campo": "antecedente_tribunal",
+      "codigo": "antecedente_no_cotejado",
+      "mensaje": "Preparación del tribunal referenciada: La referencia y la huella se han aportado para la propuesta. Queda pendiente cotejarlas con la preparación original del tribunal."
+    },
+    {
+      "campo": "fase_propuesta",
+      "codigo": "pertenencia_no_verificada",
+      "mensaje": "Fase propuesta: Queda pendiente comprobar que esta fase pertenece al proceso y al tribunal indicados."
+    },
+    {
+      "campo": "designacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Designación competente del tribunal: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "habilitacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Habilitación y acceso por fase: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "sesion_celebrada",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Celebración de la sesión: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "asistencia",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Asistencia acreditada: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "deliberaciones",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Deliberaciones de la sesión: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "acuerdos_adoptados",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Acuerdos adoptados: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "aprobacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Aprobación del acta: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "firma",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Firma del acta: Requiere el circuito autorizado y su evidencia. Este borrador no acredita el trámite."
+    },
+    {
+      "campo": "fecha_propuesta",
+      "codigo": "material_ausente",
+      "mensaje": "Fecha propuesta: Complete este dato de la propuesta."
+    }
+  ]
+}

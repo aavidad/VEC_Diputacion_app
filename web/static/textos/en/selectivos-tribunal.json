@@ -1,0 +1,22 @@
+{
+  "limite": "Synthetic proposal linked to a local revision of the preparation of selection rules. Sources, formal appointment and authorisation to act remain pending. It does not permit the committee to act or sign minutes.",
+  "error_entrada": "The committee proposal could not be prepared. Check the references, phases and proposals in the input file.",
+  "error_salida": "The committee proposal could not be written. Check the output destination and run the preparation again.",
+  "referencia_no_verificada": "The reference source, existence and validity still need to be checked.",
+  "referencia_ausente": "Provide the exact reference, version and hash.",
+  "propuesta_no_verificada": "The proposal still needs to be checked against the selection rules and by the competent authority.",
+  "material_ausente": "Complete this item in the proposal.",
+  "circuito_pendiente": "The authorised procedure and its evidence are required. This preparation does not establish completion.",
+  "resolucion_pendiente": "The proposals retain the members. The competent authority must decide on abstentions, challenges and replacements.",
+  "campo_bases_s2": "Local revision of the preparation of selection rules",
+  "campo_flujo_proceso": "Process workflow source",
+  "campo_reglas_baremacion": "Optional reference to the existing scoring rules",
+  "campo_fases_propuestas": "Proposed phases",
+  "campo_miembros": "Proposed members",
+  "campo_acto_designacion": "Formal act and committee appointment",
+  "campo_habilitacion_por_fase": "Authorisation to act and access by phase",
+  "campo_actas_y_firma": "Minutes and signature",
+  "campo_incidencias": "Proposed abstentions, challenges and replacements",
+  "campo_causas_catalogadas": "References to catalogued grounds",
+  "campo_evidencia_incidencias": "Evidence for the proposals"
+}

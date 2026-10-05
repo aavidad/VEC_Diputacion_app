@@ -1,0 +1,31 @@
+{
+  "esquema": "vec.certificados.muestra-personal-v1.ensayo",
+  "sintetica": true,
+  "procedencia_ref": "ensayo:servicios-personal-v1",
+  "nombre": "Elena Martín Robles",
+  "resultado": {
+    "empleado_ref": "ensayo:empleado-0042",
+    "organismo_ref": "ensayo:diputacion",
+    "version": 7,
+    "corte": {"vigente_en": "2026-10-01", "conocido_en": "2026-10-01T08:00:00Z"},
+    "cobertura": "parcial",
+    "servicios": [
+      {"servicio_ref": "ensayo:servicio-1", "relacion_ref": "ensayo:relacion-1", "version": 1,
+       "periodo": {"desde": "2019-03-01", "hasta": "2019-09-01"}, "estado": "declarado",
+       "clase_ref": "ensayo:clase-administrativa", "clase_version": 1,
+       "procedencia": {"acto_ref": "ensayo:declaracion-2019", "fuente_ref": "ensayo:solicitud", "fuente_version": "1", "certeza": "no_acreditado"}},
+      {"servicio_ref": "ensayo:servicio-2", "relacion_ref": "ensayo:relacion-2", "version": 2,
+       "periodo": {"desde": "2021-02-01", "hasta": "2021-08-01"}, "estado": "comprobado",
+       "clase_ref": "ensayo:clase-administrativa", "clase_version": 1,
+       "procedencia": {"acto_ref": "ensayo:comprobacion-2021", "fuente_ref": "ensayo:hoja-servicios", "fuente_version": "3", "certeza": "pendiente"}},
+      {"servicio_ref": "ensayo:servicio-3", "relacion_ref": "ensayo:relacion-3", "version": 1,
+       "periodo": {"desde": "2022-01-10", "hasta": "2024-01-10"}, "estado": "reconocido",
+       "clase_ref": "ensayo:clase-auxiliar-administrativo", "clase_version": 2,
+       "procedencia": {"acto_ref": "ensayo:resolucion-2024-118", "fuente_ref": "ensayo:registro-personal", "fuente_version": "5", "certeza": "acreditado"}},
+      {"servicio_ref": "ensayo:servicio-4", "relacion_ref": "ensayo:relacion-4", "version": 1,
+       "periodo": {"desde": "2024-01-10", "hasta": ""}, "estado": "reconocido",
+       "clase_ref": "ensayo:clase-administrativo", "clase_version": 2,
+       "procedencia": {"acto_ref": "ensayo:resolucion-2024-119", "fuente_ref": "ensayo:registro-personal", "fuente_version": "5", "certeza": "acreditado"}}
+    ]
+  }
+}
