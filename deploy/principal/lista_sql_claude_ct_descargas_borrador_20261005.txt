@@ -1,7 +1,9 @@
 # CT: descargas de borradores RRHH (PDF/DOCX) con acción propia y registro de solo adición (corte B de auditoría).
 # AD199 amplía el núcleo de consultas RRHH (consumir_consulta_rrhh_v3_interna, sin cambios desde AD140) y el CHECK
-# de audiencias. El núcleo se fija por huella; el CHECK se amplía de forma aditiva, así que no depende del orden con
-# otras listas que también lo amplían (AD190, AD197...). No toca el núcleo de mutaciones.
+# de audiencias. El núcleo se fija por huella; el CHECK se amplía de forma aditiva. No toca el núcleo de mutaciones.
+# ORDEN: instalar DESPUÉS de AD190 (lista_sql_claude_lote_perfiles_ad190_20261005.txt) y de AD197
+# (lista_sql_claude_bolsa_contacto_consulta_20261005.txt) si están pendientes: ambas fijan la huella del CHECK de
+# audiencias y se detendrían con PARO (sin tocar nada) si AD199 lo amplía antes.
 # Instalar la SQL antes del binario: el binario nuevo publica la clave de capacidad de la audiencia
 # vec_contratacion_temporal.borrador_rrhh.descargar.v1, que sólo admite el CHECK de AD199.
 # No necesita fila de origen AD172: el núcleo de consultas RRHH no la usa.

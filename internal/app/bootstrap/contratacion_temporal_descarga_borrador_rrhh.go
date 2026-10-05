@@ -46,6 +46,7 @@ func nuevoRegistradorDescargaBorradorRRHHDesarrollo(autoridad *autoridadConsulta
 		}
 		// El actor del intento es el de la consulta de esta petición.
 		a.resolver = autoridad.contextoConsultaRRHHDesarrollo
+		a.finalidad = ports.FinalidadDescargarBorradorRRHH
 		r.auditoria = &a
 	}
 	return r, nil
@@ -58,18 +59,22 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) alcance() ports.AlcanceDesca
 
 func (r *registradorDescargaBorradorRRHHDesarrollo) RegistrarDescarga(ctx context.Context, s ports.SolicitudDescargaBorradorRRHH) (ports.ReciboDescargaBorradorRRHH, error) {
 	vacio := ports.ReciboDescargaBorradorRRHH{}
-	if r == nil || contextoInterfazNulo(ctx) || s.Validar() != nil {
+	if r == nil || contextoInterfazNulo(ctx) {
 		return vacio, ports.ErrDescargaBorradorRRHHNoDisponible
 	}
-	// El actor y la correlación se fijan antes de autorizar: una revocación
-	// posterior no cambia la identidad del intento.
-	z, err := r.autoridad.contextoConsultaRRHHDesarrollo(ctx)
-	if err != nil || z.Resultado.Validar() != nil || z.Vinculo.ValidarPara(z.Resultado) != nil {
+	// El actor y la correlación se fijan antes de autorizar y sin depender de
+	// la cancelación de la petición: una revocación, una desconexión o un plazo
+	// agotado después no borran el intento ni cambian su identidad.
+	z, ok := r.actorDePeticion(ctx)
+	if !ok {
 		return vacio, ports.ErrDescargaBorradorRRHHNoDisponible
 	}
 	correlacion, err := puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
-		return vacio, ports.ErrDescargaBorradorRRHHNoDisponible
+		return vacio, r.anotarFallo(ctx, z, s.ExpedienteRef, ports.ErrDescargaBorradorRRHHNoDisponible)
+	}
+	if s.Validar() != nil {
+		return vacio, r.anotarFallo(ctx, z, s.ExpedienteRef, ports.ErrDescargaBorradorRRHHInvalida)
 	}
 	recibo, causa := r.autorizarYRegistrar(ctx, z, correlacion, s)
 	if causa == nil {
@@ -82,6 +87,9 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) autorizarYRegistrar(ctx cont
 	correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2, s ports.SolicitudDescargaBorradorRRHH,
 ) (ports.ReciboDescargaBorradorRRHH, error) {
 	vacio := ports.ReciboDescargaBorradorRRHH{}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
 	alcance := r.alcance()
 	recurso, err := ports.RecursoDescargaBorradorRRHH(s, alcance)
 	if err != nil {
@@ -122,11 +130,21 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) RegistrarFalloDescarga(ctx c
 	if r == nil || contextoInterfazNulo(ctx) || causa == nil || r.auditoria == nil {
 		return nil
 	}
-	z, err := r.autoridad.contextoConsultaRRHHDesarrollo(ctx)
-	if err != nil || z.Resultado.Validar() != nil || z.Vinculo.ValidarPara(z.Resultado) != nil {
+	z, ok := r.actorDePeticion(ctx)
+	if !ok {
 		return nil
 	}
 	return r.anotarFallo(ctx, z, expedienteRef, causa)
+}
+
+// actorDePeticion devuelve el contexto de la consulta ya resuelto para esta
+// petición. Ignora la cancelación: conserva los valores de la petición.
+func (r *registradorDescargaBorradorRRHHDesarrollo) actorDePeticion(ctx context.Context) (ports.ContextoAutorizacionAltaV3, bool) {
+	z, err := r.autoridad.contextoConsultaRRHHDesarrollo(context.WithoutCancel(ctx))
+	if err != nil || z.Resultado.Validar() != nil || z.Vinculo.ValidarPara(z.Resultado) != nil {
+		return ports.ContextoAutorizacionAltaV3{}, false
+	}
+	return z, true
 }
 
 func (r *registradorDescargaBorradorRRHHDesarrollo) anotarFallo(ctx context.Context, z ports.ContextoAutorizacionAltaV3,
@@ -135,19 +153,24 @@ func (r *registradorDescargaBorradorRRHHDesarrollo) anotarFallo(ctx context.Cont
 	if r.auditoria == nil {
 		return causa
 	}
-	_, correlacion, err := r.auditoria.capturar(ctx)
+	// Si no se puede anotar, el resultado es indisponibilidad (503), nunca la
+	// causa original: un 403 sin acuse dejaría una denegación sin rastro.
+	_, correlacion, err := r.auditoria.capturar(context.WithoutCancel(ctx))
 	if err != nil {
-		return errors.Join(causa, ports.ErrConsultaRRHHNoDisponible)
+		return ports.ErrConsultaRRHHNoDisponible
 	}
 	resultado := dominiovec.ResultadoIntentoAuditoriaError
-	if errorDenegacionDescargaBorrador(causa) && !errors.Is(causa, context.Canceled) && !errors.Is(causa, context.DeadlineExceeded) {
+	if ctx.Err() == nil && errorDenegacionDescargaBorrador(causa) &&
+		!errors.Is(causa, context.Canceled) && !errors.Is(causa, context.DeadlineExceeded) {
 		resultado = dominiovec.ResultadoIntentoAuditoriaDenegado
 	}
 	return r.auditoria.registrar(ctx, z, correlacion, expedienteRef, resultado, causa)
 }
 
 // Denegación es solo la del PDP o la base (42501) y la consulta no observable,
-// que es como la consulta de detalle oculta una denegación.
+// que es como la consulta de detalle oculta una denegación. La consulta no
+// distingue entre «no autorizado» y «no existe», así que un expediente
+// inexistente pedido por el cliente también queda como «denegado».
 func errorDenegacionDescargaBorrador(err error) bool {
 	return errors.Is(err, ports.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
 		errors.Is(err, dominiovec.ErrPermissionDenied) || errors.Is(err, puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3) ||

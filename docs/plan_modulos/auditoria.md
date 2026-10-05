@@ -112,3 +112,8 @@ registrador AD169 con la acción de descarga. El perfil fijo del lector RRHH no
 recibe la concesión: su descarga queda denegada hasta una provisión aparte. La
 descarga de plantillas publicadas (CT133, `/expedientes/borradores`) ya tiene su
 acción con tipo y formato; añadirle la huella del archivo queda pendiente.
+La versión que guarda la fila es la del contenido del documento: para un
+expediente en v8 o v9 el borrador sale del original de propuesta v7, y se
+registra 7. La fila significa «descarga autorizada y registrada», no «bytes
+recibidos por el cliente». Una consulta no observable (404), que no distingue
+entre denegación e inexistencia, queda como intento «denegado».
