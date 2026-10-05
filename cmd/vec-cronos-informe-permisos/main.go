@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/cronos/adapters/informepermisos"
@@ -22,14 +23,21 @@ type filaEjemplo struct {
 	Resumen ports.FilaInformePermisos `json:"resumen"`
 }
 type escenarioSintetico struct {
-	Demo      bool          `json:"demo"`
-	Nombre    string        `json:"nombre"`
-	Ejercicio int           `json:"ejercicio"`
-	CorteUTC  time.Time     `json:"corte_utc"`
-	Filas     []filaEjemplo `json:"filas"`
+	Demo             bool          `json:"demo"`
+	Nombre           string        `json:"nombre"`
+	Ejercicio        int           `json:"ejercicio"`
+	CorteUTC         time.Time     `json:"corte_utc"`
+	CamposPermitidos []string      `json:"campos_permitidos"`
+	Filas            []filaEjemplo `json:"filas"`
 }
 
 func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
+	if len(args) > 0 && strings.HasPrefix(args[0], "--formato=") {
+		if args[0] != "--formato=csv" {
+			return ports.ErrExportacionPermisosInvalida
+		}
+		return ejecutarCSV(ctx, args[1:], salida)
+	}
 	if len(args) != 2 || salida == nil {
 		return ports.ErrExportacionPermisosInvalida
 	}
@@ -64,17 +72,9 @@ func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
 	if dec.Decode(&e) != nil || dec.Decode(new(any)) != io.EOF || !e.Demo || len(e.Filas) > 2 {
 		return ports.ErrExportacionPermisosInvalida
 	}
-	// Política interna exclusiva del ejemplo. No implementa un puerto de autoridad
-	// ni se transmite al caso de uso productivo. Estos dos tipos NO están aprobados.
-	tiposEjemplo := map[string]bool{"vacaciones_ejemplo": true, "asuntos_propios_ejemplo": true}
-	vistos := map[string]bool{}
-	resumen := ports.ResumenPermisosInforme{Ejercicio: e.Ejercicio, CorteUTC: e.CorteUTC, Filas: make([]ports.FilaInformePermisos, 0, len(e.Filas))}
-	for _, f := range e.Filas {
-		if !tiposEjemplo[f.TipoRef] || vistos[f.TipoRef] {
-			return ports.ErrExportacionPermisosInvalida
-		}
-		vistos[f.TipoRef] = true
-		resumen.Filas = append(resumen.Filas, f.Resumen)
+	resumen, err := resumenEjemplo(e)
+	if err != nil {
+		return err
 	}
 	documento, err := preparador.PrepararEjemploSintetico(ctx, resumen, e.Nombre)
 	if err != nil {
@@ -85,6 +85,22 @@ func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
 	}
 	_, err = salida.Write(documento.Contenido)
 	return err
+}
+
+func resumenEjemplo(e escenarioSintetico) (ports.ResumenPermisosInforme, error) {
+	// Política interna exclusiva del ejemplo. No implementa un puerto de autoridad
+	// ni se transmite al caso de uso productivo. Estos dos tipos NO están aprobados.
+	tiposEjemplo := map[string]bool{"vacaciones_ejemplo": true, "asuntos_propios_ejemplo": true}
+	vistos := map[string]bool{}
+	resumen := ports.ResumenPermisosInforme{Ejercicio: e.Ejercicio, CorteUTC: e.CorteUTC, CamposPermitidos: append([]string(nil), e.CamposPermitidos...), Filas: make([]ports.FilaInformePermisos, 0, len(e.Filas))}
+	for _, f := range e.Filas {
+		if !tiposEjemplo[f.TipoRef] || vistos[f.TipoRef] {
+			return ports.ResumenPermisosInforme{}, ports.ErrExportacionPermisosInvalida
+		}
+		vistos[f.TipoRef] = true
+		resumen.Filas = append(resumen.Filas, f.Resumen)
+	}
+	return resumen, nil
 }
 func informarError(salida io.Writer, fallo error) error {
 	codigo := ports.ErrExportacionPermisosNoDisponible.Error()

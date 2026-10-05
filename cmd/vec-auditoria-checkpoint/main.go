@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,7 +15,6 @@ import (
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/application"
-	"vec-diputacion-granada/internal/vec/auditoria"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -39,16 +36,58 @@ func run(args []string, out, log io.Writer) int {
 	cadena := fs.String("cadena", "", "")
 	ancla := fs.String("ancla", "", "")
 	maxRecibos := fs.Int("max-recibos", 0, "")
+	conexion := fs.String("conexion", "", "")
+	capturaRef := fs.String("captura-ref", "", "")
+	versionPreservacion := fs.Uint64("version", 0, "")
 	fallo := func() int {
 		_ = json.NewEncoder(out).Encode(map[string]string{"modo": "DESARROLLO", "estado": "rechazado", "codigo": "entrada_o_dependencia_invalida"})
 		return 1
 	}
-	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad") {
+	if fs.Parse(args) != nil || fs.NArg() != 0 || (*modo != "emitir" && *modo != "verificar" && *modo != "verificar-continuidad" && *modo != "verificar-exportacion" && *modo != "ejecutar-periodico" && *modo != "configurar-preservacion" && *modo != "consultar-preservacion") {
+		return fallo()
+	}
+	if *modo == "configurar-preservacion" || *modo == "consultar-preservacion" {
+		incompatible := false
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "operacion", "config", "conexion":
+			case "entrada":
+				if *modo != "configurar-preservacion" {
+					incompatible = true
+				}
+			case "version":
+				if *modo != "consultar-preservacion" {
+					incompatible = true
+				}
+			default:
+				incompatible = true
+			}
+		})
+		if incompatible {
+			return fallo()
+		}
+		return runPreservacion(opcionesPreservacion{Operacion: *modo, Config: *conf, Conexion: *conexion, Entrada: *entrada, Version: *versionPreservacion}, out, log)
+	}
+	if *modo == "ejecutar-periodico" {
+		incompatible := false
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "operacion", "config", "conexion", "captura-ref", "kms-master", "tsa-secret":
+			default:
+				incompatible = true
+			}
+		})
+		if incompatible {
+			return fallo()
+		}
+		return runPeriodico(opcionesPeriodicas{Config: *conf, Conexion: *conexion, CapturaRef: *capturaRef, Master: *master, TSA: *tsa}, out, log)
+	}
+	if *conexion != "" || *capturaRef != "" || *versionPreservacion != 0 {
 		return fallo()
 	}
 	incompatible := false
 	fs.Visit(func(f *flag.Flag) {
-		if *modo == "verificar-continuidad" && (f.Name == "cadena" || f.Name == "kms-master" || f.Name == "tsa-secret" || f.Name == "salida") ||
+		if (*modo == "verificar-continuidad" || *modo == "verificar-exportacion") && (f.Name == "kms-master" || f.Name == "tsa-secret" || f.Name == "salida" || *modo == "verificar-continuidad" && f.Name == "cadena") ||
 			*modo != "verificar-continuidad" && (f.Name == "ancla" || f.Name == "max-recibos") {
 			incompatible = true
 		}
@@ -78,6 +117,13 @@ func run(args []string, out, log io.Writer) int {
 		defer cancelar()
 		_ = emisor.Cerrar(c)
 	}()
+	if *modo == "verificar-exportacion" {
+		resultado := runExportacion(ctx, cfg, opcionesExportacion{*entrada, *cadena, *publica, *pin}, out)
+		if resultado == 0 {
+			codigo = domain.ResultadoTecnicoCorrecto
+		}
+		return resultado
+	}
 	if *modo == "verificar-continuidad" {
 		resultado := runContinuidad(ctx, cfg, opcionesContinuidad{*ancla, *entrada, *publica, *pin, *maxRecibos}, out)
 		if resultado == 0 {
@@ -164,35 +210,19 @@ func run(args []string, out, log io.Writer) int {
 		if err != nil {
 			return fallo()
 		}
-		cobertura := auditoria.CoberturaCadena{CadenaID: r.Checkpoint.Cobertura.CadenaID, PrimeraSecuencia: r.Checkpoint.Cobertura.PrimeraSecuencia, UltimaSecuencia: r.Checkpoint.Cobertura.UltimaSecuencia, AnteriorSHA256: r.Checkpoint.Cobertura.AnteriorSHA256, CabezaSHA256: r.Checkpoint.Cobertura.CabezaSHA256, Registros: r.Checkpoint.Cobertura.Registros}
-		var esquema struct {
-			Esquema string `json:"esquema"`
-		}
-		if json.Unmarshal(cb, &esquema) != nil {
-			return fallo()
-		}
-		var informe auditoria.InformeVerificacion
-		switch esquema.Esquema {
-		case auditoria.EsquemaVerificacion:
-			var d auditoria.DocumentoVerificacion
-			if decodificar(cb, &d) != nil {
-				return fallo()
-			}
-			informe = auditoria.VerificarCadenaV3(d, cobertura, cfg.MaxRegistros)
-		case auditoria.EsquemaVerificacionMixta:
-			var d auditoria.DocumentoVerificacionMixta
-			if decodificar(cb, &d) != nil {
-				return fallo()
-			}
-			informe = auditoria.VerificarCadenaMixtaV2(d, cobertura, cfg.MaxRegistros)
-		default:
-			return fallo()
+		informe, err := verificarCadenaCheckpoint(cb, r.Checkpoint.Cobertura, cfg.MaxBytes, cfg.MaxRegistros)
+		if err != nil {
+			resultado.IntegridadCadena = "rechazada"
+			_ = escribirResultado(out, resultado)
+			return 1
 		}
 		resultado.IntegridadCadena = informe.Estado
 		if informe.Estado != "verificada" {
 			_ = escribirResultado(out, resultado)
 			return 1
 		}
+		resultado.ConsumosHistoricosSinFechaLigada = informe.ConsumosHistoricosSinFechaLigada
+		resultado.FechaConsumoLigadaCotejada = informe.FechaConsumoLigadaCotejada
 	}
 	codigo = domain.ResultadoTecnicoCorrecto
 	return escribirResultado(out, resultado)
@@ -202,61 +232,6 @@ func escribirResultado(w io.Writer, r any) int {
 		return 1
 	}
 	return 0
-}
-func decodificar(b []byte, v any) error {
-	// Claves ASCII en minúsculas y sin duplicadas: encoding/json también
-	// acepta alias por mayúsculas; aquí se exige la representación canónica.
-	if err := sinDuplicadas(json.NewDecoder(bytes.NewReader(b))); err != nil {
-		return err
-	}
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	if d.Decode(v) != nil {
-		return errEntrada
-	}
-	var extra any
-	if d.Decode(&extra) != io.EOF {
-		return errEntrada
-	}
-	return nil
-}
-func sinDuplicadas(d *json.Decoder) error {
-	t, err := d.Token()
-	if err != nil {
-		return errEntrada
-	}
-	delim, ok := t.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delim {
-	case '{':
-		vistas := map[string]bool{}
-		for d.More() {
-			k, e := d.Token()
-			s, ok := k.(string)
-			if e != nil || !ok || vistas[s] || strings.ContainsFunc(s, func(r rune) bool { return r > 127 || r >= 'A' && r <= 'Z' }) {
-				return errEntrada
-			}
-			vistas[s] = true
-			if sinDuplicadas(d) != nil {
-				return errEntrada
-			}
-		}
-	case '[':
-		for d.More() {
-			if sinDuplicadas(d) != nil {
-				return errEntrada
-			}
-		}
-	default:
-		return errEntrada
-	}
-	_, err = d.Token()
-	if err != nil {
-		return errEntrada
-	}
-	return nil
 }
 func leerRegular(ruta string, limite int64, secreto bool) ([]byte, error) {
 	if limite < 1 {

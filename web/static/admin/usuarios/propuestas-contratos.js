@@ -1,4 +1,4 @@
-import { incompatible } from "./contratos.js?v=20261003-admin-usuarios-v5";
+import { incompatible } from "./contratos.js?v=20261004-admin-usuarios-metadata-v1";
 const SHA = /^[a-f0-9]{64}$/u;
 const REF = /^[A-Za-z0-9][A-Za-z0-9_:.-]{2,255}$/u;
 const ref = (v) => typeof v === "string" && REF.test(v);

@@ -18,18 +18,19 @@ type PaquetePreparacionOrganizacion struct {
 }
 
 type InformeRevisionPreparacionOrganizacion struct {
-	Valido                 bool           `json:"valido"`
-	Estado                 string         `json:"estado"`
-	ClaveError             string         `json:"clave_error,omitempty"`
-	Seccion                string         `json:"seccion,omitempty"`
-	FilaFallida            int            `json:"fila_fallida,omitempty"`
-	Hechos                 int            `json:"hechos"`
-	Decisiones             int            `json:"decisiones"`
-	RecuentosClase         map[string]int `json:"recuentos_clase"`
-	RecuentosDecision      map[string]int `json:"recuentos_decision"`
-	ManifiestoHuellaSHA256 string         `json:"manifiesto_huella_sha256,omitempty"`
-	PaqueteHuellaSHA256    string         `json:"paquete_huella_sha256,omitempty"`
-	PendientesPublicacion  []string       `json:"pendientes_publicacion"`
+	Valido                 bool                               `json:"valido"`
+	Estado                 string                             `json:"estado"`
+	ClaveError             string                             `json:"clave_error,omitempty"`
+	Seccion                string                             `json:"seccion,omitempty"`
+	FilaFallida            int                                `json:"fila_fallida,omitempty"`
+	Hechos                 int                                `json:"hechos"`
+	Decisiones             int                                `json:"decisiones"`
+	RecuentosClase         map[string]int                     `json:"recuentos_clase"`
+	RecuentosDecision      map[string]int                     `json:"recuentos_decision"`
+	ManifiestoHuellaSHA256 string                             `json:"manifiesto_huella_sha256,omitempty"`
+	PaqueteHuellaSHA256    string                             `json:"paquete_huella_sha256,omitempty"`
+	PendientesPublicacion  []string                           `json:"pendientes_publicacion"`
+	CoberturaConciliacion  *CoberturaConciliacionOrganizacion `json:"cobertura_conciliacion,omitempty"`
 }
 
 // RevisarPreparacionOrganizacion solo comprueba material en memoria. No consulta
@@ -113,6 +114,7 @@ func RevisarPreparacionOrganizacion(p PaquetePreparacionOrganizacion) InformeRev
 	h := sha256.Sum256(material)
 	r.ManifiestoHuellaSHA256 = manifiestoHuella
 	r.PaqueteHuellaSHA256, r.Valido = hex.EncodeToString(h[:]), true
+	r.CoberturaConciliacion = revisarCoberturaConciliacionOrganizacion(p)
 	return r
 }
 

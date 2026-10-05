@@ -1,0 +1,115 @@
+{
+  "esquema": "vec.auditoria.verificacion.v3",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:checkpoint-mixto",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 5,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "99d9fa4086e68abbc2361ed58e7ff05e118af935bce685cb0ce4bde849446f97",
+    "registros": 5
+  },
+  "registros": [
+    {
+      "tipo_registro": "consumo_confirmado",
+      "consumo": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 1,
+        "decision_ref": "decision:ad173:1",
+        "efecto_ref": "efecto:ad173:1",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "huella_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7"
+      }
+    },
+    {
+      "tipo_registro": "preperfil_autenticado",
+      "preperfil": {
+        "evento_ref": "evento_00000000000000000000000000000001",
+        "accion": "listar_perfiles_propios_admin",
+        "recurso_ref": "per_AAAAAAAAAAAAAAAAAAAAAA",
+        "resultado": "permitido",
+        "motivo_ref": "admin.perfiles.permitido",
+        "proceso": "admin_sintetico",
+        "canal": "administracion_privilegiada",
+        "finalidad_ref": "seleccion_perfil",
+        "correlacion_ref": "correlacion_00000000000000000000000000000001",
+        "fuente_ref": "observacion_admin_preperfil:00000000000000000000000000000001",
+        "fuente_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "actor_ref": "per_AAAAAAAAAAAAAAAAAAAAAA",
+        "auditoria_ref": "aud_v3_p_00000000000000000000000000000001",
+        "secuencia": 2,
+        "anterior_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7",
+        "huella_sha256": "3866d6e9a5836c933e31e7641d29687a47dc969dce639b689a3c40d6e2515640",
+        "registrada_en": "2026-10-03T10:00:00.123456Z",
+        "evento_material_sha256": "58f07f1ef84d093e72a88509cdca7fd4ba30a3d3af576440dc061f91beaed3d7",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v2",
+      "consumo": {
+        "auditoria_ref": "aud_v3_cccccccccccccccccccccccccccccccc",
+        "secuencia": 3,
+        "decision_ref": "decision:ad173:2",
+        "efecto_ref": "efecto:ad173:2",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "3866d6e9a5836c933e31e7641d29687a47dc969dce639b689a3c40d6e2515640",
+        "consumo_huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "c1a71604642f03068d7e4124af5d44bda4b02850ec73e3f46677e2c255380fba"
+      }
+    },
+    {
+      "tipo_registro": "bootstrap_operador",
+      "bootstrap": {
+        "evento_ref": "evento_00000000000000000000000000000004",
+        "accion": "ejecutar_plan_bootstrap_admin",
+        "recurso_ref": "per_AAAAAAAAAAAAAAAAAAAAAA",
+        "resultado": "permitido",
+        "motivo_ref": "admin.perfiles.permitido",
+        "proceso": "admin_sintetico",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "bootstrap_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000000004",
+        "fuente_ref": "observacion_bootstrap:4",
+        "fuente_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "operador_login": "operador_sintetico",
+        "plan_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "aprobacion_ref": "aprobacion_sintetica:4",
+        "auditoria_ref": "aud_v3_p_00000000000000000000000000000004",
+        "secuencia": 4,
+        "anterior_sha256": "c1a71604642f03068d7e4124af5d44bda4b02850ec73e3f46677e2c255380fba",
+        "huella_sha256": "e21e1897b094e57b8c42b60e6b8f4bccfa9dc0ee1736d6c922959a0774ce8102",
+        "registrada_en": "2026-10-03T10:00:00.123456Z",
+        "evento_material_sha256": "d8681a85966b440af8e36f44a634fe35112604fb59a34230bf08144a6424362f",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v3",
+      "consumo": {
+        "auditoria_ref": "aud_v3_dddddddddddddddddddddddddddddddd",
+        "secuencia": 5,
+        "decision_ref": "decision:ad173:3",
+        "efecto_ref": "efecto:ad173:3",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "e21e1897b094e57b8c42b60e6b8f4bccfa9dc0ee1736d6c922959a0774ce8102",
+        "consumo_huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "2026-10-03T12:34:56.123456Z",
+        "consumida_en": "2026-10-03T12:34:56.123456Z",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbb",
+        "finalidad_ref": "gestion_personal",
+        "huella_sha256": "99d9fa4086e68abbc2361ed58e7ff05e118af935bce685cb0ce4bde849446f97"
+      }
+    }
+  ]
+}

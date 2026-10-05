@@ -31,6 +31,46 @@ function texto(n) { return nodos(n).map((item) => item.textContent).join(" "); }
 function tab(ficha, clave) { return nodos(ficha).find((n) => n.dataset.personalFichaTab === clave); }
 const completar = () => new Promise((resolve) => setImmediate(resolve));
 
+test("Contacto consulta su fuente sólo al abrir la pestaña y limpia una vez al salir", async () => {
+  const raiz = raizFalsa(); let consultas = 0, limpiezas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, montarContacto(entrada) {
+    consultas += 1; const limpiar = () => { limpiezas += 1; }; entrada.registrarDesmontar(limpiar);
+    return { desmontar: limpiar };
+  } });
+  assert.equal(consultas, 0);
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "contacto").click(); await completar();
+  assert.equal(consultas, 1); tab(ficha, "ficha").click(); await completar(); assert.equal(limpiezas, 1);
+});
+
+test("una sesión caducada en Contacto cierra toda la ficha y retira sus fuentes cacheadas", async () => {
+  const raiz = raizFalsa(); let caducar, invalidaciones = 0, limpiezas = 0, lecturas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: {
+    servicios: { consultarPropios() { lecturas += 1; return { estado: "disponible", fuente: "Personal", actualizado_en: "2026-10-04T00:00:00Z", items: [{ procedencia: "Periodo reconocido" }] }; }, actualizar() { invalidaciones += 1; } },
+  }, montarContacto(entrada) { caducar = entrada.alCaducarSesion; const limpiar = () => { limpiezas += 1; }; entrada.registrarDesmontar(limpiar); return { desmontar: limpiar }; } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const servicios = tab(ficha, "servicios"); servicios.click(); await completar(); assert.match(texto(raiz), /Periodo reconocido/);
+  tab(ficha, "contacto").click(); await completar(); caducar();
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null); assert.equal(invalidaciones, 1); assert.equal(limpiezas, 1);
+  assert.doesNotMatch(texto(raiz), /Periodo reconocido/); assert.equal(raiz.children[0].atributos.get("role"), "alert");
+  assert.match(texto(raiz), /Su sesión ha caducado. Identifíquese de nuevo para volver a ver su ficha/u);
+  assert.equal(raiz.ownerDocument.activeElement, raiz.children[0]); servicios.click(); await completar(); assert.equal(lecturas, 1);
+});
+
+test("el acceso a correos abre su vista existente sin consultar ni trasladar datos de Personal", () => {
+  const raiz = raizFalsa(); let aperturas = 0; let consultas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, abrirCorreos: () => { aperturas += 1; }, fuentes: {
+    servicios: { consultarPropios() { consultas += 1; throw new Error("no debe consultar"); } },
+  } });
+  const boton = raiz.querySelector("[data-personal-ficha-correos]");
+  assert.equal(boton.textContent, "Ver mis correos");
+  assert.match(boton.title, /Mis preferencias/);
+  boton.focus(); boton.click();
+  assert.equal(aperturas, 1); assert.equal(consultas, 0);
+  assert.doesNotMatch(texto(raiz), /@/);
+  const sinNavegacion = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz: sinNavegacion });
+  assert.equal(sinNavegacion.querySelector("[data-personal-ficha-correos]"), null);
+});
+
 test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () => {
   const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   assert.ok(ficha); assert.equal(tab(ficha, "tiempo").textContent, "Tiempo");
@@ -265,8 +305,8 @@ test("teclado y navegación a otros módulos no transportan identidad", () => {
   tab(ficha, "ficha").listeners.get("click")();
   const dietas = nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas");
   const cronos = nodos(ficha).find((n) => n.dataset.personalFichaDestino === "cronos");
-  assert.equal(dietas.disabled, false); assert.equal(cronos.disabled, true);
-  dietas.listeners.get("click")(); cronos.listeners.get("click")();
+  assert.equal(dietas.disabled, false); assert.equal(cronos, undefined, "un módulo no ofrecido no se pinta");
+  dietas.listeners.get("click")();
   assert.deepEqual(destinos, [["dietas"]]);
 });
 
@@ -274,12 +314,29 @@ test("un callback de navegación no habilita por sí solo Dietas ni Cronos", () 
   const raiz = raizFalsa(); const destinos = [];
   montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (destino) => destinos.push(destino) });
   const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).length, 0, "sin disponibilidad no se ofrece ningún destino");
+  assert.deepEqual(destinos, []);
+});
+
+test("un destino del catálogo aún no disponible se ofrece desactivado", () => {
+  const raiz = raizFalsa(); const destinos = [];
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (destino) => destinos.push(destino), destinosDisponibles: { dietas: false, cronos: false } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   for (const destino of ["dietas", "cronos"]) {
     const boton = nodos(ficha).find((n) => n.dataset.personalFichaDestino === destino);
     assert.equal(boton.disabled, true); assert.match(boton.title, /no está montada/i);
     boton.listeners.get("click")();
   }
   assert.deepEqual(destinos, []);
+});
+
+test("Cronos y Dietas ocultos por el despliegue no aparecen en Mi ficha", () => {
+  const raiz = raizFalsa();
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: () => {}, destinosDisponibles: {}, ocultarSinFuente: true });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).length, 0);
+  assert.doesNotMatch(texto(ficha), /Cronos|Dietas/);
 });
 
 test("disponibilidad heredada o no booleana no habilita destinos", () => {
@@ -304,7 +361,7 @@ test("en el portal real no se ofrecen apartados sin fuente ni textos explicativo
   tab(ficha, "ficha").listeners.get("click")();
   assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado).length, 0);
   assert.doesNotMatch(texto(ficha), /Abra un apartado|No se muestran nombre/);
-  assert.ok(nodos(ficha).some((n) => n.dataset.personalFichaDestino === "cronos"));
+  assert.equal(nodos(ficha).some((n) => n.dataset.personalFichaDestino === "cronos"), false, "sin catálogo no se ofrece Cronos");
   tab(ficha, "ficha").listeners.get("keydown")({ key: "ArrowRight", preventDefault() {} });
   assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true");
 });

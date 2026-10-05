@@ -33,6 +33,53 @@ El límite es 8 MiB, 3.000 hechos y 1.000 decisiones. Se rechazan claves
 repetidas o desconocidas, valores nulos, datos ajenos al contrato, UTF-8 inválido
 y varios documentos JSON concatenados.
 
+`informe.cobertura_conciliacion` permite localizar las decisiones que faltan.
+Contiene una entrada por hecho, con su identidad, clase y fila de origen. En
+`clase_decision` aparece la clase esperada: un `nodo` necesita una decisión de
+`unidad`; las otras clases necesitan una decisión de su misma clase.
+
+El resultado de cada hecho es `sin_decision`, `pendiente`, `descartada` o
+`vinculada`. `recuentos_hechos` cuenta estos resultados. La clase y la fila
+se comprueban juntas: una decisión de puesto no cubre la unidad que procede
+de la misma fila. Las decisiones de `clasificacion` figuran en
+`decisiones_adicionales` y no sustituyen la decisión de ningún hecho.
+
+`completa` solo indica que todos los hechos tienen una decisión declarada
+`vinculada` y que las decisiones adicionales también están vinculadas.
+Una decisión pendiente o descartada conserva la cobertura incompleta.
+La revisión sigue en `preparacion_no_autoritativa`, con acreditación de fuente,
+conciliación autorizada, aprobación y publicación pendientes. El indicador
+no certifica el contenido de la fuente ni las correspondencias declaradas.
+
+La cobertura usa el orden del paquete normalizado y conserva el mismo
+contenido al cambiar el orden de entrada o el idioma. Aparece tanto en la
+revisión como con `--preparar`; el paquete exportado y sus huellas conservan
+su formato. Se omite si la entrada o el paquete resultan rechazados, incluido
+el rechazo por tamaño durante la exportación.
+
+## Comprobar que la preparación está completa
+
+Use `--comprobar-completo` para comprobar los campos obligatorios del manifiesto
+y las decisiones declaradas de todos los hechos. El comando devuelve
+`comprobacion_completitud.completa` y una lista de `faltantes` con `clave`,
+`esperado` y `actual`. Estos son códigos traducidos en `mensajes`; la lista no
+incluye filas, identificadores ni el contenido recibido.
+
+```sh
+go run ./cmd/vec-revisar-organizacion --comprobar-completo < cmd/vec-revisar-organizacion/ejemplo.sintetico.json
+```
+
+El estado de salida es `0` si esta comprobación local está completa y `1` si
+falta algo o el paquete es inválido. Se puede añadir `--preparar` para obtener
+el paquete normalizado solo cuando esté completo. `--idioma` cambia los mensajes,
+sin cambiar los códigos ni las huellas. Las opciones se admiten una vez cada una
+y en cualquier orden.
+
+«Completa» describe exclusivamente el material preparatorio. El informe mantiene
+`preparacion_no_autoritativa` y enumera las verificaciones institucionales
+pendientes. No acredita fuente, catálogos, acto, conciliación duradera,
+aprobación ni publicación. Personal 000011 sigue denegando la publicación.
+
 Estado del proceso: `0` para un paquete válido en esta revisión; `1` para
 entrada o paquete rechazados; `2` si no se puede cargar el catálogo o escribir
 el informe. `go run` comunica un estado de error propio al fallar el comando.

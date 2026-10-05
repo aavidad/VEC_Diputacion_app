@@ -13,7 +13,7 @@ test('los dos catálogos tienen el mismo esquema y todas las hojas son textos', 
     assert.equal(typeof valor, 'string', clave);
     assert.ok(valor.trim().length > 0, clave);
   }
-  for (const catalogo of catalogos) assert.equal(catalogo.version, '1');
+  for (const catalogo of catalogos) assert.equal(catalogo.version, '2');
 });
 test('las traducciones conservan los marcadores y no enumeran exclusiones', () => {
   const mapas = catalogos.map(c => new Map(hojas(c)));
@@ -22,7 +22,8 @@ test('las traducciones conservan los marcadores y no enumeran exclusiones', () =
     assert.deepEqual(marcadores(valor), marcadores(mapas[1].get(clave)), clave);
   }
   for (const c of catalogos) {
-    assert.equal(c.fila.includes('{{restante}}'), true);
+    assert.equal(c.fila.includes('{{campos}}'), true);
+    for (const plantilla of Object.values(c.campos)) assert.equal(plantilla.includes('{{valor}}'), true);
     assert.equal(/excluid|excluded|subtotal|total:/i.test(c.alcance + c.fila + c.limite), false);
   }
 });

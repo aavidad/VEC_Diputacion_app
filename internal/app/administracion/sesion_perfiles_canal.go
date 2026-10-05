@@ -15,6 +15,24 @@ import (
 
 type claveConexionPerfiles struct{}
 
+const (
+	// vidaAutenticacionConexionPerfiles limita cuánto vale el handshake mTLS
+	// de una conexión. Pasado ese tiempo, la conexión deja de autenticar.
+	vidaAutenticacionConexionPerfiles = 5 * time.Minute
+	// inactividadMaximaConexionADMIN cierra las conexiones ociosas mucho antes
+	// de que caduque su autenticación: el navegador abre otra con handshake
+	// completo en vez de reutilizar una ya caducada.
+	inactividadMaximaConexionADMIN = vidaAutenticacionConexionPerfiles / 5
+	// duracionMaximaPeticionADMIN acota lectura y escritura de cada petición:
+	// sin ella, una respuesta lenta empezada antes del umbral de renovación
+	// podría dejar viva la conexión más allá de su autenticación.
+	duracionMaximaPeticionADMIN = 45 * time.Second
+	// renovacionConexionPerfiles es la edad a partir de la cual cada respuesta
+	// pide cerrar la conexión. Deja margen para terminar la petición en curso,
+	// una espera ociosa completa y la lectura de cabeceras de la siguiente.
+	renovacionConexionPerfiles = vidaAutenticacionConexionPerfiles - 2*inactividadMaximaConexionADMIN
+)
+
 type conexionPerfiles struct {
 	aceptadaEn time.Time
 	conexion   *tls.Conn
@@ -35,6 +53,19 @@ func NuevoContextoConexionPerfiles(reloj httpseguridad.Reloj) (func(context.Cont
 			aceptadaEn: reloj.Ahora().UTC().Truncate(time.Microsecond), conexion: conexion,
 		})
 	}, nil
+}
+
+// conexionPerfilesPorRenovar indica si la conexión se acerca al final de su
+// vida autenticada. No autoriza nada: solo decide cerrar el keep-alive.
+func conexionPerfilesPorRenovar(ctx context.Context, ahora time.Time) bool {
+	if ctx == nil {
+		return false
+	}
+	guardada, ok := ctx.Value(claveConexionPerfiles{}).(conexionPerfiles)
+	if !ok || guardada.aceptadaEn.IsZero() {
+		return false
+	}
+	return !ahora.Before(guardada.aceptadaEn.Add(renovacionConexionPerfiles))
 }
 
 func autenticacionConexionPerfiles(ctx context.Context, r *http.Request) (time.Time, error) {

@@ -49,6 +49,11 @@ func TestRevisionCLIFormatoExistenteYCatalogos(t *testing.T) {
 	if es.Mensajes["alcance"] == en.Mensajes["alcance"] || es.Mensajes["huella"] == "" {
 		t.Fatal("traducción ausente")
 	}
+	if es.Informe.CoberturaConciliacion == nil || !reflect.DeepEqual(es.Informe.CoberturaConciliacion, en.Informe.CoberturaConciliacion) ||
+		es.Informe.CoberturaConciliacion.Completa || es.Informe.CoberturaConciliacion.Hechos[0].Resultado != "sin_decision" ||
+		es.Informe.PaqueteHuellaSHA256 != "900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6" {
+		t.Fatal("cobertura ausente o huella del ejemplo alterada")
+	}
 	catalogo, mensajes, err := web.CatalogoRevisionOrganizacion()
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +123,44 @@ func TestRevisionCLIFilaYDecisiones(t *testing.T) {
 	}
 }
 
+func TestComprobarCompletoCLIConservaPreparacionNoAutoritativa(t *testing.T) {
+	datos := ejemploRevision(t)
+	codigo, incompleto := revisarCLI(t, []string{"--comprobar-completo", "--preparar"}, datos)
+	if codigo != 1 || incompleto.Paquete != nil || incompleto.Comprobacion == nil || incompleto.Comprobacion.Completa ||
+		incompleto.Informe.Estado != "preparacion_no_autoritativa" || incompleto.Informe.PaqueteHuellaSHA256 == "" {
+		t.Fatalf("preparación incompleta: %+v", incompleto)
+	}
+	for _, falta := range incompleto.Comprobacion.Faltantes {
+		if incompleto.Mensajes[falta.Clave] == "" || incompleto.Mensajes[falta.Esperado] == "" || incompleto.Mensajes[falta.Actual] == "" {
+			t.Fatalf("código sin texto: %+v", falta)
+		}
+	}
+	var p application.PaquetePreparacionOrganizacion
+	if err := json.Unmarshal(datos, &p); err != nil {
+		t.Fatal(err)
+	}
+	p.Manifiesto.DocumentoRef, p.Manifiesto.CustodiaRef = "documento:sintetico", "custodia:sintetica"
+	p.Manifiesto.DiccionarioRef, p.Manifiesto.ActoRef = "diccionario:sintetico", "acto:sintetico"
+	p.Manifiesto.AprobadaEn, p.Manifiesto.PublicadaEn, p.Manifiesto.EfectosDesde = "2026-01-01", "2026-01-02", "2026-01-03"
+	p.Decisiones = []domain.DecisionConciliacionOrganizacion{{FilaFuenteRef: "fila:1", Clase: "unidad", Resultado: "vinculada", DestinoRef: "unidad:sintetica", Motivo: "Correspondencia declarada", EvidenciaRef: "evidencia:sintetica"}}
+	completo, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	codigo, preparado := revisarCLI(t, []string{"--preparar", "--comprobar-completo", "--idioma", "en"}, completo)
+	if codigo != 0 || preparado.Paquete == nil || preparado.Comprobacion == nil || !preparado.Comprobacion.Completa ||
+		len(preparado.Comprobacion.Faltantes) != 0 || preparado.Informe.Estado != "preparacion_no_autoritativa" ||
+		!slices.Contains(preparado.Informe.PendientesPublicacion, "acreditacion_fuente") {
+		t.Fatalf("preparación completa: %+v", preparado)
+	}
+	if codigo, sinExportar := revisarCLI(t, []string{"--comprobar-completo"}, completo); codigo != 0 || sinExportar.Paquete != nil {
+		t.Fatal("comprobación sin exportación alterada")
+	}
+	if codigo, duplicada := revisarCLI(t, []string{"--comprobar-completo", "--comprobar-completo"}, completo); codigo != 1 || duplicada.Paquete != nil || duplicada.Informe.ClaveError != "argumentos_invalidos" {
+		t.Fatal("opción duplicada admitida")
+	}
+}
+
 func TestRevisionCLILimitesArgumentosYSinEfectos(t *testing.T) {
 	datos := ejemploRevision(t)
 	copia := bytes.Clone(datos)
@@ -169,6 +212,10 @@ func TestPrepararCLIExportaPaqueteCompatibleYHuella(t *testing.T) {
 	codigoEN, en := revisarCLI(t, []string{"--idioma", "en", "--preparar"}, data)
 	if codigo != 0 || codigoEN != 0 || es.Paquete == nil || en.Paquete == nil {
 		t.Fatal("paquete no exportado")
+	}
+	if es.Informe.CoberturaConciliacion == nil || !reflect.DeepEqual(es.Informe.CoberturaConciliacion, en.Informe.CoberturaConciliacion) ||
+		es.Informe.CoberturaConciliacion.RecuentosHechos["sin_decision"] != 2 {
+		t.Fatal("exportación no conserva cobertura por hecho")
 	}
 	if es.Paquete.Hechos[0].HechoRef != p.Hechos[1].HechoRef || !reflect.DeepEqual(es.Paquete, en.Paquete) {
 		t.Fatal("orden o idioma cambió el paquete")
@@ -233,6 +280,9 @@ func TestPrepararCLINoExportaEntradasInvalidas(t *testing.T) {
 		if s.Informe.PaqueteHuellaSHA256 != "" || s.Informe.Valido {
 			t.Fatal("huella inválida exportada")
 		}
+		if s.Informe.CoberturaConciliacion != nil {
+			t.Fatal("material inválido tiene cobertura")
+		}
 	}
 }
 
@@ -289,8 +339,26 @@ func TestPrepararCLIRechazaExpansionQueExcedeRelectura(t *testing.T) {
 		if s.BytesPaquete != len(canonico) || s.LimiteBytesPaquete != limiteEntrada {
 			t.Fatal("tamaño real o límite no comunicados")
 		}
+		if s.Informe.CoberturaConciliacion != nil || bytes.Contains(output.Bytes(), []byte("fila:999")) {
+			t.Fatal("rechazo por tamaño devolvió cobertura de entrada")
+		}
 		if bytes.Contains(output.Bytes(), []byte("evidencia:sintetica")) || bytes.Contains(output.Bytes(), []byte(strings.Repeat("<", 2048))) {
 			t.Fatal("fallo devolvió datos de entrada")
 		}
+	}
+	p.Manifiesto.DocumentoRef, p.Manifiesto.CustodiaRef = "documento:sintetico", "custodia:sintetica"
+	p.Manifiesto.DiccionarioRef, p.Manifiesto.ActoRef = "diccionario:sintetico", "acto:sintetico"
+	p.Manifiesto.AprobadaEn, p.Manifiesto.PublicadaEn, p.Manifiesto.EfectosDesde = "2026-01-01", "2026-01-02", "2026-01-03"
+	for i := range p.Decisiones {
+		p.Decisiones[i].Resultado, p.Decisiones[i].DestinoRef = "vinculada", "unidad:sintetica"
+	}
+	entrada.Reset()
+	if err := encoder.Encode(p); err != nil {
+		t.Fatal(err)
+	}
+	if codigo, s := revisarCLI(t, []string{"--comprobar-completo", "--preparar"}, entrada.Bytes()); codigo != 1 || s.Paquete != nil || s.Comprobacion == nil || s.Comprobacion.Completa ||
+		s.Informe.Valido || s.Informe.ClaveError != "paquete_excede_limite" ||
+		!slices.ContainsFunc(s.Comprobacion.Faltantes, func(f application.FaltanteCompletitudOrganizacion) bool { return f.Clave == "paquete_excede_limite" }) {
+		t.Fatalf("tamaño incompatible con preparación completa: %+v", s)
 	}
 }
