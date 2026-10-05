@@ -30,7 +30,7 @@ BEGIN
  -- La puerta del lote ya no fija versión y exige la concesión exacta del lote.
  SELECT prosrc INTO src FROM pg_proc WHERE oid='vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)'::regprocedure;
  IF src ~ 'administracion_perfiles:v[0-9]' OR src ~ 'version=[0-9]' OR strpos(src,'concesiones_lote_ordinario_admin_v1()')=0
- OR strpos(src,'fuente_version=r.version')=0 OR strpos(src,'c=concesion')=0
+ OR strpos(src,'fuente_version=r.version')=0 OR strpos(src,'c=concesion_lote')=0
  THEN RAISE EXCEPTION 'AUT51: la puerta del lote sigue fijada o no exige la concesión exacta'; END IF;
  IF (SELECT array_agg(x.grantee::regrole::text ORDER BY 1) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) x
      WHERE p.oid='vec_autorizacion.acreditar_perfil_aplicacion_lote_ordinario_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)'::regprocedure AND x.grantee<>p.proowner)

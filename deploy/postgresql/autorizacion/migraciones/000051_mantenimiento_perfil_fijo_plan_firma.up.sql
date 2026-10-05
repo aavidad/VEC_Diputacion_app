@@ -243,14 +243,14 @@ CREATE OR REPLACE FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_lote_ord
  version_ref text,p_asignacion_ref text,principal_ref text,perfil_ref text,
  accion text,modulo text,tipo text,finalidad text,campos jsonb,autenticacion jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
-DECLARE r record;ct record;asig record;meta record;ahora timestamptz;concesion jsonb;
+DECLARE r record;ct record;asig record;meta record;ahora timestamptz;concesion_lote jsonb;
 BEGIN
- concesion:=vec_autorizacion.concesiones_lote_ordinario_admin_v1()->0;
+ concesion_lote:=vec_autorizacion.concesiones_lote_ordinario_admin_v1()->0;
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
   OR pg_catalog.current_setting('transaction_read_only')<>'off'
   OR (version_ref ~ '^rol:administracion_perfiles:v[1-9][0-9]{0,8}$') IS NOT TRUE
-  OR accion IS DISTINCT FROM concesion->>'accion' OR modulo IS DISTINCT FROM concesion->>'modulo_id'
-  OR tipo IS DISTINCT FROM concesion->>'tipo_recurso' OR finalidad IS DISTINCT FROM concesion#>>'{finalidades,0}'
+  OR accion IS DISTINCT FROM concesion_lote->>'accion' OR modulo IS DISTINCT FROM concesion_lote->>'modulo_id'
+  OR tipo IS DISTINCT FROM concesion_lote->>'tipo_recurso' OR finalidad IS DISTINCT FROM concesion_lote#>>'{finalidades,0}'
   OR campos IS DISTINCT FROM '[]'::jsonb
   OR pg_catalog.jsonb_typeof(autenticacion)<>'object'
   OR vec_identidad_sesiones_v1.acreditar_operador_cargos_ct_v1(autenticacion) IS NOT TRUE
@@ -284,8 +284,8 @@ BEGIN
      AND catalogo.clase_control='administrador_aplicacion'
      AND catalogo.dimensiones_ambito='["organizacion_ref","unidad_ref"]'::jsonb
      AND ahora>=catalogo.vigente_desde AND (catalogo.vigente_hasta IS NULL OR ahora<catalogo.vigente_hasta)
-     AND catalogo.concesion=concesion)
-  AND EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(r.documento->'concesiones') c WHERE c=concesion);
+     AND catalogo.concesion=concesion_lote)
+  AND EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(r.documento->'concesiones') c WHERE c=concesion_lote);
 END $f$;
 RESET ROLE;
 COMMIT;
