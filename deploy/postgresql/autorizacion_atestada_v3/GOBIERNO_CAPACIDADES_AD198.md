@@ -107,3 +107,13 @@ Añade la clave con la que vec-admin emite las decisiones de publicación y
 retirada de certificados nominales de firmante (AD165, con la fachada v4 de
 AD205). Se prepara con `"conjunto_capacidades": 4` y la configuración aprobada
 lleva `conjunto_version = 4`. Al pasar al conjunto 4 se deja de renovar con el 3.
+
+AD205 trae además la fachada `operar_certificado_nominal_v4`. Su huella de
+recurso es la canónica del PDP: organización y unidad de la asignación y SHA-256
+del descriptor. Sustituye a la v3 en el grupo ejecutor. AD205 también corrige
+`destino_no_administrador_certificado_nominal_v1` (AUT33), que fallaba con 42702
+por un `USING` ambiguo. Se instala después de AD204. Se ensayó en un PostgreSQL
+18.4 desechable (AD198 → AD202 → AD204 → AD205 con salida 0; al repetirla se
+para en la preimagen) y en el clon propio con decisiones V3 reales: publicar,
+reintentar, denegar hacia el propio administrador, retirar y reintentar tras
+reiniciar.

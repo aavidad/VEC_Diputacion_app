@@ -84,8 +84,8 @@ BEGIN
  JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
  WHERE p.asignacion_ref=p_asignacion_ref FOR SHARE OF p,x;
  ahora:=pg_catalog.clock_timestamp();
- IF NOT FOUND OR a.version_rol_ref<>version_ref OR a.principal_id IS DISTINCT FROM principal_ref
-  OR a.documento->>'estado'<>'activa'
+ IF NOT FOUND OR a.version_rol_ref IS DISTINCT FROM version_ref OR a.principal_id IS DISTINCT FROM principal_ref
+  OR a.documento->>'estado' IS DISTINCT FROM 'activa'
   OR (ahora>=(a.documento->>'vigente_desde')::timestamptz AND ahora<(a.documento->>'vigente_hasta')::timestamptz) IS NOT TRUE
   OR pg_catalog.jsonb_typeof(a.documento->'ambitos')<>'array' OR pg_catalog.jsonb_array_length(a.documento->'ambitos')<>2 THEN RETURN NULL; END IF;
  SELECT e->'valores'->>0 INTO org FROM pg_catalog.jsonb_array_elements(a.documento->'ambitos') e
@@ -150,7 +150,8 @@ DECLARE d jsonb;c jsonb;a jsonb;s jsonb;org jsonb;amb jsonb;x record;resultado j
 BEGIN
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable' OR pg_catalog.current_setting('transaction_read_only')<>'off'
   OR p_descriptor IS NULL OR pg_catalog.octet_length(p_descriptor) NOT BETWEEN 2 AND 16384
-  OR p_capacidad IS NULL OR p_decision IS NULL
+  OR p_capacidad IS NULL OR pg_catalog.octet_length(p_capacidad) NOT BETWEEN 2 AND 32768
+  OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 2 AND 524288
  THEN RAISE EXCEPTION 'AD205: operación denegada' USING ERRCODE='42501'; END IF;
  BEGIN
   d:=pg_catalog.convert_from(p_descriptor,'UTF8')::jsonb;
