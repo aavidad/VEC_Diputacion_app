@@ -126,7 +126,9 @@ BEGIN
   a:=pg_catalog.convert_from(p_contexto,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CT177: descarga de borrador denegada' USING ERRCODE='42501'; END;
  -- Mismo contexto canónico que RecursoAutorizable.HuellaContextoAutorizacionSHA256:
- -- claves ordenadas, sin espacios.
+ -- claves ordenadas, sin espacios. Se concatena sin escapar porque las
+ -- expresiones regulares de arriba excluyen comillas y barras; si se relajan,
+ -- hay que construirlo con jsonb y el mismo orden de claves.
  v_contexto:='{"ambitos":{"ambito_ref":"'||p_alcance.ambito_ref||'","clase_ambito":"'||p_alcance.clase_ambito
   ||'","organizacion_ref":"'||p_alcance.organizacion_ref||'"},"atributos":{"consulta_dominio":"'
   ||'vec.contratacion_temporal.descarga_borrador_rrhh.v1'||'","consulta_huella_sha256":"'
