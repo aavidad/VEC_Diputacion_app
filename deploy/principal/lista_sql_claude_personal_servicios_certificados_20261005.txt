@@ -1,0 +1,7 @@
+# Personal sirve a Certificados los servicios de la propia persona (autoservicio).
+# Requiere AD193 instalada (lista_sql_codexl_transaccion_origen_20261004.txt) y, por tanto,
+# AD194/IS16/CA36/AUT47 antes. AD195 mide el núcleo POST193: si otro consumidor
+# reescribe el núcleo antes, AD195 se detiene con PARO sin tocar nada y hay que remedirla.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000195_consumidor_servicios_certificados_propios.up.sql
+deploy/postgresql/personal/migraciones/000036_servicios_certificados_propios.up.sql
