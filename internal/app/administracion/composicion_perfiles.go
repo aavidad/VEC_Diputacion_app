@@ -39,6 +39,9 @@ type LoteADMIN struct {
 	Organizacion string
 	Catalogo     ports.CatalogoRolesAdministrables
 	Servicio     api.ServicioLotesADMIN
+	// GobiernoPlan abre, si se compone, el gobierno del plan nominal de firma
+	// de Contratación temporal en la misma superficie de escritura.
+	GobiernoPlan api.ServicioGobiernoPlanFirmaADMIN
 }
 
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {

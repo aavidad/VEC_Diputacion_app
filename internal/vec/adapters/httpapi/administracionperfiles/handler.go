@@ -98,6 +98,7 @@ type Handler struct {
 	catalogo         ports.CatalogoRolesAdministrables
 	actos            ServicioActos
 	lotes            ServicioLotesADMIN
+	gobiernoPlan     ServicioGobiernoPlanFirmaADMIN
 	soloLectura      bool
 	soloMetadatos    bool
 	auditor          AuditorFrontera

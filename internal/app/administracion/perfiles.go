@@ -101,7 +101,14 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 		}
 		lote := *deps.Lote
 		constructor = func(origen string, sesiones api.ResolvedorSesion, lecturas api.FuenteLecturas, auditor api.AuditorFrontera) (*api.Handler, error) {
-			return api.NuevoHandlerUsuariosMetadatosConLote(origen, lote.Organizacion, sesiones, lecturas, lote.Catalogo, lote.Servicio, auditor)
+			h, err := api.NuevoHandlerUsuariosMetadatosConLote(origen, lote.Organizacion, sesiones, lecturas, lote.Catalogo, lote.Servicio, auditor)
+			if err != nil || dependenciaComposicionNula(lote.GobiernoPlan) {
+				return h, err
+			}
+			if err := h.ConGobiernoPlanFirma(lote.GobiernoPlan); err != nil {
+				return nil, err
+			}
+			return h, nil
 		}
 	}
 	handler, err := constructor(host.origen(), deps.Sesiones, deps.Lecturas, deps.Auditor)
