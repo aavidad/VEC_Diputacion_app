@@ -22,7 +22,17 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-const limiteDocumento = 64 << 10
+const (
+	limiteDocumento = 64 << 10
+	// Mismo límite que aplica vec-admin a su configuración privada.
+	limiteConfiguracionAdmin = 256 << 10
+)
+
+// Ganchos sustituibles solo en pruebas.
+var (
+	cargarFuente  = selector.NuevaFuenteIdentificadoresADMINDesdeArchivo
+	retirarSalida = retirar
+)
 
 type diagnostico struct {
 	Codigo                string `json:"codigo"`
@@ -33,7 +43,8 @@ type diagnostico struct {
 }
 
 var clavesTextos = []string{"limite", "uso_invalido", "entrada_insegura", "entrada_invalida", "entradas_divergentes", "proveedor_no_disponible",
-	"coordenadas_divergentes", "sujeto_divergente", "cuenta_divergente", "alias_ordinario_divergente", "salida_insegura", "salida_no_guardada", "identificadores_preparados"}
+	"configuracion_admin_divergente", "coordenadas_divergentes", "sujeto_divergente", "cuenta_divergente", "alias_ordinario_divergente", "salida_insegura",
+	"salida_rechazada_retirada", "salida_rechazada_sin_retirar", "identificadores_preparados"}
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -48,6 +59,7 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	f.StringVar(&r.material, "material", "", "")
 	f.StringVar(&r.proveedor, "proveedor", "", "")
 	f.StringVar(&r.salida, "salida", "", "")
+	f.StringVar(&r.configuracionAdmin, "configuracion-admin", "", "")
 	var rutaTextos string
 	f.StringVar(&rutaTextos, "textos", "", "")
 	parseErr := f.Parse(args)
@@ -79,17 +91,25 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	}
 	// El archivo sólo se da por preparado si lo acepta el cargador del runtime.
 	sha := huellaSHA256(doc)
-	if _, err := selector.NuevaFuenteIdentificadoresADMINDesdeArchivo(r.salida, sha); err != nil {
-		retirar(r.salida)
-		return emitir(errores, diagnostico{Codigo: "salida_no_guardada"})
+	if _, err := cargarFuente(r.salida, sha); err != nil {
+		if retirarSalida(r.salida) != nil {
+			return emitir(errores, diagnostico{Codigo: "salida_rechazada_sin_retirar"})
+		}
+		return emitir(errores, diagnostico{Codigo: "salida_rechazada_retirada"})
 	}
 	return emitir(salida, diagnostico{Codigo: "identificadores_preparados", Preparado: true, IdentificadoresSHA256: sha})
 }
 
-type rutas struct{ originales, certificados, fuente, acuse, material, proveedor, salida string }
+type rutas struct {
+	originales, certificados, fuente, acuse, material, proveedor, salida string
+	configuracionAdmin                                                   string // opcional
+}
 
 func (r rutas) distintas(textos string) bool {
 	todas := []string{r.originales, r.certificados, r.fuente, r.acuse, r.material, r.proveedor, r.salida, textos}
+	if r.configuracionAdmin != "" {
+		todas = append(todas, r.configuracionAdmin)
+	}
 	for i, x := range todas {
 		if x == "" || slices.Contains(todas[:i], x) {
 			return false
@@ -138,7 +158,34 @@ func preparar(r rutas) ([]byte, string) {
 		return nil, "entradas_divergentes"
 	}
 	e.cuentas = cuentas
+	if r.configuracionAdmin != "" {
+		if codigo := cotejarConfiguracionAdmin(r.configuracionAdmin, prov); codigo != "" {
+			return nil, codigo
+		}
+	}
 	return e.documento()
+}
+
+// cotejarConfiguracionAdmin lee solo el bloque "identidad" de la configuración
+// privada de vec-admin (sin claves repetidas) y exige el mismo proveedor que
+// proveedor.json. Así el archivo se coteja con lo que usará el runtime.
+func cotejarConfiguracionAdmin(ruta string, prov proveedorHMAC) string {
+	b, err := leerPrivadoHasta(ruta, limiteConfiguracionAdmin)
+	if err != nil {
+		return "entrada_insegura"
+	}
+	defer clear(b)
+	var cfg struct {
+		Identidad json.RawMessage `json:"identidad"`
+	}
+	var admin proveedorHMAC
+	if clavesUnicas(b) != nil || json.Unmarshal(b, &cfg) != nil || len(cfg.Identidad) == 0 || decodificarEstricto(cfg.Identidad, &admin) != nil {
+		return "entrada_invalida"
+	}
+	if !mismoProveedor(admin, prov) {
+		return "configuracion_admin_divergente"
+	}
+	return ""
 }
 
 type datosTextos struct {

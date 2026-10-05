@@ -55,7 +55,9 @@ func propio(i os.FileInfo) bool {
 	return ok && int64(s.Uid) == int64(os.Getuid())
 }
 
-func leerPrivado(ruta string) ([]byte, error) {
+func leerPrivado(ruta string) ([]byte, error) { return leerPrivadoHasta(ruta, limiteDocumento) }
+
+func leerPrivadoHasta(ruta string, limite int64) ([]byte, error) {
 	raiz, err := abrirRaizPrivada(ruta)
 	if err != nil {
 		return nil, err
@@ -63,7 +65,7 @@ func leerPrivado(ruta string) ([]byte, error) {
 	defer raiz.Close()
 	nombre := filepath.Base(ruta)
 	i, err := raiz.Lstat(nombre)
-	if err != nil || !i.Mode().IsRegular() || i.Mode().Perm() != 0600 || !propio(i) || i.Size() == 0 || i.Size() > limiteDocumento {
+	if err != nil || !i.Mode().IsRegular() || i.Mode().Perm() != 0600 || !propio(i) || i.Size() == 0 || i.Size() > limite {
 		return nil, errors.New("fichero")
 	}
 	f, err := raiz.OpenFile(nombre, os.O_RDONLY|noSeguirEnlaces, 0)
@@ -75,7 +77,7 @@ func leerPrivado(ruta string) ([]byte, error) {
 	if err != nil || !os.SameFile(i, actual) || !actual.Mode().IsRegular() || actual.Mode().Perm() != 0600 || !propio(actual) {
 		return nil, errors.New("cambio")
 	}
-	b, err := io.ReadAll(io.LimitReader(f, limiteDocumento+1))
+	b, err := io.ReadAll(io.LimitReader(f, limite+1))
 	if err != nil || int64(len(b)) != i.Size() {
 		clear(b)
 		return nil, errors.New("lectura")
@@ -106,15 +108,28 @@ func crearExclusivo(ruta string, b []byte) error {
 	if cerrar := f.Close(); err == nil {
 		err = cerrar
 	}
+	if err == nil {
+		// La entrada del directorio también debe quedar en disco.
+		var dir *os.File
+		if dir, err = raiz.Open("."); err == nil {
+			err = dir.Sync()
+			if cerrar := dir.Close(); err == nil {
+				err = cerrar
+			}
+		}
+	}
 	if err != nil {
 		_ = raiz.Remove(nombre)
 	}
 	return err
 }
 
-func retirar(ruta string) {
-	if raiz, err := abrirRaizPrivada(ruta); err == nil {
-		_ = raiz.Remove(filepath.Base(ruta))
-		_ = raiz.Close()
+// retirar informa si el archivo rechazado sigue en disco.
+func retirar(ruta string) error {
+	raiz, err := abrirRaizPrivada(ruta)
+	if err != nil {
+		return err
 	}
+	defer raiz.Close()
+	return raiz.Remove(filepath.Base(ruta))
 }

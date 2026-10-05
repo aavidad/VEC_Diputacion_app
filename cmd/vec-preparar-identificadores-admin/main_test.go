@@ -26,6 +26,7 @@ type escenario struct {
 	material    materialHMAC
 	plan        domain.PlanFuentesInicialesAdminV1
 	originales  originalesArranque
+	extra       []string
 }
 
 func privado(t *testing.T) string {
@@ -190,7 +191,65 @@ func (e *escenario) args(t *testing.T) []string {
 	for _, n := range []string{"originales", "certificados", "fuente", "acuse", "material", "proveedor"} {
 		a = append(a, "--"+n, filepath.Join(e.dir, n+".json"))
 	}
-	return a
+	return append(a, e.extra...)
+}
+
+func reescribirProveedor(t *testing.T, e *escenario, cambiar func(*proveedorHMAC)) {
+	t.Helper()
+	p := e.archivos["proveedor"].(proveedorHMAC)
+	cambiar(&p)
+	escribirJSON(t, filepath.Join(e.dir, "proveedor.json"), p, 0600)
+}
+
+// configuracionAdmin escribe una configuración privada de vec-admin reducida:
+// otros bloques más el bloque identidad, que es lo único que se coteja.
+func configuracionAdmin(t *testing.T, e *escenario, cambiar func(*proveedorHMAC)) {
+	t.Helper()
+	p := e.archivos["proveedor"].(proveedorHMAC)
+	p.IncluirCuentaOrdinaria = true
+	if cambiar != nil {
+		cambiar(&p)
+	}
+	ruta := filepath.Join(e.dir, "vec-admin.json")
+	escribirJSON(t, ruta, map[string]any{"pools": map[string]string{"cuentas_admin": "/privado/pool"}, "identidad": p}, 0600)
+	e.extra = []string{"--configuracion-admin", ruta}
+}
+
+func TestPreparaConConfiguracionAdminCoincidente(t *testing.T) {
+	e := nuevoEscenario(t, nil)
+	configuracionAdmin(t, e, nil)
+	var salida, errores bytes.Buffer
+	if ejecutar(e.args(t), &salida, &errores) != 0 || !strings.Contains(salida.String(), `"identificadores_preparados"`) {
+		t.Fatalf("rechazado: %s", errores.String())
+	}
+}
+
+func TestSalidaRechazadaPorElCargador(t *testing.T) {
+	original := cargarFuente
+	t.Cleanup(func() { cargarFuente = original })
+	for _, caso := range []struct {
+		codigo   string
+		bloquear bool
+	}{{"salida_rechazada_retirada", false}, {"salida_rechazada_sin_retirar", true}} {
+		t.Run(caso.codigo, func(t *testing.T) {
+			e := nuevoEscenario(t, nil)
+			dir := filepath.Dir(e.salida)
+			t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
+			cargarFuente = func(string, string) (selector.FuenteIdentificadoresADMIN, error) {
+				if caso.bloquear && os.Chmod(dir, 0500) != nil {
+					t.Fatal("chmod")
+				}
+				return nil, os.ErrInvalid
+			}
+			var salida, errores bytes.Buffer
+			if ejecutar(e.args(t), &salida, &errores) != 1 || salida.Len() != 0 || !strings.Contains(errores.String(), `"codigo":"`+caso.codigo+`"`) {
+				t.Fatalf("resultado inesperado: %s", errores.String())
+			}
+			if _, err := os.Lstat(e.salida); os.IsNotExist(err) == caso.bloquear {
+				t.Fatal("el estado del archivo no coincide con el mensaje")
+			}
+		})
+	}
 }
 
 func TestPreparaArchivoQueAceptaElCargadorDelRuntime(t *testing.T) {
@@ -277,6 +336,23 @@ func TestRechazosSinEscribirSalida(t *testing.T) {
 			m.ClaveID += "x"
 			escribirJSON(t, filepath.Join(e.dir, "material.json"), m, 0600)
 		}},
+		{"persona repetida en IS", "entradas_divergentes", nil, func(t *testing.T, e *escenario) {
+			a := e.archivos["acuse"].(acuseFuentes)
+			r := *a.Recibo
+			r.IS.Datos.Personas[1] = r.IS.Datos.Personas[0]
+			a.Recibo = &r
+			escribirJSON(t, filepath.Join(e.dir, "acuse.json"), a, 0600)
+		}},
+		{"configuración de vec-admin con otro proveedor", "configuracion_admin_divergente", nil, func(t *testing.T, e *escenario) {
+			configuracionAdmin(t, e, func(p *proveedorHMAC) { p.DominioHMAC += ".otro" })
+		}},
+		{"proveedor no disponible", "proveedor_no_disponible", nil, func(t *testing.T, e *escenario) {
+			reescribirProveedor(t, e, func(p *proveedorHMAC) { p.RutaConfiguracionHMAC = filepath.Join(e.dir, "no-existe.json") })
+		}},
+		{"coordenadas divergentes", "coordenadas_divergentes", nil, func(t *testing.T, e *escenario) {
+			reescribirProveedor(t, e, func(p *proveedorHMAC) { p.EspacioClave += ".otro" })
+		}},
+		{"sujeto divergente", "sujeto_divergente", func(m *materialHMAC) { m.Personas[0].Sujeto = strings.Repeat("ef", 32) }, nil},
 		{"alias ordinario divergente", "alias_ordinario_divergente", func(m *materialHMAC) { m.Personas[1].CuentaOrdinaria = strings.Repeat("ab", 32) }, nil},
 		{"cuenta divergente", "cuenta_divergente", func(m *materialHMAC) { m.Personas[0].CuentaPrivilegiada = strings.Repeat("cd", 32) }, nil},
 	} {

@@ -55,9 +55,12 @@ type materialHMACPersona struct {
 	Sujeto             string `json:"sujeto_id_hmac_hex"`
 }
 
-// proveedorHMAC es la misma configuración de identidad que lee vec-admin.
-// incluir_cuenta_ordinaria se acepta por compatibilidad con el arranque, pero
-// el cotejo siempre usa la cuenta ordinaria, como hace el runtime.
+// proveedorHMAC es la misma configuración de identidad que lee vec-admin
+// (bloque "identidad" de su configuración privada). El arranque escribe
+// incluir_cuenta_ordinaria=false y vec-admin exige true; ese valor solo decide
+// si el proveedor admite la cuenta ordinaria en la misma llamada y no altera
+// las huellas de sujeto, cuenta ni alias ordinario. El cotejo usa siempre true,
+// como el runtime, y el campo no se compara con la configuración de vec-admin.
 type proveedorHMAC struct {
 	DirectorioMaterial     string `json:"directorio_material"`
 	RutaConfiguracionHMAC  string `json:"ruta_configuracion_hmac"`
@@ -141,11 +144,13 @@ func cuentasDesdeAcuse(a acuseFuentes, plan domain.PlanFuentesInicialesAdminV1, 
 		vistas[x.CuentaOrdinariaRef], vistas[x.CuentaPrivilegiadaRef] = true, true
 		cuentas[x.PersonaRef] = cuentasPersona{x.PersonaRef, x.CuentaOrdinariaRef, x.CuentaPrivilegiadaRef}
 	}
+	personasIS := map[string]bool{}
 	for _, x := range is.Personas {
 		y, ok := cuentas[x.PersonaRef]
-		if !ok || y.CuentaOrdinariaRef != x.CuentaOrdinariaRef || y.CuentaPrivilegiadaRef != x.CuentaPrivilegiadaRef {
+		if !ok || personasIS[x.PersonaRef] || y.CuentaOrdinariaRef != x.CuentaOrdinariaRef || y.CuentaPrivilegiadaRef != x.CuentaPrivilegiadaRef {
 			return nil, false
 		}
+		personasIS[x.PersonaRef] = true
 	}
 	return cuentas, mismasPersonas(plan, cuentas)
 }
@@ -232,4 +237,10 @@ func identificadorOriginal(v string, cuenta bool) bool {
 		}
 	}
 	return true
+}
+
+// mismoProveedor compara los seis campos que determinan las huellas.
+func mismoProveedor(a, b proveedorHMAC) bool {
+	return a.DirectorioMaterial == b.DirectorioMaterial && a.RutaConfiguracionHMAC == b.RutaConfiguracionHMAC && a.EspacioIdentidad == b.EspacioIdentidad &&
+		a.DominioRef == b.DominioRef && a.EspacioClave == b.EspacioClave && a.DominioHMAC == b.DominioHMAC
 }
