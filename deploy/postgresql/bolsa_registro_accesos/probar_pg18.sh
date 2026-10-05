@@ -84,6 +84,8 @@ psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/doble_autorizacion_mecanica.sql
 psql_archivo \
     /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/consulta_mecanica.sql
+psql_archivo \
+    /repo/deploy/postgresql/bolsa_registro_accesos/pruebas_sql/regex_referencias_v2.sql
 
 docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" --command \
