@@ -98,6 +98,7 @@ func TestHTTPPreparacionLoteRechazaConsultaYPersonaAntesDelServicio(t *testing.T
 		"unidad_doble":    {personaPreparacionPrueba, "unidad_ref=unidad:prueba&unidad_ref=unidad:otra"},
 		"unidad_invalida": {personaPreparacionPrueba, "unidad_ref=Unidad*"},
 		"persona_opaca":   {"per_corta", "unidad_ref=unidad:prueba"},
+		"consulta_larga":  {personaPreparacionPrueba, "unidad_ref=unidad:prueba&" + strings.Repeat("x", 300)},
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			h, lotes, _, auditor, _ := handlerConLotePrueba(t)

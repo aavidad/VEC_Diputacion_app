@@ -112,6 +112,10 @@ func rutaPreparacionLote(p string) (string, bool) {
 }
 
 func unidadPreparacionLote(raw string) (string, bool) {
+	// unidad_ref= y 128 caracteres como mucho: se corta antes de interpretar.
+	if len(raw) > 256 {
+		return "", false
+	}
 	q, err := url.ParseQuery(raw)
 	if err != nil || len(q) != 1 || len(q["unidad_ref"]) != 1 || !organizacionPrivadaLote.MatchString(q["unidad_ref"][0]) {
 		return "", false
