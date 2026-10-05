@@ -2,7 +2,9 @@
 
 Candidata desde `origin/main@296f78373`, unida a `main@337ca757b` y reanclada
 sobre AD184, AD185 y AD192 en ese orden. El ensayo estructural de esta revisión
-terminó correctamente en una copia privada de POST192; falta el recorrido causal nominal.
+terminó correctamente en una copia privada de POST192. El 5 de octubre se
+ensayó con vec-admin real sobre el estado de la principal (sección final); ese
+ensayo obligó a adaptar también las fachadas AD184/AD185.
 La captura fría `POSTIMAGEN_FINAL_AD192_K.json` (SHA256
 `de59d6a47401bc8e0aba65c3ab2034467cf4ab1576123cdd415c8d4d583d3919`)
 conserva 6254 registros anteriores y no tiene AD193 instalada. Las preimágenes
@@ -91,6 +93,19 @@ migración que reconstruye el mismo cuerpo:
 | `consumir_decision_mutacion_v3_externa_interna`, copia AD116 | dos INSERT propios | sin columnas nuevas; formato anterior |
 | `consumir_decision_mutacion_v3_usuarios_externa_interna`, copia AD118 | dos INSERT propios | sin columnas nuevas; formato anterior |
 
+Tres fachadas leen la fila recién escrita por el núcleo y exigían la familia
+v3 de forma literal. AD193 las reconstruye con la misma técnica reversible y
+huellas medidas antes y después:
+
+| Fachada | Antes | Después |
+| --- | --- | --- |
+| `registrar_y_consumir_usuarios_admin_v3_atestada` (AD185) | v3 | v4 con ambos sellos iguales al TopXID actual |
+| `registrar_y_consumir_denominacion_persona_v3_atestada` (AD184) | v3 | v4 con ambos sellos iguales al TopXID actual |
+| `cotejar_consumo_denominacion_persona_v3_atestada` (AD184) | v3 | v3 histórica sin sello, o v4 con los dos sellos iguales |
+
+Ninguna otra función instalada en la principal nombra la familia v3; la prueba
+SQL lo comprueba.
+
 Los cuatro INSERT de AD002/AD003 quedan expresamente fuera de la ampliación.
 Las fachadas que delegan en el núcleo interno reciben v4; las delegaciones
 externas del propio núcleo siguen su formato anterior. El preflight de la copia
@@ -134,7 +149,7 @@ del núcleo y comprobador también se comprueban como literales medidos.
 
 La prueba SQL incluida verifica columnas/ACL, huella posterior del núcleo, ramas
 AD184/185/192 y un vector de 16 campos con XID
-superior al entero seguro de JSON. No fabrica filas favorables. Quedan pendientes el ensayo causal con productores VEC reales y la
+superior al entero seguro de JSON. No fabrica filas favorables. Lo que el ensayo del 05/10 cubrió y lo que no está en la última sección. Quedaban pendientes el ensayo causal con productores VEC reales y la
 conformidad de K antes de LISTA.
 El ensayo causal de dirección debe demostrar con productores VEC reales:
 
@@ -202,3 +217,62 @@ campos y la serialización de los valores superiores a 2^53 y del máximo uint64
 El ensayo estructural no acredita consumo nominal CT175/AUT41, SAVEPOINT,
 EXCEPTION, rechazo entre transacciones o replay con productores reales. La PR
 queda en borrador hasta ese recorrido y la conformidad de K; no se declara LISTA.
+
+## Ensayo causal con vec-admin real del 05/10
+
+Se partió de la copia fría H10-30 de K (SHA256
+`ea3d00de2d52a941855dc7569c6e4ac52582a531e4118796ee160639a0d71fcd`), con
+AD194, IS16, CA36 y AUT47 aplicadas una vez, como está la principal. Encima se
+hizo el arranque 2+1 con el guion de K, el mantenimiento a v5, la raíz de
+laboratorio y el gobierno de usuarios del día, y se arrancó vec-admin con
+binarios de esta rama. PostgreSQL 18.4 en contenedor de 2 GB, datos en disco,
+sin red exterior ni acceso a la principal.
+
+AD193 aplica sobre AD194 sin cambios: AD194 sólo toca las dos funciones de
+repetición de AD192 y las preimágenes medidas coinciden con los literales.
+El número 194 es mayor, pero el orden de instalación no importa entre ellas.
+
+Primer ensayo, con la AD193 anterior (`f226520c…`): la lista de usuarios daba
+200 antes de AD193 y 403 justo después. PostgreSQL registraba
+`AD185: acuse_o_autoridad_rechazados`, porque la fachada AD185 exigía
+`consumo_confirmado_v3`. Las dos fachadas de denominación de AD184 tenían el
+mismo literal. Por eso AD193 incluye ahora el bloque de fachadas.
+
+Segundo ensayo, desde cero con la AD193 final (`bddba35f…`, prueba
+`e5eb87f3…`), en caliente con vec-admin en marcha:
+
+1. Antes de AD193, dos lecturas reales dejaron dos filas v3 sin sello.
+2. UP y prueba con código 0. Una segunda ejecución para en
+   `columna_transaccion_origen… actual=presente` sin efectos.
+3. Después, el mismo proceso vec-admin siguió listando usuarios (200 para las
+   dos personas). Cada lectura escribió una fila v4 con los dos sellos
+   iguales; el `xmin` de las filas es un SubXID distinto del sello, porque el
+   núcleo inserta dentro de su bloque EXCEPTION. La fachada AD185 aceptó el
+   sello del TopXID en ese contexto.
+4. `vec-auditoria-verificar` de esta rama verificó eslabones reales v1, v3 y
+   v4 uno a uno. Rechazó el v4 con el sello cambiado, como número JSON, a cero
+   o sin `transaccion_consumo_origen`. No hay eslabones rotos en toda la cadena
+   y la cabeza coincide con la última huella.
+5. El comprobador AD167 denegó (42501) un recibo v4 real confirmado en otra
+   transacción aunque llevara `consumo_nuevo=true`, también dentro de
+   SAVEPOINT y de un bloque EXCEPTION, y con una octava propiedad
+   `transaccion_origen`. El rol lector de vec-admin no puede ni ver el esquema;
+   `vec_autorizacion_propietario` no puede llamar al núcleo. Ninguna función VEC
+   recibe el sello como parámetro.
+6. Las repeticiones con acuse nuevo de fuentes, unidad, bootstrap, mantenimiento
+   y gobierno de usuarios devolvieron el mismo recibo, sin filas nuevas en sus
+   familias, que siguen sin sello.
+7. Tras reiniciar PostgreSQL y vec-admin, la selección de perfil se conservó,
+   las lecturas siguieron en 200 con filas v4 selladas y las repeticiones de
+   las familias técnicas dieron el mismo recibo. Los 6240 registros previos
+   siguen sin sello.
+
+Límites. El comprobador AD167 sólo admite consumos de firma CT, y los
+productores reales de esa firma (AD177, AUT41, CT175 y CT176, de Codex-E)
+no están en main. Por eso el caso positivo del comprobador (consumo fresco de
+firma, dentro de SAVEPOINT o EXCEPTION, aceptado) no se ha podido recorrer con
+productores reales; se ha comprobado el mismo sello en la fachada AD185, que sí
+es un productor real. La repetición de una lectura ADMIN no es posible por
+diseño: la fachada exige una decisión nueva y el núcleo sólo se llama desde
+las fachadas. Tampoco se ha probado la denominación de AD184, que este
+arranque no usa.
