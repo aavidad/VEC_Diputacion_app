@@ -5,10 +5,11 @@
 -- recurso tenga las dimensiones de la asignación (siempre al menos una), así
 -- que toda decisión se denegaba con ambito_no_autorizado. La fachada nueva
 -- registrar_y_confirmar_gobierno_plan_firma_v2 recibe organizacion_ref y
--- unidad_ref, calcula con ellos la huella y coteja la organización con la
--- asignación vigente (fachada AUT existente). La v1 deja de ser ejecutable por
--- el grupo dedicado. El material del kit (13 claves), CC7, el núcleo y el
--- CHECK de audiencias no cambian. Requiere AD200. Una sola vez; sin DOWN.
+-- unidad_ref, calcula con ellos la huella, coteja organización y unidad con la
+-- asignación actual (AUT52) y confirma con CC9, que calcula la misma huella. La
+-- v1 deja de ser ejecutable por el grupo dedicado. El material del kit (13
+-- claves), el núcleo y el CHECK de audiencias no cambian. Requiere AD200, AUT52
+-- y CC9. Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -27,13 +28,14 @@ BEGIN
  OR to_regrole('vec_plan_firma_gobierno_ejecutor') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)') IS NULL
- OR has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_autorizacion.acreditar_ambito_certificado_nominal_v1(text,text,text)','EXECUTE') IS NOT TRUE
+ OR has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_autorizacion.acreditar_ambitos_gobierno_plan_firma_v1(text,text,text,text,text)','EXECUTE') IS NOT TRUE
+ OR has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v2(bytea,text,text,jsonb)','EXECUTE') IS NOT TRUE
  -- La v1 tiene el ACL que deja AD200: propietario y grupo dedicado.
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=v1)<>2
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
    WHERE p.oid=v1 AND a.grantee IN(p.proowner,'vec_plan_firma_gobierno_ejecutor'::regrole)
    AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)<>2
- THEN RAISE EXCEPTION 'AD201: PARO clave=preimagen actual=incompatible esperado=AD177_AD200_sin_AD201' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD201: PARO clave=preimagen actual=incompatible esperado=AD177_AD200_AUT52_CC9_sin_AD201' USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 
@@ -110,18 +112,17 @@ BEGIN
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  comprobado:=vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(to_jsonb(consumo));
  -- La decisión consumida es la recibida (el núcleo la cotejó con su atestación)
- -- y la organización del recurso sigue en la asignación vigente del actor. La
- -- unidad queda ligada por la huella de la decisión, que el PDP evaluó contra
- -- la cobertura de esa asignación.
+ -- y la organización y la unidad del recurso siguen en la asignación actual,
+ -- activa y vigente del actor (AUT52).
  IF d->>'decision_ref' IS DISTINCT FROM comprobado->>'decision_ref'
   OR d->>'principal_id' IS DISTINCT FROM comprobado->>'registrador_principal_ref'
-  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1(
-   d->>'version_rol_ref',d->>'asignacion_ref',p_organizacion_ref) IS NOT TRUE THEN
+  OR vec_autorizacion.acreditar_ambitos_gobierno_plan_firma_v1(
+   d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',p_organizacion_ref,p_unidad_ref) IS NOT TRUE THEN
   RAISE EXCEPTION 'AD201 ámbito de gobierno no acreditado' USING ERRCODE='42501'; END IF;
  IF (comprobado->>'decision_valida_hasta')::timestamptz<=clock_timestamp() THEN
   RAISE EXCEPTION 'AD201 gobierno de plan caducado' USING ERRCODE='42501'; END IF;
- SELECT * INTO STRICT resultado FROM vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(
-  p_material_exacto,jsonb_build_object('consumo',to_jsonb(consumo),'actor_ref',comprobado->>'registrador_principal_ref',
+ SELECT * INTO STRICT resultado FROM vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v2(
+  p_material_exacto,p_organizacion_ref,p_unidad_ref,jsonb_build_object('consumo',to_jsonb(consumo),'actor_ref',comprobado->>'registrador_principal_ref',
    'perfil_ref',comprobado->>'registrador_perfil_ref','accion',comprobado->>'operacion',
    'finalidad',comprobado->>'finalidad','proceso',comprobado->>'proceso','canal',comprobado->>'canal'));
  IF (comprobado->>'decision_valida_hasta')::timestamptz<=clock_timestamp() THEN

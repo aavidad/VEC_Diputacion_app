@@ -1,7 +1,11 @@
-# AD201: el recurso de gobierno del plan nominal de firma lleva organización y unidad.
-# Requiere AD200 (lista_sql_claude_firmas_gobierno_grupo_20261005.txt). No toca el núcleo ni el
-# CHECK de audiencias, así que no depende del orden de otros consumidores. Crea la fachada
-# registrar_y_confirmar_gobierno_plan_firma_v2 para el grupo vec_plan_firma_gobierno_ejecutor y
-# deja la v1 (recurso sin ámbitos, nunca autorizable) sólo para su propietario.
-# Una sola vez; sin DOWN.
+# Recurso de gobierno del plan nominal de firma con organización y unidad (AUT52, CC9, AD201).
+# Requiere AD200 (lista_sql_claude_firmas_gobierno_grupo_20261005.txt) y AUT48. No toca el núcleo
+# ni el CHECK de audiencias, así que no depende del orden de otros consumidores.
+# AUT52: acreditación de persona, organización y unidad de la asignación actual de Aplicación (sólo AD).
+# CC9: confirmar_gobierno_plan_nominal_firma_v2 con la huella de contexto con ámbitos (sólo AD).
+# AD201: fachada registrar_y_confirmar_gobierno_plan_firma_v2 para el grupo vec_plan_firma_gobierno_ejecutor;
+# la v1 (recurso sin ámbitos, nunca autorizable) queda sólo para su propietario.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion/migraciones/000052_ambitos_gobierno_plan_firma.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000009_gobierno_plan_firma_ambitos.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000201_gobierno_plan_firma_ambitos.up.sql
