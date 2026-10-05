@@ -74,7 +74,7 @@ func TestEmisorEfectoNominalRechazaAntesDePDPEntradasFueraContrato(t *testing.T)
 	}
 	for _, caso := range []string{"sin_concesion", "campos_distintos", "sin_campos", "obligacion", "otra_finalidad", "otro_modulo",
 		"rol_sistemas", "vinculo_no_privilegiado", "correlacion_ajena", "sin_correlacion", "sin_material", "material_otro_esquema",
-		"objeto_de_enlace_en_cargo", "otra_unidad", "asignacion_sin_unidad"} {
+		"objeto_de_enlace_en_cargo"} {
 		t.Run(caso, func(t *testing.T) {
 			e, ctx, actor, evidencia, snapshot, material, correlacion := escenarioEmisorCargo(t)
 			c := &snapshot.VersionRol.Concesiones[0]
@@ -105,10 +105,6 @@ func TestEmisorEfectoNominalRechazaAntesDePDPEntradasFueraContrato(t *testing.T)
 				material = []byte(strings.Replace(string(material), "cargo-competencial.publicacion.v1", "cargo-competencial.otra.v1", 1))
 			case "objeto_de_enlace_en_cargo":
 				material = materialCargoPrueba(t, "cargo", "enc_"+strings.Repeat("A", 24), "unidad_admin_sintetica")
-			case "otra_unidad":
-				material = materialCargoPrueba(t, "cargo", objetoCargoPrueba, "unidad_ajena_sintetica")
-			case "asignacion_sin_unidad":
-				snapshot.AsignacionPerfil.Ambitos = snapshot.AsignacionPerfil.Ambitos[:1]
 			}
 			salida, err := e.Emitir(ctx, actor, evidencia, snapshot, material, correlacion)
 			if err == nil || errors.Is(err, domain.ErrAutorizacionDenegada) || salida.Material.ValidarEstructura() == nil {
@@ -153,5 +149,27 @@ func TestConfianzaEfectoNominalSoloAudienciasConocidas(t *testing.T) {
 	}
 	if personalpg.AudienciaPublicarCargoCompetencial != AudienciaCargoCompetencialV3 {
 		t.Fatal("la audiencia de Personal no es la de vec-admin")
+	}
+}
+
+// Un material de otra unidad u organización que la asignación vigente no
+// cubre es una denegación explícita, sin llegar al PDP.
+func TestEmisorEfectoNominalDeniegaAmbitoNoCubierto(t *testing.T) {
+	for _, material := range [][]byte{
+		materialCargoPrueba(t, "cargo", objetoCargoPrueba, "unidad_ajena_sintetica"),
+		[]byte(strings.Replace(string(materialCargoPrueba(t, "cargo", objetoCargoPrueba, "unidad_admin_sintetica")),
+			"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "org_cccccccccccccccccccccccccccccccc", 1)),
+	} {
+		e, ctx, actor, evidencia, snapshot, _, correlacion := escenarioEmisorCargo(t)
+		salida, err := e.Emitir(ctx, actor, evidencia, snapshot, material, correlacion)
+		if !errors.Is(err, domain.ErrAutorizacionDenegada) || salida.Material.ValidarEstructura() == nil {
+			t.Fatalf("ámbito no cubierto sin denegación explícita: %v", err)
+		}
+	}
+	// Una asignación sin unidad tampoco cubre un material con unidad.
+	e, ctx, actor, evidencia, snapshot, material, correlacion := escenarioEmisorCargo(t)
+	snapshot.AsignacionPerfil.Ambitos = snapshot.AsignacionPerfil.Ambitos[:1]
+	if _, err := e.Emitir(ctx, actor, evidencia, snapshot, material, correlacion); !errors.Is(err, domain.ErrAutorizacionDenegada) {
+		t.Fatalf("asignación sin unidad sin denegación explícita: %v", err)
 	}
 }

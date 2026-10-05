@@ -80,7 +80,15 @@ func (e *EmisorEfectoNominalADMIN) Emitir(ctx context.Context, actor domain.Cont
 		return vacia, errorEmisorLote(err)
 	}
 	if !vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
-		vinculo.GarantiaObservada != domain.AuthAssuranceHigh || !e.snapshotValido(snapshot, actor, accion, recurso, ahora) {
+		vinculo.GarantiaObservada != domain.AuthAssuranceHigh {
+		return vacia, fallo
+	}
+	// Aquí los ámbitos vienen del material: uno que la asignación vigente no
+	// cubre (otra organización u otra unidad) es una denegación, no una caída.
+	if snapshot.Validar() == nil && snapshot.AsignacionPerfil.VigenteEn(ahora) && !snapshot.AsignacionPerfil.Cubre(recurso) {
+		return vacia, domain.ErrAutorizacionDenegada
+	}
+	if !e.snapshotValido(snapshot, actor, accion, recurso, ahora) {
 		return vacia, fallo
 	}
 	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
