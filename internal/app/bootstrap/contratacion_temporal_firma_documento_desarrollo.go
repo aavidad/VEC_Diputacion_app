@@ -15,6 +15,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -156,6 +157,8 @@ type firmaDocumentoCTDesarrollo struct {
 	// autoridad nominal y transaccional.
 	firmaExterna *ctapplication.ServicioFirmaExterna
 	firmaVec     *ctapplication.ServicioFirmaVec
+	// Registro que reciben ambas vías: siempre el decorador con plan (CT176).
+	registroR5 ports.RegistroFirmasVerificadasV2
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
@@ -181,11 +184,22 @@ func vincularResultadosFirmaCT(f *firmaDocumentoCTDesarrollo, d *autoridadDocume
 	}
 }
 
+// registroFirmaV2DurableDesarrollo es el adaptador durable de firmas V2: la
+// consulta (CT172) y el registro con plan fijado (CT176) en un mismo objeto.
+type registroFirmaV2DurableDesarrollo interface {
+	ports.RegistroFirmasVerificadasV2
+	ports.RegistradorFirmaConPlanV2
+}
+
 // Ambas vías consumen una sola historia nominal V2, el mismo verificador
-// acumulado y la custodia de las revisiones del PDF original.
+// acumulado y la custodia de las revisiones del PDF original. Desde CT176 una
+// firma V2 sin plan fijado no se confirma: las vías nunca reciben el registro
+// directo de CT172, sólo el decorador que liga el plan publicado.
 type dependenciasFirmaR5Desarrollo struct {
 	original          ports.FuenteOriginalFirmaAutorizado
-	registro          ports.RegistroFirmasVerificadasV2
+	registro          registroFirmaV2DurableDesarrollo
+	descriptorPlan    ports.FuenteDescriptorPlanFijadoFirmaV2
+	emisorPlan        ports.EmisorMaterialPlanFirmaV2
 	consulta          ports.AutorizadorConsultaFirmasR5V2
 	autorizar         ports.AutorizadorFirmaVerificadaV2
 	verificador       docports.VerificadorFirmasDocumento
@@ -202,6 +216,8 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		f.firmaExterna != nil || f.firmaVec != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.descriptorPlan) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.emisorPlan) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizar) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.verificador) ||
@@ -210,21 +226,25 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro, d.registro)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
 	base := *f.servicio
 	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, d.registro,
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, d.registro,
+	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	f.firmaExterna, f.firmaVec = externa, vec
+	f.firmaExterna, f.firmaVec, f.registroR5 = externa, vec, registro
 	return nil
 }
 
