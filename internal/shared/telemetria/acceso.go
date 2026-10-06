@@ -118,7 +118,7 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 		o.Consultas = 20
 	}
 	// Nombres de campo de las convenciones semánticas de OpenTelemetry
-	// (service.*, deployment.*, http.*, url.*, error.type); los propios de
+	// (service.*, deployment.*, http.*, url.path, error.type); los propios de
 	// VEC van en el espacio vec.*.
 	registro := slog.New(slog.NewJSONHandler(o.Destino, nil)).With(
 		"service.name", o.Servicio, "service.version", Version(),
@@ -158,7 +158,7 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 			if estado >= 500 {
 				nivel = slog.LevelError
 			}
-			ruta := rutaOCamino(r.Pattern, r.URL.Path, estado)
+			ruta := caminoDepurado(r.URL.Path, estado)
 			atributos := []slog.Attr{
 				slog.String("http.request.method", metodo(r.Method)),
 				ruta,
@@ -210,22 +210,20 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 	})
 }
 
-// rutaOCamino sigue a OpenTelemetry: http.route solo cuando el enrutador
-// dio la plantilla ("/x/{ref}"); si no, url.path depurado, con cada tramo que
-// pueda ser un valor cambiado por {valor}. Un 4xx sin plantilla no copia el
-// camino: puede ser lo que escribió la persona.
+// caminoDepurado devuelve url.path con cada tramo que pueda ser un valor
+// cambiado por {valor}. No se emite http.route: las peticiones se clonan antes
+// de llegar a los enrutadores, así que su plantilla no es visible aquí, y
+// OpenTelemetry pide no rellenarla con el camino. Un 4xx sale como {oculto}:
+// el camino puede ser lo que escribió la persona.
 //
-// Solo se conservan tramos de minúsculas, guion, guion bajo y punto. Los
+// Solo se conservan tramos de minúsculas, guion y guion bajo (hasta 40) y
+// versiones v1..v99. Una palabra suelta en minúsculas sigue pasando: los
 // caminos de VEC llevan referencias opacas (con cifras o «:»), nunca nombres,
-// un camino que no existe responde 404 u otro 4xx y los estáticos salen de una
-// lista positiva. Una ruta nueva con texto libre en el camino debe registrarse
-// con patrón en un http.ServeMux para que se vea su plantilla.
-func rutaOCamino(patron, camino string, estado int) slog.Attr {
-	if i := strings.IndexByte(patron, '/'); i >= 0 && !strings.HasSuffix(patron, "/") {
-		return slog.String("http.route", strings.TrimSuffix(patron[i:], "{$}"))
-	}
+// y los estáticos salen de una lista positiva. Una ruta nueva que reciba texto
+// libre en el camino rompería esta suposición.
+func caminoDepurado(camino string, estado int) slog.Attr {
 	if estado >= 400 && estado <= 499 {
-		return slog.String("url.path", "{sin_plantilla}")
+		return slog.String("url.path", "{oculto}")
 	}
 	tramos := strings.Split(strings.TrimPrefix(camino, "/"), "/")
 	if len(tramos) > 16 {
@@ -239,8 +237,6 @@ func rutaOCamino(patron, camino string, estado int) slog.Attr {
 	return slog.String("url.path", "/"+strings.Join(tramos, "/"))
 }
 
-// esTramoFijo admite minúsculas, guion, guion bajo y punto (hasta 40) o
-// versiones v1..v99; cifras, mayúsculas y otros signos indican un valor.
 func esTramoFijo(t string) bool {
 	if len(t) > 40 {
 		return false
@@ -248,7 +244,7 @@ func esTramoFijo(t string) bool {
 	if len(t) >= 2 && len(t) <= 3 && t[0] == 'v' && strings.Trim(t[1:], "0123456789") == "" {
 		return true
 	}
-	return strings.Trim(t, "abcdefghijklmnopqrstuvwxyz-_.") == ""
+	return strings.Trim(t, "abcdefghijklmnopqrstuvwxyz-_") == ""
 }
 
 func metodo(m string) string {
