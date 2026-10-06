@@ -32,11 +32,9 @@ func opciones(b *bytes.Buffer) Opciones {
 
 func TestAccesoEscribeRutaEstadoYDuracionSinValores(t *testing.T) {
 	var b bytes.Buffer
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/vec/bolsa/{bolsa}/participaciones", func(w http.ResponseWriter, r *http.Request) {
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("hola"))
-	})
-	h := Middleware(opciones(&b), mux)
+	}))
 	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/9f1c2a7e-0000/participaciones?dni=12345678Z", strings.NewReader("secreto"))
 	r.Header.Set("Authorization", "Bearer secreto")
 	h.ServeHTTP(httptest.NewRecorder(), r)
@@ -45,13 +43,13 @@ func TestAccesoEscribeRutaEstadoYDuracionSinValores(t *testing.T) {
 	for k, v := range map[string]any{
 		"level": "INFO", "msg": "http.server.request", "service.name": "vec-server", "vec.superficie": "interno",
 		"deployment.environment.name": "desarrollo", "http.request.method": "GET",
-		"http.route": "/api/vec/bolsa/{bolsa}/participaciones", "http.response.status_code": float64(200), "http.response.body.size": float64(4),
+		"url.path": "/api/vec/bolsa/{valor}/participaciones", "http.response.status_code": float64(200), "http.response.body.size": float64(4),
 	} {
 		if l[k] != v {
 			t.Errorf("%s = %v, se esperaba %v", k, l[k], v)
 		}
 	}
-	if _, ok := l["http.server.request.duration"].(float64); !ok || len(l["vec.correlacion"].(string)) != 32 || l["service.version"] == "" || l["url.path"] != nil {
+	if _, ok := l["http.server.request.duration"].(float64); !ok || len(l["vec.correlacion"].(string)) != 32 || l["service.version"] == "" || l["http.route"] != nil {
 		t.Errorf("linea = %v", l)
 	}
 	for _, prohibido := range []string{"9f1c2a7e", "12345678Z", "dni", "secreto", "Bearer"} {
@@ -76,13 +74,13 @@ func TestAccesoNormalizaCaminoYOcultaLos4xxSinPlantilla(t *testing.T) {
 		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, camino, nil))
 	}
 	l := lineas(t, &b)
-	if l[0]["url.path"] != "/api/v2/expedientes/{valor}/{valor}" || l[0]["level"] != "ERROR" || l[0]["error.type"] != "503" || l[0]["http.route"] != nil {
+	if l[0]["url.path"] != "/api/v2/expedientes/{valor}/{valor}" || l[0]["level"] != "ERROR" || l[0]["error.type"] != "503" {
 		t.Errorf("5xx = %v", l[0])
 	}
-	if l[1]["url.path"] != "/static/{valor}" {
+	if l[1]["url.path"] != "/static/{valor}" { // app.v123.js
 		t.Errorf("estatico = %v", l[1]["url.path"])
 	}
-	if l[2]["url.path"] != "{sin_plantilla}" || strings.Contains(b.String(), "juan") {
+	if l[2]["url.path"] != "{oculto}" || strings.Contains(b.String(), "juan") {
 		t.Errorf("4xx = %v", l[2]["url.path"])
 	}
 }
@@ -139,5 +137,16 @@ func TestEntornoVersionYUmbral(t *testing.T) {
 	}
 	if UmbralLenta(func(string) string { return "-1" }) != 300*time.Millisecond {
 		t.Error("umbral no valido aceptado")
+	}
+}
+
+func TestTramosFijos(t *testing.T) {
+	for tramo, fijo := range map[string]bool{
+		"portal-empleado": true, "mis_datos": true, "v2": true, "bolsa": true,
+		"app.js": false, "index.html": false, "Juan": false, "12345678Z": false, "recibo:1": false, "peña": false,
+	} {
+		if esTramoFijo(tramo) != fijo {
+			t.Errorf("esTramoFijo(%q) = %t", tramo, !fijo)
+		}
 	}
 }

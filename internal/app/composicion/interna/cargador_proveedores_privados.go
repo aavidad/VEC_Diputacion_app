@@ -20,8 +20,6 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
-
-	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // El directorio es aprovisionado fuera de Git. Ningun error de esta frontera
@@ -334,7 +332,6 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
 		var pool *pgxpool.Pool
-		telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 		pool, err = pgxpool.NewWithConfig(ctx, configuracion)
 		if err != nil {
 			return vacio, ErrMaterialSeguimientoNoDisponible

@@ -42,6 +42,11 @@ func TestAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
 		ctx := r.Context()
 		c := tr.TraceAcquireStart(ctx, nil, pgxpool.TraceAcquireStartData{})
 		tr.TraceAcquireEnd(c, nil, pgxpool.TraceAcquireEndData{})
+		for _, control := range []string{"begin", "BEGIN ISOLATION LEVEL SERIALIZABLE", "select set_config('vec.x', $1, true)", "SET LOCAL statement_timeout = 1000", "commit"} {
+			c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: control})
+			time.Sleep(3 * time.Millisecond) // más lenta que las de datos: no debe nombrarse
+			tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
+		}
 		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT * FROM vec_bolsa.listar($1)"})
 		time.Sleep(2 * time.Millisecond)
 		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
@@ -105,12 +110,18 @@ func TestDiagnosticoSoloEnBucleLocal(t *testing.T) {
 	if r.StatusCode != http.StatusOK || json.Unmarshal(cuerpo, &vars) != nil || vars["vec_bd_pools"] == nil || vars["cmdline"] != nil {
 		t.Errorf("estado %d, variables %s", r.StatusCode, cuerpo)
 	}
-	w := httptest.NewRecorder()
-	ajena := httptest.NewRequest(http.MethodGet, "/debug/vars", nil)
-	ajena.RemoteAddr = "192.0.2.10:5000"
-	soloLocal(http.NotFoundHandler()).ServeHTTP(w, ajena)
-	if w.Code != http.StatusForbidden {
-		t.Errorf("remota no local = %d", w.Code)
+	for _, c := range []struct{ remota, host string }{
+		{"192.0.2.10:5000", "127.0.0.1:9464"},       // remota no local
+		{"127.0.0.1:5000", "atacante.example:9464"}, // rebinding de DNS
+		{"127.0.0.1:5000", "localhost:9464"},
+	} {
+		w := httptest.NewRecorder()
+		ajena := httptest.NewRequest(http.MethodGet, "/debug/vars", nil)
+		ajena.RemoteAddr, ajena.Host = c.remota, c.host
+		soloLocal(http.NotFoundHandler()).ServeHTTP(w, ajena)
+		if w.Code != http.StatusForbidden {
+			t.Errorf("%+v = %d", c, w.Code)
+		}
 	}
 }
 
@@ -120,3 +131,34 @@ func (otroTrazador) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.Trac
 	return ctx
 }
 func (otroTrazador) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+
+func TestErrorTypeSoloDeLaOperacionQueFallo(t *testing.T) {
+	var b bytes.Buffer
+	tr := trazador{}
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		// Un conflicto ya manejado (reintento) seguido de una consulta correcta.
+		c := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_ct.f($1)"})
+		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{Err: &pgconn.PgError{Code: "40001"}})
+		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_ct.f($1)"})
+		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
+	l := lineas(t, &b)[0]
+	if l["error.type"] != "500" || l["vec.bd.error"] != nil {
+		t.Errorf("linea = %v", l)
+	}
+}
+
+func TestEsControl(t *testing.T) {
+	for sql, control := range map[string]bool{
+		"begin": true, " COMMIT": true, "rollback to savepoint x": true, "SET LOCAL x = 1": true,
+		"select set_config('a', $1, true)": true, "SELECT pg_catalog.set_config('a','b',false)": true,
+		"select vec.f($1)": false, "settings": false, "SELECT * FROM t": false, "update t set a=1": false,
+	} {
+		if esControl(sql) != control {
+			t.Errorf("esControl(%q) = %t", sql, !control)
+		}
+	}
+}

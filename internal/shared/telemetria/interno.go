@@ -10,6 +10,7 @@ import (
 	"net/http/pprof"
 	"net/netip"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -145,7 +146,9 @@ func soloLocal(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		remota, err := netip.ParseAddrPort(r.RemoteAddr)
 		switch {
-		case err != nil || !remota.Addr().Unmap().IsLoopback():
+		case err != nil || !remota.Addr().Unmap().IsLoopback() || !hostLocal(r.Host):
+			// El Host también debe ser una IP de bucle local: un nombre
+			// permitiría a una página web llegar aquí por rebinding de DNS.
 			http.Error(w, "prohibido", http.StatusForbidden)
 		case r.Method != http.MethodGet && r.Method != http.MethodHead:
 			http.Error(w, "metodo no admitido", http.StatusMethodNotAllowed)
@@ -173,4 +176,13 @@ func variables(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, strconv.Quote(kv.Key)+":"+kv.Value.String())
 	})
 	_, _ = io.WriteString(w, "}\n")
+}
+
+// hostLocal admite solo una IP literal de bucle local, con o sin puerto.
+func hostLocal(host string) bool {
+	if direccion, err := netip.ParseAddrPort(host); err == nil {
+		return direccion.Addr().Unmap().IsLoopback()
+	}
+	direccion, err := netip.ParseAddr(strings.Trim(host, "[]"))
+	return err == nil && direccion.Unmap().IsLoopback()
 }
