@@ -6,6 +6,9 @@ const FASE_COMPROBANDO = "comprobando";
 const FASE_DISPONIBLE = "disponible";
 const FASE_DENEGADA = "denegada";
 const FASE_ERROR = "error";
+// La API de borradores no está montada en este servidor (404): no es un
+// fallo que se arregle reintentando ni una denegación.
+const FASE_NO_DISPONIBLE = "no_disponible";
 
 function accesoVisible(fase, traducir) {
   switch (fase) {
@@ -30,6 +33,13 @@ function accesoVisible(fase, traducir) {
         estado: "error",
         etiqueta: traducir("acceso_borradores_error"),
         reintentar: true,
+      });
+    case FASE_NO_DISPONIBLE:
+      return Object.freeze({
+        disponible: false,
+        vista: "",
+        estado: "no_disponible",
+        etiqueta: traducir("acceso_borradores_no_disponible"),
       });
     case FASE_INICIAL:
     case FASE_COMPROBANDO:
@@ -102,7 +112,8 @@ export function crearControlAccesoBorradores({
       if (revisionActual !== revision || signal.aborted) return false;
       const denegada = causa instanceof ErrorAPIBorradores
         && (causa.estado === 401 || causa.estado === 403);
-      cambiarFase(denegada ? FASE_DENEGADA : FASE_ERROR, null, causa);
+      const ausente = causa instanceof ErrorAPIBorradores && causa.estado === 404;
+      cambiarFase(denegada ? FASE_DENEGADA : (ausente ? FASE_NO_DISPONIBLE : FASE_ERROR), null, causa);
       return false;
     }
   }
@@ -114,6 +125,7 @@ export function crearControlAccesoBorradores({
     if (!forzar && promesa !== null) return promesa;
     if (!forzar && fase === FASE_DISPONIBLE) return Promise.resolve(true);
     if (!forzar && fase === FASE_DENEGADA) return Promise.resolve(false);
+    if (!forzar && fase === FASE_NO_DISPONIBLE) return Promise.resolve(false);
 
     controlador?.abort();
     controlador = new AbortController();

@@ -7,5 +7,6 @@
   "tiempo_operacion_agotado": "The query is taking too long. Try again.",
   "peticion_cancelada": "The query was cancelled. You can try again.",
   "bolsa_no_encontrada": "This job pool could not be found. Return to the list of job pools.",
-  "metodo_no_permitido": "This page only supports viewing job pools. Return to the list of job pools."
+  "metodo_no_permitido": "This page only supports viewing job pools. Return to the list of job pools.",
+  "capacidad_temporal_agotada": "There are many queries right now. Try again in a few seconds."
 }

@@ -349,6 +349,9 @@ func expedienteAnalisisDurableO3PostgreSQLPrueba(
 			ValidadaEn:          instante.Add(-time.Second),
 			Motivo:              "No requiere RC en este supuesto sintético.",
 		},
+		// Sin retención, la constancia de las partidas va con el coste aproximado.
+		CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+		FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 	}
 	var err error
 	expediente, err = expediente.RegistrarAnalisis(

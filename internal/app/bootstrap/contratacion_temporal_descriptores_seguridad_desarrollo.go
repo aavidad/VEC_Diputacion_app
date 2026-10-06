@@ -67,6 +67,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	fronteras = append(fronteras, descriptoresFronterasLlamamientoDesarrollo(perfilCT)...)
 	fronteras = append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
 	if len(firma) > 0 && firma[0] {
 		fronteras = append(fronteras,
@@ -171,6 +172,7 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Politica:       politica,
 		})
 	}
+	descriptores = append(descriptores, descriptoresAutorizacionAdicionalesLlamamientoDesarrollo(politica)...)
 	// El circuito solo recibe entrada PDP cuando su perfil fijo ya quedó
 	// compuesto. La frontera se declara en la raíz y se enlaza por clave exacta.
 	if len(reincorporacion) > 2 && reincorporacion[2] {

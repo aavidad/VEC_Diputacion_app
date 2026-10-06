@@ -14,7 +14,7 @@ const fecha = new Intl.DateTimeFormat("es-ES", {
 const t = crearTraductorContratacionTemporal();
 const paso = (recibo, extra = {}) => ({
   recibo, valores: {}, ocupado: false, calculando: false, solicitud: null,
-  bloqueado: false, claveConservada: false, tono: "exito", mensaje: "llamamiento_sin_recibo",
+  bloqueado: false, claveConservada: false, tono: "exito", mensaje: "llamamiento_pendiente",
   ...extra,
 });
 const respuesta = justificante({ ...declaracion(), recibida_en: "2026-09-05T08:30:00Z" });
