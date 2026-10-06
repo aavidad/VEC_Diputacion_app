@@ -89,8 +89,8 @@ usuarios externos. Si un cargo falla, no se publica ninguno.
 
 ## Procedimiento
 
-1. **Plan.** Se genera desde un fichero de cargos, con las huellas calculadas
-   en Go. La CLI `vec-publicar-cargos-firma` llega en la PR siguiente.
+1. **Plan.** `vec-publicar-cargos-firma preparar` lo genera desde un fichero de
+   cargos y calcula las huellas en Go (ver su `README.md`).
 2. **Aprobación.** Alberto aprueba la huella SHA256 de los bytes exactos del
    plan.
 3. **DBA.** Crea un LOGIN nuevo, miembro único de
@@ -100,7 +100,8 @@ usuarios externos. Si un cargo falla, no se publica ninguno.
    referencia y la huella de la aprobación, entorno `desarrollo` y una ventana
    corta (como mucho un día).
 4. **Aplicar.** Con ese LOGIN, en una transacción `SERIALIZABLE` y UTC:
-   `SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(plan, huella)`.
+   `SELECT vec_autorizacion.publicar_cargos_firma_admin_v1(plan, huella)`. La
+   CLI lo hace con `aplicar`.
 5. **Replay.** Repetir el paso devuelve el mismo recibo con `replay: true` y
    añade sólo un intento auditado. Si alguna versión se retiró después por su
    control, el replay se deniega.
@@ -145,6 +146,14 @@ las dos formas. Antes de AD207 la cadena queda enlazada con la cabeza en el
 control; con AD207 cada asiento nuevo lleva el marcador fijo y está en la cola
 de sellado. AUT53 no mide ninguna preimagen del núcleo y escribe la auditoría
 con `registrar_perfiles_asignables_admin_v1` y su intento, que AD207 reescribe.
+
+Recorrido de la CLI en el mismo PostgreSQL: `preparar` con dos cargos,
+LOGIN y configuración del DBA, `aplicar` confirmado, replay con otro acuse y el
+mismo recibo, reinicio de PostgreSQL y otro replay con el mismo recibo. Quedan
+una confirmación y tres intentos en la auditoría común, los cuatro anotados como
+de AUT53. Una aprobación con otra huella se para en la CLI antes de conectar.
+La prueba Go `TestPlanIgualQueElDePostgreSQL` fija que el texto del plan y las
+huellas de rol de Go son byte a byte los de PostgreSQL.
 
 ## Lo que no hace
 
