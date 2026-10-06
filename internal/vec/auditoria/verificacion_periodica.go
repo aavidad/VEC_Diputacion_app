@@ -128,7 +128,7 @@ func detallePeriodicaValido(raw []byte, b RegistroOperacionMantenimientoV1) bool
 				return false
 			}
 			decimal := n.String()
-			if clave == "previa_secuencia" && decimal != strconv.FormatUint(b.Secuencia-1, 10) {
+			if clave == "previa_secuencia" && !previaPeriodicaValida(decimal, b) {
 				return false
 			}
 			if clave == "version" && (len(decimal) > 9 || decimal[0] < '1' || decimal[0] > '9' || strings.ContainsFunc(decimal, func(r rune) bool { return r < '0' || r > '9' })) {
@@ -150,7 +150,8 @@ func detallePeriodicaValido(raw []byte, b RegistroOperacionMantenimientoV1) bool
 				return false
 			}
 		default:
-			if !huellaCadenaValida(s) || clave == "previa_cabeza_sha256" && s != b.AnteriorSHA256 {
+			// Tras AD207 la captura fija la cabeza sellada, no el asiento anterior.
+			if !huellaCadenaValida(s) || clave == "previa_cabeza_sha256" && b.AnteriorSHA256 != MarcadorSinAnteriorV5 && s != b.AnteriorSHA256 {
 				return false
 			}
 		}
@@ -183,6 +184,17 @@ func detallePeriodicaValido(raw []byte, b RegistroOperacionMantenimientoV1) bool
 	}
 	canon.WriteByte('}')
 	return bytes.Equal(raw, canon.Bytes())
+}
+
+// previaPeriodicaValida: antes de AD207 la captura bloqueaba la cabeza y su
+// propio asiento la seguía; después la cabeza sellada queda por debajo de su
+// número de orden.
+func previaPeriodicaValida(decimal string, b RegistroOperacionMantenimientoV1) bool {
+	if b.AnteriorSHA256 != MarcadorSinAnteriorV5 {
+		return decimal == strconv.FormatUint(b.Secuencia-1, 10)
+	}
+	n, err := strconv.ParseUint(decimal, 10, 64)
+	return err == nil && strconv.FormatUint(n, 10) == decimal && n < b.Secuencia
 }
 
 func camposDetallePeriodica(accion, resultado, motivo string) ([]string, string) {

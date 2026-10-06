@@ -11,6 +11,8 @@ import (
 	"vec-diputacion-granada/config"
 )
 
+const versionGrafoCartografiaPrueba = "grafo-osm-granada-prueba-v1"
+
 func configuracionComprobacionDietasPrueba(t *testing.T, dir string, osrm bool) config.Config {
 	t.Helper()
 	dsn := func(u string) string {

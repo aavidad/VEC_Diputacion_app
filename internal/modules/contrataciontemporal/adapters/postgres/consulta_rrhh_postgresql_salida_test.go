@@ -337,3 +337,36 @@ func TestSalidaCuadroConsultaRRHHAlineaUrgencias(t *testing.T) {
 		t.Fatalf("cardinalidad distinta aceptada: %v", err)
 	}
 }
+
+// Los agregados de CT-000184 se rechazan ante cualquier desajuste de
+// cardinalidad, número no positivo o exceso de grupos.
+func TestSalidaCuadroConsultaRRHHConstruyeAgregadosSeguros(t *testing.T) {
+	desde := time.Date(2026, 9, 20, 9, 0, 0, 0, time.FixedZone("CEST", 7200))
+	valida := salidaCuadroConsultaRRHH{
+		recuentoEstados: []string{"en_curso"}, recuentoFases: []string{"solicitud"}, recuentoNumeros: []int64{2},
+		plazoFases: []string{"solicitud"}, plazoDesde: []time.Time{desde}, plazoUrgentes: []bool{false}, plazoNumeros: []int64{2},
+	}
+	agregados, err := valida.agregados()
+	if err != nil || len(agregados.Recuentos) != 1 || agregados.Recuentos[0].Numero != 2 ||
+		len(agregados.GruposPlazo) != 1 || agregados.GruposPlazo[0].Desde.Location() != time.UTC ||
+		!agregados.GruposPlazo[0].Desde.Equal(desde) {
+		t.Fatalf("agregados = %+v, %v", agregados, err)
+	}
+	for nombre, cambiar := range map[string]func(*salidaCuadroConsultaRRHH){
+		"recuento sin fase":  func(s *salidaCuadroConsultaRRHH) { s.recuentoFases = nil },
+		"grupo sin urgencia": func(s *salidaCuadroConsultaRRHH) { s.plazoUrgentes = nil },
+		"recuento cero":      func(s *salidaCuadroConsultaRRHH) { s.recuentoNumeros = []int64{0} },
+		"grupo negativo":     func(s *salidaCuadroConsultaRRHH) { s.plazoNumeros = []int64{-1} },
+		"demasiados grupos": func(s *salidaCuadroConsultaRRHH) {
+			n := ports.MaximoGruposPlazoCuadroRRHH + 1
+			s.plazoFases, s.plazoDesde = make([]string, n), make([]time.Time, n)
+			s.plazoUrgentes, s.plazoNumeros = make([]bool, n), make([]int64, n)
+		},
+	} {
+		copia := valida
+		cambiar(&copia)
+		if _, err := copia.agregados(); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+			t.Fatalf("%s aceptado: %v", nombre, err)
+		}
+	}
+}
