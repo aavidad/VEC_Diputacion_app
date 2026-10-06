@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 
@@ -622,6 +621,9 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 	if !presentacionRRHHHabilitada {
 		rutasProduccion = cargarRutasWebProduccion()
 	}
+	ficheros := comprimirEstaticos(directorioEstaticos, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		staticFileServer().ServeHTTP(w, r)
+	}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -639,7 +641,7 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 			}
 		}
 		setNoStoreForStatic(w, r)
-		staticFileServer().ServeHTTP(w, r)
+		ficheros.ServeHTTP(w, r)
 	})
 }
 
@@ -654,6 +656,12 @@ func rutaMaterialExclusivoPresentacion(ruta string) bool {
 
 func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
+		// Catálogos públicos de textos por idioma, pedidos sin versión: se
+		// guardan pero se revalidan siempre (304 por Last-Modified/ETag).
+		w.Header().Set("Cache-Control", "no-cache")
+		return
+	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {
 		w.Header().Set("Cache-Control", "no-store")
 		return
@@ -676,11 +684,8 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 }
 
 func staticFileServer() http.Handler {
-	for _, dir := range []string{"web/static", "../../../web/static"} {
-		info, err := os.Stat(dir)
-		if err == nil && info.IsDir() {
-			return http.FileServer(http.Dir(dir))
-		}
+	if dir, hay := directorioEstaticos(); hay {
+		return http.FileServer(http.Dir(dir))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "static files not found", http.StatusNotFound)
@@ -688,23 +693,24 @@ func staticFileServer() http.Handler {
 }
 
 func localeHandler() http.Handler {
+	ficheros := http.StripPrefix("/locales/", comprimirEstaticos(directorioLocales, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		localeFileServer().ServeHTTP(w, r)
+	})))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-store")
-		http.StripPrefix("/locales/", localeFileServer()).ServeHTTP(w, r)
+		// Catálogos públicos de traducción: se revalidan siempre (304).
+		w.Header().Set("Cache-Control", "no-cache")
+		ficheros.ServeHTTP(w, r)
 	})
 }
 
 func localeFileServer() http.Handler {
-	for _, dir := range []string{"locales", "../../../locales"} {
-		info, err := os.Stat(dir)
-		if err == nil && info.IsDir() {
-			return http.FileServer(http.Dir(dir))
-		}
+	if dir, hay := directorioLocales(); hay {
+		return http.FileServer(http.Dir(dir))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "locales not found", http.StatusNotFound)
