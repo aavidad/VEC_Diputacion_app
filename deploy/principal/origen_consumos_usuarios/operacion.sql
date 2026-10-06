@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- Origen AD172 de los consumos de Usuarios: «Mis preferencias», «Mi imagen» y
--- «Mis correos», en las superficies interna y externa. Solo añade filas de
+-- «Mis correos», en las superficies interna y externa, y la lectura del correo
+-- activo para los avisos de llamamiento (AD109). Solo añade filas de
 -- configuración técnica: no concede acciones, perfiles ni membresías.
 -- La variable psql `finalizar` vale ROLLBACK (ensayo) o COMMIT (aplicar).
 BEGIN;
@@ -9,6 +10,8 @@ SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:origen_consumos:usuarios:20261006', 0));
+-- Compartido con las migraciones que reconstruyen el núcleo mientras se coteja.
+SELECT pg_advisory_xact_lock_shared(hashtextextended('vec_autorizacion_atestada_v3:nucleo', 0));
 
 -- Ternas exactas. El proceso identifica el componente que consume; el canal
 -- debe coincidir con la superficie que el núcleo lee del vínculo firmado.
@@ -26,6 +29,12 @@ FROM (VALUES ('preferencias','consultar'),('preferencias','actualizar'),
 CROSS JOIN (VALUES
   ('vec_pref508a_i_ue'::name,'vec_usuarios_ejecutor_interno'::name,'interna_corporativa'),
   ('vec_pref508a_e_ue'::name,'vec_usuarios_ejecutor_externo'::name,'externa_personal')) s(login, grupo, canal);
+-- AD109: al emitir un llamamiento, Bolsa pide a Usuarios el correo activo; la
+-- lectura la ejecuta el LOGIN interno con la acción de emitir.
+INSERT INTO origen_usuarios_esperado VALUES
+  ('vec_pref508a_i_ue', 'vec_usuarios_ejecutor_interno',
+   'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1', 'llamamiento.emitir.v1',
+   'vec-usuarios', 'interna_corporativa');
 
 DO $pre$
 DECLARE
@@ -39,7 +48,7 @@ BEGIN
      OR current_database() <> 'postgres' THEN
     RAISE EXCEPTION 'ORIGEN-USUARIOS: exige PostgreSQL 18, DBA y base postgres' USING ERRCODE = '42501';
   END IF;
-  IF (SELECT count(*) FROM origen_usuarios_esperado) <> 20 THEN
+  IF (SELECT count(*) FROM origen_usuarios_esperado) <> 21 THEN
     RAISE EXCEPTION 'ORIGEN-USUARIOS: lista de ternas alterada' USING ERRCODE = '55000';
   END IF;
 
@@ -47,14 +56,14 @@ BEGIN
   IF to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
      OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
      OR NOT EXISTS (SELECT 1 FROM pg_class c
-       WHERE c.oid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+       WHERE c.oid = to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1')
          AND c.relrowsecurity AND c.relforcerowsecurity
-         AND c.relowner = 'vec_autorizacion_atestada_v3_propietario'::regrole)
+         AND c.relowner = to_regrole('vec_autorizacion_atestada_v3_propietario'))
      OR (SELECT count(*) FROM pg_trigger g
-          WHERE g.tgrelid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+          WHERE g.tgrelid = to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1')
             AND NOT g.tgisinternal AND g.tgname IN ('inmutable', 'no_truncar')) <> 2
      OR EXISTS (SELECT 1 FROM pg_class c, aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
-       WHERE c.oid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+       WHERE c.oid = to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1')
          AND a.grantee <> c.relowner) THEN
     RAISE EXCEPTION 'ORIGEN-USUARIOS: AD172 ausente o con permisos distintos de los instalados' USING ERRCODE = '55000';
   END IF;
@@ -84,11 +93,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = t.login_nombre
          AND r.rolcanlogin AND r.rolinherit AND NOT r.rolsuper AND NOT r.rolcreaterole
          AND NOT r.rolcreatedb AND NOT r.rolreplication AND NOT r.rolbypassrls)
-       OR (SELECT count(*) FROM pg_auth_members m WHERE m.member = t.login_nombre::regrole) <> 1
+       OR to_regrole(t.grupo) IS NULL
+       OR (SELECT count(*) FROM pg_auth_members m WHERE m.member = to_regrole(t.login_nombre)) <> 1
        OR NOT EXISTS (SELECT 1 FROM pg_auth_members m
-         WHERE m.member = t.login_nombre::regrole AND m.roleid = t.grupo::regrole
+         WHERE m.member = to_regrole(t.login_nombre) AND m.roleid = to_regrole(t.grupo)
            AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
-       OR (SELECT count(*) FROM pg_auth_members m WHERE m.roleid = t.grupo::regrole) <> 1
+       OR (SELECT count(*) FROM pg_auth_members m WHERE m.roleid = to_regrole(t.grupo)) <> 1
        OR EXISTS (SELECT 1 FROM pg_roles g WHERE g.rolname = t.grupo AND g.rolcanlogin) THEN
       RAISE EXCEPTION 'ORIGEN-USUARIOS: LOGIN o grupo ejecutor incompatible: %', t.login_nombre USING ERRCODE = '55000';
     END IF;
@@ -123,7 +133,7 @@ DO $post$
 BEGIN
   IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 c
         JOIN origen_usuarios_esperado e USING (login_nombre, audiencia_consumo, operacion)
-       WHERE c.proceso = e.proceso AND c.canal_permitido = e.canal_permitido) <> 20 THEN
+       WHERE c.proceso = e.proceso AND c.canal_permitido = e.canal_permitido) <> 21 THEN
     RAISE EXCEPTION 'ORIGEN-USUARIOS: postcondición fallida' USING ERRCODE = '55000';
   END IF;
 END $post$;

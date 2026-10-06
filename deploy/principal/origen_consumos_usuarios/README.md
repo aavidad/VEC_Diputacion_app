@@ -1,4 +1,4 @@
-# Origen AD172 de Usuarios: preferencias, imagen y correos
+# Origen AD172 de Usuarios: preferencias, imagen, correos y avisos
 
 ## Para qué sirve
 
@@ -16,16 +16,24 @@ rechazos en preferencias, 26 en imagen y 18 en correos, todos en esa línea del
 núcleo y con el LOGIN `vec_pref508a_i_ue`. El último consumo correcto de
 preferencias es del 3 de octubre a las 21:14 (UTC), antes de instalar AD172.
 
-Este paquete añade las 20 ternas de Usuarios. Son diez operaciones (consultar
-y actualizar preferencias, consultar y actualizar imagen, y las seis de
-correos) en las dos superficies:
+Este paquete añade 21 ternas de Usuarios. Veinte son las diez operaciones de
+esas tres pantallas (consultar y actualizar preferencias, consultar y
+actualizar imagen, y las seis de correos) en las dos superficies:
 
 | LOGIN | Grupo ejecutor | Canal | Audiencia | Operación |
 | --- | --- | --- | --- | --- |
 | `vec_pref508a_i_ue` | `vec_usuarios_ejecutor_interno` | `interna_corporativa` | `vec_usuarios.<familia>.<acción>.interna_corporativa.v1` | `vec.<familia>.<acción>` |
 | `vec_pref508a_e_ue` | `vec_usuarios_ejecutor_externo` | `externa_personal` | `vec_usuarios.<familia>.<acción>.externa_personal.v1` | `vec.<familia>.<acción>` |
 
-El proceso es `vec-usuarios` en todas. Las filas no conceden acciones, perfiles
+La terna 21 es la de AD109: al emitir un llamamiento, Bolsa pide a Usuarios
+el correo activo de cada candidata. Esa lectura la ejecuta `vec_pref508a_i_ue`
+con la audiencia `vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1`,
+la operación `llamamiento.emitir.v1` y el canal `interna_corporativa`. Sin ella,
+el aviso saldría siempre al correo del alta en la bolsa.
+
+El proceso es `vec-usuarios` en todas; el canal ya distingue las superficies
+en la auditoría. Como la tabla no admite cambios, el nombre del proceso se
+decide antes de aplicar. Las filas no conceden acciones, perfiles
 ni membresías. Solo dicen qué proceso técnico firma el asiento de auditoría.
 El núcleo sigue comprobando la decisión, el LOGIN, su grupo y el canal.
 
@@ -58,10 +66,11 @@ VEC_ORIGEN_USUARIOS_APLICAR=SI-REVISADO \
 ```
 
 `--ensayo` ejecuta todo y termina en `ROLLBACK`. Debe imprimir
-`ternas_nuevas=20` y `verificado: ROLLBACK`, con el inventario sin cambios.
-`--aplicar` termina en `COMMIT` y comprueba que estén las 20 ternas y que no
-haya desaparecido ninguna fila previa. Los inventarios quedan en un directorio
-temporal privado cuya ruta se imprime.
+`ternas_nuevas=21` y `verificado: ROLLBACK`, con el inventario sin cambios.
+`--aplicar` termina en `COMMIT` y comprueba que estén las 21 ternas, que no
+haya desaparecido ninguna fila previa y que no haya filas nuevas ajenas. Los
+inventarios quedan en un directorio temporal privado cuya ruta se imprime;
+copiarlo a la bitácora privada, fuera de Git, porque `/tmp` puede vaciarse.
 
 No hace falta reiniciar la aplicación: el núcleo lee la tabla en cada consumo.
 Después, abrir «Mis preferencias» con un certificado de RRHH debe dar 200.

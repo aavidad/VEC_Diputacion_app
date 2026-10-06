@@ -7,7 +7,9 @@ base_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 repo_dir=$(cd "$base_dir/../../.." && pwd -P)
 ad172="$repo_dir/deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql"
 contenedor=vec-origen-usuarios-prueba-$$
-trap 'docker rm -f "$contenedor" >/dev/null 2>&1 || true' EXIT
+TMPDIR=$(mktemp -d)
+export TMPDIR
+trap 'docker rm -f "$contenedor" >/dev/null 2>&1 || true; rm -rf "$TMPDIR"' EXIT
 
 # Tabla, disparadores, política y resolutor de AD172, copiados literalmente.
 ad172_objetos() {
@@ -57,23 +59,24 @@ echo '== A: ensayo, aplicación, resolutor y repetición'
 nuevo_pg
 espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" NULO 'sin fila el resolutor deniega (causa del 403)'
 salida=$(guion --ensayo)
-grep -q 'ternas_nuevas=20' <<< "$salida"; grep -q 'verificado: ROLLBACK' <<< "$salida"
+grep -q 'ternas_nuevas=21' <<< "$salida"; grep -q 'verificado: ROLLBACK' <<< "$salida"
 espera "$(filas)" 1 'el ensayo no deja filas'
 if guion --aplicar >/dev/null 2>&1; then echo 'FALLO: aplicó sin confirmación' >&2; exit 1; fi
 espera "$(filas)" 1 'aplicar sin confirmación no cambia nada'
 salida=$(VEC_ORIGEN_USUARIOS_APLICAR=SI-REVISADO guion --aplicar)
-grep -q 'ternas_nuevas=20' <<< "$salida"; grep -q 'verificado: COMMIT' <<< "$salida"
-espera "$(filas)" 21 'aplicar añade 20 ternas y conserva la previa'
+grep -q 'ternas_nuevas=21' <<< "$salida"; grep -q 'verificado: COMMIT' <<< "$salida"
+espera "$(filas)" 22 'aplicar añade 21 ternas y conserva la previa'
 espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" vec-usuarios 'preferencias interna acreditada'
 espera "$(origen vec_pref508a_i_ue vec_usuarios.imagen.actualizar.interna_corporativa.v1 vec.imagen.actualizar interna_corporativa)" vec-usuarios 'imagen interna acreditada'
 espera "$(origen vec_pref508a_i_ue vec_usuarios.correos.retirar.interna_corporativa.v1 vec.correos.retirar interna_corporativa)" vec-usuarios 'correos interna acreditada'
+espera "$(origen vec_pref508a_i_ue vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1 llamamiento.emitir.v1 interna_corporativa)" vec-usuarios 'avisos de llamamiento acreditados'
 espera "$(origen vec_pref508a_e_ue vec_usuarios.preferencias.actualizar.externa_personal.v1 vec.preferencias.actualizar externa_personal)" vec-usuarios 'preferencias externa acreditada'
 espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar externa_personal)" NULO 'canal cruzado sigue denegado'
 espera "$(origen vec_pref508a_e_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" NULO 'LOGIN cruzado sigue denegado'
 espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.actualizar interna_corporativa)" NULO 'operación cruzada sigue denegada'
 salida=$(VEC_ORIGEN_USUARIOS_APLICAR=SI-REVISADO guion --aplicar)
 grep -q 'ternas_nuevas=0' <<< "$salida"
-espera "$(filas)" 21 'repetir es idempotente'
+espera "$(filas)" 22 'repetir es idempotente'
 espera "$(sql -c "SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname LIKE 'vec_pref508a_%'")" 2 'no cambia membresías'
 
 echo '== B: terna previa con otro proceso'

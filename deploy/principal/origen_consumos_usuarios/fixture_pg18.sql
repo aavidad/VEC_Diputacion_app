@@ -31,7 +31,7 @@ DECLARE literales text; BEGIN
         (VALUES ('interna_corporativa'),('externa_personal')) y(s);
  EXECUTE format($t$CREATE TABLE vec_autorizacion_atestada_v3.clave_capacidad_version (
    audiencia_consumo text CONSTRAINT clave_capacidad_version_audiencia_consumo_check
-   CHECK (audiencia_consumo = ANY (ARRAY[%s, 'vec.admin.usuarios.consultar.v1'])))$t$,
+   CHECK (audiencia_consumo = ANY (ARRAY[%s, 'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1', 'vec.admin.usuarios.consultar.v1'])))$t$,
    (SELECT string_agg(quote_literal('vec_usuarios.'||f||'.'||a||'.'||s||'.v1'), ',')
       FROM (VALUES ('preferencias','consultar'),('preferencias','actualizar'),('correos','consultar'),
                 ('correos','anadir'),('correos','reenviar'),('correos','verificar'),('correos','activar'),
@@ -43,7 +43,7 @@ DECLARE literales text; BEGIN
    text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RETURNS void
    LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $c$
    BEGIN
-     IF $1 = ANY (ARRAY[%s]) THEN NULL; END IF;
+     IF $1 = ANY (ARRAY[%s, 'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1', 'llamamiento.emitir.v1']) THEN NULL; END IF;
      PERFORM vec_autorizacion_atestada_v3.resolver_origen_consumo_v1('a','b','c');
    END $c$$t$, literales);
 END $f$;
