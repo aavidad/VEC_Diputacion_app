@@ -37,6 +37,28 @@ func codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err error) stri
 	}
 }
 
+// jitSesionPostgreSQLContratacionTemporalDesarrollo apaga la compilación JIT
+// en las sesiones de Contratación temporal y Bolsa. Son lecturas cortas y
+// repetidas: con estimaciones infladas (una función que el planificador cree
+// que devuelve 1000 filas por participación) PostgreSQL compilaba con LLVM en
+// cada llamada y el orden vigente de una bolsa pasaba de ~30 ms a ~350 ms.
+// No cambia resultados, permisos ni transacciones; solo el plan de ejecución.
+const jitSesionPostgreSQLContratacionTemporalDesarrollo = "off"
+
+// aplicarParametrosSesionPostgreSQLContratacionTemporalDesarrollo fija los
+// parámetros de sesión comunes de los pools de Contratación temporal y Bolsa.
+func aplicarParametrosSesionPostgreSQLContratacionTemporalDesarrollo(parametros map[string]string, aplicacion string) {
+	parametros["application_name"] = aplicacion
+	parametros["timezone"] = "UTC"
+	parametros["search_path"] = "pg_catalog,pg_temp"
+	parametros["default_transaction_isolation"] = "serializable"
+	parametros["default_transaction_read_only"] = "off"
+	parametros["statement_timeout"] = "15s"
+	parametros["lock_timeout"] = "3s"
+	parametros["idle_in_transaction_session_timeout"] = "20s"
+	parametros["jit"] = jitSesionPostgreSQLContratacionTemporalDesarrollo
+}
+
 func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	ctx context.Context,
 	dsn string,
@@ -61,15 +83,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	if configuracion.ConnConfig.RuntimeParams == nil {
 		configuracion.ConnConfig.RuntimeParams = make(map[string]string)
 	}
-	parametros := configuracion.ConnConfig.RuntimeParams
-	parametros["application_name"] = aplicacion
-	parametros["timezone"] = "UTC"
-	parametros["search_path"] = "pg_catalog,pg_temp"
-	parametros["default_transaction_isolation"] = "serializable"
-	parametros["default_transaction_read_only"] = "off"
-	parametros["statement_timeout"] = "15s"
-	parametros["lock_timeout"] = "3s"
-	parametros["idle_in_transaction_session_timeout"] = "20s"
+	aplicarParametrosSesionPostgreSQLContratacionTemporalDesarrollo(configuracion.ConnConfig.RuntimeParams, aplicacion)
 	configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configuracion, rolEsperado)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
