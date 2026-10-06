@@ -82,6 +82,20 @@ type Opciones struct {
 	Superficie string    // interno, externo, integrada, administracion, publica
 	Entorno    string
 	Lenta      time.Duration
+	// Consultas: a partir de cuántas consultas SQL la petición se marca
+	// lenta aunque sea rápida (señal de una consulta por fila).
+	Consultas int64
+	// Diagnostico es la escucha interna de /debug/vars y /debug/pprof
+	// (VEC_DIAGNOSTICO_ESCUCHA); vacía, no se abre.
+	Diagnostico string
+}
+
+// UmbralConsultas lee VEC_TELEMETRIA_LENTA_CONSULTAS (20 por defecto).
+func UmbralConsultas(getenv func(string) string) int64 {
+	if n, err := strconv.Atoi(strings.TrimSpace(getenv("VEC_TELEMETRIA_LENTA_CONSULTAS"))); err == nil && n > 0 {
+		return int64(n)
+	}
+	return 20
 }
 
 // Montar envuelve el manejador del servidor con el registro de acceso. Se
@@ -92,12 +106,16 @@ func Montar(srv *http.Server, o Opciones) {
 		return
 	}
 	srv.Handler = Middleware(o, srv.Handler)
+	srv.RegisterOnShutdown(arrancarDiagnostico(o.Diagnostico, o.Destino))
 }
 
 // Middleware escribe una línea por petición al terminar.
 func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 	if o.Lenta <= 0 {
 		o.Lenta = 300 * time.Millisecond
+	}
+	if o.Consultas <= 0 {
+		o.Consultas = 20
 	}
 	// Nombres de campo de las convenciones semánticas de OpenTelemetry
 	// (service.*, deployment.*, http.*, url.path, error.type); los propios de
@@ -115,10 +133,13 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 				correlacion, _ = ports.CorrelacionIncidenciasPeticion(ctx)
 			}
 		}
-		r = r.WithContext(ctx)
+		bd := &medida{}
+		r = r.WithContext(context.WithValue(ctx, claveMedida{}, bd))
 		e := &escritor{ResponseWriter: w}
 		completada := false
+		enCurso.Add(1)
 		defer func() {
+			enCurso.Add(-1)
 			// Sin recover: un pánico sigue hasta la supervisión, que responde.
 			duracion := time.Since(inicio)
 			estado := e.estado
@@ -129,27 +150,51 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 				estado = http.StatusInternalServerError
 			}
 			nivel := slog.LevelInfo
-			lenta := duracion >= o.Lenta
+			consultas := bd.consultas.Load()
+			lenta := duracion >= o.Lenta || consultas >= o.Consultas
 			if lenta {
 				nivel = slog.LevelWarn
 			}
 			if estado >= 500 {
 				nivel = slog.LevelError
 			}
+			ruta := caminoDepurado(r.URL.Path, estado)
 			atributos := []slog.Attr{
 				slog.String("http.request.method", metodo(r.Method)),
-				caminoDepurado(r.URL.Path, estado),
+				ruta,
 				slog.Int("http.response.status_code", estado),
 				slog.Float64("http.server.request.duration", segundos(duracion)),
 				slog.Int64("http.response.body.size", e.bytes),
 				slog.String("vec.correlacion", correlacion),
+				slog.Int64("vec.bd.consultas", consultas),
+				slog.Float64("vec.bd.duracion", segundos(time.Duration(bd.bd.Load()))),
+			}
+			if espera := time.Duration(bd.espera.Load()); espera > 0 {
+				atributos = append(atributos, slog.Float64("vec.bd.espera_conexion", segundos(espera)))
+			}
+			bd.mu.Lock()
+			if bd.ultimoErr != "" {
+				atributos = append(atributos, slog.String("vec.bd.error", bd.ultimoErr))
 			}
 			if estado >= 500 {
-				atributos = append(atributos, slog.String("error.type", strconv.Itoa(estado)))
+				// error.type: la clase del error de base de datos si la hay; si
+				// no, el código de estado, como pide OpenTelemetry.
+				tipo := strconv.Itoa(estado)
+				if bd.ultimoErr != "" {
+					tipo = bd.ultimoErr
+				}
+				atributos = append(atributos, slog.String("error.type", tipo))
 			}
 			if lenta {
+				// El análisis del texto SQL solo se hace en las lentas.
 				atributos = append(atributos, slog.Bool("vec.lenta", true))
+				if bd.sqlMaxima != "" {
+					atributos = append(atributos, slog.String("vec.bd.consulta_mas_lenta", operacion(bd.sqlMaxima)),
+						slog.Float64("vec.bd.consulta_mas_lenta.duracion", segundos(bd.maxima)))
+				}
 			}
+			bd.mu.Unlock()
+			observar(metodo(r.Method), ruta.Value.String(), estado, duracion, lenta)
 			if !completada {
 				atributos = append(atributos, slog.Bool("vec.interrumpida", true))
 			}

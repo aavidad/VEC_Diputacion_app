@@ -37,6 +37,8 @@ import (
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var ErrComposicionDocumentosNoDisponible = errors.New("bootstrap: Documentos no disponible")
@@ -415,6 +417,7 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, "", ErrComposicionDocumentosNoDisponible
