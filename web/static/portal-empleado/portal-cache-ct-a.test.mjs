@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261005-ct-asignacion-unidad-v1";
+const versionCoordinador = "20261006-arranque-rapido-v2";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
@@ -31,10 +31,8 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   ]);
   const nueva = versionCoordinador;
   const firma = "20261003-ct-firma-v2-v1";
-  // portal.js se renovó después (lectura única del cuadro de bolsas); su
-  // versión ya no coincide con la del coordinador.
-  exigirVersiones(html, "/portal-empleado/portal.js", "20261006-bolsa-una-lectura-v1");
   const versiones = [
+    exigirVersiones(html, "/portal-empleado/portal.js", nueva),
     exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", nueva),
     exigirVersiones(portal, "./portal-modulos-coordinador.js", nueva),
   ];
