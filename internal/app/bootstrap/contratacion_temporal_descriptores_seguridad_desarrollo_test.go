@@ -8,6 +8,7 @@ import (
 	"time"
 
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctpostgres "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -72,6 +73,16 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-no-incorporacion-registrar", string(ctdomain.AccionRegistrarNoIncorporacion), cthttp.RutaNoIncorporaciones},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
+		{"ct-llamamiento-seleccionar", accionConsultarLlamamientoDesarrollo, cthttp.RutaSeleccionLlamamiento},
+		{"ct-llamamiento-comunicacion-registrar", ctpostgres.AccionRegistroComunicacionLlamamiento, cthttp.RutaRegistroComunicacionLlamamiento},
+		{"ct-llamamiento-comunicaciones-consultar", ctpostgres.AccionConsultaComunicacionesExpediente, cthttp.RutaConsultaComunicacionesExpediente},
+		{"ct-llamamiento-respuesta-registrar", ctpostgres.AccionRegistroRespuestaRecibida, cthttp.RutaRegistroRespuestaRecibida},
+		{"ct-llamamiento-recibo-respuesta-consultar", ctpostgres.AccionConsultaReciboRespuesta, cthttp.RutaConsultaReciboRespuesta},
+		{"ct-llamamiento-resolver", ctpostgres.AccionResolucionManualLlamamiento, cthttp.RutaResolucionComunicacionLlamamiento},
+		{"ct-llamamiento-continuar", ctpostgres.AccionContinuacionLlamamiento, cthttp.RutaContinuacionLlamamiento},
+		{"ct-llamamiento-plazo-evento", ctpostgres.AccionResolucionManualLlamamiento, cthttp.RutaEventoPlazoLlamamiento},
+		{"ct-formalizacion-proponer", ctpostgres.AccionPropuestaFormalizacion, cthttp.RutaPropuestaFormalizacion},
+		{"ct-formalizacion-resolver", ctpostgres.AccionResolucionFormalizacion, cthttp.RutaResolucionFormalizacion},
 		{"ct-peticiones-centro-rrhh-entregar", ctports.AccionEntregarPeticionRRHH, rutaEntregaPeticionCentro},
 		{"ct-peticiones-centro-rrhh-consultar", ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro},
 	}
@@ -88,7 +99,8 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 			perfilesEsperados = []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 		}
 		metodo := http.MethodPost
-		if par.clave == "ct-peticiones-centro-rrhh-consultar" {
+		if par.clave == "ct-peticiones-centro-rrhh-consultar" || par.clave == "ct-llamamiento-comunicaciones-consultar" ||
+			par.clave == "ct-llamamiento-recibo-respuesta-consultar" {
 			metodo = http.MethodGet
 		}
 		if frontera.Clave != par.clave || frontera.Metodo != metodo || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {
@@ -134,10 +146,12 @@ func TestDescriptoresContratacionTemporalAutorizacionRechazanCruces(t *testing.T
 		t.Fatal(err)
 	}
 	descriptores := descriptoresAutorizacionContratacionTemporalDesarrollo(politicaDescriptoresCTPrueba(t))
-	// Además de una por frontera: la entrega de peticiones y la descarga de
-	// borradores, que comparte la frontera de detalle.
-	if len(descriptores) != len(fronteras)+2 {
-		t.Fatalf("autorizaciones=%d, want %d", len(descriptores), len(fronteras)+2)
+	// Además de una por frontera: la entrega de peticiones, la descarga de
+	// borradores (que comparte la frontera de detalle) y las acciones
+	// adicionales del llamamiento.
+	adicionales := len(descriptoresAutorizacionAdicionalesLlamamientoDesarrollo(politicaDescriptoresCTPrueba(t)))
+	if adicionales != 11 || len(descriptores) != len(fronteras)+2+adicionales {
+		t.Fatalf("autorizaciones=%d (adicionales=%d), want %d", len(descriptores), adicionales, len(fronteras)+13)
 	}
 	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptores)
 	if err != nil {
