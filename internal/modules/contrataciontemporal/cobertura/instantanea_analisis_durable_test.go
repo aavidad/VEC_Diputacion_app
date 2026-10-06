@@ -64,6 +64,9 @@ func expedienteConAnalisisDurableO3Prueba(
 			ValidadaEn:          instante.Add(-time.Second),
 			Motivo:              "Resultado sintético gobernado para la prueba.",
 		},
+		// Sin retención, la constancia de las partidas va con el coste aproximado.
+		CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+		FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 	}
 	siguiente, err := expediente.RegistrarAnalisis(
 		expediente.Version,

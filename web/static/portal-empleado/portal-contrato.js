@@ -6,14 +6,6 @@
  * reduce a evaluaciones sin identidad ni datos de contacto.
  */
 
-const LISTAS_PANEL_PRESENTACION = Object.freeze([
-  "bolsas", "necesidades_llamamiento", "elaboraciones", "proximos",
-  "actividad", "contratos", "reglas", "documentos", "canales", "avisos",
-  "solicitudes", "meritos_revision", "criterios_baremo", "ranking",
-  "alegaciones", "importaciones", "llamamientos_demo", "comunicaciones_demo",
-  "auditoria_eventos", "roles_demo", "configuraciones_demo",
-]);
-
 const CAMPOS_PANEL_INTERNO = Object.freeze([
   "esquema", "selector", "origen", "prueba_lectura", "indicadores",
   "convocatorias", "actuaciones_pendientes",
@@ -135,50 +127,9 @@ export function validarAvisosPortal(avisos) {
   });
 }
 
-export function validarPanelBolsa(datos, admiteDemostracion = false) {
+export function validarPanelBolsa(datos) {
   if (!esObjeto(datos)) throw new Error("respuesta del panel no válida");
-  if (!admiteDemostracion) return validarPanelInterno(datos);
-  const esquema = "vec.bolsa.panel.presentacion.v1";
-  if (datos.esquema !== esquema) throw new Error("versión de contrato del panel no compatible");
-  if (Object.hasOwn(datos, "candidatos")) {
-    throw new Error("el panel global no admite listados de personas candidatas");
-  }
-  if (LISTAS_PANEL_PRESENTACION.some((clave) => !Array.isArray(datos[clave]))) {
-    throw new Error("respuesta del panel incompleta");
-  }
-  return {
-    esquema: String(datos.esquema),
-    demostracion: datos.demostracion === true,
-    sesion: esObjeto(datos.sesion) ? { ...datos.sesion } : null,
-    indicadores: esObjeto(datos.indicadores) ? { ...datos.indicadores } : {},
-    distribucion_global: esObjeto(datos.distribucion_global) ? { ...datos.distribucion_global } : {},
-    series: esObjeto(datos.series) ? { ...datos.series } : {},
-    avisos: validarAvisosPortal(datos.avisos),
-    capacidades: esObjeto(datos.capacidades) ? { ...datos.capacidades } : {},
-    configuracion_llamamiento: esObjeto(datos.configuracion_llamamiento) ? { ...datos.configuracion_llamamiento } : {},
-    catalogos_llamamiento: esObjeto(datos.catalogos_llamamiento) ? { ...datos.catalogos_llamamiento } : {},
-    bolsas: [...datos.bolsas],
-    necesidades_llamamiento: [...datos.necesidades_llamamiento],
-    elaboraciones: [...datos.elaboraciones],
-    proximos: [...datos.proximos],
-    actividad: [...datos.actividad],
-    contratos: [...datos.contratos],
-    reglas: [...datos.reglas],
-    documentos: [...datos.documentos],
-    canales: [...datos.canales],
-    solicitudes: [...datos.solicitudes],
-    meritos_revision: [...datos.meritos_revision],
-    criterios_baremo: [...datos.criterios_baremo],
-    ranking: [...datos.ranking],
-    alegaciones: [...datos.alegaciones],
-    importaciones: [...datos.importaciones],
-    llamamientos_demo: [...datos.llamamientos_demo],
-    comunicaciones_demo: [...datos.comunicaciones_demo],
-    auditoria_eventos: [...datos.auditoria_eventos],
-    roles_demo: [...datos.roles_demo],
-    configuraciones_demo: [...datos.configuraciones_demo],
-    auditoria: esObjeto(datos.auditoria) ? { ...datos.auditoria } : {},
-  };
+  return validarPanelInterno(datos);
 }
 
 function validarPanelInterno(datos) {

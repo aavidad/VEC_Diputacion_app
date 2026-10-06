@@ -3,7 +3,10 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -410,5 +413,66 @@ func TestRenovacionProgramadaIntentoBloqueadoTienePlazo(t *testing.T) {
 	}
 	if !plazo.Load() {
 		t.Fatal("el intento programado no llevaba plazo propio")
+	}
+}
+
+// Cada operación CT relee el gobierno, pero las lecturas de operaciones
+// simultáneas no se ponen en fila: con 16 operaciones y una lectura que tarda
+// 50 ms, todas terminan en torno a 50 ms y no en 16 × 50 ms.
+func TestConfianzaRenovableCTLecturasSimultaneasNoSeSerializan(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.publicadaEn.Add(time.Hour))
+	f := fuenteRenovableCTPrueba(t, m, r)
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		t.Fatal("no debe publicar antes de caducidad")
+		return materialAtestacionContratacionTemporalDesarrollo{}, nil
+	}
+	const operaciones, latencia = 16, 50 * time.Millisecond
+	var lecturas, enCurso, maximo atomic.Int32
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		lecturas.Add(1)
+		actual := enCurso.Add(1)
+		for previo := maximo.Load(); actual > previo && !maximo.CompareAndSwap(previo, actual); previo = maximo.Load() {
+		}
+		time.Sleep(latencia)
+		enCurso.Add(-1)
+		return m, nil
+	}
+	inicio := time.Now()
+	var wg sync.WaitGroup
+	for range operaciones {
+		wg.Go(func() {
+			if s, err := f.instantanea(context.Background()); err != nil || s == nil {
+				t.Errorf("instantánea: %v", err)
+			}
+		})
+	}
+	wg.Wait()
+	transcurrido := time.Since(inicio)
+	if lecturas.Load() != operaciones {
+		t.Fatalf("lecturas=%d; cada operación debe releer el gobierno", lecturas.Load())
+	}
+	if maximo.Load() < 2 || transcurrido > operaciones*latencia/2 {
+		t.Fatalf("lecturas en fila: simultáneas=%d, %v para %d operaciones", maximo.Load(), transcurrido, operaciones)
+	}
+}
+
+// Un rechazo de la lectura de confianza conserva el centinela y deja en el
+// registro qué comprobación falló y el código de PostgreSQL, nunca su texto.
+func TestCausaLecturaConfianzaCTNombraComprobacionYCodigo(t *testing.T) {
+	sinFilas := &rechazoLecturaConfianzaCTDesarrollo{comprobacion: "configuracion_vigente", causa: pgx.ErrNoRows}
+	if !errors.Is(sinFilas, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente) || !errors.Is(sinFilas, pgx.ErrNoRows) {
+		t.Fatal("el rechazo perdió el centinela o la causa")
+	}
+	if causa := causaLecturaConfianzaCTDesarrollo(sinFilas); causa != "configuracion_vigente:sin_filas" {
+		t.Fatalf("causa=%q", causa)
+	}
+	pg := &rechazoLecturaConfianzaCTDesarrollo{comprobacion: "checkpoint", causa: &pgconn.PgError{Code: "40001", Message: "valor-secreto"}}
+	if causa := causaLecturaConfianzaCTDesarrollo(pg); causa != "checkpoint:sqlstate_40001" || strings.Contains(causa+pg.Error(), "valor-secreto") {
+		t.Fatalf("causa=%q error=%q", causa, pg.Error())
+	}
+	if causa := causaLecturaConfianzaCTDesarrollo(&rechazoLecturaConfianzaCTDesarrollo{comprobacion: "huella_distinta"}); causa != "huella_distinta" {
+		t.Fatalf("causa=%q", causa)
 	}
 }

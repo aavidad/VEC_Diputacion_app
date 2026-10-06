@@ -1,5 +1,13 @@
 # Modo de presentación RRHH
 
+> **Documento histórico.** El modo de presentación de julio se retiró el
+> 6 de octubre de 2026: ya no existen `vec-presentacion`,
+> `vec-cartografia-presentacion`, sus imágenes, sus servicios de Compose ni sus
+> lanzadores. Lo que se enseña a RRHH es el portal real con datos sintéticos.
+> Se conserva solo como registro de decisiones; los comandos de abajo ya no
+> funcionan. Detalle en el
+> [inventario de retirada](inventario_retirada_presentacion_2026-07-19.md).
+
 ## Decisión
 
 La presentación del martes se entrega como un artefacto separado y desechable,
@@ -145,9 +153,7 @@ Cuando la revisión se sirve mediante un proxy corporativo situado en otro
 equipo, no se amplía ese bind ni se usa `0.0.0.0`. El perfil opcional
 `presentacion-remota` añade una entrada de borde independiente, ligada a una IP
 interna concreta y con ACL de origen montada fuera del repositorio. El puerto
-convencional es `18081`; el procedimiento, la configuración del frontal, las
-pruebas y la retirada están en
-[Acceso desde un proxy corporativo](acceso_proxy_presentacion.md).
+convencional era `18081`.
 
 La composición exige un grafo OSRM y una versión de teselas ya preparados. El
 PBF fuente, su huella, la versión lógica del grafo y la versión activa del

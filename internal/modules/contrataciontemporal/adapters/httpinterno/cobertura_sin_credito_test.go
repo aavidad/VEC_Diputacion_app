@@ -13,6 +13,7 @@ func TestCoberturaSinCreditoExplicaElMotivoConCodigoPropio(t *testing.T) {
 	pruebas := map[domain.MotivoSinCredito]string{
 		domain.SinCreditoAnalisisPendiente:  "sin_credito_analisis_pendiente",
 		domain.SinCreditoRetencionRechazada: "sin_credito_retencion_rechazada",
+		domain.SinCreditoPartidasSinCoste:   "sin_credito_partidas_sin_coste",
 	}
 	for motivo, codigo := range pruebas {
 		for _, publico := range []error{
