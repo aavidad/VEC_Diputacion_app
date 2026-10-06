@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/publica"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 func main() {
@@ -28,6 +30,11 @@ func ejecutar() error {
 	if err != nil {
 		return fmt.Errorf("componer servidor publico: %w", err)
 	}
+
+	telemetria.Montar(servidor, telemetria.Opciones{
+		Destino: os.Stderr, Servicio: "vec-publico", Superficie: "publica",
+		Entorno: telemetria.Entorno(os.Getenv("VEC_ENTORNO"), cfg.PerfilEjecucion), Lenta: telemetria.UmbralLenta(os.Getenv),
+	})
 
 	if cfg.CertificadoTLS != "" || cfg.ClaveTLS != "" {
 		if cfg.CertificadoTLS == "" || cfg.ClaveTLS == "" {

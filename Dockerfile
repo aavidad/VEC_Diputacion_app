@@ -20,31 +20,33 @@ COPY --chown=app:app config ./config
 COPY --chown=app:app internal ./internal
 COPY --chown=app:app locales ./locales
 COPY --chown=app:app web ./web
+# Revisión para el registro técnico: --build-arg VEC_REVISION=$(git rev-parse --short=12 HEAD)
+ARG VEC_REVISION=
 # Solo vec-interno enlaza PKCS#11 para HMAC con clave no exportable; las otras
 # superficies conservan sus binarios sin CGO.
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
-  -ldflags="-s -w" \
+  -ldflags="-s -w -X vec-diputacion-granada/internal/shared/telemetria.Revision=${VEC_REVISION}" \
   -o /src/bin/vec-server \
   ./cmd/vec-server \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
-  -ldflags="-s -w" \
+  -ldflags="-s -w -X vec-diputacion-granada/internal/shared/telemetria.Revision=${VEC_REVISION}" \
   -o /src/bin/vec-publico \
   ./cmd/vec-publico \
   && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
-  -ldflags="-s -w" \
+  -ldflags="-s -w -X vec-diputacion-granada/internal/shared/telemetria.Revision=${VEC_REVISION}" \
   -o /src/bin/vec-interno \
   ./cmd/vec-interno \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
-  -ldflags="-s -w" \
+  -ldflags="-s -w -X vec-diputacion-granada/internal/shared/telemetria.Revision=${VEC_REVISION}" \
   -o /src/bin/vec-presentacion \
   ./cmd/vec-presentacion \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
-  -ldflags="-s -w" \
+  -ldflags="-s -w -X vec-diputacion-granada/internal/shared/telemetria.Revision=${VEC_REVISION}" \
   -o /src/bin/vec-cartografia-presentacion \
   ./cmd/vec-cartografia-presentacion \
   && cp -a /src/web /src/web-presentacion \
