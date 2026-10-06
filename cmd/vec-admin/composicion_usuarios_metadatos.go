@@ -30,14 +30,14 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 }
 
 func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (*http.Server, func(), error) {
-	return componerProcesoUsuariosMetadatosADMINConLote(cfg, base, u, runtime, nil, nil)
+	return componerProcesoUsuariosMetadatosADMINConLote(cfg, base, u, runtime, nil, nil, nil)
 }
 
 // componerProcesoUsuariosMetadatosADMINConLote añade, si hay overlay del lote,
 // su pool y LOGIN propios, su cadena V3 de una capacidad, el emisor, la
 // autoridad PostgreSQL y el servicio de aplicación del lote. Sin overlay, el
 // proceso es exactamente el de las lecturas de usuarios.
-func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada) (*http.Server, func(), error) {
+func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, cargos *configuracionCargosPrivada) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
@@ -53,6 +53,9 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if plan != nil && validarConfiguracionPlanFirmaPrivada(*plan, lote, base, u, runtime) != nil {
 		return fallo("plan_firma_configuracion")
 	}
+	if cargos != nil && validarConfiguracionCargosPrivada(*cargos, lote, plan, base, u, runtime) != nil {
+		return fallo("cargos_configuracion")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(base.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
 	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica, runtime.PoolContexto}
@@ -63,6 +66,11 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	}
 	if plan != nil {
 		rutas = append(rutas, plan.Pool) // índice 11 sin lote, 12 con lote
+	}
+	// Los cargos van detrás de los opcionales anteriores que estén presentes.
+	indiceCargos := len(rutas)
+	if cargos != nil {
+		rutas = append(rutas, cargos.Pool)
 	}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
@@ -86,7 +94,11 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_dsn")
 		}
-		pc, err := configurarPoolADMIN(dsn)
+		configurar := configurarPoolADMIN
+		if cargos != nil && i == indiceCargos {
+			configurar = configurarPoolCargosADMIN
+		}
+		pc, err := configurar(dsn)
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_config")
 		}
@@ -215,11 +227,19 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if gobiernoPlan != nil {
 		servicioPlan = gobiernoPlan
 	}
+	var servicioCargos api.ServicioEfectoNominalADMIN
+	if cargos != nil {
+		s, err := componerCargosCompetencialesADMIN(ctx, base, u, *cargos, pools[0], pools[1], pools[2], pools[indiceCargos], firmante, registrador, reloj)
+		if err != nil {
+			return nil, nil, err
+		}
+		servicioCargos = s
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
 		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
 		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
-		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan})
+		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, CargosCompetenciales: servicioCargos})
 	if err != nil {
 		return fallo("servidor")
 	}

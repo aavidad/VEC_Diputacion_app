@@ -25,6 +25,9 @@ const (
 	// de Contratación temporal (AD177/AD178, conjunto 2 de AD202). Tiene que
 	// coincidir con plannominal.AudienciaGobiernoPlanFirma.
 	AudienciaGobiernoPlanFirmaV3 = "vec_catalogos_configurables.plan_nominal_firma.gobierno.v1"
+	// AudienciaCargoCompetencialV3 es la de la publicación de cargos
+	// competenciales de Personal (AD166, Personal28; conjunto 3 de AD204).
+	AudienciaCargoCompetencialV3 = "vec_personal.cargo_competencial.publicar.v1"
 )
 
 // EmisorLote adapta una orden de lote ya validada a la cadena común V3. El

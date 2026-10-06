@@ -212,3 +212,50 @@ Antes de arrancar con el lote hay que tener, además de la lista SQL del lote
    su asignación actual apunte a la nueva.
 5. Perfiles registrados con AUT49 cuyos `ambitos_fijos` sean exactamente la
    organización configurada. La preparación solo ofrece esos.
+
+## Publicación de cargos competenciales de Personal
+
+`VEC_ADMIN_CARGOS_CONFIG_FILE` es opcional y, como el lote y el gobierno del
+plan de firma, solo vale junto al modo de metadatos de usuarios. Es un JSON
+privado 0600 fuera de Git:
+
+| Campo | Contenido |
+| --- | --- |
+| `pool` | Ruta del JSON de conexión del LOGIN de cargos. Archivo propio, distinto de los demás pools (también del lote y del plan) y de los secretos. |
+| `confianza` | Metadatos V3 con una sola capacidad, la de `vec_personal.cargo_competencial.publicar.v1`, con la misma raíz que el firmante y su propio archivo de material HMAC. |
+| `motivo` | Referencia del catálogo común de motivos para la decisión. |
+
+Con este archivo, el proceso abre además
+`POST /api/admin/perfiles/v1/personal/cargos-competenciales/publicacion`, con
+cuerpo `{"material_base64": …}`: el material exacto de Personal28 (esquema
+`vec.personal.cargo-competencial.publicacion.v1`, 32 KiB como máximo). La
+acción, el cargo o enlace, la organización y la unidad salen de esos bytes; la
+asignación del administrador debe cubrir esa organización y esa unidad. La
+respuesta lleva el recibo de Personal (en un reintento, el original) y la
+auditoría del consumo de este acceso. Proceso, canal y motivos de los intentos
+fallidos son los del overlay de usuarios.
+
+Antes de arrancar con cargos hay que tener Personal28 y AD166 instaladas y:
+
+1. Un LOGIN propio, miembro único del grupo `vec_personal_ejecutor` (INHERIT,
+   sin SET ni ADMIN), con `CONNECT` sobre la base. Es el grupo que exigen la
+   fachada de Personal y la rama de AD166; no se crea otro.
+2. Una fila en `vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`
+   para ese LOGIN, con la audiencia y la acción de la publicación de cargos y
+   la superficie `administracion_privilegiada`.
+3. La clave HMAC de esa capacidad registrada y vigente: la publica la
+   renovación diaria con el conjunto de capacidades 3 (AD204).
+4. El rol de Aplicación con la concesión `personal.cargo_competencial.publicar`
+   (Rol7 la trae).
+
+El proceso fija `TimeZone=UTC` en ese pool y lo comprueba al arrancar, porque
+Personal28 lo exige. Al ser miembro de `vec_personal_ejecutor`, el LOGIN hereda
+también EXECUTE sobre otras fachadas de Personal. Cada una exige una decisión V3
+de su propia audiencia, y vec-admin solo tiene el material de la de cargos.
+Queda pendiente un grupo propio con EXECUTE solo sobre
+`publicar_cargo_competencial_v1`, que exige cambiar las guardas de Personal28 y
+de AD166.
+
+Los intentos fallidos anotan, en vez de la referencia `car_…`/`enc_…`, una
+referencia derivada estable (tipo y SHA-256 truncado, sin secreto). Quien
+conozca la referencia del objeto puede enlazarla con el intento.

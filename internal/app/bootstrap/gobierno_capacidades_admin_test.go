@@ -26,7 +26,7 @@ func TestConjuntoCeroConservaDescriptoresAD188(t *testing.T) {
 		d[1].PrefijoClave != "clave:capacidad:admin:usuarios:consultar:s7:" || d[1].Version != 6 || d[1].RevisionGobierno != 11 {
 		t.Fatalf("descriptores del conjunto 0 distintos de AD188: %+v", d)
 	}
-	if _, ok := AudienciasConjuntoCapacidadesAdmin(3); ok {
+	if _, ok := AudienciasConjuntoCapacidadesAdmin(4); ok {
 		t.Fatal("conjunto desconocido aceptado")
 	}
 }
@@ -164,5 +164,38 @@ func TestConjuntoDosAnadeGobiernoPlanFirma(t *testing.T) {
 	if err != nil || len(conf.EntradasCapacidad) != 4 || conf.EntradasCapacidad[3].Audiencia != plannominal.AudienciaGobiernoPlanFirma ||
 		!strings.HasPrefix(conf.EntradasCapacidad[3].ClaveID, "clave:capacidad:admin:catalogos:plan-firma:") {
 		t.Fatal("material del conjunto 2 sin la clave del gobierno del plan")
+	}
+}
+
+// El conjunto 3 (AD204) conserva el 2 en el mismo orden y añade, en quinto
+// lugar, la audiencia de la publicación de cargos competenciales.
+func TestConjuntoTresAnadeCargosCompetenciales(t *testing.T) {
+	dos, _ := AudienciasConjuntoCapacidadesAdmin(2)
+	tres, ok := AudienciasConjuntoCapacidadesAdmin(3)
+	// La audiencia es la que fijan AD166 y Personal28 en SQL.
+	if administracion.AudienciaCargoCompetencialV3 != "vec_personal.cargo_competencial.publicar.v1" {
+		t.Fatal("la audiencia de vec-admin no es la de los cargos competenciales")
+	}
+	if !ok || len(tres) != 5 || tres[4].Audiencia != administracion.AudienciaCargoCompetencialV3 || tres[4].Segmento != "personal:cargo-competencial" ||
+		!regexp.MustCompile(`^emisor:admin:[a-z0-9:._-]{1,120}$`).MatchString(tres[4].EmisorID) {
+		t.Fatalf("conjunto 3 distinto de AD204: %+v", tres)
+	}
+	for i := range dos {
+		if tres[i] != dos[i] {
+			t.Fatalf("el conjunto 3 cambia la audiencia %d del conjunto 2", i)
+		}
+	}
+	cfg, reloj := configuracionGobiernoUsuariosPrueba(t)
+	cfg.ConjuntoVersion = 3
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(tres, 20261006, 4, 9, reloj.Ahora(), time.Hour)
+	m, err := PrepararMaterialUsuariosAdmin(context.Background(), cfg, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Cerrar()
+	conf, _, err := m.Configuracion()
+	if err != nil || len(conf.EntradasCapacidad) != 5 || conf.EntradasCapacidad[4].Audiencia != administracion.AudienciaCargoCompetencialV3 ||
+		!strings.HasPrefix(conf.EntradasCapacidad[4].ClaveID, "clave:capacidad:admin:personal:cargo-competencial:") {
+		t.Fatal("material del conjunto 3 sin la clave de cargos competenciales")
 	}
 }
