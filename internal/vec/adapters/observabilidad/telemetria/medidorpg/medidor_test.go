@@ -3,6 +3,7 @@ package medidorpg
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,13 +79,15 @@ func TestTrazadorAnotaConsultasEsperasYErroresEnLaFicha(t *testing.T) {
 	}
 }
 
-func TestTrazadorSinFichaNoHaceNada(t *testing.T) {
+func TestTrazadorSinFichaNiMetricasNoFalla(t *testing.T) {
 	tr := &Trazador{reloj: time.Now}
 	ctx := context.Background()
-	if got := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT 1"}); got != ctx {
-		t.Error("sin ficha se derivo otro contexto")
+	c := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT 1"})
+	tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{Err: errors.New("x")})
+	tr.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{})
+	if got := tr.TraceAcquireStart(ctx, nil, pgxpool.TraceAcquireStartData{}); got != ctx {
+		t.Error("sin ficha la espera derivo otro contexto")
 	}
-	tr.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{Err: errors.New("x")})
 }
 
 func TestInstrumentarNoSustituyeOtroTrazador(t *testing.T) {
@@ -102,5 +105,37 @@ func TestInstrumentarNoSustituyeOtroTrazador(t *testing.T) {
 	}
 	if Instrumentar(nil) {
 		t.Error("nil instrumentado")
+	}
+}
+
+func TestMetricasBDPorOperacionErrorYPool(t *testing.T) {
+	m := &metricasBD{}
+	tr := &Trazador{reloj: (&relojPaso{t: time.Unix(0, 0)}).ahora, metricas: m}
+	ctx := context.Background() // sin petición: también se mide
+	for i := 0; i < 2; i++ {
+		c := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_bolsa.f($1)"})
+		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{Err: &pgconn.PgError{Code: "40001"}})
+	}
+	cfg, _ := pgxpool.ParseConfig("postgres://vec_bolsa_ejecutor@127.0.0.1:1/db")
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if tr.nombrePool(pool) != "vec_bolsa_ejecutor" {
+		t.Fatal("nombre de pool")
+	}
+	var b strings.Builder
+	m.escribir(&b, "vec-server")
+	for _, esperado := range []string{
+		`vec_bd_consultas_total{servicio="vec-server",operacion="vec_bolsa.f"} 2`,
+		`vec_bd_consultas_segundos_total{servicio="vec-server",operacion="vec_bolsa.f"} 0.02`,
+		`vec_bd_errores_total{servicio="vec-server",clase="bd_40001"} 2`,
+		`vec_pool_conexiones_en_uso{servicio="vec-server",pool="vec_bolsa_ejecutor"} 0`,
+		`vec_pool_prestamos_con_espera_total{servicio="vec-server",pool="vec_bolsa_ejecutor"} 0`,
+	} {
+		if !strings.Contains(b.String(), esperado) {
+			t.Errorf("falta %q en\n%s", esperado, b.String())
+		}
 	}
 }

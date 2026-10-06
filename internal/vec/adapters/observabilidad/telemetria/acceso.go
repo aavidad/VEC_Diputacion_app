@@ -91,6 +91,7 @@ type Registro struct {
 	fallos      atomic.Uint64
 	activas     sync.Map // *Ficha
 	enCurso     atomic.Int64
+	metricas    metricasRutas
 
 	parar     chan struct{}
 	terminado chan struct{}
@@ -288,6 +289,7 @@ func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido
 	if linea.Lenta || estado >= http.StatusInternalServerError || interrumpida {
 		linea.Desglose = f.desgloseBloqueado()
 	}
+	bdTotal, espera := f.bd.total, f.bd.espera
 	f.mu.Unlock()
 	switch err := r.Context().Err(); {
 	case errors.Is(err, context.DeadlineExceeded):
@@ -303,6 +305,7 @@ func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido
 	default:
 		linea.Nivel = "info"
 	}
+	reg.metricas.observar(&linea, duracion, bdTotal, espera)
 	reg.encolar(linea)
 }
 

@@ -102,9 +102,11 @@ func main() {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
-	cerrarAcceso := montarRegistroAcceso(srv, cfg, os.Stderr)
+	cerrarAcceso, registroAcceso := montarRegistroAcceso(srv, cfg, os.Stderr)
+	cerrarDiagnostico := montarDiagnostico(registroAcceso, emisor, os.Stderr)
 	cerrarSupervisionBase := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 	cerrarSupervision := func() {
+		cerrarDiagnostico()
 		cerrarAcceso()
 		cerrarSupervisionBase()
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,8 @@ import (
 
 	"vec-diputacion-granada/internal/app/administracion"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/diagnostico"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 func main() {
@@ -72,7 +75,7 @@ func main() {
 	// Registro de acceso técnico (una línea JSON por petición en stderr),
 	// separado de la auditoría nominal de la administración.
 	umbrales, _ := telemetria.UmbralesDeEntorno(os.Getenv)
-	_, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
+	registroAcceso, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
 		Destino:    os.Stderr,
 		Servicio:   "vec-admin",
 		Superficie: "administracion",
@@ -81,6 +84,11 @@ func main() {
 		Umbrales:   umbrales,
 	}, os.Stderr)
 	defer cerrarAcceso()
+	// Métricas y perfiles solo en bucle local con token, si Sistemas lo activa.
+	defer diagnostico.MontarDesdeEntorno(os.Getenv, "vec-admin", []diagnostico.Fuente{
+		registroAcceso.EscribirMetricas,
+		func(w io.Writer) { medidorpg.EscribirMetricas(w, "vec-admin") },
+	}, os.Stderr)()
 	if err := servidor.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(errorArranque("escucha"))
 	}

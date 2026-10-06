@@ -24,12 +24,13 @@ import (
 // de adquisición de conexión de pgxpool. No tiene estado por petición: lo
 // que mide va a la ficha del contexto.
 type Trazador struct {
-	reloj   func() time.Time
-	nombres sync.Map // *pgxpool.Pool -> string
+	reloj    func() time.Time
+	nombres  sync.Map // *pgxpool.Pool -> string
+	metricas *metricasBD
 }
 
 // trazadorComun es el que instalan Instrumentar e InstrumentarConexion.
-var trazadorComun = &Trazador{reloj: time.Now}
+var trazadorComun = &Trazador{reloj: time.Now, metricas: metricasComunes}
 
 // Instrumentar instala el trazador en la configuración de un pool antes de
 // crearlo. No sustituye un trazador ya configurado: en ese caso devuelve
@@ -60,15 +61,17 @@ type inicioMedida struct {
 	consultas int
 }
 
+// empezar abre la medida de una consulta. Se mide siempre, para las
+// métricas del proceso; la ficha solo existe dentro de una petición.
 func (t *Trazador) empezar(ctx context.Context, sql string) context.Context {
+	return t.empezarOperacion(ctx, operacionSQL(sql), 1)
+}
+
+func (t *Trazador) empezarOperacion(ctx context.Context, op string, n int) context.Context {
 	f := telemetria.FichaDe(ctx)
-	if f == nil {
-		return ctx
-	}
 	ahora := t.reloj()
-	op := operacionSQL(sql)
 	f.ConsultaIniciada(op, ahora)
-	return context.WithValue(ctx, claveInicio{}, &inicioMedida{ficha: f, inicio: ahora, operacion: op, consultas: 1})
+	return context.WithValue(ctx, claveInicio{}, &inicioMedida{ficha: f, inicio: ahora, operacion: op, consultas: n})
 }
 
 func (t *Trazador) terminar(ctx context.Context, err error) {
@@ -76,7 +79,10 @@ func (t *Trazador) terminar(ctx context.Context, err error) {
 	if m == nil {
 		return
 	}
-	m.ficha.ConsultaTerminada(m.operacion, m.consultas, t.reloj().Sub(m.inicio), telemetria.ClasificarError(err))
+	d := t.reloj().Sub(m.inicio)
+	clase := telemetria.ClasificarError(err)
+	m.ficha.ConsultaTerminada(m.operacion, m.consultas, d, clase)
+	t.metricas.observar(m.operacion, m.consultas, d, clase)
 }
 
 // TraceQueryStart cubre Query, QueryRow y Exec, también dentro de una
@@ -93,11 +99,6 @@ func (t *Trazador) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, data pgx.Trac
 // TraceBatchStart abre la medida de un lote; cuenta como un viaje con tantas
 // consultas como lleve.
 func (t *Trazador) TraceBatchStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
-	f := telemetria.FichaDe(ctx)
-	if f == nil {
-		return ctx
-	}
-	ahora := t.reloj()
 	op := "lote"
 	n := 0
 	if data.Batch != nil {
@@ -106,8 +107,7 @@ func (t *Trazador) TraceBatchStart(ctx context.Context, _ *pgx.Conn, data pgx.Tr
 			op = operacionSQL(data.Batch.QueuedQueries[0].SQL)
 		}
 	}
-	f.ConsultaIniciada(op, ahora)
-	return context.WithValue(ctx, claveInicio{}, &inicioMedida{ficha: f, inicio: ahora, operacion: op, consultas: n})
+	return t.empezarOperacion(ctx, op, n)
 }
 
 // TraceBatchQuery no mide cada consulta del lote por separado.
@@ -120,14 +120,7 @@ func (t *Trazador) TraceBatchEnd(ctx context.Context, _ *pgx.Conn, data pgx.Trac
 
 // TraceCopyFromStart mide una copia masiva con el nombre de la tabla.
 func (t *Trazador) TraceCopyFromStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context {
-	f := telemetria.FichaDe(ctx)
-	if f == nil {
-		return ctx
-	}
-	ahora := t.reloj()
-	op := "copy." + nombreCualificado(data.TableName)
-	f.ConsultaIniciada(op, ahora)
-	return context.WithValue(ctx, claveInicio{}, &inicioMedida{ficha: f, inicio: ahora, operacion: op, consultas: 1})
+	return t.empezarOperacion(ctx, "copy."+nombreCualificado(data.TableName), 1)
 }
 
 // TraceCopyFromEnd cierra la medida de la copia.
@@ -145,12 +138,13 @@ type inicioEspera struct {
 // TraceAcquireStart anota que la petición espera una conexión del pool. Si el
 // pool está agotado, aquí es donde se va el tiempo.
 func (t *Trazador) TraceAcquireStart(ctx context.Context, pool *pgxpool.Pool, _ pgxpool.TraceAcquireStartData) context.Context {
+	nombre := t.nombrePool(pool)
 	f := telemetria.FichaDe(ctx)
 	if f == nil {
 		return ctx
 	}
 	ahora := t.reloj()
-	f.EsperaConexionIniciada(t.nombrePool(pool), ahora)
+	f.EsperaConexionIniciada(nombre, ahora)
 	return context.WithValue(ctx, claveEspera{}, &inicioEspera{ficha: f, inicio: ahora})
 }
 
@@ -180,6 +174,7 @@ func (t *Trazador) nombrePool(pool *pgxpool.Pool) string {
 		}
 	}
 	t.nombres.Store(pool, nombre)
+	t.metricas.registrarPool(pool, nombre)
 	return nombre
 }
 

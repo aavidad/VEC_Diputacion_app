@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/publica"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/diagnostico"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 func main() {
@@ -33,7 +36,7 @@ func ejecutar() error {
 
 	// Registro de acceso técnico (una línea JSON por petición en stderr).
 	umbrales, _ := telemetria.UmbralesDeEntorno(os.Getenv)
-	_, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
+	registroAcceso, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
 		Destino:    os.Stderr,
 		Servicio:   "vec-publico",
 		Superficie: "publica",
@@ -42,6 +45,11 @@ func ejecutar() error {
 		Umbrales:   umbrales,
 	}, os.Stderr)
 	defer cerrarAcceso()
+	// Métricas y perfiles solo en bucle local con token, si Sistemas lo activa.
+	defer diagnostico.MontarDesdeEntorno(os.Getenv, "vec-publico", []diagnostico.Fuente{
+		registroAcceso.EscribirMetricas,
+		func(w io.Writer) { medidorpg.EscribirMetricas(w, "vec-publico") },
+	}, os.Stderr)()
 
 	if cfg.CertificadoTLS != "" || cfg.ClaveTLS != "" {
 		if cfg.CertificadoTLS == "" || cfg.ClaveTLS == "" {

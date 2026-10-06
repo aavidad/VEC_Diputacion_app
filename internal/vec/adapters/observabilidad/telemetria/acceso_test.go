@@ -448,3 +448,33 @@ func TestEnCursoMuestraLaEsperaDeConexion(t *testing.T) {
 		t.Errorf("linea en curso = %v", l)
 	}
 }
+
+func TestMetricasPorRutaYCardinalidadAcotada(t *testing.T) {
+	d := &destinoMemoria{}
+	reg := nuevoRegistroPrueba(t, d, Umbrales{})
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/vec/x/{ref}", func(w http.ResponseWriter, r *http.Request) {})
+	h := reg.Envolver(mux)
+	for i := 0; i < 3; i++ {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vec/x/ref-uno", nil))
+	}
+	var b strings.Builder
+	reg.EscribirMetricas(&b)
+	for _, esperado := range []string{
+		`vec_http_peticiones_total{servicio="vec-server",superficie="interno",metodo="GET",ruta="/api/vec/x/{ref}",clase="2xx"} 3`,
+		`vec_http_duracion_segundos_count{servicio="vec-server",superficie="interno",metodo="GET",ruta="/api/vec/x/{ref}"} 3`,
+		`vec_http_en_curso{servicio="vec-server",superficie="interno"} 0`,
+		"vec_proceso_gorrutinas{",
+	} {
+		if !strings.Contains(b.String(), esperado) {
+			t.Errorf("falta %q", esperado)
+		}
+	}
+	for i := 0; i < maxSeriesRuta+50; i++ {
+		reg.metricas.serie("GET", "/r"+strings.Repeat("a", i%40)+string(rune('a'+i%26))+"/"+string(rune('a'+(i/26)%26)))
+	}
+	if n := reg.metricas.total.Load(); n > maxSeriesRuta+1 {
+		t.Errorf("series = %d, por encima del tope", n)
+	}
+	cerrar(t, reg)
+}
