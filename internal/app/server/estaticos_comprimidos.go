@@ -3,7 +3,10 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
+	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -65,11 +68,20 @@ func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) *estatico
 	nombre = path.Clean("/" + nombre)
 	fichero, err := http.Dir(directorio).Open(nombre)
 	if err != nil {
+		// Sin versión comprimida: el servidor de ficheros normal responde
+		// (y da el 404 si no existe). Solo se registra lo que no es «no existe».
+		if !errors.Is(err, fs.ErrNotExist) {
+			slog.Warn("estatico comprimido no disponible", "etapa", "abrir", "ruta", nombre, "error", err)
+		}
 		return nil
 	}
 	defer fichero.Close()
 	info, err := fichero.Stat()
-	if err != nil || !info.Mode().IsRegular() {
+	if err != nil {
+		slog.Warn("estatico comprimido no disponible", "etapa", "stat", "ruta", nombre, "error", err)
+		return nil
+	}
+	if !info.Mode().IsRegular() {
 		return nil
 	}
 	clave := filepath.Join(directorio, filepath.FromSlash(nombre))
@@ -80,11 +92,17 @@ func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) *estatico
 	}
 	contenido, err := io.ReadAll(fichero)
 	if err != nil {
+		slog.Warn("estatico comprimido no disponible", "etapa", "leer", "ruta", nombre, "error", err)
 		return nil
 	}
 	var comprimido bytes.Buffer
 	escritor := gzip.NewWriter(&comprimido)
-	if _, err := escritor.Write(contenido); err != nil || escritor.Close() != nil {
+	if _, err := escritor.Write(contenido); err != nil {
+		slog.Warn("estatico comprimido no disponible", "etapa", "comprimir", "ruta", nombre, "error", err)
+		return nil
+	}
+	if err := escritor.Close(); err != nil {
+		slog.Warn("estatico comprimido no disponible", "etapa", "comprimir", "ruta", nombre, "error", err)
 		return nil
 	}
 	entrada := &estaticoComprimido{modificado: info.ModTime(), tamano: info.Size()}
