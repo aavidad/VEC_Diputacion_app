@@ -63,7 +63,10 @@ func TestResumenCuadroRRHHCuentaComoLaPortada(t *testing.T) {
 			{FaseClave: "solicitud", Desde: desde, Numero: 5},
 		},
 	}
-	resumen := resumirCuadroRRHH(context.Background(), calculadora, agregados, ahora)
+	resumen, err := resumirCuadroRRHH(context.Background(), calculadora, agregados, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if resumen == nil || resumen.EnTramite != 9 || resumen.ConIncidencia != 1 ||
 		resumen.PorFase["fiscalizacion"] != 4 || resumen.PorFase["solicitud"] != 5 || len(resumen.PorFase) != 2 ||
 		resumen.Vencidos != 4 || resumen.VencenHoy != 2 || resumen.SinCalcular != 1 ||
@@ -72,7 +75,10 @@ func TestResumenCuadroRRHHCuentaComoLaPortada(t *testing.T) {
 		t.Fatalf("resumen = %+v, llamadas %d", resumen, calculadora.llamadas)
 	}
 	// Sin calculadora no se supone ningún plazo.
-	sin := resumirCuadroRRHH(context.Background(), nil, agregados, ahora)
+	sin, err := resumirCuadroRRHH(context.Background(), nil, agregados, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if sin.EnTramite != 9 || sin.Vencidos != 0 || sin.VencenSemana != 0 || sin.SinCalcular != 0 {
 		t.Fatalf("sin calculadora = %+v", sin)
 	}

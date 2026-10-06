@@ -128,7 +128,13 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPagina, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	salida := clonarPaginaCuadroRRHH(pagina)
-	salida.Plazos, salida.Resumen = s.completarPlazos(ctx, salida)
+	salida.Plazos, salida.Resumen, err = s.completarPlazos(ctx, salida)
+	if err != nil {
+		if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+			return ports.PaginaCuadroRRHH{}, errContexto
+		}
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaReloj, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+	}
 	return salida, nil
 }
 

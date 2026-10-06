@@ -21,7 +21,7 @@ func resumirCuadroRRHH(
 	calculadora ports.CalculadoraPlazoFaseRRHH,
 	agregados ports.AgregadosCuadroRRHH,
 	ahora time.Time,
-) *ports.ResumenCuadroRRHH {
+) (*ports.ResumenCuadroRRHH, error) {
 	resumen := &ports.ResumenCuadroRRHH{PorFase: make(map[domain.ClaveFase]uint64)}
 	for _, recuento := range agregados.Recuentos {
 		if ports.EstadoTerminado(recuento.EstadoClave) {
@@ -33,15 +33,15 @@ func resumirCuadroRRHH(
 			resumen.ConIncidencia += recuento.Numero
 		}
 	}
-	hoy := diaCivilMadrid(ahora)
-	if hoy == "" {
-		// Sin la zona de Madrid no se sabe qué vence esta semana: no se
-		// publica un resumen con ceros que no lo son.
-		return nil
+	hoy, err := diaCivilMadrid(ahora)
+	if err != nil {
+		// Sin la zona de Madrid no se sabe qué vence esta semana: la consulta
+		// falla en lugar de publicar ceros que no lo son.
+		return nil, err
 	}
 	for _, grupo := range agregados.GruposPlazo {
-		if ctx.Err() != nil {
-			return nil
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
 		if calculadora == nil {
 			continue
@@ -63,26 +63,34 @@ func resumirCuadroRRHH(
 			resumen.VencenHoy += grupo.Numero
 		}
 		// Como la portada: por el último día del plazo, de hoy a seis días.
-		if dias, valido := diasEntreDiasCiviles(hoy, plazo.UltimoDia); valido && dias >= 0 && dias <= diasSemanaPortada {
+		dias, err := diasEntreDiasCiviles(hoy, plazo.UltimoDia)
+		if err != nil {
+			// Un último día ilegible: el resumen no se publica a medias.
+			return nil, err
+		}
+		if dias >= 0 && dias <= diasSemanaPortada {
 			resumen.VencenSemana += grupo.Numero
 		}
 	}
-	return resumen
+	return resumen, nil
 }
 
-func diaCivilMadrid(instante time.Time) string {
+func diaCivilMadrid(instante time.Time) (string, error) {
 	zona, err := time.LoadLocation("Europe/Madrid")
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return instante.In(zona).Format(time.DateOnly)
+	return instante.In(zona).Format(time.DateOnly), nil
 }
 
-func diasEntreDiasCiviles(desde, hasta string) (int, bool) {
-	a, errA := time.Parse(time.DateOnly, desde)
-	b, errB := time.Parse(time.DateOnly, hasta)
-	if errA != nil || errB != nil {
-		return 0, false
+func diasEntreDiasCiviles(desde, hasta string) (int, error) {
+	a, err := time.Parse(time.DateOnly, desde)
+	if err != nil {
+		return 0, err
 	}
-	return int(b.Sub(a).Hours() / 24), true
+	b, err := time.Parse(time.DateOnly, hasta)
+	if err != nil {
+		return 0, err
+	}
+	return int(b.Sub(a).Hours() / 24), nil
 }

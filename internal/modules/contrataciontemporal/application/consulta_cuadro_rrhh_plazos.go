@@ -25,45 +25,40 @@ type clavePlazoFaseCuadro struct {
 	urgente bool
 }
 
-// calcularPlazosFase devuelve el vencimiento de la fase actual de cada
-// expediente. Sin calculadora o sin fecha de entrada en fase no hay plazos; un
-// cálculo fallido queda como «no calculado» en lugar de suponer uno.
-func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
-	ctx context.Context,
-	pagina ports.PaginaCuadroRRHH,
-) []*ports.PlazoFaseRRHH {
-	plazos, _ := s.completarPlazos(ctx, pagina)
-	return plazos
-}
-
-// completarPlazos calcula, con una sola preparación de reglas, los plazos de
-// la página y, si la consulta trae agregados, el resumen de la portada.
+// completarPlazos devuelve el vencimiento de la fase actual de cada
+// expediente de la página y, si la consulta trae agregados, el resumen de la
+// portada, con una sola preparación de reglas. Sin calculadora o sin fecha de
+// entrada en fase no hay plazos; un cálculo fallido queda como «no
+// calculado» en lugar de suponer uno.
 func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 	ctx context.Context,
 	pagina ports.PaginaCuadroRRHH,
-) ([]*ports.PlazoFaseRRHH, *ports.ResumenCuadroRRHH) {
+) ([]*ports.PlazoFaseRRHH, *ports.ResumenCuadroRRHH, error) {
 	if s == nil || s.reloj == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	conPlazos := s.plazos != nil && len(pagina.Expedientes) != 0 &&
 		len(pagina.FasesDesde) == len(pagina.Expedientes)
 	if !conPlazos && pagina.Agregados == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	ahora := s.reloj.Ahora()
 	if !domain.InstanteUTCCanonico(ahora) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	calculadora := s.prepararPlazos(ctx)
 	var plazos []*ports.PlazoFaseRRHH
 	if conPlazos {
 		plazos = calcularPlazosPagina(ctx, calculadora, pagina, ahora)
 	}
-	var resumen *ports.ResumenCuadroRRHH
-	if pagina.Agregados != nil {
-		resumen = resumirCuadroRRHH(ctx, calculadora, *pagina.Agregados, ahora)
+	if pagina.Agregados == nil {
+		return plazos, nil, nil
 	}
-	return plazos, resumen
+	resumen, err := resumirCuadroRRHH(ctx, calculadora, *pagina.Agregados, ahora)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plazos, resumen, nil
 }
 
 // prepararPlazos devuelve la calculadora con una sola lectura de reglas para
