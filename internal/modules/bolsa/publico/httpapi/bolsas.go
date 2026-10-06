@@ -63,11 +63,18 @@ type FuenteBolsasPublicas interface {
 }
 
 type manejadorBolsasPublicas struct {
-	fuente   FuenteBolsasPublicas
+	fuente FuenteBolsasPublicas
+	// cupos limita las lecturas simultáneas de la fuente: cada consulta
+	// pública lee el estado vigente (sin caché) y una ráfaga anónima no debe
+	// agotar las conexiones que comparte con RRHH. Lleno, responde 429.
+	cupos    chan struct{}
 	catalogo *i18n.Catalog
 	idiomas  []string
 	selector language.Matcher
 }
+
+// concurrenciaBolsasPublicas es el número de lecturas públicas simultáneas.
+const concurrenciaBolsasPublicas = 4
 
 func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, error) {
 	if fuente == nil {
@@ -78,6 +85,7 @@ func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, er
 		return nil, err
 	}
 	manejador.fuente = fuente
+	manejador.cupos = make(chan struct{}, concurrenciaBolsasPublicas)
 	return manejador, nil
 }
 
@@ -165,6 +173,16 @@ func (h *manejadorBolsasPublicas) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	if r.URL.RawPath != "" || strings.Contains(r.URL.EscapedPath(), "%") || r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
 		h.responderError(w, r, http.StatusBadRequest, "ruta_invalida")
 		return
+	}
+	if h.cupos != nil {
+		select {
+		case h.cupos <- struct{}{}:
+			defer func() { <-h.cupos }()
+		default:
+			w.Header().Set("Retry-After", "1")
+			h.responderError(w, r, http.StatusTooManyRequests, "capacidad_temporal_agotada")
+			return
+		}
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), duracionMaximaOperacionPublica)
 	defer cancelar()

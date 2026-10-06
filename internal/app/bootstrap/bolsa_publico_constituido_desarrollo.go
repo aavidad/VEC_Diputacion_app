@@ -31,7 +31,9 @@ func nuevoManejadorBolsasPublicasDesarrollo(fuente *fuenteConstituidaRRHHDesarro
 func (f *fuenteBolsasPublicasDesarrollo) BolsasPublicas(ctx context.Context) ([]bolsapublico.BolsaPublica, time.Time, error) {
 	// El listado solo cuenta personas por bolsa: el resumen, sin descifrar
 	// el acta protegida.
-	datos, generadoEn, err := f.datos(ctx, "", f.fuente.cargarResumen)
+	datos, generadoEn, err := f.datos(ctx, "", func(c context.Context) (datasetBolsasRRHHDesarrollo, error) {
+		return f.fuente.cargarResumen(c)
+	})
 	if err != nil {
 		return nil, time.Time{}, err
 	}
