@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type ServicioContactoParticipacion struct {
@@ -128,6 +129,11 @@ func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		// Solo la denegación nominal ya registrada por el emisor es una
+		// denegación; cualquier otro fallo sigue siendo indisponibilidad.
+		if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return q, dominiovec.ErrAutorizacionDenegada
+		}
 		return q, errorDependenciaSituacion(err)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()

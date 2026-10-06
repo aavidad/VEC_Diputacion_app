@@ -92,7 +92,7 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 	}
 	recursoBolsa := func(referencia string) bool {
 		return l.antecedenteLigado() && r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" && r.Referencia == referencia &&
-			len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" && r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+			ambitosBolsaDelExpedienteDesarrollo(p.expediente, r.Ambitos) &&
 			len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.seleccion.Necesidad.Referencia &&
 			huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
 	}

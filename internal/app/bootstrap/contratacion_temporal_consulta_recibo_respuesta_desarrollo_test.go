@@ -165,6 +165,10 @@ func TestConsultaReciboRespuestaMontajeRevalidadorRealDistingueCaidaDeRevocacion
 			capacidad.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
 			capacidad.certificadoValidoHasta = e.reloj.Ahora().Add(time.Minute)
 			ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+			ctx, err := puertosvec.ConCorrelacionIncidenciasPeticion(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
 			autorizador := &autorizadorLlamamientoDesarrollo{
 				alta:     &dependenciasAltaContratacionTemporalDesarrollo{soporte: e.soporte},
 				material: &proveedorMaterialAltaContratacionTemporalDesarrollo{}, consultaReciboRespuesta: true,
