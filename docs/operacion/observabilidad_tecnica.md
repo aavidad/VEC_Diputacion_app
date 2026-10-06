@@ -6,7 +6,7 @@ de la ruta, ni consulta, cabeceras o cuerpos.
 
 ## Dónde mirar
 
-Cada petición a `vec-server`, `vec-admin` o `vec-publico` deja una línea JSON
+Cada petición a `vec-server` o `vec-admin` deja una línea JSON
 con `"msg":"http.server.request"` en la salida de errores del proceso
 (`podman logs <contenedor>`). Los nombres de campo siguen las convenciones
 semánticas de OpenTelemetry, que entienden las herramientas habituales de
@@ -109,4 +109,6 @@ go build -buildvcs=false \
   petición.
 - No se miden el pool acreditado de cobertura O4-05 de Contratación temporal,
   que rechaza por diseño cualquier trazador, ni el pool público de Bolsa.
-- `vec-interno` todavía no escribe línea de acceso.
+- `vec-interno` y `vec-publico` todavía no escriben línea de acceso. El
+  público tiene una lista positiva de dependencias y ampliarla es una decisión
+  aparte.
