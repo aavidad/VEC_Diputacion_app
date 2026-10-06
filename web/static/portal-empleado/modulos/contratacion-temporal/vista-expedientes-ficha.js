@@ -141,11 +141,15 @@ export function renderizarLineaFases(expediente, t) {
 export function renderizarDocumentosFicha(estado, t) {
   const expediente = estado.expediente;
   const indice = estado.documentos?.expediente_ref === expediente.expediente_ref ? estado.documentos : null;
-  const verDocumentos = estado.navegacion?.documentos === false ? ""
+  const sinPantallaPropia = estado.navegacion?.documentos === false;
+  const verDocumentos = sinPantallaPropia ? ""
     : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("ficha_documentos_ver"))}</button>`;
+  // Sin índice propio, el montaje coloca aquí la lista común de documentos
+  // del expediente (con su botón «Descargar») si el portal la ofrece.
   const cuerpo = indice && indice.documentos.length
     ? renderizarListaDocumentos(indice.documentos, t)
-    : `<div class="cuerpo-panel"><p>${escapar(t("ficha_documentos_aparte"))}</p>${verDocumentos}</div>`;
+    : `<div class="cuerpo-panel" data-ct-exp-documentos-comun><p>${escapar(t(sinPantallaPropia
+      ? "ficha_documentos_no_disponibles" : "ficha_documentos_aparte"))}</p>${verDocumentos}</div>`;
   return `<section class="panel ct-exp-ficha-documentos" aria-labelledby="ct-exp-ficha-documentos-titulo">
     <div class="cabecera-panel"><h3 id="ct-exp-ficha-documentos-titulo">${escapar(t("ficha_documentos_titulo"))}</h3>
       ${indice ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento", { total: indice.documentos.length }))}</p>` : ""}</div>

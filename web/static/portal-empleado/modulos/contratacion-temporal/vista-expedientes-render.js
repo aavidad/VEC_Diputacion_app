@@ -170,10 +170,13 @@ export function contextoFiscalizacionDesdeEstado(estado) {
   });
 }
 
+// El adaptador solo añade el campo «unidad» cuando el detalle trae una
+// asignación confirmada, y lo muestra con el nombre de la unidad (no con su
+// referencia interna). Basta con que el campo exista y tenga valor.
 export function asignacionConfirmadaEnDetalle(expediente) {
   return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
     ({ clave, valor }) => clave === "unidad"
-      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
+      && typeof valor === "string" && valor.trim() !== "",
   );
 }
 

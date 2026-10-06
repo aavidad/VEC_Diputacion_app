@@ -64,6 +64,9 @@ func expedienteConAnalisisDurableO3Prueba(
 			ValidadaEn:          instante.Add(-time.Second),
 			Motivo:              "Resultado sintético gobernado para la prueba.",
 		},
+		// Sin retención, la constancia de las partidas va con el coste aproximado.
+		CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+		FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 	}
 	siguiente, err := expediente.RegistrarAnalisis(
 		expediente.Version,
@@ -216,16 +219,6 @@ func TestInstantaneaAnalisisDurableRechazaAgregadoNoAutoritativo(t *testing.T) {
 			},
 			solicitud: solicitudInstantaneaAnalisisDurableO3Prueba,
 		},
-		{
-			nombre: "RC no habilitante",
-			expediente: func() domain.Expediente {
-				return expedienteConAnalisisDurableO3Prueba(
-					t,
-					domain.RCRechazada,
-				)
-			},
-			solicitud: solicitudInstantaneaAnalisisDurableO3Prueba,
-		},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -243,6 +236,24 @@ func TestInstantaneaAnalisisDurableRechazaAgregadoNoAutoritativo(t *testing.T) {
 				t.Fatalf("agregado no confiable aceptado: %v", err)
 			}
 		})
+	}
+}
+
+// Sin crédito no es un agregado adulterado: el estado no admite cobertura y
+// el motivo llega hasta la pantalla, sin entregar la instantánea.
+func TestInstantaneaAnalisisDurableSinCreditoNoAdmiteCoberturaConMotivo(t *testing.T) {
+	expediente := expedienteConAnalisisDurableO3Prueba(t, domain.RCRechazada)
+	instantanea, err := ObtenerInstantaneaAnalisisDurableO3(
+		context.Background(),
+		&lectorInstantaneaAnalisisDurablePrueba{expediente: expediente},
+		solicitudInstantaneaAnalisisDurableO3Prueba(t, expediente),
+	)
+	motivo, ok := domain.MotivoSinCreditoDe(err)
+	if !errors.Is(err, ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura) ||
+		errors.Is(err, ErrInstantaneaAnalisisDurableNoConfiable) ||
+		!ok || motivo != domain.SinCreditoRetencionRechazada ||
+		instantanea != (InstantaneaAnalisisDurableO3{}) {
+		t.Fatalf("sin crédito: %v", err)
 	}
 }
 
