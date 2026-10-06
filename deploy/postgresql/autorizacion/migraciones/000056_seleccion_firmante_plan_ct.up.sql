@@ -40,6 +40,7 @@ BEGIN
  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_propietario','vec_personal.localizar_enlace_cargo_ct_v1(text,text,text,text,text,text,text)','EXECUTE')
  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_propietario','vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(text)','EXECUTE')
  OR pg_catalog.to_regprocedure('vec_autorizacion.seleccionar_firmante_plan_ct_v1(text,text,text,text,text,text,text,text)') IS NOT NULL
+ OR pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NULL
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname IN('vec_autorizacion_propietario','vec_contratacion_temporal_ejecutor') AND rolcanlogin)
  THEN RAISE EXCEPTION 'AUT56: PARO clave=preimagen actual=incompatible esperado=AUT35_CA25_Personal38_sin_AUT56' USING ERRCODE='55000'; END IF;
  IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex')
