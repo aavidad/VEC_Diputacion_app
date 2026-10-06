@@ -9,6 +9,9 @@ import (
 func RecursoFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, descriptor []byte) (vd.RecursoAutorizable, error) {
 	return firma.RecursoFirmaVerificadaV2(m, descriptor)
 }
+func RecursoFirmaVerificadaV2ConAmbitos(m ports.MaterialFirmaVerificadaV2, descriptor []byte, a ports.AmbitosOperadorFirmaV2) (vd.RecursoAutorizable, error) {
+	return firma.RecursoFirmaVerificadaV2ConAmbitos(m, descriptor, a)
+}
 func ValidarCapacidadFirmaVerificadaV2(c ports.CapacidadFirmaVerificadaV2, m ports.MaterialFirmaVerificadaV2) error {
 	return firma.ValidarCapacidadFirmaVerificadaV2(c, m)
 }

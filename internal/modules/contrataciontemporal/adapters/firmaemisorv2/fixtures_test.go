@@ -93,21 +93,15 @@ func (e *emisorPrueba) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context,
 		e.t.Fatal(err)
 	}
 	ahora := e.reloj.ahora
-	version := vd.VersionRol{RolID: "rol_prueba", Version: 1, Nombre: "Prueba", Estado: vd.EstadoVersionRolPublicada,
-		Concesiones: []vd.ConcesionRol{{Accion: d.Accion, ModuloID: d.Recurso.ModuloID, TipoRecurso: d.Recurso.Tipo,
-			Finalidades: []string{d.Finalidad}, GarantiaMinima: vd.AuthAssuranceHigh, CamposPermitidos: e.campos, Obligaciones: e.obligaciones}},
-		PublicadaPor: "seguridad-prueba", PublicadaEn: ahora.Add(-24 * time.Hour)}
-	hc, err := vd.HuellaCatalogoPoliticasAutorizacion(nil)
-	if err != nil {
-		e.t.Fatal(err)
+	var ambitos []vd.AmbitoPerfil
+	for _, clave := range []string{"organizacion_ref", "unidad_ref"} {
+		if v, ok := d.Recurso.Ambitos[clave]; ok {
+			ambitos = append(ambitos, vd.AmbitoPerfil{Clave: clave, Valores: []string{v}})
+		}
 	}
-	i := vd.InstantaneaAutorizacion{AsignacionPerfil: vd.AsignacionPerfil{AsignacionID: "asignacion-prueba", Version: 1,
-		PerfilActivoRef: actor.PerfilActivoRef, PrincipalID: actor.PrincipalID, VersionRolRef: version.Referencia(), Estado: vd.EstadoAsignacionPerfilActiva,
-		Ambitos:      []vd.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{d.Recurso.Ambitos["organizacion_ref"]}}},
-		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "identidad-prueba", EmitidaEn: ahora.Add(-2 * time.Hour)},
-		VersionRol: version, ControlVigenciaVersionRol: vd.ControlVigenciaVersionRol{VersionRolRef: version.Referencia(), Revision: 1,
-			Estado: vd.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: version.PublicadaPor, ActualizadoEn: version.PublicadaEn},
-		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: hc}
+	i := instantaneaPrueba(e.t, actor.PrincipalID, actor.PerfilActivoRef, ambitos, ahora,
+		vd.ConcesionRol{Accion: d.Accion, ModuloID: d.Recurso.ModuloID, TipoRecurso: d.Recurso.Tipo,
+			Finalidades: []string{d.Finalidad}, GarantiaMinima: vd.AuthAssuranceHigh, CamposPermitidos: e.campos, Obligaciones: e.obligaciones})
 	evidencia, err := vd.NuevaEvidenciaEvaluacionAutorizacionV3(s, i, "decision:prueba", ahora, ahora.Add(90*time.Second))
 	if err != nil {
 		e.t.Fatal(err)
@@ -156,6 +150,46 @@ func (e *emisorPrueba) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context,
 	return decision, confirmacion, &exportadorPrueba{material: material}, nil
 }
 
+func instantaneaPrueba(t *testing.T, principal, perfil string, ambitos []vd.AmbitoPerfil, ahora time.Time, concesion vd.ConcesionRol) vd.InstantaneaAutorizacion {
+	t.Helper()
+	version := vd.VersionRol{RolID: "rol_prueba", Version: 1, Nombre: "Prueba", Estado: vd.EstadoVersionRolPublicada,
+		Concesiones: []vd.ConcesionRol{concesion}, PublicadaPor: "seguridad-prueba", PublicadaEn: ahora.Add(-24 * time.Hour)}
+	hc, err := vd.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return vd.InstantaneaAutorizacion{AsignacionPerfil: vd.AsignacionPerfil{AsignacionID: "asignacion-prueba", Version: 1,
+		PerfilActivoRef: perfil, PrincipalID: principal, VersionRolRef: version.Referencia(), Estado: vd.EstadoAsignacionPerfilActiva,
+		Ambitos: ambitos, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "identidad-prueba", EmitidaEn: ahora.Add(-2 * time.Hour)},
+		VersionRol: version, ControlVigenciaVersionRol: vd.ControlVigenciaVersionRol{VersionRolRef: version.Referencia(), Revision: 1,
+			Estado: vd.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: version.PublicadaPor, ActualizadoEn: version.PublicadaEn},
+		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: hc}
+}
+
+// autorizacionPrueba sustituye a la fuente común de autorización: devuelve la
+// asignación del perfil pedido con los ámbitos que fija cada prueba.
+type autorizacionPrueba struct {
+	t        *testing.T
+	ahora    time.Time
+	ambitos  []vd.AmbitoPerfil
+	ajena    bool
+	fallo    error
+	llamadas int
+}
+
+func (a *autorizacionPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (vd.InstantaneaAutorizacion, error) {
+	a.llamadas++
+	if a.fallo != nil {
+		return vd.InstantaneaAutorizacion{}, a.fallo
+	}
+	if a.ajena {
+		perfil = "prf_ajeno_0123456789abcdef"
+	}
+	return instantaneaPrueba(a.t, principal, perfil, a.ambitos, a.ahora, vd.ConcesionRol{Accion: ports.AccionRegistrarFirmaVec,
+		ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaVec, Finalidades: []string{ports.FinalidadFirmaDocumento},
+		GarantiaMinima: vd.AuthAssuranceHigh}), nil
+}
+
 func escenario(t *testing.T, via string) (*Emisor, *fuentePrueba, *emisorPrueba, ports.MaterialFirmaVerificadaV2, vd.RecursoAutorizable, context.Context) {
 	t.Helper()
 	ahora := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
@@ -194,7 +228,8 @@ func escenario(t *testing.T, via string) (*Emisor, *fuentePrueba, *emisorPrueba,
 	f := &fuentePrueba{base: ContextoActorFirmaV2{Resultado: resultado, Vinculo: vinculo, CertificadoCanalSHA256: cert}}
 	reloj := &relojPrueba{ahora: ahora}
 	e := &emisorPrueba{t: t, reloj: reloj}
-	adaptador, err := NuevoEmisor(f, e, vd.ReferenciaEntradaCatalogo{CatalogoID: "motivos_prueba", CatalogoVersion: 1, CatalogoHuellaSHA256: h, EntradaClave: "motivo_11111111111111111111111111111111"}, reloj)
+	autorizacion := &autorizacionPrueba{t: t, ahora: ahora, ambitos: []vd.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{m.OrganizacionRef}}}}
+	adaptador, err := NuevoEmisorConAmbitos(f, e, vd.ReferenciaEntradaCatalogo{CatalogoID: "motivos_prueba", CatalogoVersion: 1, CatalogoHuellaSHA256: h, EntradaClave: "motivo_11111111111111111111111111111111"}, reloj, autorizacion)
 	if err != nil {
 		t.Fatal(err)
 	}
