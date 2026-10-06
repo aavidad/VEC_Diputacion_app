@@ -187,13 +187,11 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	if err != nil || d.PerfilActivoRef != m.PerfilActivoOperadorRef {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	// La decisión interior lleva los ámbitos de la asignación vigente; la
-	// exterior del plan sigue sólo con organización hasta su propio corte.
-	esperados := ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef}
-	if claveHuella == "descriptor_firma_sha256" {
-		if esperados, err = e.ambitosAsignacion(ctx, base); err != nil {
-			return cero, err
-		}
+	// Las dos decisiones, interior y exterior del plan, llevan los ámbitos de
+	// la asignación vigente (AD206 y AD209 los releen en el consumo).
+	esperados, err := e.ambitosAsignacion(ctx, base)
+	if err != nil {
+		return cero, err
 	}
 	if !maps.Equal(r.Ambitos, esperados.Mapa()) {
 		return cero, ports.ErrFirmaDocumentoDenegada

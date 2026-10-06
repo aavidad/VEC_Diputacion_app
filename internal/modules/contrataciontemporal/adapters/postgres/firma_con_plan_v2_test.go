@@ -77,7 +77,7 @@ func capacidadFirmaConPlanPrueba(t *testing.T, m ports.MaterialFirmaVerificadaV2
 	if err != nil {
 		t.Fatal(err)
 	}
-	recursoE, err := firma.RecursoPlanAutorizadoFirmaV2(m, plan, hex.EncodeToString(decSHA[:]), envoltorio)
+	recursoE, err := firma.RecursoPlanAutorizadoFirmaV2(m, plan, hex.EncodeToString(decSHA[:]), envoltorio, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef})
 	if err != nil {
 		t.Fatal(err)
 	}
