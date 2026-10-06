@@ -335,11 +335,12 @@ export function crearCoordinadorModulosPortal({
     // `cargarVista`; se piden cuando el cuadro ha respondido o al abrir CT.
     let partesVista = recursos.vista ? recursos : null;
     let promesaVista = null;
+    let vistaFallida = false;
     const esperarVista = () => {
       promesaVista ??= partesVista ? Promise.resolve(partesVista)
         : cargarModuloConLimite(recursos.cargarVista, CLAVE_CONTRATACION_TEMPORAL, limiteCargaModularMs, temporizadores)
-          .then((partes) => { partesVista = partes; notificar(); return partes; })
-          .catch((error) => { promesaVista = null; throw error; });
+          .then((partes) => { partesVista = partes; vistaFallida = false; notificar(); return partes; })
+          .catch((error) => { promesaVista = null; vistaFallida = true; notificar(); throw error; });
       return promesaVista;
     };
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
@@ -492,7 +493,7 @@ export function crearCoordinadorModulosPortal({
         },
         esperarVista,
         // La portada espera a la vista solo si el cuadro ha llegado.
-        cuadroInicioPendiente: () => Boolean(listadoCuadro) && !partesVista,
+        cuadroInicioPendiente: () => Boolean(listadoCuadro) && !partesVista && !vistaFallida,
         // Portada: la misma consulta que abre la lista, con centro y categoría
         // presentados con los catálogos de alta que hayan llegado. Sin la vista
         // aún no hay número visible: el cuadro aparece al llegar (`notificar`).

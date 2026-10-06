@@ -280,6 +280,31 @@ test("contratación temporal consulta su cuadro sin esperar a su vista y la carg
   assert.equal(pasos.filter((paso) => paso === "vista").length, 1, "la vista se pide una sola vez");
 });
 
+test("si la vista de contratación temporal no llega, Inicio deja de decir que carga", async () => {
+  const cliente = {
+    obtenerCatalogosAlta: async () => ({ centros: [], categorias: [] }),
+    obtenerConfiguracionAnalisis: async () => { throw new Error("503"); },
+    registrarSolicitud: async () => ({}),
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
+          listar: async () => ({ expedientes: [] }) }), etiquetaCatalogo: (_c, v) => v },
+        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        cargarVista: async () => { throw new Error("estático caído"); },
+      }),
+    },
+  });
+  await coordinador.cargarInterno();
+  await esperarTurnos();
+  assert.equal(coordinador.cuadroInicioPendiente(), false);
+});
+
 test("cambiar de vista o repintar Inicio durante la carga no cancela los módulos pendientes", async () => {
   const { coordinador, pendientes } = coordinadorControlado();
   const carga = coordinador.cargarInterno();
