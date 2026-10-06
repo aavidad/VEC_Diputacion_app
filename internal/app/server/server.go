@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"vec-diputacion-granada/config"
@@ -112,7 +113,7 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 		api = http.NotFoundHandler()
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
-	estaticos := staticHandler(false)
+	estaticos := staticHandler()
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
@@ -189,7 +190,7 @@ func newHandlerInternoConHashTeselasOSM(cfg config.Config, api http.Handler, com
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
-	estaticos := staticHandler(false)
+	estaticos := staticHandler()
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
@@ -247,9 +248,9 @@ func protegerSuperficie(cfg config.Config, handler http.Handler) http.Handler {
 	return suprimirCuerpoHEAD(securityHeaders(handler))
 }
 
-// rechazarSelectorPresentacionFueraDePresentacion impide activar ramas de UI
-// no autoritativas mediante una URL copiada del recorrido de demostracion. El
-// valor es irrelevante: la mera presencia de la clave se rechaza.
+// rechazarSelectorPresentacionFueraDePresentacion rechaza las URL heredadas del
+// modo de presentacion retirado (`?presentacion=`), para que un enlace antiguo
+// falle de forma visible. El valor es irrelevante: basta la clave.
 func rechazarSelectorPresentacionFueraDePresentacion(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for clave := range r.URL.Query() {
@@ -363,7 +364,10 @@ func prohibirCookiesYAutorizacionProxy(next http.Handler) http.Handler {
 	return prohibirCookiesYAutorizacionProxyConLimite(next, config.DefaultMaxRequestBodyBytes)
 }
 
-var errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+var (
+	errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+	errCuerpoHTTPIncoherente     = errors.New("server: request body length mismatch")
+)
 
 func prohibirCookiesYAutorizacionProxyConLimite(next http.Handler, limite int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -431,10 +435,30 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	if err := original.Close(); err != nil {
 		return err
 	}
-	r.Body = io.NopCloser(bytes.NewReader(contenido))
-	r.ContentLength = int64(len(contenido))
+	// Un Content-Length declarado debe coincidir con lo recibido. En HTTP/2
+	// el servidor no lo comprueba si la cabecera cerró el flujo; aquí se
+	// rechaza igual que lo haría HTTP/1.1 con un cuerpo incompleto.
+	if declarados := r.Header.Values("Content-Length"); len(declarados) != 0 {
+		declarada, err := strconv.ParseUint(strings.TrimSpace(declarados[0]), 10, 63)
+		if len(declarados) != 1 || err != nil || declarada != uint64(len(contenido)) {
+			return errCuerpoHTTPIncoherente
+		}
+		r.Header.Set("Content-Length", strconv.Itoa(len(contenido)))
+	}
 	r.TransferEncoding = nil
 	r.GetBody = nil
+	if len(contenido) == 0 {
+		// Mismo convenio que net/http en HTTP/1.1, que entrega http.NoBody
+		// cuando la petición no trae cuerpo: en HTTP/2 el servidor siempre
+		// pone un Body propio, incluso en un GET cerrado con END_STREAM. Ya
+		// se ha leído entero y está vacío, así que los manejadores que exigen
+		// «sin cuerpo» (r.Body == http.NoBody) responden igual en ambos.
+		r.Body = http.NoBody
+		r.ContentLength = 0
+		return nil
+	}
+	r.Body = io.NopCloser(bytes.NewReader(contenido))
+	r.ContentLength = int64(len(contenido))
 	return nil
 }
 
@@ -617,11 +641,8 @@ func registrarRutasDisponibilidad(mux *http.ServeMux, comprobador ComprobadorDis
 	mux.Handle("/healthz", listo)
 }
 
-func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
-	rutasProduccion := map[string]struct{}(nil)
-	if !presentacionRRHHHabilitada {
-		rutasProduccion = cargarRutasWebProduccion()
-	}
+func staticHandler() http.Handler {
+	rutasProduccion := cargarRutasWebProduccion()
 	comprimidos := &cacheEstaticosComprimidos{}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -629,21 +650,21 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !presentacionRRHHHabilitada && rutaMaterialExclusivoPresentacion(r.URL.Path) {
+		if rutaMaterialExclusivoPresentacion(r.URL.Path) {
 			http.NotFound(w, r)
 			return
 		}
-		if !presentacionRRHHHabilitada {
-			if _, permitida := rutasProduccion[r.URL.Path]; !permitida {
-				http.NotFound(w, r)
-				return
-			}
+		if _, permitida := rutasProduccion[r.URL.Path]; !permitida {
+			http.NotFound(w, r)
+			return
 		}
 		setNoStoreForStatic(w, r)
 		comprimidos.servir(w, r, directorioEstaticos(), staticFileServer())
 	})
 }
 
+// rutaMaterialExclusivoPresentacion cierra los ficheros sinteticos de prueba
+// (`*presentacion*`, `*demo*`) que conviven en web/ con el portal real.
 func rutaMaterialExclusivoPresentacion(ruta string) bool {
 	for _, segmento := range strings.Split(strings.ToLower(ruta), "/") {
 		if strings.Contains(segmento, "presentacion") || strings.Contains(segmento, "demo") {

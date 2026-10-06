@@ -18,6 +18,7 @@ import (
 	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	mibolsa "vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -158,7 +159,9 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	if err != nil || cfg.ConnConfig.User == "" || validarTLSPostgreSQLBorradores(&cfg.ConnConfig.Config, true) != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
-	cfg.MaxConns, cfg.MinConns = 2, 0
+	// 8 por defecto: con 2, miles de candidatos a la vez hacían cola en el pool.
+	postgresqlcompartido.FijarTamanoPool(cfg, dsn, 8)
+	cfg.MinConns = 0
 	cfg.ConnConfig.ConnectTimeout = 5 * time.Second
 	if cfg.ConnConfig.RuntimeParams == nil {
 		cfg.ConnConfig.RuntimeParams = map[string]string{}

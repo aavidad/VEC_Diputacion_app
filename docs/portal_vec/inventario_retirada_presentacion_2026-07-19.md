@@ -3,6 +3,48 @@
 Fecha de corte: 19 de julio de 2026. Actualizado el 20 de julio de 2026 para
 incorporar el selector descartable de cuatro puntos de vista.
 
+## Retirada del 6 de octubre de 2026
+
+Por orden de Alberto se retira el artefacto de presentación: se enseña el
+portal real, con datos sintéticos. Lo que sigue en este documento es el plan de
+julio y queda como histórico.
+
+Retirado:
+
+- binarios `cmd/vec-presentacion` y `cmd/vec-cartografia-presentacion`, sus
+  raíces de composición (`bootstrap/presentacion.go`,
+  `bootstrap/cartografia_presentacion.go`), el servidor y la cabecera de
+  presentación (`server/server_presentacion.go`, `presentacion_marca.go`), la
+  superficie cartográfica de presentación de Dietas y los tres constructores
+  HTTP `*Presentacion` de Personal (las consultas públicas reales se quedan);
+- en el `Dockerfile`, la compilación de ambos binarios, el árbol
+  `web-presentacion` y las etapas `runtime-presentacion`,
+  `runtime-cartografia-presentacion` y `herramientas-revision-web`;
+- en `docker-compose.yml`, todos los servicios, redes y el secreto de los
+  perfiles `presentacion`, `presentacion-remota`, `presentacion-cartografia` y
+  `herramientas-presentacion`; quedan `vec-api` y `proxy-local`;
+- lanzadores y comprobaciones: `arrancar_presentacion_rrhh.sh`,
+  `smoke_presentacion_rrhh.sh`, `smoke_cartografia_presentacion.{sh,py}`,
+  `capturar_presentacion_web.py`, `generar_certificado_presentacion_remota.sh`,
+  `verificar_contenido_artefactos_presentacion.sh`,
+  `generar_bases_demo_pdf.py` y sus pruebas, y las configuraciones nginx de
+  presentación;
+- web: la rama `?presentacion=rrhh` de `web/static/app.js`, el agregado
+  `portal-empleado/datos-presentacion.js`, los recibos PDF DEMO de
+  `portal-empleado/documentos/` y las bases DEMO de `bolsa/documentos/`.
+
+Queda pendiente, porque depende de otra pieza:
+
+- el perfil `presentacion_rrhh` y sus guardas en `config/presentacion.go`. Ya
+  no arranca nada, pero la API heredada de demostración (`nuevaAPIDemo`, que en
+  ejecución no es alcanzable) solo se puede probar con ese perfil. Se retira
+  junto con esa API;
+- los `datos-presentacion.js` de los módulos (Contratación temporal, Méritos,
+  Nóminas, Personal, Solicitudes) y `datos-sinteticos-rrhh.js`: ninguna
+  pantalla los carga; solo los usan pruebas como datos de ejemplo;
+- `data/demo/convocatorias_publicas.demo.json` sigue enlazando las bases DEMO
+  borradas; el servidor normal ya respondía 404 a esas rutas.
+
 ## Objetivo y regla de decisión
 
 Este inventario permite retirar todo el material operativo de demostración
