@@ -124,11 +124,19 @@ func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, bool) {
 		return entradaComprimida{}, false
 	}
 	clave := dir + "\x00" + ruta
+	// Todo el fallo de caché va bajo el mismo bloqueo: cada versión se
+	// comprime una sola vez aunque lleguen muchas peticiones a la vez, y la
+	// cuenta de bytes refleja exactamente lo guardado. Ocurre una vez por
+	// fichero tras arrancar o desplegar.
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	previa, existe := c.entrada[clave]
-	c.mu.Unlock()
 	if existe && previa.tamano == info.Size() && previa.modificado.Equal(info.ModTime()) {
 		return previa, true
+	}
+	if existe {
+		c.bytes -= len(previa.cuerpo)
+		delete(c.entrada, clave)
 	}
 	original, err := io.ReadAll(io.LimitReader(fichero, maximoBytesComprimir+1))
 	if err != nil || int64(len(original)) != info.Size() {
@@ -141,18 +149,12 @@ func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, bool) {
 		return entradaComprimida{}, false
 	}
 	if comprimido.Len() < len(original) {
-		resumen := sha256.Sum256(original)
-		nueva.cuerpo = comprimido.Bytes()
+		nueva.cuerpo = bytes.Clone(comprimido.Bytes())
+		resumen := sha256.Sum256(nueva.cuerpo)
 		nueva.etiqueta = `"gz-` + hex.EncodeToString(resumen[:16]) + `"`
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if existe {
-		c.bytes -= len(previa.cuerpo)
 	}
 	if c.bytes+len(nueva.cuerpo) > maximoBytesCacheComprimo {
 		// Sin sitio: se sirve sin comprimir en vez de crecer sin límite.
-		delete(c.entrada, clave)
 		return entradaComprimida{}, false
 	}
 	c.bytes += len(nueva.cuerpo)

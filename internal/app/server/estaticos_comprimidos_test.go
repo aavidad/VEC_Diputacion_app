@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"vec-diputacion-granada/config"
@@ -208,5 +209,37 @@ func TestAceptaGzip(t *testing.T) {
 		if aceptaGzip(cabeceras) != esperado {
 			t.Errorf("aceptaGzip(%q) = %v", valor, !esperado)
 		}
+	}
+}
+
+func TestCacheComprimidosCuentaUnaVezConPeticionesConcurrentes(t *testing.T) {
+	dir := t.TempDir()
+	contenido := []byte(strings.Repeat("const dato = 'valor';\n", 4000))
+	if err := os.WriteFile(filepath.Join(dir, "app.js"), contenido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cache := &cacheComprimidos{entrada: map[string]entradaComprimida{}}
+	var grupo sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			if entrada, ok := cache.obtener(dir, "/app.js"); !ok || entrada.cuerpo == nil {
+				t.Error("sin variante comprimida")
+			}
+		}()
+	}
+	grupo.Wait()
+	entrada := cache.entrada[dir+"\x00/app.js"]
+	if len(cache.entrada) != 1 || cache.bytes != len(entrada.cuerpo) {
+		t.Fatalf("contabilidad = %d B con %d entradas; guardado %d B", cache.bytes, len(cache.entrada), len(entrada.cuerpo))
+	}
+	// Una versión nueva del fichero sustituye a la anterior sin acumular.
+	if err := os.WriteFile(filepath.Join(dir, "app.js"), append(contenido, "// v2\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	nueva, ok := cache.obtener(dir, "/app.js")
+	if !ok || cache.bytes != len(nueva.cuerpo) || nueva.etiqueta == entrada.etiqueta {
+		t.Fatalf("tras cambiar el fichero: %d B, guardado %d B", cache.bytes, len(nueva.cuerpo))
 	}
 }
