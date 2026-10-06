@@ -5,6 +5,7 @@ import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL }
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
 const FASE_ERROR = "error";
+const FASE_NO_DISPONIBLE = "no_disponible";
 
 function instanteVisible(instante) {
   if (!instante) return traducirPortal("txt_sin_fecha");
@@ -389,7 +390,20 @@ export function crearRenderizadorBorradores({
       </section>`;
   }
 
+  // Sin API de borradores en este servidor: se dice en llano, sin códigos ni
+  // reintento, y se ofrece volver al cuadro.
+  function renderNoDisponible() {
+    return `
+      <header class="encabezado-vista"><div><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2></div></header>
+      <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
+        <p><strong>${textoPortal("borradores_no_disponible_titulo")}</strong></p>
+        <p>${textoPortal("borradores_no_disponible_texto")}</p>
+        <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro_de_mando")}</button></div>
+      </div></section>`;
+  }
+
   function renderizar() {
+    if (estado.faseLista === FASE_NO_DISPONIBLE) return renderNoDisponible();
     const cabecera = `
       <header class="encabezado-vista">
         <div><p class="sobrelinea">${textoPortal("txt_gestion_interna_de_bolsa")}</p><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2><p>${textoPortal("txt_edicion_durable_con_catalogos_versionados_contro")}</p></div>

@@ -147,6 +147,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261006-arranque-rapido-v2");
   versionesEspeciales.set("portal-composicion-empleado.js", "20261005-b-contacto-v3");
   versionesEspeciales.set("portal.js", "20261006-arranque-rapido-v2");
+  // Elaboración: el 404 de borradores es «no disponible».
+  versionesEspeciales.set("portal-borradores-acceso.js", "20261006-borradores-no-disponible-v1");
+  versionesEspeciales.set("portal-borradores-vista.js", "20261006-borradores-no-disponible-v1");
+  versionesEspeciales.set("portal-borradores-ui-soporte.js", "20261006-borradores-no-disponible-v1");
   versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/solicitudes/fuente-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/personal/vista-contacto-propio.js", "20261004-b-contacto-retoma-v2");
