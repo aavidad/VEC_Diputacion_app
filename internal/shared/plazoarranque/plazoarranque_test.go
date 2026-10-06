@@ -12,7 +12,7 @@ func TestAnalizar(t *testing.T) {
 			t.Fatalf("Analizar(%q)=%v,%v; esperado %v", v, d, err, esperado)
 		}
 	}
-	for _, v := range []string{"0", "-1", "601", "1.5", "abc", "1m", "9999999999999999999"} {
+	for _, v := range []string{"0", "-1", "601", "1.5", "abc", "1m", "9999999999999999999", "18446744074", "10000000000"} {
 		if _, err := Analizar(v); err == nil {
 			t.Fatalf("Analizar(%q) debía fallar", v)
 		}

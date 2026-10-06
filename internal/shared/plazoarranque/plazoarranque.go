@@ -45,13 +45,15 @@ func Analizar(valor string) (time.Duration, error) {
 	}
 	valor = strings.TrimSuffix(valor, "s")
 	n, err := strconv.Atoi(valor)
-	if err != nil || n < 1 || time.Duration(n)*time.Second > MaximoPlazo {
+	if err != nil || n < 1 || n > int(MaximoPlazo/time.Second) {
 		return 0, ErrPlazoInvalido
 	}
 	return time.Duration(n) * time.Second, nil
 }
 
-// Fijar establece el plazo mínimo de las comprobaciones de arranque. Solo
+// Fijar establece el plazo mínimo de las comprobaciones de arranque. Quien lo
+// llame debe llamar a Terminar al acabar de componer; si no, los plazos quedan
+// ampliados para siempre en ese proceso. Solo
 // tiene efecto la primera vez y antes de Terminar.
 func Fijar(plazo time.Duration) error {
 	if plazo < 0 || plazo > MaximoPlazo {

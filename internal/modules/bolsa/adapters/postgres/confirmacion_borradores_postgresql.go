@@ -223,7 +223,7 @@ func revalidarAtestacionKMSConPlazoPostgreSQL(
 	} else if restante < presupuesto {
 		presupuesto = restante
 	}
-	ctxKMS, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(presupuesto))
+	ctxKMS, cancelar := context.WithTimeout(ctx, presupuesto)
 	defer cancelar()
 	resultado, err := revalidador.RevalidarAtestacionKMS(ctxKMS, solicitud)
 	if err != nil {

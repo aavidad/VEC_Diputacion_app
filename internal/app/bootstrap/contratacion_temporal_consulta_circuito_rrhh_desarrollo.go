@@ -76,7 +76,7 @@ func (a auditorConsultaCircuitoRRHHDenegada) ServeHTTP(w http.ResponseWriter, r 
 			responderConsultaCircuitoAuditoriaNoDisponible(w)
 			return
 		}
-		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
+		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
 		err := a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 		cancelar()
 		if err != nil {
