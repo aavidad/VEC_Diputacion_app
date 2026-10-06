@@ -150,7 +150,9 @@ export GOSUMDB=off
 GO_LOCAL=$("$SELECTOR_TOOLCHAIN")
 (
   cd "$RAIZ_REPOSITORIO"
-  "$GO_LOCAL" build -buildvcs=false -o "$BINARIO" ./cmd/vec-server
+  "$GO_LOCAL" build -buildvcs=false \
+    -ldflags "-X vec-diputacion-granada/internal/shared/telemetria.Revision=$(git rev-parse --short=12 HEAD 2>/dev/null || true)" \
+    -o "$BINARIO" ./cmd/vec-server
 )
 comprobar_puerto_libre
 

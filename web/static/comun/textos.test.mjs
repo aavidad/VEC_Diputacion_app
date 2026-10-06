@@ -131,3 +131,18 @@ test("el transporte JSON solo lee el propio origen, sin redirecciones ni Referer
   await assert.rejects(leerRecursoJSON("https://otro.example/textos/idiomas.json", { fetchImpl }), /propio origen/u);
   assert.deepEqual(llamadas, []);
 });
+
+// 06/10/2026: el catálogo del idioma por defecto es el respaldo de todos los
+// demás y se descargaba una vez por idioma pedido. Ahora se lee una sola vez.
+test("cada catálogo se lee una sola vez y una lectura fallida se puede repetir", async () => {
+  const { leerCatalogoUnaVez, urlCatalogo, URL_RAIZ_TEXTOS } = await import("./textos.js");
+  const url = urlCatalogo("es", "portal", URL_RAIZ_TEXTOS);
+  const primera = leerCatalogoUnaVez(url);
+  assert.equal(leerCatalogoUnaVez(new URL(url.href)), primera);
+  assert.equal(typeof (await primera), "object");
+  const ausente = urlCatalogo("es", "no-existe-catalogo", URL_RAIZ_TEXTOS);
+  const fallida = leerCatalogoUnaVez(ausente);
+  await assert.rejects(fallida);
+  assert.notEqual(leerCatalogoUnaVez(ausente), fallida);
+  await assert.rejects(leerCatalogoUnaVez(ausente));
+});

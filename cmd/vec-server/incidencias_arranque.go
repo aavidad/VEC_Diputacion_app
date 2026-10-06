@@ -5,11 +5,12 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"runtime/debug"
 	"sync"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server/supervision"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -34,7 +35,7 @@ func registrarFalloArranque(destino io.Writer, componente domain.ComponenteIncid
 	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
 		Destino:        destino,
 		Capacidad:      1,
-		Entorno:        os.Getenv(envEntornoSupervision),
+		Entorno:        entornoSupervision(),
 		VersionBinario: revisionCompilada(),
 	})
 	if err != nil {
@@ -47,19 +48,12 @@ func registrarFalloArranque(destino io.Writer, componente domain.ComponenteIncid
 	_ = emisor.Cerrar(ctx)
 }
 
-// revisionCompilada devuelve la revisión VCS incrustada por la cadena de
-// compilación, o vacío; el dominio la normaliza a su formato cerrado.
-func revisionCompilada() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return ""
-	}
-	for _, ajuste := range info.Settings {
-		if ajuste.Key == "vcs.revision" {
-			return ajuste.Value
-		}
-	}
-	return ""
+// revisionCompilada devuelve la revisión marcada al compilar o la de Git.
+func revisionCompilada() string { return telemetria.Version() }
+
+// entornoSupervision usa VEC_ENTORNO y, si falta, el perfil de ejecución.
+func entornoSupervision() string {
+	return telemetria.Entorno(os.Getenv(envEntornoSupervision), os.Getenv(config.EnvExecutionProfile))
 }
 
 // plazoCierreSupervision acota la espera para vaciar las incidencias
@@ -76,7 +70,7 @@ const plazoCierreSupervision = 2 * time.Second
 func crearEmisorServidor(destino, registro io.Writer) (ports.EmisorIncidenciasTecnicas, func()) {
 	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
 		Destino:        destino,
-		Entorno:        os.Getenv(envEntornoSupervision),
+		Entorno:        entornoSupervision(),
 		VersionBinario: revisionCompilada(),
 	})
 	if err != nil {

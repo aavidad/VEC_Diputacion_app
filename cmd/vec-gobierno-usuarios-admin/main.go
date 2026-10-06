@@ -114,7 +114,7 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 
 	switch fase {
 	case "preparar":
-		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: time.Duration(cfg.HorasValidezClaves) * time.Hour}
+		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: time.Duration(cfg.HorasValidezClaves) * time.Hour, ConjuntoVersion: cfg.ConjuntoCapacidades}
 		r, err := ops.preparar(ctx, cfg.DSNLectura, duracion, origen, raiz)
 		if err != nil {
 			return fallo("preparacion_fallida")

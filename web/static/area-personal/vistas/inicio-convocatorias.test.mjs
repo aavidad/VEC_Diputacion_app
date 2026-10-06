@@ -15,8 +15,8 @@ test("la vista y sus importadores comparten una URL renovada", async () => {
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const versionShell = "20261002-rrhh17-v1";
-  const versionVista = "20261001-codexf-accesibilidad-v1";
+  const versionShell = "20261005-b4-v1";
+  const versionVista = "20261005-b4-v1";
   assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${versionShell}`));
   assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${versionShell}`));
   assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${versionVista}`));

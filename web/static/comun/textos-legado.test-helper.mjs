@@ -11,7 +11,6 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "comun/oportunidades/i18n.js",
   "portal-empleado/ayudante-tramites.js",
   "portal-empleado/calendarios/i18n.js",
-  "portal-empleado/datos-presentacion.js",
   "portal-empleado/datos-sinteticos-rrhh.js",
   "portal-empleado/modulos/aprobaciones/i18n.js",
   "portal-empleado/modulos/comunicaciones/i18n.js",

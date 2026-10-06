@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,8 +48,11 @@ const limiteArchivoGobiernoUsuarios = 16384
 // proveedor HMAC y semilla del firmante de la raíz ya publicada.
 type MaterialOrigenGobiernoUsuariosAdmin struct {
 	DirectorioMaterial, RutaConfiguracionHMAC, ArchivoSemillaRaiz string
-	// ValidezClaves acota la ventana de las dos claves nuevas (1 h a 24 h).
+	// ValidezClaves acota la ventana de las claves nuevas (1 h a 24 h).
 	ValidezClaves time.Duration
+	// ConjuntoVersion 0: gobierno de usuarios (AD188). 1 o más: conjunto de
+	// capacidades ADMIN de AD198 (incluye el lote ordinario de perfiles).
+	ConjuntoVersion uint64
 }
 
 // PreparacionGobiernoUsuariosAdmin devuelve sólo huellas: el DBA las fija en
@@ -83,14 +87,21 @@ const consultaInstantaneaGobiernoUsuarios = `SELECT jsonb_build_object('revision
 // vez. La secuencia del gobierno, única y creciente, entra en el dominio de
 // derivación y en el identificador: cada renovación obtiene claves nuevas y
 // repetir la preparación de una publicación no aplicada da las mismas.
-func descriptoresClavesUsuariosAdmin(secuencia, maxVersion, maxRevision uint64, ahora time.Time, validez time.Duration) []DescriptorClaveUsuariosAdmin {
+// Una clave por audiencia del conjunto, en su orden. Para el conjunto 0
+// produce exactamente los descriptores de AD188 (usuarios listar/consultar).
+func descriptoresClavesUsuariosAdmin(conjunto []AudienciaCapacidadAdmin, secuencia, maxVersion, maxRevision uint64, ahora time.Time, validez time.Duration) []DescriptorClaveUsuariosAdmin {
 	s := strconv.FormatUint(secuencia, 10)
 	var entradas []DescriptorClaveUsuariosAdmin
-	for i, e := range []struct{ a, n string }{{administracion.AudienciaUsuariosListarV3, "listar"}, {administracion.AudienciaUsuariosConsultarV3, "consultar"}} {
-		entradas = append(entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.a, Dominio: "vec.admin.desarrollo.usuarios." + e.n + ".capacidad-v3.s" + s, PrefijoClave: "clave:capacidad:admin:usuarios:" + e.n + ":s" + s + ":", EmisorID: "emisor:admin:usuarios:desarrollo:v1", Version: maxVersion + uint64(i) + 1, RevisionGobierno: maxRevision + uint64(i) + 1, ValidaDesde: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(validez)})
+	for i, e := range conjunto {
+		entradas = append(entradas, DescriptorClaveUsuariosAdmin{Audiencia: e.Audiencia, Dominio: "vec.admin.desarrollo." + strings.ReplaceAll(e.Segmento, ":", ".") + ".capacidad-v3.s" + s, PrefijoClave: "clave:capacidad:admin:" + e.Segmento + ":s" + s + ":", EmisorID: e.EmisorID, Version: maxVersion + uint64(i) + 1, RevisionGobierno: maxRevision + uint64(i) + 1, ValidaDesde: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(validez)})
 	}
 	return entradas
 }
+
+// La misma instantánea con la preimagen del conjunto de AD198 ($1).
+var consultaInstantaneaGobiernoCapacidades = strings.Replace(consultaInstantaneaGobiernoUsuarios,
+	"vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()",
+	"vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1($1::integer)", 1)
 
 // PrepararGobiernoUsuariosAdmin lee la configuración vigente con un pool de
 // lectura, deriva las dos claves con el proveedor existente y escribe plan,
@@ -100,8 +111,16 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if ctx == nil || lectura == nil || salida == nil || dependenciaBootstrapNula(reloj) || origen.ValidezClaves < time.Hour || origen.ValidezClaves > 24*time.Hour {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
+	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(origen.ConjuntoVersion)
+	if !ok {
+		return vacio, ErrGobiernoUsuariosAdmin
+	}
+	consulta, argumentos := consultaInstantaneaGobiernoUsuarios, []any{}
+	if origen.ConjuntoVersion != 0 {
+		consulta, argumentos = consultaInstantaneaGobiernoCapacidades, []any{int64(origen.ConjuntoVersion)}
+	}
 	var raw []byte
-	if lectura.QueryRow(ctx, consultaInstantaneaGobiernoUsuarios).Scan(&raw) != nil {
+	if lectura.QueryRow(ctx, consulta, argumentos...).Scan(&raw) != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	var actual instantaneaGobiernoUsuarios
@@ -127,7 +146,8 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if cfg.Gobierno.HuellaSHA256, err = g.HuellaSHA256ParaGobierno(); err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	cfg.Entradas = descriptoresClavesUsuariosAdmin(cfg.Gobierno.Secuencia, actual.MaxVersion, actual.MaxRevision, now, origen.ValidezClaves)
+	cfg.ConjuntoVersion = origen.ConjuntoVersion
+	cfg.Entradas = descriptoresClavesUsuariosAdmin(conjunto, cfg.Gobierno.Secuencia, actual.MaxVersion, actual.MaxRevision, now, origen.ValidezClaves)
 	m, err := PrepararMaterialUsuariosAdmin(ctx, cfg, reloj)
 	if err != nil {
 		return vacio, err
@@ -144,7 +164,13 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if cfg.Gobierno.ExpiraEn.Before(caduca) {
 		caduca = cfg.Gobierno.ExpiraEn
 	}
-	p := planGobiernoUsuariosAdmin{Version: 1, OperacionRef: "gcu_" + actual.PreSHA[:32], PreparadoEn: now, CaducaEn: caduca, PreimagenSHA256: actual.PreSHA, Ordenes: []uint64{actual.Orden + 1, actual.Orden + 2}}
+	p := planGobiernoUsuariosAdmin{Version: 1, OperacionRef: "gcu_" + actual.PreSHA[:32], PreparadoEn: now, CaducaEn: caduca, PreimagenSHA256: actual.PreSHA}
+	if origen.ConjuntoVersion != 0 {
+		p.Version, p.OperacionRef, p.ConjuntoVersion = 2, "gca_"+actual.PreSHA[:32], origen.ConjuntoVersion
+	}
+	for i := range conjunto {
+		p.Ordenes = append(p.Ordenes, actual.Orden+uint64(i)+1)
+	}
 	p.Configuracion.Revision = cfg.Gobierno.Revision
 	p.Configuracion.Secuencia = cfg.Gobierno.Secuencia
 	p.Configuracion.Huella = cfg.Gobierno.HuellaSHA256
@@ -268,17 +294,26 @@ func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.
 	return informe, nil
 }
 
-const consultaCadenaGobiernoUsuarios = `WITH rows AS (
- SELECT * FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+// Posiciones de la cadena: hasta el corte de AD207 coinciden con el número
+// del asiento; después las da el eslabón y solo cuentan los asientos sellados.
+const consultaCadenaGobiernoUsuarios = `WITH corte AS (SELECT secuencia n FROM vec_autorizacion_atestada_v3.control_cadena_auditoria),
+cadena AS (
+ SELECT a.*,a.secuencia posicion,NULL::jsonb eslabon,a.anterior_sha256 enlace_previo,a.huella_sha256 enlace
+ FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a,corte WHERE a.secuencia<=corte.n
+ UNION ALL
+ SELECT a.*,e.posicion,jsonb_build_object('posicion',e.posicion,'secuencia',e.secuencia,'anterior_sha256',e.anterior_sha256,'eslabon_sha256',e.eslabon_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'sellado_en',to_char(e.sellado_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),e.anterior_sha256,e.eslabon_sha256
+ FROM vec_autorizacion_atestada_v3.eslabon_auditoria_v5 e JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 a USING (secuencia)
+), rows AS (
+ SELECT * FROM cadena
  WHERE tipo_registro IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')
- AND secuencia > COALESCE((SELECT max(secuencia) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+ AND posicion > COALESCE((SELECT max(posicion) FROM cadena
  WHERE tipo_registro NOT IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')),0)
-), rango AS(SELECT min(secuencia) primero,max(secuencia) ultimo,count(*) cuenta FROM rows)
- SELECT jsonb_build_object('esquema',$1::text,'manifiesto',jsonb_build_object('cadena_id','cadena:comun:interna','primera_secuencia',ra.primero,'ultima_secuencia',ra.ultimo,'registros',ra.cuenta,'anterior_sha256',(SELECT anterior_sha256 FROM rows ORDER BY secuencia LIMIT 1),'cabeza_sha256',(SELECT huella_sha256 FROM rows ORDER BY secuencia DESC LIMIT 1)),
- 'registros',(SELECT jsonb_agg(jsonb_build_object('tipo_registro',a.tipo_registro) ||
+), rango AS(SELECT min(posicion) primero,max(posicion) ultimo,count(*) cuenta FROM rows)
+ SELECT jsonb_build_object('esquema',$1::text,'manifiesto',jsonb_build_object('cadena_id','cadena:comun:interna','primera_secuencia',ra.primero,'ultima_secuencia',ra.ultimo,'registros',ra.cuenta,'anterior_sha256',(SELECT enlace_previo FROM rows ORDER BY posicion LIMIT 1),'cabeza_sha256',(SELECT enlace FROM rows ORDER BY posicion DESC LIMIT 1)),
+ 'registros',(SELECT jsonb_agg(jsonb_build_object('tipo_registro',a.tipo_registro) || CASE WHEN a.eslabon IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('eslabon',a.eslabon) END ||
  CASE WHEN a.tipo_registro='gobierno_usuarios_admin' THEN jsonb_build_object('gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('plan_sha256',a.plan_sha256,'preimagen_sha256',a.gobierno_usuarios_detalle->>'preimagen_sha256','configuracion_origen_ref',a.gobierno_usuarios_detalle->>'configuracion_origen_ref','configuracion_destino_ref',a.gobierno_usuarios_detalle->>'configuracion_destino_ref','claves_sha256',a.gobierno_usuarios_detalle->>'claves_sha256'))
  ELSE jsonb_build_object('intento_gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('solicitud_sha256',a.gobierno_usuarios_solicitud_sha256)) END
- ORDER BY a.secuencia) FROM rows a)) FROM rango ra`
+ ORDER BY a.posicion) FROM rows a)) FROM rango ra`
 
 func publicaRaizGobiernoUsuarios(spki string) (ed25519.PublicKey, error) {
 	der, err := base64.StdEncoding.DecodeString(spki)

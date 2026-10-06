@@ -34,6 +34,8 @@ type DependenciasPerfiles struct {
 	FuenteSeleccion       FuenteSeleccionAuditadaADMIN
 	AudienciaSelector     string
 	SoloUsuariosMetadatos bool
+	Lote                  *LoteADMIN
+	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
 }
 
 type handlerPerfilesADMIN struct {
@@ -93,9 +95,25 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 	if deps.SoloUsuariosMetadatos {
 		constructor = api.NuevoHandlerUsuariosMetadatos
 	}
+	if deps.Lote != nil {
+		// El lote sólo se monta junto a las lecturas nominales de usuarios.
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(deps.Lote.Catalogo) || dependenciaComposicionNula(deps.Lote.Servicio) {
+			return nil, ErrConfiguracion
+		}
+		lote := *deps.Lote
+		constructor = func(origen string, sesiones api.ResolvedorSesion, lecturas api.FuenteLecturas, auditor api.AuditorFrontera) (*api.Handler, error) {
+			return api.NuevoHandlerUsuariosMetadatosConLote(origen, lote.Organizacion, sesiones, lecturas, lote.Catalogo, lote.Servicio, auditor)
+		}
+	}
 	handler, err := constructor(host.origen(), deps.Sesiones, deps.Lecturas, deps.Auditor)
 	if err != nil {
 		return nil, ErrConfiguracion
+	}
+	if !dependenciaComposicionNula(deps.GobiernoPlan) {
+		// El gobierno del plan sólo se monta junto a las lecturas de usuarios.
+		if !deps.SoloUsuariosMetadatos || handler.ConGobiernoPlanFirma(deps.GobiernoPlan) != nil {
+			return nil, ErrConfiguracion
+		}
 	}
 	montaje, err := montarActivosPerfiles(handler, deps, host)
 	if err != nil {
