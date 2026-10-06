@@ -136,7 +136,9 @@ func (f *Fuente) PaginaListaPublica(ctx context.Context, bolsaRef string, desde,
 // comprobarSecuenciaPosicionesB10 exige que las posiciones de la bolsa sean
 // exactamente 1..total. La clave primaria (bolsa_ref, orden) impide órdenes
 // repetidos, así que recuento, mínimo y máximo bastan para probarlo. Lo hace
-// PostgreSQL con un recorrido solo de índice, sin enviar las filas.
+// PostgreSQL con un recorrido solo de índice, sin enviar las filas. Depende de
+// que posiciones_bolsa_v1 siga siendo una proyección 1:1 de la tabla (000002):
+// una vista que repitiera filas obligaría a contar órdenes distintos.
 func comprobarSecuenciaPosicionesB10(ctx context.Context, tx pgx.Tx, bolsaRef string, total int) error {
 	var recuento, minimo, maximo int64
 	if err := tx.QueryRow(ctx, `
