@@ -14,6 +14,7 @@
     "ficha_documentos_titulo": "Documents",
     "ficha_documentos_aparte": "The case documents are listed on their own screen.",
     "ficha_documentos_ver": "View case documents",
+    "ficha_documentos_no_disponibles": "This case file's documents cannot be viewed from here. If you need them, contact IT support.",
     "ficha_documentos_recuento": "{total} documents",
     "ficha_documento_esta": "Available",
     "ficha_documento_falta": "Missing",

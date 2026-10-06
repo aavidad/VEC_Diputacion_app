@@ -13,6 +13,8 @@ import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20
 import {
   renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
+import { cargarTextos } from "../../../comun/textos.js";
+import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -22,6 +24,14 @@ const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 // Estado propio de la relación por vía: su texto vive en el catálogo de textos
 // de cobertura, no en el diccionario del módulo.
 const ESTADO_PERFIL_SIN_PREPARACION = "cobertura_preparacion_perfil_sin_datos";
+// Sin crédito no se ofrece: el servidor decide y dice el motivo con un código
+// propio; aquí solo se pone en palabras (sección `sin_credito` del catálogo).
+const textosCobertura = await cargarTextos("contratacion-temporal-cobertura");
+const PREFIJO_SIN_CREDITO = "sin_credito_";
+function claveSinCredito(error) {
+  return error?.envelopeValido === true && error?.estado === 409
+    && CONFLICTOS_SIN_CREDITO_COBERTURA.includes(error?.codigo) ? error.codigo : "";
+}
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -275,6 +285,9 @@ export function montarFormularioCobertura(configuracion = {}) {
   }
 
   function textoEstado(claveMensaje) {
+    if (claveMensaje.startsWith(PREFIJO_SIN_CREDITO)) {
+      return textosCobertura.traducir(`sin_credito.${claveMensaje.slice(PREFIJO_SIN_CREDITO.length)}`);
+    }
     return claveMensaje === ESTADO_PERFIL_SIN_PREPARACION
       ? textoPreparacion("perfil_sin_datos") : t(claveMensaje);
   }
@@ -333,7 +346,8 @@ export function montarFormularioCobertura(configuracion = {}) {
         if (montado) {
           const perfilSinPreparacion = error?.estado === 403
             && error?.codigo === "datos_no_disponibles_perfil" && error?.envelopeValido === true;
-          fijarError(perfilSinPreparacion ? ESTADO_PERFIL_SIN_PREPARACION : "cobertura_estado_error_propuesta");
+          fijarError(perfilSinPreparacion ? ESTADO_PERFIL_SIN_PREPARACION
+            : claveSinCredito(error) || "cobertura_estado_error_propuesta");
         }
         return null;
       } finally {

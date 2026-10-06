@@ -1,0 +1,22 @@
+# Bolsa: consulta RRHH del correo y los teléfonos completos con decisión propia (corte C de auditoría).
+# Aplicar después de las listas de main del 05/10, en este orden: codexk_admin_runtime, aut47,
+# codexl_transaccion_origen, personal_servicios_certificados, perfiles_asignables, aut48,
+# firmas_ad178_ad177, firmas_recuperacion, firmas_plan y aut51_plan_firma, y después de
+# lista_sql_claude_lote_perfiles_ad190_20261005.txt (AD190, #720). AD197 mide el núcleo y el CHECK de
+# audiencias que deja AD190 (núcleo 05e6753a…/1a5c3e67…, CHECK 018e8a44…): si otra migración los
+# cambia antes, se detiene con PARO sin tocar nada y hay que medirla de nuevo.
+# Instalar la SQL antes del binario: el binario nuevo publica la clave de capacidad de la audiencia
+# vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1, que sólo admite el CHECK de AD197.
+# Fila de origen AD172 que el DBA añade después (inmutable; revisar antes el LOGIN real de la
+# principal). Sin ella la consulta completa responde 403 y queda el intento «denegado»:
+#   vec_bolsa_llamamientos_desarrollo|vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1|bolsa.datos_contacto_participacion.consultar|vec-rrhh|interna_corporativa
+# La concesión al perfil RRHH de Bolsa llega con la provisión aprobada (VEC_BOLSA_DOCUMENTAL_PROVISION_*,
+# con las dos huellas del aviso de arranque): el rol pasa a la v13-v16, que incluye también la consulta
+# documental. Mientras tanto la vista enmascarada sigue igual y la completa responde 403.
+# Si el perfil ya está en v9-v12 y siguen puestas las variables de la provisión documental anterior,
+# el binario las ignora con aviso (su preimagen no es la asignación publicada) y conserva esa versión;
+# para pasar a v13-v16 hay que poner las dos huellas nuevas que da el aviso de arranque.
+# Desde la versión base ya no hay provisión solo documental: la aprobación lleva a v13-v16 con las dos.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000197_consumidor_consulta_datos_contacto_participacion.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000078_consulta_datos_contacto_rrhh.up.sql

@@ -46,17 +46,18 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    "MENSAJES_FICHA_LISTA_EN": "7eadf223c99dd7a795e65680345887d5d40848e6131cf82b9b74a19c6dacf360",
-    "MENSAJES_FICHA_LISTA_ES": "5e7ae85fbb185fd5e64a7a2a81baee3c3e0cded6a775a2d4b99bdb88a1366e66"
+    "MENSAJES_FICHA_LISTA_EN": "e9898e4c2cb8e01b931e1be5e130f78b9015e4f10bc54c082c3482ee45cc0d35",
+    "MENSAJES_FICHA_LISTA_ES": "4e173c078e5eaa02c171277fb18d525aef3ec8267b0230399c7303add249fb7e"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
-    // Excepción a la preimagen: cuatro correcciones EN de renuncia posteriores al traslado.
-    "MENSAJES_LLAMAMIENTO_EN": "6d0fd18d0572e0d98000134069e36b44389253c4c6a04cc6579f993697c86399",
-    "MENSAJES_LLAMAMIENTO_ES": "d30865364e6e13be558dfd6ae65f7296dd4c5e1f745c37e2e936c89b5d9618fe"
+    // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
+    // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
+    "MENSAJES_LLAMAMIENTO_EN": "1f57663b12641ccc9b3189f2bc6cc35b2217e9a4d74519e3fafed7a1d8cecabf",
+    "MENSAJES_LLAMAMIENTO_ES": "88a4c249b8fdd7f430c74356ffefa84e4c82a30af369ef21aeff4eae3e3ba054"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "64125e70d662c685f79970383cc504776bf0923b034ea24825d30209c139833a",

@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // Usuarios usa un LOGIN propio, con membresía única en el rol ejecutor de
@@ -36,7 +38,7 @@ func abrirPoolUsuariosPreferencias(ctx context.Context, dsn, rol string) (*pgxpo
 	if err != nil || c.ConnConfig.User == "" || validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
 		return nil, "", errComposicionUsuariosPreferencias
 	}
-	c.MaxConns = 4
+	postgresqlcompartido.FijarTamanoPool(c, dsn, 4)
 	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	if c.ConnConfig.RuntimeParams == nil {
