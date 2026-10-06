@@ -182,8 +182,9 @@ type LecturaFirmasR5V2 struct {
 	RevisionesPDF []FirmaRegistradaRevisionPDFV2
 }
 
-// La consulta usa el perfil operativo y su organización. La unidad del cargo
-// se revalida separadamente al registrar; UnidadRef permanece vacía.
+// La consulta usa el perfil operativo y su organización y, si su asignación
+// tiene unidad, esa unidad en UnidadRef (sólo vía VEC; CT186 la liga a un
+// paso del plan publicado). Sin unidad, UnidadRef vacía sale como null.
 type MaterialConsultaFirmasR5V2 struct {
 	MaterialConsultaFirmasR5
 	Via       string

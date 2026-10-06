@@ -253,3 +253,21 @@ func TestFirmaV2HuellaConsultaConUnidadIgualQueSQL(t *testing.T) {
 		t.Fatalf("huella distinta de la de AD210: %s %v", h, err)
 	}
 }
+
+// Sin fuente de ámbitos (la composición R5 actual usa NuevoEmisor) el emisor
+// no deniega por su cuenta: la consulta y la recuperación llegan al PDP, que
+// exige los mismos ámbitos, y AD210 los relee al consumir.
+func TestConsultaSinFuenteDeAmbitosDecideElPDP(t *testing.T) {
+	a, _, e, m, ctx := escenarioConsulta(t, ports.ViaFirmaCertificadoVEC)
+	sin, err := NuevoEmisor(a.fuente, a.emisor, a.motivo, a.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.UnidadRef = "unidad:del:paso"
+	if _, err := sin.AutorizarConsultaFirmasR5V2(ctx, m); err != nil || e.base.llamadas != 1 {
+		t.Fatalf("consulta sin fuente de ámbitos denegada antes del PDP: %v", err)
+	}
+	if _, err := sin.AutorizarRecuperacionFirmasV2(ctx, m); e.base.llamadas != 2 {
+		t.Fatalf("recuperación sin fuente de ámbitos no llegó al PDP: %v", err)
+	}
+}
