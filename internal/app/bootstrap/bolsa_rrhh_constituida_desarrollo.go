@@ -32,7 +32,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	parametros     *postgresbolsa.RepositorioPoliticaAvisosPostgreSQL
 	marcas         ports.ConsultaMarcasParticipaciones
 	intentos       ports.PoliticaIntentosContacto
-	emisiones      *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
+	emisiones      contadorLlamamientosEnCursoBolsa
 	recuperador    constitucion.Recuperador
 	categorias     map[string]string
 	grupos         map[string][]string
@@ -42,6 +42,12 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	cache    datasetBolsasRRHHDesarrollo
 	cacheada bool
 	hasta    time.Time
+}
+
+// contadorLlamamientosEnCursoBolsa es la única lectura de emisiones que usa la
+// fuente; la interfaz permite probar la carga sin PostgreSQL.
+type contadorLlamamientosEnCursoBolsa interface {
+	ContarEnCurso(context.Context, string) (int, error)
 }
 
 const validezCacheBolsasConstituidas = 30 * time.Second
@@ -284,6 +290,10 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
 			filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
 		}
+		situacionesLote, cesesLote, err := f.leerSituacionesBolsa(ctx, entradas, corte)
+		if err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
 		for _, entrada := range entradas {
 			posicion, encontradaOrden := posiciones[entrada.ParticipacionRef]
 			if !encontradaOrden {
@@ -293,12 +303,12 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			if !encontrada {
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 			}
-			situacion, err := f.situaciones.SituacionVigente(ctx, entrada.ParticipacionRef)
+			situacion, err := f.situacionDeLote(ctx, situacionesLote, entrada.ParticipacionRef)
 			if err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
 			if f.ceseActivo {
-				estadoCese, presente, err := f.estadosCese.ConsultarEstadoCese(ctx, entrada.ParticipacionRef, corte)
+				estadoCese, presente, err := f.estadoCeseDeLote(ctx, cesesLote, entrada.ParticipacionRef, corte)
 				if err != nil {
 					return datasetBolsasRRHHDesarrollo{}, err
 				}
@@ -330,6 +340,51 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 		}
 	}
 	return datos, nil
+}
+
+// leerSituacionesBolsa lee de una vez la situación vigente y, si procede, el
+// estado de cese de todas las participaciones de una bolsa: dos idas y vueltas
+// por bolsa en lugar de dos por participación. Si el adaptador no ofrece
+// lectura por lotes devuelve mapas nulos y la lectura sigue siendo individual.
+func (f *fuenteConstituidaRRHHDesarrollo) leerSituacionesBolsa(ctx context.Context, entradas []ports.EntradaConstitucion, corte time.Time) (map[string]ports.SituacionParticipacion, map[string]ports.EstadoCese, error) {
+	refs := make([]string, 0, len(entradas))
+	for _, entrada := range entradas {
+		refs = append(refs, entrada.ParticipacionRef)
+	}
+	var situaciones map[string]ports.SituacionParticipacion
+	if lector, ok := f.situaciones.(ports.LectorSituacionesVigentes); ok {
+		var err error
+		if situaciones, err = lector.SituacionesVigentes(ctx, refs); err != nil {
+			return nil, nil, err
+		}
+	}
+	var ceses map[string]ports.EstadoCese
+	if consulta, ok := f.estadosCese.(ports.ConsultaEstadosCese); ok && f.ceseActivo {
+		var err error
+		if ceses, err = consulta.ConsultarEstadosCese(ctx, refs, corte); err != nil {
+			return nil, nil, err
+		}
+	}
+	return situaciones, ceses, nil
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) situacionDeLote(ctx context.Context, lote map[string]ports.SituacionParticipacion, ref string) (ports.SituacionParticipacion, error) {
+	if lote == nil {
+		return f.situaciones.SituacionVigente(ctx, ref)
+	}
+	situacion, ok := lote[ref]
+	if !ok {
+		return ports.SituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
+	}
+	return situacion, nil
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) estadoCeseDeLote(ctx context.Context, lote map[string]ports.EstadoCese, ref string, corte time.Time) (ports.EstadoCese, bool, error) {
+	if lote == nil {
+		return f.estadosCese.ConsultarEstadoCese(ctx, ref, corte)
+	}
+	estado, presente := lote[ref]
+	return estado, presente, nil
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) denominacion(categoriaRef string) string {

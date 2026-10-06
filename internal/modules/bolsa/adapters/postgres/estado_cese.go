@@ -35,6 +35,55 @@ func (c *ConsultaEstadoCesePostgreSQL) ConsultarEstadoCese(ctx context.Context, 
 		participacionRef, corte.UTC()), corte)
 }
 
+var _ ports.ConsultaEstadosCese = (*ConsultaEstadoCesePostgreSQL)(nil)
+
+const maximoLoteEstadosCese = 20000
+
+// ConsultarEstadosCese envía en un único lote la misma consulta a la fachada
+// Bolsa 000050 que ConsultarEstadoCese, una por participación, y valida cada
+// fila igual. La función conserva su guarda de rol en cada llamada.
+func (c *ConsultaEstadoCesePostgreSQL) ConsultarEstadosCese(ctx context.Context, refs []string, corte time.Time) (map[string]ports.EstadoCese, error) {
+	if c == nil || c.pool == nil || ctx == nil || ctx.Err() != nil || corte.IsZero() || len(refs) > maximoLoteEstadosCese {
+		return nil, ports.ErrConsultaEstadoCeseNoDisponible
+	}
+	for _, ref := range refs {
+		if ref == "" || ref != strings.TrimSpace(ref) {
+			return nil, ports.ErrConsultaEstadoCeseNoDisponible
+		}
+	}
+	salida := make(map[string]ports.EstadoCese)
+	if len(refs) == 0 {
+		return salida, nil
+	}
+	lote := &pgx.Batch{}
+	for _, ref := range refs {
+		lote.Queue(`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1($1,$2)`, ref, corte.UTC())
+	}
+	// Solo lectura y REPEATABLE READ: una instantánea coherente sin los
+	// bloqueos predicativos que acumularía una transacción SERIALIZABLE
+	// (el aislamiento por defecto de la sesión) con miles de lecturas.
+	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, ports.ErrConsultaEstadoCeseNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	resultados := tx.SendBatch(ctx, lote)
+	defer resultados.Close()
+	for _, ref := range refs {
+		estado, presente, err := escanearEstadoCese(resultados.QueryRow(), corte)
+		if err != nil {
+			return nil, err
+		}
+		if presente {
+			salida[ref] = estado
+		}
+	}
+	if err := resultados.Close(); err != nil {
+		return nil, ports.ErrConsultaEstadoCeseNoDisponible
+	}
+	return salida, nil
+}
+
 func escanearEstadoCese(fila pgx.Row, corte time.Time) (ports.EstadoCese, bool, error) {
 	var efecto, disponible time.Time
 	var restringida, cesado bool
