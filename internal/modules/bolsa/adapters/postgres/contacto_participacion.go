@@ -81,6 +81,9 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PaginaContactosParticipacion{}, ctx.Err()
+		}
 		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
@@ -113,7 +116,14 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	}
 	return p, nil
 }
+
+// errorContactoParticipacion traduce el error de PostgreSQL. Un plazo
+// agotado o una cancelación se conservan (como errorConstitucion) para que
+// la ruta responda 504 y no un «no disponible» genérico.
 func errorContactoParticipacion(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return err
+	}
 	var p *pgconn.PgError
 	if errors.As(err, &p) {
 		switch p.Code {

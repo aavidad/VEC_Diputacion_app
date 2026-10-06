@@ -38,7 +38,7 @@ func TestBolsasRRHHContactosNoPidePaginaVaciaTrasUltima(t *testing.T) {
 		llamadas := 0
 		h := &bolsasRRHHDesarrollo{contactos: lectorContactosContadoPrueba{llamadas: &llamadas, total: caso.total}}
 		vista := &bolsasRRHHDesarrolloDatos{}
-		if !h.cargarContactos(context.Background(), vista, "bolsa:prueba") || len(vista.datos.Contactos) != caso.total {
+		if h.cargarContactos(context.Background(), vista, "bolsa:prueba") != nil || len(vista.datos.Contactos) != caso.total {
 			t.Fatalf("total=%d: contactos=%d", caso.total, len(vista.datos.Contactos))
 		}
 		if llamadas != caso.llamadas {
