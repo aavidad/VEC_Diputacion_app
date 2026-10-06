@@ -94,6 +94,12 @@ func escanearEstadoCese(fila pgx.Row, corte time.Time) (ports.EstadoCese, bool, 
 	if err != nil {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
 	}
+	return validarEstadoCese(efecto, disponible, restringida, cesado, corte)
+}
+
+// validarEstadoCese convierte las fechas del día de Madrid y rechaza estados
+// incoherentes con el corte; lo comparten la lectura individual y la de conjunto.
+func validarEstadoCese(efecto, disponible time.Time, restringida, cesado bool, corte time.Time) (ports.EstadoCese, bool, error) {
 	madrid, err := time.LoadLocation("Europe/Madrid")
 	if err != nil || efecto.IsZero() || disponible.IsZero() {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
