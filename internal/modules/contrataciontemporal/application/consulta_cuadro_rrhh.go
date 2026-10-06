@@ -128,7 +128,7 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPagina, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	salida := clonarPaginaCuadroRRHH(pagina)
-	salida.Plazos = s.calcularPlazosFase(ctx, salida)
+	salida.Plazos, salida.Resumen = s.completarPlazos(ctx, salida)
 	return salida, nil
 }
 
@@ -175,5 +175,12 @@ func clonarPaginaCuadroRRHH(
 	pagina.FasesDesde = append([]time.Time(nil), pagina.FasesDesde...)
 	pagina.Urgentes = append([]bool(nil), pagina.Urgentes...)
 	pagina.Plazos = nil
+	if pagina.Agregados != nil {
+		pagina.Agregados = &ports.AgregadosCuadroRRHH{
+			Recuentos:   append([]ports.RecuentoCuadroRRHH(nil), pagina.Agregados.Recuentos...),
+			GruposPlazo: append([]ports.GrupoPlazoCuadroRRHH(nil), pagina.Agregados.GruposPlazo...),
+		}
+	}
+	pagina.Resumen = nil
 	return pagina
 }
