@@ -36,7 +36,7 @@ type reglasEjemploDesarrollo struct {
 }
 
 // rechazarReglasEjemploFueraDesarrollo se aplica en las raíces que componen
-// este paquete (vec-server y vec-presentacion): un catálogo de ejemplo
+// este paquete (vec-server): un catálogo de ejemplo
 // declarado fuera de la doble llave impide arrancar. vec-interno y vec-publico
 // no componen reglas y rechazan cualquier declaración, incluso con la doble
 // llave, mediante config.Config.RechazarReglasEjemploSinComposicion.

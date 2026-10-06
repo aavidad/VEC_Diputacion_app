@@ -112,7 +112,7 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 		api = http.NotFoundHandler()
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
-	estaticos := staticHandler(false)
+	estaticos := staticHandler()
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
@@ -189,7 +189,7 @@ func newHandlerInternoConHashTeselasOSM(cfg config.Config, api http.Handler, com
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
-	estaticos := staticHandler(false)
+	estaticos := staticHandler()
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
@@ -247,9 +247,9 @@ func protegerSuperficie(cfg config.Config, handler http.Handler) http.Handler {
 	return suprimirCuerpoHEAD(securityHeaders(handler))
 }
 
-// rechazarSelectorPresentacionFueraDePresentacion impide activar ramas de UI
-// no autoritativas mediante una URL copiada del recorrido de demostracion. El
-// valor es irrelevante: la mera presencia de la clave se rechaza.
+// rechazarSelectorPresentacionFueraDePresentacion rechaza las URL heredadas del
+// modo de presentacion retirado (`?presentacion=`), para que un enlace antiguo
+// falle de forma visible. El valor es irrelevante: basta la clave.
 func rechazarSelectorPresentacionFueraDePresentacion(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for clave := range r.URL.Query() {
@@ -617,32 +617,29 @@ func registrarRutasDisponibilidad(mux *http.ServeMux, comprobador ComprobadorDis
 	mux.Handle("/healthz", listo)
 }
 
-func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
-	rutasProduccion := map[string]struct{}(nil)
-	if !presentacionRRHHHabilitada {
-		rutasProduccion = cargarRutasWebProduccion()
-	}
+func staticHandler() http.Handler {
+	rutasProduccion := cargarRutasWebProduccion()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !presentacionRRHHHabilitada && rutaMaterialExclusivoPresentacion(r.URL.Path) {
+		if rutaMaterialExclusivoPresentacion(r.URL.Path) {
 			http.NotFound(w, r)
 			return
 		}
-		if !presentacionRRHHHabilitada {
-			if _, permitida := rutasProduccion[r.URL.Path]; !permitida {
-				http.NotFound(w, r)
-				return
-			}
+		if _, permitida := rutasProduccion[r.URL.Path]; !permitida {
+			http.NotFound(w, r)
+			return
 		}
 		setNoStoreForStatic(w, r)
 		staticFileServer().ServeHTTP(w, r)
 	})
 }
 
+// rutaMaterialExclusivoPresentacion cierra los ficheros sinteticos de prueba
+// (`*presentacion*`, `*demo*`) que conviven en web/ con el portal real.
 func rutaMaterialExclusivoPresentacion(ruta string) bool {
 	for _, segmento := range strings.Split(strings.ToLower(ruta), "/") {
 		if strings.Contains(segmento, "presentacion") || strings.Contains(segmento, "demo") {

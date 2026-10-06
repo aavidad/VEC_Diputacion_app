@@ -9,9 +9,7 @@ import (
 
 // cargarRutasWebProduccion convierte el mismo manifiesto que usa Docker en la
 // lista positiva HTTP. Si el manifiesto falta o contiene una ruta no canonica,
-// devuelve una lista vacia y la superficie estatica normal falla cerrada. El
-// handler de presentacion no usa esta lista porque su artefacto es deliberada y
-// fisicamente distinto.
+// devuelve una lista vacia y la superficie estatica normal falla cerrada.
 func cargarRutasWebProduccion() map[string]struct{} {
 	contenido, err := leerManifiestoWebProduccion()
 	if err != nil {
