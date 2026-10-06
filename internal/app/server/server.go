@@ -431,10 +431,20 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	if err := original.Close(); err != nil {
 		return err
 	}
-	r.Body = io.NopCloser(bytes.NewReader(contenido))
-	r.ContentLength = int64(len(contenido))
 	r.TransferEncoding = nil
 	r.GetBody = nil
+	if len(contenido) == 0 {
+		// Mismo convenio que net/http en HTTP/1.1, que entrega http.NoBody
+		// cuando la petición no trae cuerpo: en HTTP/2 el servidor siempre
+		// pone un Body propio, incluso en un GET cerrado con END_STREAM. Ya
+		// se ha leído entero y está vacío, así que los manejadores que exigen
+		// «sin cuerpo» (r.Body == http.NoBody) responden igual en ambos.
+		r.Body = http.NoBody
+		r.ContentLength = 0
+		return nil
+	}
+	r.Body = io.NopCloser(bytes.NewReader(contenido))
+	r.ContentLength = int64(len(contenido))
 	return nil
 }
 
