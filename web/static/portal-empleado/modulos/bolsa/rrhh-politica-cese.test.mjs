@@ -89,6 +89,7 @@ test("sin API de política de cese (404) la vista dice «no disponible», sin re
   assert.match(raiz.innerHTML, /avise a Informática/u);
   assert.match(raiz.innerHTML, /aria-labelledby="politica-cese-no-disponible"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-politica-cese-actualizar|role="alert"/u);
+  assert.match(raiz.innerHTML, /data-vista="portal"/u);
   vista.desmontar();
 
   const html = renderizarVistaPoliticaCeseRRHH({ politica: null, estado: "no_disponible" });

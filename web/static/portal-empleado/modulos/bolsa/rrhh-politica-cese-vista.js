@@ -20,6 +20,7 @@ export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ay
   if (estado === "no_disponible") {
     return `<section class="panel politica-cese-rrhh" data-politica-cese aria-labelledby="politica-cese-no-disponible"><div class="cuerpo-panel vacio-controlado">
       <h3 id="politica-cese-no-disponible">${t("no_disponible_titulo")}</h3><p>${t("no_disponible_texto")}</p>
+      <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="portal">${esc(traducirPortal("accion_volver_portal"))}</button></div>
     </div></section>`;
   }
   if (!politica || estado !== "lista") {
@@ -74,7 +75,7 @@ export function montarVistaPoliticaCeseRRHH({ raiz, politica, noDisponible = fal
       if (!montada || signal.aborted || carga !== secuencia) return;
       actual = null; estado = error?.estado === 401 || error?.estado === 403 ? "denegada" : error?.estado === 404 ? "no_disponible" : "error";
       if (estado === "denegada") alDenegacion();
-      if (estado === "no_disponible") { pintar(); anunciar(traducirPortal("politica_cese_no_disponible_titulo")); return; }
+      if (estado === "no_disponible") { pintar(); anunciar(`${traducirPortal("politica_cese_no_disponible_titulo")} ${traducirPortal("politica_cese_no_disponible_texto")}`); return; }
       pintar(); anunciar(traducirPortal(`politica_cese_${estado === "denegada" ? "denegada" : "error"}`), "error");
     }
   }

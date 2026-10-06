@@ -11,7 +11,7 @@ test("el 404 de la política de cese abre Reglas como no disponible y el 403 vue
   const comprobar = cuerpo("comprobarAccesoPoliticaCese");
   assert.match(comprobar, /estado\.politicaCeseAusente = error\?\.estado === 404;/u);
   assert.match(comprobar, /if \(estado\.politicaCeseAusente && estado\.vista === "portal"\) navegar\("reglas"\);\s*else history\.replaceState\(null, "", rutaDeVista\("portal"\)\);/u);
-  assert.match(cuerpo("vistaPermitida"), /vista === "reglas" && estado\.politicaCeseAusente\) return true/u);
+  assert.match(cuerpo("vistaPermitida"), /vista === "reglas" && estado\.politicaCeseAusente\) return coordinadorModulos\.obtenerCatalogo\(\)\.some\(\(m\) => m\.clave === "bolsa"\)/u);
   assert.match(cuerpo("montarVistaBolsa"), /noDisponible: estado\.politicaCeseAusente/u);
   assert.match(cuerpo("cargarFuenteDatos"), /estado\.politicaCeseAusente = false;/u);
 });

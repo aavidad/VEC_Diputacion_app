@@ -324,7 +324,8 @@ function vistaPermitida(vista) {
   if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
-  if (vista === "reglas" && estado.politicaCeseAusente) return true; // se abre para decir «no disponible»
+  // Con Bolsa en el catálogo, Reglas se abre para decir «no disponible» (404).
+  if (vista === "reglas" && estado.politicaCeseAusente) return coordinadorModulos.obtenerCatalogo().some((m) => m.clave === "bolsa");
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
   if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
