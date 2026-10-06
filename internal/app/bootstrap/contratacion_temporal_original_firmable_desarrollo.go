@@ -333,8 +333,9 @@ type originalFirmableCTDesarrollo struct {
 	seudonimizador *seudonimizadorAlmacenDesarrollo
 	politicas      *conservacion.Catalogo
 	autoridad      *docautorizacion.AutoridadOriginalFirmableV3
-	// mapear es la única traducción del expediente CT al documental; la
-	// composición entrega este mismo mapeador a la custodia común.
+	// mapear traduce el expediente CT al documental de los originales; la
+	// composición entrega este mismo mapeador a la custodia común. Los PDF
+	// firmados usan otra agrupación (ports.ExpedienteDocumentalRef).
 	mapear almacen.MapeadorExpedienteOriginalCT
 }
 
@@ -396,7 +397,14 @@ func (o *originalFirmableCTDesarrollo) AutorizarLecturaOriginalCT(ctx context.Co
 	if err != nil {
 		return vacia, err
 	}
-	consulta := docports.ConsultaDocumento{DocumentoID: ref, Version: s.OriginalVersion}
+	return o.autorizarDescarga(ctx, ref, s.OriginalVersion, expediente)
+}
+
+// autorizarDescarga pide la V3 de documentos.original.descargar para un
+// documento, una versión y un expediente documental exactos.
+func (o *originalFirmableCTDesarrollo) autorizarDescarga(ctx context.Context, ref string, version uint64, expediente string) (docports.ConsultaDocumento, error) {
+	var vacia docports.ConsultaDocumento
+	consulta := docports.ConsultaDocumento{DocumentoID: ref, Version: version}
 	preimagen, err := consulta.PreimagenDescargar()
 	if err != nil {
 		return vacia, puertosvec.ErrOriginalFirmableCTInvalido
@@ -405,7 +413,7 @@ func (o *originalFirmableCTDesarrollo) AutorizarLecturaOriginalCT(ctx context.Co
 	if err != nil {
 		return vacia, puertosvec.ErrOriginalFirmableCTInvalido
 	}
-	e := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: s.OriginalVersion}
+	e := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: version}
 	e.fijarPreimagen(docports.AccionDescargar, preimagen)
 	ctx = context.WithValue(ctx, claveOriginalFirmableCTDesarrollo{}, e)
 	pedida, err := o.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso)
