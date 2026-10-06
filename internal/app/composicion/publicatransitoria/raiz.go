@@ -19,6 +19,7 @@ import (
 	bolsafichero "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppublico"
 	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 )
 
@@ -79,7 +80,7 @@ func NuevaAPIConCatalogos(
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	if err := servicio.ValidarConfiguracion(ctx); err != nil {
 		return nil, errors.Join(errors.New("composicion publica transitoria: fuentes publicas de Bolsa incompatibles"), err)
@@ -149,7 +150,7 @@ func validarCatalogoCategorias(cfg config.Config, consulta *vecfichero.ConsultaC
 	if cfg.BolsaCategoriesVersion < 1 || consulta == nil {
 		return errors.New("composicion publica transitoria: catalogo gobernado de categorias de Bolsa incompatible")
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	catalogo, err := consulta.ObtenerCatalogo(ctx, cfg.BolsaCategoriesCatalogID, cfg.BolsaCategoriesVersion)
 	if err != nil {

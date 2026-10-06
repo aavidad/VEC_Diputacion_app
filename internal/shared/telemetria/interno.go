@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -136,7 +137,7 @@ func arrancarDiagnostico(escucha string, avisos io.Writer) func() {
 	go func() { _ = srv.Serve(oyente) }()
 	avisar("diagnostico escuchando en bucle local")
 	return func() {
-		ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = srv.Shutdown(ctx)
 	}

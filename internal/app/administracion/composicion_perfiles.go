@@ -34,6 +34,10 @@ type DependenciasComposicionPerfiles struct {
 	// GobiernoPlan abre el gobierno del plan nominal de firma de Contratación
 	// temporal junto a las lecturas de usuarios. Sólo con SoloUsuariosMetadatos.
 	GobiernoPlan api.ServicioGobiernoPlanFirmaADMIN
+	// Efectos abre los efectos nominales (cargos competenciales,
+	// certificados nominales) junto a las lecturas de usuarios. Sólo con
+	// SoloUsuariosMetadatos.
+	Efectos []EfectoNominalMontado
 }
 
 // LoteADMIN es la autoridad del lote ya compuesta: organización privada,
@@ -87,7 +91,7 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	}
 	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
 		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos,
-		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan})
+		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan, Efectos: deps.Efectos})
 }
 
 func dependenciaComposicionNula(v any) bool {

@@ -22,6 +22,7 @@ import (
 	"vec-diputacion-granada/internal/app/server"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	bolsapublicahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -195,7 +196,7 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 	api := http.NewServeMux()
 	api.Handle("/api/publico/", publicaBolsaAPI)
 	dsnPublico, _ := cfg.ExternoBolsaPublicaPostgreSQL.DSN()
-	ctxPublico, cancelarPublico := context.WithTimeout(context.Background(), 30*time.Second)
+	ctxPublico, cancelarPublico := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 	bolsasPublicas, cerrarBolsasPublicas, err := nuevasBolsasPublicasPortalExterno(ctxPublico, cfg, dsnPublico)
 	cancelarPublico()
 	if err != nil {
@@ -269,7 +270,7 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	}
 	// Los alias de sesión del externo viven en su propio espacio de clave.
 	derivador.espacioSeudonimos = espacioSeudonimosPortalExterno
-	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 	defer cancelar()
 	preflight, err := abrirPoolPreflightV3PortalExterno(ctx, cfg.ExternoPreflightV3DatabaseURL)
 	if err != nil {

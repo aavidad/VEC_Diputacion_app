@@ -17,6 +17,7 @@ import (
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -314,7 +315,7 @@ func nuevoServidorDesarrollo(
 	if autoridadContratacion != nil {
 		autoridadContratacion.plazosOfertasBolsa.fijar(reglasEjemplo.bolsa)
 	}
-	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
+	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	// Avisos y marcas de Bolsa con los parámetros del catálogo (000041).
 	if err = componerParametrosAvisosBolsaDesarrollo(ctxBolsas, reglasEjemplo.bolsa, fuenteConstituida); err != nil {

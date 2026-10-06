@@ -14,6 +14,7 @@ import (
 	pgpersonal "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // componerCesePersonalB2 monta el fin de la relación en Personal tras el cese
@@ -122,7 +123,7 @@ func (f *finCesePersonalB2Desarrollo) finalizar(ctx context.Context, s appct.Sol
 	if !ok {
 		return errors.Join(ct.ErrOperacionSeguimientoNoDisponible, errFinPersonalB2Pendiente)
 	}
-	nominal, cancelar := context.WithTimeout(nominal, tiempoMaximoFinCesePersonalB2)
+	nominal, cancelar := context.WithTimeout(nominal, plazoarranque.Ampliar(tiempoMaximoFinCesePersonalB2))
 	defer cancelar()
 	_, err := f.cese.FinalizarRelacionPersonalB2(nominal, inc.SolicitudCesePersonalB2{Recibo: recibo,
 		JustificanteRef: s.JustificanteRef, JustificanteSHA256: s.JustificanteSHA256, IncorporacionReciboRef: incorporacion})

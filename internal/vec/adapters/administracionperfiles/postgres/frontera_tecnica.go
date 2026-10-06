@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -75,7 +76,7 @@ func falloFronteraTecnica(err error) error {
 	return ports.ErrFronteraAdminTecnicaNoDisponible
 }
 func cerrarTxFronteraTecnica(tx pgx.Tx, plazo time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), plazo)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(plazo))
 	defer cancel()
 	_ = tx.Rollback(ctx)
 }

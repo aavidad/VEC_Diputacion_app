@@ -12,6 +12,7 @@ import (
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -337,7 +338,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, c, alta, derivador, reloj, alta.soporte, fronteras)
 	if err != nil {

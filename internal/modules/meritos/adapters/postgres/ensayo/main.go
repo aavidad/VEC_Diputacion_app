@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 	merapp "vec-diputacion-granada/internal/modules/meritos/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 func run() error {
@@ -57,7 +58,7 @@ func run() error {
 	if c.Mode != "consume" || len(c.Operations) == 0 || len(c.Operations) > 32 {
 		return errors.New("mode_invalid")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(90*time.Second))
 	defer cancel()
 	for _, o := range c.Operations {
 		a, ok := c.Actors[o.Actor]

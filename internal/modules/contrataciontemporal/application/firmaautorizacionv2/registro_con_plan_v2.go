@@ -43,8 +43,11 @@ func (r *RegistroConPlanV2) RegistrarFirmaVerificadaV2(ctx context.Context, m po
 	m.EvidenciaFirmasCanonica = bytes.Clone(m.EvidenciaFirmasCanonica)
 	defer clear(m.EvidenciaFirmasCanonica)
 	if m.Validar() != nil || !domain.InstanteUTCCanonico(m.ComprobadaEn) ||
-		m.PuestoFirmanteRef != "" || m.AmbitoFirmanteRef != "" || m.ActoCompetenciaRef != "" ||
-		ValidarCapacidadFirmaVerificadaV2(interior, m) != nil {
+		m.PuestoFirmanteRef != "" || m.AmbitoFirmanteRef != "" || m.ActoCompetenciaRef != "" {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	ambitos, err := AmbitosCapacidadFirmaVerificadaV2(interior, m)
+	if err != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	d, err := r.fuente.DescriptorPlanFijadoFirmaV2(ctx, m)
@@ -73,7 +76,7 @@ func (r *RegistroConPlanV2) RegistrarFirmaVerificadaV2(ctx context.Context, m po
 		return cero, err
 	}
 	defer clear(envoltorio)
-	recurso, err := RecursoPlanAutorizadoFirmaV2(m, d.Plan, decisionSHA, envoltorio)
+	recurso, err := RecursoPlanAutorizadoFirmaV2(m, d.Plan, decisionSHA, envoltorio, ambitos)
 	if err != nil {
 		return cero, err
 	}

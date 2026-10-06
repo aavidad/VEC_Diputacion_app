@@ -32,6 +32,7 @@ import (
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -152,7 +153,7 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var pools []*pgxpool.Pool
 	var cerrarMaterial func()

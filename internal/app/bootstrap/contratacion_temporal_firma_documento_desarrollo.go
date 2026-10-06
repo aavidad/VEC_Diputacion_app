@@ -18,6 +18,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -349,7 +350,7 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
