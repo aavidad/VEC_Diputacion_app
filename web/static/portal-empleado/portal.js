@@ -26,7 +26,7 @@ import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=2
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261001-ct-a-i18n-v1";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261006-reglas-no-disponible-v1";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261001-ct-a-i18n-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
@@ -176,6 +176,7 @@ const estado = {
   auditoriaReferencia: "",
   politicaCese: null,
   politicaCeseComprobada: false,
+  politicaCeseAusente: false, // 404: la instalación no compone la política de cese
   modalResultado: null,
 };
 let vistaAuditoriaBolsa = null;
@@ -323,6 +324,8 @@ function vistaPermitida(vista) {
   if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
+  // Con Bolsa en el catálogo, Reglas se abre para decir «no disponible» (404).
+  if (vista === "reglas" && estado.politicaCeseAusente) return coordinadorModulos.obtenerCatalogo().some((m) => m.clave === "bolsa");
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
   if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
@@ -469,6 +472,7 @@ async function cargarFuenteDatos() {
   consultaAccesoPoliticaCese = null;
   estado.politicaCese = null;
   estado.politicaCeseComprobada = false;
+  estado.politicaCeseAusente = false;
   if (destinoPoliticaCeseInicial) void comprobarAccesoPoliticaCese();
   // Una vista de Bolsa ya montada no depende del catálogo de módulos: se
   // conserva (el coordinador tampoco la retira) y no se vuelve a montar.
@@ -519,13 +523,16 @@ async function comprobarAccesoPoliticaCese() {
       destinoPoliticaCeseInicial = false;
       navegar("reglas");
     }
-  } catch {
+  } catch (error) {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = null;
     estado.politicaCeseComprobada = true;
+    estado.politicaCeseAusente = error?.estado === 404;
     if (destinoPoliticaCeseInicial) {
       destinoPoliticaCeseInicial = false;
-      history.replaceState(null, "", rutaDeVista("portal"));
+      // Sin la API (404) la vista lo dice; un 403 sigue en Inicio, sin revelarla.
+      if (estado.politicaCeseAusente && estado.vista === "portal") navegar("reglas");
+      else history.replaceState(null, "", rutaDeVista("portal"));
     }
   } finally {
     if (consultaAccesoPoliticaCese === controlador) {
@@ -705,7 +712,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
     vistaPoliticaCese = montarVistaPoliticaCeseRRHH({ raiz: contenedor,
-      politica: estado.politicaCese, cliente: clientePoliticaCese, anunciar,
+      politica: estado.politicaCese, noDisponible: estado.politicaCeseAusente, cliente: clientePoliticaCese, anunciar,
       alDenegacion: () => { estado.politicaCese = null; actualizarNavegacionModulos(); } });
     return;
   }
