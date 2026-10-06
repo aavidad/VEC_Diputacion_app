@@ -20,6 +20,10 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 # grafo no registra sus rutas; la composicion y sus pruebas mantienen esa guarda.
 # El verificador común de auditoría aporta el cotejo de los paquetes de
 # exportación; compilarlo no monta una captura, ruta o fuente nominal.
+# internal/shared/telemetria entra porque los pools compartidos con vec-server
+# (adaptadores PostgreSQL de CT) instalan el trazador que cuenta consultas por
+# petición; solo depende de la biblioteca estándar, pgx y vec/domain|ports, y en
+# vec-interno no abre ninguna escucha.
 # No admitir nuevas importaciones por prefijo ni normalizar la lista con go list.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
@@ -100,6 +104,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/shared/limiteshttp" | \
 			"${modulo}/internal/shared/postgresql" | \
+			"${modulo}/internal/shared/telemetria" | \
 			"${modulo}/internal/vec/adapters/contextoactor/postgres" | \
 			"${modulo}/internal/vec/adapters/httpapi" | \
 			"${modulo}/internal/vec/adapters/httpseguridad" | \
