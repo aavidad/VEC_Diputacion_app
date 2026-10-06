@@ -14,6 +14,8 @@ import (
 	"time"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 func registrarFalloPostgreSQLContratacionTemporalDesarrollo(etapa, causa string) {
@@ -71,6 +73,8 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	parametros["lock_timeout"] = "3s"
 	parametros["idle_in_transaction_session_timeout"] = "20s"
 	configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configuracion, rolEsperado)
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", falloPostgreSQLCTDesarrollo(err)
@@ -336,6 +340,8 @@ func abrirPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, dsn string) (*p
 	c.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		return comprobarPoolConsultaAuditoriaCTDesarrollo(ctx, conn, login)
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, auditoria.ErrNoDisponible
@@ -412,6 +418,8 @@ func abrirPoolAutoridadAuditoriaDesarrollo(ctx context.Context, dsn, rol, aplica
 		}
 		return nil
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, auditoria.ErrNoDisponible

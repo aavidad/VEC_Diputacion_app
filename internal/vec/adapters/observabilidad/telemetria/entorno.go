@@ -8,10 +8,12 @@ import (
 
 // Variables de entorno que Sistemas puede fijar sin recompilar.
 const (
-	EnvUmbralLentaMS  = "VEC_TELEMETRIA_LENTA_MS"
-	EnvUmbralEnCursoS = "VEC_TELEMETRIA_EN_CURSO_S"
-	maxUmbralLentaMS  = 600_000
-	maxUmbralEnCursoS = 3_600
+	EnvUmbralLentaMS   = "VEC_TELEMETRIA_LENTA_MS"
+	EnvUmbralEnCursoS  = "VEC_TELEMETRIA_EN_CURSO_S"
+	maxUmbralLentaMS   = 600_000
+	maxUmbralEnCursoS  = 3_600
+	EnvUmbralConsultas = "VEC_TELEMETRIA_LENTA_CONSULTAS"
+	maxUmbralConsultas = 100_000
 )
 
 // UmbralesDeEntorno lee los umbrales. Un valor ausente usa el
@@ -25,6 +27,13 @@ func UmbralesDeEntorno(getenv func(string) string) (u Umbrales, valido bool) {
 	if n, ok, presente := enteroAcotado(getenv(EnvUmbralLentaMS), maxUmbralLentaMS); presente {
 		if ok {
 			u.Lenta = time.Duration(n) * time.Millisecond
+		} else {
+			valido = false
+		}
+	}
+	if n, ok, presente := enteroAcotado(getenv(EnvUmbralConsultas), maxUmbralConsultas); presente {
+		if ok {
+			u.Consultas = n
 		} else {
 			valido = false
 		}

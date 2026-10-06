@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 // LOGIN nominal y grupo del preflight externo (AD3-112). Las funciones SQL
@@ -44,6 +46,8 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 	} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, ErrMaterialV3PortalExternoInvalido

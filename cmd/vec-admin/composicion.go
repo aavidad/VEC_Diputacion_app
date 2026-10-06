@@ -17,6 +17,8 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/domain"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 type relojADMIN struct{}
@@ -66,6 +68,8 @@ func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv confi
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_config")
 		}
+		// Mide consultas y esperas de conexión por petición (registro técnico).
+		medidorpg.Instrumentar(pc)
 		pool, err := pgxpool.NewWithConfig(ctx, pc)
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_abrir")

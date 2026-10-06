@@ -16,6 +16,8 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 // Relevo de no incorporaciones (duda 12 de RRHH): lee la publicación de CT
@@ -220,6 +222,8 @@ func abrirPoolRelevoBolsaDesarrollo(ctx context.Context, dsn, rol, nombreAplicac
 		}
 		return comprobarIdentidadRelevoBolsaDesarrollo(ctx, conexion, rol)
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, falloPostgreSQLCTDesarrollo(err)

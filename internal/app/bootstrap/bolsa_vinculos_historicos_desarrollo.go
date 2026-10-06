@@ -18,6 +18,8 @@ import (
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 var huellaBolsaHistorica = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -164,6 +166,8 @@ func abrirPoolRecuperacionConvocaRelleno(ctx context.Context, cfg config.Config)
 		}
 		return nil
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(pc)
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
 		return nil, ErrPoolImportacionConvocaNoDisponible

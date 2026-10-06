@@ -26,9 +26,10 @@ const (
 // Valores predeterminados. Sistemas puede cambiarlos por entorno (ver
 // UmbralesDeEntorno).
 const (
-	UmbralLentaPredeterminado   = 300 * time.Millisecond
-	UmbralEnCursoPredeterminado = 10 * time.Second
-	capacidadColaPredeterminada = 8192
+	UmbralLentaPredeterminado     = 300 * time.Millisecond
+	UmbralEnCursoPredeterminado   = 10 * time.Second
+	UmbralConsultasPredeterminado = 20
+	capacidadColaPredeterminada   = 8192
 	// maxBloqueEscritura no supera PIPE_BUF: una escritura de ese tamaño a
 	// una tubería es atómica y no se mezcla con otras líneas del proceso.
 	maxBloqueEscritura = 4096
@@ -66,6 +67,9 @@ type Opciones struct {
 type Umbrales struct {
 	// Lenta: duración a partir de la cual la petición se marca "lenta".
 	Lenta time.Duration
+	// Consultas: número de consultas SQL a partir del cual la petición se
+	// marca "lenta" aunque sea rápida (señal de N+1).
+	Consultas int
 	// EnCurso: duración a partir de la cual una petición que todavía no ha
 	// terminado deja una línea propia; se repite al triple, nueve veces…
 	EnCurso time.Duration
@@ -100,6 +104,9 @@ func NuevoRegistro(o Opciones) (*Registro, error) {
 	}
 	if o.Umbrales.Lenta <= 0 {
 		o.Umbrales.Lenta = UmbralLentaPredeterminado
+	}
+	if o.Umbrales.Consultas <= 0 {
+		o.Umbrales.Consultas = UmbralConsultasPredeterminado
 	}
 	if o.Umbrales.EnCurso <= 0 {
 		o.Umbrales.EnCurso = UmbralEnCursoPredeterminado
@@ -208,27 +215,33 @@ func (reg *Registro) Cerrar(ctx context.Context) error {
 }
 
 type lineaAcceso struct {
-	Esquema      string  `json:"esquema"`
-	Instante     string  `json:"instante"`
-	Nivel        string  `json:"nivel"`
-	Servicio     string  `json:"servicio"`
-	Superficie   string  `json:"superficie"`
-	Entorno      string  `json:"entorno"`
-	Version      string  `json:"version"`
-	Correlacion  string  `json:"correlacion"`
-	Metodo       string  `json:"metodo"`
-	Ruta         string  `json:"ruta"`
-	Estado       int     `json:"estado"`
-	DuracionMS   float64 `json:"duracion_ms"`
-	Bytes        int64   `json:"bytes"`
-	Lenta        bool    `json:"lenta,omitempty"`
-	Interrumpida bool    `json:"interrumpida,omitempty"`
-	Cancelada    string  `json:"cancelada,omitempty"`
-	Causa        string  `json:"causa,omitempty"`
-	EtapaFallo   string  `json:"etapa_fallo,omitempty"`
-	Incidencia   string  `json:"incidencia,omitempty"`
-	Componente   string  `json:"componente,omitempty"`
-	EtapaInc     string  `json:"etapa_incidencia,omitempty"`
+	Esquema      string              `json:"esquema"`
+	Instante     string              `json:"instante"`
+	Nivel        string              `json:"nivel"`
+	Servicio     string              `json:"servicio"`
+	Superficie   string              `json:"superficie"`
+	Entorno      string              `json:"entorno"`
+	Version      string              `json:"version"`
+	Correlacion  string              `json:"correlacion"`
+	Metodo       string              `json:"metodo"`
+	Ruta         string              `json:"ruta"`
+	Estado       int                 `json:"estado"`
+	DuracionMS   float64             `json:"duracion_ms"`
+	Bytes        int64               `json:"bytes"`
+	BDConsultas  int                 `json:"bd_consultas"`
+	BDMS         float64             `json:"bd_ms"`
+	BDEsperaMS   float64             `json:"bd_espera_ms,omitempty"`
+	BDError      string              `json:"bd_error,omitempty"`
+	Lenta        bool                `json:"lenta,omitempty"`
+	LentaPor     []string            `json:"lenta_por,omitempty"`
+	Desglose     []OperacionDesglose `json:"desglose,omitempty"`
+	Interrumpida bool                `json:"interrumpida,omitempty"`
+	Cancelada    string              `json:"cancelada,omitempty"`
+	Causa        string              `json:"causa,omitempty"`
+	EtapaFallo   string              `json:"etapa_fallo,omitempty"`
+	Incidencia   string              `json:"incidencia,omitempty"`
+	Componente   string              `json:"componente,omitempty"`
+	EtapaInc     string              `json:"etapa_incidencia,omitempty"`
 }
 
 func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido, interrumpida bool) {
@@ -260,6 +273,20 @@ func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido
 		Incidencia:   f.incidencia,
 		Componente:   f.componente,
 		EtapaInc:     f.etapaInc,
+		BDConsultas:  f.bd.consultas,
+		BDMS:         milisegundos(f.bd.total),
+		BDEsperaMS:   milisegundos(f.bd.espera),
+		BDError:      f.bd.ultimoError,
+	}
+	if duracion >= reg.umbrales.Lenta {
+		linea.LentaPor = append(linea.LentaPor, "duracion")
+	}
+	if f.bd.consultas >= reg.umbrales.Consultas {
+		linea.LentaPor = append(linea.LentaPor, "consultas")
+	}
+	linea.Lenta = len(linea.LentaPor) > 0
+	if linea.Lenta || estado >= http.StatusInternalServerError || interrumpida {
+		linea.Desglose = f.desgloseBloqueado()
 	}
 	f.mu.Unlock()
 	switch err := r.Context().Err(); {
@@ -268,7 +295,6 @@ func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido
 	case err != nil:
 		linea.Cancelada = "cliente"
 	}
-	linea.Lenta = duracion >= reg.umbrales.Lenta
 	switch {
 	case estado >= http.StatusInternalServerError || interrumpida:
 		linea.Nivel = "error"
@@ -392,6 +418,15 @@ type lineaEnCurso struct {
 	Ruta           string  `json:"ruta"`
 	Llegada        string  `json:"llegada"`
 	TranscurridoMS float64 `json:"transcurrido_ms"`
+	BDConsultas    int     `json:"bd_consultas"`
+	BDMS           float64 `json:"bd_ms"`
+	BDEsperaMS     float64 `json:"bd_espera_ms,omitempty"`
+	// Actividad es lo que hace ahora en la base de datos: "consulta" (con
+	// la operación) o "esperando_conexion" (con el pool).
+	Actividad   string              `json:"actividad,omitempty"`
+	Objeto      string              `json:"objeto,omitempty"`
+	ActividadMS float64             `json:"actividad_ms,omitempty"`
+	Desglose    []OperacionDesglose `json:"desglose,omitempty"`
 }
 
 // vigilarEnCurso deja una línea por cada petición que supera el umbral de
@@ -425,6 +460,14 @@ func (reg *Registro) vigilarEnCurso() {
 			Ruta:           f.rutaNormalizada,
 			Llegada:        formatoInstante(f.inicio),
 			TranscurridoMS: milisegundos(transcurrido),
+			BDConsultas:    f.bd.consultas,
+			BDMS:           milisegundos(f.bd.total),
+			BDEsperaMS:     milisegundos(f.bd.espera),
+			Desglose:       f.desgloseBloqueado(),
+		}
+		if f.bd.actividad != "" {
+			linea.Actividad, linea.Objeto = f.bd.actividad, f.bd.objetoActivo
+			linea.ActividadMS = milisegundos(ahora.Sub(f.bd.actividadDesde))
 		}
 		f.mu.Unlock()
 		if contenido, err := json.Marshal(linea); err == nil {

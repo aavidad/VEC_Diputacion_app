@@ -396,3 +396,55 @@ func TestUmbralesDeEntorno(t *testing.T) {
 		t.Errorf("umbrales = %+v valido=%t", u, valido)
 	}
 }
+
+func TestAccesoMarcaN1YEscribeDesgloseSinValores(t *testing.T) {
+	d := &destinoMemoria{}
+	reg := nuevoRegistroPrueba(t, d, Umbrales{Lenta: time.Hour, Consultas: 20})
+	h := reg.Envolver(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f := FichaDe(r.Context())
+		f.EsperaConexionIniciada("vec_bolsa_ejecutor", time.Now())
+		f.EsperaConexionTerminada(3*time.Millisecond, "")
+		for i := 0; i < 25; i++ {
+			f.ConsultaIniciada("vec_bolsa.consultar_participacion", time.Now())
+			f.ConsultaTerminada("vec_bolsa.consultar_participacion", 1, 2*time.Millisecond, "")
+		}
+		f.ConsultaTerminada("vec_bolsa.listar", 1, 40*time.Millisecond, "")
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/x", nil))
+	cerrar(t, reg)
+	l := d.lineas(t)[0]
+	if l["nivel"] != "aviso" || l["lenta"] != true || l["bd_consultas"] != float64(26) || l["bd_ms"] != float64(90) || l["bd_espera_ms"] != float64(3) {
+		t.Fatalf("linea = %v", l)
+	}
+	if por, _ := l["lenta_por"].([]any); len(por) != 1 || por[0] != "consultas" {
+		t.Errorf("lenta_por = %v", l["lenta_por"])
+	}
+	desglose, _ := l["desglose"].([]any)
+	if len(desglose) != 2 {
+		t.Fatalf("desglose = %v", l["desglose"])
+	}
+	primera := desglose[0].(map[string]any)
+	if primera["operacion"] != "vec_bolsa.consultar_participacion" || primera["consultas"] != float64(25) || primera["ms"] != float64(50) || primera["max_ms"] != float64(2) {
+		t.Errorf("primera fila = %v", primera)
+	}
+}
+
+func TestEnCursoMuestraLaEsperaDeConexion(t *testing.T) {
+	d := &destinoMemoria{}
+	reg := nuevoRegistroPrueba(t, d, Umbrales{EnCurso: time.Second})
+	inicio := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
+	reg.reloj = func() time.Time { return inicio }
+	ctx, f := IniciarFicha(context.Background())
+	_ = ctx
+	f.inicio = inicio
+	f.EsperaConexionIniciada("vec_ct_consultas", inicio.Add(500*time.Millisecond))
+	reg.activas.Store(f, struct{}{})
+	reg.reloj = func() time.Time { return inicio.Add(2 * time.Second) }
+	reg.vigilarEnCurso()
+	reg.activas.Delete(f)
+	cerrar(t, reg)
+	l := d.lineas(t)[0]
+	if l["actividad"] != "esperando_conexion" || l["objeto"] != "vec_ct_consultas" || l["actividad_ms"] != float64(1500) {
+		t.Errorf("linea en curso = %v", l)
+	}
+}

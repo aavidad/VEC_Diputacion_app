@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 // MaterialPoolSeguimiento se entrega desde el inventario privado del arranque.
@@ -160,6 +162,8 @@ func AbrirPoolsSeguimiento(ctx context.Context, material MaterialPoolsSeguimient
 	}
 	pools := make([]*pgxpool.Pool, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
+		// Mide consultas y esperas de conexión por petición (registro técnico).
+		medidorpg.Instrumentar(configuracion)
 		pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 		if err != nil {
 			cerrarPoolsSeguimiento(pools)

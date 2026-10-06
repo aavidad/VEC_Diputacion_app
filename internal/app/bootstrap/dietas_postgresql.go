@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 const (
@@ -63,6 +65,8 @@ func abrirPoolPersonalAsignacionDietas(ctx context.Context, dsn string, perfil p
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, err
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
@@ -166,6 +170,8 @@ func nuevosPoolsPostgreSQLDietasDesarrolloConFabrica(ctx context.Context, cfg co
 }
 
 func crearPoolPostgreSQLDietasDesarrollo(ctx context.Context, cfg *pgxpool.Config) (poolOperativoPostgreSQLDietasDesarrollo, error) {
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(cfg)
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
@@ -183,6 +189,8 @@ func abrirPoolAuditoriaFronteraDietasDesarrollo(ctx context.Context, dsn string)
 	if err != nil {
 		return nil, "", err
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible

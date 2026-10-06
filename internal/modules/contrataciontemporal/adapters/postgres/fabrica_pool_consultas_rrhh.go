@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 const rolConsultorRRHHPostgreSQL = "vec_contratacion_temporal_consultor_rrhh"
@@ -92,6 +94,8 @@ func nuevoPoolConsultasRRHHPostgreSQL(
 		!configuracionPoolAcreditacionO405Valida(configuracion, modo) {
 		return nil, errorPoolConsultasRRHH(ctx)
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	poolCreado, err = pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil || poolCreado == nil {
 		return nil, errorPoolConsultasRRHH(ctx)

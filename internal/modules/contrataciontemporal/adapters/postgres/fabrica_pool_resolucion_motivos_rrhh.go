@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 const rolResolutorMotivosRRHHPostgreSQL = "vec_autorizacion_motivos_rrhh_resolutor"
@@ -190,6 +192,8 @@ func crearOrigenPoolResolucionMotivosRRHHPostgreSQL(
 	ctx context.Context,
 	configuracion *pgxpool.Config,
 ) (origenPoolResolucionMotivosRRHH, error) {
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(configuracion)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil || pool == nil {
 		return nil, err

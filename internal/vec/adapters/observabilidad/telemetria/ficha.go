@@ -29,6 +29,7 @@ type Ficha struct {
 	etapaInc      string
 	causa         string
 	etapaFallo    string
+	bd            medidasBD
 }
 
 type claveFicha struct{}
@@ -166,4 +167,14 @@ func identificadorSeguro(valor string, maximo int) string {
 		}
 	}
 	return valor
+}
+
+// IniciarFicha crea una ficha fuera de una petición HTTP (un trabajo en
+// segundo plano o una prueba) para medir lo que se haga con ese contexto.
+func IniciarFicha(ctx context.Context) (context.Context, *Ficha) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	f := &Ficha{inicio: time.Now(), metodo: "OTRO", rutaNormalizada: "/"}
+	return conFicha(ctx, f), f
 }

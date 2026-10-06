@@ -24,6 +24,8 @@ import (
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 var (
@@ -169,6 +171,8 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	} {
 		cfg.ConnConfig.RuntimeParams[clave] = valor
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(cfg)
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible

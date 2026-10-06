@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 // Usuarios usa un LOGIN propio, con membresía única en el rol ejecutor de
@@ -45,6 +47,8 @@ func abrirPoolUsuariosPreferencias(ctx context.Context, dsn, rol string) (*pgxpo
 	for k, v := range map[string]string{"application_name": "vec-usuarios-preferencias-desarrollo", "timezone": "UTC", "search_path": "pg_catalog", "statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, "", errComposicionUsuariosPreferencias

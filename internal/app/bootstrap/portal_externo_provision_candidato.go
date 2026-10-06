@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	core "vec-diputacion-granada/internal/vec/domain"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 type consultaSnapshotContextoExterno interface {
@@ -181,6 +183,8 @@ func abrirPoolProvisionCandidatoExterno(ctx context.Context, dsn string) (*pgxpo
 	for k, v := range map[string]string{"application_name": "vec-provisionar-candidato-externo", "search_path": "pg_catalog", "timezone": "UTC", "statement_timeout": "15s", "lock_timeout": "3s", "idle_in_transaction_session_timeout": "20s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, ErrProvisionCandidatoExterno

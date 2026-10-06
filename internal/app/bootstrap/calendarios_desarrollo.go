@@ -14,6 +14,8 @@ import (
 	calendariosapp "vec-diputacion-granada/internal/modules/calendarios/application"
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 const rolLectorCalendariosDesarrollo = "vec_calendarios_lector"
@@ -106,6 +108,8 @@ func abrirPoolCalendariosDesarrollo(ctx context.Context, dsn string) (*pgxpool.P
 	p["default_transaction_read_only"], p["statement_timeout"], p["lock_timeout"] = "on", "10s", "2s"
 	p["idle_in_transaction_session_timeout"] = "15s"
 	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error { return acreditarLectorCalendarios(ctx, c) }
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(cfg)
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, errCalendariosDesarrolloNoDisponible

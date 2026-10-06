@@ -37,6 +37,8 @@ import (
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 var ErrComposicionDocumentosNoDisponible = errors.New("bootstrap: Documentos no disponible")
@@ -415,6 +417,8 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, "", ErrComposicionDocumentosNoDisponible

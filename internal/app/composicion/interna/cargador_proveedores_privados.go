@@ -20,6 +20,8 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 // El directorio es aprovisionado fuera de Git. Ningun error de esta frontera
@@ -332,6 +334,8 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
 		var pool *pgxpool.Pool
+		// Mide consultas y esperas de conexión por petición (registro técnico).
+		medidorpg.Instrumentar(configuracion)
 		pool, err = pgxpool.NewWithConfig(ctx, configuracion)
 		if err != nil {
 			return vacio, ErrMaterialSeguimientoNoDisponible

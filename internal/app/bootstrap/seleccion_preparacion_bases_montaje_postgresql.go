@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria/medidorpg"
 )
 
 const (
@@ -81,6 +83,8 @@ func abrirPoolPreparacionBasesV3(ctx context.Context, dsn string, guardar bool) 
 		_, err := comprobarPoolPreparacionBasesV3(ctx, conn, guardar)
 		return err
 	}
+	// Mide consultas y esperas de conexión por petición (registro técnico).
+	medidorpg.Instrumentar(c)
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, "", errMontajePreparacionBasesV3
