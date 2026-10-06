@@ -947,7 +947,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
 	}
 	rutas = append(rutas, rutasOrganizacion...)
-	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta)
+	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta, finCesePersonalB2(incorporacion, alta.soporte, catalogoFronteras))
 	if err != nil {
 		return nil, nil, nil, err
 	}
