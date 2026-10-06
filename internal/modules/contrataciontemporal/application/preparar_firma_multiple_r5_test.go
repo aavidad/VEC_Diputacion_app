@@ -47,6 +47,7 @@ type dependenciasMultiplePrueba struct {
 	alterarCustodia bool
 	verificaciones  int
 	actor           string
+	consultas       []ports.MaterialConsultaFirmasR5V2
 }
 
 func (d *dependenciasMultiplePrueba) VerificarFirmas(_ context.Context, s docports.SolicitudVerificacionFirma) (docports.VerificacionFirmasDocumento, error) {
@@ -79,6 +80,7 @@ func capacidadMultiplePrueba(tipos string, r vecdomain.RecursoAutorizable, accio
 }
 
 func (d *dependenciasMultiplePrueba) AutorizarConsultaFirmasR5V2(_ context.Context, m ports.MaterialConsultaFirmasR5V2) (ports.CapacidadConsultaFirmasR5V2, error) {
+	d.consultas = append(d.consultas, m)
 	r, e := RecursoConsultaFirmasR5V2(m)
 	if e != nil {
 		return ports.CapacidadConsultaFirmasR5V2{}, e
@@ -233,6 +235,17 @@ func TestConsumidorFirmaMultipleDosActosYReplay(t *testing.T) {
 	if segundo.Material.Validar() == nil {
 		t.Fatal("V2 se representa como material V1")
 	}
+	// En la vía VEC consulta quien firma: la unidad de su competencia (la del
+	// paso) va en la consulta, y su recurso la lleva.
+	if len(d.consultas) == 0 {
+		t.Fatal("sin consultas previas")
+	}
+	for _, c := range d.consultas {
+		r, err := RecursoConsultaFirmasR5V2(c)
+		if c.UnidadRef == "" || c.UnidadRef != segundo.MaterialMultiple.UnidadFirmanteRef || err != nil || r.Ambitos["unidad_ref"] != c.UnidadRef {
+			t.Fatalf("consulta VEC sin la unidad del paso: %+v", c)
+		}
+	}
 }
 
 func TestConsumidorFirmaMultipleRechazaAntecedenteAlterado(t *testing.T) {
@@ -350,6 +363,15 @@ func TestConsumidorFirmaMultipleExternaDosPasosRegistraRRHHOtroFirmante(t *testi
 	}
 	if len(d.materiales) != 2 {
 		t.Fatal("duplicación del acto")
+	}
+	// En la vía externa consulta RRHH: sólo organización.
+	if len(d.consultas) == 0 {
+		t.Fatal("sin consultas previas")
+	}
+	for _, c := range d.consultas {
+		if c.Via != ports.ViaFirmaExternaPortafirmas || c.UnidadRef != "" {
+			t.Fatalf("consulta externa con unidad: %+v", c)
+		}
 	}
 }
 

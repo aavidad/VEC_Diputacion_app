@@ -182,8 +182,9 @@ type LecturaFirmasR5V2 struct {
 	RevisionesPDF []FirmaRegistradaRevisionPDFV2
 }
 
-// La consulta usa el perfil operativo y su organización. La unidad del cargo
-// se revalida separadamente al registrar; UnidadRef permanece vacía.
+// La consulta usa el perfil operativo y su organización y, si su asignación
+// tiene unidad, esa unidad en UnidadRef (sólo vía VEC; CT186 la liga a un
+// paso del plan publicado). Sin unidad, UnidadRef vacía sale como null.
 type MaterialConsultaFirmasR5V2 struct {
 	MaterialConsultaFirmasR5
 	Via       string
@@ -195,8 +196,10 @@ func (m MaterialConsultaFirmasR5V2) Canonico() ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	// UnidadRef es la unidad de la asignación de quien consulta (CT186): sólo
+	// en la vía VEC; CC10 la liga en SQL a un paso del plan publicado.
 	if m.PasoOrden < 1 || m.PasoOrden > 2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
-		m.UnidadRef != "" {
+		(m.UnidadRef != "" && (m.Via != ViaFirmaCertificadoVEC || !domain.ReferenciaOpacaValida(m.UnidadRef))) {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
 	}
 	var fields map[string]json.RawMessage
