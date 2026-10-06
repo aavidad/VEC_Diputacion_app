@@ -39,17 +39,32 @@ func NuevaSeleccionFirmantePostgreSQL(pool iniciadorSeleccionFirmante) (*Selecci
 	return &SeleccionFirmantePostgreSQL{pool: pool}, nil
 }
 
+// referenciaSeleccion56 es el formato de cable de una referencia versionada.
+type referenciaSeleccion56 struct {
+	Referencia   string `json:"referencia"`
+	Version      uint64 `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
+func (r referenciaSeleccion56) puerto() ports.ReferenciaVersionadaFirmanteV2 {
+	return ports.ReferenciaVersionadaFirmanteV2{Referencia: r.Referencia, Version: r.Version, HuellaSHA256: r.HuellaSHA256}
+}
+
+// maximoCampoSeleccionFirmante acota cada dato de la solicitud antes de
+// enviarlo a SQL; las referencias del plan son mucho más cortas.
+const maximoCampoSeleccionFirmante = 256
+
 type respuestaSeleccionFirmante56 struct {
-	Esquema            string                               `json:"esquema"`
-	PersonaRef         string                               `json:"persona_ref"`
-	CuentaRef          string                               `json:"cuenta_ref"`
-	PerfilActivoRef    string                               `json:"perfil_activo_ref"`
-	RolID              string                               `json:"rol_id"`
-	CargoRef           string                               `json:"cargo_ref"`
-	EnlaceEjercicioRef string                               `json:"enlace_ejercicio_ref"`
-	VinculoCertificado ports.ReferenciaVersionadaFirmanteV2 `json:"vinculo_certificado"`
+	Esquema            string                `json:"esquema"`
+	PersonaRef         string                `json:"persona_ref"`
+	CuentaRef          string                `json:"cuenta_ref"`
+	PerfilActivoRef    string                `json:"perfil_activo_ref"`
+	RolID              string                `json:"rol_id"`
+	CargoRef           string                `json:"cargo_ref"`
+	EnlaceEjercicioRef string                `json:"enlace_ejercicio_ref"`
+	VinculoCertificado referenciaSeleccion56 `json:"vinculo_certificado"`
 	Asignacion         struct {
-		ports.ReferenciaVersionadaFirmanteV2
+		referenciaSeleccion56
 		VigenteDesde string `json:"vigente_desde"`
 		VigenteHasta string `json:"vigente_hasta"`
 	} `json:"asignacion"`
@@ -76,6 +91,11 @@ func (s *SeleccionFirmantePostgreSQL) SeleccionarFirmanteV2(ctx context.Context,
 		q.TipoRecurso == "" || q.Finalidad == "" || q.OrganizacionRef == "" || q.UnidadRef == "" {
 		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
+	for _, v := range []string{q.CargoRef, q.RolID, q.Accion, q.TipoRecurso, q.Finalidad, q.OrganizacionRef, q.UnidadRef} {
+		if len(v) > maximoCampoSeleccionFirmante {
+			return cero, ports.ErrCompetenciaFirmanteNoAcreditada
+		}
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || nuloRegistroTX(tx) {
 		return cero, errorSeleccionFirmante(ctx, err)
@@ -93,20 +113,20 @@ func (s *SeleccionFirmantePostgreSQL) SeleccionarFirmanteV2(ctx context.Context,
 	var r respuestaSeleccionFirmante56
 	if decodificarFirma118(bruto, &r) != nil || r.Esquema != esquemaSeleccionFirmante || r.RolID != q.RolID || r.CargoRef != q.CargoRef ||
 		r.PersonaRef == "" || r.CuentaRef == "" || r.PerfilActivoRef == "" || r.EnlaceEjercicioRef == "" ||
-		!referenciaVersionadaValida(r.VinculoCertificado) || !referenciaVersionadaValida(r.Asignacion.ReferenciaVersionadaFirmanteV2) ||
+		!referenciaVersionadaValida(r.VinculoCertificado) || !referenciaVersionadaValida(r.Asignacion.referenciaSeleccion56) ||
 		r.Rol.Referencia == "" || !huellaSeleccionFirmante.MatchString(r.Rol.HuellaSHA256) ||
 		r.ControlRol.Referencia != r.Rol.Referencia || r.ControlRol.Revision == 0 || !huellaSeleccionFirmante.MatchString(r.ControlRol.HuellaSHA256) {
 		return cero, ports.ErrCompetenciaFirmanteNoDisponible
 	}
 	return ports.SeleccionFirmanteV2{PersonaRef: r.PersonaRef, CuentaRef: r.CuentaRef, PerfilActivoRef: r.PerfilActivoRef, RolID: r.RolID,
-		CargoRef: r.CargoRef, EnlaceEjercicioRef: r.EnlaceEjercicioRef, VinculoCertificado: r.VinculoCertificado,
-		Asignacion: r.Asignacion.ReferenciaVersionadaFirmanteV2, AsignacionVigenteDesde: r.Asignacion.VigenteDesde,
+		CargoRef: r.CargoRef, EnlaceEjercicioRef: r.EnlaceEjercicioRef, VinculoCertificado: r.VinculoCertificado.puerto(),
+		Asignacion: r.Asignacion.referenciaSeleccion56.puerto(), AsignacionVigenteDesde: r.Asignacion.VigenteDesde,
 		AsignacionVigenteHasta: r.Asignacion.VigenteHasta, RolRef: r.Rol.Referencia, RolHuellaSHA256: r.Rol.HuellaSHA256,
 		ControlRol: ports.ReferenciaVersionadaFirmanteV2{Referencia: r.ControlRol.Referencia, Version: r.ControlRol.Revision,
 			HuellaSHA256: r.ControlRol.HuellaSHA256}}, nil
 }
 
-func referenciaVersionadaValida(r ports.ReferenciaVersionadaFirmanteV2) bool {
+func referenciaVersionadaValida(r referenciaSeleccion56) bool {
 	return r.Referencia != "" && r.Version > 0 && huellaSeleccionFirmante.MatchString(r.HuellaSHA256)
 }
 

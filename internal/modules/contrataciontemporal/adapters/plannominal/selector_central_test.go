@@ -123,7 +123,7 @@ func TestFuenteCompetenciaFirmantePlan(t *testing.T) {
 	e, err := c.AcreditarCompetenciaFirmante(t.Context(), q)
 	if err != nil || e.Solicitud != q || !e.Vigente || e.FirmantePrincipalRef != m.FirmantePrincipalRef || e.CuentaFirmanteRef != "cta_prueba" ||
 		e.VinculoCredencialFirmanteRef != "vcc_prueba" || e.VinculoCredencialFirmanteRevision != 1 || e.UnidadFirmanteRef != m.UnidadFirmanteRef ||
-		e.AsignacionVigenteDesde != "2026-01-01T00:00:00.000000Z" || e.CompetenciaComprobadaEn != "2026-10-06T10:00:00.000000Z" ||
+		e.AsignacionVigenteDesde != "2026-01-01T00:00:00Z" || e.CompetenciaComprobadaEn != "2026-10-06T10:00:00Z" ||
 		e.ControlVigenciaFirmanteRevision != 1 || e.CargoFirmante != "cargo:prueba" {
 		t.Fatalf("evidencia distinta: %+v %v", e, err)
 	}
@@ -132,8 +132,51 @@ func TestFuenteCompetenciaFirmantePlan(t *testing.T) {
 	if _, err := c.AcreditarCompetenciaFirmante(t.Context(), otro); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) || len(fuente.pedidas) != 1 {
 		t.Fatalf("paso inexistente sin denegación o con consulta: %v", err)
 	}
+	// Las tres fechas deben pasar el validador de la aplicación y de CT170/172
+	// (sin ceros finales), con segundos exactos y con fracción.
+	for _, ns := range []int{0, 120000000, 123456789} {
+		ahora = time.Date(2026, 10, 6, 10, 0, 0, ns, time.UTC)
+		fuente.r.AsignacionVigenteDesde = time.Date(2026, 1, 1, 0, 0, 0, ns, time.UTC).Format(time.RFC3339Nano)
+		e, err := c.AcreditarCompetenciaFirmante(t.Context(), q)
+		for _, v := range []string{e.AsignacionVigenteDesde, e.AsignacionVigenteHasta, e.CompetenciaComprobadaEn} {
+			if _, ok := ports.FechaFirmaExternaCanonica(v); err != nil || !ok {
+				t.Fatalf("fecha %q no canónica (%d ns): %v", v, ns, err)
+			}
+		}
+	}
+	fuente.r = seleccionPrueba(m)
+	for caso, cambiar := range map[string]func(*ports.SeleccionFirmanteV2){
+		"otro_rol":   func(r *ports.SeleccionFirmanteV2) { r.RolID = "rol_otro" },
+		"otro_cargo": func(r *ports.SeleccionFirmanteV2) { r.CargoRef = "cargo:otro" },
+		"fecha_mala": func(r *ports.SeleccionFirmanteV2) { r.AsignacionVigenteHasta = "2027-01-01" },
+	} {
+		fuente.r = seleccionPrueba(m)
+		cambiar(&fuente.r)
+		if _, err := c.AcreditarCompetenciaFirmante(t.Context(), q); !errors.Is(err, ports.ErrCompetenciaFirmanteNoDisponible) {
+			t.Fatalf("%s aceptado: %v", caso, err)
+		}
+	}
+	fuente.r = seleccionPrueba(m)
+	fuente.err = ports.ErrCompetenciaFirmanteNoAcreditada
+	if _, err := c.AcreditarCompetenciaFirmante(t.Context(), q); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) {
+		t.Fatalf("no acreditada cambiada: %v", err)
+	}
 	fuente.err = errors.New("caída")
 	if _, err := c.AcreditarCompetenciaFirmante(t.Context(), q); !errors.Is(err, ports.ErrCompetenciaFirmanteNoDisponible) {
 		t.Fatalf("caída sin no disponible: %v", err)
+	}
+	// Dos pasos que sólo difieren en la unidad: la elección es ambigua.
+	plan, err := base.plan.Plan(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pasoUnicoDeSolicitud(plan, q); !ok {
+		t.Fatal("paso único no elegido")
+	}
+	otraUnidad := plan.Pasos[0]
+	otraUnidad.UnidadRef = "unidad:otra"
+	plan.Pasos = append(plan.Pasos, otraUnidad)
+	if _, ok := pasoUnicoDeSolicitud(plan, q); ok {
+		t.Fatal("dos pasos con otra unidad no ambiguos")
 	}
 }
