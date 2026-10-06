@@ -159,7 +159,8 @@ la principal el 6 de octubre de 2026.
 AD208 cambia solo esa sentencia del núcleo. El rechazo pasa a SQLSTATE `VA172`,
 propio de VEC, con el mismo mensaje, y su `DETAIL` lleva la terna que falta:
 `audiencia=… operacion=… canal=…`. El LOGIN no aparece, porque no se registra
-en errores. Firma, propietario, ACL, configuración y dependencias del núcleo
+en errores. El `HINT` recuerda la otra causa posible: que la fila exista pero
+el LOGIN de la sesión no sea el suyo. Firma, propietario, ACL, configuración y dependencias del núcleo
 quedan iguales. La migración comprueba que la sentencia aparece una sola vez,
 tras resolver el origen, y que al revertir el cambio en memoria se recupera el
 texto original. La reejecución se rechaza y no hay DOWN.
@@ -172,14 +173,30 @@ Efecto en la aplicación:
 - La causa queda en el registro de PostgreSQL: el `ERROR` con el `DETAIL` de
   la terna y la sentencia que la pidió. El DBA sabe qué fila añadir sin
   reproducir nada.
-- La lectura de borradores de Bolsa responde 500 en vez de 503. Va en su
-  propio corte.
+- Excepciones, que van en su propio corte:
+  - La lectura de borradores de Bolsa responde 500 en vez de 503.
+  - Unas 18 funciones de `vec_bolsa_llamamientos` envuelven su consumo con
+    `EXCEPTION WHEN others THEN RAISE … ERRCODE='42501'`. Entre ellas están
+    el registro de contacto y de datos de contacto de la participación, las
+    ofertas, la política de ofertas, la reserva y la situación de la
+    participación, los listados de la participación, los borradores de
+    llamamiento interno, las sanciones y los actos de plaza. Ahí `VA172`
+    vuelve a ser 42501, sigue saliendo 403 y el `DETAIL` no llega al
+    registro. Hay que añadir `WHEN SQLSTATE 'VA172' THEN RAISE;` antes del
+    `WHEN others`.
+  - Las operaciones de ajustes de reglas y de catálogo de plantillas de
+    Contratación convierten los errores en 22023. Falta confirmar si eso
+    incluye el consumo.
+- El registro de contexto de administración clasificaba el 42501 como
+  `denegado`. `VA172` quedará como `error`, que describe mejor lo que pasa.
 
 AD208 mide el núcleo por una marca única y no por su huella completa, así que
-convive con cualquier preimagen que conserve la sentencia de AD172. Las
-migraciones que fijan la huella completa del núcleo (AD195 y, si entra, AD207)
-deben instalarse antes que AD208. Las que se escriban después miden su
-postimagen.
+convive con cualquier preimagen que conserve la sentencia de AD172. Pero cambia
+la huella completa del núcleo, así que antes de AD208 tienen que instalarse
+todas las migraciones pendientes que la fijan. El 6 de octubre eran AD195,
+AD196, AD178, AD177 y AD190, de main y pendientes en la principal, y AD197,
+AD203 y AD200, de PR abiertas. Las que se escriban después miden su
+postimagen. AD207 mide por marcas y conmuta con AD208.
 
 La prueba
 `pruebas/000208_origen_no_acreditado_sqlstate.sh [definicion.sql]` usa

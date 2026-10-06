@@ -121,7 +121,14 @@ if [[ -n $definicion ]]; then
   antes=$(huella); antes_meta=$(meta)
   migrar >/dev/null
   espera "$(meta)" "$antes_meta" 'metadatos del núcleo real intactos'
-  espera "$(sql -c "SELECT encode(sha256(convert_to(replace(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure), E'        -- AD208: falta de configuración técnica, no denegación. Sin LOGIN.\n        RAISE EXCEPTION USING ERRCODE=''VA172'', MESSAGE=''origen de consumo no acreditado'',\n            DETAIL=pg_catalog.format(''audiencia=%s operacion=%s canal=%s'',\n                c ->> ''audiencia_consumo'', c ->> ''operacion'', v_canal_origen);', '        RAISE EXCEPTION USING ERRCODE=''42501'', MESSAGE=''origen de consumo no acreditado'';'),'UTF8')),'hex')")" "$antes" 'el núcleo real solo cambia esa sentencia'
+  # Revierte con los textos exactos de la migración y compara con el original.
+  antiguo=$(awk '/antiguo text:=\$antiguo\$/{sub(/.*antiguo text:=\$antiguo\$/,"");p=1} p{l=$0; e=index(l,"$antiguo$"); if(e){print substr(l,1,e-1); exit} print l}' "$migracion")
+  nuevo=$(awk '/nuevo text:=\$nuevo\$/{sub(/.*nuevo text:=\$nuevo\$/,"");p=1} p{l=$0; e=index(l,"$nuevo$"); if(e){print substr(l,1,e-1); exit} print l}' "$migracion")
+  [[ -n $antiguo && -n $nuevo ]] || { echo 'FALLO: no se pudieron leer los textos de la migración' >&2; exit 1; }
+  espera "$(sql -v "antiguo=$antiguo" -v "nuevo=$nuevo" <<'Q'
+SELECT encode(sha256(convert_to(replace(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure), :'nuevo', :'antiguo'),'UTF8')),'hex');
+Q
+)" "$antes" 'el núcleo real solo cambia esa sentencia'
   echo "huella real antes=$antes después=$(huella)"
 fi
 echo 'PRUEBA-OK'

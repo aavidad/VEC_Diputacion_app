@@ -8,9 +8,10 @@
 -- ACL, configuración y dependencias quedan iguales. Sin DOWN; la reejecución
 -- se rechaza.
 --
--- Va después de toda migración que mida el núcleo con su huella completa
--- (AD195 y AD207 en el momento de escribirla); las que lleguen después miden
--- la postimagen de esta.
+-- Va después de toda migración que mida el núcleo con su huella completa.
+-- Pendientes en la principal al escribirla: AD195, AD196, AD178, AD177 y AD190
+-- (en main) y AD197, AD203 y AD200 (PR abiertas). Las que lleguen después
+-- miden la postimagen de esta. AD207 mide por marcas y conmuta con esta.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -29,7 +30,8 @@ DECLARE
  nuevo text:=$nuevo$        -- AD208: falta de configuración técnica, no denegación. Sin LOGIN.
         RAISE EXCEPTION USING ERRCODE='VA172', MESSAGE='origen de consumo no acreditado',
             DETAIL=pg_catalog.format('audiencia=%s operacion=%s canal=%s',
-                c ->> 'audiencia_consumo', c ->> 'operacion', v_canal_origen);$nuevo$;
+                c ->> 'audiencia_consumo', c ->> 'operacion', v_canal_origen),
+            HINT='falta su fila en configuracion_origen_consumos_v1 o el LOGIN de la sesión no es el de la fila';$nuevo$;
 BEGIN
  IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR f IS NULL

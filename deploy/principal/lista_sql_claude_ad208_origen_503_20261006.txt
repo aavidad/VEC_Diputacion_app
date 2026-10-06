@@ -1,4 +1,7 @@
-# Solo AD208. Requiere AD172 instalada. Va después de toda migración pendiente
-# que mida el núcleo por su huella completa (AD195, y AD207 si entra antes);
-# las que se escriban después miden la postimagen de AD208. Sin DOWN.
+# Solo AD208. Requiere AD172 instalada y va DESPUÉS de toda migración pendiente
+# que fije la huella completa del núcleo, porque AD208 la cambia:
+#   AD193 -> AD195 -> AD196 -> AD178 -> AD177 -> AD190 (en main, pendientes en
+#   la principal el 06/10) y AD197/AD203 -> AD200 si entran antes sin re-medir.
+# Las que se escriban después miden la postimagen de AD208. AD207 mide por
+# marcas y conmuta. Sin DOWN; la reejecución se rechaza.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000208_origen_no_acreditado_sqlstate.up.sql
