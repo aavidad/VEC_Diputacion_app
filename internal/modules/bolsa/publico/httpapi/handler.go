@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/aplicacion"
@@ -40,6 +41,10 @@ const (
 	// como mucho seis operaciones y seis respuestas a la vez; solo se evita
 	// rechazar picos de milisegundos cuando miles de personas entran juntas.
 	esperaMaximaCupo = 500 * time.Millisecond
+	// maximoEnEspera acota cuántas peticiones pueden estar esperando turno a
+	// la vez (cada una ocupa unos pocos KiB); las demás reciben el 429
+	// inmediato de antes.
+	maximoEnEspera = 1024
 )
 
 type Handler struct {
@@ -48,6 +53,7 @@ type Handler struct {
 	cuposRespuesta    chan struct{}
 	duracionOperacion time.Duration
 	esperaCupo        time.Duration
+	enEspera          atomic.Int32
 }
 
 type servicioConsultaPublica interface {
@@ -121,7 +127,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// descuenta de él y la petición no dura más que antes.
 	ctx, cancelar := context.WithTimeout(r.Context(), h.duracionOperacion)
 	defer cancelar()
-	if !ocuparCupo(ctx, h.cuposRespuesta, h.esperaCupo) {
+	if !h.ocuparCupo(ctx, h.cuposRespuesta) {
 		w.Header().Set("Retry-After", "1")
 		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
 		return
@@ -211,8 +217,18 @@ func (h *Handler) detalle(w http.ResponseWriter, r *http.Request, identificador 
 	responderJSON(w, r, http.StatusOK, resultado)
 }
 
-// ocuparCupo toma un cupo libre o espera como mucho espera, sin pasar del
-// plazo de ctx. Con espera cero conserva el rechazo inmediato.
+// ocuparCupo toma un cupo libre o espera turno como mucho esperaCupo, sin
+// pasar del plazo de ctx ni del número máximo de peticiones en espera. Con
+// espera cero conserva el rechazo inmediato.
+func (h *Handler) ocuparCupo(ctx context.Context, cupos chan struct{}) bool {
+	if h.enEspera.Add(1) > maximoEnEspera {
+		h.enEspera.Add(-1)
+		return ocuparCupo(ctx, cupos, 0)
+	}
+	defer h.enEspera.Add(-1)
+	return ocuparCupo(ctx, cupos, h.esperaCupo)
+}
+
 func ocuparCupo(ctx context.Context, cupos chan struct{}, espera time.Duration) bool {
 	select {
 	case cupos <- struct{}{}:
@@ -241,7 +257,7 @@ func ejecutarServicioConCupo[T any](
 	ejecutar func() (T, error),
 ) (T, error, bool) {
 	var cero T
-	if !ocuparCupo(ctx, h.cuposServicio, h.esperaCupo) {
+	if !h.ocuparCupo(ctx, h.cuposServicio) {
 		w.Header().Set("Retry-After", "1")
 		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
 		return cero, nil, false

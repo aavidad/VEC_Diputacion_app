@@ -582,3 +582,19 @@ func TestHTTPPublicoLaEsperaDeTurnoNoSuperaElPlazoDeLaOperacion(t *testing.T) {
 		t.Fatal("sin espera configurada el rechazo debe ser inmediato")
 	}
 }
+
+func TestHTTPPublicoLimitaLasPeticionesEnEspera(t *testing.T) {
+	handler := nuevoHandler(&servicioHTTPPrueba{}, 1, 1, time.Second)
+	handler.esperaCupo = time.Minute
+	handler.cuposRespuesta <- struct{}{}
+	handler.enEspera.Store(maximoEnEspera)
+	inicio := time.Now()
+	rechazada := httptest.NewRecorder()
+	handler.ServeHTTP(rechazada, httptest.NewRequest(http.MethodGet, RutaConvocatorias, nil))
+	if rechazada.Code != http.StatusTooManyRequests || time.Since(inicio) > 200*time.Millisecond {
+		t.Fatalf("con la cola llena el rechazo debe ser inmediato: %d en %v", rechazada.Code, time.Since(inicio))
+	}
+	if handler.enEspera.Load() != maximoEnEspera {
+		t.Fatalf("el contador de espera no se restauró: %d", handler.enEspera.Load())
+	}
+}
