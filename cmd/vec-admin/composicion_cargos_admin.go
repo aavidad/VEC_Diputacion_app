@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/administracion"
-	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
+	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres/cargoadmin"
 	"vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/ports"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
+	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres/cargoadmin"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	efecto "vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 )

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
+	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres/cargoadmin"
 	efecto "vec-diputacion-granada/internal/vec/adapters/postgres/efectonominaladmin"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"

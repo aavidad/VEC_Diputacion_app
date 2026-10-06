@@ -1,4 +1,8 @@
-package postgres
+// Package cargoadmin es el adaptador PostgreSQL de la publicación de cargos
+// competenciales desde vec-admin. Vive aparte del adaptador general de
+// Personal porque enlaza el efecto nominal de administración, que sólo puede
+// entrar en el binario de administración (no en vec-interno).
+package cargoadmin
 
 import (
 	"bytes"
