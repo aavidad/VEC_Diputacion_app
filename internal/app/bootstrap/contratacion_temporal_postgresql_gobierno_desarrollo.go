@@ -280,6 +280,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
+		// Consulta completa de datos de contacto (AD197/B78).
+		puertosbolsa.AudienciaConsultarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
