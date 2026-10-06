@@ -7,51 +7,54 @@ de la ruta, ni consulta, cabeceras o cuerpos.
 ## Dónde mirar
 
 Cada petición a `vec-server`, `vec-admin` o `vec-publico` deja una línea JSON
-con `"msg":"peticion"` en la salida de errores del proceso (`podman logs
-<contenedor>`). Ejemplo de una prueba con PostgreSQL 18.4 y datos sintéticos:
+con `"msg":"http.server.request"` en la salida de errores del proceso
+(`podman logs <contenedor>`). Los nombres de campo siguen las convenciones
+semánticas de OpenTelemetry, que entienden las herramientas habituales de
+registros; los propios de VEC empiezan por `vec.`. Las duraciones van en
+segundos. Ejemplo de una prueba con PostgreSQL 18.4 y datos sintéticos:
 
 ```json
-{"time":"2026-10-06T12:10:57.44+02:00","level":"WARN","msg":"peticion","servicio":"vec-server","superficie":"interno","entorno":"desarrollo","version":"54ac9a518abc","correlacion":"dcc9372a9fe22c7257a8eddf75f4603c","metodo":"GET","ruta":"/api/vec/bolsa/{bolsa}/participaciones","estado":200,"duracion_ms":406.5,"bytes":0,"bd_consultas":31,"bd_ms":403.1,"bd_espera_ms":3.4,"lenta":true,"consulta_mas_lenta":"vec_bolsa.listar_participaciones","consulta_mas_lenta_ms":401.6}
+{"time":"2026-10-06T13:07:11.46+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"5f4f071c5abc","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","http.route":"/api/vec/bolsa/{bolsa}/participaciones","http.response.status_code":200,"http.server.request.duration":0.4075,"http.response.body.size":0,"vec.correlacion":"f950733c5a1744f94af55eb071166118","vec.bd.consultas":31,"vec.bd.duracion":0.4034,"vec.bd.espera_conexion":0.004,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4017}
 ```
 
-- `level`: `INFO`; `WARN` si es lenta; `ERROR` si respondió 5xx o se
-  interrumpió.
-- `ruta`: la plantilla de la ruta. Donde iba una referencia sale `{bolsa}` o
-  `{valor}`. Un 4xx sin plantilla sale como `{sin_plantilla}`.
-- `duracion_ms`: lo que tardó el servidor.
-- `bd_consultas` y `bd_ms`: consultas a PostgreSQL y tiempo dentro de ellas.
-  `bd_espera_ms`: tiempo esperando una conexión libre del pool.
-- `lenta`: más de 300 ms o más de 20 consultas. Muchas consultas cortas
-  suelen ser una consulta por fila en el código. `consulta_mas_lenta` es la
-  función de PostgreSQL que más tardó.
-- `bd_error`: último error de base de datos. `bd_` y el código de PostgreSQL
-  (`bd_57014` consulta cancelada por tiempo, `bd_53300` demasiadas
-  conexiones), o `conexion_plazo_vencido` si no llegó a conseguir conexión.
-- `cancelada`: `cliente` si quien llamó cortó antes; `plazo` si venció un
-  plazo del servidor.
-- `version`: la revisión de Git del binario. Si sale `desconocida`, se
-  compiló sin la marca (ver «Compilar con la revisión»).
+| Campo | Qué es |
+| --- | --- |
+| `level` | `INFO`; `WARN` si es lenta; `ERROR` si respondió 5xx o se interrumpió |
+| `http.route` | Plantilla de la ruta, cuando el enrutador la da (`{bolsa}` en lugar de la referencia) |
+| `url.path` | Si no hay plantilla, el camino con cada valor cambiado por `{valor}`; un 4xx sin plantilla sale como `{sin_plantilla}` |
+| `http.response.status_code` | Código de respuesta |
+| `http.server.request.duration` | Lo que tardó el servidor, en segundos |
+| `vec.bd.consultas`, `vec.bd.duracion` | Consultas a PostgreSQL de la petición y tiempo dentro de ellas |
+| `vec.bd.espera_conexion` | Tiempo esperando una conexión libre del pool |
+| `vec.lenta` | Más de 0,3 s o más de 20 consultas. Muchas consultas cortas suelen ser una consulta por fila en el código |
+| `vec.bd.consulta_mas_lenta` | En las lentas, la función de PostgreSQL que más tardó y su duración |
+| `vec.bd.error`, `error.type` | Último error de base de datos: `bd_` y el código de PostgreSQL (`bd_57014` cancelada por tiempo, `bd_53300` demasiadas conexiones) o `conexion_plazo_vencido` si no llegó a conseguir conexión. En un 5xx sin error de base de datos, `error.type` es el código de estado |
+| `vec.cancelada` | `cliente` si quien llamó cortó antes; `plazo` si venció un plazo del servidor |
+| `vec.correlacion` | Enlaza la línea con las incidencias técnicas de la misma petición |
+| `service.version` | Revisión de Git del binario. `desconocida` si se compiló sin la marca |
 
 Si el portal tarda minutos y acaba en 503, lo primero es buscar esta forma:
-cero consultas, todo el tiempo en `bd_espera_ms` y
-`bd_error: conexion_plazo_vencido`. Es un pool agotado.
+cero consultas, todo el tiempo en `vec.bd.espera_conexion` y
+`conexion_plazo_vencido`. Es un pool agotado.
 
 ```json
-{"level":"ERROR","msg":"peticion","ruta":"/api/vec/ct/expedientes/{ref}","estado":503,"duracion_ms":200.4,"bd_consultas":0,"bd_ms":0,"bd_espera_ms":200.4,"bd_error":"conexion_plazo_vencido"}
+{"level":"ERROR","msg":"http.server.request","http.route":"/api/vec/ct/expedientes/{ref}","http.response.status_code":503,"http.server.request.duration":0.2003,"vec.bd.consultas":0,"vec.bd.duracion":0,"vec.bd.espera_conexion":0.2003,"vec.bd.error":"conexion_plazo_vencido","error.type":"conexion_plazo_vencido"}
 ```
 
 ## Paso a paso
 
 1. Las lentas o fallidas de la última hora, agrupadas por ruta:
    ```sh
-   podman logs --since 1h <contenedor> 2>&1 | grep '"msg":"peticion"' \
-     | jq -r 'select(.lenta or .estado >= 500) | [.ruta, .estado, .duracion_ms, .bd_consultas, .bd_espera_ms, .bd_error] | @tsv' \
+   podman logs --since 1h <contenedor> 2>&1 | grep '"msg":"http.server.request"' \
+     | jq -r 'select(.["vec.lenta"] or .["http.response.status_code"] >= 500)
+              | [(.["http.route"] // .["url.path"]), .["http.response.status_code"], .["error.type"]] | @tsv' \
      | sort | uniq -c | sort -rn | head
    ```
-2. Si todas las rutas tienen `bd_espera_ms` alto, el problema es el pool o
-   PostgreSQL. Si es una ruta, mirar su `consulta_mas_lenta`.
-3. Con la `correlacion` de una línea se encuentran las incidencias técnicas de
-   esa misma petición: `podman logs <contenedor> 2>&1 | grep <correlacion>`.
+2. Si todas las rutas esperan conexión (`vec.bd.espera_conexion` alto), el
+   problema es el pool o PostgreSQL. Si es una ruta, mirar su
+   `vec.bd.consulta_mas_lenta`.
+3. Con `vec.correlacion` se encuentran las incidencias técnicas de esa misma
+   petición: `podman logs <contenedor> 2>&1 | grep <correlacion>`.
 4. En PostgreSQL, buscar la función en `pg_stat_user_functions` y
    `pg_stat_statements` (consultas 1 a 3 de
    `deploy/principal/consultas_observabilidad.sql`). Quién ocupa las
@@ -74,7 +77,8 @@ curl -s 'http://127.0.0.1:9464/debug/pprof/goroutine?debug=2' | head -100
   `prestamos_con_espera` y `espera_ms`. Si `en_uso` iguala a `maximo` un rato,
   el pool está agotado.
 - `vec_http_peticiones` y `vec_http_ms`: recuento y milisegundos acumulados por
-  ruta.
+  ruta. `vec_http_lentas` y `vec_http_en_curso`: lentas desde el arranque y
+  peticiones abiertas ahora.
 - `goroutine?debug=2`: dónde está parado cada hilo de Go si el proceso no
   responde. El perfil de CPU se lee en un equipo con Go:
   `go tool pprof -top cpu.pprof`.
