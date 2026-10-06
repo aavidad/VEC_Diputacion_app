@@ -300,15 +300,19 @@ func consultaAvisosRRHH(cruda string) (bolsaapplication.ConsultaAvisos, bool) {
 	return resultado, true
 }
 
+// cargarContactos lee los contactos de la bolsa por páginas. Cada página
+// consume su propia autorización V3, así que una página incompleta es la
+// última: pedir otra solo para recibirla vacía duplicaba la autorización.
 func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+	const porPagina = 100
 	cursor := ""
 	for pagina := 0; pagina < 100; pagina++ {
-		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, porPagina)
 		if err != nil {
 			return false
 		}
 		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
-		if p.CursorSiguiente == "" {
+		if p.CursorSiguiente == "" || len(p.Contactos) < porPagina {
 			return true
 		}
 		if p.CursorSiguiente == cursor {
