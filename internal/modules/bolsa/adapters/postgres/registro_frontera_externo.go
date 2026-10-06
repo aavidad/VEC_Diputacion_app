@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -96,7 +97,7 @@ func nuevoRegistradorFronteraBolsaExternaPostgreSQL(ctx context.Context, consult
 	if ctx == nil || consultor == nil || ctx.Err() != nil {
 		return nil, ErrRegistroFronteraBolsaExternaNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 3*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(3*time.Second))
 	defer cancelar()
 	var valido bool
 	if err := consultor.QueryRow(sonda, preflightFronteraBolsaExternaSQL, rolRegistroFronteraBolsaExterna).Scan(&valido); err != nil || !valido {
@@ -134,7 +135,7 @@ func (r *RegistradorFronteraBolsaExternaPostgreSQL) RegistrarAuditoriaFronteraRu
 	if !ordenFronteraBolsaExternaValida(orden) {
 		return vecports.ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
-	registro, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	registro, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(3*time.Second))
 	defer cancelar()
 	var guardado bool
 	if err := r.consultor.QueryRow(registro, registrarFronteraBolsaExternaSQL,

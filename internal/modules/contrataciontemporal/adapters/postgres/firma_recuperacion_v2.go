@@ -11,6 +11,7 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -63,7 +64,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) RecuperarFirmasAutorizadasV2(ctx c
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de recuperación de firmas V2 no confirmado")

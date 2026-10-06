@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -113,7 +114,7 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 		return api.ErrConfiguracionIncompleta
 	}
 	defer func() {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(c)
 	}()

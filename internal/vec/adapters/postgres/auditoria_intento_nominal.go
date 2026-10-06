@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -93,7 +94,7 @@ func (r *RegistradorIntentosAuditoriaPostgreSQL) AppendIntentoAuditoria(
 	}
 	// Context.WithoutCancel conserva correlación de trazas, pero el tiempo de
 	// auditoría es independiente de la vida de la conexión HTTP.
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), r.limite)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(r.limite))
 	defer cancelar()
 	var acuse ports.AcuseIntentoAuditoria
 	err = postgresqlcomun.RepetirTrasCarreraSerializable(ctxAuditoria, func() error {

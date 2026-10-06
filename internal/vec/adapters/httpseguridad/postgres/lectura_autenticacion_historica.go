@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"strconv"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -70,7 +71,7 @@ func (l *LectorAutenticacionOriginalPostgreSQLV1) LeerAutenticacionOriginalV1(ct
 	if !valorNulo(tx) {
 		defer func() {
 			if !confirmado {
-				c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 				defer cancel()
 				_ = tx.Rollback(c)
 			}

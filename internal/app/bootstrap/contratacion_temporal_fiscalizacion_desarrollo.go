@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -343,7 +344,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	}
 	lector := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: puente}
 	puente.autoridadAsignaciones = lector
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	if publicarContextoPostgreSQLContratacionTemporalDesarrollo(
 		ctx,

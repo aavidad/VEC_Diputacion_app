@@ -15,6 +15,7 @@ import (
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -59,7 +60,7 @@ func nuevasRutasYConsultaCalendariosDesarrollo(cfg config.Config) ([]vechttp.Rut
 		if !cfg.DevelopmentEnabledByDoubleKey() {
 			return nil, nil, cerrar, errCalendariosDesarrolloNoDisponible
 		}
-		ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 		defer cancelar()
 		pool, err := abrirPoolCalendariosDesarrollo(ctx, dsn)
 		if err != nil {
@@ -123,7 +124,7 @@ func abrirPoolCalendariosDesarrollo(ctx context.Context, dsn string) (*pgxpool.P
 }
 
 func acreditarLectorCalendarios(ctx context.Context, c *pgx.Conn) error {
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	var usuario, efectivo, base, direccion, puerto, inicio string
 	var valido bool

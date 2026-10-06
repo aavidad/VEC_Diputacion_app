@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -32,7 +33,7 @@ func (l *LectorRelacionSeleccionadaRPT) ConsultarSeleccionada(ctx context.Contex
 		return cero, domain.ErrLectorRelacionRPTNoDisponible
 	}
 	fallar := func(err error) (ports.ResultadoRelacionParaRPTV1, error) {
-		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		motivo := "entrada_invalida"
 		if err == domain.ErrLectorRelacionRPTNoDisponible {

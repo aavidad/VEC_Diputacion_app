@@ -13,6 +13,7 @@ import (
 	personalorganizacion "vec-diputacion-granada/internal/modules/personal/adapters/organizacionpublica"
 	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -82,7 +83,7 @@ func nuevoManejadorRPTPublicaPersonal(ruta string) (http.Handler, error) {
 	// Se comprueba una vez al componer para no ofrecer una ruta cuya huella ya
 	// no coincide; esa lectura deja el catálogo validado en la memoria de la
 	// fuente, que solo vuelve a leer el fichero si cambia.
-	ctx, cancelar := context.WithTimeout(context.Background(), plazoValidacionConsultasPublicasPersonal)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(plazoValidacionConsultasPublicasPersonal))
 	defer cancelar()
 	catalogo, err := servicio.Listar(ctx)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -676,7 +677,7 @@ func ejecutarLecturaGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer func() {
-		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(ctxRollback)
 	}()
@@ -704,7 +705,7 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer func() {
-		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		var liberado bool
 		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
@@ -723,7 +724,7 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 	// Plazo propio también para ROLLBACK: se ejecuta con el cerrojo `renovacion` tomado por la
 	// renovación y no debe esperar indefinidamente a una red cortada.
 	defer func() {
-		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(ctxRollback)
 	}()

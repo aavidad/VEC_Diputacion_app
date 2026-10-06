@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/bolsa/application"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const funcionConsultaAnclajeAceptacionCT = `SELECT vec_bolsa_llamamientos.consultar_anclaje_aceptacion_ct_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
@@ -66,7 +67,7 @@ func (r *RepositorioConsultaAnclajeAceptacionCTPostgreSQL) consultar(ctx context
 		return cero, err
 	}
 	defer func() {
-		fin, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		fin, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(fin)
 	}()

@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -72,7 +73,7 @@ func (e *enrutadorPersonalB2) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaPersonal,
 				Ruta:       rutaAuditoria,
 			}
-			ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+			ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
 			defer cancelar()
 			if orden.Validar() != nil || e.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctx, orden) != nil {
 				estado = http.StatusServiceUnavailable

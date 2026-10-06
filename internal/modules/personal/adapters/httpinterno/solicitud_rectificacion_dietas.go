@@ -14,6 +14,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const RutaSolicitudesRectificacionDietas = personalports.RutaSolicitudesRectificacionDietas
@@ -295,7 +296,7 @@ func (m *ManejadorRectificacionDietas) auditar(r *http.Request, estado int, acci
 	if o.Validar() != nil {
 		return personalports.ErrRectificacionDietasNoDisponible
 	}
-	c, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	c, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return m.auditoria.RegistrarAuditoriaFronteraRectificacionDietas(c, o)
 }

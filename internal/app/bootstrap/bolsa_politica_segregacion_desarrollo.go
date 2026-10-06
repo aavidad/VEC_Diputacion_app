@@ -8,6 +8,7 @@ import (
 	"vec-diputacion-granada/config"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -36,7 +37,7 @@ func publicarPoliticaSegregacionDesarrollo(
 	if err != nil {
 		return err
 	}
-	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	regla, err := resolutor.Regla(ctx, reglas.BolsaSegundaPersona)
 	if err != nil || regla.Unidad != reglas.UnidadLista {

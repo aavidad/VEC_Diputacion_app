@@ -9,6 +9,7 @@ import (
 	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglas"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -24,7 +25,7 @@ func componerContactoOrigenBolsaDesarrollo(resolutor *reglas.Resolutor, mutador 
 	}
 	// Una regla b29 ausente o incompleta impide arrancar, igual que un
 	// paquete de reglas ilegible.
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if _, err := politica.MarcaOrigenConvoca(ctx, time.Now().UTC()); err != nil {
 		return errors.Join(errReglasEjemploNoValidas, err)

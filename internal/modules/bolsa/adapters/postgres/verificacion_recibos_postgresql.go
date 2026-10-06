@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const funcionVerificarReciboBorradorPostgreSQL = "vec_bolsa_convocatorias.verificar_recibo_borrador_v1"
@@ -152,7 +153,7 @@ func confirmarRelecturaYVerificarCriptografiaPostgreSQL(
 	if err := tx.Commit(ctx); err != nil {
 		return errorConfirmacionBorradorPostgreSQL(ctx, err)
 	}
-	ctxCriptografia, cancelar := context.WithTimeout(ctx, duracionMaxima)
+	ctxCriptografia, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionMaxima))
 	defer cancelar()
 	err := criptografia.VerificarEvidenciasRecibo(ctxCriptografia, recibo)
 	if ctx.Err() != nil {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecpostgres "vec-diputacion-granada/internal/vec/adapters/postgres"
 )
 
@@ -49,7 +50,7 @@ func iniciarSelladoAuditoria(ctx context.Context, cfg config.Config) (func(), er
 	}
 	// Una pasada antes de atender peticiones: tras una parada larga el latido
 	// ha caducado y, sin ella, las primeras operaciones auditadas se rechazarían.
-	primera, cancelar := context.WithTimeout(ctx, 30*time.Second)
+	primera, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(30*time.Second))
 	_, err = sellador.Sellar(primera)
 	cancelar()
 	if err != nil {
@@ -66,7 +67,7 @@ func mantenerSelladoAuditoria(sellar func(context.Context) (vecpostgres.Resultad
 		defer close(terminado)
 		fallando := false
 		for ctx.Err() == nil {
-			pasada, cancelarPasada := context.WithTimeout(ctx, 30*time.Second)
+			pasada, cancelarPasada := context.WithTimeout(ctx, plazoarranque.Ampliar(30*time.Second))
 			resultado, err := sellar(pasada)
 			cancelarPasada()
 			switch {

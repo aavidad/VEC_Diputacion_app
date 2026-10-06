@@ -15,6 +15,7 @@ import (
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -144,7 +145,7 @@ func descifrarBorradorConPlazo(
 	if ctx == nil || valorNulo(descifrador) || plazo <= 0 || ctx.Err() != nil {
 		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, errorLecturaBorrador(ctx, nil)
 	}
-	ctxKMS, cancelar := context.WithTimeout(ctx, plazo)
+	ctxKMS, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazo))
 	defer cancelar()
 	resultado, err := descifrador.DescifrarBorrador(ctxKMS, solicitud)
 	if err != nil {
