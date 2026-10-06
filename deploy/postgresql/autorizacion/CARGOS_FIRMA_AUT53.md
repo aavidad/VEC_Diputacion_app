@@ -138,6 +138,15 @@ con claves repetidas, LOGIN sin configuración, LOGIN de AUT49 sin EXECUTE,
 LOGIN con permisos de más, ACL de las funciones internas, inmutabilidad y
 cadena común enlazada.
 
+Medido de nuevo el 06/10 sobre main, con AD208 y AD207 (sellado diferido de la
+cadena), en un PostgreSQL 18.4 desechable con la copia fría posterior a AD197
+más AD198, AD200 a AD202, AUT52, CC9, CT179, CT180, AD208, AD207 y CT183. AUT53
+se instala con salida 0. El vector da 31/31: su comprobación de cadena admite
+las dos formas. Antes de AD207 la cadena queda enlazada con la cabeza en el
+control; con AD207 cada asiento nuevo lleva el marcador fijo y está en la cola
+de sellado. AUT53 no mide ninguna preimagen del núcleo y escribe la auditoría
+con `registrar_perfiles_asignables_admin_v1` y su intento, que AD207 reescribe.
+
 Recorrido de la CLI en el mismo PostgreSQL: `preparar` con dos cargos,
 LOGIN y configuración del DBA, `aplicar` confirmado, replay con otro acuse y el
 mismo recibo, reinicio de PostgreSQL y otro replay con el mismo recibo. Quedan
