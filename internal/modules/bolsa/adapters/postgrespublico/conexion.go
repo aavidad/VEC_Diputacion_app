@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
@@ -207,7 +208,8 @@ func prepararConfiguracionPool(dsn string) (*pgxpool.Config, error) {
 	if err := validarTLSPostgreSQLPublico(&configuracion.ConnConfig.Config); err != nil {
 		return nil, err
 	}
-	configuracion.MaxConns = 6
+	// 6 por defecto, como los cupos de convocatorias del manejador público.
+	postgresqlcompartido.FijarTamanoPool(configuracion, dsn, 6)
 	configuracion.MinConns = 0
 	configuracion.MinIdleConns = 0
 	configuracion.MaxConnLifetime = duracionVidaPostgreSQLPublica
