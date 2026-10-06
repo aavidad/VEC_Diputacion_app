@@ -35,8 +35,13 @@ func TestCuerpoVacioIgualEnHTTP1YHTTP2(t *testing.T) {
 	for nombre, constructor := range map[string]func(config.Config, http.Handler) http.Handler{
 		"interna":              NewHandlerInternoWithConfig,
 		"integrada_desarrollo": NewHandlerWithConfig,
+		"publica":              NewHandlerPublicoWithConfig,
 	} {
 		t.Run(nombre, func(t *testing.T) {
+			ruta := "/api/vec/bolsa/llamamientos/plazo-respuesta"
+			if nombre == "publica" {
+				ruta = "/api/publico/bolsa/bolsas"
+			}
 			servidor := httptest.NewUnstartedServer(constructor(config.Config{}, api))
 			servidor.EnableHTTP2 = true
 			servidor.StartTLS()
@@ -62,7 +67,7 @@ func TestCuerpoVacioIgualEnHTTP1YHTTP2(t *testing.T) {
 					if caso.cuerpo != "" {
 						cuerpo = strings.NewReader(caso.cuerpo)
 					}
-					peticion, err := http.NewRequest(caso.metodo, servidor.URL+"/api/vec/bolsa/llamamientos/plazo-respuesta", cuerpo)
+					peticion, err := http.NewRequest(caso.metodo, servidor.URL+ruta, cuerpo)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -78,5 +83,28 @@ func TestCuerpoVacioIgualEnHTTP1YHTTP2(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Una petición HTTP/2 que declara Content-Length y cierra el flujo sin enviar
+// esos octetos se rechaza, como en HTTP/1.1 un cuerpo incompleto.
+func TestCuerpoHTTP2ConLongitudDeclaradaIncoherenteSeRechaza(t *testing.T) {
+	api := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	for _, caso := range []struct {
+		declarada string
+		cuerpo    string
+		estado    int
+	}{{"5", "", http.StatusBadRequest}, {"3", "abcd", http.StatusBadRequest}, {"4", "abcd", http.StatusOK}, {"", "", http.StatusOK}} {
+		r := peticionServidorPrueba(http.MethodPost, "/api/vec/contratacion-temporal/cuadro/consultas", io.NopCloser(strings.NewReader(caso.cuerpo)))
+		r.ProtoMajor, r.ContentLength = 2, int64(len(caso.cuerpo))
+		r.Header.Del("Content-Length")
+		if caso.declarada != "" {
+			r.Header.Set("Content-Length", caso.declarada)
+		}
+		rec := httptest.NewRecorder()
+		NewHandlerWithConfig(config.Config{}, api).ServeHTTP(rec, r)
+		if rec.Code != caso.estado {
+			t.Fatalf("declarada=%q cuerpo=%q: estado=%d, esperado=%d", caso.declarada, caso.cuerpo, rec.Code, caso.estado)
+		}
 	}
 }

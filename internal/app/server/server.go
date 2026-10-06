@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"vec-diputacion-granada/config"
@@ -363,7 +364,10 @@ func prohibirCookiesYAutorizacionProxy(next http.Handler) http.Handler {
 	return prohibirCookiesYAutorizacionProxyConLimite(next, config.DefaultMaxRequestBodyBytes)
 }
 
-var errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+var (
+	errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+	errCuerpoHTTPIncoherente     = errors.New("server: request body length mismatch")
+)
 
 func prohibirCookiesYAutorizacionProxyConLimite(next http.Handler, limite int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -430,6 +434,13 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	}
 	if err := original.Close(); err != nil {
 		return err
+	}
+	// Un Content-Length declarado debe coincidir con lo recibido. En HTTP/2
+	// el servidor no lo comprueba si la cabecera cerró el flujo; aquí se
+	// rechaza igual que lo haría HTTP/1.1 con un cuerpo incompleto.
+	if declarados := r.Header.Values("Content-Length"); len(declarados) != 0 &&
+		(len(declarados) != 1 || declarados[0] != strconv.Itoa(len(contenido))) {
+		return errCuerpoHTTPIncoherente
 	}
 	r.TransferEncoding = nil
 	r.GetBody = nil
