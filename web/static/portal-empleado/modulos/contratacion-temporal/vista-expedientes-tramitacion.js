@@ -1,11 +1,11 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261002-ct-fin-moad-v1";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
@@ -13,10 +13,10 @@ import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
-  contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
+  asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+} from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261002-ct-fin-moad-v1";
 import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
 
@@ -514,7 +514,7 @@ export function crearGestorTramitacion({
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version !== recibo.version_resultante
-        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== solicitud.unidad_ref) { avisarPendiente(); return false; }
+        || !asignacionConfirmadaEnDetalle(actualizado)) { avisarPendiente(); return false; }
       repintar("[data-ct-asignacion-confirmada]");
       return true;
     } catch {
@@ -660,7 +660,7 @@ export function crearGestorTramitacion({
     }
   }
 
-  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {
+  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null, datosPeticion = null) {
     if (!contenedor) return null;
     if (typeof desmontarAnalisis === "function") return true;
     const sesion = {
@@ -691,6 +691,7 @@ export function crearGestorTramitacion({
         catalogos: composicionAnalisis.catalogos,
         analisisInicial,
         datosPrevios,
+        ...(datosPeticion !== null && analisisInicial === null && datosPrevios === null ? { datosPeticion } : {}),
         mensajes,
         locale,
         zonaHoraria,
@@ -704,7 +705,7 @@ export function crearGestorTramitacion({
       mostrarErrorMontaje(
         contenedor,
         "analisis",
-        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios),
+        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios, datosPeticion),
       );
       return null;
     }
@@ -763,6 +764,8 @@ export function crearGestorTramitacion({
       raiz.querySelector("[data-ct-exp-analisis]"),
       contexto,
       composicionAnalisis.analisisInicial,
+      null,
+      contexto.operacion === "registrar" ? estado.expediente.datos_peticion ?? null : null,
     );
   }
 

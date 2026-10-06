@@ -169,3 +169,39 @@ func TestRecuperacionConservaExitoYRechazaDependenciasNulas(t *testing.T) {
 		t.Fatal("valor cero del wrapper no cerró")
 	}
 }
+
+// Una versión inexistente llega del lector como «no encontrado» después de
+// confirmar el consumo de la decisión con su auditoría. No se añade otro
+// intento «error»: el acceso ya está registrado y no es un fallo técnico.
+func TestLecturaNoEncontradaNoDuplicaAuditoria(t *testing.T) {
+	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := &lectorRecuperacionPrueba{fallo: ct.ErrExpedienteConsultaFirmasNoEncontrado}
+	f := &fabricaRecuperacionPrueba{t: t, lector: l}
+	a := &intentosRecuperacionPrueba{}
+	r, err := NuevaRecuperacion(l, a, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := ct.MaterialConsultaFirmasR5V2{MaterialConsultaFirmasR5: ct.MaterialConsultaFirmasR5{ExpedienteRef: "expediente:prueba"}}
+	lectura, err := r.RecuperarFirmasAutorizadasV2(ctx, m, ct.CapacidadRecuperacionFirmasV2{})
+	if !errors.Is(err, ct.ErrExpedienteConsultaFirmasNoEncontrado) || lectura.HistoriaRevision != 0 || !l.cerrado ||
+		f.llamadas != 0 || a.llamadas != 0 {
+		t.Fatalf("recuperación no encontrada auditada otra vez: %v, órdenes=%d, intentos=%d", err, f.llamadas, a.llamadas)
+	}
+
+	base := &registroPrueba{fallo: ct.ErrExpedienteConsultaFirmasNoEncontrado}
+	fc := &fabricaPrueba{t: t, registro: base}
+	ac := &intentosPrueba{fabrica: fc}
+	consulta, err := Nuevo(base, ac, fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vista, err := consulta.ConsultarFirmasAutorizadasV2(ctx, m, ct.CapacidadConsultaFirmasR5V2{})
+	if !errors.Is(err, ct.ErrExpedienteConsultaFirmasNoEncontrado) || vista.HistoriaRevision != 0 || !base.cerrado ||
+		fc.invocaciones != 0 || ac.invocaciones != 0 {
+		t.Fatalf("consulta no encontrada auditada otra vez: %v, órdenes=%d, intentos=%d", err, fc.invocaciones, ac.invocaciones)
+	}
+}

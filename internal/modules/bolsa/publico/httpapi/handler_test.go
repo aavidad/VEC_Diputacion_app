@@ -511,3 +511,90 @@ func directorioCategoriasMaximoPrueba(valor aplicacionbolsa.ValorCatalogoPublico
 		Categorias: categorias,
 	}
 }
+
+func TestHTTPPublicoEsperaTurnoBreveAntesDeRechazar(t *testing.T) {
+	entrada := make(chan struct{}, 1)
+	liberar := make(chan struct{})
+	servicio := &servicioHTTPPrueba{
+		listar: func(ctx context.Context, _ aplicacionbolsa.SolicitudListadoPublico) (aplicacionbolsa.ListadoConvocatoriasPublicas, error) {
+			select {
+			case entrada <- struct{}{}:
+			default:
+			}
+			select {
+			case <-liberar:
+			case <-ctx.Done():
+				return aplicacionbolsa.ListadoConvocatoriasPublicas{}, ctx.Err()
+			}
+			return aplicacionbolsa.ListadoConvocatoriasPublicas{Esquema: "vec.bolsa.publico.convocatorias.v2"}, nil
+		},
+	}
+	handler := nuevoHandler(servicio, 1, 2, time.Second)
+	handler.esperaCupo = 400 * time.Millisecond
+	primera := httptest.NewRecorder()
+	terminada := make(chan struct{})
+	go func() {
+		defer close(terminada)
+		handler.ServeHTTP(primera, httptest.NewRequest(http.MethodGet, RutaConvocatorias, nil))
+	}()
+	<-entrada
+
+	// Con el único cupo ocupado más allá de la espera, la segunda petición
+	// espera su turno y después se rechaza sin invocar el servicio.
+	inicio := time.Now()
+	rechazada := httptest.NewRecorder()
+	handler.ServeHTTP(rechazada, httptest.NewRequest(http.MethodGet, RutaConvocatorias, nil))
+	if rechazada.Code != http.StatusTooManyRequests || rechazada.Header().Get("Retry-After") != "1" ||
+		time.Since(inicio) < 350*time.Millisecond || servicio.llamadas.Load() != 1 {
+		t.Fatalf("rechazo tras la espera = %d en %v, llamadas=%d", rechazada.Code, time.Since(inicio), servicio.llamadas.Load())
+	}
+
+	// Si el cupo se libera durante la espera, la petición se atiende.
+	atendida := httptest.NewRecorder()
+	hecha := make(chan struct{})
+	go func() {
+		defer close(hecha)
+		handler.ServeHTTP(atendida, httptest.NewRequest(http.MethodGet, RutaConvocatorias, nil))
+	}()
+	time.Sleep(50 * time.Millisecond)
+	close(liberar)
+	<-terminada
+	<-hecha
+	if primera.Code != http.StatusOK || atendida.Code != http.StatusOK || servicio.llamadas.Load() != 2 {
+		t.Fatalf("la espera breve debía atender la petición: primera=%d atendida=%d llamadas=%d",
+			primera.Code, atendida.Code, servicio.llamadas.Load())
+	}
+}
+
+func TestHTTPPublicoLaEsperaDeTurnoNoSuperaElPlazoDeLaOperacion(t *testing.T) {
+	cupos := make(chan struct{}, 1)
+	cupos <- struct{}{}
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancelar()
+	inicio := time.Now()
+	if ocuparCupo(ctx, cupos, time.Minute) {
+		t.Fatal("no había cupo libre")
+	}
+	if transcurrido := time.Since(inicio); transcurrido > 500*time.Millisecond {
+		t.Fatalf("la espera ignoró el plazo de la operación: %v", transcurrido)
+	}
+	if ocuparCupo(context.Background(), cupos, 0) {
+		t.Fatal("sin espera configurada el rechazo debe ser inmediato")
+	}
+}
+
+func TestHTTPPublicoLimitaLasPeticionesEnEspera(t *testing.T) {
+	handler := nuevoHandler(&servicioHTTPPrueba{}, 1, 1, time.Second)
+	handler.esperaCupo = time.Minute
+	handler.cuposRespuesta <- struct{}{}
+	handler.enEspera.Store(maximoEnEspera)
+	inicio := time.Now()
+	rechazada := httptest.NewRecorder()
+	handler.ServeHTTP(rechazada, httptest.NewRequest(http.MethodGet, RutaConvocatorias, nil))
+	if rechazada.Code != http.StatusTooManyRequests || time.Since(inicio) > 200*time.Millisecond {
+		t.Fatalf("con la cola llena el rechazo debe ser inmediato: %d en %v", rechazada.Code, time.Since(inicio))
+	}
+	if handler.enEspera.Load() != maximoEnEspera {
+		t.Fatalf("el contador de espera no se restauró: %d", handler.enEspera.Load())
+	}
+}

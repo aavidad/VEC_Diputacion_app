@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/app/administracion"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 func main() {
@@ -57,8 +58,18 @@ func main() {
 			}
 			lote = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote)
-	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" {
+		// El gobierno del plan de firma sólo existe junto a las lecturas de
+		// usuarios y con su propio archivo privado.
+		var plan *configuracionPlanFirmaPrivada
+		if rutaPlan := os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE"); rutaPlan != "" {
+			c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, lote, privada, usuarios, runtime)
+			if errorPlan != nil {
+				log.Fatal(errorArranque("plan_firma_config"))
+			}
+			plan = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan)
+	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" {
 		log.Fatal(errorArranque("lote_sin_usuarios"))
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
@@ -68,6 +79,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer cerrar()
+	telemetria.Montar(servidor, telemetria.Opciones{
+		Destino: os.Stderr, Servicio: "vec-admin", Superficie: "administracion",
+		Entorno: telemetria.Entorno(os.Getenv("VEC_ENTORNO"), configServidor.Entorno), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
+	})
 	if err := servidor.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(errorArranque("escucha"))
 	}

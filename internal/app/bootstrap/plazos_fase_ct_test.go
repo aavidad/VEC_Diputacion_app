@@ -15,7 +15,7 @@ import (
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
-func calendariosPlazoFasePrueba(t *testing.T) *consultaCalendariosReglasPrueba {
+func calendariosPlazoFasePrueba(t testing.TB) *consultaCalendariosReglasPrueba {
 	t.Helper()
 	ultimo, err := calendariosdomain.ParsearFechaCivil("2026-09-29")
 	if err != nil {
@@ -31,7 +31,7 @@ func calendariosPlazoFasePrueba(t *testing.T) *consultaCalendariosReglasPrueba {
 	}}
 }
 
-func calculadoraPlazoFaseCTPrueba(t *testing.T, ruta string, calendarios *consultaCalendariosReglasPrueba) ports.CalculadoraPlazoFaseRRHH {
+func calculadoraPlazoFaseCTPrueba(t testing.TB, ruta string, calendarios *consultaCalendariosReglasPrueba) ports.CalculadoraPlazoFaseRRHH {
 	t.Helper()
 	resolutor, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoContratacionTemporal, reglas.ModuloContratacionTemporal,
 		calculadoraPlazosCalendarios{consulta: calendarios}, relojPresentacionReglasEjemplo)

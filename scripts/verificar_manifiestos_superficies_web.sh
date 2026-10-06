@@ -53,6 +53,7 @@ normalizar_manifiesto() {
 				case "${ruta}" in
 					static/portal-empleado/cache-publica-v1.json | \
 					static/area-personal/cache-publica-v1.json | \
+					static/area-personal/vistas.json | \
 					"${cartografia_indice}" | static/acceso/locales/es.json | \
 						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \

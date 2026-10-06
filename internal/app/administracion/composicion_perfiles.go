@@ -31,6 +31,9 @@ type DependenciasComposicionPerfiles struct {
 	// Lote abre la preparación y el lote ordinario junto a las lecturas de
 	// usuarios. Sólo se admite con SoloUsuariosMetadatos.
 	Lote *LoteADMIN
+	// GobiernoPlan abre el gobierno del plan nominal de firma de Contratación
+	// temporal junto a las lecturas de usuarios. Sólo con SoloUsuariosMetadatos.
+	GobiernoPlan api.ServicioGobiernoPlanFirmaADMIN
 }
 
 // LoteADMIN es la autoridad del lote ya compuesta: organización privada,
@@ -84,7 +87,7 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	}
 	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
 		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos,
-		Lote: deps.Lote})
+		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan})
 }
 
 func dependenciaComposicionNula(v any) bool {

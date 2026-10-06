@@ -1,7 +1,6 @@
 {
   "lista": {
     "lista_mostrar_vencidos": "Con plazo vencido",
-    "lista_estado_plazo_vencido": "{estado} · plazo vencido el {fecha}",
     "lista_plazo_vencio_ayer": "Venció ayer",
     "lista_plazo_vencio_hace": "Venció hace {dias} días",
     "lista_plazo_vencio_hoy": "Venció hoy",

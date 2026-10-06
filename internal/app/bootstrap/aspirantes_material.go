@@ -19,6 +19,8 @@ import (
 	aspirantespg "vec-diputacion-granada/internal/modules/aspirantes/adapters/postgres"
 	aspirantesports "vec-diputacion-granada/internal/modules/aspirantes/ports"
 	"vec-diputacion-granada/internal/vec/datospersonales"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var errComposicionAspirantes = errors.New("bootstrap: Aspirantes no disponible")
@@ -142,6 +144,7 @@ func abrirPoolAspirantes(ctx context.Context, dsn string) (*pgxpool.Pool, error)
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, errComposicionAspirantes

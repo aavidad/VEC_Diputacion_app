@@ -355,3 +355,35 @@ incorporación la entrega un relevo con **conexión propia**:
 - Al arrancar, la aplicación publica con la cuenta de ejecución de Bolsa la
   política de no incorporación desde el catálogo (b24); sin ella, las entregas
   quedan pendientes de revisión en los avisos de Bolsa.
+
+## Relevo de ceses (CT129 y Bolsa 000045)
+
+Cuando Contratación temporal registra un cese, un relevo propio lo lleva a
+Bolsa para aplicar la restricción de cinco o nueve meses al candidato. Usa su
+**propia conexión**:
+
+- Requisitos ya instalados: CT129 y Bolsa 000045, que crea el grupo
+  `vec_bolsa_llamamientos_relevo_cese` sin LOGIN. Detección:
+  `SELECT to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NOT NULL`.
+- LOGIN nominal fuera de Git, miembro **solo** de ese grupo (INHERIT, sin
+  ADMIN), con la misma línea `hostssl` de `pg_hba.conf` que las demás. En la
+  principal no existía: el grupo no tenía miembros.
+  `GRANT vec_bolsa_llamamientos_relevo_cese TO <login> WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;`
+  El guion privado de la bitácora de dirección lo crea, primero en ensayo con
+  `ROLLBACK` y después con `COMMIT`; repetirlo no cambia nada.
+- Entorno: `VEC_BOLSA_CESE_CT_DATABASE_URL` (mismo patrón TLS que las demás) y
+  `VEC_BOLSA_CESE_CT_ENABLED=true`. El arranque rechaza reutilizar otro LOGIN
+  y comprueba en cada conexión que no pertenece a ningún otro rol. Suma
+  **una** al contador `vec_conexiones` de `arrancar_app.sh` y sus variantes.
+- Con el selector a `true`, `vec-server` exige también el relevo de contratos
+  (B13), que solo se compone con Bolsa B-BACK encendida
+  (`VEC_BOLSA_BORRADORES_ENABLED=true`). Sin B-BACK no arranca.
+
+Límite conocido (5/10/2026): el llamamiento que abre Contratación temporal en
+Bolsa elige entre tres participaciones sintéticas que genera el propio puente
+(`contratacion_temporal_llamamiento_bolsa_desarrollo.go`), no entre las de una
+bolsa constituida. Esas participaciones no tienen candidato
+(`vinculo_candidato`), así que todo cese de esos expedientes falla con
+«candidato de cese no resuelto en B13», el cursor no avanza y el relevo lo
+reintenta cada 30 segundos. Mientras no cambie el origen del llamamiento,
+encender el relevo no devuelve a nadie a la bolsa.

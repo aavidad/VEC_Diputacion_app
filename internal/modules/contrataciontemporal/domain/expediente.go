@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type DatosActuacion struct {
 	AccionClave   ClaveCatalogo   `json:"accion_clave"`
@@ -178,6 +181,12 @@ func (e Expediente) RegistrarViaCobertura(
 	decision DecisionViaCobertura,
 	actuacion DatosActuacion,
 ) (Expediente, error) {
+	// Sin crédito no se ofrece: el motivo viaja para poder explicarlo.
+	if e.Validar() == nil {
+		if err := e.ErrorSinCreditoParaOferta(); err != nil {
+			return Expediente{}, errors.Join(ErrTransicionInvalida, err)
+		}
+	}
 	if e.Validar() != nil || decision.Validar() != nil || actuacion.validar() != nil ||
 		e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
 		e.ViaCobertura != nil || e.Asignacion != nil ||
@@ -203,6 +212,12 @@ func (e Expediente) RegistrarDecisionCoberturaGobernada(
 	propuesta PropuestaDecisionCobertura,
 	actuacion DatosActuacion,
 ) (Expediente, error) {
+	// Sin crédito no se ofrece: el motivo viaja para poder explicarlo.
+	if e.Validar() == nil {
+		if err := e.ErrorSinCreditoParaOferta(); err != nil {
+			return Expediente{}, errors.Join(ErrTransicionInvalida, err)
+		}
+	}
 	if e.Validar() != nil || actuacion.validar() != nil ||
 		e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
 		e.ViaCobertura != nil || len(e.DecisionesCobertura) != 0 ||

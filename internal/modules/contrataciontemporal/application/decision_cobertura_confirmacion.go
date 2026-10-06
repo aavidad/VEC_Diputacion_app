@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
@@ -127,6 +128,9 @@ type ServicioConfirmacionDecisionCobertura struct {
 	autorizaciones puertosvec.PreparadorRegistroCompuestoSolicitudLigadaV3
 	transaccion    cobertura.TransaccionOperacionDecisionCobertura
 	reconciliador  cobertura.ReconciliadorResultadoAmbiguoOperacionDecisionCobertura
+	// politicaCredito es opcional: sin ella rige la predeterminada. Se fija
+	// una sola vez, como los avisos de vía.
+	politicaCredito atomic.Pointer[politicaCreditoConfigurada]
 }
 
 func NuevoServicioConfirmacionDecisionCobertura(
