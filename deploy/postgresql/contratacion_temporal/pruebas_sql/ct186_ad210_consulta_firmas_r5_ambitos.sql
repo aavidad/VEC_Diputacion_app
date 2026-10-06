@@ -36,7 +36,7 @@ CREATE FUNCTION pg_temp.canon(org text,uni text,sol text) RETURNS text LANGUAGE 
  SELECT encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||org||'"'||CASE WHEN uni IS NULL THEN '' ELSE ',"unidad_ref":"'||uni||'"' END||
   '},"atributos":{"material_sha256":"'||encode(sha256(convert_to(sol,'UTF8')),'hex')||'"}}','UTF8')),'hex')
 $f$;
--- 0. Valor común con Go (firmaautorizacionv2, TestRecursoConsultaConUnidadIgualQueSQL).
+-- 0. Valor común con Go (firmaemisorv2.TestFirmaV2HuellaConsultaConUnidadIgualQueSQL).
 SELECT pg_temp.ok('canon_comun_con_go',pg_temp.canon('org_fija','unidad:fija',
  '{"Via":"certificado_vec","OrganizacionRef":"org_fija","UnidadRef":"unidad:fija"}')
  ='c051b4e351005621ea4eeaca10696497a6d59c545eac14de9c590a7d939cefcf');
