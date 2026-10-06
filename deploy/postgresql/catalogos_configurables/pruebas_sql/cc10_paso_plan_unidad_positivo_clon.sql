@@ -5,8 +5,12 @@
 -- dentro de la transacción) para publicar un plan y comprueba que
 -- paso_plan_firma_con_unidad_v1: dice sí al paso exacto del plan publicado;
 -- dice no con otra unidad, otra organización, otro documento, otro orden u
--- otro circuito, y tras retirar el plan; rechaza un paso mal formado; y no lo
--- puede llamar el LOGIN del ejecutor CT.
+-- otro circuito, o con una entrada aún no vigente o ya vencida; rechaza un
+-- paso mal formado; y no lo puede llamar el LOGIN del ejecutor CT. Publicar la
+-- v2 del mismo catálogo deja la v1 en «publicado»: vale la v2; retirada la v2,
+-- no hay plan vigente (como CC7). Además llama a las v3 de CT186 como el LOGIN
+-- del ejecutor con la asignación real de una persona con unidad: sin plan con
+-- su paso se paran en CC10; con él, CC10 pasa y se paran en la decisión.
 -- el recorrido con decisiones atestadas reales (falta la extensión de K).
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog;
@@ -18,6 +22,15 @@ RETURNS boolean LANGUAGE sql AS $$ SELECT $5 LIKE 'vec.catalogos.%' $$;
 -- Stub firma CT (AD167) para ejercitar solo leer_plan: devuelve el consumo con vigencia.
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(p_consumo jsonb)
 RETURNS jsonb LANGUAGE sql AS $$ SELECT p_consumo||jsonb_build_object('decision_valida_hasta',to_char(clock_timestamp()+interval '5 min','YYYY-MM-DD"T"HH24:MI:SS"Z"')) $$;
+-- Una asignación real con organización y unidad: su paso se añade al plan.
+SELECT set_config('t.org',e1->'valores'->>0,true), set_config('t.uni',e2->'valores'->>0,true),
+ set_config('t.asig',jsonb_build_object('asignacion_ref',a.asignacion_ref,'asignacion_huella_sha256',a.huella_sha256,
+  'principal_id',a.principal_id,'perfil_activo_ref',a.perfil_activo_ref,'version_rol_ref',a.version_rol_ref)::text,true)
+ FROM vec_autorizacion.asignacion_perfil_actual p JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref)
+ CROSS JOIN LATERAL (SELECT e FROM jsonb_array_elements(a.documento->'ambitos') e WHERE e->>'clave'='organizacion_ref') o(e1)
+ CROSS JOIN LATERAL (SELECT e FROM jsonb_array_elements(a.documento->'ambitos') e WHERE e->>'clave'='unidad_ref') u(e2)
+ WHERE a.documento->>'estado'='activa' AND clock_timestamp()<(a.documento->>'vigente_hasta')::timestamptz
+ ORDER BY a.asignacion_ref LIMIT 1;
 SET LOCAL session_replication_role=replica;
 DO $p$
 DECLARE r record;
@@ -94,6 +107,15 @@ DO $s$
 DECLARE base jsonb; b2 jsonb; pub jsonb; ret jsonb; x jsonb;
 BEGIN
  base:='{"id":"ct.plan.firma.sintetico","version":1,"revision":1,"modulo_id":"contratacion_temporal","nombre":"Plan","fuente_ref":"fuente:rrhh:sintetica","motivo_creacion":"Ejercicio","estado":"borrador","creado_por":"actor:creador:001","creado_en":"2026-10-03T10:00:00Z","ultima_modificacion_en":"0001-01-01T00:00:00Z","publicado_en":"0001-01-01T00:00:00Z","retirado_en":"0001-01-01T00:00:00Z","entradas":[{"clave":"paso_1","etiqueta":"Paso 1","orden":1,"vigente_desde":"2026-01-01T00:00:00Z","vigente_hasta":"0001-01-01T00:00:00Z","atributos":{"accion_competencial":"contratacion_temporal.documento.firma_vec.registrar","cargo_ref":"cargo:direccion","circuito_ref":"catalogo:circuito:sintetico","circuito_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","circuito_version":"1","documento":"informe_definitivo","esquema":"ct.plan-competencia-firma.v2","esquema_contexto":"vec.contexto.firma.ct.v1","finalidad":"gestionar_contratacion_temporal","mapeo_fuente_ref":"fuente:plan:ct","mapeo_version":"1","organizacion_ref":"organizacion:central","paso_orden":"1","paso_ref":"paso:direccion","perfil_esperado_ref":"perfil:firma:direccion","rol_id":"ct_direccion_rrhh","tipo_recurso":"documento_contratacion_temporal","unidad_ref":"unidad:rrhh"}}]}';
+ -- Entradas del mismo paso en otras unidades: una aún no vigente, otra ya
+ -- vencida y la de la asignación real con unidad.
+ base:=jsonb_set(base,'{entradas}',(base->'entradas')||jsonb_build_array(
+  jsonb_set(jsonb_set(base->'entradas'->0,'{clave}','"paso_futuro"'),'{atributos,unidad_ref}','"unidad:futura"')
+   ||'{"orden":2,"etiqueta":"Paso futuro","vigente_desde":"2099-01-01T00:00:00Z"}'::jsonb,
+  jsonb_set(jsonb_set(base->'entradas'->0,'{clave}','"paso_vencido"'),'{atributos,unidad_ref}','"unidad:vencida"')
+   ||'{"orden":3,"etiqueta":"Paso vencido","vigente_desde":"2026-01-01T00:00:00Z","vigente_hasta":"2026-02-01T00:00:00Z"}'::jsonb,
+  jsonb_set(jsonb_set(jsonb_set(base->'entradas'->0,'{clave}','"paso_asignacion"'),'{atributos,unidad_ref}',to_jsonb(current_setting('t.uni'))),
+   '{atributos,organizacion_ref}',to_jsonb(current_setting('t.org')))||'{"orden":4,"etiqueta":"Paso asignación"}'::jsonb));
  b2:=base||'{"revision":2,"ultima_modificacion_por":"actor:editor:001","ultima_modificacion_en":"2026-10-03T10:30:00Z","motivo_modificacion":"Ajuste","nombre":"Plan v2"}'::jsonb;
  pub:=b2||'{"estado":"publicado","publicado_por":"actor:publicador:001","publicado_en":"2026-10-03T11:00:00Z","aprobacion_ref":"aprobacion:001","motivo_publicacion":"Revisado"}'::jsonb;
  ret:=pub||'{"estado":"retirado","retirado_por":"actor:retirador:001","retirado_en":"2026-10-03T12:00:00Z","retirada_aprobacion_ref":"aprobacion:ret:001","motivo_retirada":"Fin"}'::jsonb;
@@ -107,6 +129,11 @@ BEGIN
  INSERT INTO res VALUES('otro_crear',pg_temp.preparar('dec:ocr','crear',jsonb_set(base,'{id}','"ct.plan.firma.otro"')||'{"creado_por":"actor:creador:002"}'::jsonb,0,NULL,'clave-otro-0000000001','actor:creador:002'));
  INSERT INTO res VALUES('otro_publicar',pg_temp.preparar('dec:opu','publicar',jsonb_set(base,'{id}','"ct.plan.firma.otro"')||'{"creado_por":"actor:creador:002","estado":"publicado","publicado_por":"actor:publicador:002","publicado_en":"2026-10-03T11:00:00Z","aprobacion_ref":"aprobacion:002","motivo_publicacion":"Revisado"}'::jsonb,1,encode(sha256(convert_to((jsonb_set(base,'{id}','"ct.plan.firma.otro"')||'{"creado_por":"actor:creador:002"}'::jsonb)::text,'UTF8')),'hex'),'clave-otro-0000000002','actor:publicador:002'));
  INSERT INTO res VALUES('retirar',pg_temp.preparar('dec:ret','retirar',ret,2,encode(sha256(convert_to(pub::text,'UTF8')),'hex'),'clave-retir-000000001','actor:retirador:001'));
+ -- v2 del mismo catálogo, publicada sin retirar la v1, y su retirada.
+ x:=jsonb_set(base,'{version}','2')||'{"version_anterior_ref":"ct.plan.firma.sintetico:1","creado_por":"actor:creador:003","creado_en":"2026-10-03T13:00:00Z","nombre":"Plan nueva version"}'::jsonb;
+ INSERT INTO res VALUES('crear_v2',pg_temp.preparar('dec:crv2','crear',x,0,NULL,'clave-crev2-000000001','actor:creador:003'));
+ INSERT INTO res VALUES('publicar_v2',pg_temp.preparar('dec:pbv2','publicar',x||'{"estado":"publicado","publicado_por":"actor:publicador:004","publicado_en":"2026-10-03T14:00:00Z","aprobacion_ref":"aprobacion:004","motivo_publicacion":"Nueva"}'::jsonb,1,encode(sha256(convert_to(x::text,'UTF8')),'hex'),'clave-pbv2-0000000001','actor:publicador:004'));
+ INSERT INTO res VALUES('retirar_v2',pg_temp.preparar('dec:rtv2','retirar',x||'{"estado":"retirado","publicado_por":"actor:publicador:004","publicado_en":"2026-10-03T14:00:00Z","aprobacion_ref":"aprobacion:004","motivo_publicacion":"Nueva","retirado_por":"actor:retirador:005","retirado_en":"2026-10-03T15:00:00Z","retirada_aprobacion_ref":"aprobacion:ret:005","motivo_retirada":"Fin"}'::jsonb,1,encode(sha256(convert_to((x||'{"estado":"publicado","publicado_por":"actor:publicador:004","publicado_en":"2026-10-03T14:00:00Z","aprobacion_ref":"aprobacion:004","motivo_publicacion":"Nueva"}'::jsonb)::text,'UTF8')),'hex'),'clave-rtv2-0000000001','actor:retirador:005'));
 END $s$;
 SET LOCAL session_replication_role=origin;
 CREATE FUNCTION pg_temp.ejecutar(p text) RETURNS jsonb LANGUAGE plpgsql AS $f$
@@ -131,7 +158,27 @@ BEGIN
 END $f$;
 CREATE FUNCTION pg_temp.ok(caso text,cond boolean) RETURNS text LANGUAGE plpgsql AS $f$
 BEGIN IF cond IS NOT TRUE THEN RAISE EXCEPTION 'FALLO %',caso; END IF; RETURN 'OK '||caso; END $f$;
+CREATE ROLE prueba_cc10_ct LOGIN;
+GRANT vec_contratacion_temporal_ejecutor TO prueba_cc10_ct WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+-- Llama a una v3 de CT186 con la asignación real como decisión: devuelve el
+-- mensaje con que se para.
+CREATE FUNCTION pg_temp.v3(funcion text) RETURNS text LANGUAGE plpgsql AS $f$
+DECLARE sol text:=jsonb_build_object('OrganizacionRef',current_setting('t.org'),'ExpedienteRef','exp:cc10','VersionExpediente',1,
+  'Documento','informe_definitivo','FirmantePrincipalCandidatoRef','per_cc10','ClaveIdempotencia','clave-cc10-00000001',
+  'PasoOrden',1,'CatalogoHuella',repeat('a',64),'Via','certificado_vec','UnidadRef',current_setting('t.uni'))::text;
+BEGIN
+ EXECUTE format('SELECT vec_contratacion_temporal.%s(%L,%L,%L,NULL,NULL,1,1,NULL,NULL,NULL,NULL)',funcion,sol,'\x7b7d'::bytea,
+  convert_to(current_setting('t.asig'),'UTF8'));
+ RETURN 'ok';
+EXCEPTION WHEN OTHERS THEN RETURN SQLERRM;
+END $f$;
+GRANT EXECUTE ON FUNCTION pg_temp.v3(text) TO prueba_cc10_ct;
+SELECT pg_temp.ok('hay_asignacion_con_unidad',current_setting('t.uni',true) IS NOT NULL);
 SELECT pg_temp.ok('sin_plan_publicado_no',pg_temp.paso()='false');
+SET SESSION AUTHORIZATION prueba_cc10_ct;
+SELECT pg_temp.ok('v3_sin_plan_paran_en_cc10',pg_temp.v3('consultar_firmas_r5_atestadas_v3')='lectura V2 unidad sin paso en el plan'
+ AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3')='lectura V2 unidad sin paso en el plan');
+RESET SESSION AUTHORIZATION;
 SELECT 'crear' paso, pg_temp.ejecutar('crear')->>'estado';
 SELECT 'actualizar' paso, pg_temp.ejecutar('actualizar')->>'estado';
 SELECT 'publicar' paso, pg_temp.ejecutar('publicar')->>'estado';
@@ -141,9 +188,19 @@ SELECT pg_temp.ok('otra_organizacion_no',pg_temp.paso(org=>'organizacion:otra')=
 SELECT pg_temp.ok('otro_documento_no',pg_temp.paso(doc=>'resolucion')='false');
 SELECT pg_temp.ok('otro_orden_no',pg_temp.paso(orden=>2)='false');
 SELECT pg_temp.ok('otro_circuito_no',pg_temp.paso(circ=>repeat('b',64))='false');
+SELECT pg_temp.ok('entrada_no_vigente_o_vencida_no',pg_temp.paso(uni=>'unidad:futura')='false' AND pg_temp.paso(uni=>'unidad:vencida')='false');
+SET SESSION AUTHORIZATION prueba_cc10_ct;
+SELECT pg_temp.ok('v3_con_plan_pasan_cc10',pg_temp.v3('consultar_firmas_r5_atestadas_v3')='lectura V2 divergente'
+ AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3')='lectura V2 divergente');
+RESET SESSION AUTHORIZATION;
 SELECT pg_temp.ok('paso_mal_formado',pg_temp.paso(uni=>'Unidad con espacios')='error:22023' AND pg_temp.paso(circ=>'x')='error:22023');
 SELECT pg_temp.ok('ejecutor_sin_execute',NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
  'vec_catalogos_configurables.paso_plan_firma_con_unidad_v1(text,text,integer,text,text)','EXECUTE'));
-SELECT 'retirar' paso, pg_temp.ejecutar('retirar')->>'estado';
-SELECT pg_temp.ok('plan_retirado_no',pg_temp.paso()='false');
+SELECT 'crear_v2' paso, pg_temp.ejecutar('crear_v2')->>'estado';
+SELECT 'publicar_v2' paso, pg_temp.ejecutar('publicar_v2')->>'estado';
+SELECT pg_temp.ok('v2_publicada_con_v1_publicada_si',pg_temp.paso()='true' AND (SELECT count(*) FROM vec_catalogos_configurables.plan_firma_control
+ WHERE catalogo_id='ct.plan.firma.sintetico' AND estado='publicado')=2);
+SELECT 'retirar_v2' paso, pg_temp.ejecutar('retirar_v2')->>'estado';
+SELECT pg_temp.ok('v2_retirada_no',pg_temp.paso()='false' AND (SELECT estado FROM vec_catalogos_configurables.plan_firma_control
+ WHERE catalogo_id='ct.plan.firma.sintetico' AND version=1)='publicado');
 ROLLBACK;

@@ -43,16 +43,22 @@ BEGIN
     OR (p_organizacion_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$') IS NOT TRUE
     OR (p_unidad_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$') IS NOT TRUE THEN
   RAISE EXCEPTION 'CC10: paso de plan inválido' USING ERRCODE='22023'; END IF;
- -- La única publicación vigente del módulo (mismo criterio que CC7/CC8).
+ -- La única publicación vigente del módulo, con el criterio de CC7/CC8: una
+ -- versión publicada que ninguna posterior del mismo catálogo (publicada o
+ -- retirada) ha sustituido. Publicar la v2 no retira la v1, así que puede
+ -- haber dos filas «publicado»; vale la última. Dos catálogos vigentes a la
+ -- vez, o ninguno, no dan un plan: falso.
  SELECT count(*) INTO n FROM vec_catalogos_configurables.plan_firma_control x
-  WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado';
+  WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado'
+    AND NOT EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control y
+      WHERE y.modulo_id='contratacion_temporal' AND y.catalogo_id=x.catalogo_id
+        AND y.version>x.version AND y.estado IN ('publicado','retirado'));
  IF n<>1 THEN RETURN false; END IF;
  SELECT * INTO STRICT control FROM vec_catalogos_configurables.plan_firma_control x
-  WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado';
- IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control x
-    WHERE x.modulo_id='contratacion_temporal' AND x.catalogo_id=control.catalogo_id
-      AND x.version>control.version AND x.estado IN ('publicado','retirado')) THEN
-  RETURN false; END IF;
+  WHERE x.modulo_id='contratacion_temporal' AND x.estado='publicado'
+    AND NOT EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_control y
+      WHERE y.modulo_id='contratacion_temporal' AND y.catalogo_id=x.catalogo_id
+        AND y.version>x.version AND y.estado IN ('publicado','retirado'));
  SELECT * INTO publicacion FROM vec_catalogos_configurables.plan_firma_publicacion p
   WHERE p.catalogo_id=control.catalogo_id AND p.version=control.version;
  IF NOT FOUND OR publicacion.publicacion_sha256 IS DISTINCT FROM control.publicacion_sha256
