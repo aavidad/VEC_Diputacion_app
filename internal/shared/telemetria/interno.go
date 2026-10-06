@@ -122,7 +122,7 @@ func arrancarDiagnostico(escucha string, avisos io.Writer) func() {
 		return func() {}
 	}
 	mux := http.NewServeMux()
-	mux.Handle("/debug/vars", expvar.Handler())
+	mux.HandleFunc("/debug/vars", variables)
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
@@ -154,4 +154,23 @@ func soloLocal(siguiente http.Handler) http.Handler {
 			siguiente.ServeHTTP(w, r)
 		}
 	})
+}
+
+// variables sirve las variables de expvar como /debug/vars, salvo "cmdline":
+// los argumentos del proceso no son métricas y podrían llevar rutas.
+func variables(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = io.WriteString(w, "{")
+	primera := true
+	expvar.Do(func(kv expvar.KeyValue) {
+		if kv.Key == "cmdline" {
+			return
+		}
+		if !primera {
+			_, _ = io.WriteString(w, ",")
+		}
+		primera = false
+		_, _ = io.WriteString(w, strconv.Quote(kv.Key)+":"+kv.Value.String())
+	})
+	_, _ = io.WriteString(w, "}\n")
 }

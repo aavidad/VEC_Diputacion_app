@@ -3,6 +3,8 @@ package telemetria
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -98,8 +100,10 @@ func TestDiagnosticoSoloEnBucleLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Body.Close()
-	if r.StatusCode != http.StatusOK {
-		t.Errorf("estado %d", r.StatusCode)
+	cuerpo, _ := io.ReadAll(r.Body)
+	var vars map[string]any
+	if r.StatusCode != http.StatusOK || json.Unmarshal(cuerpo, &vars) != nil || vars["vec_bd_pools"] == nil || vars["cmdline"] != nil {
+		t.Errorf("estado %d, variables %s", r.StatusCode, cuerpo)
 	}
 	w := httptest.NewRecorder()
 	ajena := httptest.NewRequest(http.MethodGet, "/debug/vars", nil)
