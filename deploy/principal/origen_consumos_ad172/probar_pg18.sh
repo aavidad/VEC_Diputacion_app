@@ -80,11 +80,11 @@ espera "$(filas)" 1 'aplicar sin confirmación no cambia nada'
 salida=$(aplicar)
 grep -q "ternas_nuevas=$por_defecto" <<< "$salida"; grep -q 'verificado: COMMIT' <<< "$salida"
 espera "$(filas)" "$((por_defecto + 1))" 'aplicar añade las ternas y conserva la previa'
-espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" vec-usuarios 'preferencias acreditadas'
-espera "$(origen vec_ct_o207_runtime vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" vec-contratacion-temporal 'peticiones del centro acreditadas'
-espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.contacto_participacion.consultar.v1 bolsa.contacto_participacion.consultar interna_corporativa)" vec-bolsa 'contacto de Bolsa acreditado'
-espera "$(origen vec_documentos_rrhh_ejecutor_desarrollo vec_documentos.operacion.v1 documentos.expediente.listar interna_corporativa)" vec-documentos 'documentos acreditados'
-espera "$(origen vec_inc_v2_alta_personal_20260910 vec_personal.alta_ejercicio.v1 personal.alta_ejercicio.registrar interna_corporativa)" vec-incorporacion 'alta en Personal acreditada'
+espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" vec-server 'preferencias acreditadas'
+espera "$(origen vec_ct_o207_runtime vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" vec-server 'peticiones del centro acreditadas'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.contacto_participacion.consultar.v1 bolsa.contacto_participacion.consultar interna_corporativa)" vec-server 'contacto de Bolsa acreditado'
+espera "$(origen vec_documentos_rrhh_ejecutor_desarrollo vec_documentos.operacion.v1 documentos.expediente.listar interna_corporativa)" vec-server 'documentos acreditados'
+espera "$(origen vec_inc_v2_alta_personal_20260910 vec_personal.alta_ejercicio.v1 personal.alta_ejercicio.registrar interna_corporativa)" vec-server 'alta en Personal acreditada'
 espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" NULO 'Cronos no se instala por defecto'
 espera "$(origen vec_ct_o207_runtime vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar externa_personal)" NULO 'canal cruzado sigue denegado'
 espera "$(origen vec_bolsa_llamamientos_desarrollo vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" NULO 'LOGIN cruzado sigue denegado'
@@ -94,7 +94,7 @@ grep -q 'ternas_nuevas=0' <<< "$salida"
 espera "$(filas)" "$((por_defecto + 1))" 'repetir es idempotente'
 salida=$(aplicar VEC_ORIGEN_BLOQUES=cronos)
 grep -q "ternas_nuevas=$cronos" <<< "$salida"
-espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" vec-cronos 'Cronos se instala solo si se pide'
+espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" vec-server 'Cronos se instala solo si se pide'
 
 echo '== B: terna previa con otro proceso'
 nuevo_pg

@@ -31,12 +31,12 @@ del núcleo.
 
 | Bloque | LOGIN | Ternas | Proceso | Se instala |
 | --- | --- | --- | --- | --- |
-| `usuarios` | `vec_pref508a_i_ue` (interna) y `vec_pref508a_e_ue` (externa) | 21 | `vec-usuarios` | por defecto |
-| `contratacion` | `vec_ct_o207_runtime` | 50 | `vec-contratacion-temporal` | por defecto |
-| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 21 | `vec-bolsa` | por defecto |
-| `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-documentos` | por defecto |
-| `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-incorporacion` | por defecto |
-| `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-cronos` | solo si se pide |
+| `usuarios` | `vec_pref508a_i_ue` (interna) y `vec_pref508a_e_ue` (externa) | 21 | `vec-server` | por defecto |
+| `contratacion` | `vec_ct_o207_runtime` | 50 | `vec-server` | por defecto |
+| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 21 | `vec-server` | por defecto |
+| `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
+| `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
+| `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
 
 De dónde sale cada dato, cotejado en la principal el 6 de octubre, solo con
 lecturas:
@@ -116,36 +116,80 @@ repetirlo no tiene efecto.
 
 ## Cómo se usa en la principal
 
-Como `openclaw` en cidonia, desde una copia del repositorio con esta rama:
+Desde una copia del repositorio con esta rama, se sube el paquete a cidonia y
+se ejecuta como `openclaw`. El guion solo usa los ficheros de su carpeta.
 
 ```bash
-export VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906
-bash deploy/principal/origen_consumos_ad172/ejecutar.sh --inventario
-bash deploy/principal/origen_consumos_ad172/ejecutar.sh --ensayo
-VEC_ORIGEN_AD172_APLICAR=SI-REVISADO \
-  bash deploy/principal/origen_consumos_ad172/ejecutar.sh --aplicar
+scp -r deploy/principal/origen_consumos_ad172 root@cidonia.cloud:/home/openclaw/.local/state/vec-desarrollo-20260906/
+ssh root@cidonia.cloud chown -R openclaw:openclaw /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172
+```
+
+```bash
+# 1. Inventario (solo lectura)
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --inventario"'
+# 2. Ensayo (termina en ROLLBACK)
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --ensayo"'
+# 3. Aplicar (COMMIT)
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --aplicar"'
 ```
 
 Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 103 ternas.
-Cronos se instala aparte cuando se quiera, con `VEC_ORIGEN_BLOQUES=cronos`.
+Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
 
-`--ensayo` ejecuta todo y termina en `ROLLBACK`. Debe imprimir
-`ternas_nuevas=103` y `verificado: ROLLBACK`, con el inventario sin cambios.
-`--aplicar` termina en `COMMIT` y comprueba que estén todas las ternas, que no
-haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de la
-lista. Los inventarios quedan en un directorio temporal privado cuya ruta se
-imprime. Hay que copiarlo a la bitácora privada, fuera de Git, porque `/tmp`
-puede vaciarse.
+- **El inventario** imprime los bloques, el número de ternas y la ruta del
+  inventario.
+- **El ensayo** ejecuta todo y termina en `ROLLBACK`. Debe imprimir
+  `ternas_nuevas=103` y `verificado: ROLLBACK`, con el inventario sin cambios.
+- **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
+  no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
+  la lista.
+
+Los inventarios quedan en un directorio temporal privado cuya ruta se imprime.
+Hay que copiarlo a la bitácora privada, fuera de Git, porque `/tmp` puede
+vaciarse.
 
 No hace falta reiniciar la aplicación: el núcleo lee la tabla en cada uso.
 Después, «Mis preferencias» con un certificado de RRHH debe dar 200, igual que
 la bandeja de peticiones del centro y el contacto de la participación.
 
-**Antes de aplicar hay que decidir los nombres de proceso.** La tabla no se
-puede corregir después. Aquí va uno por componente (`vec-usuarios`,
-`vec-contratacion-temporal`, `vec-bolsa`, `vec-documentos`,
-`vec-incorporacion`, `vec-cronos`). Para cambiarlos basta con editar la séptima
-columna de `ternas.tsv`.
+## El nombre del proceso
+
+Todas las filas llevan `vec-server`, el proceso que tiene hoy esos LOGIN.
+
+**Nadie envía el nombre en tiempo de ejecución.** El núcleo no lo recibe de la
+aplicación. `resolver_origen_consumo_v1` lo lee de la propia fila, buscando
+por el LOGIN de la sesión, la audiencia y la operación de la capacidad firmada
+y el canal de la decisión firmada. Después lo escribe en el eslabón de
+auditoría. Por eso no puede haber desajuste con lo que envía vec-server: el
+valor es la etiqueta con la que el DBA declara qué proceso es el dueño de ese
+LOGIN, y queda sellada en cada asiento.
+
+Cotejado en la principal el 6 de octubre:
+
+- Los LOGIN de la lista solo tienen conexiones desde el contenedor
+  `vec-aplicacion-incorporacion-20260910`, que ejecuta `vec-server`.
+  `application_name` es una etiqueta por pool
+  (`vec-ct-desarrollo-ejecucion`, `vec-usuarios-preferencias-desarrollo`…),
+  no un proceso.
+- vec-server no declara hoy ningún nombre de proceso. No tiene
+  `auditoria-intentos.json` en su material ni fila en
+  `configuracion_runtime_intentos`. La única fila de esa tabla es la de
+  vec-admin, que usa el mismo nombre en las dos tablas
+  (`vec-admin-usuarios`).
+
+**Dos procesos con el mismo LOGIN.** En producción, el portal interno lo sirve
+`vec-interno` (`internal/app/composicion/interna`), con su propio material.
+La clave de la tabla es LOGIN, audiencia y operación, y la fila no se puede
+cambiar. Si `vec-interno` usara estos mismos LOGIN, sus consumos quedarían
+sellados como `vec-server`. La opción correcta es la que fijan AD169 y AD172:
+otro proceso, otro LOGIN. `vec-interno` tendrá sus propios LOGIN y su propio
+paquete de filas con `vec-interno` cuando se despliegue. Estas filas son de
+los LOGIN de desarrollo de vec-server y no sirven para producción.
+
+Cuando vec-server tenga su `auditoria-intentos.json` (lo exigen «Mis correos»
+desde #608 y Bolsa B-BACK), conviene usar ahí también `vec-server`. Así
+intentos y consumos de un mismo proceso llevan la misma etiqueta, como en
+vec-admin.
 
 ## Ensayo
 
