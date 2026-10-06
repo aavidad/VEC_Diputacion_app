@@ -19,13 +19,17 @@ type relojConfianzaCTDesarrollo interface{ Ahora() time.Time }
 // los firmantes y emisores nominales siguen perteneciendo a sus proveedores.
 // Cada servicio publicado es inmutable y una operación toma un único snapshot.
 type fuenteConfianzaRenovableCTDesarrollo struct {
-	mu       sync.Mutex
-	reloj    relojConfianzaCTDesarrollo
-	material materialAtestacionContratacionTemporalDesarrollo
-	actual   *confianza.ServicioConfianzaAtestacionAutorizacionV3
-	lector   *gobiernov3lector.Lector
-	leer     func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
-	renovar  func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	// mu protege material y actual y solo se toma para copiarlos o
+	// actualizarlos, nunca durante una consulta a PostgreSQL. renovacion
+	// serializa la publicación diaria (rara) para que se haga una sola vez.
+	mu         sync.Mutex
+	renovacion sync.Mutex
+	reloj      relojConfianzaCTDesarrollo
+	material   materialAtestacionContratacionTemporalDesarrollo
+	actual     *confianza.ServicioConfianzaAtestacionAutorizacionV3
+	lector     *gobiernov3lector.Lector
+	leer       func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	renovar    func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 	// plazoIntento acota cada renovación programada; cero usa el valor
 	// predeterminado. Sólo las pruebas lo reducen.
 	plazoIntento time.Duration
@@ -50,9 +54,9 @@ func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAte
 	f := &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
 		leer: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 			var actual materialAtestacionContratacionTemporalDesarrollo
-			err := ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+			err := ejecutarLecturaGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
 				var e error
-				actual, e = leerConfiguracionRenovableCTDesarrollo(ctx, tx, anterior, ahora)
+				actual, e = leerConfiguracionVigenteCTDesarrollo(ctx, tx, anterior, ahora)
 				return e
 			})
 			return actual, err
@@ -78,7 +82,9 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) nuevoLector() (*gobiernov3lector.
 			if f.leer == nil {
 				return gobiernov3lector.Publicacion{}, falloPostgreSQLCTDesarrollo(nil)
 			}
+			f.mu.Lock()
 			anterior := f.material
+			f.mu.Unlock()
 			anterior.configuracionRef, anterior.configuracionOrden = previa.Revision, previa.Secuencia
 			anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn = previa.HuellaSHA256, previa.PublicadaEn, previa.ExpiraEn
 			actual, err := f.leer(ctx, anterior, f.reloj.Ahora().UTC())
@@ -97,22 +103,34 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.reloj == nil || f.lector == nil || f.leer == nil || f.renovar == nil {
 		return nil, fallo
 	}
-	ahora := f.reloj.Ahora().UTC()
-	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
+	ahora, vencida, ok := f.estadoVigencia()
+	if !ok {
 		return nil, fallo
 	}
-	if !ahora.Before(f.material.expiraEn) {
-		// Único publicador: vec-server. La lectura posterior es separada y no
-		// adopta una publicación que no pueda volver a leer del gobierno.
-		if _, err := f.renovar(ctx, f.material, ahora); err != nil {
-			return nil, err
+	if vencida {
+		// Único publicador: vec-server. Una sola renovación a la vez; quien
+		// llega después ve la publicación ya adoptada y no vuelve a publicar.
+		// La lectura posterior es separada y no adopta una publicación que no
+		// pueda volver a leer del gobierno.
+		f.renovacion.Lock()
+		defer f.renovacion.Unlock()
+		if ahora, vencida, ok = f.estadoVigencia(); !ok {
+			return nil, fallo
+		}
+		if vencida {
+			f.mu.Lock()
+			material := f.material
+			f.mu.Unlock()
+			if _, err := f.renovar(ctx, material, ahora); err != nil {
+				return nil, err
+			}
 		}
 	}
+	// Cada operación relee el gobierno (una revocación surte efecto en la
+	// siguiente); la lectura se hace sin cerrojo del proceso.
 	servicio, publicada, err := f.lector.Leer(ctx)
 	if err != nil {
 		return nil, fallo
@@ -124,11 +142,27 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
-	f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
-	f.material.configuracion = config
-	f.actual = servicio
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if publicada.Secuencia >= f.material.configuracionOrden {
+		f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
+		f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
+		f.material.configuracion = config
+		f.actual = servicio
+	}
 	return servicio, nil
+}
+
+// estadoVigencia devuelve el instante actual y si la publicación adoptada ha
+// vencido; ok es falso si el reloj o la raíz quedan fuera de su vigencia.
+func (f *fuenteConfianzaRenovableCTDesarrollo) estadoVigencia() (time.Time, bool, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ahora := f.reloj.Ahora().UTC()
+	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
+		return ahora, false, false
+	}
+	return ahora, !ahora.Before(f.material.expiraEn), true
 }
 
 // Renovación programada. La configuración vence a medianoche UTC y el
@@ -308,6 +342,17 @@ func renovarConfiguracionConfianzaCTEnTxDesarrollo(ctx context.Context, tx pgx.T
 // No basta encontrar una raíz propia: el conjunto tiene que ser exactamente
 // la raíz fijada, tanto en la revisión anterior como en la que se adopta.
 func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+	return leerConfiguracionGobiernoCTDesarrollo(ctx, tx, anterior, ahora, true)
+}
+
+// leerConfiguracionVigenteCTDesarrollo es la misma lectura y las mismas
+// comprobaciones para una transacción de solo lectura: sin bloquear la fila
+// del checkpoint, que solo hace falta al publicar (renovación).
+func leerConfiguracionVigenteCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+	return leerConfiguracionGobiernoCTDesarrollo(ctx, tx, anterior, ahora, false)
+}
+
+func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time, bloquear bool) (materialAtestacionContratacionTemporalDesarrollo, error) {
 	vacia := materialAtestacionContratacionTemporalDesarrollo{}
 	fallo := errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(ctx, tx)
@@ -315,8 +360,12 @@ func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, ante
 		return vacia, fallo
 	}
 	var minima, raizMinima int64
-	if err := tx.QueryRow(ctx, `SELECT configuracion_secuencia_minima,raiz_version_minima
- FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id FOR UPDATE`).Scan(&minima, &raizMinima); err != nil {
+	consultaCheckpoint := `SELECT configuracion_secuencia_minima,raiz_version_minima
+ FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id`
+	if bloquear {
+		consultaCheckpoint += ` FOR UPDATE`
+	}
+	if err := tx.QueryRow(ctx, consultaCheckpoint).Scan(&minima, &raizMinima); err != nil {
 		return vacia, fallo
 	}
 	actual := anterior
