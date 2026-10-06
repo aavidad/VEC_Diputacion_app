@@ -5,7 +5,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
 import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261006-borradores-no-disponible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
 import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261006-arranque-rapido-v2";
