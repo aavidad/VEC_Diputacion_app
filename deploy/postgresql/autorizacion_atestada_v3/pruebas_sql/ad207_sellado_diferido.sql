@@ -91,8 +91,6 @@ BEGIN
  END;
 END $sellado$;
 
--- La verificación completa tarda: el latido se renueva como haría el sellador.
-UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=clock_timestamp();
 -- Un asiento que sale de la cola sin sellar se detecta.
 SELECT vec_autorizacion_atestada_v3.registrar_operacion_periodica_v1('capturar_sello_periodico_v1','permitido','no_vencido',
  'correlacion_'||md5('ad207-huerfano'||clock_timestamp()::text),
@@ -104,8 +102,6 @@ BEGIN
  IF v->>'estado'<>'rechazada' OR (v->>'sin_sellar_fuera_de_cola')::int<1 THEN
   RAISE EXCEPTION 'AD207 prueba: asiento sin sellar no detectado %',v; END IF;
 END $huerfano$;
--- La verificación completa tarda: el latido se renueva como haría el sellador.
-UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=clock_timestamp();
 -- Cadena externa: el escritor real necesita una decisión firmada de candidato.
 -- Aquí los padres sintéticos entran sin sus claves ajenas (replica) y el
 -- asiento por la reserva externa, con el disparador y el sellado reales.
@@ -140,7 +136,7 @@ BEGIN
 END $externa$;
 
 -- Plazo máximo: con el latido caducado no se confirma ningún asiento.
-UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=clock_timestamp()-interval '1 hour';
+UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=now()-interval '1 hour';
 DO $plazo$
 BEGIN
  BEGIN
@@ -152,5 +148,13 @@ BEGIN
   IF SQLERRM<>'sellado VEC-AD-3 detenido: asiento rechazado' THEN RAISE; END IF;
  END;
 END $plazo$;
+DO $plazo_inmutable$
+BEGIN
+ BEGIN
+  UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET plazo_maximo_segundos=300;
+  RAISE EXCEPTION 'AD207 prueba: plazo modificable';
+ EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+ END;
+END $plazo_inmutable$;
 SELECT 'AD207 prueba: correcta' AS resultado;
 ROLLBACK;

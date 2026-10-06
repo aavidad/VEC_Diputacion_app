@@ -96,7 +96,7 @@ BEGIN
 END $sellado$;
 
 -- Plazo: con el latido caducado no se registra ningún acceso.
-UPDATE vec_contratacion_temporal.sellado_acceso_rrhh_v1 SET latido=clock_timestamp()-interval '1 hour';
+UPDATE vec_contratacion_temporal.sellado_acceso_rrhh_v1 SET latido=now()-interval '1 hour';
 DO $plazo$
 DECLARE f vec_contratacion_temporal.registro_acceso_rrhh;
 BEGIN

@@ -131,6 +131,17 @@ CREATE TABLE vec_autorizacion_atestada_v3.sellado_auditoria_v5 (
  latido timestamptz(6) NOT NULL,
  plazo_maximo_segundos integer NOT NULL CHECK (plazo_maximo_segundos BETWEEN 1 AND 300));
 INSERT INTO vec_autorizacion_atestada_v3.sellado_auditoria_v5 VALUES (true,clock_timestamp(),10);
+-- Solo el latido cambia; el plazo se cambia con otra migración, que queda en Git.
+CREATE FUNCTION vec_autorizacion_atestada_v3.solo_latido_ad207() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp
+AS $f$ BEGIN
+ IF NEW.plazo_maximo_segundos IS DISTINCT FROM OLD.plazo_maximo_segundos OR NEW.control IS DISTINCT FROM OLD.control THEN
+  RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='plazo VEC-AD-3 inmutable';
+ END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.solo_latido_ad207() FROM PUBLIC;
+CREATE TRIGGER solo_latido_ad207 BEFORE UPDATE ON vec_autorizacion_atestada_v3.sellado_auditoria_v5
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.solo_latido_ad207();
 CREATE TRIGGER no_borrar_ad207 BEFORE DELETE ON vec_autorizacion_atestada_v3.sellado_auditoria_v5
  FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion();
 CREATE TRIGGER no_truncar_ad207 BEFORE TRUNCATE ON vec_autorizacion_atestada_v3.sellado_auditoria_v5
@@ -172,7 +183,7 @@ AS $f$ SELECT pg_catalog.nextval('vec_autorizacion_atestada_v3.secuencia_auditor
 CREATE FUNCTION vec_autorizacion_atestada_v3.encolar_asiento_auditoria_v5()
  RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp
 AS $f$
-DECLARE v_corte numeric;v_latido timestamptz;v_plazo integer;
+DECLARE v_corte numeric;v_latido timestamptz;v_plazo integer;v_ahora timestamptz;
 BEGIN
  IF TG_TABLE_NAME='auditoria_consumo_v3' THEN
   SELECT c.secuencia INTO STRICT v_corte FROM vec_autorizacion_atestada_v3.control_cadena_auditoria c;
@@ -184,7 +195,13 @@ BEGIN
  END IF;
  -- Plazo máximo de incorporación: sin sellador al día no se confirma nada.
  SELECT s.latido,s.plazo_maximo_segundos INTO STRICT v_latido,v_plazo FROM vec_autorizacion_atestada_v3.sellado_auditoria_v5 s;
- IF pg_catalog.clock_timestamp()-v_latido>pg_catalog.make_interval(secs=>v_plazo) THEN
+ -- En REPEATABLE READ y SERIALIZABLE el latido se lee con la instantánea de la
+ -- transacción: se compara con su inicio (now()) para no rechazar
+ -- transacciones largas legítimas, cuya duración acota transaction_timeout en
+ -- los LOGIN de la aplicación. En READ COMMITTED se lee el actual.
+ v_ahora:=(CASE WHEN current_setting('transaction_isolation') IN ('repeatable read','serializable')
+  THEN pg_catalog.now() ELSE pg_catalog.clock_timestamp() END);
+ IF v_ahora-v_latido>pg_catalog.make_interval(secs=>v_plazo) THEN
   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='sellado VEC-AD-3 detenido: asiento rechazado';
  END IF;
  IF TG_TABLE_NAME='auditoria_consumo_v3' THEN
@@ -232,7 +249,8 @@ DECLARE
  v_cola text:=CASE WHEN p_externa THEN 'pendiente_sellado_auditoria_externa_v5' ELSE 'pendiente_sellado_auditoria_v5' END;
  v_esl text:=CASE WHEN p_externa THEN 'eslabon_auditoria_externa_v5' ELSE 'eslabon_auditoria_v5' END;
  v_cadena text:=CASE WHEN p_externa THEN 'externa' ELSE 'interna' END;
- v_pos numeric;v_ant text;r record;n integer;v_borrados integer;v_sellado timestamptz(6):=pg_catalog.clock_timestamp();
+ v_pos numeric;v_ant text;r record;n integer;v_borrados integer;v_sellado timestamptz(6);i integer;
+ l_ref text[]:='{}';l_tipo text[]:='{}';l_huella text[]:='{}';l_fecha timestamptz[]:='{}';
  a_pos numeric[]:='{}';a_sec numeric[]:='{}';a_ant text[]:='{}';a_esl text[]:='{}';
 BEGIN
  EXECUTE format('SELECT posicion,eslabon_sha256 FROM vec_autorizacion_atestada_v3.%I ORDER BY posicion DESC LIMIT 1',v_esl) INTO v_pos,v_ant;
@@ -249,13 +267,19 @@ BEGIN
   IF r.anterior_sha256 IS DISTINCT FROM pg_catalog.repeat('f',64) THEN
    RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='asiento VEC-AD-3 pendiente sin marcador';
   END IF;
+  a_sec:=a_sec||r.secuencia;l_ref:=l_ref||r.auditoria_ref;l_tipo:=l_tipo||r.tipo;l_huella:=l_huella||r.huella_sha256;l_fecha:=l_fecha||r.registrada_en;
+ END LOOP;
+ n:=pg_catalog.cardinality(a_sec);
+ IF n=0 THEN RETURN 0; END IF;
+ -- La hora de sellado se toma después de leer el lote: es posterior a la
+ -- confirmación de todos sus asientos, así que sellado_en >= registrada_en.
+ v_sellado:=pg_catalog.clock_timestamp();
+ FOR i IN 1..n LOOP
   a_ant:=a_ant||v_ant;
   v_pos:=v_pos+1;
-  v_ant:=vec_autorizacion_atestada_v3.eslabon_auditoria_v5(v_cadena,v_pos,v_ant,r.secuencia,r.auditoria_ref,r.tipo,r.huella_sha256,r.registrada_en,v_sellado);
-  a_pos:=a_pos||v_pos;a_sec:=a_sec||r.secuencia;a_esl:=a_esl||v_ant;
+  v_ant:=vec_autorizacion_atestada_v3.eslabon_auditoria_v5(v_cadena,v_pos,v_ant,a_sec[i],l_ref[i],l_tipo[i],l_huella[i],l_fecha[i],v_sellado);
+  a_pos:=a_pos||v_pos;a_esl:=a_esl||v_ant;
  END LOOP;
- n:=pg_catalog.cardinality(a_pos);
- IF n=0 THEN RETURN 0; END IF;
  EXECUTE format('INSERT INTO vec_autorizacion_atestada_v3.%I(posicion,secuencia,anterior_sha256,eslabon_sha256,sellado_en)
    SELECT p,s,a,e,$5 FROM unnest($1,$2,$3,$4) AS u(p,s,a,e)',v_esl) USING a_pos,a_sec,a_ant,a_esl,v_sellado;
  EXECUTE format('DELETE FROM vec_autorizacion_atestada_v3.%I WHERE secuencia=ANY($1)',v_cola) USING a_sec;
@@ -317,8 +341,9 @@ DECLARE
  v_cadena text:=CASE WHEN p_externa THEN 'externa' ELSE 'interna' END;
  v_corte numeric;v_cabeza text;v_cuenta numeric;v_max numeric;v_rotos bigint;v_ultima text;
  v_pos numeric;v_ant text;v_calc text;r record;v_sellados bigint:=0;v_pend bigint;v_huerf bigint;v_doble bigint;
- v_antigua timestamptz;v_plazo integer;v_numeros numeric;v_asientos bigint;resultado jsonb;
+ v_antigua timestamptz;v_plazo integer;v_numeros numeric;v_asientos bigint;resultado jsonb;v_plazo_iv interval;v_tarde bigint:=0;
 BEGIN
+ SELECT pg_catalog.make_interval(secs=>s.plazo_maximo_segundos) INTO STRICT v_plazo_iv FROM vec_autorizacion_atestada_v3.sellado_auditoria_v5 s;
  EXECUTE format('SELECT secuencia,cabeza_sha256 FROM vec_autorizacion_atestada_v3.%I WHERE control_id',v_ctl) INTO STRICT v_corte,v_cabeza;
  resultado:=jsonb_build_object('cadena',v_cadena,'corte_secuencia',v_corte,'corte_cabeza_sha256',v_cabeza);
  EXECUTE format($q$SELECT count(*),coalesce(max(secuencia),0),
@@ -342,6 +367,8 @@ BEGIN
    RETURN resultado||jsonb_build_object('estado','rechazada','fallo','asiento','posicion',v_pos);
   END IF;
   IF r.e_anterior IS DISTINCT FROM v_ant THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','enlace','posicion',v_pos); END IF;
+  IF r.sellado_en<r.registrada_en THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','sellado_antes_de_registro','posicion',v_pos); END IF;
+  IF r.sellado_en-r.registrada_en>v_plazo_iv THEN v_tarde:=v_tarde+1; END IF;
   v_calc:=vec_autorizacion_atestada_v3.eslabon_auditoria_v5(v_cadena,v_pos,v_ant,r.secuencia,r.auditoria_ref,r.tipo,r.huella_sha256,r.registrada_en,r.sellado_en);
   IF v_calc IS DISTINCT FROM r.eslabon_sha256 THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','eslabon','posicion',v_pos); END IF;
   v_ant:=v_calc;v_sellados:=v_sellados+1;
@@ -357,7 +384,7 @@ BEGIN
  SELECT s.plazo_maximo_segundos INTO STRICT v_plazo FROM vec_autorizacion_atestada_v3.sellado_auditoria_v5 s;
  resultado:=resultado||jsonb_build_object('sellados',v_sellados,'cabeza_posicion',v_pos,'cabeza_eslabon_sha256',v_ant,
   'pendientes',v_pend,'pendiente_mas_antigua',v_antigua,'plazo_maximo_segundos',v_plazo,
-  'numeros_sin_asiento',v_numeros-v_asientos,'sin_sellar_fuera_de_cola',v_huerf,'cola_incoherente',v_doble);
+  'numeros_sin_asiento',v_numeros-v_asientos,'sellados_fuera_de_plazo',v_tarde,'sin_sellar_fuera_de_cola',v_huerf,'cola_incoherente',v_doble);
  IF v_huerf<>0 OR v_doble<>0 THEN
   RETURN resultado||jsonb_build_object('estado','rechazada','fallo','cola');
  END IF;

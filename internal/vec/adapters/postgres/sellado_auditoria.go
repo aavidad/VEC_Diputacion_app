@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -34,16 +35,14 @@ func (r ResultadoSelladoAuditoria) Mayor() int {
 // números, referencias y huellas.
 type SelladorCadenaAuditoriaPostgreSQL struct {
 	pool      poolSelladoAuditoria
-	accesosCT bool
+	accesosCT atomic.Bool
 }
 
-// NuevoSelladorCadenaAuditoriaPostgreSQL: accesosCT indica que CT183 está
-// instalada y el LOGIN puede sellar también esa cadena.
-func NuevoSelladorCadenaAuditoriaPostgreSQL(pool poolSelladoAuditoria, accesosCT bool) (*SelladorCadenaAuditoriaPostgreSQL, error) {
+func NuevoSelladorCadenaAuditoriaPostgreSQL(pool poolSelladoAuditoria) (*SelladorCadenaAuditoriaPostgreSQL, error) {
 	if pool == nil {
 		return nil, ErrSelladoAuditoriaPostgreSQL
 	}
-	return &SelladorCadenaAuditoriaPostgreSQL{pool: pool, accesosCT: accesosCT}, nil
+	return &SelladorCadenaAuditoriaPostgreSQL{pool: pool}, nil
 }
 
 // Sellar sella un lote de cada cadena, cada una en su transacción READ
@@ -54,18 +53,33 @@ func (s *SelladorCadenaAuditoriaPostgreSQL) Sellar(ctx context.Context) (Resulta
 	if s == nil || s.pool == nil || ctx == nil {
 		return r, ErrSelladoAuditoriaPostgreSQL
 	}
-	err := s.enTransaccion(ctx, func(tx pgx.Tx) error {
+	// Cada cadena en su transacción y sin depender de la otra: un fallo en V3
+	// no deja caducar el plazo de los accesos de CT, ni al revés.
+	errV3 := s.enTransaccion(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT interna, externa FROM vec_autorizacion_atestada_v3.sellar_cadena_auditoria_v5($1)`,
 			LoteSelladoAuditoria).Scan(&r.Interna, &r.Externa)
 	})
-	if err != nil || !s.accesosCT {
-		return r, err
+	return r, errors.Join(errV3, s.sellarAccesosCT(ctx, &r))
+}
+
+func (s *SelladorCadenaAuditoriaPostgreSQL) sellarAccesosCT(ctx context.Context, r *ResultadoSelladoAuditoria) error {
+	var err error
+	// CT183 puede instalarse con el servidor en marcha: mientras no esté, se
+	// comprueba en cada pasada; una vez vista, se sella siempre.
+	if !s.accesosCT.Load() {
+		var instalada bool
+		if err = s.enTransaccion(ctx, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT coalesce(has_function_privilege(
+				to_regprocedure('vec_contratacion_temporal.sellar_cadena_accesos_rrhh_v1(integer)'),'EXECUTE'),false)`).Scan(&instalada)
+		}); err != nil || !instalada {
+			return err
+		}
+		s.accesosCT.Store(true)
 	}
-	err = s.enTransaccion(ctx, func(tx pgx.Tx) error {
+	return s.enTransaccion(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.sellar_cadena_accesos_rrhh_v1($1)`,
 			LoteSelladoAuditoria).Scan(&r.AccesosCT)
 	})
-	return r, err
 }
 
 func (s *SelladorCadenaAuditoriaPostgreSQL) enTransaccion(ctx context.Context, f func(pgx.Tx) error) error {

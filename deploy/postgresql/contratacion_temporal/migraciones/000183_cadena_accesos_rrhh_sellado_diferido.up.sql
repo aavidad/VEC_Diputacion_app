@@ -95,6 +95,17 @@ CREATE TRIGGER eslabon_acceso_rrhh_v1_inmutable BEFORE UPDATE OR DELETE ON vec_c
  FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 CREATE TRIGGER eslabon_acceso_rrhh_v1_no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.eslabon_acceso_rrhh_v1
  FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+-- Solo el latido cambia; el plazo se cambia con otra migración.
+CREATE FUNCTION vec_contratacion_temporal.solo_latido_acceso_rrhh_v1() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp
+AS $f$ BEGIN
+ IF NEW.plazo_maximo_segundos IS DISTINCT FROM OLD.plazo_maximo_segundos OR NEW.control IS DISTINCT FROM OLD.control THEN
+  RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='plazo de accesos RRHH inmutable';
+ END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.solo_latido_acceso_rrhh_v1() FROM PUBLIC;
+CREATE TRIGGER sellado_acceso_rrhh_v1_solo_latido BEFORE UPDATE ON vec_contratacion_temporal.sellado_acceso_rrhh_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.solo_latido_acceso_rrhh_v1();
 CREATE TRIGGER sellado_acceso_rrhh_v1_no_borrar BEFORE DELETE ON vec_contratacion_temporal.sellado_acceso_rrhh_v1
  FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 CREATE TRIGGER sellado_acceso_rrhh_v1_no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.sellado_acceso_rrhh_v1
@@ -113,14 +124,20 @@ AS $f$ SELECT pg_catalog.nextval('vec_contratacion_temporal.secuencia_acceso_rrh
 CREATE FUNCTION vec_contratacion_temporal.encolar_acceso_rrhh_v1()
  RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp
 AS $f$
-DECLARE v_corte numeric;v_latido timestamptz;v_plazo integer;
+DECLARE v_corte numeric;v_latido timestamptz;v_plazo integer;v_ahora timestamptz;
 BEGIN
  SELECT c.ultima_secuencia INTO STRICT v_corte FROM vec_contratacion_temporal.control_cadena_accesos_rrhh c WHERE c.control;
  IF NEW.secuencia<=v_corte OR NEW.anterior_sha256 IS DISTINCT FROM pg_catalog.repeat('f',64) THEN
   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='acceso RRHH fuera de la cadena con sellado diferido';
  END IF;
  SELECT s.latido,s.plazo_maximo_segundos INTO STRICT v_latido,v_plazo FROM vec_contratacion_temporal.sellado_acceso_rrhh_v1 s;
- IF pg_catalog.clock_timestamp()-v_latido>pg_catalog.make_interval(secs=>v_plazo) THEN
+ -- En REPEATABLE READ y SERIALIZABLE el latido se lee con la instantánea de la
+ -- transacción: se compara con su inicio (now()) para no rechazar
+ -- transacciones largas legítimas, cuya duración acota transaction_timeout en
+ -- los LOGIN de la aplicación. En READ COMMITTED se lee el actual.
+ v_ahora:=(CASE WHEN current_setting('transaction_isolation') IN ('repeatable read','serializable')
+  THEN pg_catalog.now() ELSE pg_catalog.clock_timestamp() END);
+ IF v_ahora-v_latido>pg_catalog.make_interval(secs=>v_plazo) THEN
   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='sellado de accesos RRHH detenido: acceso rechazado';
  END IF;
  INSERT INTO vec_contratacion_temporal.pendiente_sellado_acceso_rrhh_v1(secuencia) VALUES (NEW.secuencia);
@@ -147,7 +164,8 @@ CREATE FUNCTION vec_contratacion_temporal.sellar_cadena_accesos_rrhh_v1(p_max in
  SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET TimeZone='UTC'
 AS $f$
 DECLARE v_pos numeric;v_ant text;r record;n integer;v_borrados integer;v_plazo integer;v_antigua timestamptz;
- v_sellado timestamptz(6):=pg_catalog.clock_timestamp();
+ v_sellado timestamptz(6);i integer;
+ l_ref text[]:='{}';l_huella text[]:='{}';l_fecha timestamptz[]:='{}';
  a_pos numeric[]:='{}';a_sec numeric[]:='{}';a_ant text[]:='{}';a_esl text[]:='{}';
 BEGIN
  IF p_max IS NULL OR p_max NOT BETWEEN 1 AND 50000 THEN
@@ -171,13 +189,18 @@ BEGIN
   IF r.anterior_sha256 IS DISTINCT FROM pg_catalog.repeat('f',64) THEN
    RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='acceso RRHH pendiente sin marcador';
   END IF;
-  a_ant:=a_ant||v_ant;
-  v_pos:=v_pos+1;
-  v_ant:=vec_contratacion_temporal.eslabon_acceso_rrhh_v1(v_pos,v_ant,r.secuencia,r.acceso_ref,r.huella_sha256,r.registrada_en,v_sellado);
-  a_pos:=a_pos||v_pos;a_sec:=a_sec||r.secuencia;a_esl:=a_esl||v_ant;
+  a_sec:=a_sec||r.secuencia;l_ref:=l_ref||r.acceso_ref;l_huella:=l_huella||r.huella_sha256;l_fecha:=l_fecha||r.registrada_en;
  END LOOP;
- n:=pg_catalog.cardinality(a_pos);
+ n:=pg_catalog.cardinality(a_sec);
  IF n>0 THEN
+  -- Hora de sellado tomada tras leer el lote: sellado_en >= registrada_en.
+  v_sellado:=pg_catalog.clock_timestamp();
+  FOR i IN 1..n LOOP
+   a_ant:=a_ant||v_ant;
+   v_pos:=v_pos+1;
+   v_ant:=vec_contratacion_temporal.eslabon_acceso_rrhh_v1(v_pos,v_ant,a_sec[i],l_ref[i],l_huella[i],l_fecha[i],v_sellado);
+   a_pos:=a_pos||v_pos;a_esl:=a_esl||v_ant;
+  END LOOP;
   INSERT INTO vec_contratacion_temporal.eslabon_acceso_rrhh_v1(posicion,secuencia,anterior_sha256,eslabon_sha256,sellado_en)
    SELECT u.p,u.s,u.a,u.e,v_sellado FROM unnest(a_pos,a_sec,a_ant,a_esl) AS u(p,s,a,e);
   DELETE FROM vec_contratacion_temporal.pendiente_sellado_acceso_rrhh_v1 q WHERE q.secuencia=ANY(a_sec);
@@ -203,8 +226,9 @@ CREATE FUNCTION vec_contratacion_temporal.verificar_cadena_accesos_rrhh_v1()
 AS $f$
 DECLARE v_corte numeric;v_cabeza text;v_cuenta numeric;v_max numeric;v_rotos bigint;v_ultima text;
  v_pos numeric;v_ant text;v_calc text;r record;v_sellados bigint:=0;v_pend bigint;v_huerf bigint;v_doble bigint;
- v_antigua timestamptz;v_plazo integer;v_numeros numeric;v_accesos bigint;resultado jsonb;
+ v_antigua timestamptz;v_plazo integer;v_numeros numeric;v_accesos bigint;resultado jsonb;v_plazo_iv interval;v_tarde bigint:=0;
 BEGIN
+ SELECT pg_catalog.make_interval(secs=>s.plazo_maximo_segundos) INTO STRICT v_plazo_iv FROM vec_contratacion_temporal.sellado_acceso_rrhh_v1 s;
  SELECT ultima_secuencia,cabeza_sha256 INTO STRICT v_corte,v_cabeza FROM vec_contratacion_temporal.control_cadena_accesos_rrhh WHERE control;
  resultado:=jsonb_build_object('cadena','accesos_rrhh_ct','corte_secuencia',v_corte,'corte_cabeza_sha256',v_cabeza);
  SELECT count(*),coalesce(max(secuencia),0),
@@ -231,6 +255,8 @@ BEGIN
    RETURN resultado||jsonb_build_object('estado','rechazada','fallo','acceso','posicion',v_pos);
   END IF;
   IF r.e_anterior IS DISTINCT FROM v_ant THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','enlace','posicion',v_pos); END IF;
+  IF r.sellado_en<r.registrada_en THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','sellado_antes_de_registro','posicion',v_pos); END IF;
+  IF r.sellado_en-r.registrada_en>v_plazo_iv THEN v_tarde:=v_tarde+1; END IF;
   v_calc:=vec_contratacion_temporal.eslabon_acceso_rrhh_v1(v_pos,v_ant,r.secuencia,r.acceso_ref,r.huella_sha256,r.registrada_en,r.sellado_en);
   IF v_calc IS DISTINCT FROM r.eslabon_sha256 THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','eslabon','posicion',v_pos); END IF;
   v_ant:=v_calc;v_sellados:=v_sellados+1;
@@ -247,7 +273,7 @@ BEGIN
  SELECT s.plazo_maximo_segundos INTO STRICT v_plazo FROM vec_contratacion_temporal.sellado_acceso_rrhh_v1 s;
  resultado:=resultado||jsonb_build_object('sellados',v_sellados,'cabeza_posicion',v_pos,'cabeza_eslabon_sha256',v_ant,
   'pendientes',v_pend,'pendiente_mas_antigua',v_antigua,'plazo_maximo_segundos',v_plazo,
-  'numeros_sin_acceso',v_numeros-v_accesos,'sin_sellar_fuera_de_cola',v_huerf,'cola_incoherente',v_doble);
+  'numeros_sin_acceso',v_numeros-v_accesos,'sellados_fuera_de_plazo',v_tarde,'sin_sellar_fuera_de_cola',v_huerf,'cola_incoherente',v_doble);
  IF v_huerf<>0 OR v_doble<>0 THEN RETURN resultado||jsonb_build_object('estado','rechazada','fallo','cola'); END IF;
  IF v_antigua IS NOT NULL AND pg_catalog.clock_timestamp()-v_antigua>pg_catalog.make_interval(secs=>v_plazo) THEN
   RETURN resultado||jsonb_build_object('estado','rechazada','fallo','pendiente_fuera_de_plazo');

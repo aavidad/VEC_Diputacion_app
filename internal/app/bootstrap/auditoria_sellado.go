@@ -24,9 +24,10 @@ const (
 )
 
 // iniciarSelladoAuditoria mantiene el sellado diferido de la cadena de
-// auditoría (AD207) mientras viva el servidor. Sin conexión configurada los
-// asientos se siguen escribiendo, protegidos y pendientes, pero nadie los
-// encadena: se avisa como error y no se impide arrancar.
+// auditoría (AD207 y CT183) mientras viva el servidor. Sin conexión
+// configurada se avisa como error y se arranca igual (las bases sin AD207 no
+// la necesitan); con AD207 instalada, a los 10 s sin sellar la base rechaza
+// las operaciones auditadas.
 func iniciarSelladoAuditoria(ctx context.Context, cfg config.Config) (func(), error) {
 	nada := func() {}
 	dsn, err := cfg.DSNAuditoriaSelladoSeparado()
@@ -41,18 +42,18 @@ func iniciarSelladoAuditoria(ctx context.Context, cfg config.Config) (func(), er
 	if err != nil {
 		return nada, err
 	}
-	// CT183 es opcional: si está instalada, el mismo LOGIN sella también los
-	// accesos RRHH de Contratación temporal.
-	var accesosCT bool
-	if err = pool.QueryRow(ctx, `SELECT coalesce(has_function_privilege(
-		to_regprocedure('vec_contratacion_temporal.sellar_cadena_accesos_rrhh_v1(integer)'),'EXECUTE'),false)`).Scan(&accesosCT); err != nil {
-		pool.Close()
-		return nada, falloPostgreSQLCTDesarrollo(err)
-	}
-	sellador, err := vecpostgres.NuevoSelladorCadenaAuditoriaPostgreSQL(pool, accesosCT)
+	sellador, err := vecpostgres.NuevoSelladorCadenaAuditoriaPostgreSQL(pool)
 	if err != nil {
 		pool.Close()
 		return nada, err
+	}
+	// Una pasada antes de atender peticiones: tras una parada larga el latido
+	// ha caducado y, sin ella, las primeras operaciones auditadas se rechazarían.
+	primera, cancelar := context.WithTimeout(ctx, 30*time.Second)
+	_, err = sellador.Sellar(primera)
+	cancelar()
+	if err != nil {
+		slog.Error("primera pasada del sellado de auditoría fallida; se reintentará", "causa", causaFalloPostgreSQLCTDesarrollo(err))
 	}
 	detener := mantenerSelladoAuditoria(sellador.Sellar, pausaSelladoAuditoria, esperarTemporizadorCTDesarrollo)
 	return func() { detener(); pool.Close() }, nil
