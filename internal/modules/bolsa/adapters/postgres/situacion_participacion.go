@@ -56,6 +56,51 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) SituacionVigente(ctx conte
 	}
 	return resultado, nil
 }
+
+var _ ports.LectorSituacionesVigentes = (*RepositorioSituacionParticipacionPostgreSQL)(nil)
+
+// maximoLoteSituaciones acota el lote antes de reservar memoria o enviar nada.
+const maximoLoteSituaciones = 20000
+
+// SituacionesVigentes envía en un único lote (una ida y vuelta) la misma
+// lectura que SituacionVigente para cada participación. No relaja ninguna
+// guarda: la función SQL y sus permisos son los mismos.
+func (r *RepositorioSituacionParticipacionPostgreSQL) SituacionesVigentes(ctx context.Context, refs []string) (map[string]ports.SituacionParticipacion, error) {
+	if r == nil || r.pool == nil || ctx == nil || len(refs) > maximoLoteSituaciones {
+		return nil, ports.ErrSituacionParticipacionNoDisponible
+	}
+	for _, ref := range refs {
+		if ref == "" {
+			return nil, ports.ErrSituacionParticipacionNoDisponible
+		}
+	}
+	salida := make(map[string]ports.SituacionParticipacion, len(refs))
+	if len(refs) == 0 {
+		return salida, nil
+	}
+	lote := &pgx.Batch{}
+	for _, ref := range refs {
+		lote.Queue(`SELECT situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.leer_situacion_participacion_v1($1)`, ref)
+	}
+	resultados := r.pool.SendBatch(ctx, lote)
+	defer resultados.Close()
+	for _, ref := range refs {
+		resultado := ports.SituacionParticipacion{ParticipacionRef: ref}
+		err := resultados.QueryRow().Scan(&resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ports.ErrSituacionParticipacionNoEncontrada
+		}
+		if err != nil {
+			return nil, errorSituacionParticipacion(err)
+		}
+		salida[ref] = resultado
+	}
+	if err := resultados.Close(); err != nil {
+		return nil, errorSituacionParticipacion(err)
+	}
+	return salida, nil
+}
+
 func (r *RepositorioSituacionParticipacionPostgreSQL) BuscarRegistroSituacion(ctx context.Context, ref, clave string) (ports.RegistroSituacionParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || ref == "" || clave == "" {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
