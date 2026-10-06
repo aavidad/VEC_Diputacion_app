@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -123,25 +124,35 @@ func preparar(cargosRuta, planRuta, textosRuta, caduca string, ahora time.Time, 
 	return emitir(out, diagnostico{Codigo: "plan_preparado", Estado: "preparado", PlanSHA256: hex.EncodeToString(h[:])}, 0)
 }
 
-// planCoherente vuelve a calcular en Go lo que la base comprobará: texto
+// errPlanIncoherente: el plan no es el texto canónico de su contenido o una
+// versión de rol no tiene la huella anotada (plan editado a mano).
+var errPlanIncoherente = errors.New("plan incoherente")
+
+// comprobarPlan vuelve a calcular en Go lo que la base comprobará: texto
 // canónico y huella de cada versión de rol. Un plan editado a mano se para
 // aquí, antes de conectar.
-func planCoherente(pb []byte, p documentoPlan) bool {
+func comprobarPlan(pb []byte, p documentoPlan) error {
 	if p.Esquema != esquemaPlan || !reOperacion.MatchString(p.OperacionRef) || len(p.Cargos) < 1 || len(p.Cargos) > maximoCargos ||
 		!bytes.Equal(textoPlan(p), pb) {
-		return false
+		return errPlanIncoherente
 	}
 	for _, c := range p.Cargos {
+		if err := validarCargo(c.entrada()); err != nil {
+			return err
+		}
 		v, err := versionRol(c.entrada(), p.OperacionRef, p.PreparadoEn)
-		if err != nil || validarCargo(c.entrada()) != nil {
-			return false
+		if err != nil {
+			return err
 		}
 		h, err := v.HuellaSHA256()
-		if err != nil || h != c.VersionRolSHA256 {
-			return false
+		if err != nil {
+			return err
+		}
+		if h != c.VersionRolSHA256 {
+			return errPlanIncoherente
 		}
 	}
-	return true
+	return nil
 }
 
 func aplicar(planRuta, conexionRuta, aprobacionRuta, acuseRuta, textosRuta, timeout string, abrir abrirTransaccion, out, errout io.Writer, emitir emisor, fallo func(string) int) int {
@@ -167,7 +178,7 @@ func aplicar(planRuta, conexionRuta, aprobacionRuta, acuseRuta, textosRuta, time
 	var p documentoPlan
 	var c conexionPrivada
 	var a aprobacionPrivada
-	if decodificarEstricto(pb, &p) != nil || decodificarEstricto(cb, &c) != nil || decodificarEstricto(ab, &a) != nil || !hashValido(a.HuellaPlanSHA256) || c.DSN == "" || !planCoherente(pb, p) {
+	if decodificarEstricto(pb, &p) != nil || decodificarEstricto(cb, &c) != nil || decodificarEstricto(ab, &a) != nil || !hashValido(a.HuellaPlanSHA256) || c.DSN == "" || comprobarPlan(pb, p) != nil {
 		return fallo("entrada_invalida")
 	}
 	h := sha256.Sum256(pb)

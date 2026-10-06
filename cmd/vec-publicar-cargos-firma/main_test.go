@@ -60,7 +60,7 @@ func TestPlanIgualQueElDePostgreSQL(t *testing.T) {
 		t.Fatalf("plan distinto del de PostgreSQL:\n%s\n%s", b, esperado)
 	}
 	var leido documentoPlan
-	if decodificarEstricto(b, &leido) != nil || !planCoherente(b, leido) || leido.Cargos[0].VersionRolSHA256 != p.Cargos[0].VersionRolSHA256 {
+	if decodificarEstricto(b, &leido) != nil || comprobarPlan(b, leido) != nil || leido.Cargos[0].VersionRolSHA256 != p.Cargos[0].VersionRolSHA256 {
 		t.Fatal("el plan preparado no se relee como coherente")
 	}
 }
