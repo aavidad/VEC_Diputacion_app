@@ -33,10 +33,13 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	marcas         ports.ConsultaMarcasParticipaciones
 	intentos       ports.PoliticaIntentosContacto
 	emisiones      contadorLlamamientosEnCursoBolsa
-	recuperador    constitucion.Recuperador
-	categorias     map[string]string
-	grupos         map[string][]string
-	ahora          func() time.Time
+	// resumenConjunto (Bolsa 000082) sirve el cuadro y las estadísticas con
+	// dos consultas de conjunto; nil si la migración aún no está instalada.
+	resumenConjunto ports.LectorResumenBolsas
+	recuperador     constitucion.Recuperador
+	categorias      map[string]string
+	grupos          map[string][]string
+	ahora           func() time.Time
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
@@ -187,7 +190,8 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolImportacion.Close()
 		return nil
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -228,6 +232,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 
 // cargarResumen sirve el cuadro y las estadísticas de RRHH.
 func (f *fuenteConstituidaRRHHDesarrollo) cargarResumen(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
+	if f != nil && f.resumenConjunto != nil {
+		return f.cargarResumenConjunto(ctx)
+	}
 	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{})
 }
 
