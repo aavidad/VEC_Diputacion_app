@@ -59,12 +59,12 @@ export function renderizarEstadoCarga(estado, t) {
 }
 
 
-function centroVisible(centro) {
+function centroVisible(centro, t = traductorPorOmision) {
   const referencia = String(centro ?? "");
   const coincidencia = /^centro:([^:]+):(\d+)$/u.exec(referencia);
   if (!coincidencia) return { etiqueta: referencia, referencia: "" };
   const [, ambito, numero] = coincidencia;
-  return { etiqueta: traductorPorOmision("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
+  return { etiqueta: t("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
 }
 
 
@@ -76,10 +76,14 @@ export function numeroExpedienteVisible(numero, t = traductorPorOmision) {
 }
 
 // Número y centro legibles que la lista necesita (evita dependencias circulares).
-const AYUDAS_LISTA = Object.freeze({
-  numeroVisible: (numero) => numeroExpedienteVisible(numero),
-  centroVisible: (centro) => centroVisible(centro),
-});
+// Con el traductor del idioma activo, para que el centro sin nombre también
+// se diga en ese idioma.
+function ayudasLista(t) {
+  return Object.freeze({
+    numeroVisible: (numero) => numeroExpedienteVisible(numero, t),
+    centroVisible: (centro) => centroVisible(centro, t),
+  });
+}
 
 
 export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
@@ -99,12 +103,12 @@ export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) 
   </nav>` : "";
   const filtrosServidor = Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
   if (estado.carga === "vacio" && filtrosServidor) return renderizarEstadoCarga(estado, t);
-  return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA, paginacion);
+  return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), ayudasLista(t), paginacion);
 }
 
 /** Solo la parte de resultados, para repintar al escribir sin perder el foco. */
 export function renderizarResultadosCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
-  return estado.cuadro ? renderizarResultadosLista(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA) : "";
+  return estado.cuadro ? renderizarResultadosLista(estado, t, filtroListaValido(filtroLista), ayudasLista(t)) : "";
 }
 
 // La incidencia se explica con lo que el detalle ya trae: la fase marcada, el

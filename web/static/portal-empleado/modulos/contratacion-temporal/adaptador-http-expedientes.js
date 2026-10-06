@@ -549,6 +549,10 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
 export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   cliente, locale = "es-ES", obtenerCatalogos = () => null, mensajes = {},
   obtenerJornadaCompleta = () => null, obtenerModalidades = () => null,
+  // Nombres de centro de Organización (Map referencia → nombre, o promesa de
+  // él). Solo completan los centros que el catálogo del alta no nombra, p. ej.
+  // para un perfil que no puede dar de alta peticiones.
+  obtenerCentrosOrganizacion = () => null,
 } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
@@ -565,6 +569,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   }
   if (typeof obtenerModalidades !== "function") {
     throw new TypeError("obtener modalidades de expedientes no válido");
+  }
+  if (typeof obtenerCentrosOrganizacion !== "function") {
+    throw new TypeError("obtener centros de organización no válido");
   }
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
@@ -608,8 +615,23 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     }
   }
 
+  async function resolverCentrosOrganizacion() {
+    try {
+      const centros = await obtenerCentrosOrganizacion();
+      return centros instanceof Map && centros.size > 0 ? centros : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function resolverEtiquetas() {
-    const [catalogos, modalidades] = await Promise.all([resolverCatalogos(), resolverModalidades()]);
+    const [catalogosAlta, modalidades, organizacion] = await Promise.all([
+      resolverCatalogos(), resolverModalidades(), resolverCentrosOrganizacion()]);
+    // El catálogo del alta manda; Organización solo nombra lo que falte.
+    const catalogos = organizacion === null ? catalogosAlta : {
+      ...(catalogosAlta ?? {}),
+      centros: new Map([...organizacion, ...(catalogosAlta?.centros ?? [])]),
+    };
     return modalidades === null ? catalogos : { ...(catalogos ?? {}), modalidades };
   }
 
