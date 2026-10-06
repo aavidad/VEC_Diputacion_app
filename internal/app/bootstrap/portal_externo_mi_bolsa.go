@@ -24,6 +24,8 @@ import (
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var (
@@ -169,6 +171,7 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	} {
 		cfg.ConnConfig.RuntimeParams[clave] = valor
 	}
+	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible

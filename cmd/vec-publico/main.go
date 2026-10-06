@@ -34,6 +34,7 @@ func ejecutar() error {
 	telemetria.Montar(servidor, telemetria.Opciones{
 		Destino: os.Stderr, Servicio: "vec-publico", Superficie: "publica",
 		Entorno: telemetria.Entorno(os.Getenv("VEC_ENTORNO"), cfg.PerfilEjecucion), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
 	})
 
 	if cfg.CertificadoTLS != "" || cfg.ClaveTLS != "" {

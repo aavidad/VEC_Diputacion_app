@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 const rolResolutorMotivosRRHHPostgreSQL = "vec_autorizacion_motivos_rrhh_resolutor"
@@ -190,6 +192,7 @@ func crearOrigenPoolResolucionMotivosRRHHPostgreSQL(
 	ctx context.Context,
 	configuracion *pgxpool.Config,
 ) (origenPoolResolucionMotivosRRHH, error) {
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil || pool == nil {
 		return nil, err

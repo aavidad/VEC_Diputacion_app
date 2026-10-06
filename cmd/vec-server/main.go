@@ -104,6 +104,7 @@ func main() {
 	telemetria.Montar(srv, telemetria.Opciones{
 		Destino: os.Stderr, Servicio: "vec-server", Superficie: superficieServidor(cfg),
 		Entorno: entornoSupervision(), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
 	})
 	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 

@@ -19,6 +19,8 @@ import (
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 type montajeGobiernoReglasBaremoHTTPV3 struct {
@@ -298,6 +300,7 @@ func abrirPoolRuntimeGobiernoReglasBaremoHTTPV3(ctx context.Context, dsn string)
 	for k, v := range map[string]string{"application_name": "vec-bolsa-gobierno-reglas-baremo-v3", "search_path": "pg_catalog", "timezone": "UTC", "statement_timeout": "15s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "20s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	p, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, app.ErrGobiernoV3NoDisponible

@@ -17,6 +17,8 @@ import (
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	usuariosPG "vec-diputacion-granada/internal/vec/adapters/usuariosadministrables/postgres"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // Este montaje sólo existe con el overlay metadatos_v1 privado. Cada pool
@@ -79,6 +81,7 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_config")
 		}
+		telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 		pool, err := pgxpool.NewWithConfig(ctx, pc)
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_abrir")

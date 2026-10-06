@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 const rolConsultorRRHHPostgreSQL = "vec_contratacion_temporal_consultor_rrhh"
@@ -92,6 +94,7 @@ func nuevoPoolConsultasRRHHPostgreSQL(
 		!configuracionPoolAcreditacionO405Valida(configuracion, modo) {
 		return nil, errorPoolConsultasRRHH(ctx)
 	}
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	poolCreado, err = pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil || poolCreado == nil {
 		return nil, errorPoolConsultasRRHH(ctx)

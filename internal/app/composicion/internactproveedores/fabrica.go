@@ -33,6 +33,8 @@ import (
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	app "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var ErrProveedoresCTNoDisponibles = errors.New("composicion interna: proveedores CT no disponibles")
@@ -647,6 +649,7 @@ func abrirPool(ctx context.Context, m PoolMaterial, p perfilPool) (*pgxpool.Pool
 		}
 		return acreditarPerfilEfectivo(ctx, con, p)
 	}
+	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, ErrProveedoresCTNoDisponibles

@@ -72,6 +72,7 @@ func main() {
 	telemetria.Montar(servidor, telemetria.Opciones{
 		Destino: os.Stderr, Servicio: "vec-admin", Superficie: "administracion",
 		Entorno: telemetria.Entorno(os.Getenv("VEC_ENTORNO"), configServidor.Entorno), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
 	})
 	if err := servidor.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(errorArranque("escucha"))
