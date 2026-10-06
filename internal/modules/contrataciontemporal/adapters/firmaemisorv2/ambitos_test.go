@@ -1,6 +1,8 @@
 package firmaemisorv2
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"maps"
 	"testing"
@@ -86,5 +88,21 @@ func TestFirmaV2SinFuenteDeAutorizacionNoAutoriza(t *testing.T) {
 	var nula *autorizacionPrueba
 	if x, err := NuevoEmisorConAmbitos(f, e, a.motivo, e.reloj, nula); x != nil || !errors.Is(err, ports.ErrCompetenciaFirmanteNoDisponible) {
 		t.Fatal("constructor aceptó una fuente nula")
+	}
+}
+
+// La huella de contexto que calcula el PDP en Go para un recurso con unidad
+// es la misma que calcula AD206 en SQL: el vector ct181_ad206 fija este mismo
+// valor con las mismas entradas. Si una de las dos formas cambia, la firma con
+// unidad se denegaría siempre.
+func TestFirmaV2HuellaConUnidadIgualQueSQL(t *testing.T) {
+	sol := `{"Via":"certificado_vec","OrganizacionRef":"org_fija","UnidadFirmanteRef":"unidad:fija"}`
+	material, descriptor := sha256.Sum256([]byte(sol)), sha256.Sum256([]byte(`{"d":1}`))
+	r := vd.RecursoAutorizable{Referencia: "documento:fijo", ModuloID: ports.ModuloContratacion, Tipo: "firma_vec_documento_contratacion_temporal",
+		Ambitos:   map[string]string{"organizacion_ref": "org_fija", "unidad_ref": "unidad:fija"},
+		Atributos: map[string]string{"descriptor_firma_sha256": hex.EncodeToString(descriptor[:]), "material_sha256": hex.EncodeToString(material[:])}}
+	h, err := r.HuellaContextoAutorizacionSHA256()
+	if err != nil || h != "535d631506ec7c5cecf3ffbd9c4859867e8fdd3097e3eb2bfcf59b4be51d25ae" {
+		t.Fatalf("huella distinta de la de AD206: %s %v", h, err)
 	}
 }

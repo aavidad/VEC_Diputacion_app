@@ -34,6 +34,11 @@ CREATE FUNCTION pg_temp.canon(org text,uni text,sol text,descr bytea) RETURNS te
  SELECT encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||org||'"'||CASE WHEN uni IS NULL THEN '' ELSE ',"unidad_ref":"'||uni||'"' END||
   '},"atributos":{"descriptor_firma_sha256":"'||encode(sha256(descr),'hex')||'","material_sha256":"'||encode(sha256(convert_to(sol,'UTF8')),'hex')||'"}}','UTF8')),'hex')
 $f$;
+-- 0. Valor común con Go (firmaemisorv2.TestFirmaV2HuellaConUnidadIgualQueSQL):
+-- mismas entradas, misma huella que calcula el PDP.
+SELECT pg_temp.ok('canon_comun_con_go',pg_temp.canon('org_fija','unidad:fija',
+ '{"Via":"certificado_vec","OrganizacionRef":"org_fija","UnidadFirmanteRef":"unidad:fija"}','\x7b2264223a317d'::bytea)
+ ='535d631506ec7c5cecf3ffbd9c4859867e8fdd3097e3eb2bfcf59b4be51d25ae');
 SELECT pg_temp.asignacion('organizacion_ref') AS a1, pg_temp.asignacion('organizacion_ref,unidad_ref') AS a2 \gset
 SELECT pg_temp.ok('hay_asignaciones',(:'a1'::jsonb)->>'org' IS NOT NULL AND (:'a2'::jsonb)->>'uni' IS NOT NULL);
 \set descr '\\x7b2264223a317d'

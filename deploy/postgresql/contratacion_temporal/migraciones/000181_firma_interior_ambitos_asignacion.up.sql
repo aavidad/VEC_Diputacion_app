@@ -99,6 +99,8 @@ BEGIN
   OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=par.v3) IS DISTINCT FROM
      (CASE WHEN par.v3::text LIKE '%registrar_firma_con_plan_v3%' THEN acl_plan ELSE acl_directa END)
   OR pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',par.v2,'EXECUTE')
+  OR pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
+     'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
   THEN RAISE EXCEPTION 'CT181: PARO clave=postimagen actual=divergente esperado=v3_plan_para_ejecutor_v3_directa_cerrada_y_v2_cerrada' USING ERRCODE='55000'; END IF;
  END LOOP;
 END $post$;
