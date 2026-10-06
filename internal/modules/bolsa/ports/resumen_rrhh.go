@@ -29,7 +29,7 @@ type SituacionResumenParticipacion struct {
 
 // LectorResumenBolsas lee de una vez, para todas las bolsas constituidas, lo
 // que el cuadro de RRHH necesita: situaciones, ceses y políticas de orden.
+// LeerResumen hace las dos lecturas en una misma instantánea.
 type LectorResumenBolsas interface {
-	LeerResumenSituaciones(context.Context, time.Time) ([]SituacionResumenParticipacion, error)
-	LeerPoliticasOrdenVigentes(context.Context, time.Time) (map[string]dominio.PoliticaOrdenBolsa, error)
+	LeerResumen(context.Context, time.Time) ([]SituacionResumenParticipacion, map[string]dominio.PoliticaOrdenBolsa, error)
 }

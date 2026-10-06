@@ -38,11 +38,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	corte := f.ahora()
-	filas, err := f.resumenConjunto.LeerResumenSituaciones(ctx, corte)
-	if err != nil {
-		return datasetBolsasRRHHDesarrollo{}, err
-	}
-	politicas, err := f.resumenConjunto.LeerPoliticasOrdenVigentes(ctx, corte)
+	filas, politicas, err := f.resumenConjunto.LeerResumen(ctx, corte)
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}

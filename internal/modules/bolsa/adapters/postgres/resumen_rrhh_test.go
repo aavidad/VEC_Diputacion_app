@@ -13,15 +13,12 @@ import (
 
 func TestLectorResumenBolsasFallaCerradoSinBase(t *testing.T) {
 	var l *LectorResumenBolsasPostgreSQL
-	if _, err := l.LeerResumenSituaciones(context.Background(), time.Now()); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
+	if _, _, err := l.LeerResumen(context.Background(), time.Now()); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
 		t.Fatalf("lector nulo: %v", err)
 	}
 	l = &LectorResumenBolsasPostgreSQL{pool: &pgxpool.Pool{}}
-	if _, err := l.LeerResumenSituaciones(context.Background(), time.Time{}); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
+	if _, _, err := l.LeerResumen(context.Background(), time.Time{}); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
 		t.Fatalf("corte vacío: %v", err)
-	}
-	if _, err := l.LeerPoliticasOrdenVigentes(context.Background(), time.Time{}); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
-		t.Fatalf("instante vacío: %v", err)
 	}
 	if _, err := NuevoLectorResumenBolsasPostgreSQL(nil); err == nil {
 		t.Fatal("pool nulo aceptado")
@@ -46,7 +43,7 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 	ceses, _ := NuevaConsultaEstadoCesePostgreSQL(pool)
 	orden, _ := NuevaConsultaOrdenVigentePostgreSQL(pool)
 	corte := time.Now()
-	filas, err := lector.LeerResumenSituaciones(ctx, corte)
+	filas, politicas, err := lector.LeerResumen(ctx, corte)
 	if err != nil || len(filas) == 0 {
 		t.Fatalf("resumen: %d filas, %v", len(filas), err)
 	}
@@ -78,9 +75,8 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 			conCese++
 		}
 	}
-	politicas, err := lector.LeerPoliticasOrdenVigentes(ctx, corte)
-	if err != nil || len(politicas) == 0 {
-		t.Fatalf("políticas: %d, %v", len(politicas), err)
+	if len(politicas) == 0 {
+		t.Fatal("sin políticas")
 	}
 	for bolsa, politica := range politicas {
 		vigente, err := orden.ConsultarOrdenVigente(ctx, bolsa)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -25,11 +26,40 @@ func NuevoLectorResumenBolsasPostgreSQL(pool *pgxpool.Pool) (*LectorResumenBolsa
 	return &LectorResumenBolsasPostgreSQL{pool: pool}, nil
 }
 
-func (l *LectorResumenBolsasPostgreSQL) LeerResumenSituaciones(ctx context.Context, corte time.Time) ([]ports.SituacionResumenParticipacion, error) {
+// consultaResumenBolsas es lo que necesitan las dos lecturas de una transacción.
+type consultaResumenBolsas interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+// LeerResumen lee situaciones y políticas en una misma transacción
+// REPEATABLE READ de solo lectura: las dos ven la misma instantánea. Una
+// participación NULL (constitución sin entradas) o cualquier fila
+// incoherente hace fallar la lectura entera.
+func (l *LectorResumenBolsasPostgreSQL) LeerResumen(ctx context.Context, corte time.Time) ([]ports.SituacionResumenParticipacion, map[string]dominiobolsa.PoliticaOrdenBolsa, error) {
 	if l == nil || l.pool == nil || ctx == nil || corte.IsZero() {
-		return nil, ports.ErrResumenBolsasNoDisponible
+		return nil, nil, ports.ErrResumenBolsasNoDisponible
 	}
-	filas, err := l.pool.Query(ctx, `SELECT bolsa_ref,categoria_ref,confirmada_en,instantanea_ref,version_instantanea,orden,participacion_ref,situacion,desde,fecha_disponible,
+	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, nil, ports.ErrResumenBolsasNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	filas, err := leerSituacionesResumen(ctx, tx, corte)
+	if err != nil {
+		return nil, nil, err
+	}
+	politicas, err := leerPoliticasResumen(ctx, tx, corte)
+	if err != nil {
+		return nil, nil, err
+	}
+	if tx.Commit(ctx) != nil {
+		return nil, nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return filas, politicas, nil
+}
+
+func leerSituacionesResumen(ctx context.Context, consulta consultaResumenBolsas, corte time.Time) ([]ports.SituacionResumenParticipacion, error) {
+	filas, err := consulta.Query(ctx, `SELECT bolsa_ref,categoria_ref,confirmada_en,instantanea_ref,version_instantanea,orden,participacion_ref,situacion,desde,fecha_disponible,
 		cese_fecha_efecto,cese_disponible_desde,cese_en_restriccion,cese_trabajo_cesado
 		FROM vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1($1)`, corte.UTC())
 	if err != nil {
@@ -76,11 +106,8 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumenSituaciones(ctx context.Conte
 	return salida, nil
 }
 
-func (l *LectorResumenBolsasPostgreSQL) LeerPoliticasOrdenVigentes(ctx context.Context, en time.Time) (map[string]dominiobolsa.PoliticaOrdenBolsa, error) {
-	if l == nil || l.pool == nil || ctx == nil || en.IsZero() {
-		return nil, ports.ErrResumenBolsasNoDisponible
-	}
-	filas, err := l.pool.Query(ctx, `SELECT bolsa_ref,politica_ref,version_politica,criterio,tipo_lista,reposicion,provisional,rotulo,actor,vigente_desde
+func leerPoliticasResumen(ctx context.Context, consulta consultaResumenBolsas, en time.Time) (map[string]dominiobolsa.PoliticaOrdenBolsa, error) {
+	filas, err := consulta.Query(ctx, `SELECT bolsa_ref,politica_ref,version_politica,criterio,tipo_lista,reposicion,provisional,rotulo,actor,vigente_desde
 		FROM vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1($1)`, en.UTC())
 	if err != nil {
 		return nil, ports.ErrResumenBolsasNoDisponible

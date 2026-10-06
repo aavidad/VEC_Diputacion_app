@@ -38,6 +38,8 @@ END $precondicion$;
 -- constituciones vigentes (las de listar_constituciones_v1, en su mismo orden
 -- por categoría), con la bolsa, la categoría y la fecha de constitución, para
 -- no tener que descargar la instantánea canónica completa de cada bolsa.
+-- Una constitución sin entradas sale como una fila con participación NULL
+-- para que quien lee falle cerrado en vez de omitir la bolsa en silencio.
 -- - situación: misma selección que leer_situacion_participacion_v1 (la de
 --   «desde» más reciente, sin corte); NULL si no hay ninguna.
 -- - cese: exactamente estado_cese_bolsa_v1(participación, corte). Esa función
@@ -73,12 +75,12 @@ BEGIN
     CROSS JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(cr.participacion_ref,p_corte) ec
  )
  SELECT k.bolsa_ref,k.categoria_ref,k.confirmada_en,
-        e.instantanea_ref,e.version_instantanea,e.orden,e.participacion_ref,
+        k.instantanea_ref,k.version_instantanea,e.orden,e.participacion_ref,
         s.situacion,s.desde,s.fecha_disponible,
         x.fecha_efecto,x.disponible_desde,x.en_restriccion,x.trabajo_cesado
    FROM (SELECT DISTINCT c.bolsa_ref,c.categoria_ref,c.confirmada_en,c.instantanea_ref,c.version_instantanea
            FROM vec_bolsa_llamamientos.listar_constituciones_v1() c) k
-   JOIN vec_bolsa_llamamientos.constitucion_entrada e
+   LEFT JOIN vec_bolsa_llamamientos.constitucion_entrada e
      ON e.instantanea_ref=k.instantanea_ref AND e.version_instantanea=k.version_instantanea
    LEFT JOIN LATERAL (
      SELECT sp.situacion,sp.desde,sp.fecha_disponible

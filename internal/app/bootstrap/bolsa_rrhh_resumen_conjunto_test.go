@@ -18,8 +18,14 @@ type lectorResumenPrueba struct {
 	lecturas *atomic.Int64
 }
 
-func (l lectorResumenPrueba) LeerResumenSituaciones(context.Context, time.Time) ([]ports.SituacionResumenParticipacion, error) {
+func (l lectorResumenPrueba) LeerResumen(ctx context.Context, corte time.Time) ([]ports.SituacionResumenParticipacion, map[string]bolsadominio.PoliticaOrdenBolsa, error) {
 	l.lecturas.Add(1)
+	filas, _ := l.situaciones()
+	politicas, _ := l.politicas()
+	return filas, politicas, nil
+}
+
+func (l lectorResumenPrueba) situaciones() ([]ports.SituacionResumenParticipacion, error) {
 	var filas []ports.SituacionResumenParticipacion
 	for _, vigente := range l.repo.vigentes {
 		for _, entrada := range l.repo.entradas[vigente.Instantanea.InstantaneaRef] {
@@ -35,8 +41,7 @@ func (l lectorResumenPrueba) LeerResumenSituaciones(context.Context, time.Time) 
 	return filas, nil
 }
 
-func (l lectorResumenPrueba) LeerPoliticasOrdenVigentes(context.Context, time.Time) (map[string]bolsadominio.PoliticaOrdenBolsa, error) {
-	l.lecturas.Add(1)
+func (l lectorResumenPrueba) politicas() (map[string]bolsadominio.PoliticaOrdenBolsa, error) {
 	salida := map[string]bolsadominio.PoliticaOrdenBolsa{}
 	for _, vigente := range l.repo.vigentes {
 		orden, _ := ordenContadoRRHHPrueba{c: &contadoresBolsasRRHHPrueba{}, entradas: l.repo.entradas}.ConsultarOrdenVigente(context.Background(), vigente.Bolsa.BolsaRef)
@@ -45,7 +50,8 @@ func (l lectorResumenPrueba) LeerPoliticasOrdenVigentes(context.Context, time.Ti
 	return salida, nil
 }
 
-// Con Bolsa 000082 el cuadro hace dos lecturas de conjunto, ninguna por bolsa
+// Con Bolsa 000082 el cuadro hace una lectura de conjunto (dos funciones en
+// una transacción), ninguna por bolsa
 // ni por participación, y responde exactamente lo mismo.
 func TestFuenteConstituidaRRHHResumenConjuntoIgualQueLecturaPorBolsa(t *testing.T) {
 	const bolsas, participaciones = 6, 250
@@ -63,7 +69,7 @@ func TestFuenteConstituidaRRHHResumenConjuntoIgualQueLecturaPorBolsa(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lecturas.Load() != 2 || c.orden.Load() != 0 || c.situacionLote.Load() != 0 || c.ceseLote.Load() != 0 ||
+	if lecturas.Load() != 1 || c.orden.Load() != 0 || c.situacionLote.Load() != 0 || c.ceseLote.Load() != 0 ||
 		c.situacionIndividual.Load() != 0 || c.ceseIndividual.Load() != 0 || c.recuperar.Load() != 0 {
 		t.Fatalf("lecturas: conjunto=%d orden=%d situaciones=%d/%d ceses=%d/%d actas=%d", lecturas.Load(), c.orden.Load(),
 			c.situacionLote.Load(), c.situacionIndividual.Load(), c.ceseLote.Load(), c.ceseIndividual.Load(), c.recuperar.Load())
@@ -98,14 +104,16 @@ func TestFuenteConstituidaRRHHResumenConjuntoFallaCerrado(t *testing.T) {
 
 type sinPoliticaPrueba struct{ lectorResumenPrueba }
 
-func (sinPoliticaPrueba) LeerPoliticasOrdenVigentes(context.Context, time.Time) (map[string]bolsadominio.PoliticaOrdenBolsa, error) {
-	return map[string]bolsadominio.PoliticaOrdenBolsa{}, nil
+func (s sinPoliticaPrueba) LeerResumen(context.Context, time.Time) ([]ports.SituacionResumenParticipacion, map[string]bolsadominio.PoliticaOrdenBolsa, error) {
+	filas, _ := s.situaciones()
+	return filas, map[string]bolsadominio.PoliticaOrdenBolsa{}, nil
 }
 
 type sinSituacionPrueba struct{ lectorResumenPrueba }
 
-func (s sinSituacionPrueba) LeerResumenSituaciones(ctx context.Context, corte time.Time) ([]ports.SituacionResumenParticipacion, error) {
-	filas, err := s.lectorResumenPrueba.LeerResumenSituaciones(ctx, corte)
+func (s sinSituacionPrueba) LeerResumen(context.Context, time.Time) ([]ports.SituacionResumenParticipacion, map[string]bolsadominio.PoliticaOrdenBolsa, error) {
+	filas, _ := s.situaciones()
+	politicas, _ := s.politicas()
 	filas[len(filas)-1].Situacion = nil
-	return filas, err
+	return filas, politicas, nil
 }
