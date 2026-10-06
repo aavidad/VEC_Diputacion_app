@@ -25,9 +25,10 @@ type medida struct {
 	mu        sync.Mutex
 	maxima    time.Duration
 	sqlMaxima string // solo se analiza si la petición resulta lenta
-	// ultimoErr es la clase del error de la última operación con la base de
-	// datos; una operación correcta lo vacía, así que un error ya manejado no
-	// se atribuye a un fallo posterior.
+	// ultimoErr es la clase del último error con la base de datos. Una
+	// consulta de datos correcta posterior lo vacía, así que un error ya
+	// manejado no se atribuye a un fallo posterior; las órdenes de control
+	// (ROLLBACK, COMMIT…) y los préstamos correctos no lo tocan.
 	ultimoErr string
 }
 
@@ -118,9 +119,12 @@ func terminar(ctx context.Context, err error) {
 	if i.n > 0 && d > i.m.maxima {
 		i.m.maxima, i.m.sqlMaxima = d, i.sql
 	}
-	i.m.ultimoErr = ""
 	if err != nil {
 		i.m.ultimoErr = claseError(err)
+	} else if i.n > 0 {
+		// Solo una consulta de datos correcta lo vacía: el ROLLBACK que sigue
+		// a un fallo no debe borrar su causa.
+		i.m.ultimoErr = ""
 	}
 	i.m.mu.Unlock()
 }
@@ -169,12 +173,11 @@ func (trazador) TraceAcquireEnd(ctx context.Context, _ *pgxpool.Pool, d pgxpool.
 		return
 	}
 	m.espera.Add(int64(time.Since(t)))
-	m.mu.Lock()
-	m.ultimoErr = ""
 	if d.Err != nil {
+		m.mu.Lock()
 		m.ultimoErr = "conexion_" + claseError(d.Err)
+		m.mu.Unlock()
 	}
-	m.mu.Unlock()
 }
 
 // claseError reduce el error a una clase cerrada; nunca su texto, que puede

@@ -162,3 +162,30 @@ func TestEsControl(t *testing.T) {
 		}
 	}
 }
+
+func TestErrorTypeConservaElFalloTrasElRollback(t *testing.T) {
+	var b bytes.Buffer
+	tr := trazador{}
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		for _, paso := range []struct {
+			sql string
+			err error
+		}{
+			{"begin", nil},
+			{"SELECT vec_ct.f($1)", &pgconn.PgError{Code: "57014"}},
+			{"rollback", nil},
+		} {
+			c := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: paso.sql})
+			tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{Err: paso.err})
+		}
+		c := tr.TraceAcquireStart(ctx, nil, pgxpool.TraceAcquireStartData{})
+		tr.TraceAcquireEnd(c, nil, pgxpool.TraceAcquireEndData{})
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
+	l := lineas(t, &b)[0]
+	if l["error.type"] != "bd_57014" || l["vec.bd.error"] != "bd_57014" || l["vec.bd.consultas"] != float64(1) {
+		t.Errorf("linea = %v", l)
+	}
+}
