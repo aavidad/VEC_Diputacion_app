@@ -453,22 +453,15 @@ export function crearCoordinadorModulosPortal({
     // y solo se ofrece si la sesión atesta el perfil de Intervención: a otra
     // persona (p. ej. una empleada sin concesión) no se le monta un formulario
     // cuyas operaciones el servidor le denegaría.
-    // Vista y sesión se piden a la vez: ninguna espera a la otra.
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
-      && (await Promise.all([esperarVista().then((partes) => typeof partes?.vista
-        ?.montarModuloFiscalizacionContratacionTemporal === "function", () => false), sesionDeIntervencion(consultar)]))
-        .every(Boolean)
+      && await esperarVista().then((partes) => typeof partes.vista.montarModuloFiscalizacionContratacionTemporal === "function", () => false)
+      && await sesionDeIntervencion(consultar)
       ? Object.freeze({ cliente }) : null;
     exigirVigente();
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
       throw new Error("contratación temporal no disponible");
     }
-    const fuenteAuditoria = (partes) => typeof partes?.auditoriaVista?.montarVistaAuditoria === "function"
-      && typeof partes?.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
-      ? Object.freeze({ montar: partes.auditoriaVista.montarVistaAuditoria,
-        fuente: partes.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null;
-    let auditoriaComun;
     return {
       contratacionTemporal: Object.freeze({
         mensajesExpedientes,
@@ -484,9 +477,12 @@ export function crearCoordinadorModulosPortal({
         fiscalizacion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
+        // Con la vista ya cargada (el montaje la espera antes de leer esto).
         get auditoriaComun() {
-          if (auditoriaComun === undefined && partesVista) auditoriaComun = fuenteAuditoria(partesVista);
-          return auditoriaComun ?? null;
+          return typeof partesVista?.auditoriaVista?.montarVistaAuditoria === "function"
+            && typeof partesVista.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
+            ? Object.freeze({ montar: partesVista.auditoriaVista.montarVistaAuditoria,
+              fuente: partesVista.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null;
         },
         esperarVista,
         // Portada: la misma consulta que abre la lista, con centro y categoría
