@@ -622,6 +622,7 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 	if !presentacionRRHHHabilitada {
 		rutasProduccion = cargarRutasWebProduccion()
 	}
+	comprimidos := &cacheEstaticosComprimidos{}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -639,7 +640,7 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 			}
 		}
 		setNoStoreForStatic(w, r)
-		staticFileServer().ServeHTTP(w, r)
+		comprimidos.servir(w, r, directorioEstaticos(), staticFileServer())
 	})
 }
 
