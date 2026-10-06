@@ -14,6 +14,7 @@
     "ficha_documentos_titulo": "Documentos",
     "ficha_documentos_aparte": "La lista de documentos del expediente se consulta en su propia pantalla.",
     "ficha_documentos_ver": "Ver documentos del expediente",
+    "ficha_documentos_no_disponibles": "Los documentos de este expediente no se pueden consultar desde aquí. Si los necesita, avise a Informática.",
     "ficha_documentos_recuento": "{total} documentos",
     "ficha_documento_esta": "Está",
     "ficha_documento_falta": "Falta",
