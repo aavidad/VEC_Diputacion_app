@@ -105,14 +105,26 @@ VALUES('rol:aut56_rol_retirado:v1',1,'retirada',repeat('5',64),:'emitida'::times
  jsonb_build_object('version_rol_ref','rol:aut56_rol_retirado:v1','revision',1,'estado','retirada','actualizado_por','prueba:aut56','actualizado_en',:'emitida'));
 INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual(version_rol_ref,revision,actualizada_en,actualizada_por,acto_ref)
 VALUES('rol:aut56_rol_retirado:v1',1,now(),'prueba:aut56','acto:aut56');
+-- Rol propio sin publicar con el control habilitado: sólo el filtro de
+-- «rol publicado» lo deja fuera.
+INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento)
+VALUES('rol:aut56_rol_borrador:v1','aut56_rol_borrador',1,repeat('4',64),:'emitida'::timestamptz,
+ jsonb_build_object('rol_id','aut56_rol_borrador','version',1,'nombre','Prueba AUT56','estado','borrador',
+  'concesiones',(SELECT x.documento->'concesiones' FROM vec_autorizacion.version_rol x WHERE x.version_rol_ref=:'vrol'),
+  'publicada_por','prueba:aut56','publicada_en',:'emitida'));
+INSERT INTO vec_autorizacion.control_vigencia_version_rol(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
+VALUES('rol:aut56_rol_borrador:v1',1,'habilitada',repeat('3',64),:'emitida'::timestamptz,
+ jsonb_build_object('version_rol_ref','rol:aut56_rol_borrador:v1','revision',1,'estado','habilitada','actualizado_por','prueba:aut56','actualizado_en',:'emitida'));
+INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual(version_rol_ref,revision,actualizada_en,actualizada_por,acto_ref)
+VALUES('rol:aut56_rol_borrador:v1',1,now(),'prueba:aut56','acto:aut56');
 RESET ROLE;
 CREATE FUNCTION pg_temp.asignar(id text,perfil text,vrol text DEFAULT current_setting('aut56.vrol'),estado text DEFAULT 'activa',
- hasta interval DEFAULT interval '30 days',ambitos jsonb DEFAULT NULL) RETURNS void LANGUAGE plpgsql AS $f$
+ hasta interval DEFAULT interval '30 days',ambitos jsonb DEFAULT NULL,desde interval DEFAULT interval '-60 days') RETURNS void LANGUAGE plpgsql AS $f$
 DECLARE doc jsonb;
 BEGIN
  doc:=jsonb_build_object('asignacion_id',id,'version',1,'perfil_activo_ref',perfil,'principal_id','per_aut56_sintetica_bbbbbbbbbbbb',
   'version_rol_ref',vrol,'estado',estado,'emitida_en',current_setting('aut56.emitida'),
-  'vigente_desde',to_char((now()-interval '60 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+  'vigente_desde',to_char((now()+desde) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
   'vigente_hasta',to_char((now()+hasta) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
   'ambitos',coalesce(ambitos,jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
    jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni'))))));
@@ -121,6 +133,21 @@ BEGIN
  VALUES('asignacion:'||id||':v1',id,1,perfil,'per_aut56_sintetica_bbbbbbbbbbbb',vrol,repeat('8',64),current_setting('aut56.emitida')::timestamptz,doc);
  INSERT INTO vec_autorizacion.asignacion_perfil_actual(perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
  VALUES(perfil,'asignacion:'||id||':v1',now(),'prueba:aut56','acto:aut56');
+ RESET ROLE;
+END $f$;
+-- Sustituye la v1 activa por una v2 revocada, que pasa a ser la actual: la
+-- v1 sigue en la historia y sólo el cruce con el puntero actual la descarta.
+CREATE FUNCTION pg_temp.revocar_v2(id text,perfil text) RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE doc jsonb;
+BEGIN
+ SELECT documento||jsonb_build_object('version',2,'estado','revocada') INTO STRICT doc
+  FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref='asignacion:'||id||':v1';
+ SET LOCAL ROLE vec_autorizacion_propietario;
+ INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
+ SELECT 'asignacion:'||id||':v2',id,2,perfil,principal_id,version_rol_ref,repeat('7',64),emitida_en,doc
+  FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref='asignacion:'||id||':v1';
+ UPDATE vec_autorizacion.asignacion_perfil_actual SET asignacion_ref='asignacion:'||id||':v2',actualizada_en=now()
+  WHERE perfil_activo_ref=perfil;
  RESET ROLE;
 END $f$;
 CREATE ROLE prueba_aut56_ct LOGIN;
@@ -157,11 +184,16 @@ SELECT pg_temp.asignar('asg_aut56dosvaloresaaaaaaaaaaaaaaa','prf_aut56_dosvalore
  jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
  jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni'),'unidad:aut56:ajena'))));
 SELECT pg_temp.asignar('asg_aut56retiradoaaaaaaaaaaaaaaaaa','prf_aut56_retirado_aaaaaaaaaaaaaa',vrol=>'rol:aut56_rol_retirado:v1');
+SELECT pg_temp.asignar('asg_aut56futuraaaaaaaaaaaaaaaaaaaa','prf_aut56_futura_aaaaaaaaaaaaaaaa',desde=>interval '1 day');
+SELECT pg_temp.asignar('asg_aut56sustituidaaaaaaaaaaaaaaaa','prf_aut56_sustituida_aaaaaaaaaaaa');
+SELECT pg_temp.revocar_v2('asg_aut56sustituidaaaaaaaaaaaaaaaa','prf_aut56_sustituida_aaaaaaaaaaaa');
+SELECT pg_temp.asignar('asg_aut56borradoraaaaaaaaaaaaaaaaa','prf_aut56_borrador_aaaaaaaaaaaaaa',vrol=>'rol:aut56_rol_borrador:v1');
 
 SET SESSION AUTHORIZATION prueba_aut56_ct;
 SET LOCAL timezone='UTC';
 SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(),'seleccion_firmante_ausente_o_ambigua','solo_asignaciones_invalidas'));
 SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(rol=>'aut56_rol_retirado'),'seleccion_firmante_ausente_o_ambigua','control_retirado_denegado'));
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(rol=>'aut56_rol_borrador'),'seleccion_firmante_ausente_o_ambigua','rol_sin_publicar_denegado'));
 SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(der=>repeat('6',64)),'seleccion_firmante_certificado_no_admitido','certificado_ajeno_denegado'));
 SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(org=>'org_aut56ajenaaaaaaaaaaaaaaaaaaa'),'seleccion_firmante_certificado_no_admitido','organizacion_del_certificado_distinta'));
 SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(tipo=>'documento:aut56:original-a'),'cargo_localizacion_ausente_o_ambigua','enlace_por_documento_no_selecciona'));

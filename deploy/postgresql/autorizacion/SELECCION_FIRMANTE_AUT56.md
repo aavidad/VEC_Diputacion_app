@@ -32,11 +32,14 @@ concreto. Decisión de dirección del 05/10.
   Toda firma entra por CT176, que ata tipo, acción, finalidad, cargo y enlace al
   plan publicado.
 
-El vector `pruebas_sql/aut56_seleccion_firmante.sql` da 15/15. Antes de la
-asignación buena siembra siete que fallan en una sola condición cada una
-(caducada, revocada, otra unidad, sin unidad, una dimensión de más, dos valores
-en la unidad y rol con control retirado): si se quitase cualquiera de esos
-filtros, la selección dejaría de denegarse. Comprueba además:
+El vector `pruebas_sql/aut56_seleccion_firmante.sql` da 16/16. Antes de la
+asignación buena siembra diez que fallan en una sola condición cada una:
+caducada, todavía no vigente, revocada, otra unidad, sin unidad, una dimensión
+de más, dos valores en la unidad, una v1 activa sustituida por una v2 revocada
+(solo el cruce con el puntero actual la descarta), rol con control retirado y
+rol sin publicar con control habilitado. Si se quitase cualquiera de esos
+filtros, la selección dejaría de denegarse; se comprobó quitando a mano el de
+vigencia inicial, el de rol publicado y el del puntero. Comprueba además:
 - selección positiva, con todos los campos;
 - certificado ajeno, organización distinta de la del certificado, enlace por
   documento y otro rol: denegados con su mensaje;
@@ -51,6 +54,6 @@ filtros, la selección dejaría de denegarse. Comprueba además:
 Ensayado sobre la copia fría posterior a AD197, con lo de main (AD198 a AD208,
 CT179, CT180 y CT183), Personal37 y Personal38, en tres órdenes: sin AD206 ni
 CT181, con ellas antes de AUT56 y con ellas después. Repetirla se para en la
-preimagen. La búsqueda de la asignación usa
+preimagen, y también se para si falta la v2 de CT172 cuyo EXECUTE retira. La búsqueda de la asignación usa
 `asignacion_perfil_principal_perfil` y las claves primarias; con pocas filas el
 planificador prefiere recorrer la tabla.
