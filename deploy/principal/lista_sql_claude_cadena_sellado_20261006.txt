@@ -2,6 +2,9 @@
 # Los escritores dejan de bloquear control_cadena_auditoria y control_cadena_accesos_rrhh.
 # Instalar después de todas las listas anteriores de autorizacion_atestada_v3 (descubre y reescribe los
 # escritores que haya; exige al menos los 21 conocidos). Una sola vez; sin DOWN.
+# AD208 (#809) conmuta con AD207 y CT183: las dos miden por marcas. Ensayado en los dos órdenes sobre la copia fría
+# post-AD197 + AD198, AD200, CT179, CT180: AD208 → AD207 → CT183 y AD207 → CT183 → AD208, con pruebas y las tres cadenas
+# verificadas. Recomendado: AD208 antes, como el resto de lo que ya está en main.
 # Orden: binario con VEC_AUDITORIA_SELLADO_DATABASE_URL ya desplegado → AD207 → CT183 (el sellador detecta CT183
 # sin reiniciar). Fijar transaction_timeout en los LOGIN de la aplicación (acota cuánto puede esperar un asiento).
 # max_pred_locks_per_transaction: con 64 consultas SERIALIZABLE simultáneas el valor por defecto (64) dio
