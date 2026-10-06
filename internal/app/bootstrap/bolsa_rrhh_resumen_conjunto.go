@@ -16,12 +16,17 @@ import (
 func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports.LectorResumenBolsas {
 	var instalada bool
 	if err := pool.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NOT NULL
-		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil {
+		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (Bolsa 000082); el cuadro lee bolsa a bolsa: %v", err)
+		return nil
+	}
+	if !instalada {
 		log.Printf("bolsa rrhh: resumen de conjunto (Bolsa 000082) no instalado; el cuadro lee bolsa a bolsa")
 		return nil
 	}
 	lector, err := postgresbolsa.NuevoLectorResumenBolsasPostgreSQL(pool)
 	if err != nil {
+		log.Printf("bolsa rrhh: lector de resumen de conjunto no disponible; el cuadro lee bolsa a bolsa: %v", err)
 		return nil
 	}
 	return lector
