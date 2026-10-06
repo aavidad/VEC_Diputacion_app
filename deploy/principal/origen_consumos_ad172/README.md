@@ -106,7 +106,7 @@ por el núcleo de consulta RRHH, que no lleva AD172.
   resolutor y que nombra cada perfil, audiencia y operación, y que cada
   audiencia está admitida para las claves de capacidad.
 - Que cada LOGIN cumple lo que pide el resolutor y que su única membresía es el
-  grupo que el núcleo exige a su perfil: heredada, sin `SET` ni `ADMIN`.
+  grupo que declara la lista: heredada, sin `SET` ni `ADMIN`.
 - Que ninguna terna existe ya con otro proceso o canal. Si existe, se para:
   la tabla no admite cambios y eso lo decide el DBA.
 
