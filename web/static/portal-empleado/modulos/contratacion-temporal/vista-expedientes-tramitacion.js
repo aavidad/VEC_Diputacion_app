@@ -13,10 +13,10 @@ import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
-  contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
+  asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+} from "./vista-expedientes-render.js?v=20261005-ct-asignacion-unidad-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261002-ct-fin-moad-v1";
 import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
 
@@ -514,7 +514,7 @@ export function crearGestorTramitacion({
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version !== recibo.version_resultante
-        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== solicitud.unidad_ref) { avisarPendiente(); return false; }
+        || !asignacionConfirmadaEnDetalle(actualizado)) { avisarPendiente(); return false; }
       repintar("[data-ct-asignacion-confirmada]");
       return true;
     } catch {

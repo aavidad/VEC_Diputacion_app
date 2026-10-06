@@ -1,0 +1,9 @@
+# AD200: grupo técnico dedicado del gobierno del plan nominal de firma.
+# Requiere instaladas las listas de firmas (AD178/AD177, AUT41/CT175, CC7/CT176), AUT51 y
+# las del lote (AD190, CA35/AUT44) y la de Bolsa contacto (AD197/B78, #727): se midió sobre el
+# núcleo que deja AD197 (c4d11c9e…/e689c573…). Si otro consumidor reescribe antes el núcleo, AD200 se detiene con PARO
+# sin tocar nada y hay que remedirla. Crea el grupo NOLOGIN vec_plan_firma_gobierno_ejecutor y le
+# pasa la fachada registrar_y_confirmar_gobierno_plan_firma_v1, que el runtime CT deja de ejecutar.
+# No crea LOGIN: lo crea el DBA con una sola pertenencia (ver PLAN_NOMINAL_FIRMA_AD177.md).
+# Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000200_grupo_gobierno_plan_firma.up.sql

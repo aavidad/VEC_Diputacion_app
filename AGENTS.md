@@ -193,6 +193,26 @@ Codex lee las skills de `.agents/skills/` del repositorio y Claude, de `~/.claud
 
 ## Calidad
 
+### Rendimiento instantáneo — orden del operador, 6 de octubre de 2026
+
+La aplicación debe responder de forma instantánea en todos los módulos y
+soportar miles de personas conectadas a la vez. Es requisito de aceptación, no
+una mejora.
+
+- Objetivo: cada lectura responde en el servidor en menos de 300 ms (p95) con
+  volumen de datos real; la pantalla útil aparece en menos de 1 s.
+- Toda PR que añada o cambie una ruta aporta una medición con volumen realista
+  (`EXPLAIN ANALYZE` y tiempo de la ruta) o una prueba que fije el número de
+  consultas.
+- Prohibido el N+1: ni una consulta ni un consumo de autorización por fila. Se
+  trabaja en lotes, con índices y con transacciones cortas.
+- El portal muestra primero lo que ya tiene y carga cada módulo por separado,
+  sin que uno lento bloquee a los demás.
+- Antes de cada hito, prueba de carga local a cientos y miles de usuarios
+  concurrentes, con percentiles y errores.
+- La velocidad nunca se consigue quitando autorización, auditoría ni otras
+  comprobaciones.
+
 ### Validación eficiente — orden del operador, 24 de septiembre de 2026
 
 - Durante la edición, ejecutar solo comprobaciones focales proporcionales al

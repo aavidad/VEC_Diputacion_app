@@ -74,29 +74,9 @@ for (const [estado, codigo] of [
   });
 }
 
-test("el cliente HTTP rechaza capacidad ausente antes de tocar la red", async () => {
-  let llamadas = 0;
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => { llamadas += 1; } });
-  await assert.rejects(
-    () => cliente.ejecutar({ accion: "guardar_borrador", confirmacion: true, capacidad: false }),
-    (error) => error.codigo === "capacidad_denegada",
-  );
-  assert.equal(llamadas, 0);
-});
-
-test("un fichero no sale por JSON si el puerto documental no está compuesto", async () => {
-  let llamadas = 0;
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => { llamadas += 1; } });
-  await assert.rejects(
-    () => cliente.ejecutar({
-      accion: "incorporar_merito",
-      payload: { documento: { nombre: "evidencia.pdf", tipo: "application/pdf", tamano: 1200 } },
-      confirmacion: true,
-      capacidad: true,
-    }),
-    (error) => error.codigo === "carga_documental_no_compuesta",
-  );
-  assert.equal(llamadas, 0);
+test("el cliente solo consulta Mi bolsa y el contacto propio: no ofrece acciones sin servicio", () => {
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({}) });
+  assert.deepEqual(Object.keys(cliente).sort(), ["cargar", "cargarContactoPropio", "modo"]);
 });
 
 test("el cliente HTTP rechaza un contrato que no sea mi-bolsa", async () => {
@@ -104,42 +84,6 @@ test("el cliente HTTP rechaza un contrato que no sea mi-bolsa", async () => {
   const panel = { meta: { esquema: "vec.bolsa.area-personal.v1", presentacion: false, origen: "prueba", generado_en: "2026-07-18T09:00:00Z" } };
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: panel }) });
   await assert.rejects(() => cliente.cargar(), /mi-bolsa\.esquema/u);
-});
-
-test("una acción real exige confirmación, idempotencia y recibo productivo", async () => {
-  let peticion;
-  const recibo = {
-    esquema: "vec.bolsa.area-personal.recibo.v1",
-    presentacion: false,
-    referencia: "REC-PRUEBA-0001",
-    accion: "guardar_borrador",
-    objetivo: "PERSONA-PRUEBA-0001",
-    resultado: "Borrador guardado",
-    actor: "PERSONA-PRUEBA-0001",
-    fecha: "2026-07-18T09:00:00Z",
-    advertencia: "Conserve este recibo para futuras comprobaciones.",
-  };
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
-    peticion = { ruta, opciones };
-    return respuestaJSON({ data: { recibo, resultado: { version: "1" } } }, 201);
-  } });
-  const resultado = await cliente.ejecutar({
-    accion: "guardar_borrador",
-    payload: { convocatoria_id: "CONV-PRUEBA-0001" },
-    confirmacion: true,
-    capacidad: true,
-  });
-  assert.equal(resultado.recibo.presentacion, false);
-  assert.equal(peticion.ruta, "/api/vec/bolsa/mis-solicitudes/borrador");
-  assert.equal(peticion.opciones.credentials, "same-origin");
-  assert.match(peticion.opciones.headers["X-Idempotency-Key"], /^WEB-[0-9a-f-]{36}$/u);
-  assert.equal(peticion.opciones.headers.Authorization, undefined);
-  assert.equal(peticion.opciones.headers.Cookie, undefined);
-
-  for (const alterado of [{ ...recibo, presentacion: true }, { ...recibo, esquema: "vec.bolsa.area-personal.recibo-demo.v1" }]) {
-    const rechazo = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: { recibo: alterado, resultado: { version: "1" } } }, 201) });
-    await assert.rejects(() => rechazo.ejecutar({ accion: "guardar_borrador", payload: { convocatoria_id: "CONV-PRUEBA-0001" }, confirmacion: true, capacidad: true }));
-  }
 });
 
 test("una respuesta no JSON o excesiva falla cerrada", async () => {

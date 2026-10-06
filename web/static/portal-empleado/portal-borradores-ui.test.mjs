@@ -110,6 +110,27 @@ test("la navegación comprueba capacidad sin leer la bandeja y reutiliza las opc
   assert.deepEqual(llamadas, ["opciones", "lista", "detalle"]);
 });
 
+test("sin API de borradores (404) la vista dice «no disponible» en llano, sin códigos ni reintento", async () => {
+  const llamadas = [];
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      llamadas.push("opciones");
+      throw new ErrorAPIBorradores("Sin ruta.", 404, undefined, { codigo: "respuesta_error_no_valida" });
+    },
+    listar: async () => { llamadas.push("lista"); return structuredClone(lista()); },
+  });
+  const { anuncios, superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.activar(), false);
+  assert.equal(superficie.obtenerAcceso().estado, "no_disponible");
+  const html = superficie.renderizar();
+  assert.match(html, /Esta función no está disponible/);
+  assert.match(html, /avise a Informática/);
+  assert.match(html, /data-vista="resumen"/);
+  assert.doesNotMatch(html, /respuesta_error_no_valida|role="alert"|borradores-recargar|backend|CAS/u);
+  assert.deepEqual(llamadas, ["opciones"]);
+  assert.ok(anuncios.includes("Borradores de convocatorias no disponibles"));
+});
+
 test("activar con referencia abre solo el borrador incluido en la lista autorizada", async () => {
   const llamadas = [];
   const referencia = detalle().referencia_estado.referencia;

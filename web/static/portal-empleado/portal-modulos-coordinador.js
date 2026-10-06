@@ -103,15 +103,18 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
-    // La vista importa el catálogo de fases y el de expedientes. Esperar a los
-    // consumidores previos evita leer ese catálogo antes de inicializarlo.
-    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261003-ct-firma-v2-v1");
+    // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
+    // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
-    const [auditoriaVista, auditoriaCliente] = await Promise.all([
-      import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
-    ]);
-    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
+    const cargarVista = async () => {
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261005-ct-asignacion-unidad-v1");
+      const [auditoriaVista, auditoriaCliente] = await Promise.all([
+        import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
+        import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
+      ]);
+      return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
+    };
+    return Object.freeze({ contrato, cliente, presentador, adaptador, incorporacionB2, cargarVista });
   },
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto] = await Promise.all([
@@ -327,15 +330,27 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
+    // Vista y auditoría: ya incluidas (cargadores de prueba) o, en el portal,
+    // pedidas con `cargarVista` al abrir CT.
+    let partesVista = recursos.vista ? recursos : null;
+    let promesaVista = null;
+    const esperarVista = () => {
+      promesaVista ??= partesVista ? Promise.resolve(partesVista)
+        : cargarModuloConLimite(recursos.cargarVista, CLAVE_CONTRATACION_TEMPORAL, limiteCargaModularMs, temporizadores)
+          .then((partes) => { partesVista = partes; return partes; })
+          .catch((error) => { promesaVista = null; throw error; });
+      return promesaVista;
+    };
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
     const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
     if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    // Mismo módulo que ya importa el adaptador: no se descarga otra vez.
+    const i18nExpedientes = await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1");
+    const traducirExpediente = i18nExpedientes.crearTraductorExpedientesContratacion();
     const mensajesExpedientes = {
-      ...(idiomaCircuito === "en"
-        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-        : {}),
+      ...(idiomaCircuito === "en" ? i18nExpedientes.MENSAJES_EXPEDIENTES_CONTRATACION_EN : {}),
       ...rotulosCircuito("contratacion_temporal.fase."),
       ...rotulosCircuito("etiqueta_fase_"),
     };
@@ -440,7 +455,7 @@ export function crearCoordinadorModulosPortal({
     // cuyas operaciones el servidor le denegaría.
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
-      && typeof recursos.vista.montarModuloFiscalizacionContratacionTemporal === "function"
+      && await esperarVista().then((partes) => typeof partes.vista.montarModuloFiscalizacionContratacionTemporal === "function", () => false)
       && await sesionDeIntervencion(consultar)
       ? Object.freeze({ cliente }) : null;
     exigirVigente();
@@ -462,19 +477,25 @@ export function crearCoordinadorModulosPortal({
         fiscalizacion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
-        auditoriaComun: typeof recursos.auditoriaVista?.montarVistaAuditoria === "function"
-          && typeof recursos.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
-          ? Object.freeze({ montar: recursos.auditoriaVista.montarVistaAuditoria,
-            fuente: recursos.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null,
+        // Con la vista ya cargada (el montaje la espera antes de leer esto).
+        get auditoriaComun() {
+          return typeof partesVista?.auditoriaVista?.montarVistaAuditoria === "function"
+            && typeof partesVista.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
+            ? Object.freeze({ montar: partesVista.auditoriaVista.montarVistaAuditoria,
+              fuente: partesVista.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null;
+        },
+        esperarVista,
         // Portada: la misma consulta que abre la lista, con centro y categoría
-        // presentados con los catálogos de alta que hayan llegado.
+        // presentados con los catálogos de alta que hayan llegado. El número
+        // provisional (sin asignar) se presenta como en la lista de la vista.
         obtenerCuadroInicio: () => {
           if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes)) return null;
           const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
           return Object.freeze({
             expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
               ...e,
-              numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
+              numero_visible: /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(String(e.numero_visible ?? ""))
+                ? traducirExpediente("numero_expediente_sin_asignar") : String(e.numero_visible ?? ""),
               centro: etiqueta(alta?.catalogos?.centros, e.centro),
               categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
             }))),
@@ -484,8 +505,9 @@ export function crearCoordinadorModulosPortal({
             generadoEn: typeof listadoCuadro.generado_en === "string" ? listadoCuadro.generado_en : "",
           });
         },
-        montar: recursos.vista.montarModuloContratacionTemporal,
-        montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
+        montar: async (opciones) => (await esperarVista()).vista.montarModuloContratacionTemporal(opciones),
+        montarFiscalizacion: async (opciones) => (await esperarVista()).vista
+          .montarModuloFiscalizacionContratacionTemporal(opciones),
       }),
     };
   }
@@ -978,8 +1000,9 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "contratacion-temporal") {
-      // Los catálogos del alta ya están en camino desde la carga del módulo.
-      await composicion.contratacionTemporal.esperarAlta?.();
+      // Los catálogos del alta ya están en camino; la vista se pide ahora.
+      await Promise.all([composicion.contratacionTemporal.esperarAlta?.(),
+        composicion.contratacionTemporal.esperarVista?.()]);
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
       const presentadorCT = composicion.contratacionTemporal.crearPresentador();
@@ -1031,6 +1054,12 @@ export function crearCoordinadorModulosPortal({
           incorporacionPersonalB2: composicion.contratacionTemporal.clienteIncorporacionB2,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           auditoriaComun: composicion.contratacionTemporal.auditoriaComun,
+          // Lista común de documentos en la ficha, solo si el portal publica
+          // el módulo de Documentos para esta sesión (se consulta al pintar).
+          documentosComun: Object.freeze({
+            montar: (opciones) => (typeof composicion?.documentos?.montar === "function"
+              ? composicion.documentos.montar(opciones) : null),
+          }),
           confirmarOperacion,
           anunciar,
           resolverBolsa: typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,

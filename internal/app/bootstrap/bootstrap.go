@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -85,6 +86,9 @@ func NuevoServidorHTTPSupervisado(cfg config.Config, emisor vecports.EmisorIncid
 
 func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	// Diagnóstico sin efectos: avisa de dependencias de entorno ausentes de
+	// Bolsa y CT antes de cualquier validación que pueda detener el arranque.
+	avisarDependenciasSelectoresBolsaCT(slog.Default(), os.Getenv)
 	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}

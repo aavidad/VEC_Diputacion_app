@@ -208,6 +208,14 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	// Crédito antes de ofrecer: regla c25 del catálogo de reglas vigente.
+	politicaCredito := politicaCreditoOfertaDesarrollo{reglas: dependenciasCT.reglasEjemplo.contratacionTemporal}
+	if err := presentador.ConfigurarPoliticaCredito(politicaCredito); err != nil {
+		return vacias, err
+	}
+	if err := decisor.ConfigurarPoliticaCredito(politicaCredito); err != nil {
+		return vacias, err
+	}
 	consultor, err := application.NuevoServicioConsultaResultadoCobertura(
 		alta.soporte,
 		autorizador,
