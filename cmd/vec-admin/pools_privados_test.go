@@ -25,3 +25,20 @@ func TestPoolsADMINFijanLimitesSesionVECAD3(t *testing.T) {
 		t.Fatal("DSN inválido aceptado")
 	}
 }
+
+// El pool de cargos lleva además la zona horaria que exige Personal28; los
+// demás pools no cambian.
+func TestPoolCargosFijaUTC(t *testing.T) {
+	dsn := "host=localhost dbname=x user=y sslmode=disable"
+	pc, err := configurarPoolCargosADMIN(dsn)
+	if err != nil || pc.ConnConfig.RuntimeParams["timezone"] != "UTC" || pc.ConnConfig.RuntimeParams["statement_timeout"] != "10s" {
+		t.Fatalf("pool de cargos sin UTC o sin límites: %v", err)
+	}
+	otro, err := configurarPoolADMIN(dsn)
+	if err != nil || otro.ConnConfig.RuntimeParams["timezone"] != "" {
+		t.Fatal("la zona horaria de cargos se filtró a los demás pools")
+	}
+	if acreditarZonaHorariaUTC(t.Context(), nil) == nil {
+		t.Fatal("pool ausente acreditado")
+	}
+}

@@ -20,6 +20,7 @@ import (
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	app "vec-diputacion-granada/internal/vec/application"
@@ -192,7 +193,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	pools := map[string]*pgxpool.Pool{}
 	var una sync.Once

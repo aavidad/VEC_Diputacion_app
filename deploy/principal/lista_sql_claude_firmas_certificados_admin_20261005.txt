@@ -1,0 +1,6 @@
+# AD205: fachada operar_certificado_nominal_v4 con huella de recurso canónica (ámbitos de la asignación de
+# Aplicación + SHA-256 del descriptor), que sustituye en el grupo ejecutor a la v3 de AD165, y conjunto 4 de
+# capacidades ADMIN con la audiencia de certificados nominales. Requiere AD165, AD198 y AD204
+# (lista_sql_claude_firmas_conjunto_cargos_20261005.txt). Después, vec-gobierno-usuarios-admin con
+# "conjunto_capacidades": 4. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000205_certificado_nominal_huella_canonica.up.sql

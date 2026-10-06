@@ -20,6 +20,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/ginpixfichero"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -153,7 +154,7 @@ func (a *Adaptador) ejecutar(
 	if err := ctx.Err(); err != nil {
 		return ReciboExterno{}, err
 	}
-	operacion, cancelar := context.WithTimeout(ctx, a.politica.TiempoMaximo)
+	operacion, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(a.politica.TiempoMaximo))
 	defer cancelar()
 
 	if err := operacion.Err(); err != nil {

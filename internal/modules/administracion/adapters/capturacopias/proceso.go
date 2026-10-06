@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var ErrProceso = errors.New("copias_captura_proceso")
@@ -33,7 +34,7 @@ func (e Ejecutor) Ejecutar(ctx context.Context, c Comando, destino io.Writer) er
 	case "sh", "bash", "dash", "zsh", "fish", "cmd", "powershell":
 		return ErrProceso
 	}
-	ctx, cancel := context.WithTimeout(ctx, e.Limite)
+	ctx, cancel := context.WithTimeout(ctx, plazoarranque.Ampliar(e.Limite))
 	defer cancel()
 	// #nosec G204 -- executable and arguments come only from private operator config, no HTTP or manifest input.
 	cmd := exec.CommandContext(ctx, c.Ejecutable, c.Argumentos...)

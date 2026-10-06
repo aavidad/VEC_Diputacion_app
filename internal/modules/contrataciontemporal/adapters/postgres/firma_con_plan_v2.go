@@ -11,11 +11,13 @@ import (
 	firma "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
-// CT181: la v3 compara el consumo interior con la huella de AD206 (ámbitos
-// de la asignación de quien firma); la v2 ya no la ejecuta el ejecutor CT.
-const registrarFirmaConPlanSQL176 = `SELECT vec_contratacion_temporal.registrar_firma_con_plan_v3($1,$2::timestamptz,$3,$4,$5,$6,$7,$8::numeric,$9::numeric,$10,$11,$12,$13,$14,$15,$16,$17,$18::numeric,$19::numeric,$20,$21,$22,$23)::text`
+// CT185: la v4 compara los consumos interior y exterior con las huellas de
+// AD206 y AD209 (ámbitos de la asignación de quien firma); las v2 y v3 ya no
+// las ejecuta el ejecutor CT.
+const registrarFirmaConPlanSQL176 = `SELECT vec_contratacion_temporal.registrar_firma_con_plan_v4($1,$2::timestamptz,$3,$4,$5,$6,$7,$8::numeric,$9::numeric,$10,$11,$12,$13,$14,$15,$16,$17,$18::numeric,$19::numeric,$20,$21,$22,$23)::text`
 
 var _ ports.RegistradorFirmaConPlanV2 = (*RegistroFirmasVerificadasPostgreSQL)(nil)
 
@@ -62,7 +64,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) RegistrarFirmaConPlanV2(ctx contex
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de firma con plan V2 no confirmado")

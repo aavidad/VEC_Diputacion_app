@@ -15,6 +15,7 @@ import (
 	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/seleccion/application"
 	"vec-diputacion-granada/internal/modules/seleccion/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const RutaFichaConvocatoria = "/api/vec/seleccion/convocatorias/ficha"
@@ -74,7 +75,7 @@ func (h fichaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// El cliente sólo aporta el selector; nunca reemplaza actor/correlación.
 	solicitud.Selector = selector
-	ctx, cancelar := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	lectura, err := application.ConsultarConvocatoria(ctx, solicitud, h.config.Lector)
 	if err != nil {

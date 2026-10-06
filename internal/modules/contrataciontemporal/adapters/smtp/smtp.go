@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var ErrConfiguracionInvalida = errors.New("contratacion temporal smtp: configuracion invalida")
@@ -166,7 +167,7 @@ func (a *Adaptador) Enviar(ctx context.Context, m Mensaje) Resultado {
 		return Resultado{Estado: NoAceptadoTransitorio}
 	}
 	cfg := a.configuracion
-	op, cancelar := context.WithTimeout(ctx, cfg.TiempoMaximo)
+	op, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(cfg.TiempoMaximo))
 	defer cancelar()
 
 	conn, err := (&net.Dialer{}).DialContext(op, "tcp", net.JoinHostPort(cfg.Host, fmt.Sprint(cfg.Puerto)))

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -205,7 +206,7 @@ func (a *AutoridadGobiernoPlanFirmaPostgreSQL) gobernar(ctx context.Context, s S
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			_ = tx.Rollback(c)
 		}
@@ -331,7 +332,7 @@ func (a *AutoridadGobiernoPlanFirmaPostgreSQL) registrarFallo(ctx context.Contex
 	if err != nil {
 		return ErrGobiernoPlanFirmaNoDisponible
 	}
-	registroCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), a.auditoria.Plazo)
+	registroCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(a.auditoria.Plazo))
 	defer cancelar()
 	acuse, err := a.registrador.AppendIntentoAuditoria(registroCtx, orden)
 	if err != nil || acuse.ValidarPara(orden) != nil {

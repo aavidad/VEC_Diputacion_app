@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -372,7 +373,7 @@ func nuevasRutasCancelacionCTDesarrollo(dependencias *DependenciasCT, alta *depe
 		log.Printf("contratacion temporal: cancelacion no disponible; etapa=%s", etapa)
 		return nil, errors.Join(errCancelacionCTDesarrolloNoDisponible, err)
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	if err := comprobarMigracionesCancelacionCTDesarrollo(ctx, alta.postgresql.ejecucion); err != nil {
 		slog.Error("cancelación de expedientes de CT encendida sin sus migraciones", "causa", err)

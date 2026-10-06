@@ -43,20 +43,28 @@ type AudienciaCapacidadAdmin struct {
 // AudienciasConjuntoCapacidadesAdmin devuelve las audiencias, en orden, de un
 // conjunto. El 0 es el gobierno de usuarios de AD188 (dos audiencias); el 1 es
 // el conjunto 1 de AD198 (usuarios y lote ordinario de perfiles); el 2 (AD202)
-// añade el gobierno del plan nominal de firma. Debe coincidir
+// añade el gobierno del plan nominal de firma y el 3 (AD204), la publicación
+// de cargos competenciales de Personal, y el 4 (AD205), la de certificados
+// nominales de firmante. Debe coincidir
 // con conjunto_audiencias_capacidad_admin_v1: AD198 lo vuelve a comprobar.
 func AudienciasConjuntoCapacidadesAdmin(version uint64) ([]AudienciaCapacidadAdmin, bool) {
 	usuarios := []AudienciaCapacidadAdmin{
 		{administracion.AudienciaUsuariosListarV3, "usuarios:listar", "emisor:admin:usuarios:desarrollo:v1"},
 		{administracion.AudienciaUsuariosConsultarV3, "usuarios:consultar", "emisor:admin:usuarios:desarrollo:v1"}}
 	lote := AudienciaCapacidadAdmin{administracion.AudienciaLoteOrdinarioV3, "perfiles:lote", "emisor:admin:perfiles:desarrollo:v1"}
+	plan := AudienciaCapacidadAdmin{administracion.AudienciaGobiernoPlanFirmaV3, "catalogos:plan-firma", "emisor:admin:catalogos:desarrollo:v1"}
+	cargos := AudienciaCapacidadAdmin{administracion.AudienciaCargoCompetencialV3, "personal:cargo-competencial", "emisor:admin:personal:desarrollo:v1"}
 	switch version {
 	case 0:
 		return usuarios, true
 	case 1:
 		return append(usuarios, lote), true
 	case 2:
-		return append(usuarios, lote, AudienciaCapacidadAdmin{administracion.AudienciaGobiernoPlanFirmaV3, "catalogos:plan-firma", "emisor:admin:catalogos:desarrollo:v1"}), true
+		return append(usuarios, lote, plan), true
+	case 3:
+		return append(usuarios, lote, plan, cargos), true
+	case 4:
+		return append(usuarios, lote, plan, cargos, AudienciaCapacidadAdmin{administracion.AudienciaCertificadoNominalV3, "certificados:nominal", "emisor:admin:certificados:desarrollo:v1"}), true
 	}
 	return nil, false
 }

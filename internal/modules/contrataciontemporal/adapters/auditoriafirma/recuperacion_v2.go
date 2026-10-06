@@ -7,6 +7,7 @@ import (
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -63,7 +64,7 @@ func (r *Recuperacion) auditar(ctx context.Context, intento, recurso string, fal
 	if errors.Is(fallo, ct.ErrFirmaDocumentoDenegada) || errors.Is(fallo, ct.ErrAutorizacionDenegada) {
 		resultado = domain.ResultadoIntentoAuditoriaDenegado
 	}
-	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	orden, err := r.fabrica.CrearOrdenIntentoFirma(auditCtx, intento, ct.AccionRecuperarFirmasR5V2, recurso, resultado)
 	if err != nil {

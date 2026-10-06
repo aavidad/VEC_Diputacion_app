@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // RegistroResultadoEjecucionMarcajePostgreSQL escribe fallos confirmados y
@@ -36,7 +37,7 @@ func (r *RegistroResultadoEjecucionMarcajePostgreSQL) RegistrarResultadoEjecucio
 		return ports.ErrAuditoriaMarcajeNoDisponible
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

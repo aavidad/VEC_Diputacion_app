@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
 	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type Configuracion struct {
@@ -82,7 +83,7 @@ func (e Ensayador) Ensayar(ctx context.Context, s Solicitud) Resultado {
 		}
 		vistos[c.ID] = true
 	}
-	ctx, cancelar := context.WithTimeout(ctx, e.Configuracion.TiempoLimite)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(e.Configuracion.TiempoLimite))
 	defer cancelar()
 	if ctx.Err() != nil {
 		fallo(&r, "entrada", "plazo_ensayo")
