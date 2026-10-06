@@ -16,8 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
-
-	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // MaterialPoolSeguimiento se entrega desde el inventario privado del arranque.
@@ -162,7 +160,6 @@ func AbrirPoolsSeguimiento(ctx context.Context, material MaterialPoolsSeguimient
 	}
 	pools := make([]*pgxpool.Pool, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
-		telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 		pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 		if err != nil {
 			cerrarPoolsSeguimiento(pools)
