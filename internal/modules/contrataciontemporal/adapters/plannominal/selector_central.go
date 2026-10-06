@@ -85,10 +85,12 @@ func (s *SelectorCentralFirmanteV2) ResolverSeleccionDescriptorFirmaV2(ctx conte
 		Recurso: recurso, EsquemaContexto: paso.EsquemaContexto, Motivo: s.motivo}, nil
 }
 
-// HuellaContextoRecursoFirmaV2 es la huella del recurso histórico según el
-// esquema de contexto del paso: SHA-256 del JSON canónico (claves ordenadas,
-// sin espacios) del esquema y de los datos que identifican el documento
-// firmado. Liga la competencia registrada al documento exacto.
+// HuellaContextoRecursoFirmaV2 es la recurso_contexto_sha256 del descriptor:
+// SHA-256 del JSON canónico (claves ordenadas, sin espacios) del esquema de
+// contexto del paso y de los datos que identifican el documento firmado.
+// SQL solo valida su formato. Lo que ata la decisión al documento exacto es
+// CT172, que coteja documento, recurso, original y firmado con el material,
+// y la huella del descriptor, que entra en la huella de contexto de la decisión.
 func HuellaContextoRecursoFirmaV2(esquema string, r vd.RecursoFirmaHistoricaV1) (string, error) {
 	if esquema == "" {
 		return "", ct.ErrPlanCompetenciaFirmaV2
@@ -138,17 +140,8 @@ func (f *FuenteCompetenciaFirmantePlanV2) AcreditarCompetenciaFirmante(ctx conte
 		}
 		return cero, ports.ErrCompetenciaFirmanteNoDisponible
 	}
-	circuito := ct.VersionPlanFirmaV2{Referencia: q.CatalogoRef, Version: q.CatalogoVersion, HuellaSHA256: q.CatalogoHuella}
-	var paso ct.CompetenciaPasoFirmaV2
-	encontrados := 0
-	for _, p := range plan.Pasos {
-		if p.Circuito == circuito && p.Documento == q.Documento && p.PasoRef == q.PasoRef && q.PasoOrden > 0 &&
-			p.PasoOrden == uint64(q.PasoOrden) && p.PerfilEsperadoRef == q.PerfilFirmanteRef && p.OrganizacionRef == q.OrganizacionRef {
-			paso = p
-			encontrados++
-		}
-	}
-	if encontrados != 1 {
+	paso, ok := pasoUnicoDeSolicitud(plan, q)
+	if !ok {
 		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
 	r, err := f.fuente.SeleccionarFirmanteV2(ctx, solicitudSeleccionDelPaso(q.CertificadoHuella, paso))
@@ -159,6 +152,10 @@ func (f *FuenteCompetenciaFirmantePlanV2) AcreditarCompetenciaFirmante(ctx conte
 		if errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) {
 			return cero, err
 		}
+		return cero, ports.ErrCompetenciaFirmanteNoDisponible
+	}
+	// El adaptador ya lo coteja; se repite aquí para no depender de él.
+	if r.RolID != paso.RolID || r.CargoRef != paso.CargoRef {
 		return cero, ports.ErrCompetenciaFirmanteNoDisponible
 	}
 	desde, err1 := canonicaFechaCompetencia(r.AsignacionVigenteDesde)
@@ -176,16 +173,37 @@ func (f *FuenteCompetenciaFirmantePlanV2) AcreditarCompetenciaFirmante(ctx conte
 		ControlVigenciaFirmanteRef: r.ControlRol.Referencia, ControlVigenciaFirmanteRevision: r.ControlRol.Version,
 		ControlVigenciaFirmanteHuella: r.ControlRol.HuellaSHA256,
 		AsignacionVigenteDesde:        desde, AsignacionVigenteHasta: hasta,
-		CompetenciaComprobadaEn: f.reloj().UTC().Truncate(time.Microsecond).Format("2006-01-02T15:04:05.000000Z"),
+		CompetenciaComprobadaEn: fechaCompetencia(f.reloj()),
 		Vigente:                 true}, nil
 }
 
-// canonicaFechaCompetencia convierte la fecha de la asignación al formato que
-// exige el registro de firma (UTC y microsegundos).
+// pasoUnicoDeSolicitud elige el paso del plan por circuito, documento, paso,
+// perfil y organización. Ninguno o más de uno (otra unidad) no acreditan.
+func pasoUnicoDeSolicitud(plan ct.PlanCompetenciaFirmaV2, q ports.SolicitudCompetenciaFirmante) (ct.CompetenciaPasoFirmaV2, bool) {
+	circuito := ct.VersionPlanFirmaV2{Referencia: q.CatalogoRef, Version: q.CatalogoVersion, HuellaSHA256: q.CatalogoHuella}
+	var paso ct.CompetenciaPasoFirmaV2
+	encontrados := 0
+	for _, p := range plan.Pasos {
+		if p.Circuito == circuito && p.Documento == q.Documento && p.PasoRef == q.PasoRef && q.PasoOrden > 0 &&
+			p.PasoOrden == uint64(q.PasoOrden) && p.PerfilEsperadoRef == q.PerfilFirmanteRef && p.OrganizacionRef == q.OrganizacionRef {
+			paso = p
+			encontrados++
+		}
+	}
+	return paso, encontrados == 1
+}
+
+// canonicaFechaCompetencia convierte la fecha de la asignación a la forma que
+// exigen la aplicación (ports.FechaFirmaExternaCanonica) y CT170/CT172: UTC,
+// hasta microsegundos y sin ceros finales en la fracción.
 func canonicaFechaCompetencia(v string) (string, error) {
 	t, err := time.Parse(time.RFC3339Nano, v)
 	if err != nil {
 		return "", err
 	}
-	return t.UTC().Truncate(time.Microsecond).Format("2006-01-02T15:04:05.000000Z"), nil
+	return fechaCompetencia(t), nil
+}
+
+func fechaCompetencia(t time.Time) string {
+	return t.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
 }

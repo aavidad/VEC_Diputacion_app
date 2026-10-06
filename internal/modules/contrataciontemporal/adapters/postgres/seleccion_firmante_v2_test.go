@@ -88,6 +88,16 @@ func TestSeleccionFirmantePostgreSQL(t *testing.T) {
 		"caida":        {filaSeleccionPrueba{err: errors.New("x")}, ports.ErrCompetenciaFirmanteNoDisponible},
 		"otro_rol":     {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string { return strings.Replace(s, `"rol_id":"rol_x"`, `"rol_id":"rol_y"`, 1) })}, ports.ErrCompetenciaFirmanteNoDisponible},
 		"campo_de_mas": {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string { return strings.Replace(s, `{"esquema"`, `{"extra":1,"esquema"`, 1) })}, ports.ErrCompetenciaFirmanteNoDisponible},
+		"otro_cargo":   {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string { return strings.Replace(s, `"car_x"`, `"car_y"`, 1) })}, ports.ErrCompetenciaFirmanteNoDisponible},
+		"version_cero": {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string {
+			return strings.Replace(s, `"asignacion:x:v1","version":1`, `"asignacion:x:v1","version":0`, 1)
+		})}, ports.ErrCompetenciaFirmanteNoDisponible},
+		"control_de_otro_rol": {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string {
+			return strings.Replace(s, `"control_rol":{"referencia":"rol:x:v1"`, `"control_rol":{"referencia":"rol:y:v1"`, 1)
+		})}, ports.ErrCompetenciaFirmanteNoDisponible},
+		"huella_mala": {filaSeleccionPrueba{bruto: respuestaSeleccionPrueba(func(s string) string {
+			return strings.Replace(s, `"rol":{"referencia":"rol:x:v1","huella_sha256":"9`, `"rol":{"referencia":"rol:x:v1","huella_sha256":"X`, 1)
+		})}, ports.ErrCompetenciaFirmanteNoDisponible},
 	} {
 		pool.tx.fila = x.fila
 		if _, err := s.SeleccionarFirmanteV2(t.Context(), solicitudSeleccionPrueba); !errors.Is(err, x.err) {
@@ -98,5 +108,16 @@ func TestSeleccionFirmantePostgreSQL(t *testing.T) {
 	mala.CertificadoHuella = "x"
 	if _, err := s.SeleccionarFirmanteV2(t.Context(), mala); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) {
 		t.Fatalf("certificado mal formado: %v", err)
+	}
+	larga := solicitudSeleccionPrueba
+	larga.CargoRef = strings.Repeat("c", maximoCampoSeleccionFirmante+1)
+	pool.tx.args = nil
+	if _, err := s.SeleccionarFirmanteV2(t.Context(), larga); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) || pool.tx.args != nil {
+		t.Fatalf("campo demasiado largo enviado a SQL: %v", err)
+	}
+	ctx, cancelar := context.WithCancel(t.Context())
+	cancelar()
+	if _, err := s.SeleccionarFirmanteV2(ctx, solicitudSeleccionPrueba); !errors.Is(err, context.Canceled) || pool.tx.args != nil {
+		t.Fatalf("contexto cancelado: %v", err)
 	}
 }

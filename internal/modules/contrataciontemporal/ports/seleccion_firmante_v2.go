@@ -11,9 +11,9 @@ type SolicitudSeleccionFirmanteV2 struct {
 }
 
 type ReferenciaVersionadaFirmanteV2 struct {
-	Referencia   string `json:"referencia"`
-	Version      uint64 `json:"version"`
-	HuellaSHA256 string `json:"huella_sha256"`
+	Referencia   string
+	Version      uint64
+	HuellaSHA256 string
 }
 
 // SeleccionFirmanteV2 es la respuesta de seleccionar_firmante_plan_ct_v1:
