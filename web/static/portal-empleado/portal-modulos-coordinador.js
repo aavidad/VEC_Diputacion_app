@@ -168,6 +168,19 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
 });
 
+// Organización nombra sus centros «centro-<código>»; Contratación los guarda
+// también como «centro:rpt:<CÓDIGO>». Se ofrecen ambas formas.
+export function centrosDeOrganizacion(unidades) {
+  const centros = new Map();
+  for (const unidad of Array.isArray(unidades) ? unidades : []) {
+    if (unidad?.tipo !== "centro" || typeof unidad.clave !== "string" || typeof unidad.etiqueta !== "string") continue;
+    centros.set(unidad.clave, unidad.etiqueta);
+    const codigo = /^centro-([a-z0-9]{1,12})$/iu.exec(unidad.clave)?.[1];
+    if (codigo) centros.set(`centro:rpt:${codigo.toUpperCase()}`, unidad.etiqueta);
+  }
+  return centros;
+}
+
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja",
   "cronos-notificaciones", "cronos-bandeja-notificaciones", "dietas", "personal", "personal-registro"]));
 // Navegación propia: no incluye vistas de gestión ni acredita permisos.
@@ -364,6 +377,21 @@ export function crearCoordinadorModulosPortal({
         fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
       }) : null;
     let alta = null;
+    let altaResuelta = false;
+    let promesaCentrosOrganizacion = null;
+    let centrosOrganizacionResueltos = null;
+    // Sin catálogo del alta (perfil que no da de alta peticiones), los nombres
+    // de centro salen de la estructura pública de Organización. Una sola
+    // consulta por carga; si falla, la lista sigue con la referencia.
+    const centrosOrganizacion = () => {
+      if (!altaResuelta || alta !== null) return null;
+      promesaCentrosOrganizacion ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1")
+        .then((modulo) => modulo.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }).obtener())
+        .then((estructura) => centrosDeOrganizacion(estructura.unidades))
+        .catch(() => null)
+        .then((centros) => { centrosOrganizacionResueltos = centros; return centros; });
+      return promesaCentrosOrganizacion;
+    };
     // La jornada completa de referencia y las etiquetas de las modalidades
     // llegan con la configuración del análisis.
     let jornadaCompleta = null;
@@ -375,6 +403,7 @@ export function crearCoordinadorModulosPortal({
         obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
         obtenerModalidades: () => promesaModalidades,
+        obtenerCentrosOrganizacion: centrosOrganizacion,
       });
     // Los catálogos del alta (centros y categorías) no retrasan el cuadro:
     // Inicio se pinta con el cuadro y la configuración, y los nombres de centro
@@ -391,7 +420,12 @@ export function crearCoordinadorModulosPortal({
       } catch {
         alta = null;
       }
-    }, () => { alta = null; });
+    }, () => { alta = null; }).finally(() => {
+      altaResuelta = true;
+      // Sin alta, se piden ya los nombres de Organización y se avisa para
+      // repintar Inicio y la lista con ellos.
+      if (alta === null) void centrosOrganizacion()?.then((centros) => { if (centros) notificar(); });
+    });
     const consultaCuadro = consultar((opciones) => fuente.listar(opciones));
     const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
@@ -496,7 +530,8 @@ export function crearCoordinadorModulosPortal({
               ...e,
               numero_visible: /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(String(e.numero_visible ?? ""))
                 ? traducirExpediente("numero_expediente_sin_asignar") : String(e.numero_visible ?? ""),
-              centro: etiqueta(alta?.catalogos?.centros, e.centro),
+              centro: etiqueta(alta?.catalogos?.centros ?? (centrosOrganizacionResueltos
+                ? [...centrosOrganizacionResueltos].map(([referencia, nombre]) => ({ referencia, etiqueta: nombre })) : null), e.centro),
               categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
             }))),
             parcial: listadoCuadro.hay_mas === true

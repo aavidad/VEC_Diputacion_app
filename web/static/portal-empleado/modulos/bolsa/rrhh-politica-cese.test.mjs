@@ -77,3 +77,23 @@ test("la vista muestra versión, meses y mapeo del servidor; ayuda oculta tras ?
   vista.desmontar();
   assert.equal(eventos.size, 0);
 });
+
+// Recorrido en cidonia del 06/10/2026: Reglas y versiones daba 404 en
+// /api/vec/bolsa/politica-cese y devolvía a Inicio. Sin la API se dice en llano.
+test("sin API de política de cese (404) la vista dice «no disponible», sin reintento; un 403 sigue denegado", async () => {
+  const raiz = { innerHTML: "", addEventListener() {}, removeEventListener() {}, replaceChildren() { this.innerHTML = ""; } };
+  const anuncios = [];
+  const vista = montarVistaPoliticaCeseRRHH({ raiz, politica: null, noDisponible: true, anunciar: (m) => anuncios.push(m),
+    cliente: { consultar: async () => { throw Object.assign(new Error("x"), { estado: 404 }); } } });
+  assert.match(raiz.innerHTML, /Esta pantalla no está disponible/u);
+  assert.match(raiz.innerHTML, /avise a Informática/u);
+  assert.match(raiz.innerHTML, /aria-labelledby="politica-cese-no-disponible"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-politica-cese-actualizar|role="alert"/u);
+  assert.match(raiz.innerHTML, /data-vista="portal"/u);
+  vista.desmontar();
+
+  const html = renderizarVistaPoliticaCeseRRHH({ politica: null, estado: "no_disponible" });
+  assert.doesNotMatch(html, /data-politica-cese-ayuda/u, "sin ayuda en pantalla ni botones");
+  assert.match(renderizarVistaPoliticaCeseRRHH({ politica: null, estado: "denegada" }), /role="alert"/u);
+  assert.deepEqual(anuncios, []);
+});
