@@ -33,6 +33,7 @@
   },
   "sin_credito": {
     "analisis_pendiente": "No se puede ofrecer el puesto: falta el análisis de RRHH con la retención de crédito. Regístrelo primero.",
-    "retencion_rechazada": "No se puede ofrecer el puesto: la retención de crédito está rechazada y sin crédito no se tramita. Pida a la Delegación una retención válida o el estado de las partidas en SICAL, y corrija el análisis."
+    "retencion_rechazada": "No se puede ofrecer el puesto: la retención de crédito está rechazada y sin crédito no se tramita. Pida a la Delegación una retención válida o el estado de las partidas en SICAL, y corrija el análisis.",
+    "partidas_sin_coste": "No se puede ofrecer el puesto: consta el estado de las partidas, pero falta el coste aproximado. Rectifique el análisis para que VEC lo calcule (necesita la fecha de fin y la tabla de retribuciones de la categoría). Si no se puede calcular, avise a la Jefatura de RRHH."
   }
 }

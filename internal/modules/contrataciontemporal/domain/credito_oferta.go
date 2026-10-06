@@ -28,7 +28,32 @@ const (
 	SinCreditoAnalisisPendiente MotivoSinCredito = "analisis_pendiente"
 	// SinCreditoRetencionRechazada: la fuente presupuestaria rechazó la retención.
 	SinCreditoRetencionRechazada MotivoSinCredito = "retencion_rechazada"
+	// SinCreditoPartidasSinCoste: consta el estado de las partidas, pero no el
+	// coste aproximado que RRHH pide con él (decisión del 02/10/2026). Lo
+	// exige la política de crédito del catálogo de reglas, que RRHH puede
+	// desactivar; la regla base no lo comprueba.
+	SinCreditoPartidasSinCoste MotivoSinCredito = "partidas_sin_coste"
 )
+
+// PoliticaCreditoOferta son las exigencias de crédito que fija el catálogo de
+// reglas versionado. El valor cero no exige nada más que la regla base.
+type PoliticaCreditoOferta struct {
+	// ExigeCosteConPartidas: sin retención, la constancia de las partidas
+	// debe ir con el coste aproximado del análisis.
+	ExigeCosteConPartidas bool
+}
+
+// MotivoSinCreditoSegunPolitica añade a la regla base lo que exige la
+// política vigente. Devuelve "" si el expediente puede pasar a la oferta.
+func (a *AnalisisRRHH) MotivoSinCreditoSegunPolitica(p PoliticaCreditoOferta) MotivoSinCredito {
+	if motivo := a.MotivoSinCreditoParaOferta(); motivo != "" {
+		return motivo
+	}
+	if p.ExigeCosteConPartidas && a.ValidacionRC.Resultado == RCNoRequerida && a.CostePrevisto == nil {
+		return SinCreditoPartidasSinCoste
+	}
+	return ""
+}
 
 type errorSinCredito struct{ motivo MotivoSinCredito }
 

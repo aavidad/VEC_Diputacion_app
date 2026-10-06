@@ -325,6 +325,9 @@ func expedienteConAnalisisOrdenC3(
 				ValidadaEn:          base.Add(-time.Minute - time.Second),
 				Motivo:              "Resultado gobernado de prueba.",
 			},
+			// Sin retención, la constancia de las partidas va con el coste aproximado.
+			CostePrevisto:  &dominioct.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+			FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 		},
 		dominioct.DatosActuacion{
 			AccionClave: dominioct.ClaveCatalogo(
