@@ -61,8 +61,8 @@ func TestCatalogoAreaPersonalComunConservaBytesEnSuperficies(t *testing.T) {
 				if got := respuesta.Header().Get("Content-Length"); got != strconv.Itoa(len(contenido)) {
 					t.Fatalf("Content-Length = %q; esperado %d", got, len(contenido))
 				}
-				if got := respuesta.Header().Get("Cache-Control"); got != "no-store" {
-					t.Fatalf("Cache-Control = %q; esperado no-store", got)
+				if got := respuesta.Header().Get("Cache-Control"); got != "no-cache" {
+					t.Fatalf("Cache-Control = %q; esperado no-cache", got)
 				}
 				if metodo == http.MethodGet && !bytes.Equal(respuesta.Body.Bytes(), contenido) {
 					t.Fatal("GET no conserva los bytes del catálogo")
@@ -92,8 +92,8 @@ func TestCatalogoAreaPersonalComunConservaBytesEnSuperficies(t *testing.T) {
 					if metodo == http.MethodHead && respuesta.Body.Len() != 0 {
 						t.Fatalf("%s HEAD devolvió cuerpo", superficie.nombre)
 					}
-					if respuesta.Header().Get("Cache-Control") != "no-store" {
-						t.Fatalf("%s no conserva no-store", superficie.nombre)
+					if respuesta.Header().Get("Cache-Control") != "no-cache" {
+						t.Fatalf("%s no conserva no-cache", superficie.nombre)
 					}
 				}
 			})

@@ -274,6 +274,11 @@ func TestServerCachesVersionedStaticAssets(t *testing.T) {
 		if got := rec.Header().Get("Cache-Control"); got != tc.wantCache {
 			t.Fatalf("%s cache-control = %q, want %q", tc.path, got, tc.wantCache)
 		}
+		// Pragma: no-cache solo acompaña a lo que no se guarda: junto a una
+		// política almacenable hacía revalidar cada estático en cada recarga.
+		if got, quiere := rec.Header().Get("Pragma"), map[bool]string{true: "no-cache", false: ""}[tc.wantCache == "no-store"]; got != quiere {
+			t.Fatalf("%s pragma = %q, want %q", tc.path, got, quiere)
+		}
 	}
 }
 

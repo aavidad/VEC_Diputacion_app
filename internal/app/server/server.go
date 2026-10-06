@@ -676,24 +676,22 @@ func rutaMaterialExclusivoPresentacion(ruta string) bool {
 
 func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
+		// Catálogos públicos de textos por idioma, pedidos sin versión: se
+		// guardan pero se revalidan siempre (304 por Last-Modified).
+		fijarCacheEstatico(w, "no-cache")
+		return
+	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {
 		w.Header().Set("Cache-Control", "no-store")
 		return
 	}
 	if strings.HasPrefix(path, "/pwa/icons/") && (strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".ico")) {
-		if r.URL.Query().Get("v") != "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
+		fijarCacheEstatico(w, cacheSegunVersion(r))
 		return
 	}
 	if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
-		if r.URL.Query().Get("v") != "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			return
-		}
-		w.Header().Set("Cache-Control", "no-cache")
+		fijarCacheEstatico(w, cacheSegunVersion(r))
 	}
 }
 
@@ -710,23 +708,25 @@ func staticFileServer() http.Handler {
 }
 
 func localeHandler() http.Handler {
+	comprimidos := &cacheEstaticosComprimidos{}
+	ficheros := http.StripPrefix("/locales/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		comprimidos.servir(w, r, directorioLocales(), localeFileServer())
+	}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-store")
-		http.StripPrefix("/locales/", localeFileServer()).ServeHTTP(w, r)
+		// Catálogos públicos de traducción: se revalidan siempre (304).
+		fijarCacheEstatico(w, "no-cache")
+		ficheros.ServeHTTP(w, r)
 	})
 }
 
 func localeFileServer() http.Handler {
-	for _, dir := range []string{"locales", "../../../locales"} {
-		info, err := os.Stat(dir)
-		if err == nil && info.IsDir() {
-			return http.FileServer(http.Dir(dir))
-		}
+	if dir := directorioLocales(); dir != "" {
+		return http.FileServer(http.Dir(dir))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "locales not found", http.StatusNotFound)
