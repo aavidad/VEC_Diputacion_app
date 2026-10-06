@@ -60,7 +60,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/bolsa/rrhh-plazos-api.js", "20261002-r2-post401-v2"],
+    ["modulos/bolsa/rrhh-plazos-api.js", "20261006-reglas-una-lectura-v1"],
     ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261002-ct-fin-modalidad-v1"],
