@@ -3,38 +3,41 @@ package main
 import (
 	"encoding/json"
 
-	"vec-diputacion-granada/internal/app/administracion"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-// configuracionCargosPrivada tiene pool y LOGIN propios (exclusivo del grupo
-// vec_personal_ejecutor, que exige Personal28/AD166) y una sola capacidad V3,
-// la de publicación de cargos competenciales (conjunto 3 de AD204).
-type configuracionCargosPrivada struct {
+// configuracionEfectoPrivada es el archivo privado de un efecto nominal de
+// vec-admin (cargos competenciales, certificados nominales): pool y LOGIN
+// propios, exclusivos del grupo que exige la fachada del efecto, una sola
+// capacidad V3 (la de su audiencia) y el motivo del catálogo común.
+type configuracionEfectoPrivada struct {
 	Pool          string                           `json:"pool"`
 	ConfianzaJSON json.RawMessage                  `json:"confianza"`
 	Motivo        domain.ReferenciaEntradaCatalogo `json:"motivo"`
 }
 
-func cargarConfiguracionCargosPrivada(ruta string, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada,
-	base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (configuracionCargosPrivada, error) {
+func cargarConfiguracionEfectoPrivada(ruta, audiencia string, otros []configuracionEfectoPrivada, lote *configuracionLotePrivada,
+	plan *configuracionPlanFirmaPrivada, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada,
+	runtime configuracionRuntimeADMIN) (configuracionEfectoPrivada, error) {
 	b, err := leerArchivoPrivadoPerfiles(ruta)
 	if err != nil {
-		return configuracionCargosPrivada{}, errConfiguracionPrivadaPerfiles
+		return configuracionEfectoPrivada{}, errConfiguracionPrivadaPerfiles
 	}
 	defer clear(b)
-	var c configuracionCargosPrivada
-	if decodificarConfiguracionPrivada(b, &c) != nil || validarConfiguracionCargosPrivada(c, lote, plan, base, u, runtime) != nil {
-		return configuracionCargosPrivada{}, errConfiguracionPrivadaPerfiles
+	var c configuracionEfectoPrivada
+	if decodificarConfiguracionPrivada(b, &c) != nil || validarConfiguracionEfectoPrivada(c, audiencia, otros, lote, plan, base, u, runtime) != nil {
+		return configuracionEfectoPrivada{}, errConfiguracionPrivadaPerfiles
 	}
 	return c, nil
 }
 
-// validarConfiguracionCargosPrivada exige pool y material propios, distintos de
-// todos los demás (también del lote y del plan si están), una sola capacidad
-// con la misma raíz y un motivo del catálogo común.
-func validarConfiguracionCargosPrivada(c configuracionCargosPrivada, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada,
-	base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) error {
+// validarConfiguracionEfectoPrivada exige pool y material propios, distintos
+// de todos los demás (también del lote, del plan y de los otros efectos), una
+// sola capacidad de la audiencia del efecto con la misma raíz y un motivo del
+// catálogo común.
+func validarConfiguracionEfectoPrivada(c configuracionEfectoPrivada, audiencia string, otros []configuracionEfectoPrivada,
+	lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, base configuracionPerfilesPrivada,
+	u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) error {
 	confianzas, otrosPools := []json.RawMessage{base.ConfianzaJSON, u.ConfianzaJSON}, []string{}
 	if lote != nil {
 		if validarConfiguracionLotePrivada(*lote, base, u, runtime) != nil {
@@ -48,17 +51,20 @@ func validarConfiguracionCargosPrivada(c configuracionCargosPrivada, lote *confi
 		}
 		confianzas, otrosPools = append(confianzas, plan.ConfianzaJSON), append(otrosPools, plan.Pool)
 	}
+	for _, o := range otros {
+		confianzas, otrosPools = append(confianzas, o.ConfianzaJSON), append(otrosPools, o.Pool)
+	}
 	materiales := map[string]bool{}
 	for _, raw := range confianzas {
-		otros, err := decodificarMetadatosConfianzaPerfiles(raw)
+		m, err := decodificarMetadatosConfianzaPerfiles(raw)
 		if err != nil {
 			return errConfiguracionPrivadaPerfiles
 		}
-		for _, e := range otros.EntradasCapacidad {
+		for _, e := range m.EntradasCapacidad {
 			materiales[e.MaterialArchivo] = true
 		}
 	}
-	if !rutaPrivadaPerfilesValida(c.Pool) || contieneClavePrivadaInline(c.ConfianzaJSON) ||
+	if audiencia == "" || !rutaPrivadaPerfilesValida(c.Pool) || contieneClavePrivadaInline(c.ConfianzaJSON) ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Motivo.CatalogoID != base.CatalogoMotivosID {
 		return errConfiguracionPrivadaPerfiles
 	}
@@ -71,7 +77,7 @@ func validarConfiguracionCargosPrivada(c configuracionCargosPrivada, lote *confi
 		}
 	}
 	meta, err := decodificarMetadatosConfianzaPerfiles(c.ConfianzaJSON)
-	if err != nil || len(meta.EntradasCapacidad) != 1 || meta.EntradasCapacidad[0].Audiencia != administracion.AudienciaCargoCompetencialV3 ||
+	if err != nil || len(meta.EntradasCapacidad) != 1 || meta.EntradasCapacidad[0].Audiencia != audiencia ||
 		meta.Raiz.PublicaBase64 != base.Firmante.PublicaEsperadaBase64 || meta.Raiz.ClaveID != base.Firmante.ClaveID ||
 		meta.Raiz.Audiencia != base.Firmante.Audiencia || meta.EntradasCapacidad[0].MaterialArchivo == c.Pool ||
 		materiales[meta.EntradasCapacidad[0].MaterialArchivo] {

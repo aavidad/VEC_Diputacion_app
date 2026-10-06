@@ -15,6 +15,10 @@ import (
 // un cargo competencial de Personal o de su enlace con quien lo ocupa.
 const RutaPublicacionCargoCompetencial = PrefijoV1 + "/personal/cargos-competenciales/publicacion"
 
+// RutaPublicacionCertificadoNominal recibe el descriptor exacto de
+// publicación o retirada del certificado de firmante de una persona (CA25).
+const RutaPublicacionCertificadoNominal = PrefijoV1 + "/certificados-nominales/publicacion"
+
 // SolicitudEfectoNominalADMIN lleva la sesión ADMIN resuelta por la frontera y
 // los bytes exactos del material. Nada de ella concede acceso.
 type SolicitudEfectoNominalADMIN struct {
@@ -53,7 +57,8 @@ type solicitudEfectoNominalDTO struct {
 // con el límite exacto del material de ese efecto. Sólo admite rutas fijas de
 // este paquete y una vez cada una. Se llama durante la composición.
 func (h *Handler) ConEfectoNominal(ruta string, maximoMaterial int, s ServicioEfectoNominalADMIN) error {
-	if h == nil || dependenciaNula(s) || !h.soloMetadatos || ruta != RutaPublicacionCargoCompetencial ||
+	if h == nil || dependenciaNula(s) || !h.soloMetadatos ||
+		(ruta != RutaPublicacionCargoCompetencial && ruta != RutaPublicacionCertificadoNominal) ||
 		maximoMaterial < 2 || maximoMaterial > 4<<20 {
 		return ErrConfiguracionIncompleta
 	}

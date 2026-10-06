@@ -68,19 +68,28 @@ func main() {
 			}
 			plan = &c
 		}
-		// La publicación de cargos competenciales, igual: sólo con las lecturas
-		// de usuarios y su propio archivo privado.
-		var cargos *configuracionCargosPrivada
-		if rutaCargos := os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE"); rutaCargos != "" {
-			c, errorCargos := cargarConfiguracionCargosPrivada(rutaCargos, lote, plan, privada, usuarios, runtime)
-			if errorCargos != nil {
-				log.Fatal(errorArranque("cargos_config"))
+		// Los efectos nominales (cargos competenciales, certificados
+		// nominales), igual: sólo con las lecturas de usuarios y cada uno con
+		// su propio archivo privado.
+		var efectos []efectoConfigurado
+		for _, e := range efectosADMIN() {
+			ruta := os.Getenv(e.variable)
+			if ruta == "" {
+				continue
 			}
-			cargos = &c
+			otros := make([]configuracionEfectoPrivada, 0, len(efectos))
+			for _, o := range efectos {
+				otros = append(otros, o.cfg)
+			}
+			c, errorEfecto := cargarConfiguracionEfectoPrivada(ruta, e.audiencia, otros, lote, plan, privada, usuarios, runtime)
+			if errorEfecto != nil {
+				log.Fatal(errorArranque(e.nombre + "_config"))
+			}
+			efectos = append(efectos, efectoConfigurado{efectoADMIN: e, cfg: c})
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan, cargos)
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan, efectos)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" {
+		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" {
 		log.Fatal(errorArranque("lote_sin_usuarios"))
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)

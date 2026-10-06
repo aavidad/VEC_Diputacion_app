@@ -28,6 +28,9 @@ const (
 	// AudienciaCargoCompetencialV3 es la de la publicación de cargos
 	// competenciales de Personal (AD166, Personal28; conjunto 3 de AD204).
 	AudienciaCargoCompetencialV3 = "vec_personal.cargo_competencial.publicar.v1"
+	// AudienciaCertificadoNominalV3 es la de la publicación de certificados
+	// nominales de firmante (AD165/AD205; conjunto 4 de AD205).
+	AudienciaCertificadoNominalV3 = "vec_contexto_actor.certificado_nominal.publicar.v1"
 )
 
 // EmisorLote adapta una orden de lote ya validada a la cadena común V3. El

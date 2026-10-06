@@ -18,6 +18,7 @@ migración.
 | 1 | `vec.admin.usuarios.listar.v1`, `vec.admin.usuarios.consultar.v1`, `vec_autorizacion.administracion_perfiles.lote_ordinario.v1` |
 | 2 (AD202) | las tres del conjunto 1, en el mismo orden, y `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1` (tramo `catalogos:plan-firma`) |
 | 3 (AD204) | las cuatro del conjunto 2, en el mismo orden, y `vec_personal.cargo_competencial.publicar.v1` (tramo `personal:cargo-competencial`) |
+| 4 (AD205) | las cinco del conjunto 3, en el mismo orden, y `vec_contexto_actor.certificado_nominal.publicar.v1` (tramo `certificados:nominal`) |
 
 El programa (`bootstrap.AudienciasConjuntoCapacidadesAdmin`) tiene la misma
 lista. La base vuelve a comprobar audiencia, orden y tramo de cada clave.
@@ -99,3 +100,20 @@ Ensayado en un PostgreSQL 18.4 desechable (AD198, AD202 y AD204 con salida 0;
 repetir AD204 se para en la preimagen) y en el clon del gobierno del plan: la
 operación publica las cinco claves, repetirla devuelve el mismo recibo y la
 verificación de la cadena no encuentra diferencias.
+
+## Conjunto 4 (AD205)
+
+Añade la clave con la que vec-admin emite las decisiones de publicación y
+retirada de certificados nominales de firmante (AD165, con la fachada v4 de
+AD205). Se prepara con `"conjunto_capacidades": 4` y la configuración aprobada
+lleva `conjunto_version = 4`. Al pasar al conjunto 4 se deja de renovar con el 3.
+
+AD205 trae además la fachada `operar_certificado_nominal_v4`. Su huella de
+recurso es la canónica del PDP: organización y unidad de la asignación y SHA-256
+del descriptor. Sustituye a la v3 en el grupo ejecutor. AD205 también corrige
+`destino_no_administrador_certificado_nominal_v1` (AUT33), que fallaba con 42702
+por un `USING` ambiguo. Se instala después de AD204. Se ensayó en un PostgreSQL
+18.4 desechable (AD198 → AD202 → AD204 → AD205 con salida 0; al repetirla se
+para en la preimagen) y en el clon propio con decisiones V3 reales: publicar,
+reintentar, denegar hacia el propio administrador, retirar y reintentar tras
+reiniciar.

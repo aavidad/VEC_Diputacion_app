@@ -371,6 +371,7 @@ func TestEjecutorCargoDejaIntentoConClase(t *testing.T) {
 	}{
 		"sql_denegado":    {filaCargoPrueba{err: &pgconn.PgError{Code: "42501"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrAutorizacionDenegada},
 		"sql_conflicto":   {filaCargoPrueba{err: &pgconn.PgError{Code: "40001"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrConflicto},
+		"sql_check":       {filaCargoPrueba{err: &pgconn.PgError{Code: "23514"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrConflicto},
 		"sql_invalido":    {filaCargoPrueba{err: &pgconn.PgError{Code: "22023"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
 		"sql_caido":       {filaCargoPrueba{err: &pgconn.PgError{Code: "XX000"}}, nil, nil, vd.ResultadoIntentoAuditoriaError, efecto.ErrNoDisponible},
 		"sql_fecha_mala":  {filaCargoPrueba{err: &pgconn.PgError{Code: "22007"}}, nil, nil, vd.ResultadoIntentoAuditoriaDenegado, vd.ErrActoAdministracionPerfilesInvalido},
