@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"vec-diputacion-granada/config"
@@ -363,7 +364,10 @@ func prohibirCookiesYAutorizacionProxy(next http.Handler) http.Handler {
 	return prohibirCookiesYAutorizacionProxyConLimite(next, config.DefaultMaxRequestBodyBytes)
 }
 
-var errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+var (
+	errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+	errCuerpoHTTPIncoherente     = errors.New("server: request body length mismatch")
+)
 
 func prohibirCookiesYAutorizacionProxyConLimite(next http.Handler, limite int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -431,10 +435,30 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	if err := original.Close(); err != nil {
 		return err
 	}
-	r.Body = io.NopCloser(bytes.NewReader(contenido))
-	r.ContentLength = int64(len(contenido))
+	// Un Content-Length declarado debe coincidir con lo recibido. En HTTP/2
+	// el servidor no lo comprueba si la cabecera cerró el flujo; aquí se
+	// rechaza igual que lo haría HTTP/1.1 con un cuerpo incompleto.
+	if declarados := r.Header.Values("Content-Length"); len(declarados) != 0 {
+		declarada, err := strconv.ParseUint(strings.TrimSpace(declarados[0]), 10, 63)
+		if len(declarados) != 1 || err != nil || declarada != uint64(len(contenido)) {
+			return errCuerpoHTTPIncoherente
+		}
+		r.Header.Set("Content-Length", strconv.Itoa(len(contenido)))
+	}
 	r.TransferEncoding = nil
 	r.GetBody = nil
+	if len(contenido) == 0 {
+		// Mismo convenio que net/http en HTTP/1.1, que entrega http.NoBody
+		// cuando la petición no trae cuerpo: en HTTP/2 el servidor siempre
+		// pone un Body propio, incluso en un GET cerrado con END_STREAM. Ya
+		// se ha leído entero y está vacío, así que los manejadores que exigen
+		// «sin cuerpo» (r.Body == http.NoBody) responden igual en ambos.
+		r.Body = http.NoBody
+		r.ContentLength = 0
+		return nil
+	}
+	r.Body = io.NopCloser(bytes.NewReader(contenido))
+	r.ContentLength = int64(len(contenido))
 	return nil
 }
 
