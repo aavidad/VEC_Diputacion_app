@@ -137,3 +137,12 @@ Evidencia local: PostgreSQL 18.4 desechable sobre una base sintética con núcle
 AD3: paquete incremental con `ROLLBACK` sin rastro, `COMMIT`, repetición con
 las doce migraciones omitidas y sin cambios, y `DOWN` de `000011` seguido del
 paquete, que reinstala solo `000011` al estado idéntico.
+
+# Pendiente de aplicar: caché de 10 s del portal público
+
+`deploy/publico/cache_lecturas_publicas.caddy` deja preparado el bloque de
+Caddy que guarda 10 s las lecturas públicas anónimas de Bolsa (bolsas,
+listas, convocatorias y categorías). Aprobado por dirección; no está
+aplicado. Se instala en el Caddy dedicado al host público, con el módulo
+cache-handler. Medición y motivo en
+`docs/estudio_requisitos/rendimiento_carga_20261006.md`.

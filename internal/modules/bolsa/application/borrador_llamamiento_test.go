@@ -378,6 +378,8 @@ func materialBorradorPrueba(t *testing.T, decision dominiovec.DecisionAutorizaci
 		audiencia = puertosbolsa.AudienciaRegistrarContactoParticipacion
 	} else if datos.Accion == puertosbolsa.AccionConsultarContactoParticipacion {
 		audiencia = puertosbolsa.AudienciaConsultarContactoParticipacion
+	} else if datos.Accion == puertosbolsa.AccionConsultarDatosContactoParticipacion {
+		audiencia = puertosbolsa.AudienciaConsultarDatosContactoParticipacion
 	} else if datos.Accion == puertosbolsa.AccionEmitirLlamamiento {
 		audiencia = puertosbolsa.AudienciaEmitirLlamamiento
 	}

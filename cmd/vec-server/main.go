@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -98,6 +99,12 @@ func main() {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
+	// Registro de acceso técnico: una línea JSON por petición en stderr. Va
+	// dentro de la supervisión, que aporta la correlación.
+	telemetria.Montar(srv, telemetria.Opciones{
+		Destino: os.Stderr, Servicio: "vec-server", Superficie: superficieServidor(cfg),
+		Entorno: entornoSupervision(), Lenta: telemetria.UmbralLenta(os.Getenv),
+	})
 	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
@@ -117,4 +124,13 @@ func main() {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
 		log.Fatalf("serve: %v", err)
 	}
+}
+
+// superficieServidor nombra el portal que atiende el proceso en el registro
+// de acceso: "interno", "externo" o "integrada" si sirve ambos.
+func superficieServidor(cfg config.Config) string {
+	if cfg.PortalProceso == config.ValorPortalProcesoInterno || cfg.PortalProceso == config.ValorPortalProcesoExterno {
+		return cfg.PortalProceso
+	}
+	return "integrada"
 }

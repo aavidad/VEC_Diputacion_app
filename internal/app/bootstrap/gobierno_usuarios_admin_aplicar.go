@@ -49,8 +49,16 @@ func AplicarGobiernoUsuariosAdmin(ctx context.Context, pool *pgxpool.Pool, planC
 	if _, err = tx.Exec(ctx, `SET LOCAL TIME ZONE 'UTC'`); err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
+	// El conjunto del material elige la función: AD188 para usuarios, AD198
+	// para un conjunto de capacidades. Ambas devuelven el mismo acuse.
+	funcion := `SELECT vec_autorizacion_atestada_v3.aprovisionar_gobierno_usuarios_admin_v1($1::text,$2::text,$3::text)`
+	material.mu.RLock()
+	if material.conjunto != 0 {
+		funcion = `SELECT vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1($1::text,$2::text,$3::text)`
+	}
+	material.mu.RUnlock()
 	var raw []byte
-	if err = tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.aprovisionar_gobierno_usuarios_admin_v1($1::text,$2::text,$3::text)`, planCanonico, shaAprobado, secreto.String()).Scan(&raw); err != nil {
+	if err = tx.QueryRow(ctx, funcion, planCanonico, shaAprobado, secreto.String()).Scan(&raw); err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	r, err := validarAcuseGobiernoUsuariosAdmin(raw, planCanonico, shaAprobado, secreto.Bytes())
@@ -67,6 +75,7 @@ func AplicarGobiernoUsuariosAdmin(ctx context.Context, pool *pgxpool.Pool, planC
 
 var shaGobiernoUsuarios = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var operacionGobiernoUsuarios = regexp.MustCompile(`^gcu_[A-Za-z0-9_-]{22,124}$`)
+var operacionGobiernoCapacidades = regexp.MustCompile(`^gca_[A-Za-z0-9_-]{22,124}$`)
 var refAuditGobiernoUsuarios = regexp.MustCompile(`^aud_v3_gu_[0-9a-f]{32}$`)
 var refIntentoGobiernoUsuarios = regexp.MustCompile(`^aud_v3_gui_[0-9a-f]{32}$`)
 var correlacionGobiernoUsuarios = regexp.MustCompile(`^correlacion_[0-9a-f]{32}$`)
@@ -77,6 +86,8 @@ type planGobiernoUsuariosAdmin struct {
 	PreparadoEn     time.Time `json:"preparado_en"`
 	CaducaEn        time.Time `json:"caduca_en"`
 	PreimagenSHA256 string    `json:"preimagen_sha256"`
+	// ConjuntoVersion sólo existe en el plan 2 (AD198).
+	ConjuntoVersion uint64 `json:"conjunto_version,omitempty"`
 	Configuracion   struct {
 		Revision    string    `json:"revision"`
 		Secuencia   uint64    `json:"secuencia"`
@@ -111,8 +122,23 @@ func validarPlanGobiernoUsuariosAdmin(plan, sha string, m *MaterialUsuariosAdmin
 		return ErrGobiernoUsuariosAdmin
 	}
 	var p planGobiernoUsuariosAdmin
-	if decodificarGobiernoUsuarios([]byte(plan), &p) != nil || p.Version != 1 || !operacionGobiernoUsuarios.MatchString(p.OperacionRef) || !shaGobiernoUsuarios.MatchString(p.PreimagenSHA256) || len(p.Ordenes) != 2 || p.Ordenes[0] == 0 || p.Ordenes[1] <= p.Ordenes[0] {
+	m.mu.RLock()
+	conjuntoMaterial := m.conjunto
+	m.mu.RUnlock()
+	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(conjuntoMaterial)
+	if !ok || decodificarGobiernoUsuarios([]byte(plan), &p) != nil || !shaGobiernoUsuarios.MatchString(p.PreimagenSHA256) ||
+		p.ConjuntoVersion != conjuntoMaterial || len(p.Ordenes) != len(conjunto) || p.Ordenes[0] == 0 {
 		return ErrGobiernoUsuariosAdmin
+	}
+	// Plan 1 (AD188): conjunto 0 y gcu_. Plan 2 (AD198): conjunto propio y gca_.
+	if conjuntoMaterial == 0 && (p.Version != 1 || !operacionGobiernoUsuarios.MatchString(p.OperacionRef)) ||
+		conjuntoMaterial != 0 && (p.Version != 2 || !operacionGobiernoCapacidades.MatchString(p.OperacionRef)) {
+		return ErrGobiernoUsuariosAdmin
+	}
+	for i := 1; i < len(p.Ordenes); i++ {
+		if p.Ordenes[i] <= p.Ordenes[i-1] {
+			return ErrGobiernoUsuariosAdmin
+		}
 	}
 	c, _, err := m.Configuracion()
 	if err != nil {

@@ -60,6 +60,8 @@
     "rrhh_plazos_confirmacion": "The decision requires HR confirmation"
   },
   "politica_cese": {
+    "politica_cese_no_disponible_titulo": "This screen is not available",
+    "politica_cese_no_disponible_texto": "The job pool end-of-service policy is not turned on in this system. If you need it, contact IT.",
     "politica_cese_titulo": "Job pool end-of-service policy",
     "politica_cese_subtitulo": "Rule applied to availability after service ends",
     "politica_cese_ejemplo": "Synthetic example · not approved",

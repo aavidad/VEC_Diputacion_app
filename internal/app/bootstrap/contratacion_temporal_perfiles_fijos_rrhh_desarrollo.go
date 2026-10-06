@@ -711,8 +711,17 @@ func componerPerfilFijoLectorRRHHDesarrollo(
 	cuadro := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaCuadroRRHH)
 	detalle := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaDetalleRRHH)
 	s.mu.Unlock()
+	// El perfil fijo del lector conserva su plantilla: solo la consulta del
+	// expediente, sin la descarga de borradores. Concederla a un lector exige
+	// una provisión aprobada aparte; hasta entonces su descarga se deniega.
+	var consultaDetalle []dominiovec.ConcesionRol
+	for _, c := range detalle.VersionRol.Concesiones {
+		if c.Accion == ports.AccionConsultarDetalleRRHH {
+			consultaDetalle = append(consultaDetalle, c)
+		}
+	}
 	if cuadro.Validar() != nil || detalle.Validar() != nil || len(cuadro.VersionRol.Concesiones) != 1 ||
-		len(detalle.VersionRol.Concesiones) != 1 {
+		len(consultaDetalle) != 1 {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	v, err := s.contexto.Vinculo.Datos()
@@ -721,7 +730,7 @@ func componerPerfilFijoLectorRRHHDesarrollo(
 	}
 	plantilla, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora(),
 		rolLectorConsultaRRHHDesarrollo, "Consulta de bandeja y expediente de desarrollo", rolLectorConsultaRRHHDesarrollo,
-		[]dominiovec.ConcesionRol{cuadro.VersionRol.Concesiones[0], detalle.VersionRol.Concesiones[0]},
+		[]dominiovec.ConcesionRol{cuadro.VersionRol.Concesiones[0], consultaDetalle[0]},
 		cuadro.AsignacionPerfil.Ambitos)
 	if err != nil {
 		return ports.ErrConsultaRRHHNoDisponible

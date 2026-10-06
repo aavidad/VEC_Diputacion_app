@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -112,5 +113,42 @@ func TestLectorAdmiteFechasConDesplazamientoCero(t *testing.T) {
 	}
 	if _, p, err := lector.Leer(context.Background()); err != nil || p.PublicadaEn.Location() != time.UTC {
 		t.Fatalf("publicación con desplazamiento cero rechazada: %v", err)
+	}
+}
+
+// Una lectura lenta que vuelve con la publicación N cuando otra operación ya
+// adoptó la N+1 falla cerrada: nunca se adopta ni se sirve un retroceso.
+func TestLectorLecturaLentaTrasAdopcionPosteriorFallaCerrada(t *testing.T) {
+	raiz, primera, _, reloj := escenarioPrueba(t)
+	// Republicación del mismo día con secuencia mayor: ambas vigentes ahora.
+	segunda := publicacionPrueba(t, raiz, primera.PublicadaEn, primera.Secuencia+1)
+	empezada, liberar := make(chan struct{}), make(chan struct{})
+	var llamadas atomic.Int32
+	lector, err := Nuevo(primera, raiz, reloj, func(context.Context, Publicacion) (Publicacion, error) {
+		if llamadas.Add(1) == 1 {
+			close(empezada)
+			<-liberar
+			return primera, nil
+		}
+		return segunda, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado := make(chan error, 1)
+	go func() {
+		_, err := lector.Instantanea(context.Background())
+		resultado <- err
+	}()
+	<-empezada
+	if _, err := lector.Instantanea(context.Background()); err != nil || lector.anterior.Secuencia != segunda.Secuencia {
+		t.Fatalf("adopción de la publicación posterior: %v", err)
+	}
+	close(liberar)
+	if err := <-resultado; !errors.Is(err, ErrGobiernoNoDisponible) {
+		t.Fatalf("la lectura lenta sirvió una publicación anterior: %v", err)
+	}
+	if lector.anterior.Secuencia != segunda.Secuencia {
+		t.Fatal("la lectura lenta hizo retroceder la publicación adoptada")
 	}
 }

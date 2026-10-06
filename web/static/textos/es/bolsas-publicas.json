@@ -7,5 +7,6 @@
   "tiempo_operacion_agotado": "La consulta está tardando demasiado. Vuelva a intentarlo.",
   "peticion_cancelada": "La consulta se ha cancelado. Puede volver a intentarlo.",
   "bolsa_no_encontrada": "No se ha encontrado esta bolsa de trabajo. Vuelva a la lista de bolsas.",
-  "metodo_no_permitido": "Esta página solo permite consultar las bolsas de trabajo. Vuelva a la lista de bolsas."
+  "metodo_no_permitido": "Esta página solo permite consultar las bolsas de trabajo. Vuelva a la lista de bolsas.",
+  "capacidad_temporal_agotada": "Hay muchas consultas en este momento. Vuelva a intentarlo en unos segundos."
 }

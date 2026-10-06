@@ -67,6 +67,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	fronteras = append(fronteras, descriptoresFronterasLlamamientoDesarrollo(perfilCT)...)
 	fronteras = append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
 	if len(firma) > 0 && firma[0] {
 		fronteras = append(fronteras,
@@ -171,6 +172,13 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Politica:       politica,
 		})
 	}
+	// La descarga de un borrador es otra decisión nominal de la misma petición
+	// de detalle: misma frontera y capacidad, acción y audiencia propias.
+	descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+		Accion: ctports.AccionDescargarBorradorRRHH, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+		ClaveCapacidad: ctports.AccionConsultarDetalleRRHH, Fronteras: []string{"ct-expediente-consultar"}, Politica: politica,
+	})
+	descriptores = append(descriptores, descriptoresAutorizacionAdicionalesLlamamientoDesarrollo(politica)...)
 	// El circuito solo recibe entrada PDP cuando su perfil fijo ya quedó
 	// compuesto. La frontera se declara en la raíz y se enlaza por clave exacta.
 	if len(reincorporacion) > 2 && reincorporacion[2] {
@@ -216,11 +224,13 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 }
 
 // descriptoresMaterialAutorizacionContratacionTemporalDesarrollo conserva los
-// cuatro consumidores CT que ya derivaban material nominal en este cableado.
+// cuatro consumidores CT que ya derivaban material nominal en este cableado,
+// más la descarga de borradores (AD199).
 func descriptoresMaterialAutorizacionContratacionTemporalDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
 	return []descriptorMaterialConsumidorV3Desarrollo{
 		{Audiencia: ctports.AudienciaConsumoConsultaCuadroRRHHV3, Dominio: "vec.ct.cuadro-rrhh.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-cuadro:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaConsumoConsultaDetalleRRHHV3, Dominio: "vec.ct.detalle-rrhh.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-detalle:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaConsumoDescargaBorradorRRHHV3, Dominio: "vec.ct.descarga-borrador-rrhh.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-descarga-borrador:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctapplication.AudienciaDespachoCorreoLlamamientoV3, Dominio: "vec.ct.despacho-correo-llamamiento.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-despacho-correo:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctapplication.AudienciaResultadoCorreoLlamamientoV3, Dominio: "vec.ct.resultado-correo-llamamiento.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-resultado-correo:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 	}

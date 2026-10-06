@@ -3,14 +3,14 @@
 import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261002-ct-fin-moad-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261006-resumen-inicio-v2";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261002-ct-fin-moad-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
-import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { filtroListaValido } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
+import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261002-ct-fin-moad-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
@@ -18,13 +18,13 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261003-ct-firma-v2-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
+} from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261006-resumen-inicio-v2";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261006-resumen-inicio-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261006-resumen-inicio-v2";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261006-resumen-inicio-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261006-resumen-inicio-v2";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261006-resumen-inicio-v2";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261001-ct-a-i18n-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
@@ -42,9 +42,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261006-resumen-inicio-v2";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
@@ -129,6 +129,9 @@ export async function montarModuloContratacionTemporal({
   continuidad = null,
   incorporacionPersonalB2 = null,
   auditoriaComun = null,
+  // Lista común de documentos del expediente (consulta y descarga autorizadas
+  // por el servidor); sin ella la ficha solo indica dónde consultarlos.
+  documentosComun = null,
   llamamiento = null,
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
@@ -204,6 +207,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarSeguimientoCese = null;
   let desmontarReincorporacion = null;
   let desmontarAuditoriaComun = null;
+  let desmontarDocumentosComun = null;
   let desmontarBorradoresPublicados = null;
   let zonaAuditoriaComun = null;
   let controladorCapacidadReincorporacion = null;
@@ -226,6 +230,33 @@ export async function montarModuloContratacionTemporal({
     desmontarAuditoriaComun?.();
     desmontarAuditoriaComun = null;
     zonaAuditoriaComun = null;
+  }
+
+  function retirarDocumentosComun() {
+    desmontarDocumentosComun?.();
+    desmontarDocumentosComun = null;
+  }
+
+  // Monta en la ficha real la lista común de documentos del expediente. La
+  // referencia solo selecciona; el servidor autoriza cada consulta y descarga.
+  function montarDocumentosComunSiProcede(estado) {
+    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado.expediente.expediente_ref !== estado.expediente_ref) return;
+    const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
+    if (!zona) return;
+    const contenedor = raiz.ownerDocument?.createElement?.("div");
+    if (!contenedor) return;
+    try {
+      const montaje = documentosComun.montar({
+        raiz: contenedor, anunciar, expedienteRef: estado.expediente_ref,
+      });
+      if (typeof montaje?.desmontar !== "function") return;
+      desmontarDocumentosComun = montaje.desmontar;
+      zona.replaceChildren(contenedor);
+    } catch {
+      desmontarDocumentosComun = null;
+    }
   }
 
   function retirarBorradoresPublicados() {
@@ -514,6 +545,7 @@ export async function montarModuloContratacionTemporal({
     retirarSeguimientoCese();
     retirarReincorporacion();
     retirarAuditoriaComun();
+    retirarDocumentosComun();
     retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
@@ -574,6 +606,7 @@ export async function montarModuloContratacionTemporal({
     }
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
+    montarDocumentosComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (mensajeEstadoVisible(estado)) {
@@ -904,6 +937,7 @@ export async function montarModuloContratacionTemporal({
       retirarSeguimientoCese();
       retirarReincorporacion();
       retirarAuditoriaComun();
+      retirarDocumentosComun();
       retirarBorradoresPublicados();
       raiz.removeEventListener("click", manejarClickRaiz);
       raiz.removeEventListener("input", manejarFiltroLocal);

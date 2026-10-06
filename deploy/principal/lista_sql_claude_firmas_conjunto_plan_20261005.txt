@@ -1,0 +1,6 @@
+# AD202: conjunto 2 de capacidades ADMIN (AD198) con la audiencia del gobierno del plan nominal de firma.
+# Requiere AD198 (lista_sql_claude_gobierno_capacidades_20261005.txt) y AD178. Sólo añade una fila al
+# catálogo cerrado de conjuntos. Después, vec-gobierno-usuarios-admin con "conjunto_capacidades": 2 y un
+# LOGIN del grupo vec_gobierno_capacidades_admin_operador cuya configuración aprobada lleve conjunto_version 2.
+# Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000202_conjunto_capacidades_plan_firma.up.sql

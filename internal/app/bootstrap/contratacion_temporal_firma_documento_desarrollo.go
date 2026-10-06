@@ -647,6 +647,31 @@ func verificadorFirmasR5(v docports.VerificadorFirmaMotivado) docports.Verificad
 	return multiple
 }
 
+// PoliticaMismaPersonaEnPasos lee la bandera del mismo circuito vigente que
+// fija el paso. Sólo responde para la versión y huella exactas que pide la
+// firma: otra versión, una huella distinta o el catálogo caído nunca permiten
+// que la misma persona firme dos pasos.
+func (f fuenteCircuitoFirmaReglasDesarrollo) PoliticaMismaPersonaEnPasos(ctx context.Context, ref, huella string) (ports.PoliticaMismaPersonaEnPasos, error) {
+	if ctx == nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	c, err := f.CircuitoFirma(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PoliticaMismaPersonaEnPasos{}, ctx.Err()
+		}
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	p := ports.PoliticaMismaPersonaEnPasos{CatalogoRef: c.CatalogoRef, CatalogoHuella: c.HuellaCatalogo,
+		Permite: c.PermiteMismaPersonaEnPasos}
+	if err := p.ValidarContra(ref, huella); err != nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, err
+	}
+	return p, nil
+}
+
+var _ ports.FuentePoliticaMismaPersonaEnPasos = fuenteCircuitoFirmaReglasDesarrollo{}
+
 // rutas compone las dos rutas exactas. Sin circuito no hay firma.
 func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.Resolutor) ([]vechttp.RutaExacta, error) {
 	if f == nil {
