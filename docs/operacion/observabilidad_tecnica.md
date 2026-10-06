@@ -14,32 +14,42 @@ registros; los propios de VEC empiezan por `vec.`. Las duraciones van en
 segundos. Ejemplo de una prueba con PostgreSQL 18.4 y datos sintéticos:
 
 ```json
-{"time":"2026-10-06T13:07:11.46+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"5f4f071c5abc","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","http.route":"/api/vec/bolsa/{bolsa}/participaciones","http.response.status_code":200,"http.server.request.duration":0.4075,"http.response.body.size":0,"vec.correlacion":"f950733c5a1744f94af55eb071166118","vec.bd.consultas":31,"vec.bd.duracion":0.4034,"vec.bd.espera_conexion":0.004,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4017}
+{"time":"2026-10-06T15:38:28.93+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"2ad23e725abc","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","url.path":"/api/vec/bolsa/participaciones","http.response.status_code":200,"http.server.request.duration":0.4072,"http.response.body.size":0,"vec.correlacion":"2d69f721a2f4f4293114e52922fc75fb","vec.bd.consultas":31,"vec.bd.duracion":0.4036,"vec.bd.espera_conexion":0.0035,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4015}
 ```
 
 | Campo | Qué es |
 | --- | --- |
 | `level` | `INFO`; `WARN` si es lenta; `ERROR` si respondió 5xx o se interrumpió |
-| `http.route` | Plantilla de la ruta, cuando el enrutador la da (`{bolsa}` en lugar de la referencia) |
-| `url.path` | Si no hay plantilla, el camino con cada valor cambiado por `{valor}`; un 4xx sin plantilla sale como `{sin_plantilla}` |
+| `url.path` | El camino con cada tramo que pueda ser un valor cambiado por `{valor}`: solo quedan tramos de minúsculas, guion y guion bajo, y versiones como `v2`. Un 4xx sale como `{oculto}`, porque el camino puede ser lo que escribió la persona. Una palabra suelta en minúsculas sí pasa |
 | `http.response.status_code` | Código de respuesta |
 | `http.server.request.duration` | Lo que tardó el servidor, en segundos |
-| `vec.bd.consultas`, `vec.bd.duracion` | Consultas a PostgreSQL de la petición y tiempo dentro de ellas |
+| `vec.bd.consultas` | Consultas de datos a PostgreSQL. No cuenta `BEGIN`, `COMMIT`, `SET` ni `set_config` |
+| `vec.bd.duracion` | Tiempo dentro de PostgreSQL, incluidas esas órdenes de control |
 | `vec.bd.espera_conexion` | Tiempo esperando una conexión libre del pool |
 | `vec.lenta` | Más de 0,3 s o más de 20 consultas. Muchas consultas cortas suelen ser una consulta por fila en el código |
 | `vec.bd.consulta_mas_lenta` | En las lentas, la función de PostgreSQL que más tardó y su duración |
-| `vec.bd.error`, `error.type` | Último error de base de datos: `bd_` y el código de PostgreSQL (`bd_57014` cancelada por tiempo, `bd_53300` demasiadas conexiones) o `conexion_plazo_vencido` si no llegó a conseguir conexión. En un 5xx sin error de base de datos, `error.type` es el código de estado |
+| `vec.bd.error` | Error de la última operación con la base de datos, si falló: `bd_` y el código de PostgreSQL (`bd_57014` cancelada por tiempo, `bd_53300` demasiadas conexiones) o `conexion_plazo_vencido` si no llegó a conseguir conexión. Un error ya manejado, seguido de una operación correcta, no aparece |
+| `error.type` | En un 5xx, `vec.bd.error` si lo hay; si no, el código de estado |
 | `vec.cancelada` | `cliente` si quien llamó cortó antes; `plazo` si venció un plazo del servidor |
 | `vec.correlacion` | Enlaza la línea con las incidencias técnicas de la misma petición |
 | `service.version` | Revisión de Git del binario. `desconocida` si se compiló sin la marca |
+
+Las consultas solo cuentan si el pool tiene el trazador. No lo tienen los pools
+acreditados de Contratación temporal (consultas RRHH, resolución de motivos y
+cobertura O4-05), que por seguridad rechazan cualquier trazador, ni el pool
+público de Bolsa. Las peticiones que usan esos pools salen con
+`vec.bd.consultas: 0` aunque consulten.
 
 Si el portal tarda minutos y acaba en 503, lo primero es buscar esta forma:
 cero consultas, todo el tiempo en `vec.bd.espera_conexion` y
 `conexion_plazo_vencido`. Es un pool agotado.
 
 ```json
-{"level":"ERROR","msg":"http.server.request","http.route":"/api/vec/ct/expedientes/{ref}","http.response.status_code":503,"http.server.request.duration":0.2003,"vec.bd.consultas":0,"vec.bd.duracion":0,"vec.bd.espera_conexion":0.2003,"vec.bd.error":"conexion_plazo_vencido","error.type":"conexion_plazo_vencido"}
+{"level":"ERROR","msg":"http.server.request","url.path":"/api/vec/ct/expedientes/{valor}","http.response.status_code":503,"http.server.request.duration":0.2004,"vec.bd.consultas":0,"vec.bd.duracion":0,"vec.bd.espera_conexion":0.2004,"vec.bd.error":"conexion_plazo_vencido","error.type":"conexion_plazo_vencido"}
 ```
+
+(Los dos ejemplos son reales: PostgreSQL 18.4 desechable, datos sintéticos y
+un pool de 2 conexiones. El segundo se ha recortado para que quepa.)
 
 ## Paso a paso
 
@@ -47,7 +57,7 @@ cero consultas, todo el tiempo en `vec.bd.espera_conexion` y
    ```sh
    podman logs --since 1h <contenedor> 2>&1 | grep '"msg":"http.server.request"' \
      | jq -r 'select(.["vec.lenta"] or .["http.response.status_code"] >= 500)
-              | [(.["http.route"] // .["url.path"]), .["http.response.status_code"], .["error.type"]] | @tsv' \
+              | [.["url.path"], .["http.response.status_code"], .["error.type"]] | @tsv' \
      | sort | uniq -c | sort -rn | head
    ```
 2. Si todas las rutas esperan conexión (`vec.bd.espera_conexion` alto), el
@@ -107,8 +117,8 @@ go build -buildvcs=false \
 
 - Una consulta cuenta para su petición si el código usa el contexto de la
   petición.
-- No se miden el pool acreditado de cobertura O4-05 de Contratación temporal,
-  que rechaza por diseño cualquier trazador, ni el pool público de Bolsa.
+- No se miden los pools acreditados de Contratación temporal ni el pool
+  público de Bolsa (ver arriba).
 - `vec-interno` y `vec-publico` todavía no escriben línea de acceso. El
   público tiene una lista positiva de dependencias y ampliarla es una decisión
   aparte.
