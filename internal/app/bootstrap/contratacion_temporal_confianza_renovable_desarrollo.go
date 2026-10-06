@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -59,6 +60,11 @@ func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAte
 				actual, e = leerConfiguracionVigenteCTDesarrollo(ctx, tx, anterior, ahora)
 				return e
 			})
+			if err != nil && ctx.Err() == nil {
+				// Una confianza no confirmada deja sin servicio las operaciones
+				// CT: el registro dice qué comprobación falló y con qué código.
+				registrarFalloPostgreSQLContratacionTemporalDesarrollo("lectura_confianza", causaLecturaConfianzaCTDesarrollo(err))
+			}
 			return actual, err
 		},
 		renovar: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
@@ -355,10 +361,19 @@ func leerConfiguracionVigenteCTDesarrollo(ctx context.Context, tx pgx.Tx, anteri
 
 func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time, bloquear bool) (materialAtestacionContratacionTemporalDesarrollo, error) {
 	vacia := materialAtestacionContratacionTemporalDesarrollo{}
-	fallo := errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	// Cada rechazo conserva el centinela de incoherencia (errors.Is) y nombra
+	// su comprobación; si hubo error de PostgreSQL lo envuelve, para que el
+	// registro dé su código (causaFalloPostgreSQLCTDesarrollo) y no un
+	// «incoherente» sin más. Ningún texto lleva valores del gobierno.
+	fallo := func(comprobacion string, causa error) error {
+		return &rechazoLecturaConfianzaCTDesarrollo{comprobacion: comprobacion, causa: causa}
+	}
 	propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(ctx, tx)
-	if err != nil || !propio {
-		return vacia, fallo
+	if err != nil {
+		return vacia, fallo("gobierno_propio", err)
+	}
+	if !propio {
+		return vacia, fallo("gobierno_ajeno", nil)
 	}
 	var minima, raizMinima int64
 	consultaCheckpoint := `SELECT configuracion_secuencia_minima,raiz_version_minima
@@ -367,7 +382,7 @@ func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anter
 		consultaCheckpoint += ` FOR UPDATE`
 	}
 	if err := tx.QueryRow(ctx, consultaCheckpoint).Scan(&minima, &raizMinima); err != nil {
-		return vacia, fallo
+		return vacia, fallo("checkpoint", err)
 	}
 	actual := anterior
 	var secuencia int64
@@ -397,23 +412,30 @@ func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anter
 		confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, audienciaAtestacionContratacionTemporalDesarrollo,
 		anterior.configuracionRef, anterior.configuracionOrden, anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn,
 	).Scan(&actual.configuracionRef, &secuencia, &actual.configuracionHuella, &actual.publicadaEn, &actual.expiraEn)
-	if err != nil || secuencia < 1 || secuencia > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo || uint64(secuencia) < anterior.configuracionOrden || secuencia < minima || raizMinima < 0 || uint64(raizMinima) > anterior.claveVersion || ahora.Before(actual.publicadaEn) || ahora.Before(anterior.validaDesde) || !ahora.Before(anterior.validaHasta) {
-		return vacia, fallo
+	if err != nil {
+		// Sin filas: puntero, raíz, revocación o conjunto de raíces no casan.
+		return vacia, fallo("configuracion_vigente", err)
+	}
+	if secuencia < 1 || secuencia > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo || uint64(secuencia) < anterior.configuracionOrden || secuencia < minima || raizMinima < 0 || uint64(raizMinima) > anterior.claveVersion || ahora.Before(actual.publicadaEn) || ahora.Before(anterior.validaDesde) || !ahora.Before(anterior.validaHasta) {
+		return vacia, fallo("secuencia_o_vigencia", nil)
 	}
 	actual.publicadaEn = actual.publicadaEn.UTC()
 	actual.expiraEn = actual.expiraEn.UTC()
 	dia := time.Date(actual.publicadaEn.Year(), actual.publicadaEn.Month(), actual.publicadaEn.Day(), 0, 0, 0, 0, time.UTC)
 	if !actual.publicadaEn.Equal(dia) || !actual.expiraEn.Equal(dia.Add(24*time.Hour)) {
-		return vacia, fallo
+		return vacia, fallo("dia_de_publicacion", nil)
 	}
 	actual.configuracionOrden = uint64(secuencia)
 	actual.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(actual.configuracionRef, actual.configuracionOrden, actual.publicadaEn, actual.expiraEn, actual.raiz)
 	if err != nil {
-		return vacia, fallo
+		return vacia, fallo("configuracion_no_valida", err)
 	}
 	huella, err := actual.configuracion.HuellaSHA256ParaGobierno()
-	if err != nil || huella != actual.configuracionHuella {
-		return vacia, fallo
+	if err != nil {
+		return vacia, fallo("huella_no_calculable", err)
+	}
+	if huella != actual.configuracionHuella {
+		return vacia, fallo("huella_distinta", nil)
 	}
 	return actual, nil
 }
@@ -469,4 +491,37 @@ func (e *emisorMaterialRenovableCTDesarrollo) EmitirMaterialAutorizacionAtestada
 		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, err
 	}
 	return emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, s, c)
+}
+
+// rechazoLecturaConfianzaCTDesarrollo es un rechazo de la lectura de
+// confianza: conserva el centinela de incoherencia (errors.Is), nombra la
+// comprobación (texto fijo) y envuelve el error de PostgreSQL si lo hubo.
+type rechazoLecturaConfianzaCTDesarrollo struct {
+	comprobacion string
+	causa        error
+}
+
+func (r *rechazoLecturaConfianzaCTDesarrollo) Error() string {
+	return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente.Error() + ": " + r.comprobacion
+}
+
+func (r *rechazoLecturaConfianzaCTDesarrollo) Unwrap() []error {
+	if r.causa == nil {
+		return []error{errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente}
+	}
+	return []error{errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente, r.causa}
+}
+
+// causaLecturaConfianzaCTDesarrollo resume el rechazo para el registro: la
+// comprobación que falló y el código de la causa (SQLSTATE, sin filas,
+// plazo...). Nunca el texto de un error de la base.
+func causaLecturaConfianzaCTDesarrollo(err error) string {
+	var rechazo *rechazoLecturaConfianzaCTDesarrollo
+	if !errors.As(err, &rechazo) {
+		return causaFalloPostgreSQLCTDesarrollo(err)
+	}
+	if rechazo.causa == nil {
+		return rechazo.comprobacion
+	}
+	return rechazo.comprobacion + ":" + causaFalloPostgreSQLCTDesarrollo(rechazo.causa)
 }

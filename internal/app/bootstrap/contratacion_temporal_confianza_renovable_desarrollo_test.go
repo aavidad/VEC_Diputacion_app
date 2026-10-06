@@ -3,7 +3,10 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -452,5 +455,24 @@ func TestConfianzaRenovableCTLecturasSimultaneasNoSeSerializan(t *testing.T) {
 	}
 	if maximo.Load() < 2 || transcurrido > operaciones*latencia/2 {
 		t.Fatalf("lecturas en fila: simultáneas=%d, %v para %d operaciones", maximo.Load(), transcurrido, operaciones)
+	}
+}
+
+// Un rechazo de la lectura de confianza conserva el centinela y deja en el
+// registro qué comprobación falló y el código de PostgreSQL, nunca su texto.
+func TestCausaLecturaConfianzaCTNombraComprobacionYCodigo(t *testing.T) {
+	sinFilas := &rechazoLecturaConfianzaCTDesarrollo{comprobacion: "configuracion_vigente", causa: pgx.ErrNoRows}
+	if !errors.Is(sinFilas, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente) || !errors.Is(sinFilas, pgx.ErrNoRows) {
+		t.Fatal("el rechazo perdió el centinela o la causa")
+	}
+	if causa := causaLecturaConfianzaCTDesarrollo(sinFilas); causa != "configuracion_vigente:sin_filas" {
+		t.Fatalf("causa=%q", causa)
+	}
+	pg := &rechazoLecturaConfianzaCTDesarrollo{comprobacion: "checkpoint", causa: &pgconn.PgError{Code: "40001", Message: "valor-secreto"}}
+	if causa := causaLecturaConfianzaCTDesarrollo(pg); causa != "checkpoint:sqlstate_40001" || strings.Contains(causa+pg.Error(), "valor-secreto") {
+		t.Fatalf("causa=%q error=%q", causa, pg.Error())
+	}
+	if causa := causaLecturaConfianzaCTDesarrollo(&rechazoLecturaConfianzaCTDesarrollo{comprobacion: "huella_distinta"}); causa != "huella_distinta" {
+		t.Fatalf("causa=%q", causa)
 	}
 }
