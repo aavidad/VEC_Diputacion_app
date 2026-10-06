@@ -79,7 +79,6 @@ type bolsasRRHHDesarrollo struct {
 	// si faltan, se usa cargar con todo el detalle.
 	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
-	compartida  cargaCompartidaBolsasRRHH
 	mutar       http.Handler
 	invalidar   func()
 	contactos   lectorContactosBolsaDesarrollo
@@ -172,11 +171,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
-		// La lectura compartida se invalida antes de que salga la respuesta de
-		// la mutación (ya confirmada): un GET posterior nunca se suma a una
-		// lectura empezada antes del cambio.
-		h.mutar.ServeHTTP(&escritorQueInvalidaBolsasRRHH{ResponseWriter: w, invalidar: h.compartida.invalidar}, r)
-		h.compartida.invalidar()
+		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
 		}
@@ -336,41 +331,13 @@ func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.Response
 	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
 }
 
-// escritorQueInvalidaBolsasRRHH llama a invalidar una sola vez, justo antes
-// de escribir la cabecera o el cuerpo de la respuesta.
-type escritorQueInvalidaBolsasRRHH struct {
-	http.ResponseWriter
-	invalidar func()
-	hecho     bool
-}
-
-func (e *escritorQueInvalidaBolsasRRHH) antes() {
-	if !e.hecho {
-		e.hecho = true
-		e.invalidar()
-	}
-}
-
-func (e *escritorQueInvalidaBolsasRRHH) WriteHeader(estado int) {
-	e.antes()
-	e.ResponseWriter.WriteHeader(estado)
-}
-
-func (e *escritorQueInvalidaBolsasRRHH) Write(b []byte) (int, error) {
-	e.antes()
-	return e.ResponseWriter.Write(b)
-}
-
-func (e *escritorQueInvalidaBolsasRRHH) Unwrap() http.ResponseWriter { return e.ResponseWriter }
-
-// vistaResumen sirve el cuadro y las estadísticas. Las peticiones simultáneas
-// comparten una misma lectura en curso (p. ej. el portal pide cuadro y
-// estadísticas a la vez); nunca se reutiliza una lectura ya terminada.
+// vistaResumen sirve el cuadro y las estadísticas: cada petición hace su
+// propia lectura, sin compartirla con otras peticiones.
 func (h *bolsasRRHHDesarrollo) vistaResumen(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
 	if h.resumen == nil {
 		return h.vistaDurable(ctx, w)
 	}
-	datos, err := h.compartida.obtener(ctx, h.resumen)
+	datos, err := h.resumen(ctx)
 	if err != nil {
 		log.Printf("bolsa rrhh: resumen de bolsas no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})

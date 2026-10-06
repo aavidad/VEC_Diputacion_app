@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 // El cuadro y las estadísticas no descifran el acta protegida y leen lo mismo
@@ -103,119 +100,5 @@ func TestBolsasRRHHDesarrolloUsaResumenYBolsaConcreta(t *testing.T) {
 	}
 	if resumenes.Load() != 2 || completas.Load() != 0 || pedida != "bolsa:constituida:administrativo" {
 		t.Fatalf("resumenes=%d completas=%d bolsa=%q", resumenes.Load(), completas.Load(), pedida)
-	}
-}
-
-// Peticiones simultáneas comparten una lectura; una mutación hace que las
-// siguientes no se sumen a la lectura anterior.
-func TestCargaCompartidaBolsasRRHHUneSimultaneasYRespetaMutaciones(t *testing.T) {
-	var c cargaCompartidaBolsasRRHH
-	sumadas := make(chan struct{}, 8)
-	c.alEsperar = func() { sumadas <- struct{}{} }
-	var lecturas atomic.Int64
-	liberar := make(chan struct{})
-	empezada := make(chan struct{}, 8)
-	cargar := func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
-		n := lecturas.Add(1)
-		empezada <- struct{}{}
-		<-liberar
-		return datasetBolsasRRHHDesarrollo{GeneradoEn: time.Unix(n, 0).UTC().Format(time.RFC3339)}, nil
-	}
-	var wg sync.WaitGroup
-	resultados := make([]string, 5)
-	for i := range resultados {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			datos, err := c.obtener(context.Background(), cargar)
-			if err != nil {
-				t.Error(err)
-			}
-			resultados[i] = datos.GeneradoEn
-		}(i)
-		if i == 0 {
-			<-empezada
-		}
-	}
-	// Espera a que las otras cuatro se sumen a la lectura en curso.
-	for i := 0; i < 4; i++ {
-		<-sumadas
-	}
-	c.invalidar()
-	wg.Add(1)
-	var posterior string
-	go func() {
-		defer wg.Done()
-		datos, _ := c.obtener(context.Background(), cargar)
-		posterior = datos.GeneradoEn
-	}()
-	<-empezada
-	close(liberar)
-	wg.Wait()
-	if lecturas.Load() != 2 {
-		t.Fatalf("lecturas=%d; se esperaban 2 (una compartida y otra tras la mutación)", lecturas.Load())
-	}
-	for _, r := range resultados {
-		if r != resultados[0] {
-			t.Fatalf("resultados distintos en la lectura compartida: %v", resultados)
-		}
-	}
-	if posterior == resultados[0] {
-		t.Fatal("una petición posterior a la mutación reutilizó la lectura anterior")
-	}
-}
-
-// Un pánico en la lectura no deja colgadas a las peticiones que esperaban ni
-// a las siguientes.
-func TestCargaCompartidaBolsasRRHHSobrevivePanico(t *testing.T) {
-	var c cargaCompartidaBolsasRRHH
-	sumada := make(chan struct{}, 1)
-	c.alEsperar = func() { sumada <- struct{}{} }
-	empezada, liberar := make(chan struct{}), make(chan struct{})
-	esperaHecha := make(chan error, 1)
-	go func() {
-		defer func() { _ = recover() }()
-		_, _ = c.obtener(context.Background(), func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
-			close(empezada)
-			<-liberar
-			panic("fallo de prueba")
-		})
-	}()
-	<-empezada
-	go func() {
-		_, err := c.obtener(context.Background(), func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
-			return datasetBolsasRRHHDesarrollo{}, nil
-		})
-		esperaHecha <- err
-	}()
-	<-sumada
-	close(liberar)
-	if err := <-esperaHecha; err == nil {
-		t.Fatal("la petición que esperaba recibió datos de una lectura interrumpida")
-	}
-	datos, err := c.obtener(context.Background(), func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
-		return datasetBolsasRRHHDesarrollo{GeneradoEn: "nueva"}, nil
-	})
-	if err != nil || datos.GeneradoEn != "nueva" {
-		t.Fatalf("la siguiente lectura quedó bloqueada: %v %v", datos, err)
-	}
-}
-
-// La mutación invalida la lectura compartida antes de escribir su respuesta.
-func TestBolsasRRHHDesarrolloInvalidaAntesDeResponderMutacion(t *testing.T) {
-	manejador := manejadorBolsasRRHHPrueba()
-	manejador.mutar = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		antes := manejador.compartida.generacion
-		w.WriteHeader(http.StatusCreated)
-		if manejador.compartida.generacion == antes {
-			t.Error("la respuesta salió antes de invalidar la lectura compartida")
-		}
-	})
-	peticion := httptest.NewRequest(http.MethodPost, rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(`{}`))
-	peticion.Header.Set("Idempotency-Key", "b2-prueba-0003")
-	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, peticion)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("estado=%d", rec.Code)
 	}
 }
