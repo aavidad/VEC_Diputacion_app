@@ -92,7 +92,7 @@ Con `pg_stat_statements` se vio en qué se iba PostgreSQL:
    la lista entera. La búsqueda por documento sigue leyendo la lista completa.
    Se compararon 320 respuestas antes y después: idénticas byte a byte. Si
    falta una posición de la bolsa, cualquier página da 503, como antes.
-3. Estáticos comprimidos. Los ficheros de texto (JS, CSS, JSON, HTML, SVG)
+3. Estáticos comprimidos. Los ficheros de texto (JS, CSS, JSON, HTML y SVG)
    se sirven con gzip cuando el navegador lo acepta. La versión comprimida se
    guarda en memoria (tope de 64 MiB) y se rehace si el fichero cambia. No se
    comprimen las respuestas de la API: solo contenido igual para todos y sin
@@ -101,7 +101,17 @@ Con `pg_stat_statements` se vio en qué se iba PostgreSQL:
 4. Espera breve antes de rechazar. Si los 6 cupos de convocatorias y
    categorías están ocupados, la petición espera su turno hasta 500 ms (dentro
    del plazo que ya tenía) antes de responder 429. Los topes de memoria no
-   cambian: siguen siendo como mucho 6 operaciones a la vez.
+   cambian: siguen siendo como mucho 6 operaciones a la vez. Como mucho 1.024
+   peticiones esperan a la vez; a partir de ahí el 429 es inmediato, como
+   antes.
+
+Una revisión independiente dio GO a los cuatro, sin fallos graves. Sus
+mejoras menores ya están incorporadas: tipos de fichero comprimibles
+limitados a los que Go conoce, no recomprimir lo que no gana y el tope de
+peticiones en espera. Quedan dos propuestas sin hacer: una prueba PostgreSQL
+de la lista paginada en el arnés de integración (que hoy publica bolsas
+vacías) y reescribir del mismo modo la comprobación de secuencias, que
+depende del orden que elija el planificador.
 
 ## Resultados después de los cambios
 
@@ -109,19 +119,21 @@ Mismo escenario y mismos recursos:
 
 | Usuarios | Peticiones/s | Errores | Bolsas y lista (p95) | Convocatorias (p95) | CPU de PostgreSQL |
 |---|---|---|---|---|---|
-| 100 | 398 | 0 % | 2 ms | 2,5 ms | 52 % |
-| 500 | 1.818 | 0,5 % | 27 ms | 333 ms | 313 % |
-| 1.000 | 2.999 | 0 % | 6 ms | 226 ms | 413 % |
-| 3.000 | 5.805 | 45 % | 97 ms | rechazadas tras 500 ms de espera | 419 % |
+| 100 | 398 | 0 % | 2 ms | 2,8 ms | 58 % |
+| 500 | 1.988 | 0 % | 3,5 ms | 4,8 ms | 308 % |
+| 1.000 | 2.780 a 2.999 | 0 % (una de cuatro tandas: 1,6 %) | 6 a 15 ms | 217 a 251 ms (esa tanda: 500 ms) | 413 % |
+| 3.000 | 6.832 | 49 % | 101 ms | rechazadas tras 500 ms de espera | 417 % |
 
-- A 1.000 usuarios se cumple el objetivo: cero errores, bolsas y listas en
-  6 ms y convocatorias en 226 ms.
-- A 3.000 usuarios la relación de bolsas y las listas responden en menos de
-  100 ms, pero PostgreSQL está saturado con 4 núcleos y convocatorias y
-  categorías vuelven a rechazar.
-- La medición de 500 usuarios salió peor que la de 1.000 en convocatorias. El
-  equipo tenía otros trabajos en marcha y la entrada de usuarios es más
-  irregular en ese nivel; conviene repetirla en una máquina sin más carga.
+- A 500 usuarios todo responde en menos de 5 ms y sin errores.
+- A 1.000 usuarios se cumple el objetivo en tres de las cuatro tandas
+  medidas: cero errores, bolsas y listas por debajo de 15 ms y convocatorias
+  entre 217 y 251 ms. En la cuarta, el 1,6 % de convocatorias y categorías
+  esperó 500 ms y recibió 429. PostgreSQL está al límite con 4 núcleos.
+- A 3.000 usuarios la relación de bolsas y las listas responden en unos
+  100 ms, pero PostgreSQL está saturado y convocatorias y categorías vuelven
+  a rechazar.
+- El equipo tenía otros trabajos en marcha durante las mediciones; conviene
+  repetirlas en una máquina sin más carga.
 
 Visita completa a `/bolsa/` con 1.000 usuarios:
 
