@@ -1,11 +1,13 @@
 package ports
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"regexp"
 	"time"
 
@@ -153,10 +155,38 @@ type ConfirmacionIncorporacionCentro struct {
 	RegistradaEn       time.Time `json:"registrada_en"`
 }
 
-// PeriodoIncorporacionCentro es el periodo solicitado por el centro.
+// PeriodoIncorporacionCentro es el periodo solicitado por el centro. Sin fecha
+// de fin (una sustitución hasta la vuelta del titular) la petición guarda la
+// causa del fin y la política que la admitió; la bandeja enseña la causa.
 type PeriodoIncorporacionCentro struct {
-	Inicio string `json:"inicio"`
-	Fin    string `json:"fin"`
+	Inicio   string `json:"inicio"`
+	Fin      string `json:"fin,omitempty"`
+	CausaFin string `json:"causa_fin,omitempty"`
+}
+
+// UnmarshalJSON lee el periodo de la petición tal como lo guarda SQL, también
+// con causa_fin y politica_fin, y rechaza cualquier otra clave. La política
+// no se reenvía al centro: solo se comprueba que es la de un periodo.
+func (p *PeriodoIncorporacionCentro) UnmarshalJSON(b []byte) error {
+	var origen struct {
+		Inicio      string              `json:"inicio"`
+		Fin         string              `json:"fin"`
+		CausaFin    string              `json:"causa_fin"`
+		PoliticaFin *domain.PoliticaFin `json:"politica_fin"`
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&origen); err != nil {
+		return err
+	}
+	if err := d.Decode(&struct{}{}); err != io.EOF {
+		return ErrIncorporacionCentroNoDisponible
+	}
+	if origen.PoliticaFin != nil && origen.PoliticaFin.Validar() != nil {
+		return ErrIncorporacionCentroNoDisponible
+	}
+	*p = PeriodoIncorporacionCentro{Inicio: origen.Inicio, Fin: origen.Fin, CausaFin: origen.CausaFin}
+	return nil
 }
 
 // ExpedienteIncorporacionCentro es una fila de la bandeja del centro: sin
@@ -183,6 +213,9 @@ func (e ExpedienteIncorporacionCentro) Valido() bool {
 	if !domain.ReferenciaOpacaValida(e.PeticionRef) || !domain.ReferenciaOpacaValida(e.ExpedienteRef) || e.NumeroVisible == "" ||
 		len(e.NumeroVisible) > 64 || e.Version == 0 || !domain.ClaveFase(e.Fase).Valida() || !domain.EstadoOperativo(e.Estado).Valido() ||
 		(e.ModalidadClave != "" && !domain.ClaveCatalogo(e.ModalidadClave).Valida()) || len(e.CategoriaRef) > 160 {
+		return false
+	}
+	if e.Periodo != nil && e.Periodo.CausaFin != "" && !domain.ClaveCatalogo(e.Periodo.CausaFin).Valida() {
 		return false
 	}
 	if c := e.Confirmacion; c != nil && (!fechaCivilIncorporacionCentroValida(c.FechaIncorporacion) || !domain.ClaveCatalogo(c.DocumentoTipo).Valida() ||

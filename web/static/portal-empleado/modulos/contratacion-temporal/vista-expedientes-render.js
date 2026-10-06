@@ -47,19 +47,27 @@ export function renderizarNavegacion(estado, t) {
   </nav>`;
 }
 
+// Estos enlaces abren otra pestaña: se dice con un símbolo y, para el lector
+// de pantalla, con texto.
+function avisoOtraPestana(t) {
+  return ` <span aria-hidden="true">↗</span><span class="solo-lectura"> ${escaparHTML(t("abre_otra_pestana"))}</span>`;
+}
+
 // Centros, Peticiones, Calendarios y Reglas son acciones de la bandeja: van a la derecha del título.
 export function renderizarCabeceraModulo(estado, t) {
   const acciones = estado.vista === "cuadro" ? `<div class="acciones-vista ct-exp-acciones-cabecera">
-      <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a>
-      <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a>
-      <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}</a>
+      <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}${avisoOtraPestana(t)}</a>
+      <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}${avisoOtraPestana(t)}</a>
+      <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}${avisoOtraPestana(t)}</a>
       ${enlaceReglasVigentes()}
     </div>` : "";
   // Dentro de un expediente, el título dice cuál es («Expediente 2026/CT-000015»).
   const enExpediente = ["expediente", "documentos", "auditoria"].includes(estado.vista)
     && typeof estado.expediente?.numero_visible === "string";
   const titulo = enExpediente
-    ? t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) })
+    ? (numeroExpedienteVisible(estado.expediente.numero_visible, t) === t("numero_expediente_sin_asignar")
+      ? t("ficha_titulo_modulo_sin_numero")
+      : t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) }))
     : t("titulo");
   return `<header class="ct-exp-cabecera-modulo">
     <div>

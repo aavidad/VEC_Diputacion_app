@@ -2,27 +2,28 @@ import {
   crearClienteBorradores,
   generarClaveIdempotencia,
 } from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261001-ct-a-i18n-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261006-borradores-no-disponible-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,
   limpiarEstadoBorradoresRevocado,
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
-import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261001-ct-a-i18n-v1";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261006-borradores-no-disponible-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import {
   FASE_CARGANDO,
   FASE_ERROR,
   FASE_INICIAL,
   FASE_LISTA,
+  FASE_NO_DISPONIBLE,
   asignarRutaEditor,
   copiar,
   editorDesdeDetalle,
   editorNuevo,
   errorSeguro,
-} from "./portal-borradores-ui-soporte.js?v=20261001-ct-a-i18n-v1";
-export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1";
+export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1";
 
 export function crearSuperficieBorradoresPortal({
   escaparHTML,
@@ -219,6 +220,13 @@ export function crearSuperficieBorradoresPortal({
       if (!disponible) {
         const acceso = controlAcceso.obtenerAcceso();
         estado.opciones = null;
+        if (acceso.estado === "no_disponible") {
+          estado.faseLista = FASE_NO_DISPONIBLE;
+          estado.errorLista = null;
+          notificar();
+          avisar(traducir("acceso_borradores_no_disponible"));
+          return false;
+        }
         estado.faseLista = FASE_ERROR;
         estado.errorLista = errorSeguro(
           controlAcceso.obtenerError(),

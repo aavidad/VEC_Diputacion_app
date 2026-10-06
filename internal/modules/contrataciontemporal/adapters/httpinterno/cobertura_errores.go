@@ -46,6 +46,7 @@ var (
 	erroresSinCreditoCobertura = map[domain.MotivoSinCredito]errorPublicoCobertura{
 		domain.SinCreditoAnalisisPendiente:  nuevoErrorCobertura(http.StatusConflict, "sin_credito_analisis_pendiente"),
 		domain.SinCreditoRetencionRechazada: nuevoErrorCobertura(http.StatusConflict, "sin_credito_retencion_rechazada"),
+		domain.SinCreditoPartidasSinCoste:   nuevoErrorCobertura(http.StatusConflict, "sin_credito_partidas_sin_coste"),
 	}
 )
 

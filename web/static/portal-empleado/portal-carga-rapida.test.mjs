@@ -253,7 +253,7 @@ test("contratación temporal consulta su cuadro sin cargar su vista hasta que se
   // Inicio ya tiene el cuadro, con el número provisional presentado, sin la vista.
   assert.deepEqual(pasos.sort(), ["alta", "analisis", "cuadro"]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "Sin numerar");
+  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "Sin número asignado");
   const raiz = { replaceChildren() {} };
   const montaje = coordinador.montarVista("contratacion-temporal", raiz);
   await esperarTurnos();
@@ -451,7 +451,7 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
   assert.equal(coordinador.obtenerTramitesInicio()[0].centro, "DEPORTES");
   // La petición de centro usa la clave de la organización; el anterior a la numeración, sin número.
   assert.deepEqual([coordinador.obtenerTramitesInicio()[1].centro, coordinador.obtenerTramitesInicio()[1].numero_visible],
-    ["TRANSFORMACIÓN DIGITAL", "Sin numerar"]);
+    ["TRANSFORMACIÓN DIGITAL", "Sin número asignado"]);
 });
 
 test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async () => {
