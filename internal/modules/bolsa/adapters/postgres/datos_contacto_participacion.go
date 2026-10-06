@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 // RepositorioDatosContactoParticipacionPostgreSQL (B4) guarda el sobre cifrado
@@ -153,6 +155,83 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto
 		registro.Origen = &marca
 	}
 	return registro, nil
+}
+
+// ConsultarDatosContactoAutorizados (B78) consume la decisión de consulta
+// completa (AD197) y lee la versión vigente, su origen y su confirmación en una
+// sola transacción SERIALIZABLE. Devuelve el sobre cifrado: el claro solo
+// existe en el caso de uso, que lo descifra en entregar antes del COMMIT.
+func (r *RepositorioDatosContactoParticipacionPostgreSQL) ConsultarDatosContactoAutorizados(ctx context.Context, bolsa, participacion, actor string, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, entregar func(ports.LecturaDatosContactoAutorizada) error) (ports.LecturaDatosContactoAutorizada, error) {
+	if r == nil || r.pool == nil || ctx == nil || bolsa == "" || participacion == "" || actor == "" || m.ValidarEstructura() != nil || entregar == nil {
+		return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, configuracionTransaccionPortal); err != nil {
+		return ports.LecturaDatosContactoAutorizada{}, errorConsultaDatosContacto(err)
+	}
+	var (
+		lectura                  ports.LecturaDatosContactoAutorizada
+		version                  int64
+		origen, reglaRef, huella *string
+		vigenteHasta, confirmada *time.Time
+		ultimoDia                *time.Time
+	)
+	registro := &lectura.Registro
+	err = tx.QueryRow(ctx, `SELECT version,clave_ref,nonce,cifrado,registrada_en,recibo_ref,origen,vigente_hasta,ultimo_dia,regla_ref,regla_huella_sha256,confirmada_en,decision_ref,auditoria_ref,consumida_en FROM vec_bolsa_llamamientos.consultar_datos_contacto_participacion_rrhh_v1($1::text,$2::text,$3::text,$4::bytea,$5::bytea,$6::bytea,$7::bytea,$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`,
+		bolsa, participacion, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).
+		Scan(&version, &registro.Sobre.ClaveRef, &registro.Sobre.Nonce, &registro.Sobre.Cifrado, &registro.RegistradaEn, &registro.ReciboRef,
+			&origen, &vigenteHasta, &ultimoDia, &reglaRef, &huella, &confirmada, &lectura.DecisionRef, &lectura.AuditoriaRef, &lectura.ConsumidaEn)
+	if err != nil {
+		return ports.LecturaDatosContactoAutorizada{}, errorConsultaDatosContacto(err)
+	}
+	if version <= 0 || lectura.DecisionRef == "" || !auditoriaRefConsumoV3.MatchString(lectura.AuditoriaRef) || lectura.ConsumidaEn.IsZero() {
+		return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	registro.ParticipacionRef, registro.Version = participacion, uint64(version)
+	registro.Sobre.Version = registro.Version
+	registro.RegistradaEn, lectura.ConsumidaEn = registro.RegistradaEn.UTC(), lectura.ConsumidaEn.UTC()
+	if registro.Sobre.Validar() != nil {
+		return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	// Una versión confirmada por la persona (Bolsa 000040) cuenta como propia.
+	if origen != nil && confirmada == nil {
+		if vigenteHasta == nil || ultimoDia == nil || reglaRef == nil || huella == nil {
+			return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+		marca := dominiobolsa.MarcaOrigenDatosContacto{Origen: *origen, VigenteHasta: vigenteHasta.UTC(), UltimoDia: ultimoDia.Format(time.DateOnly), ReglaRef: *reglaRef, ReglaHuella: *huella}
+		if marca.Validar() != nil {
+			return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+		registro.Origen = &marca
+	}
+	// El consumo solo se confirma si el caso de uso puede entregar la lectura.
+	if err = entregar(lectura); err != nil {
+		return ports.LecturaDatosContactoAutorizada{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ports.LecturaDatosContactoAutorizada{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	return lectura, nil
+}
+
+// auditoriaRefConsumoV3 es la forma del asiento de consumo del núcleo AD3.
+var auditoriaRefConsumoV3 = regexp.MustCompile(`^aud_v3_[0-9a-f]{32}$`)
+
+// errorConsultaDatosContacto distingue la ausencia de datos (B78 revierte con
+// P0002) de una denegación y de cualquier otro fallo.
+func errorConsultaDatosContacto(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "P0002" {
+		return ports.ErrDatosContactoParticipacionNoEncontrados
+	}
+	if errors.As(err, &pgErr) && pgErr.Code == "42501" {
+		return dominiovec.ErrAutorizacionDenegada
+	}
+	return ports.ErrDatosContactoParticipacionNoDisponibles
 }
 
 func errorDatosContactoParticipacion(err error) error {

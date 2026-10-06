@@ -109,8 +109,7 @@ func validarCapturaCheckpointPeriodico(c ports.CapturaCheckpointPeriodico, maxRe
 		if !referenciaCheckpointPeriodico.MatchString(c.CapturaRef) || c.ConfiguracionVersion == 0 ||
 			!huellaPeriodicaValida(c.PinSPKISHA256) ||
 			!huellaPeriodicaValida(c.ConfiguracionSHA256) || c.Checkpoint.Cobertura.Registros == 0 ||
-			c.Checkpoint.Cobertura.Registros > maxRegistros || c.Checkpoint.Cobertura.UltimaSecuencia != c.Acuse.Secuencia ||
-			c.Checkpoint.Cobertura.CabezaSHA256 != c.Acuse.HuellaSHA256 {
+			c.Checkpoint.Cobertura.Registros > maxRegistros || !coberturaCapturaPeriodicaCoherente(c) {
 			return ErrCheckpointPeriodicoInvalido
 		}
 		if _, err := c.Checkpoint.Canonico(); err != nil {
@@ -120,6 +119,19 @@ func validarCapturaCheckpointPeriodico(c ports.CapturaCheckpointPeriodico, maxRe
 		return ErrCheckpointPeriodicoInvalido
 	}
 	return nil
+}
+
+// coberturaCapturaPeriodicaCoherente: antes de AD207 el checkpoint terminaba
+// en el asiento de la propia captura. Desde AD207 cubre la cabeza sellada al
+// capturar, una posición por debajo del número de ese asiento, que se sella
+// después y entra en el checkpoint siguiente. Su eslabón lo coteja después el
+// verificador de la cadena, no esta comprobación.
+func coberturaCapturaPeriodicaCoherente(c ports.CapturaCheckpointPeriodico) bool {
+	cobertura := c.Checkpoint.Cobertura
+	if cobertura.UltimaSecuencia == c.Acuse.Secuencia {
+		return cobertura.CabezaSHA256 == c.Acuse.HuellaSHA256
+	}
+	return cobertura.UltimaSecuencia < c.Acuse.Secuencia && cobertura.CabezaSHA256 != c.Acuse.HuellaSHA256
 }
 
 func validarAcuseCheckpointPeriodico(a ports.AcuseCheckpointPeriodico) error {

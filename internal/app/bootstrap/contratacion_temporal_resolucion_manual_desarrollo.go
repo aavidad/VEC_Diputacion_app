@@ -321,8 +321,7 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 	r := datos.Recurso
 	return r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" &&
 		r.Referencia == operacionAceptacionManualDesarrollo(l) &&
-		len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" &&
-		r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+		ambitosBolsaDelExpedienteDesarrollo(p.expediente, r.Ambitos) &&
 		len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.justificante.Seleccion.Necesidad.Referencia &&
 		huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
 }
@@ -405,4 +404,19 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	alta.soporte.instantaneaRenunciaBolsa = renuncia
 	alta.soporte.mu.Unlock()
 	return nil
+}
+
+// ambitosBolsaDelExpedienteDesarrollo exige que el recurso Bolsa lleve
+// exactamente la categoría del análisis y la unidad de la asignación del
+// expediente leído por la raíz: son las mismas que fijó la selección al crear
+// la necesidad, y Bolsa construye el recurso con ellas. Antes se comparaban
+// con la categoría C2 y la unidad de ejemplo, y cualquier otro expediente se
+// quedaba con la resolución CT confirmada y sin aceptación en Bolsa (503).
+func ambitosBolsaDelExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, ambitos map[string]string) bool {
+	f := e.Fiscalizado
+	if f.Analisis == nil || f.Asignacion == nil || f.Analisis.CategoriaRef == "" || f.Asignacion.UnidadRef == "" {
+		return false
+	}
+	return len(ambitos) == 2 && ambitos["categoria_ref"] == f.Analisis.CategoriaRef &&
+		ambitos["unidad_ref"] == f.Asignacion.UnidadRef
 }

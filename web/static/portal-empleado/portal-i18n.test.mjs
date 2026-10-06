@@ -60,7 +60,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/bolsa/rrhh-plazos-api.js", "20261002-r2-post401-v2"],
+    ["modulos/bolsa/rrhh-plazos-api.js", "20261006-reglas-una-lectura-v1"],
     ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261002-ct-fin-modalidad-v1"],
@@ -84,7 +84,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-movimientos-consulta-v1"],
     ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20261002-r2-post401-v2"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20261006-reglas-una-lectura-v1"],
     ["portal-inicio.js", "20261001-g364-reconciliar-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
@@ -95,7 +95,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-api.js", versionTemas],
     ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
-    ["portal-panel-interno.js", "20261002-r-rrhh18-v4"],
+    ["portal-panel-interno.js", "20261005-bolsa-usabilidad-v1"],
     ["portal-bolsas-api.js", "20261002-r-rrhh18-v3"],
     ["portal-bolsas-contrato.js", "20261002-r-rrhh18-v3"],
     ["portal-llamamientos-operaciones-api.js", "20261002-r-rrhh18-v3"],
@@ -144,9 +144,15 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal.js", "20261002-r4-moad-v6"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261005-ct-asignacion-unidad-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261005-ct-llamamiento-fiscalizacion-v1");
   versionesEspeciales.set("portal-composicion-empleado.js", "20261005-b-contacto-v3");
-  versionesEspeciales.set("portal.js", "20261005-ct-asignacion-unidad-v1");
+  versionesEspeciales.set("portal.js", "20261005-bolsa-usabilidad-v1");
+  versionesEspeciales.set("modulos/bolsa/rrhh-politica-cese-vista.js", "20261006-reglas-no-disponible-v1");
+  // Elaboración: el 404 de borradores es «no disponible».
+  versionesEspeciales.set("portal-borradores-acceso.js", "20261006-borradores-no-disponible-v1");
+  versionesEspeciales.set("portal-borradores-vista.js", "20261006-borradores-no-disponible-v1");
+  versionesEspeciales.set("portal-borradores-ui-soporte.js", "20261006-borradores-no-disponible-v1");
+  versionesEspeciales.set("portal-borradores-ui.js", "20261006-borradores-no-disponible-v1");
   versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/solicitudes/fuente-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/personal/vista-contacto-propio.js", "20261004-b-contacto-retoma-v2");
@@ -156,9 +162,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/personal/preparacion-rectificacion-propia.js", "20261004-b-rectificacion-validacion-v3");
   versionesEspeciales.set("modulos/personal/vista-rpt-publica.js", "20261004-b-rpt-busqueda-v1");
   versionesEspeciales.set("modulos/personal/registro-b2.js", "20261003-personal-comparacion-b2-v3");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261005-ct-asignacion-unidad-v1");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-render.js", "20261005-ct-asignacion-unidad-v1");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261005-ct-asignacion-unidad-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261005-ct-llamamiento-fiscalizacion-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-render.js", "20261005-ct-llamamiento-fiscalizacion-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261005-ct-llamamiento-fiscalizacion-v1");
   // Sólo estos consumidores CT cambiaron en el grafo de firma V2.
   for (const hoja of [
     "circuito-firma.js",
@@ -177,6 +183,49 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
   versionesEspeciales.set("modulos/cronos/i18n-permisos-consulta.js", "20261001-cronos-c7-consulta-v2");
   versionesEspeciales.set("portal-bolsas-contratos.js", "20261002-a-recuperar-379-v1");
+  // Resumen de la portada (CT-000184): el cliente y el adaptador del cuadro,
+  // la portada y el coordinador cambiaron; su cadena de importadores renueva URL.
+  for (const ruta of [
+    "categorias-rpt/arranque.js",
+    "categorias-rpt/cliente.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/recuentos-peticiones.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-lista.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "portal-inicio.js",
+    "portal.js",
+    "portal-modulos-coordinador.js",
+  ]) versionesEspeciales.set(ruta, "20261006-resumen-inicio-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -314,5 +363,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261005-ct-asignacion-unidad-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-resumen-inicio-v2");
 });

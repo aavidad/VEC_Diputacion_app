@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/personal/domain"
 )
 
@@ -29,15 +28,14 @@ func TestHandlerEstructuraOrganizativaPublicaLimitaRutaMetodoYCampos(t *testing.
 		unidades = append(unidades, domain.UnidadEstructuraPublica{Clave: "puesto-" + string(rune('a'+i)), Etiqueta: "Jefatura", Tipo: "puesto_responsabilidad", AdscripcionClave: "centro-a"})
 	}
 	estructura := domain.EstructuraOrganizativaPublica{Esquema: "vec.personal.estructura-organizativa-publica.v1", CatalogoID: "estructura-organizativa-dipgra", CatalogoVersion: 1, CatalogoRevision: 1, FuenteRef: "https://example.test/rpt", Fuente: domain.FuenteEstructuraPublica{Revision: "demo-v1", ActualizadaEn: "2026-09-06T00:00:00Z", Demostracion: true, Aviso: "Demo sin vigencia", HuellaSHA256: strings.Repeat("a", 64)}, Unidades: unidades}
-	cfg := config.Config{ExecutionProfile: config.ExecutionProfileRRHHPresentation, RRHHPresentationEnabled: true, RRHHPresentationGuardOne: config.RRHHPresentationGuardOneAcknowledgement, RRHHPresentationGuardTwo: config.RRHHPresentationGuardTwoAcknowledgement}
-	h, err := NewHandlerEstructuraOrganizativaPublicaPresentacion(cfg, consultaEstructuraPublicaPrueba{estructura})
+	h, err := NewHandlerEstructuraOrganizativaPublica(consultaEstructuraPublicaPrueba{estructura})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, caso := range []struct {
 		metodo, ruta string
 		want         int
-	}{{http.MethodGet, rutaEstructuraOrganizativaPublicaPresentacion, 200}, {http.MethodHead, rutaEstructuraOrganizativaPublicaPresentacion, 200}, {http.MethodPost, rutaEstructuraOrganizativaPublicaPresentacion, 405}, {http.MethodGet, rutaEstructuraOrganizativaPublicaPresentacion + "?x=1", 404}, {http.MethodGet, rutaEstructuraOrganizativaPublicaPresentacion + "/x", 404}} {
+	}{{http.MethodGet, RutaEstructuraOrganizativaPublicaPersonal, 200}, {http.MethodHead, RutaEstructuraOrganizativaPublicaPersonal, 200}, {http.MethodPost, RutaEstructuraOrganizativaPublicaPersonal, 405}, {http.MethodGet, RutaEstructuraOrganizativaPublicaPersonal + "?x=1", 404}, {http.MethodGet, RutaEstructuraOrganizativaPublicaPersonal + "/x", 404}} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(caso.metodo, caso.ruta, nil))
 		if rec.Code != caso.want {

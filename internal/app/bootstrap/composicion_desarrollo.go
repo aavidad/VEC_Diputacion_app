@@ -529,6 +529,11 @@ func nuevoServidorDesarrollo(
 	if usuariosPreferencias != nil {
 		servidor.RegisterOnShutdown(usuariosPreferencias.cerrar)
 	}
+	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	servidor.RegisterOnShutdown(detenerSellado)
 	completa = true
 	calendariosCompletos = true
 	return servidor, composicion, nil

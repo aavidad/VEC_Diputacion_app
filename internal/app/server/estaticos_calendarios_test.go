@@ -14,7 +14,7 @@ func TestStaticHandlerSirvePantallaCalendarios(t *testing.T) {
 	tipos := map[string]string{
 		"index.html": "text/html", "calendarios.js": "text/javascript", "i18n.js": "text/javascript", "calendarios.css": "text/css",
 	}
-	handler := staticHandler(false)
+	handler := staticHandler()
 	for asset, esperado := range tipos {
 		t.Run(asset, func(t *testing.T) {
 			contenido, err := os.ReadFile("../../../web/static" + prefijo + asset)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 
 	"vec-diputacion-granada/internal/shared/telemetria"
@@ -34,7 +35,8 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}
-	c.MaxConns, c.MinConns = 2, 0
+	postgresqlcompartido.FijarTamanoPool(c, dsn, 4)
+	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	if c.ConnConfig.RuntimeParams == nil {
 		c.ConnConfig.RuntimeParams = map[string]string{}

@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/aplicacion"
@@ -34,6 +35,16 @@ const (
 	presupuestoRespuestasPublicas = 192 << 20
 	maximoOperacionesConcurrentes = 6
 	maximoRespuestasConcurrentes  = presupuestoRespuestasPublicas / maximoBytesRespuestaPublica
+	// esperaMaximaCupo: con los cupos ocupados, una petición espera turno
+	// como mucho este tiempo (y siempre dentro del plazo de la operación)
+	// antes de responder 429. Los topes de memoria no cambian: sigue habiendo
+	// como mucho seis operaciones y seis respuestas a la vez; solo se evita
+	// rechazar picos de milisegundos cuando miles de personas entran juntas.
+	esperaMaximaCupo = 500 * time.Millisecond
+	// maximoEnEspera acota cuántas peticiones pueden estar esperando turno a
+	// la vez (cada una ocupa unos pocos KiB); las demás reciben el 429
+	// inmediato de antes.
+	maximoEnEspera = 1024
 )
 
 type Handler struct {
@@ -41,6 +52,8 @@ type Handler struct {
 	cuposServicio     chan struct{}
 	cuposRespuesta    chan struct{}
 	duracionOperacion time.Duration
+	esperaCupo        time.Duration
+	enEspera          atomic.Int32
 }
 
 type servicioConsultaPublica interface {
@@ -53,10 +66,12 @@ func NuevoHandler(servicio *aplicacionbolsa.ServicioConsultaPublica) (http.Handl
 	if servicio == nil {
 		return nil, aplicacionbolsa.ErrServicioConsultaPublicaInvalido
 	}
-	return nuevoHandler(
+	h := nuevoHandler(
 		servicio, maximoOperacionesConcurrentes, maximoRespuestasConcurrentes,
 		duracionMaximaOperacionPublica,
-	), nil
+	)
+	h.esperaCupo = esperaMaximaCupo
+	return h, nil
 }
 
 func nuevoHandler(
@@ -108,16 +123,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
 		return
 	}
-	select {
-	case h.cuposRespuesta <- struct{}{}:
-		defer func() { <-h.cuposRespuesta }()
-	default:
+	// El plazo de la operación empieza antes de esperar turno: la espera se
+	// descuenta de él y la petición no dura más que antes.
+	ctx, cancelar := context.WithTimeout(r.Context(), h.duracionOperacion)
+	defer cancelar()
+	if !h.ocuparCupo(ctx, h.cuposRespuesta) {
 		w.Header().Set("Retry-After", "1")
 		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
 		return
 	}
-	ctx, cancelar := context.WithTimeout(r.Context(), h.duracionOperacion)
-	defer cancelar()
+	defer func() { <-h.cuposRespuesta }()
 	servir(w, r.WithContext(ctx))
 }
 
@@ -142,7 +157,7 @@ func (h *Handler) listarCategorias(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "El directorio de categorías no admite parámetros.")
 		return
 	}
-	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.DirectorioCategoriasPublicas, error) {
+	resultado, err, ejecutada := ejecutarServicioConCupo(r.Context(), h, w, func() (aplicacionbolsa.DirectorioCategoriasPublicas, error) {
 		return h.servicio.ListarCategorias(r.Context())
 	})
 	if !ejecutada {
@@ -168,7 +183,7 @@ func (h *Handler) listar(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "Los filtros de consulta no son válidos.")
 		return
 	}
-	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.ListadoConvocatoriasPublicas, error) {
+	resultado, err, ejecutada := ejecutarServicioConCupo(r.Context(), h, w, func() (aplicacionbolsa.ListadoConvocatoriasPublicas, error) {
 		return h.servicio.Listar(r.Context(), consulta)
 	})
 	if !ejecutada {
@@ -189,7 +204,7 @@ func (h *Handler) detalle(w http.ResponseWriter, r *http.Request, identificador 
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "El detalle no admite parámetros.")
 		return
 	}
-	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.DetalleConvocatoriaPublica, error) {
+	resultado, err, ejecutada := ejecutarServicioConCupo(r.Context(), h, w, func() (aplicacionbolsa.DetalleConvocatoriaPublica, error) {
 		return h.servicio.Obtener(r.Context(), identificador)
 	})
 	if !ejecutada {
@@ -202,20 +217,52 @@ func (h *Handler) detalle(w http.ResponseWriter, r *http.Request, identificador 
 	responderJSON(w, r, http.StatusOK, resultado)
 }
 
+// ocuparCupo toma un cupo libre o espera turno como mucho esperaCupo, sin
+// pasar del plazo de ctx ni del número máximo de peticiones en espera. Con
+// espera cero conserva el rechazo inmediato.
+func (h *Handler) ocuparCupo(ctx context.Context, cupos chan struct{}) bool {
+	if h.enEspera.Add(1) > maximoEnEspera {
+		h.enEspera.Add(-1)
+		return ocuparCupo(ctx, cupos, 0)
+	}
+	defer h.enEspera.Add(-1)
+	return ocuparCupo(ctx, cupos, h.esperaCupo)
+}
+
+func ocuparCupo(ctx context.Context, cupos chan struct{}, espera time.Duration) bool {
+	select {
+	case cupos <- struct{}{}:
+		return true
+	default:
+	}
+	if espera <= 0 || ctx == nil {
+		return false
+	}
+	temporizador := time.NewTimer(espera)
+	defer temporizador.Stop()
+	select {
+	case cupos <- struct{}{}:
+		return true
+	case <-temporizador.C:
+		return false
+	case <-ctx.Done():
+		return false
+	}
+}
+
 func ejecutarServicioConCupo[T any](
+	ctx context.Context,
 	h *Handler,
 	w http.ResponseWriter,
 	ejecutar func() (T, error),
 ) (T, error, bool) {
 	var cero T
-	select {
-	case h.cuposServicio <- struct{}{}:
-		defer func() { <-h.cuposServicio }()
-	default:
+	if !h.ocuparCupo(ctx, h.cuposServicio) {
 		w.Header().Set("Retry-After", "1")
 		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
 		return cero, nil, false
 	}
+	defer func() { <-h.cuposServicio }()
 	resultado, err := ejecutar()
 	return resultado, err, true
 }

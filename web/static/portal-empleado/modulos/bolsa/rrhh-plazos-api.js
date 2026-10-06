@@ -14,11 +14,33 @@ export const MAXIMO_HORAS_RESPUESTA = 720;
 // apartado cuando la política de la bolsa aún no lo tiene.
 const REGLAS_EJEMPLO_PLAZAS = Object.freeze({ llamada: "b30.plazas_llamada", respuesta: "b30.plazas_plazo_respuesta", tras: "b30.plazas_tras_renuncia" });
 
+/**
+ * Lector de reglas vigentes que comparte la lectura en curso: las propuestas
+ * del formulario (plazo, plazas y confirmación) se piden a la vez al abrir el
+ * llamamiento y reciben una sola respuesta. Al terminar se olvida, de modo
+ * que volver a abrir o recargar lee otra vez lo vigente.
+ */
+export function crearLectorReglasCompartido(obtenerCliente) {
+  let enCurso = null;
+  return () => {
+    enCurso ??= Promise.resolve().then(obtenerCliente).then((lector) => lector.reglas())
+      .finally(() => { enCurso = null; });
+    return enCurso;
+  };
+}
+// Carga diferida: el cliente de reglas no entra en la precarga del portal.
+const leerReglasCompartidas = crearLectorReglasCompartido(async () =>
+  (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente());
+
+/** Reglas vigentes: con `cliente` (pruebas) se lee de él; si no, la lectura compartida. */
+export function leerReglasVigentes({ cliente } = {}) {
+  return cliente ? cliente.reglas() : leerReglasCompartidas();
+}
+
 /** La confirmación nueva procede del catálogo; sin regla se conserva el modo vigente. */
 export async function cargarConfirmacionAdjudicacion({ cliente } = {}) {
   try {
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
-    const datos = await lector.reglas();
+    const datos = await leerReglasVigentes({ cliente });
     const reglas = datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
       .flatMap((c) => c.reglas).filter((r) => r.clave === "b30.confirmacion_adjudicacion");
     return reglas.length === 1 && reglas[0].valor === "aceptacion_previa" ? reglas[0].valor : null;
@@ -41,9 +63,7 @@ export function plazasCompletas(plazas) {
  */
 export async function cargarEjemploPlazas({ cliente } = {}) {
   try {
-    // Carga diferida: el cliente de reglas no entra en la precarga del portal.
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
-    const datos = await lector.reglas();
+    const datos = await leerReglasVigentes({ cliente });
     const reglas = new Map(datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
       .flatMap((c) => c.reglas).map((r) => [r.clave, r]));
     const ejemplo = { llamada: reglas.get(REGLAS_EJEMPLO_PLAZAS.llamada)?.valor,

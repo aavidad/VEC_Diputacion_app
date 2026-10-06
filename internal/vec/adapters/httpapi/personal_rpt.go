@@ -15,7 +15,6 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
-	"vec-diputacion-granada/config"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
@@ -39,24 +38,6 @@ type CatalogoPersonal interface {
 
 type ConsultaCategoriasProfesionales interface {
 	ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error)
-}
-
-var ErrConcesionCategoriasPresentacionInvalida = errors.New("httpapi: concesion de categorias de presentacion invalida")
-
-const rutaCategoriasProfesionalesPresentacion = "/api/vec/personal/categories"
-
-// NewHandlerCategoriasProfesionalesPresentacion construye la consulta de
-// lectura que la composicion aislada de presentacion concede de forma expresa.
-// No resuelve identidad ni roles: esa concesion no equivale a una identidad
-// corporativa y solo la raiz de presentacion, con sus dos guardas, puede montar
-// este handler en la ruta exacta permitida. El constructor vuelve a comprobar
-// el perfil presentacion_rrhh y sus dos guardas, para que no sea reutilizable
-// desde otra composición.
-func NewHandlerCategoriasProfesionalesPresentacion(cfg config.Config, consulta ConsultaCategoriasProfesionales) (http.Handler, error) {
-	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
-		return nil, ErrConcesionCategoriasPresentacionInvalida
-	}
-	return handlerCategoriasProfesionales(consulta, true), nil
 }
 
 func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -242,7 +223,7 @@ func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Reques
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
 			return
 		}
-		servirCategoriasProfesionales(w, r, h.categoriasProfesionales, false)
+		servirCategoriasProfesionales(w, r, h.categoriasProfesionales)
 	case http.MethodPost:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
@@ -254,7 +235,7 @@ func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func servirCategoriasProfesionales(w http.ResponseWriter, r *http.Request, consulta ConsultaCategoriasProfesionales, exigirDemostracion bool) {
+func servirCategoriasProfesionales(w http.ResponseWriter, r *http.Request, consulta ConsultaCategoriasProfesionales) {
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -272,10 +253,6 @@ func servirCategoriasProfesionales(w http.ResponseWriter, r *http.Request, consu
 	}
 	catalogo, err := consulta.ListarVigentes(r.Context())
 	if err != nil {
-		writeErrorCategoriasProfesionales(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
-		return
-	}
-	if exigirDemostracion && !catalogo.Fuente.Demostracion {
 		writeErrorCategoriasProfesionales(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
 		return
 	}

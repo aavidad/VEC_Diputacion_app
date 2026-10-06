@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // limitesSesionADMIN son los límites que exige el núcleo VEC-AD-3 al consumir
@@ -19,6 +21,7 @@ func configurarPoolADMIN(dsn string) (*pgxpool.Config, error) {
 	if err != nil || pc == nil || pc.ConnConfig == nil {
 		return nil, errConfiguracionPrivadaPerfiles
 	}
+	postgresqlcompartido.FijarTamanoPool(pc, dsn, 4)
 	if pc.ConnConfig.RuntimeParams == nil {
 		pc.ConnConfig.RuntimeParams = map[string]string{}
 	}
