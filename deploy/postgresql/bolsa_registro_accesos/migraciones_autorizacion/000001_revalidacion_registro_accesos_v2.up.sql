@@ -72,6 +72,9 @@ DECLARE
     referencias_decision jsonb;
     concesiones_coincidentes integer;
 BEGIN
+    -- PostgreSQL ARE no admite repeticiones de más de 255 ({1,512}): la regla
+    -- se compilaba al evaluarla y la función fallaba siempre. Se conserva la
+    -- intención con la longitud medida aparte.
     IF p_prueba IS NULL OR pg_catalog.jsonb_typeof(p_prueba) <> 'object'
        OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_prueba)) <> 5
        OR NOT (p_prueba ?& ARRAY[
@@ -85,8 +88,10 @@ BEGIN
        )
        OR p_prueba ->> 'esquema_huella' IS DISTINCT FROM
           'vec.autorizacion.decision.reforzada.v2.solicitud-ligada'
-       OR p_prueba ->> 'decision_ref' !~ '^[^*[:space:][:cntrl:]]{1,512}$'
-       OR p_prueba ->> 'principal_ref' !~ '^[^*[:space:][:cntrl:]]{1,512}$'
+       OR p_prueba ->> 'decision_ref' !~ '^[^*[:space:][:cntrl:]]+$'
+       OR pg_catalog.char_length(p_prueba ->> 'decision_ref') > 512
+       OR p_prueba ->> 'principal_ref' !~ '^[^*[:space:][:cntrl:]]+$'
+       OR pg_catalog.char_length(p_prueba ->> 'principal_ref') > 512
        OR p_prueba ->> 'huella_decision_sha256' !~ '^[0-9a-f]{64}$'
        OR p_prueba ->> 'verificada_en' !~
           '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{6}Z$'

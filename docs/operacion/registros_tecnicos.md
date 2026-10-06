@@ -193,3 +193,7 @@ para entradas acotadas y rotación, de [Vector](https://vector.dev/docs/referenc
 para separar el destino de archivos, y de [OpenTelemetry](https://opentelemetry.io/docs/concepts/context-propagation/)
 para conservar la correlación del contexto. Aquí se reutiliza el formato técnico
 cerrado de VEC, sin añadir esas dependencias.
+
+El registro de acceso por petición, las métricas y los perfiles se explican en
+[Seguir una petición lenta](observabilidad_tecnica.md). No pasan por esta
+herramienta.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"vec-diputacion-granada/config"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalcatalogosvec "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
@@ -25,26 +23,17 @@ import (
 	vecapp "vec-diputacion-granada/internal/vec/application"
 )
 
-type consultaCategoriasPresentacionPrueba struct {
+type consultaCategoriasPublicasPrueba struct {
 	catalogo personalports.CatalogoCategoriasProfesionalesConsultable
 	llamadas int
 }
 
-func (c *consultaCategoriasPresentacionPrueba) ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error) {
+func (c *consultaCategoriasPublicasPrueba) ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error) {
 	c.llamadas++
 	return c.catalogo, nil
 }
 
-func configuracionPresentacionCategoriasPrueba() config.Config {
-	return config.Config{
-		ExecutionProfile:         config.ExecutionProfileRRHHPresentation,
-		RRHHPresentationEnabled:  true,
-		RRHHPresentationGuardOne: config.RRHHPresentationGuardOneAcknowledgement,
-		RRHHPresentationGuardTwo: config.RRHHPresentationGuardTwoAcknowledgement,
-	}
-}
-
-func catalogoCategoriasPresentacionPrueba(demostracion bool) personalports.CatalogoCategoriasProfesionalesConsultable {
+func catalogoCategoriasPublicasPrueba(demostracion bool) personalports.CatalogoCategoriasProfesionalesConsultable {
 	return personalports.CatalogoCategoriasProfesionalesConsultable{
 		Referencia: personalports.ReferenciaCatalogoCategoriasProfesionales{
 			CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
@@ -61,37 +50,29 @@ func catalogoCategoriasPresentacionPrueba(demostracion bool) personalports.Catal
 	}
 }
 
-func TestHandlerCategoriasPresentacionExigePerfilRutaYFuenteDemo(t *testing.T) {
-	consulta := &consultaCategoriasPresentacionPrueba{catalogo: catalogoCategoriasPresentacionPrueba(true)}
-	for _, cfg := range []config.Config{{}, {ExecutionProfile: config.ExecutionProfileRRHHPresentation}} {
-		if _, err := NewHandlerCategoriasProfesionalesPresentacion(cfg, consulta); !errors.Is(err, ErrConcesionCategoriasPresentacionInvalida) {
-			t.Fatalf("configuracion sin concesion fue aceptada: %v", err)
+// La consulta pública sirve la fuente tal cual y conserva su marca de
+// demostración en la respuesta; solo atiende la ruta exacta.
+func TestHandlerCategoriasPublicasLimitaRutaYConservaMarca(t *testing.T) {
+	for _, demostracion := range []bool{true, false} {
+		consulta := &consultaCategoriasPublicasPrueba{catalogo: catalogoCategoriasPublicasPrueba(demostracion)}
+		handler, err := NewHandlerCategoriasProfesionalesPublicas(consulta)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	handler, err := NewHandlerCategoriasProfesionalesPresentacion(configuracionPresentacionCategoriasPrueba(), consulta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recRutaAjena := httptest.NewRecorder()
-	handler.ServeHTTP(recRutaAjena, httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories/administrativo", nil))
-	if recRutaAjena.Code != http.StatusNotFound || consulta.llamadas != 0 {
-		t.Fatalf("ruta ajena = %d llamadas=%d", recRutaAjena.Code, consulta.llamadas)
-	}
-	recValida := httptest.NewRecorder()
-	handler.ServeHTTP(recValida, httptest.NewRequest(http.MethodGet, rutaCategoriasProfesionalesPresentacion+"?limit=1&offset=0", nil))
-	if recValida.Code != http.StatusOK || !strings.Contains(recValida.Body.String(), `"demostracion":true`) {
-		t.Fatalf("ruta valida = %d %s", recValida.Code, recValida.Body.String())
-	}
-
-	noDemo := &consultaCategoriasPresentacionPrueba{catalogo: catalogoCategoriasPresentacionPrueba(false)}
-	handlerNoDemo, err := NewHandlerCategoriasProfesionalesPresentacion(configuracionPresentacionCategoriasPrueba(), noDemo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recNoDemo := httptest.NewRecorder()
-	handlerNoDemo.ServeHTTP(recNoDemo, httptest.NewRequest(http.MethodGet, rutaCategoriasProfesionalesPresentacion, nil))
-	if recNoDemo.Code != http.StatusServiceUnavailable || noDemo.llamadas != 1 || strings.Contains(recNoDemo.Body.String(), "Administrativo") {
-		t.Fatalf("fuente no demo = %d llamadas=%d %s", recNoDemo.Code, noDemo.llamadas, recNoDemo.Body.String())
+		recRutaAjena := httptest.NewRecorder()
+		handler.ServeHTTP(recRutaAjena, httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories/administrativo", nil))
+		if recRutaAjena.Code != http.StatusNotFound || consulta.llamadas != 0 {
+			t.Fatalf("ruta ajena = %d llamadas=%d", recRutaAjena.Code, consulta.llamadas)
+		}
+		recValida := httptest.NewRecorder()
+		handler.ServeHTTP(recValida, httptest.NewRequest(http.MethodGet, RutaCategoriasProfesionalesPersonal+"?limit=1&offset=0", nil))
+		marca := `"demostracion":false`
+		if demostracion {
+			marca = `"demostracion":true`
+		}
+		if recValida.Code != http.StatusOK || !strings.Contains(recValida.Body.String(), marca) {
+			t.Fatalf("ruta valida = %d %s", recValida.Code, recValida.Body.String())
+		}
 	}
 }
 

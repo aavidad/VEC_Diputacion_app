@@ -44,6 +44,9 @@ func (r *Recuperacion) RecuperarFirmasAutorizadasV2(ctx context.Context, m ct.Ma
 	if err == nil {
 		return lectura, nil
 	}
+	if lecturaAuditadaSinResultado(err) {
+		return cero, err
+	}
 	return cero, r.auditar(ctx, intento, m.ExpedienteRef, err)
 }
 

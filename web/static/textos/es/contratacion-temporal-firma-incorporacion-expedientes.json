@@ -19,10 +19,10 @@
     "continuidad_expediente_documentos": "Consultar documentos del expediente",
     "continuidad_documentos_titulo": "Ficha GINPIX y seguimiento",
     "continuidad_documentos_ficha": "Ficha manual para GINPIX",
-    "continuidad_documentos_ficha_estado": "La descarga se ofrece en el expediente solo con recibo de incorporación confirmado y consulta disponible.",
+    "continuidad_documentos_ficha_estado": "La ficha se descarga desde el expediente cuando conste la incorporación.",
     "continuidad_documentos_ficha_limite": "La ficha descargada no transmite datos ni confirma un alta en GINPIX.",
     "continuidad_documentos_seguimiento": "Seguimiento de la incorporación",
-    "continuidad_documentos_seguimiento_estado": "El seguimiento original se consulta desde el mismo recibo en el expediente, cuando la consulta está disponible.",
+    "continuidad_documentos_seguimiento_estado": "El seguimiento se consulta en el expediente, una vez registrada la incorporación.",
     "continuidad_documentos_seguimiento_limite": "Consultar el seguimiento no registra anotaciones ni cierra la relación."
   },
   "firma": {

@@ -70,6 +70,9 @@ type paginacionCuadroRRHHJSON struct {
 type consultaCuadroRRHHJSON struct {
 	Filtros    *filtrosCuadroRRHHJSON    `json:"filtros"`
 	Paginacion *paginacionCuadroRRHHJSON `json:"paginacion"`
+	// Resumen (CT-000184), opcional: la portada pide además los recuentos de
+	// todo el corte filtrado. La lista no lo pide.
+	Resumen bool `json:"resumen,omitempty"`
 }
 
 type consultaDetalleRRHHJSON struct {
@@ -210,6 +213,9 @@ func solicitudCuadroRRHHDesdePeticion(
 	if err != nil {
 		return ports.SolicitudCuadroRRHH{}, errContenidoConsultaRRHHNoValido
 	}
+	if entrada.Resumen {
+		solicitud = solicitud.ConResumen()
+	}
 	return solicitud, nil
 }
 
@@ -287,6 +293,20 @@ type paginaCuadroRRHHJSON struct {
 	HayMas          bool                     `json:"hay_mas"`
 	CursorSiguiente string                   `json:"cursor_siguiente,omitempty"`
 	Totales         *ports.TotalesCuadroRRHH `json:"totales,omitempty"`
+	Resumen         *resumenPortadaRRHHJSON  `json:"resumen,omitempty"`
+}
+
+// resumenPortadaRRHHJSON: recuentos de todo el corte filtrado para la
+// portada; «en trámite» es todo lo que no está completado ni cancelado y
+// por_fase cuenta los en trámite por fase del servidor. Sin referencias.
+type resumenPortadaRRHHJSON struct {
+	EnTramite     uint64            `json:"en_tramite"`
+	ConIncidencia uint64            `json:"con_incidencia"`
+	Vencidos      uint64            `json:"vencidos"`
+	VencenHoy     uint64            `json:"vencen_hoy"`
+	VencenSemana  uint64            `json:"vencen_semana"`
+	SinCalcular   uint64            `json:"sin_calcular"`
+	PorFase       map[string]uint64 `json:"por_fase"`
 }
 
 type resumenRRHHJSON struct {
@@ -333,6 +353,17 @@ func proyectarPaginaCuadroRRHH(
 		HayMas:          entrada.HayMas,
 		CursorSiguiente: entrada.CursorSiguiente,
 		Totales:         entrada.Totales,
+	}
+	if entrada.Resumen != nil {
+		salida.Resumen = &resumenPortadaRRHHJSON{
+			EnTramite: entrada.Resumen.EnTramite, ConIncidencia: entrada.Resumen.ConIncidencia,
+			Vencidos: entrada.Resumen.Vencidos, VencenHoy: entrada.Resumen.VencenHoy,
+			VencenSemana: entrada.Resumen.VencenSemana, SinCalcular: entrada.Resumen.SinCalcular,
+			PorFase: make(map[string]uint64, len(entrada.Resumen.PorFase)),
+		}
+		for fase, numero := range entrada.Resumen.PorFase {
+			salida.Resumen.PorFase[string(fase)] = numero
+		}
 	}
 	conPlazos := len(entrada.Plazos) == len(entrada.Expedientes)
 	conUrgencia := len(entrada.Urgentes) == len(entrada.Expedientes)

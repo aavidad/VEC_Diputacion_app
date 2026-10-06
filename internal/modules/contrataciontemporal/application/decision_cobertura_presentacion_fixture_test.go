@@ -432,6 +432,9 @@ func expedientePresentacionCoberturaPrueba(
 				ValidadaEn:          instante.Add(-30 * time.Minute),
 				Motivo:              "No requiere retención de crédito.",
 			},
+			// Sin retención, la constancia de las partidas va con el coste aproximado.
+			CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+			FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 		},
 		domain.DatosActuacion{
 			AccionClave: domain.ClaveCatalogo(

@@ -99,7 +99,10 @@ func (e *EmisorEfectoNominalADMIN) Emitir(ctx context.Context, actor domain.Cont
 		return vacia, errorEmisorLote(err)
 	}
 	valor, err := correlacion.ValorCanonico()
-	if err != nil || valor != correlacionAcceso {
+	if err != nil {
+		return vacia, errorEmisorLote(err)
+	}
+	if valor != correlacionAcceso {
 		return vacia, fallo
 	}
 	resultado, err := evidencia.ResultadoContexto.Clonar()

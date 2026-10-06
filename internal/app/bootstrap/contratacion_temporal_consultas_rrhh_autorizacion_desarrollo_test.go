@@ -167,7 +167,16 @@ func TestConsultasRRHHDesarrolloAutorizaV3YUsaRegistroDurable(t *testing.T) {
 			t.Fatalf("consulta V3 no concedida y registrada: %v %v", err, errResultado)
 		}
 		instantanea, ok := s.instantaneaParaRuta(ruta)
-		if !ok || instantanea.Validar() != nil || len(instantanea.VersionRol.Concesiones) != 1 ||
+		// El rol del expediente añade la descarga de borradores como segunda
+		// concesión; la primera sigue siendo la consulta exacta.
+		concesionesEsperadas := 1
+		if ruta == httpinterno.RutaConsultaDetalleRRHH {
+			concesionesEsperadas = 2
+		}
+		if !ok || instantanea.Validar() != nil || len(instantanea.VersionRol.Concesiones) != concesionesEsperadas ||
+			(concesionesEsperadas == 2 && (instantanea.VersionRol.Concesiones[1].Accion != ports.AccionDescargarBorradorRRHH ||
+				instantanea.VersionRol.Concesiones[1].TipoRecurso != ports.TipoRecursoExpediente ||
+				!reflect.DeepEqual(instantanea.VersionRol.Concesiones[1].Finalidades, []string{ports.FinalidadDescargarBorradorRRHH}))) ||
 			instantanea.VersionRol.Concesiones[0].Accion != datos.Accion ||
 			instantanea.VersionRol.Concesiones[0].TipoRecurso != datos.Recurso.Tipo ||
 			!reflect.DeepEqual(instantanea.VersionRol.Concesiones[0].Finalidades, []string{datos.Finalidad}) {

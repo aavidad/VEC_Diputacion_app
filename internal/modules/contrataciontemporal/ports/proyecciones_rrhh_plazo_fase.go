@@ -62,6 +62,14 @@ type CalculadoraPlazoFaseRRHH interface {
 	CalcularPlazoFase(context.Context, SolicitudPlazoFaseRRHH) (plazo PlazoFaseRRHH, aplicable bool, err error)
 }
 
+// PreparadorPlazosFaseRRHH lo implementa, opcionalmente, una calculadora que
+// puede leer su catálogo de reglas una sola vez para todos los plazos de una
+// consulta. La calculadora preparada da los mismos plazos que la original;
+// si la preparación falla, la consulta calcula con la original.
+type PreparadorPlazosFaseRRHH interface {
+	PrepararPlazosFase(context.Context) (CalculadoraPlazoFaseRRHH, error)
+}
+
 // fasesDesdeValidas exige que la fecha de entrada en fase (CT-000110), si
 // viene, acompañe a cada resumen y no sea anterior a su alta ni posterior a su
 // última actualización.

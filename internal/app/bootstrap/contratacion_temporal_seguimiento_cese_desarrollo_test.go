@@ -87,7 +87,7 @@ func TestSeguimientoCeseSoloSeComponeConSelectorYLosTresCatalogos(t *testing.T) 
 	if seguimientoCeseSolicitado(sinCausas) {
 		t.Fatal("sin causas de cese no se compone")
 	}
-	rutas, err := nuevasRutasSeguimientoCeseDesarrollo(&DependenciasCT{cfg: config.Config{}}, nil)
+	rutas, err := nuevasRutasSeguimientoCeseDesarrollo(&DependenciasCT{cfg: config.Config{}}, nil, nil)
 	if err != nil || rutas != nil {
 		t.Fatalf("sin catálogos la conducta es la de hoy: %v %v", rutas, err)
 	}

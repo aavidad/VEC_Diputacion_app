@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 const (
@@ -63,6 +65,7 @@ func abrirPoolPersonalAsignacionDietas(ctx context.Context, dsn string, perfil p
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, err
 	}
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
@@ -166,6 +169,7 @@ func nuevosPoolsPostgreSQLDietasDesarrolloConFabrica(ctx context.Context, cfg co
 }
 
 func crearPoolPostgreSQLDietasDesarrollo(ctx context.Context, cfg *pgxpool.Config) (poolOperativoPostgreSQLDietasDesarrollo, error) {
+	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
@@ -183,6 +187,7 @@ func abrirPoolAuditoriaFronteraDietasDesarrollo(ctx context.Context, dsn string)
 	if err != nil {
 		return nil, "", err
 	}
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible

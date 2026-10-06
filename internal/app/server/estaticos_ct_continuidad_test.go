@@ -19,7 +19,7 @@ func TestStaticHandlerProduccionSirveContinuidadContratacionTemporal(t *testing.
 		"cliente-http-cierre-administrativo.js",
 		"formulario-cierre-administrativo.js",
 	}
-	handler := staticHandler(false)
+	handler := staticHandler()
 	for _, asset := range assets {
 		t.Run(asset, func(t *testing.T) {
 			contenido, err := os.ReadFile("../../../web/static" + prefijo + asset)
@@ -48,7 +48,7 @@ func TestStaticHandlerProduccionMantieneDenegadoAssetNoEnumerado(t *testing.T) {
 		t.Fatalf("el asset de contraste debe existir: %v", err)
 	}
 	rec := httptest.NewRecorder()
-	staticHandler(false).ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+	staticHandler().ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET %s = %d; se esperaba 404", ruta, rec.Code)
 	}
