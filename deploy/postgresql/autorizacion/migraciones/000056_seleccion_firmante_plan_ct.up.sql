@@ -12,9 +12,15 @@
 -- 2. Fachada seleccionar_firmante_plan_ct_v1 para el ejecutor CT antes del
 --    PDP: persona del certificado (CA25), enlace vigente del cargo por tipo
 --    (Personal38) y la única asignación activa y vigente de esa persona con el
---    rol del paso. Devuelve la selección, la cuenta y el vínculo del
+--    rol del paso (ámbitos exactos: organización y unidad del paso, como
+--    AUT32 y AD206). Devuelve la selección, la cuenta y el vínculo del
 --    certificado, y las versiones y huellas de asignación, rol y control; no escribe ni concede nada: AUT32/AUT35 y el
 --    consumo V3 vuelven a comprobarlo todo en la transacción de la firma.
+-- 3. Cierra para el ejecutor la vía directa de CT172 (registrar_firma_
+--    verificada_v2): el tipo que coteja AUT35 sale del descriptor y sólo CT176
+--    lo ata al plan publicado. Go ya sólo escribe por CT176.
+-- La lectura no se audita aquí: la transacción del adaptador se deshace; la
+-- auditoría es la del consumo de la firma, que repite todas las lecturas.
 -- Requiere AUT35, CA25 y Personal38. Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -107,11 +113,14 @@ BEGIN
   WHERE x.principal_id=ca->>'persona_ref' AND r.rol_id=p_rol_id
    AND x.documento->>'estado'='activa' AND r.documento->>'estado'='publicada' AND v.estado='habilitada'
    AND ahora>=(x.documento->>'vigente_desde')::timestamptz AND ahora<(x.documento->>'vigente_hasta')::timestamptz
-   AND x.documento->'ambitos' @> pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('clave','organizacion_ref',
-    'valores',pg_catalog.jsonb_build_array(p_organizacion_ref)))
-   AND (NOT x.documento->'ambitos' @> '[{"clave":"unidad_ref"}]'::jsonb
-    OR x.documento->'ambitos' @> pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('clave','unidad_ref',
-     'valores',pg_catalog.jsonb_build_array(p_unidad_ref))))
+   -- Ámbitos exactos, como AUT32 y AD206: organización y unidad, un valor
+   -- cada una e iguales a las del paso; ninguna otra dimensión.
+   AND pg_catalog.jsonb_typeof(x.documento->'ambitos')='array' AND pg_catalog.jsonb_array_length(x.documento->'ambitos')=2
+   AND x.documento->'ambitos' @> pg_catalog.jsonb_build_array(
+    pg_catalog.jsonb_build_object('clave','organizacion_ref','valores',pg_catalog.jsonb_build_array(p_organizacion_ref)),
+    pg_catalog.jsonb_build_object('clave','unidad_ref','valores',pg_catalog.jsonb_build_array(p_unidad_ref)))
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(x.documento->'ambitos') e
+    WHERE pg_catalog.jsonb_typeof(e->'valores') IS DISTINCT FROM 'array' OR pg_catalog.jsonb_array_length(e->'valores')<>1)
   FOR SHARE OF x,p,r,c,v;
  RETURN pg_catalog.jsonb_build_object('esquema','vec.autorizacion.seleccion-firmante-plan.ct.v1',
   'persona_ref',ca->>'persona_ref','perfil_activo_ref',a.perfil_activo_ref,'rol_id',p_rol_id,
@@ -130,14 +139,27 @@ REVOKE ALL ON FUNCTION vec_autorizacion.seleccionar_firmante_plan_ct_v1(text,tex
 GRANT EXECUTE ON FUNCTION vec_autorizacion.seleccionar_firmante_plan_ct_v1(text,text,text,text,text,text,text,text) TO vec_contratacion_temporal_ejecutor;
 RESET ROLE;
 
+-- Con el enlace por tipo, el tipo que coteja AUT35 debe venir del plan
+-- publicado: sólo CT176 lo ata. La vía directa de CT172 se cierra para el
+-- ejecutor (Go ya sólo escribe por CT176; CT176 la llama como propietario).
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea) FROM vec_contratacion_temporal_ejecutor;
+RESET ROLE;
+
 DO $post$
 DECLARE s regprocedure:='vec_autorizacion.seleccionar_firmante_plan_ct_v1(text,text,text,text,text,text,text,text)'::regprocedure;
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=s AND proowner='vec_autorizacion_propietario'::regrole AND prosecdef)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) x
    WHERE p.oid=s AND (x.grantee NOT IN(p.proowner,'vec_contratacion_temporal_ejecutor'::regrole) OR x.is_grantable))
+ OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=s) IS DISTINCT FROM ARRAY['search_path=pg_catalog','row_security=on','lock_timeout=2s','TimeZone=UTC']
+ OR pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',
+   'vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
+ OR (pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL
+  AND pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',
+   'vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE'))
  OR pg_catalog.strpos(pg_catalog.pg_get_functiondef('vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(jsonb,jsonb,jsonb)'::regprocedure),
    $m$per->>'recurso_autorizable_ref' IS DISTINCT FROM rec->>'tipo_recurso'$m$)=0
- THEN RAISE EXCEPTION 'AUT56: PARO clave=postimagen actual=divergente esperado=AUT35_por_tipo_y_fachada_solo_CT' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AUT56: PARO clave=postimagen actual=divergente esperado=AUT35_por_tipo_fachada_solo_CT_y_CT172_directa_cerrada' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
