@@ -30,7 +30,6 @@
     "lista_titulo_uno": "1 petición en trámite",
     "lista_titulo_varias": "{total} peticiones en trámite",
     "lista_titulo_ninguna": "No hay peticiones en trámite",
-    "lista_subtitulo": "Ordenadas por plazo: lo más urgente, arriba.",
     "lista_nueva_peticion": "Nueva petición de personal",
     "lista_buscar": "Buscar",
     "lista_buscar_pista": "Número, centro o categoría",
@@ -62,6 +61,10 @@
     "lista_col_plazo": "Plazo",
     "lista_sin_plazo": "Sin plazo",
     "lista_abrir_aria": "Abrir el expediente {expediente}",
-    "lista_recuento_parcial": "Recuento parcial: hay más peticiones en la página siguiente."
+    "lista_recuento_parcial": "Recuento parcial: hay más peticiones en la página siguiente.",
+    "peticiones_centros_rrhh": "Peticiones recibidas de los centros",
+    "abre_otra_pestana": "(se abre en otra pestaña)",
+    "lista_busqueda_parcial": "La búsqueda solo revisa las peticiones de esta página. Pulse «Página siguiente» para ver más.",
+    "lista_vacia_crear": "Todavía no hay ninguna petición. Cree una con «Nueva petición de personal»."
   }
 }

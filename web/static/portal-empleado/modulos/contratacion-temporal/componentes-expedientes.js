@@ -97,7 +97,8 @@ export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) 
     <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
       ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
   </nav>` : "";
-  if (estado.carga === "vacio") return renderizarEstadoCarga(estado, t);
+  const filtrosServidor = Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
+  if (estado.carga === "vacio" && filtrosServidor) return renderizarEstadoCarga(estado, t);
   return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA, paginacion);
 }
 

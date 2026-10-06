@@ -45,8 +45,8 @@ test("una sola página deja la paginación al marco común; con más páginas va
 test("la cabecera no lleva sobrelínea, descripción ni aviso de presentación y ofrece Centros y Peticiones", () => {
   const cuadro = renderizarCabeceraModulo({ vista: "cuadro", cuadro: { demostracion: true } }, t);
   assert.match(cuadro, /<h2>Peticiones de personal temporal<\/h2>/u);
-  assert.match(cuadro, /class="acciones-vista ct-exp-acciones-cabecera"[\s\S]*>Centros<\/a>[\s\S]*>Peticiones<\/a>/u);
-  assert.match(cuadro, /href="\/portal-empleado\/calendarios\/"[^>]*>Calendarios<\/a>/u);
+  assert.match(cuadro, /class="acciones-vista ct-exp-acciones-cabecera"[\s\S]*>Centros <span[\s\S]*?<\/a>[\s\S]*>Peticiones recibidas de los centros <span[\s\S]*?<\/a>/u);
+  assert.match(cuadro, /href="\/portal-empleado\/calendarios\/"[^>]*>Calendarios <span aria-hidden="true">↗<\/span><span class="solo-lectura"> \(se abre en otra pestaña\)<\/span><\/a>/u);
   assert.doesNotMatch(cuadro, /sobrelinea|Flujo guiado|Presentación RRHH|sintéticos|ct-exp-aviso-presentacion/u);
   const detalle = renderizarCabeceraModulo({ vista: "expediente" }, t);
   assert.doesNotMatch(detalle, /ct-exp-acciones-cabecera/u);
