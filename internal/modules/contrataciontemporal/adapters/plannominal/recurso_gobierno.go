@@ -31,19 +31,34 @@ var (
 	idCatalogoGobiernoPlanFirma = regexp.MustCompile(`^[a-z][a-z0-9._-]{2,127}$`)
 	enteroGobiernoPlanFirma     = regexp.MustCompile(`^[1-9][0-9]{0,9}$`)
 	sha256GobiernoPlanFirma     = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	estadoPorOperacionGobierno  = map[string]string{
+	// Mismos formatos que exige AD201 para los ámbitos del recurso.
+	organizacionGobiernoPlanFirma = regexp.MustCompile(`^org_[a-z0-9]{16,80}$`)
+	unidadGobiernoPlanFirma       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,159}$`)
+	estadoPorOperacionGobierno    = map[string]string{
 		"crear": "borrador", "actualizar": "borrador", "publicar": "publicado", "retirar": "retirado",
 	}
 )
 
+// AmbitoGobiernoPlanFirma son los ámbitos de la asignación del administrador
+// que gobierna el plan. El PDP común exige que el recurso tenga exactamente
+// las dimensiones de esa asignación; AD201 los recibe aparte del material.
+type AmbitoGobiernoPlanFirma struct {
+	OrganizacionRef string
+	UnidadRef       string
+}
+
 // RecursoGobiernoPlanFirma deriva, de los bytes exactos que conserva el kit
 // (vec-plan-firma-validar preparar), la acción y el recurso que la fachada
-// AD177 exige a la decisión V3: recurso «catalogo_id:version», tipo
-// catalogo_configurable, sin ámbitos y con la huella de estado, revisión y
-// SHA-256 de esos mismos bytes. No autoriza nada: el PDP decide después, y
-// AD177/CC7 vuelven a calcular lo mismo en la transacción del efecto.
-func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, error) {
+// AD201 exige a la decisión V3: recurso «catalogo_id:version», tipo
+// catalogo_configurable, con la organización y la unidad del administrador y
+// la huella de estado, revisión y SHA-256 de esos mismos bytes. No autoriza
+// nada: el PDP decide después, y AD201/CC7 vuelven a calcular lo mismo en la
+// transacción del efecto.
+func RecursoGobiernoPlanFirma(material []byte, ambito AmbitoGobiernoPlanFirma) (string, vd.RecursoAutorizable, error) {
 	var cero vd.RecursoAutorizable
+	if !organizacionGobiernoPlanFirma.MatchString(ambito.OrganizacionRef) || !unidadGobiernoPlanFirma.MatchString(ambito.UnidadRef) {
+		return "", cero, ct.ErrPlanCompetenciaFirmaV2
+	}
 	if len(material) < 2 || len(material) > maximoMaterialGobiernoPlanFirma || !utf8.Valid(material) ||
 		bytes.Contains(material, []byte(`\u0000`)) || !json.Valid(material) {
 		return "", cero, ct.ErrPlanCompetenciaFirmaV2
@@ -90,7 +105,7 @@ func RecursoGobiernoPlanFirma(material []byte) (string, vd.RecursoAutorizable, e
 		Referencia: catalogoID + ":" + version.String(),
 		ModuloID:   ModuloGobiernoPlanFirma,
 		Tipo:       TipoRecursoGobiernoPlanFirma,
-		Ambitos:    map[string]string{},
+		Ambitos:    map[string]string{"organizacion_ref": ambito.OrganizacionRef, "unidad_ref": ambito.UnidadRef},
 		Atributos: map[string]string{
 			"estado":          estado,
 			"material_sha256": hexSHA256(material),

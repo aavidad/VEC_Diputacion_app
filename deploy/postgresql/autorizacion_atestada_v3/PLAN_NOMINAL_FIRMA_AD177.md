@@ -160,3 +160,34 @@ uno con otra pertenencia se rechaza en ella y que el runtime CT ya no tiene
 `pruebas_sql/ad177_ad178_post_ad193.sql` es anterior a AD190: mide el núcleo
 previo y espera el `EXECUTE` del runtime CT, así que no se ejecuta tras AD190 ni
 tras AD200.
+
+## Ámbitos del recurso de gobierno (AUT52, CC9 y AD201)
+
+AD177 y CC7 calculaban la huella de contexto del recurso de gobierno sin
+ámbitos. El PDP común exige que el recurso tenga exactamente las dimensiones de
+la asignación del actor, y la del administrador con Rol7 tiene organización y
+unidad, así que toda decisión de gobierno se denegaba (`ambito_no_autorizado`).
+Dirección aprobó el 5 de octubre de 2026 que el recurso lleve esos dos ámbitos.
+
+- AUT52, `vec_autorizacion.acreditar_ambitos_gobierno_plan_firma_v1(versión,
+  asignación, persona, organización, unidad)`: la asignación actual de
+  Aplicación (criterio de versión de AUT48) está activa, vigente, es de esa
+  persona y tiene esa organización y esa unidad. Sólo para el propietario AD.
+- CC9, `confirmar_gobierno_plan_nominal_firma_v2(material, organización,
+  unidad, consumo)`: la confirmación de CC7 con la huella con ámbitos; mismas
+  tablas, replay y recibos. Sólo para el propietario AD.
+- AD201, `registrar_y_confirmar_gobierno_plan_firma_v2(material, organización,
+  unidad, …)`: las comprobaciones de la v1 con la huella con ámbitos; exige que
+  la decisión consumida sea la recibida, acredita persona, organización y
+  unidad con AUT52 y confirma con CC9. La v1 deja de ser ejecutable por el grupo
+  dedicado.
+
+En Go, `plannominal.RecursoGobiernoPlanFirma(material, AmbitoGobiernoPlanFirma)`
+construye el mismo recurso. El material del kit no cambia.
+
+Pruebas en ROLLBACK: `pruebas_sql/ad201_gobierno_plan_firma_ambitos.sql` (con
+ámbitos llega al núcleo; huella antigua, organización mal formada y v1 se
+rechazan), `catalogos_configurables/pruebas_sql/plan_nominal_firma_ambitos_cc9_positivo_clon.sql`
+(el recorrido positivo de CC7 con la huella con ámbitos; la v1 y otra unidad no
+ligan la decisión) y `autorizacion/pruebas_sql/aut52_ambitos_gobierno_plan_firma.sql`
+(contra la asignación real del clon). La prueba de AD200 es anterior a AD201.
