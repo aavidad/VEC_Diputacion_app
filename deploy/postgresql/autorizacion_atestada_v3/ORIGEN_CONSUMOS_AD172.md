@@ -148,3 +148,48 @@ transformación estructural, no un consumo nominal firmado. Antes de
 instalar en la principal, el DBA debe completar la configuración de origen
 de los consumidores activos; la ausencia de una fila exacta deniega el
 consumo nuevo. Las extensiones futuras de RPT deben preservar este origen.
+
+## AD208: la falta de fila sale como «no disponible» y dice qué falta
+
+Con AD172 tal cual, la falta de fila se lanzaba con SQLSTATE `42501`, el mismo
+que una denegación de permisos. Los adaptadores lo convertían en «prohibido» y
+la API respondía 403 sin pista, aunque la persona tuviera permiso. Así pasó en
+la principal el 6 de octubre de 2026.
+
+AD208 cambia solo esa sentencia del núcleo. El rechazo pasa a SQLSTATE `VA172`,
+propio de VEC, con el mismo mensaje, y su `DETAIL` lleva la terna que falta:
+`audiencia=… operacion=… canal=…`. El LOGIN no aparece, porque no se registra
+en errores. Firma, propietario, ACL, configuración y dependencias del núcleo
+quedan iguales. La migración comprueba que la sentencia aparece una sola vez,
+tras resolver el origen, y que al revertir el cambio en memoria se recupera el
+texto original. La reejecución se rechaza y no hay DOWN.
+
+Efecto en la aplicación:
+
+- Casi todos los traductores de errores de PostgreSQL llevan un código
+  desconocido a «no disponible». La operación responde 503 y la supervisión
+  HTTP emite la incidencia técnica `HTTP_INTERNO_FALLIDO` con su correlación.
+- La causa queda en el registro de PostgreSQL: el `ERROR` con el `DETAIL` de
+  la terna y la sentencia que la pidió. El DBA sabe qué fila añadir sin
+  reproducir nada.
+- La lectura de borradores de Bolsa responde 500 en vez de 503. Va en su
+  propio corte.
+
+AD208 mide el núcleo por una marca única y no por su huella completa, así que
+convive con cualquier preimagen que conserve la sentencia de AD172. Las
+migraciones que fijan la huella completa del núcleo (AD195 y, si entra, AD207)
+deben instalarse antes que AD208. Las que se escriban después miden su
+postimagen.
+
+La prueba
+`pruebas/000208_origen_no_acreditado_sqlstate.sh [definicion.sql]` usa
+PostgreSQL 18.4 desechable. Con un núcleo sustituto con la misma firma y los
+mismos metadatos comprueba:
+
+- 42501 sin detalle antes y `VA172` con la terna después;
+- metadatos y ACL intactos;
+- que se rechaza la reejecución, una marca repetida y un núcleo con permisos
+  de más.
+
+Con la definición real del núcleo (salida de `pg_get_functiondef` de una base
+con AD172) comprueba además que solo cambia esa sentencia.
