@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -39,45 +40,57 @@ func instanteEslabonValido(v string) bool {
 	return err == nil && t.UTC().Format("2006-01-02T15:04:05.000000Z") == v
 }
 
+// errRegistroEslabonV5 indica que un registro no se pudo leer para cotejar
+// su eslabón; el verificador lo rechaza en lugar de omitir el cotejo.
+var errRegistroEslabonV5 = errors.New("vec auditoria: registro no legible para el eslabon v5")
+
 // registradaEnDelAsiento devuelve la fecha del asiento cuando su proyección
 // la incluye (casi todos los tipos), para cotejarla con la del eslabón.
-func registradaEnDelAsiento(r RegistroMixtoV2) (string, bool) {
+// presente=false sin error: el tipo no exporta la fecha.
+func registradaEnDelAsiento(r RegistroMixtoV2) (fecha string, presente bool, err error) {
 	copia := r
 	copia.Eslabon = nil
 	b, err := json.Marshal(copia)
 	if err != nil {
-		return "", false
+		return "", false, errors.Join(errRegistroEslabonV5, err)
 	}
 	var objeto map[string]json.RawMessage
-	if json.Unmarshal(b, &objeto) != nil {
-		return "", false
+	if err = json.Unmarshal(b, &objeto); err != nil {
+		return "", false, errors.Join(errRegistroEslabonV5, err)
 	}
 	for clave, crudo := range objeto {
-		if clave == "tipo_registro" {
+		if clave == "tipo_registro" || len(crudo) == 0 || crudo[0] != '{' {
 			continue
 		}
 		var campos map[string]json.RawMessage
-		if json.Unmarshal(crudo, &campos) != nil {
+		if err = json.Unmarshal(crudo, &campos); err != nil {
+			return "", false, errors.Join(errRegistroEslabonV5, err)
+		}
+		crudoFecha, existe := campos["registrada_en"]
+		if !existe {
 			continue
 		}
-		var fecha string
-		if json.Unmarshal(campos["registrada_en"], &fecha) == nil && fecha != "" {
-			return fecha, true
+		if err = json.Unmarshal(crudoFecha, &fecha); err != nil {
+			return "", false, errors.Join(errRegistroEslabonV5, err)
+		}
+		if fecha != "" {
+			return fecha, true, nil
 		}
 	}
-	return "", false
+	return "", false, nil
 }
 
 // previaCapturaPeriodicaV5 devuelve la cabeza sellada que declaró una captura
-// del sello periódico escrita tras el corte.
-func previaCapturaPeriodicaV5(r RegistroMixtoV2) (uint64, string, bool) {
+// del sello periódico escrita tras el corte. es=false sin error: el registro
+// no es una captura posterior al corte.
+func previaCapturaPeriodicaV5(r RegistroMixtoV2) (previa uint64, cabeza string, es bool, err error) {
 	if r.Periodica == nil || r.Periodica.AnteriorSHA256 != MarcadorSinAnteriorV5 || r.Periodica.Accion != "capturar_sello_periodico_v1" ||
 		r.Periodica.MotivoRef != "captura_registrada" {
-		return 0, "", false
+		return 0, "", false, nil
 	}
 	detalle, err := decodificarDetallePeriodica(r.Periodica.DetalleCanonicoBase64)
 	if err != nil {
-		return 0, "", false
+		return 0, "", false, errors.Join(errRegistroEslabonV5, err)
 	}
 	var d struct {
 		PreviaSecuencia json.Number `json:"previa_secuencia"`
@@ -85,11 +98,13 @@ func previaCapturaPeriodicaV5(r RegistroMixtoV2) (uint64, string, bool) {
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(detalle)))
 	decoder.UseNumber()
-	if decoder.Decode(&d) != nil {
-		return 0, "", false
+	if err = decoder.Decode(&d); err != nil {
+		return 0, "", false, errors.Join(errRegistroEslabonV5, err)
 	}
-	n, err := strconv.ParseUint(d.PreviaSecuencia.String(), 10, 64)
-	return n, d.PreviaCabeza, err == nil
+	if previa, err = strconv.ParseUint(d.PreviaSecuencia.String(), 10, 64); err != nil {
+		return 0, "", false, errors.Join(errRegistroEslabonV5, err)
+	}
+	return previa, d.PreviaCabeza, true, nil
 }
 
 func decodificarDetallePeriodica(transporte string) ([]byte, error) {

@@ -521,7 +521,11 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			enlaces[posicion] = anterior
 			continue
 		}
-		if fecha, ok := registradaEnDelAsiento(r); ok && fecha != r.Eslabon.RegistradaEn {
+		fecha, presente, err := registradaEnDelAsiento(r)
+		if err != nil {
+			return fallar("registro_invalido", "registrada_en", "legible", "ilegible", posicion)
+		}
+		if presente && fecha != r.Eslabon.RegistradaEn {
 			return fallar("fecha_distinta", "eslabon.registrada_en", "la_del_asiento", "distinta", posicion)
 		}
 		if r.Eslabon.AnteriorSHA256 != anterior {
@@ -534,7 +538,11 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 		}
 		anterior, trasCorte = eslabon, true
 		enlaces[posicion] = anterior
-		if previa, cabeza, ok := previaCapturaPeriodicaV5(r); ok {
+		previa, cabeza, esCaptura, err := previaCapturaPeriodicaV5(r)
+		if err != nil {
+			return fallar("registro_invalido", "detalle_canonico_base64", "legible", "ilegible", posicion)
+		}
+		if esCaptura {
 			previas = append(previas, previaDeclarada{posicion: posicion, previa: previa, cabeza: cabeza})
 		}
 	}
