@@ -65,7 +65,9 @@ export function renderizarCabeceraModulo(estado, t) {
   const enExpediente = ["expediente", "documentos", "auditoria"].includes(estado.vista)
     && typeof estado.expediente?.numero_visible === "string";
   const titulo = enExpediente
-    ? t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) })
+    ? (numeroExpedienteVisible(estado.expediente.numero_visible, t) === t("numero_expediente_sin_asignar")
+      ? t("ficha_titulo_modulo_sin_numero")
+      : t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) }))
     : t("titulo");
   return `<header class="ct-exp-cabecera-modulo">
     <div>
