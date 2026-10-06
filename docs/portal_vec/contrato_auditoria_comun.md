@@ -64,7 +64,16 @@ La autoridad interna está en [AD3-1](../../deploy/postgresql/autorizacion_atest
 
 La fila común de auditoría conserva `auditoria_ref`, secuencia, decisión, efecto, huella del efecto, huella anterior, huella nueva e instante. El actor/perfil/finalidad se ligan por el material de decisión/contexto relacionado; no son columnas nominales completas de esa fila. La cadena externa de [AD116](../../deploy/postgresql/autorizacion_atestada_v3/migraciones/000116_consumo_candidato_externo.up.sql) conserva su separación.
 
-La cabeza se bloquea con `FOR UPDATE`. La preimagen interna encadena secuencia, huella anterior, decisión, efecto, huella del efecto y huella de consumo. `registrada_en` no aparece como campo separado de esa preimagen. Completar el sobre nominal exige versionar qué bytes protege la huella, conservando las cadenas históricas.
+Hasta AD207 la cabeza se bloqueaba con `FOR UPDATE`. La preimagen interna encadena secuencia, huella anterior, decisión, efecto, huella del efecto y huella de consumo. `registrada_en` no aparece como campo separado de esa preimagen. Completar el sobre nominal exige versionar qué bytes protege la huella, conservando las cadenas históricas.
+
+Desde [AD207](../../deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql) ningún escritor bloquea `control_cadena_auditoria`. Cada asiento toma su número de una secuencia y calcula su huella con la misma preimagen de su tipo, con 64 «f» en el lugar del anterior. Un disparador lo deja en `pendiente_sellado_auditoria_v5`. El sellador (grupo `vec_auditoria_encadenador`, LOGIN propio fuera de Git, bucle de `vec-server` configurado con `VEC_AUDITORIA_SELLADO_DATABASE_URL`) toma los pendientes en orden de número y escribe en `eslabon_auditoria_v5`, de solo adición, un eslabón por asiento:
+
+```text
+eslabon(p) = sha256(F("vec.auditoria.eslabon.v5") F(cadena) F(p) F(eslabon(p-1))
+                    F(secuencia) F(auditoria_ref) F(tipo_registro) F(huella_sha256))
+```
+
+`F` es `encuadrar_mac` y `cadena` vale `interna` o `externa` (la externa no tiene tipo y usa el texto vacío). La fila de control queda congelada con la última secuencia y la cabeza de la cadena anterior, que no cambia; `eslabon(N)` del corte es esa cabeza. Mientras un asiento espera su eslabón (menos de 1 s con el sellador en marcha) lo protegen los mismos disparadores de solo adición que al resto. La cadena externa tiene su propia secuencia, cola y tabla de eslabones.
 
 ## 5. Confirmación de operaciones y lecturas
 

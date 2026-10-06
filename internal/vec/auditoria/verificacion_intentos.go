@@ -80,6 +80,8 @@ type RegistroMixtoV2 struct {
 	Intento                   *RegistroIntentoV2                      `json:"intento,omitempty"`
 	Preperfil                 *RegistroPreperfilV3                    `json:"preperfil,omitempty"`
 	Bootstrap                 *RegistroBootstrapV3                    `json:"bootstrap,omitempty"`
+	// Eslabon acompaña a los asientos posteriores al corte de AD207.
+	Eslabon *EslabonCadenaV5 `json:"eslabon,omitempty"`
 }
 
 var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
@@ -188,9 +190,23 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	anterior := checkpoint.AnteriorSHA256
 	auditorias, decisiones, consumos, intentos := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	eventos := map[string]bool{}
-	var historicosSinFecha, fechaLigada bool
+	numerosV5 := map[uint64]bool{}
+	var historicosSinFecha, fechaLigada, trasCorte bool
 	for i, r := range d.Registros {
-		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
+		// La cobertura cuenta posiciones en la cadena. Antes del corte de AD207
+		// coinciden con el número del asiento; después, el eslabón da el número.
+		posicion := checkpoint.PrimeraSecuencia + uint64(i)
+		secuencia, enlace := posicion, anterior
+		if r.Eslabon != nil {
+			if r.Eslabon.Posicion != posicion || r.Eslabon.Secuencia == 0 || r.Eslabon.Secuencia > maxSecuenciaVerificacion ||
+				numerosV5[r.Eslabon.Secuencia] || !huellaCadenaValida(r.Eslabon.AnteriorSHA256) || !huellaCadenaValida(r.Eslabon.EslabonSHA256) {
+				return fallar("eslabon_invalido", "eslabon", "posicion_y_numero_unicos", "invalido", posicion)
+			}
+			numerosV5[r.Eslabon.Secuencia] = true
+			secuencia, enlace = r.Eslabon.Secuencia, MarcadorSinAnteriorV5
+		} else if trasCorte {
+			return fallar("eslabon_ausente", "eslabon", "presente_tras_el_corte", "ausente", posicion)
+		}
 		var referencia, previo, huella string
 		if r.ContextoAdminPreV2 != nil && r.TipoRegistro != "contexto_admin_pre_v2" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
@@ -249,8 +265,8 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			if c.AuditoriaRef != "aud_v3_"+c.ConsumoHuellaSHA256[:32] {
 				return fallar("referencia_distinta", "auditoria_ref", "derivada_del_consumo", "distinta", secuencia)
 			}
-			if c.AnteriorSHA256 != anterior {
-				return fallar("enlace_distinto", "anterior_sha256", anterior, c.AnteriorSHA256, secuencia)
+			if c.AnteriorSHA256 != enlace {
+				return fallar("enlace_distinto", "anterior_sha256", enlace, c.AnteriorSHA256, secuencia)
 			}
 			if decisiones[c.DecisionRef] || consumos[c.ConsumoHuellaSHA256] {
 				return fallar("consumo_duplicado", "decision_o_consumo", "unico", "duplicado", secuencia)
@@ -313,8 +329,8 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			if !huellaCadenaValida(a.AnteriorSHA256) {
 				return fallar("registro_invalido", "anterior_sha256", "sha256", "no_admitido", secuencia)
 			}
-			if a.AnteriorSHA256 != anterior {
-				return fallar("enlace_distinto", "anterior_sha256", anterior, "distinto", secuencia)
+			if a.AnteriorSHA256 != enlace {
+				return fallar("enlace_distinto", "anterior_sha256", enlace, "distinto", secuencia)
 			}
 			if intentos[a.IntentoRef] {
 				return fallar("intento_duplicado", "intento_ref", "unico", "duplicado", secuencia)
@@ -481,10 +497,21 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			return fallar("auditoria_duplicada", "auditoria_ref", "unica", "duplicada", secuencia)
 		}
 		auditorias[referencia] = true
-		if previo != anterior {
-			return fallar("enlace_distinto", "anterior_sha256", anterior, previo, secuencia)
+		if previo != enlace {
+			return fallar("enlace_distinto", "anterior_sha256", enlace, previo, secuencia)
 		}
-		anterior = huella
+		if r.Eslabon == nil {
+			anterior = huella
+			continue
+		}
+		if r.Eslabon.AnteriorSHA256 != anterior {
+			return fallar("enlace_distinto", "eslabon.anterior_sha256", anterior, r.Eslabon.AnteriorSHA256, posicion)
+		}
+		eslabon := HuellaEslabonV5("interna", posicion, anterior, secuencia, referencia, r.TipoRegistro, huella)
+		if eslabon != r.Eslabon.EslabonSHA256 {
+			return fallar("eslabon_distinto", "eslabon_sha256", eslabon, r.Eslabon.EslabonSHA256, posicion)
+		}
+		anterior, trasCorte = eslabon, true
 	}
 	if anterior != checkpoint.CabezaSHA256 {
 		return fallar("cabeza_distinta", "cabeza_sha256", checkpoint.CabezaSHA256, anterior, checkpoint.UltimaSecuencia)

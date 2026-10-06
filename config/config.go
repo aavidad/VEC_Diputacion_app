@@ -212,6 +212,7 @@ type Config struct {
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
+	AuditoriaSelladoPostgreSQL                  ConfiguracionPostgreSQLAuditoriaSellado
 	BolsaPoliticaOfertasCalculadorPostgreSQL    ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
@@ -339,6 +340,7 @@ func Load() Config {
 		},
 		BolsaRelevoNoIncorporacionPostgreSQL:     NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
 		BolsaRelevoCesePostgreSQL:                NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
+		AuditoriaSelladoPostgreSQL:               NuevaConfiguracionPostgreSQLAuditoriaSellado(envFirst(EnvAuditoriaSelladoDatabaseURL)),
 		BolsaPoliticaOfertasCalculadorPostgreSQL: NuevaConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador(envFirst(EnvBolsaPoliticaOfertasCalculadorDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
@@ -482,6 +484,7 @@ func (c Config) Normalize() Config {
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
+	c.AuditoriaSelladoPostgreSQL = c.AuditoriaSelladoPostgreSQL.normalizar()
 	c.BolsaPoliticaOfertasCalculadorPostgreSQL = c.BolsaPoliticaOfertasCalculadorPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()

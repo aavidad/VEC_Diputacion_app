@@ -1,0 +1,11 @@
+# AD207: cadena de auditoría con sellado diferido. Los escritores dejan de bloquear control_cadena_auditoria.
+# Instalar después de todas las listas anteriores de autorizacion_atestada_v3 (descubre y reescribe los
+# escritores que haya; exige al menos los 21 conocidos). Una sola vez; sin DOWN.
+# Antes de arrancar vec-server con esta base:
+#   1. El DBA crea un LOGIN propio (INHERIT, sin otros grupos) miembro solo de vec_auditoria_encadenador
+#      y le da CONNECT sobre la base. Fuera de Git.
+#   2. vec-server recibe VEC_AUDITORIA_SELLADO_DATABASE_URL con ese LOGIN (no puede compartir usuario
+#      con otra conexión). Sin ella los asientos se escriben y quedan pendientes, sin encadenar.
+#   3. Comprobar: SELECT vec_autorizacion_atestada_v3.verificar_cadena_auditoria_v5(false) como propietario
+#      → estado verificada, pendientes cerca de 0 y sin_sellar_fuera_de_cola 0.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql

@@ -76,8 +76,9 @@ referencia, huella del material y fecha UTC con microsegundos. Los consumos del
 mismo rango usan el cálculo de AD3-002. No mezcle filas de otras cadenas.
 
 Use una instantánea coherente para leer las filas, el consumo y
-`control_cadena_auditoria`. Si extrae la cadena completa, la última secuencia y
-la cabeza proceden de ese control. La primera secuencia es 1 y su anterior son
+`control_cadena_auditoria`. Si extrae la cadena anterior a AD207, la última
+secuencia y la cabeza proceden de ese control; después de AD207, de la última fila
+de `eslabon_auditoria_v5`. La primera secuencia es 1 y su anterior son
 64 ceros. En un rango parcial, conserve además la huella anterior al comienzo
 del rango y su cabeza final por separado; no las deduzca del documento que va
 a comprobar. El contador debe coincidir con el rango inclusive.
@@ -91,6 +92,38 @@ obtenido por una extracción histórica autorizada. No añada otros contextos de
 identidad, decisiones canónicas, certificados, material criptográfico ni cargas
 de negocio. Guarde los dos ficheros con permisos restrictivos y según la
 política de conservación vigente.
+
+## Asientos posteriores a AD207
+
+Desde AD207 la cadena avanza por eslabones. Los asientos anteriores al corte
+(la secuencia que conserva `control_cadena_auditoria`) se exportan como hasta
+ahora. Cada asiento posterior lleva `anterior_sha256` con 64 «f» y su fila de
+`eslabon_auditoria_v5` en un objeto `eslabon` dentro del registro, al lado de
+`tipo_registro`:
+
+```json
+"eslabon": {"posicion": 29592, "secuencia": 29592, "anterior_sha256": "…", "eslabon_sha256": "…"}
+```
+
+En estos tramos `primera_secuencia`, `ultima_secuencia` y `registros` del
+manifiesto cuentan posiciones de la cadena. Hasta el corte coinciden con el
+número del asiento; después pueden no coincidir, porque el número se reserva al
+escribir y la posición se asigna al sellar. Ordene los registros por posición.
+`anterior_sha256` del manifiesto es el eslabón (o, antes del corte, la huella)
+de la posición anterior a la primera, y `cabeza_sha256` el de la última. Solo se
+exportan asientos sellados. El verificador recalcula la huella de cada asiento
+según su tipo, exige el marcador y un eslabón por asiento a partir del corte, y
+recalcula cada eslabón con la fórmula del contrato de auditoría común. La captura
+del sello periódico fija la cabeza sellada en ese momento, así que su
+`previa_secuencia` queda por debajo de su propio número.
+
+En la base, `vec_autorizacion_atestada_v3.verificar_cadena_auditoria_v5(false)`
+(cadena interna; `true` para la externa) comprueba como propietario los enlaces de
+toda la cadena: numeración y enlaces hasta el corte, cada eslabón recalculado
+desde su asiento, y la cola. Devuelve `pendientes` (asientos aún sin eslabón) y
+`sin_sellar_fuera_de_cola` (asientos sin eslabón que tampoco esperan en la cola;
+debe ser 0). No recalcula la huella de cada asiento según su tipo: eso lo hace
+este comando.
 
 ## Ejecutar
 
