@@ -31,8 +31,10 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   ]);
   const nueva = versionCoordinador;
   const firma = "20261003-ct-firma-v2-v1";
+  // portal.js se renovó después (lectura única del cuadro de bolsas); su
+  // versión ya no coincide con la del coordinador.
+  exigirVersiones(html, "/portal-empleado/portal.js", "20261006-bolsa-una-lectura-v1");
   const versiones = [
-    exigirVersiones(html, "/portal-empleado/portal.js", nueva),
     exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", nueva),
     exigirVersiones(portal, "./portal-modulos-coordinador.js", nueva),
   ];
