@@ -363,11 +363,21 @@ let inicioComprobando = false;
 // La API de borradores de convocatorias NO se sondea al cargar: un servidor que
 // no la sirve respondería 404 en cada carga. Elaboración solo se ofrece en el
 // menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
+// Ciclo de carga (secuenciaFuente) en que se pidió el cuadro de bolsas por
+// última vez. Una lectura pedida en el ciclo actual ya revalida el acceso.
+let cicloLecturaBolsas = 0;
+function pedirCuadroBolsas() {
+  cicloLecturaBolsas = secuenciaFuente;
+  void controladorBolsas.cargarBolsas();
+}
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
-  // del catálogo o de identidad: la API debe revalidar el acceso actual.
-  if (clave === "catalogo") {
-    void controladorBolsas.cargarBolsas();
+  // del catálogo o de identidad: la API debe revalidar el acceso actual. Si
+  // la lectura de este mismo ciclo sigue en curso o ya terminó, no se repite:
+  // relanzarla cancelaba la petición y obligaba al servidor a empezar de cero.
+  if (clave === "catalogo"
+    && !(cicloLecturaBolsas === secuenciaFuente && ["cargando", "listo"].includes(estado.datosBolsas?.carga))) {
+    pedirCuadroBolsas();
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
     && (destinoPlantillasInicial || plantillasConfirmadas)) {
@@ -461,7 +471,7 @@ async function cargarFuenteDatos() {
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
   // bloquear los demás módulos. Una lectura ya en curso no se repite.
   if (estado.datosBolsas?.carga !== "cargando"
-    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) void controladorBolsas.cargarBolsas();
+    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) pedirCuadroBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
     if (error?.codigo === CODIGO_CARGA_SUSTITUIDA || intento !== secuenciaFuente) return;

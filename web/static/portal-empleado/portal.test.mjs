@@ -154,10 +154,10 @@ test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servi
   assert.match(cargaInicial, /requiereLecturaBolsas\(estado\.vista\)/);
   // Inicio comprueba la API real del cuadro de bolsas sin exigir abrir antes
   // la vista, en paralelo con el catálogo y sin esperarla.
-  const comprobacion = cargaInicial.indexOf("void controladorBolsas.cargarBolsas()");
+  const comprobacion = cargaInicial.indexOf("pedirCuadroBolsas()");
   const catalogo = cargaInicial.indexOf("await coordinadorModulos.cargarInterno(");
   assert.ok(comprobacion > 0 && catalogo > comprobacion, "la comprobación de Bolsa debe lanzarse antes de esperar el catálogo");
-  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\)\) void controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\)\) pedirCuadroBolsas\(\)/);
   // Una lectura del cuadro ya en curso (p. ej. la pedida al montar la vista
   // tras F5) no se repite ni se aborta.
   assert.match(cargaInicial, /if \(estado\.datosBolsas\?\.carga !== "cargando"\s+&& \(requiereLecturaBolsas/u);
@@ -321,7 +321,8 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // relajar la comprobación de crecimiento del archivo principal. 5.07 la sube
   // a 1155: sondeo bajo demanda de plantillas y política de cese.
   // La guarda tras importar plantillas dentro del try añade una línea real.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1167, "portal.js debe mantenerse en 1167 líneas o menos");
+  // La lectura única del cuadro de bolsas por ciclo de carga añade 10 líneas.
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1177, "portal.js debe mantenerse en 1177 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");
