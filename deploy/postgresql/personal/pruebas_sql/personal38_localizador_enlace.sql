@@ -3,7 +3,8 @@
 -- Personal28/29/37/38 y un nodo orgánico vigente; todo en ROLLBACK. Siembra un
 -- cargo sintético y dos enlaces (titular con el TIPO de recurso del paso y
 -- otro de otra persona), y comprueba el localizador y la revalidación por
--- tipo. Cada caso imprime «OK <caso>»; un fallo aborta.
+-- tipo con el tipo real de la firma VEC (firma_vec_documento_contratacion_temporal).
+-- Cada caso imprime «OK <caso>»; un fallo aborta (pg_temp.exigir).
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL timezone='UTC';
 SELECT n.nodo_ref::text AS nodo,n.revision AS rev,n.organismo_ref AS org,n.unidad_ref AS uni
@@ -24,10 +25,10 @@ INSERT INTO vec_personal.enlace_cargo_competencial_historia(enlace_ref,version,h
  requiere_enlace_laboral,empleado_ref,ocupacion_ref,ocupacion_revision,publicada_en,decision_ref,auditoria_ref,recibo_ref)
 VALUES
  ('enc_P38TITULARAAAAAAAAAAAAAAA',1,repeat('4',64),'car_P38AAAAAAAAAAAAAAAAAAAAAA',1,'per_P38FIRMANTEAAAAAAAAAAAAA','titular',NULL,NULL,NULL,NULL,
-  'contratacion_temporal.documento.firma_vec.registrar','documento_contratacion_temporal','gestionar_contratacion_temporal','vigente',
+  'contratacion_temporal.documento.firma_vec.registrar','firma_vec_documento_contratacion_temporal','gestionar_contratacion_temporal','vigente',
   now()-interval '1 hour',now()+interval '50 days','acto:p38:nombramiento',1,repeat('2',64),'fuente:p38',1,repeat('3',64),false,NULL,NULL,NULL,now(),'decision:p38','aud_p38','percar_p38_t'),
  ('enc_P38CADUCADOAAAAAAAAAAAAAA',1,repeat('5',64),'car_P38AAAAAAAAAAAAAAAAAAAAAA',1,'per_P38OTRAAAAAAAAAAAAAAAAAA','titular',NULL,NULL,NULL,NULL,
-  'contratacion_temporal.documento.firma_vec.registrar','documento_contratacion_temporal','gestionar_contratacion_temporal','vigente',
+  'contratacion_temporal.documento.firma_vec.registrar','firma_vec_documento_contratacion_temporal','gestionar_contratacion_temporal','vigente',
   now()-interval '10 days',now()-interval '2 days','acto:p38:antiguo',1,repeat('2',64),'fuente:p38',1,repeat('3',64),false,NULL,NULL,NULL,now(),'decision:p38','aud_p38','percar_p38_c');
 INSERT INTO vec_personal.enlace_cargo_competencial_actual VALUES('enc_P38TITULARAAAAAAAAAAAAAAA',1,repeat('4',64)),('enc_P38CADUCADOAAAAAAAAAAAAAA',1,repeat('5',64));
 RESET ROLE;
@@ -39,6 +40,8 @@ GRANT USAGE ON SCHEMA vec_personal TO prueba_p38_ct;
 GRANT EXECUTE ON FUNCTION vec_personal.localizar_enlace_cargo_ct_v1(text,text,text,text,text,text,text) TO prueba_p38_ct;
 GRANT EXECUTE ON FUNCTION vec_personal.leer_revalidar_cargo_ocupante_ct_v1(bytea) TO prueba_p38_ct;
 GRANT EXECUTE ON FUNCTION vec_personal.resolver_fuente_cargo_ocupante_ct_v1(text,text,text,text,text) TO prueba_p38_ct;
+CREATE FUNCTION pg_temp.exigir(r text) RETURNS text LANGUAGE plpgsql AS $f$
+BEGIN IF r IS NULL OR r NOT LIKE 'OK %' THEN RAISE EXCEPTION '%',coalesce(r,'FALLO sin resultado'); END IF; RETURN r; END $f$;
 CREATE FUNCTION pg_temp.localizar(persona text,tipo text,cargo text DEFAULT 'car_P38AAAAAAAAAAAAAAAAAAAAAA') RETURNS text LANGUAGE plpgsql AS $f$
 DECLARE r jsonb;
 BEGIN
@@ -53,7 +56,7 @@ DECLARE per jsonb:=current_setting('p38.per')::jsonb;rec jsonb;
 BEGIN
  rec:=jsonb_build_object('organizacion_ref',per->>'organizacion_ref','unidad_ref',per->>'unidad_ref',
   'recurso_autorizable_ref','documento:p38:original-a');
- IF con_tipo THEN rec:=rec||jsonb_build_object('tipo_recurso','documento_contratacion_temporal'); END IF;
+ IF con_tipo THEN rec:=rec||jsonb_build_object('tipo_recurso','firma_vec_documento_contratacion_temporal'); END IF;
  PERFORM vec_personal.leer_revalidar_cargo_ocupante_ct_v1(convert_to(jsonb_build_object(
   'esquema','vec.competencia-firmante.historica.v1','fecha_historica',clock_timestamp(),
   'personal',jsonb_build_object('cargo',per->'cargo','enlace_ocupante',per->'enlace_ocupante',
@@ -70,32 +73,32 @@ DO $g$ BEGIN EXECUTE format('GRANT USAGE ON SCHEMA %I TO prueba_p38_ct',pg_my_te
 SELECT set_config('p38.org',:'org',true),set_config('p38.uni',:'uni',true);
 SET SESSION AUTHORIZATION prueba_p38_ct;
 SET LOCAL timezone='UTC';
-SELECT CASE WHEN pg_temp.localizar('per_P38FIRMANTEAAAAAAAAAAAAA','documento_contratacion_temporal')='enc_P38TITULARAAAAAAAAAAAAAAA'
+SELECT CASE WHEN pg_temp.localizar('per_P38FIRMANTEAAAAAAAAAAAAA','firma_vec_documento_contratacion_temporal')='enc_P38TITULARAAAAAAAAAAAAAAA'
  THEN 'OK localiza_por_tipo' ELSE 'FALLO localiza_por_tipo' END AS r \gset
-\echo :r
+SELECT pg_temp.exigir(:'r');
 SELECT CASE WHEN pg_temp.localizar('per_P38FIRMANTEAAAAAAAAAAAAA','documento:p38:original-a')='denegado'
  THEN 'OK no_localiza_por_documento' ELSE 'FALLO no_localiza_por_documento' END AS r \gset
-\echo :r
-SELECT CASE WHEN pg_temp.localizar('per_P38OTRAAAAAAAAAAAAAAAAAA','documento_contratacion_temporal')='denegado'
+SELECT pg_temp.exigir(:'r');
+SELECT CASE WHEN pg_temp.localizar('per_P38OTRAAAAAAAAAAAAAAAAAA','firma_vec_documento_contratacion_temporal')='denegado'
  THEN 'OK enlace_caducado_no_localizado' ELSE 'FALLO enlace_caducado_no_localizado' END AS r \gset
-\echo :r
-SELECT CASE WHEN pg_temp.localizar('per_P38NADIEAAAAAAAAAAAAAAAA','documento_contratacion_temporal')='denegado'
+SELECT pg_temp.exigir(:'r');
+SELECT CASE WHEN pg_temp.localizar('per_P38NADIEAAAAAAAAAAAAAAAA','firma_vec_documento_contratacion_temporal')='denegado'
  THEN 'OK otra_persona_denegada' ELSE 'FALLO otra_persona_denegada' END AS r \gset
-\echo :r
+SELECT pg_temp.exigir(:'r');
 -- Personal29 con el enlace por tipo: su contexto lleva recurso_autorizable_ref
 -- = recurso del enlace (el tipo) y la revalidación lo acepta.
 SELECT vec_personal.resolver_fuente_cargo_ocupante_ct_v1('car_P38AAAAAAAAAAAAAAAAAAAAAA','enc_P38TITULARAAAAAAAAAAAAAAA',
  'per_P38FIRMANTEAAAAAAAAAAAAA',:'org',:'uni')::text AS per \gset
-SELECT CASE WHEN (:'per'::jsonb)->>'recurso_autorizable_ref'='documento_contratacion_temporal'
+SELECT CASE WHEN (:'per'::jsonb)->>'recurso_autorizable_ref'='firma_vec_documento_contratacion_temporal'
  AND (:'per'::jsonb)#>>'{enlace_ejerciente,referencia}'='enc_P38TITULARAAAAAAAAAAAAAAA'
  THEN 'OK personal29_por_tipo' ELSE 'FALLO personal29_por_tipo' END AS r \gset
-\echo :r
+SELECT pg_temp.exigir(:'r');
 -- Canon como el de AUT32/AUT35: el recurso es el documento exacto y trae el
 -- tipo del paso. Con el tipo, la revalidación acepta; sin él, deniega.
 SELECT set_config('p38.per',:'per',true);
 SELECT CASE WHEN pg_temp.revalidar(true)='aceptado' THEN 'OK revalida_documento_por_tipo' ELSE 'FALLO revalida_documento_por_tipo' END AS r \gset
-\echo :r
+SELECT pg_temp.exigir(:'r');
 SELECT CASE WHEN pg_temp.revalidar(false)='denegado' THEN 'OK sin_tipo_documento_denegado' ELSE 'FALLO sin_tipo_documento_denegado' END AS r \gset
-\echo :r
+SELECT pg_temp.exigir(:'r');
 RESET SESSION AUTHORIZATION;
 ROLLBACK;

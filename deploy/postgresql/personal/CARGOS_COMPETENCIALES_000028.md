@@ -33,3 +33,10 @@ cambia `leer_revalidar_cargo_ocupante_ct_v1` para que, si el contexto trae
 consumo de la firma siguen ligados al documento exacto en CT172/AD170. Vector
 `pruebas_sql/personal38_localizador_enlace.sql`: 7/7 tras instalar; antes de
 instalar falla.
+
+Estado entre el corte 1 (Personal38) y el corte 2 (AUT, sucesor de AUT35): la
+firma nominal de Contratación temporal queda cerrada para cualquier forma de
+enlace. AUT35 deniega un enlace por tipo (sigue cotejando con el documento) y
+AUT32, a través de Personal28, deniega un enlace por documento. Antes de
+Personal37 no se podía insertar ningún enlace, así que no se rompe nada que
+funcione; conviene instalar los dos cortes seguidos.

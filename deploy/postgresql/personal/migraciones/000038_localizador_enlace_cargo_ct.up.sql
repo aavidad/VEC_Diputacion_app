@@ -31,6 +31,7 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_personal.localizar_enlace_cargo_ct_v1(text,text,text,text,text,text,text)') IS NOT NULL
  OR pg_catalog.to_regrole('vec_autorizacion_propietario') IS NULL
  OR pg_catalog.to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname IN('vec_personal_propietario','vec_autorizacion_propietario') AND rolcanlogin)
  THEN RAISE EXCEPTION 'Personal38: PARO clave=preimagen actual=incompatible esperado=Personal28_29_sin_38' USING ERRCODE='55000'; END IF;
  -- Personal37: sin ella ningún enlace se puede insertar.
  IF EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='vec_personal.enlace_cargo_competencial_historia'::regclass
@@ -53,7 +54,7 @@ CREATE FUNCTION vec_personal.localizar_enlace_cargo_ct_v1(
  p_organizacion_ref text,p_unidad_ref text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
-DECLARE c record;e record;n integer;ahora timestamptz(6);
+DECLARE c record;e record;ahora timestamptz(6);
 BEGIN
  IF current_user<>'vec_personal_propietario' OR session_user=current_user
   OR current_setting('transaction_isolation')<>'serializable'
@@ -62,6 +63,7 @@ BEGIN
   OR current_setting('role')<>'none'
   OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
   OR pg_has_role(session_user,'vec_personal_propietario','MEMBER')
+  OR pg_has_role(session_user,'vec_autorizacion_propietario','MEMBER')
   OR (p_cargo_ref ~ '^car_[A-Za-z0-9_-]{22,128}$') IS NOT TRUE
   OR (p_persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$') IS NOT TRUE
   OR (p_accion ~ '^[a-z][a-z0-9_.:-]{2,255}$') IS NOT TRUE
@@ -80,14 +82,7 @@ BEGIN
   OR c.organizacion_ref IS DISTINCT FROM p_organizacion_ref OR c.unidad_ref IS DISTINCT FROM p_unidad_ref
   OR ahora<c.vigente_desde OR ahora>=c.vigente_hasta
  THEN RAISE EXCEPTION 'cargo_localizacion_cargo_no_vigente' USING ERRCODE='42501'; END IF;
- SELECT count(*) INTO n
- FROM vec_personal.enlace_cargo_competencial_actual a
- JOIN vec_personal.enlace_cargo_competencial_historia h USING(enlace_ref,version)
- WHERE h.cargo_ref=p_cargo_ref AND h.cargo_version=c.version AND h.persona_ref=p_persona_ref
-  AND h.accion_ref=p_accion AND h.recurso_ref=p_tipo_recurso AND h.finalidad_ref=p_finalidad
-  AND h.estado='vigente' AND ahora>=h.vigente_desde AND ahora<h.vigente_hasta
-  AND a.huella_sha256=h.huella_sha256;
- IF n<>1 THEN RAISE EXCEPTION 'cargo_localizacion_ausente_o_ambigua' USING ERRCODE='42501'; END IF;
+ -- INTO STRICT: ninguno o más de uno salen por no_data_found/too_many_rows.
  SELECT h.* INTO STRICT e
  FROM vec_personal.enlace_cargo_competencial_actual a
  JOIN vec_personal.enlace_cargo_competencial_historia h USING(enlace_ref,version)
