@@ -234,6 +234,11 @@ test("la selección de llamamiento exige la fase de llamamiento", () => {
   assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
     expediente_ref: A, version_esperada: 7,
   });
+  // Clave real que registra el servidor en el historial del detalle.
+  estado.expediente.historial = [{ accion_clave: "contratacion_temporal.fiscalizacion.registrar", version_expediente: 7 }];
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7,
+  });
   estado.expediente.historial = [];
   delete estado.expediente.fiscalizacion;
   assert.deepEqual(contextoLlamamientoDesdeEstado(estado, {

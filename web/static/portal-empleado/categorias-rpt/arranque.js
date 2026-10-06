@@ -1,4 +1,4 @@
-import { crearClienteCategorias } from "./cliente.js?v=20261006-resumen-inicio-v1";
+import { crearClienteCategorias } from "./cliente.js?v=20261006-resumen-inicio-v2";
 import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
 import { montarVistaCategorias } from "./vista.js?v=20261001-rpt-categorias-v1";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
