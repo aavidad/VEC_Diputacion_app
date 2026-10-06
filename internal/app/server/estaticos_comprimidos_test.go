@@ -224,7 +224,7 @@ func TestCacheComprimidosCuentaUnaVezConPeticionesConcurrentes(t *testing.T) {
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			if entrada, ok := cache.obtener(dir, "/app.js"); !ok || entrada.cuerpo == nil {
+			if entrada, err := cache.obtener(dir, "/app.js"); err != nil || entrada.cuerpo == nil {
 				t.Error("sin variante comprimida")
 			}
 		}()
@@ -238,8 +238,8 @@ func TestCacheComprimidosCuentaUnaVezConPeticionesConcurrentes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "app.js"), append(contenido, "// v2\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	nueva, ok := cache.obtener(dir, "/app.js")
-	if !ok || cache.bytes != len(nueva.cuerpo) || nueva.etiqueta == entrada.etiqueta {
+	nueva, err := cache.obtener(dir, "/app.js")
+	if err != nil || cache.bytes != len(nueva.cuerpo) || nueva.etiqueta == entrada.etiqueta {
 		t.Fatalf("tras cambiar el fichero: %d B, guardado %d B", cache.bytes, len(nueva.cuerpo))
 	}
 }

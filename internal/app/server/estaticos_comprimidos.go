@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -76,15 +77,16 @@ func comprimirEstaticos(raiz func() (string, bool), siguiente http.Handler) http
 			siguiente.ServeHTTP(w, r)
 			return
 		}
-		entrada, ok := cacheEstaticosComprimidos.obtener(dir, ruta)
-		if !ok || entrada.cuerpo == nil {
-			siguiente.ServeHTTP(w, r)
+		// Cualquier fallo al preparar la variante comprimida deja la
+		// respuesta como antes: el servidor de ficheros decide 200/404.
+		if entrada, err := cacheEstaticosComprimidos.obtener(dir, ruta); err == nil && entrada.cuerpo != nil {
+			w.Header().Set("Content-Type", tipo)
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("ETag", entrada.etiqueta)
+			http.ServeContent(w, r, ruta, entrada.modificado, bytes.NewReader(entrada.cuerpo))
 			return
 		}
-		w.Header().Set("Content-Type", tipo)
-		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("ETag", entrada.etiqueta)
-		http.ServeContent(w, r, ruta, entrada.modificado, bytes.NewReader(entrada.cuerpo))
+		siguiente.ServeHTTP(w, r)
 	})
 }
 
@@ -113,15 +115,22 @@ func aceptaGzip(cabeceras http.Header) bool {
 	return false
 }
 
-func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, bool) {
+// errSinVariante indica que el fichero se sirve sin comprimir (no regular,
+// tamaño fuera de rango, lectura incompleta o caché lleno).
+var errSinVariante = errors.New("estaticos: sin variante comprimida")
+
+func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, error) {
 	fichero, err := http.Dir(dir).Open(ruta)
 	if err != nil {
-		return entradaComprimida{}, false
+		return entradaComprimida{}, err
 	}
 	defer fichero.Close()
 	info, err := fichero.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() < minimoBytesComprimir || info.Size() > maximoBytesComprimir {
-		return entradaComprimida{}, false
+	if err != nil {
+		return entradaComprimida{}, err
+	}
+	if !info.Mode().IsRegular() || info.Size() < minimoBytesComprimir || info.Size() > maximoBytesComprimir {
+		return entradaComprimida{}, errSinVariante
 	}
 	clave := dir + "\x00" + ruta
 	// Todo el fallo de caché va bajo el mismo bloqueo: cada versión se
@@ -132,21 +141,27 @@ func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, bool) {
 	defer c.mu.Unlock()
 	previa, existe := c.entrada[clave]
 	if existe && previa.tamano == info.Size() && previa.modificado.Equal(info.ModTime()) {
-		return previa, true
+		return previa, nil
 	}
 	if existe {
 		c.bytes -= len(previa.cuerpo)
 		delete(c.entrada, clave)
 	}
 	original, err := io.ReadAll(io.LimitReader(fichero, maximoBytesComprimir+1))
-	if err != nil || int64(len(original)) != info.Size() {
-		return entradaComprimida{}, false
+	if err != nil {
+		return entradaComprimida{}, err
+	}
+	if int64(len(original)) != info.Size() {
+		return entradaComprimida{}, errSinVariante
 	}
 	nueva := entradaComprimida{modificado: info.ModTime(), tamano: info.Size()}
 	var comprimido bytes.Buffer
 	escritor, _ := gzip.NewWriterLevel(&comprimido, gzip.BestCompression)
-	if _, err := escritor.Write(original); err != nil || escritor.Close() != nil {
-		return entradaComprimida{}, false
+	if _, err := escritor.Write(original); err != nil {
+		return entradaComprimida{}, err
+	}
+	if err := escritor.Close(); err != nil {
+		return entradaComprimida{}, err
 	}
 	if comprimido.Len() < len(original) {
 		nueva.cuerpo = bytes.Clone(comprimido.Bytes())
@@ -155,11 +170,11 @@ func (c *cacheComprimidos) obtener(dir, ruta string) (entradaComprimida, bool) {
 	}
 	if c.bytes+len(nueva.cuerpo) > maximoBytesCacheComprimo {
 		// Sin sitio: se sirve sin comprimir en vez de crecer sin límite.
-		return entradaComprimida{}, false
+		return entradaComprimida{}, errSinVariante
 	}
 	c.bytes += len(nueva.cuerpo)
 	c.entrada[clave] = nueva
-	return nueva, true
+	return nueva, nil
 }
 
 // directorioEstaticos resuelve la raíz de web/static igual que
