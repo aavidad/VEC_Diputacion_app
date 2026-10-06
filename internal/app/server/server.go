@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -696,24 +695,6 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// cacheSegunVersion: con ?v= la URL cambia con el contenido y se guarda un
-// año sin preguntar; sin versión se guarda pero se revalida siempre (304).
-func cacheSegunVersion(r *http.Request) string {
-	if r.URL.Query().Get("v") != "" {
-		return "public, max-age=31536000, immutable"
-	}
-	return "no-cache"
-}
-
-// fijarCacheEstatico sustituye la política no-store que securityHeaders pone
-// a toda respuesta y retira su Pragma: no-cache. Ese Pragma, heredado de
-// HTTP/1.0, junto a una política almacenable hacía que el navegador volviera
-// a preguntar por cada estático en cada recarga. Las API lo conservan.
-func fijarCacheEstatico(w http.ResponseWriter, politica string) {
-	w.Header().Set("Cache-Control", politica)
-	w.Header().Del("Pragma")
-}
-
 func staticFileServer() http.Handler {
 	for _, dir := range []string{"web/static", "../../../web/static"} {
 		info, err := os.Stat(dir)
@@ -741,18 +722,6 @@ func localeHandler() http.Handler {
 		fijarCacheEstatico(w, "no-cache")
 		ficheros.ServeHTTP(w, r)
 	})
-}
-
-// directorioLocales devuelve el directorio de traducciones, o "" si no hay.
-func directorioLocales() string {
-	for _, dir := range []string{"locales", "../../../locales"} {
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
-			if absoluto, err := filepath.Abs(dir); err == nil {
-				return absoluto
-			}
-		}
-	}
-	return ""
 }
 
 func localeFileServer() http.Handler {
