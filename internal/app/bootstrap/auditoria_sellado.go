@@ -11,7 +11,8 @@ import (
 )
 
 // rolSelladoAuditoria es el grupo NOLOGIN de AD207 que solo puede ejecutar
-// sellar_cadena_auditoria_v5. El LOGIN de la conexión pertenece solo a él.
+// sellar_cadena_auditoria_v5 y, con CT183, sellar_cadena_accesos_rrhh_v1.
+// El LOGIN de la conexión pertenece solo a él.
 const rolSelladoAuditoria = "vec_auditoria_encadenador"
 
 // pausaSelladoAuditoria: tras un lote pequeño se espera esto; si el lote pasa
@@ -40,7 +41,15 @@ func iniciarSelladoAuditoria(ctx context.Context, cfg config.Config) (func(), er
 	if err != nil {
 		return nada, err
 	}
-	sellador, err := vecpostgres.NuevoSelladorCadenaAuditoriaPostgreSQL(pool)
+	// CT183 es opcional: si está instalada, el mismo LOGIN sella también los
+	// accesos RRHH de Contratación temporal.
+	var accesosCT bool
+	if err = pool.QueryRow(ctx, `SELECT coalesce(has_function_privilege(
+		to_regprocedure('vec_contratacion_temporal.sellar_cadena_accesos_rrhh_v1(integer)'),'EXECUTE'),false)`).Scan(&accesosCT); err != nil {
+		pool.Close()
+		return nada, falloPostgreSQLCTDesarrollo(err)
+	}
+	sellador, err := vecpostgres.NuevoSelladorCadenaAuditoriaPostgreSQL(pool, accesosCT)
 	if err != nil {
 		pool.Close()
 		return nada, err
@@ -49,7 +58,7 @@ func iniciarSelladoAuditoria(ctx context.Context, cfg config.Config) (func(), er
 	return func() { detener(); pool.Close() }, nil
 }
 
-func mantenerSelladoAuditoria(sellar func(context.Context) (int, int, error), pausa time.Duration, esperar esperaRenovacionCTDesarrollo) func() {
+func mantenerSelladoAuditoria(sellar func(context.Context) (vecpostgres.ResultadoSelladoAuditoria, error), pausa time.Duration, esperar esperaRenovacionCTDesarrollo) func() {
 	ctx, cancelar := context.WithCancel(context.Background())
 	terminado := make(chan struct{})
 	go func() {
@@ -57,7 +66,7 @@ func mantenerSelladoAuditoria(sellar func(context.Context) (int, int, error), pa
 		fallando := false
 		for ctx.Err() == nil {
 			pasada, cancelarPasada := context.WithTimeout(ctx, 30*time.Second)
-			interna, externa, err := sellar(pasada)
+			resultado, err := sellar(pasada)
 			cancelarPasada()
 			switch {
 			case err != nil && ctx.Err() == nil:
@@ -71,7 +80,7 @@ func mantenerSelladoAuditoria(sellar func(context.Context) (int, int, error), pa
 					slog.Info("sellado de la cadena de auditoría recuperado")
 				}
 				fallando = false
-				if interna >= loteContinuoSelladoAuditoria || externa >= loteContinuoSelladoAuditoria {
+				if resultado.Mayor() >= loteContinuoSelladoAuditoria {
 					continue
 				}
 			}

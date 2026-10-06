@@ -1,4 +1,5 @@
-# AD207: cadena de auditoría con sellado diferido. Los escritores dejan de bloquear control_cadena_auditoria.
+# AD207 + CT183: cadenas de auditoría V3 (interna y externa) y de accesos RRHH de CT con sellado diferido.
+# Los escritores dejan de bloquear control_cadena_auditoria y control_cadena_accesos_rrhh.
 # Instalar después de todas las listas anteriores de autorizacion_atestada_v3 (descubre y reescribe los
 # escritores que haya; exige al menos los 21 conocidos). Una sola vez; sin DOWN.
 # Antes de arrancar vec-server con esta base:
@@ -9,8 +10,10 @@
 #   3. Comprobar: SELECT vec_autorizacion_atestada_v3.verificar_cadena_auditoria_v5(false) como propietario
 #      → estado verificada, pendientes cerca de 0 y sin_sellar_fuera_de_cola 0.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql
-# Plazo: sin sellador al día durante 10 s (sellado_auditoria_v5.plazo_maximo_segundos), los asientos nuevos se
+# Plazo: sin sellador al día durante 10 s (sellado_auditoria_v5 y sellado_acceso_rrhh_v1), los asientos nuevos se
 # rechazan y las operaciones auditadas fallan cerradas. Arrancar vec-server con el sellador justo después de instalar.
 # Sin vuelta atrás: una vez hay asientos con marcador, la cadena solo se verifica con los eslabones. Ante un problema
 # se para la aplicación; la cadena anterior y los eslabones siguen verificables. Las pruebas SQL antiguas que avanzan
-# control_cadena_auditoria (ad171…ad198, auditoria_intento_estructura) ya no aplican tras AD207.
+# control_cadena_auditoria (ad171…ad198, auditoria_intento_estructura) o control_cadena_accesos_rrhh (o405_*)
+# ya no aplican tras AD207 y CT183.
+deploy/postgresql/contratacion_temporal/migraciones/000183_cadena_accesos_rrhh_sellado_diferido.up.sql

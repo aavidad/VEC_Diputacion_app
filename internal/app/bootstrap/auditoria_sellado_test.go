@@ -15,21 +15,21 @@ import (
 func TestMantenerSelladoAuditoriaRepiteLotesLlenosYEsperaConColaVacia(t *testing.T) {
 	var llamadas, esperas atomic.Int32
 	hecho := make(chan struct{})
-	sellar := func(context.Context) (int, int, error) {
+	sellar := func(context.Context) (vecpostgres.ResultadoSelladoAuditoria, error) {
 		switch llamadas.Add(1) {
 		case 1:
-			return loteContinuoSelladoAuditoria, 0, nil // grande: sin espera
+			return vecpostgres.ResultadoSelladoAuditoria{Interna: loteContinuoSelladoAuditoria}, nil // grande: sin espera
 		case 2:
-			return 0, vecpostgres.LoteSelladoAuditoria, nil // lleno: sin espera
+			return vecpostgres.ResultadoSelladoAuditoria{AccesosCT: vecpostgres.LoteSelladoAuditoria}, nil // lleno: sin espera
 		case 3:
-			return 0, 0, errors.New("caida") // error: espera
+			return vecpostgres.ResultadoSelladoAuditoria{}, errors.New("caida") // error: espera
 		default:
 			select {
 			case <-hecho:
 			default:
 				close(hecho)
 			}
-			return 3, 0, nil // parcial: espera
+			return vecpostgres.ResultadoSelladoAuditoria{Externa: 3}, nil // parcial: espera
 		}
 	}
 	esperar := func(ctx context.Context, _ time.Duration) error {
