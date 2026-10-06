@@ -69,3 +69,16 @@ func TestBolsasRRHHCandidatosRegistraCausaYEstadoDelFallo(t *testing.T) {
 		t.Fatalf("estado=%d registro=%q", rec.Code, registro.String())
 	}
 }
+
+// Un error desconocido con valores no llega al registro: solo su tipo.
+func TestCausaFalloBolsaRRHHNoRegistraTextoDeErroresDesconocidos(t *testing.T) {
+	if causa := causaFalloBolsaRRHHDesarrollo(fmt.Errorf("strconv: parsing %q", "Antonio Reyes Álvarez")); strings.Contains(causa, "Antonio") {
+		t.Fatalf("texto de error desconocido en el registro: %q", causa)
+	}
+	if causa := causaFalloBolsaRRHHDesarrollo(fmt.Errorf("capa: %w", puertosbolsa.ErrSituacionParticipacionNoEncontrada)); causa != puertosbolsa.ErrSituacionParticipacionNoEncontrada.Error() {
+		t.Fatalf("centinela: %q", causa)
+	}
+	if causa := causaFalloBolsaRRHHDesarrollo(errBorradorNoDisponibleEn()); !strings.Contains(causa, "bolsa_rrhh_fallos_test.go:") {
+		t.Fatalf("rechazo B-BACK sin fichero y línea: %q", causa)
+	}
+}

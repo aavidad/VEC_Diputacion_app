@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
+	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -16,12 +18,26 @@ import (
 // maximoCausaFalloBolsaRRHH acota la línea de registro.
 const maximoCausaFalloBolsaRRHH = 240
 
+// centinelasFalloBolsaRRHH son los errores de texto fijo (sin datos) que
+// pueden llegar a estas rutas. Solo su texto va al registro.
+var centinelasFalloBolsaRRHH = []error{
+	dominiovec.ErrAutorizacionDenegada, dominiovec.ErrPermissionDenied, ErrSeguridadComunDesarrolloDenegada,
+	ErrComposicionDesarrolloIncompleta,
+	puertosbolsa.ErrContactoParticipacionNoDisponible, puertosbolsa.ErrContactoParticipacionNoEncontrado,
+	puertosbolsa.ErrSituacionParticipacionNoDisponible, puertosbolsa.ErrSituacionParticipacionNoEncontrada,
+	puertosbolsa.ErrConsultaEstadoCeseNoDisponible, puertosbolsa.ErrConsultaOrdenVigenteNoDisponible,
+	puertosbolsa.ErrConstitucionBolsaNoDisponible, puertosbolsa.ErrConstitucionBolsaInvalida,
+	puertosbolsa.ErrEmisionLlamamientoNoDisponible, puertosbolsa.ErrPoliticaAvisosNoDisponible,
+	importacionpg.ErrRepositorioNoDisponible, importacionpg.ErrResultadoNoConfiable, importacionapp.ErrStagingExpurgado,
+}
+
 // causaFalloBolsaRRHHDesarrollo describe un fallo de lectura de Bolsa RRHH
 // para el registro del servidor, nunca para la respuesta. De PostgreSQL y de
 // la conexión solo se da el código (sus mensajes pueden llevar valores o
-// datos de conexión); del resto, el texto del error: en estas rutas son
-// centinelas de texto fijo, a veces con fichero y línea del rechazo
-// (errBorradorNoDisponibleEn), sin datos de personas.
+// datos de conexión). Del resto, solo el texto de un centinela conocido de
+// la lista cerrada; el rechazo del montaje B-BACK añade fichero y línea
+// (errBorradorNoDisponibleEn). Cualquier otro error queda en su tipo, sin
+// su texto, para que un error futuro con valores no llegue al registro.
 func causaFalloBolsaRRHHDesarrollo(err error) string {
 	var pg *pgconn.PgError
 	var conexion *pgconn.ConnectError
@@ -31,8 +47,19 @@ func causaFalloBolsaRRHHDesarrollo(err error) string {
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled),
 		errors.As(err, &pg), errors.As(err, &conexion), errors.Is(err, pgx.ErrNoRows):
 		return causaFalloPostgreSQLCTDesarrollo(err)
+	case errors.Is(err, errBorradorLlamamientoDesarrolloNoDisponible):
+		return acotarCausaFalloBolsaRRHH(err.Error())
 	}
-	texto := strings.Join(strings.Fields(err.Error()), " ")
+	for _, centinela := range centinelasFalloBolsaRRHH {
+		if errors.Is(err, centinela) {
+			return centinela.Error()
+		}
+	}
+	return causaFalloPostgreSQLCTDesarrollo(err)
+}
+
+func acotarCausaFalloBolsaRRHH(texto string) string {
+	texto = strings.Join(strings.Fields(texto), " ")
 	if len(texto) > maximoCausaFalloBolsaRRHH {
 		texto = texto[:maximoCausaFalloBolsaRRHH]
 	}
