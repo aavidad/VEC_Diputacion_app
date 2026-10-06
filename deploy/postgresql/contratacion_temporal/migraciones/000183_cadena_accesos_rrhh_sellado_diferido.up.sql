@@ -101,6 +101,10 @@ AS $f$ BEGIN
  IF NEW.plazo_maximo_segundos IS DISTINCT FROM OLD.plazo_maximo_segundos OR NEW.control IS DISTINCT FROM OLD.control THEN
   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='plazo de accesos RRHH inmutable';
  END IF;
+ -- Un latido en el futuro desactivaría el plazo.
+ IF NEW.latido>pg_catalog.clock_timestamp() THEN
+  RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='latido en el futuro';
+ END IF;
  RETURN NEW;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.solo_latido_acceso_rrhh_v1() FROM PUBLIC;

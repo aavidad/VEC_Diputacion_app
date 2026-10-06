@@ -155,6 +155,11 @@ BEGIN
   RAISE EXCEPTION 'AD207 prueba: plazo modificable';
  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
  END;
+ BEGIN
+  UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=clock_timestamp()+interval '1 day';
+  RAISE EXCEPTION 'AD207 prueba: latido futuro admitido';
+ EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+ END;
 END $plazo_inmutable$;
 SELECT 'AD207 prueba: correcta' AS resultado;
 ROLLBACK;
