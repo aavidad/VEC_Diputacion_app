@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -73,11 +74,15 @@ type politicaOrdenRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
-	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	mutar     http.Handler
-	invalidar func()
-	contactos lectorContactosBolsaDesarrollo
-	avisos    *bolsaapplication.ServicioAvisosRRHH
+	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
+	// si faltan, se usa cargar con todo el detalle.
+	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar       http.Handler
+	invalidar   func()
+	contactos   lectorContactosBolsaDesarrollo
+	avisos      *bolsaapplication.ServicioAvisosRRHH
 }
 
 type lectorContactosBolsaDesarrollo interface {
@@ -98,6 +103,8 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	if fuente != nil {
 		manejador.avisos = fuente.avisos
+		manejador.resumen = fuente.cargarResumen
+		manejador.cargarBolsa = fuente.cargarBolsa
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
@@ -180,7 +187,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(r.Context(), w)
 		if !ok {
 			return
 		}
@@ -196,7 +203,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(r.Context(), w)
 		if !ok {
 			return
 		}
@@ -213,7 +220,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	vista, ok := h.vistaDurable(r.Context(), w)
+	vista, ok := h.vistaBolsa(r.Context(), w, bolsaRef)
 	if !ok {
 		return
 	}
@@ -292,15 +299,19 @@ func consultaAvisosRRHH(cruda string) (bolsaapplication.ConsultaAvisos, bool) {
 	return resultado, true
 }
 
+// cargarContactos lee los contactos de la bolsa por páginas. Cada página
+// consume su propia autorización V3, así que una página incompleta es la
+// última: pedir otra solo para recibirla vacía duplicaba la autorización.
 func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+	const porPagina = 100
 	cursor := ""
 	for pagina := 0; pagina < 100; pagina++ {
-		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, porPagina)
 		if err != nil {
 			return false
 		}
 		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
-		if p.CursorSiguiente == "" {
+		if p.CursorSiguiente == "" || len(p.Contactos) < porPagina {
 			return true
 		}
 		if p.CursorSiguiente == cursor {
@@ -314,6 +325,35 @@ func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsa
 func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
 	datos, err := h.cargar(ctx)
 	if err != nil {
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaResumen sirve el cuadro y las estadísticas: cada petición hace su
+// propia lectura, sin compartirla con otras peticiones.
+func (h *bolsasRRHHDesarrollo) vistaResumen(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.resumen == nil {
+		return h.vistaDurable(ctx, w)
+	}
+	datos, err := h.resumen(ctx)
+	if err != nil {
+		log.Printf("bolsa rrhh: resumen de bolsas no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaBolsa lee solo la bolsa pedida, con nombres y marcas.
+func (h *bolsasRRHHDesarrollo) vistaBolsa(ctx context.Context, w http.ResponseWriter, bolsaRef string) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.cargarBolsa == nil {
+		return h.vistaDurable(ctx, w)
+	}
+	datos, err := h.cargarBolsa(ctx, bolsaRef)
+	if err != nil {
+		log.Printf("bolsa rrhh: candidatos de la bolsa no legibles; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return nil, false
 	}
