@@ -7,4 +7,4 @@
 # Principal el 06/10/2026: postimagen de AD193.
 bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b
 # La misma más AD208 (#809), que solo cambia el SQLSTATE del rechazo de AD172.
-2270c2a3ce813bd192e6115c3d98941288fcdac85a3c7146c772b866b5edd6fe
+c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
