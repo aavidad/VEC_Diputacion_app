@@ -12,8 +12,8 @@
 -- 2. Fachada seleccionar_firmante_plan_ct_v1 para el ejecutor CT antes del
 --    PDP: persona del certificado (CA25), enlace vigente del cargo por tipo
 --    (Personal38) y la única asignación activa y vigente de esa persona con el
---    rol del paso. Devuelve la selección y las versiones y huellas de
---    asignación, rol y control; no escribe ni concede nada: AUT32/AUT35 y el
+--    rol del paso. Devuelve la selección, la cuenta y el vínculo del
+--    certificado, y las versiones y huellas de asignación, rol y control; no escribe ni concede nada: AUT32/AUT35 y el
 --    consumo V3 vuelven a comprobarlo todo en la transacción de la firma.
 -- Requiere AUT35, CA25 y Personal38. Una sola vez; sin DOWN.
 BEGIN;
@@ -115,6 +115,9 @@ BEGIN
   FOR SHARE OF x,p,r,c,v;
  RETURN pg_catalog.jsonb_build_object('esquema','vec.autorizacion.seleccion-firmante-plan.ct.v1',
   'persona_ref',ca->>'persona_ref','perfil_activo_ref',a.perfil_activo_ref,'rol_id',p_rol_id,
+  'cuenta_ref',ca#>>'{vinculo_certificado,cuenta_ref}',
+  'vinculo_certificado',pg_catalog.jsonb_build_object('referencia',ca#>>'{vinculo_certificado,referencia}',
+   'version',ca#>'{vinculo_certificado,version}','huella_sha256',ca#>>'{vinculo_certificado,huella_sha256}'),
   'cargo_ref',p_cargo_ref,'enlace_ejercicio_ref',en#>>'{enlace,referencia}',
   'asignacion',pg_catalog.jsonb_build_object('referencia',a.asignacion_ref,'version',a.version,'huella_sha256',a.huella_sha256,
    'vigente_desde',a.documento->'vigente_desde','vigente_hasta',a.documento->'vigente_hasta'),

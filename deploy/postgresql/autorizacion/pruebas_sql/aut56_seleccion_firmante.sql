@@ -120,7 +120,8 @@ SET LOCAL timezone='UTC';
 SELECT pg_temp.sel(current_setting('aut56.der'),current_setting('aut56.rol'),current_setting('aut56.uni'))::text AS s \gset
 SELECT pg_temp.exigir(CASE WHEN (:'s'::jsonb)->>'enlace_ejercicio_ref'='enc_AUT56TITULARAAAAAAAAAAAAA'
  AND (:'s'::jsonb)->>'perfil_activo_ref'='prf_aut56_sintetico_cccccccccccc' AND (:'s'::jsonb)->>'persona_ref'='per_aut56_sintetica_bbbbbbbbbbbb'
- AND (:'s'::jsonb)#>>'{asignacion,referencia}'='asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1' AND (:'s'::jsonb)#>>'{rol,referencia}'=current_setting('aut56.rol')||'' IS NOT NULL
+ AND (:'s'::jsonb)#>>'{asignacion,referencia}'='asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1' AND (:'s'::jsonb)->>'cuenta_ref'='cta_aut56_sintetica_aaaaaaaaaaaa'
+ AND (:'s'::jsonb)#>>'{vinculo_certificado,referencia}'='vcc_aut56_sintetico_ffffffffffff' AND (:'s'::jsonb)#>>'{vinculo_certificado,version}'='1' AND (:'s'::jsonb)#>>'{rol,referencia}'=current_setting('aut56.rol')||'' IS NOT NULL
  THEN 'OK seleccion_positiva' ELSE 'FALLO seleccion_positiva '||:'s' END);
 SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(current_setting('aut56.der'),'otro_rol_aut56',current_setting('aut56.uni')) ? 'denegado'
  THEN 'OK otro_rol_denegado' ELSE 'FALLO otro_rol_denegado' END);

@@ -18,7 +18,8 @@ concreto. Decisión de dirección del 05/10.
   - la única asignación activa y vigente de esa persona con el rol del paso,
     dentro de la organización y, si la asignación la tiene, de la unidad.
 
-  Devuelve la selección (perfil activo, rol, cargo y enlace) y las versiones y
+  Devuelve la selección (perfil activo, rol, cargo y enlace), la cuenta y el
+vínculo del certificado, y las versiones y
   huellas de la asignación, el rol y el control. No escribe ni concede nada.
   Ninguna o más de una asignación se deniegan.
 
