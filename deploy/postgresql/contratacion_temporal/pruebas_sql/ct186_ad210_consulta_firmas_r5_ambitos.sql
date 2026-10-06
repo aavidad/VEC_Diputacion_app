@@ -103,6 +103,7 @@ SET SESSION AUTHORIZATION prueba_ct186_ct;
 SELECT pg_temp.ok('forma_unidad_en_las_v3',
  pg_temp.v3('consultar_firmas_r5_atestadas_v3','123')='22023' AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3','123')='22023'
  AND pg_temp.v3('consultar_firmas_r5_atestadas_v3','"unidad con espacios"')='22023'
+ AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3','"unidad con espacios"')='22023'
  AND pg_temp.v3('consultar_firmas_r5_atestadas_v3','"unidad:x"','portafirmas_registro_rrhh')='22023'
  AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3','"unidad:x"','portafirmas_registro_rrhh')='22023'
  AND pg_temp.v3('consultar_firmas_r5_atestadas_v3','"unidad:x"')='42501' AND pg_temp.v3('recuperar_firmas_r5_atestadas_v3','"unidad:x"')='42501'
