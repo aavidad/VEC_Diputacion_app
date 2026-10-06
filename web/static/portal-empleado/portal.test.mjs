@@ -6,7 +6,6 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
@@ -14,7 +13,7 @@ import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);
-const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
@@ -26,7 +25,6 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("portal-llamamientos-api.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-flujo.js", directorio), "utf8"),
   readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
-  readFile(new URL("datos-presentacion.js", directorio), "utf8"),
   readFile(new URL("ayuda-contenido.js", directorio), "utf8"),
   readFile(new URL("portal.css", directorio), "utf8"),
   readFile(new URL("portal-componentes.css", directorio), "utf8"),
@@ -235,8 +233,6 @@ test("el contrato real exige envelope canónico y rechaza una raíz raw", () => 
 test("el panel global prohíbe candidatos y no habilita el contrato de propuesta sintética", () => {
   const panel = { ...panelInternoReal(), candidatos: [] };
   assert.throws(() => validarPanelBolsa(panel), /no admite listados/);
-  assert.doesNotMatch(datos, /\bcandidatos\s*:/);
-  assert.doesNotMatch(datos, /\bdni\s*:/i);
   assert.doesNotMatch(codigo, /data-candidato|Nombre o DNI parcial|filtros-candidatos/);
   assert.doesNotMatch(contratoLlamamientos, /validarPropuestaLlamamientoPresentacion/);
   assert.doesNotMatch(javascript, /obtenerPropuestaPresentacion|validarPropuestaLlamamientoPresentacion/);
@@ -301,7 +297,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.match(noConectada, /Sección todavía no disponible/);
   assert.doesNotMatch(noConectada, /<table|valor-kpi|<input|<select/);
 
-  fuente = validarPanelBolsa(obtenerDatosPresentacion(), true);
+  fuente = { esquema: "vec.bolsa.panel.presentacion.v1" };
   assert.equal(presentador.esActivo(), false);
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
@@ -414,7 +410,6 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(apiLlamamientos, /if \(capacidad !== true\)/);
   assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
-  assert.match(datos, /solicitar_propuesta_llamamiento: false/);
   assert.match(flujoLlamamientos, /cliente\.solicitar\(\{ necesidadId, capacidad \}\)/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
@@ -422,16 +417,11 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(Object.values(MENSAJES_PORTAL).join("\n"), /Detalle no disponible/);
   assert.doesNotMatch(javascript, /portal-llamamientos-vista\.js/);
   assert.doesNotMatch(eventos, /ejecutarOperacionPresentacion/);
-  // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna
-  // «Puntuación» en las incidencias de importación es un texto, no una puntuación.
-  assert.doesNotMatch(datos, /puntuaci[oó]n[a-z_]*\s*:/i);
   assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 
 test("el producto no activa los datos aislados por query ni expone su aviso", () => {
-  const presentacion = validarPanelBolsa(obtenerDatosPresentacion(), true);
-  assert.equal(presentacion.esquema, "vec.bolsa.panel.presentacion.v1");
-  assert.ok(presentacion.bolsas.length > 0);
+  assert.throws(() => validarPanelBolsa({ esquema: "vec.bolsa.panel.presentacion.v1" }), /no compatible/);
   assert.doesNotMatch(javascript, /getAll\("presentacion"\)|getAll\("perfil"\)/);
   assert.doesNotMatch(javascript, /import\("\.\/datos-presentacion\.js/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
