@@ -28,8 +28,8 @@ BEGIN
      'vec_autorizacion_atestada_v3.consumir_plan_firma_ct_v3_atestada(text,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  THEN RAISE EXCEPTION 'CT185: PARO clave=AD209 actual=ausente esperado=instalada' USING ERRCODE='55000'; END IF;
  IF pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(
-     'vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')
+ OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(
+     'vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),'UTF8')),'hex')
      IS DISTINCT FROM 'f6417b515afa4eeb5eb0de0d4598a5189a5b1eafbe0ac879764f83eef3d204d8'
  THEN RAISE EXCEPTION 'CT185: PARO clave=CT181 actual=distinto esperado=definicion_medida' USING ERRCODE='55000'; END IF;
  IF pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_firma_con_plan_v4(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL

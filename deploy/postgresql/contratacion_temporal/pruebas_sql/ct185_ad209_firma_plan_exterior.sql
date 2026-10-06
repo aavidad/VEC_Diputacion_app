@@ -34,7 +34,7 @@ CREATE FUNCTION pg_temp.canon(org text,uni text,sol text,env bytea) RETURNS text
  SELECT encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||org||'"'||CASE WHEN uni IS NULL THEN '' ELSE ',"unidad_ref":"'||uni||'"' END||
   '},"atributos":{"material_sha256":"'||encode(sha256(convert_to(sol,'UTF8')),'hex')||'","plan_firma_sha256":"'||encode(sha256(env),'hex')||'"}}','UTF8')),'hex')
 $f$;
--- 0. Valor común con Go (firmaautorizacionv2.TestRecursoPlanConUnidadIgualQueSQL):
+-- 0. Valor común con Go (firmaemisorv2.TestFirmaV2HuellaPlanConUnidadIgualQueSQL):
 -- mismas entradas, misma huella que calcula el PDP.
 SELECT pg_temp.ok('canon_comun_con_go',pg_temp.canon('org_fija','unidad:fija',
  '{"Via":"certificado_vec","OrganizacionRef":"org_fija","UnidadFirmanteRef":"unidad:fija"}','\x7b2265223a317d'::bytea)
@@ -71,4 +71,12 @@ SELECT pg_temp.ok('v4_con_ad209_y_v3_cerrada',
  AND NOT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion_atestada_v3.consumir_plan_firma_ct_v2_atestada(text,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion_atestada_v3.huella_recurso_plan_firma_ct_v1(text,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion_atestada_v3.consumir_plan_firma_ct_v3_atestada(text,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'));
+-- 9. Unidad no canónica en la asignación (con comilla): se deniega y no entra
+-- en la cadena de la huella. Se siembra sólo dentro de este ROLLBACK.
+SET LOCAL session_replication_role=replica;
+UPDATE vec_autorizacion.asignacion_perfil SET documento=jsonb_set(documento,'{ambitos}',(SELECT jsonb_agg(CASE WHEN e->>'clave'='unidad_ref'
+  THEN jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array('unidad"x')) ELSE e END) FROM jsonb_array_elements(documento->'ambitos') e))
+ WHERE asignacion_ref=(:'a2'::jsonb)->>'asignacion_ref';
+SET LOCAL session_replication_role=origin;
+SELECT pg_temp.ok('unidad_no_canonica_denegada',pg_temp.huella(jsonb_set(:'s2'::jsonb,'{UnidadFirmanteRef}','"unidad\"x"')::text,:'env'::bytea,:'a2'::jsonb) LIKE 'denegado:%');
 ROLLBACK;
