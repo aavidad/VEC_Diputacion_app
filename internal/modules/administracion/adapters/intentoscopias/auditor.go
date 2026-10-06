@@ -5,6 +5,7 @@ import (
 
 	http "vec-diputacion-granada/internal/modules/administracion/adapters/httpcopias"
 	p "vec-diputacion-granada/internal/modules/administracion/ports/httpcopias"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	d "vec-diputacion-granada/internal/vec/domain"
 	v "vec-diputacion-granada/internal/vec/ports"
 )
@@ -33,7 +34,7 @@ func (a *Auditor) Registrar(ctx context.Context, intento http.Denegacion) error 
 	if ctx == nil || a == nil || ausente(a.fuente) || ausente(a.registro) || a.noNominal == nil {
 		return p.ErrNoDisponible
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.config.Plazo)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(a.config.Plazo))
 	defer cancel()
 	motivo, existe := a.config.Motivos[intento.Codigo]
 	if !existe {

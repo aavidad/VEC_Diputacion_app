@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -72,7 +73,7 @@ func nuevaFuenteRetribucionesDesarrollo(ruta string, reloj reglas.Reloj) (*fuent
 		return nil, errors.Join(errRetribucionesCTNoValidas, err)
 	}
 	fuente := &fuenteRetribucionesDesarrollo{resolutor: resolutor}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	filas, ejemplo, err := fuente.tabla(ctx)
 	if err != nil || len(filas) == 0 || !ejemplo {

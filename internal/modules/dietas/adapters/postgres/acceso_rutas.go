@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const funcionConsumirAccesoRutas = "SELECT decision_ref, efecto_ref, huella_efecto_sha256, consumo_huella_sha256, auditoria_ref, consumida_en, consumo_nuevo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_acceso_rutas_dietas_v3_atestada($1::bytea,$2::bytea,$3::bytea,$4::bytea,$5::numeric,$6::numeric,$7::bytea,$8::bytea,$9::bytea,$10::bytea)"
@@ -45,7 +46,7 @@ func (r *RepositorioAccesoRutas) ConsumirAccesoRutasDietas(ctx context.Context, 
 		return dietasports.ReciboAccesoRutasDietas{}, errorAccesoRutas(ctx, err)
 	}
 	defer func() {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(c)
 	}()

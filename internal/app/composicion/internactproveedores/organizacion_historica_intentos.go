@@ -9,6 +9,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -163,7 +164,7 @@ func (c *ConsultaOrganizacionHistoricaConIntentos) Consultar(ctx context.Context
 	if err != nil {
 		return vacio, personal.ErrOrganizacionHistoricaNoDisponible
 	}
-	capturaCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	capturaCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	identidad, org, unidad, err := c.fuente.ContextoOriginalOrganizacionHistoricaParaAuditoria(capturaCtx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
@@ -180,7 +181,7 @@ func (c *ConsultaOrganizacionHistoricaConIntentos) Consultar(ctx context.Context
 	}
 	ctx = context.WithValue(ctx, claveIntentoOrganizacionHistorica{}, &intentoOrganizacionHistorica{identidad: identidad, organismo: org, unidad: unidad, referencia: ref, correlacion: refCorrelacion})
 	if !reflect.DeepEqual(s.Actor, copia.Contexto) || s.Selector.OrganismoRef != org || (unidad != "" && s.Selector.UnidadClave != unidad) {
-		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		if c.registro.RegistrarIntentoConsultaOrganizacionHistorica(auditCtx, personalports.IntentoConsultaOrganizacionHistorica{Motivo: "denegado"}) != nil {
 			return vacio, personal.ErrOrganizacionHistoricaNoDisponible

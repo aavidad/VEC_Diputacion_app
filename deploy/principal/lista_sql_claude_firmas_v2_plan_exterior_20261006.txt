@@ -1,0 +1,9 @@
+# AD209 + CT185: la decisión exterior de firma V2 (la del plan publicado) lleva, como la interior desde AD206/CT181,
+# los ámbitos de la asignación de quien firma: organización y, si la tiene, unidad, que en la vía VEC debe ser la del
+# paso del plan. Sin unidad, la huella es la de siempre. Sucesores con sustituciones medidas sobre AD177 v2 (1844f8de…)
+# y la v3 de CT181 (f6417b51…); el ejecutor CT pasa de registrar_firma_con_plan_v3 a la v4 y AD177 v2 se cierra para el
+# propietario CT. Requiere AD206 y CT181 (lista lista_sql_claude_firmas_v2_unidad_20261006.txt) instaladas antes.
+# Desplegar a la vez el binario que llama a la v4. Con esto un firmante con unidad completa la firma por la vía VEC;
+# la vía externa sigue sólo con organización hasta su corte. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000209_firma_plan_exterior_ambitos_asignacion.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000185_firma_plan_exterior_ambitos_asignacion.up.sql

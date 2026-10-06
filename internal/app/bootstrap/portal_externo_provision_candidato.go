@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/config"
 	core "vec-diputacion-granada/internal/vec/domain"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -159,7 +160,7 @@ func EjecutarProvisionCandidatoExterno(ctx context.Context, cfg config.Config, d
 }
 
 func revertirProvisionExterna(ctx context.Context, tx pgx.Tx) error {
-	limite, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	limite, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if err := tx.Rollback(limite); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 		return ErrProvisionCandidatoExterno

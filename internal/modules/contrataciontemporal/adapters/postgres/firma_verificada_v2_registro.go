@@ -12,13 +12,14 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var _ ports.RegistroFirmasVerificadasV2 = (*RegistroFirmasVerificadasPostgreSQL)(nil)
 
 // CT181: la v3 calcula la huella interior con los ámbitos de la asignación
 // de quien firma (AD206). El ejecutor CT no la ejecuta directamente: toda
-// firma V2 entra por CT176 v3 (registrar_firma_con_plan_v3), que liga tipo,
+// firma V2 entra por registrar_firma_con_plan_v4 (CT185), que liga tipo,
 // acción, finalidad, cargo y enlace al plan publicado; la composición nunca
 // usa este registro directo (sólo su consulta).
 const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_verificada_v3($1,$2::timestamptz,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13)::text`
@@ -99,7 +100,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) registrarFirmaV2UnaVez(ctx context
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(ctxRollback); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de registro de firma V2 no confirmado")

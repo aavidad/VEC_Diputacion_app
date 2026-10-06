@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // LectorPreparacionCierreAdministrativoPostgreSQL es una dependencia interna de
@@ -42,7 +43,7 @@ func (l *LectorPreparacionCierreAdministrativoPostgreSQL) ConsultarPreparacionCi
 		return cero, errorConsultaPreparacionCierre87(ctx)
 	}
 	defer func() {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(c)
 	}()

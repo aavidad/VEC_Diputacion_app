@@ -69,7 +69,10 @@ SELECT pg_temp.ok('v3_con_ad206_y_v2_cerradas',
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_con_plan_v2(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
- AND has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ -- Tras CT185 el ejecutor pasa de la v3 a la v4 (huella exterior de AD209).
+ AND has_function_privilege('vec_contratacion_temporal_ejecutor',coalesce(
+   to_regprocedure('vec_contratacion_temporal.registrar_firma_con_plan_v4(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+   'vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion_atestada_v3.huella_recurso_firma_interior_ct_v1(text,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion.ambitos_asignacion_firma_ct_v1(text,text,text,text,text)','EXECUTE'));
 ROLLBACK;

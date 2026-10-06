@@ -1,0 +1,9 @@
+# CC10 + AD210 + CT186: la consulta y la recuperación R5 V2 llevan los ámbitos de la asignación de quien consulta:
+# organización y, si la tiene, unidad, que va en UnidadRef del material (sólo vía VEC) y debe ser la de un paso del
+# plan nominal de firma publicado y vigente (CC10). Sin unidad se comportan como antes. Sucesoras medidas de CT172
+# (845d0f2c…) y CT175 (99011808…); el ejecutor CT pasa de las v2 a las v3. Requiere CC7, CC8 y AD206 (lista
+# lista_sql_claude_firmas_v2_unidad_20261006.txt) instaladas antes. Desplegar a la vez el binario que llama a las v3.
+# Una sola vez; sin DOWN.
+deploy/postgresql/catalogos_configurables/migraciones/000010_paso_plan_firma_con_unidad.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000210_consulta_firmas_r5_ambitos_asignacion.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000186_consulta_firmas_r5_ambitos_asignacion.up.sql

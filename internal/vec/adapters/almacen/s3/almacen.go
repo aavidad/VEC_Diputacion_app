@@ -21,6 +21,7 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/transport/http"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -852,7 +853,7 @@ func (a *Almacen) falloPosteriorPut(
 	if ctx != nil {
 		base = context.WithoutCancel(ctx)
 	}
-	compensacion, cancelar := context.WithTimeout(base, 10*time.Second)
+	compensacion, cancelar := context.WithTimeout(base, plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	version := ""
 	if respuesta != nil {

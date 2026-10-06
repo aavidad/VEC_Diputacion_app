@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -244,7 +245,7 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx 
 		if plazo <= 0 {
 			plazo = plazoIntentoRenovacionProgramadaCTDesarrollo
 		}
-		intento, cancelarIntento := context.WithTimeout(ctx, plazo)
+		intento, cancelarIntento := context.WithTimeout(ctx, plazoarranque.Ampliar(plazo))
 		_, err := f.instantanea(intento)
 		cancelarIntento()
 		if ctx.Err() != nil {

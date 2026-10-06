@@ -55,12 +55,16 @@ func exportacionRegistroPlanPrueba(t *testing.T, m ports.MaterialFirmaVerificada
 }
 
 func capacidadInteriorRegistroPlanPrueba(t *testing.T, m ports.MaterialFirmaVerificadaV2, d ports.DescriptorConstructorFirmaV2) ports.CapacidadFirmaVerificadaV2 {
+	return capacidadInteriorConAmbitosRegistroPlanPrueba(t, m, d, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef})
+}
+
+func capacidadInteriorConAmbitosRegistroPlanPrueba(t *testing.T, m ports.MaterialFirmaVerificadaV2, d ports.DescriptorConstructorFirmaV2, a ports.AmbitosOperadorFirmaV2) ports.CapacidadFirmaVerificadaV2 {
 	t.Helper()
 	descriptor, err := firma.CanonicoDescriptorFirmaVerificadaV2(m, d)
 	if err != nil {
 		t.Fatal(err)
 	}
-	recurso, err := firma.RecursoFirmaVerificadaV2(m, descriptor)
+	recurso, err := firma.RecursoFirmaVerificadaV2ConAmbitos(m, descriptor, a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +77,10 @@ type emisorRegistroPlanPrueba struct {
 	t       *testing.T
 	actor   string
 	errores int
+	// recibido es el recurso exterior pedido; soloOrganizacion emite la
+	// decisión exterior sin la unidad aunque el recurso la lleve.
+	recibido         vd.RecursoAutorizable
+	soloOrganizacion bool
 }
 
 func (e *emisorRegistroPlanPrueba) AutorizarMaterialPlanFirmaV2(_ context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -82,6 +90,10 @@ func (e *emisorRegistroPlanPrueba) AutorizarMaterialPlanFirmaV2(_ context.Contex
 	actor := m.FirmantePrincipalRef
 	if e.actor != "" {
 		actor = e.actor
+	}
+	e.recibido = r
+	if e.soloOrganizacion {
+		r.Ambitos = map[string]string{"organizacion_ref": m.OrganizacionRef}
 	}
 	return exportacionRegistroPlanPrueba(e.t, m, r, "decision:firma:exterior", actor), nil
 }
@@ -127,6 +139,37 @@ func TestRegistroConPlanUsaFuenteYUnaEscritura(t *testing.T) {
 	}
 	if _, err := r.ConsultarFirmasAutorizadasV2(t.Context(), ports.MaterialConsultaFirmasR5V2{}, ports.CapacidadConsultaFirmasR5V2{}); err != nil || consulta.consultas != 1 {
 		t.Fatal("consulta anterior no delegada")
+	}
+}
+
+// La decisión exterior lleva los mismos ámbitos que la interior: si la
+// interior se emitió con la unidad de la asignación, el recurso exterior la
+// lleva, y una exterior sin ella se rechaza antes de escribir.
+func TestRegistroConPlanExteriorConLosAmbitosDeLaInterior(t *testing.T) {
+	for _, soloOrganizacion := range []bool{false, true} {
+		f, m, _, _, _ := descriptorPrueba(t, 1)
+		d, err := f.DescriptorPlanFijadoFirmaV2(t.Context(), m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		interior := capacidadInteriorConAmbitosRegistroPlanPrueba(t, m, d.Descriptor,
+			ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: m.UnidadFirmanteRef})
+		emisor := &emisorRegistroPlanPrueba{t: t, soloOrganizacion: soloOrganizacion}
+		escritor := &escritorRegistroPlanPrueba{}
+		r, err := firma.NuevoRegistroConPlanV2(f, emisor, escritor, &consultaRegistroPlanPrueba{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = r.RegistrarFirmaVerificadaV2(t.Context(), m, interior)
+		if emisor.recibido.Ambitos["unidad_ref"] != m.UnidadFirmanteRef || len(emisor.recibido.Ambitos) != 2 {
+			t.Fatalf("recurso exterior sin la unidad de la interior: %v", emisor.recibido.Ambitos)
+		}
+		if soloOrganizacion && (!errors.Is(err, ports.ErrFirmaDocumentoDenegada) || escritor.llamadas != 0) {
+			t.Fatalf("exterior sin unidad aceptada: %v", err)
+		}
+		if !soloOrganizacion && (err != nil || escritor.llamadas != 1) {
+			t.Fatalf("exterior con unidad denegada: %v", err)
+		}
 	}
 }
 

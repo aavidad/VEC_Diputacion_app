@@ -17,6 +17,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -291,7 +292,7 @@ func (a *Almacen) eliminarVersionCargaDirecta(ctx context.Context, sesionRef, ve
 		return ports.ErrSesionCargaDirectaNoValida
 	}
 	base := context.WithoutCancel(ctx)
-	limpieza, cancelar := context.WithTimeout(base, 10*time.Second)
+	limpieza, cancelar := context.WithTimeout(base, plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	_, err := a.cliente.DeleteObject(limpieza, &awss3.DeleteObjectInput{
 		Bucket: awsv2.String(a.configuracion.BucketCuarentena), Key: awsv2.String(claveCargaDirecta(sesionRef)),

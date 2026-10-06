@@ -24,6 +24,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -261,7 +262,7 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{
 		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},

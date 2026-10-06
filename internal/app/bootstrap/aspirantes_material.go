@@ -20,6 +20,7 @@ import (
 	aspirantesports "vec-diputacion-granada/internal/modules/aspirantes/ports"
 	"vec-diputacion-granada/internal/vec/datospersonales"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -163,7 +164,7 @@ func preflightSQLAspirantesDesarrollo(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	pool, err := abrirPoolAspirantes(ctx, c.DSNAspirantes)
 	if err != nil {

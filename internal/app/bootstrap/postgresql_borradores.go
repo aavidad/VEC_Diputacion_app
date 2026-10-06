@@ -11,6 +11,7 @@ import (
 
 	"vec-diputacion-granada/config"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -79,7 +80,7 @@ func nuevosPoolsPostgreSQLBorradores(
 			pools.Close()
 			return nil, errorPostgreSQLBorradoresCerrado(ctx, ErrConexionPostgreSQLBorradoresNoDisponible)
 		}
-		ctxSonda, cancelar := context.WithTimeout(ctx, duracionSondaPostgreSQLBorradores)
+		ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionSondaPostgreSQLBorradores))
 		err = pool.Ping(ctxSonda)
 		cancelar()
 		if err != nil {

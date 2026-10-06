@@ -3,6 +3,7 @@ package interna
 import (
 	"context"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -30,7 +31,7 @@ func acreditarPoolPersonalB2(ctx context.Context, pool *pgxpool.Pool, login stri
 			return ErrPoolsSeguimientoNoDisponibles
 		}
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	const consulta = `
 SELECT count(*)=11 AND NOT COALESCE(bool_or(pg_catalog.has_table_privilege(

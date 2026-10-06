@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const RutaHistoriaRelacionesPropia = "/api/interna/personal/mi-ficha/relaciones/historia"
@@ -131,7 +132,7 @@ func (m *ManejadorHistoriaRelacionesPropia) ServeHTTP(w http.ResponseWriter, r *
 	responderFichaPropia(w, 200, "", map[string]any{"data": map[string]any{"historia": historia, "consultada_en": resultado.Evidencia.ConsultadaEn.UTC().Format("2006-01-02T15:04:05.000000Z"), "recibo_ref": resultado.Evidencia.ReciboRef}})
 }
 func (m *ManejadorHistoriaRelacionesPropia) rechazar(w http.ResponseWriter, r *http.Request, estado int, codigo, motivo string) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	if m.registro.RegistrarIntentoHistoriaRelacionesPropia(ctx, ports.IntentoHistoriaRelacionesPropia{Motivo: motivo}) != nil {
 		estado, codigo = 503, "no_disponible"

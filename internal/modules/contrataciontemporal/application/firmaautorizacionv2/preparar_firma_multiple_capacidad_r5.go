@@ -32,11 +32,20 @@ func RecursoFirmaVerificadaV2ConAmbitos(m ports.MaterialFirmaVerificadaV2, descr
 }
 
 func ValidarCapacidadFirmaVerificadaV2(c ports.CapacidadFirmaVerificadaV2, m ports.MaterialFirmaVerificadaV2) error {
+	_, err := AmbitosCapacidadFirmaVerificadaV2(c, m)
+	return err
+}
+
+// AmbitosCapacidadFirmaVerificadaV2 valida la capacidad interior y devuelve los
+// ámbitos con los que se emitió, que son los de la asignación de quien firma.
+// La decisión exterior del plan debe llevar los mismos.
+func AmbitosCapacidadFirmaVerificadaV2(c ports.CapacidadFirmaVerificadaV2, m ports.MaterialFirmaVerificadaV2) (ports.AmbitosOperadorFirmaV2, error) {
+	var cero ports.AmbitosOperadorFirmaV2
 	descriptor, huella := c.ExportarDescriptorParaConsumidor()
 	defer clear(descriptor)
 	calculada := sha256.Sum256(descriptor)
 	if huella != hex.EncodeToString(calculada[:]) {
-		return ports.ErrFirmaDocumentoDenegada
+		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	a := c.ExportarMaterialParaConsumidor()
 	resumen := a.ResumenCapacidad()
@@ -45,21 +54,21 @@ func ValidarCapacidadFirmaVerificadaV2(c ports.CapacidadFirmaVerificadaV2, m por
 		accion, audiencia = ports.AccionRegistrarFirmaVec, ports.AudienciaFirmaVecV2
 	}
 	if a.ValidarEstructura() != nil || resumen.Operacion() != accion || resumen.AudienciaConsumo() != audiencia {
-		return ports.ErrFirmaDocumentoDenegada
+		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	// Quien registra no conoce la asignación del firmante: sólo admite los dos
 	// recursos que el material permite. AD206 fija el exacto en el consumo.
 	for _, ambitos := range ambitosPosiblesFirmaVerificadaV2(m) {
 		r, err := RecursoFirmaVerificadaV2ConAmbitos(m, descriptor, ambitos)
 		if err != nil {
-			return ports.ErrFirmaDocumentoDenegada
+			return cero, ports.ErrFirmaDocumentoDenegada
 		}
 		h, err := r.HuellaContextoAutorizacionSHA256()
 		if err == nil && resumen.EfectoRef() == r.Referencia && resumen.EfectoHuellaSHA256() == h {
-			return nil
+			return ambitos, nil
 		}
 	}
-	return ports.ErrFirmaDocumentoDenegada
+	return cero, ports.ErrFirmaDocumentoDenegada
 }
 
 func ambitosPosiblesFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2) []ports.AmbitosOperadorFirmaV2 {
@@ -89,6 +98,8 @@ func RecursoConsultaFirmasR5V2(m ports.MaterialConsultaFirmasR5V2) (vecdomain.Re
 	if err != nil {
 		return vecdomain.RecursoAutorizable{}, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	ambitos := map[string]string{"organizacion_ref": m.OrganizacionRef}
+	// Los ámbitos de la asignación de quien consulta: organización y, si el
+	// material trae UnidadRef, esa unidad (AD210 la relee en el consumo).
+	ambitos := ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: m.UnidadRef}.Mapa()
 	return vecdomain.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: ambitos, Atributos: map[string]string{"material_sha256": h}}, nil
 }

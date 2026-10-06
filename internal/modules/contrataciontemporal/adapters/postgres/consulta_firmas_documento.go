@@ -12,6 +12,7 @@ import (
 	application "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // LectorFirmasDocumentoAutorizadasPostgreSQL consulta CT con consumo V3,
@@ -162,7 +163,7 @@ func (l *LectorFirmasDocumentoAutorizadasPostgreSQL) ConsultarFirmasAutorizadas(
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			_ = tx.Rollback(c)
 		}

@@ -2,6 +2,7 @@ package firmaemisorv2
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	firma "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
@@ -27,6 +28,9 @@ func (e *Emisor) AutorizarConsultaFirmasR5V2(ctx context.Context, m ports.Materi
 	}
 	base, err := e.contexto(ctx)
 	if err != nil {
+		return cero, err
+	}
+	if err := e.cotejarAmbitosConsulta(ctx, base, recurso); err != nil {
 		return cero, err
 	}
 	correlacion, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
@@ -80,3 +84,21 @@ func (e *Emisor) AutorizarConsultaFirmasR5V2(ctx context.Context, m ports.Materi
 }
 
 var _ ports.AutorizadorConsultaFirmasR5V2 = (*Emisor)(nil)
+
+// cotejarAmbitosConsulta: con la fuente de ámbitos compuesta, el recurso de la
+// consulta o la recuperación lleva exactamente los de la asignación vigente
+// (organización y, si la tiene, la unidad, que va en UnidadRef). Sin ella
+// decide el PDP, que exige lo mismo; AD210 los relee en el consumo.
+func (e *Emisor) cotejarAmbitosConsulta(ctx context.Context, base ContextoActorFirmaV2, r vd.RecursoAutorizable) error {
+	if nulo(e.autorizacion) {
+		return nil
+	}
+	a, err := e.ambitosAsignacion(ctx, base)
+	if err != nil {
+		return err
+	}
+	if !maps.Equal(r.Ambitos, a.Mapa()) {
+		return ports.ErrFirmaDocumentoDenegada
+	}
+	return nil
+}

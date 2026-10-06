@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -70,7 +71,7 @@ func abrirPoolPersonalAsignacionDietas(ctx context.Context, dsn string, perfil p
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if pool.Ping(sonda) != nil {
 		pool.Close()
@@ -141,7 +142,7 @@ func nuevosPoolsPostgreSQLDietasDesarrolloConFabrica(ctx context.Context, cfg co
 			resultado.Cerrar()
 			return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
 		}
-		sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 		err = pool.Ping(sonda)
 		cancelar()
 		if err != nil {
@@ -192,7 +193,7 @@ func abrirPoolAuditoriaFronteraDietasDesarrollo(ctx context.Context, dsn string)
 	if err != nil {
 		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if pool.Ping(sonda) != nil {
 		pool.Close()
@@ -270,7 +271,7 @@ func acreditarPoolPostgreSQLDietasDesarrollo(ctx context.Context, consulta inter
 	if ctx == nil || consulta == nil || !rolPoolPostgreSQLDietasDesarrolloValido(rol) {
 		return "", topologiaPostgreSQLDietasDesarrollo{}, errIdentidadPostgreSQLDietasDesarrolloInvalida
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	var usuario, efectivo string
 	var topologia topologiaPostgreSQLDietasDesarrollo

@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmasv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -332,7 +333,7 @@ func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAlta
 		return nil, errFirmasR5V2CTDesarrolloNoDisponible
 	}
 	fijo.metodo = http.MethodPost
-	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,

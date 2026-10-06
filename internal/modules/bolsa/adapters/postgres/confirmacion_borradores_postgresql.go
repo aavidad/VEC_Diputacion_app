@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -303,7 +304,7 @@ func iniciarTransaccionBorradorPostgreSQL(
 func cerrarPorRollbackBorradorPostgreSQL(
 	ctx context.Context, tx pgx.Tx, causa error,
 ) (gobiernoconvocatorias.ResultadoConfirmacionAtomica, error) {
-	ctxRollback, cancelar := context.WithTimeout(context.Background(), 3*time.Second)
+	ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(3*time.Second))
 	defer cancelar()
 	if err := tx.Rollback(ctxRollback); err != nil {
 		return resultadoIndeterminadoBorradorPostgreSQL(), gobiernoconvocatorias.ErrOperacionBorradorIndeterminada
