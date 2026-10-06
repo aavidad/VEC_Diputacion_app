@@ -141,6 +141,8 @@
     "contratacion_temporal_descripcion_no_disponible": "Temporary staff requests are not yet available in this portal.",
     "contratacion_temporal_aviso_no_disponible": "This view does not load the module or enable its actions.",
     "accion_volver_portal": "Back to the portal",
+    "vista_no_disponible_titulo": "This screen is not available",
+    "vista_no_disponible_texto": "You do not have access to this screen, or it is not turned on in this system. If you need it, contact IT.",
     "accion_ir_inicio_portal": "Go to the Employee Portal home page",
     "operacion_no_compuesta": "This action stays disabled until its server command is available and authorised.",
     "accion_entrar": "Open",

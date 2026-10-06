@@ -836,7 +836,7 @@ function renderizar() {
       if (pendiente) contenedor.innerHTML = renderizarVistaComprobando(titulo);
       else contenedor.innerHTML = estado.vista === "contratacion-temporal"
         ? renderizarContratacionTemporalNoDisponible()
-        : renderizarFuenteNoDisponible();
+        : renderizarNoDisponibleDeVista(estado.vista, titulo);
       return;
     }
     estado.vistaCerrada = "";
@@ -856,7 +856,7 @@ function renderizar() {
   coordinadorModulos.retirarVistaMontada();
   estado.vistaMontada = "";
   if (estado.vista !== "portal" && estado.vista !== "ofertas-sae" && !estado.fuenteLista) {
-    contenedor.innerHTML = renderizarFuenteNoDisponible();
+    contenedor.innerHTML = renderizarNoDisponibleDeVista(estado.vista, titulo);
     return;
   }
 
@@ -894,6 +894,15 @@ function renderizarVistaComprobando(titulo) {
     </div></section>`;
 }
 
+// Vista de otro módulo (Personal, Cronos, Trámites, Dietas…) no ofrecida: «no disponible» con su título, no la de Bolsa.
+function renderizarVistaNoDisponible(titulo) {
+  return `${encabezadoVista("", titulo, "")}<section class="panel" aria-labelledby="vista-no-disponible-titulo"><div class="cuerpo-panel vacio-controlado">
+    <h3 id="vista-no-disponible-titulo">${escaparHTML(traducirPortal("vista_no_disponible_titulo"))}</h3><p>${escaparHTML(traducirPortal("vista_no_disponible_texto"))}</p>
+    <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("accion_volver_portal"))}</button></div></div></section>`;
+}
+function renderizarNoDisponibleDeVista(vista, titulo) {
+  return moduloDeVistaPortal(vista) === "bolsa" ? renderizarFuenteNoDisponible() : renderizarVistaNoDisponible(titulo);
+}
 function renderizarFuenteNoDisponible() {
   const cargando = estado.errorFuente === "";
   const detalle = cargando

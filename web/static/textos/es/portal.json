@@ -141,6 +141,8 @@
     "contratacion_temporal_descripcion_no_disponible": "La composición real de Peticiones de personal temporal todavía no está disponible en este portal.",
     "contratacion_temporal_aviso_no_disponible": "Esta vista no monta el módulo ni habilita sus operaciones.",
     "accion_volver_portal": "Volver al portal",
+    "vista_no_disponible_titulo": "Esta pantalla no está disponible",
+    "vista_no_disponible_texto": "No tiene acceso a esta pantalla o no está activada en esta instalación. Si la necesita, avise a Informática.",
     "accion_ir_inicio_portal": "Ir al inicio del Portal del Empleado",
     "operacion_no_compuesta": "Esta operación permanece deshabilitada hasta que su comando de servidor esté compuesto y autorizado.",
     "accion_entrar": "Entrar",
