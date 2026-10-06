@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"sort"
 	"time"
@@ -27,7 +29,9 @@ func nuevoManejadorBolsasPublicasDesarrollo(fuente *fuenteConstituidaRRHHDesarro
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) BolsasPublicas(ctx context.Context) ([]bolsapublico.BolsaPublica, time.Time, error) {
-	datos, generadoEn, err := f.datos(ctx)
+	// El listado solo cuenta personas por bolsa: el resumen, sin descifrar
+	// el acta protegida.
+	datos, generadoEn, err := f.datos(ctx, "", f.fuente.cargarResumen)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
@@ -48,7 +52,10 @@ func (f *fuenteBolsasPublicasDesarrollo) BolsasPublicas(ctx context.Context) ([]
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) ListaPublica(ctx context.Context, bolsaRef string) (bolsapublico.BolsaPublica, []bolsapublico.PosicionPublica, time.Time, error) {
-	datos, generadoEn, err := f.datos(ctx)
+	// La lista de una bolsa lee solo esa bolsa (orden y documento enmascarado).
+	datos, generadoEn, err := f.datos(ctx, bolsaRef, func(c context.Context) (datasetBolsasRRHHDesarrollo, error) {
+		return f.fuente.cargarBolsa(c, bolsaRef)
+	})
 	if err != nil {
 		return bolsapublico.BolsaPublica{}, nil, time.Time{}, err
 	}
@@ -94,16 +101,23 @@ func estadoBolsaPublico(estado string, disponibleDesde *string, generadoEn time.
 	}
 }
 
-func (f *fuenteBolsasPublicasDesarrollo) datos(ctx context.Context) (datasetBolsasRRHHDesarrollo, time.Time, error) {
-	if f == nil || f.fuente == nil || ctx == nil {
+// datos lee el conjunto de la petición dentro de su propio plazo. No hay
+// caché: cada petición lee el estado vigente. Un fallo deja su causa en el
+// registro y se devuelve tal cual, para que un plazo agotado responda 504 y
+// no un 503 genérico.
+func (f *fuenteBolsasPublicasDesarrollo) datos(ctx context.Context, bolsaRef string, cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)) (datasetBolsasRRHHDesarrollo, time.Time, error) {
+	if f == nil || f.fuente == nil || ctx == nil || cargar == nil {
 		return datasetBolsasRRHHDesarrollo{}, time.Time{}, ErrComposicionDesarrolloIncompleta
 	}
 	if err := ctx.Err(); err != nil {
 		return datasetBolsasRRHHDesarrollo{}, time.Time{}, err
 	}
-	datos, ok := f.fuente.constituidas(ctx)
-	if !ok {
-		return datasetBolsasRRHHDesarrollo{}, time.Time{}, ErrComposicionDesarrolloIncompleta
+	datos, err := cargar(ctx)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			slog.Error("bolsa pública: lectura no disponible", "bolsa", bolsaRef, "causa", causaFalloBolsaRRHHDesarrollo(err))
+		}
+		return datasetBolsasRRHHDesarrollo{}, time.Time{}, err
 	}
 	generadoEn, err := time.Parse(time.RFC3339, datos.GeneradoEn)
 	if err != nil {
