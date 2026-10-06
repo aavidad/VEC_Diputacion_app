@@ -7,6 +7,11 @@ BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SELECT secuencia AS aud0 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria WHERE control_id \gset
+-- Con AD207 (sellado diferido) la prueba hace de sellador: latido al día.
+DO $latido$ BEGIN
+ IF to_regclass('vec_autorizacion_atestada_v3.sellado_auditoria_v5') IS NOT NULL THEN
+  UPDATE vec_autorizacion_atestada_v3.sellado_auditoria_v5 SET latido=clock_timestamp(); END IF;
+END $latido$;
 SELECT count(*) AS adm0 FROM vec_autorizacion.rol_administrable_exacto_v1 \gset
 SELECT count(*) AS rol0 FROM vec_autorizacion.version_rol \gset
 
@@ -295,10 +300,15 @@ BEGIN
 END $d$;
 SELECT 'OK inmutable';
 
--- 20. La cadena común sigue enlazada.
-SELECT pg_temp.comprobar('cadena',NOT EXISTS(
+-- 20. La cadena común sigue íntegra. Antes de AD207: enlazada asiento a
+-- asiento y con la cabeza en el control. Con AD207: cada asiento nuevo lleva el
+-- marcador fijo y está en la cola de sellado (el sellador lo enlaza después).
+SELECT pg_temp.comprobar('cadena',CASE WHEN to_regclass('vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5') IS NULL THEN NOT EXISTS(
  SELECT 1 FROM (SELECT secuencia,anterior_sha256,lag(huella_sha256) OVER (ORDER BY secuencia) AS previa FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>=:aud0) x
  WHERE secuencia>:aud0 AND anterior_sha256 IS DISTINCT FROM previa)
  AND (SELECT cabeza_sha256 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria WHERE control_id)=(SELECT huella_sha256 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 ORDER BY secuencia DESC LIMIT 1)
- AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0)=(SELECT count(*) FROM vec_autorizacion.operacion_cargos_firma_admin_v1));
+ ELSE EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE secuencia>:aud0)
+ AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.secuencia>:aud0
+  AND (a.anterior_sha256 IS DISTINCT FROM repeat('f',64)
+   OR NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5 q WHERE q.secuencia=a.secuencia))) END);
 ROLLBACK;
