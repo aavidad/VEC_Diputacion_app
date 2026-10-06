@@ -31,13 +31,19 @@ func descriptoresMaterialFirmaV2EscrituraCTDesarrollo() (vec, externa descriptor
 		}
 }
 
+// rolFirmaExternaRegistroCTDesarrollo es el rol que exigen por nombre las
+// guardas de la vía externa (AD156/AD158/AD162/AD170, CT170/CT172 y, por la
+// interior, AD177): version_rol_ref = rol:firma_externa_registro_ct_desarrollo:v1.
+// Cambiarlo deniega todo registro de firma externa.
+const rolFirmaExternaRegistroCTDesarrollo = "firma_externa_registro_ct_desarrollo"
+
 // nuevaInstantaneaFirmaExternaV2CTDesarrollo: registrar la firma externa
 // (interior y exterior del plan usan la misma acción, sin campos ni
 // obligaciones, como exigen AD170 y AD177) y consultar las firmas R5 V2 con
 // los campos exactos de AD162.
 func nuevaInstantaneaFirmaExternaV2CTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
-		"firma_externa_v2_registrador_ct_desarrollo", "Registro de firmas externas V2 de desarrollo",
+		rolFirmaExternaRegistroCTDesarrollo, "Registro de firmas externas V2 de desarrollo",
 		"firma-externa-v2-registrador-ct-desarrollo-no-autoritativa",
 		[]dominiovec.ConcesionRol{
 			{Accion: ports.AccionRegistrarFirmaExterna, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaExterna,

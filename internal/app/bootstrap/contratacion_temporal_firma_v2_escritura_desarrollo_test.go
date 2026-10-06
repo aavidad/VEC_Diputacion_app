@@ -17,6 +17,10 @@ func TestFirmaExternaV2InstantaneaConcedeLoQueExigeElNucleo(t *testing.T) {
 	if err != nil || i.Validar() != nil {
 		t.Fatal(err)
 	}
+	// Las guardas SQL de la vía externa exigen este rol por su referencia.
+	if i.AsignacionPerfil.VersionRolRef != "rol:firma_externa_registro_ct_desarrollo:v1" || i.VersionRol.Referencia() != i.AsignacionPerfil.VersionRolRef {
+		t.Fatalf("rol distinto del que exige el núcleo: %q", i.AsignacionPerfil.VersionRolRef)
+	}
 	esperadas := map[string]struct {
 		tipo   string
 		campos []string
