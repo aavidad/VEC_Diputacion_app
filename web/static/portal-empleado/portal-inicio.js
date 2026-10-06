@@ -184,9 +184,7 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
   if (acceso?.disponible !== true || resumen.estado === "denegado") {
     cuerpo = acceso?.estado === "cargando"
       ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`
-      : acceso?.estado === "error"
-        ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>`
-        : `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
+      : `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
   } else if (resumen.estado === "cargando") {
     cuerpo = `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
   } else if (resumen.estado !== "listo") {
@@ -245,7 +243,6 @@ export function crearVistaInicioPortal({
   esPerfilRRHH = () => false,
   numero = (v) => String(v ?? 0),
   obtenerCuadroInicio = () => null,
-  cuadroInicioPendiente = () => false,
   obtenerBolsasInicio = () => null,
   obtenerAccesosEmpleado = () => ({}),
   locale = "es-ES",
@@ -278,9 +275,7 @@ export function crearVistaInicioPortal({
       ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
       : accesoCT?.estado === "cargando"
         ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_comprobando_accesos")}</p>`
-        : disponibleCT && !resumen && cuadroInicioPendiente()
-          ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_cargando")}</p>`
-          : (disponibleCT && !resumen ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>` : "");
+        : (disponibleCT && !resumen ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>` : "");
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "Europe/Madrid" }).format(ahora());
     const indicadores = [
       { clave: "en_tramite", iconoNombre: "expediente", tono: "", valor: resumen ? numero(resumen.enTramite) : null,

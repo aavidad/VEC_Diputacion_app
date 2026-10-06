@@ -85,7 +85,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-movimientos-consulta-v1"],
     ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/bolsa/rrhh-plazos-ui.js", "20261002-r2-post401-v2"],
-    ["portal-inicio.js", "20261006-arranque-rapido-v1"],
+    ["portal-inicio.js", "20261001-g364-reconciliar-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.

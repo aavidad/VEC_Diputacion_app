@@ -103,9 +103,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
-    // La vista (unos 130 ficheros) no se espera para consultar el cuadro: el
-    // coordinador la pide después, en segundo plano. Importarla tras los
-    // consumidores previos evita leer el catálogo de fases antes de iniciarlo.
+    // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
+    // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
       const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261005-ct-asignacion-unidad-v1");
@@ -331,16 +330,15 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
-    // Vista y auditoría: ya incluidas (cargadores de prueba) o diferidas con
-    // `cargarVista`; se piden cuando el cuadro ha respondido o al abrir CT.
+    // Vista y auditoría: ya incluidas (cargadores de prueba) o, en el portal,
+    // pedidas con `cargarVista` al abrir CT.
     let partesVista = recursos.vista ? recursos : null;
     let promesaVista = null;
-    let vistaFallida = false;
     const esperarVista = () => {
       promesaVista ??= partesVista ? Promise.resolve(partesVista)
         : cargarModuloConLimite(recursos.cargarVista, CLAVE_CONTRATACION_TEMPORAL, limiteCargaModularMs, temporizadores)
-          .then((partes) => { partesVista = partes; vistaFallida = false; notificar(); return partes; })
-          .catch((error) => { promesaVista = null; vistaFallida = true; notificar(); throw error; });
+          .then((partes) => { partesVista = partes; return partes; })
+          .catch((error) => { promesaVista = null; throw error; });
       return promesaVista;
     };
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
@@ -348,10 +346,11 @@ export function crearCoordinadorModulosPortal({
     if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    // Mismo módulo que ya importa el adaptador: no se descarga otra vez.
+    const i18nExpedientes = await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1");
+    const traducirExpediente = i18nExpedientes.crearTraductorExpedientesContratacion();
     const mensajesExpedientes = {
-      ...(idiomaCircuito === "en"
-        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-        : {}),
+      ...(idiomaCircuito === "en" ? i18nExpedientes.MENSAJES_EXPEDIENTES_CONTRATACION_EN : {}),
       ...rotulosCircuito("contratacion_temporal.fase."),
       ...rotulosCircuito("etiqueta_fase_"),
     };
@@ -465,8 +464,6 @@ export function crearCoordinadorModulosPortal({
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
       throw new Error("contratación temporal no disponible");
     }
-    // Inicio ya puede pintarse: la vista llega después sin retrasarlo.
-    void esperarVista().catch(() => {});
     const fuenteAuditoria = (partes) => typeof partes?.auditoriaVista?.montarVistaAuditoria === "function"
       && typeof partes?.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
       ? Object.freeze({ montar: partes.auditoriaVista.montarVistaAuditoria,
@@ -492,18 +489,17 @@ export function crearCoordinadorModulosPortal({
           return auditoriaComun ?? null;
         },
         esperarVista,
-        // La portada espera a la vista solo si el cuadro ha llegado.
-        cuadroInicioPendiente: () => Boolean(listadoCuadro) && !partesVista && !vistaFallida,
         // Portada: la misma consulta que abre la lista, con centro y categoría
-        // presentados con los catálogos de alta que hayan llegado. Sin la vista
-        // aún no hay número visible: el cuadro aparece al llegar (`notificar`).
+        // presentados con los catálogos de alta que hayan llegado. El número
+        // provisional (sin asignar) se presenta como en la lista de la vista.
         obtenerCuadroInicio: () => {
-          if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes) || !partesVista) return null;
+          if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes)) return null;
           const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
           return Object.freeze({
             expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
               ...e,
-              numero_visible: (partesVista.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
+              numero_visible: /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(String(e.numero_visible ?? ""))
+                ? traducirExpediente("numero_expediente_sin_asignar") : String(e.numero_visible ?? ""),
               centro: etiqueta(alta?.catalogos?.centros, e.centro),
               categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
             }))),
@@ -1008,7 +1004,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "contratacion-temporal") {
-      // Los catálogos del alta y la vista ya están en camino desde la carga.
+      // Los catálogos del alta ya están en camino; la vista se pide ahora.
       await Promise.all([composicion.contratacionTemporal.esperarAlta?.(),
         composicion.contratacionTemporal.esperarVista?.()]);
       if (montaje !== secuenciaMontaje) return false;
@@ -1286,10 +1282,6 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.obtenerCuadroInicio?.() || null;
   }
 
-  function cuadroInicioPendiente() {
-    return esPerfilRRHH() && composicion?.contratacionTemporal?.cuadroInicioPendiente?.() === true;
-  }
-
   /** Expedientes de la portada ya presentados (compatibilidad de lectura). */
   function obtenerTramitesInicio() {
     return obtenerCuadroInicio()?.expedientes ?? null;
@@ -1307,7 +1299,6 @@ export function crearCoordinadorModulosPortal({
     obtenerCatalogo,
     obtenerAccesosEmpleado,
     obtenerCuadroInicio,
-    cuadroInicioPendiente,
     renderizarNavegacion,
     resolverAcceso,
     retirarVistaMontada,

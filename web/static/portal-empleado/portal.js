@@ -12,7 +12,7 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261006-arranque-rapido-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-g364-reconciliar-v2";
 import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
@@ -245,7 +245,6 @@ const renderizarPortal = crearVistaInicioPortal({
   resolverAcceso: resolverAccesoPerfil,
   esPerfilRRHH,
   obtenerCuadroInicio: () => coordinadorModulos.obtenerCuadroInicio?.() || null,
-  cuadroInicioPendiente: () => coordinadorModulos.cuadroInicioPendiente?.() === true,
   obtenerBolsasInicio: () => estado.datosBolsas,
   obtenerAccesosEmpleado: coordinadorModulos.obtenerAccesosEmpleado,
   locale: LOCALIZACION_PORTAL,
@@ -373,9 +372,8 @@ let inicioComprobando = false;
 // menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
-  // del catálogo o de identidad: la API debe revalidar el acceso actual. Una
-  // lectura en curso ya lo hace; repetirla duplicaba la consulta más lenta.
-  if (clave === "catalogo" && estado.datosBolsas?.carga !== "cargando") {
+  // del catálogo o de identidad: la API debe revalidar el acceso actual.
+  if (clave === "catalogo") {
     void controladorBolsas.cargarBolsas();
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")

@@ -222,8 +222,8 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
 
 // 06/10/2026: la vista de CT (unos 130 ficheros) se esperaba antes de pedir el
 // cuadro, y con HTTP/1.1 eso retrasaba Inicio entero. Ahora el cuadro se pide
-// con el código mínimo y la vista llega después, en segundo plano.
-test("contratación temporal consulta su cuadro sin esperar a su vista y la carga en segundo plano", async () => {
+// con el código mínimo y la vista solo se carga al abrir CT.
+test("contratación temporal consulta su cuadro sin cargar su vista hasta que se abre", async () => {
   const pasos = [];
   const vistaPendiente = diferido();
   const montajes = [];
@@ -232,7 +232,6 @@ test("contratación temporal consulta su cuadro sin esperar a su vista y la carg
     obtenerConfiguracionAnalisis: async () => { pasos.push("analisis"); throw new Error("503"); },
     registrarSolicitud: async () => ({}),
   };
-  const avisos = [];
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
@@ -250,59 +249,22 @@ test("contratación temporal consulta su cuadro sin esperar a su vista y la carg
       }),
     },
   });
-  await coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(clave) });
-  // El cuadro y los catálogos salen antes que la vista, y CT ya está disponible.
-  assert.deepEqual(pasos.slice(0, 3).sort(), ["alta", "analisis", "cuadro"]);
-  assert.equal(pasos.at(-1), "vista");
+  await coordinador.cargarInterno();
+  // Inicio ya tiene el cuadro, con el número provisional presentado, sin la vista.
+  assert.deepEqual(pasos.sort(), ["alta", "analisis", "cuadro"]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-  // Sin la vista no hay número visible: la portada dice que carga, sin error.
-  assert.equal(coordinador.obtenerCuadroInicio(), null);
-  assert.equal(coordinador.cuadroInicioPendiente(), true);
-  const inicio = crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
-    obtenerCatalogo: coordinador.obtenerCatalogo, resolverAcceso: coordinador.resolverAcceso,
-    esPerfilRRHH: coordinador.esPerfilRRHH, obtenerCuadroInicio: coordinador.obtenerCuadroInicio,
-    cuadroInicioPendiente: coordinador.cuadroInicioPendiente });
-  assert.ok(inicio().includes(traducirPortal("inicio_rrhh_cuadro_cargando")));
-  assert.ok(!inicio().includes(traducirPortal("inicio_rrhh_cuadro_no_disponible")));
+  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "Sin numerar");
   const raiz = { replaceChildren() {} };
   const montaje = coordinador.montarVista("contratacion-temporal", raiz);
   await esperarTurnos();
-  assert.deepEqual(montajes, [], "abrir CT espera a su vista");
+  assert.equal(pasos.at(-1), "vista", "abrir CT pide la vista");
+  assert.deepEqual(montajes, [], "y espera a que llegue");
   vistaPendiente.resolver({ vista: {
-    numeroExpedienteVisible: () => "sin asignar",
     montarModuloContratacionTemporal: async () => { montajes.push("ct"); return { desmontar() {} }; },
   } });
   assert.equal(await montaje, true);
   assert.deepEqual(montajes, ["ct"]);
-  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "sin asignar");
-  assert.equal(coordinador.cuadroInicioPendiente(), false);
-  assert.ok(avisos.filter((clave) => clave === "contratacion_temporal").length >= 2, "avisa al llegar la vista");
   assert.equal(pasos.filter((paso) => paso === "vista").length, 1, "la vista se pide una sola vez");
-});
-
-test("si la vista de contratación temporal no llega, Inicio deja de decir que carga", async () => {
-  const cliente = {
-    obtenerCatalogosAlta: async () => ({ centros: [], categorias: [] }),
-    obtenerConfiguracionAnalisis: async () => { throw new Error("503"); },
-    registrarSolicitud: async () => ({}),
-  };
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
-    cargadoresInternos: {
-      contratacion_temporal: async () => ({
-        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
-          listar: async () => ({ expedientes: [] }) }), etiquetaCatalogo: (_c, v) => v },
-        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
-        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
-        cargarVista: async () => { throw new Error("estático caído"); },
-      }),
-    },
-  });
-  await coordinador.cargarInterno();
-  await esperarTurnos();
-  assert.equal(coordinador.cuadroInicioPendiente(), false);
 });
 
 test("cambiar de vista o repintar Inicio durante la carga no cancela los módulos pendientes", async () => {
