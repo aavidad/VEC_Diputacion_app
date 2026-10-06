@@ -171,11 +171,14 @@ var _ httpinterno.AutoridadContextoCanalAsignacion = (*soporteAltaContratacionTe
 var _ httpinterno.AutoridadContextoCanalInformeJuridico = (*soporteAltaContratacionTemporalDesarrollo)(nil)
 
 type dependenciasAltaContratacionTemporalDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	servicio    *application.ServicioRegistroSolicitud
-	huellas     ports.DerivadorHuellaAlta
-	autorizador autorizadorLigadoContratacionTemporalDesarrollo
-	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
+	auditoriaLecturasCT        puertosvec.RegistradorIntentosAuditoria
+	procesoAuditoriaLecturasCT string
+	cerrarAuditoriaLecturasCT  func()
+	soporte                    *soporteAltaContratacionTemporalDesarrollo
+	servicio                   *application.ServicioRegistroSolicitud
+	huellas                    ports.DerivadorHuellaAlta
+	autorizador                autorizadorLigadoContratacionTemporalDesarrollo
+	postgresql                 dependenciasPostgreSQLContratacionTemporalDesarrollo
 	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
 	// el canal del centro; nula mientras la capacidad no esté compuesta.
 	cancelacion *piezasCancelacionCTDesarrollo
@@ -183,6 +186,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
 	if d != nil {
+		if d.cerrarAuditoriaLecturasCT != nil {
+			d.cerrarAuditoriaLecturasCT()
+		}
 		d.postgresql.cerrar()
 	}
 }
