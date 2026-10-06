@@ -77,3 +77,15 @@ test("sin texto no se necesita calcular etiquetas y los filtros de tres argument
     assert.fail("sin búsqueda no se solicita una etiqueta");
   }), sinProveedor);
 });
+
+test("con más páginas y un filtro puesto, avisa de que la búsqueda solo mira esta página", () => {
+  const t = crearTraductorExpedientesContratacion();
+  const a = ayudas(t);
+  const conMas = { cuadro: { ...estado.cuadro, paginacion: { pagina: 1, cursor_siguiente: "c2" } } };
+  const conFiltro = renderizarResultadosLista(conMas, t, filtroListaValido({ texto: "área" }), a);
+  assert.match(conFiltro, /La búsqueda solo revisa las peticiones de esta página/u);
+  const sinFiltro = renderizarResultadosLista(conMas, t, filtroListaValido({}), a);
+  assert.doesNotMatch(sinFiltro, /data-ct-exp-busqueda-parcial/u);
+  const unaPagina = renderizarResultadosLista(estado, t, filtroListaValido({ texto: "área" }), a);
+  assert.doesNotMatch(unaPagina, /data-ct-exp-busqueda-parcial/u);
+});

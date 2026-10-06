@@ -19,8 +19,8 @@ import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=2
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.
 const PREIMAGEN = {
   "i18n-analisis-catalogo.js": {
-    "MENSAJES_ANALISIS_CATALOGO_EN": "21642e3882c6f62c2a40c10625d3d8776b4e8dbd5d1f7228fc6a0bcfa8a3beaa",
-    "MENSAJES_ANALISIS_CATALOGO_ES": "182eb1c194528180211bdae3e716c7b939cd0ec1c42a610dcd3bc525489d9673"
+    "MENSAJES_ANALISIS_CATALOGO_EN": "f800e191693009fbda79315380b47ee28e1c5b5d653552845cd0a88d39d22f3b",
+    "MENSAJES_ANALISIS_CATALOGO_ES": "7ebc3646ea6e5b35e13f785b67726b16d2957740c91a899382dd7f05d6ff0aa8"
   },
   "i18n-avisos-via-cobertura.js": {
     "MENSAJES_AVISOS_VIA_COBERTURA_EN": "8b1395a10ed65f002ccec703cb5fe8aef1b66d37b4bf2f29bc1fe6fc1feb1d34",
@@ -46,8 +46,8 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    "MENSAJES_FICHA_LISTA_EN": "bea07284aaf3b1c1e7f60653e5938566de2053dc59542301b6044df0e99a0f09",
-    "MENSAJES_FICHA_LISTA_ES": "472164ae2f9545034118381dcb96de6614c18212e62c82d26b7880b1cc599bd5"
+    "MENSAJES_FICHA_LISTA_EN": "6165c04efa1dd641569193ecedeaea85bec6247426bc24abac41b99c6ae88458",
+    "MENSAJES_FICHA_LISTA_ES": "b621ae0eaef51a634a3d6c26d9e83f50f876f45d342e29cfc06c41460c384982"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
