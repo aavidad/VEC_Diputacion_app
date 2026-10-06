@@ -3,7 +3,7 @@ import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261002-ct-fin-moad-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261003-ct-firma-v2-v1";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261005-ct-asignacion-unidad-v1";
 
 export const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 export const EXPEDIENTE = "expediente:ct:sintetico:001";
@@ -54,8 +54,16 @@ export function raizPrueba() {
   };
   return raiz;
 }
+// La pantalla genera la clave sola y no la enseña; en las pruebas, la clave que
+// cada caso «escribe» en su formulario simulado hace de generador determinista.
+export function claveDePrueba(raiz) {
+  return (operacion) => raiz.borradores?.[operacion]?.elements.namedItem("clave_idempotencia")?.value
+    ?? globalThis.crypto.randomUUID();
+}
+export const CONTEXTO = Object.freeze({ expediente_ref: EXPEDIENTE, version_esperada: 6 });
 export function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
+    contexto: CONTEXTO, generarClaveIdempotencia: claveDePrueba(raiz),
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
       registrarComunicacionLlamamiento: async () => {},
       consultarReciboRespuesta: async () => { throw Object.assign(new Error("sin respuesta"), {

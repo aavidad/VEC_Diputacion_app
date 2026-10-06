@@ -93,7 +93,7 @@
 863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 916 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 850 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
-1012 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+1024 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1194 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
@@ -102,10 +102,10 @@
 973 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1879 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1288 web/static/portal-empleado/portal-modulos-coordinador.js
+1311 web/static/portal-empleado/portal-modulos-coordinador.js
 1342 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1022 web/static/portal-empleado/portal-componentes.css
-1167 web/static/portal-empleado/portal.js
+1184 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
 890 web/static/portal-empleado/portal-bolsas.test.mjs
 949 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
@@ -117,10 +117,10 @@
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1510 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1525 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-936 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1047 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+948 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1051 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql

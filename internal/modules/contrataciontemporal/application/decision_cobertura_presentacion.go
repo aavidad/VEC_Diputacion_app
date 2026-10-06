@@ -345,6 +345,9 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	}
 	solicitudGobierno, err := solicitudGobiernoParaPresentacion(expediente)
 	if err != nil {
+		if errCredito, ok := errorSinCreditoCobertura(ErrPresentacionPropuestaCoberturaEstadoNoAdmite, err); ok {
+			return PresentacionPropuestaCobertura{}, errCredito
+		}
 		return PresentacionPropuestaCobertura{},
 			ErrPresentacionPropuestaCoberturaEnConflicto
 	}
@@ -569,6 +572,12 @@ func solicitudesPresentacionPropuestaCobertura(
 func solicitudGobiernoParaPresentacion(
 	expediente domain.Expediente,
 ) (cobertura.SolicitudGobiernoOperacionCobertura, error) {
+	if expediente.Validar() == nil && expediente.ViaCobertura == nil &&
+		expediente.Asignacion == nil {
+		if err := expediente.ErrorSinCreditoParaOferta(); err != nil {
+			return cobertura.SolicitudGobiernoOperacionCobertura{}, err
+		}
+	}
 	if expediente.Validar() != nil || expediente.Analisis == nil ||
 		!expediente.Analisis.HabilitaAvance() ||
 		expediente.Asignacion != nil {
@@ -668,6 +677,9 @@ func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloDependencia(
 	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
 ) error {
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err, ok := errorSinCreditoCobertura(ErrPresentacionPropuestaCoberturaEstadoNoAdmite, causa); ok {
 		return err
 	}
 	if errors.Is(causa, cobertura.ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura) {
