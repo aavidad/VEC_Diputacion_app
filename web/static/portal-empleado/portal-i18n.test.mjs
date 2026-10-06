@@ -84,7 +84,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-movimientos-consulta-v1"],
     ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20261002-r2-post401-v2"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20261006-reglas-una-lectura-v1"],
     ["portal-inicio.js", "20261001-g364-reconciliar-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
@@ -146,7 +146,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261006-arranque-rapido-v2");
   versionesEspeciales.set("portal-composicion-empleado.js", "20261005-b-contacto-v3");
-  versionesEspeciales.set("portal.js", "20261006-arranque-rapido-v2");
+  versionesEspeciales.set("portal.js", "20261006-reglas-una-lectura-v1");
   versionesEspeciales.set("modulos/solicitudes/vista-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/solicitudes/fuente-tramites-propios.js", "20261004-b-tramites-devoluciones-v2");
   versionesEspeciales.set("modulos/personal/vista-contacto-propio.js", "20261004-b-contacto-retoma-v2");
@@ -314,5 +314,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-arranque-rapido-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-reglas-una-lectura-v1");
 });
