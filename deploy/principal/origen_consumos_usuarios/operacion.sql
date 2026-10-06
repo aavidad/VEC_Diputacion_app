@@ -1,0 +1,131 @@
+\set ON_ERROR_STOP on
+-- Origen AD172 de los consumos de Usuarios: «Mis preferencias», «Mi imagen» y
+-- «Mis correos», en las superficies interna y externa. Solo añade filas de
+-- configuración técnica: no concede acciones, perfiles ni membresías.
+-- La variable psql `finalizar` vale ROLLBACK (ensayo) o COMMIT (aplicar).
+BEGIN;
+SET LOCAL search_path = pg_catalog;
+SET LOCAL timezone = 'UTC';
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:origen_consumos:usuarios:20261006', 0));
+
+-- Ternas exactas. El proceso identifica el componente que consume; el canal
+-- debe coincidir con la superficie que el núcleo lee del vínculo firmado.
+CREATE TEMP TABLE origen_usuarios_esperado (
+  login_nombre name, grupo name, audiencia_consumo text, operacion text,
+  proceso text, canal_permitido text) ON COMMIT DROP;
+INSERT INTO origen_usuarios_esperado
+SELECT s.login, s.grupo,
+       'vec_usuarios.'||f.familia||'.'||f.accion||'.'||s.canal||'.v1',
+       'vec.'||f.familia||'.'||f.accion, 'vec-usuarios', s.canal
+FROM (VALUES ('preferencias','consultar'),('preferencias','actualizar'),
+             ('correos','consultar'),('correos','anadir'),('correos','reenviar'),
+             ('correos','verificar'),('correos','activar'),('correos','retirar'),
+             ('imagen','consultar'),('imagen','actualizar')) f(familia, accion)
+CROSS JOIN (VALUES
+  ('vec_pref508a_i_ue'::name,'vec_usuarios_ejecutor_interno'::name,'interna_corporativa'),
+  ('vec_pref508a_e_ue'::name,'vec_usuarios_ejecutor_externo'::name,'externa_personal')) s(login, grupo, canal);
+
+DO $pre$
+DECLARE
+  nucleo text;
+  audiencias text;
+  t record;
+BEGIN
+  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
+     OR NOT (SELECT rolsuper FROM pg_roles WHERE rolname = session_user)
+     OR session_user <> current_user
+     OR current_database() <> 'postgres' THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: exige PostgreSQL 18, DBA y base postgres' USING ERRCODE = '42501';
+  END IF;
+  IF (SELECT count(*) FROM origen_usuarios_esperado) <> 20 THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: lista de ternas alterada' USING ERRCODE = '55000';
+  END IF;
+
+  -- AD172 instalada con su tabla protegida y su resolutor.
+  IF to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
+     OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
+     OR NOT EXISTS (SELECT 1 FROM pg_class c
+       WHERE c.oid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+         AND c.relrowsecurity AND c.relforcerowsecurity
+         AND c.relowner = 'vec_autorizacion_atestada_v3_propietario'::regrole)
+     OR (SELECT count(*) FROM pg_trigger g
+          WHERE g.tgrelid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+            AND NOT g.tgisinternal AND g.tgname IN ('inmutable', 'no_truncar')) <> 2
+     OR EXISTS (SELECT 1 FROM pg_class c, aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+       WHERE c.oid = 'vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1'::regclass
+         AND a.grantee <> c.relowner) THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: AD172 ausente o con permisos distintos de los instalados' USING ERRCODE = '55000';
+  END IF;
+
+  -- El núcleo vivo exige el origen y reconoce cada audiencia y operación;
+  -- cada audiencia es admisible para una clave de capacidad.
+  SELECT p.prosrc INTO nucleo FROM pg_proc p
+   WHERE p.oid = to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+  SELECT pg_get_constraintdef(c.oid) INTO audiencias FROM pg_constraint c
+   WHERE c.conrelid = to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version')
+     AND c.conname = 'clave_capacidad_version_audiencia_consumo_check' AND c.contype = 'c';
+  IF nucleo IS NULL OR audiencias IS NULL OR strpos(nucleo, 'resolver_origen_consumo_v1') = 0 THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: núcleo sin AD172 o sin catálogo de audiencias' USING ERRCODE = '55000';
+  END IF;
+  FOR t IN SELECT * FROM origen_usuarios_esperado LOOP
+    IF strpos(nucleo, quote_literal(t.audiencia_consumo)) = 0
+       OR strpos(nucleo, quote_literal(t.operacion)) = 0
+       OR strpos(audiencias, quote_literal(t.audiencia_consumo)) = 0 THEN
+      RAISE EXCEPTION 'ORIGEN-USUARIOS: terna no reconocida por el núcleo: % %', t.audiencia_consumo, t.operacion
+        USING ERRCODE = '55000';
+    END IF;
+  END LOOP;
+
+  -- Cada LOGIN cumple lo que pide el resolutor y es el único miembro de su
+  -- grupo ejecutor, con esa única membresía, heredada y sin SET ni ADMIN.
+  FOR t IN SELECT DISTINCT login_nombre, grupo FROM origen_usuarios_esperado LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = t.login_nombre
+         AND r.rolcanlogin AND r.rolinherit AND NOT r.rolsuper AND NOT r.rolcreaterole
+         AND NOT r.rolcreatedb AND NOT r.rolreplication AND NOT r.rolbypassrls)
+       OR (SELECT count(*) FROM pg_auth_members m WHERE m.member = t.login_nombre::regrole) <> 1
+       OR NOT EXISTS (SELECT 1 FROM pg_auth_members m
+         WHERE m.member = t.login_nombre::regrole AND m.roleid = t.grupo::regrole
+           AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+       OR (SELECT count(*) FROM pg_auth_members m WHERE m.roleid = t.grupo::regrole) <> 1
+       OR EXISTS (SELECT 1 FROM pg_roles g WHERE g.rolname = t.grupo AND g.rolcanlogin) THEN
+      RAISE EXCEPTION 'ORIGEN-USUARIOS: LOGIN o grupo ejecutor incompatible: %', t.login_nombre USING ERRCODE = '55000';
+    END IF;
+  END LOOP;
+
+  -- La tabla es inmutable: una terna ya configurada con otro proceso o canal
+  -- no se corrige aquí; requiere decisión del DBA.
+  IF EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 c
+       JOIN origen_usuarios_esperado e USING (login_nombre, audiencia_consumo, operacion)
+      WHERE c.proceso IS DISTINCT FROM e.proceso OR c.canal_permitido IS DISTINCT FROM e.canal_permitido) THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: terna ya configurada con otro proceso o canal' USING ERRCODE = '55000';
+  END IF;
+END $pre$;
+
+-- La política de la tabla solo admite al propietario como usuario efectivo.
+-- La lista temporal se borra al terminar la transacción.
+GRANT SELECT ON origen_usuarios_esperado TO vec_autorizacion_atestada_v3_propietario;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+WITH nuevas AS (
+  INSERT INTO vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+    (login_nombre, audiencia_consumo, operacion, proceso, canal_permitido)
+  SELECT e.login_nombre, e.audiencia_consumo, e.operacion, e.proceso, e.canal_permitido
+    FROM origen_usuarios_esperado e
+   WHERE NOT EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 c
+     WHERE c.login_nombre = e.login_nombre AND c.audiencia_consumo = e.audiencia_consumo
+       AND c.operacion = e.operacion)
+  RETURNING 1)
+SELECT 'ternas_nuevas=' || count(*) FROM nuevas;
+RESET ROLE;
+
+DO $post$
+BEGIN
+  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 c
+        JOIN origen_usuarios_esperado e USING (login_nombre, audiencia_consumo, operacion)
+       WHERE c.proceso = e.proceso AND c.canal_permitido = e.canal_permitido) <> 20 THEN
+    RAISE EXCEPTION 'ORIGEN-USUARIOS: postcondición fallida' USING ERRCODE = '55000';
+  END IF;
+END $post$;
+
+:finalizar;
