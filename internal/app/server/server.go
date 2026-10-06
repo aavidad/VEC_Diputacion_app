@@ -659,7 +659,7 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
 		// Catálogos públicos de textos por idioma, pedidos sin versión: se
 		// guardan pero se revalidan siempre (304 por Last-Modified/ETag).
-		w.Header().Set("Cache-Control", "no-cache")
+		fijarCacheEstatico(w, "no-cache")
 		return
 	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {
@@ -667,20 +667,30 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(path, "/pwa/icons/") && (strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".ico")) {
-		if r.URL.Query().Get("v") != "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
+		fijarCacheEstatico(w, cacheSegunVersion(r))
 		return
 	}
 	if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
-		if r.URL.Query().Get("v") != "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			return
-		}
-		w.Header().Set("Cache-Control", "no-cache")
+		fijarCacheEstatico(w, cacheSegunVersion(r))
 	}
+}
+
+// cacheSegunVersion: con ?v= la URL cambia con el contenido y se guarda un
+// año sin preguntar; sin versión se guarda pero se revalida siempre (304).
+func cacheSegunVersion(r *http.Request) string {
+	if r.URL.Query().Get("v") != "" {
+		return "public, max-age=31536000, immutable"
+	}
+	return "no-cache"
+}
+
+// fijarCacheEstatico sustituye la política no-store que securityHeaders pone
+// a toda respuesta y retira su Pragma: no-cache. Ese Pragma, heredado de
+// HTTP/1.0, junto a una política almacenable hacía que el navegador volviera
+// a preguntar por cada estático en cada recarga. Las API lo conservan.
+func fijarCacheEstatico(w http.ResponseWriter, politica string) {
+	w.Header().Set("Cache-Control", politica)
+	w.Header().Del("Pragma")
 }
 
 func staticFileServer() http.Handler {
@@ -703,7 +713,7 @@ func localeHandler() http.Handler {
 			return
 		}
 		// Catálogos públicos de traducción: se revalidan siempre (304).
-		w.Header().Set("Cache-Control", "no-cache")
+		fijarCacheEstatico(w, "no-cache")
 		ficheros.ServeHTTP(w, r)
 	})
 }
