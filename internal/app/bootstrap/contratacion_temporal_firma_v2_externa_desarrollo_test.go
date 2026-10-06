@@ -93,6 +93,9 @@ func TestFirmaExternaV2SolicitudesAdmitidasPorElPDP(t *testing.T) {
 		"sin_material":      datos(ports.AccionRegistrarFirmaExterna, recursoFirmaExternaV2Prueba(map[string]string{"descriptor_firma_sha256": h, "otra": h})),
 		"otro_motivo":       otroMotivo,
 		"otra_finalidad":    otraFinalidad,
+		"clave_invalida":    datos(ports.AccionRegistrarFirmaExterna, dominiovec.RecursoAutorizable{Referencia: ports.PrefijoRecursoFirmaExterna + "corta", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoFirmaExterna, Ambitos: interior.Ambitos, Atributos: interior.Atributos}),
+		"atributo_de_mas":   datos(ports.AccionRegistrarFirmaExterna, recursoFirmaExternaV2Prueba(map[string]string{"material_sha256": h, "descriptor_firma_sha256": h, "otra": h})),
+		"consulta_ref_mala": datos(ports.AccionConsultarFirmasR5V2, dominiovec.RecursoAutorizable{Referencia: "e", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: consulta.Ambitos, Atributos: consulta.Atributos}),
 		"consulta_con_mas":  datos(ports.AccionConsultarFirmasR5V2, dominiovec.RecursoAutorizable{Referencia: "exp:prueba", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: consulta.Ambitos, Atributos: map[string]string{"material_sha256": h, "otra": h}}),
 	} {
 		if solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(d) {
@@ -174,5 +177,48 @@ func TestFirmaExternaV2PDPConsumePerfilFijoConSolicitudExacta(t *testing.T) {
 	}
 	if m, ok := e.soporte.motivoAutorizacionParaContexto(ctx, httpinterno.RutaRegistroFirmaExterna); !ok || m != motivoFirmaV2CTDesarrollo() {
 		t.Fatal("la ruta externa no tiene el motivo de la firma V2")
+	}
+}
+
+// La fuente de la vía externa audita los intentos de su ruta, también los de
+// la consulta previa, con el motivo de la firma V2; la acción de otra ruta no.
+// El emisor elige el material de cada acción; y una caída de sesión en la ruta
+// se distingue de una denegación.
+func TestFirmaExternaV2AuditoriaEmisorEIndisponibilidad(t *testing.T) {
+	e := nuevoEscenarioFirmaExternaV2Prueba(t)
+	consulta, firma := &emisorMaterialRenovableCTDesarrollo{}, &emisorMaterialRenovableCTDesarrollo{}
+	_, fuente, err := nuevoEmisorFirmaExternaV2CTDesarrollo(e.soporte, e.perfil, consulta, firma, e.soporte.reloj, "vec-rrhh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := puertosvec.ConCorrelacionIncidenciasPeticion(e.ctx(httpinterno.RutaRegistroFirmaExterna, http.MethodPost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, accion := range []string{ports.AccionRegistrarFirmaExterna, ports.AccionConsultarFirmasR5V2} {
+		intento, err := puertosvec.NuevaReferenciaIntentoAuditoria()
+		if err != nil {
+			t.Fatal(err)
+		}
+		orden, err := fuente.CrearOrdenIntentoFirma(ctx, intento, accion, "", dominiovec.ResultadoIntentoAuditoriaDenegado)
+		if err != nil {
+			t.Fatalf("%s sin orden de auditoría: %v", accion, err)
+		}
+		o, err := orden.Datos()
+		if err != nil || o.Datos.Accion != accion || o.Datos.Motivo != motivoFirmaV2CTDesarrollo() {
+			t.Fatalf("orden de auditoría de %s distinta: %v", accion, err)
+		}
+	}
+	intento, _ := puertosvec.NuevaReferenciaIntentoAuditoria()
+	if _, err := fuente.CrearOrdenIntentoFirma(ctx, intento, ports.AccionRecuperarFirmasR5V2, "", dominiovec.ResultadoIntentoAuditoriaDenegado); err == nil {
+		t.Fatal("orden de auditoría con la acción de otra ruta")
+	}
+	comun := emisoresFirmaExternaV2CTDesarrollo(consulta, firma)
+	if comun.porAccion[ports.AccionRegistrarFirmaExterna] != firma || comun.porAccion[ports.AccionConsultarFirmasR5V2] != consulta ||
+		comun.porAccion[ports.AccionRegistrarFirmaVec] != nil {
+		t.Fatal("emisor de material de otra acción")
+	}
+	if !rutaSesionConIndisponibilidadCTDesarrollo(httpinterno.RutaRegistroFirmaExterna) {
+		t.Fatal("una caída de sesión en la ruta externa no se distingue de una denegación")
 	}
 }

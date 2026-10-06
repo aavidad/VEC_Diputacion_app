@@ -97,12 +97,18 @@ func nuevoEmisorFirmaExternaV2CTDesarrollo(s *soporteAltaContratacionTemporalDes
 		return nil, nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	fuente := &fuenteNominalFirmasR5V2CTDesarrollo{soporte: s, perfil: fijo, reloj: reloj, proceso: proceso,
-		accionDeRuta: accionFirmaExternaV2CTDesarrollo, motivo: motivoFirmaV2CTDesarrollo()}
-	emisor, err := firmaemisorv2.NuevoEmisorConAmbitos(fuente, &emisorFirmasR5V2CTDesarrollo{porAccion: map[string]*emisorMaterialRenovableCTDesarrollo{
-		ports.AccionConsultarFirmasR5V2: consulta, ports.AccionRegistrarFirmaExterna: firmaExterna}},
+		accionDeRuta: accionFirmaExternaV2CTDesarrollo, motivo: motivoFirmaV2CTDesarrollo(), consultaPrevia: true}
+	emisor, err := firmaemisorv2.NuevoEmisorConAmbitos(fuente, emisoresFirmaExternaV2CTDesarrollo(consulta, firmaExterna),
 		motivoFirmaV2CTDesarrollo(), reloj, ambitosPerfilFijoCTDesarrollo{soporte: s, perfil: fijo})
 	if err != nil {
 		return nil, nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	return emisor, fuente, nil
+}
+
+// emisoresFirmaExternaV2CTDesarrollo: cada acción de la vía externa con el
+// material de su audiencia; cualquier otra acción no tiene emisor.
+func emisoresFirmaExternaV2CTDesarrollo(consulta, firmaExterna *emisorMaterialRenovableCTDesarrollo) *emisorFirmasR5V2CTDesarrollo {
+	return &emisorFirmasR5V2CTDesarrollo{porAccion: map[string]*emisorMaterialRenovableCTDesarrollo{
+		ports.AccionConsultarFirmasR5V2: consulta, ports.AccionRegistrarFirmaExterna: firmaExterna}}
 }

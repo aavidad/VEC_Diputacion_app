@@ -113,6 +113,9 @@ type fuenteNominalFirmasR5V2CTDesarrollo struct {
 	// decisiones: los de R5 V2 o los de la firma V2 externa.
 	accionDeRuta func(string) (string, bool)
 	motivo       dominiovec.ReferenciaEntradaCatalogo
+	// consultaPrevia: la ruta consulta las firmas R5 V2 antes de su acción
+	// (vía externa), y esa consulta también se audita.
+	consultaPrevia bool
 }
 
 // nuevaFuenteNominalFirmasR5V2CTDesarrollo: la fuente de las rutas de consulta
@@ -242,7 +245,7 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) CrearOrdenIntentoFirma(ctx context
 	if capacidad, valida := f.canal(ctx); valida {
 		esperada, ok = f.accionDeRuta(capacidad.ruta)
 	}
-	if !ok || accion != esperada || f.proceso == "" {
+	if !ok || (accion != esperada && !(f.consultaPrevia && accion == ports.AccionConsultarFirmasR5V2)) || f.proceso == "" {
 		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	operativo, _, err := f.operativo(ctx)
