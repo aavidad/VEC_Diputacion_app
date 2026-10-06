@@ -1,0 +1,37 @@
+# Caché de 10 s para las lecturas públicas anónimas de Bolsa.
+#
+# NO APLICADO. Aprobado por dirección el 06/10/2026 como bloque preparado;
+# se aplica en el Caddy dedicado al host público cuando se despliegue.
+#
+# Qué hace: guarda 10 s las respuestas 200 de la relación de bolsas, las
+# listas, las convocatorias y las categorías. En un pico de miles de personas
+# PostgreSQL atiende como mucho una consulta por URL cada 10 s. A cambio, una
+# publicación o una retirada tarda hasta 10 s en verse.
+#
+# Solo rutas anónimas de /api/publico/bolsa/: no hay cookies ni identidad
+# (vec-publico las rechaza), así que nada personal entra en la caché. La
+# clave incluye la consulta completa y el idioma (las respuestas varían por
+# Accept-Language).
+#
+# Requiere Caddy con el módulo cache-handler (xcaddy build --with
+# github.com/caddyserver/cache-handler). vec-publico responde con
+# Cache-Control: no-store; «mode bypass_response» hace que la caché lo ignore
+# solo en estas rutas.
+
+{
+	cache
+}
+
+# Dentro del bloque del host público, antes del reverse_proxy a vec-publico:
+#
+#	@lecturas_publicas {
+#		method GET HEAD
+#		path /api/publico/bolsa/bolsas /api/publico/bolsa/bolsas/* /api/publico/bolsa/convocatorias /api/publico/bolsa/convocatorias/* /api/publico/bolsa/categorias
+#	}
+#	cache @lecturas_publicas {
+#		ttl 10s
+#		mode bypass_response
+#		key {
+#			headers Accept-Language
+#		}
+#	}
