@@ -12,7 +12,6 @@ import (
 
 	"golang.org/x/text/language"
 	"vec-diputacion-granada/internal/shared/i18n"
-	"vec-diputacion-granada/internal/shared/plazoarranque"
 	textos "vec-diputacion-granada/web"
 )
 
@@ -205,7 +204,7 @@ func (h *manejadorBolsasPublicas) ServeHTTP(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(duracionMaximaOperacionPublica))
+	ctx, cancelar := context.WithTimeout(r.Context(), duracionMaximaOperacionPublica)
 	defer cancelar()
 	if r.URL.Path == RutaBolsasPublicas {
 		if r.URL.RawQuery != "" || r.URL.ForceQuery {

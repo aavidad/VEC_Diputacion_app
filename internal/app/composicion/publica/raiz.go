@@ -11,7 +11,6 @@ import (
 	bolsapostgrespublico "vec-diputacion-granada/internal/modules/bolsa/adapters/postgrespublico"
 	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/publico/aplicacion"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
-	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var (
@@ -55,7 +54,7 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		config.ValidarHuellaManifiestoPublico(cfg.HuellaManifiesto) != nil {
 		return nil, ErrConfiguracionAutoritativaInvalida
 	}
-	ctxConexion, cancelarConexion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+	ctxConexion, cancelarConexion := context.WithTimeout(context.Background(), 15*time.Second)
 	fuente, err := bolsapostgrespublico.Abrir(
 		ctxConexion, dsn, cfg.CatalogoCategorias, cfg.VersionCategorias, cfg.HuellaCategorias,
 		cfg.HuellaProyeccionCategorias, cfg.HuellaManifiesto,
@@ -73,7 +72,7 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 	}
 	// La validación recorre y coteja todas las huellas publicadas por lotes.
 	// No comparte el presupuesto corto reservado al establecimiento TLS.
-	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Minute))
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 2*time.Minute)
 	err = servicio.ValidarConfiguracion(ctxValidacion)
 	cancelarValidacion()
 	if err != nil {

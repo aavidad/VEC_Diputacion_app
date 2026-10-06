@@ -17,7 +17,6 @@ import (
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/aplicacion"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
 	"vec-diputacion-granada/internal/shared/limiteshttp"
-	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -126,7 +125,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// El plazo de la operación empieza antes de esperar turno: la espera se
 	// descuenta de él y la petición no dura más que antes.
-	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(h.duracionOperacion))
+	ctx, cancelar := context.WithTimeout(r.Context(), h.duracionOperacion)
 	defer cancelar()
 	if !h.ocuparCupo(ctx, h.cuposRespuesta) {
 		w.Header().Set("Retry-After", "1")

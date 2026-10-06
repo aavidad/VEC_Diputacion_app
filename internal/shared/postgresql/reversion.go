@@ -5,7 +5,6 @@ package postgresql
 import (
 	"context"
 	"time"
-	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const DuracionMaximaReversion = 2 * time.Second
@@ -24,7 +23,7 @@ func RevertirAcotado(transaccion TransaccionReversible) {
 	if transaccion == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(DuracionMaximaReversion))
+	ctx, cancelar := context.WithTimeout(context.Background(), DuracionMaximaReversion)
 	defer cancelar()
 	_ = transaccion.Rollback(ctx)
 }
