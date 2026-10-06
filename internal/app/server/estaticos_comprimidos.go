@@ -26,16 +26,20 @@ const (
 	presupuestoCacheEstaticosComprimidos = 64 << 20
 )
 
-// extensionesComprimibles son los recursos de texto del portal. Imágenes y
-// tipografías ya van comprimidas y no se tocan.
+// extensionesComprimibles son los recursos de texto del portal cuyo tipo
+// conoce la tabla interna de Go: ServeContent lo deduce por la extensión y,
+// si no la conociera, lo adivinaría a partir de los bytes ya comprimidos.
+// Imágenes y tipografías ya van comprimidas y no se tocan.
 var extensionesComprimibles = map[string]struct{}{
-	".js": {}, ".mjs": {}, ".css": {}, ".json": {}, ".html": {}, ".svg": {}, ".txt": {}, ".webmanifest": {},
+	".js": {}, ".mjs": {}, ".css": {}, ".json": {}, ".html": {}, ".svg": {},
 }
 
 type estaticoComprimido struct {
 	modificado time.Time
 	tamano     int64
-	gzip       []byte
+	// gzip vacío marca un fichero que no gana nada comprimido: se recuerda
+	// para no volver a intentarlo en cada petición.
+	gzip []byte
 }
 
 // cacheEstaticosComprimidos guarda la versión gzip de cada fichero estático
@@ -104,7 +108,7 @@ func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) (*estatic
 	if valor, ok := c.entradas.Load(clave); ok {
 		entrada := valor.(*estaticoComprimido)
 		if entrada.tamano == info.Size() && entrada.modificado.Equal(info.ModTime()) {
-			return entrada, true
+			return entrada, len(entrada.gzip) > 0
 		}
 	}
 	contenido, err := io.ReadAll(io.LimitReader(fichero, tamanoMaximoEstaticoComprimible+1))
@@ -119,10 +123,10 @@ func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) (*estatic
 	if _, err := escritor.Write(contenido); err != nil || escritor.Close() != nil {
 		return nil, false
 	}
-	if comprimido.Len() >= len(contenido) {
-		return nil, false
-	}
 	entrada := &estaticoComprimido{modificado: info.ModTime(), tamano: info.Size(), gzip: comprimido.Bytes()}
+	if comprimido.Len() >= len(contenido) {
+		entrada.gzip = nil
+	}
 	if anterior, cargada := c.entradas.Swap(clave, entrada); cargada {
 		c.ocupado.Add(-int64(len(anterior.(*estaticoComprimido).gzip)))
 	}
@@ -134,7 +138,7 @@ func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) (*estatic
 		}
 		return nil, false
 	}
-	return entrada, true
+	return entrada, len(entrada.gzip) > 0
 }
 
 // directorioEstaticos resuelve la carpeta de estáticos igual que

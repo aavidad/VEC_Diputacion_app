@@ -2,6 +2,7 @@ package server
 
 import (
 	"compress/gzip"
+	"crypto/rand"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -142,6 +143,20 @@ func TestCacheEstaticosComprimidosSeRenuevaYSeAcota(t *testing.T) {
 	}
 	if _, ok := cache.obtener(directorio, "/../a.js"); !ok {
 		t.Fatal("la ruta limpia debe resolverse dentro del directorio")
+	}
+	aleatorio := filepath.Join(directorio, "b.json")
+	ruido := make([]byte, 4096)
+	if _, err := rand.Read(ruido); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(aleatorio, ruido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cache.obtener(directorio, "/b.json"); ok {
+		t.Fatal("un fichero que no gana nada comprimido debe servirse tal cual")
+	}
+	if valor, ok := cache.entradas.Load(aleatorio); !ok || len(valor.(*estaticoComprimido).gzip) != 0 {
+		t.Fatal("el resultado negativo debe recordarse para no recomprimir en cada petición")
 	}
 	if _, ok := cache.obtener(directorio, "/no-existe.js"); ok {
 		t.Fatal("un fichero inexistente no se comprime")
