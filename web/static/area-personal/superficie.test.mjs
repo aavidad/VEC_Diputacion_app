@@ -207,7 +207,7 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
 
 test("el menú móvil gestiona foco, Escape y contención de teclado", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(aplicacion, /\.ap-navegacion a\[href\]["']\)\?\.focus/);
+  assert.match(aplicacion, /\.ap-navegacion a\[href\]:not\(\[hidden\]\)["']\)\?\.focus/);
   assert.match(aplicacion, /function mantenerFocoEnMenu\(evento\)/);
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenuIdentidad\(\{ restaurarFoco: true \}\)/);
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenu\(\{ restaurarFoco: true \}\)/);

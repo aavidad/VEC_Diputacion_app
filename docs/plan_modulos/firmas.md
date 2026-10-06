@@ -67,6 +67,10 @@ AD177 y `plannominal.RecursoGobiernoPlanFirma` fijan el recurso de gobierno sin 
 
 Aprobado por dirección el 05/10: que el recurso de gobierno lleve `organizacion_ref` y `unidad_ref` de la asignación del administrador, y una migración nueva que sustituya `registrar_y_confirmar_gobierno_plan_firma_v1` para recibirlos, cotejarlos con la asignación de la decisión consumida (fachada AUT) y calcular con ellos la huella de contexto. El material del kit (13 claves) y CC7 no cambian.
 
+## Corte 4c-3: publicación vigente del plan (CC8 y CT178)
+
+El descriptor del plan (`plannominal.Fuente`) relee en cada firma el catálogo del plan y pide a `PublicacionAutorizada` que confirme que es la publicación vigente. `leer_plan_nominal_firma_v1` (CC7) no sirve antes del PDP porque exige un consumo de firma de la misma transacción. CC8 añade `comprobar_publicacion_plan_nominal_firma_v1(id, versión, SHA)`, de sólo lectura, con las mismas comprobaciones de publicación que CC7 y sin devolver el documento: sólo fecha y revisión. Lo ejecuta el propietario CT; CT178 lo ofrece al ejecutor CT. En Go, `postgres.PublicacionPlanFirmaPostgreSQL` coteja además la fecha y la revisión con el catálogo leído (la fecha de publicación debe tener precisión de microsegundo: PostgreSQL redondea y una fecha más fina no coincidiría nunca). La comprobación definitiva sigue en CT176 con el pin y el consumo.
+
 ## Unidad en la decisión de firma V2 (opción B, aprobada el 05/10)
 
 El recurso de cada decisión de firma lleva exactamente los ámbitos de la asignación de quien actúa: organización y, si la tiene, unidad. SQL relee esa asignación en el consumo y en la vía VEC exige que la unidad sea la del paso del plan. Orden de cortes: interior VEC (AD206 + CT181, #780), plan exterior (AD177), consulta R5 V2 y vía externa. Hasta el corte del plan exterior, un firmante cuya asignación tiene unidad obtiene la decisión interior pero no la exterior; uno sin unidad funciona como antes.

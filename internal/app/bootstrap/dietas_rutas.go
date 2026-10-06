@@ -31,6 +31,8 @@ import (
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // El manifiesto privado selecciona cuentas/perfiles ya registrados. No crea
@@ -283,6 +285,7 @@ func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, 
 	for k, v := range map[string]string{"application_name": "vec-dietas-rutas-desarrollo", "timezone": "UTC", "search_path": "pg_catalog", "statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	pool, e := pgxpool.NewWithConfig(ctx, c)
 	if e != nil {
 		return nil, "", fallo

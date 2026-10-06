@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 type poolOperativoPostgreSQLBorradores interface {
@@ -142,6 +144,7 @@ func crearPoolPostgreSQLBorradores(
 	ctx context.Context,
 	configuracion *pgxpool.Config,
 ) (poolOperativoPostgreSQLBorradores, error) {
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, ErrConexionPostgreSQLBorradoresNoDisponible
