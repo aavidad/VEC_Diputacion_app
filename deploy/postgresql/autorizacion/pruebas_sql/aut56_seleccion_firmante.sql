@@ -80,73 +80,117 @@ VALUES('enc_AUT56TITULARAAAAAAAAAAAAA',1,repeat('4',64),'car_AUT56AAAAAAAAAAAAAA
 INSERT INTO vec_personal.enlace_cargo_competencial_actual VALUES('enc_AUT56TITULARAAAAAAAAAAAAA',1,repeat('4',64));
 RESET ROLE;
 
--- Asignación activa y vigente del rol del paso para esa persona.
+-- Asignaciones. La fachada sólo elige la única asignación activa y vigente,
+-- con rol publicado y control habilitado, y ámbitos exactos (organización y
+-- unidad del paso). Primero se siembran asignaciones que incumplen una sola
+-- condición cada una: con cualquiera de esos filtros quitado, la selección
+-- dejaría de denegarse. Después se añade la buena y luego otra buena.
 SELECT r.version_rol_ref AS vrol,r.rol_id AS rol FROM vec_autorizacion.version_rol r
  JOIN vec_autorizacion.control_vigencia_version_rol_actual c ON c.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol v ON v.version_rol_ref=c.version_rol_ref AND v.revision=c.revision
  WHERE r.documento->>'estado'='publicada' AND v.estado='habilitada' AND r.rol_id='tecnico_rrhh_desarrollo' ORDER BY r.version DESC LIMIT 1 \gset
 SELECT to_char(date_trunc('second',now()) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS emitida \gset
-CREATE FUNCTION pg_temp.doc_asignacion(id text,perfil text) RETURNS jsonb LANGUAGE sql AS $f$
- SELECT jsonb_build_object('asignacion_id',id,'version',1,'perfil_activo_ref',perfil,'principal_id','per_aut56_sintetica_bbbbbbbbbbbb',
-  'version_rol_ref',current_setting('aut56.vrol'),'estado','activa','emitida_en',current_setting('aut56.emitida'),
-  'vigente_desde',to_char((now()-interval '1 day') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-  'vigente_hasta',to_char((now()+interval '30 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-  'ambitos',jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
-   jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni')))))
-$f$;
-SELECT set_config('aut56.vrol',:'vrol',true),set_config('aut56.emitida',:'emitida',true),set_config('aut56.org',:'org',true),set_config('aut56.uni',:'uni',true);
+SELECT set_config('aut56.vrol',:'vrol',true),set_config('aut56.emitida',:'emitida',true),set_config('aut56.org',:'org',true),
+ set_config('aut56.uni',:'uni',true),set_config('aut56.rol',:'rol',true),set_config('aut56.der',:'der',true);
+-- Rol propio con el control retirado, para el caso «control no habilitado».
+-- Copia las concesiones del rol real: la tabla exige concesiones válidas.
 SET LOCAL ROLE vec_autorizacion_propietario;
-INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
-VALUES('asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1','asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa',1,'prf_aut56_sintetico_cccccccccccc','per_aut56_sintetica_bbbbbbbbbbbb',
- :'vrol',repeat('8',64),:'emitida'::timestamptz,pg_temp.doc_asignacion('asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa','prf_aut56_sintetico_cccccccccccc'));
-INSERT INTO vec_autorizacion.asignacion_perfil_actual(perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
-VALUES('prf_aut56_sintetico_cccccccccccc','asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1',now(),'prueba:aut56','acto:aut56');
+INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento)
+VALUES('rol:aut56_rol_retirado:v1','aut56_rol_retirado',1,repeat('6',64),:'emitida'::timestamptz,
+ jsonb_build_object('rol_id','aut56_rol_retirado','version',1,'nombre','Prueba AUT56','estado','publicada',
+  'concesiones',(SELECT x.documento->'concesiones' FROM vec_autorizacion.version_rol x WHERE x.version_rol_ref=:'vrol'),
+  'publicada_por','prueba:aut56','publicada_en',:'emitida'));
+INSERT INTO vec_autorizacion.control_vigencia_version_rol(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
+VALUES('rol:aut56_rol_retirado:v1',1,'retirada',repeat('5',64),:'emitida'::timestamptz,
+ jsonb_build_object('version_rol_ref','rol:aut56_rol_retirado:v1','revision',1,'estado','retirada','actualizado_por','prueba:aut56','actualizado_en',:'emitida'));
+INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual(version_rol_ref,revision,actualizada_en,actualizada_por,acto_ref)
+VALUES('rol:aut56_rol_retirado:v1',1,now(),'prueba:aut56','acto:aut56');
 RESET ROLE;
-
+CREATE FUNCTION pg_temp.asignar(id text,perfil text,vrol text DEFAULT current_setting('aut56.vrol'),estado text DEFAULT 'activa',
+ hasta interval DEFAULT interval '30 days',ambitos jsonb DEFAULT NULL) RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE doc jsonb;
+BEGIN
+ doc:=jsonb_build_object('asignacion_id',id,'version',1,'perfil_activo_ref',perfil,'principal_id','per_aut56_sintetica_bbbbbbbbbbbb',
+  'version_rol_ref',vrol,'estado',estado,'emitida_en',current_setting('aut56.emitida'),
+  'vigente_desde',to_char((now()-interval '60 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+  'vigente_hasta',to_char((now()+hasta) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+  'ambitos',coalesce(ambitos,jsonb_build_array(jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
+   jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni'))))));
+ SET LOCAL ROLE vec_autorizacion_propietario;
+ INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
+ VALUES('asignacion:'||id||':v1',id,1,perfil,'per_aut56_sintetica_bbbbbbbbbbbb',vrol,repeat('8',64),current_setting('aut56.emitida')::timestamptz,doc);
+ INSERT INTO vec_autorizacion.asignacion_perfil_actual(perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
+ VALUES(perfil,'asignacion:'||id||':v1',now(),'prueba:aut56','acto:aut56');
+ RESET ROLE;
+END $f$;
 CREATE ROLE prueba_aut56_ct LOGIN;
 GRANT vec_contratacion_temporal_ejecutor TO prueba_aut56_ct WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 CREATE ROLE prueba_aut56_ajeno LOGIN;
 GRANT vec_personal_ejecutor TO prueba_aut56_ajeno WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
-SELECT set_config('aut56.rol',:'rol',true),set_config('aut56.der',:'der',true);
-CREATE FUNCTION pg_temp.sel(der text,rol text,uni text,tipo text DEFAULT 'firma_vec_documento_contratacion_temporal') RETURNS jsonb LANGUAGE plpgsql AS $f$
+CREATE ROLE prueba_aut56_mezcla LOGIN;
+GRANT vec_contratacion_temporal_ejecutor,vec_autorizacion_propietario TO prueba_aut56_mezcla;
+-- Devuelve la selección o el mensaje exacto de la denegación.
+CREATE FUNCTION pg_temp.sel(der text DEFAULT current_setting('aut56.der'),rol text DEFAULT current_setting('aut56.rol'),
+ org text DEFAULT current_setting('aut56.org'),uni text DEFAULT current_setting('aut56.uni'),
+ tipo text DEFAULT 'firma_vec_documento_contratacion_temporal') RETURNS jsonb LANGUAGE plpgsql AS $f$
 BEGIN
  RETURN vec_autorizacion.seleccionar_firmante_plan_ct_v1(der,'car_AUT56AAAAAAAAAAAAAAAAAAAAA',rol,'contratacion_temporal.documento.firma_vec.registrar',
-  tipo,'gestionar_contratacion_temporal',current_setting('aut56.org'),uni);
+  tipo,'gestionar_contratacion_temporal',org,uni);
 EXCEPTION WHEN insufficient_privilege THEN RETURN jsonb_build_object('denegado',SQLERRM);
 END $f$;
+CREATE FUNCTION pg_temp.denegado(r jsonb,mensaje text,caso text) RETURNS text LANGUAGE sql AS $f$
+ SELECT CASE WHEN r->>'denegado'=mensaje THEN 'OK '||caso ELSE 'FALLO '||caso||' '||r::text END
+$f$;
+-- Asignaciones que incumplen una condición cada una.
+SELECT pg_temp.asignar('asg_aut56caducadaaaaaaaaaaaaaaaaaa','prf_aut56_caducada_aaaaaaaaaaaaaa',hasta=>interval '-1 day');
+SELECT pg_temp.asignar('asg_aut56revocadaaaaaaaaaaaaaaaaaa','prf_aut56_revocada_aaaaaaaaaaaaaa',estado=>'revocada');
+SELECT pg_temp.asignar('asg_aut56otraunidadaaaaaaaaaaaaaaa','prf_aut56_otraunidad_aaaaaaaaaaaa',ambitos=>jsonb_build_array(
+ jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
+ jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array('unidad:aut56:ajena'))));
+SELECT pg_temp.asignar('asg_aut56sinunidadaaaaaaaaaaaaaaaa','prf_aut56_sinunidad_aaaaaaaaaaaaa',ambitos=>jsonb_build_array(
+ jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org')))));
+SELECT pg_temp.asignar('asg_aut56dimextraaaaaaaaaaaaaaaaaa','prf_aut56_dimextra_aaaaaaaaaaaaaa',ambitos=>jsonb_build_array(
+ jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
+ jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni'))),
+ jsonb_build_object('clave','centro_ref','valores',jsonb_build_array('centro:aut56'))));
+SELECT pg_temp.asignar('asg_aut56dosvaloresaaaaaaaaaaaaaaa','prf_aut56_dosvalores_aaaaaaaaaaaa',ambitos=>jsonb_build_array(
+ jsonb_build_object('clave','organizacion_ref','valores',jsonb_build_array(current_setting('aut56.org'))),
+ jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(current_setting('aut56.uni'),'unidad:aut56:ajena'))));
+SELECT pg_temp.asignar('asg_aut56retiradoaaaaaaaaaaaaaaaaa','prf_aut56_retirado_aaaaaaaaaaaaaa',vrol=>'rol:aut56_rol_retirado:v1');
 
 SET SESSION AUTHORIZATION prueba_aut56_ct;
 SET LOCAL timezone='UTC';
-SELECT pg_temp.sel(current_setting('aut56.der'),current_setting('aut56.rol'),current_setting('aut56.uni'))::text AS s \gset
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(),'seleccion_firmante_ausente_o_ambigua','solo_asignaciones_invalidas'));
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(rol=>'aut56_rol_retirado'),'seleccion_firmante_ausente_o_ambigua','control_retirado_denegado'));
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(der=>repeat('6',64)),'seleccion_firmante_certificado_no_admitido','certificado_ajeno_denegado'));
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(org=>'org_aut56ajenaaaaaaaaaaaaaaaaaaa'),'seleccion_firmante_certificado_no_admitido','organizacion_del_certificado_distinta'));
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(tipo=>'documento:aut56:original-a'),'cargo_localizacion_ausente_o_ambigua','enlace_por_documento_no_selecciona'));
+RESET SESSION AUTHORIZATION;
+-- La asignación buena.
+SELECT pg_temp.asignar('asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa','prf_aut56_sintetico_cccccccccccc');
+SET SESSION AUTHORIZATION prueba_aut56_ct;
+SELECT pg_temp.sel()::text AS s \gset
 SELECT pg_temp.exigir(CASE WHEN (:'s'::jsonb)->>'enlace_ejercicio_ref'='enc_AUT56TITULARAAAAAAAAAAAAA'
  AND (:'s'::jsonb)->>'perfil_activo_ref'='prf_aut56_sintetico_cccccccccccc' AND (:'s'::jsonb)->>'persona_ref'='per_aut56_sintetica_bbbbbbbbbbbb'
- AND (:'s'::jsonb)#>>'{asignacion,referencia}'='asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1' AND (:'s'::jsonb)->>'cuenta_ref'='cta_aut56_sintetica_aaaaaaaaaaaa'
- AND (:'s'::jsonb)#>>'{vinculo_certificado,referencia}'='vcc_aut56_sintetico_ffffffffffff' AND (:'s'::jsonb)#>>'{vinculo_certificado,version}'='1' AND (:'s'::jsonb)#>>'{rol,referencia}'=current_setting('aut56.rol')||'' IS NOT NULL
+ AND (:'s'::jsonb)#>>'{asignacion,referencia}'='asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1'
+ AND (:'s'::jsonb)#>>'{asignacion,version}'='1' AND (:'s'::jsonb)#>>'{asignacion,huella_sha256}'=repeat('8',64)
+ AND (:'s'::jsonb)#>>'{rol,referencia}'=:'vrol' AND (:'s'::jsonb)#>>'{control_rol,referencia}'=:'vrol'
+ AND (:'s'::jsonb)#>>'{control_rol,revision}' IS NOT NULL
+ AND (:'s'::jsonb)->>'cuenta_ref'='cta_aut56_sintetica_aaaaaaaaaaaa'
+ AND (:'s'::jsonb)#>>'{vinculo_certificado,referencia}'='vcc_aut56_sintetico_ffffffffffff' AND (:'s'::jsonb)#>>'{vinculo_certificado,version}'='1'
  THEN 'OK seleccion_positiva' ELSE 'FALLO seleccion_positiva '||:'s' END);
-SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(current_setting('aut56.der'),'otro_rol_aut56',current_setting('aut56.uni')) ? 'denegado'
- THEN 'OK otro_rol_denegado' ELSE 'FALLO otro_rol_denegado' END);
-SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(current_setting('aut56.der'),current_setting('aut56.rol'),'unidad:aut56:ajena') ? 'denegado'
- THEN 'OK otra_unidad_denegada' ELSE 'FALLO otra_unidad_denegada' END);
-SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(repeat('6',64),current_setting('aut56.rol'),current_setting('aut56.uni')) ? 'denegado'
- THEN 'OK certificado_ajeno_denegado' ELSE 'FALLO certificado_ajeno_denegado' END);
-SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(current_setting('aut56.der'),current_setting('aut56.rol'),current_setting('aut56.uni'),'documento:aut56:original-a') ? 'denegado'
- THEN 'OK enlace_por_documento_no_selecciona' ELSE 'FALLO enlace_por_documento_no_selecciona' END);
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(rol=>'otro_rol_aut56'),'seleccion_firmante_ausente_o_ambigua','otro_rol_denegado'));
 RESET SESSION AUTHORIZATION;
-
--- Una segunda asignación del mismo rol hace la selección ambigua.
-SET LOCAL ROLE vec_autorizacion_propietario;
-INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
-VALUES('asignacion:asg_aut56bbbbbbbbbbbbbbbbbbbbbbbbbb:v1','asg_aut56bbbbbbbbbbbbbbbbbbbbbbbbbb',1,'prf_aut56_sintetico_segundo_cccc','per_aut56_sintetica_bbbbbbbbbbbb',
- current_setting('aut56.vrol'),repeat('8',64),current_setting('aut56.emitida')::timestamptz,pg_temp.doc_asignacion('asg_aut56bbbbbbbbbbbbbbbbbbbbbbbbbb','prf_aut56_sintetico_segundo_cccc'));
-INSERT INTO vec_autorizacion.asignacion_perfil_actual(perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
-VALUES('prf_aut56_sintetico_segundo_cccc','asignacion:asg_aut56bbbbbbbbbbbbbbbbbbbbbbbbbb:v1',now(),'prueba:aut56','acto:aut56');
-RESET ROLE;
+-- Una segunda asignación válida del mismo rol hace la selección ambigua.
+SELECT pg_temp.asignar('asg_aut56bbbbbbbbbbbbbbbbbbbbbbbbbb','prf_aut56_sintetico_segundo_cccc');
 SET SESSION AUTHORIZATION prueba_aut56_ct;
-SELECT pg_temp.exigir(CASE WHEN pg_temp.sel(current_setting('aut56.der'),current_setting('aut56.rol'),current_setting('aut56.uni'))->>'denegado' LIKE '%ausente_o_ambigua%'
- THEN 'OK dos_asignaciones_ambiguas' ELSE 'FALLO dos_asignaciones_ambiguas' END);
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(),'seleccion_firmante_ausente_o_ambigua','dos_asignaciones_ambiguas'));
 RESET SESSION AUTHORIZATION;
-
--- Sólo el ejecutor CT ejecuta la fachada.
+-- Guardas: un LOGIN que además es propietario de AUT no la ejecuta, y otro
+-- grupo no tiene EXECUTE.
+SET SESSION AUTHORIZATION prueba_aut56_mezcla;
+SELECT pg_temp.exigir(pg_temp.denegado(pg_temp.sel(),'seleccion_firmante_denegada','login_con_propietario_aut_denegado'));
+RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION prueba_aut56_ajeno;
 DO $ajeno$ BEGIN
  BEGIN PERFORM vec_autorizacion.seleccionar_firmante_plan_ct_v1(repeat('7',64),'car_x','r_x','a.b','t_x','f_x','org_x','uni_x');
@@ -155,6 +199,10 @@ DO $ajeno$ BEGIN
 END $ajeno$;
 RESET SESSION AUTHORIZATION;
 SELECT 'OK ajeno_sin_execute';
+-- La vía directa de CT172 queda cerrada para el ejecutor.
+SELECT pg_temp.exigir(CASE WHEN NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
+ 'vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
+ THEN 'OK ct172_directa_cerrada' ELSE 'FALLO ct172_directa_cerrada' END);
 
 -- AUT35 coteja el enlace por tipo.
 SELECT pg_temp.exigir(CASE WHEN strpos(pg_get_functiondef('vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(jsonb,jsonb,jsonb)'::regprocedure),
@@ -170,9 +218,22 @@ SELECT pg_temp.exigir(CASE WHEN strpos(pg_get_functiondef('vec_autorizacion.cons
 -- deniegue de forma determinista (42501) en cuanto lo alcanza.
 CREATE ROLE prueba_aut56_mixto LOGIN;
 GRANT vec_contratacion_temporal_ejecutor,vec_personal_ejecutor TO prueba_aut56_mixto;
+-- La vía directa está cerrada para el ejecutor; sólo dentro de esta
+-- transacción (ROLLBACK) se le concede a esta identidad de prueba para
+-- comprobar la atadura al documento en CT172.
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea) TO prueba_aut56_mixto;
+DO $v3$ BEGIN
+ IF to_regprocedure('vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
+  GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea) TO prueba_aut56_mixto;
+ END IF;
+END $v3$;
+RESET ROLE;
 SET SESSION AUTHORIZATION prueba_aut56_mixto;
 DO $documento$
 DECLARE base jsonb;b jsonb;evidencia jsonb;desc_a jsonb;desc_b jsonb;bd_a bytea;bd_b bytea;contexto_h text;decision bytea;capacidad bytea;traza text;
+ v3 boolean:=to_regprocedure('vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL;
+ registrar text;
  vacio bytea:=convert_to('{}','UTF8');
 BEGIN
  evidencia:=jsonb_build_array(jsonb_build_object('Orden',1,'ByteRange',jsonb_build_array(0,1050,1150,50),
@@ -247,6 +308,11 @@ BEGIN
    'RevisionLongitud',1200,
    'EvidenciaFirmasCanonica',evidencia,
    'EvidenciaFirmasHuellaSHA256',encode(sha256(convert_to(evidencia::text,'UTF8')),'hex'));
+ -- Firmante, perfil, organización y unidad de la asignación sembrada (con
+ -- AD206 la huella sale de esa asignación; sin AD206, sólo de la organización).
+ base:=base||jsonb_build_object('OrganizacionRef',current_setting('aut56.org'),'UnidadFirmanteRef',current_setting('aut56.uni'),
+  'FirmantePrincipalRef','per_aut56_sintetica_bbbbbbbbbbbb','PerfilActivoFirmanteRef','prf_aut56_sintetico_cccccccccccc',
+  'PerfilActivoOperadorRef','prf_aut56_sintetico_cccccccccccc');
  -- Mismo cargo, mismo paso y misma persona; sólo cambia el original.
  b:=base||jsonb_build_object('OriginalRef','documento:ct172:original-b','OriginalHuella',repeat('e',64),
   'EntradaDocumentoRef','documento:ct172:original-b','EntradaDocumentoHuella',repeat('e',64));
@@ -270,21 +336,24 @@ BEGIN
  desc_b:=jsonb_set(desc_b,'{recurso,pdf_raiz_sha256}',to_jsonb(repeat('e',64)));
  bd_a:=convert_to(desc_a::text,'UTF8'); bd_b:=convert_to(desc_b::text,'UTF8');
  -- Decisión y capacidad para el original A (huella de contexto de A).
- contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:ct172:negativas"},"atributos":{"descriptor_firma_sha256":"'||
+ contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||current_setting('aut56.org')||'"'||
+  CASE WHEN v3 THEN ',"unidad_ref":"'||current_setting('aut56.uni')||'"' ELSE '' END||'},"atributos":{"descriptor_firma_sha256":"'||
   encode(sha256(bd_a),'hex')||'","material_sha256":"'||encode(sha256(convert_to(base::text,'UTF8')),'hex')||'"}}','UTF8')),'hex');
  decision:=convert_to(jsonb_build_object('accion','contratacion_temporal.documento.firma_vec.registrar','modulo_id','contratacion_temporal',
   'tipo_recurso','firma_vec_documento_contratacion_temporal','finalidad','gestionar_contratacion_temporal',
   'recurso_ref','operacion-firma-vec-ct:'||(base->>'ClaveIdempotencia'),'contexto_recurso_huella_sha256',contexto_h,
   'principal_id',base->'FirmantePrincipalRef','perfil_activo_ref',base->'PerfilActivoOperadorRef',
+  'asignacion_ref','asignacion:asg_aut56aaaaaaaaaaaaaaaaaaaaaaaaaa:v1','asignacion_huella_sha256',repeat('8',64),'version_rol_ref',current_setting('aut56.vrol'),
   'campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb,'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
  capacidad:=convert_to(jsonb_build_object('suite','no_acreditada','operacion','contratacion_temporal.documento.firma_vec.registrar',
   'audiencia_consumo','vec_contratacion_temporal.firma_vec.v2','efecto_ref','operacion-firma-vec-ct:'||(base->>'ClaveIdempotencia'),
   'huella_efecto_sha256',contexto_h,'huella_decision_sha256',encode(sha256(decision),'hex'))::text,'UTF8');
+ registrar:=CASE WHEN v3 THEN 'registrar_firma_verificada_v3' ELSE 'registrar_firma_verificada_v2' END;
  -- Control: con A la fachada llega al consumidor V3 (que la deniega por no
  -- estar atestada); así la negativa de B no se debe a otra cosa.
  BEGIN
-  PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(base::text,'2026-10-03T00:00:00Z',capacidad,decision,
-   vacio,vacio,1,1,vacio,vacio,vacio,vacio,bd_a);
+  EXECUTE format('SELECT vec_contratacion_temporal.%I($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',registrar) USING base::text,'2026-10-03T00:00:00Z'::timestamptz,capacidad,decision,
+   vacio,vacio,1::numeric,1::numeric,vacio,vacio,vacio,vacio,bd_a;
   RAISE EXCEPTION 'FALLO control_a_llega_al_consumidor (aceptado)';
  EXCEPTION WHEN SQLSTATE '42501' THEN
   GET STACKED DIAGNOSTICS traza=PG_EXCEPTION_CONTEXT;
@@ -293,8 +362,8 @@ BEGIN
  RAISE NOTICE 'OK control_a_llega_al_consumidor';
  -- Original B con la decisión de A: divergente antes del consumidor.
  BEGIN
-  PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(b::text,'2026-10-03T00:00:00Z',capacidad,decision,
-   vacio,vacio,1,1,vacio,vacio,vacio,vacio,bd_b);
+  EXECUTE format('SELECT vec_contratacion_temporal.%I($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',registrar) USING b::text,'2026-10-03T00:00:00Z'::timestamptz,capacidad,decision,
+   vacio,vacio,1::numeric,1::numeric,vacio,vacio,vacio,vacio,bd_b;
   RAISE EXCEPTION 'FALLO otro_original_denegado (aceptado)';
  EXCEPTION WHEN SQLSTATE '42501' THEN
   GET STACKED DIAGNOSTICS traza=PG_EXCEPTION_CONTEXT;
