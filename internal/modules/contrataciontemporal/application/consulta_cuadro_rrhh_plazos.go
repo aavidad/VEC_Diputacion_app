@@ -40,6 +40,14 @@ func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
 	if !domain.InstanteUTCCanonico(ahora) {
 		return nil
 	}
+	// Una sola lectura de reglas para toda la página, si la calculadora lo
+	// admite; si no, o si falla, se calcula como siempre.
+	calculadora := s.plazos
+	if preparador, admite := calculadora.(ports.PreparadorPlazosFaseRRHH); admite {
+		if preparada, err := preparador.PrepararPlazosFase(ctx); err == nil && !dependenciaNula(preparada) {
+			calculadora = preparada
+		}
+	}
 	calculados := make(map[clavePlazoFaseCuadro]*ports.PlazoFaseRRHH)
 	plazos := make([]*ports.PlazoFaseRRHH, len(pagina.Expedientes))
 	alguno := false
@@ -53,7 +61,7 @@ func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
 		}
 		plazo, visto := calculados[clave]
 		if !visto {
-			plazo = s.calcularPlazoFase(ctx, clave, ahora)
+			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora)
 			calculados[clave] = plazo
 		}
 		if plazo != nil {
@@ -68,12 +76,13 @@ func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
 	return plazos
 }
 
-func (s *ServicioConsultaCuadroRRHH) calcularPlazoFase(
+func calcularPlazoFase(
 	ctx context.Context,
+	calculadora ports.CalculadoraPlazoFaseRRHH,
 	clave clavePlazoFaseCuadro,
 	ahora time.Time,
 ) *ports.PlazoFaseRRHH {
-	plazo, aplicable, err := s.plazos.CalcularPlazoFase(ctx, ports.SolicitudPlazoFaseRRHH{
+	plazo, aplicable, err := calculadora.CalcularPlazoFase(ctx, ports.SolicitudPlazoFaseRRHH{
 		Fase: clave.fase, Desde: clave.desde, Ahora: ahora, Urgente: clave.urgente,
 	})
 	switch {
