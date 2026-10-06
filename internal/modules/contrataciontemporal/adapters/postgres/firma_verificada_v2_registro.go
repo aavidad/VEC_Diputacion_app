@@ -16,7 +16,9 @@ import (
 
 var _ ports.RegistroFirmasVerificadasV2 = (*RegistroFirmasVerificadasPostgreSQL)(nil)
 
-const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_verificada_v2($1,$2::timestamptz,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13)::text`
+// CT181: la v3 calcula la huella interior con los ámbitos de la asignación
+// de quien firma (AD206); la v2 ya no la puede ejecutar el ejecutor CT.
+const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_verificada_v3($1,$2::timestamptz,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13)::text`
 
 // CT172 añade dos referencias nominales al recibo CT118 de doce claves.
 // El DTO de CT118 permanece separado para las funciones anteriores.
