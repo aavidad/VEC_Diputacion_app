@@ -716,7 +716,7 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
+	// Plazo propio también para ROLLBACK: se ejecuta con el cerrojo `renovacion` tomado por la
 	// renovación y no debe esperar indefinidamente a una red cortada.
 	defer func() {
 		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)

@@ -175,10 +175,11 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) estadoVigencia() (time.Time, bool
 // uso, que se conserva. Así la continuidad no depende de tráfico CT (ni del
 // lector de vec-interno, que no publica).
 //
-// Cada intento tiene plazo propio: `instantanea` retiene f.mu durante toda la
-// transacción de gobierno y el contexto del temporizador sólo se cancela al
-// cerrar, así que sin plazo un corte de red o un cerrojo consultivo ajeno
-// bloquearía también cada petición CT. La espera se acota a unos minutos y se
+// Cada intento tiene plazo propio: con la publicación caducada, `instantanea`
+// retiene el cerrojo `renovacion` durante toda la transacción de publicación
+// y el contexto del temporizador sólo se cancela al cerrar, así que sin plazo
+// un corte de red o un cerrojo consultivo ajeno bloquearía también cada
+// petición CT que necesite renovar. La espera se acota a unos minutos y se
 // recalcula (los temporizadores de Go no avanzan con el equipo suspendido) y
 // los reintentos crecen hasta un tope, registrando el primer fallo y después
 // uno por reintento ya en el tope (cada 15 min), no una línea por minuto. El
