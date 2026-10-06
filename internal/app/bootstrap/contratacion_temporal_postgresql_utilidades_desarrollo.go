@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log/slog"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -389,7 +390,7 @@ func comprobarPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, q interface
 	 FROM pg_roles l JOIN pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
 	var usuario string
 	var valido bool
-	sondaCtx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sondaCtx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if err := q.QueryRow(sondaCtx, sonda, rolConsultaAuditoriaCTDesarrollo,
 		funcionConsultaAuditoriaCTDesarrollo, funcionConsultaAuditoriaBolsaDesarrollo).Scan(&usuario, &valido); err != nil || !valido || usuario != login {
@@ -469,7 +470,7 @@ func comprobarPoolAutoridadAuditoriaDesarrollo(ctx context.Context, q interface 
 	 FROM pg_roles l JOIN pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
 	var usuario string
 	var valido bool
-	sondaCtx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sondaCtx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if err := q.QueryRow(sondaCtx, sonda, rol).Scan(&usuario, &valido); err != nil || !valido || usuario != login {
 		return auditoria.ErrNoDisponible

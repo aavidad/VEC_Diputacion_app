@@ -12,6 +12,7 @@ import (
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -75,7 +76,7 @@ func (a auditorConsultaCircuitoRRHHDenegada) ServeHTTP(w http.ResponseWriter, r 
 			responderConsultaCircuitoAuditoriaNoDisponible(w)
 			return
 		}
-		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
 		err := a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 		cancelar()
 		if err != nil {
@@ -277,7 +278,7 @@ func nuevoManejadorConsultaCircuitoRRHHDesarrollo(
 	if err != nil || vinculo.PrincipalID != s.principalID {
 		return nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,

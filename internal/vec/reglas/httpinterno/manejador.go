@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -141,7 +142,7 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
-	ctx, cancelar := context.WithTimeout(r.Context(), plazoConsulta)
+	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(plazoConsulta))
 	defer cancelar()
 	datos := Datos{Esquema: Esquema, Catalogos: make([]Catalogo, 0, len(m.fuentes))}
 	for _, f := range m.fuentes {

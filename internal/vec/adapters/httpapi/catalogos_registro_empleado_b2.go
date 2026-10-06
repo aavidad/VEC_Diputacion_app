@@ -13,6 +13,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -254,7 +255,7 @@ func (h *handlerCatalogosRegistroEmpleadoB2) errorOperacion(w http.ResponseWrite
 
 func (h *handlerCatalogosRegistroEmpleadoB2) denegar(w http.ResponseWriter, ctx context.Context, estado int, codigo, actor string) {
 	orden := DenegacionRegistroEmpleadoB2{CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo, Ruta: RutaCatalogosRegistroEmpleadoB2, ActorRef: actor}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta))
 	defer cancelar()
 	if h.auditoria.RegistrarDenegacionRegistroEmpleadoB2(ctxAuditoria, orden) != nil {
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)

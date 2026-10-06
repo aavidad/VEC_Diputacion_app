@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
@@ -118,7 +119,7 @@ func Abrir(
 		pool.Close()
 		return nil, err
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, duracionSondaPostgreSQLPublica)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionSondaPostgreSQLPublica))
 	defer cancelar()
 	if err := pool.Ping(ctxSonda); err != nil {
 		pool.Close()

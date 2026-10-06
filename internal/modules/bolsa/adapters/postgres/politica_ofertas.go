@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -54,7 +55,7 @@ SELECT session_user::text,
 FROM pg_roles l JOIN pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
 
 func acreditarPoolPoliticaOfertas(ctx context.Context, pool *pgxpool.Pool, rol string, lecturaV1 bool) (string, error) {
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	var login string
 	var valido bool

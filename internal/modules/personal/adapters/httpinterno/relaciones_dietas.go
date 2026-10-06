@@ -13,6 +13,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -156,7 +157,7 @@ func (m *ManejadorRelacionesDietas) denegar(w http.ResponseWriter, r *http.Reque
 		motivo = personalports.MotivoFronteraPersonalRepresentacion
 	}
 	orden := personalports.OrdenAuditoriaFronteraAsignacionDietas{CorrelacionRef: correlacion, Motivo: motivo, Ruta: personalports.RutaFronteraRelacionesDietas, Accion: accion, ActorRef: actorRef, RecursoRef: recursoRef, EstadoHTTP: estado}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if orden.Validar() != nil || m.auditoria.RegistrarAuditoriaFronteraAsignacionDietas(ctx, orden) != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)

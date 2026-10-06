@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/config"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
@@ -254,7 +255,7 @@ func cargarIncorporacionB2Pura(cfg config.Config, c archivoIncorporacionV2, raiz
 	if c.Planes != "" || c.Personal != "" || c.Continuidad != nil || validarConfiguracionIncorporacionB2(c.PersonalB2) != nil {
 		return vacia, nil, ct.ErrComposicionIncorporacionAplicacion
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	pools := map[string]*pgxpool.Pool{}
 	var montaje *montajeIncorporacionPersonalB2

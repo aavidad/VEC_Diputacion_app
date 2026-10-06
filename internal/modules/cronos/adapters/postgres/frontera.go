@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // RegistroDenegacionFronteraPostgreSQL usa el LOGIN del auditor de Cronos,
@@ -32,7 +33,7 @@ func (r *RegistroDenegacionFronteraPostgreSQL) RegistrarDenegacionFronteraCronos
 		return ports.ErrDenegacionFronteraNoRegistrada
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

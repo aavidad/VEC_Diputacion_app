@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -63,7 +64,7 @@ func (f *Fuente) ComprobarDisponibilidad(ctx context.Context) error {
 		}
 		terminada := f.disponibilidadSondaTerminada
 		if terminada == nil {
-			ctxSonda, cancelar := context.WithTimeout(context.Background(), duracionSondaDisponibilidadPublica)
+			ctxSonda, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(duracionSondaDisponibilidadPublica))
 			terminada = make(chan struct{})
 			f.disponibilidadSondaTerminada = terminada
 			f.disponibilidadSondaCancelar = cancelar
@@ -175,7 +176,7 @@ func (f *Fuente) vigilarIntegridad(ctx context.Context, terminada chan<- struct{
 			return
 		case <-temporizador.C:
 		}
-		ctxSonda, cancelar := context.WithTimeout(ctx, duracionIntegridadDisponibilidad)
+		ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionIntegridadDisponibilidad))
 		err := f.ejecutarIntegridadProtegida(ctxSonda)
 		cancelar()
 		if ctx.Err() != nil {

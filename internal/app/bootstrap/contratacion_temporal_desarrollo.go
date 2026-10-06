@@ -23,6 +23,7 @@ import (
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
@@ -339,7 +340,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		sonda, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+		sonda, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 		defer cancelar()
 		fuenteAutorizacionPlantillas, err = abrirPoolAutorizacionRRHHDesarrollo(
 			sonda, dsnFuente, config.RolAutorizacionFuenteRRHH, "vec-ct-plantillas-fuente")
@@ -442,7 +443,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
 	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
 	if alta.postgresql.ejecucion != nil {
-		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), 5*time.Second)
+		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 		err = comprobarMigracionUrgenciaAnalisis(ctxMigracion, alta.postgresql.ejecucion)
 		cancelarMigracion()
 		if err != nil {
@@ -564,7 +565,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
 			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
 		}
-		ctxIntentos, cancelarIntentos := context.WithTimeout(context.Background(), 30*time.Second)
+		ctxIntentos, cancelarIntentos := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 		reservadosIntentos := []string{
 			alta.postgresql.gobierno.Config().ConnConfig.User,
 			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
@@ -779,7 +780,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	if firmaDocumento != nil {
-		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), 15*time.Second)
+		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 		err := prepararCuentaNominalFirmasIntervencionDesarrollo(ctxFirma, alta.postgresql.gobierno, fiscalizacionReal.soporte, derivador)
 		if err == nil {
 			err = firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
@@ -1048,7 +1049,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarPreparacionBases()
 		}
 	}()
-	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), 60*time.Second)
+	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 	rutasBaremo, cerrarBaremo, errBaremo := montajeBaremo.rutas(sondaBaremo, cfg, &alta,
 		consultasRRHH.identidad, seguridadBorrador, derivador, reloj)
 	cancelarBaremo()
@@ -1066,7 +1067,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasCatalogo == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
-		sondaPlantillas, cancelarPlantillas := context.WithTimeout(context.Background(), 60*time.Second)
+		sondaPlantillas, cancelarPlantillas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 		defer cancelarPlantillas()
 		rutasPlantillas, err := nuevasRutasPlantillasCTDesarrollo(
 			sondaPlantillas, cfg, &alta, soportePlantillas, consultasRRHH.identidad,
@@ -1081,7 +1082,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
-		sondaDocumental, cancelarDocumental := context.WithTimeout(context.Background(), 60*time.Second)
+		sondaDocumental, cancelarDocumental := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 		defer cancelarDocumental()
 		rutasDocumentales, err := nuevasRutasPlantillasDocumentalCTDesarrollo(
 			sondaDocumental, cfg, &alta, soporteDocumental, consultasRRHH.identidad,
@@ -1129,7 +1130,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil || alta.postgresql.bolsa == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
-		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), 30*time.Second)
+		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 		reservadosIntentosBolsa := []string{
 			alta.postgresql.gobierno.Config().ConnConfig.User,
 			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
@@ -1296,7 +1297,7 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 	if err != nil {
 		return fallo(nil)
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 60*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	poolCT, err := abrirPoolConsultaAuditoriaCTDesarrollo(sonda, dsnCT)
 	if err != nil {

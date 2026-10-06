@@ -17,6 +17,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -159,7 +160,7 @@ func (m *ManejadorAsignacionDietas) auditarRechazo(r *http.Request, estado int, 
 	if orden.Validar() != nil {
 		return ErrManejadorAsignacionNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return m.auditoria.RegistrarAuditoriaFronteraAsignacionDietas(ctx, orden)
 }

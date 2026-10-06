@@ -16,6 +16,7 @@ import (
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -179,7 +180,7 @@ func (a auditorConsultaCTDenegada) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			responderConsultaReciboRespuestaNoDisponible(w)
 			return
 		}
-		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
 		err := a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 		cancelar()
 		if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -132,7 +133,7 @@ func (a *AutoridadLoteOrdinario) ejecutarConsumoLote(ctx context.Context, actor 
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

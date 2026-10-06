@@ -18,6 +18,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // maximoPaginasEntregaContratosCT acota una pasada: con lote 100 son 10.000
@@ -128,7 +129,7 @@ func mantenerEntregaCTBolsa(nombre string, entregar func(context.Context) (resul
 	go func() {
 		defer close(terminado)
 		for ctx.Err() == nil {
-			pasada, cancelarPasada := context.WithTimeout(ctx, max(intervalo, 30*time.Second))
+			pasada, cancelarPasada := context.WithTimeout(ctx, plazoarranque.Ampliar(max(intervalo, 30*time.Second)))
 			r, err := entregar(pasada)
 			cancelarPasada()
 			if err != nil && ctx.Err() == nil {

@@ -12,6 +12,7 @@ import (
 	canonicopublico "vec-diputacion-granada/internal/modules/bolsa/publico/canonico"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/publico/dominio"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
@@ -183,7 +184,7 @@ func (f *Fuente) ValidarConfiguracionPublica(ctx context.Context, instante time.
 	if ctx == nil || !f.configuracionValida() || instante.IsZero() {
 		return puertosbolsa.ErrConsultaConvocatoriasInvalida
 	}
-	ctx, cancelar := context.WithTimeout(ctx, duracionMaximaManifiestoArranque)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionMaximaManifiestoArranque))
 	defer cancelar()
 	tx, err := f.iniciarLectura(ctx, false)
 	if err != nil {

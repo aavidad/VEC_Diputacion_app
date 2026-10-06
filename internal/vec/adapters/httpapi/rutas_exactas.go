@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -324,8 +325,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return nil
 	}
 	ctxAuditoria, cancelar := context.WithTimeout(
-		context.WithoutCancel(ctx),
-		plazoMaximoAuditoriaFronteraRutaExacta,
+		context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta),
 	)
 	defer cancelar()
 	if err := h.registradorAuditoriaFronteraRutasExactas.RegistrarAuditoriaFronteraRutaExacta(

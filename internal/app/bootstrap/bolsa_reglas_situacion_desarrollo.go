@@ -10,6 +10,7 @@ import (
 	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglas"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -59,7 +60,7 @@ func componerReglasSituacionBolsaDesarrollo(resolutor *reglas.Resolutor, mutador
 // migración 000032 conserva su tabla, que es la compilada, y el catálogo
 // solo puede restringirla.
 func publicarPoliticaTransicionesBolsaDesarrollo(consulta *reglasbolsa.ReglasSituacion, servicio *aplicacionbolsa.ServicioSituacionParticipacion) error {
-	ctx, cancelar := context.WithTimeout(context.Background(), plazoPublicacionTransicionesBolsa)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(plazoPublicacionTransicionesBolsa))
 	defer cancelar()
 	publicacion, hay, err := consulta.PoliticaTransiciones(ctx)
 	if err != nil {

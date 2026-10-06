@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"strconv"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -90,7 +91,7 @@ func (f *FuentePreservacionAuditoriaPostgreSQL) RegistrarFalloPreservacion(ctx c
 	if ctx == nil || !ok || f == nil || valorNuloPostgreSQL(f.pool) {
 		return domain.ErrPreservacionAuditoriaNoDisponible
 	}
-	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(10*time.Second))
 	defer cancel()
 	var a domain.AcusePreservacionAuditoria
 	return f.transaccion(c, `SELECT vec_autorizacion_atestada_v3.registrar_intento_preservacion_v1($1::text,$2::text,$3::text)`, &a, accion, resultado, "correlacion_"+corr)
@@ -102,7 +103,7 @@ func (f *FuentePreservacionAuditoriaPostgreSQL) transaccion(ctx context.Context,
 		return err
 	}
 	rollback := func() error {
-		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(3*time.Second))
 		defer cancel()
 		return tx.Rollback(c)
 	}
