@@ -98,7 +98,7 @@
     "acceso_borradores_cargando": "Comprobando acceso a borradores",
     "acceso_borradores_no_disponible": "Borradores de convocatorias no disponibles",
     "borradores_no_disponible_titulo": "Esta función no está disponible",
-    "borradores_no_disponible_texto": "Los borradores de convocatorias no están activados en este servidor. Si los necesita, avise a Informática.",
+    "borradores_no_disponible_texto": "Los borradores de convocatorias no están activados en esta instalación. Si los necesita, avise a Informática.",
     "error_capacidad_consultar_invalida": "La API no devolvió una capacidad de consulta válida.",
     "error_capacidad_consultar_denegada": "La sesión no dispone de capacidad para consultar borradores.",
     "error_sesion_borradores_denegada": "La sesión no dispone de acceso a los borradores.",

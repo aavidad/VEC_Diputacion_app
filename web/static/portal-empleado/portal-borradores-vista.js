@@ -1,11 +1,11 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
 const FASE_ERROR = "error";
-const FASE_NO_DISPONIBLE = "no_disponible";
 
 function instanteVisible(instante) {
   if (!instante) return traducirPortal("txt_sin_fecha");
@@ -395,8 +395,8 @@ export function crearRenderizadorBorradores({
   function renderNoDisponible() {
     return `
       <header class="encabezado-vista"><div><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2></div></header>
-      <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
-        <p><strong>${textoPortal("borradores_no_disponible_titulo")}</strong></p>
+      <section class="panel" aria-labelledby="titulo-borradores-no-disponible"><div class="cuerpo-panel vacio-controlado">
+        <h3 id="titulo-borradores-no-disponible">${textoPortal("borradores_no_disponible_titulo")}</h3>
         <p>${textoPortal("borradores_no_disponible_texto")}</p>
         <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro_de_mando")}</button></div>
       </div></section>`;
