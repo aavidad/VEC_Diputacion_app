@@ -216,6 +216,9 @@ func decodificarJSONEstricto(b []byte, destino any) error {
 		}
 		return nil
 	case *auditoria.DocumentoVerificacionMixta:
+		if separarEslabonesV5(objeto) != nil {
+			return errJSONInvalido
+		}
 		if destino.(*auditoria.DocumentoVerificacionMixta).Esquema == auditoria.EsquemaVerificacionContextoAdminPreV2 {
 			return clavesDocumentoContextoAdminPreV2(objeto)
 		}
@@ -254,6 +257,38 @@ func clavesIntentoExactas(c map[string]json.RawMessage) bool {
 func clavesCoberturaExactas(objeto map[string]json.RawMessage) bool {
 	return clavesExactas(objeto, "cadena_id", "primera_secuencia", "ultima_secuencia",
 		"anterior_sha256", "cabeza_sha256", "registros")
+}
+
+// separarEslabonesV5 admite en cada registro mixto un objeto "eslabon" con
+// sus seis claves exactas (AD207) y lo aparta antes de la comprobación de
+// claves propia de cada esquema, que no cambia.
+func separarEslabonesV5(objeto map[string]json.RawMessage) error {
+	var registros []map[string]json.RawMessage
+	if json.Unmarshal(objeto["registros"], &registros) != nil {
+		return errJSONInvalido
+	}
+	cambiado := false
+	for _, registro := range registros {
+		crudo, existe := registro["eslabon"]
+		if !existe {
+			continue
+		}
+		var eslabon map[string]json.RawMessage
+		if json.Unmarshal(crudo, &eslabon) != nil || !clavesExactas(eslabon, "posicion", "secuencia", "anterior_sha256", "eslabon_sha256", "registrada_en", "sellado_en") {
+			return errJSONInvalido
+		}
+		delete(registro, "eslabon")
+		cambiado = true
+	}
+	if !cambiado {
+		return nil
+	}
+	b, err := json.Marshal(registros)
+	if err != nil {
+		return errJSONInvalido
+	}
+	objeto["registros"] = b
+	return nil
 }
 
 func clavesExactas(objeto map[string]json.RawMessage, claves ...string) bool {
