@@ -82,7 +82,15 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) SituacionesVigentes(ctx co
 	for _, ref := range refs {
 		lote.Queue(`SELECT situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.leer_situacion_participacion_v1($1)`, ref)
 	}
-	resultados := r.pool.SendBatch(ctx, lote)
+	// Solo lectura y REPEATABLE READ: una instantánea coherente sin los
+	// bloqueos predicativos que acumularía una transacción SERIALIZABLE
+	// (el aislamiento por defecto de la sesión) con miles de lecturas.
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, ports.ErrSituacionParticipacionNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	resultados := tx.SendBatch(ctx, lote)
 	defer resultados.Close()
 	for _, ref := range refs {
 		resultado := ports.SituacionParticipacion{ParticipacionRef: ref}
