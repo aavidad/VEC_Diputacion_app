@@ -438,9 +438,12 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	// Un Content-Length declarado debe coincidir con lo recibido. En HTTP/2
 	// el servidor no lo comprueba si la cabecera cerró el flujo; aquí se
 	// rechaza igual que lo haría HTTP/1.1 con un cuerpo incompleto.
-	if declarados := r.Header.Values("Content-Length"); len(declarados) != 0 &&
-		(len(declarados) != 1 || declarados[0] != strconv.Itoa(len(contenido))) {
-		return errCuerpoHTTPIncoherente
+	if declarados := r.Header.Values("Content-Length"); len(declarados) != 0 {
+		declarada, err := strconv.ParseUint(strings.TrimSpace(declarados[0]), 10, 63)
+		if len(declarados) != 1 || err != nil || declarada != uint64(len(contenido)) {
+			return errCuerpoHTTPIncoherente
+		}
+		r.Header.Set("Content-Length", strconv.Itoa(len(contenido)))
 	}
 	r.TransferEncoding = nil
 	r.GetBody = nil

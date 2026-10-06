@@ -94,7 +94,7 @@ func TestCuerpoHTTP2ConLongitudDeclaradaIncoherenteSeRechaza(t *testing.T) {
 		declarada string
 		cuerpo    string
 		estado    int
-	}{{"5", "", http.StatusBadRequest}, {"3", "abcd", http.StatusBadRequest}, {"4", "abcd", http.StatusOK}, {"", "", http.StatusOK}} {
+	}{{"5", "", http.StatusBadRequest}, {"3", "abcd", http.StatusBadRequest}, {"4", "abcd", http.StatusOK}, {"04", "abcd", http.StatusOK}, {"x", "", http.StatusBadRequest}, {"", "", http.StatusOK}} {
 		r := peticionServidorPrueba(http.MethodPost, "/api/vec/contratacion-temporal/cuadro/consultas", io.NopCloser(strings.NewReader(caso.cuerpo)))
 		r.ProtoMajor, r.ContentLength = 2, int64(len(caso.cuerpo))
 		r.Header.Del("Content-Length")
