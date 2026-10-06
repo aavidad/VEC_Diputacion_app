@@ -149,7 +149,7 @@ test("solo se pinta la descarga de lo descargable y la huella externa queda visi
   assert.equal(todos(filas[2]).some((n) => n.tagName === "BUTTON"), false, "sin botón deshabilitado perpetuo");
   const detalle = nodos.find((n) => n.tagName === "DETAILS" && n.className === "documentos-huella");
   const resumen = detalle.children.find((n) => n.tagName === "SUMMARY");
-  assert.equal(resumen.textContent, `Huella ${"b".repeat(12)}…`);
+  assert.equal(resumen.textContent, "Ver huella digital");
   assert.equal(detalle.children.find((n) => n.tagName === "CODE").textContent, externa);
   assert.equal(nodos.some((n) => n.title), false, "la huella no depende de un title");
 });

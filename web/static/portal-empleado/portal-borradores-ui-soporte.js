@@ -5,6 +5,7 @@ export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";
 export const FASE_LISTA = "lista";
 export const FASE_ERROR = "error";
+export const FASE_NO_DISPONIBLE = "no_disponible";
 
 export function copiar(valor) {
   return valor === undefined ? undefined : JSON.parse(JSON.stringify(valor));

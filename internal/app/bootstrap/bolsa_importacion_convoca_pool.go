@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"time"
 	"vec-diputacion-granada/config"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 const rolEjecutorImportacionConvoca = "vec_bolsa_importacion_convoca_ejecutor"
@@ -35,6 +37,7 @@ func abrirPoolImportacionConvoca(ctx context.Context, cfg config.Config) (*pgxpo
 		pc.ConnConfig.RuntimeParams[k] = v
 	}
 	pc.AfterConnect = func(ctx context.Context, c *pgx.Conn) error { return comprobarPoolImportacionConvoca(ctx, c) }
+	telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
 		return nil, ErrPoolImportacionConvocaNoDisponible

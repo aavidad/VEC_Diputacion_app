@@ -1,0 +1,206 @@
+{
+    "esquema": "vec.auditoria.verificacion.periodica.v1",
+    "registros": [
+        {
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30861,
+                "evento_ref": "evento_3305e8035815451994f0338c4ae40227",
+                "motivo_ref": "no_vencido",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_3305e8035815451994f0338c4ae40227",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "b3f5340315ee30002d46694628ba6901699eb470e2aedfeb6af7033ccf3594bc",
+                "registrada_en": "2026-10-06T11:24:50.521224Z",
+                "operador_login": "postgres",
+                "anterior_sha256": "efcd1d1a9b122c43a1edd9bb43b60dc6ab5c5c911424299292f2f6f1ade6f4e6",
+                "correlacion_ref": "correlacion_70ec65e7e7e2f5c753e5ffb42edc2e15",
+                "evento_material_sha256": "8575319c45f0e1a8c3bbdd6488a410494a61db2ee9ade2a243f5b67ba727c008",
+                "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wZXJpb2RpY2Ffc2VsbGFkb3Ii\nLCAiY29uZmlndXJhY2lvbl9zaGEyNTYiOiAiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh\nYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30862,
+                "evento_ref": "evento_cf52c2fbfed846ee8d2dcf656657587d",
+                "motivo_ref": "no_vencido",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_cf52c2fbfed846ee8d2dcf656657587d",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "c8686e98508305717455f5529177fb44c8f8641c573193cea9964fccb23f9fa0",
+                "registrada_en": "2026-10-06T11:24:50.524707Z",
+                "operador_login": "postgres",
+                "anterior_sha256": "b3f5340315ee30002d46694628ba6901699eb470e2aedfeb6af7033ccf3594bc",
+                "correlacion_ref": "correlacion_075f764649fb405c47868e7d1a1d8825",
+                "evento_material_sha256": "003a04e16cb22953d57483ede558d7106703e57332cd5a3c6e065fa4265e3d36",
+                "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wZXJpb2RpY2Ffc2VsbGFkb3Ii\nLCAiY29uZmlndXJhY2lvbl9zaGEyNTYiOiAiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh\nYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30863,
+                "evento_ref": "evento_94871f7aa2b04ce0910b75d8c060c49d",
+                "motivo_ref": "no_vencido",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_94871f7aa2b04ce0910b75d8c060c49d",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "5976de7459213cbc3b6d8ab021482045d10852edb805e7531c0d911f6d24c64c",
+                "registrada_en": "2026-10-06T11:24:50.528026Z",
+                "operador_login": "postgres",
+                "anterior_sha256": "c8686e98508305717455f5529177fb44c8f8641c573193cea9964fccb23f9fa0",
+                "correlacion_ref": "correlacion_d4d93d2d170c06ede405cd030f638556",
+                "evento_material_sha256": "8cde59df9cc03f125b24eae38d0c079438c90eb5bffbf49ae89537f60085c0ac",
+                "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wZXJpb2RpY2Ffc2VsbGFkb3Ii\nLCAiY29uZmlndXJhY2lvbl9zaGEyNTYiOiAiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh\nYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "eslabon": {
+                "posicion": 30864,
+                "secuencia": 30864,
+                "sellado_en": "2026-10-06T11:24:51.319423Z",
+                "registrada_en": "2026-10-06T11:24:51.276668Z",
+                "eslabon_sha256": "a190c45572cc47ee651133ac370954e8af088c12f253f76b9a0dad1201596890",
+                "anterior_sha256": "5976de7459213cbc3b6d8ab021482045d10852edb805e7531c0d911f6d24c64c"
+            },
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "configurar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30864,
+                "evento_ref": "evento_86a91fdbf41a4461a62c93deff4a1b5b",
+                "motivo_ref": "politica_registrada",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_86a91fdbf41a4461a62c93deff4a1b5b",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "16b2cb5432e0a8d137cb181e121136cd618a006a9d29010952c7b175b1e6c4d5",
+                "registrada_en": "2026-10-06T11:24:51.276668Z",
+                "operador_login": "vec_aud_config_lab",
+                "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "correlacion_ref": "correlacion_d20f58eeb146b2c530634c225a4bf799",
+                "evento_material_sha256": "3aa7a3aaeeef337b5db6b5a050aee068e8d5bedf57cec15d44f0ad31521e57ab",
+                "detalle_canonico_base64": "eyJ2ZXJzaW9uIjogMSwgImFudGVyaW9yX3NoYTI1NiI6ICIwMDAwMDAwMDAwMDAwMDAwMDAwMDAw\nMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwgInBlcmZpbF90ZWNu\naWNvX3JlZiI6ICJ2ZWNfYXVkaXRvcmlhX3BlcmlvZGljYV9jb25maWd1cmFkb3IiLCAiY29uZmln\ndXJhY2lvbl9zaGEyNTYiOiAiM2U4YjA0NTlkNTc5NTYxYWJlMjZmYTRhZmQ3ZDQwYzJkYTY5MmMx\nNjU1NTcyNzJkNGZmZjA2YWU3Y2MwN2E1MSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "eslabon": {
+                "posicion": 30865,
+                "secuencia": 30865,
+                "sellado_en": "2026-10-06T11:24:54.520377Z",
+                "registrada_en": "2026-10-06T11:24:54.382543Z",
+                "eslabon_sha256": "ab6602a0ad96fca36182a55899e7260d3e9426c72d0dcbb66ffb312f420515a3",
+                "anterior_sha256": "a190c45572cc47ee651133ac370954e8af088c12f253f76b9a0dad1201596890"
+            },
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30865,
+                "evento_ref": "evento_f4c86d291e3b42b5a26f06b080bac8bc",
+                "motivo_ref": "captura_registrada",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_f4c86d291e3b42b5a26f06b080bac8bc",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "9413150618ada6b24ba0d0b5041114654768700b6acc84492fe8d257e4e0b0cb",
+                "registrada_en": "2026-10-06T11:24:54.382543Z",
+                "operador_login": "vec_aud_captura_lab",
+                "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "correlacion_ref": "correlacion_af17de7b4a53e832a9beb3e9b196ac74",
+                "evento_material_sha256": "469b11518d60ece83a5ac7cf4058d958f566dde91dfb80f95f0645eb11662e7d",
+                "detalle_canonico_base64": "eyJjYXB0dXJhX3JlZiI6ICJjYXB0dXJhX2ExZTk1Nzc2ZmNlMzQwMjM4NThiMmI0NzI3NjMwOTZh\nIiwgInByZXZpYV9zZWN1ZW5jaWEiOiAzMDg2NCwgInBlcmZpbF90ZWNuaWNvX3JlZiI6ICJ2ZWNf\nYXVkaXRvcmlhX3BlcmlvZGljYV9zZWxsYWRvciIsICJjb25maWd1cmFjaW9uX3NoYTI1NiI6ICIz\nZThiMDQ1OWQ1Nzk1NjFhYmUyNmZhNGFmZDdkNDBjMmRhNjkyYzE2NTU1NzI3MmQ0ZmZmMDZhZTdj\nYzA3YTUxIiwgInByZXZpYV9jYWJlemFfc2hhMjU2IjogImExOTBjNDU1NzJjYzQ3ZWU2NTExMzNh\nYzM3MDk1NGU4YWYwODhjMTJmMjUzZjc2YjlhMGRhZDEyMDE1OTY4OTAifQ=="
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "eslabon": {
+                "posicion": 30866,
+                "secuencia": 30866,
+                "sellado_en": "2026-10-06T11:24:54.853453Z",
+                "registrada_en": "2026-10-06T11:24:54.515861Z",
+                "eslabon_sha256": "08cf033106e0d611441a3971fa8ebe465ba584f42ac10b7dc78d0411644edf2f",
+                "anterior_sha256": "ab6602a0ad96fca36182a55899e7260d3e9426c72d0dcbb66ffb312f420515a3"
+            },
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30866,
+                "evento_ref": "evento_03f46a8ddfb348999311843206a5a870",
+                "motivo_ref": "no_vencido",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_03f46a8ddfb348999311843206a5a870",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "6fdc97b74f756a18ee7a4b36fb2e67d911478819c9f944bbbfac7f7a75ddb617",
+                "registrada_en": "2026-10-06T11:24:54.515861Z",
+                "operador_login": "postgres",
+                "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "correlacion_ref": "correlacion_18b7be5b21a01e61ac6719cf1c262bea",
+                "evento_material_sha256": "36faba663404b32dd3a5933c906039e966d92b3e8b9e7591123939244cd29972",
+                "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wZXJpb2RpY2Ffc2VsbGFkb3Ii\nLCAiY29uZmlndXJhY2lvbl9zaGEyNTYiOiAiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh\nYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        },
+        {
+            "eslabon": {
+                "posicion": 30867,
+                "secuencia": 30867,
+                "sellado_en": "2026-10-06T11:24:54.853453Z",
+                "registrada_en": "2026-10-06T11:24:54.515871Z",
+                "eslabon_sha256": "c1ac47778d262fc8a6b89b6e21fb0c7295b8b98de46d2691d93209d27f9f3aef",
+                "anterior_sha256": "08cf033106e0d611441a3971fa8ebe465ba584f42ac10b7dc78d0411644edf2f"
+            },
+            "periodica": {
+                "canal": "operacion_tecnica_privada",
+                "accion": "capturar_sello_periodico_v1",
+                "proceso": "postgresql",
+                "modulo_id": "auditoria",
+                "resultado": "permitido",
+                "secuencia": 30867,
+                "evento_ref": "evento_f1a934d025e64e81a97ce8de2c2e52c6",
+                "motivo_ref": "no_vencido",
+                "recurso_ref": "auditoria_periodica:comun_interna",
+                "auditoria_ref": "aud_v3_per_f1a934d025e64e81a97ce8de2c2e52c6",
+                "finalidad_ref": "integridad_auditoria_periodica",
+                "huella_sha256": "6099a216c93c4d4e7ea131fda605e089ce7c4c85a81d78f98823cbf2d51b1dbe",
+                "registrada_en": "2026-10-06T11:24:54.515871Z",
+                "operador_login": "postgres",
+                "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "correlacion_ref": "correlacion_f344eae905e2b8aa7456fa4e3c011e16",
+                "evento_material_sha256": "9c6a0b41974fdd8f85d1d2519fc1cd3558c1208341396385e8371e671779d0c5",
+                "detalle_canonico_base64": "eyJwZXJmaWxfdGVjbmljb19yZWYiOiAidmVjX2F1ZGl0b3JpYV9wZXJpb2RpY2Ffc2VsbGFkb3Ii\nLCAiY29uZmlndXJhY2lvbl9zaGEyNTYiOiAiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh\nYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9"
+            },
+            "tipo_registro": "operacion_tecnica_auditoria_periodica"
+        }
+    ],
+    "manifiesto": {
+        "cadena_id": "cadena:laboratorio:interna",
+        "registros": 7,
+        "cabeza_sha256": "c1ac47778d262fc8a6b89b6e21fb0c7295b8b98de46d2691d93209d27f9f3aef",
+        "anterior_sha256": "efcd1d1a9b122c43a1edd9bb43b60dc6ab5c5c911424299292f2f6f1ade6f4e6",
+        "ultima_secuencia": 30867,
+        "primera_secuencia": 30861
+    }
+}

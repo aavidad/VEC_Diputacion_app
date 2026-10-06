@@ -422,6 +422,29 @@ export function validarDatosPreviosAnalisis(entrada) {
   return Object.freeze(salida);
 }
 
+// Datos de la petición del centro con los que se prerrellena un análisis nuevo
+// (WCAG 3.3.7: no volver a pedir lo ya dado). Son sugerencias editables: el
+// formulario descarta las que no existan en los catálogos vigentes.
+export function validarDatosPeticionAnalisis(entrada) {
+  const tieneModalidad = esRegistro(entrada) && Object.hasOwn(entrada, "modalidad_clave");
+  exigirCamposExactos(entrada, [
+    "categoria_ref", "grupo_subgrupo", "periodo", ...(tieneModalidad ? ["modalidad_clave"] : []),
+  ], "datos de la petición para el análisis");
+  if (!referenciaValida(entrada.categoria_ref) || typeof entrada.grupo_subgrupo !== "string"
+    || entrada.grupo_subgrupo.length > 80 || !periodoValido(entrada.periodo)
+    || (tieneModalidad && !claveValida(entrada.modalidad_clave))) {
+    throw new TypeError("datos de la petición para el análisis no válidos");
+  }
+  return Object.freeze({
+    ...(tieneModalidad ? { modalidad_clave: entrada.modalidad_clave } : {}),
+    categoria_ref: entrada.categoria_ref,
+    grupo_subgrupo: entrada.grupo_subgrupo,
+    periodo: Object.freeze({ inicio: entrada.periodo.inicio,
+      ...(entrada.periodo.fin ? { fin: entrada.periodo.fin } : {}),
+      ...(entrada.periodo.causa_fin ? { causa_fin: entrada.periodo.causa_fin } : {}) }),
+  });
+}
+
 function validarAnalisis(analisis) {
   const tieneObservaciones = esRegistro(analisis) && Object.hasOwn(analisis, "observaciones");
   const tieneUrgencia = esRegistro(analisis) && Object.hasOwn(analisis, "urgencia_motivo");
