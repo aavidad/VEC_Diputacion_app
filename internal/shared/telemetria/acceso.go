@@ -200,6 +200,12 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 // ruta devuelve la plantilla del enrutador si la hay ("/x/{ref}") o el camino
 // con cada tramo que pueda ser un valor sustituido por {valor}. Un 4xx sin
 // plantilla no copia el camino: puede ser lo que escribió la persona.
+//
+// Solo se conservan tramos de minúsculas, guion, guion bajo y punto. Los
+// caminos de VEC llevan referencias opacas (con cifras o «:»), nunca nombres,
+// y un camino que no existe responde 404 o 4xx; los estáticos salen de una
+// lista positiva. Una ruta nueva que reciba texto libre en el camino debe
+// registrarse con patrón en un http.ServeMux para que se vea su plantilla.
 func ruta(patron, camino string, estado int) string {
 	if i := strings.IndexByte(patron, '/'); i >= 0 && !strings.HasSuffix(patron, "/") {
 		return strings.TrimSuffix(patron[i:], "{$}")
