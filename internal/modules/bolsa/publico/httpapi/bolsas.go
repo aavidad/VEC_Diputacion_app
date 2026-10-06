@@ -62,6 +62,14 @@ type FuenteBolsasPublicas interface {
 	ListaPublica(context.Context, string) (BolsaPublica, []PosicionPublica, time.Time, error)
 }
 
+// FuentePaginaBolsasPublicas es opcional: entrega solo el tramo pedido de la
+// lista (como mucho cantidad posiciones desde la indicada), ya cotejado con la
+// lista completa por la fuente. Evita leer miles de posiciones para servir
+// cincuenta. La búsqueda por documento sigue usando ListaPublica.
+type FuentePaginaBolsasPublicas interface {
+	PaginaListaPublica(ctx context.Context, bolsaRef string, desde, cantidad int) (BolsaPublica, []PosicionPublica, time.Time, error)
+}
+
 type manejadorBolsasPublicas struct {
 	fuente   FuenteBolsasPublicas
 	catalogo *i18n.Catalog
@@ -262,7 +270,17 @@ func (h *manejadorBolsasPublicas) listarBolsas(ctx context.Context, w http.Respo
 }
 
 func (h *manejadorBolsasPublicas) listarPosiciones(ctx context.Context, w http.ResponseWriter, r *http.Request, bolsaRef string, consulta consultaListaPublica) {
-	bolsa, posiciones, generadoEn, err := h.fuente.ListaPublica(ctx, bolsaRef)
+	var (
+		bolsa      BolsaPublica
+		posiciones []PosicionPublica
+		generadoEn time.Time
+		err        error
+	)
+	if paginada, ok := h.fuente.(FuentePaginaBolsasPublicas); ok && consulta.documento == "" {
+		bolsa, posiciones, generadoEn, err = paginada.PaginaListaPublica(ctx, bolsaRef, consulta.desde, consulta.limite+1)
+	} else {
+		bolsa, posiciones, generadoEn, err = h.fuente.ListaPublica(ctx, bolsaRef)
+	}
 	if err != nil {
 		h.responderErrorFuente(w, r, err)
 		return
