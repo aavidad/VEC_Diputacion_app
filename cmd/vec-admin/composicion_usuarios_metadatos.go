@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/app/administracion"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	pg "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	selector "vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -27,14 +28,14 @@ func componerProcesoUsuariosMetadatosADMIN(cfg administracion.Configuracion, bas
 }
 
 func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN) (*http.Server, func(), error) {
-	return componerProcesoUsuariosMetadatosADMINConLote(cfg, base, u, runtime, nil)
+	return componerProcesoUsuariosMetadatosADMINConLote(cfg, base, u, runtime, nil, nil)
 }
 
 // componerProcesoUsuariosMetadatosADMINConLote añade, si hay overlay del lote,
 // su pool y LOGIN propios, su cadena V3 de una capacidad, el emisor, la
 // autoridad PostgreSQL y el servicio de aplicación del lote. Sin overlay, el
 // proceso es exactamente el de las lecturas de usuarios.
-func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada) (*http.Server, func(), error) {
+func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
@@ -47,11 +48,19 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	if lote != nil && validarConfiguracionLotePrivada(*lote, base, u, runtime) != nil {
 		return fallo("lote_configuracion")
 	}
+	if plan != nil && validarConfiguracionPlanFirmaPrivada(*plan, lote, base, u, runtime) != nil {
+		return fallo("plan_firma_configuracion")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(base.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
 	rutas := []string{base.Pools.FuenteAutorizacion, base.Pools.RegistroAutorizacion, base.Pools.Motivos, base.Pools.RegistroSesiones, base.Pools.RevalidacionSesiones, base.Pools.CuentasADMIN, u.PoolLector, u.PoolIntentos, u.PoolSelector, u.PoolFronteraTecnica, runtime.PoolContexto}
+	indicePlan := 11
 	if lote != nil {
 		rutas = append(rutas, lote.PoolLote) // índice 11
+		indicePlan = 12
+	}
+	if plan != nil {
+		rutas = append(rutas, plan.Pool) // índice 11 sin lote, 12 con lote
 	}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
@@ -192,11 +201,22 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 			return nil, nil, err
 		}
 	}
+	var gobiernoPlan *administracion.ServicioGobiernoPlanFirma
+	if plan != nil {
+		gobiernoPlan, err = componerGobiernoPlanFirmaADMIN(ctx, base, u, *plan, pools[0], pools[1], pools[2], pools[indicePlan], firmante, registrador, reloj)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	var servicioPlan api.ServicioGobiernoPlanFirmaADMIN
+	if gobiernoPlan != nil {
+		servicioPlan = gobiernoPlan
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
 		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
 		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
-		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote})
+		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan})
 	if err != nil {
 		return fallo("servidor")
 	}
