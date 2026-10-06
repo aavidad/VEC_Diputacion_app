@@ -43,6 +43,7 @@
     "inicio_rrhh_sin_fase_bolsa": "Sin fase administrativa",
     "inicio_rrhh_llamamientos_curso": "Llamamientos en curso",
     "inicio_rrhh_recuento_no_disponible": "Recuento no disponible",
+    "inicio_rrhh_cuadro_cargando": "Cargando el cuadro de expedientes…",
     "inicio_rrhh_cuadro_no_disponible": "No se pudo consultar el cuadro de expedientes.",
     "inicio_rrhh_ver_bolsas": "Ver bolsas",
     "inicio_rrhh_tramites_bolsa": "Bolsas consultadas",

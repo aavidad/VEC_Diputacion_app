@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261002-ct-fin-modalidad-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261002-r-rrhh18-v4";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261006-arranque-rapido-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
@@ -12,7 +12,7 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-g364-reconciliar-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261006-arranque-rapido-v1";
 import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
@@ -245,6 +245,7 @@ const renderizarPortal = crearVistaInicioPortal({
   resolverAcceso: resolverAccesoPerfil,
   esPerfilRRHH,
   obtenerCuadroInicio: () => coordinadorModulos.obtenerCuadroInicio?.() || null,
+  cuadroInicioPendiente: () => coordinadorModulos.cuadroInicioPendiente?.() === true,
   obtenerBolsasInicio: () => estado.datosBolsas,
   obtenerAccesosEmpleado: coordinadorModulos.obtenerAccesosEmpleado,
   locale: LOCALIZACION_PORTAL,
@@ -280,11 +281,12 @@ function porcentajeSeguro(valor) {
   return Math.max(0, Math.min(100, Math.round(numeroValor * 10) / 10));
 }
 // Mientras se lee el cuadro, Bolsa se ofrece ya si el catálogo la autoriza
-// (abrirla muestra el cuadro «cargando»); si la API la deniega o falla, deja
-// de ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
+// (abrirla muestra el cuadro «cargando»), y tras un fallo transitorio también
+// (dentro se ve el error con «Reintentar»); si la API la deniega, deja de
+// ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
 function disponibilidadBolsa() {
   const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
-  if (acceso?.disponible !== true && estado.datosBolsas?.carga === "cargando" && estado.vista !== "elaboracion") {
+  if (acceso?.disponible !== true && ["cargando", "error"].includes(estado.datosBolsas?.carga) && estado.vista !== "elaboracion") {
     return { disponible: true, vista: "resumen", estado: "disponible", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
   }
   if (acceso?.estado !== "cargando" || estado.datosBolsas?.carga === "cargando" || estado.vista === "elaboracion") return acceso;

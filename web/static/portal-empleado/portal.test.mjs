@@ -124,7 +124,7 @@ test("Bolsa actualiza el indicador del shell al terminar B12 sin cambiar la vist
   assert.deepEqual(pasos, ["indicador", "bolsa"]);
 });
 
-test("Bolsa se ofrece mientras se lee su cuadro y deja de ofrecerse si la lectura falla", () => {
+test("Bolsa se ofrece mientras se lee su cuadro o tras un fallo y deja de ofrecerse si se deniega", () => {
   const inicio = javascript.indexOf("function disponibilidadBolsa()");
   const fin = javascript.indexOf("function resolverAccesoPerfil(", inicio);
   assert.ok(inicio > 0 && fin > inicio);
@@ -148,8 +148,9 @@ test("Bolsa se ofrece mientras se lee su cuadro y deja de ofrecerse si la lectur
   estadoBolsa.vista = "portal";
   estadoBolsa.datosBolsas = { carga: "listo", datos: { bolsas: [{ referencia: "bolsa:ejemplo" }] } };
   assert.equal(disponibilidad().disponible, true);
+  // Un fallo transitorio no la retira: dentro se ve el error con «Reintentar».
   estadoBolsa.datosBolsas = { carga: "error" };
-  assert.equal(disponibilidad().estado, "error");
+  assert.equal(disponibilidad().disponible, true);
 });
 
 test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servicios ausentes", () => {
@@ -339,7 +340,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // relajar la comprobación de crecimiento del archivo principal. 5.07 la sube
   // a 1155: sondeo bajo demanda de plantillas y política de cese.
   // La guarda tras importar plantillas dentro del try añade una línea real.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1174, "portal.js debe mantenerse en 1174 líneas o menos");
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1176, "portal.js debe mantenerse en 1176 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");

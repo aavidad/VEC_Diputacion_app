@@ -491,6 +491,8 @@ export function crearCoordinadorModulosPortal({
           return auditoriaComun ?? null;
         },
         esperarVista,
+        // La portada espera a la vista solo si el cuadro ha llegado.
+        cuadroInicioPendiente: () => Boolean(listadoCuadro) && !partesVista,
         // Portada: la misma consulta que abre la lista, con centro y categoría
         // presentados con los catálogos de alta que hayan llegado. Sin la vista
         // aún no hay número visible: el cuadro aparece al llegar (`notificar`).
@@ -1283,6 +1285,10 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.obtenerCuadroInicio?.() || null;
   }
 
+  function cuadroInicioPendiente() {
+    return esPerfilRRHH() && composicion?.contratacionTemporal?.cuadroInicioPendiente?.() === true;
+  }
+
   /** Expedientes de la portada ya presentados (compatibilidad de lectura). */
   function obtenerTramitesInicio() {
     return obtenerCuadroInicio()?.expedientes ?? null;
@@ -1300,6 +1306,7 @@ export function crearCoordinadorModulosPortal({
     obtenerCatalogo,
     obtenerAccesosEmpleado,
     obtenerCuadroInicio,
+    cuadroInicioPendiente,
     renderizarNavegacion,
     resolverAcceso,
     retirarVistaMontada,

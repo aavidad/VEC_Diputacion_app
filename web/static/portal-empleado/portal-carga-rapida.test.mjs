@@ -255,8 +255,15 @@ test("contratación temporal consulta su cuadro sin esperar a su vista y la carg
   assert.deepEqual(pasos.slice(0, 3).sort(), ["alta", "analisis", "cuadro"]);
   assert.equal(pasos.at(-1), "vista");
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-  // Sin la vista no hay número visible: la portada espera a que llegue.
+  // Sin la vista no hay número visible: la portada dice que carga, sin error.
   assert.equal(coordinador.obtenerCuadroInicio(), null);
+  assert.equal(coordinador.cuadroInicioPendiente(), true);
+  const inicio = crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
+    obtenerCatalogo: coordinador.obtenerCatalogo, resolverAcceso: coordinador.resolverAcceso,
+    esPerfilRRHH: coordinador.esPerfilRRHH, obtenerCuadroInicio: coordinador.obtenerCuadroInicio,
+    cuadroInicioPendiente: coordinador.cuadroInicioPendiente });
+  assert.ok(inicio().includes(traducirPortal("inicio_rrhh_cuadro_cargando")));
+  assert.ok(!inicio().includes(traducirPortal("inicio_rrhh_cuadro_no_disponible")));
   const raiz = { replaceChildren() {} };
   const montaje = coordinador.montarVista("contratacion-temporal", raiz);
   await esperarTurnos();
@@ -268,6 +275,7 @@ test("contratación temporal consulta su cuadro sin esperar a su vista y la carg
   assert.equal(await montaje, true);
   assert.deepEqual(montajes, ["ct"]);
   assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "sin asignar");
+  assert.equal(coordinador.cuadroInicioPendiente(), false);
   assert.ok(avisos.filter((clave) => clave === "contratacion_temporal").length >= 2, "avisa al llegar la vista");
   assert.equal(pasos.filter((paso) => paso === "vista").length, 1, "la vista se pide una sola vez");
 });
