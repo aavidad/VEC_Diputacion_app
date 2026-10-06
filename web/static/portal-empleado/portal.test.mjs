@@ -124,7 +124,7 @@ test("Bolsa actualiza el indicador del shell al terminar B12 sin cambiar la vist
   assert.deepEqual(pasos, ["indicador", "bolsa"]);
 });
 
-test("Bolsa solo figura comprobando mientras existe una consulta activa", () => {
+test("Bolsa se ofrece mientras se lee su cuadro y deja de ofrecerse si la lectura falla", () => {
   const inicio = javascript.indexOf("function disponibilidadBolsa()");
   const fin = javascript.indexOf("function resolverAccesoPerfil(", inicio);
   assert.ok(inicio > 0 && fin > inicio);
@@ -132,11 +132,20 @@ test("Bolsa solo figura comprobando mientras existe una consulta activa", () => 
   const disponibilidad = runInNewContext(`${javascript.slice(inicio, fin)}; disponibilidadBolsa`, {
     estado: estadoBolsa,
     accesoBolsaEfectivo,
+    traducirPortal: (clave) => clave,
     superficieBorradores: { obtenerAcceso: () => ({ disponible: false, vista: "", estado: "cargando" }) },
   });
   assert.equal(disponibilidad().estado, "no_disponible");
+  // La lectura lenta del cuadro no deja la tarjeta «Comprobando»: se ofrece ya.
   estadoBolsa.datosBolsas = { carga: "cargando" };
+  assert.equal(disponibilidad().disponible, true);
+  assert.equal(disponibilidad().vista, "resumen");
+  estadoBolsa.datosBolsas = { carga: "denegado" };
+  assert.equal(disponibilidad().estado, "denegado");
+  estadoBolsa.datosBolsas = { carga: "cargando" };
+  estadoBolsa.vista = "elaboracion";
   assert.equal(disponibilidad().estado, "cargando");
+  estadoBolsa.vista = "portal";
   estadoBolsa.datosBolsas = { carga: "listo", datos: { bolsas: [{ referencia: "bolsa:ejemplo" }] } };
   assert.equal(disponibilidad().disponible, true);
   estadoBolsa.datosBolsas = { carga: "error" };
@@ -165,6 +174,15 @@ test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servi
   const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.match(vistasSinLectura, /"contratos"/);
   assert.doesNotMatch(vistasSinLectura, /"seleccion-(?:inscripciones|pruebas|comunicaciones)"/);
+});
+
+// 06/10/2026: el catálogo llegaba antes que el cuadro de bolsas (48 s en la
+// principal) y alCambiarModulos abortaba y repetía esa lectura: el servidor
+// ejecutaba dos veces la consulta más lenta del arranque.
+test("la llegada del catálogo no repite una lectura del cuadro de bolsas en curso", () => {
+  const inicio = javascript.indexOf("function alCambiarModulos(");
+  const cambio = javascript.slice(inicio, javascript.indexOf("function anunciarAccesosComprobados(", inicio));
+  assert.match(cambio, /if \(clave === "catalogo" && estado\.datosBolsas\?\.carga !== "cargando"\) \{\s+void controladorBolsas\.cargarBolsas\(\);/u);
 });
 
 // Recorrido en Chrome del 25/09/2026 (fallo 2): la sonda de la API de
@@ -321,7 +339,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // relajar la comprobación de crecimiento del archivo principal. 5.07 la sube
   // a 1155: sondeo bajo demanda de plantillas y política de cese.
   // La guarda tras importar plantillas dentro del try añade una línea real.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1167, "portal.js debe mantenerse en 1167 líneas o menos");
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1174, "portal.js debe mantenerse en 1174 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");

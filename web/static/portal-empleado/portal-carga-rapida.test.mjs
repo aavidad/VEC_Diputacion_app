@@ -220,6 +220,58 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
 });
 
+// 06/10/2026: la vista de CT (unos 130 ficheros) se esperaba antes de pedir el
+// cuadro, y con HTTP/1.1 eso retrasaba Inicio entero. Ahora el cuadro se pide
+// con el código mínimo y la vista llega después, en segundo plano.
+test("contratación temporal consulta su cuadro sin esperar a su vista y la carga en segundo plano", async () => {
+  const pasos = [];
+  const vistaPendiente = diferido();
+  const montajes = [];
+  const cliente = {
+    obtenerCatalogosAlta: async () => { pasos.push("alta"); return { centros: [], categorias: [] }; },
+    obtenerConfiguracionAnalisis: async () => { pasos.push("analisis"); throw new Error("503"); },
+    registrarSolicitud: async () => ({}),
+  };
+  const avisos = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: {
+          crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
+            listar: async () => { pasos.push("cuadro"); return { expedientes: [{ numero_visible: "2026/CT-0123456789ab" }] }; } }),
+          etiquetaCatalogo: (_catalogo, valor) => valor,
+        },
+        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        cargarVista: () => { pasos.push("vista"); return vistaPendiente.promesa; },
+      }),
+    },
+  });
+  await coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(clave) });
+  // El cuadro y los catálogos salen antes que la vista, y CT ya está disponible.
+  assert.deepEqual(pasos.slice(0, 3).sort(), ["alta", "analisis", "cuadro"]);
+  assert.equal(pasos.at(-1), "vista");
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  // Sin la vista no hay número visible: la portada espera a que llegue.
+  assert.equal(coordinador.obtenerCuadroInicio(), null);
+  const raiz = { replaceChildren() {} };
+  const montaje = coordinador.montarVista("contratacion-temporal", raiz);
+  await esperarTurnos();
+  assert.deepEqual(montajes, [], "abrir CT espera a su vista");
+  vistaPendiente.resolver({ vista: {
+    numeroExpedienteVisible: () => "sin asignar",
+    montarModuloContratacionTemporal: async () => { montajes.push("ct"); return { desmontar() {} }; },
+  } });
+  assert.equal(await montaje, true);
+  assert.deepEqual(montajes, ["ct"]);
+  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "sin asignar");
+  assert.ok(avisos.filter((clave) => clave === "contratacion_temporal").length >= 2, "avisa al llegar la vista");
+  assert.equal(pasos.filter((paso) => paso === "vista").length, 1, "la vista se pide una sola vez");
+});
+
 test("cambiar de vista o repintar Inicio durante la carga no cancela los módulos pendientes", async () => {
   const { coordinador, pendientes } = coordinadorControlado();
   const carga = coordinador.cargarInterno();

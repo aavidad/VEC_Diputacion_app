@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i1
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261005-ct-asignacion-unidad-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261006-arranque-rapido-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
@@ -279,8 +279,14 @@ function porcentajeSeguro(valor) {
   if (!Number.isFinite(numeroValor)) return 0;
   return Math.max(0, Math.min(100, Math.round(numeroValor * 10) / 10));
 }
+// Mientras se lee el cuadro, Bolsa se ofrece ya si el catálogo la autoriza
+// (abrirla muestra el cuadro «cargando»); si la API la deniega o falla, deja
+// de ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
 function disponibilidadBolsa() {
   const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  if (acceso?.disponible !== true && estado.datosBolsas?.carga === "cargando" && estado.vista !== "elaboracion") {
+    return { disponible: true, vista: "resumen", estado: "disponible", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
+  }
   if (acceso?.estado !== "cargando" || estado.datosBolsas?.carga === "cargando" || estado.vista === "elaboracion") return acceso;
   return { disponible: false, vista: "", estado: estado.datosBolsas?.carga === "denegado" ? "denegado" : estado.datosBolsas?.carga === "error" ? "error" : "no_disponible" };
 }
@@ -365,8 +371,9 @@ let inicioComprobando = false;
 // menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
-  // del catálogo o de identidad: la API debe revalidar el acceso actual.
-  if (clave === "catalogo") {
+  // del catálogo o de identidad: la API debe revalidar el acceso actual. Una
+  // lectura en curso ya lo hace; repetirla duplicaba la consulta más lenta.
+  if (clave === "catalogo" && estado.datosBolsas?.carga !== "cargando") {
     void controladorBolsas.cargarBolsas();
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
@@ -643,7 +650,7 @@ function actualizarNavegacionModulos() {
     }));
     if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
-      estado.datosBolsas?.carga === "cargando", crearTraductorResumenAccesosEmpleado({
+      false, crearTraductorResumenAccesosEmpleado({
         accesos: coordinadorModulos.obtenerAccesosEmpleado(), traducir: traducirPortal,
       }));
   }
