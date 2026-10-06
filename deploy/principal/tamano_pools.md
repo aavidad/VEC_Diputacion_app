@@ -23,3 +23,15 @@ margen para administración y copias.
 Con más conexiones solo se gana si PostgreSQL tiene núcleos libres: en el
 laboratorio de carga (`docs/estudio_requisitos/rendimiento_carga_20261006.md`)
 la proyección pública con 4 núcleos ya estaba saturada con 6 conexiones.
+
+Además, en el proceso interno y en vec-admin:
+
+| Pool | Proceso | Por defecto |
+|---|---|---|
+| Conexiones nominales de Contratación temporal (las abre `abrirPoolPostgreSQLContratacionTemporalDesarrollo`) | interno | 4 |
+| Auditoría de Contratación temporal (consulta y autoridad) | interno | 2 |
+| Pools privados de administración | vec-admin | 4 |
+
+El resto de pools conserva su tamaño fijo en el código (de 1 a 4 conexiones,
+casi todos en tareas de RRHH con poco tráfico o en herramientas de una sola
+ejecución). Se pasarán a esta misma regla cuando una medición lo pida.

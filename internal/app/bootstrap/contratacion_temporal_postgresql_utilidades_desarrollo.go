@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log/slog"
 	"time"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
@@ -48,7 +49,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 		validarTLSPostgreSQLBorradores(&configuracion.ConnConfig.Config, true) != nil {
 		return nil, "", falloPostgreSQLCTDesarrollo(err)
 	}
-	configuracion.MaxConns = 4
+	postgresqlcompartido.FijarTamanoPool(configuracion, dsn, 4)
 	if rolPoolIncorporacionV2(rolEsperado) {
 		configuracion.AfterConnect = func(_ context.Context, c *pgx.Conn) error {
 			c.TypeMap().RegisterType(&pgtype.Type{Name: "timestamptz", OID: pgtype.TimestamptzOID, Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC}})
@@ -318,7 +319,8 @@ func abrirPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, dsn string) (*p
 		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
 		return nil, auditoria.ErrNoDisponible
 	}
-	c.MaxConns, c.MinConns = 2, 0
+	postgresqlcompartido.FijarTamanoPool(c, dsn, 2)
+	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	if c.ConnConfig.RuntimeParams == nil {
 		c.ConnConfig.RuntimeParams = make(map[string]string)
@@ -389,7 +391,8 @@ func abrirPoolAutoridadAuditoriaDesarrollo(ctx context.Context, dsn, rol, aplica
 		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
 		return nil, auditoria.ErrNoDisponible
 	}
-	c.MaxConns, c.MinConns = 2, 0
+	postgresqlcompartido.FijarTamanoPool(c, dsn, 2)
+	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	if c.ConnConfig.RuntimeParams == nil {
 		c.ConnConfig.RuntimeParams = make(map[string]string)
