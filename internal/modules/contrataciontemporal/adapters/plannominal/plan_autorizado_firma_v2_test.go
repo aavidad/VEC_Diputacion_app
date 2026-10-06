@@ -35,19 +35,27 @@ func TestAutorizacionExteriorLigaPlanYDecisionInterior(t *testing.T) {
 	if err != nil || errU != nil || conUnidad.Ambitos["unidad_ref"] != m.UnidadFirmanteRef || len(conUnidad.Ambitos) != 2 || hu == h {
 		t.Fatalf("recurso exterior con unidad: %v %v", err, errU)
 	}
-	externa := m
-	externa.Via = ports.ViaFirmaExternaPortafirmas
-	for caso, x := range map[string]struct {
-		m ports.MaterialFirmaVerificadaV2
-		a ports.AmbitosOperadorFirmaV2
-	}{
-		"otra_unidad":        {m, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: "unidad:otra"}},
-		"otra_organizacion":  {m, ports.AmbitosOperadorFirmaV2{OrganizacionRef: "org_otra"}},
-		"externa_con_unidad": {externa, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: m.UnidadFirmanteRef}},
+	for caso, a := range map[string]ports.AmbitosOperadorFirmaV2{
+		"otra_unidad":       {OrganizacionRef: m.OrganizacionRef, UnidadRef: "unidad:otra"},
+		"otra_organizacion": {OrganizacionRef: "org_otra"},
 	} {
-		if _, err := firma.RecursoPlanAutorizadoFirmaV2(x.m, d.Plan, decision, b, x.a); err == nil {
+		if _, err := firma.RecursoPlanAutorizadoFirmaV2(m, d.Plan, decision, b, a); err == nil {
 			t.Fatalf("%s aceptado", caso)
 		}
+	}
+	// Vía externa, con su propio envoltorio: sólo organización.
+	externa := m
+	externa.Via = ports.ViaFirmaExternaPortafirmas
+	externa.ReferenciaPortafirmasDeclarada, externa.FechaPortafirmasDeclarada = "portafirmas:prueba", "2026-10-03T11:00:00Z"
+	be, err := firma.CanonicoPlanAutorizadoFirmaV2(externa, d, decision)
+	if err != nil || externa.Validar() != nil {
+		t.Fatalf("material externo de prueba: %v %v", err, externa.Validar())
+	}
+	if _, err := firma.RecursoPlanAutorizadoFirmaV2(externa, d.Plan, decision, be, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef}); err != nil {
+		t.Fatalf("externa sólo con organización denegada: %v", err)
+	}
+	if _, err := firma.RecursoPlanAutorizadoFirmaV2(externa, d.Plan, decision, be, ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: m.UnidadFirmanteRef}); err == nil {
+		t.Fatal("externa con unidad aceptada")
 	}
 	for _, cambiarDecision := range []bool{false, true} {
 		otro := d
