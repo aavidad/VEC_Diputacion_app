@@ -31,7 +31,9 @@ func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool) (*RegistroFirm
 	return &RegistroFirmasVerificadasPostgreSQL{pool: pool}, nil
 }
 
-const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+// CT186: la v3 calcula la huella con los ámbitos de la asignación de quien
+// consulta (AD210) y liga UnidadRef al paso del plan publicado (CC10).
+const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type firmaRevisionPDFSQL172 struct {
 	firmaExternaSQL170

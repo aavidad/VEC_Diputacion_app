@@ -15,7 +15,8 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+// CT186: como la consulta, la v3 usa AD210 y CC10.
+const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type recuperacionFirmaSQL175 struct {
 	FirmaRef           string `json:"FirmaRef"`
