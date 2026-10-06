@@ -89,6 +89,8 @@ func RecursoConsultaFirmasR5V2(m ports.MaterialConsultaFirmasR5V2) (vecdomain.Re
 	if err != nil {
 		return vecdomain.RecursoAutorizable{}, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	ambitos := map[string]string{"organizacion_ref": m.OrganizacionRef}
+	// Los ámbitos de la asignación de quien consulta: organización y, si el
+	// material trae UnidadRef, esa unidad (AD210 la relee en el consumo).
+	ambitos := ports.AmbitosOperadorFirmaV2{OrganizacionRef: m.OrganizacionRef, UnidadRef: m.UnidadRef}.Mapa()
 	return vecdomain.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: ambitos, Atributos: map[string]string{"material_sha256": h}}, nil
 }

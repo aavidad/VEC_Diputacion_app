@@ -2,6 +2,8 @@ package firmaemisorv2
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
@@ -106,7 +108,10 @@ func TestConsultaEmiteContratoV2SinSuplantarCandidato(t *testing.T) {
 
 func TestConsultaMaterialInvalidoNoAlcanzaAutoridades(t *testing.T) {
 	for nombre, alterar := range map[string]func(*ports.MaterialConsultaFirmasR5V2){
-		"unidad":    func(m *ports.MaterialConsultaFirmasR5V2) { m.UnidadRef = "unidad:ajena" },
+		"unidad_mal_formada": func(m *ports.MaterialConsultaFirmasR5V2) { m.UnidadRef = "unidad con espacios" },
+		"unidad_via_externa": func(m *ports.MaterialConsultaFirmasR5V2) {
+			m.Via, m.UnidadRef = ports.ViaFirmaExternaPortafirmas, "unidad:ajena"
+		},
 		"vía":       func(m *ports.MaterialConsultaFirmasR5V2) { m.Via = "otra" },
 		"paso":      func(m *ports.MaterialConsultaFirmasR5V2) { m.PasoOrden = 3 },
 		"candidato": func(m *ports.MaterialConsultaFirmasR5V2) { m.FirmantePrincipalCandidatoRef = "" },
@@ -202,5 +207,49 @@ func TestConsultaCierraCanalCancelacionYErrores(t *testing.T) {
 				t.Fatalf("error/cancelación no opacos: %v", err)
 			}
 		})
+	}
+}
+
+// La consulta lleva los ámbitos de la asignación de quien consulta: con
+// unidad, sólo un material con esa misma unidad llega al PDP, que recibe
+// organización y unidad; otra unidad o ninguna se deniegan antes. La
+// recuperación sigue la misma regla.
+func TestConsultaLlevaLosAmbitosDeLaAsignacion(t *testing.T) {
+	a, f, e, m, ctx := escenarioConsulta(t, ports.ViaFirmaCertificadoVEC)
+	unidad := "unidad:del:paso"
+	a.autorizacion.(*autorizacionPrueba).ambitos = []vd.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{m.OrganizacionRef}},
+		{Clave: "unidad_ref", Valores: []string{unidad}}}
+	for caso, u := range map[string]string{"sin_unidad": "", "otra_unidad": "unidad:otra"} {
+		m.UnidadRef = u
+		if _, err := a.AutorizarConsultaFirmasR5V2(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || e.base.llamadas != 0 {
+			t.Fatalf("%s llegó al PDP: %v", caso, err)
+		}
+		if _, err := a.AutorizarRecuperacionFirmasV2(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || e.base.llamadas != 0 {
+			t.Fatalf("recuperación %s llegó al PDP: %v", caso, err)
+		}
+	}
+	m.UnidadRef = unidad
+	c, err := a.AutorizarConsultaFirmasR5V2(ctx, m)
+	if err != nil || firma.ValidarCapacidadConsultaFirmasR5V2(c, m) != nil || f.llamadas == 0 || e.base.llamadas != 1 {
+		t.Fatalf("consulta con la unidad de la asignación denegada: %v", err)
+	}
+	d, _ := e.base.solicitud.Datos()
+	if !maps.Equal(d.Recurso.Ambitos, map[string]string{"organizacion_ref": m.OrganizacionRef, "unidad_ref": unidad}) {
+		t.Fatalf("el PDP no recibió los ámbitos de la asignación: %v", d.Recurso.Ambitos)
+	}
+}
+
+// La huella de contexto que calcula el PDP en Go para una consulta con unidad
+// es la misma que calcula AD210 en SQL: el vector ct186_ad210 fija este mismo
+// valor con las mismas entradas.
+func TestFirmaV2HuellaConsultaConUnidadIgualQueSQL(t *testing.T) {
+	sol := `{"Via":"certificado_vec","OrganizacionRef":"org_fija","UnidadRef":"unidad:fija"}`
+	material := sha256.Sum256([]byte(sol))
+	r := vd.RecursoAutorizable{Referencia: "exp:fijo", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5,
+		Ambitos:   map[string]string{"organizacion_ref": "org_fija", "unidad_ref": "unidad:fija"},
+		Atributos: map[string]string{"material_sha256": hex.EncodeToString(material[:])}}
+	h, err := r.HuellaContextoAutorizacionSHA256()
+	if err != nil || h != "c051b4e351005621ea4eeaca10696497a6d59c545eac14de9c590a7d939cefcf" {
+		t.Fatalf("huella distinta de la de AD210: %s %v", h, err)
 	}
 }

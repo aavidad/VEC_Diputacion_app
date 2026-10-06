@@ -195,8 +195,10 @@ func (m MaterialConsultaFirmasR5V2) Canonico() ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	// UnidadRef es la unidad de la asignación de quien consulta (CT186): sólo
+	// en la vía VEC; CC10 la liga en SQL a un paso del plan publicado.
 	if m.PasoOrden < 1 || m.PasoOrden > 2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
-		m.UnidadRef != "" {
+		(m.UnidadRef != "" && (m.Via != ViaFirmaCertificadoVEC || !domain.ReferenciaOpacaValida(m.UnidadRef))) {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
 	}
 	var fields map[string]json.RawMessage
