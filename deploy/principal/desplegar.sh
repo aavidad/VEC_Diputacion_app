@@ -55,7 +55,9 @@ sed '/^COMMIT;$/s//ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migra
 "${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000020_avisos_rrhh.up.sql"
 
 mkdir -p -- "$artefacto" "$respaldo"
-GOTOOLCHAIN=auto go -C "$repo" build -buildvcs=false -o "$nuevo" ./cmd/vec-server
+GOTOOLCHAIN=auto go -C "$repo" build -buildvcs=false \
+  -ldflags "-X vec-diputacion-granada/internal/shared/telemetria.Revision=$(git -C "$repo" rev-parse --short=12 HEAD)" \
+  -o "$nuevo" ./cmd/vec-server
 if [[ -f $binario ]]; then
   cp -a -- "$binario" "$respaldo/vec-server"
 fi

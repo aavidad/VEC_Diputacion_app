@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -41,6 +42,12 @@ var (
 	errorCancelacionCobertura               = nuevoErrorCobertura(http.StatusRequestTimeout, "peticion_cancelada")
 	errorPlazoCobertura                     = nuevoErrorCobertura(http.StatusGatewayTimeout, "plazo_agotado")
 	errorInternoCobertura                   = nuevoErrorCobertura(http.StatusInternalServerError, "error_interno")
+	// Sin crédito no se ofrece: un código por motivo para explicarlo en llano.
+	erroresSinCreditoCobertura = map[domain.MotivoSinCredito]errorPublicoCobertura{
+		domain.SinCreditoAnalisisPendiente:  nuevoErrorCobertura(http.StatusConflict, "sin_credito_analisis_pendiente"),
+		domain.SinCreditoRetencionRechazada: nuevoErrorCobertura(http.StatusConflict, "sin_credito_retencion_rechazada"),
+		domain.SinCreditoPartidasSinCoste:   nuevoErrorCobertura(http.StatusConflict, "sin_credito_partidas_sin_coste"),
+	}
 )
 
 func nuevoErrorCobertura(estado int, codigo string) errorPublicoCobertura {
@@ -75,6 +82,9 @@ func clasificarErrorCobertura(err error) errorPublicoCobertura {
 		return errorDatosCoberturaNoDisponiblesPerfil
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrPresentacionPropuestaCoberturaDenegada), errors.Is(err, application.ErrConfirmacionDecisionCoberturaDenegada):
 		return errorAccesoCoberturaDenegado
+	case errorSinCreditoConocido(err):
+		motivo, _ := domain.MotivoSinCreditoDe(err)
+		return erroresSinCreditoCobertura[motivo]
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEstadoNoAdmite):
 		return errorConflictoEstadoCobertura
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaOcupada):
@@ -86,6 +96,12 @@ func clasificarErrorCobertura(err error) errorPublicoCobertura {
 	default:
 		return errorInternoCobertura
 	}
+}
+
+func errorSinCreditoConocido(err error) bool {
+	motivo, ok := domain.MotivoSinCreditoDe(err)
+	_, conocido := erroresSinCreditoCobertura[motivo]
+	return ok && conocido
 }
 
 type envoltorioErrorCobertura struct {

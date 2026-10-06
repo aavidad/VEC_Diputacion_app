@@ -589,7 +589,7 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
   const catalogo = [...crearCatalogoModulosDesdeManifiestos([manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL), Object.freeze({ clave: "personal" })];
   const fuenteCT = Object.freeze({
     capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"]),
-    async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
   });
   const cargadorCT = async () => ({
     cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
@@ -847,7 +847,7 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
       "contratacion_temporal.cuadro.consultar",
       "contratacion_temporal.expediente.consultar",
     ]),
-    async listar({ signal } = {}) {
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar({ signal } = {}) {
       consultas += 1;
       signalConsulta = signal;
       return { expedientes: [] };
@@ -910,7 +910,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
     const fuente = {
       capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
-      async listar() { llamadas.push("cuadro"); return cuadro; },
+      async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { llamadas.push("cuadro"); return cuadro; },
       async obtener(ref) { llamadas.push(`detalle:${ref}`); return expediente; },
       async ejecutar() { throw new Error("solo lectura"); },
     };
@@ -1008,7 +1008,7 @@ test("el enlace directo CT conserva denegación y cancela la consulta al salir",
   let presentador;
   const fuente = {
     capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
-    async listar() { return cuadro; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return cuadro; },
     obtener(_ref, { signal }) {
       detalle += 1;
       senalDetalle = signal;
@@ -1059,7 +1059,7 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
       "contratacion_temporal.cuadro.consultar",
       "contratacion_temporal.expediente.consultar",
     ]),
-    async listar() { return { expedientes: [] }; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
     async obtener() { return {}; },
     async ejecutar() { throw new Error("solo lectura"); },
   });
@@ -1108,7 +1108,7 @@ test("sin perfil de Intervención no se monta la fiscalización: CT no se ofrece
   });
   const fuente = Object.freeze({
     capacidades: Object.freeze([]),
-    async listar() { throw new Error("403"); },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { throw new Error("403"); },
     async obtener() { throw new Error("403"); },
     async ejecutar() { throw new Error("403"); },
   });
@@ -1157,7 +1157,7 @@ test("CT recupera incorporación con continuidad si falla análisis y el alta si
   });
   const fuente = Object.freeze({
     capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar"]),
-    async listar() { return { expedientes: [] }; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
     async obtener() { return {}; },
     async ejecutar() { throw new Error("solo lectura"); },
   });
@@ -1227,7 +1227,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   let analisisMontado;
   const fuente = Object.freeze({
     capacidades: Object.freeze([]),
-    async listar() {
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() {
       consultasCuadro += 1;
       orden.push("cuadro");
       const error = new Error("cuadro pendiente");

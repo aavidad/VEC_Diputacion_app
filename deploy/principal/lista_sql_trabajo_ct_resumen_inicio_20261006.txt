@@ -1,0 +1,7 @@
+# CT184: resumen de la portada de RRHH sobre la consulta atestada del cuadro.
+# Requiere CT110, CT125 y CT142 (prevalidación) y va después de AD207 y CT183.
+# Solo añade dos funciones (contar_resumen_cuadro_rrhh_v1, del propietario, y
+# consultar_cuadro_rrhh_atestado_v5 para vec_contratacion_temporal_consultor_rrhh);
+# no toca tablas ni datos. Una sola vez; sin DOWN. Instalar antes de arrancar el
+# binario que pide el resumen (la portada daría «No se pudo consultar el cuadro»).
+deploy/postgresql/contratacion_temporal/migraciones/000184_resumen_inicio_cuadro_rrhh.up.sql

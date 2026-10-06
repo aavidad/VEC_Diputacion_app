@@ -41,7 +41,7 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 		"/bolsa/i18n-publica.js",
 		"/area-personal/i18n.js",
 	}
-	handler := staticHandler(false)
+	handler := staticHandler()
 	for _, ruta := range rutas {
 		t.Run(ruta, func(t *testing.T) {
 			esperado, err := os.ReadFile("../../../web/static" + ruta)
@@ -75,7 +75,7 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 }
 
 func TestStaticHandlerProduccionDeniegaRecursosAjenoF2YMetodosDeEscritura(t *testing.T) {
-	handler := staticHandler(false)
+	handler := staticHandler()
 	for _, ruta := range []string{
 		"/comun/oportunidades/vista.test.mjs",
 		"/comun/tema-vec.test.mjs",

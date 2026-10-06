@@ -392,6 +392,9 @@ func expedienteAsignacionPostgreSQLPrueba(t *testing.T) domain.Expediente {
 			ValidadaEn:          instante.Add(time.Minute),
 			Motivo:              "No requiere retención de crédito.",
 		},
+		// Sin retención, la constancia de las partidas va con el coste aproximado.
+		CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+		FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 	}
 	expediente, err = expediente.RegistrarAnalisis(
 		expediente.Version,

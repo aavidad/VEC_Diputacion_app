@@ -35,7 +35,7 @@ Los registros locales existentes son historia que hay que conservar. No se trasl
 
 | Módulo y propietario de coordinación | Operaciones comprobadas | Cobertura observable y transacción | Lecturas, descargas y hueco por cerrar |
 | --- | --- | --- | --- |
-| Contratación temporal — E en firma/circuito; dirección en el resto | Alta: [`confirmacion_alta.go`](../../internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta.go), `NuevaTransaccionAltasPostgreSQLCandidata`. Seguimiento: [`seguimiento_operaciones.go`](../../internal/modules/contrataciontemporal/adapters/postgres/seguimiento_operaciones.go), repositorio de operación. Cuadro, detalle, resumen y original: [`consulta_rrhh_postgresql_sql.go`](../../internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql_sql.go). | Las consultas usan fachadas atestadas y devuelven `auditoria_vec_ref` y su huella. Alta y seguimiento tienen adaptadores transaccionales propios. No se atribuye cobertura completa a todas las fases a partir de estos ejemplos. | La lectura del original conserva consumo propio; la generación y entrega del PDF debe distinguirse de la consulta del expediente. Registrar cada descarga por acción/recurso/canal y comprobar sus errores. Auditoría de frontera temprana parcial, CT108/136/162. No duplicar firma ni originales de E. |
+| Contratación temporal — E en firma/circuito; dirección en el resto | Alta: [`confirmacion_alta.go`](../../internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta.go), `NuevaTransaccionAltasPostgreSQLCandidata`. Seguimiento: [`seguimiento_operaciones.go`](../../internal/modules/contrataciontemporal/adapters/postgres/seguimiento_operaciones.go), repositorio de operación. Cuadro, detalle, resumen y original: [`consulta_rrhh_postgresql_sql.go`](../../internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql_sql.go). | Las consultas usan fachadas atestadas y devuelven `auditoria_vec_ref` y su huella. Alta y seguimiento tienen adaptadores transaccionales propios. No se atribuye cobertura completa a todas las fases a partir de estos ejemplos. | Corte del 04/10: recibo de respuesta y comunicaciones de expediente conservan su consumo SQL para las lecturas permitidas y añaden intento nominal común para denegación/error después del cierre del lector. El montaje requiere `auditoria-intentos.json`, LOGIN dedicado y fuentes CA26/IS13; sin esa provisión no arranca esta composición. Los rechazos anteriores al contexto acreditado mantienen la frontera existente. Pruebas focales con fuente sintética; pendiente ensayo nominal con K. La lectura del original conserva consumo propio; la generación y entrega del PDF debe distinguirse de la consulta del expediente. Registrar cada descarga por acción/recurso/canal y comprobar sus errores. Auditoría de frontera temprana parcial, CT108/136/162. No duplicar firma ni originales de E. |
 | Bolsa — A en baremo/selectivos; dirección en llamamientos | Gobierno de convocatorias: [`convocatorias_consulta.go`](../../internal/modules/bolsa/adapters/postgres/convocatorias_consulta.go). Panel: [`panel_interno.go`](../../internal/modules/bolsa/adapters/postgres/panel_interno.go), `ConsultarPanel`. Llamamientos: [`llamamientos_transaccion.go`](../../internal/modules/bolsa/adapters/postgres/llamamientos_transaccion.go). | Consumo autorizado y transacción en los adaptadores. Hay historia local de llamamientos y sus replays. [`registroaccesos/registro.go`](../../internal/modules/bolsa/adapters/postgres/registroaccesos/registro.go), `ConsultarAccesosAdministrativos`, confirma autorización, lectura y auditoría juntas. | Corte del 04/10: Mi Bolsa y su historial en `nuevaRutaMiBolsaDesarrollo` añaden intentos nominales comunes después del cierre de las lecturas fallidas. Los permisos y consumos de lecturas permitidas se conservan. Archivo privado `auditoria-intentos-externa.json`, canal `externa_personal` y LOGIN dedicado con CA26/IS13 comunes; no se reutiliza la cuenta corporativa. El portal exterior separado usa autoridades externas distintas y queda pendiente de su registrador propio compatible; no se declara cubierto por este montaje sintético. Pendiente ensayo nominal con K. La fuente de la consulta común de Bolsa es [`auditoriaconsulta/fuente.go`](../../internal/modules/bolsa/adapters/auditoriaconsulta/fuente.go). Ampliar campos nominales y fallos sin sustituir las funciones existentes. Revisar por separado los documentos y descargas; esta fila no certifica esas rutas. |
 | Personal y RPT — B | Altas/hechos: [`registro_empleado_b2_actos.go`](../../internal/modules/personal/adapters/postgres/registro_empleado_b2_actos.go), `RegistrarEmpleadoRRHH` / `RegistrarHechoEmpleadoRRHH`. Ficha/vacantes: [`registro_empleado_b2_consulta.go`](../../internal/modules/personal/adapters/postgres/registro_empleado_b2_consulta.go), `ConsultarFichaRRHH` / `ListarVacantesRRHH`. Listado: [`registro_empleado_b2_lista.go`](../../internal/modules/personal/adapters/postgres/registro_empleado_b2_lista.go), `ListarEmpleadosRRHH`. | Material V3 y recibos con auditoría propia de acceso actual, también al recuperar operaciones. Las funciones diferencian recibo histórico y acceso actual. La existencia de los recibos no certifica aquí todas las ramas SQL de error. | Datos personales en fichas y listas: mantener consumo/auditoría antes de devolverlos. Relación/organización histórica tienen adaptadores y fronteras propios. No duplicar el lector nominal RPT de #437/#438. Incorporar su fuente a la consulta común cuando B cierre el contrato. |
 | Aspirantes — coordinación A/B; identidad común K | [`aspirantes/adapters/postgres/ficha.go`](../../internal/modules/aspirantes/adapters/postgres/ficha.go), `ConsultarPropia`, `Alta`, `Rectificar`, `RegistrarAuditoriaFronteraRutaExacta`. | Las operaciones se ejecutan en transacción serializable. Las denegaciones de frontera usan `registrar_denegacion_frontera_v1` y no aceptan actor libre; la auditoría local de acceso existe en la migración de ficha. | No inferir el nombre o el perfil de la carga HTTP. Verificar la proyección nominal externa y sus vínculos a auditoría común antes de ampliar la administración. No hay descarga de ficha acreditada en este recorrido. |
@@ -97,6 +97,18 @@ tampoco registra actualmente el resultado de escritura de bytes. No se atribuye
 entrega completa por confirmar el permiso de lectura. Originales y firma
 pertenecen al circuito E/Documentos.
 
+El corte B del 05/10 separa la descarga de la consulta. Tras generar y validar
+el archivo, cada descarga (los diez borradores, PDF o DOCX) pide su propia
+decisión, `contratacion_temporal.borrador_rrhh.descargar`. La huella de contexto
+liga el tipo, el formato, el SHA256 y el tamaño del archivo. AD199 y CT177 la
+consumen en la misma transacción que escribe la fila de
+`descarga_borrador_rrhh_v1`, y solo después se escribe la respuesta, con el
+asiento en `X-Audit-Ref`. Cuando se pidió una descarga, las denegaciones y los
+errores van al registrador AD169: los de la consulta, los de generación o
+validación y los del propio consumo. Sigue sin registrarse si el cliente recibió
+todos los bytes. Si la escritura se corta, queda la fila de una descarga
+autorizada y no la de una entrega confirmada.
+
 En Bolsa, la lectura RRHH de solicitudes documentales pendientes consume
 Bolsa77/AD155 y confirma antes de devolver metadatos. El corte nuevo conecta
 el registrador común AD169 para denegaciones y errores posteriores al contexto
@@ -114,9 +126,17 @@ El recurso es la participación o la bolsa. El servicio distingue ya la
 denegación explícita del emisor V3 de un fallo técnico. Las dos rutas toman la
 correlación de la petición; el registro de contactos y la página RRHH de la
 bolsa conservan la suya. Ninguna orden lleva correo, teléfonos ni anotaciones.
-La consulta de datos de contacto (`datos-contacto`, también con
-`?ver=completo`) queda fuera: hoy no consume V3 ni tiene acción, finalidad o
-motivo de consulta propios, y crearlos es una decisión de permisos pendiente.
+La consulta completa de datos de contacto (`datos-contacto?ver=completo`, que
+devuelve correo y teléfonos en claro) tiene desde el corte C su propia acción,
+`bolsa.datos_contacto_participacion.consultar`, con finalidad
+`consulta_datos_contacto_participacion`, motivo en un catálogo aparte y la
+participación como recurso. B78 consume la decisión (AD197) en la misma
+transacción que lee el sobre cifrado, y el caso de uso descifra antes del
+COMMIT: si no puede entregar el claro, no queda consumo. La respuesta publica
+el asiento en `X-Audit-Ref`. Denegaciones y errores van al registrador AD169
+como en el corte A. La ruta GET ya no admite la acción de registro. La vista
+enmascarada (sin `?ver=completo`) no cambia: devuelve la forma enmascarada y el
+origen sin decisión propia ni asiento común.
 
 La lista B5 de aspirantes combina lectores y staging, sin consumo nominal único
 acreditado en este inventario. No se la presenta como cubierta por un decorador

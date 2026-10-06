@@ -240,6 +240,10 @@ type PaginaCuadroRRHH struct {
 	// Urgentes (CT-000125) es opcional: si RRHH declaró urgente cada
 	// expediente al analizarlo, alineado con Expedientes; nil si ninguno.
 	Urgentes []bool `json:"-"`
+	// Agregados (CT-000184) solo vienen si la solicitud pidió el resumen;
+	// Resumen lo calcula la aplicación a partir de ellos para la portada.
+	Agregados *AgregadosCuadroRRHH `json:"-"`
+	Resumen   *ResumenCuadroRRHH   `json:"-"`
 }
 
 type TotalesCuadroRRHH struct {
@@ -270,7 +274,10 @@ func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
 			p.Totales.Total < uint64(len(p.Expedientes)))) ||
 		(p.HayMas && !cursorRRHHValido(p.CursorSiguiente)) ||
 		(!p.HayMas && p.CursorSiguiente != "") || !p.fasesDesdeValidas() ||
-		(len(p.Urgentes) != 0 && len(p.Urgentes) != len(p.Expedientes)) {
+		(len(p.Urgentes) != 0 && len(p.Urgentes) != len(p.Expedientes)) ||
+		(p.Agregados != nil) != solicitud.resumen ||
+		(p.Agregados != nil && !p.Agregados.validarPara(solicitud, p.Totales, p.GeneradaEn)) ||
+		(p.Resumen != nil && p.Agregados == nil) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	vistas := make(map[string]struct{}, len(p.Expedientes))
