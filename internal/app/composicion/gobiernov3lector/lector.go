@@ -67,17 +67,29 @@ func (l *Lector) Leer(ctx context.Context) (*confianza.ServicioConfianzaAtestaci
 	if l == nil || ctx == nil || ctx.Err() != nil {
 		return nil, Publicacion{}, ErrGobiernoNoDisponible
 	}
+	// La lectura del gobierno (una consulta a PostgreSQL) se hace fuera del
+	// cerrojo: cada operación sigue releyendo, pero las operaciones
+	// simultáneas ya no esperan en fila a que termine la lectura de otra.
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	actual, err := l.fuente(ctx, l.anterior)
+	anterior := l.anterior
+	l.mu.Unlock()
+	actual, err := l.fuente(ctx, anterior)
 	actual = enUTC(actual)
-	if err != nil || ctx.Err() != nil || actual.Secuencia < l.anterior.Secuencia ||
-		(actual.Secuencia == l.anterior.Secuencia && !mismaPublicacion(actual, l.anterior)) {
+	if err != nil || ctx.Err() != nil || actual.Secuencia < anterior.Secuencia ||
+		(actual.Secuencia == anterior.Secuencia && !mismaPublicacion(actual, anterior)) {
 		return nil, Publicacion{}, ErrGobiernoNoDisponible
 	}
 	config := configurar(actual, l.raiz)
 	ahora := l.reloj.Ahora().UTC()
 	if config == nil || ahora.Before(actual.PublicadaEn) || !ahora.Before(actual.ExpiraEn) || ctx.Err() != nil {
+		return nil, Publicacion{}, ErrGobiernoNoDisponible
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	// Otra operación pudo adoptar entretanto una publicación posterior: esta
+	// lectura queda atrás y se rechaza, como cualquier retroceso.
+	if actual.Secuencia < l.anterior.Secuencia ||
+		(actual.Secuencia == l.anterior.Secuencia && !mismaPublicacion(actual, l.anterior)) {
 		return nil, Publicacion{}, ErrGobiernoNoDisponible
 	}
 	if l.actual != nil && mismaPublicacion(actual, l.anterior) {

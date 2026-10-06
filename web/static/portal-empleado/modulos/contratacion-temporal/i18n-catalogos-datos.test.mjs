@@ -19,8 +19,8 @@ import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=2
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.
 const PREIMAGEN = {
   "i18n-analisis-catalogo.js": {
-    "MENSAJES_ANALISIS_CATALOGO_EN": "21642e3882c6f62c2a40c10625d3d8776b4e8dbd5d1f7228fc6a0bcfa8a3beaa",
-    "MENSAJES_ANALISIS_CATALOGO_ES": "182eb1c194528180211bdae3e716c7b939cd0ec1c42a610dcd3bc525489d9673"
+    "MENSAJES_ANALISIS_CATALOGO_EN": "f800e191693009fbda79315380b47ee28e1c5b5d653552845cd0a88d39d22f3b",
+    "MENSAJES_ANALISIS_CATALOGO_ES": "7ebc3646ea6e5b35e13f785b67726b16d2957740c91a899382dd7f05d6ff0aa8"
   },
   "i18n-avisos-via-cobertura.js": {
     "MENSAJES_AVISOS_VIA_COBERTURA_EN": "8b1395a10ed65f002ccec703cb5fe8aef1b66d37b4bf2f29bc1fe6fc1feb1d34",
@@ -46,17 +46,18 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    "MENSAJES_FICHA_LISTA_EN": "bae5e3d7472c6d6ea8ebd525c6e128a2c6423a7c891533ab44b596a0a63691ae",
-    "MENSAJES_FICHA_LISTA_ES": "466e717e5847ccaaed643755da68118b2e81be4acfe0d5ea41f299cf153cf8a4"
+    "MENSAJES_FICHA_LISTA_EN": "6165c04efa1dd641569193ecedeaea85bec6247426bc24abac41b99c6ae88458",
+    "MENSAJES_FICHA_LISTA_ES": "b621ae0eaef51a634a3d6c26d9e83f50f876f45d342e29cfc06c41460c384982"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
-    // Excepción a la preimagen: cuatro correcciones EN de renuncia posteriores al traslado.
-    "MENSAJES_LLAMAMIENTO_EN": "6d0fd18d0572e0d98000134069e36b44389253c4c6a04cc6579f993697c86399",
-    "MENSAJES_LLAMAMIENTO_ES": "d30865364e6e13be558dfd6ae65f7296dd4c5e1f745c37e2e936c89b5d9618fe"
+    // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
+    // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
+    "MENSAJES_LLAMAMIENTO_EN": "1f57663b12641ccc9b3189f2bc6cc35b2217e9a4d74519e3fafed7a1d8cecabf",
+    "MENSAJES_LLAMAMIENTO_ES": "88a4c249b8fdd7f430c74356ffefa84e4c82a30af369ef21aeff4eae3e3ba054"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "64125e70d662c685f79970383cc504776bf0923b034ea24825d30209c139833a",

@@ -130,6 +130,11 @@ const (
 	// «etiqueta_<motivo>» y «consecuencia_<motivo>» (entrada b24.sancion.* de
 	// Bolsa); «segunda_persona»=«si» exige que resuelva otra persona.
 	CTNoIncorporacion = "c22.no_incorporacion"
+	// CTCreditoOferta fija lo que se exige al crédito antes de ofrecer el
+	// puesto. «coste_con_partidas» = «exigido» (o sin la regla): sin
+	// retención, la constancia de las partidas va con el coste aproximado
+	// (RRHH, 02/10/2026); «no_exigido» lo desactiva.
+	CTCreditoOferta = "c25.credito_oferta"
 )
 
 // Opciones del análisis de Contratación temporal que se consultan por
@@ -162,6 +167,8 @@ const (
 	// AtributoCierreSinCese en c10: con el valor «admitido» se ofrece el
 	// cierre administrativo sin cese; con cualquier otro, no.
 	AtributoCierreSinCese = "cierre_sin_cese"
+	// AtributoCosteConPartidas en c25: «exigido» o «no_exigido».
+	AtributoCosteConPartidas = "coste_con_partidas"
 	// AtributoRolesConfirmanIncorporacion en c21: perfiles del centro que
 	// confirman la incorporación, separados por comas.
 	AtributoRolesConfirmanIncorporacion = "roles_confirman"

@@ -4,6 +4,7 @@ import {
   normalizarDuracionesMaximas,
   normalizarModalidadesAnalisis,
   periodoSuperaDuracionMaxima,
+  validarDatosPeticionAnalisis,
   validarDatosPreviosAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
@@ -70,7 +71,7 @@ const MAXIMO_OPCIONES = 100;
 const MAXIMO_CATEGORIAS = 1000;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
 const CAMPOS_CONFIGURACION = new Set([
-  "raiz", "cliente", "contexto", "catalogos", "analisisInicial", "datosPrevios",
+  "raiz", "cliente", "contexto", "catalogos", "analisisInicial", "datosPrevios", "datosPeticion",
   "generarClaveIdempotencia", "mensajes", "locale", "zonaHoraria", "anunciar",
 ]);
 const CLAVES_ETIQUETA = Object.freeze({
@@ -502,9 +503,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
       aria-atomic="true" tabindex="-1" aria-labelledby="ct-analisis-recibo-titulo">
       <p class="sobrelinea">${escaparHTML(t("analisis_recibo_sobrelinea"))}</p>
       <h3 id="ct-analisis-recibo-titulo">${escaparHTML(t(recibo.operacion === "rectificar" ? "analisis_recibo_rectificacion_titulo" : "analisis_recibo_titulo"))}</h3>
-      <p>${escaparHTML(t("analisis_recibo_descripcion"))}</p>
-      <dl><div><dt>${escaparHTML(t("analisis_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-      <div><dt>${escaparHTML(t("analisis_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
+      <dl><div><dt>${escaparHTML(t("analisis_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("analisis_recibo_fecha"))}</dt><dd>${escaparHTML(formateador.format(new Date(recibo.confirmada_en)))}</dd></div></dl>
     </section>`;
   }
@@ -530,6 +529,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
   <form data-ct-analisis-form novalidate>
     <fieldset class="ct-bloque"${estado.ocupado ? " disabled" : ""}>
       <legend>${escaparHTML(t("analisis_campos_leyenda"))}</legend>
+      <p class="ct-nota-obligatorios">${escaparHTML(t("analisis_campos_obligatorios"))}</p>
       <div class="ct-campos">
         ${campoSeleccion(estado, t, "modalidad_clave", "analisis_modalidad", catalogos.modalidades, "clave")}
         ${campoSeleccion(estado, t, "categoria_ref", "analisis_categoria", catalogos.categorias, "referencia")}
@@ -615,7 +615,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   }
   let {
     raiz, cliente, contexto: contextoEntrada, catalogos: catalogosEntrada,
-    analisisInicial = null, datosPrevios = null, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
+    analisisInicial = null, datosPrevios = null, datosPeticion = null, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
   } = configuracion;
   configuracion = null;
@@ -678,7 +678,32 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       if (erroresPrevios[campo]) borrador[campo] = "";
     }
   }
+  // Análisis nuevo: se parte de lo que pidió el centro, siempre editable.
+  // Lo que no exista en los catálogos vigentes se deja para elegir.
+  if (datosPeticion !== null && !rectificacion && analisisValidado === null && datosPrevios === null) {
+    let peticion = null;
+    try { peticion = validarDatosPeticionAnalisis(datosPeticion); } catch { peticion = null; }
+    if (peticion !== null) {
+      const inicio = peticion.periodo.inicio.slice(0, 10);
+      const fin = peticion.periodo.fin?.slice(0, 10) ?? "";
+      borrador = {
+        ...borrador,
+        modalidad_clave: peticion.modalidad_clave ?? "",
+        categoria_ref: peticion.categoria_ref,
+        grupo_subgrupo: peticion.grupo_subgrupo,
+        inicio: fechaCivilValida(inicio) ? inicio : "",
+        fin: fin !== "" && fechaCivilValida(fin) ? fin : "",
+        causa_fin: peticion.periodo.causa_fin ?? "",
+      };
+      const errores = validarBorrador(borrador, catalogos, false);
+      for (const campo of ["modalidad_clave", "categoria_ref", "grupo_subgrupo"]) {
+        if (errores[campo]) borrador[campo] = "";
+      }
+      if (borrador.categoria_ref === "") borrador.grupo_subgrupo = "";
+    }
+  }
   datosPrevios = null;
+  datosPeticion = null;
   let raizActual = raiz;
   let clienteActual = cliente;
   let anunciarActual = anunciar;
@@ -710,7 +735,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     raizActual.innerHTML = `<section class="ct-alta" data-ct-analisis
       aria-labelledby="ct-analisis-titulo">
       <header class="ct-cabecera"><div>
-      <h2 id="ct-analisis-titulo">${escaparHTML(t(titulo))}</h2></div></header>
+      <h3 id="ct-analisis-titulo">${escaparHTML(t(titulo))}</h3></div></header>
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}" data-ct-analisis-estado
         role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
         <strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>

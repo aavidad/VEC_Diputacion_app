@@ -238,12 +238,12 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!estadoBolsas) return "";
     if (estadoBolsas.carga === "cargando") {
       return `
-        <section class="panel" aria-labelledby="titulo-cuadro-b12">
+        <section class="panel" aria-labelledby="titulo-cuadro-b12" aria-busy="true">
           <div class="cabecera-panel">
             <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo")}</h3>
             <span class="estado-chip neutro">${textoPortal("txt_consultando")}</span>
           </div>
-          <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
+          <div class="cuerpo-panel vacio-controlado" role="status">
             <p><strong>${textoPortal("txt_cargando_bolsas_de_trabajo")}</strong></p>
           </div>
         </section>`;

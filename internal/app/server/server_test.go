@@ -223,46 +223,11 @@ func TestServerNormalizaEntradaBolsaSinBarraFinal(t *testing.T) {
 	}
 }
 
-func TestServerPresentacionAisladaNoSirvePortalesSinAPI(t *testing.T) {
-	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
-	for _, ruta := range []string{
-		"/area-personal/", "/area-personal/index.html", "/area-personal/aplicacion.js",
-		"/portal-empleado/", "/portal-empleado/index.html", "/portal-empleado/portal.css?v=1",
-		"/portal-empleado/portal.js?v=1", "/portal-empleado/datos-presentacion.js?v=1",
-	} {
-		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
-			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
-			if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" || (metodo == http.MethodHead && rec.Body.Len() != 0) {
-				t.Fatalf("%s %s = %d Location=%q cuerpo=%q", metodo, ruta, rec.Code, rec.Header().Get("Location"), rec.Body.String())
-			}
-		}
-	}
-}
-
-func TestServerPresentacionAisladaNoSirveCotejoSimulado(t *testing.T) {
-	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
-	for _, ruta := range []string{
-		"/verificar", "/verificar/", "/verificar/index.html",
-		"/verificar/verificar.js", "/verificar/verificar.css", "/verificar/i18n.js",
-		"/verificar/adaptador-presentacion.js?v=1",
-	} {
-		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
-			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
-			if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" || (metodo == http.MethodHead && rec.Body.Len() != 0) {
-				t.Fatalf("%s %s = %d Location=%q cuerpo=%q", metodo, ruta, rec.Code, rec.Header().Get("Location"), rec.Body.String())
-			}
-		}
-	}
-}
-
 func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
 	for _, handler := range []http.Handler{
 		NewHandler(http.NotFoundHandler()),
-		NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler()),
-		NewHandlerWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
-		NewHandlerInternoWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
+		NewHandlerWithConfig(config.Config{}, http.NotFoundHandler()),
+		NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()),
 	} {
 		for _, ruta := range []string{
 			"/presentacion/",
@@ -308,6 +273,11 @@ func TestServerCachesVersionedStaticAssets(t *testing.T) {
 		}
 		if got := rec.Header().Get("Cache-Control"); got != tc.wantCache {
 			t.Fatalf("%s cache-control = %q, want %q", tc.path, got, tc.wantCache)
+		}
+		// Pragma: no-cache solo acompaña a lo que no se guarda: junto a una
+		// política almacenable hacía revalidar cada estático en cada recarga.
+		if got, quiere := rec.Header().Get("Pragma"), map[bool]string{true: "no-cache", false: ""}[tc.wantCache == "no-store"]; got != quiere {
+			t.Fatalf("%s pragma = %q, want %q", tc.path, got, quiere)
 		}
 	}
 }

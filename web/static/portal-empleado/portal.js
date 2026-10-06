@@ -5,10 +5,10 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
 import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261006-borradores-no-disponible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261005-b-contacto-v3";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261005-ct-llamamiento-fiscalizacion-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
@@ -22,11 +22,11 @@ import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-r-rrhh
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r3-r4-ofertas-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261002-r2-post401-v2";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261006-reglas-una-lectura-v1";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261001-ct-a-i18n-v1";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261006-reglas-no-disponible-v1";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261001-ct-a-i18n-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
@@ -176,6 +176,7 @@ const estado = {
   auditoriaReferencia: "",
   politicaCese: null,
   politicaCeseComprobada: false,
+  politicaCeseAusente: false, // 404: la instalación no compone la política de cese
   modalResultado: null,
 };
 let vistaAuditoriaBolsa = null;
@@ -279,8 +280,15 @@ function porcentajeSeguro(valor) {
   if (!Number.isFinite(numeroValor)) return 0;
   return Math.max(0, Math.min(100, Math.round(numeroValor * 10) / 10));
 }
+// Mientras se lee el cuadro, Bolsa se ofrece ya si el catálogo la autoriza
+// (abrirla muestra el cuadro «cargando»), y tras un fallo transitorio también
+// (dentro se ve el error con «Reintentar»); si la API la deniega, deja de
+// ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
 function disponibilidadBolsa() {
   const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  if (acceso?.disponible !== true && ["cargando", "error"].includes(estado.datosBolsas?.carga) && estado.vista !== "elaboracion") {
+    return { disponible: true, vista: "resumen", estado: "disponible", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
+  }
   if (acceso?.estado !== "cargando" || estado.datosBolsas?.carga === "cargando" || estado.vista === "elaboracion") return acceso;
   return { disponible: false, vista: "", estado: estado.datosBolsas?.carga === "denegado" ? "denegado" : estado.datosBolsas?.carga === "error" ? "error" : "no_disponible" };
 }
@@ -316,6 +324,8 @@ function vistaPermitida(vista) {
   if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
+  // Con Bolsa en el catálogo, Reglas se abre para decir «no disponible» (404).
+  if (vista === "reglas" && estado.politicaCeseAusente) return coordinadorModulos.obtenerCatalogo().some((m) => m.clave === "bolsa");
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
   if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
@@ -363,11 +373,21 @@ let inicioComprobando = false;
 // La API de borradores de convocatorias NO se sondea al cargar: un servidor que
 // no la sirve respondería 404 en cada carga. Elaboración solo se ofrece en el
 // menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
+// Ciclo de carga (secuenciaFuente) en que se pidió el cuadro de bolsas por
+// última vez. Una lectura pedida en el ciclo actual ya revalida el acceso.
+let cicloLecturaBolsas = 0;
+function pedirCuadroBolsas() {
+  cicloLecturaBolsas = secuenciaFuente;
+  void controladorBolsas.cargarBolsas();
+}
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
-  // del catálogo o de identidad: la API debe revalidar el acceso actual.
-  if (clave === "catalogo") {
-    void controladorBolsas.cargarBolsas();
+  // del catálogo o de identidad: la API debe revalidar el acceso actual. Si
+  // la lectura de este mismo ciclo sigue en curso o ya terminó, no se repite:
+  // relanzarla cancelaba la petición y obligaba al servidor a empezar de cero.
+  if (clave === "catalogo"
+    && !(cicloLecturaBolsas === secuenciaFuente && ["cargando", "listo"].includes(estado.datosBolsas?.carga))) {
+    pedirCuadroBolsas();
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
     && (destinoPlantillasInicial || plantillasConfirmadas)) {
@@ -452,6 +472,7 @@ async function cargarFuenteDatos() {
   consultaAccesoPoliticaCese = null;
   estado.politicaCese = null;
   estado.politicaCeseComprobada = false;
+  estado.politicaCeseAusente = false;
   if (destinoPoliticaCeseInicial) void comprobarAccesoPoliticaCese();
   // Una vista de Bolsa ya montada no depende del catálogo de módulos: se
   // conserva (el coordinador tampoco la retira) y no se vuelve a montar.
@@ -461,7 +482,7 @@ async function cargarFuenteDatos() {
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
   // bloquear los demás módulos. Una lectura ya en curso no se repite.
   if (estado.datosBolsas?.carga !== "cargando"
-    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) void controladorBolsas.cargarBolsas();
+    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) pedirCuadroBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
     if (error?.codigo === CODIGO_CARGA_SUSTITUIDA || intento !== secuenciaFuente) return;
@@ -502,13 +523,16 @@ async function comprobarAccesoPoliticaCese() {
       destinoPoliticaCeseInicial = false;
       navegar("reglas");
     }
-  } catch {
+  } catch (error) {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = null;
     estado.politicaCeseComprobada = true;
+    estado.politicaCeseAusente = error?.estado === 404;
     if (destinoPoliticaCeseInicial) {
       destinoPoliticaCeseInicial = false;
-      history.replaceState(null, "", rutaDeVista("portal"));
+      // Sin la API (404) la vista lo dice; un 403 sigue en Inicio, sin revelarla.
+      if (estado.politicaCeseAusente && estado.vista === "portal") navegar("reglas");
+      else history.replaceState(null, "", rutaDeVista("portal"));
     }
   } finally {
     if (consultaAccesoPoliticaCese === controlador) {
@@ -643,7 +667,7 @@ function actualizarNavegacionModulos() {
     }));
     if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
-      estado.datosBolsas?.carga === "cargando", crearTraductorResumenAccesosEmpleado({
+      false, crearTraductorResumenAccesosEmpleado({
         accesos: coordinadorModulos.obtenerAccesosEmpleado(), traducir: traducirPortal,
       }));
   }
@@ -688,7 +712,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
     vistaPoliticaCese = montarVistaPoliticaCeseRRHH({ raiz: contenedor,
-      politica: estado.politicaCese, cliente: clientePoliticaCese, anunciar,
+      politica: estado.politicaCese, noDisponible: estado.politicaCeseAusente, cliente: clientePoliticaCese, anunciar,
       alDenegacion: () => { estado.politicaCese = null; actualizarNavegacionModulos(); } });
     return;
   }
@@ -819,7 +843,7 @@ function renderizar() {
       if (pendiente) contenedor.innerHTML = renderizarVistaComprobando(titulo);
       else contenedor.innerHTML = estado.vista === "contratacion-temporal"
         ? renderizarContratacionTemporalNoDisponible()
-        : renderizarFuenteNoDisponible();
+        : renderizarNoDisponibleDeVista(estado.vista, titulo);
       return;
     }
     estado.vistaCerrada = "";
@@ -839,7 +863,7 @@ function renderizar() {
   coordinadorModulos.retirarVistaMontada();
   estado.vistaMontada = "";
   if (estado.vista !== "portal" && estado.vista !== "ofertas-sae" && !estado.fuenteLista) {
-    contenedor.innerHTML = renderizarFuenteNoDisponible();
+    contenedor.innerHTML = renderizarNoDisponibleDeVista(estado.vista, titulo);
     return;
   }
 
@@ -877,6 +901,15 @@ function renderizarVistaComprobando(titulo) {
     </div></section>`;
 }
 
+// Vista de otro módulo (Personal, Cronos, Trámites, Dietas…) no ofrecida: «no disponible» con su título, no la de Bolsa.
+function renderizarVistaNoDisponible(titulo) {
+  return `${encabezadoVista("", titulo, "")}<section class="panel" aria-labelledby="vista-no-disponible-titulo"><div class="cuerpo-panel vacio-controlado">
+    <h3 id="vista-no-disponible-titulo">${escaparHTML(traducirPortal("vista_no_disponible_titulo"))}</h3><p>${escaparHTML(traducirPortal("vista_no_disponible_texto"))}</p>
+    <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("accion_volver_portal"))}</button></div></div></section>`;
+}
+function renderizarNoDisponibleDeVista(vista, titulo) {
+  return moduloDeVistaPortal(vista) === "bolsa" ? renderizarFuenteNoDisponible() : renderizarVistaNoDisponible(titulo);
+}
 function renderizarFuenteNoDisponible() {
   const cargando = estado.errorFuente === "";
   const detalle = cargando

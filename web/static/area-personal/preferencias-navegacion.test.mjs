@@ -52,8 +52,7 @@ async function escenario(idioma, lectura, errorPreferencias = null) {
     await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(), preferidos: [idioma],
       ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` } });
     let consultasBolsa = 0;
-    const cliente = { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; },
-      async ejecutar() { throw new Error("No debe ejecutarse una operación de Bolsa."); } };
+    const cliente = { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; } };
     const estado = await iniciarAreaPersonal({ cliente, preferencias: lectura, errorPreferencias });
     assert.equal(consultasBolsa, 1);
     assert.equal(estado.datos, null);

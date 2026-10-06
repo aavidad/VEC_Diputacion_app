@@ -11,9 +11,9 @@ import (
 // ni conceden permisos; la composición decide dónde se montan y cada handler
 // solo atiende su ruta exacta con GET o HEAD.
 const (
-	RutaCategoriasProfesionalesPersonal       = rutaCategoriasProfesionalesPresentacion
-	RutaRPTPublicaPersonal                    = rutaRPTPublicaPresentacion
-	RutaEstructuraOrganizativaPublicaPersonal = rutaEstructuraOrganizativaPublicaPresentacion
+	RutaCategoriasProfesionalesPersonal       = "/api/vec/personal/categories"
+	RutaRPTPublicaPersonal                    = "/api/vec/personal/rpt-publica"
+	RutaEstructuraOrganizativaPublicaPersonal = "/api/vec/personal/estructura-organizativa-publica"
 )
 
 var ErrConsultaPublicaPersonalInvalida = errors.New("httpapi: consulta publica de Personal invalida")
@@ -25,7 +25,7 @@ func NewHandlerCategoriasProfesionalesPublicas(consulta ConsultaCategoriasProfes
 	if dependenciaHTTPNula(consulta) {
 		return nil, ErrConsultaPublicaPersonalInvalida
 	}
-	return handlerCategoriasProfesionales(consulta, false), nil
+	return handlerCategoriasProfesionales(consulta), nil
 }
 
 // NewHandlerRPTPublica sirve la proyección pública de la RPT inmovilizada por
@@ -46,14 +46,14 @@ func NewHandlerEstructuraOrganizativaPublica(consulta ConsultaEstructuraOrganiza
 	return handlerEstructuraOrganizativaPublica(consulta), nil
 }
 
-func handlerCategoriasProfesionales(consulta ConsultaCategoriasProfesionales, exigirDemostracion bool) http.Handler {
+func handlerCategoriasProfesionales(consulta ConsultaCategoriasProfesionales) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r == nil || r.URL == nil {
 			w.Header().Set("Cache-Control", "no-store")
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		if r.URL.Path != rutaCategoriasProfesionalesPresentacion || r.URL.RawPath != "" {
+		if r.URL.Path != RutaCategoriasProfesionalesPersonal || r.URL.RawPath != "" {
 			http.NotFound(w, r)
 			return
 		}
@@ -63,7 +63,7 @@ func handlerCategoriasProfesionales(consulta ConsultaCategoriasProfesionales, ex
 			writeErrorCategoriasProfesionales(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		servirCategoriasProfesionales(w, r, consulta, exigirDemostracion)
+		servirCategoriasProfesionales(w, r, consulta)
 	})
 }
 
@@ -73,7 +73,7 @@ func handlerRPTPublica(consulta ConsultaRPTPublica) http.Handler {
 			escribirRPTPublicaError(w, http.StatusServiceUnavailable, "rpt_publica_no_disponible")
 			return
 		}
-		if r.URL.Path != rutaRPTPublicaPresentacion || r.URL.RawPath != "" {
+		if r.URL.Path != RutaRPTPublicaPersonal || r.URL.RawPath != "" {
 			http.NotFound(w, r)
 			return
 		}
@@ -92,7 +92,7 @@ func handlerEstructuraOrganizativaPublica(consulta ConsultaEstructuraOrganizativ
 			escribirEstructuraOrganizativaPublicaError(w, http.StatusServiceUnavailable, "estructura_organizativa_publica_no_disponible")
 			return
 		}
-		if r.URL.Path != rutaEstructuraOrganizativaPublicaPresentacion || r.URL.RawPath != "" || r.URL.RawQuery != "" {
+		if r.URL.Path != RutaEstructuraOrganizativaPublicaPersonal || r.URL.RawPath != "" || r.URL.RawQuery != "" {
 			http.NotFound(w, r)
 			return
 		}

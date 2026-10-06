@@ -344,7 +344,15 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
 // Rechazo del cierre sin cese cuando la regla de cierre (c10) no lo contempla.
 export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemplado";
 
+// Sin crédito no se ofrece: la propuesta de cobertura (ya autorizada) explica
+// el motivo con un código propio. La decisión no lo revela.
+export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
+  "sin_credito_analisis_pendiente", "sin_credito_retencion_rechazada", "sin_credito_partidas_sin_coste",
+]);
+
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (ruta === rutas.propuestaCobertura && estado === 409
+    && CONFLICTOS_SIN_CREDITO_COBERTURA.includes(codigo)) return true;
   if (ruta === rutas.propuestaCobertura
     && estado === 403
     && codigo === "datos_no_disponibles_perfil") return true;

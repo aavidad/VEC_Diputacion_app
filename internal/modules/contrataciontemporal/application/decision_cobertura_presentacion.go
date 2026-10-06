@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
@@ -258,6 +259,9 @@ type ServicioPresentacionPropuestaCobertura struct {
 	alternativas []MotivoAlternativaCobertura
 	coberturas   *PreparadorGlobalCobertura
 	avisosVia    avisosViaPresentacion
+	// politicaCredito es opcional: sin ella rige la predeterminada. Se fija
+	// una sola vez, como los avisos de vía.
+	politicaCredito atomic.Pointer[politicaCreditoConfigurada]
 }
 
 func NuevoServicioPresentacionPropuestaCobertura(
@@ -343,8 +347,14 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 		return PresentacionPropuestaCobertura{},
 			ErrPresentacionPropuestaCoberturaNoConfiable
 	}
+	if err := s.comprobarPoliticaCredito(operacion, expediente); err != nil {
+		return PresentacionPropuestaCobertura{}, err
+	}
 	solicitudGobierno, err := solicitudGobiernoParaPresentacion(expediente)
 	if err != nil {
+		if errCredito, ok := errorSinCreditoCobertura(ErrPresentacionPropuestaCoberturaEstadoNoAdmite, err); ok {
+			return PresentacionPropuestaCobertura{}, errCredito
+		}
 		return PresentacionPropuestaCobertura{},
 			ErrPresentacionPropuestaCoberturaEnConflicto
 	}
@@ -569,6 +579,12 @@ func solicitudesPresentacionPropuestaCobertura(
 func solicitudGobiernoParaPresentacion(
 	expediente domain.Expediente,
 ) (cobertura.SolicitudGobiernoOperacionCobertura, error) {
+	if expediente.Validar() == nil && expediente.ViaCobertura == nil &&
+		expediente.Asignacion == nil {
+		if err := expediente.ErrorSinCreditoParaOferta(); err != nil {
+			return cobertura.SolicitudGobiernoOperacionCobertura{}, err
+		}
+	}
 	if expediente.Validar() != nil || expediente.Analisis == nil ||
 		!expediente.Analisis.HabilitaAvance() ||
 		expediente.Asignacion != nil {
@@ -668,6 +684,9 @@ func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloDependencia(
 	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
 ) error {
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err, ok := errorSinCreditoCobertura(ErrPresentacionPropuestaCoberturaEstadoNoAdmite, causa); ok {
 		return err
 	}
 	if errors.Is(causa, cobertura.ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura) {
