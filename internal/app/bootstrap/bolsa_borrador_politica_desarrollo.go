@@ -113,17 +113,42 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 		versionPreimagen = versionRol
 		versionRol += 2 // v5→v7 y v6→v8, sin colisión entre ramas.
 	}
-	// La concesión documental solo se consume si una provisión aprobada fuera
-	// de la petición la publicó por CAS. El arranque sin aprobación no la publica.
+	// Las concesiones documental y de consulta completa de datos de contacto
+	// solo se consumen si una provisión aprobada fuera de la petición las
+	// publicó por CAS. El arranque sin aprobación no las publica.
 	if lector, ok := p.autoridad.(lectorAsignacionPublicadaCTDesarrollo); ok {
 		publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, datos.PerfilActivoRef)
 		if err != nil {
 			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 		}
-		if encontrada && publicada.instantanea.VersionRol.Version >= 9 {
+		version := publicada.instantanea.VersionRol.Version
+		objetivoVersion := versionRol + saltoProvisionDatosContactoBolsa
+		const envPreimagen = "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256"
+		const envObjetivo = "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"
+		const envAprobacion = "VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"
+		aprobacion := os.Getenv(envAprobacion)
+		preimagenIndicada, objetivoIndicado := os.Getenv(envPreimagen), os.Getenv(envObjetivo)
+		sinAprobacion := aprobacion == "" && preimagenIndicada == "" && objetivoIndicado == ""
+		documental := encontrada && version == versionRol+saltoProvisionDocumentalBolsa
+		// Con la documental ya aplicada, una aprobación cuya preimagen no es la
+		// asignación publicada es la de aquella provisión: no concede nada nuevo
+		// y no debe impedir el arranque. Se ignora con aviso.
+		if documental && !sinAprobacion {
+			if preimagenPublicada, err := publicada.instantanea.AsignacionPerfil.HuellaSHA256(); err != nil || preimagenIndicada != preimagenPublicada {
+				slog.Warn("aprobación de provisión RRHH Bolsa anterior ignorada", "perfil_ref", datos.PerfilActivoRef,
+					"recibido_preimagen", huellaDocumentalBolsaVisible(preimagenIndicada))
+				sinAprobacion = true
+			}
+		}
+		if encontrada && version >= 9 && !documental && version != objetivoVersion {
+			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
+		}
+		// Ya provisionada: la versión completa, o la documental anterior
+		// mientras no haya otra aprobación para ampliarla.
+		if encontrada && (version == objetivoVersion || documental && sinAprobacion) {
 			esperada, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
-				datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, versionRol+4)
-			if err != nil || publicada.instantanea.VersionRol.Version != versionRol+4 {
+				datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, version)
+			if err != nil {
 				return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 			}
 			esperada = instantaneaMiBolsaEsperada(esperada, publicada.instantanea)
@@ -137,47 +162,44 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 					publicada.actualizadaPor != esperada.AsignacionPerfil.EmitidaPor) {
 				return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 			}
+			if documental {
+				if preimagenSHA, objetivoSHA, err := huellasProvisionRRHHBolsa(publicada.instantanea, datos, p.soporte, ahora, objetivoVersion); err == nil {
+					slog.Warn("consulta de datos de contacto Bolsa pendiente de provisión", "perfil_ref", datos.PerfilActivoRef,
+						"estado", "pendiente_provision", "preimagen_sha256", preimagenSHA, "objetivo_sha256", objetivoSHA)
+				}
+			}
 			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
 			p.publicada = true
 			return nil
 		}
-		if encontrada && publicada.instantanea.VersionRol.Version == versionRol {
-			const envPreimagen = "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256"
-			const envObjetivo = "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"
-			const envAprobacion = "VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"
-			preimagenSHA, errPreimagen := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
-			objetivo, errObjetivo := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
-				datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, versionRol+4)
-			if errPreimagen != nil || errObjetivo != nil {
+		if encontrada && (version == versionRol || documental) {
+			preimagenSHA, objetivoSHA, err := huellasProvisionRRHHBolsa(publicada.instantanea, datos, p.soporte, ahora, objetivoVersion)
+			if err != nil {
 				return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 			}
-			objetivo.AsignacionPerfil.AsignacionID = publicada.instantanea.AsignacionPerfil.AsignacionID
-			objetivo.AsignacionPerfil.Version = publicada.instantanea.AsignacionPerfil.Version + 1
-			objetivoSHA, errHuella := objetivo.AsignacionPerfil.HuellaSHA256()
-			if errHuella != nil {
-				return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
-			}
-			aprobacion := os.Getenv(envAprobacion)
-			preimagenIndicada, objetivoIndicado := os.Getenv(envPreimagen), os.Getenv(envObjetivo)
-			if aprobacion == "" && preimagenIndicada == "" && objetivoIndicado == "" {
-				slog.Warn("solicitudes documentales Bolsa pendientes de provisión", "perfil_ref", datos.PerfilActivoRef,
+			if sinAprobacion {
+				slog.Warn("solicitudes documentales y consulta de datos de contacto Bolsa pendientes de provisión", "perfil_ref", datos.PerfilActivoRef,
 					"estado", "pendiente_provision", "preimagen_sha256", preimagenSHA, "objetivo_sha256", objetivoSHA)
 			} else {
 				if !aprobacionDocumentalBolsaValida.MatchString(aprobacion) {
-					slog.Error("PARO provisión documental Bolsa: aprobación inválida", "clave", envAprobacion,
+					slog.Error("PARO provisión RRHH Bolsa: aprobación inválida", "clave", envAprobacion,
 						"esperado", "referencia_opaca_8_a_128", "recibido_longitud", len(aprobacion))
 					return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 				}
 				if preimagenIndicada != preimagenSHA || objetivoIndicado != objetivoSHA {
-					slog.Error("PARO provisión documental Bolsa: huella distinta", "clave_preimagen", envPreimagen,
+					slog.Error("PARO provisión RRHH Bolsa: huella distinta", "clave_preimagen", envPreimagen,
 						"esperado_preimagen", preimagenSHA, "recibido_preimagen", huellaDocumentalBolsaVisible(preimagenIndicada),
 						"clave_objetivo", envObjetivo, "esperado_objetivo", objetivoSHA, "recibido_objetivo", huellaDocumentalBolsaVisible(objetivoIndicado))
 					return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 				}
+				objetivo, err := objetivoProvisionRRHHBolsa(publicada.instantanea, datos, p.soporte, ahora, objetivoVersion)
+				if err != nil {
+					return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
+				}
 				preparada, errPreparar := p.autoridad.prepararInstantanea(ctx, objetivo, false)
-				if errPreparar != nil || preparada.VersionRol.Version != versionRol+4 || !reflect.DeepEqual(preparada, objetivo) {
-					slog.Error("PARO provisión documental Bolsa: rol preparado distinto", "clave", "version_rol",
-						"esperado", versionRol+4, "recibido", preparada.VersionRol.Version)
+				if errPreparar != nil || preparada.VersionRol.Version != objetivoVersion || !reflect.DeepEqual(preparada, objetivo) {
+					slog.Error("PARO provisión RRHH Bolsa: rol preparado distinto", "clave", "version_rol",
+						"esperado", objetivoVersion, "recibido", preparada.VersionRol.Version)
 					return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 				}
 				if err := p.autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, publicada.instantanea); err != nil {
@@ -185,7 +207,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 				}
 				p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(preparada)
 				p.publicada = true
-				slog.Info("provisión documental Bolsa aplicada", "aprobacion_ref", aprobacion, "perfil_ref", datos.PerfilActivoRef,
+				slog.Info("provisión RRHH Bolsa aplicada", "aprobacion_ref", aprobacion, "perfil_ref", datos.PerfilActivoRef,
 					"preimagen_sha256", preimagenSHA, "objetivo_sha256", objetivoSHA, "version", preparada.AsignacionPerfil.Version)
 				return nil
 			}
@@ -234,7 +256,7 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 	}
 	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
 		tipoRecurso := puertosbolsa.TipoRecursoBorradorLlamamiento
-		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion || accion == puertosbolsa.AccionEmitirLlamamiento {
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion || accion == puertosbolsa.AccionConsultarDatosContactoParticipacion || accion == puertosbolsa.AccionEmitirLlamamiento {
 			tipoRecurso = puertosbolsa.TipoRecursoSituacionParticipacion
 			if accion == puertosbolsa.AccionEmitirLlamamiento {
 				tipoRecurso = puertosbolsa.TipoRecursoEmision
@@ -266,7 +288,11 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 	if versionRol >= 9 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if versionRol == 6 || versionRol == 8 || versionRol == 10 || versionRol == 12 {
+	if versionRol >= 9+saltoProvisionDocumentalBolsa {
+		// Correo y teléfonos completos: acción y finalidad propias (AD197/B78).
+		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarDatosContactoParticipacion, puertosbolsa.FinalidadConsultarDatosContactoParticipacion))
+	}
+	if versionRolBolsaConPoliticaOfertas(versionRol) {
 		concesiones = append(concesiones, dominiovec.ConcesionRol{
 			Accion: puertosbolsa.AccionPublicarPoliticaOfertas, ModuloID: "bolsa",
 			TipoRecurso: "bolsa_constituida", Finalidades: []string{puertosbolsa.FinalidadPoliticaOfertas},
@@ -278,7 +304,7 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 			GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{puertosbolsa.CampoConsultarPoliticaOfertas},
 		})
 	}
-	if versionRol == 7 || versionRol == 8 || versionRol == 11 || versionRol == 12 {
+	if versionRolBolsaConReincorporacion(versionRol) {
 		concesiones = append(concesiones, dominiovec.ConcesionRol{
 			Accion: puertosbolsa.AccionConsultarReincorporacionTitular, ModuloID: puertosbolsa.ModuloSituacionParticipacion,
 			TipoRecurso:      puertosbolsa.TipoRecursoSituacionParticipacion,
@@ -348,15 +374,20 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	if referencia == motivoPublicarPoliticaOfertasBolsaDesarrollo() || referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
-		if instantanea.VersionRol.Version != 6 && instantanea.VersionRol.Version != 8 && instantanea.VersionRol.Version != 10 && instantanea.VersionRol.Version != 12 {
+		if !versionRolBolsaConPoliticaOfertas(instantanea.VersionRol.Version) {
 			return dominiovec.ErrSolicitudAutorizacionInvalida
 		}
 		return nil
 	}
 	if referencia == motivoConsultarReincorporacionTitularBolsaDesarrollo() {
-		if instantanea.VersionRol.Version != 7 && instantanea.VersionRol.Version != 8 && instantanea.VersionRol.Version != 11 && instantanea.VersionRol.Version != 12 {
+		if !versionRolBolsaConReincorporacion(instantanea.VersionRol.Version) {
 			return dominiovec.ErrSolicitudAutorizacionInvalida
 		}
+		return nil
+	}
+	// El motivo de la consulta completa vale siempre: sin la concesión, el PDP
+	// la deniega y la denegación queda registrada (403, no indisponibilidad).
+	if referencia == motivoConsultarDatosContactoParticipacionBolsaDesarrollo() {
 		return nil
 	}
 	if referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo() && referencia != motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() && referencia != motivoEmitirLlamamientoBolsaDesarrollo() {
@@ -431,6 +462,8 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoConsultarContactoParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionRegistrarDatosContactoParticipacion:
 		return motivo == motivoRegistrarDatosContactoParticipacionBolsaDesarrollo()
+	case puertosbolsa.AccionConsultarDatosContactoParticipacion:
+		return motivo == motivoConsultarDatosContactoParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionEmitirLlamamiento:
 		return motivo == motivoEmitirLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionPublicarPoliticaOfertas:

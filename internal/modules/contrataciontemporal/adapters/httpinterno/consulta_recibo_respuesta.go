@@ -66,6 +66,7 @@ func NuevoManejadorConsultaReciboRespuesta(e EjecutorConsultaReciboRespuesta) (h
 			return
 		}
 		resultado, err := e.Consultar(r.Context(), s)
+		adjuntarAcuseAuditoriaLectura(w, err)
 		if e := r.Context().Err(); e != nil {
 			err = e
 		}

@@ -65,3 +65,38 @@ func TestSinAnalisisElMotivoEsAnalisisPendiente(t *testing.T) {
 		t.Fatal("un error ajeno no lleva motivo de crédito")
 	}
 }
+
+func analisisRegistradoPrueba(t *testing.T, preparar func(*AnalisisRRHH)) *AnalisisRRHH {
+	t.Helper()
+	analisis := analisisValido()
+	preparar(&analisis)
+	expediente, err := expedienteValido(t).RegistrarAnalisis(1, analisis,
+		actuacion("analisis.validado", "gestion_bolsa", instanteBase.Add(time.Minute)))
+	if err != nil {
+		t.Fatalf("registrar análisis: %v", err)
+	}
+	return expediente.Analisis
+}
+
+func TestPoliticaDeCreditoExigeElCosteConLasPartidas(t *testing.T) {
+	exige := PoliticaCreditoOferta{ExigeCosteConPartidas: true}
+	partidas := func(a *AnalisisRRHH) { prepararRCNegativa(&a.ValidacionRC, RCNoRequerida) }
+	sinCoste := func(a *AnalisisRRHH) { a.CostePrevisto, a.FuenteCosteRef = nil, "" }
+	if got := analisisRegistradoPrueba(t, partidas).MotivoSinCreditoSegunPolitica(exige); got != "" {
+		t.Fatalf("con coste aproximado no debía bloquear: %q", got)
+	}
+	sinCostePartidas := analisisRegistradoPrueba(t, func(a *AnalisisRRHH) { partidas(a); sinCoste(a) })
+	if got := sinCostePartidas.MotivoSinCreditoSegunPolitica(exige); got != SinCreditoPartidasSinCoste {
+		t.Fatalf("sin coste aproximado: %q", got)
+	}
+	if got := sinCostePartidas.MotivoSinCreditoSegunPolitica(PoliticaCreditoOferta{}); got != "" {
+		t.Fatalf("con la exigencia desactivada basta la constancia: %q", got)
+	}
+	if got := analisisRegistradoPrueba(t, sinCoste).MotivoSinCreditoSegunPolitica(exige); got != "" {
+		t.Fatalf("la retención validada no necesita el coste: %q", got)
+	}
+	rechazada := analisisRegistradoPrueba(t, func(a *AnalisisRRHH) { prepararRCNegativa(&a.ValidacionRC, RCRechazada) })
+	if got := rechazada.MotivoSinCreditoSegunPolitica(PoliticaCreditoOferta{}); got != SinCreditoRetencionRechazada {
+		t.Fatalf("la política no relaja la regla base: %q", got)
+	}
+}

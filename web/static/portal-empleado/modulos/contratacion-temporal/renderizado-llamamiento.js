@@ -255,7 +255,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       </div>` : ""}
     </section>`;
   }
-  function formulario(operacion, campos) {
+  // tituloEnResumen: el título ya lo pinta el <summary> que envuelve el paso; no se repite.
+  function formulario(operacion, campos, tituloEnResumen = false) {
     const paso = estado[operacion];
     const titulo = t("llamamiento_" + operacion);
     const idCorreo = operacion === "respuesta" ? "ct-llamamiento-correo" : `ct-llamamiento-${operacion}-correo`;
@@ -269,7 +270,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     // Si todo lo que viaja está oculto (p. ej. llamar a la siguiente persona), no se pinta un recuadro vacío.
     const soloOcultos = !esRespuesta(operacion) && !/<(?:label|fieldset|p|span|select)\b/u.test(controles);
     return `<section class="ct-llamamiento-paso" aria-labelledby="ct-llamamiento-${operacion}-titulo">
-      <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
+      ${tituloEnResumen ? "" : `<h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>`}
       ${paso.recibo ? `<details data-ct-llamamiento-datos-registrados="${operacion}"><summary>${e(t("llamamiento_datos_registrados"))}</summary>` : ""}
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
         <div class="ct-resumen-errores" data-ct-llamamiento-errores role="alert" hidden><ul></ul></div>
@@ -330,8 +331,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     ${resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
-      <summary>${e(t("llamamiento_comunicacion"))}</summary>
-      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION)
+      <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>
+      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>`}
     ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}

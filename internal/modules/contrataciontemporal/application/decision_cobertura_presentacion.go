@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
@@ -258,6 +259,9 @@ type ServicioPresentacionPropuestaCobertura struct {
 	alternativas []MotivoAlternativaCobertura
 	coberturas   *PreparadorGlobalCobertura
 	avisosVia    avisosViaPresentacion
+	// politicaCredito es opcional: sin ella rige la predeterminada. Se fija
+	// una sola vez, como los avisos de vía.
+	politicaCredito atomic.Pointer[politicaCreditoConfigurada]
 }
 
 func NuevoServicioPresentacionPropuestaCobertura(
@@ -342,6 +346,9 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
 			ErrPresentacionPropuestaCoberturaNoConfiable
+	}
+	if err := s.comprobarPoliticaCredito(operacion, expediente); err != nil {
+		return PresentacionPropuestaCobertura{}, err
 	}
 	solicitudGobierno, err := solicitudGobiernoParaPresentacion(expediente)
 	if err != nil {
