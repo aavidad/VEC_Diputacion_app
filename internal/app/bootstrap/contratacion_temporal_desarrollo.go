@@ -851,6 +851,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
+			DescargaBorradorRRHH:            consultasRRHH.descargas,
 			IncorporacionV2:                 incorporacionV2,
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,

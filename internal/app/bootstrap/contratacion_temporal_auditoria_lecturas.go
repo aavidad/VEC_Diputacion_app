@@ -34,6 +34,8 @@ type auditoriaLecturasCT struct {
 	configuracion configuracionAuditoriaLecturasCT
 	accion        string
 	motivo        core.ReferenciaEntradaCatalogo
+	// finalidad es la de la acción auditada; vacía, la de las lecturas CT.
+	finalidad string
 }
 
 func nuevaAuditoriaLecturasCT(soporte *soporteAltaContratacionTemporalDesarrollo,
@@ -96,9 +98,13 @@ func (a auditoriaLecturasCT) registrar(ctx context.Context, z ports.ContextoAuto
 	if err != nil {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
+	finalidad := a.finalidad
+	if finalidad == "" {
+		finalidad = "gestionar_contratacion_temporal"
+	}
 	orden, err := vecports.NuevaOrdenIntentoAuditoria(ref, z.Resultado, z.Vinculo, core.DatosIntentoAuditoria{
 		Accion: a.accion, ModuloID: "contratacion_temporal", RecursoRef: recurso,
-		FinalidadRef: "gestionar_contratacion_temporal", Resultado: resultado, Motivo: a.motivo,
+		FinalidadRef: finalidad, Resultado: resultado, Motivo: a.motivo,
 		Proceso: a.configuracion.Proceso, Canal: a.configuracion.Canal, CorrelacionRef: correlacion,
 	})
 	if err != nil {

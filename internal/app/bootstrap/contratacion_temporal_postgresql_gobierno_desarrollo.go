@@ -219,6 +219,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		// Descarga de borradores de la consulta de detalle (AD199/CT177).
+		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		// CT133: sólo al activar lectura documental con perfil propio.

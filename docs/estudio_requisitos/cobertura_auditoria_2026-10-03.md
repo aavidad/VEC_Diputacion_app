@@ -97,6 +97,18 @@ tampoco registra actualmente el resultado de escritura de bytes. No se atribuye
 entrega completa por confirmar el permiso de lectura. Originales y firma
 pertenecen al circuito E/Documentos.
 
+El corte B del 05/10 separa la descarga de la consulta. Tras generar y validar
+el archivo, cada descarga (los diez borradores, PDF o DOCX) pide su propia
+decisión, `contratacion_temporal.borrador_rrhh.descargar`. La huella de contexto
+liga el tipo, el formato, el SHA256 y el tamaño del archivo. AD199 y CT177 la
+consumen en la misma transacción que escribe la fila de
+`descarga_borrador_rrhh_v1`, y solo después se escribe la respuesta, con el
+asiento en `X-Audit-Ref`. Cuando se pidió una descarga, las denegaciones y los
+errores van al registrador AD169: los de la consulta, los de generación o
+validación y los del propio consumo. Sigue sin registrarse si el cliente recibió
+todos los bytes. Si la escritura se corta, queda la fila de una descarga
+autorizada y no la de una entrega confirmada.
+
 En Bolsa, la lectura RRHH de solicitudes documentales pendientes consume
 Bolsa77/AD155 y confirma antes de devolver metadatos. El corte nuevo conecta
 el registrador común AD169 para denegaciones y errores posteriores al contexto
