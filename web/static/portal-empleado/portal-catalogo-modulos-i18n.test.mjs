@@ -47,7 +47,7 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
     ahora: () => new Date("2026-09-29T08:00:00Z"),
     locale: "en-GB",
   })();
-  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Pending<\/h3>/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /No deadline is due today and there are no open issues\./u);
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
   assert.match(html, /SAE job offers[\s\S]*?To be agreed with HR|To be agreed with HR[\s\S]*?SAE job offers/u);

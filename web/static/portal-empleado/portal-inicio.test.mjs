@@ -232,9 +232,9 @@ function portadaRRHH(opciones = {}) {
 test("la portada de RRHH empieza por lo pendiente y cada cifra lleva a la lista filtrada", () => {
   const html = portadaRRHH();
   assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Lo pendiente<\/h3>/u);
-  assert.match(html, /data-metrica="vencidos" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="vencidos">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
-  assert.match(html, /data-metrica="vencen_hoy"[^>]*data-ct-exp-lista-mostrar="atencion">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
-  assert.match(html, /data-metrica="incidencias"[^>]*data-ct-exp-lista-mostrar="atencion">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con una incidencia abierta/u);
+  assert.match(html, /data-metrica="vencidos" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="vencidos" aria-label="1 con el plazo vencido: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
+  assert.match(html, /data-metrica="vencen_hoy"[^>]*data-ct-exp-lista-mostrar="vence_hoy" aria-label="1 vencen hoy: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
+  assert.match(html, /data-metrica="incidencias"[^>]*data-ct-exp-lista-mostrar="incidencia" aria-label="1 con una incidencia abierta: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con una incidencia abierta/u);
   // La portada no descarga ni muestra expedientes sueltos.
   assert.doesNotMatch(html, /tareas-pendientes|data-ct-exp-abrir-inicio|Recuento parcial/u);
   assert.doesNotMatch(html, /Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
@@ -255,10 +255,14 @@ test("los indicadores usan los recuentos del servidor y llevan a la lista filtra
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición de personal/u);
 });
 
-test("si algún plazo no se pudo calcular la portada lo dice", () => {
+test("si algún plazo no se pudo calcular la portada lo dice y lleva a cuáles", () => {
   const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 2 }) });
-  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo/u);
+  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.[\s\S]*?data-ct-exp-lista-mostrar="sin_plazo">Ver cuáles/u);
+  assert.match(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 1 }) }), /En 1 petición no se ha podido calcular el plazo\./u);
   assert.doesNotMatch(portadaRRHH(), /no se ha podido calcular el plazo/u);
+  // Sin nada pendiente pero con plazos sin calcular, no se dice que no vence nada.
+  const cero = { ...resumenServidor, vencidos: 0, vencen_hoy: 0, con_incidencia: 0, sin_calcular: 1 };
+  assert.doesNotMatch(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio(cero) }), /Ningún plazo vence hoy/u);
 });
 
 test("sin nada urgente la portada lo dice y no inventa tareas", () => {
@@ -309,7 +313,7 @@ test("las claves de la portada se traducen con el traductor común", async () =>
     assert.equal(traducirEN(clave, variables), esperado);
   }
   const html = portadaRRHH({ traducir: traducirEN, locale: "en-GB" });
-  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Pending<\/h3>/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /Deadline passed/u);
   assert.match(html, /Requests by stage[\s\S]*?4\. Financial review/u);
   assert.match(html, /To be agreed with HR/u);

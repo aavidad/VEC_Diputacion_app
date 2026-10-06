@@ -304,6 +304,11 @@ GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atesta
     bytea, bytea, bytea, bytea, numeric, numeric,
     bytea, bytea, bytea, bytea
 ) TO vec_contratacion_temporal_consultor_rrhh;
+COMMENT ON FUNCTION vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    vec_contratacion_temporal.consulta_cuadro_rrhh_v1, text
+) IS
+'Solo del propietario: agregados de la portada RRHH con el mismo corte y los mismos predicados que contar_totales_cuadro_rrhh_v1, sin referencias de expediente.';
 COMMENT ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v1,

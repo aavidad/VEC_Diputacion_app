@@ -34,6 +34,11 @@ func resumirCuadroRRHH(
 		}
 	}
 	hoy := diaCivilMadrid(ahora)
+	if hoy == "" {
+		// Sin la zona de Madrid no se sabe qué vence esta semana: no se
+		// publica un resumen con ceros que no lo son.
+		return nil
+	}
 	for _, grupo := range agregados.GruposPlazo {
 		if ctx.Err() != nil {
 			return nil

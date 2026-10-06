@@ -38,36 +38,42 @@ export function resumenPortadaDesdeServidor(resumen) {
 }
 
 // Lo pendiente: cuántas peticiones tienen el plazo vencido, cuántas vencen hoy
-// y cuántas tienen una incidencia; cada cifra lleva a la lista ya filtrada.
+// y cuántas tienen una incidencia; cada cifra lleva a la lista con ese mismo
+// filtro. Las cifras pueden solaparse (una vencida con incidencia cuenta en dos).
 function renderizarPendientes(resumen, escaparHTML, traducir, numero) {
   const t = (clave, variables) => escaparHTML(traducir(clave, variables));
   const total = resumen.vencidos + resumen.vencenHoy + resumen.conIncidencia;
   const contadores = [
-    { clave: "vencidos", iconoNombre: "reloj", tono: "peligro", valor: numero(resumen.vencidos),
-      etiqueta: traducir("inicio_rrhh_pendientes_vencidos"), destino: `${DESTINO_LISTA} data-ct-exp-lista-mostrar="vencidos"` },
-    { clave: "vencen_hoy", iconoNombre: "reloj", tono: "advertencia", valor: numero(resumen.vencenHoy),
-      etiqueta: traducir("inicio_rrhh_pendientes_hoy"), destino: `${DESTINO_LISTA} data-ct-exp-lista-mostrar="atencion"` },
-    { clave: "incidencias", iconoNombre: "expediente", tono: "peligro", valor: numero(resumen.conIncidencia),
-      etiqueta: traducir("inicio_rrhh_pendientes_incidencia"), destino: `${DESTINO_LISTA} data-ct-exp-lista-mostrar="atencion"` },
-  ].map((contador) => renderizarIndicador({ ...contador, escaparHTML, traducir })).join("");
+    ["vencidos", "reloj", "peligro", resumen.vencidos, "vencidos", "inicio_rrhh_pendientes_vencidos"],
+    ["vencen_hoy", "reloj", "advertencia", resumen.vencenHoy, "vence_hoy", "inicio_rrhh_pendientes_hoy"],
+    ["incidencias", "alerta", "peligro", resumen.conIncidencia, "incidencia", "inicio_rrhh_pendientes_incidencia"],
+  ].map(([clave, iconoNombre, tono, valor, mostrar, rotulo]) => renderizarIndicador({
+    clave, iconoNombre, tono, valor: numero(valor), etiqueta: traducir(rotulo),
+    ariaEtiqueta: traducir(`${rotulo}_aria`, { total: numero(valor) }),
+    destino: `${DESTINO_LISTA} data-ct-exp-lista-mostrar="${mostrar}"`, escaparHTML, traducir,
+  })).join("");
+  const sinCalcular = resumen.sinCalcular > 0
+    ? `<p class="portal-rrhh-parcial" role="status">${resumen.sinCalcular === 1 ? t("inicio_rrhh_sin_calcular_uno")
+      : t("inicio_rrhh_sin_calcular_varias", { total: numero(resumen.sinCalcular) })}
+      <button type="button" class="boton-terciario" ${DESTINO_LISTA} data-ct-exp-lista-mostrar="sin_plazo">${t("inicio_rrhh_sin_calcular_ver")}</button></p>` : "";
   return `<section class="panel portal-rrhh-pendientes" aria-labelledby="inicio-rrhh-pendientes-titulo">
     <div class="cabecera-panel"><h3 id="inicio-rrhh-pendientes-titulo">${t("inicio_rrhh_pendientes_titulo")}</h3>
       <button type="button" class="boton-terciario" ${DESTINO_LISTA}>${t("inicio_rrhh_ver_peticiones")} →</button></div>
-    ${total === 0 ? `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_pendientes_vacio")}</p>`
+    ${total === 0 && resumen.sinCalcular === 0 ? `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_pendientes_vacio")}</p>`
     : `<div class="rejilla-kpi">${contadores}</div>`}
-    ${resumen.sinCalcular > 0 ? `<p class="portal-rrhh-parcial" role="status">${t("inicio_rrhh_sin_calcular", { total: numero(resumen.sinCalcular) })}</p>` : ""}
+    ${sinCalcular}
   </section>`;
 }
 
 // Indicador que lleva a una lista: icono, valor y rótulo. Sin dato: «—».
-function renderizarIndicador({ clave, iconoNombre, tono, valor, etiqueta, destino, escaparHTML, traducir }) {
+function renderizarIndicador({ clave, iconoNombre, tono, valor, etiqueta, destino, ariaEtiqueta = "", escaparHTML, traducir }) {
   const contenido = `<span class="icono-kpi">${icono(iconoNombre)}</span>
     <div><strong class="valor-kpi">${valor === null ? "—" : escaparHTML(valor)}</strong>
     <span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span>
     ${destino && valor !== null ? `<span class="metrica-enlace" aria-hidden="true">${escaparHTML(traducir("inicio_rrhh_kpi_ver"))} →</span>` : ""}</div>`;
   const clase = `tarjeta-kpi${tono ? ` kpi--${tono}` : ""}`;
   return destino && valor !== null
-    ? `<button type="button" class="${clase}" data-metrica="${clave}" ${destino}>${contenido}</button>`
+    ? `<button type="button" class="${clase}" data-metrica="${clave}" ${destino}${ariaEtiqueta ? ` aria-label="${escaparHTML(ariaEtiqueta)}"` : ""}>${contenido}</button>`
     : `<div class="${clase}" data-metrica="${clave}">${contenido}</div>`;
 }
 

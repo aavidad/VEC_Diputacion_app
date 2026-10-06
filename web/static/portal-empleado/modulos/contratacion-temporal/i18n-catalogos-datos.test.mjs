@@ -46,8 +46,11 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    "MENSAJES_FICHA_LISTA_EN": "6165c04efa1dd641569193ecedeaea85bec6247426bc24abac41b99c6ae88458",
-    "MENSAJES_FICHA_LISTA_ES": "b621ae0eaef51a634a3d6c26d9e83f50f876f45d342e29cfc06c41460c384982"
+    // Excepción a la preimagen (06/10/2026): filtros «Vencen hoy», «Con una
+    // incidencia abierta» y «Sin plazo calculado» a los que lleva la portada, y
+    // aviso de filtro parcial que ya no habla solo de la búsqueda.
+    "MENSAJES_FICHA_LISTA_EN": "f7eb988f54b9ac84f9b1844b889f16a9c5db4a819f575ae5839364e3b1eba719",
+    "MENSAJES_FICHA_LISTA_ES": "7ff24a5cdc854030c4b125889f8f3b59e4716ac73845674a842744335c4c59b0"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",

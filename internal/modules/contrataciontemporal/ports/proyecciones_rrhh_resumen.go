@@ -7,8 +7,11 @@ import (
 )
 
 // MaximoGruposPlazoCuadroRRHH acota los grupos de plazo que se aceptan de
-// una consulta antes de reservar memoria o calcular plazos.
-const MaximoGruposPlazoCuadroRRHH = 10_000
+// una consulta antes de calcular plazos. Como la entrada en fase es un
+// instante, en la práctica hay un grupo por expediente en trámite; el tope
+// deja margen sobrado a la Diputación (cientos al año) y falla cerrado si se
+// supera.
+const MaximoGruposPlazoCuadroRRHH = 100_000
 
 // maximoRecuentosCuadroRRHH: una entrada por (estado, fase).
 const maximoRecuentosCuadroRRHH = 1_024
