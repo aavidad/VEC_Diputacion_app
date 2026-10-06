@@ -12,8 +12,7 @@ import (
 // fase propia como en el cuadro real: fila a fila (antes) y con las reglas
 // leídas una vez (ahora).
 func benchmarkPlazosFaseCTPagina100(b *testing.B, preparar bool) {
-	t := &testing.T{}
-	calculadora := calculadoraPlazoFaseCTPrueba(t, rutaReglasCTEjemploPrueba, calendariosPlazoFasePrueba(t))
+	calculadora := calculadoraPlazoFaseCTPrueba(b, rutaReglasCTEjemploPrueba, calendariosPlazoFasePrueba(b))
 	ahora := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
 	fases := []domain.ClaveFase{"asignacion_unidad", "fiscalizacion", "solicitud", "subsanacion_unidad"}
 	b.ReportAllocs()

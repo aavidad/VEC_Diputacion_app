@@ -45,11 +45,11 @@ func (l ReglasLeidas) Vencimiento(ctx context.Context, clave string, inicio time
 	if l.resolutor == nil {
 		return Regla{}, Vencimiento{}, ErrReglasNoConfiguradas
 	}
-	if ctx == nil {
-		return Regla{}, Vencimiento{}, ErrReglasNoDisponibles
-	}
 	if l.resolutor.cfg.Ajustes != nil {
 		return Regla{}, Vencimiento{}, ErrAjustesNoDisponibles
+	}
+	if ctx == nil {
+		return Regla{}, Vencimiento{}, ErrReglasNoDisponibles
 	}
 	for _, regla := range l.reglas {
 		if regla.Clave != clave {
