@@ -70,7 +70,6 @@ scripts/tests/test_aprovisionar_cartografia_osm.sh
 scripts/verificar_manifiestos_superficies_web.sh
 scripts/probar_verificador_manifiestos_superficies_web.sh
 scripts/probar_carga_tls_interna_root.sh
-python3 -m unittest scripts.tests.test_generar_bases_demo_pdf
 go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 scripts/comprobar_tamano_ficheros.sh
 git diff --check

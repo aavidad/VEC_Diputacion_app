@@ -561,6 +561,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var consultaComunicacionesReal http.Handler
 	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
+		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
+			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+		ctxIntentos, cancelarIntentos := context.WithTimeout(context.Background(), 30*time.Second)
+		reservadosIntentos := []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+			alta.postgresql.bolsa.Config().ConnConfig.User,
+		}
+		alta.auditoriaLecturasCT, alta.procesoAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
+			AbrirRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion, reservadosIntentos)
+		cancelarIntentos()
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
@@ -836,6 +851,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
+			DescargaBorradorRRHH:            consultasRRHH.descargas,
 			IncorporacionV2:                 incorporacionV2,
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,

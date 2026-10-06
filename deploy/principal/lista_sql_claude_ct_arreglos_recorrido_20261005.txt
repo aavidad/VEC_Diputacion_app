@@ -1,0 +1,9 @@
+# Arreglos de los fallos SQL-1 y SQL-2 del recorrido C1 del 05/10/2026 (acta de la PR #770).
+# CT179: la confirmación de la vía de cobertura deja de fallar con «column reference "x" is ambiguous».
+# CT180: el expediente cuyo análisis no tiene coste previsto vuelve a abrirse (antes daba 404).
+# Son independientes entre sí y no dependen de otras listas pendientes: sólo exigen la
+# preimagen exacta que dejaron CT166 y CT165 en la principal. Si la función no coincide,
+# la migración se detiene con «preimagen de función incompatible» sin tocar nada.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/contratacion_temporal/migraciones/000179_alias_consumos_lote_c1.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000180_detalle_rrhh_sin_coste.up.sql

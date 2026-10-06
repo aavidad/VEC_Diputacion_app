@@ -420,17 +420,14 @@
   position: static;
 }
 
-[data-ct-resolucion-formalizacion-form] .ct-campo label:has(input[type="checkbox"]),
-[data-ct-incorporacion-ejercicio-form] .ct-campo label:has(input[type="checkbox"]),
-[data-ct-asignacion-form] .ct-campo label:has(input[type="checkbox"]) {
+/* Casilla a la izquierda y en línea con su texto en todos los formularios del módulo. */
+.ct-campo label:has(input[type="checkbox"]) {
   display: flex;
   align-items: flex-start;
   gap: 8px;
 }
 
-[data-ct-resolucion-formalizacion-form] input[type="checkbox"],
-[data-ct-incorporacion-ejercicio-form] input[type="checkbox"],
-[data-ct-asignacion-form] input[type="checkbox"] {
+.ct-campo input[type="checkbox"] {
   flex: 0 0 18px;
   width: 18px;
   height: 18px;
@@ -636,6 +633,12 @@
   cursor: pointer;
   font-weight: 600;
   padding-block: 12px;
+}
+
+/* El título del paso plegable va dentro de su <summary>: se lee como título y no se repite. */
+.ct-llamamiento summary > h3 {
+  display: inline;
+  margin: 0;
 }
 
 .ct-llamamiento input[readonly] {

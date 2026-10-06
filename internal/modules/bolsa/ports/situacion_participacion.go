@@ -88,6 +88,13 @@ type AutorizadorSituacionParticipacionV3 interface {
 	EmitirMaterialAutorizacionAtestadaV3(context.Context, dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+// LectorSituacionesVigentes lee la situación vigente de varias participaciones
+// en una sola ida y vuelta. Cada participación pasa por la misma función de
+// lectura que SituacionVigente; una ausente es ErrSituacionParticipacionNoEncontrada.
+type LectorSituacionesVigentes interface {
+	SituacionesVigentes(context.Context, []string) (map[string]SituacionParticipacion, error)
+}
+
 type RepositorioSituacionParticipacion interface {
 	ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error)
 	SituacionVigente(context.Context, string) (SituacionParticipacion, error)

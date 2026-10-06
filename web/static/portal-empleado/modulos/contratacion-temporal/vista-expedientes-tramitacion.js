@@ -660,7 +660,7 @@ export function crearGestorTramitacion({
     }
   }
 
-  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {
+  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null, datosPeticion = null) {
     if (!contenedor) return null;
     if (typeof desmontarAnalisis === "function") return true;
     const sesion = {
@@ -691,6 +691,7 @@ export function crearGestorTramitacion({
         catalogos: composicionAnalisis.catalogos,
         analisisInicial,
         datosPrevios,
+        ...(datosPeticion !== null && analisisInicial === null && datosPrevios === null ? { datosPeticion } : {}),
         mensajes,
         locale,
         zonaHoraria,
@@ -704,7 +705,7 @@ export function crearGestorTramitacion({
       mostrarErrorMontaje(
         contenedor,
         "analisis",
-        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios),
+        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios, datosPeticion),
       );
       return null;
     }
@@ -763,6 +764,8 @@ export function crearGestorTramitacion({
       raiz.querySelector("[data-ct-exp-analisis]"),
       contexto,
       composicionAnalisis.analisisInicial,
+      null,
+      contexto.operacion === "registrar" ? estado.expediente.datos_peticion ?? null : null,
     );
   }
 

@@ -54,8 +54,16 @@ export function raizPrueba() {
   };
   return raiz;
 }
+// La pantalla genera la clave sola y no la enseña; en las pruebas, la clave que
+// cada caso «escribe» en su formulario simulado hace de generador determinista.
+export function claveDePrueba(raiz) {
+  return (operacion) => raiz.borradores?.[operacion]?.elements.namedItem("clave_idempotencia")?.value
+    ?? globalThis.crypto.randomUUID();
+}
+export const CONTEXTO = Object.freeze({ expediente_ref: EXPEDIENTE, version_esperada: 6 });
 export function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
+    contexto: CONTEXTO, generarClaveIdempotencia: claveDePrueba(raiz),
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
       registrarComunicacionLlamamiento: async () => {},
       consultarReciboRespuesta: async () => { throw Object.assign(new Error("sin respuesta"), {

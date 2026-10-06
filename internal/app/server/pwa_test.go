@@ -57,7 +57,7 @@ func TestPWAIconoVersionadoYManifiestoSinCacheHTTP(t *testing.T) {
 	for _, caso := range []struct{ ruta, cache string }{
 		{"/pwa/icons/vec-192.png?v=20261002-pwa-v1", "public, max-age=31536000, immutable"},
 		{"/pwa/icons/vec-192.png", "no-cache"},
-		{"/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1", "no-store"},
+		{"/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1", "no-cache"},
 		{"/portal-empleado/cache-publica-v1.json?v=20261002-pwa-v4", "no-store"},
 	} {
 		rec := httptest.NewRecorder()

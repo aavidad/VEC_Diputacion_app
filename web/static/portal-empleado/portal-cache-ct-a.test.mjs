@@ -31,8 +31,9 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   ]);
   const nueva = versionCoordinador;
   const firma = "20261003-ct-firma-v2-v1";
+  // portal.js puede renovarse después por otros cambios; basta que sea posterior.
+  exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
   const versiones = [
-    exigirVersiones(html, "/portal-empleado/portal.js", nueva),
     exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", nueva),
     exigirVersiones(portal, "./portal-modulos-coordinador.js", nueva),
   ];

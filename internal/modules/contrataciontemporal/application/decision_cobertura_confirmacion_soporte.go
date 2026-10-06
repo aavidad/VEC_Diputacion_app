@@ -202,6 +202,9 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutarComoPropietario(
 		return cobertura.ReciboOperacionDecisionCobertura{},
 			ErrConfirmacionDecisionCoberturaNoConfiable
 	}
+	if err := s.comprobarPoliticaCredito(ctx, expediente); err != nil {
+		return cobertura.ReciboOperacionDecisionCobertura{}, err
+	}
 	solicitudGobierno, err :=
 		solicitudGobiernoConfirmacionCobertura(expediente, solicitud.tipo)
 	if err != nil {
