@@ -55,13 +55,15 @@ SELECT pg_temp.ok('asignacion_alterada_denegada',
  pg_temp.huella(:'s1',:'descr'::bytea,jsonb_set(:'a1'::jsonb,'{asignacion_huella_sha256}',to_jsonb(repeat('0',64)))) LIKE 'denegado:%'
  AND pg_temp.huella(:'s1',:'descr'::bytea,jsonb_set(:'a1'::jsonb,'{perfil_activo_ref}','"prf_ajeno"')) LIKE 'denegado:%'
  AND pg_temp.huella(:'s1',:'descr'::bytea,jsonb_set(:'a1'::jsonb,'{principal_id}','"per_ajeno"')) LIKE 'denegado:%');
--- 7. Las v3 calculan con AD206 y las v2 quedan cerradas para el ejecutor CT.
+-- 7. Las v3 calculan con AD206; el ejecutor CT sólo llega por CT176 v3: la
+-- v3 directa de CT172 y las v2 quedan cerradas para él.
 SELECT pg_temp.ok('v3_con_ad206_y_v2_cerradas',
  strpos(pg_get_functiondef('vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)'::regprocedure),'huella_recurso_firma_interior_ct_v1(')>0
  AND strpos(pg_get_functiondef('vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'huella_recurso_firma_interior_ct_v1(')>0
  AND strpos(pg_get_functiondef('vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v3_atestada(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'huella_recurso_firma_interior_ct_v1(')>0
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_con_plan_v2(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_verificada_v3(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
  AND has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_firma_con_plan_v3(text,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion_atestada_v3.huella_recurso_firma_interior_ct_v1(text,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion.ambitos_asignacion_firma_ct_v1(text,text,text,text,text)','EXECUTE'));

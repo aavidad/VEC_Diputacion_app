@@ -200,7 +200,7 @@ func TestRecursoFirmaV2ConUnidadCoincideConAD206(t *testing.T) {
 		t.Fatal(err)
 	}
 	hd := sha256.Sum256(d)
-	// AD206 (huella_recurso_firma_ct_v1) reconstruye esta misma preimagen.
+	// AD206 (huella_recurso_firma_interior_ct_v1) reconstruye esta misma preimagen.
 	canon := []byte(`{"ambitos":{"organizacion_ref":"` + m.OrganizacionRef + `","unidad_ref":"` + m.UnidadFirmanteRef + `"},"atributos":{"descriptor_firma_sha256":"` + hex.EncodeToString(hd[:]) + `","material_sha256":"` + md + `"}}`)
 	esperada := sha256.Sum256(canon)
 	obtenida, err := r.HuellaContextoAutorizacionSHA256()

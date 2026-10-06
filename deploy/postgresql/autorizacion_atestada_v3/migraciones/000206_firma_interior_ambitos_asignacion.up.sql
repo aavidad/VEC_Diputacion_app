@@ -6,8 +6,10 @@
 -- asignación. AD170 calculaba la huella sólo con la organización, así que un
 -- firmante con asignación de organización y unidad (los cargos de AUT53
 -- asignados por lote) nunca obtenía una decisión válida. Ahora:
---   * vec_autorizacion.ambitos_asignacion_firma_ct_v1 lee, con FOR SHARE, la
---     asignación ACTUAL que nombra la decisión (referencia y huella), de ese
+--   * vec_autorizacion.ambitos_asignacion_firma_ct_v1 lee la asignación
+--     ACTUAL (FOR UPDATE del puntero, como luego hace el consumo, para no
+--     subir el bloqueo dentro de la transacción y evitar interbloqueos; FOR
+--     SHARE de la versión) que nombra la decisión (referencia y huella), de ese
 --     principal, perfil activo y versión de rol, activa y vigente, y devuelve
 --     su organización y, si la tiene, su unidad (un valor cada una; ninguna
 --     otra dimensión). Sólo la ejecuta el propietario AD.
@@ -59,7 +61,7 @@ BEGIN
   OR p_perfil IS NULL OR p_version_rol IS NULL THEN RETURN NULL; END IF;
  SELECT x.* INTO a FROM vec_autorizacion.asignacion_perfil_actual p
  JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
- WHERE p.asignacion_ref=p_asignacion_ref FOR SHARE OF p,x;
+ WHERE p.asignacion_ref=p_asignacion_ref FOR UPDATE OF p FOR SHARE OF x;
  IF NOT FOUND OR a.huella_sha256 IS DISTINCT FROM p_asignacion_huella
   OR a.principal_id IS DISTINCT FROM p_principal OR a.perfil_activo_ref IS DISTINCT FROM p_perfil
   OR a.version_rol_ref IS DISTINCT FROM p_version_rol OR a.documento->>'estado' IS DISTINCT FROM 'activa'
