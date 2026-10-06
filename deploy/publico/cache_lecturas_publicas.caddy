@@ -8,10 +8,13 @@
 # PostgreSQL atiende como mucho una consulta por URL cada 10 s. A cambio, una
 # publicación o una retirada tarda hasta 10 s en verse.
 #
-# Solo rutas anónimas de /api/publico/bolsa/: no hay cookies ni identidad
-# (vec-publico las rechaza), así que nada personal entra en la caché. La
-# clave incluye la consulta completa y el idioma (las respuestas varían por
-# Accept-Language).
+# Solo rutas anónimas de /api/publico/bolsa/. vec-publico no usa cookies ni
+# identidad, y además el matcher excluye cualquier petición que traiga Cookie o
+# Authorization: esas ni leen ni escriben en la caché. La clave incluye la
+# consulta completa, el idioma y la codificación (Accept-Encoding), para no
+# servir gzip a quien no lo pidió.
+#
+# Antes de aplicarlo: caddy validate con el binario que lleve cache-handler.
 #
 # Requiere Caddy con el módulo cache-handler (xcaddy build --with
 # github.com/caddyserver/cache-handler). vec-publico responde con
@@ -27,11 +30,13 @@
 #	@lecturas_publicas {
 #		method GET HEAD
 #		path /api/publico/bolsa/bolsas /api/publico/bolsa/bolsas/* /api/publico/bolsa/convocatorias /api/publico/bolsa/convocatorias/* /api/publico/bolsa/categorias
+#		not header Cookie *
+#		not header Authorization *
 #	}
 #	cache @lecturas_publicas {
 #		ttl 10s
 #		mode bypass_response
 #		key {
-#			headers Accept-Language
+#			headers Accept-Language Accept-Encoding
 #		}
 #	}
