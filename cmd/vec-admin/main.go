@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/app/administracion"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
 )
 
 func main() {
@@ -68,6 +69,18 @@ func main() {
 		log.Fatal(err)
 	}
 	defer cerrar()
+	// Registro de acceso técnico (una línea JSON por petición en stderr),
+	// separado de la auditoría nominal de la administración.
+	umbrales, _ := telemetria.UmbralesDeEntorno(os.Getenv)
+	_, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
+		Destino:    os.Stderr,
+		Servicio:   "vec-admin",
+		Superficie: "administracion",
+		Entorno:    telemetria.EntornoDe(os.Getenv("VEC_ENTORNO"), configServidor.Entorno),
+		Version:    telemetria.RevisionBinario(),
+		Umbrales:   umbrales,
+	}, os.Stderr)
+	defer cerrarAcceso()
 	if err := servidor.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(errorArranque("escucha"))
 	}

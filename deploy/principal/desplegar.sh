@@ -55,7 +55,11 @@ sed '/^COMMIT;$/s//ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migra
 "${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000020_avisos_rrhh.up.sql"
 
 mkdir -p -- "$artefacto" "$respaldo"
-GOTOOLCHAIN=auto go -C "$repo" build -buildvcs=false -o "$nuevo" ./cmd/vec-server
+# Marca la revisión desplegada: el registro técnico la escribe en cada línea.
+revision=$(git -C "$repo" rev-parse --short=12 HEAD)
+GOTOOLCHAIN=auto go -C "$repo" build -buildvcs=false \
+  -ldflags "-X vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria.Revision=$revision" \
+  -o "$nuevo" ./cmd/vec-server
 if [[ -f $binario ]]; then
   cp -a -- "$binario" "$respaldo/vec-server"
 fi

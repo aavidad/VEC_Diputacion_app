@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/publica"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
 )
 
 func main() {
@@ -28,6 +30,18 @@ func ejecutar() error {
 	if err != nil {
 		return fmt.Errorf("componer servidor publico: %w", err)
 	}
+
+	// Registro de acceso técnico (una línea JSON por petición en stderr).
+	umbrales, _ := telemetria.UmbralesDeEntorno(os.Getenv)
+	_, cerrarAcceso := telemetria.MontarEnServidor(servidor, telemetria.Opciones{
+		Destino:    os.Stderr,
+		Servicio:   "vec-publico",
+		Superficie: "publica",
+		Entorno:    telemetria.EntornoDe(os.Getenv("VEC_ENTORNO"), cfg.PerfilEjecucion),
+		Version:    telemetria.RevisionBinario(),
+		Umbrales:   umbrales,
+	}, os.Stderr)
+	defer cerrarAcceso()
 
 	if cfg.CertificadoTLS != "" || cfg.ClaveTLS != "" {
 		if cfg.CertificadoTLS == "" || cfg.ClaveTLS == "" {

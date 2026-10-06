@@ -5,19 +5,20 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"runtime/debug"
 	"sync"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server/supervision"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-// envEntornoSupervision declara el entorno de las incidencias técnicas. Solo
-// admite la lista cerrada del dominio; cualquier otro valor pasa a
-// "desconocido".
+// envEntornoSupervision declara el entorno de las incidencias técnicas y del
+// registro de acceso. Solo admite la lista cerrada del dominio; cualquier
+// otro valor pasa a "desconocido". Si falta, manda el perfil de ejecución.
 const envEntornoSupervision = "VEC_ENTORNO"
 
 // plazoRegistroFalloArranque acota lo que el proceso espera, antes de salir,
@@ -34,7 +35,7 @@ func registrarFalloArranque(destino io.Writer, componente domain.ComponenteIncid
 	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
 		Destino:        destino,
 		Capacidad:      1,
-		Entorno:        os.Getenv(envEntornoSupervision),
+		Entorno:        entornoSupervision(),
 		VersionBinario: revisionCompilada(),
 	})
 	if err != nil {
@@ -47,19 +48,16 @@ func registrarFalloArranque(destino io.Writer, componente domain.ComponenteIncid
 	_ = emisor.Cerrar(ctx)
 }
 
-// revisionCompilada devuelve la revisión VCS incrustada por la cadena de
-// compilación, o vacío; el dominio la normaliza a su formato cerrado.
+// revisionCompilada devuelve la revisión marcada al compilar (-ldflags -X) o
+// la incrustada por el control de versiones; el dominio la normaliza.
 func revisionCompilada() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return ""
-	}
-	for _, ajuste := range info.Settings {
-		if ajuste.Key == "vcs.revision" {
-			return ajuste.Value
-		}
-	}
-	return ""
+	return telemetria.RevisionBinario()
+}
+
+// entornoSupervision usa VEC_ENTORNO si se declaró y, si no, el perfil de
+// ejecución con el que arranca el proceso.
+func entornoSupervision() string {
+	return telemetria.EntornoDe(os.Getenv(envEntornoSupervision), os.Getenv(config.EnvExecutionProfile))
 }
 
 // plazoCierreSupervision acota la espera para vaciar las incidencias
@@ -76,7 +74,7 @@ const plazoCierreSupervision = 2 * time.Second
 func crearEmisorServidor(destino, registro io.Writer) (ports.EmisorIncidenciasTecnicas, func()) {
 	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
 		Destino:        destino,
-		Entorno:        os.Getenv(envEntornoSupervision),
+		Entorno:        entornoSupervision(),
 		VersionBinario: revisionCompilada(),
 	})
 	if err != nil {

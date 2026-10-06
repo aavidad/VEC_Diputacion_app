@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	"vec-diputacion-granada/internal/vec/adapters/observabilidad/telemetria"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -91,14 +92,22 @@ func main() {
 		return
 	}
 	cfg := config.Load()
-	emisor, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
+	emisorBase, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
+	// El envoltorio deja cada incidencia también en la línea de acceso de su
+	// petición; los adaptadores reciben el mismo emisor de siempre.
+	emisor := telemetria.NuevoEmisorAnotado(emisorBase)
 	srv, err := bootstrap.NuevoServidorHTTPSupervisado(cfg, emisor)
 	if err != nil {
 		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
-	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
+	cerrarAcceso := montarRegistroAcceso(srv, cfg, os.Stderr)
+	cerrarSupervisionBase := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
+	cerrarSupervision := func() {
+		cerrarAcceso()
+		cerrarSupervisionBase()
+	}
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
 		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
