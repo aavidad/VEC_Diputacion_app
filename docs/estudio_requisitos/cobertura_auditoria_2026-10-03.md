@@ -118,6 +118,26 @@ y su preflight. El acuse se coteja antes de publicar las referencias; un fallo
 del registro o una proyección inválida cierra sin datos. Pruebas sintéticas
 focales; ensayo nominal, reinicio y provisión de K pendientes.
 
+Las dos lecturas RRHH de contactos de Bolsa (por participación y por oferta de
+la bolsa) consumen `bolsa.contacto_participacion.consultar` con finalidad
+`consulta_contactos_participacion`. El corte A del 05/10 les pone el mismo
+decorador AD169, con el mismo registrador y cierre que la consulta documental.
+El recurso es la participación o la bolsa. El servicio distingue ya la
+denegación explícita del emisor V3 de un fallo técnico. Las dos rutas toman la
+correlación de la petición; el registro de contactos y la página RRHH de la
+bolsa conservan la suya. Ninguna orden lleva correo, teléfonos ni anotaciones.
+La consulta completa de datos de contacto (`datos-contacto?ver=completo`, que
+devuelve correo y teléfonos en claro) tiene desde el corte C su propia acción,
+`bolsa.datos_contacto_participacion.consultar`, con finalidad
+`consulta_datos_contacto_participacion`, motivo en un catálogo aparte y la
+participación como recurso. B78 consume la decisión (AD197) en la misma
+transacción que lee el sobre cifrado, y el caso de uso descifra antes del
+COMMIT: si no puede entregar el claro, no queda consumo. La respuesta publica
+el asiento en `X-Audit-Ref`. Denegaciones y errores van al registrador AD169
+como en el corte A. La ruta GET ya no admite la acción de registro. La vista
+enmascarada (sin `?ver=completo`) no cambia: devuelve la forma enmascarada y el
+origen sin decisión propia ni asiento común.
+
 La lista B5 de aspirantes combina lectores y staging, sin consumo nominal único
 acreditado en este inventario. No se la presenta como cubierta por un decorador
 de errores. El histórico B13 usa una acción de cambio preexistente y requiere

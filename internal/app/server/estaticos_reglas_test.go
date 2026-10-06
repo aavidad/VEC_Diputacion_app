@@ -14,7 +14,7 @@ func TestStaticHandlerSirvePantallaReglas(t *testing.T) {
 	tipos := map[string]string{
 		"index.html": "text/html", "reglas.js": "text/javascript", "i18n.js": "text/javascript", "enlace.js": "text/javascript", "reglas.css": "text/css",
 	}
-	handler := staticHandler(false)
+	handler := staticHandler()
 	for asset, esperado := range tipos {
 		t.Run(asset, func(t *testing.T) {
 			contenido, err := os.ReadFile("../../../web/static" + prefijo + asset)

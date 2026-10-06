@@ -64,23 +64,28 @@ el ensayo nominal por HTTP necesita la identidad RRHH CA26/IS13.
 
 Estado: PR #719 (apilada sobre #591) cubre `ListarContactosParticipacion` y
 `ListarContactosBolsa`, con revisión independiente GO. La consulta de datos de
-contacto queda para el corte C.
+contacto va en el corte C.
 
 ### Corte C: consulta de datos de contacto (hueco de autorización latente)
 
-`ServicioDatosContactoParticipacion.Consultar` devuelve correo y teléfonos en
+`ServicioDatosContactoParticipacion.Consultar` devolvía correo y teléfonos en
 claro (`GET …/candidatos/{p}/datos-contacto?ver=completo`) sin decisión V3 propia:
-la frontera común sólo exige sesión mTLS y el perfil activo de Bolsa RRHH, y en el
-catálogo esa frontera cuelga de la acción de *registrar* datos de contacto. Sólo
-queda el registro de intentos HTTP propio de Bolsa, sin la participación ni si se
-pidió el detalle completo. Hoy no es explotable porque la sesión RRHH de Bolsa
-admite un único principal sintético cuyo rol ya incluye contactos, pero lo será en
-cuanto haya varios usuarios con el perfil de Bolsa. Corrección prevista: acción,
-finalidad y motivo propios de la consulta, emitir y consumir la V3 en `Consultar`
-con la participación como recurso, ligar la frontera a esa acción, el mismo
-decorador AD169 y corregir el comentario de
-`adapters/httpinterno/datos_contacto_participacion.go`. Necesita catálogo y
-consumidor SQL, así que va con reserva, ensayo y revisión SQL.
+la frontera común sólo exigía sesión mTLS y el perfil activo de Bolsa RRHH, y en el
+catálogo esa frontera colgaba de la acción de *registrar* datos de contacto.
+
+Estado: rama `trabajo/claude-bolsa-contacto-consulta-20261005`, apilada sobre #719
+y #712. La consulta completa tiene acción, finalidad y motivo propios; AD197 (núcleo
+y fachada) y B78 (lectura con consumo) la consumen en la misma transacción que la
+lectura, y sus fallos van al registrador AD169. AD197 está medida sobre main + AD190
+(#720), que se instala antes. Ensayo nominal en el clon H10-30 con las listas de main,
+AUT51 y AD190: 403 sin concesión y sin fila de origen, 200 con asiento común,
+503 con intento `error` y sin consumo, y 200 tras reiniciar. Para instalar:
+`deploy/principal/lista_sql_claude_bolsa_contacto_consulta_20261005.txt`, con la fila
+de origen AD172 y la provisión del rol v13-v16 que explica. La vista enmascarada
+sigue sin decisión propia; si se quiere auditar también, va en otro corte. La
+decisión firmada lleva la participación como recurso; la bolsa se comprueba por
+pertenencia en B78, no forma parte de la firma. Revisión SQL y de seguridad
+independientes: GO sobre `a0c4a4d64`.
 
 ### Corte B: descargas de borradores de Contratación temporal
 

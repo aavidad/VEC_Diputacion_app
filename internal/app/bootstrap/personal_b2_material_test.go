@@ -111,7 +111,8 @@ const huellaDescriptoresPreviosPersonalB2Prueba = "fa714537fd41f5abc4eaad911d627
 
 func TestDescriptoresPreviosIntactosByteAByte(t *testing.T) {
 	// La huella fija la preimagen anterior a B2. D7c y la consulta documental
-	// llegaron después: deben existir una vez y conservar la preimagen anterior.
+	// llegaron después, como la consulta completa de datos de contacto: deben
+	// existir una vez y conservar la preimagen anterior.
 	nuevas := map[string]bool{
 		personalports.AudienciaSolicitarRectificacionDietas:              true,
 		ctports.AudienciaConsumoDescargaBorradorRRHHV3:                   true,
@@ -119,6 +120,7 @@ func TestDescriptoresPreviosIntactosByteAByte(t *testing.T) {
 		personalports.AudienciaConsultarRectificacionesCompetentesDietas: true,
 		personalports.AudienciaResolverRectificacionDietas:               true,
 		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH:       true,
+		puertosbolsa.AudienciaConsultarDatosContactoParticipacion:        true,
 	}
 	encontradas := make(map[string]int, len(nuevas))
 	var b strings.Builder

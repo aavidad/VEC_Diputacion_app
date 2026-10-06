@@ -1,4 +1,4 @@
-import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js?v=20261002-rrhh17-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261002-rrhh17-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 
@@ -19,25 +19,7 @@ export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
     .map((accion) => [accion, `${RUTA_CONTACTO_PROPIO}/operaciones/${accion}`]),
 ));
 const MAXIMO_JSON_BYTES = 512 * 1024;
-const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
 const DENEGACIONES_CONTACTO = Object.freeze({ 401: "autenticacion_requerida", 403: "acceso_denegado", 404: "no_encontrada" });
-const ACCIONES = Object.freeze({
-  actualizar_contacto: ["PUT", "/api/vec/personas/mi-perfil/contacto"],
-  incorporar_merito: ["POST", "/api/vec/bolsa/mi-expediente/meritos"],
-  guardar_borrador: ["PUT", "/api/vec/bolsa/mis-solicitudes/borrador"],
-  calcular_autobaremo: ["POST", "/api/vec/bolsa/mis-solicitudes/autobaremo"],
-  iniciar_pago: ["POST", "/api/vec/bolsa/mis-solicitudes/pago"],
-  firmar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/firma"],
-  registrar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/registro"],
-  responder_llamamiento: ["POST", "/api/vec/bolsa/mis-llamamientos/respuesta"],
-  presentar_subsanacion: ["POST", "/api/vec/bolsa/mis-subsanaciones"],
-  presentar_alegacion: ["POST", "/api/vec/bolsa/mis-alegaciones"],
-  marcar_mensaje: ["POST", "/api/vec/bolsa/mis-mensajes/lectura"],
-  actualizar_notificaciones: ["PUT", "/api/vec/personas/mis-preferencias/notificaciones"],
-  solicitar_certificado: ["POST", "/api/vec/bolsa/mis-certificados"],
-  solicitar_descarga: ["POST", "/api/vec/bolsa/mis-documentos/descarga"],
-});
-
 export class ErrorClienteAreaPersonal extends Error {
   constructor(codigo, mensaje, causa) {
     super(mensaje, causa ? { cause: causa } : undefined);
@@ -280,14 +262,6 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
   });
 }
 
-function exigirEnvelope(valor, nombre) {
-  if (!valor || typeof valor !== "object" || Array.isArray(valor)
-    || !valor.data || typeof valor.data !== "object" || Array.isArray(valor.data)) {
-    throw new ErrorClienteAreaPersonal("respuesta_incompatible", mensaje("sinEnvelope", { nombre }));
-  }
-  return valor.data;
-}
-
 async function leerJSONAcotado(respuesta) {
   const tipo = respuesta.headers?.get?.("Content-Type") || "";
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(tipo)) {
@@ -310,28 +284,6 @@ async function leerJSONAcotado(respuesta) {
   }
 }
 
-function nuevaIdempotencia() {
-  if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new ErrorClienteAreaPersonal("idempotencia_no_disponible", mensaje("idempotencia"));
-  }
-  return `WEB-${globalThis.crypto.randomUUID()}`;
-}
-
-function contieneDescriptorFichero(valor) {
-  if (!valor || typeof valor !== "object") return false;
-  if (Array.isArray(valor)) return valor.some(contieneDescriptorFichero);
-  if (typeof valor.nombre === "string" && typeof valor.tipo === "string" && Number.isFinite(valor.tamano)) return true;
-  return Object.values(valor).some(contieneDescriptorFichero);
-}
-
-function serializarSolicitudAcotada(valor) {
-  const texto = JSON.stringify(valor);
-  if (new TextEncoder().encode(texto).byteLength > MAXIMO_SOLICITUD_BYTES) {
-    throw new ErrorClienteAreaPersonal("solicitud_excesiva", mensaje("solicitudExcesiva"));
-  }
-  return texto;
-}
-
 function mensajeHTTP(estado) {
   if (estado === 401) return mensaje("http401");
   if (estado === 403) return mensaje("http403");
@@ -346,7 +298,6 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     return Object.freeze({
       modo: "http",
       cargar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
-      ejecutar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
     });
   }
 
@@ -404,43 +355,5 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     return Object.freeze({ fuente: "real", consulta: validarRespuestaMiBolsa(envelope) });
   }
 
-  async function ejecutar({ accion, payload = {}, confirmacion = false, capacidad = false } = {}) {
-    if (capacidad !== true) {
-      throw new ErrorClienteAreaPersonal("capacidad_denegada", mensaje("sinCapacidad"));
-    }
-    if (confirmacion !== true) {
-      throw new ErrorClienteAreaPersonal("confirmacion_ausente", mensaje("sinConfirmacion"));
-    }
-    const definicion = ACCIONES[accion];
-    if (!definicion) throw new ErrorClienteAreaPersonal("accion_no_admitida", mensaje("accionNoAdmitida"));
-    if (contieneDescriptorFichero(payload)) {
-      throw new ErrorClienteAreaPersonal("carga_documental_no_compuesta", mensaje("sinCargaDocumental"));
-    }
-    const [metodo, ruta] = definicion;
-    const envelope = await solicitar(ruta, {
-      method: metodo,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": nuevaIdempotencia(),
-      },
-      body: serializarSolicitudAcotada({
-        data: {
-          esquema: "vec.bolsa.area-personal.accion.v1",
-          accion,
-          confirmacion: true,
-          payload,
-        },
-      }),
-    }, [200, 201]);
-    const datos = exigirEnvelope(envelope, "La confirmación de la operación");
-    return Object.freeze({
-      recibo: validarRecibo(datos.recibo),
-      datos: datos.resultado && typeof datos.resultado === "object" ? structuredClone(datos.resultado) : null,
-    });
-  }
-
-  return Object.freeze({ modo: "http", cargar, cargarContactoPropio, ejecutar });
+  return Object.freeze({ modo: "http", cargar, cargarContactoPropio });
 }
-
-export const RUTAS_AREA_PERSONAL = Object.freeze({ miBolsa: RUTA_MI_BOLSA, acciones: ACCIONES });

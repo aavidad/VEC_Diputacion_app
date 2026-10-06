@@ -9,13 +9,13 @@
     <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v2">
     <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
     <title data-i18n="areaPersonal.html.titulo">Mi área personal · Bolsas de trabajo</title>
-    <link rel="stylesheet" href="/comun/tema-vec.css?v=20261002-rrhh17-v1">
-    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20261001-codexf-accesibilidad-v1">
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20261005-b4-v1">
+    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20261005-b4-v1">
     <link rel="stylesheet" href="/area-personal/preferencias.css?v=20260929-demo-jefes-v1">
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
     <link rel="stylesheet" href="/comun/oportunidades/oportunidades.css?v=20260924-f2-b15-area-v1">
-    <script type="module" src="/area-personal/arranque.js?v=20261002-rrhh17-v1"></script>
+    <script type="module" src="/area-personal/arranque.js?v=20261005-b4-v1"></script>
   </head>
   <body class="area-personal-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n="areaPersonal.html.saltar">Saltar al contenido principal</a>
@@ -40,8 +40,6 @@
           <a href="?vista=meritos" data-ruta="meritos"><svg aria-hidden="true"><use href="#icono-merito"></use></svg><span data-i18n="areaPersonal.rutas.meritos">Méritos y documentos</span></a>
 
           <p data-i18n="areaPersonal.html.grupoTramitacion">Tramitación</p>
-          <a href="?vista=solicitud" data-ruta="solicitud"><svg aria-hidden="true"><use href="#icono-solicitud"></use></svg><span data-i18n="areaPersonal.rutas.solicitud">Nueva solicitud</span></a>
-          <a href="?vista=autobaremacion" data-ruta="autobaremacion"><svg aria-hidden="true"><use href="#icono-baremo"></use></svg><span data-i18n="areaPersonal.rutas.autobaremacion">Autobaremación</span></a>
           <a href="?vista=seguimiento" data-ruta="seguimiento"><svg aria-hidden="true"><use href="#icono-seguimiento"></use></svg><span data-i18n="areaPersonal.rutas.seguimiento">Mis expedientes</span></a>
           <a href="?vista=llamamientos" data-ruta="llamamientos"><svg aria-hidden="true"><use href="#icono-llamamiento"></use></svg><span data-i18n="areaPersonal.html.miBolsa">Mi bolsa</span><span class="contador-menu" id="contador-llamamientos" hidden>0</span></a>
           <a href="?vista=subsanaciones" data-ruta="subsanaciones"><svg aria-hidden="true"><use href="#icono-subsanacion"></use></svg><span data-i18n="areaPersonal.rutas.subsanaciones">Subsanaciones</span></a>
@@ -105,22 +103,6 @@
     <div id="anuncios" class="solo-lectura" aria-live="polite"></div>
     <div id="notificaciones" class="notificaciones" aria-live="polite"></div>
 
-    <dialog id="dialogo-confirmacion" class="dialogo" aria-labelledby="titulo-confirmacion">
-      <form method="dialog" id="formulario-confirmacion">
-        <header><span class="marca-paso" aria-hidden="true">!</span><div><p data-i18n="areaPersonal.html.confirmacionNecesaria">Confirmación necesaria</p><h2 id="titulo-confirmacion" data-i18n="areaPersonal.html.confirmarAccion">Confirmar acción</h2></div></header>
-        <div id="contenido-confirmacion" class="contenido-dialogo"></div>
-        <footer><button type="submit" value="cancelar" class="boton-secundario" data-i18n="areaPersonal.html.cancelar">Cancelar</button><button type="submit" value="confirmar" class="boton-primario" data-i18n="areaPersonal.app.confirmar">Confirmar operación</button></footer>
-      </form>
-    </dialog>
-
-    <dialog id="dialogo-recibo" class="dialogo" aria-labelledby="titulo-recibo">
-      <form method="dialog">
-        <header><span class="marca-paso marca-exito" aria-hidden="true">✓</span><div><p data-i18n="areaPersonal.html.resultadoOperacion">Resultado de la operación</p><h2 id="titulo-recibo" data-i18n="areaPersonal.html.recibo">Recibo</h2></div></header>
-        <div id="contenido-recibo" class="contenido-dialogo"></div>
-        <footer><button type="button" class="boton-secundario" data-accion="descargar-recibo" data-i18n="areaPersonal.html.descargarPDF">Descargar PDF</button><button type="submit" class="boton-primario" data-i18n="areaPersonal.html.cerrar">Cerrar</button></footer>
-      </form>
-    </dialog>
-
     <dialog id="dialogo-detalle" class="dialogo dialogo-amplio" aria-labelledby="titulo-detalle">
       <form method="dialog">
         <header><div><p data-i18n="areaPersonal.html.informacionDetallada">Información detallada</p><h2 id="titulo-detalle" data-i18n="areaPersonal.html.detalle">Detalle</h2></div><button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.cerrarDetalle" aria-label="Cerrar detalle">×</button></header>
@@ -134,8 +116,6 @@
       <symbol id="icono-convocatoria" viewBox="0 0 24 24"><path d="M4 5h12v14H4zM8 9h5M8 13h5M18 8l3-2v12l-3-2z"/></symbol>
       <symbol id="icono-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-5 3.4-7 8-7s7.2 2 8 7"/></symbol>
       <symbol id="icono-merito" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9z"/></symbol>
-      <symbol id="icono-solicitud" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM15 3v5h4M8 12h8M8 16h8"/></symbol>
-      <symbol id="icono-baremo" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
       <symbol id="icono-seguimiento" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
       <symbol id="icono-llamamiento" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9M10 21h4"/></symbol>
       <symbol id="icono-subsanacion" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 8h8M8 12h5M15 17l2 2 4-5"/></symbol>
