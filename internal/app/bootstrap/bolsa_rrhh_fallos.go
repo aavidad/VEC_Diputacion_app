@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
+	"regexp"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,9 +14,6 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
-
-// maximoCausaFalloBolsaRRHH acota la línea de registro.
-const maximoCausaFalloBolsaRRHH = 240
 
 // centinelasFalloBolsaRRHH son los errores de texto fijo (sin datos) que
 // pueden llegar a estas rutas. Solo su texto va al registro.
@@ -48,7 +45,7 @@ func causaFalloBolsaRRHHDesarrollo(err error) string {
 		errors.As(err, &pg), errors.As(err, &conexion), errors.Is(err, pgx.ErrNoRows):
 		return causaFalloPostgreSQLCTDesarrollo(err)
 	case errors.Is(err, errBorradorLlamamientoDesarrolloNoDisponible):
-		return acotarCausaFalloBolsaRRHH(err.Error())
+		return errBorradorLlamamientoDesarrolloNoDisponible.Error() + lugarRechazoBorradorBolsaRRHH(err)
 	}
 	for _, centinela := range centinelasFalloBolsaRRHH {
 		if errors.Is(err, centinela) {
@@ -58,12 +55,15 @@ func causaFalloBolsaRRHHDesarrollo(err error) string {
 	return causaFalloPostgreSQLCTDesarrollo(err)
 }
 
-func acotarCausaFalloBolsaRRHH(texto string) string {
-	texto = strings.Join(strings.Fields(texto), " ")
-	if len(texto) > maximoCausaFalloBolsaRRHH {
-		texto = texto[:maximoCausaFalloBolsaRRHH]
+// lugarRechazoBorradorBolsaRRHH extrae solo el «(fichero.go:línea)» que añade
+// errBorradorNoDisponibleEn; el resto de la cadena no se registra.
+var patronLugarRechazoBorradorBolsaRRHH = regexp.MustCompile(`\(([A-Za-z0-9_]+\.go:[0-9]{1,6})\)`)
+
+func lugarRechazoBorradorBolsaRRHH(err error) string {
+	if m := patronLugarRechazoBorradorBolsaRRHH.FindStringSubmatch(err.Error()); m != nil {
+		return " (" + m[1] + ")"
 	}
-	return texto
+	return ""
 }
 
 func autorizacionDenegadaBolsaRRHH(err error) bool {
