@@ -18,12 +18,12 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261005-ct-asignacion-unidad-v1";
+} from "./vista-expedientes-render.js?v=20261005-ct-llamamiento-fiscalizacion-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261003-ct-firma-v2-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261005-ct-asignacion-unidad-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261005-ct-llamamiento-fiscalizacion-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261001-ct-a-i18n-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261001-ct-a-i18n-v1";
@@ -42,7 +42,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261005-ct-asignacion-unidad-v1";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261005-ct-llamamiento-fiscalizacion-v1";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 

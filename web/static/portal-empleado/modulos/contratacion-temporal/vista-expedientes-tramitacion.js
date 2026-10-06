@@ -16,7 +16,7 @@ import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261005-ct-asignacion-unidad-v1";
+} from "./vista-expedientes-render.js?v=20261005-ct-llamamiento-fiscalizacion-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261002-ct-fin-moad-v1";
 import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
 

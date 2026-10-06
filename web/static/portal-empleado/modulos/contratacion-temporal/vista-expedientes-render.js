@@ -108,6 +108,12 @@ export function renderizarAlta(
     ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`;
 }
 
+// El servidor registra la fiscalización con la clave canónica; la corta se
+// conserva para los datos de presentación anteriores.
+const ACCIONES_REGISTRO_FISCALIZACION = new Set([
+  "contratacion_temporal.fiscalizacion.registrar", "registrar_fiscalizacion",
+]);
+
 export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = null) {
   const expediente = estado?.expediente;
   if (estado?.vista !== "expediente" || estado.carga !== "listo"
@@ -123,7 +129,7 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
   const ultimoHito = expediente.historial?.at?.(-1);
   const fiscalizacionConfirmadaEnDetalle = resumen?.fase_clave === "fiscalizacion"
     && resultadoFavorable.includes(expediente.fiscalizacion?.resultado_clave)
-    && ultimoHito?.accion_clave === "registrar_fiscalizacion"
+    && ACCIONES_REGISTRO_FISCALIZACION.has(ultimoHito?.accion_clave)
     && ultimoHito.version_expediente === expediente.version;
   const fiscalizacionConfirmadaPorRecibo = resumen?.fase_clave === "fiscalizacion"
     && reciboFiscalizacion?.expediente_ref === expediente.expediente_ref
