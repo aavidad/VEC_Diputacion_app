@@ -6,6 +6,14 @@ picos de miles de personas conectadas a la vez. Todas las pruebas se han hecho
 en el equipo de desarrollo, contra una copia con datos sintéticos. No se ha
 tocado cidonia ni ningún servicio externo.
 
+## Contexto
+
+La lentitud de la mañana del 6 de octubre en cidonia se debía sobre todo a un
+bucle de 20 contenedores que consumía la CPU. Retirado, la sesión responde en
+0,09 s y la lista interna de bolsas en 2,6 s (otro encargo la está
+corrigiendo). Este informe no mide cidonia: mide cuánto aguanta el código
+del portal público con picos de miles de personas.
+
 ## Objetivo
 
 La regla de rendimiento del 6 de octubre pide que cada lectura responda en el
@@ -25,10 +33,11 @@ El laboratorio está en `scripts/carga/` y se puede repetir:
 
 ```sh
 scripts/carga/laboratorio_publico.sh preparar   # PostgreSQL 18.4, datos y servidor
-go build -o ~/.cache/vec-carga-publico/cliente ./scripts/carga/cliente
-~/.cache/vec-carga-publico/cliente -ca ~/.cache/vec-carga-publico/tls/ca.crt \
-    -usuarios 100,500,1000,3000 -duracion 30s -escenario api \
-    -pid "$(cat ~/.cache/vec-carga-publico/servidor.pid)" -pg-contenedor vec-carga-publico-pg
+go run ./scripts/carga/cliente -ca ~/.cache/vec-carga-publico/tls/ca.crt \
+    -usuarios 100,500,1000,3000 -duracion 30s -pausa 1s \
+    /api/publico/bolsa/bolsas '/api/publico/bolsa/bolsas/bolsa:carga-007/lista' \
+    /api/publico/bolsa/convocatorias /api/publico/bolsa/categorias
+docker stats vec-carga-publico-pg   # CPU de PostgreSQL, en otra terminal
 scripts/carga/laboratorio_publico.sh retirar    # lo borra todo
 ```
 
@@ -40,9 +49,11 @@ scripts/carga/laboratorio_publico.sh retirar    # lo borra todo
 - El servidor es el binario real `cmd/vec-publico`, en modo producción, con
   TLS y la misma configuración que exige su composición. Se limitó a 4
   núcleos (y PostgreSQL a 4 núcleos) para parecerse a un servidor modesto.
-- El cliente de carga (`scripts/carga/cliente`) abre una conexión TLS propia
-  por cada usuario virtual, como haría un navegador distinto, y solo admite
-  destinos locales.
+- El cliente de carga (`scripts/carga/cliente`, un solo fichero corto) abre
+  una conexión TLS propia por cada usuario, como haría un navegador distinto,
+  recorre las rutas que se le pasan y da percentiles y errores por ruta. Solo
+  admite destinos locales. La CPU y las conexiones se miraron con `docker
+  stats`, `ps` y `pg_stat_activity`.
 - Escenario «api»: cada usuario pide la relación de bolsas, una página de la
   lista de una bolsa, las convocatorias y las categorías, y espera entre 0,5 y
   1,5 s antes de repetir. Es un uso muy intenso: 1.000 usuarios así generan
@@ -51,6 +62,10 @@ scripts/carga/laboratorio_publico.sh retirar    # lo borra todo
 - Escenario «pagina-bolsa»: la visita completa a `/bolsa/` sin caché del
   navegador (HTML, 4 hojas de estilo, 4 scripts, textos y las 4 lecturas),
   repetida cada 2 a 6 s.
+
+Las cifras se tomaron con una primera versión del cliente que traía estos dos
+recorridos y medía también CPU y conexiones. En el repositorio queda la
+versión mínima: se le pasan las rutas del recorrido como argumentos.
 
 ## Resultados antes de los cambios
 
