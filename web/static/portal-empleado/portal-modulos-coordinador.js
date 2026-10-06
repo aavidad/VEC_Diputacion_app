@@ -98,16 +98,16 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, adaptador, incorporacionB2] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261006-resumen-inicio-v2"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261006-resumen-inicio-v2"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261005-ct-llamamiento-fiscalizacion-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261006-resumen-inicio-v2");
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
@@ -359,11 +359,10 @@ export function crearCoordinadorModulosPortal({
     if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
-    // Mismo módulo que ya importa el adaptador: no se descarga otra vez.
-    const i18nExpedientes = await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1");
-    const traducirExpediente = i18nExpedientes.crearTraductorExpedientesContratacion();
     const mensajesExpedientes = {
-      ...(idiomaCircuito === "en" ? i18nExpedientes.MENSAJES_EXPEDIENTES_CONTRATACION_EN : {}),
+      ...(idiomaCircuito === "en"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {}),
       ...rotulosCircuito("contratacion_temporal.fase."),
       ...rotulosCircuito("etiqueta_fase_"),
     };
@@ -426,7 +425,8 @@ export function crearCoordinadorModulosPortal({
       // repintar Inicio y la lista con ellos.
       if (alta === null) void centrosOrganizacion()?.then((centros) => { if (centros) notificar(); });
     });
-    const consultaCuadro = consultar((opciones) => fuente.listar(opciones));
+    // La portada solo necesita los recuentos de todo el cuadro, no sus filas.
+    const consultaCuadro = consultar((opciones) => fuente.resumenInicio(opciones));
     const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
@@ -519,27 +519,9 @@ export function crearCoordinadorModulosPortal({
               fuente: partesVista.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null;
         },
         esperarVista,
-        // Portada: la misma consulta que abre la lista, con centro y categoría
-        // presentados con los catálogos de alta que hayan llegado. El número
-        // provisional (sin asignar) se presenta como en la lista de la vista.
-        obtenerCuadroInicio: () => {
-          if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes)) return null;
-          const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
-          return Object.freeze({
-            expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
-              ...e,
-              numero_visible: /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(String(e.numero_visible ?? ""))
-                ? traducirExpediente("numero_expediente_sin_asignar") : String(e.numero_visible ?? ""),
-              centro: etiqueta(alta?.catalogos?.centros ?? (centrosOrganizacionResueltos
-                ? [...centrosOrganizacionResueltos].map(([referencia, nombre]) => ({ referencia, etiqueta: nombre })) : null), e.centro),
-              categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
-            }))),
-            parcial: listadoCuadro.hay_mas === true
-              || (typeof listadoCuadro.paginacion?.cursor_siguiente === "string"
-                && listadoCuadro.paginacion.cursor_siguiente !== ""),
-            generadoEn: typeof listadoCuadro.generado_en === "string" ? listadoCuadro.generado_en : "",
-          });
-        },
+        // Portada: recuentos de todo el cuadro calculados por el servidor con
+        // la misma autorización que la lista.
+        obtenerCuadroInicio: () => listadoCuadro,
         montar: async (opciones) => (await esperarVista()).vista.montarModuloContratacionTemporal(opciones),
         montarFiscalizacion: async (opciones) => (await esperarVista()).vista
           .montarModuloFiscalizacionContratacionTemporal(opciones),
@@ -1319,11 +1301,6 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.obtenerCuadroInicio?.() || null;
   }
 
-  /** Expedientes de la portada ya presentados (compatibilidad de lectura). */
-  function obtenerTramitesInicio() {
-    return obtenerCuadroInicio()?.expedientes ?? null;
-  }
-
   return Object.freeze({
     cargarInterno,
     desmontarVistaActual,
@@ -1332,7 +1309,6 @@ export function crearCoordinadorModulosPortal({
     altaCTDisponible,
     inicioPendiente,
     montarVista,
-    obtenerTramitesInicio,
     obtenerCatalogo,
     obtenerAccesosEmpleado,
     obtenerCuadroInicio,

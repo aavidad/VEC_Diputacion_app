@@ -25,29 +25,64 @@ type clavePlazoFaseCuadro struct {
 	urgente bool
 }
 
-// calcularPlazosFase devuelve el vencimiento de la fase actual de cada
-// expediente. Sin calculadora o sin fecha de entrada en fase no hay plazos; un
-// cálculo fallido queda como «no calculado» en lugar de suponer uno.
-func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
+// completarPlazos devuelve el vencimiento de la fase actual de cada
+// expediente de la página y, si la consulta trae agregados, el resumen de la
+// portada, con una sola preparación de reglas. Sin calculadora o sin fecha de
+// entrada en fase no hay plazos; un cálculo fallido queda como «no
+// calculado» en lugar de suponer uno.
+func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 	ctx context.Context,
 	pagina ports.PaginaCuadroRRHH,
-) []*ports.PlazoFaseRRHH {
-	if s == nil || s.plazos == nil || len(pagina.Expedientes) == 0 ||
-		len(pagina.FasesDesde) != len(pagina.Expedientes) {
-		return nil
+) ([]*ports.PlazoFaseRRHH, *ports.ResumenCuadroRRHH, error) {
+	if s == nil || s.reloj == nil {
+		return nil, nil, nil
+	}
+	conPlazos := s.plazos != nil && len(pagina.Expedientes) != 0 &&
+		len(pagina.FasesDesde) == len(pagina.Expedientes)
+	if !conPlazos && pagina.Agregados == nil {
+		return nil, nil, nil
 	}
 	ahora := s.reloj.Ahora()
 	if !domain.InstanteUTCCanonico(ahora) {
+		return nil, nil, nil
+	}
+	calculadora := s.prepararPlazos(ctx)
+	var plazos []*ports.PlazoFaseRRHH
+	if conPlazos {
+		plazos = calcularPlazosPagina(ctx, calculadora, pagina, ahora)
+	}
+	if pagina.Agregados == nil {
+		return plazos, nil, nil
+	}
+	resumen, err := resumirCuadroRRHH(ctx, calculadora, *pagina.Agregados, ahora)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plazos, resumen, nil
+}
+
+// prepararPlazos devuelve la calculadora con una sola lectura de reglas para
+// toda la consulta, si la calculadora lo admite; si no, o si falla, la
+// original, que calcula como siempre. Nil sin calculadora.
+func (s *ServicioConsultaCuadroRRHH) prepararPlazos(ctx context.Context) ports.CalculadoraPlazoFaseRRHH {
+	if s == nil || s.plazos == nil {
 		return nil
 	}
-	// Una sola lectura de reglas para toda la página, si la calculadora lo
-	// admite; si no, o si falla, se calcula como siempre.
 	calculadora := s.plazos
 	if preparador, admite := calculadora.(ports.PreparadorPlazosFaseRRHH); admite {
 		if preparada, err := preparador.PrepararPlazosFase(ctx); err == nil && !dependenciaNula(preparada) {
 			calculadora = preparada
 		}
 	}
+	return calculadora
+}
+
+func calcularPlazosPagina(
+	ctx context.Context,
+	calculadora ports.CalculadoraPlazoFaseRRHH,
+	pagina ports.PaginaCuadroRRHH,
+	ahora time.Time,
+) []*ports.PlazoFaseRRHH {
 	calculados := make(map[clavePlazoFaseCuadro]*ports.PlazoFaseRRHH)
 	plazos := make([]*ports.PlazoFaseRRHH, len(pagina.Expedientes))
 	alguno := false

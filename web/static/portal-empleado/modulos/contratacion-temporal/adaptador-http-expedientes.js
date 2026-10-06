@@ -665,6 +665,17 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       }
       return cuadro;
     },
+    // Portada: los recuentos de todo el cuadro, sin descargar sus filas. La
+    // misma consulta autorizada que la lista, con una sola fila y el resumen.
+    async resumenInicio({ signal } = {}) {
+      const pagina = await cliente.consultarCuadroRRHH({
+        filtros: { texto: "", estado_clave: "", fase_clave: "" },
+        paginacion: { limite: 1, cursor: "" },
+        resumen: true,
+      }, { signal });
+      if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
+      return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
+    },
     async obtener(expedienteRef, { signal } = {}) {
       const version = versiones.get(expedienteRef);
       if (!Number.isSafeInteger(version) || version < 1) {

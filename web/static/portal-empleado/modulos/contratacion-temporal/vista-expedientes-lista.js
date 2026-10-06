@@ -10,7 +10,7 @@
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
 import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -90,10 +90,11 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
 }
 
 // La búsqueda y los filtros de pantalla solo ven la página cargada: si hay
-// más páginas y algún filtro está puesto, se avisa.
+// más páginas y algún filtro está puesto (también «Mostrar» distinto de «En
+// trámite», al que llevan las cifras de la portada), se avisa.
 function busquedaParcial(cuadro, filtro) {
   return Boolean(cuadro.paginacion?.cursor_siguiente)
-    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria);
+    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria || filtro.mostrar !== "en_tramite");
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
