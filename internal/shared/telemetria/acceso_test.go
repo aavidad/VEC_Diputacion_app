@@ -43,14 +43,15 @@ func TestAccesoEscribeRutaEstadoYDuracionSinValores(t *testing.T) {
 
 	l := lineas(t, &b)[0]
 	for k, v := range map[string]any{
-		"level": "INFO", "msg": "peticion", "servicio": "vec-server", "superficie": "interno", "entorno": "desarrollo",
-		"metodo": "GET", "ruta": "/api/vec/bolsa/{bolsa}/participaciones", "estado": float64(200), "bytes": float64(4),
+		"level": "INFO", "msg": "http.server.request", "service.name": "vec-server", "vec.superficie": "interno",
+		"deployment.environment.name": "desarrollo", "http.request.method": "GET",
+		"http.route": "/api/vec/bolsa/{bolsa}/participaciones", "http.response.status_code": float64(200), "http.response.body.size": float64(4),
 	} {
 		if l[k] != v {
 			t.Errorf("%s = %v, se esperaba %v", k, l[k], v)
 		}
 	}
-	if _, ok := l["duracion_ms"].(float64); !ok || len(l["correlacion"].(string)) != 32 || l["version"] == "" {
+	if _, ok := l["http.server.request.duration"].(float64); !ok || len(l["vec.correlacion"].(string)) != 32 || l["service.version"] == "" || l["url.path"] != nil {
 		t.Errorf("linea = %v", l)
 	}
 	for _, prohibido := range []string{"9f1c2a7e", "12345678Z", "dni", "secreto", "Bearer"} {
@@ -75,14 +76,14 @@ func TestAccesoNormalizaCaminoYOcultaLos4xxSinPlantilla(t *testing.T) {
 		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, camino, nil))
 	}
 	l := lineas(t, &b)
-	if l[0]["ruta"] != "/api/v2/expedientes/{valor}/{valor}" || l[0]["level"] != "ERROR" {
-		t.Errorf("5xx = %v %v", l[0]["ruta"], l[0]["level"])
+	if l[0]["url.path"] != "/api/v2/expedientes/{valor}/{valor}" || l[0]["level"] != "ERROR" || l[0]["error.type"] != "503" || l[0]["http.route"] != nil {
+		t.Errorf("5xx = %v", l[0])
 	}
-	if l[1]["ruta"] != "/static/{valor}" {
-		t.Errorf("estatico = %v", l[1]["ruta"])
+	if l[1]["url.path"] != "/static/{valor}" {
+		t.Errorf("estatico = %v", l[1]["url.path"])
 	}
-	if l[2]["ruta"] != "{sin_plantilla}" || strings.Contains(b.String(), "juan") {
-		t.Errorf("4xx = %v", l[2]["ruta"])
+	if l[2]["url.path"] != "{sin_plantilla}" || strings.Contains(b.String(), "juan") {
+		t.Errorf("4xx = %v", l[2]["url.path"])
 	}
 }
 
@@ -109,10 +110,10 @@ func TestAccesoLentaPanicoYCorrelacionDeLaSupervision(t *testing.T) {
 		panico.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
 	}()
 	l := lineas(t, &b)
-	if l[0]["level"] != "WARN" || l[0]["lenta"] != true || l[0]["correlacion"] != esperada || vista != esperada {
+	if l[0]["level"] != "WARN" || l[0]["vec.lenta"] != true || l[0]["vec.correlacion"] != esperada || vista != esperada {
 		t.Errorf("lenta = %v", l[0])
 	}
-	if l[1]["level"] != "ERROR" || l[1]["estado"] != float64(500) || l[1]["interrumpida"] != true || strings.Contains(b.String(), "Juan") {
+	if l[1]["level"] != "ERROR" || l[1]["http.response.status_code"] != float64(500) || l[1]["vec.interrumpida"] != true || strings.Contains(b.String(), "Juan") {
 		t.Errorf("panico = %v", l[1])
 	}
 }

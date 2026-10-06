@@ -117,8 +117,12 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 	if o.Consultas <= 0 {
 		o.Consultas = 20
 	}
+	// Nombres de campo de las convenciones semánticas de OpenTelemetry
+	// (service.*, deployment.*, http.*, url.*, error.type); los propios de
+	// VEC van en el espacio vec.*.
 	registro := slog.New(slog.NewJSONHandler(o.Destino, nil)).With(
-		"servicio", o.Servicio, "superficie", o.Superficie, "entorno", o.Entorno, "version", Version())
+		"service.name", o.Servicio, "service.version", Version(),
+		"deployment.environment.name", o.Entorno, "vec.superficie", o.Superficie)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		inicio := time.Now()
 		ctx := r.Context()
@@ -154,64 +158,74 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 			if estado >= 500 {
 				nivel = slog.LevelError
 			}
-			plantilla := ruta(r.Pattern, r.URL.Path, estado)
+			ruta := rutaOCamino(r.Pattern, r.URL.Path, estado)
 			atributos := []slog.Attr{
-				slog.String("correlacion", correlacion),
-				slog.String("metodo", metodo(r.Method)),
-				slog.String("ruta", plantilla),
-				slog.Int("estado", estado),
-				slog.Float64("duracion_ms", ms(duracion)),
-				slog.Int64("bytes", e.bytes),
-				slog.Int64("bd_consultas", consultas),
-				slog.Float64("bd_ms", ms(time.Duration(bd.bd.Load()))),
+				slog.String("http.request.method", metodo(r.Method)),
+				ruta,
+				slog.Int("http.response.status_code", estado),
+				slog.Float64("http.server.request.duration", segundos(duracion)),
+				slog.Int64("http.response.body.size", e.bytes),
+				slog.String("vec.correlacion", correlacion),
+				slog.Int64("vec.bd.consultas", consultas),
+				slog.Float64("vec.bd.duracion", segundos(time.Duration(bd.bd.Load()))),
 			}
 			if espera := time.Duration(bd.espera.Load()); espera > 0 {
-				atributos = append(atributos, slog.Float64("bd_espera_ms", ms(espera)))
+				atributos = append(atributos, slog.Float64("vec.bd.espera_conexion", segundos(espera)))
 			}
 			bd.mu.Lock()
 			if bd.ultimoErr != "" {
-				atributos = append(atributos, slog.String("bd_error", bd.ultimoErr))
+				atributos = append(atributos, slog.String("vec.bd.error", bd.ultimoErr))
+			}
+			if estado >= 500 {
+				// error.type: la clase del error de base de datos si la hay; si
+				// no, el código de estado, como pide OpenTelemetry.
+				tipo := strconv.Itoa(estado)
+				if bd.ultimoErr != "" {
+					tipo = bd.ultimoErr
+				}
+				atributos = append(atributos, slog.String("error.type", tipo))
 			}
 			if lenta {
 				// El análisis del texto SQL solo se hace en las lentas.
-				atributos = append(atributos, slog.Bool("lenta", true))
+				atributos = append(atributos, slog.Bool("vec.lenta", true))
 				if bd.sqlMaxima != "" {
-					atributos = append(atributos, slog.String("consulta_mas_lenta", operacion(bd.sqlMaxima)),
-						slog.Float64("consulta_mas_lenta_ms", ms(bd.maxima)))
+					atributos = append(atributos, slog.String("vec.bd.consulta_mas_lenta", operacion(bd.sqlMaxima)),
+						slog.Float64("vec.bd.consulta_mas_lenta.duracion", segundos(bd.maxima)))
 				}
 			}
 			bd.mu.Unlock()
-			observar(metodo(r.Method), plantilla, estado, duracion, lenta)
+			observar(metodo(r.Method), ruta.Value.String(), estado, duracion, lenta)
 			if !completada {
-				atributos = append(atributos, slog.Bool("interrumpida", true))
+				atributos = append(atributos, slog.Bool("vec.interrumpida", true))
 			}
 			if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-				atributos = append(atributos, slog.String("cancelada", "plazo"))
+				atributos = append(atributos, slog.String("vec.cancelada", "plazo"))
 			} else if err != nil {
-				atributos = append(atributos, slog.String("cancelada", "cliente"))
+				atributos = append(atributos, slog.String("vec.cancelada", "cliente"))
 			}
-			registro.LogAttrs(context.Background(), nivel, "peticion", atributos...)
+			registro.LogAttrs(context.Background(), nivel, "http.server.request", atributos...)
 		}()
 		siguiente.ServeHTTP(e, r)
 		completada = true
 	})
 }
 
-// ruta devuelve la plantilla del enrutador si la hay ("/x/{ref}") o el camino
-// con cada tramo que pueda ser un valor sustituido por {valor}. Un 4xx sin
-// plantilla no copia el camino: puede ser lo que escribió la persona.
+// rutaOCamino sigue a OpenTelemetry: http.route solo cuando el enrutador
+// dio la plantilla ("/x/{ref}"); si no, url.path depurado, con cada tramo que
+// pueda ser un valor cambiado por {valor}. Un 4xx sin plantilla no copia el
+// camino: puede ser lo que escribió la persona.
 //
 // Solo se conservan tramos de minúsculas, guion, guion bajo y punto. Los
 // caminos de VEC llevan referencias opacas (con cifras o «:»), nunca nombres,
-// y un camino que no existe responde 404 o 4xx; los estáticos salen de una
-// lista positiva. Una ruta nueva que reciba texto libre en el camino debe
-// registrarse con patrón en un http.ServeMux para que se vea su plantilla.
-func ruta(patron, camino string, estado int) string {
+// un camino que no existe responde 404 u otro 4xx y los estáticos salen de una
+// lista positiva. Una ruta nueva con texto libre en el camino debe registrarse
+// con patrón en un http.ServeMux para que se vea su plantilla.
+func rutaOCamino(patron, camino string, estado int) slog.Attr {
 	if i := strings.IndexByte(patron, '/'); i >= 0 && !strings.HasSuffix(patron, "/") {
-		return strings.TrimSuffix(patron[i:], "{$}")
+		return slog.String("http.route", strings.TrimSuffix(patron[i:], "{$}"))
 	}
 	if estado >= 400 && estado <= 499 {
-		return "{sin_plantilla}"
+		return slog.String("url.path", "{sin_plantilla}")
 	}
 	tramos := strings.Split(strings.TrimPrefix(camino, "/"), "/")
 	if len(tramos) > 16 {
@@ -222,7 +236,7 @@ func ruta(patron, camino string, estado int) string {
 			tramos[i] = "{valor}"
 		}
 	}
-	return "/" + strings.Join(tramos, "/")
+	return slog.String("url.path", "/"+strings.Join(tramos, "/"))
 }
 
 // esTramoFijo admite minúsculas, guion, guion bajo y punto (hasta 40) o
@@ -243,11 +257,13 @@ func metodo(m string) string {
 		http.MethodDelete, http.MethodOptions:
 		return m
 	}
-	return "OTRO"
+	return "_OTHER" // valor de OpenTelemetry para métodos no conocidos
 }
 
-func ms(d time.Duration) float64 {
-	return math.Round(float64(d)/float64(time.Millisecond)*10) / 10
+// segundos redondea a la décima de milisegundo; OpenTelemetry mide las
+// duraciones en segundos.
+func segundos(d time.Duration) float64 {
+	return math.Round(d.Seconds()*1e4) / 1e4
 }
 
 // escritor observa estado y bytes sin cambiar la respuesta; conserva Flush,

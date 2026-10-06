@@ -54,8 +54,8 @@ func TestAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vec/bolsa", nil))
 	l := lineas(t, &b)[0]
-	if l["bd_consultas"] != float64(22) || l["lenta"] != true || l["level"] != "WARN" || l["bd_error"] != "bd_57014" ||
-		l["consulta_mas_lenta"] != "vec_bolsa.listar" {
+	if l["vec.bd.consultas"] != float64(22) || l["vec.lenta"] != true || l["level"] != "WARN" || l["vec.bd.error"] != "bd_57014" ||
+		l["vec.bd.consulta_mas_lenta"] != "vec_bolsa.listar" {
 		t.Errorf("linea = %v", l)
 	}
 	if strings.Contains(b.String(), "Juan") {

@@ -57,7 +57,7 @@ func clave(k string) string {
 func observar(metodo, ruta string, estado int, d time.Duration, lenta bool) {
 	base := metodo + " " + ruta
 	peticiones.Add(clave(base+" "+string(rune('0'+estado/100))+"xx"), 1)
-	duraciones.AddFloat(clave(base), ms(d))
+	duraciones.AddFloat(clave(base), segundos(d)*1000)
 	if lenta {
 		lentas.Add(1)
 	}
