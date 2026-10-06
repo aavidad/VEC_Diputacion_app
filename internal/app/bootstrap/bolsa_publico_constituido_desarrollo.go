@@ -15,6 +15,9 @@ import (
 // consulta pública B10: solo bolsas reales, y de cada aspirante únicamente el
 // orden, el documento enmascarado y la situación. Los nombres que la fuente
 // RRHH recupera del staging no salen de aquí.
+// concurrenciaBolsasPublicasDesarrollo acota las lecturas públicas en vivo.
+const concurrenciaBolsasPublicasDesarrollo = 4
+
 type fuenteBolsasPublicasDesarrollo struct {
 	fuente *fuenteConstituidaRRHHDesarrollo
 }
@@ -25,7 +28,9 @@ func nuevoManejadorBolsasPublicasDesarrollo(fuente *fuenteConstituidaRRHHDesarro
 	if fuente == nil {
 		return nil, nil
 	}
-	return bolsapublico.NuevoManejadorBolsasPublicas(&fuenteBolsasPublicasDesarrollo{fuente: fuente})
+	// La fuente calcula cada consulta en vivo con las conexiones de RRHH:
+	// tope de lecturas simultáneas (429 con Retry-After al llenarse).
+	return bolsapublico.NuevoManejadorBolsasPublicasConTope(&fuenteBolsasPublicasDesarrollo{fuente: fuente}, concurrenciaBolsasPublicasDesarrollo)
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) BolsasPublicas(ctx context.Context) ([]bolsapublico.BolsaPublica, time.Time, error) {

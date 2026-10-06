@@ -27,8 +27,9 @@ func (f fuenteBloqueadaPrueba) ListaPublica(context.Context, string) (BolsaPubli
 // Con todas las lecturas ocupadas, una consulta más responde 429 con
 // Retry-After en lugar de lanzar otra lectura de la fuente.
 func TestBolsasPublicasLimitaLecturasSimultaneas(t *testing.T) {
+	const concurrenciaBolsasPublicas = 4
 	fuente := fuenteBloqueadaPrueba{dentro: make(chan struct{}, concurrenciaBolsasPublicas), soltar: make(chan struct{})}
-	manejador, err := NuevoManejadorBolsasPublicas(fuente)
+	manejador, err := NuevoManejadorBolsasPublicasConTope(fuente, concurrenciaBolsasPublicas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,5 +48,8 @@ func TestBolsasPublicasLimitaLecturasSimultaneas(t *testing.T) {
 	wg.Wait()
 	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") != "1" {
 		t.Fatalf("estado=%d Retry-After=%q", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	if _, err := NuevoManejadorBolsasPublicasConTope(fuente, 0); err == nil {
+		t.Fatal("se admitió un tope nulo")
 	}
 }

@@ -64,17 +64,14 @@ type FuenteBolsasPublicas interface {
 
 type manejadorBolsasPublicas struct {
 	fuente FuenteBolsasPublicas
-	// cupos limita las lecturas simultáneas de la fuente: cada consulta
-	// pública lee el estado vigente (sin caché) y una ráfaga anónima no debe
-	// agotar las conexiones que comparte con RRHH. Lleno, responde 429.
+	// cupos, si la composición fija un tope, limita las lecturas simultáneas
+	// de la fuente; lleno, responde 429. Sin tope (nil) no se limita: es el
+	// caso de las fuentes que leen una publicación ya preparada.
 	cupos    chan struct{}
 	catalogo *i18n.Catalog
 	idiomas  []string
 	selector language.Matcher
 }
-
-// concurrenciaBolsasPublicas es el número de lecturas públicas simultáneas.
-const concurrenciaBolsasPublicas = 4
 
 func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, error) {
 	if fuente == nil {
@@ -85,8 +82,23 @@ func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, er
 		return nil, err
 	}
 	manejador.fuente = fuente
-	manejador.cupos = make(chan struct{}, concurrenciaBolsasPublicas)
 	return manejador, nil
+}
+
+// NuevoManejadorBolsasPublicasConTope limita a tope las lecturas
+// simultáneas de la fuente. Lo usa la composición cuya fuente calcula cada
+// consulta en vivo y comparte conexiones con RRHH.
+func NuevoManejadorBolsasPublicasConTope(fuente FuenteBolsasPublicas, tope int) (http.Handler, error) {
+	if tope < 1 {
+		return nil, ErrFuenteBolsasPublicasRequerida
+	}
+	manejador, err := NuevoManejadorBolsasPublicas(fuente)
+	if err != nil {
+		return nil, err
+	}
+	m := manejador.(*manejadorBolsasPublicas)
+	m.cupos = make(chan struct{}, tope)
+	return m, nil
 }
 
 func nuevoManejadorBolsasPublicasI18n() (*manejadorBolsasPublicas, error) {
