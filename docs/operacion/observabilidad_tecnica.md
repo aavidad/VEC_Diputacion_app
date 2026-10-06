@@ -11,10 +11,17 @@ con `"msg":"http.server.request"` en la salida de errores del proceso
 (`podman logs <contenedor>`). Los nombres de campo siguen las convenciones
 semánticas de OpenTelemetry, que entienden las herramientas habituales de
 registros; los propios de VEC empiezan por `vec.`. Las duraciones van en
-segundos. Ejemplo de una prueba con PostgreSQL 18.4 y datos sintéticos:
+segundos.
+
+Los dos ejemplos de esta guía son salida real del registro, pero de un
+manejador sintético: rutas que existen en `vec-server`, un binario compilado
+con la revisión marcada, PostgreSQL 18.4 desechable con un pool de 2
+conexiones y unas funciones de PostgreSQL de prueba (`vec_bolsa.listar_participaciones`
+tarda 0,4 s; `vec_bolsa.consultar_participacion` se llama 30 veces, una por
+fila). No proceden de la principal.
 
 ```json
-{"time":"2026-10-06T15:38:28.93+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"2ad23e725abc","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","url.path":"/api/vec/bolsa/participaciones","http.response.status_code":200,"http.server.request.duration":0.4072,"http.response.body.size":0,"vec.correlacion":"2d69f721a2f4f4293114e52922fc75fb","vec.bd.consultas":31,"vec.bd.duracion":0.4036,"vec.bd.espera_conexion":0.0035,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4015}
+{"time":"2026-10-06T16:18:06.94+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"72cf97a1c07e","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","url.path":"/api/vec/bolsa/mi-bolsa/historial","http.response.status_code":200,"http.server.request.duration":0.4069,"http.response.body.size":0,"vec.correlacion":"fdc3a21b2ddcc57c2fd7149dade6cf24","vec.bd.consultas":31,"vec.bd.duracion":0.4036,"vec.bd.espera_conexion":0.0033,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4014}
 ```
 
 | Campo | Qué es |
@@ -28,7 +35,7 @@ segundos. Ejemplo de una prueba con PostgreSQL 18.4 y datos sintéticos:
 | `vec.bd.espera_conexion` | Tiempo esperando una conexión libre del pool |
 | `vec.lenta` | Más de 0,3 s o más de 20 consultas. Muchas consultas cortas suelen ser una consulta por fila en el código |
 | `vec.bd.consulta_mas_lenta` | En las lentas, la función de PostgreSQL que más tardó y su duración |
-| `vec.bd.error` | Error de la última operación con la base de datos, si falló: `bd_` y el código de PostgreSQL (`bd_57014` cancelada por tiempo, `bd_53300` demasiadas conexiones) o `conexion_plazo_vencido` si no llegó a conseguir conexión. Un error ya manejado, seguido de una operación correcta, no aparece |
+| `vec.bd.error` | Último error con la base de datos: `bd_` y el código de PostgreSQL (`bd_57014` cancelada por tiempo, `bd_53300` demasiadas conexiones) o `conexion_plazo_vencido` si no llegó a conseguir conexión. Una consulta de datos correcta posterior lo borra (un error ya manejado no aparece); un ROLLBACK no |
 | `error.type` | En un 5xx, `vec.bd.error` si lo hay; si no, el código de estado |
 | `vec.cancelada` | `cliente` si quien llamó cortó antes; `plazo` si venció un plazo del servidor |
 | `vec.correlacion` | Enlaza la línea con las incidencias técnicas de la misma petición |
@@ -45,11 +52,10 @@ cero consultas, todo el tiempo en `vec.bd.espera_conexion` y
 `conexion_plazo_vencido`. Es un pool agotado.
 
 ```json
-{"level":"ERROR","msg":"http.server.request","url.path":"/api/vec/ct/expedientes/{valor}","http.response.status_code":503,"http.server.request.duration":0.2004,"vec.bd.consultas":0,"vec.bd.duracion":0,"vec.bd.espera_conexion":0.2004,"vec.bd.error":"conexion_plazo_vencido","error.type":"conexion_plazo_vencido"}
+{"level":"ERROR","msg":"http.server.request","url.path":"/api/vec/personal/rpt/positions/{valor}","http.response.status_code":503,"http.server.request.duration":0.2004,"vec.bd.consultas":0,"vec.bd.duracion":0,"vec.bd.espera_conexion":0.2004,"vec.bd.error":"conexion_plazo_vencido","error.type":"conexion_plazo_vencido"}
 ```
 
-(Los dos ejemplos son reales: PostgreSQL 18.4 desechable, datos sintéticos y
-un pool de 2 conexiones. El segundo se ha recortado para que quepa.)
+(El segundo ejemplo se ha recortado para que quepa.)
 
 ## Paso a paso
 
