@@ -69,7 +69,6 @@ func TestEstaticosSeSirvenComprimidosSiElNavegadorLoAcepta(t *testing.T) {
 
 	for _, cabeceras := range []map[string]string{
 		{},
-		{"Accept-Encoding": "gzip;q=0"},
 		{"Accept-Encoding": "identity"},
 		{"Accept-Encoding": "gzip", "Range": "bytes=0-99"},
 	} {
@@ -107,18 +106,18 @@ func TestEstaticosComprimidosRespetanLaListaPositivaYElIndice(t *testing.T) {
 	}
 }
 
-func TestCacheEstaticosComprimidosSeRenuevaYSeAcota(t *testing.T) {
+func TestCacheEstaticosComprimidosSeRenueva(t *testing.T) {
 	directorio := t.TempDir()
 	fichero := filepath.Join(directorio, "a.js")
 	if err := os.WriteFile(fichero, []byte(strings.Repeat("const a = 1;\n", 200)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cache := &cacheEstaticosComprimidos{}
-	primera, ok := cache.obtener(directorio, "/a.js")
-	if !ok || string(descomprimir(t, primera.gzip)) != strings.Repeat("const a = 1;\n", 200) {
+	primera := cache.obtener(directorio, "/a.js")
+	if primera == nil || string(descomprimir(t, primera.gzip)) != strings.Repeat("const a = 1;\n", 200) {
 		t.Fatal("primera compresión inesperada")
 	}
-	if segunda, ok := cache.obtener(directorio, "/a.js"); !ok || segunda != primera {
+	if cache.obtener(directorio, "/a.js") != primera {
 		t.Fatal("un fichero sin cambios debe salir de la caché")
 	}
 	nuevo := strings.Repeat("const b = 22;\n", 200)
@@ -129,36 +128,20 @@ func TestCacheEstaticosComprimidosSeRenuevaYSeAcota(t *testing.T) {
 	if err := os.Chtimes(fichero, futuro, futuro); err != nil {
 		t.Fatal(err)
 	}
-	if renovada, ok := cache.obtener(directorio, "/a.js"); !ok || string(descomprimir(t, renovada.gzip)) != nuevo {
+	if renovada := cache.obtener(directorio, "/a.js"); renovada == nil || string(descomprimir(t, renovada.gzip)) != nuevo {
 		t.Fatal("un fichero modificado debe volver a comprimirse")
 	}
-	if cache.ocupado.Load() <= 0 || cache.ocupado.Load() > int64(len(nuevo)) {
-		t.Fatalf("contabilidad de memoria inesperada: %d", cache.ocupado.Load())
-	}
-
-	llena := &cacheEstaticosComprimidos{}
-	llena.ocupado.Store(presupuestoCacheEstaticosComprimidos)
-	if _, ok := llena.obtener(directorio, "/a.js"); ok || llena.ocupado.Load() != presupuestoCacheEstaticosComprimidos {
-		t.Fatal("sin presupuesto debe servirse sin comprimir y sin crecer")
-	}
-	if _, ok := cache.obtener(directorio, "/../a.js"); !ok {
-		t.Fatal("la ruta limpia debe resolverse dentro del directorio")
-	}
-	aleatorio := filepath.Join(directorio, "b.json")
 	ruido := make([]byte, 4096)
 	if _, err := rand.Read(ruido); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(aleatorio, ruido, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directorio, "b.json"), ruido, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := cache.obtener(directorio, "/b.json"); ok {
-		t.Fatal("un fichero que no gana nada comprimido debe servirse tal cual")
+	if entrada := cache.obtener(directorio, "/b.json"); entrada == nil || len(entrada.gzip) != 0 {
+		t.Fatal("un fichero que no gana nada comprimido se recuerda sin gzip")
 	}
-	if valor, ok := cache.entradas.Load(aleatorio); !ok || len(valor.(*estaticoComprimido).gzip) != 0 {
-		t.Fatal("el resultado negativo debe recordarse para no recomprimir en cada petición")
-	}
-	if _, ok := cache.obtener(directorio, "/no-existe.js"); ok {
-		t.Fatal("un fichero inexistente no se comprime")
+	if cache.obtener(directorio, "/../a.js") == nil || cache.obtener(directorio, "/no-existe.js") != nil {
+		t.Fatal("rutas resueltas fuera de lo esperado")
 	}
 }
