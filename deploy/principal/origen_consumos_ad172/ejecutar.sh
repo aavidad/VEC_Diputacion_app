@@ -38,10 +38,13 @@ done
 ternas=$(awk -F'\t' -v sel="$bloques" 'BEGIN{n=split(sel,a,","); for(i=1;i<=n;i++) ok[a[i]]=1}
   !/^#/ && NF && ($1 in ok) {print}' "$base_dir/ternas.tsv")
 [[ -n $ternas ]] || { echo 'ninguna terna seleccionada' >&2; exit 2; }
+# Huellas del texto del núcleo sobre el que se cotejó la lista.
+nucleos=$(grep -Ev '^(#|$)' "$base_dir/nucleos_cotejados.txt" | paste -sd, -)
+[[ $nucleos =~ ^[0-9a-f]{64}(,[0-9a-f]{64})*$ ]] || { echo 'nucleos_cotejados.txt no válido' >&2; exit 2; }
 
 psql_pg() {
   "$motor" exec -i "$contenedor" psql -XAtq -w -v ON_ERROR_STOP=1 -h /var/run/postgresql -U postgres -d postgres \
-    -v "ternas=$ternas" "$@"
+    -v "ternas=$ternas" -v "nucleos=$nucleos" "$@"
 }
 
 evidencia=$(mktemp -d "${TMPDIR:-/tmp}/origen-ad172-XXXXXX")
@@ -75,8 +78,9 @@ finalizar = sys.argv[4]
 esperadas = set()
 for linea in open(sys.argv[3], encoding='utf8'):
     c = linea.rstrip('\n').split('\t')
-    if len(c) == 8:
-        esperadas.add((c[1], c[3], c[4], c[6], c[5]))
+    if len(c) != 8:
+        sys.exit('cotejo fallido: línea de la lista sin ocho campos')
+    esperadas.add((c[1], c[3], c[4], c[6], c[5]))
 
 
 def falla(motivo):

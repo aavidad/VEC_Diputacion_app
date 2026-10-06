@@ -57,7 +57,26 @@ lecturas:
 - **Canal:** `interna_corporativa` para todo lo de RRHH, como en el historial de
   usos. Usuarios lleva además la superficie externa.
 
-El guion vuelve a comprobar todo esto en la base antes de escribir.
+El emparejamiento de perfil, audiencia y operación, y el grupo que el núcleo
+exige a cada perfil, se cotejaron a mano sobre el texto exacto del núcleo, y
+una segunda revisión independiente lo repitió. El guion no repite ese cotejo,
+pero sí se asegura de que el núcleo es el mismo: su huella SHA256 tiene que
+estar en `nucleos_cotejados.txt`. Ahí están la de la principal del 6 de
+octubre (postimagen de AD193) y la que deja AD208 (#809), que solo cambia el
+SQLSTATE del rechazo. Con cualquier otra huella el guion se para. Si el núcleo
+cambia, hay que volver a cotejar la lista y añadir la huella nueva en la misma
+revisión.
+
+Unas 24 de las ternas por defecto tienen hoy audiencias sin clave de capacidad
+publicada en la principal: los avisos de llamamiento de Usuarios; en
+Contratación, las firmas, las plantillas, los ajustes de reglas, el circuito,
+el correo del llamamiento y la reincorporación del titular; y en Bolsa, la
+auditoría, la aceptación en Contratación, la política de cese, la
+reincorporación del titular y la resolución de solicitudes documentales.
+Mientras no haya clave, esas filas no hacen nada. Quedan listas para cuando se
+publique, así que esas funciones no vuelvan a dar 403. Lo mismo pasa con las
+tres de incorporación hasta que se encienda su composición. Si al encenderla
+los LOGIN privados no fueran estos, las filas quedarían sin uso, sin riesgo.
 
 Fuera de la lista, a propósito:
 
@@ -83,8 +102,9 @@ por el núcleo de consulta RRHH, que no lleva AD172.
   repetidas.
 - Que AD172 está instalada: tabla con RLS forzada, su propietario, sus dos
   disparadores de inmutabilidad y ningún permiso ajeno al propietario.
-- Que el núcleo vivo llama al resolutor y nombra cada perfil, audiencia y
-  operación, y que cada audiencia está admitida para las claves de capacidad.
+- Que el núcleo vivo es el cotejado (`nucleos_cotejados.txt`), que llama al
+  resolutor y que nombra cada perfil, audiencia y operación, y que cada
+  audiencia está admitida para las claves de capacidad.
 - Que cada LOGIN cumple lo que pide el resolutor y que su única membresía es el
   grupo que el núcleo exige a su perfil: heredada, sin `SET` ni `ADMIN`.
 - Que ninguna terna existe ya con otro proceso o canal. Si existe, se para:
@@ -141,8 +161,12 @@ de su migración, y los roles y el texto del núcleo se generan desde la misma
   canal cruzado, el LOGIN cruzado y otro LOGIN del mismo grupo.
 - Que Cronos solo se instala si se pide.
 - Los rechazos por terna en conflicto, membresía extra, grupo equivocado,
-  permisos de más en la tabla, núcleo sin AD172, bloque desconocido y LOGIN
-  sin permiso de conexión.
+  permisos de más en la tabla, núcleo sin AD172, núcleo distinto del cotejado,
+  bloque desconocido y LOGIN sin permiso de conexión.
+
+El núcleo de la prueba es un sustituto generado desde la misma lista. Prueba el
+guion, no la lista: los errores de la lista solo los detecta el cotejo con el
+núcleo real descrito arriba.
 
 En la principal se cotejó además, en una transacción de solo lectura, que las
 111 ternas las reconoce el núcleo vivo y el catálogo de audiencias, que cada

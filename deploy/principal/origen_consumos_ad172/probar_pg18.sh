@@ -11,6 +11,11 @@ TMPDIR=$(mktemp -d)
 export TMPDIR
 trap 'docker rm -f "$contenedor" >/dev/null 2>&1 || true; rm -rf "$TMPDIR"' EXIT
 lista=$(grep -v '^#' "$base_dir/ternas.tsv")
+# El guion solo acepta el núcleo cotejado. El de la prueba es un sustituto, así
+# que se ensaya una copia del paquete cuya única huella es la del sustituto.
+paquete="$TMPDIR/paquete"
+mkdir "$paquete"
+cp "$base_dir"/{ejecutar.sh,operacion.sql,inventario.sql,ternas.tsv} "$paquete/"
 cuenta() { awk -F'\t' -v b="$1" '$1 ~ "^(" b ")$"' <<< "$lista" | wc -l | tr -d ' '; }
 por_defecto=$(cuenta 'usuarios|contratacion|bolsa|documentos|incorporacion')
 cronos=$(cuenta cronos)
@@ -47,14 +52,15 @@ nuevo_pg() {
     < "$base_dir/fixture_pg18.sql" >/dev/null
   ad172_objetos | docker exec -i "$contenedor" psql -XAtq -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null
 }
+huella_nucleo() { sql -c "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure"; }
 sql() { docker exec -i "$contenedor" psql -XAtq -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"; }
-guion() { VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR=$contenedor bash "$base_dir/ejecutar.sh" "$@"; }
-aplicar() { env "$@" VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR="$contenedor" bash "$base_dir/ejecutar.sh" --aplicar; }
+guion() { VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR=$contenedor bash "$paquete/ejecutar.sh" "$@"; }
+aplicar() { env "$@" VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR="$contenedor" bash "$paquete/ejecutar.sh" --aplicar; }
 origen() { sql -U "$1" -c "SELECT coalesce(vec_autorizacion_atestada_v3.probar_origen('$2','$3','$4'),'NULO')"; }
 espera() { [[ "$1" == "$2" ]] || { echo "FALLO: $3 (obtenido «$1», esperado «$2»)" >&2; exit 1; }; echo "OK $3"; }
 rechaza() { # rechaza <motivo esperado> <descripción> [VAR=valor...]
   local motivo=$1 desc=$2; shift 2
-  local err; if err=$(env "$@" VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR="$contenedor" bash "$base_dir/ejecutar.sh" --aplicar 2>&1 >/dev/null); then
+  local err; if err=$(env "$@" VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR="$contenedor" bash "$paquete/ejecutar.sh" --aplicar 2>&1 >/dev/null); then
     echo "FALLO: $desc (aceptado)" >&2; exit 1; fi
   grep -q -- "$motivo" <<< "$err" || { echo "FALLO: $desc (motivo distinto: $err)" >&2; exit 1; }
   echo "OK $desc"
@@ -64,6 +70,7 @@ ap=VEC_ORIGEN_AD172_APLICAR=SI-REVISADO
 
 echo "== A: bloques por defecto ($por_defecto ternas): ensayo, aplicación, resolutor y repetición"
 nuevo_pg
+huella_nucleo > "$paquete/nucleos_cotejados.txt"
 espera "$(origen vec_pref508a_i_ue vec_usuarios.preferencias.consultar.interna_corporativa.v1 vec.preferencias.consultar interna_corporativa)" NULO 'sin fila el resolutor deniega (causa del 403)'
 salida=$(guion --ensayo)
 grep -q "ternas_nuevas=$por_defecto" <<< "$salida"; grep -q 'verificado: ROLLBACK' <<< "$salida"
@@ -121,4 +128,10 @@ nuevo_pg
 sql -c 'ALTER ROLE vec_cronos_emp_ejecutor_desarrollo NOLOGIN' >/dev/null
 rechaza 'LOGIN o grupo ejecutor incompatible' 'LOGIN sin conexión rechazado' "$ap" VEC_ORIGEN_BLOQUES=cronos
 espera "$(filas)" 1 'sin cambios tras el rechazo'
+
+echo '== H: núcleo distinto del cotejado'
+nuevo_pg
+cp "$base_dir/nucleos_cotejados.txt" "$paquete/nucleos_cotejados.txt"
+rechaza 'núcleo distinto del cotejado' 'núcleo no cotejado rechazado' "$ap"
+espera "$(filas)" 1 'sin cambios con núcleo no cotejado'
 echo 'PRUEBA-OK'

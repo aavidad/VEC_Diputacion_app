@@ -3,6 +3,7 @@
 -- configuracion_origen_consumos_v1: no concede acciones, perfiles ni
 -- membresías. Variables psql:
 --   ternas     filas de ternas.tsv ya filtradas por bloque (ejecutar.sh)
+--   nucleos    huellas SHA256 del texto del núcleo cotejado, separadas por comas
 --   finalizar  ROLLBACK (ensayo) o COMMIT (aplicar)
 BEGIN;
 SET LOCAL search_path = pg_catalog;
@@ -21,6 +22,9 @@ SELECT c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], cardinality(c)
   FROM regexp_split_to_table(:'ternas', E'\n') AS l(linea),
        LATERAL string_to_array(l.linea, E'\t') AS c
  WHERE l.linea <> '' AND left(l.linea, 1) <> '#';
+
+CREATE TEMP TABLE origen_nucleos_cotejados ON COMMIT DROP AS
+SELECT h AS huella FROM unnest(string_to_array(:'nucleos', ',')) AS u(h);
 
 DO $pre$
 DECLARE
@@ -76,6 +80,13 @@ BEGIN
      AND c.conname = 'clave_capacidad_version_audiencia_consumo_check' AND c.contype = 'c';
   IF nucleo IS NULL OR audiencias IS NULL OR strpos(nucleo, 'resolver_origen_consumo_v1') = 0 THEN
     RAISE EXCEPTION 'ORIGEN-AD172: núcleo sin AD172 o sin catálogo de audiencias' USING ERRCODE = '55000';
+  END IF;
+  -- El emparejamiento perfil/audiencia/operación y el grupo de cada perfil se
+  -- cotejaron a mano sobre este texto exacto del núcleo (nucleos_cotejados.txt).
+  -- Con otro texto el guion se para: hay que volver a cotejar la lista.
+  IF NOT EXISTS (SELECT 1 FROM origen_nucleos_cotejados
+                  WHERE huella = encode(sha256(convert_to(nucleo, 'UTF8')), 'hex')) THEN
+    RAISE EXCEPTION 'ORIGEN-AD172: núcleo distinto del cotejado' USING ERRCODE = '55000';
   END IF;
   FOR t IN SELECT * FROM origen_esperado LOOP
     IF strpos(nucleo, quote_literal(t.perfil)) = 0
