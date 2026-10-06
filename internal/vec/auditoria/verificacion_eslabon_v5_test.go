@@ -72,6 +72,15 @@ func TestAD207AlteracionesDetectadas(t *testing.T) {
 		"contenido alterado": func(d *DocumentoVerificacionMixta) {
 			d.Registros[6].Periodica.CorrelacionRef = "correlacion_" + strings.Repeat("0", 32)
 		},
+		"fecha del asiento distinta": func(d *DocumentoVerificacionMixta) {
+			d.Registros[5].Eslabon.RegistradaEn = d.Registros[4].Eslabon.RegistradaEn
+		},
+		"fecha de sellado alterada": func(d *DocumentoVerificacionMixta) {
+			d.Registros[6].Eslabon.SelladoEn = "2026-01-01T00:00:00.000000Z"
+		},
+		"numero por debajo del corte": func(d *DocumentoVerificacionMixta) {
+			d.Registros[3].Eslabon.Secuencia = d.Registros[2].Periodica.Secuencia
+		},
 		"cabeza distinta": func(d *DocumentoVerificacionMixta) {
 			d.Manifiesto.CabezaSHA256 = strings.Repeat("b", 64)
 		},
@@ -91,7 +100,7 @@ func TestHuellaEslabonV5CoincideConPostgreSQL(t *testing.T) {
 	d := vectorAD207(t)
 	r := d.Registros[3]
 	got := HuellaEslabonV5("interna", r.Eslabon.Posicion, r.Eslabon.AnteriorSHA256, r.Eslabon.Secuencia,
-		r.Periodica.AuditoriaRef, r.TipoRegistro, r.Periodica.HuellaSHA256)
+		r.Periodica.AuditoriaRef, r.TipoRegistro, r.Periodica.HuellaSHA256, r.Eslabon.RegistradaEn, r.Eslabon.SelladoEn)
 	if got != r.Eslabon.EslabonSHA256 || r.Eslabon.AnteriorSHA256 != d.Registros[2].Periodica.HuellaSHA256 {
 		t.Fatalf("eslabón %s, PostgreSQL %s", got, r.Eslabon.EslabonSHA256)
 	}

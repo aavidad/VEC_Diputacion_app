@@ -260,7 +260,7 @@ func clavesCoberturaExactas(objeto map[string]json.RawMessage) bool {
 }
 
 // separarEslabonesV5 admite en cada registro mixto un objeto "eslabon" con
-// sus cuatro claves exactas (AD207) y lo aparta antes de la comprobación de
+// sus seis claves exactas (AD207) y lo aparta antes de la comprobación de
 // claves propia de cada esquema, que no cambia.
 func separarEslabonesV5(objeto map[string]json.RawMessage) error {
 	var registros []map[string]json.RawMessage
@@ -274,7 +274,7 @@ func separarEslabonesV5(objeto map[string]json.RawMessage) error {
 			continue
 		}
 		var eslabon map[string]json.RawMessage
-		if json.Unmarshal(crudo, &eslabon) != nil || !clavesExactas(eslabon, "posicion", "secuencia", "anterior_sha256", "eslabon_sha256") {
+		if json.Unmarshal(crudo, &eslabon) != nil || !clavesExactas(eslabon, "posicion", "secuencia", "anterior_sha256", "eslabon_sha256", "registrada_en", "sellado_en") {
 			return errJSONInvalido
 		}
 		delete(registro, "eslabon")

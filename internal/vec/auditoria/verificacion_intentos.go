@@ -191,6 +191,18 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	auditorias, decisiones, consumos, intentos := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	eventos := map[string]bool{}
 	numerosV5 := map[uint64]bool{}
+	// enlaces[posición] = huella (antes del corte) o eslabón (después): sirve
+	// para cotejar la cabeza sellada que declaran las capturas periódicas.
+	enlaces := map[uint64]string{}
+	if checkpoint.PrimeraSecuencia > 0 {
+		enlaces[checkpoint.PrimeraSecuencia-1] = checkpoint.AnteriorSHA256
+	}
+	type previaDeclarada struct {
+		posicion, previa uint64
+		cabeza           string
+	}
+	var previas []previaDeclarada
+	var ultimaAntesDelCorte uint64
 	var historicosSinFecha, fechaLigada, trasCorte bool
 	for i, r := range d.Registros {
 		// La cobertura cuenta posiciones en la cadena. Antes del corte de AD207
@@ -198,8 +210,12 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 		posicion := checkpoint.PrimeraSecuencia + uint64(i)
 		secuencia, enlace := posicion, anterior
 		if r.Eslabon != nil {
+			// Un número posterior al corte no puede repetirse ni quedar por
+			// debajo de un asiento anterior al corte del mismo documento.
 			if r.Eslabon.Posicion != posicion || r.Eslabon.Secuencia == 0 || r.Eslabon.Secuencia > maxSecuenciaVerificacion ||
-				numerosV5[r.Eslabon.Secuencia] || !huellaCadenaValida(r.Eslabon.AnteriorSHA256) || !huellaCadenaValida(r.Eslabon.EslabonSHA256) {
+				r.Eslabon.Secuencia <= ultimaAntesDelCorte || numerosV5[r.Eslabon.Secuencia] ||
+				!huellaCadenaValida(r.Eslabon.AnteriorSHA256) || !huellaCadenaValida(r.Eslabon.EslabonSHA256) ||
+				!instanteEslabonValido(r.Eslabon.RegistradaEn) || !instanteEslabonValido(r.Eslabon.SelladoEn) {
 				return fallar("eslabon_invalido", "eslabon", "posicion_y_numero_unicos", "invalido", posicion)
 			}
 			numerosV5[r.Eslabon.Secuencia] = true
@@ -501,17 +517,36 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			return fallar("enlace_distinto", "anterior_sha256", enlace, previo, secuencia)
 		}
 		if r.Eslabon == nil {
-			anterior = huella
+			anterior, ultimaAntesDelCorte = huella, posicion
+			enlaces[posicion] = anterior
 			continue
+		}
+		if fecha, ok := registradaEnDelAsiento(r); ok && fecha != r.Eslabon.RegistradaEn {
+			return fallar("fecha_distinta", "eslabon.registrada_en", "la_del_asiento", "distinta", posicion)
 		}
 		if r.Eslabon.AnteriorSHA256 != anterior {
 			return fallar("enlace_distinto", "eslabon.anterior_sha256", anterior, r.Eslabon.AnteriorSHA256, posicion)
 		}
-		eslabon := HuellaEslabonV5("interna", posicion, anterior, secuencia, referencia, r.TipoRegistro, huella)
+		eslabon := HuellaEslabonV5("interna", posicion, anterior, secuencia, referencia, r.TipoRegistro, huella,
+			r.Eslabon.RegistradaEn, r.Eslabon.SelladoEn)
 		if eslabon != r.Eslabon.EslabonSHA256 {
 			return fallar("eslabon_distinto", "eslabon_sha256", eslabon, r.Eslabon.EslabonSHA256, posicion)
 		}
 		anterior, trasCorte = eslabon, true
+		enlaces[posicion] = anterior
+		if previa, cabeza, ok := previaCapturaPeriodicaV5(r); ok {
+			previas = append(previas, previaDeclarada{posicion: posicion, previa: previa, cabeza: cabeza})
+		}
+	}
+	// La captura fijó una cabeza sellada anterior a su propio asiento; si esa
+	// posición está en el documento, su enlace tiene que coincidir.
+	for _, p := range previas {
+		if p.previa >= p.posicion {
+			return fallar("captura_incoherente", "previa_secuencia", "anterior_a_su_posicion", "posterior", p.posicion)
+		}
+		if enlace, existe := enlaces[p.previa]; existe && enlace != p.cabeza {
+			return fallar("captura_incoherente", "previa_cabeza_sha256", enlace, p.cabeza, p.posicion)
+		}
 	}
 	if anterior != checkpoint.CabezaSHA256 {
 		return fallar("cabeza_distinta", "cabeza_sha256", checkpoint.CabezaSHA256, anterior, checkpoint.UltimaSecuencia)

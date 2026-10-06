@@ -9,3 +9,8 @@
 #   3. Comprobar: SELECT vec_autorizacion_atestada_v3.verificar_cadena_auditoria_v5(false) como propietario
 #      → estado verificada, pendientes cerca de 0 y sin_sellar_fuera_de_cola 0.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql
+# Plazo: sin sellador al día durante 10 s (sellado_auditoria_v5.plazo_maximo_segundos), los asientos nuevos se
+# rechazan y las operaciones auditadas fallan cerradas. Arrancar vec-server con el sellador justo después de instalar.
+# Sin vuelta atrás: una vez hay asientos con marcador, la cadena solo se verifica con los eslabones. Ante un problema
+# se para la aplicación; la cadena anterior y los eslabones siguen verificables. Las pruebas SQL antiguas que avanzan
+# control_cadena_auditoria (ad171…ad198, auditoria_intento_estructura) ya no aplican tras AD207.

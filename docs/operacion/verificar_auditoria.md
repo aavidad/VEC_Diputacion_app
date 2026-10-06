@@ -102,7 +102,8 @@ ahora. Cada asiento posterior lleva `anterior_sha256` con 64 «f» y su fila de
 `tipo_registro`:
 
 ```json
-"eslabon": {"posicion": 29592, "secuencia": 29592, "anterior_sha256": "…", "eslabon_sha256": "…"}
+"eslabon": {"posicion": 29592, "secuencia": 29592, "anterior_sha256": "…", "eslabon_sha256": "…",
+            "registrada_en": "2026-10-06T10:47:22.705593Z", "sellado_en": "2026-10-06T10:47:22.912004Z"}
 ```
 
 En estos tramos `primera_secuencia`, `ultima_secuencia` y `registros` del
@@ -113,16 +114,20 @@ escribir y la posición se asigna al sellar. Ordene los registros por posición.
 de la posición anterior a la primera, y `cabeza_sha256` el de la última. Solo se
 exportan asientos sellados. El verificador recalcula la huella de cada asiento
 según su tipo, exige el marcador y un eslabón por asiento a partir del corte, y
-recalcula cada eslabón con la fórmula del contrato de auditoría común. La captura
-del sello periódico fija la cabeza sellada en ese momento, así que su
-`previa_secuencia` queda por debajo de su propio número.
+recalcula cada eslabón con la fórmula del contrato de auditoría común, incluidas
+las dos fechas; `registrada_en` debe coincidir con la del asiento cuando su tipo la
+exporta. La captura del sello periódico fija la cabeza sellada en ese momento: su
+`previa_secuencia` queda por debajo de su posición y, si esa posición está en el
+documento, `previa_cabeza_sha256` debe ser su eslabón.
 
 En la base, `vec_autorizacion_atestada_v3.verificar_cadena_auditoria_v5(false)`
 (cadena interna; `true` para la externa) comprueba como propietario los enlaces de
 toda la cadena: numeración y enlaces hasta el corte, cada eslabón recalculado
 desde su asiento, y la cola. Devuelve `pendientes` (asientos aún sin eslabón) y
 `sin_sellar_fuera_de_cola` (asientos sin eslabón que tampoco esperan en la cola;
-debe ser 0). No recalcula la huella de cada asiento según su tipo: eso lo hace
+debe ser 0), `pendiente_mas_antigua` (rechaza si supera el plazo) y
+`numeros_sin_asiento` (números de la secuencia que no llegaron a ningún asiento:
+transacciones deshechas). No recalcula la huella de cada asiento según su tipo: eso lo hace
 este comando.
 
 ## Ejecutar

@@ -66,14 +66,19 @@ La fila común de auditoría conserva `auditoria_ref`, secuencia, decisión, efe
 
 Hasta AD207 la cabeza se bloqueaba con `FOR UPDATE`. La preimagen interna encadena secuencia, huella anterior, decisión, efecto, huella del efecto y huella de consumo. `registrada_en` no aparece como campo separado de esa preimagen. Completar el sobre nominal exige versionar qué bytes protege la huella, conservando las cadenas históricas.
 
-Desde [AD207](../../deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql) ningún escritor bloquea `control_cadena_auditoria`. Cada asiento toma su número de una secuencia y calcula su huella con la misma preimagen de su tipo, con 64 «f» en el lugar del anterior. Un disparador lo deja en `pendiente_sellado_auditoria_v5`. El sellador (grupo `vec_auditoria_encadenador`, LOGIN propio fuera de Git, bucle de `vec-server` configurado con `VEC_AUDITORIA_SELLADO_DATABASE_URL`) toma los pendientes en orden de número y escribe en `eslabon_auditoria_v5`, de solo adición, un eslabón por asiento:
+Desde [AD207](../../deploy/postgresql/autorizacion_atestada_v3/migraciones/000207_cadena_auditoria_sellado_diferido.up.sql) ningún escritor bloquea `control_cadena_auditoria`. Sigue el patrón de los registros de transparencia de certificados ([RFC 9162](https://www.rfc-editor.org/rfc/rfc9162.html), §4, y el secuenciador de [Trillian](https://pkg.go.dev/github.com/google/trillian/log)): la entrada se acepta con un acuse, un secuenciador la incorpora por lotes con número contiguo dentro de un plazo máximo, y la cabeza se ancla fuera con el sello periódico de AD186.
+
+Cada asiento toma un número de una secuencia (identifica el asiento en la cola; puede tener huecos por ROLLBACK) y calcula su huella con la misma preimagen de su tipo, con 64 «f» en el lugar del anterior. Un disparador lo deja en `pendiente_sellado_auditoria_v5`. El sellador (grupo `vec_auditoria_encadenador`, LOGIN propio fuera de Git, bucle de `vec-server` configurado con `VEC_AUDITORIA_SELLADO_DATABASE_URL`) toma los pendientes por lotes, les da posición contigua y escribe en `eslabon_auditoria_v5`, de solo adición:
 
 ```text
 eslabon(p) = sha256(F("vec.auditoria.eslabon.v5") F(cadena) F(p) F(eslabon(p-1))
-                    F(secuencia) F(auditoria_ref) F(tipo_registro) F(huella_sha256))
+                    F(secuencia) F(auditoria_ref) F(tipo_registro) F(huella_sha256)
+                    F(registrada_en) F(sellado_en))
 ```
 
-`F` es `encuadrar_mac` y `cadena` vale `interna` o `externa` (la externa no tiene tipo y usa el texto vacío). La fila de control queda congelada con la última secuencia y la cabeza de la cadena anterior, que no cambia; `eslabon(N)` del corte es esa cabeza. Mientras un asiento espera su eslabón (menos de 1 s con el sellador en marcha) lo protegen los mismos disparadores de solo adición que al resto. La cadena externa tiene su propia secuencia, cola y tabla de eslabones.
+`F` es `encuadrar_mac`, las fechas van en UTC con microsegundos y `cadena` vale `interna` o `externa` (la externa no tiene tipo y usa el texto vacío). La fila de control queda congelada con la última secuencia y la cabeza de la cadena anterior, que no cambia; `eslabon(N)` del corte es esa cabeza. La cadena externa tiene su propia secuencia, cola y tabla de eslabones.
+
+El plazo máximo de incorporación vive en `sellado_auditoria_v5` (10 s). El sellador renueva allí su latido solo si en la cola no queda nada más antiguo que el plazo. Si el latido caduca, el disparador rechaza los asientos nuevos y la operación auditada no se confirma. Mientras espera su eslabón, un asiento está en la misma tabla, con los mismos disparadores de solo adición. Como en un registro de transparencia, quien conserva un acuse (`auditoria_ref`, número, huella y fecha) puede exigir después que aparezca sellado; un asiento retirado de la cola por el propietario antes de sellarse solo se descubre así o porque su número falta, que por sí solo no distingue un ROLLBACK.
 
 ## 5. Confirmación de operaciones y lecturas
 
