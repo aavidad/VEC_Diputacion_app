@@ -202,7 +202,7 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
@@ -224,6 +224,7 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
 // cuadro, y con HTTP/1.1 eso retrasaba Inicio entero. Ahora el cuadro se pide
 // con el código mínimo y la vista solo se carga al abrir CT.
 test("contratación temporal consulta su cuadro sin cargar su vista hasta que se abre", async () => {
+  const resumenInicio = Object.freeze({ generadoEn: "2026-10-06T08:00:00Z", resumen: Object.freeze({ en_tramite: 1 }) });
   const pasos = [];
   const vistaPendiente = diferido();
   const montajes = [];
@@ -240,7 +241,7 @@ test("contratación temporal consulta su cuadro sin cargar su vista hasta que se
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
         adaptador: {
           crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
-            listar: async () => { pasos.push("cuadro"); return { expedientes: [{ numero_visible: "2026/CT-0123456789ab" }] }; } }),
+            resumenInicio: async () => { pasos.push("cuadro"); return resumenInicio; } }),
           etiquetaCatalogo: (_catalogo, valor) => valor,
         },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
@@ -250,10 +251,10 @@ test("contratación temporal consulta su cuadro sin cargar su vista hasta que se
     },
   });
   await coordinador.cargarInterno();
-  // Inicio ya tiene el cuadro, con el número provisional presentado, sin la vista.
+  // Inicio ya tiene los recuentos del servidor, sin la vista.
   assert.deepEqual(pasos.sort(), ["alta", "analisis", "cuadro"]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-  assert.equal(coordinador.obtenerCuadroInicio().expedientes[0].numero_visible, "Sin número asignado");
+  assert.equal(coordinador.obtenerCuadroInicio(), resumenInicio);
   const raiz = { replaceChildren() {} };
   const montaje = coordinador.montarVista("contratacion-temporal", raiz);
   await esperarTurnos();
@@ -416,7 +417,7 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
           obtenerCatalogosAlta: consulta("alta"), obtenerConfiguracionAnalisis: consulta("analisis"),
           registrarSolicitud: async () => ({}), registrarAnalisis: async () => ({}),
         }) },
-        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { numeroExpedienteVisible, montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },
@@ -448,10 +449,6 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
   assert.equal(altaMontada.catalogos.centros[0].etiqueta, "DEPORTES");
   // Al llegar se avisa para repintar Inicio con los nombres.
   assert.deepEqual(avisos, ["catalogo", "contratacion_temporal", "contratacion_temporal"]);
-  assert.equal(coordinador.obtenerTramitesInicio()[0].centro, "DEPORTES");
-  // La petición de centro usa la clave de la organización; el anterior a la numeración, sin número.
-  assert.deepEqual([coordinador.obtenerTramitesInicio()[1].centro, coordinador.obtenerTramitesInicio()[1].numero_visible],
-    ["TRANSFORMACIÓN DIGITAL", "Sin número asignado"]);
 });
 
 test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async () => {
@@ -465,7 +462,7 @@ test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async ()
           obtenerCatalogosAlta: () => alta.promesa, obtenerConfiguracionAnalisis: async () => { throw new Error("403"); },
           registrarSolicitud: async () => ({}),
         }) },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: async () => { throw new Error("503"); } }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: async () => { throw new Error("503"); } }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },

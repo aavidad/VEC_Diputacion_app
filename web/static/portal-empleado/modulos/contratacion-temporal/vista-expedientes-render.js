@@ -3,13 +3,13 @@
 import {
   escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+} from "./componentes-expedientes.js?v=20261006-resumen-inicio-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261006-resumen-inicio-v1";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no

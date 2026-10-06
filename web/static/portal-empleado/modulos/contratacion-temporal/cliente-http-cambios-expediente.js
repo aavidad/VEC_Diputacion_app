@@ -2,7 +2,7 @@
  * Petición RRHH p.4: histórico de cambios del expediente. Misma ruta, método y
  * autorización que el detalle RRHH; solo cambia la representación pedida.
  */
-import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261002-ct-fin-modalidad-v1";
+import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261006-resumen-inicio-v1";
 
 export const ACCEPT_CAMBIOS_EXPEDIENTE = "application/vnd.vec.contratacion-temporal.cambios-expediente+json";
 export const ESQUEMA_CAMBIOS_EXPEDIENTE = "vec.contratacion_temporal.rrhh.cambios_expediente.v1";

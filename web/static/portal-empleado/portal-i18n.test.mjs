@@ -183,6 +183,47 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
   versionesEspeciales.set("modulos/cronos/i18n-permisos-consulta.js", "20261001-cronos-c7-consulta-v2");
   versionesEspeciales.set("portal-bolsas-contratos.js", "20261002-a-recuperar-379-v1");
+  // Resumen de la portada (CT-000184): el cliente y el adaptador del cuadro,
+  // la portada y el coordinador cambiaron; su cadena de importadores renueva URL.
+  for (const ruta of [
+    "portal-inicio.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
+    "categorias-rpt/arranque.js",
+    "categorias-rpt/cliente.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "portal.js",
+    "portal-modulos-coordinador.js",
+  ]) versionesEspeciales.set(ruta, "20261006-resumen-inicio-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -320,5 +361,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-reglas-no-disponible-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-resumen-inicio-v1");
 });

@@ -153,7 +153,7 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
   let resolver = false;
   const fuente = {
     capacidades: ["contratacion_temporal.cuadro.consultar"],
-    listar({ signal } = {}) {
+    resumenInicio({ signal } = {}) {
       señales.push(signal);
       if (resolver) return Promise.resolve({ expedientes: [] });
       return new Promise((_resolver, rechazar) => {
