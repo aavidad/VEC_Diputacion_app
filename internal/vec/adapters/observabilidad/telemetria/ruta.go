@@ -9,6 +9,8 @@ const (
 	// rutaNoEncontrada se usa para un 404 sin patrón: el camino lo eligió
 	// quien hizo la petición y no se copia al registro.
 	rutaNoEncontrada = "{no_encontrada}"
+	// rutaSinPlantilla se usa para otros 4xx sin patrón, por el mismo motivo.
+	rutaSinPlantilla = "{sin_plantilla}"
 	maxTramosRuta    = 16
 	maxTramoRuta     = 40
 	maxLongitudRuta  = 200

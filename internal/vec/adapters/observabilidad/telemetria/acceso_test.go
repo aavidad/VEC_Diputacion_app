@@ -127,6 +127,8 @@ func TestAccesoNormalizaCaminoSinPatronYOcultaNoEncontradas(t *testing.T) {
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/v2/expedientes/recibo:408fda57/Juan", nil))
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/wp-admin/juan.perez", nil))
+	denegar := reg.Envolver(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) }))
+	denegar.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/portal-empleado/juanperez", nil))
 	cerrar(t, reg)
 	lineas := d.lineas(t)
 	if lineas[0]["ruta"] != "/api/v2/expedientes/{valor}/{valor}" || lineas[0]["estado"] != float64(202) {
@@ -134,6 +136,9 @@ func TestAccesoNormalizaCaminoSinPatronYOcultaNoEncontradas(t *testing.T) {
 	}
 	if lineas[1]["ruta"] != rutaNoEncontrada {
 		t.Errorf("404 sin patron = %v", lineas[1]["ruta"])
+	}
+	if lineas[2]["ruta"] != rutaSinPlantilla {
+		t.Errorf("401 sin patron = %v", lineas[2]["ruta"])
 	}
 	if strings.Contains(d.texto(), "juan") || strings.Contains(d.texto(), "Juan") {
 		t.Error("el camino escrito por la persona llego al registro")

@@ -280,13 +280,20 @@ func (reg *Registro) escribirAcceso(r *http.Request, f *Ficha, e *escritorMedido
 	reg.encolar(linea)
 }
 
-// rutaFinal exige f.mu tomado.
+// rutaFinal exige f.mu tomado. Con plantilla anotada manda la plantilla; sin
+// ella, solo se escribe el camino normalizado si la respuesta la produjo una
+// ruta servida (2xx, 3xx o 5xx).
 func (f *Ficha) rutaFinal(estado int) string {
 	if f.ruta != "" {
 		return f.ruta
 	}
 	if estado == http.StatusNotFound {
 		return rutaNoEncontrada
+	}
+	if estado >= 400 && estado <= 499 {
+		// Sin plantilla, un 4xx puede venir de una frontera previa al
+		// enrutador (sesión, permisos) con un camino que escribió la persona.
+		return rutaSinPlantilla
 	}
 	return f.rutaNormalizada
 }
