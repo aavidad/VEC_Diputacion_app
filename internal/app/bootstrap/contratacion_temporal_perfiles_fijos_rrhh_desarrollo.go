@@ -493,6 +493,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
 			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta, datos)
+		case rutaFirmaExternaV2CTDesarrollo(ruta):
+			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos)
 		case rutaOriginalFirmableCTDesarrollo(ruta):
 			valida = solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos)
 		}

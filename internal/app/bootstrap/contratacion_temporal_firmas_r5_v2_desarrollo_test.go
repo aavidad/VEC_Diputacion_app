@@ -48,7 +48,7 @@ func nuevoEscenarioFirmasR5V2Prueba(t *testing.T) escenarioFirmasR5V2Prueba {
 		instantanea:    clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla),
 		actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}
 	return escenarioFirmasR5V2Prueba{soporte: s, perfil: p, principal: principal,
-		fuente: &fuenteNominalFirmasR5V2CTDesarrollo{soporte: s, perfil: p, reloj: s.reloj, proceso: "vec-rrhh"}}
+		fuente: nuevaFuenteNominalFirmasR5V2CTDesarrollo(s, p, s.reloj, "vec-rrhh")}
 }
 
 func (e escenarioFirmasR5V2Prueba) ctx(ruta, metodo string) context.Context {
