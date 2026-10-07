@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=es" };
-const { IDIOMA_ACTUAL } = await import("../comun/idioma.js");
+const idiomaPreparado = await import("../comun/idioma.js");
+await idiomaPreparado.prepararIdiomas();
+const { IDIOMA_ACTUAL } = idiomaPreparado;
 const { AYUDA_PORTAL_BOLSA, AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
 const ayudaDe = async (idioma) => JSON.parse(await readFile(new URL(`../textos/${idioma}/portal-ayuda.json`, import.meta.url), "utf8")).ayuda;
 const [MENSAJES_AYUDA_PORTAL, MENSAJES_AYUDA_EN] = await Promise.all([ayudaDe("es"), ayudaDe("en")]);
