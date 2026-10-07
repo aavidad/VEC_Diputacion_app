@@ -304,7 +304,7 @@ test("los ocho módulos registrados conservan estado fiel sin inventar vistas", 
   }
 });
 
-test("CT inventariado queda no_disponible y fuera del menú si falla su carga real", async () => {
+test("CT fallida ofrece reintento de menú solo al perfil fijo atestado", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];
   const catalogo = crearCatalogoModulosDesdeManifiestos(
@@ -313,6 +313,7 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
     traducir: (clave) => {
       clavesTraducidas.push(clave);
       return `i18n:${clave}`;
@@ -330,17 +331,31 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
     vista: "",
     estado: "no_disponible",
     textoEstado: "i18n:estado_modulo_no_disponible_titulo",
+    recuperable: true,
   });
-  // Sin servicio, el menú no ofrece la entrada en lugar de mostrarla deshabilitada.
   const navegacion = coordinador.renderizarNavegacion(true, "portal");
-  assert.doesNotMatch(navegacion, /data-modulo-portal="contratacion_temporal"/);
+  assert.match(navegacion, /data-modulo-portal="contratacion_temporal"[^>]*data-accion="recargar-fuente"/);
   assert.doesNotMatch(navegacion, /data-vista=/);
-  assert.deepEqual(clavesTraducidas, [
-    "estado_modulo_no_disponible_titulo",
-    "estado_modulo_no_disponible_titulo",
-  ]);
+  assert.ok(clavesTraducidas.includes("txt_reintentar"));
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
-  assert.equal(cargasContratacion, 1);
+  assert.equal(cargasContratacion, 2, "la importación se reintenta una sola vez");
+});
+
+test("sin CT inventariada o sin perfil CT atestado no aparece el reintento", async () => {
+  const conCT = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  for (const [catalogo, roles] of [[conCT, ["personal_interno"]], [conCT, ["administrativo"]],
+    [conCT, []], [[], ["tecnico_rrhh"]]]) {
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles }),
+      cargadoresInternos: { contratacion_temporal: async () => { throw new Error("fallo"); } },
+    });
+    await coordinador.cargarInterno();
+    assert.doesNotMatch(coordinador.renderizarNavegacion(), /data-modulo-portal="contratacion_temporal"/);
+  }
 });
 
 test("CT reintenta el catálogo del circuito y registra un fallo sin volcar la excepción", async () => {
@@ -377,16 +392,18 @@ test("CT reintenta el catálogo del circuito y registra un fallo sin volcar la e
   await coordinador.cargarInterno();
   assert.deepEqual(consultas, [], "un catálogo fallido no inicia consultas CT");
   assert.deepEqual(avisos, [["portal.modulo.carga_fallida", {
-    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible",
+    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible", causa: "catalogo", intento: 1,
+  }], ["portal.modulo.carga_fallida", {
+    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible", causa: "catalogo", intento: 2,
   }]]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
 
   fallar = false;
   await coordinador.cargarInterno();
-  assert.deepEqual(idiomas, ["es", "es"], "solo se pide el idioma activo y se reintenta");
+  assert.deepEqual(idiomas, ["es", "es", "es"], "solo se pide el idioma activo y se reintenta");
   assert.deepEqual(consultas.sort(), ["alta", "analisis", "resumen"]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-  assert.equal(avisos.length, 1);
+  assert.equal(avisos.length, 2);
 });
 
 
