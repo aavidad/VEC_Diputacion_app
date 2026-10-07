@@ -23,6 +23,7 @@
     "estado_disponible": "Records found",
     "estado_vacio": "No records match these filters.",
     "estado_denegado": "Access denied. No data is shown.",
+    "estado_no_disponible": "Audit records are unavailable. Contact IT if you need this information.",
     "estado_error": "The query could not be completed. Try again.",
     "estado_invalido": "Check the dates: ‘Until’ must be later than ‘From’ and the range cannot exceed 31 days.",
     "tabla_aria": "Audit records",

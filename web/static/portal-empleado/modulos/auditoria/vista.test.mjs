@@ -40,6 +40,21 @@ test("solo muestra expediente exacto escapado y aviso de configuración de ejemp
   assert.doesNotMatch(bolsa, /name="fuente"/u);
 });
 
+test("conserva el número humano recibido de la ficha sin derivarlo de la referencia", () => {
+  const expedienteRef = `expediente:ct:${"a".repeat(64)}`;
+  const numeroVisible = "CT-000127";
+  const dato = { ...registro, expediente_ref: expedienteRef };
+  const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true,
+    expedienteRef, numeroVisible, fuenteContexto: "ct", registros: [dato] });
+  assert.match(html, /<strong>Expediente:<\/strong> CT-000127/u);
+  assert.match(html, /CT-000127, con justificante/u);
+  assert.doesNotMatch(html.split("<details>")[0], /expediente:ct:/u);
+  const extraño = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
+    expedienteRef, numeroVisible: "<CT-000127>", fuenteContexto: "ct" });
+  assert.match(extraño, /&lt;CT-000127&gt;/u);
+  assert.doesNotMatch(extraño, /<CT-000127>/u);
+});
+
 test("la muestra enseña nombres y números ficticios; las referencias y huellas quedan plegadas", () => {
   const respuesta = validarRespuestaAuditoria({ registros: [{ ...registro, antes: { unidad: "<script>" } }], siguiente_cursor: "" });
   const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: respuesta.registros });
@@ -139,6 +154,20 @@ test("sin expediente no pide opciones, y 403 en opciones no expone datos", async
   assert.match(raiz.innerHTML, /Acceso denegado/u);
   assert.doesNotMatch(raiz.innerHTML, /secreto|<table/u);
   denegada.desmontar();
+});
+
+test("404 de opciones muestra capacidad no disponible, distinta de permiso denegado", async () => {
+  const { raiz } = raizFalsa();
+  let post = 0;
+  const fuente = { obtenerOpciones: async () => { throw Object.assign(Error("secreto"), { codigo: "no_disponible" }); },
+    consultar: async () => { ++post; throw Error("no debe llamarse"); } };
+  const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", numeroVisible: "CT-000127", fuenteContexto: "ct" });
+  await esperar();
+  assert.equal(post, 0);
+  assert.match(raiz.innerHTML, /La consulta de auditoría no está disponible/u);
+  assert.match(raiz.innerHTML, /CT-000127/u);
+  assert.doesNotMatch(raiz.innerHTML, /Acceso denegado|secreto|<table/u);
+  vista.desmontar();
 });
 
 test("sin fuente de navegación o sin fuente ofrecida por GET no consulta", async () => {

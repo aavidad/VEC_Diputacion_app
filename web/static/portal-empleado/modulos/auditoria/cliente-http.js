@@ -59,7 +59,8 @@ export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) 
           cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         });
         if (respuesta?.redirected || !respuesta) throw fallo("respuesta_invalida");
-        if ([401, 403, 404].includes(respuesta.status)) throw fallo("denegado", respuesta.status);
+        if ([401, 403].includes(respuesta.status)) throw fallo("denegado", respuesta.status);
+        if (respuesta.status === 404) throw fallo("no_disponible", respuesta.status);
         if (!respuesta.ok || respuesta.status !== 200) throw fallo("consulta_fallida", respuesta.status);
         return await leerLimitado(respuesta);
       } catch (error) {
