@@ -28,6 +28,9 @@ func TestErrorConstitucionCargaConvocaSeparaDenegacion(t *testing.T) {
 	if err := errorConstitucionCargaConvoca(ctx, &pgconn.PgError{Code: "42501"}); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		t.Fatalf("42501: %v", err)
 	}
+	if err := errorConstitucionCargaConvoca(ctx, &pgconn.PgError{Code: "VA172"}); !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
+		t.Fatalf("VA172 debe ser fallo técnico, no denegación: %v", err)
+	}
 	if err := errorConstitucionCargaConvoca(ctx, &pgconn.PgError{Code: "23505"}); !errors.Is(err, ports.ErrConstitucionBolsaEnConflicto) {
 		t.Fatalf("23505: %v", err)
 	}
