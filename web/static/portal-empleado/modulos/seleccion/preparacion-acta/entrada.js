@@ -1,5 +1,5 @@
-import { leerArchivo } from './modelo.js?v=20261003-s5-acta-visor-v2';
-import { pintarSalida } from './vista.js?v=20261003-s5-acta-visor-v2';
+import { leerArchivo } from './modelo.js?v=20261007-s5-cotejo-local-v1';
+import { pintarSalida } from './vista.js?v=20261007-s5-cotejo-local-v1';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -27,7 +27,7 @@ archivo.addEventListener('change', async () => {
   try {
     const resultado = await leerArchivo(seleccionado); if (!activa || actual !== turno) return;
     pintarSalida({ raiz, dto: resultado.dto, textos }); carga = resultado; descargar.disabled = false;
-    mensaje('cargado');
+    mensaje(Object.hasOwn(resultado.dto, 'cotejo_local') ? 'cargado_cotejo_declarado' : 'cargado');
   } catch (error) { if (activa && actual === turno) { retirar(); mensaje(error.message === 'tamano' ? 'error_tamano' : 'error_formato', true); } }
 }, { signal: eventos.signal });
 cerrar.addEventListener('click', () => { retirar(); archivo.value = ''; mensaje('vacio'); archivo.focus(); }, { signal: eventos.signal });

@@ -17,6 +17,7 @@
   "vacio": "Open a preparation tool file to review the proposals.",
   "cargando": "Reading the file…",
   "cargado": "Draft opened. Review the proposals and the outstanding checks.",
+  "cargado_cotejo_declarado": "Draft opened. The file declares a local check of the board and phase. Check its source and current validity before acting.",
   "descargar": "Download unverified original",
   "cerrar": "Close file",
   "descarga_lista": "Download prepared with the original bytes. The file remains unverified and does not establish a session or its agreements.",
@@ -31,8 +32,10 @@
   "sin_fecha": "No proposed date",
   "fase": "Process phase",
   "fase_pendiente": "Proposed · Phase membership still needs checking",
+  "fase_cotejo_declarado": "The file declares a local check · Confirm in the current process",
   "antecedente": "Board preparation",
   "antecedente_pendiente": "Supplied reference and hash · Not checked",
+  "antecedente_cotejo_declarado": "The file declares a local check · Source and current validity pending",
   "agenda": "Proposed agenda",
   "agenda_limite": "Texts prepared for a proposed session. Item numbers link each agenda item to its proposed agreements.",
   "agenda_vacio": "No proposed agenda items. Complete the agenda in the preparation tool material.",
@@ -46,6 +49,7 @@
   "detalle_archivo": "File data",
   "ver_detalle": "View references, supplied hash and full content",
   "referencias_limite": "References and the hash come from the proposal. They are not queried or checked against the original board preparation.",
+  "referencias_limite_cotejo_declarado": "The file declares a check against a local board output. This viewer does not repeat that check or verify the output's source or current validity.",
   "identidad_material": "Local proposal identifier",
   "version_material": "Local proposal version",
   "sesion_ref": "Proposed session reference",
@@ -53,6 +57,7 @@
   "antecedente_ref": "Supplied board preparation reference",
   "antecedente_version": "Supplied board preparation version",
   "antecedente_huella": "Supplied hash · Not checked",
+  "antecedente_huella_cotejo_declarado": "Declared hash of local output · Source unverified",
   "sin_dato": "No data supplied",
   "campos": {
     "antecedente_tribunal": "Referenced board preparation",
@@ -74,7 +79,9 @@
   },
   "motivos": {
     "antecedente_no_cotejado": "Check the supplied reference and hash against the original board preparation. This file does not establish the board's current composition.",
+    "antecedente_cotejado_local": "The file declares a check against the local preparation. Check who issued it and whether it is still current.",
     "pertenencia_no_verificada": "Check that the phase belongs to the stated process and board. The proposed reference does not establish this.",
+    "fase_cotejada_local": "The file declares that the phase appears in the local preparation. Confirm its current validity and the members' authority to act.",
     "circuito_pendiente": "Pending its authorised process and corresponding evidence. This draft does not establish the action.",
     "material_ausente": "Complete this data in the preparation tool material and generate the output again."
   }

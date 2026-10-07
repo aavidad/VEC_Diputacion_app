@@ -7,11 +7,13 @@ function datos(d, pares) {
 }
 export function pintarSalida({ raiz, dto, textos }) {
   const d = raiz.ownerDocument, t = textos.traducir, m = dto.preparacion.material_propuesto;
+  const cotejoDeclarado = Object.hasOwn(dto, 'cotejo_local');
   const fragmento = d.createDocumentFragment();
   const contexto = panel(d, t('contexto_material'));
   contexto.cuerpo.append(nodo(d, 'p', t('borrador_local'), 'insignia aviso'), nodo(d, 'p', t('sesion_limite')),
     datos(d, [[t('fecha'), m.fecha_propuesta ? textos.fecha(m.fecha_propuesta, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Madrid' }) : t('sin_fecha')],
-      [t('fase'), t('fase_pendiente')], [t('antecedente'), t('antecedente_pendiente')]]));
+      [t('fase'), t(cotejoDeclarado ? 'fase_cotejo_declarado' : 'fase_pendiente')],
+      [t('antecedente'), t(cotejoDeclarado ? 'antecedente_cotejo_declarado' : 'antecedente_pendiente')]]));
   fragmento.append(contexto.elemento);
   const propuestas = nodo(d, 'div', undefined, 'rejilla-dos');
   for (const [nombre, lista] of [['agenda', m.orden_dia_propuesto], ['acuerdos', m.acuerdos_propuestos]]) {
@@ -38,9 +40,9 @@ export function pintarSalida({ raiz, dto, textos }) {
   }
   pendientes.cuerpo.append(lista); fragmento.append(pendientes.elemento);
   const archivo = panel(d, t('detalle_archivo')), detalle = nodo(d, 'details'); detalle.append(nodo(d, 'summary', t('ver_detalle')),
-    nodo(d, 'p', t('referencias_limite'), 'texto-secundario'), datos(d, [[t('identidad_material'), m.identidad_material], [t('version_material'), textos.numero(m.version_material)],
+    nodo(d, 'p', t(cotejoDeclarado ? 'referencias_limite_cotejo_declarado' : 'referencias_limite'), 'texto-secundario'), datos(d, [[t('identidad_material'), m.identidad_material], [t('version_material'), textos.numero(m.version_material)],
       [t('sesion_ref'), m.sesion_ref || t('sin_dato')], [t('fase_ref'), m.fase_propuesta],
       [t('antecedente_ref'), m.antecedente_tribunal.identidad_material], [t('antecedente_version'), textos.numero(m.antecedente_tribunal.version_material)],
-      [t('antecedente_huella'), m.antecedente_tribunal.huella_aportada_sha256]]), nodo(d, 'pre', JSON.stringify(dto, null, 2), 'acta-original'));
+      [t(cotejoDeclarado ? 'antecedente_huella_cotejo_declarado' : 'antecedente_huella'), m.antecedente_tribunal.huella_aportada_sha256]]), nodo(d, 'pre', JSON.stringify(dto, null, 2), 'acta-original'));
   archivo.cuerpo.append(detalle); fragmento.append(archivo.elemento); raiz.replaceChildren(fragmento);
 }
