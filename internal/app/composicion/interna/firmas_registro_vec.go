@@ -6,9 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -28,7 +26,7 @@ var errRegistroFirmaVecGobernadoNoDisponible = errors.New("composicion interna: 
 // configuración privada aprobada; vacío deja la ruta sin componer.
 type dependenciasRegistroFirmaVecGobernado struct {
 	Configuracion                     Configuracion
-	OrigenHTTPS                       string
+	DirectorioMaterial                string
 	Identidad                         *httpseguridad.ServicioIdentidad
 	Fachada                           *FachadaIdentidadOffline
 	Extractor                         *extractorCertificadoPersonalDirecto
@@ -51,11 +49,15 @@ func nuevoPuenteRegistroFirmaVecGobernado(d dependenciasRegistroFirmaVecGobernad
 		d.Extractor.registro == nil || d.ProveedoresCT == nil ||
 		interfazNulaIdentidadOffline(d.Revalidador) || interfazNulaIdentidadOffline(d.Resolutor) ||
 		interfazNulaIdentidadOffline(d.Auditoria) || interfazNulaIdentidadOffline(d.Reloj) ||
-		manejadorNulo(d.ManejadorCT) || !origenRegistroFirmaVecGobernadoValido(d.Configuracion, d.OrigenHTTPS) ||
+		manejadorNulo(d.ManejadorCT) ||
 		d.PoliticaRef == "" || !strings.HasPrefix(d.PoliticaHuellaSHA256, "sha256:") ||
 		d.Extractor.emisorID != d.Configuracion.EmisorIdentidad ||
 		d.Extractor.audiencia != d.Configuracion.Audiencia ||
 		!d.Extractor.retirada.Equal(d.Configuracion.RetiradaPoliticaInternaEn) {
+		return nil, nil, errRegistroFirmaVecGobernadoNoDisponible
+	}
+	origen, err := cargarOrigenFirmaVecPrivado(d.DirectorioMaterial, d.Configuracion.NombreServidorTLS)
+	if err != nil {
 		return nil, nil, errRegistroFirmaVecGobernadoNoDisponible
 	}
 	autorizacion := d.ProveedoresCT.FuenteAutorizacionV3()
@@ -81,7 +83,7 @@ func nuevoPuenteRegistroFirmaVecGobernado(d dependenciasRegistroFirmaVecGobernad
 		},
 		Vinculador: d.Fachada, Emisor: d.Extractor.emisor,
 		Acreditador: acreditadorRegistroCertificadoFirmaVec{registro: d.Extractor.registro},
-		Auditoria:   d.Auditoria, Origen: d.OrigenHTTPS,
+		Auditoria:   d.Auditoria, Origen: origen,
 		EmisorID: d.Extractor.emisorID, Audiencia: d.Extractor.audiencia,
 		Reloj: d.Reloj,
 	})
@@ -93,17 +95,6 @@ func nuevoPuenteRegistroFirmaVecGobernado(d dependenciasRegistroFirmaVecGobernad
 		return nil, nil, errRegistroFirmaVecGobernadoNoDisponible
 	}
 	return puente, entorno.FuenteSesionFirmanteV2(), nil
-}
-
-func origenRegistroFirmaVecGobernadoValido(cfg Configuracion, origen string) bool {
-	if origen == "" || cfg.NombreServidorTLS == "" {
-		return false
-	}
-	u, err := url.Parse(origen)
-	return err == nil && u.Scheme == "https" && u.Host != "" &&
-		u.User == nil && u.Path == "" && u.RawPath == "" && u.RawQuery == "" &&
-		u.Fragment == "" && u.Opaque == "" && u.String() == origen &&
-		net.ParseIP(u.Hostname()) == nil && strings.EqualFold(u.Hostname(), cfg.NombreServidorTLS)
 }
 
 type acreditadorRegistroCertificadoFirmaVec struct {

@@ -12,28 +12,23 @@ import (
 )
 
 func TestOrigenRegistroFirmaVecGobernadoExigeNombreTLSYURLPrivada(t *testing.T) {
-	cfg := Configuracion{NombreServidorTLS: "vec.example.invalid"}
-	for _, c := range []struct {
-		origen string
-		valido bool
-	}{
-		{"https://vec.example.invalid", true},
-		{"https://vec.example.invalid:8443", true},
-		{"", false},
-		{"http://vec.example.invalid", false},
-		{"https://127.0.0.1:8443", false},
-		{"https://otro.example.invalid", false},
-		{"https://vec.example.invalid/ruta", false},
-		{"https://vec.example.invalid?identidad=persona", false},
-		{"https://usuario@vec.example.invalid", false},
-	} {
-		if obtuvo := origenRegistroFirmaVecGobernadoValido(cfg, c.origen); obtuvo != c.valido {
-			t.Fatalf("origen %q: %t", c.origen, obtuvo)
-		}
+	directorio := t.TempDir()
+	if err := os.Chmod(directorio, 0o700); err != nil {
+		t.Fatal(err)
 	}
-	cfg.NombreServidorTLS = ""
-	if origenRegistroFirmaVecGobernadoValido(cfg, "https://vec.example.invalid") {
-		t.Fatal("sin nombre TLS gobernado aceptó origen")
+	if _, err := cargarOrigenFirmaVecPrivado(directorio, "vec.example.invalid"); err == nil {
+		t.Fatal("sin fichero privado aceptó origen")
+	}
+	ruta := filepath.Join(directorio, nombreArchivoOrigenFirmaVec)
+	if err := os.WriteFile(ruta, []byte("origen_firma_vec=https://vec.example.invalid:8443\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	origen, err := cargarOrigenFirmaVecPrivado(directorio, "vec.example.invalid")
+	if err != nil || origen != "https://vec.example.invalid:8443" {
+		t.Fatalf("origen privado: %v", err)
+	}
+	if _, err := cargarOrigenFirmaVecPrivado(directorio, "otro.example.invalid"); err == nil {
+		t.Fatal("host ajeno al nombre TLS aceptado")
 	}
 }
 
