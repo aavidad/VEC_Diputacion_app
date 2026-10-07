@@ -141,9 +141,11 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			DetalleColeccion:   true,
 		},
 	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...)
-	descriptores = append(descriptores,
-		descriptorFronteraComunDesarrollo{Clave: claveFronteraVistaPreviaCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa},
-		descriptorFronteraComunDesarrollo{Clave: claveFronteraConfirmarCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaConfirmarCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa})
+	if len(capacidades) > 2 && capacidades[2] {
+		descriptores = append(descriptores,
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraVistaPreviaCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraConfirmarCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaConfirmarCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa})
+	}
 	if len(capacidades) > 1 && capacidades[1] {
 		descriptores = append(descriptores, descriptorFronteraComunDesarrollo{
 			Clave: claveFronteraReincorporacionesTitularBolsa, Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -186,7 +188,6 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			Fronteras:      []string{claveFronteraConsultarBorradorLlamamientoBolsa},
 			Politica:       politica,
 		},
-		{Accion: puertosbolsa.AccionConfirmarCargaConvoca, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa, Fronteras: []string{claveFronteraVistaPreviaCargaConvocaBolsa, claveFronteraConfirmarCargaConvocaBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionCambiarSituacionParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraOperacionesSituacionBolsa, claveFronteraContratosParticipacionBolsa, claveFronteraConsultarSancionesBolsa, claveFronteraRecursoSancionBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSolicitudesDocumentalesRRHH, Fronteras: []string{claveFronteraSolicitudesDocumentalesRRHH}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
@@ -196,6 +197,12 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		// nunca la de registro (la consulta completa consume esta decisión).
 		{Accion: puertosbolsa.AccionConsultarDatosContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarDatosContactoBolsa, Fronteras: []string{claveFronteraConsultarDatosContactoBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa, claveFronteraPublicarOfertaBolsa, claveFronteraConsultarOfertaBolsa, claveFronteraResolverOfertaBolsa, claveFronteraPlantillaCorreoLlamamientoBolsa, claveFronteraVistaPreviaCorreoLlamamientoBolsa}, Politica: politica},
+	}
+	if len(capacidades) > 2 && capacidades[2] {
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+			Accion: puertosbolsa.AccionConfirmarCargaConvoca, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+			ClaveCapacidad: claveCapacidadCargaConvocaBolsa, Fronteras: []string{claveFronteraVistaPreviaCargaConvocaBolsa, claveFronteraConfirmarCargaConvocaBolsa}, Politica: politica,
+		})
 	}
 	if len(capacidades) > 1 && capacidades[1] {
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
