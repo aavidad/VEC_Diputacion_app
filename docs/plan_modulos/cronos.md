@@ -95,6 +95,19 @@ H9 queda como antecedente de diagnóstico; ninguna huella suya sirve para
 instalar sobre el núcleo actual. U puede preparar los DTO y pruebas de
 contrato de CRN11 mientras espera, sin escribir en Personal ni en autorización.
 
+## Corte C3p preparado: consulta anual de saldo
+
+La construcción del saldo agrupa una vez los marcajes por fecha local. Conserva
+el orden de la fuente, el cambio de hora y las listas vacías del contrato. La
+prueba focal final y la revisión independiente de seguridad han pasado.
+
+En local, con 10.000 marcajes y 365 días, la mediana de tres ejecuciones del
+benchmark de agrupación baja de 219,09 ms a 1,47 ms. El constructor completo
+tarda 2,30 ms; estas cifras miden cálculo en memoria, sin base de datos ni
+petición HTTP. La puerta completa de la candidata está pendiente. La medición
+de petición y pintado útil sigue abierta; C3p no acredita activar Cronos ni
+cerrar la recuperación nominal C5a.
+
 ## Puerta de cada corte
 
 Identidad y perfil vienen del servidor; autorización positiva por acción,
