@@ -508,7 +508,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   });
   await cargarConDiferidos(coordinador); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
   // Con el cargador real se sondean RPT y estructura; sin fuente (503) no se ofrecen.
-  assert.deepEqual(llamadas, ["/api/vec/personal/rpt-publica?q=&limit=1&offset=0", "/api/vec/personal/estructura-organizativa-publica"]);
+  assert.deepEqual(llamadas, ["/api/vec/personal/rpt-publica?q=&limit=1&offset=0&enlaces=1", "/api/vec/personal/estructura-organizativa-publica"]);
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
