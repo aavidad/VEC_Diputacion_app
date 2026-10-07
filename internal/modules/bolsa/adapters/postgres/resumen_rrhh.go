@@ -13,8 +13,8 @@ import (
 // maximoFilasResumenBolsas acota lo que se acepta de la base antes de crecer.
 const maximoFilasResumenBolsas = 200000
 
-// LectorResumenBolsasPostgreSQL lee las dos funciones de conjunto de Bolsa
-// 000082. Ambas comprueban en la base el rol de quien llama.
+// LectorResumenBolsasPostgreSQL lee las funciones de conjunto B82 y el
+// recuento agrupado B85. Todas comprueban en la base el rol de quien llama.
 type LectorResumenBolsasPostgreSQL struct{ pool *pgxpool.Pool }
 
 var _ ports.LectorResumenBolsas = (*LectorResumenBolsasPostgreSQL)(nil)
@@ -26,36 +26,80 @@ func NuevoLectorResumenBolsasPostgreSQL(pool *pgxpool.Pool) (*LectorResumenBolsa
 	return &LectorResumenBolsasPostgreSQL{pool: pool}, nil
 }
 
-// consultaResumenBolsas es lo que necesitan las dos lecturas de una transacción.
+// consultaResumenBolsas es lo que necesitan las lecturas de una transacción.
 type consultaResumenBolsas interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
-// LeerResumen lee situaciones y políticas en una misma transacción
-// REPEATABLE READ de solo lectura: las dos ven la misma instantánea. Una
-// participación NULL (constitución sin entradas) o cualquier fila
-// incoherente hace fallar la lectura entera.
-func (l *LectorResumenBolsasPostgreSQL) LeerResumen(ctx context.Context, corte time.Time) ([]ports.SituacionResumenParticipacion, map[string]dominiobolsa.PoliticaOrdenBolsa, error) {
+// LeerResumen lee situaciones, políticas y recuentos en una transacción
+// REPEATABLE READ de solo lectura. Una participación NULL, una bolsa sin
+// recuento o cualquier fila incoherente hace fallar la lectura entera.
+func (l *LectorResumenBolsasPostgreSQL) LeerResumen(ctx context.Context, corte time.Time) (ports.ResumenBolsasRRHH, error) {
+	var vacio ports.ResumenBolsasRRHH
 	if l == nil || l.pool == nil || ctx == nil || corte.IsZero() {
-		return nil, nil, ports.ErrResumenBolsasNoDisponible
+		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, nil, ports.ErrResumenBolsasNoDisponible
+		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
 	defer tx.Rollback(context.Background())
 	filas, err := leerSituacionesResumen(ctx, tx, corte)
 	if err != nil {
-		return nil, nil, err
+		return vacio, err
 	}
 	politicas, err := leerPoliticasResumen(ctx, tx, corte)
 	if err != nil {
-		return nil, nil, err
+		return vacio, err
+	}
+	conteos, err := leerLlamamientosEnCursoResumen(ctx, tx)
+	if err != nil {
+		return vacio, err
+	}
+	esperadas := make(map[string]struct{}, len(politicas))
+	for _, fila := range filas {
+		esperadas[fila.BolsaRef] = struct{}{}
+	}
+	if len(conteos) != len(esperadas) {
+		return vacio, ports.ErrResumenBolsasNoDisponible
+	}
+	for bolsaRef := range esperadas {
+		if _, existe := conteos[bolsaRef]; !existe {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
 	}
 	if tx.Commit(ctx) != nil {
-		return nil, nil, ports.ErrResumenBolsasNoDisponible
+		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	return filas, politicas, nil
+	return ports.ResumenBolsasRRHH{Situaciones: filas, Politicas: politicas, LlamamientosEnCurso: conteos}, nil
+}
+
+func leerLlamamientosEnCursoResumen(ctx context.Context, consulta consultaResumenBolsas) (map[string]int, error) {
+	filas, err := consulta.Query(ctx, `SELECT bolsa_ref,llamamientos_en_curso
+		FROM vec_bolsa_llamamientos.leer_llamamientos_en_curso_bolsas_v1()`)
+	if err != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	defer filas.Close()
+	salida := map[string]int{}
+	for filas.Next() {
+		if len(salida) >= maximoFilasResumenBolsas {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		var bolsaRef string
+		var total int
+		if err := filas.Scan(&bolsaRef, &total); err != nil || bolsaRef == "" || total < 0 {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		if _, repetida := salida[bolsaRef]; repetida {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		salida[bolsaRef] = total
+	}
+	if filas.Err() != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return salida, nil
 }
 
 func leerSituacionesResumen(ctx context.Context, consulta consultaResumenBolsas, corte time.Time) ([]ports.SituacionResumenParticipacion, error) {
