@@ -122,7 +122,7 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.Path != "/api/vec/observabilidad/errores-cliente" {
+	if r.URL.RawQuery != "" || !peticionRutaExactaCanonica(r) || r.URL.Path != "/api/vec/observabilidad/errores-cliente" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -130,11 +130,8 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	if h.emisorIncidencias == nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-	if _, nulo := h.emisorIncidencias.(ports.EmisorIncidenciasTecnicasNulo); nulo {
+	aceptador, disponible := h.emisorIncidencias.(ports.AceptadorIncidenciasTecnicasConContexto)
+	if !disponible || dependenciaRutaExactaNula(aceptador) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
@@ -156,11 +153,14 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 	// validado y descartado. La única correlación del registro es la generada
 	// por el middleware confiable para esta petición.
 	_ = dato.Correlacion
-	ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), h.emisorIncidencias, domain.SolicitudIncidenciaTecnica{
+	if !aceptador.AceptarConContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
 		Codigo: dato.Codigo, Componente: domain.ComponenteIncidenciaPortalWeb,
 		Etapa: etapaErrorCliente(dato.Codigo),
-	})
-	w.WriteHeader(http.StatusNoContent)
+	}) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func etapaErrorCliente(codigo domain.CodigoIncidenciaTecnica) domain.EtapaIncidenciaTecnica {

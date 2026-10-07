@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,20 +10,35 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type emisorErroresClientePrueba struct {
 	solicitudes []domain.SolicitudIncidenciaTecnica
+	rechazar    bool
 }
 
 func (e *emisorErroresClientePrueba) Emitir(s domain.SolicitudIncidenciaTecnica) {
 	e.solicitudes = append(e.solicitudes, s)
 }
 
+func (e *emisorErroresClientePrueba) EmitirConContexto(_ context.Context, s domain.SolicitudIncidenciaTecnica) {
+	e.Emitir(s)
+}
+
+func (e *emisorErroresClientePrueba) AceptarConContexto(_ context.Context, s domain.SolicitudIncidenciaTecnica) bool {
+	if e.rechazar {
+		return false
+	}
+	e.Emitir(s)
+	return true
+}
+
 const cuerpoErrorClientePrueba = `{"pantalla":"portal_empleado","codigo":"CLIENTE_FALLO_NO_CLASIFICADO","correlacion":"0123456789abcdef0123456789abcdef"}`
 
 func peticionErrorClientePrueba(cuerpo string) *http.Request {
-	r := httptest.NewRequest(http.MethodPost, "http://vec.local/api/vec/observabilidad/errores-cliente", strings.NewReader(cuerpo))
+	r := httptest.NewRequest(http.MethodPost, "/api/vec/observabilidad/errores-cliente", strings.NewReader(cuerpo))
+	r.Host = "vec.local"
 	r.Header.Set("Origin", "http://vec.local")
 	r.Header.Set("Sec-Fetch-Site", "same-origin")
 	r.Header.Set("Content-Type", "application/json")
@@ -34,8 +51,8 @@ func TestErroresClienteRutaInternaEmiteSoloCatalogoTecnico(t *testing.T) {
 	r := peticionErrorClientePrueba(cuerpoErrorClientePrueba)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("POST = %d; esperado 204", w.Code)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("POST = %d; esperado 202", w.Code)
 	}
 	if len(emisor.solicitudes) != 1 || emisor.solicitudes[0].Codigo != domain.IncidenciaClienteFalloNoClasificado ||
 		emisor.solicitudes[0].Componente != domain.ComponenteIncidenciaPortalWeb ||
@@ -59,6 +76,8 @@ func TestErroresClienteRechazaFronterasYJSONNoCerrado(t *testing.T) {
 		{"sitio ajeno", cuerpoErrorClientePrueba, func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }, 403},
 		{"tipo ajeno", cuerpoErrorClientePrueba, func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }, 415},
 		{"query", cuerpoErrorClientePrueba, func(r *http.Request) { r.URL.RawQuery = "persona=1" }, 400},
+		{"raw path", cuerpoErrorClientePrueba, func(r *http.Request) { r.URL.RawPath = "/api/vec/observabilidad/%65rrores-cliente" }, 400},
+		{"guion escapado", cuerpoErrorClientePrueba, func(r *http.Request) { r.URL.RawPath = "/api/vec/observabilidad/errores%2dcliente" }, 400},
 		{"texto libre", strings.Replace(cuerpoErrorClientePrueba, `}`, `,"mensaje":"DNI 12345678Z"}`, 1), nil, 400},
 		{"clave duplicada", strings.Replace(cuerpoErrorClientePrueba, `"codigo":`, `"codigo":"MODULO_WEB_NO_CARGADO","codigo":`, 1), nil, 400},
 		{"codigo ajeno", strings.Replace(cuerpoErrorClientePrueba, "CLIENTE_FALLO_NO_CLASIFICADO", "DNI_12345678Z", 1), nil, 400},
@@ -83,6 +102,18 @@ func TestErroresClienteRechazaFronterasYJSONNoCerrado(t *testing.T) {
 	}
 }
 
+func TestErroresClienteNoPuedeSombrearseConRutaExacta(t *testing.T) {
+	const ruta = "/api/vec/observabilidad/errores-cliente"
+	if !rutaColisionaConShellVEC(ruta) {
+		t.Fatal("la ruta técnica no está reservada")
+	}
+	_, err := prepararRutasExactas([]RutaExacta{{Ruta: ruta,
+		Manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})}}, autoridadRutasExactasPrueba{})
+	if !errors.Is(err, ErrRutaExactaInvalida) {
+		t.Fatalf("colisión = %v; esperado ErrRutaExactaInvalida", err)
+	}
+}
+
 func TestErroresClienteRequierePermisoYEmisorReal(t *testing.T) {
 	r := peticionErrorClientePrueba(cuerpoErrorClientePrueba)
 	emisor := &emisorErroresClientePrueba{}
@@ -93,6 +124,9 @@ func TestErroresClienteRequierePermisoYEmisorReal(t *testing.T) {
 	}{
 		{&Handler{emisorIncidencias: emisor}, principalConPermisosExpresosPrueba(), 403},
 		{&Handler{}, principalConPermisosExpresosPrueba("vec.session.read"), 503},
+		{&Handler{emisorIncidencias: ports.EmisorIncidenciasTecnicasNulo{}}, principalConPermisosExpresosPrueba("vec.session.read"), 503},
+		{&Handler{emisorIncidencias: (*emisorErroresClientePrueba)(nil)}, principalConPermisosExpresosPrueba("vec.session.read"), 503},
+		{&Handler{emisorIncidencias: &emisorErroresClientePrueba{rechazar: true}}, principalConPermisosExpresosPrueba("vec.session.read"), 503},
 	} {
 		w := httptest.NewRecorder()
 		caso.h.atenderErroresCliente(w, r.Clone(r.Context()), caso.principal)
