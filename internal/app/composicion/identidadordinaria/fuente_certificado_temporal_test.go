@@ -20,6 +20,9 @@ const cuentaAjenaTemporalPrueba = "cta_ajena0123456789abcdefghijkl"
 type registroDosCuentasTemporalPrueba struct {
 	base            *registroPrueba
 	cuentaSiguiente string
+	cancelar        context.CancelFunc
+	cancelarEn      int
+	consultas       int
 }
 
 func (r *registroDosCuentasTemporalPrueba) ConsumirAsercionYRegistrar(ctx context.Context, alta httpseguridad.AltaSesionAtomica) (httpseguridad.ConfirmacionAltaSesion, error) {
@@ -41,7 +44,14 @@ func (r *registroDosCuentasTemporalPrueba) ConsumirAsercionYRegistrar(ctx contex
 }
 
 func (r *registroDosCuentasTemporalPrueba) ComprobarSesionYCuentaActivas(ctx context.Context, consulta httpseguridad.ConsultaSesionActiva) error {
-	return r.base.ComprobarSesionYCuentaActivas(ctx, consulta)
+	err := r.base.ComprobarSesionYCuentaActivas(ctx, consulta)
+	if err == nil && r.cancelar != nil {
+		r.consultas++
+		if r.consultas == r.cancelarEn {
+			r.cancelar()
+		}
+	}
+	return err
 }
 
 type controlTemporalPrueba struct {
@@ -418,5 +428,35 @@ func TestCertificadoTemporalConservaPlazoTrasExitoDeFuenteV3(t *testing.T) {
 		err.Error() != ErrCertificadoTemporalNoDisponible.Error() || sesion.vinculo.Validar() == nil ||
 		e.autorizacion.llamadas != 1 {
 		t.Fatalf("vencimiento sin causa, mensaje opaco o salida parcial: %v", err)
+	}
+}
+
+func TestCertificadoTemporalConservaCancelacionDuranteAmbosCotejosDeSujeto(t *testing.T) {
+	for _, caso := range []struct {
+		nombre      string
+		cancelarEn  int
+		consultasV3 int
+	}{
+		{"primer cotejo", 2, 0},
+		{"segundo cotejo", 3, 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e, f, control := nuevoEntornoCertificadoTemporalPrueba(t)
+			ctx, cancelar := context.WithCancel(e.ctx)
+			defer cancelar()
+			control.registro.cancelar = cancelar
+			control.registro.cancelarEn = caso.cancelarEn
+			sesion, err := f.Abrir(ctx)
+			if err == nil || !errors.Is(err, context.Canceled) ||
+				!errors.Is(err, ErrCertificadoTemporalNoDisponible) ||
+				!errors.Is(err, httpseguridad.ErrSesionNoValida) ||
+				err.Error() != ErrCertificadoTemporalNoDisponible.Error() ||
+				sesion.vinculo.Validar() == nil ||
+				control.registro.consultas != caso.cancelarEn ||
+				e.autorizacion.llamadas != caso.consultasV3 {
+				t.Fatalf("el cotejo %s perdió la cancelación o entregó datos: %v (consultas=%d, V3=%d)",
+					caso.nombre, err, control.registro.consultas, e.autorizacion.llamadas)
+			}
+		})
 	}
 }

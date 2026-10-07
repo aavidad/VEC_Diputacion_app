@@ -33,6 +33,17 @@ func falloCertificadoTemporal(causa error) error {
 	return &errorCertificadoTemporal{causa: causa}
 }
 
+// Algunas autoridades reducen una cancelación a su error opaco. Conservamos
+// ambos motivos para el llamador interno sin revelar ninguno en Error().
+func falloCertificadoTemporalAutoridad(ctx context.Context, causa error) error {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return falloCertificadoTemporal(errors.Join(causa, err))
+		}
+	}
+	return falloCertificadoTemporal(causa)
+}
+
 // PoliticaCertificadoTemporal identifica la política privada exacta que emitió
 // ServicioIdentidad. La retirada limita toda sesión, aunque su certificado o
 // su asignación de perfil aún sean vigentes.
@@ -227,7 +238,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 	}
 	cuenta, auditoria, err := f.identidad.ExtraerCapsulaIdentidadPeticion(ctx)
 	if err != nil {
-		return vacia, falloCertificadoTemporal(err)
+		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
 	if cuenta.Validar() != nil || cuenta.Metodo != core.AuthMethodCertificate ||
 		cuenta.Garantia != core.AuthAssuranceSubstantial ||
@@ -249,7 +260,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},
 		f.resolutor, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: nominal.PerfilActivoRef}, f.reloj)
 	if err != nil {
-		return vacia, falloCertificadoTemporal(err)
+		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
 	if err := ctx.Err(); err != nil {
 		return vacia, falloCertificadoTemporal(err)
@@ -264,7 +275,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, d.PrincipalID); err != nil {
-		return vacia, falloCertificadoTemporal(err)
+		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
 	empleadoRef, empleadoHasta, ok := empleadoAcreditado(resultado, ahora)
 	if !ok {
@@ -272,7 +283,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 	}
 	snapshot, err := f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, nominal.PerfilActivoRef)
 	if err != nil {
-		return vacia, falloCertificadoTemporal(err)
+		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
 	if err := ctx.Err(); err != nil {
 		return vacia, falloCertificadoTemporal(err)
@@ -297,7 +308,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		return vacia, falloCertificadoTemporal(err)
 	}
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, d.PrincipalID); err != nil {
-		return vacia, falloCertificadoTemporal(err)
+		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
 	if err := ctx.Err(); err != nil {
 		return vacia, falloCertificadoTemporal(err)
