@@ -60,8 +60,9 @@ su incidencia técnica común `ARRANQUE_FALLIDO`.
 
 El registro JSON de arranque contiene servicio, versión, entorno y superficie.
 No incluye el texto del error, rutas de archivos, credenciales ni DSN. La línea
-fatal posterior indica la etapa y un diagnóstico saneado. Conserva los mensajes
-internos conocidos, como «material criptografico de desarrollo invalido» o
+fatal posterior indica la etapa, el componente que falló y un diagnóstico
+saneado. Conserva los mensajes internos conocidos, como «material criptografico
+de desarrollo invalido» o
 «auditoria.intentos.configuracion_no_disponible». Para PostgreSQL muestra el
 SQLSTATE, sin el mensaje de la base; para ficheros y red omite rutas, direcciones
 y usuarios. Si el error es texto libre no catalogado, muestra su tipo técnico,

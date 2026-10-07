@@ -126,8 +126,9 @@ func main() {
 		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		causa := telemetria.ClaseErrorArranque(err)
+		componente := bootstrap.ComponenteFalloArranque(err)
 		registrarArranque("composicion", "fallida", causa)
-		log.Fatalf("bootstrap server: etapa=composicion causa=%s error=%s", causa, telemetria.MensajeErrorArranque(err))
+		log.Fatalf("bootstrap server: etapa=composicion componente=%s causa=%s error=%s", componente, causa, telemetria.MensajeErrorArranque(err))
 	}
 	// Registro de acceso técnico: una línea JSON por petición en stderr. Va
 	// dentro de la supervisión, que aporta la correlación.
