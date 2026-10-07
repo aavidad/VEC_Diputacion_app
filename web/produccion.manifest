@@ -51,6 +51,14 @@ static/area-personal/vistas/seguimiento-tramites.js
 static/area-personal/vistas-disponibles.js
 static/area-personal/vistas.json
 static/bolsa/bolsa.css
+static/canal-interno/index.html
+static/canal-interno/canal-interno.css
+static/canal-interno/canal-interno.js
+static/canal-interno/destinos.json
+static/textos/es/canal-interno.json
+static/textos/en/canal-interno.json
+static/textos/es/canal-interno-error.json
+static/textos/en/canal-interno-error.json
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
 static/bolsa/contrato-publico-bolsas.js
@@ -229,6 +237,8 @@ static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/textos/es/portal.json
 static/textos/en/portal.json
+static/textos/es/portal-arranque.json
+static/textos/en/portal-arranque.json
 static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
@@ -423,6 +433,7 @@ static/portal-empleado/portal-llamamientos-contrato.js
 static/portal-empleado/portal-llamamientos-flujo.js
 static/portal-empleado/portal-llamamientos-operaciones-api.js
 static/portal-empleado/portal-menu-bolsa.css
+static/portal-empleado/portal-llamamientos-selector.js
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
 static/portal-empleado/portal-modulos-carga.js
@@ -437,6 +448,7 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal-pagina-larga.css
+static/portal-empleado/portal-arranque-aviso.js
 static/portal-empleado/portal.js
 static/textos/es/bolsa.json
 static/textos/en/bolsa.json

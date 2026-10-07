@@ -199,6 +199,7 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargarFasesCircuito: async () => ({ solicitud: "Firma de la petición" }),
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
@@ -496,7 +497,7 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(iniciados, ["contratacion_temporal"], "solo el módulo con entrada");
+  assert.deepEqual(iniciados, ["contratacion_temporal", "contratacion_temporal"], "solo el módulo con entrada; su importación se reintenta una vez");
   assert.equal(coordinador.resolverAcceso("personal").estado, "diferido");
   assert.equal(coordinador.vistaPendiente("personal"), true, "su URL directa dice «Comprobando», no «no disponible»");
   const carga = coordinador.prepararVista("personal");
@@ -508,7 +509,7 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
   await carga;
   assert.equal(coordinador.vistaDisponible("personal"), true);
   assert.deepEqual(iniciados.filter((clave) => clave !== "personal_catalogos_publicos"),
-    ["contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
+    ["contratacion_temporal", "contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
   assert.equal(coordinador.vistaPendiente("cronos"), true);
 });
 
@@ -614,7 +615,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261002-r-rrhh18-v3",
+    "/portal-empleado/portal-bolsas-api.js?v=20261007-bolsa-ficha-estadisticas-v1",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261002-r-rrhh18-v3",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",

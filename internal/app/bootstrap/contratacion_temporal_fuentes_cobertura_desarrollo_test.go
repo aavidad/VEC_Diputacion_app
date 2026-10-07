@@ -37,7 +37,7 @@ func TestFuentesCoberturaDesarrolloFirmanVerificanYSeRecuperanTrasReinicio(
 		t.Fatalf("consultar fuente firmada: %v", err)
 	}
 	datos, err := resultado.Datos()
-	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionAfirmativa ||
+	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionNoConsta ||
 		datos.Comprobacion.FuenteRef != autoridadFuenteCoberturaDesarrollo {
 		t.Fatalf("resultado sintético inesperado: %#v, %v", datos, err)
 	}
@@ -115,7 +115,7 @@ func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.
 			categoriaAltaContratacionTemporalDesarrollo, periodo, caso.via,
 			caso.comprobacion, caso.procedencia,
 		)
-		if !existe || resultado != domain.ComprobacionAfirmativa {
+		if !existe || resultado != domain.ComprobacionNoConsta {
 			t.Fatalf("sin resultado explícito para %#v: %q, %t", caso, resultado, existe)
 		}
 	}
@@ -152,7 +152,7 @@ func TestFuenteCoberturaDesarrolloAdmitePeriodoDelRecorridoRRHH(t *testing.T) {
 		t.Fatalf("consultar periodo documentado de RRHH: %v", err)
 	}
 	datos, err := resultado.Datos()
-	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionAfirmativa {
+	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionNoConsta {
 		t.Fatalf("resultado sintetico inesperado: %#v, %v", datos, err)
 	}
 }
@@ -173,7 +173,7 @@ func TestFuenteCoberturaDesarrolloAdmitePeriodoDelAnalisisExistente(t *testing.T
 		t.Fatalf("consultar periodo documentado de RRHH: %v", err)
 	}
 	datos, err := resultado.Datos()
-	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionAfirmativa {
+	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionNoConsta {
 		t.Fatalf("resultado sintetico inesperado: %#v, %v", datos, err)
 	}
 }
@@ -366,18 +366,18 @@ func assertSecretosFuentesCoberturaBorrados(
 	}
 }
 
-func TestFuenteCoberturaDesarrolloRespondePorCualquierCategoriaDelCatalogo(t *testing.T) {
+func TestFuenteCoberturaDesarrolloNoAcreditaBolsaSinLecturaNominal(t *testing.T) {
 	t.Parallel()
 	fuente := &fuenteComprobacionCoberturaDesarrollo{registros: registrosCoberturaSinteticosDesarrollo(viasCoberturaPredeterminadasCT())}
 	periodo := domain.PeriodoPrevisto{
 		Inicio: time.Date(2027, 2, 4, 0, 0, 0, 0, time.UTC),
 		Fin:    time.Date(2027, 5, 5, 0, 0, 0, 0, time.UTC),
 	}
-	if resultado, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionAfirmativa {
-		t.Fatalf("una categoría del catálogo con periodo nuevo debe tener bolsa vigente: %q %t", resultado, existe)
+	if resultado, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
+		t.Fatalf("una categoría sin lectura de Bolsa no debe acreditarse: %q %t", resultado, existe)
 	}
-	if resultado, existe := fuente.resultadoPara(categoriaSinCoberturaDesarrollo, periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNegativa {
-		t.Fatalf("la categoría sin cobertura debe ser negativa: %q %t", resultado, existe)
+	if resultado, existe := fuente.resultadoPara(categoriaSinCoberturaDesarrollo, periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
+		t.Fatalf("la categoría sin lectura tampoco acredita ausencia de Bolsa: %q %t", resultado, existe)
 	}
 	if _, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "oferta_sae", "existe_bolsa_vigente", "bolsa"); existe {
 		t.Fatal("un cruce de vía y comprobación no debe existir")
@@ -420,12 +420,12 @@ func TestFuenteCoberturaDesarrolloNoConfundeCausasDeFin(t *testing.T) {
 	distinta := periodo
 	distinta.CausaFin = "cobertura_reglamentaria"
 	distinta.PoliticaFin.CausaFin = distinta.CausaFin
-	if consulta(distinta) != domain.ComprobacionAfirmativa {
+	if consulta(distinta) != domain.ComprobacionNoConsta {
 		t.Fatal("un resultado de otra causa se reutilizó")
 	}
 	mismaCausaOtraRegla := periodo
 	mismaCausaOtraRegla.PoliticaFin.CatalogoVersion++
-	if consulta(mismaCausaOtraRegla) != domain.ComprobacionAfirmativa {
+	if consulta(mismaCausaOtraRegla) != domain.ComprobacionNoConsta {
 		t.Fatal("un resultado de otra versión de regla se reutilizó")
 	}
 }

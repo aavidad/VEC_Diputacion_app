@@ -25,6 +25,7 @@
 .usuarios .enlace-fila { min-height: 32px; padding: 4px 0; border: 0; background: transparent; color: var(--portal-azul-700); font-weight: 600; text-align: start; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .usuarios-perfiles { display: grid; gap: 16px; margin: 12px 0 24px; padding: 0; list-style: none; }
 .usuarios-perfiles > li { padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.usuarios-accion-perfil:not(:empty) { display: flex; justify-content: flex-end; margin-top: 12px; }
 .usuarios-acceso { margin-top: 24px; }
 .usuarios-fila-perfil { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .usuarios-seleccion { display: grid; gap: 16px; margin: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
@@ -32,7 +33,7 @@
 .usuarios-opcion { padding: 12px 0; }
 .usuarios-opcion + .usuarios-opcion { border-top: 1px solid var(--portal-borde); }
 .usuarios-checkbox { display: flex; gap: 12px; align-items: center; font-weight: 600; min-height: 44px; cursor: pointer; }
-.usuarios-checkbox input { width: 24px; height: 24px; accent-color: var(--portal-azul-700); }
+.usuarios-checkbox input { flex: none; width: 24px; height: 24px; accent-color: var(--portal-azul-700); }
 .usuarios-historia { margin-top: 24px; }
 .usuarios-historia > summary { min-height: 44px; cursor: pointer; color: var(--portal-azul-700); font-weight: 600; }
 .usuarios-historial { display: grid; gap: 20px; padding-left: 24px; }
@@ -43,6 +44,23 @@
 .usuarios .acciones-paso { flex-wrap: wrap; }
 .usuarios-ayuda { max-width: 68ch; }
 .usuarios-ayuda p { padding: 12px; background: var(--portal-superficie-alterna); }
+/* Cambio de perfiles por lote: dos vías al principio, pasos y errores de campo. */
+.cambio-vias { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 16px; }
+.boton-via { display: grid; gap: 4px; min-height: 88px; padding: 16px 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); text-align: start; cursor: pointer; }
+.boton-via strong { color: var(--portal-azul-700); font-size: 1.05rem; }
+.boton-via span { color: var(--portal-muted); }
+.boton-via:hover:not(:disabled), .boton-via:focus-visible { border-color: var(--portal-azul-700); background: var(--portal-azul-100); }
+.boton-via:disabled { cursor: not-allowed; opacity: 0.6; }
+.cambio-paso { margin: 0 0 4px; color: var(--portal-muted); font-size: 0.85rem; }
+.cambio-aviso { margin: 0; }
+.cambio-aviso:not(:empty) { padding: 12px 20px 0; }
+.usuarios .error-campo { color: var(--portal-peligro); font-weight: 600; }
+.usuarios .obligatorio, .usuarios .opcional { color: var(--portal-muted); font-weight: 400; font-size: inherit; }
+.usuarios fieldset.grupo-campo { margin: 0; padding: 0; border: 0; }
+.usuarios .acciones-ficha { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.usuarios form.cuerpo-panel { display: grid; gap: 16px; }
+.usuarios .campo > .ayuda-campo { margin: 0; color: var(--portal-muted); font-weight: 400; }
+.usuarios fieldset .usuarios-checkbox { font-weight: 400; font-size: 0.9rem; }
 @media (max-width: 850px) { .usuarios-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-height: 650px) { .usuarios { max-height: none; } .usuarios-trabajo { overflow: visible; } }
 @media (max-width: 600px) {
@@ -52,4 +70,5 @@
   .usuarios .cabecera-panel { flex-wrap: wrap; }
   .usuarios .cuerpo-panel { padding: 16px; }
   .usuarios .acciones-paso button { flex: 0 1 auto; width: 100%; min-height: 44px; }
+  .cambio-vias { grid-template-columns: minmax(0, 1fr); }
 }
