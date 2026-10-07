@@ -79,6 +79,9 @@
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256", "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"]},
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"]},
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"]},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_APROBACION_REF", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_CARGA_CONVOCA_PROVISION_PREIMAGEN_SHA256", "VEC_BOLSA_CARGA_CONVOCA_PROVISION_OBJETIVO_SHA256"], "nota": "Provisión aprobada del permiso RRHH para cargar bolsas desde CONVOCA."},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_PREIMAGEN_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_CARGA_CONVOCA_PROVISION_APROBACION_REF"]},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_OBJETIVO_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_CARGA_CONVOCA_PROVISION_APROBACION_REF"]},
 
     {"variable": "VEC_BOLSA_BORRADORES_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Pantallas internas de RRHH de Bolsa (borrador de llamamiento, B-BACK)."},
     {"variable": "VEC_BOLSA_PORTAL_CANDIDATO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Acciones propias del candidato en «Mi bolsa»."},
