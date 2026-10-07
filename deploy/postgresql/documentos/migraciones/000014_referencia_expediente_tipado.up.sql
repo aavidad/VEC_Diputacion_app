@@ -16,6 +16,8 @@ BEGIN
     OR to_regclass('vec_documentos.modulo_referencia_expediente_v1') IS NOT NULL
     OR to_regprocedure('vec_documentos.referencia_expediente_v1(text)') IS NOT NULL
     OR to_regprocedure('vec_documentos.referencia_expediente_modulo_v1(text,text)') IS NOT NULL
+    OR to_regprocedure('vec_documentos.referencia_expediente_formato_v1(text,text)') IS NOT NULL
+    OR to_regprocedure('vec_documentos.exigir_catalogo_expediente_v1()') IS NOT NULL
     OR to_regclass('vec_documentos.documento') IS NULL
     OR to_regclass('vec_documentos.referencia_externa') IS NULL
     OR to_regclass('vec_documentos.reserva_original_firmable') IS NULL
@@ -70,15 +72,42 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET row
 $f$;
 REVOKE ALL ON FUNCTION vec_documentos.referencia_expediente_modulo_v1(text,text) FROM PUBLIC;
 
+-- Los CHECK se evalúan también al restaurar un dump, antes de cargar datos
+-- de tablas que no son dependencia de la fila. Por eso comprueban el formato
+-- fijo sin consultar el catálogo; el trigger exige además su fila publicada
+-- al insertar en funcionamiento ordinario.
+CREATE FUNCTION vec_documentos.referencia_expediente_formato_v1(modulo text,p text) RETURNS boolean
+LANGUAGE sql IMMUTABLE SECURITY DEFINER SET search_path=pg_catalog, pg_temp AS $f$
+ SELECT coalesce(vec_documentos.referencia_opaca_v1(p) OR
+   (modulo='contratacion_temporal' AND p ~ '^expediente:ct:[0-9a-f]{64}$'),false)
+$f$;
+REVOKE ALL ON FUNCTION vec_documentos.referencia_expediente_formato_v1(text,text) FROM PUBLIC;
+
+CREATE FUNCTION vec_documentos.exigir_catalogo_expediente_v1() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET row_security=on AS $f$
+BEGIN
+ IF NOT vec_documentos.referencia_expediente_modulo_v1(NEW.modulo_id,NEW.expediente_ref)
+ THEN RAISE EXCEPTION 'documentos: referencia de expediente no publicada'
+   USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_documentos.exigir_catalogo_expediente_v1() FROM PUBLIC;
+
 ALTER TABLE vec_documentos.documento DROP CONSTRAINT documento_expediente_ref_check;
 ALTER TABLE vec_documentos.documento ADD CONSTRAINT documento_expediente_ref_check
- CHECK(vec_documentos.referencia_expediente_modulo_v1(modulo_id,expediente_ref));
+ CHECK(vec_documentos.referencia_expediente_formato_v1(modulo_id,expediente_ref));
 ALTER TABLE vec_documentos.referencia_externa DROP CONSTRAINT referencia_externa_expediente_ref_check;
 ALTER TABLE vec_documentos.referencia_externa ADD CONSTRAINT referencia_externa_expediente_ref_check
- CHECK(vec_documentos.referencia_expediente_modulo_v1(modulo_id,expediente_ref));
+ CHECK(vec_documentos.referencia_expediente_formato_v1(modulo_id,expediente_ref));
 ALTER TABLE vec_documentos.reserva_original_firmable DROP CONSTRAINT reserva_original_firmable_expediente_ref_check;
 ALTER TABLE vec_documentos.reserva_original_firmable ADD CONSTRAINT reserva_original_firmable_expediente_ref_check
- CHECK(vec_documentos.referencia_expediente_modulo_v1(modulo_id,expediente_ref));
+ CHECK(vec_documentos.referencia_expediente_formato_v1(modulo_id,expediente_ref));
+CREATE TRIGGER validar_expediente_tipado BEFORE INSERT ON vec_documentos.documento
+ FOR EACH ROW EXECUTE FUNCTION vec_documentos.exigir_catalogo_expediente_v1();
+CREATE TRIGGER validar_expediente_tipado BEFORE INSERT ON vec_documentos.referencia_externa
+ FOR EACH ROW EXECUTE FUNCTION vec_documentos.exigir_catalogo_expediente_v1();
+CREATE TRIGGER validar_expediente_tipado BEFORE INSERT ON vec_documentos.reserva_original_firmable
+ FOR EACH ROW EXECUTE FUNCTION vec_documentos.exigir_catalogo_expediente_v1();
 
 -- Reemplazo puntual de las guardas de ámbito instaladas. pg_get_functiondef
 -- conserva firma, owner, SECURITY DEFINER, search_path, opciones y ACL; la

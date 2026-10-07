@@ -34,6 +34,12 @@ BEGIN
                    WHERE codigo='ct' AND modulo_id='contratacion_temporal'
                      AND version=1 AND patron_id='^[0-9a-f]{64}$')
  THEN RAISE EXCEPTION 'Documentos-14: catálogo divergente'; END IF;
+ IF (SELECT count(*) FROM pg_trigger t
+     WHERE t.tgname='validar_expediente_tipado' AND NOT t.tgisinternal
+       AND t.tgrelid IN ('vec_documentos.documento'::regclass,
+         'vec_documentos.referencia_externa'::regclass,
+         'vec_documentos.reserva_original_firmable'::regclass))<>3
+ THEN RAISE EXCEPTION 'Documentos-14: trigger de catálogo incompleto'; END IF;
  PERFORM set_config('vec.documentos.expediente_ref',tipada,true);
  INSERT INTO vec_documentos.referencia_externa(
    id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,
