@@ -61,7 +61,8 @@ async function leerRespuestaAcotada(respuesta) {
     }
     return texto + decodificador.decode();
   } catch (error) {
-    await Promise.resolve(lector.cancel()).catch(() => {});
+    try { await lector.cancel(); }
+    catch (secundario) { throw new AggregateError([error, secundario], `${error.message}; error al cancelar la lectura`); }
     throw error;
   } finally {
     lector.releaseLock();
