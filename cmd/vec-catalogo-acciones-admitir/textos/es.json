@@ -1,0 +1,15 @@
+{
+  "uso_invalido": "Indique la fase y los datos necesarios para esa operación.",
+  "configuracion_insegura": "No se puede abrir la configuración privada con seguridad.",
+  "configuracion_invalida": "La configuración privada está incompleta o es inválida.",
+  "conexion_no_disponible": "No se puede conectar con la base de datos autorizada.",
+  "catalogo_no_disponible": "No se puede recuperar esa instantánea publicada.",
+  "catalogo_consultado": "Instantánea publicada recuperada.",
+  "plan_inseguro": "No se puede abrir el plan aprobado con seguridad.",
+  "plan_invalido": "El plan no coincide con la huella indicada o contiene un catálogo inválido.",
+  "admision_no_confirmada": "No se pudo confirmar la admisión. Consulte el estado antes de repetirla.",
+  "commit_indeterminado": "No se conoce el resultado de la confirmación. Consulte el recibo con la misma operación.",
+  "admision_rechazada": "La autoridad ha rechazado la admisión del catálogo.",
+  "admision_no_disponible": "La autoridad no ha podido tramitar la admisión. Consulte el estado antes de repetirla.",
+  "catalogo_admitido": "El catálogo quedó admitido con recibo durable."
+}
