@@ -438,3 +438,16 @@ test("los controles de rutas sin consumidor se retiran del DOM y se conserva la 
   aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
   assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
 });
+
+
+test("las rutas pendientes conservan su vista al navegar y al pintar tras F5 sin habilitar operaciones", () => {
+  const inicio = codigoPortal.indexOf("function vistaPermitida(");
+  const fin = codigoPortal.indexOf("\n}\n", inicio);
+  const decidir = new Function("vistaBolsaPendienteNoCompuesta", `${codigoPortal.slice(inicio, fin + 3)}; return vistaPermitida;`)(vistaBolsaPendienteNoCompuesta);
+  for (const vista of ["contratos", "documentos", "comunicaciones", "convocatorias"]) {
+    assert.equal(decidir(vista), true);
+    assert.equal(vistaBolsaOfrecida(vista, { bolsasConsultables: true, panelInterno: true }), false);
+  }
+  const montar = codigoPortal.slice(codigoPortal.indexOf("function montarVistaBolsa("), codigoPortal.indexOf("function actualizarVistaBolsa("));
+  assert.match(montar, /if \(vistaBolsaPendienteNoCompuesta\(vista\)\) \{\s*contenedor.innerHTML = renderizarFuenteNoDisponible\(\);\s*return;/u);
+});

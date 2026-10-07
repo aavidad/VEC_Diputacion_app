@@ -323,6 +323,8 @@ function capacidadesBolsa() {
   };
 }
 function vistaPermitida(vista) {
+  // Una ruta conocida sin consumidor sólo muestra su estado; no abre ninguna operación.
+  if (vistaBolsaPendienteNoCompuesta(vista)) return true;
   if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
