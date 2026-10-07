@@ -36,8 +36,8 @@
   "referencias": "Referencias propuestas",
   "plazos_limite": "Estas fechas son propuestas. Consulte las bases publicadas para confirmar los plazos. Hora de Madrid.",
   "documentos_limite": "Las rutas son propuestas. El visor no abre ni descarga estos documentos.",
-  "referencias_limite": "Los documentos citados siguen pendientes de comprobación. Ábralos y revise su vigencia antes de continuar.",
-  "huellas": "Ver detalles de comprobación",
+  "referencias_limite": "Aquí solo se muestran referencias. Consulte los documentos originales por la vía oficial y compruebe su vigencia antes de continuar.",
+  "huellas": "Ver códigos de comprobación",
   "detalle_archivo": "Datos del archivo",
   "ver_detalle_archivo": "Ver borrador completo y detalles de la revisión",
   "limite_original": "Límite declarado por el archivo",
@@ -111,11 +111,11 @@
   "consulta_actual": "Última revisión conservada",
   "consulta_exacta": "Una revisión concreta",
   "consulta_revision": "Número de revisión · Obligatorio",
-  "consulta_huella": "Dato de comprobación · Obligatorio",
+  "consulta_huella": "Código de comprobación · Obligatorio",
   "consulta_validacion": {
     "referencia": "Indique una referencia válida, sin espacios y de hasta 180 caracteres.",
     "revision": "Indique un número de revisión entre 1 y 1.000.000.",
-    "huella": "Introduzca el dato de comprobación de 64 caracteres que recibió con la revisión."
+    "huella": "Introduzca el código de comprobación recibido: 64 caracteres en minúsculas, solo números del 0 al 9 y letras de la a a la f."
   },
   "consultar": "Consultar preparación",
   "cancelar": "Cancelar consulta",

@@ -38,7 +38,7 @@
     "puntos": "Points",
     "regla": "Section",
     "total": "Total",
-    "huella": "Assessment detail",
+    "huella": "Assessment verification code",
     "coeficiente": "Points per unit",
     "maximo": "Point cap"
   },
@@ -165,7 +165,7 @@
     "sin_asignaciones": "The trial did not produce allocations.",
     "incidencia_pendiente": "An issue in this trial needs review.",
     "personas_pendientes": "Unallocated: {personas}.",
-    "huella_resultado": "Result detail",
+    "huella_resultado": "Result verification code",
     "bloqueo": "An official decision requires approved rules, a stored case, review, signature and registration.",
     "configuracion_invalida": "Enter a trial reference or version of between 1 and 160 characters.",
     "mover_desempate": "{accion} criterion {orden}",
@@ -211,7 +211,7 @@
     "restablecer": "Reset trial scenario"
   },
   "ciclo": {
-    "limite": "Appeal and review preview. Use the vacancy procedure to submit an appeal.",
+    "limite": "Objection and review preview. Use the vacancy procedure to submit an objection.",
     "elegir": "Decision to trial",
     "catalogo": "Cause catalogue version",
     "simular": "Run objection and review trial",
@@ -229,9 +229,9 @@
     "sin_efectos": "No signature, publication or official effects.",
     "version_resolucion": "The draft retains assessment {version}.",
     "dependencia_pendiente": "A dependency remains unresolved.",
-    "huella_versiones": "View assessment details",
-    "version_huella": "Version {version}: {huella}",
-    "bloqueo": "You cannot submit an appeal or sign a decision here yet. Check the vacancy procedure.",
+    "huella_versiones": "View assessment verification codes",
+    "version_huella": "Version {version} · Verification code: {huella}",
+    "bloqueo": "You cannot submit an objection or sign a decision here yet. Check the vacancy procedure.",
     "casos": {
       "pendiente": "Leave objection pending",
       "mantener": "Maintain the assessment",

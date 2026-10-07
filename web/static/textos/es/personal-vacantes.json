@@ -43,7 +43,7 @@
     "version_rpt_ref": "Versión de RPT de origen",
     "fuente_ref": "Referencia de procedencia",
     "acto_ref": "Referencia de acto",
-    "fuente_huella_sha256": "Detalle del origen",
+    "fuente_huella_sha256": "Código de comprobación de la procedencia",
     "vacio": "No hay resultados para el ámbito y las fechas consultadas.",
     "cargando": "Consultando las plazas del registro…",
     "error": "No se han podido consultar las plazas. Reintente la consulta.",

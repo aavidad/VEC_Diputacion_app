@@ -6,7 +6,7 @@
     "origen": "View source",
     "fecha_registro": "Recorded on",
     "version_hecho": "Data revision",
-    "version_fuente": "Document revision",
+    "version_fuente": "Origin version",
     "version_ficha": "Record version",
     "acto": "Source act",
     "servicios": "Service periods",
@@ -19,12 +19,12 @@
     "conocido_en": "Information known up to",
     "sin_denominacion": "Employment regime without a name",
     "relacion": "Relationship {numero}: {regimen} · {estado}",
-    "fuente": "Source document",
+    "fuente": "Origin",
     "estado_revision_anterior": "{estado} · Superseded version",
     "estado_ultima_revision": "{estado} · Latest known version"
   },
   "pendientes": {
-    "fuente_institucional": "The document supporting these records still needs to be checked.",
+    "fuente_institucional": "The origin of these records needs confirmation.",
     "cobertura_antecedentes": "The completeness of the required background has yet to be confirmed.",
     "politica_carrera": "The approved career progression policy defining the requirements is missing.",
     "sin_relacion": "No employment relationship is recorded at this cutoff.",

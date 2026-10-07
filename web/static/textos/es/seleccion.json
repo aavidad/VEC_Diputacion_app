@@ -186,7 +186,7 @@
     "ver_detalle": "Ver detalles de la revisión",
     "referencias_limite": "Compruebe el origen del archivo y la aprobación de las calificaciones antes de utilizarlas.",
     "ejemplo_ref": "Referencia del ejemplo",
-    "huella": "Detalle del antecedente",
+    "huella": "Código de comprobación del antecedente",
     "configuracion_version": "Versión de configuración",
     "estado": {
       "apta": "Supera las fases del ensayo",

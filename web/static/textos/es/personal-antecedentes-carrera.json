@@ -6,7 +6,7 @@
     "origen": "Ver origen",
     "fecha_registro": "Fecha de registro",
     "version_hecho": "Revisión del dato",
-    "version_fuente": "Revisión del documento",
+    "version_fuente": "Versión de procedencia",
     "version_ficha": "Versión de la ficha",
     "acto": "Acto de origen",
     "servicios": "Periodos de servicio",
@@ -19,12 +19,12 @@
     "conocido_en": "Información conocida hasta",
     "sin_denominacion": "Régimen sin denominación",
     "relacion": "Relación {numero}: {regimen} · {estado}",
-    "fuente": "Documento de origen",
+    "fuente": "Procedencia",
     "estado_revision_anterior": "{estado} · Versión sustituida",
     "estado_ultima_revision": "{estado} · Última versión conocida"
   },
   "pendientes": {
-    "fuente_institucional": "Falta comprobar el documento que respalda estos antecedentes.",
+    "fuente_institucional": "Falta confirmar la procedencia de estos antecedentes.",
     "cobertura_antecedentes": "Falta confirmar que constan todos los antecedentes necesarios.",
     "politica_carrera": "Falta la política aprobada de Carrera que determina los requisitos.",
     "sin_relacion": "No consta una relación de servicio en este corte.",

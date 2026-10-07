@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare a requirements review or draft list. Check submitted documents and current rules before deciding. Preparation does not submit corrections or publish lists.",
+  "ayuda": "Prepare a requirements review or draft list from a JSON file read through standard input. Use --salida preparacion, antecedente, aportacion, lista-provisional, antecedente-lista, lista-definitiva or revision-provisional. Set --idioma and --catalogos-dir; for lists, set --catalogo-admision-dir and --catalogo-admision. The output does not submit corrections or publish lists.",
   "seleccion_admision_entrada_invalida": "The review could not be prepared. Check the format, references and versions of the supplied material.",
   "seleccion_admision_salida_no_disponible": "The result could not be written. Check the destination and prepare it again.",
   "seleccion_admision_causa_fuentes_no_verificadas": "The documents and their connection to the application still need checking.",

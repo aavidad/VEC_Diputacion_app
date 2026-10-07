@@ -36,8 +36,8 @@
   "referencias": "Proposed references",
   "plazos_limite": "These dates are proposals. Check the published rules to confirm deadlines. Madrid time.",
   "documentos_limite": "Paths are proposals. This viewer does not open or download these documents.",
-  "referencias_limite": "The cited documents still need checking. Open them and check that they are current before continuing.",
-  "huellas": "View verification details",
+  "referencias_limite": "Only references are shown here. Obtain the original documents through the official channel and check that they are current before continuing.",
+  "huellas": "View verification codes",
   "detalle_archivo": "File data",
   "ver_detalle_archivo": "View full draft and revision details",
   "limite_original": "Limit stated by the file",
@@ -111,11 +111,11 @@
   "consulta_actual": "Latest retained revision",
   "consulta_exacta": "A specific revision",
   "consulta_revision": "Revision number · Required",
-  "consulta_huella": "Verification detail · Required",
+  "consulta_huella": "Verification code · Required",
   "consulta_validacion": {
     "referencia": "Enter a valid reference without spaces, up to 180 characters.",
     "revision": "Enter a revision number from 1 to 1,000,000.",
-    "huella": "Enter the 64-character verification detail you received with the revision."
+    "huella": "Enter the verification code you received: 64 lowercase characters, using only digits 0 to 9 and letters a to f."
   },
   "consultar": "Look up preparation",
   "cancelar": "Cancel lookup",

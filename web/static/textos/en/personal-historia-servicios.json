@@ -29,7 +29,7 @@
     "relacion": "Relationship reference",
     "acto": "Act reference",
     "fuente": "Origin",
-    "version_fuente": "Document revision",
+    "version_fuente": "Origin version",
     "recibo": "Query reference",
     "detalle": "View query reference",
     "desplazar": "Scroll the list sideways to see all columns."

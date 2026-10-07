@@ -83,7 +83,7 @@
       "aprobacion_plan": "Obtain approval for the plan",
       "publicacion": "Publish the plan through the appropriate procedure",
       "criterios_seleccion": "Approve selection criteria",
-      "asistencia_certificacion": "Check attendance, assessment and certificates",
+      "asistencia_certificacion": "Enable attendance, assessment and certification records",
       "meritos": "Confirm how training is scored in each selection process",
       "fechas_plan": "Specify the plan dates",
       "plazas_plan": "Specify the planned places",
@@ -93,7 +93,7 @@
       "ediciones": "Define the plan editions",
       "necesidad": "Specify the training need",
       "aprobacion_edicion": "Approve the edition",
-      "inscripciones": "State how to enrol in each edition",
+      "inscripciones": "Enable enrolment in editions",
       "accion": "Link the training activity",
       "fechas_edicion": "Specify the edition dates",
       "plazas_edicion": "Specify the edition places",
@@ -104,8 +104,8 @@
     },
     "checklist": {
       "for001": "Prepare the plan and editions",
-      "for002": "Prepare enrolment and attendance tracking",
-      "for003": "Prepare assessment and certificate review"
+      "for002": "Enable selection, enrolment and attendance tracking",
+      "for003": "Enable assessment and certificate viewing"
     }
   },
   "comprobaciones_ediciones": "Pending checks by edition",

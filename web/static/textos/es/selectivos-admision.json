@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare una revisión de requisitos o un borrador de lista. Compruebe los documentos aportados y las bases vigentes antes de decidir. La preparación no presenta subsanaciones ni publica listas.",
+  "ayuda": "Prepare una revisión de requisitos o un borrador de lista desde un archivo JSON leído por la entrada estándar. Use --salida preparacion, antecedente, aportacion, lista-provisional, antecedente-lista, lista-definitiva o revision-provisional. Indique --idioma y --catalogos-dir; para las listas, --catalogo-admision-dir y --catalogo-admision. La salida no presenta subsanaciones ni publica listas.",
   "seleccion_admision_entrada_invalida": "No se pudo preparar la revisión. Compruebe el formato, las referencias y las versiones del material aportado.",
   "seleccion_admision_salida_no_disponible": "No se pudo escribir el resultado. Compruebe el destino y repita la preparación.",
   "seleccion_admision_causa_fuentes_no_verificadas": "Falta comprobar los documentos y su correspondencia con la solicitud.",

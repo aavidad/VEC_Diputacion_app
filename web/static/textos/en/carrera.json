@@ -60,7 +60,7 @@
     "version": "Version {version}",
     "bloqueo": "The approved procedure, competent decision and entry in Personnel are pending. This screen only prepares the review.",
     "elegir": "Select a case to review its data.",
-    "version_fuente": "Document revision",
+    "version_fuente": "Origin version",
     "persona_pendiente": "Person’s details awaiting verification"
   },
   "exportar": {

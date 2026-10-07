@@ -38,7 +38,7 @@
     "puntos": "Puntos",
     "regla": "Apartado",
     "total": "Total",
-    "huella": "Detalle de la valoración",
+    "huella": "Código de comprobación de la valoración",
     "coeficiente": "Puntos por unidad",
     "maximo": "Tope de puntos"
   },
@@ -165,7 +165,7 @@
     "sin_asignaciones": "El ensayo no ha producido asignaciones.",
     "incidencia_pendiente": "Hay una incidencia pendiente de revisar en el ensayo.",
     "personas_pendientes": "Sin asignación: {personas}.",
-    "huella_resultado": "Detalle del resultado",
+    "huella_resultado": "Código de comprobación del resultado",
     "bloqueo": "La resolución oficial requiere bases aprobadas, expediente conservado, revisión, firma y registro.",
     "configuracion_invalida": "Introduzca una referencia o versión de ensayo de entre 1 y 160 caracteres.",
     "mover_desempate": "{accion} el criterio {orden}",
@@ -229,8 +229,8 @@
     "sin_efectos": "Sin firma, publicación ni efectos oficiales.",
     "version_resolucion": "El borrador conserva la valoración {version}.",
     "dependencia_pendiente": "Queda una dependencia por resolver.",
-    "huella_versiones": "Ver detalles de las valoraciones",
-    "version_huella": "Versión {version}: {huella}",
+    "huella_versiones": "Ver códigos de comprobación de las valoraciones",
+    "version_huella": "Versión {version} · Código de comprobación: {huella}",
     "bloqueo": "Todavía no puede presentar alegaciones ni firmar una resolución aquí. Consulte el trámite de la convocatoria.",
     "casos": {
       "pendiente": "Dejar reclamación pendiente",

@@ -22,18 +22,18 @@
     "pendiente": "Fechas o procedencia incompletas",
     "solapado": "Periodos coincidentes; revise su reconocimiento.",
     "falta_acto": "Falta el acto",
-    "falta_fuente": "Falta el documento de origen",
-    "falta_version_fuente": "Falta la revisión del documento",
+    "falta_fuente": "Falta indicar la procedencia",
+    "falta_version_fuente": "Falta la versión de procedencia",
     "falta_version_hecho": "Falta la revisión del dato",
     "falta_clase": "Falta la clase de servicio acreditada",
     "falta_periodo": "Faltan fechas válidas del periodo",
     "falta_registro": "Faltan fechas válidas del registro",
     "ver_origen": "Ver origen",
     "version_hecho": "Revisión del dato",
-    "version_fuente": "Revisión del documento",
+    "version_fuente": "Versión de procedencia",
     "referencias": "Ver detalles del registro",
     "acto": "Referencia del acto",
-    "fuente": "Documento de origen",
+    "fuente": "Procedencia",
     "sin_valor": "No consta"
   }
 }

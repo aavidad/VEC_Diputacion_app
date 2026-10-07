@@ -28,7 +28,7 @@
     "relacion": "Referencia de la relación",
     "acto": "Referencia del acto",
     "fuente": "Procedencia",
-    "version_fuente": "Revisión del documento",
+    "version_fuente": "Versión de procedencia",
     "recibo": "Referencia de la consulta",
     "detalle": "Ver referencia de la consulta",
     "desplazar": "Desplace la lista a los lados para ver todas las columnas."

@@ -91,7 +91,7 @@
   "catalogo_version": "Catalogue version",
   "bases_ref": "Call rules",
   "bases_version": "Call rules version",
-  "huella_bases": "Rules detail",
+  "huella_bases": "Rules verification code",
   "motivo_no_subsanable": "{motivo} (cannot be corrected)",
   "tipo_provisional": "Provisional list",
   "tipo_definitiva": "Final list",
@@ -119,6 +119,6 @@
   },
   "provisional_ref": "Provisional list it comes from",
   "provisional_revision": "Provisional list revision",
-  "huella_provisional": "Provisional list detail",
+  "huella_provisional": "Provisional list verification code",
   "catalogo_ejemplo_definitiva": "Example reasons"
 }

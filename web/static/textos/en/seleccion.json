@@ -186,7 +186,7 @@
     "ver_detalle": "View revision details",
     "referencias_limite": "Check the file’s origin and approval of the marks before using them.",
     "ejemplo_ref": "Example reference",
-    "huella": "Previous record detail",
+    "huella": "Previous record verification code",
     "configuracion_version": "Configuration version",
     "estado": {
       "apta": "Passes the trial stages",

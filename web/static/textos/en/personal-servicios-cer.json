@@ -22,18 +22,18 @@
     "pendiente": "Incomplete dates or provenance",
     "solapado": "Overlapping periods; review their recognition.",
     "falta_acto": "Administrative act missing",
-    "falta_fuente": "Source document missing",
-    "falta_version_fuente": "Document revision missing",
+    "falta_fuente": "Origin needs to be stated",
+    "falta_version_fuente": "Origin version is missing",
     "falta_version_hecho": "Data revision missing",
     "falta_clase": "Verified service class missing",
     "falta_periodo": "Valid period dates missing",
     "falta_registro": "Valid record dates missing",
     "ver_origen": "View provenance",
     "version_hecho": "Data revision",
-    "version_fuente": "Document revision",
+    "version_fuente": "Origin version",
     "referencias": "View record details",
     "acto": "Act reference",
-    "fuente": "Source document",
+    "fuente": "Origin",
     "sin_valor": "Not recorded"
   }
 }

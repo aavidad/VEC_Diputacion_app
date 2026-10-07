@@ -32,7 +32,7 @@ test("muestra preparación, pendientes y cortes calculados sin referencias perso
   const panel = renderizarPreparacionAntecedentesCarrera({ modelo: m, documento: documentoFalso() });
   assert.match(texto(panel), /Antecedentes para Carrera/);
   assert.match(texto(panel), /Preparación pendiente de completar/);
-  assert.match(texto(panel), /Falta comprobar el documento que respalda estos antecedentes/);
+  assert.match(texto(panel), /Falta confirmar la procedencia de estos antecedentes/);
   assert.match(texto(panel), /Falta confirmar el puesto y su nivel/);
   assert.match(texto(panel), /reconocimiento del grado personal/);
   assert.match(texto(panel), /365/);

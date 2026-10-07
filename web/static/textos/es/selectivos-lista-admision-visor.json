@@ -91,7 +91,7 @@
   "catalogo_version": "Versión del catálogo",
   "bases_ref": "Bases",
   "bases_version": "Versión de las bases",
-  "huella_bases": "Detalle de las bases",
+  "huella_bases": "Código de comprobación de las bases",
   "motivo_no_subsanable": "{motivo} (no subsanable)",
   "tipo_provisional": "Lista provisional",
   "tipo_definitiva": "Lista definitiva",
@@ -119,6 +119,6 @@
   },
   "provisional_ref": "Lista provisional de la que parte",
   "provisional_revision": "Revisión de la provisional",
-  "huella_provisional": "Detalle de la lista provisional",
+  "huella_provisional": "Código de comprobación de la lista provisional",
   "catalogo_ejemplo_definitiva": "Motivos de ejemplo"
 }

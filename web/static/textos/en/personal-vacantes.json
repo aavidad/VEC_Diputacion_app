@@ -43,7 +43,7 @@
     "version_rpt_ref": "Source job list version",
     "fuente_ref": "Origin reference",
     "acto_ref": "Administrative action reference",
-    "fuente_huella_sha256": "Origin detail",
+    "fuente_huella_sha256": "Origin verification code",
     "vacio": "There are no results for the scope and dates queried.",
     "cargando": "Querying the posts in the register…",
     "error": "The posts could not be queried. Try the query again.",

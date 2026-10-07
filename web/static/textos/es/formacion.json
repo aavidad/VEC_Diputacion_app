@@ -83,7 +83,7 @@
       "aprobacion_plan": "Obtener la aprobación del plan",
       "publicacion": "Publicar el plan por la vía correspondiente",
       "criterios_seleccion": "Aprobar los criterios de selección",
-      "asistencia_certificacion": "Comprobar asistencia, evaluación y certificados",
+      "asistencia_certificacion": "Habilitar el registro de asistencia, evaluación y certificación",
       "meritos": "Confirmar cómo se valora la formación en cada convocatoria",
       "fechas_plan": "Concretar las fechas del plan",
       "plazas_plan": "Concretar las plazas del plan",
@@ -93,7 +93,7 @@
       "ediciones": "Definir las ediciones del plan",
       "necesidad": "Concretar la necesidad formativa",
       "aprobacion_edicion": "Aprobar la edición",
-      "inscripciones": "Indicar cómo inscribirse en cada edición",
+      "inscripciones": "Habilitar la inscripción en las ediciones",
       "accion": "Vincular la acción formativa",
       "fechas_edicion": "Concretar las fechas de la edición",
       "plazas_edicion": "Concretar las plazas de la edición",
@@ -104,8 +104,8 @@
     },
     "checklist": {
       "for001": "Preparar el plan y las ediciones",
-      "for002": "Preparar la inscripción y el seguimiento de asistencia",
-      "for003": "Preparar la revisión de evaluaciones y certificados"
+      "for002": "Habilitar selección, inscripción y seguimiento de asistencia",
+      "for003": "Habilitar evaluación y consulta de certificados"
     }
   },
   "comprobaciones_ediciones": "Comprobaciones pendientes por edición",

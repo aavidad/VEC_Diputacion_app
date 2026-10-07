@@ -60,7 +60,7 @@
     "version": "Versión {version}",
     "bloqueo": "Faltan el procedimiento aprobado, la resolución competente y la inscripción en Personal. Esta pantalla solo prepara la revisión.",
     "elegir": "Elija un caso para revisar sus datos.",
-    "version_fuente": "Revisión del documento",
+    "version_fuente": "Versión de procedencia",
     "persona_pendiente": "Datos de la persona pendientes de comprobar"
   },
   "exportar": {
