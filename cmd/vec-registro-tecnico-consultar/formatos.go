@@ -34,58 +34,67 @@ var camposOperacionAcceso = map[string]bool{
 	"nombre": true, "n": true, "total": true, "maxima": true, "errores": true,
 }
 
-func validarOperacionesAcceso(valor json.RawMessage) bool {
+func validarOperacionesAcceso(valor json.RawMessage) error {
 	var operaciones []json.RawMessage
-	if json.Unmarshal(valor, &operaciones) != nil || len(operaciones) == 0 || len(operaciones) > 17 {
-		return false
+	if err := json.Unmarshal(valor, &operaciones); err != nil {
+		return os.ErrInvalid
+	}
+	if len(operaciones) == 0 || len(operaciones) > 17 {
+		return os.ErrInvalid
 	}
 	vistas := make(map[string]bool, len(operaciones))
 	for _, operacion := range operaciones {
 		campos, err := objetoPlano(operacion)
-		if err != nil || !soloCampos(campos, camposOperacionAcceso) {
-			return false
+		if err != nil {
+			return os.ErrInvalid
+		}
+		if !soloCampos(campos, camposOperacionAcceso) {
+			return os.ErrInvalid
 		}
 		nombre, ok := cadena(campos, "nombre")
 		n, okN := entero(campos, "n", 1_000_000)
 		total, okTotal := segundos(campos, "total")
 		maxima, okMaxima := segundos(campos, "maxima")
 		if !ok || !telemetria.NombreOperacionRegistrada(nombre) || vistas[nombre] || !okN || n == 0 || !okTotal || !okMaxima || maxima > total+0.0001 {
-			return false
+			return os.ErrInvalid
 		}
 		vistas[nombre] = true
 		if bruto, presente := campos["errores"]; presente {
 			errores, err := objetoPlano(bruto)
-			if err != nil || len(errores) == 0 || len(errores) > 5 {
-				return false
+			if err != nil {
+				return os.ErrInvalid
+			}
+			if len(errores) == 0 || len(errores) > 5 {
+				return os.ErrInvalid
 			}
 			var totalErrores int64
 			for clase, cantidad := range errores {
 				if clase != "otras" {
 					if _, valida := claseErrorCerrada(clase); !valida {
-						return false
+						return os.ErrInvalid
 					}
 				}
 				valor, valido := entero(map[string]json.RawMessage{"valor": cantidad}, "valor", n)
 				if !valido || valor == 0 {
-					return false
+					return os.ErrInvalid
 				}
 				totalErrores += valor
 			}
 			if totalErrores > n {
-				return false
+				return os.ErrInvalid
 			}
 		}
 	}
-	return true
+	return nil
 }
 
-func validarMedidasSQLAcceso(objeto map[string]json.RawMessage, consultas int64, lenta bool, estado int) bool {
+func validarMedidasSQLAcceso(objeto map[string]json.RawMessage, consultas int64, lenta bool, estado int) error {
 	lotes, conLotes := objeto["vec.bd.lotes"]
 	_, conResultados := objeto["vec.bd.lote.resultados_observados"]
 	_, conErrores := objeto["vec.bd.lote.errores"]
 	_, conDuracion := objeto["vec.bd.lote.duracion_hasta_cierre"]
 	if conLotes != conResultados || conLotes != conErrores || conLotes != conDuracion {
-		return false
+		return os.ErrInvalid
 	}
 	if conLotes {
 		n, ok := entero(map[string]json.RawMessage{"lotes": lotes}, "lotes", 1_000_000)
@@ -93,19 +102,24 @@ func validarMedidasSQLAcceso(objeto map[string]json.RawMessage, consultas int64,
 		errores, okErrores := entero(objeto, "vec.bd.lote.errores", 1_000_000)
 		_, okDuracion := segundos(objeto, "vec.bd.lote.duracion_hasta_cierre")
 		if !ok || n == 0 || !okObservados || !okErrores || !okDuracion || errores > observados+n {
-			return false
+			return os.ErrInvalid
 		}
 	}
 	if _, existe := objeto["vec.bd.operaciones_desconocidas"]; existe {
 		n, ok := entero(objeto, "vec.bd.operaciones_desconocidas", consultas)
 		if !ok || n == 0 || !(lenta || estado >= 400) {
-			return false
+			return os.ErrInvalid
 		}
 	}
-	if operaciones, existe := objeto["vec.bd.operaciones"]; existe && (!(lenta || estado >= 400) || !validarOperacionesAcceso(operaciones)) {
-		return false
+	if operaciones, existe := objeto["vec.bd.operaciones"]; existe {
+		if !(lenta || estado >= 400) {
+			return os.ErrInvalid
+		}
+		if err := validarOperacionesAcceso(operaciones); err != nil {
+			return err
+		}
 	}
-	return true
+	return nil
 }
 
 var nombresFaseAcceso = map[string]bool{
@@ -117,42 +131,48 @@ var camposFaseAcceso = map[string]bool{
 	"nombre": true, "n": true, "total": true, "errores": true, "canceladas": true,
 }
 
-func validarFasesAcceso(valor json.RawMessage) bool {
+func validarFasesAcceso(valor json.RawMessage) error {
 	var fases []json.RawMessage
-	if json.Unmarshal(valor, &fases) != nil || len(fases) == 0 || len(fases) > len(nombresFaseAcceso) {
-		return false
+	if err := json.Unmarshal(valor, &fases); err != nil {
+		return os.ErrInvalid
+	}
+	if len(fases) == 0 || len(fases) > len(nombresFaseAcceso) {
+		return os.ErrInvalid
 	}
 	vistas := make(map[string]bool, len(fases))
 	for _, fase := range fases {
 		campos, err := objetoPlano(fase)
-		if err != nil || !soloCampos(campos, camposFaseAcceso) {
-			return false
+		if err != nil {
+			return os.ErrInvalid
+		}
+		if !soloCampos(campos, camposFaseAcceso) {
+			return os.ErrInvalid
 		}
 		nombre, ok := cadena(campos, "nombre")
 		n, okN := entero(campos, "n", 1_000_000)
 		_, okTotal := segundos(campos, "total")
 		if !ok || !nombresFaseAcceso[nombre] || vistas[nombre] || !okN || n == 0 || !okTotal {
-			return false
+			return os.ErrInvalid
 		}
 		vistas[nombre] = true
 		var fallos, canceladas int64
 		if _, presente := campos["errores"]; presente {
 			fallos, ok = entero(campos, "errores", n)
 			if !ok || fallos == 0 {
-				return false
+				return os.ErrInvalid
 			}
 		}
 		if _, presente := campos["canceladas"]; presente {
 			canceladas, ok = entero(campos, "canceladas", n)
 			if !ok || canceladas == 0 {
-				return false
+				return os.ErrInvalid
 			}
 		}
 		if fallos+canceladas > n {
-			return false
+			return os.ErrInvalid
 		}
 	}
-	return true
+	return nil
 }
 
 var camposArranque = map[string]bool{
@@ -333,8 +353,10 @@ func validarAcceso(objeto map[string]json.RawMessage) (registroConsulta, error) 
 	if !soloCampos(objeto, camposAcceso) {
 		return registroConsulta{}, os.ErrInvalid
 	}
-	if fases, presente := objeto["vec.fases"]; presente && !validarFasesAcceso(fases) {
-		return registroConsulta{}, os.ErrInvalid
+	if fases, presente := objeto["vec.fases"]; presente {
+		if err := validarFasesAcceso(fases); err != nil {
+			return registroConsulta{}, err
+		}
 	}
 	instante, nivel, errCabecera := cabeceraTecnica(objeto)
 	if errCabecera != nil {
@@ -359,8 +381,8 @@ func validarAcceso(objeto map[string]json.RawMessage) (registroConsulta, error) 
 		(correlacion != "" && !domain.EsCorrelacionTecnicaValida(correlacion)) {
 		return registroConsulta{}, os.ErrInvalid
 	}
-	if !validarMedidasSQLAcceso(objeto, consultas, lenta, int(estado)) {
-		return registroConsulta{}, os.ErrInvalid
+	if err := validarMedidasSQLAcceso(objeto, consultas, lenta, int(estado)); err != nil {
+		return registroConsulta{}, err
 	}
 	if estado >= 500 && nivel != "ERROR" || estado < 500 && lenta && nivel != "WARN" ||
 		estado < 500 && !lenta && nivel != "INFO" {
