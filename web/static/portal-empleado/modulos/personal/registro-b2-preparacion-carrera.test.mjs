@@ -48,7 +48,7 @@ const panel=(raiz)=>nodos(raiz).find((n)=>n.className==="panel"&&n.children[0]?.
 test("Carrera conserva pendientes globales y filtra la relación sin recalcular antecedentes",async()=>{
   let llamadas=0;let original;
   const {raiz}=montar((q)=>{llamadas++;original=respuesta(q);return original;});await completar();
-  assert.match(texto(panel(raiz)),/Falta acreditar la fuente institucional/);
+  assert.match(texto(panel(raiz)),/Falta comprobar el documento que respalda estos antecedentes/);
   assert.match(texto(raiz),/Seleccione la relación de servicio/);
   assert.doesNotMatch(texto(panel(raiz)),/Régimen sintético/);
   seleccionar(raiz,relacion);

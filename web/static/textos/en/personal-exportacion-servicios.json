@@ -14,11 +14,11 @@
   "general": {
     "descargar": "Download CSV summary",
     "preparando": "Preparing the summary…",
-    "preparada": "The server has prepared the summary and its download has started.",
+    "preparada": "The summary is ready and its download has started.",
     "error": "The summary could not be prepared. Please try again.",
     "denegado": "This query cannot be exported. Refresh the data and try again.",
     "sin_consulta": "Refresh the query before downloading the summary.",
-    "alcance": "Includes the services in this query. It does not calculate seniority or establish entitlements.",
+    "alcance": "Includes the services in this query. Contact HR to confirm seniority or entitlements.",
     "no_disponible": "Export is currently unavailable. Please try again.",
     "respuesta_no_valida": "The received file could not be verified. Please try again.",
     "sesion_caducada": "Your session has ended. Sign in again and refresh the query."

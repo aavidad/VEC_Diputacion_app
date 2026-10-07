@@ -63,5 +63,5 @@ test("catálogos completos, recuperación y estado de preparación en ambos idio
   const cargar = (idioma) => JSON.parse(readFileSync(new URL(`../../../textos/${idioma}/personal-preparacion-rectificacion.json`, import.meta.url), "utf8"));
   const claves = (c) => Object.entries(c).flatMap(([k, v]) => typeof v === "string" ? [k] : claves(v).map((x) => `${k}.${x}`)).sort();
   const es = cargar("es"), en = cargar("en"); assert.deepEqual(claves(es), claves(en));
-  assert.equal(es.general.estado, "Preparación sin presentar"); assert.match(en.general.sin_presentar, /not been sent or registered/u);
+  assert.equal(es.general.estado, "Preparación sin presentar"); assert.match(en.general.sin_presentar, /not been submitted or registered/u);
 });

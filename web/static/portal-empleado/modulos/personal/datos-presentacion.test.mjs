@@ -12,7 +12,7 @@ test("Personal entrega solo datos sintéticos, efímeros y sin efectos", () => {
   assert.equal(datos.origen.efimero, true);
   assert.equal(datos.origen.efectos_reales, false);
   assert.equal(datos.titular_ref, REFERENCIA_TITULAR_DEMO);
-  assert.match(datos.origen.aviso, /no acreditan/i);
+  assert.match(datos.origen.aviso, /son ejemplos/i);
 });
 
 test("Personal no calcula derechos ni expone importes, bases o pagos", () => {
@@ -29,6 +29,6 @@ test("cada lectura de la presentación devuelve una copia aislada", () => {
   inicial.relacion_actual.puesto = "alterado";
   inicial.servicios.pop();
   const posterior = crearDatosPersonalPresentacion();
-  assert.equal(posterior.relacion_actual.puesto, "Puesto de ejemplo · DEMO");
+  assert.equal(posterior.relacion_actual.puesto, "Puesto de ejemplo");
   assert.equal(posterior.servicios.length, 2);
 });

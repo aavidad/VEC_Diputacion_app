@@ -9,7 +9,7 @@
   "cerrar": "Close help",
   "idioma": "Language",
   "preparacion": "Preparation not submitted",
-  "limite": "Synthetic data. Changes are kept only while this screen remains open.",
+  "limite": "This screen lets you try out a score. Use the vacancy procedure to submit an application.",
   "siguiente": "Next step",
   "siguiente_texto": "Review the posts and order your preferences before simulating the assessment.",
   "tabs": {
@@ -33,12 +33,12 @@
     "preferencia": "Preference",
     "acciones": "Actions",
     "requisito": "Requirement",
-    "fuente": "Source",
+    "fuente": "Origin",
     "motivo": "Reason",
     "puntos": "Points",
     "regla": "Section",
     "total": "Total",
-    "huella": "Assessment fingerprint",
+    "huella": "Assessment detail",
     "coeficiente": "Points per unit",
     "maximo": "Point cap"
   },
@@ -87,10 +87,10 @@
   "preferencia_movida": "{puesto} is now preference {orden}.",
   "preferencia_agregada": "Post added to your preferences.",
   "preferencia_quitada": "Post removed from your preferences.",
-  "resultado_limite": "This simulation does not certify admission, publication or allocation.",
+  "resultado_limite": "Indicative result. Admission and allocation require the vacancy procedure.",
   "detalle": "Breakdown by post",
   "requisitos": "Eligibility requirements",
-  "ayuda_texto": "Review the competition and the exact RPT version of each post. Add the posts you want and reorder them with Move up and Move down. Simulation uses the competition service. Missing data does not mean zero points. This preparation does not submit an application or sign documents.",
+  "ayuda_texto": "Review the rules and details for each post. Add the posts you want and order them with Move up and Move down. Check pending merits before scoring. Use the vacancy procedure to submit an application.",
   "datos": {
     "concurso": "Competition for designated posts",
     "p1": "Administrative management lead",
@@ -143,7 +143,7 @@
   "volver_al_baremador": "Back to the scoring simulator",
   "ejemplo_selector": "Trial scenario",
   "ensayos": {
-    "limite": "Synthetic trial. It does not allocate posts or change applications.",
+    "limite": "Allocation preview. Check the vacancy announcement for the official result.",
     "ejemplo_numero": "Scenario {numero}",
     "politica_ref": "Trial policy reference",
     "politica_version": "Policy version",
@@ -165,7 +165,7 @@
     "sin_asignaciones": "The trial did not produce allocations.",
     "incidencia_pendiente": "An issue in this trial needs review.",
     "personas_pendientes": "Unallocated: {personas}.",
-    "huella_resultado": "Result fingerprint",
+    "huella_resultado": "Result detail",
     "bloqueo": "An official decision requires approved rules, a stored case, review, signature and registration.",
     "configuracion_invalida": "Enter a trial reference or version of between 1 and 160 characters.",
     "mover_desempate": "{accion} criterion {orden}",
@@ -179,7 +179,7 @@
       "validacion": "Review the marked fields and criteria before running the trial.",
       "conflicto": "The scenario has changed. Reload the trial.",
       "denegado": "You do not have access to this trial. Contact the person responsible for access.",
-      "propuesta_simulada": "Simulated proposal, without effects",
+      "propuesta_simulada": "Preview proposal",
       "pendiente": "Allocation pending",
       "no_soportado": "Configuration not supported by this trial"
     },
@@ -211,7 +211,7 @@
     "restablecer": "Reset trial scenario"
   },
   "ciclo": {
-    "limite": "Synthetic objection and review trial. It does not register objections or change administrative data.",
+    "limite": "Appeal and review preview. Use the vacancy procedure to submit an appeal.",
     "elegir": "Decision to trial",
     "catalogo": "Cause catalogue version",
     "simular": "Run objection and review trial",
@@ -229,9 +229,9 @@
     "sin_efectos": "No signature, publication or official effects.",
     "version_resolucion": "The draft retains assessment {version}.",
     "dependencia_pendiente": "A dependency remains unresolved.",
-    "huella_versiones": "View version references",
+    "huella_versiones": "View assessment details",
     "version_huella": "Version {version}: {huella}",
-    "bloqueo": "Submitting an objection or signing a decision requires an institutional case and the signature and registration procedure.",
+    "bloqueo": "You cannot submit an appeal or sign a decision here yet. Check the vacancy procedure.",
     "casos": {
       "pendiente": "Leave objection pending",
       "mantener": "Maintain the assessment",
@@ -251,7 +251,7 @@
       "publicacion_pendiente": "Publication pending",
       "efectos_personal_pendientes": "Effects in Personnel pending",
       "revision_inicial_pendiente": "Initial review pending",
-      "fuentes_pendientes": "Source data pending",
+      "fuentes_pendientes": "Information is missing to complete the review",
       "reclamaciones_pendientes": "Objections awaiting review"
     }
   }

@@ -2,10 +2,10 @@
   "general": {
     "titulo": "Service query summary",
     "descargar": "Download CSV summary",
-    "alcance": "Includes the services in this query. It does not calculate seniority or establish entitlements.",
+    "alcance": "Includes the services in this query. Contact HR to confirm seniority or entitlements.",
     "corte": "Reference date",
     "corte_no_indicado": "Not provided in the response",
-    "fuente": "Source",
+    "fuente": "Origin",
     "actualizado": "Data queried as of",
     "desde": "Start",
     "hasta": "End",

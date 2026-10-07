@@ -103,11 +103,11 @@ test("cada hecho conserva su origen legible y deja las referencias en un segundo
   const detalles = nodos(raiz).filter((n) => n.className === "personal-registro-b2-traza");
   assert.equal(detalles.length, 4);
   assert.equal(detalles.every((n) => n.children[0].tagName === "summary" && n.children[0].textContent === "Ver origen"), true);
-  assert.match(detalles[1].children[0].attrs.get("aria-label"), /fila 1 de Ocupaciones/u);
+  assert.match(detalles[1].children[0].attrs.get("aria-label"), /registro 1 de Ocupaciones/u);
   assert.doesNotMatch(textoVisible(raiz), /acto-uno|fuente-uno|plaza-uno/);
   const ocupacion = detalles[1]; ocupacion.open = true;
   assert.match(textoVisible(ocupacion), /Fecha de registro.*1 ene 2024.*Fecha de efectos.*1 ene 2024.*Fecha de fin.*1 feb 2025/u);
-  assert.match(textoVisible(ocupacion), /Versión del dato.*Estado.*Vigente.*Fuente.*Sin denominación disponible.*Acto.*Sin denominación disponible/u);
+  assert.match(textoVisible(ocupacion), /Revisión del dato.*Estado.*Vigente.*Procedencia.*Sin denominación disponible.*Acto.*Sin denominación disponible/u);
   assert.match(textoVisible(ocupacion), /Modalidad anterior.*versión 1/u);
   assert.doesNotMatch(textoVisible(ocupacion), /acto-uno|fuente-uno|plaza-uno/);
   const tecnico = buscar(ocupacion, (n) => n.className === "personal-registro-b2-traza-tecnica");
@@ -194,7 +194,7 @@ test("el alta revisada conserva cuerpo y clave en reintento incierto y muestra r
   assert.match(texto(raiz), /Confirmar registro/);
   assert.doesNotMatch(texto(raiz), /recibo_sintetico/);
   buscar(raiz, (n) => n.textContent === "Confirmar registro").listeners.get("click")(); await completar();
-  assert.match(texto(raiz), /No se pudo confirmar el resultado/);
+  assert.match(texto(raiz), /No se pudo confirmar el registro/);
   buscar(raiz, (n) => n.textContent === "Reintentar exactamente").listeners.get("click")(); await completar();
   assert.deepEqual(envios[0], envios[1]);
   assert.match(texto(raiz), /Registro ya conservado/);

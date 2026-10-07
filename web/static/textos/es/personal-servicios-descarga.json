@@ -2,10 +2,10 @@
   "general": {
     "titulo": "Resumen de la consulta de servicios",
     "descargar": "Descargar resumen CSV",
-    "alcance": "Incluye los servicios de esta consulta. No calcula antigüedad ni acredita derechos.",
+    "alcance": "Incluye los servicios de esta consulta. Para confirmar antigüedad o derechos, consulte a Personal.",
     "corte": "Fecha de referencia",
     "corte_no_indicado": "No indicada en la respuesta",
-    "fuente": "Fuente",
+    "fuente": "Procedencia",
     "actualizado": "Datos consultados a fecha de",
     "desde": "Inicio",
     "hasta": "Fin",

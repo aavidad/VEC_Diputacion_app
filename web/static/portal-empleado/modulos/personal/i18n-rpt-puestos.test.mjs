@@ -4,7 +4,7 @@ import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPue
 
 test("i18n RPT localiza recuentos e importes sin tocar el catálogo común", () => {
   const t = crearTraductorRPTPuestos();
-  assert.match(t("ayuda"), /No contiene ocupantes/);
+  assert.match(t("ayuda"), /Para confirmar la ocupación de un puesto, consulte su expediente/);
   assert.equal(formatearResumenRPTPuestos({ puestos: 842, dotacion: 1714, categorias: 145, centros: 41 }), "842 puestos · 1.714 dotaciones · 145 categorías · 41 centros");
   assert.equal(formatearResumenRPTPuestos({ puestos: 2, dotacion: 3, categorias: 4, centros: 5 }), "2 puestos · 3 dotaciones · 4 categorías · 5 centros");
   assert.equal(formatearRecuentoRPTPuestos(1, "puestos"), "1 puesto");

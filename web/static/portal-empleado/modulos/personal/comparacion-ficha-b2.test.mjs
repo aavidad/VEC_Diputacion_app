@@ -95,7 +95,7 @@ test("dos consultas frescas y evidencia plegada; resultados limitados a datos de
   assert.equal(inicia, 1); assert.equal(llamadas.length, 2);
   assert.equal(llamadas[0].empleadoRef, llamadas[1].empleadoRef);
   assert.match(visible(raiz), /Sólo en el primer corte/);
-  assert.match(visible(raiz), /no acredita su ausencia/);
+  assert.match(visible(raiz), /Un registro que no aparece puede existir/);
   assert.doesNotMatch(visible(raiz), /recibo:uno|fuente:personal|acto:registro|emp_/);
   assert.match(texto(raiz), /recibo:uno/);
 });

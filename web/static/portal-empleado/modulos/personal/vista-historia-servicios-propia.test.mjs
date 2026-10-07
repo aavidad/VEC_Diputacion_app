@@ -42,7 +42,7 @@ test("muestra revisiones anteriores y separa servicio, efectos, conocimiento y r
   assert.equal(llamadas.length, 1); assert.deepEqual(Object.keys(llamadas[0]), ["efectosDesde", "efectosHasta", "signal"]);
   const filas = nodos(raiz).filter((n) => n.tagName === "tbody")[0].children; assert.equal(filas.length, 2);
   assert.match(texto(raiz), /Información conocida hasta/u); assert.match(texto(raiz), /Consulta realizada/u);
-  assert.match(texto(raiz), /Cobertura parcial/u); assert.match(texto(raiz), /ni acredita derechos o firma/u);
+  assert.match(texto(raiz), /Cobertura parcial/u); assert.match(texto(raiz), /Para confirmar antigüedad o derechos/u);
   assert.ok(nodos(raiz).some((n) => n.textContent === "<dato fuente>")); assert.equal(nodos(raiz).some((n) => n.innerHTML), false);
   assert.equal(raiz.ownerDocument.activeElement, buscar(raiz, "personalHistoriaResultado"));
   assert.ok(nodos(raiz).some((n) => n.className === "tabla-contenedor personal-ficha-tabla" && n.attributes.get("tabindex") === "0"));
@@ -76,7 +76,7 @@ test("fechas iguales no consultan y señalan el campo con foco; vacío no cambia
   const campos = nodos(raiz).filter((n) => n.tagName === "input"); campos[1].value = campos[0].value;
   await enviar(raiz); assert.equal(llamadas, 0); assert.equal(raiz.ownerDocument.activeElement, campos[0]);
   assert.equal(campos[0].attributes.get("aria-invalid"), "true"); campos[1].value = filtros.efectosHasta;
-  await enviar(raiz); assert.equal(llamadas, 1); assert.match(texto(raiz), /Cobertura no acreditada/u); assert.match(texto(raiz), /No hay revisiones/u);
+  await enviar(raiz); assert.equal(llamadas, 1); assert.match(texto(raiz), /La información puede estar incompleta/u); assert.match(texto(raiz), /No hay revisiones/u);
 });
 
 test("catálogos ES/EN completos: mismos campos, estados y mensajes de recuperación", () => {
@@ -102,7 +102,7 @@ test("fila real prepara y reconsulta con filtros propios antes de revisar, sin e
   assert.match(texto(raiz), /Preparación sin presentar/u); await revisarPreparacion(raiz);
   assert.equal(llamadas.length, 2); assert.deepEqual(Object.keys(llamadas[1]), ["efectosDesde", "efectosHasta", "signal"]);
   assert.ok(nodos(raiz).some((n) => n.textContent === "<img src=x onerror=alert(1)>"));
-  assert.match(texto(raiz), /no se ha enviado ni registrado/u); assert.equal(nodos(raiz).some((n) => n.innerHTML), false);
+  assert.match(texto(raiz), /no se ha presentado ni registrado/u); assert.equal(nodos(raiz).some((n) => n.innerHTML), false);
   assert.match(texto(raiz), /Ver procedencia del borrador/u); assert.match(texto(raiz), /Referencia del acto/u);
   assert.match(texto(raiz), /acto:uno/u); assert.match(texto(raiz), /Efectos hasta \(no incluido\)/u);
   assert.equal(buscar(raiz, "personalRevisionRevisar"), undefined);
@@ -177,7 +177,7 @@ test("propuesta guiada por dato, errores por campo y foco conservan lo escrito s
   assert.doesNotMatch(texto(raiz), /número entero de días/u);
   propuesta.value = "comprobado"; evidencia.value = "Certificado de servicios";
   await revisarPreparacion(raiz);
-  assert.equal(llamadas, 2); assert.match(texto(raiz), /no se ha enviado ni registrado/u);
+  assert.equal(llamadas, 2); assert.match(texto(raiz), /no se ha presentado ni registrado/u);
 });
 
 test("revisión sustituida, denegación y dependencia caída borran historia y borrador anteriores", async () => {

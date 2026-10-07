@@ -63,7 +63,7 @@ test("Personal cierra la pantalla sin conservar filas tras un error", async () =
 });
 
 test("Personal distingue 401/403, 404 y 503 sin conservar filas anteriores", async () => {
-  for (const [estado, tipo, fragmento] of [[401, "denegado", /no autorizó/i], [403, "denegado", /no autorizó/i], [404, "sin_ruta", /no encontró la consulta/i], [503, "servicio_no_disponible", /temporalmente indisponible/i]]) {
+  for (const [estado, tipo, fragmento] of [[401, "denegado", /No puede consultar/i], [403, "denegado", /No puede consultar/i], [404, "sin_ruta", /no están disponibles/i], [503, "servicio_no_disponible", /temporalmente indisponible/i]]) {
     const raiz = raizFalsa(); const avisos = []; let llamadas = 0;
     await montarModuloPersonal({ raiz, anunciar: (...argumentos) => avisos.push(argumentos), cliente: { listarCategorias() {
       llamadas += 1; if (llamadas === 1) return Promise.resolve(pagina([categoria]));
@@ -135,7 +135,7 @@ test("un filtro inválido cancela la consulta anterior y evita repintar datos ta
   nodos(contenedor).find((n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
   const campo = controlPrueba(contenedor, "q"); campo.focus(); campo.value = "x".repeat(101);
   nodos(contenedor).find((n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
-  assert.equal(senal.aborted, true); assert.match(texto(contenedor), /filtro local no es válido/i);
+  assert.equal(senal.aborted, true); assert.match(texto(contenedor), /Revise la búsqueda o el área seleccionada/i);
   resolver(pagina([categoria])); await completar();
   assert.equal(contenedor.dataset.personalCategoriasEstado, "error"); assert.doesNotMatch(texto(contenedor), /Administrativo/);
   assert.equal(raiz.ownerDocument.activeElement.dataset.personalCategoriasFoco, "q");

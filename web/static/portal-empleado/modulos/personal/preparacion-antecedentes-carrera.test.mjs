@@ -32,8 +32,8 @@ test("muestra preparación, pendientes y cortes calculados sin referencias perso
   const panel = renderizarPreparacionAntecedentesCarrera({ modelo: m, documento: documentoFalso() });
   assert.match(texto(panel), /Antecedentes para Carrera/);
   assert.match(texto(panel), /Preparación pendiente de completar/);
-  assert.match(texto(panel), /Falta acreditar la fuente institucional/);
-  assert.match(texto(panel), /Organización y RPT/);
+  assert.match(texto(panel), /Falta comprobar el documento que respalda estos antecedentes/);
+  assert.match(texto(panel), /Falta confirmar el puesto y su nivel/);
   assert.match(texto(panel), /reconocimiento del grado personal/);
   assert.match(texto(panel), /365/);
   assert.doesNotMatch(textoVisible(panel), /emp_|rel_|acto:|fuente:|situacion:|servicio:|Nombre que no/);
@@ -97,7 +97,7 @@ test("usa ambos catálogos completos con el traductor común", async () => {
   assert.deepEqual(textos.faltantes, []);
   const panel = renderizarPreparacionAntecedentesCarrera({ modelo: modelo(), documento: documentoFalso(), t: textos.traducir, localizacion: textos.localizacion });
   assert.match(texto(panel), /Career progression background/);
-  assert.match(texto(panel), /Position and level/);
+  assert.match(texto(panel), /The post and its level need confirmation/);
   assert.doesNotMatch(texto(panel), /Antecedentes para Carrera|Falta acreditar/);
 });
 

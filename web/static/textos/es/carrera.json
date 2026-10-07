@@ -4,8 +4,8 @@
   "organizacion": "Diputación de Granada",
   "saltar": "Saltar al contenido",
   "idioma": "Idioma",
-  "navegacion": "Navegación del módulo",
-  "limite": "Ejercicio con datos sintéticos. Las comprobaciones preparan la revisión; no reconocen grado, progresión ni derecho a participar.",
+  "navegacion": "Apartados de Carrera",
+  "limite": "Datos de ejemplo para preparar una revisión. Este resultado no reconoce un grado ni concede el derecho a participar.",
   "carga": "Cargando los casos del ejercicio. Espere un momento.",
   "error": "No se ha podido cargar el ejercicio. Pulse Reintentar. Si el problema continúa, avise a Informática.",
   "ayuda": {
@@ -13,7 +13,7 @@
     "titulo": "Cómo revisar el ejercicio",
     "elegir": "Filtre por vía y elija una persona de ejemplo.",
     "revisar": "Revise los datos disponibles y los motivos pendientes. El nivel del puesto y el grado personal son datos distintos.",
-    "descargar": "Descargue el borrador para revisar sus fuentes y versiones. La descarga no inicia un trámite."
+    "descargar": "Descargue el borrador y compruebe los datos con sus documentos. La descarga no presenta una solicitud."
   },
   "lista": {
     "titulo": "Casos del ejercicio",
@@ -43,29 +43,29 @@
     "regimen": "Régimen",
     "nivel_puesto": "Nivel del puesto",
     "grado_personal": "Grado personal",
-    "sin_dato": "Dato pendiente de fuente",
+    "sin_dato": "Dato pendiente de comprobar",
     "regimen_pendiente": "Régimen pendiente de confirmar",
     "separacion": "El nivel describe el puesto. El grado personal requiere reconocimiento; no se obtiene a partir del nivel del puesto.",
     "comprobaciones": "Datos y comprobaciones",
     "comprobacion_pendiente": "Comprobación pendiente de definir",
-    "motivo_pendiente": "Falta confirmar el motivo en la fuente del ejercicio.",
+    "motivo_pendiente": "Falta confirmar el motivo. Consulte a la unidad de Carrera.",
     "sin_comprobaciones": "No hay comprobaciones preparadas para este caso.",
     "siguiente": "Siguiente paso pendiente",
-    "responsable": "RRHH debe confirmar las fuentes y la política aplicable antes de tramitar un reconocimiento o una solicitud.",
-    "dependencia_pendiente": "Confirmar el procedimiento, las fuentes y la unidad competente.",
-    "fuentes": "Ver fuentes y versiones",
+    "responsable": "RRHH debe revisar los datos y las reglas aplicables antes de tramitar un reconocimiento o una solicitud.",
+    "dependencia_pendiente": "Confirmar el procedimiento y la unidad competente.",
+    "fuentes": "Ver datos utilizados",
     "version_ejercicio": "Versión del ejercicio",
-    "fuente_ejercicio": "Fuente del ejercicio",
+    "fuente_ejercicio": "Datos del ejercicio",
     "referencia": "Referencia del caso",
     "version": "Versión {version}",
     "bloqueo": "Faltan el procedimiento aprobado, la resolución competente y la inscripción en Personal. Esta pantalla solo prepara la revisión.",
     "elegir": "Elija un caso para revisar sus datos.",
-    "version_fuente": "Versión de la fuente",
-    "persona_pendiente": "Persona pendiente de fuente"
+    "version_fuente": "Revisión del documento",
+    "persona_pendiente": "Datos de la persona pendientes de comprobar"
   },
   "exportar": {
     "titulo": "Borrador del ejercicio",
-    "limite": "La descarga conserva todos los casos, fuentes y versiones. No es una resolución, una inscripción ni una solicitud presentada.",
+    "limite": "La descarga incluye los casos revisados. Es un borrador; para presentar una solicitud, use el trámite correspondiente.",
     "preparado": "Se ha preparado la descarga del borrador. Compruebe la carpeta de descargas."
   },
   "acciones": {
@@ -76,7 +76,7 @@
   "carrera": {
     "comprobacion": {
       "datos": "Datos de la persona",
-      "fuentes": "Fuentes y versiones",
+      "fuentes": "Datos utilizados",
       "compatibilidad": "Compatibilidad de régimen y vía",
       "periodos": "Periodos de servicios",
       "evidencias": "Evidencias acreditadas",
@@ -88,26 +88,26 @@
       "registro": "Inscripción en Personal"
     },
     "motivo": {
-      "disponible": "El dato está disponible en el ejercicio sintético. Debe contrastarse con su fuente antes de tramitar.",
+      "disponible": "El dato está disponible para esta revisión. Compárelo con el documento correspondiente antes de continuar.",
       "datos_incompletos": "Faltan datos de la persona para preparar la revisión.",
-      "fuente_incompleta": "Falta una fuente o su versión.",
+      "fuente_incompleta": "Faltan datos para completar la revisión.",
       "regimen_pendiente": "Falta confirmar el régimen aplicable.",
-      "regimen_incompatible": "El régimen no coincide con la vía configurada en este ejercicio. RRHH debe revisar la fuente.",
+      "regimen_incompatible": "El régimen no coincide con esta vía. Compruebe los datos antes de continuar.",
       "periodos_incompletos": "Faltan periodos o sus fechas para revisar los servicios.",
-      "fecha_invalida": "Una fecha del ejercicio no es válida. Revise la fuente.",
+      "fecha_invalida": "Una fecha no es válida. Corríjala y vuelva a revisar.",
       "periodos_solapados": "Hay periodos solapados. Deben revisarse antes de computarlos.",
       "evidencia_incompleta": "Falta la evidencia o su acreditación.",
       "politica_pendiente": "No se ha confirmado una política aprobada para este procedimiento.",
       "politica_preparada": "Hay una política de ejemplo preparada. Su aprobación sigue pendiente.",
-      "convenio_pendiente": "Falta confirmar el convenio y su versión aplicable.",
+      "convenio_pendiente": "Falta confirmar el convenio aplicable.",
       "curso_prueba_pendiente": "Falta confirmar el curso y la prueba exigidos por el procedimiento.",
-      "convocatoria_pendiente": "Faltan las bases versionadas de la convocatoria.",
+      "convocatoria_pendiente": "Faltan las bases de la convocatoria.",
       "resolucion_necesaria": "El reconocimiento requiere una resolución de la unidad competente.",
       "registro_necesario": "Personal debe inscribir el acto eficaz. El ejercicio no realiza esa inscripción."
     },
     "pendiente": {
-      "datos": "Completar los datos de la persona desde su fuente.",
-      "fuentes": "Confirmar las fuentes y sus versiones.",
+      "datos": "Complete los datos de la persona.",
+      "fuentes": "Compruebe los datos y documentos utilizados.",
       "compatibilidad": "Confirmar régimen y vía con la unidad competente.",
       "periodos": "Acreditar los periodos y las fechas de servicio.",
       "evidencias": "Aportar y acreditar las evidencias necesarias.",

@@ -14,11 +14,11 @@
     "vacio": "There are no revisions within the interval and information cutoff queried.",
     "no_configurado": "Relationship history is not yet available in this portal.",
     "no_disponible": "Relationship history could not be retrieved. Please try again.",
-    "denegado": "You are not authorised to view this history. Contact Personnel if you need access.",
+    "denegado": "You cannot view this history. Contact HR if you need access.",
     "sesion_caducada": "Your session has ended. Sign in again and query again.",
     "excede_limite": "The interval contains too many revisions. Narrow the dates and query again.",
     "respuesta_no_valida": "The response could not be verified. Please query again.",
-    "alcance": "Shows revisions of your service relationships. References to acts do not prove signature or administrative effectiveness.",
+    "alcance": "View revisions of your employment records. Ask HR if you need a signed document.",
     "intervalo": "Records effective from {desde} until {hasta}, excluding the end date.",
     "conocido": "Information known as of: {fecha}",
     "consultada": "Query performed: {fecha}",
@@ -27,11 +27,11 @@
     "procedencia": "View provenance",
     "relacion": "Relationship reference",
     "acto": "Act reference",
-    "fuente": "Source",
-    "version_fuente": "Source version",
+    "fuente": "Origin",
+    "version_fuente": "Document revision",
     "recibo": "Query reference",
     "detalle": "View query reference",
-    "desplazar": "Scroll the table horizontally to see all columns."
+    "desplazar": "Scroll the list sideways to see all columns."
   },
   "columnas": {
     "estado": "Status",
@@ -49,7 +49,7 @@
   "cobertura": {
     "completa": "Complete coverage of the queried interval",
     "parcial": "Partial coverage: the history may contain other revisions.",
-    "no_acreditada": "Unconfirmed coverage: these revisions do not establish a complete history."
+    "no_acreditada": "This information may be incomplete. Contact HR if you need to confirm your full history."
   },
   "estados": {
     "vigente": "Active",
@@ -59,6 +59,6 @@
   "ayuda": {
     "periodos": "Effective start and end dates define the period of the administrative record. The end date is excluded.",
     "conocimiento": "Information known as of fixes the revisions available when queried. Registered at identifies when each revision was recorded.",
-    "versiones": "Previous revisions of each relationship are retained. References to acts do not prove signed documents."
+    "versiones": "You can view earlier revisions of each employment record. These revisions are not signed documents; ask HR if you need one."
   }
 }

@@ -9,7 +9,7 @@
   "cerrar": "Cerrar ayuda",
   "idioma": "Idioma",
   "preparacion": "Preparación sin presentar",
-  "limite": "Datos sintéticos. Los cambios se mantienen solo mientras esta pantalla está abierta.",
+  "limite": "Esta pantalla permite ensayar una valoración. Para presentar una solicitud, use el trámite de la convocatoria.",
   "siguiente": "Siguiente paso",
   "siguiente_texto": "Revise los puestos y ordene sus preferencias antes de simular la valoración.",
   "tabs": {
@@ -38,7 +38,7 @@
     "puntos": "Puntos",
     "regla": "Apartado",
     "total": "Total",
-    "huella": "Huella de la valoración",
+    "huella": "Detalle de la valoración",
     "coeficiente": "Puntos por unidad",
     "maximo": "Tope de puntos"
   },
@@ -87,10 +87,10 @@
   "preferencia_movida": "{puesto} ocupa ahora la preferencia {orden}.",
   "preferencia_agregada": "Puesto añadido a sus preferencias.",
   "preferencia_quitada": "Puesto quitado de sus preferencias.",
-  "resultado_limite": "Esta simulación no acredita admisión, publicación ni adjudicación.",
+  "resultado_limite": "Resultado orientativo. La admisión y adjudicación requieren el procedimiento de la convocatoria.",
   "detalle": "Desglose por puesto",
   "requisitos": "Requisitos de acceso",
-  "ayuda_texto": "Revise la convocatoria y la versión exacta de cada puesto RPT. Añada los puestos que le interesen y cambie el orden con Subir y Bajar. La simulación usa el servicio del concurso. Un dato pendiente no equivale a cero puntos. Esta preparación no presenta una solicitud ni firma documentos.",
+  "ayuda_texto": "Revise las bases y los datos de cada puesto. Añada los puestos que le interesen y ordénelos con Subir y Bajar. Compruebe los méritos pendientes antes de valorar. Para presentar una solicitud, use el trámite de la convocatoria.",
   "datos": {
     "concurso": "Concurso de puestos singularizados",
     "p1": "Responsable de gestión administrativa",
@@ -143,7 +143,7 @@
   "volver_al_baremador": "Volver al simulador de baremos",
   "ejemplo_selector": "Caso de ensayo",
   "ensayos": {
-    "limite": "Ensayo sintético. No adjudica puestos ni modifica solicitudes.",
+    "limite": "Prueba de adjudicación. Consulte la convocatoria para conocer el resultado oficial.",
     "ejemplo_numero": "Caso {numero}",
     "politica_ref": "Referencia de la política de ensayo",
     "politica_version": "Versión de la política",
@@ -165,7 +165,7 @@
     "sin_asignaciones": "El ensayo no ha producido asignaciones.",
     "incidencia_pendiente": "Hay una incidencia pendiente de revisar en el ensayo.",
     "personas_pendientes": "Sin asignación: {personas}.",
-    "huella_resultado": "Huella del resultado",
+    "huella_resultado": "Detalle del resultado",
     "bloqueo": "La resolución oficial requiere bases aprobadas, expediente conservado, revisión, firma y registro.",
     "configuracion_invalida": "Introduzca una referencia o versión de ensayo de entre 1 y 160 caracteres.",
     "mover_desempate": "{accion} el criterio {orden}",
@@ -179,7 +179,7 @@
       "validacion": "Revise los campos indicados y los criterios antes de ensayar.",
       "conflicto": "El caso ha cambiado. Recargue el ensayo.",
       "denegado": "No tiene acceso a este ensayo. Solicite permiso al responsable.",
-      "propuesta_simulada": "Propuesta simulada, sin efectos",
+      "propuesta_simulada": "Propuesta de prueba",
       "pendiente": "Adjudicación pendiente",
       "no_soportado": "Configuración no soportada por este ensayo"
     },
@@ -211,7 +211,7 @@
     "restablecer": "Restablecer caso de ensayo"
   },
   "ciclo": {
-    "limite": "Ensayo sintético de reclamación y revisión. No registra alegaciones ni cambia datos administrativos.",
+    "limite": "Prueba de reclamación y revisión. Para alegar, use el trámite de la convocatoria.",
     "elegir": "Decisión que desea ensayar",
     "catalogo": "Versión del catálogo de causas",
     "simular": "Ensayar reclamación y revisión",
@@ -229,9 +229,9 @@
     "sin_efectos": "Sin firma, publicación ni efectos oficiales.",
     "version_resolucion": "El borrador conserva la valoración {version}.",
     "dependencia_pendiente": "Queda una dependencia por resolver.",
-    "huella_versiones": "Ver referencias de las versiones",
+    "huella_versiones": "Ver detalles de las valoraciones",
     "version_huella": "Versión {version}: {huella}",
-    "bloqueo": "Presentar una alegación o firmar una resolución requiere un expediente institucional y el circuito de firma y registro.",
+    "bloqueo": "Todavía no puede presentar alegaciones ni firmar una resolución aquí. Consulte el trámite de la convocatoria.",
     "casos": {
       "pendiente": "Dejar reclamación pendiente",
       "mantener": "Mantener la valoración",
@@ -251,7 +251,7 @@
       "publicacion_pendiente": "Publicación pendiente",
       "efectos_personal_pendientes": "Efectos en Personal pendientes",
       "revision_inicial_pendiente": "Revisión inicial pendiente",
-      "fuentes_pendientes": "Datos de origen pendientes",
+      "fuentes_pendientes": "Faltan datos para completar la revisión",
       "reclamaciones_pendientes": "Reclamaciones pendientes de revisión"
     }
   }

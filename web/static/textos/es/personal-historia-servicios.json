@@ -14,11 +14,11 @@
     "vacio": "No hay revisiones dentro del intervalo y el corte consultados.",
     "no_configurado": "La historia de servicios aún no está disponible en este portal.",
     "no_disponible": "No se ha podido consultar la historia. Vuelva a intentarlo.",
-    "denegado": "No tiene autorización para consultar esta historia. Si necesita acceso, contacte con Personal.",
+    "denegado": "No puede consultar esta historia. Si necesita acceso, contacte con Personal.",
     "sesion_caducada": "Su sesión ha finalizado. Identifíquese de nuevo y vuelva a consultar.",
     "excede_limite": "El intervalo contiene demasiadas revisiones. Reduzca las fechas y vuelva a consultar.",
     "respuesta_no_valida": "No se ha podido comprobar la respuesta. Vuelva a consultar.",
-    "alcance": "Muestra revisiones de servicios registrados. No calcula antigüedad ni acredita derechos o firma de documentos.",
+    "alcance": "Consulte las revisiones de sus servicios. Para confirmar antigüedad o derechos, solicite revisión a Personal.",
     "intervalo": "Registros con efectos del {desde} al {hasta}, sin incluir la fecha final.",
     "conocido": "Información conocida hasta: {fecha}",
     "consultada": "Consulta realizada: {fecha}",
@@ -28,11 +28,11 @@
     "servicio": "Referencia del servicio",
     "relacion": "Referencia de la relación",
     "acto": "Referencia del acto",
-    "fuente": "Fuente",
-    "version_fuente": "Versión de la fuente",
+    "fuente": "Procedencia",
+    "version_fuente": "Revisión del documento",
     "recibo": "Referencia de la consulta",
     "detalle": "Ver referencia de la consulta",
-    "desplazar": "Desplace la tabla horizontalmente para ver todas las columnas."
+    "desplazar": "Desplace la lista a los lados para ver todas las columnas."
   },
   "columnas": {
     "periodo_desde": "Inicio del servicio",
@@ -49,7 +49,7 @@
   "cobertura": {
     "completa": "Cobertura completa del intervalo consultado",
     "parcial": "Cobertura parcial: la historia puede contener otras revisiones.",
-    "no_acreditada": "Cobertura no acreditada: estas revisiones no prueban que la historia esté completa."
+    "no_acreditada": "La información puede estar incompleta. Consulte a Personal si necesita confirmar todo su historial."
   },
   "estados": {
     "declarado": "Declarado",
@@ -59,6 +59,6 @@
   "ayuda": {
     "periodos": "Inicio y fin del servicio indican los días de prestación, ambos incluidos. Inicio y fin de efectos corresponden al registro administrativo.",
     "conocimiento": "Información conocida hasta fija las revisiones disponibles al consultar. Registrado en indica cuándo se incorporó cada revisión.",
-    "versiones": "Se conservan las revisiones anteriores. No sume sus días para calcular antigüedad. Las referencias de actos no acreditan documentos firmados."
+    "versiones": "Puede consultar revisiones anteriores. No sume sus días para calcular antigüedad; solicite la confirmación a Personal."
   }
 }

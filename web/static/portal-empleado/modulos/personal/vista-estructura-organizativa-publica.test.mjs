@@ -74,7 +74,7 @@ test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastill
   const contenido = vista.querySelector("[data-personal-estructura-ayuda-contenido]");
   assert.equal(boton.tagName, "button");
   assert.equal(boton.textContent, "?");
-  assert.match(boton.atributos.get("aria-label"), /Consulta pública/u);
+  assert.match(boton.atributos.get("aria-label"), /Consulte las unidades y su adscripción/u);
   assert.equal(boton.atributos.get("aria-expanded"), "false");
   assert.equal(contenido.hidden, true);
   assert.equal(contenido.children.at(-1).className, "rpt-huella");
@@ -88,7 +88,7 @@ test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastill
   assert.equal(contenido.hidden, false);
   assert.equal(boton.atributos.get("aria-expanded"), "true");
   assert.match(textoVisible(vista), /demo-v1/u);
-  assert.match(textoVisible(vista), /Estructura en preparación.*no acredita vigencia administrativa/u);
+  assert.match(textoVisible(vista), /Esta estructura está en preparación.*Compruebe la organización vigente/u);
   assert.match(textoVisible(vista), /0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c/u);
   assert.doesNotMatch(textoVisible(vista), /2026-09-06T00:00:00Z/u);
   boton.listeners.click();

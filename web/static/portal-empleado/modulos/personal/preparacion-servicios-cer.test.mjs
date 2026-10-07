@@ -20,7 +20,7 @@ const pintar = (m = modelo(), relacionRef = "rel_uno") => crearPanelPreparacionS
 
 test("presenta la preparación y su límite sin emitir ni calcular certificado", () => {
   const panel = pintar();
-  assert.match(visible(panel), /Preparación con datos sintéticos.*Cobertura no acreditada.*no permite emitir un certificado oficial/u);
+  assert.match(visible(panel), /Estos periodos son un ejemplo.*Antes de solicitar un certificado.*confirme si la relación está completa/u);
   assert.match(texto(panel), /Reconocido en el ejercicio.*Periodos coincidentes/u);
   assert.equal(nodos(panel).filter((n) => n.tagName === "button" || n.tagName === "a").length, 0);
   assert.equal(nodos(panel).filter((n) => n.tagName === "th" && n.attrs.scope === "col").length, 5);
@@ -33,7 +33,7 @@ test("usa la selección temporal y los solapes del modelo, sin recalcularlos", (
   assert.match(texto(pintar(m)), /Fuera de las fechas de consulta/u);
   assert.doesNotMatch(texto(pintar(m)), /Periodos coincidentes/u);
   m.servicios[0].estado = "declarado"; m.servicios[0].seleccion_temporal = "pendiente"; m.servicios[0].faltantes = ["fuente"];
-  assert.match(texto(pintar(m)), /Declarado.*Fechas o procedencia incompletas.*Falta la fuente/u);
+  assert.match(texto(pintar(m)), /Declarado.*Fechas o procedencia incompletas.*Falta el documento de origen/u);
   assert.doesNotMatch(texto(pintar(m)), /Reconocido en el ejercicio/u);
   m.servicios[0].seleccion_temporal = "sustituido";
   assert.match(texto(pintar(m)), /Sustituido por otra revisión/u);
@@ -41,7 +41,7 @@ test("usa la selección temporal y los solapes del modelo, sin recalcularlos", (
 
 test("seleccionar otra relación no revela sus filas y vacío no acredita cobertura", () => {
   assert.doesNotMatch(texto(pintar(modelo(), "rel_otro")), /Servicio previo/u);
-  assert.match(texto(pintar(modelo(), "rel_otro")), /No hay periodos.*cobertura sigue sin acreditar/u);
+  assert.match(texto(pintar(modelo(), "rel_otro")), /No hay periodos.*Si esperaba ver alguno, consulte a Personal/u);
   assert.match(texto(pintar(modelo(), "")), /Seleccione una relación/u);
 });
 
@@ -55,7 +55,7 @@ test("conserva procedencia en detalle técnico y trata nombres como texto", () =
   const panel = pintar(m);
   assert.ok(nodos(panel).some((n) => n.tagName === "td" && n.textContent === m.servicios[0].clase));
   assert.equal(nodos(panel).filter((n) => n.tagName === "img" || n.tagName === "script").length, 0);
-  assert.match(texto(panel), /Versión del dato.*2.*Versión de la fuente.*4.*acto:uno.*fuente:uno/u);
+  assert.match(texto(panel), /Revisión del dato.*2.*Revisión del documento.*4.*acto:uno.*fuente:uno/u);
 });
 
 test("catálogos completos ES y EN y traducción inglesa sin rótulos castellanos", async () => {
@@ -63,6 +63,6 @@ test("catálogos completos ES y EN y traducción inglesa sin rótulos castellano
   const en = JSON.parse(await readFile(new URL("../../../textos/en/personal-servicios-cer.json", import.meta.url))).general;
   assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
   const panel = crearPanelPreparacionServiciosCER({ documento: documento(), modelo: modelo(), relacionRef: "rel_uno", t: crearTraductorPreparacionServiciosCER(en) });
-  assert.match(texto(panel), /Services for review.*Coverage is unverified.*Recognised in the exercise/u);
+  assert.match(texto(panel), /Services for review.*ask HR to confirm whether the record is complete.*Recognised in the exercise/u);
   assert.doesNotMatch(texto(panel), /Revisar periodos|Periodo|Preparación/u);
 });
