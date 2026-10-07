@@ -1018,7 +1018,8 @@ function renderizar() {
     history.replaceState(null, "", rutaDeVista("portal"));
   }
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
-  if (grupoEstilos) cargarEstilosVista(grupoEstilos);
+  const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
+  if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
   if (estado.vista === "portal" && esPerfilRRHH()
     && ["cargando", "error"].includes(estadoResumenInicio)) {
     const fallo = estadoResumenInicio === "error";
@@ -1047,7 +1048,7 @@ function renderizar() {
     } else esperarTextosDeVista(grupoTextos);
     return;
   }
-  if (grupoEstilos && !estilosVistasListos.has(grupoEstilos)) {
+  if (estilosVistaNecesarios && !estilosVistasListos.has(grupoEstilos)) {
     const error = erroresEstilosVistas.has(grupoEstilos);
     const vistaPendiente = estado.vista;
     const [migas, titulo] = tituloDeVista(estado.vista);
@@ -1062,7 +1063,9 @@ function renderizar() {
     return;
   }
   const grupoRecursos = grupoRecursosVista(estado.vista);
-  if (grupoRecursos && !recursosVistas.has(grupoRecursos)) {
+  const recursosVistaNecesarios = grupoRecursos
+    && (grupoRecursos !== "documentos" || coordinadorModulos.vistaDisponible(estado.vista));
+  if (recursosVistaNecesarios && !recursosVistas.has(grupoRecursos)) {
     const error = erroresRecursosVistas.has(grupoRecursos);
     const vistaPendiente = estado.vista;
     const [migas, titulo] = tituloDeVista(vistaPendiente);
