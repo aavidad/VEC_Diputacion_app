@@ -72,7 +72,7 @@ BEGIN
     OR (SELECT count(*) FROM pg_policy WHERE polrelid IN
       ('vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1'::regclass,
        'vec_autorizacion.registro_mantenimiento_gobierno_definiciones_admin_v1'::regclass)
-       AND polroles=ARRAY['vec_autorizacion_propietario'::regrole])<>2
+       AND polroles=ARRAY[('vec_autorizacion_propietario'::regrole)::oid])<>2
     OR (SELECT count(*) FROM pg_policy WHERE polrelid IN
       ('vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1'::regclass,
        'vec_autorizacion.registro_mantenimiento_gobierno_definiciones_admin_v1'::regclass))<>2
