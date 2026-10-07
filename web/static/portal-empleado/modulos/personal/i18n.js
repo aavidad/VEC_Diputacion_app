@@ -14,9 +14,15 @@ export async function prepararTextosPersonal(opciones = {}) {
   const { cargarTextos } = await import("../../../comun/textos.js");
   const textos = await cargarTextos("personal", opciones);
   const mensajes = textos.seccion("general");
+  const claves = mensajes && typeof mensajes === "object" && !Array.isArray(mensajes)
+    ? Object.keys(mensajes) : [];
+  if (claves.length === 0 || claves.some((clave) =>
+    typeof mensajes[clave] !== "string" || mensajes[clave].trim() === "")) {
+    throw new Error("catálogo i18n de Personal incompleto");
+  }
   if (turno === preparacion) {
-    MENSAJES_PERSONAL = mensajes;
-    CLAVES = Object.freeze(Object.keys(mensajes));
+    MENSAJES_PERSONAL = Object.freeze({ ...mensajes });
+    CLAVES = Object.freeze(claves);
     localizacionPersonal = textos.localizacion;
   }
   return Object.freeze({
