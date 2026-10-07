@@ -50,6 +50,46 @@ type controlTemporalPrueba struct {
 	canal       httpseguridad.CanalProxyAutenticado
 }
 
+type resolutorCancelaTemporalPrueba struct {
+	base     *resolutorPrueba
+	cancelar context.CancelFunc
+}
+
+func (r resolutorCancelaTemporalPrueba) ResolverContextoActorRegistradoV2(ctx context.Context, solicitud core.SolicitudContextoActor) (core.ResultadoContextoActorRegistradoV2, error) {
+	resultado, err := r.base.ResolverContextoActorRegistradoV2(ctx, solicitud)
+	if err == nil {
+		r.cancelar()
+	}
+	return resultado, err
+}
+
+type autorizacionCancelaTemporalPrueba struct {
+	base    *autorizacionPrueba
+	despues func(context.Context)
+}
+
+func (a autorizacionCancelaTemporalPrueba) ObtenerInstantaneaAutorizacion(ctx context.Context, principal, perfil string) (core.InstantaneaAutorizacion, error) {
+	snapshot, err := a.base.ObtenerInstantaneaAutorizacion(ctx, principal, perfil)
+	if err == nil {
+		a.despues(ctx)
+	}
+	return snapshot, err
+}
+
+type relojCancelaTemporalPrueba struct {
+	base     *relojPrueba
+	cancelar context.CancelFunc
+	llamadas int
+}
+
+func (r *relojCancelaTemporalPrueba) Ahora() time.Time {
+	r.llamadas++
+	if r.llamadas == 3 {
+		r.cancelar()
+	}
+	return r.base.Ahora()
+}
+
 func contextoConEmpleadoTemporalPrueba(t *testing.T) core.ResultadoContextoActorRegistradoV2 {
 	return contextoConEmpleadoTemporalPersonaPrueba(t, personaPrueba)
 }
@@ -333,5 +373,50 @@ func TestSesionCertificadoTemporalNoFiltraNiSerializaIdentificadores(t *testing.
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrCertificadoTemporalNoDisponible) {
 			t.Fatalf("la sesión interna se serializó: %v", err)
 		}
+	}
+}
+
+func TestCertificadoTemporalConservaCausaDeCancelacionTrasExitoDeAutoridad(t *testing.T) {
+	for _, caso := range []struct {
+		nombre   string
+		preparar func(*entornoPrueba, *FuenteCertificadoTemporal, context.CancelFunc)
+	}{
+		{"resolver F1", func(e *entornoPrueba, f *FuenteCertificadoTemporal, cancelar context.CancelFunc) {
+			f.resolutor = resolutorCancelaTemporalPrueba{base: e.resolutor, cancelar: cancelar}
+		}},
+		{"fuente V3", func(e *entornoPrueba, f *FuenteCertificadoTemporal, cancelar context.CancelFunc) {
+			f.autorizacion = autorizacionCancelaTemporalPrueba{base: e.autorizacion,
+				despues: func(context.Context) { cancelar() }}
+		}},
+		{"reloj tras fuente V3", func(e *entornoPrueba, f *FuenteCertificadoTemporal, cancelar context.CancelFunc) {
+			f.reloj = &relojCancelaTemporalPrueba{base: e.reloj, cancelar: cancelar}
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e, f, _ := nuevoEntornoCertificadoTemporalPrueba(t)
+			ctx, cancelar := context.WithCancel(e.ctx)
+			defer cancelar()
+			caso.preparar(e, f, cancelar)
+			sesion, err := f.Abrir(ctx)
+			if err == nil || !errors.Is(err, context.Canceled) || !errors.Is(err, ErrCertificadoTemporalNoDisponible) ||
+				err.Error() != ErrCertificadoTemporalNoDisponible.Error() || sesion.vinculo.Validar() == nil ||
+				e.resolutor.llamadas != 1 {
+				t.Fatalf("cancelación sin causa, mensaje opaco o salida parcial: %v", err)
+			}
+		})
+	}
+}
+
+func TestCertificadoTemporalConservaPlazoTrasExitoDeFuenteV3(t *testing.T) {
+	e, f, _ := nuevoEntornoCertificadoTemporalPrueba(t)
+	ctx, cancelar := context.WithTimeout(e.ctx, 100*time.Millisecond)
+	defer cancelar()
+	f.autorizacion = autorizacionCancelaTemporalPrueba{base: e.autorizacion,
+		despues: func(ctx context.Context) { <-ctx.Done() }}
+	sesion, err := f.Abrir(ctx)
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, ErrCertificadoTemporalNoDisponible) ||
+		err.Error() != ErrCertificadoTemporalNoDisponible.Error() || sesion.vinculo.Validar() == nil ||
+		e.autorizacion.llamadas != 1 {
+		t.Fatalf("vencimiento sin causa, mensaje opaco o salida parcial: %v", err)
 	}
 }
