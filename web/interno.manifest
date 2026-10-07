@@ -614,3 +614,10 @@ static/portal-empleado/modulos/personal/vista-historia-relaciones-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-relaciones-propia.js
 static/textos/es/personal-historia-relaciones.json
 static/textos/en/personal-historia-relaciones.json
+static/portal-empleado/modulos/contratacion-temporal/fases-rrhh-datos.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-vistas.js
+static/portal-empleado/modulos/contratacion-temporal/vista-cuadro-ligera.js
+static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
+static/portal-empleado/peticiones-centro/i18n-peticiones-centro.js
+static/textos/es/peticiones-centro.json
+static/textos/en/peticiones-centro.json
