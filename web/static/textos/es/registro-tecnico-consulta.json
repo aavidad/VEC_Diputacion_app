@@ -1,8 +1,8 @@
 {
   "esquema": "1",
   "ayuda": "Indique --desde y --hasta en RFC3339, y entre uno y ocho --archivo con JSONL técnico. Puede filtrar por --codigo de incidencia o por --ruta exacta. La consulta solo lee archivos locales y devuelve recuentos y tiempos.",
-  "terminada": "Consulta terminada.",
-  "parcial": "La consulta encontró líneas inválidas. Revise el contador de rechazadas y el origen de los archivos.",
+  "terminada": "Consulta terminada sobre el prefijo inicial de cada archivo.",
+  "parcial": "El prefijo inicial contiene líneas inválidas. Revise el contador de rechazadas y el origen de los archivos.",
   "parametros": "No se pudo iniciar la consulta. Revise el intervalo UTC, los filtros y los archivos indicados.",
   "archivo": "No se pudo leer por completo uno de los archivos. Compruebe que sea regular, legible y esté dentro de los límites de tamaño.",
   "salida": "No se pudo escribir el resultado de la consulta."

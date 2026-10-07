@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -100,6 +101,20 @@ func ejecutarPrueba(t *testing.T, args ...string) (int, resumenConsulta, string,
 	return codigo, resumen, salida.String(), diagnostico.String()
 }
 
+func TestConsultaUsaCatalogoComunDeIdiomas(t *testing.T) {
+	porDefecto, ok := cargarTextos("")
+	if !ok || !strings.Contains(porDefecto.Ayuda, "Indique") {
+		t.Fatal("idioma por defecto del índice común no disponible")
+	}
+	ingles, ok := cargarTextos("en")
+	if !ok || !strings.Contains(ingles.Ayuda, "Provide") {
+		t.Fatal("catálogo inglés no disponible")
+	}
+	if _, ok := cargarTextos("zz"); ok {
+		t.Fatal("idioma ajeno al índice aceptado")
+	}
+}
+
 func TestConsultaAgregaRegistrosYFiltraSinExponerRuta(t *testing.T) {
 	archivo := archivoPrueba(t, bytes.Join([][]byte{accesoPrueba(t), arranquePrueba(t), incidenciaPrueba(t), resultadoPrueba(t)}, nil))
 	base := []string{"--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivo}
@@ -152,6 +167,90 @@ func TestConsultaProyectaClaseDesconocidaSinCopiarCodigoLibre(t *testing.T) {
 	if codigo != 0 || r.Peticiones.Errores5xx != 1 || r.Errores["bd_otro"] != 1 ||
 		strings.Contains(salida+diagnostico, "JUAN1") {
 		t.Fatalf("clase no cerrada: código=%d %+v salida=%q diagnóstico=%q", codigo, r, salida, diagnostico)
+	}
+}
+
+func TestConsultaLeePrefijoInicialAnteAppendYDetectaTruncamiento(t *testing.T) {
+	catalogo, err := catalogoincidencias.Predeterminado()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := accesoPrueba(t)
+	ruta := archivoPrueba(t, base)
+	f, err := os.Open(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	anexo, err := os.OpenFile(ruta, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := anexo.Write(base); err != nil {
+		t.Fatal(err)
+	}
+	if err := anexo.Close(); err != nil {
+		t.Fatal(err)
+	}
+	op := opcionesConsulta{Desde: time.Date(2026, 10, 7, 11, 0, 0, 0, time.UTC), Hasta: time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)}
+	var resumen resumenConsulta
+	if err := consultarPrefijo(f, info.Size(), op, catalogo, &resumen); err != nil ||
+		resumen.Recibidas != 1 || resumen.Seleccionadas != 1 || resumen.BytesPrefijo != info.Size() {
+		t.Fatalf("append alteró el prefijo: error=%v resumen=%+v", err, resumen)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f, err = os.Open(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	info, err = f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(ruta, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := consultarPrefijo(f, info.Size(), op, catalogo, &resumen); err == nil {
+		t.Fatal("truncamiento del prefijo presentado como consulta completa")
+	}
+}
+
+func TestConsultaPrefijoConLineaFinalIncompletaEsParcial(t *testing.T) {
+	catalogo, err := catalogoincidencias.Predeterminado()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := archivoPrueba(t, append(accesoPrueba(t), []byte("{\"msg\":\"http.server.request\"")...))
+	f, err := os.Open(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	anexo, err := os.OpenFile(ruta, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := anexo.Write([]byte("}\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := anexo.Close(); err != nil {
+		t.Fatal(err)
+	}
+	op := opcionesConsulta{Desde: time.Date(2026, 10, 7, 11, 0, 0, 0, time.UTC), Hasta: time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)}
+	var resumen resumenConsulta
+	if err := consultarPrefijo(f, info.Size(), op, catalogo, &resumen); err != nil ||
+		resumen.Validas != 1 || resumen.Rechazadas != 1 || resumen.BytesPrefijo != info.Size() {
+		t.Fatalf("línea final incompleta no visible: error=%v resumen=%+v", err, resumen)
 	}
 }
 

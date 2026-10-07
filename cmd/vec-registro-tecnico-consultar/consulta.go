@@ -48,6 +48,7 @@ type resumenConsulta struct {
 	Desde         string             `json:"desde"`
 	Hasta         string             `json:"hasta"`
 	Archivos      int                `json:"archivos"`
+	BytesPrefijo  int64              `json:"bytes_prefijo"`
 	Recibidas     uint64             `json:"recibidas"`
 	Validas       uint64             `json:"validas"`
 	Seleccionadas uint64             `json:"seleccionadas"`
@@ -123,8 +124,14 @@ func consultarArchivo(ruta string, op opcionesConsulta, catalogo *catalogoincide
 		return os.ErrInvalid // Evita contar dos veces un mismo archivo enlazado.
 	}
 	vistos[identidad] = true
-	limitado := &io.LimitedReader{R: f, N: maxArchivoBytes + 1}
-	lector := bufio.NewReaderSize(limitado, maxLineaBytes+2)
+	return consultarPrefijo(f, info.Size(), op, catalogo, r)
+}
+
+func consultarPrefijo(f io.ReaderAt, tamanoInicial int64, op opcionesConsulta, catalogo *catalogoincidencias.Catalogo, r *resumenConsulta) error {
+	// La consulta fija el prefijo existente al abrir. Un append posterior
+	// pertenece a la siguiente consulta y no invalida este resultado.
+	seccion := io.NewSectionReader(f, 0, tamanoInicial)
+	lector := bufio.NewReaderSize(seccion, maxLineaBytes+2)
 	for {
 		linea, err := lector.ReadSlice('\n')
 		if err == bufio.ErrBufferFull {
@@ -174,9 +181,11 @@ func consultarArchivo(ruta string, op opcionesConsulta, catalogo *catalogoincide
 		r.Seleccionadas++
 		r.sumar(registro)
 	}
-	if maxArchivoBytes+1-limitado.N > maxArchivoBytes {
-		return os.ErrInvalid // El archivo creció mientras se leía.
+	leidos, err := seccion.Seek(0, io.SeekCurrent)
+	if err != nil || leidos != tamanoInicial {
+		return os.ErrInvalid // El prefijo se truncó durante la lectura.
 	}
+	r.BytesPrefijo += leidos
 	return nil
 }
 

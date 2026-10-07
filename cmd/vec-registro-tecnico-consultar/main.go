@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"embed"
 	"encoding/json"
 	"flag"
 	"io"
@@ -12,10 +11,8 @@ import (
 
 	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/web"
 )
-
-//go:embed textos/*.json
-var catalogos embed.FS
 
 type textosConsulta struct {
 	Esquema    string `json:"esquema"`
@@ -28,10 +25,7 @@ type textosConsulta struct {
 }
 
 func cargarTextos(idioma string) (textosConsulta, bool) {
-	if idioma != "es" && idioma != "en" {
-		return textosConsulta{}, false
-	}
-	datos, err := catalogos.ReadFile("textos/" + idioma + ".json")
+	datos, err := web.TextosRegistroTecnicoConsulta(idioma)
 	if err != nil {
 		return textosConsulta{}, false
 	}
@@ -109,12 +103,12 @@ func ejecutar(args []string, salida, diagnostico io.Writer) int {
 	hasta := f.String("hasta", "", "")
 	codigo := f.String("codigo", "", "")
 	ruta := f.String("ruta", "", "")
-	idioma := f.String("idioma", "es", "")
+	idioma := f.String("idioma", "", "")
 	ayuda := f.Bool("ayuda", false, "")
 	errorParametros := f.Parse(args)
 	textos, ok := cargarTextos(*idioma)
 	if !ok {
-		textos, _ = cargarTextos("es")
+		textos, _ = cargarTextos("")
 		errorParametros = os.ErrInvalid
 	}
 	if errorParametros != nil || f.NArg() != 0 {

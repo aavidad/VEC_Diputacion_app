@@ -204,7 +204,9 @@ herramienta.
 recolector ni sus registros. Admite incidencias y resultados con el mismo
 contrato que valida el recolector, y los eventos `http.server.request` y
 `vec.process.startup` de los procesos. La consulta usa el instante de cada
-evento, nunca la fecha del archivo.
+evento, nunca la fecha del archivo. Al abrir cada archivo fija su tamaño y lee
+solo ese prefijo. `bytes_prefijo` indica cuánto entró en el resumen; una
+ampliación posterior quedará para otra consulta.
 
 ```sh
 GOCACHE="$HOME/.cache/go-build" GOPROXY=off go run ./cmd/vec-registro-tecnico-consultar \
@@ -230,10 +232,12 @@ texto SQL, direcciones ni mensajes de error libres.
 La lectura admite como máximo 16 MiB por archivo y 16 KiB por línea, y el
 intervalo no puede superar 31 días. Una línea ajena al contrato o incompleta
 incrementa `rechazadas`: el resumen se entrega como `parcial` y el proceso
-termina con código 3. Un archivo ilegible, un enlace simbólico, el mismo archivo
-indicado dos veces, un objeto no regular o un archivo que supera el límite
-termina con código 2 y no entrega un resumen incompleto. Una consulta completa
-termina con código 0.
+termina con código 3. Esto incluye una última línea sin salto final, aunque el
+archivo reciba más bytes después de abrirlo. Un archivo ilegible, un enlace
+simbólico, el mismo archivo indicado dos veces, un objeto no regular o el
+truncamiento del prefijo durante la lectura termina con código 2 y no entrega
+un resumen incompleto. Un archivo que supera el límite también termina con
+código 2. Una consulta completa termina con código 0.
 
 Esta CLI sirve a quien ya tiene acceso local a esos archivos. La acción
 administrativa `administracion.registros_tecnicos.consultar` conserva su propio
