@@ -24,12 +24,13 @@ var (
 )
 
 const (
-	AccionConsultaRPTPublicaV2    = "personal.rpt_publica.consultar"
-	AudienciaConsultaRPTPublicaV2 = "vec_personal.rpt_publica.consultar.v2"
-	FinalidadConsultaRPTPublicaV2 = "consultar_organizacion_publicada"
-	EsquemaCandidatoRPTPublicaV2  = "vec.catalogo.rpt.candidato.v1"
-	EstadoCandidatoRPTPublicaV2   = "preparacion_no_autoritativa"
-	LimiteMaximoRPTPublicaV2      = 100
+	AccionConsultaRPTPublicaV2               = "personal.rpt_publica.consultar"
+	AudienciaConsultaRPTPublicaV2            = "vec_personal.rpt_publica.consultar.v2"
+	FinalidadConsultaRPTPublicaV2            = "consultar_organizacion_publicada"
+	EsquemaCandidatoRPTPublicaV2             = "vec.catalogo.rpt.candidato.v1"
+	EstadoCandidatoRPTPublicaV2              = "preparacion_no_autoritativa"
+	LimiteMaximoRPTPublicaV2                 = 100
+	LongitudMaximaClaveCategoriaRPTPublicaV2 = 60
 )
 
 // La decisión debe cubrir el sobre de respuesta completo. Una concesión que
@@ -103,7 +104,7 @@ func (c CatalogoRPTPublicaV2) Validar() error {
 	}
 	categorias, puestos, centros, pendientes := map[string]struct{}{}, map[string]struct{}{}, map[string]struct{}{}, map[string]struct{}{}
 	for _, categoria := range c.Categorias {
-		if !patronClaveRPTPublica.MatchString(categoria.Clave) || !textoRPTPublico(categoria.Denominacion, 512) ||
+		if !patronClaveRPTPublica.MatchString(categoria.Clave) || len(categoria.Clave) > LongitudMaximaClaveCategoriaRPTPublicaV2 || !textoRPTPublico(categoria.Denominacion, 512) ||
 			(categoria.Origen != "categoria" && categoria.Origen != "denominacion") || len(categoria.Grupos) == 0 ||
 			categoria.Puestos < 0 || categoria.Dotacion < 0 || categoria.NivelDestinoMediana < 0 || categoria.NivelDestinoMediana > 99 ||
 			categoria.ComplementoEspecificoAnualCentimosMediana < 0 {
@@ -134,6 +135,9 @@ func (c CatalogoRPTPublicaV2) Validar() error {
 		dotacion += puesto.Dotacion
 		refs := map[string]struct{}{}
 		for _, clave := range puesto.CategoriasClaves {
+			if len(clave) > LongitudMaximaClaveCategoriaRPTPublicaV2 {
+				return ErrRPTPublicaV2NoDisponible
+			}
 			if _, ok := categorias[clave]; !ok {
 				return ErrRPTPublicaV2NoDisponible
 			}
@@ -142,7 +146,7 @@ func (c CatalogoRPTPublicaV2) Validar() error {
 			}
 			refs[clave] = struct{}{}
 		}
-		if puesto.CategoriaClave != "" && (len(puesto.CategoriasClaves) != 1 || puesto.CategoriaClave != puesto.CategoriasClaves[0]) {
+		if puesto.CategoriaClave != "" && (len(puesto.CategoriaClave) > LongitudMaximaClaveCategoriaRPTPublicaV2 || len(puesto.CategoriasClaves) != 1 || puesto.CategoriaClave != puesto.CategoriasClaves[0]) {
 			return ErrRPTPublicaV2NoDisponible
 		}
 		for _, pendiente := range puesto.CategoriasPendientes {
@@ -189,7 +193,7 @@ func (f FiltroRPTPublicaV2) Validar() error {
 	if (f.Vista != "categorias" && f.Vista != "puestos") || f.Q != strings.TrimSpace(f.Q) || !utf8.ValidString(f.Q) ||
 		utf8.RuneCountInString(f.Q) > 100 || strings.ContainsAny(f.Q, "\x00\r\n\t") || f.Limite < 1 ||
 		f.Limite > LimiteMaximoRPTPublicaV2 || f.Offset < 0 || f.Offset > 100000 ||
-		(f.CategoriaClave != "" && !patronClaveRPTPublica.MatchString(f.CategoriaClave)) ||
+		(f.CategoriaClave != "" && (!patronClaveRPTPublica.MatchString(f.CategoriaClave) || len(f.CategoriaClave) > LongitudMaximaClaveCategoriaRPTPublicaV2)) ||
 		(f.CentroCodigo != "" && !patronCentroRPTV2.MatchString(f.CentroCodigo)) ||
 		(f.Vista != "puestos" && (f.CategoriaClave != "" || f.CentroCodigo != "")) {
 		return ErrRPTPublicaV2Invalida

@@ -17,7 +17,11 @@ import (
 )
 
 const RutaRPTPublicaPersonalV2 = "/api/vec/personal/rpt-publica/v2"
-const maximoQueryRPTPublicaV2 = 512
+
+// 100 runas UTF-8 pueden ocupar 400 bytes, codificados como 1200 caracteres
+// %XX. Más clave de categoría (60), centro (64) y nombres de parámetros, 2048
+// cubre toda consulta válida y sigue acotando el parser HTTP.
+const maximoQueryRPTPublicaV2 = 2048
 
 var ErrHandlerRPTPublicaV2Invalido = errors.New("httpapi: consulta RPT publicada v2 no disponible")
 

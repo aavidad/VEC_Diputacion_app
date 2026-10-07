@@ -4,6 +4,8 @@ const MAXIMO_FRAGMENTOS = 256;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const CLAVE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 const CODIGO = /^[A-Z0-9][A-Z0-9-]{0,63}$/u;
+const MAXIMO_CLAVE_CATEGORIA = 60;
+const MAXIMO_QUERY = 2048;
 
 export class ErrorClienteRPTPublicaV2 extends Error {
   constructor(codigo, estado = 0) {
@@ -25,7 +27,7 @@ function validarConsulta(consulta) {
   if (!exacto(consulta, ["vista", "q", "limit", "offset", "categoria_clave", "centro_codigo"]) || !["categorias", "puestos"].includes(consulta.vista) ||
       !texto(consulta.q, 100, true) || !entero(consulta.limit, 1) || consulta.limit > 100 ||
       !entero(consulta.offset) || consulta.offset > 100000 ||
-      (consulta.categoria_clave !== "" && !CLAVE.test(consulta.categoria_clave)) ||
+      (consulta.categoria_clave !== "" && (!CLAVE.test(consulta.categoria_clave) || consulta.categoria_clave.length > MAXIMO_CLAVE_CATEGORIA)) ||
       (consulta.centro_codigo !== "" && !/^[A-Za-z0-9-]{1,64}$/u.test(consulta.centro_codigo)) ||
       (consulta.vista !== "puestos" && (consulta.categoria_clave !== "" || consulta.centro_codigo !== ""))) throw new TypeError("consulta RPT v2 no válida");
   return Object.freeze({ ...consulta });
@@ -33,7 +35,7 @@ function validarConsulta(consulta) {
 
 function validarCategoria(v) {
   return exacto(v, ["clave", "denominacion", "origen", "grupos", "escalas", "puestos", "dotacion", "nivel_destino_mediana", "complemento_especifico_anual_centimos_mediana"]) &&
-    CLAVE.test(v.clave) && texto(v.denominacion, 512) && ["categoria", "denominacion"].includes(v.origen) &&
+    CLAVE.test(v.clave) && v.clave.length <= MAXIMO_CLAVE_CATEGORIA && texto(v.denominacion, 512) && ["categoria", "denominacion"].includes(v.origen) &&
     listaTextos(v.grupos) && v.grupos.length > 0 && listaTextos(v.escalas) &&
     entero(v.puestos) && entero(v.dotacion) && entero(v.nivel_destino_mediana) && v.nivel_destino_mediana <= 99 &&
     entero(v.complemento_especifico_anual_centimos_mediana);
@@ -43,8 +45,8 @@ function validarPuesto(v) {
   return exacto(v, ["codigo", "denominacion", "centro_codigo", "centro", "delegacion", "grupos", "escala", "categoria_clave", "categorias_claves", "categorias_pendientes", "nivel_destino", "complemento_especifico_anual_centimos", "dotacion", "tipo", "provision"]) &&
     CODIGO.test(v.codigo) && texto(v.denominacion, 512) && texto(v.centro_codigo, 64) && texto(v.centro, 512) &&
     texto(v.delegacion, 512) && listaTextos(v.grupos) && texto(v.escala, 64, true) &&
-    (v.categoria_clave === "" || CLAVE.test(v.categoria_clave)) && Array.isArray(v.categorias_claves) &&
-    v.categorias_claves.length <= 100 && v.categorias_claves.every((clave) => CLAVE.test(clave)) &&
+    (v.categoria_clave === "" || CLAVE.test(v.categoria_clave) && v.categoria_clave.length <= MAXIMO_CLAVE_CATEGORIA) && Array.isArray(v.categorias_claves) &&
+    v.categorias_claves.length <= 100 && v.categorias_claves.every((clave) => CLAVE.test(clave) && clave.length <= MAXIMO_CLAVE_CATEGORIA) &&
     new Set(v.categorias_claves).size === v.categorias_claves.length &&
     (v.categoria_clave === "" || v.categorias_claves.length === 1 && v.categoria_clave === v.categorias_claves[0]) &&
     Array.isArray(v.categorias_pendientes) && v.categorias_pendientes.length <= 100 &&
@@ -121,7 +123,7 @@ export function crearClienteHTTPRPTPublicaV2({ fetchImpl = globalThis.fetch, pla
     if (consulta.categoria_clave) params.set("categoria_clave", consulta.categoria_clave);
     if (consulta.centro_codigo) params.set("centro_codigo", consulta.centro_codigo);
     const ruta = `${RUTA_RPT_PUBLICA_V2}?${params}`;
-    if (ruta.length - RUTA_RPT_PUBLICA_V2.length - 1 > 512) throw new TypeError("consulta RPT v2 demasiado larga");
+    if (ruta.length - RUTA_RPT_PUBLICA_V2.length - 1 > MAXIMO_QUERY) throw new TypeError("consulta RPT v2 demasiado larga");
     const controlador = new AbortController();
     const abortar = () => controlador.abort();
     externo?.addEventListener("abort", abortar, { once: true });

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
@@ -71,5 +73,42 @@ func TestRPTPublicaV2FiltraCategoriaYCentroSoloEnPuestos(t *testing.T) {
 	}
 	if _, err := leerFiltroRPTPublicaV2("vista=categorias&q=&limit=25&offset=0&categoria_clave=administrativo"); err == nil {
 		t.Fatal("se admitió filtro de puestos sobre categorías")
+	}
+}
+
+func TestRPTPublicaV2AdmiteUnicodeLegalYRechazaQueryExcesiva(t *testing.T) {
+	consulta := &consultaRPTV2Prueba{}
+	auditor := &auditorRPTV2Prueba{}
+	h, err := NewHandlerRPTPublicaV2(autoridadRPTV2Prueba{ErrAutenticacionRutaExactaRequerida}, consulta, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	categoria := strings.Repeat("a", personaldomain.LongitudMaximaClaveCategoriaRPTPublicaV2)
+	centro := strings.Repeat("1", 64)
+	for _, q := range []string{strings.Repeat("á", 100), strings.Repeat("😀", 100)} {
+		raw := url.Values{"vista": {"puestos"}, "q": {q}, "limit": {"25"}, "offset": {"0"}, "categoria_clave": {categoria}, "centro_codigo": {centro}}.Encode()
+		if len(raw) <= 512 || len(raw) > maximoQueryRPTPublicaV2 {
+			t.Fatalf("presupuesto no cubre filtro Unicode válido: %d", len(raw))
+		}
+		f, err := leerFiltroRPTPublicaV2(raw)
+		if err != nil || f.Q != q {
+			t.Fatalf("filtro Unicode=%d err=%v", len(raw), err)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRPTPublicaPersonalV2+"?"+raw, nil))
+		if w.Code != http.StatusUnauthorized || consulta.llamada {
+			t.Fatalf("Unicode legal: estado=%d consulta=%t", w.Code, consulta.llamada)
+		}
+	}
+	sobreclave := url.Values{"vista": {"puestos"}, "q": {""}, "limit": {"25"}, "offset": {"0"}, "categoria_clave": {categoria + "a"}}.Encode()
+	if _, err := leerFiltroRPTPublicaV2(sobreclave); err == nil {
+		t.Fatal("se admitió clave de categoría mayor que la fuente candidata")
+	}
+	antes := len(auditor.llamadas)
+	excesiva := strings.Repeat("x", maximoQueryRPTPublicaV2+1)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRPTPublicaPersonalV2+"?"+excesiva, nil))
+	if w.Code != http.StatusBadRequest || len(auditor.llamadas) != antes || consulta.llamada {
+		t.Fatalf("query excesiva: estado=%d auditorias=%d", w.Code, len(auditor.llamadas))
 	}
 }

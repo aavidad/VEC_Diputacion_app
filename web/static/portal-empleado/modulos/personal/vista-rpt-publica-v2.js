@@ -10,7 +10,7 @@ function consultaRPTValida(v) {
     [...v.q].length <= 100 && !/[\x00-\x1F\x7F-\x9F]/u.test(v.q) &&
     Number.isSafeInteger(v.limit) && v.limit >= 1 && v.limit <= 100 &&
     Number.isSafeInteger(v.offset) && v.offset >= 0 && v.offset <= 100000 &&
-    typeof v.categoria_clave === "string" && (v.categoria_clave === "" || /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(v.categoria_clave)) &&
+    typeof v.categoria_clave === "string" && (v.categoria_clave === "" || v.categoria_clave.length <= 60 && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(v.categoria_clave)) &&
     typeof v.centro_codigo === "string" && (v.centro_codigo === "" || /^[A-Za-z0-9-]{1,64}$/u.test(v.centro_codigo)) &&
     (v.vista === "puestos" || v.categoria_clave === "" && v.centro_codigo === "");
 }

@@ -31,6 +31,21 @@ test("cliente v2 envía categoría y centro como filtros exactos de la página",
   await assert.rejects(() => cliente.listar(consulta({ categoria_clave: "administrativo" })), TypeError);
 });
 
+test("cliente v2 conserva 100 caracteres Unicode legales y acota la clave", async () => {
+  const llamadas = [];
+  const cliente = crearClienteHTTPRPTPublicaV2({ fetchImpl: async (...args) => { llamadas.push(args); return respuesta(sobre("puestos")); } });
+  for (const q of ["á".repeat(100), "😀".repeat(100)]) {
+    await cliente.listar(consulta({ vista: "puestos", q, categoria_clave: "administrativo", centro_codigo: "101" }));
+    const url = llamadas.at(-1)[0];
+    assert.ok(url.slice(RUTA_RPT_PUBLICA_V2.length + 1).length > 512);
+    assert.ok(url.slice(RUTA_RPT_PUBLICA_V2.length + 1).length <= 2048);
+    assert.equal(new URL(url, "https://vec.example").searchParams.get("q"), q);
+  }
+  await assert.rejects(() => cliente.listar(consulta({ vista: "puestos", categoria_clave: "a".repeat(61) })), TypeError);
+  await assert.rejects(() => cliente.listar(consulta({ vista: "puestos", q: "😀".repeat(101) })), TypeError);
+  assert.equal(llamadas.length, 2);
+});
+
 test("cliente v2 rechaza atributos personales, autoridad falsa y evidencia ajena", async () => {
   for (const alterar of [
     (r) => { r.data.rpt.items[0].ocupante = "persona"; },
