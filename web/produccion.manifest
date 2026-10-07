@@ -147,6 +147,7 @@ static/textos/es/cronos-fichaje.json
 static/textos/en/cronos-fichaje.json
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/fecha-civil.js
 static/portal-empleado/modulos/cronos/i18n-incidencias.js
 static/textos/es/cronos-incidencias.json
 static/textos/en/cronos-incidencias.json
