@@ -1,0 +1,7 @@
+# CANDIDATA: no instalar antes de dos revisiones y ensayo PostgreSQL 18.
+# Preimagen medida tras AD175: núcleo def abb1fbc89278ba9d27fec7e7e4e2e4003c47dfafd6caa1f81cb82ea8ec1b1f13.
+# Núcleo src 0bb3c0965a84cd10c29e0d8821cc2ebc2861c108b0f817a900501b083b0ea250.
+# CHECK audiencias 1a0e8f3d3f3e054184c594c6e6dc121d8a07e7ea01dcbe204f76b9ea55421222.
+# Orden del corte: AD175 -> AD180 -> Personal34; no ejecutar DOWN ni reaplicar SQL con historia.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000180_consumidor_historia_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000034_historia_servicios_propios.up.sql
