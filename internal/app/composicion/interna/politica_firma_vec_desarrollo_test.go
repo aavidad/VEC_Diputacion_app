@@ -171,3 +171,54 @@ func TestCargarPoliticaFirmaVecDesarrolloPrivadaRechazaJSONYMaterialInseguro(t *
 		})
 	}
 }
+
+func TestCargarPoliticaFirmaVecDesarrolloPrivadaConservaCausasSinExponerMaterial(t *testing.T) {
+	ahora := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	reloj := relojPoliticaFirmaVecPrueba{ahora}
+	base, err := json.Marshal(documentoPoliticaFirmaVecPrueba(ahora))
+	if err != nil {
+		t.Fatal(err)
+	}
+	comprobarOpaco := func(err error, codigo string, privado string) {
+		t.Helper()
+		var detalle *ErrorCargaPoliticaFirmaVecDesarrollo
+		if !errors.Is(err, ErrPoliticaFirmaVecDesarrolloNoDisponible) || !errors.As(err, &detalle) ||
+			detalle.Codigo() != codigo || err.Error() != ErrPoliticaFirmaVecDesarrolloNoDisponible.Error() ||
+			strings.Contains(err.Error(), privado) {
+			t.Fatalf("error sin causa cerrada/opacidad: codigo=%q, err=%v", codigo, err)
+		}
+	}
+
+	directorioAusente := directorioPoliticaFirmaVecPrueba(t, nil)
+	_, err = cargarPoliticaFirmaVecDesarrolloPrivada(directorioAusente,
+		vecapp.EntornoAdmisionFirmaDesarrollo, pinPoliticaFirmaVecPrueba(base), reloj)
+	comprobarOpaco(err, string(codigoPoliticaArchivo), directorioAusente)
+	var ruta *os.PathError
+	if !errors.Is(err, os.ErrNotExist) || !errors.As(err, &ruta) {
+		t.Fatalf("Lstat no conserva causa IO: %v", err)
+	}
+
+	malformado := []byte(`{"esquema":?}`)
+	directorioJSON := directorioPoliticaFirmaVecPrueba(t, malformado)
+	_, err = cargarPoliticaFirmaVecDesarrolloPrivada(directorioJSON,
+		vecapp.EntornoAdmisionFirmaDesarrollo, pinPoliticaFirmaVecPrueba(malformado), reloj)
+	comprobarOpaco(err, string(codigoPoliticaJSON), directorioJSON)
+	var sintaxis *json.SyntaxError
+	if !errors.As(err, &sintaxis) {
+		t.Fatalf("decodificacion no conserva causa JSON: %v", err)
+	}
+
+	documento := documentoPoliticaFirmaVecPrueba(ahora)
+	documento.RolSHA256 = ""
+	contenido, err := json.Marshal(documento)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directorioConstructor := directorioPoliticaFirmaVecPrueba(t, contenido)
+	_, err = cargarPoliticaFirmaVecDesarrolloPrivada(directorioConstructor,
+		vecapp.EntornoAdmisionFirmaDesarrollo, pinPoliticaFirmaVecPrueba(contenido), reloj)
+	comprobarOpaco(err, string(codigoPoliticaConstructor), directorioConstructor)
+	if !errors.Is(err, vecapp.ErrAdmisionGarantiaActoDenegada) {
+		t.Fatalf("constructor no conserva causa de admision: %v", err)
+	}
+}
