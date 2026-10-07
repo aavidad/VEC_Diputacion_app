@@ -12,13 +12,6 @@ BEGIN
  OR pg_catalog.to_regtype('vec_contratacion_temporal.consulta_cuadro_rrhh_v2') IS NOT NULL
  OR pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR pg_catalog.to_regclass('vec_contratacion_temporal.control_causal_familia_cursor_rrhh') IS NULL
- -- La salida de cursor v2 reutiliza la postimagen binaria instalada por CT89.
- OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc p
-     WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.preparar_salida_cursor_cuadro_rrhh_v1(vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1,vec_contratacion_temporal.materializacion_cuadro_rrhh_v1)'))
-    IS DISTINCT FROM '5ca9172ea709e3cac9fef939980f8be618b663940c0c19641c7c2d22a1339d89'
- OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc p
-     WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.aplicar_efectos_cursor_cuadro_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1,vec_contratacion_temporal.salida_cursor_cuadro_rrhh_v1,vec_contratacion_temporal.evidencia_consumo_nuevo_rrhh_v3,bytea,vec_contratacion_temporal.resultado_cierre_prueba_rrhh_v2)'))
-    IS DISTINCT FROM '0e7d8edd3317eb74092c5a762f80b4054313346d92b61a87f90afbda5d178299'
  OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc p
      WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.materializar_cuadro_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1)'))
     IS DISTINCT FROM '174ee9497abf84536e59d96b8c1331dea84eeb9efde1d3e5777ca314dc975d76'
@@ -937,7 +930,7 @@ BEGIN
           p_cierre.cursor_huella_sha256
        OR p_cierre.cursor_huella_sha256 IS DISTINCT FROM
           (CASE WHEN p_salida.hay_mas
-                THEN pg_catalog.encode(p_salida.cursor_huella, 'hex') ELSE '' END)
+                THEN p_salida.token_nuevo_huella_sha256 ELSE '' END)
        OR v_registro.decision_huella_sha256 IS DISTINCT FROM
           v_decision_huella
        OR v_registro.consumo_vec_huella_sha256 IS DISTINCT FROM
@@ -1076,16 +1069,9 @@ BEGIN
        AND (
            p_salida.cursor_siguiente !~ '^[A-Za-z0-9_-]{43}$'
            OR p_salida.token_nuevo_huella_sha256 !~ '^[0-9a-f]{64}$'
-           OR p_salida.cursor_huella IS DISTINCT FROM pg_catalog.sha256(
-               pg_catalog.decode(pg_catalog.rpad(pg_catalog.translate(
-                   p_salida.cursor_siguiente, '-_', '+/'
-               ), 44, '='), 'base64')
+           OR p_salida.cursor_huella IS DISTINCT FROM pg_catalog.decode(
+               p_salida.token_nuevo_huella_sha256, 'hex'
            )
-           OR pg_catalog.rtrim(pg_catalog.translate(pg_catalog.encode(
-               pg_catalog.decode(pg_catalog.rpad(pg_catalog.translate(
-                   p_salida.cursor_siguiente, '-_', '+/'
-               ), 44, '='), 'base64'), 'base64'
-           ), '+/', '-_'), E'=\n') IS DISTINCT FROM p_salida.cursor_siguiente
            OR p_salida.token_nuevo_huella_sha256 IS DISTINCT FROM
               pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
                   p_salida.cursor_siguiente, 'UTF8'
@@ -2415,9 +2401,9 @@ BEGIN
            OR (v_cierre.cursor_huella_sha256 ~ '^[0-9a-f]{64}$')
               IS DISTINCT FROM true
            OR pg_catalog.encode(pg_catalog.sha256(
-               pg_catalog.decode(pg_catalog.rpad(pg_catalog.translate(
-                   v_resultado.cursor_siguiente, '-_', '+/'
-               ), 44, '='), 'base64')
+               pg_catalog.convert_to(
+                   v_resultado.cursor_siguiente, 'UTF8'
+               )
            ), 'hex') IS DISTINCT FROM
               v_cierre.cursor_huella_sha256 THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
