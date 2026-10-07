@@ -1,5 +1,5 @@
 import { cargarTextos } from '../../../comun/textos.js';
-import { INDICE_IDIOMAS } from '../../../comun/idioma.js';
+import { montarSelectorIdioma } from '../../../comun/idioma.js';
 import { montarSeleccion } from './montaje.js?v=20261004-codexa-s6-notas-v1';
 
 const textos = await cargarTextos('seleccion');
@@ -12,14 +12,8 @@ document.querySelectorAll('.migas a, .navegacion-modulos a').forEach(enlace => {
 });
 document.querySelector('.navegacion-modulos').setAttribute('aria-label', t('navegacion'));
 const selector = document.getElementById('seleccion-idioma');
-INDICE_IDIOMAS.idiomas.forEach(idioma => {
-  const opcion = document.createElement('option');
-  opcion.value = idioma.codigo; opcion.textContent = idioma.nombre;
-  opcion.selected = idioma.codigo === textos.idioma; selector.append(opcion);
-});
-selector.addEventListener('change', () => {
-  const url = new URL(location.href); url.searchParams.set('lang', selector.value); location.assign(url);
-});
+montarSelectorIdioma(selector, location, textos.idioma);
+selector.value = textos.idioma;
 const menu = document.getElementById('seleccion-menu');
 menu.addEventListener('click', () => {
   const abierto = menu.getAttribute('aria-expanded') !== 'true';
