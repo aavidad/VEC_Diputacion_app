@@ -1385,6 +1385,11 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		IdentidadCT:       identidadSesionAuditoriaConsultaDesarrollo{identidadCT, auditoria.FuenteConsultaCT, auditoria.RutaConsulta, http.MethodPost},
 		IdentidadBolsa:    identidadSesionAuditoriaConsultaDesarrollo{identidadBolsa, auditoria.FuenteConsultaBolsa, auditoria.RutaConsulta, http.MethodPost},
 		Opciones:          proveedorOpciones,
+		Intentos: auditoria.ConfiguracionIntentos{
+			Registrador: alta.auditoriaLecturasCT, Proceso: alta.procesoAuditoriaLecturasCT,
+			Canal:     string(vecdomain.SuperficieAutenticacionInternaCorporativaV1),
+			Finalidad: opciones.FinalidadRef, Motivo: opciones.Motivo,
+		},
 	})
 	if err != nil {
 		return fallo(cerrar)
