@@ -102,7 +102,7 @@ $tipo$||'))';
 END $familia$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.motivo_intento_identidad_interna_valido_v1(p_accion text,p_resultado text,p_motivo text)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SET search_path=pg_catalog
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SET search_path=pg_catalog,pg_temp
 AS $catalogo$
  SELECT EXISTS(SELECT 1 FROM (VALUES
  ('provisionar_identidad_interna_sintetica_v1','permitido','identidad_interna_registrada'),
@@ -137,7 +137,7 @@ CREATE UNIQUE INDEX auditoria_identidad_interna_operacion_uq
 -- No se concede esta guarda ni los registradores al LOGIN. AUT57 es el único
 -- llamador funcional; coteja su configuración y aprobación antes del efecto.
 CREATE FUNCTION vec_autorizacion_atestada_v3.acreditar_operador_identidad_interna_v1()
-RETURNS void LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog AS $guarda$
+RETURNS void LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,pg_temp AS $guarda$
 DECLARE grupo oid:=pg_catalog.to_regrole('vec_identidad_interna_sintetica_ejecutor');
 BEGIN
  IF grupo IS NULL
@@ -156,7 +156,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.acreditar_operador_identidad
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_provision_identidad_interna_sintetica_v1(p_evento jsonb)
 RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE
  v_orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','operacion_ref','plan_ref','plan_sha256',
@@ -261,7 +261,7 @@ END $acl$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_identidad_interna_sintetica_v1(p_evento jsonb)
 RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE
  v_orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','solicitud_sha256',

@@ -135,17 +135,17 @@ BEGIN
  OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 WHERE cuenta_ref=cuenta)
  THEN RAISE EXCEPTION 'CA37: recibo IS o cuenta divergente' USING ERRCODE='55000'; END IF;
  ahora:=clock_timestamp();
- -- AUT57 acredita privadamente la fuente maestra limitada al clon de
- -- desarrollo; el alcance sintético permanece explícito en titularidad/recibo.
- INSERT INTO vec_contexto_actor_v1.procedencias VALUES(p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','autoridad_maestra_acreditada');
+ -- AUT57 autoriza este registro preparatorio, pero no acredita su fuente.
+ -- Persona y proyección permanecen no autoritativas hasta admisión independiente.
+ INSERT INTO vec_contexto_actor_v1.procedencias VALUES(p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','no_autoritativa');
  IF p#>>'{persona,fuente_titularidad,referencia}' IS DISTINCT FROM p#>>'{procedencia,referencia}' THEN
-  INSERT INTO vec_contexto_actor_v1.procedencias VALUES(p#>>'{persona,fuente_titularidad,referencia}',1,p#>>'{persona,fuente_titularidad,huella_sha256}','autoridad_maestra_acreditada');
+  INSERT INTO vec_contexto_actor_v1.procedencias VALUES(p#>>'{persona,fuente_titularidad,referencia}',1,p#>>'{persona,fuente_titularidad,huella_sha256}','no_autoritativa');
  END IF;
  INSERT INTO vec_contexto_actor_v1.persona_versiones(persona_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
- VALUES(p#>>'{persona,persona_ref}',1,p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','autoridad_maestra_acreditada','activo',ahora,(p#>>'{persona,vigente_hasta}')::timestamptz);
+ VALUES(p#>>'{persona,persona_ref}',1,p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','no_autoritativa','activo',ahora,(p#>>'{persona,vigente_hasta}')::timestamptz);
  INSERT INTO vec_contexto_actor_v1.persona_actual VALUES(p#>>'{persona,persona_ref}',1);
  INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones(cuenta_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
- VALUES(cuenta,1,p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','autoridad_maestra_acreditada','activo',ahora,(p#>>'{persona,vigente_hasta}')::timestamptz);
+ VALUES(cuenta,1,p#>>'{procedencia,referencia}',1,p#>>'{procedencia,huella_sha256}','no_autoritativa','activo',ahora,(p#>>'{persona,vigente_hasta}')::timestamptz);
  INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_actual VALUES(cuenta,1);
  INSERT INTO vec_contexto_actor_v1.titularidad_cuenta_persona_v1(cuenta_ref,persona_ref,version,fuente_ref,fuente_version,fuente_sha256,alcance_fuente,operacion_ref,tipo_operacion,operacion_identidad_ref,vigente_desde,vigente_hasta)
  VALUES(cuenta,p#>>'{persona,persona_ref}',1,p#>>'{persona,fuente_titularidad,referencia}',1,p#>>'{persona,fuente_titularidad,huella_sha256}','sintetico_declarado',NULL,'identidad_interna_sintetica_v1',operacion,ahora,(p#>>'{persona,vigente_hasta}')::timestamptz);

@@ -34,7 +34,7 @@ SET LOCAL ROLE vec_autorizacion_propietario;
 
 -- El orden coincide byte a byte con PlanIdentidadInternaSinteticaV1 de Go.
 CREATE FUNCTION vec_autorizacion.canon_identidad_interna_sintetica_v1(v jsonb,tipo text)
-RETURNS text LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $f$
+RETURNS text LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE campos text[];tipos text[];i integer;valor text;salida text:='';
 BEGIN
  CASE tipo
@@ -76,16 +76,16 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.canon_identidad_interna_sintetica_v1(jsonb,text) FROM PUBLIC;
 
--- El DBA acredita expresamente la fuente maestra de este ejercicio local:
--- persona, cuenta ordinaria y titularidad. El alcance sintético permanece en
--- plan, recibos y auditoría; no acredita empleo, perfil ni nivel de garantía.
+-- El DBA autoriza el registro preparatorio del ejercicio local. Esta
+-- aprobación permite la escritura; no acredita una fuente maestra de Persona
+-- ni titularidad. No publica contexto, empleo, perfil ni nivel de garantía.
 CREATE TABLE vec_autorizacion.config_identidad_interna_sintetica_v1(
  login_nombre name PRIMARY KEY,
  proceso text NOT NULL CHECK(proceso ~ '^[a-z][a-z0-9._-]{1,79}$'),
  motivo_ref text NOT NULL CHECK(motivo_ref ~ '^[a-z][a-z0-9._:-]{0,159}$'),
  entorno text NOT NULL CHECK(entorno='desarrollo'),
  alcance_fuente text NOT NULL CHECK(alcance_fuente='sintetico_declarado'),
- declaracion_aprobada text NOT NULL CHECK(declaracion_aprobada='fuente_maestra_sintetica_persona_cuenta_ordinaria_titularidad'),
+ declaracion_aprobada text NOT NULL CHECK(declaracion_aprobada='registro_preparatorio_sintetico_persona_cuenta_titularidad'),
  destino_base name NOT NULL,
  destino_host inet NOT NULL CHECK(destino_host IN ('127.0.0.1'::inet,'::1'::inet)),
  destino_puerto integer NOT NULL CHECK(destino_puerto BETWEEN 1 AND 65535),
@@ -127,7 +127,7 @@ END $tablas$;
 
 CREATE FUNCTION vec_autorizacion.exigir_operador_identidad_interna_sintetica_v1()
 RETURNS vec_autorizacion.config_identidad_interna_sintetica_v1
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE l record;g record;cfg vec_autorizacion.config_identidad_interna_sintetica_v1;
  ns oid;db oid;funciones oid[];
 BEGIN
@@ -157,7 +157,7 @@ BEGIN
  OR pg_catalog.has_schema_privilege(l.oid,ns,'CREATE') OR pg_catalog.has_database_privilege(l.oid,db,'CREATE,TEMP')
  THEN RAISE EXCEPTION 'AUT57: LOGIN no acreditado' USING ERRCODE='42501'; END IF;
  SELECT * INTO cfg FROM vec_autorizacion.config_identidad_interna_sintetica_v1 WHERE login_nombre=session_user FOR SHARE;
- IF NOT FOUND OR cfg.declaracion_aprobada<>'fuente_maestra_sintetica_persona_cuenta_ordinaria_titularidad'
+ IF NOT FOUND OR cfg.declaracion_aprobada<>'registro_preparatorio_sintetico_persona_cuenta_titularidad'
  OR pg_catalog.clock_timestamp()<cfg.vigente_desde OR pg_catalog.clock_timestamp()>=cfg.vigente_hasta
  OR cfg.destino_base<>pg_catalog.current_database() OR cfg.destino_host<>pg_catalog.inet_server_addr()
  OR cfg.destino_puerto<>pg_catalog.inet_server_port()
@@ -168,7 +168,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.exigir_operador_identidad_interna_sintet
 
 -- Fachada sólo para propietarios; la CLI carece de permiso para sondear preimágenes.
 CREATE FUNCTION vec_autorizacion.preimagen_identidad_interna_sintetica_v1(p jsonb,material text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
 DECLARE ca jsonb;identidad jsonb;
 BEGIN
  ca:=vec_contexto_actor_v1.preimagen_identidad_interna_sintetica_v1(p);
@@ -178,7 +178,7 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_identidad_interna_sintetica_v1(jsonb,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.aplicar_efecto_identidad_interna_sintetica_v1(p_plan_canonico text,p_huella_aprobada text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE cfg vec_autorizacion.config_identidad_interna_sintetica_v1;p jsonb;sha text;pre jsonb;pre_sha text;cfg_sha text;
  previo vec_autorizacion.identidad_interna_sintetica_v1;is_recibo jsonb;ca_recibo jsonb;fuente jsonb;fuente_sha text;
  ahora timestamptz;evento text;correlacion text;recibo_ref text;aud record;resultado jsonb;
@@ -280,7 +280,7 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_efecto_identidad_interna_sintetica_v1(text,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.provisionar_identidad_interna_sintetica_v1(p_plan_canonico text,p_huella_aprobada text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE respuesta jsonb;estado text:='permitido';motivo text;codigo text;aud record;
  solicitud text:='solicitud_identidad_interna:'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
  evento text:='evento_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
@@ -312,7 +312,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.provisionar_identidad_interna_sintetica_
 
 -- Recuperación nominal: una lectura deja un intento nuevo en la cadena común.
 CREATE FUNCTION vec_autorizacion.recuperar_identidad_interna_sintetica_v1(p_operacion_ref text,p_plan_sha256 text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE cfg vec_autorizacion.config_identidad_interna_sintetica_v1;r vec_autorizacion.identidad_interna_sintetica_v1;
  estado text:='permitido';codigo text;motivo text:='identidad_interna_recuperada';aud record;is_recibo jsonb;cfg_sha text;
  solicitud text:='solicitud_identidad_interna:'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');

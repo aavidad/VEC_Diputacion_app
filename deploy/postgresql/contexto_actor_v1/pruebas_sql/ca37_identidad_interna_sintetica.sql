@@ -61,9 +61,11 @@ BEGIN
  OR (SELECT count(*) FROM vec_contexto_actor_v1.persona_versiones)<>antes_personas+1
  OR (SELECT count(*) FROM vec_contexto_actor_v1.proyeccion_cuenta_versiones)<>antes_proyecciones+1
  OR (SELECT count(*) FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 WHERE operacion_identidad_ref=p->>'operacion_ref' AND tipo_operacion='identidad_interna_sintetica_v1')<>1
- OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t JOIN vec_contexto_actor_v1.persona_versiones pv ON pv.persona_ref=t.persona_ref AND pv.version=t.version JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones cv ON cv.cuenta_ref=t.cuenta_ref AND cv.version=t.version WHERE t.operacion_identidad_ref=p->>'operacion_ref' AND (pv.procedencia_autoridad<>'autoridad_maestra_acreditada' OR cv.procedencia_autoridad<>'autoridad_maestra_acreditada'))
+ OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 t JOIN vec_contexto_actor_v1.persona_versiones pv ON pv.persona_ref=t.persona_ref AND pv.version=t.version JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones cv ON cv.cuenta_ref=t.cuenta_ref AND cv.version=t.version WHERE t.operacion_identidad_ref=p->>'operacion_ref' AND (pv.procedencia_autoridad<>'no_autoritativa' OR cv.procedencia_autoridad<>'no_autoritativa'))
  OR (SELECT count(*) FROM vec_contexto_actor_v1.perfil_versiones)<>antes_perfiles
  THEN RAISE EXCEPTION 'CA37: replay o efecto ordinario divergente'; END IF;
+ IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias WHERE procedencia_ref IN(p#>>'{procedencia,referencia}',p#>>'{persona,fuente_titularidad,referencia}') AND procedencia_autoridad<>'no_autoritativa') THEN
+  RAISE EXCEPTION 'CA37: declaración preparatoria elevada a fuente maestra'; END IF;
  IF NOT vec_contexto_actor_v1.cotejar_titularidad_cuenta_persona_canonica_v1(ca_r#>>'{datos,cuenta_ordinaria_ref}',p#>>'{persona,persona_ref}',(ca_r->>'registrada_en')::timestamptz) THEN
   RAISE EXCEPTION 'CA37: fachada canónica no resuelve titularidad'; END IF;
  IF position('proyeccion_cuenta_actual' IN (SELECT prosrc FROM pg_proc WHERE oid=to_regprocedure('vec_contexto_actor_v1.cotejar_titularidad_cuenta_persona_canonica_v1(text,text,timestamp with time zone)')))>0
