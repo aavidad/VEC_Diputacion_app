@@ -26,12 +26,11 @@ export async function cargarMensajesPortal(idioma) {
   // La primera carga prepara el índice y devuelve el idioma realmente visible.
   let portal = await cargarTextos("portal", { idioma });
   let elegido = portal.idioma;
-  const modulos = ["portal-ayuda", "preferencias", "bolsa"];
-  let [ayuda, preferencias, bolsa] = await Promise.all(modulos
+  let [ayuda, preferencias, bolsa] = await Promise.all(["portal-ayuda", "preferencias", "bolsa"]
     .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
   if ([portal, ayuda, preferencias, bolsa].some((catalogo) => catalogo.idioma !== elegido)) {
     elegido = IDIOMA_POR_DEFECTO;
-    [portal, ayuda, preferencias, bolsa] = await Promise.all(["portal", ...modulos]
+    [portal, ayuda, preferencias, bolsa] = await Promise.all(["portal", "portal-ayuda", "preferencias", "bolsa"]
       .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
   }
   idiomaInicialDelShell ??= portal.idioma;
