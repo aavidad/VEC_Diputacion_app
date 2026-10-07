@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/hex"
 
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/documentos/domain"
@@ -123,7 +124,12 @@ func (s *ServicioJustificantesComision) Registrar(ctx context.Context, orden Ord
 	if registrado.Validar() != nil || registrado.Custodia != vecdomain.CustodiaExterna ||
 		registrado.ID != orden.DocumentoID || registrado.ModuloID != "dietas" ||
 		registrado.ExpedienteRef != agrupacionRef || registrado.TipoRef != orden.TipoDocumentalRef ||
-		registrado.CustodiaExternaRef != elegido.Custodia {
+		registrado.Version != VersionJustificanteDietas || registrado.MIME != "" || registrado.Tamano != 0 ||
+		registrado.HuellaSHA256 != elegido.Custodia.HuellaSHA256 ||
+		registrado.CustodiaExternaRef != elegido.Custodia ||
+		registrado.PoliticaRef != orden.SolicitudPolitica.PoliticaRef() ||
+		registrado.VersionPolitica != orden.SolicitudPolitica.VersionPolitica() ||
+		registrado.HuellaPoliticaSHA256 != hex.EncodeToString(orden.SolicitudPolitica.HuellaPoliticaSHA256()) {
 		return vecdomain.Documento{}, dietasports.ErrDocumentoComisionNoDisponible
 	}
 	return registrado, nil

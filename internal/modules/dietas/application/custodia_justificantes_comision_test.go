@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/dietas/domain"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
@@ -15,6 +17,7 @@ import (
 type registroExternoPrueba struct {
 	solicitud docports.AltaExterna
 	llamadas  int
+	respuesta func(docports.AltaExterna) docdomain.Documento
 }
 
 var errRegistroExternoPrueba = errors.New("registro detenido por prueba")
@@ -22,7 +25,26 @@ var errRegistroExternoPrueba = errors.New("registro detenido por prueba")
 func (r *registroExternoPrueba) RegistrarExterno(_ context.Context, a docports.AltaExterna) (docdomain.Documento, error) {
 	r.llamadas++
 	r.solicitud = a
+	if r.respuesta != nil {
+		return r.respuesta(a), nil
+	}
 	return docdomain.Documento{}, errRegistroExternoPrueba
+}
+
+func documentoExternoConfirmadoPrueba(a docports.AltaExterna) docdomain.Documento {
+	return docdomain.Documento{
+		ID: a.ID, NumeroVEC: "VEC-2026-1", ModuloID: a.ModuloID,
+		ExpedienteRef: a.ExpedienteRef, TipoRef: a.TipoRef, Version: a.Version,
+		MIME: a.MIME, Tamano: a.Tamano, HuellaSHA256: a.Custodia.HuellaSHA256,
+		PoliticaRef:          a.SolicitudPolitica.PoliticaRef(),
+		VersionPolitica:      a.SolicitudPolitica.VersionPolitica(),
+		HuellaPoliticaSHA256: hex.EncodeToString(a.SolicitudPolitica.HuellaPoliticaSHA256()),
+		ConservacionHasta:    time.Date(2027, 9, 21, 0, 0, 0, 0, time.UTC),
+		Proteccion:           "conservacion", EstadoPolitica: docdomain.EstadoPoliticaProvisional,
+		EstadoFirma: docdomain.EstadoFirmaPendienteProveedor,
+		CreadoEn:    time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC),
+		Custodia:    docdomain.CustodiaExterna, CustodiaExternaRef: a.Custodia,
+	}
 }
 
 func borradorConJustificantesPrueba(t *testing.T) (OrdenJustificanteComision, dietasports.ResultadoBorradorComision) {
@@ -101,5 +123,39 @@ func TestJustificanteComisionDeniegaLineaSinCustodiaOVersionAjena(t *testing.T) 
 	servicio, _ := NuevoServicioJustificantesComision(&lectorDocumentoPrueba{resultado: resultado}, registro)
 	if _, err := servicio.Registrar(context.Background(), orden); !errors.Is(err, dietasports.ErrDocumentoComisionNoDisponible) || registro.llamadas != 0 {
 		t.Fatalf("accion de alta aceptada: %v", err)
+	}
+}
+
+func TestJustificanteComisionCompruebaReciboExternoExacto(t *testing.T) {
+	casos := map[string]func(*docdomain.Documento){
+		"valido":                   func(*docdomain.Documento) {},
+		"otra version":             func(d *docdomain.Documento) { d.Version++ },
+		"otro MIME":                func(d *docdomain.Documento) { d.MIME = "application/pdf" },
+		"otro tamano":              func(d *docdomain.Documento) { d.Tamano = 1 },
+		"otra politica":            func(d *docdomain.Documento) { d.PoliticaRef = "ref:" + strings.Repeat("f", 64) },
+		"otra version de politica": func(d *docdomain.Documento) { d.VersionPolitica++ },
+		"otra huella de politica":  func(d *docdomain.Documento) { d.HuellaPoliticaSHA256 = strings.Repeat("e", 64) },
+	}
+	for nombre, alterar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			orden, resultado := borradorConJustificantesPrueba(t)
+			registro := &registroExternoPrueba{respuesta: func(a docports.AltaExterna) docdomain.Documento {
+				d := documentoExternoConfirmadoPrueba(a)
+				alterar(&d)
+				return d
+			}}
+			servicio, err := NuevoServicioJustificantesComision(&lectorDocumentoPrueba{resultado: resultado}, registro)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = servicio.Registrar(context.Background(), orden)
+			if nombre == "valido" {
+				if err != nil {
+					t.Fatalf("recibo valido: %v", err)
+				}
+			} else if !errors.Is(err, dietasports.ErrDocumentoComisionNoDisponible) {
+				t.Fatalf("recibo discordante aceptado: %v", err)
+			}
+		})
 	}
 }
