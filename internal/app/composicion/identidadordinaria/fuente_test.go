@@ -69,10 +69,14 @@ func (r *registroPrueba) ComprobarSesionYCuentaActivas(_ context.Context, q http
 type revalidadorPrueba struct {
 	alta     httpseguridad.ConfirmacionAltaSesion
 	llamadas int
+	err      error
 }
 
 func (r *revalidadorPrueba) RevalidarAutenticacionActorV1(_ context.Context, s core.SolicitudRevalidacionAutenticacionActorV1) (core.AutenticacionRevalidadaV1, error) {
 	r.llamadas++
+	if r.err != nil {
+		return core.AutenticacionRevalidadaV1{}, r.err
+	}
 	if s.AutenticacionRef != r.alta.AutenticacionRef || s.SesionRef != r.alta.SesionRef {
 		return core.AutenticacionRevalidadaV1{}, errors.New("sesion distinta")
 	}
@@ -107,10 +111,14 @@ func (r *resolutorPrueba) ResolverContextoActorRegistradoV2(_ context.Context, s
 type autorizacionPrueba struct {
 	snapshot core.InstantaneaAutorizacion
 	llamadas int
+	err      error
 }
 
 func (a *autorizacionPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (core.InstantaneaAutorizacion, error) {
 	a.llamadas++
+	if a.err != nil {
+		return core.InstantaneaAutorizacion{}, a.err
+	}
 	if principal != personaPrueba || perfil != perfilPrueba {
 		return core.InstantaneaAutorizacion{}, errors.New("selector ajeno")
 	}
@@ -304,6 +312,42 @@ func TestFuenteDeniegaSinCapsulaOGarantia(t *testing.T) {
 	}
 	if _, _, _, err := fTemporal.Resolver(temporal.ctx); !errors.Is(err, ErrIdentidadOrdinariaNoDisponible) {
 		t.Fatalf("el certificado temporal abrió la fuente: %v", err)
+	}
+}
+
+type causaPrivadaPrueba struct{ marcador string }
+
+func (e *causaPrivadaPrueba) Error() string { return "dsn_privada=" + e.marcador }
+
+func TestFuentePropagaCausaSinExponerMensajeNiContinuar(t *testing.T) {
+	for _, caso := range []struct {
+		nombre                                  string
+		fallar                                  func(*entornoPrueba, error)
+		esperadoResolutor, esperadoAutorizacion int
+	}{
+		{"revalidacion", func(e *entornoPrueba, err error) { e.revalidador.err = err }, 0, 0},
+		{"autorizacion", func(e *entornoPrueba, err error) { e.autorizacion.err = err }, 1, 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := nuevoEntornoPrueba(t)
+			causa := &causaPrivadaPrueba{marcador: "NO_MOSTRAR_SECRETO"}
+			caso.fallar(e, causa)
+			f, err := NuevaFuente(e.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			v, r, s, err := f.Resolver(e.ctx)
+			var extraida *causaPrivadaPrueba
+			if !errors.Is(err, ErrIdentidadOrdinariaNoDisponible) || !errors.As(err, &extraida) || extraida != causa ||
+				err.Error() != ErrIdentidadOrdinariaNoDisponible.Error() || strings.Contains(err.Error(), causa.marcador) {
+				t.Fatalf("causa o mensaje opaco incorrectos: %v", err)
+			}
+			if v.Validar() == nil || r.Validar() == nil || s.Validar() == nil ||
+				e.revalidador.llamadas != 1 || e.resolutor.llamadas != caso.esperadoResolutor ||
+				e.autorizacion.llamadas != caso.esperadoAutorizacion {
+				t.Fatal("una autoridad posterior fue llamada o salió material parcial")
+			}
+		})
 	}
 }
 
