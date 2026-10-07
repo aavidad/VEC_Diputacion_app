@@ -622,3 +622,4 @@ static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
 static/portal-empleado/peticiones-centro/i18n-peticiones-centro.js
 static/textos/es/peticiones-centro.json
 static/textos/en/peticiones-centro.json
+static/portal-empleado/organizacion/arranque.js

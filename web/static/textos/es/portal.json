@@ -153,6 +153,7 @@
     "accion_ir_inicio_portal": "Ir al inicio del Portal del Empleado",
     "operacion_no_compuesta": "Esta operación permanece deshabilitada hasta que su comando de servidor esté compuesto y autorizado.",
     "accion_entrar": "Entrar",
+    "organizacion_arranque_reintentar": "Reintentar",
     "organizacion_arranque_titulo": "Organización",
     "organizacion_arranque_error": "No se pudieron cargar los textos de Organización.",
     "accion_reintentar": "Reintentar",

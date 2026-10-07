@@ -153,6 +153,7 @@
     "accion_ir_inicio_portal": "Go to the Employee Portal home page",
     "operacion_no_compuesta": "This action stays disabled until its server command is available and authorised.",
     "accion_entrar": "Open",
+    "organizacion_arranque_reintentar": "Try again",
     "organizacion_arranque_titulo": "Organisation",
     "organizacion_arranque_error": "The organisation texts could not be loaded.",
     "accion_reintentar": "Try again",
