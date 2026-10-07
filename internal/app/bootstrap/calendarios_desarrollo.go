@@ -13,6 +13,7 @@ import (
 	calendariospg "vec-diputacion-granada/internal/modules/calendarios/adapters/postgres"
 	calendariosapp "vec-diputacion-granada/internal/modules/calendarios/application"
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 
 	"vec-diputacion-granada/internal/shared/plazoarranque"
@@ -110,7 +111,7 @@ func abrirPoolCalendariosDesarrollo(ctx context.Context, dsn string) (*pgxpool.P
 	p["idle_in_transaction_session_timeout"] = "15s"
 	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error { return acreditarLectorCalendarios(ctx, c) }
 	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, cfg)
 	if err != nil {
 		return nil, errCalendariosDesarrolloNoDisponible
 	}

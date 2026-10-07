@@ -49,7 +49,7 @@ func abrirPoolUsuariosPreferencias(ctx context.Context, dsn, rol string) (*pgxpo
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, "", errComposicionUsuariosPreferencias
 	}

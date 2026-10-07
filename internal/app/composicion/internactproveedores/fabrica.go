@@ -29,6 +29,7 @@ import (
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
 	pl "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -648,7 +649,7 @@ func abrirPool(ctx context.Context, m PoolMaterial, p perfilPool) (*pgxpool.Pool
 		}
 		return acreditarPerfilEfectivo(ctx, con, p)
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, cfg)
 	if err != nil {
 		return nil, ErrProveedoresCTNoDisponibles
 	}

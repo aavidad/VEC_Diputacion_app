@@ -175,7 +175,7 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 		cfg.ConnConfig.RuntimeParams[clave] = valor
 	}
 	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, cfg)
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
