@@ -197,12 +197,12 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", ErrComposicionDesarrolloIncompleta)
 				return
 			}
-			datos, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHEstadisticasConsultar)
+			respuesta, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHEstadisticasConsultar)
 			if err != nil {
 				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", err)
 				return
 			}
-			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": (&bolsasRRHHDesarrolloDatos{datos: datos}).respuestaEstadisticas()}, r.Method == http.MethodHead)
+			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 			return
 		}
 		vista, ok := h.vistaResumen(w, r)
@@ -226,12 +226,12 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", ErrComposicionDesarrolloIncompleta)
 				return
 			}
-			datos, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHBolsasConsultar)
+			respuesta, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHBolsasConsultar)
 			if err != nil {
 				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", err)
 				return
 			}
-			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": (&bolsasRRHHDesarrolloDatos{datos: datos}).respuestaBolsas()}, r.Method == http.MethodHead)
+			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 			return
 		}
 		vista, ok := h.vistaResumen(w, r)

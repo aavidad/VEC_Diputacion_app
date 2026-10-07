@@ -50,13 +50,36 @@ const (
 // El histórico de llamamientos se declara ausente mientras no exista su
 // consulta; el contador de llamamientos en curso es otra magnitud.
 type ResumenBolsasNominal struct {
-	GeneradoEn                      time.Time
-	Filas                           []SituacionResumenParticipacion
-	Politicas                       map[string]dominio.PoliticaOrdenBolsa
-	LlamamientosEnCurso             map[string]int
-	HistoricoLlamamientosDisponible bool
+	GeneradoEn   time.Time
+	Bolsas       []BolsaResumenNominal
+	Estadisticas *EstadisticasBolsasNominal
+}
+
+type BolsaResumenNominal struct {
+	BolsaRef, CategoriaRef string
+	ConfirmadaEn           time.Time
+	VigenteHasta           *time.Time
+	Politica               dominio.PoliticaOrdenBolsa
+	PorEstado              map[string]int
+	LlamamientosEnCurso    int
+}
+
+type EstadisticasBolsaNominal struct {
+	BolsaRef, CategoriaRef, TipoLista string
+	Vigente                           bool
+	Total                             int
+	PorEstado                         map[string]int
+}
+
+type EstadisticasBolsasNominal struct {
+	BolsasTotal, BolsasVigentes, BolsasSustituidas int
+	PersonasTotal                                  int
+	PersonasPorEstado                              map[string]int
+	LlamamientosEnCurso                            int
+	HistoricoLlamamientosDisponible                bool
+	PorBolsa                                       []EstadisticasBolsaNominal
 }
 
 type LectorResumenBolsasNominal interface {
-	LeerResumenNominal(context.Context, string, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ResumenBolsasNominal, error)
+	LeerResumenNominal(context.Context, string, bool, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ResumenBolsasNominal, error)
 }

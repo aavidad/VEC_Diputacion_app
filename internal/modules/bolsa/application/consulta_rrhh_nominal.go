@@ -84,7 +84,7 @@ func (s *ServicioConsultaResumenRRHHNominal) Consultar(ctx context.Context, orde
 	if err != nil || !vecports.MaterialAtestadoLigadoV3(solicitud, decision, confirmacion, actor, orden.Motivo, material, audiencia) {
 		return vacio, vd.ErrAutorizacionDenegada
 	}
-	return s.lector.LeerResumenNominal(ctx, orden.Accion, material)
+	return s.lector.LeerResumenNominal(ctx, orden.Accion, orden.CeseActivo, material)
 }
 
 func concesionResumenRRHHExacta(s vd.SolicitudAutorizacionLigadaV3, d vd.DecisionAutorizacionLigadaV3,

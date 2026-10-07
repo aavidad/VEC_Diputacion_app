@@ -23,7 +23,7 @@ END $pre$;
 CREATE FUNCTION vec_bolsa_importacion_convoca.recuperar_filas_bolsa_rrhh_v1(
  p_huella text,p_categoria_ref text,p_numeros integer[])
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE
  estado jsonb;
  importacion text;

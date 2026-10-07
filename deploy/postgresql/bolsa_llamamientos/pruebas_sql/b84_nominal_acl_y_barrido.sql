@@ -4,7 +4,7 @@ BEGIN READ ONLY;
 SET LOCAL search_path=pg_catalog;
 DO $verificar$
 DECLARE
- resumen regprocedure:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ resumen regprocedure:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  candidatos regprocedure:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_candidatos_rrhh_nominal_v1(text,text,text,text,text,text,integer,text,text[],boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  finalizar regprocedure:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.finalizar_barrido_rrhh_nominal_v1(text,text,text,text[])');
  importacion regprocedure:=pg_catalog.to_regprocedure('vec_bolsa_importacion_convoca.recuperar_filas_bolsa_rrhh_v1(text,text,integer[])');
@@ -31,7 +31,9 @@ BEGIN
             WHERE p.oid IN (resumen,candidatos,finalizar,importacion,consumo) AND a.grantee=0)
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
                  WHERE p.oid IN (resumen,candidatos,finalizar,importacion,consumo)
-                   AND (NOT p.prosecdef OR p.proconfig IS NULL OR p.proowner IS NULL))
+                   AND (NOT p.prosecdef OR p.proconfig IS NULL OR p.proowner IS NULL
+                     OR NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(p.proconfig) AS x(valor)
+                        WHERE pg_catalog.regexp_replace(x.valor,'[[:space:]]','','g')='search_path=pg_catalog,pg_temp')))
     OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.barrido_rrhh_tx)
  THEN RAISE EXCEPTION 'B84: función abierta o barrido persistido' USING ERRCODE='42501'; END IF;
 END $verificar$;
