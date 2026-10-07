@@ -28,37 +28,39 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000180',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
-DECLARE rol text;
+DECLARE rol text; guarda record;
 BEGIN
- IF current_user<>'vec_autorizacion_atestada_v3_propietario'
- OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_historia_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  -- Sólo catálogo: el propietario AD no necesita USAGE ni lectura en Personal.
- OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+ FOR guarda IN SELECT v.clave,v.actual FROM (VALUES
+  ('AD180.preimagen.propietario',current_user='vec_autorizacion_atestada_v3_propietario'),
+  ('AD180.preimagen.fachada_ausente',to_regprocedure('vec_autorizacion_atestada_v3.consumir_historia_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL),
+  ('AD180.preimagen.relacion_historia',EXISTS (SELECT 1 FROM pg_catalog.pg_class c
    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname='vec_personal' AND c.relname='relacion_servicio_historia'
-     AND c.relkind='r' AND c.relowner='vec_personal_propietario'::regrole)
- OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+     AND c.relkind='r' AND c.relowner=to_regrole('vec_personal_propietario'))),
+  ('AD180.preimagen.servicio_historia',EXISTS (SELECT 1 FROM pg_catalog.pg_class c
    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname='vec_personal' AND c.relname='servicio_reconocido_historia'
-     AND c.relkind='r' AND c.relowner='vec_personal_propietario'::regrole)
- OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+     AND c.relkind='r' AND c.relowner=to_regrole('vec_personal_propietario'))),
+  ('AD180.preimagen.validador_revision',EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
    JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='vec_personal' AND p.proname='validar_revision_registro_empleado_v1'
      AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='trigger'::regtype
-     AND p.proowner='vec_personal_propietario'::regrole)
- OR to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
- THEN RAISE EXCEPTION 'PARO clave=AD180.preimagen, actual=%/%/%, esperado=true/true/true',
-  current_user='vec_autorizacion_atestada_v3_propietario',
-  to_regprocedure('vec_autorizacion_atestada_v3.consumir_historia_servicios_propios_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL,
-  to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NOT NULL
-  USING ERRCODE='55000'; END IF;
+     AND p.proowner=to_regrole('vec_personal_propietario'))),
+  ('AD180.preimagen.origen_consumo',to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NOT NULL)
+ ) AS v(clave,actual) LOOP
+  IF guarda.actual IS NOT TRUE THEN
+   RAISE EXCEPTION 'PARO clave=%, actual=%, esperado=true',guarda.clave,
+    coalesce(guarda.actual::text,'false') USING ERRCODE='55000';
+  END IF;
+ END LOOP;
  FOREACH rol IN ARRAY ARRAY['vec_personal_propietario','vec_personal_migrador','vec_personal_ejecutor'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=rol AND NOT rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls) THEN
-   RAISE EXCEPTION 'AD180: rol incompatible' USING ERRCODE='55000'; END IF;
+   RAISE EXCEPTION 'PARO clave=AD180.preimagen.rol_%, actual=false, esperado=true',rol USING ERRCODE='55000'; END IF;
  END LOOP;
- IF EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole) THEN
-  RAISE EXCEPTION 'AD180: herencia del ejecutor incompatible' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_auth_members WHERE member=to_regrole('vec_personal_ejecutor')) THEN
+  RAISE EXCEPTION 'PARO clave=AD180.preimagen.ejecutor_sin_miembros, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
 END $pre$;
 -- La audiencia se comprueba antes de reconstruir el núcleo. Esta misma
 -- transacción conserva el bloqueo hasta que la extensión esté completa.
@@ -81,7 +83,7 @@ DO $nucleo$
 DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
- propietario oid; config text[]; definidora boolean;
+ propietario oid; config text[]; definidora boolean; guarda record; metadatos_presentes boolean;
  -- Huellas de pg_get_functiondef y prosrc medidas tras AD175 en PG18.
  esperada_def_sha256 constant text:='abb1fbc89278ba9d27fec7e7e4e2e4003c47dfafd6caa1f81cb82ea8ec1b1f13';
  esperada_fuente_sha256 constant text:='0bb3c0965a84cd10c29e0d8821cc2ebc2861c108b0f817a900501b083b0ea250';
@@ -120,12 +122,24 @@ $runtime_nuevo$||runtime;
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $extension$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'AD3-180: núcleo ausente' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'PARO clave=AD180.nucleo.presente, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
- IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
-    OR propietario IS NULL OR config IS NULL OR definidora IS NULL
- THEN RAISE EXCEPTION 'AD3-180: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
+ metadatos_presentes:=FOUND;
+ FOR guarda IN SELECT v.clave,v.actual FROM (VALUES
+  ('AD180.nucleo.fila_metadatos',metadatos_presentes),
+  ('AD180.nucleo.definicion_presente',original IS NOT NULL),
+  ('AD180.nucleo.fuente_presente',fuente IS NOT NULL),
+  ('AD180.nucleo.meta_presente',meta IS NOT NULL),
+  ('AD180.nucleo.propietario_presente',propietario IS NOT NULL),
+  ('AD180.nucleo.config_presente',config IS NOT NULL),
+  ('AD180.nucleo.security_definer_presente',definidora IS NOT NULL)
+ ) AS v(clave,actual) LOOP
+  IF guarda.actual IS NOT TRUE THEN
+   RAISE EXCEPTION 'PARO clave=%, actual=%, esperado=true',guarda.clave,
+    coalesce(guarda.actual::text,'false') USING ERRCODE='55000';
+  END IF;
+ END LOOP;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
@@ -134,26 +148,37 @@ BEGIN
    AND d.classid='pg_proc'::regclass AND d.objid=f;
  -- Perfil nuevo en las dos listas del núcleo: exclusión del bloque general y
  -- selección de LOGIN con único grupo técnico Personal, sin SET/ADMIN.
- IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
-    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
-    OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
+ IF propietario IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole THEN
+  RAISE EXCEPTION 'PARO clave=AD180.nucleo.propietario, actual=%, esperado=%',
+   propietario::regrole,'vec_autorizacion_atestada_v3_propietario' USING ERRCODE='55000'; END IF;
+ IF definidora IS NOT TRUE THEN
+  RAISE EXCEPTION 'PARO clave=AD180.nucleo.security_definer, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
+ IF config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'] THEN
+  RAISE EXCEPTION 'PARO clave=AD180.nucleo.config, actual=%, esperado=%',
+   config,ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'] USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256 THEN
+  RAISE EXCEPTION 'PARO clave=AD180.nucleo.def_SHA, actual=%, esperado=%',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),esperada_def_sha256 USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256 THEN
+  RAISE EXCEPTION 'PARO clave=AD180.nucleo.src_SHA, actual=%, esperado=%',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),esperada_fuente_sha256 USING ERRCODE='55000'; END IF;
+ FOR guarda IN SELECT v.clave,v.actual FROM (VALUES
+  ('AD180.nucleo.firma',EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
          AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
          AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
-         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
-    OR EXISTS (SELECT 1 FROM pg_database db
+         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])),
+  ('AD180.nucleo.sin_temp_publico',NOT EXISTS (SELECT 1 FROM pg_database db
          CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
-         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
-    OR EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_' AND r.rolcanlogin
-         AND has_database_privilege(r.oid,current_database(),'TEMPORARY'))
-    OR NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')),
+  ('AD180.nucleo.sin_temp_login_vec',NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_' AND r.rolcanlogin
+         AND has_database_privilege(r.oid,current_database(),'TEMPORARY'))),
+  ('AD180.nucleo.acl_propietario',EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
          WHERE a.grantee=propietario AND a.grantor=propietario
-           AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
-    OR EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+           AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)),
+  ('AD180.nucleo.acl_exclusiva',NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
          WHERE a.grantee<>propietario OR a.grantor<>propietario
-            OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
-    OR deps IS DISTINCT FROM jsonb_build_array(
+            OR a.privilege_type<>'EXECUTE' OR a.is_grantable)),
+  ('AD180.nucleo.dependencias',deps IS NOT DISTINCT FROM jsonb_build_array(
          jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
            'refclassid','pg_language'::regclass::oid,
            'refobjid',(SELECT oid FROM pg_language WHERE lanname='plpgsql'),
@@ -161,24 +186,26 @@ BEGIN
          jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
            'refclassid','pg_namespace'::regclass::oid,
            'refobjid','vec_autorizacion_atestada_v3'::regnamespace::oid,
-           'refobjsubid',0,'deptype','n'))
-    OR deps_compartidas IS DISTINCT FROM jsonb_build_array(
+           'refobjsubid',0,'deptype','n'))),
+  ('AD180.nucleo.dependencias_compartidas',deps_compartidas IS NOT DISTINCT FROM jsonb_build_array(
          jsonb_build_object('dbid',(SELECT oid FROM pg_database WHERE datname=current_database()),
            'classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
-           'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
-    OR length(original)-length(replace(original,marca,''))<>length(marca)
-    OR length(original)-length(replace(original,excl,''))<>length(excl)
-    OR length(original)-length(replace(original,runtime,''))<>length(runtime)
-    OR strpos(original,'historia_servicios_propia')<>0
-    OR strpos(original,'personal.registro_empleado.servicios.historia_propia.consultar')<>0
-    OR strpos(original,'resolver_origen_consumo_v1')=0
-    OR strpos(original,'registrar_y_revalidar_decision_contexto_actor_v3')=0
-    OR strpos(original,'revalidar_decision_contexto_actor_v3_viva')=0
-    OR strpos(original,'aud_v3_')=0
- THEN RAISE EXCEPTION 'PARO clave=AD180.nucleo, actual=%/%/%, esperado=%/%/%',
-  encode(sha256(convert_to(original,'UTF8')),'hex'),encode(sha256(convert_to(fuente,'UTF8')),'hex'),config,
-  esperada_def_sha256,esperada_fuente_sha256,ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-  USING ERRCODE='55000'; END IF;
+           'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))),
+  ('AD180.nucleo.marca_suite',length(original)-length(replace(original,marca,''))=length(marca)),
+  ('AD180.nucleo.marca_exclusion',length(original)-length(replace(original,excl,''))=length(excl)),
+  ('AD180.nucleo.marca_runtime',length(original)-length(replace(original,runtime,''))=length(runtime)),
+  ('AD180.nucleo.perfil_ausente',strpos(original,'historia_servicios_propia')=0),
+  ('AD180.nucleo.accion_ausente',strpos(original,'personal.registro_empleado.servicios.historia_propia.consultar')=0),
+  ('AD180.nucleo.origen_consumo',strpos(original,'resolver_origen_consumo_v1')>0),
+  ('AD180.nucleo.revalidacion_registro',strpos(original,'registrar_y_revalidar_decision_contexto_actor_v3')>0),
+  ('AD180.nucleo.revalidacion_viva',strpos(original,'revalidar_decision_contexto_actor_v3_viva')>0),
+  ('AD180.nucleo.recibo_comun',strpos(original,'aud_v3_')>0)
+ ) AS v(clave,actual) LOOP
+  IF guarda.actual IS NOT TRUE THEN
+   RAISE EXCEPTION 'PARO clave=%, actual=%, esperado=true',guarda.clave,
+    coalesce(guarda.actual::text,'false') USING ERRCODE='55000';
+  END IF;
+ END LOOP;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
