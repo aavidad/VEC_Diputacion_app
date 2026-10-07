@@ -335,9 +335,26 @@
   min-width: 0;
 }
 
-.ct-exp-listado .tabla-datos {
-  min-width: 1060px;
+/* Cinco columnas legibles dentro del panel, también cuando el menú lateral
+   reduce el espacio útil del escritorio. La ficha móvil la da tabla-apilable. */
+.ct-expedientes .ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
+
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th,
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones td {
+  padding-inline: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th:nth-child(1) { width: 20%; }
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th:nth-child(2) { width: 28%; }
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th:nth-child(3) { width: 18%; }
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th:nth-child(4) { width: 17%; }
+.ct-expedientes .ct-exp-listado .ct-exp-tabla-peticiones th:nth-child(5) { width: 17%; }
 
 .ct-exp-listado > .cabecera-panel {
   flex-wrap: wrap;
