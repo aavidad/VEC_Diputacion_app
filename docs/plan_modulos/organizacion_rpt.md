@@ -343,3 +343,24 @@ cómo excluir opciones erróneas de nuevas altas sin perder referencias. La
 denominación «BASE B SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
 puesto 217. Su tratamiento de gobierno sigue pendiente: no se elimina por
 deducción del importador.
+
+## Contratos de gobierno para la fuente común — 7 de octubre de 2026
+
+Se recuperan cinco archivos Go de `a9001c097`: dominio, puertos y aplicación
+de gobierno de categorías. El consumidor inmediato es la fuente nominal
+común que prepara V; no se importa el handler, PostgreSQL ni Cat4/AD134
+como parte de este corte. Las rutas y acciones de escritura siguen cerradas.
+
+La aplicación exige actor, vínculo y contexto iguales, garantía High y
+versión de rol esperada. La revisión corrigió dos defectos: los errores
+al aprobar y confirmar se normalizan igual que al proponer, y se comprueban
+contexto y tamaños antes de copiar el mapa o calcular la huella documental.
+Pruebas focales normales y de carrera, gopls y diff correctos; dos revisiones
+independientes favorables del código `0772604ff`.
+
+V conserva identidad, sesión, perfil fijo, instantánea y emisor comunes.
+T conserva el adaptador RPT, handler y composición. La separación efectiva
+editor–aprobador, CAS, recibo durable y auditoría transaccional necesitan
+la conciliación SQL posterior; estos tipos no los acreditan por sí solos.
+AUT25, CA21 e IS10 se preservan hasta su decisión, sin duplicar fuentes ni
+activar una garantía sintética como producción.
