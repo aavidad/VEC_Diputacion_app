@@ -47,6 +47,7 @@ BEGIN
          'vec_documentos.reserva_original_firmable'::regclass))<>3
  THEN RAISE EXCEPTION 'Documentos-15: catálogo o trigger cambió'; END IF;
 
+ PERFORM set_config('vec.documentos.expediente_ref',uno,true);
  INSERT INTO vec_documentos.referencia_externa(
    id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,
    huella_sha256,custodio_id,custodia_ref,politica_ref,version_politica,
@@ -62,6 +63,7 @@ BEGIN
  THEN RAISE EXCEPTION 'Documentos-15: positivo tipado no quedó consultable'; END IF;
 
  BEGIN
+  PERFORM set_config('vec.documentos.expediente_ref',cero,true);
   INSERT INTO vec_documentos.referencia_externa(
     id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,
     huella_sha256,custodio_id,custodia_ref,politica_ref,version_politica,
@@ -75,6 +77,7 @@ BEGIN
   RAISE EXCEPTION 'Documentos-15: INSERT aceptó cero tipado';
  EXCEPTION WHEN check_violation THEN NULL;
  END;
+ PERFORM set_config('vec.documentos.expediente_ref',cero,true);
  IF EXISTS (SELECT 1 FROM vec_documentos.referencia_externa WHERE id='ref:'||repeat('6',64))
  THEN RAISE EXCEPTION 'Documentos-15: INSERT cero tipado persistido'; END IF;
 END $prueba$;
