@@ -4,9 +4,9 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261007-u-dietas-catalogo-v1";
+const versionCoordinador = "20261008-ct-alta-vista-v1";
 const versionCircuito = "20261007-carga-pantalla-v1";
-const versionVista = "20261007-carga-pantalla-v1";
+const versionVista = "20261008-ct-alta-vista-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -21,6 +21,18 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
   exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador);
   exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinador);
   exigirVersiones(expediente, "./seguimiento-cese.js", "20261007-pantallas-textos-final-v1");
+});
+
+test("Alta CT alcanza render y tramitación con una sola versión del formulario", async () => {
+  const [vista, tramitacion, llamamiento] = await Promise.all([
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+  ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
+  exigirVersiones(vista, "./vista-expedientes-render.js", versionVista, 2);
+  exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
+  exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionVista);
+  exigirVersiones(llamamiento, "./vista-expedientes.js", versionVista);
 });
 
 test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuito de firma", async () => {
