@@ -269,6 +269,7 @@ export function componerPersonalVisible(recursos, entorno, {
         }
       },
     });
+    if (typeof vista?.desmontar !== "function") throw new TypeError("ficha de Personal no disponible");
     return Object.freeze({ ...vista, desmontar() { ciclo.abort(); vista.desmontar(); } });
   };
   // Ficha propia servida por Personal: una consulta al entrar decide qué
