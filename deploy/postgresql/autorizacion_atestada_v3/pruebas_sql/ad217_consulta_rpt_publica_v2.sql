@@ -1,6 +1,26 @@
 \set ON_ERROR_STOP on
 -- Sólo sobre clon PG18 con AD216→AD217. No fabrica decisión firmada ni publica
 -- un perfil humano. El wrapper y sus GRANT terminan en ROLLBACK.
+-- AD172 tiene PK por LOGIN/audiencia/operación: una fila del mismo LOGIN con
+-- otra tupla pasa su PK. La preimagen de AD217 debe detectar CUALQUIER fila.
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+ (login_nombre,audiencia_consumo,operacion,proceso,canal_permitido)
+VALUES ('vec_ad217_origen_ajeno_privado','vec_personal.otra.v1',
+ 'personal.otra.consultar','vec-server','interna_corporativa');
+DO $origen_ajeno$
+BEGIN
+ IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+   WHERE login_nombre='vec_ad217_origen_ajeno_privado')<>1
+ OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+   WHERE login_nombre='vec_ad217_origen_ajeno_privado'
+   AND audiencia_consumo='vec_personal.rpt_publica.consultar.v2'
+   AND operacion='personal.rpt_publica.consultar')
+ THEN RAISE EXCEPTION 'AD217 prueba: preexistencia ajena no distingue PK compuesta' USING ERRCODE='55000'; END IF;
+END $origen_ajeno$;
+ROLLBACK;
+
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -13,6 +33,9 @@ DECLARE
  campos constant text:='["categorias_pendientes_grupo","corte","esquema","estado","evidencia","fuente","huella_sha256","items","limit","offset","publicacion_ref","resumen","total","vista"]';
 BEGIN
  IF nucleo IS NULL OR fachada IS NULL THEN RAISE EXCEPTION 'AD217 prueba: funciones ausentes' USING ERRCODE='55000'; END IF;
+ IF EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+   WHERE login_nombre='vec_ad217_origen_ajeno_privado')
+ THEN RAISE EXCEPTION 'AD217 prueba: fixture privada sobrevivió ROLLBACK' USING ERRCODE='55000'; END IF;
  SELECT p.prosrc INTO STRICT fuente FROM pg_proc p WHERE p.oid=nucleo;
  IF encode(sha256(convert_to(pg_get_functiondef(nucleo),'UTF8')),'hex') IS DISTINCT FROM
    'e314eb6242dd0681dbd8cf5618e4287140831f56ab9faa8fe2222f89f0196773'

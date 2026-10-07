@@ -42,8 +42,7 @@ BEGIN
  OR NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
  OR to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
  OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
-   WHERE login_nombre='vec_personal_rpt_v2_app' AND audiencia_consumo='vec_personal.rpt_publica.consultar.v2'
-    AND operacion='personal.rpt_publica.consultar')
+   WHERE login_nombre='vec_personal_rpt_v2_app')
  THEN RAISE EXCEPTION 'AD217: PARO roles o ACL Personal incompatibles' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -2812,7 +2811,9 @@ VALUES ('vec_personal_rpt_v2_app','vec_personal.rpt_publica.consultar.v2',
  'personal.rpt_publica.consultar','vec-server','interna_corporativa');
 DO $origen$
 BEGIN
- IF NOT EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+ IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+   WHERE login_nombre='vec_personal_rpt_v2_app')<>1
+ OR NOT EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
    WHERE login_nombre='vec_personal_rpt_v2_app'
    AND audiencia_consumo='vec_personal.rpt_publica.consultar.v2'
    AND operacion='personal.rpt_publica.consultar'

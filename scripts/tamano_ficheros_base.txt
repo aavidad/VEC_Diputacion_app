@@ -133,4 +133,4 @@
 1226 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
 810 deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
 1196 scripts/recorridos/propuesta_firma/recorrer.py
-2903 deploy/postgresql/autorizacion_atestada_v3/migraciones/000217_consulta_rpt_publica_v2.up.sql
+2904 deploy/postgresql/autorizacion_atestada_v3/migraciones/000217_consulta_rpt_publica_v2.up.sql
