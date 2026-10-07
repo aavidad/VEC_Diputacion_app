@@ -28,6 +28,26 @@ test("GET conserva la versión cero y el catálogo servidor sin crear ni escribi
   assert.equal(peticiones[0].opciones.body, undefined);
 });
 
+test("dos vistas comparten GET en vuelo y una cancelación no corta la otra", async () => {
+  let resolver;
+  let llamadas = 0;
+  const cliente = crearClientePreferencias({ fetchImpl: () => {
+    llamadas++;
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const una = new AbortController();
+  const otra = new AbortController();
+  const primera = cliente.consultar({ signal: una.signal });
+  const segunda = cliente.consultar({ signal: otra.signal });
+  await Promise.resolve();
+  assert.equal(llamadas, 1);
+  una.abort();
+  await assert.rejects(primera);
+  resolver(respuesta(get));
+  assert.equal((await segunda).estado.version, 0);
+  assert.equal(llamadas, 1);
+});
+
 test("v2 permite los seis temas; v1 rechaza un tema adelantado", async () => {
   const temasNuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
   const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
