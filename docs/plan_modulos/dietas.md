@@ -98,30 +98,32 @@ antivirus o sistema externo cierra la operación sin simular éxito.
 
 Las bandejas agregan por lotes y disponen de índices por etapa, unidad, periodo
 y orden de continuación. No habrá consulta ni decisión V3 por fila (N+1).
-Objetivos medidos con volumen realista: lecturas servidor p95 <300 ms, base
-<100 ms y pantalla útil <1 s. Cada ruta nueva aporta `EXPLAIN ANALYZE`, tiempo
-de ruta o prueba del número fijo de consultas. La carga local debe medir
-centenares y miles de conexiones sin quitar las comprobaciones de seguridad.
+Objetivos de aceptación local aún por medir: petición y pintado útil p95
+<300 ms, y base <100 ms. Cada ruta nueva aporta `EXPLAIN ANALYZE`, tiempo
+de ruta y comprobación del número constante de consultas por petición con
+miles de comisiones y gastos sintéticos. Se mantienen autorización y auditoría.
 
 ## Cortes pequeños y dependencia de cada uno
 
 | Orden | Entrega comprobable | Dependencia |
 | --- | --- | --- |
-| DIE-01 | El preparador existente consume la versión exacta del catálogo de ejemplo ya disponible y devuelve propuesta reproducible con fuente, vigencia, grupo, país, vehículo, huella y aviso de no liquidable. Pruebas con dos versiones, fecha frontera y tarifa ausente. | Puede avanzarse con datos sintéticos. RRHH validará ámbito y fuentes antes de publicar una tarifa. Primer PR solo del dueño Dietas, sin SQL ni rutas nuevas. |
+| DIE-01 | Contrato de admisión y lectura de catálogo económico con procedencia, acto aprobatorio, alcance, vigencia, versión y huella; conserva el estado «ejemplo» de los datos actuales. Entrega una instantánea al preparador ya existente, sin otro motor de cálculo. | Puede ensayarse con datos sintéticos. RRHH validará fuente y acto antes de publicar tarifas liquidables. Primer PR del dueño Dietas, sin SQL ni rutas nuevas. |
 | DIE-02 | Envío propio conserva comisión y justificantes referenciados, versiones y recibo recuperable; los bytes pasan por adaptador de Documentos con límites y antivirus. | Contrato del custodio de Documentos y política de tipos, conservación y subida; dudas 49/50/60. |
 | DIE-03 | Bandeja y decisión por perfil fijo, etapa y unidad exactas, con devolución y reenvío histórico. | Competencias centrales publicadas y contrato de acto de autorización; dudas 25/40/46/51/105/122. |
 | DIE-04 | Liquidación económica durable y rectificación enlazada; PDF de la instantánea exacta. | Catálogo admitido, DIE-02/03, postimagen de `000012` y orden SQL acordado. Reserva de migración fuera de Git, ensayo en clon y dos revisiones independientes. |
 | DIE-05 | Fiscalización con acto y recibo propio; informe nominal paginado y exportación separada por política de campos. | DIE-04; RRHH e Intervención concretan actos, ámbitos y duda 108/118. |
 | DIE-06 | Lote de salida económica con acuse, rechazo y conciliación; reintentos sin doble pago. | Contrato y responsable del sistema receptor; duda 26. La confirmación de pago se consume como hecho externo acreditado. |
-| DIE-07 | Recorrido navegador → API → autorización → PostgreSQL → recibo, negativos, reintento y recuperación tras reinicio. Revisión independiente de seguridad, SQL y usabilidad antes de integrar. | Cortes anteriores, textos y configuración aprobados. Dirección integra y verifica la principal cuando levante la congelación. |
+| DIE-07 | Recorrido navegador → API → autorización → PostgreSQL 18 local → recibo, negativos, reintento y recuperación tras reinicio de la app y base de ensayo. Revisión independiente de seguridad, SQL y usabilidad antes de integrar. | Cortes anteriores, textos y configuración de ensayo. Entrega a dirección para integrar en `main`; su despliegue al servidor nuevo es otro paso. |
 
 Cada corte tendrá un archivo o grupo de archivos de propietario único y commit
 autónomo. Los cambios de SQL, HTTP, identidad o datos personales reciben revisión
 focal con `security-audit` y Semgrep local; SQL necesita además ensayo en el
 clon y revisión SQL independiente. No se sube código a un auditor externo.
 
-**Primer encargo ejecutable:** DIE-01. Conectar el preparador existente al catálogo
-de ejemplo versionado de Dietas y devolver una propuesta con procedencia
-y tres pruebas de frontera. Cierre: el mismo documento y versión producen la
-misma huella e importes; una tarifa ausente o una vigencia incompatible impide
-preparar la propuesta. No se cambia el circuito ni se marca la comisión pagada.
+**Primer encargo ejecutable:** DIE-01. Añadir el contrato de admisión y el lector
+de una versión de catálogo a los puertos y adaptadores de Dietas. El lector
+entrega su instantánea a `simulaciondevengo` y `preparacionliquidacion`, que ya
+calculan propuestas. Cierre: dos versiones y una fecha frontera seleccionan
+la instantánea correcta; fuente ausente, vigencia incompatible o estado de
+ejemplo presentado como aprobado se rechazan. Ninguna prueba sintética publica
+una tarifa o marca una comisión como liquidada o pagada.
