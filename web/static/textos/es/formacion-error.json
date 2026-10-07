@@ -1,4 +1,6 @@
 {
   "idioma": "es",
-  "mensaje": "No se han podido cargar los textos de esta pantalla. Recargue la página. Si el problema continúa, avise a Informática."
+  "titulo": "Plan de formación",
+  "mensaje": "No se han podido cargar los textos de esta pantalla. Vuelva a intentarlo. Si el problema continúa, avise a Informática.",
+  "reintentar": "Reintentar carga"
 }

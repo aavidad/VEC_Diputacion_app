@@ -4,10 +4,25 @@ import { readFile } from 'node:fs/promises';
 import { crearClienteEscenario } from './cliente.js';
 import { validarEscenario, filtrarEdiciones, enlaceOficial } from './modelo.js';
 import { pintarFormacion } from './vista.js';
-import { crearTextos } from '../../../comun/textos.js';
+import { crearTextos, esCatalogoValido } from '../../../comun/textos.js';
 
 const es = JSON.parse(await readFile(new URL('../../../textos/es/formacion.json', import.meta.url)));
 const en = JSON.parse(await readFile(new URL('../../../textos/en/formacion.json', import.meta.url)));
+const errorES = JSON.parse(await readFile(new URL('../../../textos/es/formacion-error.json', import.meta.url)));
+const errorEN = JSON.parse(await readFile(new URL('../../../textos/en/formacion-error.json', import.meta.url)));
+
+test('el respaldo de idioma y el error total conservan avisos y reintento en ambos catálogos', () => {
+  for (const catalogo of [es, en]) {
+    for (const clave of ['idioma_respaldo', 'idioma_error', 'reintentar_idioma']) {
+      assert.equal(typeof catalogo[clave], 'string');
+      assert.ok(catalogo[clave].trim());
+    }
+  }
+  for (const catalogo of [errorES, errorEN]) {
+    assert.equal(esCatalogoValido(catalogo), true);
+    for (const clave of ['titulo', 'mensaje', 'reintentar']) assert.ok(catalogo[clave].trim());
+  }
+});
 const fixture = () => ({ alcance: 'preparacion_sintetica', version: 1, fuente: { referencia: 'FOR-001', version: 'v1', escenario: 'sintetico' }, plan: { referencia: 'plan:1', titulo_clave: 'formacion.plan.2027', desde: '2027-01-01', hasta: '2027-12-31', presupuesto_centimos: null, plazas: null, configuracion: { version: 'v1', modalidades: ['formacion.modalidad.presencial', 'formacion.modalidad.mixta'], prioridades: ['formacion.prioridad.alta'] } }, ediciones: ['presencial', 'mixta'].map((m, i) => ({ referencia: `edicion:${i}`, accion_referencia: 'accion:1', titulo_clave: 'formacion.accion.expedientes', necesidad_clave: 'formacion.necesidad.expedientes', modalidad_clave: `formacion.modalidad.${m}`, prioridad_clave: 'formacion.prioridad.alta', desde: '', hasta: '', plazas: null, horas: null, presupuesto_centimos: null, pendientes: ['formacion.pendiente.inscripciones'] })), pendientes: ['formacion.pendiente.fuente_maestra'], checklist: [{ clave: 'formacion.checklist.for001', referencia: 'FOR-001', estado: 'pendiente' }] });
 function dom() {
   class N {

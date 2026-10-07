@@ -1,4 +1,6 @@
 {
   "idioma": "en",
-  "mensaje": "The page texts could not be loaded. Reload the page. If the problem continues, contact IT."
+  "titulo": "Training plan",
+  "mensaje": "The page text could not be loaded. Try again. If the problem continues, contact IT.",
+  "reintentar": "Retry loading"
 }

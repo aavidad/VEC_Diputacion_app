@@ -36,6 +36,9 @@
   "cargando": "Loading the training draft…",
   "error_escenario": "The draft could not be loaded. Try again. If the problem continues, contact IT.",
   "reintentar": "Try again",
+  "idioma_respaldo": "The selected language could not be loaded. An available language is shown. You can try again without losing the draft.",
+  "idioma_error": "The selected language text could not be loaded. The current language and draft are kept. Try again.",
+  "reintentar_idioma": "Retry language",
   "campos": {
     "periodo": "Planned period",
     "presupuesto": "Planned budget",
