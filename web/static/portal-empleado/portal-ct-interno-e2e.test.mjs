@@ -70,6 +70,7 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
     assert.equal(ruta, "/api/vec/contratacion-temporal/cuadro/consultas");
     assert.equal(opciones.method, "POST");
     assert.equal(opciones.headers.get("content-type"), "application/json");
+    const solicitud = JSON.parse(opciones.body);
     consultas += 1;
     return new Response(JSON.stringify({ data: {
       esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
@@ -89,6 +90,8 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
         actualizado_en: "2026-09-03T09:00:00Z",
       }],
       hay_mas: false,
+      ...(solicitud.resumen ? { resumen: { en_tramite: 1, con_incidencia: 0,
+        vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: { solicitud: 1 } } } : {}),
     } }), {
       status: 200,
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -102,11 +105,15 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
   await coordinador.cargarInterno();
   const acceso = coordinador.resolverAcceso("contratacion_temporal");
   assert.equal(acceso.disponible, true, `acceso=${JSON.stringify(acceso)}; consultas=${consultas}; rutas=${rutas.join(",")}`);
+  assert.equal(consultas, 0, "el cargador CT no consulta el cuadro antes de abrir Inicio o la lista");
+  const resumen = await coordinador.prepararResumenInicio();
+  assert.equal(resumen.resumen.en_tramite, 1);
+  assert.equal(consultas, 1, "Inicio consulta su resumen al necesitarlo");
 
   const raiz = raizFalsa();
   const montada = await coordinador.montarVista("contratacion-temporal", raiz);
   assert.equal(montada, true, `vista disponible=${coordinador.vistaDisponible("contratacion-temporal")}; consultas=${consultas}; contenido=${raiz.innerHTML.slice(0, 160)}`);
-  assert.equal(consultas, 2);
+  assert.equal(consultas, 2, "la lista hace una lectura paginada adicional al resumen de Inicio");
   assert.match(raiz.innerHTML, /2026\/CT-0001/);
   assert.match(raiz.innerHTML, /categoria:auxiliar/);
   assert.match(raiz.innerHTML, /option value="solicitud"/);

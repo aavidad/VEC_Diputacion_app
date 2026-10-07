@@ -7,11 +7,11 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
+import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
+import { cargarTextos } from "../comun/textos.js";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
-const RUTA_TRADUCCIONES = `/locales/${IDIOMA_ACTUAL}.json`;
 const CAMPOS_MANIFIESTO = new Set([
   "id", "name_key", "description_key", "version", "group", "base_path", "permissions", "menu",
 ]);
@@ -152,6 +152,8 @@ export function crearCatalogoModulosDesdeManifiestos(manifiestos, traducciones) 
 }
 
 export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch) {
+  // El catálogo común prepara el índice y comunica el idioma efectivo si hubo respaldo.
+  const rutaTraducciones = `/locales/${(await cargarTextos("portal")).idioma}.json`;
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
   // El servidor interno exige certificado cliente también en estos GET.
   // Limitarlo al mismo origen y no seguir redirecciones; no usar cookies.
@@ -160,7 +162,7 @@ export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch)
       method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
       cache: "no-store", headers: { Accept: "application/json" },
     }),
-    fetchImpl(RUTA_TRADUCCIONES, {
+    fetchImpl(rutaTraducciones, {
       method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
       cache: "no-store", headers: { Accept: "application/json" },
     }),

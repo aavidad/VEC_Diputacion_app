@@ -229,6 +229,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.writeJSON(w, http.StatusOK, map[string]any{"principal": principal})
+	case path == "/observabilidad/errores-cliente":
+		h.atenderErroresCliente(w, r, principal)
 	case path == "/modules":
 		h.handleModules(w, r, principal)
 	case path == "/workspace":

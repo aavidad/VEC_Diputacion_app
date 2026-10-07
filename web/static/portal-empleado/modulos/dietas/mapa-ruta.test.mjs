@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   ATRIBUCION_OSM_INTERNA,
@@ -13,6 +14,7 @@ function escenarioMapa() {
   const temporizadores = new Map();
   const atribucionLeaflet = { hidden: false };
   const avisos = [];
+  const tooltips = [];
   let ultimoTemporizador = 0;
   let retiradas = 0;
   let urlTeselas;
@@ -62,16 +64,27 @@ function escenarioMapa() {
       map(destino, opciones) { assert.strictEqual(destino, lienzo); opcionesMapa = opciones; return mapa; },
       tileLayer(url, opciones) { urlTeselas = url; opcionesTeselas = opciones; return capaTeselas; },
       polyline() { return { ...capaBase, getBounds() { return { isValid: () => true }; } }; },
-      circleMarker() { return { ...capaBase, bindTooltip() {} }; },
+      circleMarker() { return { ...capaBase, bindTooltip(nodo) { tooltips.push(nodo.textContent); } }; },
     },
   };
   return {
-    entorno, raiz, eventos, estado, avisos, atribucionLeaflet, atribucionAlternativa,
+    entorno, raiz, eventos, estado, avisos, tooltips, atribucionLeaflet, atribucionAlternativa,
     opciones: () => ({ urlTeselas, opcionesTeselas, opcionesMapa }),
     retiradas: () => retiradas,
     expirar() { const tarea = temporizadores.get(ultimoTemporizador); assert.ok(tarea); tarea(); },
   };
 }
+
+test("las paradas y la atribución alternativa usan el idioma activo", async () => {
+  const ingles = JSON.parse(await readFile(new URL("../../../textos/en/dietas.json", import.meta.url), "utf8"));
+  const caso = escenarioMapa();
+  const mensajes = Object.assign({}, ...Object.values(ingles));
+  const montaje = crearVisorRutaDietas({ entorno: caso.entorno, permitirTeselas: true, mensajes })
+    .montar({ raiz: caso.raiz, descriptor: descriptorOSRM() });
+  assert.deepEqual(caso.tooltips, ["Stop 1: Granada", "Stop 2: Motril"]);
+  assert.match(caso.atribucionAlternativa.textContent, /served on the internal network/u);
+  montaje.desmontar();
+});
 
 function descriptorOSRM() {
   return {

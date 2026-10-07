@@ -10,6 +10,10 @@
 import { instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../portal-huella-archivo.js";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
+import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
+  MENSAJES_INCORPORACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+
 export const RUTAS_INCORPORACIONES_CENTRO = Object.freeze({
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones",
   confirmaciones: "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones/confirmaciones",
@@ -21,49 +25,12 @@ const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
 
-export const MENSAJES_INCORPORACIONES_CENTRO_ES = Object.freeze({
-  titulo: "Incorporaciones del centro",
-  cargando: "Consultando las incorporaciones del centro…",
-  sin_expedientes: "No hay expedientes de las peticiones de este centro.",
-  error_lectura: "No se han podido consultar las incorporaciones. Inténtelo de nuevo.",
-  reintentar: "Volver a consultar",
-  expediente: "Expediente",
-  periodo: "Periodo solicitado",
-  situacion: "Situación",
-  incorporacion: "Incorporación",
-  pendiente: "Pendiente de confirmar",
-  no_procede: "Aún no procede",
-  confirmada: "Confirmada el {fecha} con {documento}",
-  confirmar: "Confirmar la incorporación",
-  fecha_incorporacion: "Fecha de incorporación",
-  documento_referencia: "Referencia del documento",
-  documento_archivo: "Archivo del documento",
-  documento_exigido: "Documento que acredita la incorporación: {documento}",
-  confirmacion_expresa: "Confirmo que la persona se ha incorporado en esa fecha y que el documento la acredita.",
-  enviar: "Registrar la confirmación",
-  enviando: "Registrando la confirmación; espere el recibo.",
-  exito: "Incorporación confirmada el {fecha}.",
-  error_datos: "Revise la fecha (no puede ser futura), la referencia, el archivo y la confirmación.",
-  error_no_admitida: "Este expediente ya no admite la confirmación. Se ha actualizado la lista.",
-  error_clave_reutilizada: "Esta confirmación ya se registró con otros datos.",
-  error_denegado: "No tiene permiso para confirmar incorporaciones de este centro.",
-  error_pendiente: "No se ha podido saber si quedó registrada. Pulse de nuevo: se usará la misma operación y no se duplicará.",
-  error_general: "No se ha podido registrar la confirmación. Inténtelo de nuevo más tarde.",
-  justificante_registrado: "Recibo registrado.",
-  justificante_copiar: "Copiar la referencia del recibo",
-  justificante_copiado: "Referencia copiada",
-  documento_toma_posesion: "la toma de posesión",
-  documento_contrato_firmado: "el contrato firmado",
-  fase_nombramiento: "Nombramiento o contrato en curso",
-  fase_otra: "En tramitación en RRHH",
-  estado_completado: "Expediente cerrado",
-  ayuda_titulo: "¿Cómo se confirma la incorporación?",
-  ayuda: "Cuando RRHH ha nombrado o contratado a la persona, el centro confirma el día en que se incorporó con el documento que lo acredita: la toma de posesión en los nombramientos y el contrato firmado en los contratos laborales, según fija el catálogo. Indique la referencia del documento (la de su registro en Documentos o la del registro del centro) y elija el archivo: se comprueba en este equipo para calcular su huella digital, que es lo único que se registra; el documento no se envía ni se guarda en VEC. Si RRHH aún no ha nombrado, el expediente aparece como «Aún no procede».",
-});
+export const MENSAJES_INCORPORACIONES_CENTRO_ES = IDIOMA_EFECTIVO_PETICIONES_CENTRO === IDIOMA_POR_DEFECTO
+  ? MENSAJES_INCORPORACIONES_CENTRO : undefined;
 
-export function crearTraductorIncorporacionesCentro(mensajes = MENSAJES_INCORPORACIONES_CENTRO_ES) {
+export function crearTraductorIncorporacionesCentro(mensajes = MENSAJES_INCORPORACIONES_CENTRO) {
   return (clave, valores = {}) => {
-    const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_INCORPORACIONES_CENTRO_ES[clave] ?? clave;
+    const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_INCORPORACIONES_CENTRO[clave] ?? clave;
     return plantilla.replace(/\{([a-z_]+)\}/gu, (_, n) => (Object.hasOwn(valores, n) ? String(valores[n]) : `{${n}}`));
   };
 }
@@ -73,7 +40,7 @@ const escapar = (v) => String(v ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp
 function fechaVisible(valor) {
   if (typeof valor !== "string" || !FECHA.test(valor)) return "—";
   const f = new Date(`${valor}T00:00:00Z`);
-  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
+  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
 }
 
 export function fechaCivilValida(valor) {
@@ -162,7 +129,7 @@ export function crearClienteIncorporacionesCentro(fetchImpl = globalThis.fetch) 
 }
 
 function hoyMadrid(ahora = new Date()) {
-  const partes = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora);
+  const partes = new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora);
   const v = Object.fromEntries(partes.map((p) => [p.type, p.value]));
   return `${v.year}-${v.month}-${v.day}`;
 }
@@ -175,6 +142,7 @@ export const idFilaExpediente = (e) => `ic-exp-${String(e.expediente_ref).replac
 
 export function montarIncorporacionesCentro({ contenedor, cliente = crearClienteIncorporacionesCentro(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
+  contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorIncorporacionesCentro(mensajes);
   const documento = (tipo) => { const c = `documento_${tipo}`; const v = t(c); return v === c ? tipo : v; };
   let datos = null;
