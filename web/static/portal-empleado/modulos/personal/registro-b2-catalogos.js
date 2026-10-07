@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { calcularHuellaPublicacionCatalogoB2 } from "./registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1";
 
 const TIPOS = Object.freeze([["regimen", "registro_b2_catalogos_regimen", "regimenes"], ["modalidad", "registro_b2_catalogos_modalidad", "modalidades"], ["situacion", "registro_b2_catalogos_situacion", "situaciones"], ["clase_servicio", "registro_b2_catalogos_clase_servicio", "clasesServicio"]]);

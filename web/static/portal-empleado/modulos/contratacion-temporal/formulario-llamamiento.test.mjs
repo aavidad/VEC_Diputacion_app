@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
 import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
@@ -12,6 +12,10 @@ import {
   justificante, abrirRespuesta, CLAVE_RESOLUCION, revisionManual,
   resolucionConfirmada, reciboResolucion, abrirResolucion,
 } from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
+
+const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
+  "contratacion-temporal-llamamiento", "en",
+)).actual;
 
 test("la vista de alta no monta el bloque de llamamiento sin expediente fiscalizado", async () => {
   const alta = { catalogos: {}, ejecutor: () => { throw new Error("no debe registrar otra petición"); } };

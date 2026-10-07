@@ -399,6 +399,7 @@ func vecRoutes() []string {
 func rutasBaseVEC() []string {
 	return []string{
 		"/api/vec/session",
+		"/api/vec/observabilidad/errores-cliente",
 		"/api/vec/modules",
 		"/api/vec/workspace",
 		"/api/vec/menu",

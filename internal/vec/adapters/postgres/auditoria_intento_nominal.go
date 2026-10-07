@@ -92,12 +92,23 @@ func (r *RegistradorIntentosAuditoriaPostgreSQL) AppendIntentoAuditoria(
 	if err != nil || datos.Datos.Proceso != r.proceso || datos.Datos.Canal != r.canal {
 		return ports.AcuseIntentoAuditoria{}, ports.ErrOrdenIntentoAuditoriaInvalida
 	}
-	// Context.WithoutCancel conserva correlación de trazas, pero el tiempo de
-	// auditoría es independiente de la vida de la conexión HTTP.
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(r.limite))
+	// La cancelación HTTP no cancela el registro, pero su deadline explícito
+	// sigue siendo un límite. Un único plazo absoluto gobierna todos los
+	// reintentos: ninguno obtiene presupuesto nuevo.
+	limite := time.Now().Add(plazoarranque.Ampliar(r.limite))
+	if plazoConsumidor, ok := ctx.Deadline(); ok && plazoConsumidor.Before(limite) {
+		limite = plazoConsumidor
+	}
+	ctxAuditoria, cancelar := context.WithDeadline(context.WithoutCancel(ctx), limite)
 	defer cancelar()
+	if err := ctxAuditoria.Err(); err != nil {
+		return ports.AcuseIntentoAuditoria{}, errorIntentoAuditoriaPostgreSQL(err)
+	}
 	var acuse ports.AcuseIntentoAuditoria
 	err = postgresqlcomun.RepetirTrasCarreraSerializable(ctxAuditoria, func() error {
+		if err := ctxAuditoria.Err(); err != nil {
+			return err
+		}
 		var errIntento error
 		acuse, errIntento = r.appendEnTransaccion(ctxAuditoria, datos)
 		return errIntento

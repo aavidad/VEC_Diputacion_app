@@ -75,6 +75,8 @@ static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
+static/comun/http.js
+static/comun/registro-errores.js
 static/comun/correos-propios.js
 static/comun/correos-propios.css
 static/comun/imagen-propia.js
@@ -113,6 +115,7 @@ static/portal-empleado/reglas/reglas.js
 static/portal-empleado/reglas/reglas.css
 static/portal-empleado/reglas/i18n.js
 static/portal-empleado/reglas/enlace.js
+static/portal-empleado/peticiones-centro/arranque-peticiones-centro.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/incorporaciones-centro.js
@@ -153,6 +156,7 @@ static/textos/es/cronos-fichaje.json
 static/textos/en/cronos-fichaje.json
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/fecha-civil.js
 static/portal-empleado/modulos/cronos/i18n-incidencias.js
 static/textos/es/cronos-incidencias.json
 static/textos/en/cronos-incidencias.json
@@ -692,3 +696,11 @@ static/portal-empleado/modulos/personal/vista-historia-relaciones-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-relaciones-propia.js
 static/textos/es/personal-historia-relaciones.json
 static/textos/en/personal-historia-relaciones.json
+static/portal-empleado/modulos/contratacion-temporal/fases-rrhh-datos.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-vistas.js
+static/portal-empleado/modulos/contratacion-temporal/vista-cuadro-ligera.js
+static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
+static/portal-empleado/peticiones-centro/i18n-peticiones-centro.js
+static/textos/es/peticiones-centro.json
+static/textos/en/peticiones-centro.json
+static/portal-empleado/organizacion/arranque.js

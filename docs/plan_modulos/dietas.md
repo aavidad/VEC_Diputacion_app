@@ -162,3 +162,12 @@ recuperarse, sin errores JS ni desbordamiento. El visor de ese ensayo es un
 doble de prueba: no acredita backend nominal, PostgreSQL o cálculo liquidable.
 La integración requiere renovar la arista del coordinador común con la versión
 `20261007-u-dietas-catalogo-v1`; ese archivo conserva el escritor de la raíz.
+
+## Rechazo de una tarifa de kilometraje incoherente
+
+El preparador del alta comprueba el formato decimal de cada tarifa antes de
+cortar la cadena para calcular. Si el lector entrega un valor vacío, corto o
+malformado, devuelve el error de tarifa no disponible y deja la solicitud sin
+cálculo. El importe del caso válido se conserva. No introduce cuantías nuevas,
+SQL ni cambios en el circuito de aprobación. La custodia de justificantes y
+la liquidación nominal mantienen sus dependencias anteriores.

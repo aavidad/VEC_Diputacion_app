@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
+
+await prepararTextosPersonal();
+const {
   API_ORGANIZACION,
   ESQUEMA_ORGANIZACION,
   crearCliente,
   iniciarOrganizacion,
-} from "./organizacion.js";
+} = await import("./organizacion.js");
 
 function documento() {
   const elementos = new Map();
