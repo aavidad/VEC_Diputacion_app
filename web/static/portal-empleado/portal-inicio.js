@@ -13,7 +13,7 @@
  * y la misma autorización; la portada no descarga filas ni deduce tareas.
  */
 import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 import { renderizarAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
@@ -135,7 +135,8 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
   } else if (resumen.estado === "cargando") {
     cuerpo = `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
   } else if (resumen.estado !== "listo") {
-    cuerpo = `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>`;
+    cuerpo = `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>
+      <button type="button" class="boton-secundario" data-bolsa-inicio-reintentar>${t("accion_reintentar")}</button>`;
   } else if (resumen.bolsas.length === 0) {
     cuerpo = `<p class="portal-rrhh-resumen-vacio">${t("txt_el_servicio_no_ha_devuelto_bolsas_de_trabajo_reg")}</p>`;
   } else {
@@ -304,7 +305,7 @@ export function crearVistaInicioPortal({
 
 function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
-  const fase = habilitado ? "disponible" : acceso?.estado;
+  const fase = acceso?.estado === "cargando" ? "cargando" : (habilitado ? "disponible" : acceso?.estado);
   const etiquetaAcceso = typeof acceso?.etiqueta === "string" && acceso.etiqueta.trim() !== ""
     ? acceso.etiqueta
     : "";
@@ -314,7 +315,7 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   const presentacion = habilitado && acceso?.presentacion === true;
   const comprobando = fase === "cargando";
   // Mientras su módulo carga, la tarjeta dice «Comprobando», no «no habilitado».
-  const estado = etiquetaAcceso || (habilitado
+  const estado = comprobando && habilitado ? traducir("estado_modulo_comprobando") : etiquetaAcceso || (habilitado
     ? traducir("estado_modulo_disponible_perfil")
     : traducir(comprobando ? "estado_modulo_comprobando" : "estado_modulo_no_habilitado"));
   const reintentar = fase === "error" && acceso?.reintentar === true;
@@ -327,12 +328,12 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
       ? traducir("estado_modulo_sin_permiso")
       : traducir("estado_modulo_no_disponible"));
   return `
-    <article class="tarjeta-modulo ${habilitado ? "tarjeta-modulo-habilitada" : "tarjeta-modulo-bloqueada"}${presentacion ? " tarjeta-modulo-presentacion" : ""}" data-modulo-catalogo="${escaparHTML(modulo.clave)}" tabindex="-1"${comprobando ? ' aria-busy="true"' : ""} data-estado-conexion="${presentacion ? "recorrido-visual" : (habilitado ? "conectado" : "no-conectado")}">
+    <article class="tarjeta-modulo ${habilitado ? "tarjeta-modulo-habilitada" : "tarjeta-modulo-bloqueada"}${presentacion ? " tarjeta-modulo-presentacion" : ""}" data-modulo-catalogo="${escaparHTML(modulo.clave)}" tabindex="-1"${comprobando ? ' aria-busy="true"' : ""} data-estado-conexion="${comprobando ? "comprobando" : (presentacion ? "recorrido-visual" : (habilitado ? "conectado" : "no-conectado"))}">
       <span class="icono-modulo" aria-hidden="true">${escaparHTML(modulo.sigla)}</span>
       <h3>${escaparHTML(modulo.titulo)}</h3>
       <p>${escaparHTML(modulo.texto)}</p>
       <div class="pie-tarjeta">
-        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}">${escaparHTML(estado)}</span>
+        <span class="${comprobando ? "estado-proximamente" : (presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente"))}">${escaparHTML(estado)}</span>
         ${habilitado
           ? `<button type="button" class="${presentacion ? "boton-secundario" : "boton-primario"}" data-vista="${escaparHTML(acceso.vista)}">${escaparHTML(etiquetaAccion)}</button>`
           : (reintentar

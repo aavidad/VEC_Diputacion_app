@@ -170,6 +170,20 @@ func prepararSolicitudLigadaV3(
 	ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 	error,
 ) {
+	return prepararSolicitudLigadaV3ConCaptura(ctx, solicitud, resultadoContexto, dependencias, nil)
+}
+
+func prepararSolicitudLigadaV3ConCaptura(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	dependencias dependenciasPreparacionSolicitudLigadaV3,
+	destino *CapturaEvaluacionSolicitudLigadaV3,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+	error,
+) {
 	vacia := ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3{}
 	if dependenciaAutorizacionNula(dependencias.registroDenegaciones) {
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
@@ -177,8 +191,8 @@ func prepararSolicitudLigadaV3(
 				domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
 			)
 	}
-	decision, candidata, err := prepararRegistroCompuestoSolicitudLigadaV3(
-		ctx, solicitud, resultadoContexto, dependencias, dependencias.generador,
+	decision, candidata, err := prepararRegistroCompuestoSolicitudLigadaV3ConCaptura(
+		ctx, solicitud, resultadoContexto, dependencias, dependencias.generador, destino,
 	)
 	if err != nil {
 		return decision, vacia, err
@@ -202,6 +216,23 @@ func prepararRegistroCompuestoSolicitudLigadaV3(
 	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
 	dependencias dependenciasPreparacionSolicitudLigadaV3,
 	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	return prepararRegistroCompuestoSolicitudLigadaV3ConCaptura(
+		ctx, solicitud, resultadoContexto, dependencias, generadorOperacion, nil,
+	)
+}
+
+func prepararRegistroCompuestoSolicitudLigadaV3ConCaptura(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	dependencias dependenciasPreparacionSolicitudLigadaV3,
+	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+	destino *CapturaEvaluacionSolicitudLigadaV3,
 ) (
 	domain.DecisionAutorizacionLigadaV3,
 	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
@@ -324,6 +355,21 @@ func prepararRegistroCompuestoSolicitudLigadaV3(
 	if err := ctx.Err(); err != nil {
 		return decision, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+	}
+	if destino != nil {
+		concedida, _, _, err := candidata.Resultado()
+		if err != nil {
+			return decision, vacia, nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+		}
+		if !concedida {
+			return decision, candidata, nil
+		}
+		*destino, err = nuevaCapturaEvaluacionSolicitudLigadaV3(
+			solicitud, resultado, decision, instantanea,
+		)
+		if err != nil {
+			return decision, vacia, nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+		}
 	}
 	return decision, candidata, nil
 }

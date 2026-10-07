@@ -35,3 +35,21 @@ func (e *emisorMaterialRenovable) EmitirMaterialAutorizacionAtestadaV3(ctx conte
 	}
 	return emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 }
+
+// EmitirMaterialAutorizacionAtestadaV3ConCaptura conserva una unica lectura
+// del gobierno de confianza para esta emision y exige el PDP con captura.
+func (e *emisorMaterialRenovable) EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx context.Context, solicitud core.SolicitudAutorizacionLigadaV3, resultado core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error) {
+	var vacia vp.CapturaEvaluacionSolicitudLigadaV3
+	if e == nil || e.lector == nil || ctx == nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vacia, ErrProveedoresCTNoDisponibles
+	}
+	snapshot, err := e.lector.Instantanea(ctx)
+	if err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vacia, ErrProveedoresCTNoDisponibles
+	}
+	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(e.pdp, e.atestador, snapshot, e.capacidad)
+	if err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vacia, ErrProveedoresCTNoDisponibles
+	}
+	return emisor.EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx, solicitud, resultado)
+}

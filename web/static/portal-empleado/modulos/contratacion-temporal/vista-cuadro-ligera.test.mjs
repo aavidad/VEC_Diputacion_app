@@ -234,3 +234,61 @@ test("pasar de página usa su cursor y devuelve el foco al título cuando desapa
   assert.equal(tabindex, "-1");
   montaje.desmontar();
 });
+
+test("el título y resultado de la lista usan el total autorizado, no las filas de la página", async () => {
+  const raiz = raizFalsa(), solicitudes = [];
+  const totales = { total: 5071, en_tramitacion: 100, con_incidencia: 0, en_llamamiento: 0 };
+  const resumen = { en_tramite: 5071, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+    vencen_semana: 0, sin_calcular: 0, por_fase: { solicitud: 5071 } };
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async (solicitud) => {
+      solicitudes.push(solicitud);
+      return { generada_en: "2026-10-01T09:00:00Z", totales, resumen,
+        expedientes: solicitud.paginacion.cursor ? [fila] : [fila, { ...fila,
+          expediente_ref: "expediente:ct:002", numero_visible: "2026/CT-0002" }],
+        hay_mas: !solicitud.paginacion.cursor,
+        ...(!solicitud.paginacion.cursor ? { cursor_siguiente: "cursor_sintetico_de_pagina" } : {}) };
+    } },
+  });
+  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /2 de 5071 peticiones/u);
+  assert.equal(solicitudes[0].resumen, true, "el resumen viaja en la misma POST de la página");
+  assert.doesNotMatch(raiz.innerHTML, /2 peticiones en trámite/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+  assert.equal(solicitudes[1].paginacion.cursor, "cursor_sintetico_de_pagina");
+  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /1 de 5071 peticiones/u);
+  montaje.desmontar();
+});
+
+test("sin total del servidor no presenta el tamaño de una página como total del conjunto", async () => {
+  const raiz = raizFalsa();
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async (solicitud) => ({ generada_en: "2026-10-01T09:00:00Z",
+      expedientes: [fila], hay_mas: !solicitud.paginacion.cursor,
+      ...(!solicitud.paginacion.cursor ? { cursor_siguiente: "cursor_sintetico_de_pagina" } : {}) }) },
+  });
+  assert.match(raiz.innerHTML, /Expedientes de peticiones de personal temporal/u);
+  assert.doesNotMatch(raiz.innerHTML, /1 petición en trámite/u);
+  assert.match(raiz.innerHTML, /Peticiones mostradas: 1/u);
+  assert.doesNotMatch(raiz.innerHTML, /1 de 1 peticiones/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+  assert.match(raiz.innerHTML, /Peticiones mostradas: 1/u);
+  assert.doesNotMatch(raiz.innerHTML, /1 de 1 peticiones/u);
+  montaje.desmontar();
+});
+
+test("si llegan totales sin el resumen pedido, la lista ofrece error en vez de un recuento ambiguo", async () => {
+  const raiz = raizFalsa(), errores = [];
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => errores.push(datos),
+    cliente: { consultarCuadroRRHH: async () => ({ generada_en: "2026-10-01T09:00:00Z",
+      expedientes: [fila], hay_mas: false,
+      totales: { total: 2, en_tramitacion: 1, con_incidencia: 0, en_llamamiento: 0 } }) },
+  });
+  assert.equal(errores.length, 1);
+  assert.equal(raiz.innerHTML, "");
+  montaje.desmontar();
+});

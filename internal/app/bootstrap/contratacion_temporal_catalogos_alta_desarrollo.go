@@ -256,24 +256,24 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 	}
 	fuente, err := fichero.NuevaConsultaCatalogos(rutaFuente)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
 	}
 	consulta, err := personalcatalogos.NuevaConsultaEstructuraOrganizativa(
 		fuente, "estructura-organizativa-dipgra", 1,
 	)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
 	}
 	datos, err := consulta.Obtener(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
 	}
 	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
 	var centrosOrganizacion []string
 	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
 			if !domain.ReferenciaOpacaValida(u.Clave) {
-				return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+				return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles)
 			}
 			centrosOrganizacion = append(centrosOrganizacion, u.Clave)
 			cod := u.CodigoFuente
@@ -307,7 +307,7 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		// Diputación; las sintéticas quedan solo para los expedientes que ya las usan.
 		categoriasRPT, err := cargarCategoriasRPTDesarrollo(rutaRPT)
 		if err != nil {
-			return nil, err
+			return nil, marcarFalloFuenteConfiguracionArranque("catalogo_rpt", err)
 		}
 		// Las sintéticas se publican al final para que los expedientes que ya las
 		// usan sigan mostrando su nombre en cuadro, detalle y documentos.
