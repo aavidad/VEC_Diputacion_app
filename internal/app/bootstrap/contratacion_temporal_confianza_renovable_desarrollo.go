@@ -462,7 +462,6 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) Verificar(ctx cont
 // El núcleo exige un verificador concreto: se compone su cadena por operación,
 // con una única instantánea y los mismos PDP, firmante y emisor nominales.
 type emisorMaterialRenovableCTDesarrollo struct {
-	mu        sync.Mutex
 	autoridad vp.AutorizadorSolicitudLigadaV3
 	proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo
 }
@@ -481,8 +480,8 @@ func (e *emisorMaterialRenovableCTDesarrollo) EmitirMaterialAutorizacionAtestada
 	if e == nil || ctx == nil {
 		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, fallo
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	// La fuente protege la publicación compartida al copiarla y adoptarla.
+	// La lectura del gobierno y la emisión usan su instantánea propia.
 	snapshot, err := e.proveedor.instantaneaConfianza(ctx)
 	if err != nil {
 		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, err
