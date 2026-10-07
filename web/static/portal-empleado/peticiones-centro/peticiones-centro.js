@@ -10,8 +10,7 @@ import { extraerBorrador, formulario as renderizarFormularioPuro,
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
-  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pantallas-textos-final-v1";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
@@ -685,12 +684,4 @@ export function instalarAyudaPeticionCentro(doc) {
   });
   dialogo.addEventListener("close", () => boton.focus?.());
   return true;
-}
-
-if (typeof document !== "undefined" && document.querySelector("#aplicacion")) {
-  aplicarTextosPortal(document);
-  aplicarIdiomaDocumento(document);
-  instalarValidacionI18n(document);
-  instalarAyudaPeticionCentro(document);
-  iniciarPeticionCentro();
 }
