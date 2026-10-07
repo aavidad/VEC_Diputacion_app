@@ -35,11 +35,16 @@ function documentoFalso() {
 }
 
 function catalogoAviso(idioma = "es") {
-  return { idioma, traducir: (ruta) => ({
+  const mensajes = idioma === "en" ? {
+    "general.organizacion_arranque_titulo": "This screen is not available",
+    "general.organizacion_arranque_error": "Check the connection and try again.",
+    "general.organizacion_arranque_reintentar": "Try again",
+  } : {
     "general.organizacion_arranque_titulo": "Esta pantalla no está disponible",
     "general.organizacion_arranque_error": "Compruebe la conexión y pulse Reintentar.",
     "general.organizacion_arranque_reintentar": "Reintentar",
-  })[ruta] };
+  };
+  return { idioma, traducir: (ruta) => mensajes[ruta] };
 }
 
 test("prepara el mismo i18n antes de importar Organización y HTML apunta a la entrada", async () => {
@@ -88,7 +93,7 @@ test("fallo de preparación no importa consumidor; el botón reintenta desde la 
       assert.equal(panelOcultoOriginal.hidden, true);
       importaciones++;
     },
-    cargarAviso: async () => catalogoAviso(),
+    cargarAviso: async () => catalogoAviso("en"),
     registrarError: (error) => fallos.push(error),
   });
   assert.equal(await arranque.iniciar(), false);
@@ -99,7 +104,8 @@ test("fallo de preparación no importa consumidor; el botón reintenta desde la 
   const aviso = raiz.children[0];
   const boton = aviso.querySelector("button");
   assert.equal(aviso.atributos.get("role"), "alert");
-  assert.equal(boton.textContent, "Reintentar");
+  assert.equal(boton.textContent, "Try again");
+  assert.equal(documento.documentElement.lang, "en");
   assert.equal(documento.activeElement, boton);
   boton.listeners.get("click")();
   boton.listeners.get("click")();
@@ -109,6 +115,7 @@ test("fallo de preparación no importa consumidor; el botón reintenta desde la 
   resolver({ idioma: "es" });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(importaciones, 1);
+  assert.equal(documento.documentElement.lang, "es");
   assert.equal(raiz.children.includes(aviso), false);
   assert.equal(raiz.atributos.get("aria-busy"), "false");
   assert.equal(documento.activeElement, raiz);
