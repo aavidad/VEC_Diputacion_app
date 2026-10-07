@@ -242,6 +242,7 @@ export function componerPersonalVisible(recursos, entorno, {
   };
   const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
     raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+    rptDisponible: publicos.includes("rpt"),
     montarContacto: typeof recursos.contacto?.montarVistaContactoPropio === "function" && typeof entorno.fetch === "function"
       ? (entrada) => recursos.contacto.montarVistaContactoPropio({ ...entrada, fetchImpl: entorno.fetch.bind(entorno) }) : undefined,
     // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.

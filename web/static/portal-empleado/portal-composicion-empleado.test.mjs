@@ -204,9 +204,17 @@ test("Personal compone solo los catálogos públicos servidos y pasa accesos y o
   disponibles = { dietas: true, cronos: false };
   personal.montar({ raiz: {}, anunciar() {} });
   assert.equal(entradas[0].ocultarSinFuente, true);
+  assert.equal(entradas[0].rptDisponible, false, "una sonda RPT fallida no abre Catálogos desde la ficha");
   assert.deepEqual(entradas[0].destinosDisponibles, { dietas: true, cronos: false }, "la disponibilidad se evalúa al montar");
   await entradas[0].montarCatalogos({ raiz: {}, anunciar() {} });
   assert.deepEqual(clientes, ["categorias", "estructura"]);
+  const conRPT = componerPersonalVisible({ ...recursos(entradas),
+    clienteRPT: { crearClienteHTTPRPTPublica() { return {}; } },
+    vistaRPT: { montarModuloRPTPublica: async () => ({ desmontar() {} }) },
+  }, { fetch() {} }, { catalogosPublicos: ["rpt"], ocultarSinFuente: true });
+  assert.notEqual(conRPT, undefined);
+  conRPT.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[1].rptDisponible, true, "solo la sonda RPT servida permite abrir Catálogos desde el enlace");
   // Pedir un catálogo servido sin sus recursos, o uno desconocido, no compone.
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["rpt"] }), undefined);
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["otro"] }), undefined);
