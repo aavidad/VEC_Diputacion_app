@@ -32,6 +32,12 @@ export function crearArranqueOrganizacion({
   let aviso;
   let detalle;
   let boton;
+  const originales = Array.from(raiz.children);
+  const visibilidadOriginal = new Map(originales.map((nodo) => [nodo, nodo.hidden]));
+  const ocultarOriginales = () => { for (const nodo of originales) nodo.hidden = true; };
+  const restaurarOriginales = () => {
+    for (const nodo of originales) nodo.hidden = visibilidadOriginal.get(nodo);
+  };
 
   async function presentarError() {
     const textos = await cargarAviso();
@@ -81,15 +87,19 @@ export function crearArranqueOrganizacion({
     try {
       const textos = await preparar();
       documento.documentElement.lang = textos.idioma;
+      restaurarOriginales();
       fase = "importacion";
       await importar();
       iniciado = true;
+      const devolverFoco = aviso && (documento.activeElement === detalle || documento.activeElement === boton);
       aviso?.remove();
+      if (devolverFoco) raiz.focus?.();
       return true;
     } catch (causa) {
       tipoFallo = fase;
       const error = fallo(`organizacion.arranque.${fase}_fallida`, causa);
       registrarError(error);
+      ocultarOriginales();
       raiz.inert = false;
       try { await presentarError(); }
       catch (causaAviso) {
