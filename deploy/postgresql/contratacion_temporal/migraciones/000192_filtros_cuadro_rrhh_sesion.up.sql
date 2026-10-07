@@ -16,6 +16,8 @@ BEGIN
        OR pg_catalog.to_regtype('vec_contratacion_temporal.consulta_cuadro_rrhh_v2') IS NOT NULL
        OR pg_catalog.to_regclass('vec_contratacion_temporal.publicacion_version_rrhh') IS NULL
        OR pg_catalog.to_regclass('vec_contratacion_temporal.numeracion_anual_asignada') IS NULL
+       OR pg_catalog.to_regclass('vec_contratacion_temporal.fase_entrada_publicacion_rrhh') IS NULL
+       OR pg_catalog.to_regclass('vec_contratacion_temporal.urgencia_expediente_analisis') IS NULL
        OR pg_catalog.to_regtype('vec_contratacion_temporal.resumen_publicacion_rrhh_v1') IS NULL
        OR pg_catalog.to_regprocedure('vec_contratacion_temporal.canon_alcance_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1)') IS NULL
        OR pg_catalog.to_regprocedure('vec_contratacion_temporal.texto_json_go_v1(text)') IS NULL THEN
@@ -31,6 +33,7 @@ CREATE TYPE vec_contratacion_temporal.consulta_cuadro_rrhh_v2 AS (
     categoria_ref text,
     estados_clave text[],
     fases_clave text[],
+    plazo_estado text,
     limite smallint,
     cursor text
 );
@@ -66,6 +69,8 @@ BEGIN
        OR pg_catalog.cardinality(p_consulta.fases_clave) > 32
        OR pg_catalog.array_ndims(p_consulta.estados_clave) > 1
        OR pg_catalog.array_ndims(p_consulta.fases_clave) > 1
+       OR p_consulta.plazo_estado IS NULL
+       OR p_consulta.plazo_estado NOT IN ('', 'vencido', 'vence_hoy', 'vence_semana')
        OR p_consulta.limite IS NULL
        OR p_consulta.limite NOT BETWEEN 1 AND 100
        OR p_consulta.cursor IS NULL
@@ -104,6 +109,7 @@ BEGIN
         || ',"categoria_ref":' || vec_contratacion_temporal.texto_json_go_v1(p_consulta.categoria_ref)
         || ',"estados_clave":[' || v_estados || ']'
         || ',"fases_clave":[' || v_fases || ']'
+        || ',"plazo_estado":' || vec_contratacion_temporal.texto_json_go_v1(p_consulta.plazo_estado)
         || ',"limite":' || p_consulta.limite::text;
 EXCEPTION WHEN OTHERS THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'consulta RRHH inválida';
@@ -208,6 +214,66 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.filtrar_publicaciones_cuadro_rr
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v2, numeric) FROM PUBLIC;
 
+-- Una sola lectura por lote entrega la clave usada por la calculadora actual:
+-- fase, entrada en la fase y urgencia. El consumidor rechaza cualquier fecha
+-- ausente y el elemento 100001; nunca interpreta el truncamiento como éxito.
+CREATE FUNCTION vec_contratacion_temporal.contextos_plazo_cuadro_rrhh_v2(
+    p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+    p_corte_global numeric
+) RETURNS TABLE (
+    expediente_ref text,
+    version_expediente numeric,
+    fase_clave text,
+    fase_desde timestamptz,
+    urgente boolean
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path = pg_catalog, pg_temp
+SET row_security = 'on'
+SET timezone = 'UTC'
+SET lock_timeout = '1s'
+SET statement_timeout = '4s'
+SET idle_in_transaction_session_timeout = '6s'
+AS $funcion$
+BEGIN
+    IF CURRENT_USER <> 'vec_contratacion_temporal_propietario'
+       OR p_alcance IS NULL OR p_consulta IS NULL
+       OR p_corte_global IS NULL
+       OR p_corte_global NOT BETWEEN 0 AND 9007199254740991::numeric
+       OR p_corte_global <> pg_catalog.trunc(p_corte_global) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'contextos de plazo RRHH no disponibles';
+    END IF;
+    PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1(p_alcance);
+    PERFORM vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v2(p_consulta);
+    RETURN QUERY
+    WITH filtradas AS MATERIALIZED (
+        SELECT f.expediente_ref, f.version, f.fase_clave
+          FROM vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_v2(
+              p_alcance, p_consulta, p_corte_global) f
+         WHERE f.estado_clave NOT IN ('completado', 'cancelado')
+    ), primeras_urgencias AS MATERIALIZED (
+        SELECT u.expediente_ref, pg_catalog.min(u.version) AS primera_version
+          FROM vec_contratacion_temporal.urgencia_expediente_analisis u
+         GROUP BY u.expediente_ref
+    )
+    SELECT f.expediente_ref, f.version, f.fase_clave,
+           entrada.fase_desde,
+           COALESCE(urgencia.primera_version <= f.version, false)
+      FROM filtradas f
+      LEFT JOIN vec_contratacion_temporal.fase_entrada_publicacion_rrhh entrada
+        ON entrada.expediente_ref = f.expediente_ref
+       AND entrada.version = f.version
+      LEFT JOIN primeras_urgencias urgencia
+        ON urgencia.expediente_ref = f.expediente_ref
+     ORDER BY f.expediente_ref COLLATE "C"
+     LIMIT 100001;
+END $funcion$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.contextos_plazo_cuadro_rrhh_v2(
+    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+    numeric) FROM PUBLIC;
+
 -- El consumidor de sesión proporcionará alcance/corte/ancla tras validarlos.
 -- Página y recuentos leen una sola materialización filtrada en el mismo corte.
 -- Este helper no concede acceso, no interpreta el token ni crea auditoría.
@@ -216,7 +282,8 @@ CREATE FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
     p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
     p_corte_global numeric,
     p_ultimo_actualizado_en timestamptz,
-    p_ultimo_expediente_ref text
+    p_ultimo_expediente_ref text,
+    p_referencias_plazo text[]
 ) RETURNS TABLE (
     resumenes vec_contratacion_temporal.resumen_publicacion_rrhh_v1[],
     hay_mas boolean,
@@ -237,6 +304,8 @@ SET lock_timeout = '1s'
 SET statement_timeout = '4s'
 SET idle_in_transaction_session_timeout = '6s'
 AS $funcion$
+DECLARE
+    v_referencias_validas boolean;
 BEGIN
     IF CURRENT_USER <> 'vec_contratacion_temporal_propietario'
        OR p_alcance IS NULL OR p_consulta IS NULL
@@ -249,15 +318,32 @@ BEGIN
            p_ultimo_actualizado_en IS NULL OR p_ultimo_expediente_ref IS NULL))
        OR (p_ultimo_actualizado_en IS NOT NULL AND (
            p_ultimo_actualizado_en <> pg_catalog.date_trunc('microseconds', p_ultimo_actualizado_en)
-           OR p_ultimo_expediente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$')) THEN
+           OR p_ultimo_expediente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'))
+       OR (p_consulta.plazo_estado = '' AND p_referencias_plazo IS NOT NULL)
+       OR (p_consulta.plazo_estado <> '' AND (
+           p_referencias_plazo IS NULL
+           OR pg_catalog.cardinality(p_referencias_plazo) > 100000
+           OR pg_catalog.array_ndims(p_referencias_plazo) > 1)) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'cuadro RRHH no disponible';
     END IF;
     PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1(p_alcance);
     PERFORM vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v2(p_consulta);
+    IF p_referencias_plazo IS NOT NULL THEN
+        SELECT COALESCE(pg_catalog.bool_and(r.referencia ~
+                   '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'), true)
+               AND pg_catalog.count(*) = pg_catalog.count(DISTINCT r.referencia)
+          INTO v_referencias_validas
+          FROM pg_catalog.unnest(p_referencias_plazo) r(referencia);
+        IF v_referencias_validas IS DISTINCT FROM true THEN
+            RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'cuadro RRHH no disponible';
+        END IF;
+    END IF;
     RETURN QUERY
     WITH conjunto AS MATERIALIZED (
         SELECT f.* FROM vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_v2(
             p_alcance, p_consulta, p_corte_global) f
+         WHERE p_consulta.plazo_estado = ''
+            OR f.expediente_ref = ANY(p_referencias_plazo)
     ), grupos AS MATERIALIZED (
         SELECT f.estado_clave, f.fase_clave, pg_catalog.count(*)::bigint numero
           FROM conjunto f
@@ -310,7 +396,7 @@ END $funcion$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
-    numeric, timestamptz, text) FROM PUBLIC;
+    numeric, timestamptz, text, text[]) FROM PUBLIC;
 
 COMMENT ON FUNCTION vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_v2(
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
@@ -319,6 +405,6 @@ COMMENT ON FUNCTION vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_
 COMMENT ON FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
-    numeric, timestamptz, text) IS
+    numeric, timestamptz, text, text[]) IS
 'Página y recuentos RRHH de un mismo conjunto filtrado; el consumidor acredita sesión, cursor y auditoría en su transacción.';
 COMMIT;
