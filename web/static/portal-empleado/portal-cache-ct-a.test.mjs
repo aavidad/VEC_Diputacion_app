@@ -5,8 +5,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261007-u-dietas-catalogo-v1";
-const versionCircuito = "20261007-pantallas-textos-final-v1";
-const versionVista = "20261007-pantallas-textos-final-v1";
+const versionCircuito = "20261007-carga-pantalla-v1";
+const versionVista = "20261007-carga-pantalla-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -20,7 +20,7 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
   const versionEntrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
   exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador);
   exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinador);
-  exigirVersiones(expediente, "./seguimiento-cese.js", versionCircuito);
+  exigirVersiones(expediente, "./seguimiento-cese.js", "20261007-pantallas-textos-final-v1");
 });
 
 test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuito de firma", async () => {
@@ -67,9 +67,9 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   for (const hoja of [
     "./modulos/contratacion-temporal/cliente-http.js",
     "./modulos/contratacion-temporal/adaptador-http-expedientes.js",
-    "./modulos/contratacion-temporal/vista-expedientes.js",
     "./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js",
   ]) exigirVersiones(coordinador, hoja, version);
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", version);

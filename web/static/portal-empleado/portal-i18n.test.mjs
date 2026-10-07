@@ -275,6 +275,39 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-vistas-convocatorias.js", "portal-vistas-utilidades.js", "portal.js", "reglas/enlace.js",
     "reglas/i18n.js", "reglas/reglas.js",
   ]) versionesEspeciales.set(ruta, "20261007-pantallas-textos-final-v1");
+  // Cohorte exacta de importadores y hojas renovadas en carga por pantalla.
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-cuadro-ligera.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-lista.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-inicio.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261007-carga-pantalla-v1");
 
   // La corrección de Cronos exige una URL nueva tras ROOT#847.
   versionesEspeciales.set("modulos/cronos/vista-movimientos-propios.js", "20261007-u-dietas-catalogo-v1");

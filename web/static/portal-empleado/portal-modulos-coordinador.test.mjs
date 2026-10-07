@@ -86,16 +86,17 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   assert.equal(consultas[0].paginacion.limite, 1);
   const raiz = raizFalsa();
   assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
-  assert.equal(consultas.length, 2, "la lista hace su propia consulta paginada, sin repetir resumen");
+  assert.equal(consultas.length, 2, "la lista obtiene página y resumen en una única consulta");
   assert.equal(consultas[1].paginacion.limite, 100);
-  assert.equal(Object.hasOwn(consultas[1], "resumen"), false);
+  assert.equal(consultas[1].resumen, true);
   assert.match(raiz.innerHTML, /No hay peticiones en trámite/u);
   coordinador.desmontarVistaActual();
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa(),
     { filtroLista: { mostrar: "incidencia" } }), true);
   assert.equal(consultas.length, 3);
   assert.equal(consultas[2].filtros.estado_clave, "incidencia");
-  assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 1);
+  assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 3,
+    "Inicio y cada página usan el resumen global de su propia consulta");
   coordinador.desmontarVistaActual();
 });
 
