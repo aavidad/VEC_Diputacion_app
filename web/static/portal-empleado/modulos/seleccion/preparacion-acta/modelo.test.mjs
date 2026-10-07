@@ -1,13 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { leerArchivo, leerSalida, MAXIMO_BYTES, FIJOS } from './modelo.js';
+import { leerArchivo, leerSalida, MAXIMO_BYTES, FIJOS, FIJOS_COTEJO_LOCAL, COTEJO_LOCAL } from './modelo.js';
+import { pintarSalida } from './vista.js';
 import { cargarTextos } from '../../../../comun/textos.js';
 
 const bytes = new Uint8Array(await readFile(new URL('./testdata/sesion-propuesta.json', import.meta.url)));
 const base = () => JSON.parse(new TextDecoder().decode(bytes));
 const codificar = dto => new TextEncoder().encode(JSON.stringify(dto));
 const leer = dto => leerSalida(codificar(dto));
+class NodoPrueba {
+  constructor(documento, etiqueta) {
+    this.ownerDocument = documento; this.etiqueta = etiqueta; this.hijos = []; this.texto = '';
+    this.dataset = {}; this.classList = { add() {} };
+  }
+  set textContent(valor) { this.texto = valor; this.hijos = []; }
+  get textContent() { return this.texto + this.hijos.map(h => h.textContent).join(' '); }
+  append(...hijos) { this.hijos.push(...hijos); }
+  replaceChildren(...hijos) { this.texto = ''; this.hijos = hijos; }
+  setAttribute() {}
+  querySelector(etiqueta) { return this.hijos.find(h => h.etiqueta === etiqueta || h.querySelector(etiqueta)); }
+}
+const documentoPrueba = {
+  createElement(etiqueta) { return new NodoPrueba(this, etiqueta); },
+  createDocumentFragment() { return new NodoPrueba(this, 'fragmento'); },
+};
+function conCotejoLocal() {
+  const dto = base(); dto.cotejo_local = COTEJO_LOCAL;
+  for (const [i, codigo] of ['antecedente_cotejado_local', 'fase_cotejada_local'].entries()) {
+    dto.preparacion.pendientes[i].codigo = codigo; dto.mensajes[i].codigo = codigo;
+  }
+  return dto;
+}
 
 test('salidas reales ES/EN conservan propuesta, antecedente no cotejado y fecha ausente', async () => {
   const dto = leerSalida(bytes);
@@ -18,6 +42,36 @@ test('salidas reales ES/EN conservan propuesta, antecedente no cotejado y fecha 
   assert.equal(dto.preparacion.pendientes.length, 11);
   const archivo = await leerArchivo({ size: bytes.length, arrayBuffer: async () => bytes.buffer });
   assert.deepEqual(archivo.bytes, bytes);
+});
+test('acepta sólo las combinaciones completas de aviso local y pendientes', () => {
+  const local = conCotejoLocal();
+  assert.equal(leer(local).cotejo_local, COTEJO_LOCAL);
+  for (const mutar of [
+    d => { delete d.cotejo_local; },
+    d => { d.cotejo_local = 'verificado_institucionalmente'; },
+    d => { d.preparacion.pendientes[0].codigo = 'antecedente_no_cotejado'; d.mensajes[0].codigo = 'antecedente_no_cotejado'; },
+    d => { d.preparacion.pendientes[1].codigo = 'pertenencia_no_verificada'; d.mensajes[1].codigo = 'pertenencia_no_verificada'; },
+    d => { d.mensajes[0].codigo = 'antecedente_no_cotejado'; },
+  ]) { const dto = conCotejoLocal(); mutar(dto); assert.throws(() => leer(dto), /formato/); }
+  const legadoConMarca = base(); legadoConMarca.cotejo_local = COTEJO_LOCAL;
+  assert.throws(() => leer(legadoConMarca), /formato/);
+  const legadoConCodigoNuevo = base(); legadoConCodigoNuevo.preparacion.pendientes[0].codigo = 'antecedente_cotejado_local';
+  legadoConCodigoNuevo.mensajes[0].codigo = 'antecedente_cotejado_local';
+  assert.throws(() => leer(legadoConCodigoNuevo), /formato/);
+});
+test('la vista atribuye al archivo el cotejo declarado en ES/EN y conserva el aviso anterior', async () => {
+  for (const idioma of ['es', 'en']) {
+    const textos = await cargarTextos('selectivos-acta-visor', { idioma });
+    const raiz = new NodoPrueba(documentoPrueba, 'raiz');
+    pintarSalida({ raiz, dto: leer(conCotejoLocal()), textos });
+    assert.ok(raiz.textContent.includes(textos.traducir('antecedente_cotejo_declarado')));
+    assert.ok(raiz.textContent.includes(textos.traducir('fase_cotejo_declarado')));
+    assert.ok(raiz.textContent.includes(textos.traducir('motivos.antecedente_cotejado_local')));
+    assert.ok(!raiz.textContent.includes(textos.traducir('antecedente_pendiente')));
+    pintarSalida({ raiz, dto: leer(base()), textos });
+    assert.ok(raiz.textContent.includes(textos.traducir('antecedente_pendiente')));
+    assert.ok(!raiz.textContent.includes(textos.traducir('antecedente_cotejo_declarado')));
+  }
 });
 test('se rechazan estados oficiales, datos nominales y propiedades fuera del contrato', () => {
   for (const mutar of [
@@ -84,7 +138,11 @@ test('límites de archivo y listas se comprueban antes de mostrar contenido', as
 test('catálogos reales ES/EN traducen cada pendiente sin claves ausentes', async () => {
   for (const idioma of ['es', 'en']) {
     const t = await cargarTextos('selectivos-acta-visor', { idioma }); assert.deepEqual(t.faltantes, []);
-    for (const [campo, codigo] of Object.entries(FIJOS)) { assert.ok(t.traducir(`campos.${campo}`)); assert.ok(t.traducir(`motivos.${codigo}`)); }
+    for (const fijos of [FIJOS, FIJOS_COTEJO_LOCAL]) {
+      for (const [campo, codigo] of Object.entries(fijos)) { assert.ok(t.traducir(`campos.${campo}`)); assert.ok(t.traducir(`motivos.${codigo}`)); }
+    }
+    for (const clave of ['cargado_cotejo_declarado', 'fase_cotejo_declarado', 'antecedente_cotejo_declarado',
+      'referencias_limite_cotejo_declarado', 'antecedente_huella_cotejo_declarado']) assert.ok(t.traducir(clave));
     for (const campo of ['sesion_ref', 'fecha_propuesta', 'orden_dia_propuesto', 'acuerdos_propuestos', 'textos_orden_dia', 'textos_acuerdos']) assert.ok(t.traducir(`campos.${campo}`));
   }
 });

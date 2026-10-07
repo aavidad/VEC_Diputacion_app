@@ -54,3 +54,13 @@ Fuera de este plan: el envío de SMS y Telegram (decisión del 02/10: solo corre
 Cada pieza sigue las reglas de siempre. Si toca SQL: reserva previa en `RESERVAS_MIGRACIONES.md`, `revisar-sql-vec`, ensayo en el clon de la principal y revisión SQL independiente. Si toca pantallas: `usabilidad-vec`, `aspecto-vec` e `impeccable` antes de programar y revisión de usabilidad independiente. Textos en catálogos por idioma.
 
 Ficheros grandes que conviene no engordar más: `bootstrap/bolsa_borrador_llamamiento_desarrollo.go` (936 líneas), `web/static/portal-empleado/portal-bolsas-api.js` (1152) y `bolsa/domain/llamamientos.go` (1208). Una pieza nueva va en un fichero nuevo.
+
+## Recuento de llamamientos en el cuadro RRHH — 7 de octubre de 2026
+
+El corte B85, preparado en `1b5b48e2117a45ee8fa22426b463062d2c14310a`, agrupa los llamamientos en curso de las bolsas constituidas. El cuadro y las estadísticas leen situaciones, políticas y recuentos en tres consultas dentro de una transacción `REPEATABLE READ`. La ruta de conjunto deja de consultar los llamamientos bolsa por bolsa. B85 conserva el criterio de la función B17 y devuelve cero para las bolsas sin llamamientos. Requiere B82 instalada y no añade configuración. Si falta B85, la aplicación arranca con el camino legado completo: continúa una consulta `ContarEnCurso` por bolsa y, por tanto, el N+1.
+
+En un clon local PostgreSQL 18.4 con 13 bolsas y 2.390 candidaturas, B85 se instaló una vez. Sus 13 recuentos coincidieron con B17; la suma fue 1. El test del adaptador registró exactamente una consulta de situaciones, una de políticas y una de recuentos. En 100 lecturas del adaptador, el p95 fue de 12,99 ms; esa cifra no incluye HTTP.
+
+El recorrido HTTP del mismo código fuente usó la autenticación mTLS y el perfil técnico vigente de la ruta existente. `/api/vec/bolsa/bolsas` y `/api/vec/bolsa/estadisticas` respondieron 200 en 11 peticiones cada una, con tres consultas SQL por petición. Entre las diez peticiones de medición, el p95 fue de 19,298 ms para bolsas y 18,039 ms para estadísticas. El conjunto conservó 13 bolsas y 2.390 participaciones; la respuesta de bolsas sumó un llamamiento en curso. La prueba no habilitó una acción V3 nueva ni cambió el alcance del permiso. La interfaz sigue indicando «No disponible» para el histórico de llamamientos, que este corte no acredita.
+
+La evidencia HTTP se conserva fuera de Git con SHA256 `526249a66918018e2b4a7bc3638da964153e4244e117c1fba90315d3b2eb75b1`. La instalación y el recorrido fueron locales; no acreditan instalación en la principal ni producción.

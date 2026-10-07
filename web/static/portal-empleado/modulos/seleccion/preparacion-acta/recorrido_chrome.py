@@ -43,7 +43,7 @@ def main():
                 if focal_volver:
                     pagina.expose_function("reportarRestauracion", lambda persisted, trusted: restauraciones.append({"persisted": bool(persisted), "trusted": bool(trusted)}))
                     pagina.add_init_script("window.__documentoPrueba = Math.random(); window.addEventListener('pageshow', e => window.reportarRestauracion(e.persisted, e.isTrusted));")
-                assert pagina.goto(origen + entrada + "?lang=es").status == 200
+                assert pagina.goto(origen + entrada + "?lang=es&vista=acta#revision").status == 200
                 archivo = pagina.locator("#acta-archivo")
 
                 def abrir(datos, nombre="salida.json"):
@@ -110,6 +110,12 @@ def main():
                 pagina.wait_for_function("() => document.documentElement.lang === 'en'")
                 assert "Proposed agreements" in pagina.locator("#acta-resultados").inner_text()
                 assert pagina.locator("#acta-descargar").is_enabled()
+                assert "lang=en&vista=acta#revision" in pagina.url
+                assert pagina.reload().status == 200
+                pagina.wait_for_function("() => document.documentElement.lang === 'en' && !document.querySelector('#acta-archivo').disabled")
+                assert pagina.locator("#acta-resultados").inner_text() == ""
+                abrir(original)
+                assert "Proposed agreements" in pagina.locator("#acta-resultados").inner_text()
                 pagina.locator("#espacio-trabajo").evaluate("n => n.scrollTop = 0")
                 pagina.screenshot(path=str(salida / "acta-1440-en.png"))
                 pagina.locator("#acta-idioma").select_option("es")
@@ -187,11 +193,20 @@ def main():
                 pagina.wait_for_function("() => !document.querySelector('#acta-archivo').disabled")
                 assert pagina.locator("#acta-resultados").inner_text() == ""
                 assert pagina.locator("#acta-descargar").is_disabled()
+                abrir(original)
+                recursos.pop("/textos/en/selectivos-acta-visor.json")
+                pagina.locator("#acta-idioma").select_option("en")
+                pagina.wait_for_function("() => document.documentElement.lang === 'es' && document.querySelector('#acta-estado').textContent.includes('idioma elegido')")
+                assert "lang=es&vista=acta#revision" in pagina.url
+                assert pagina.locator("#acta-archivo").is_enabled()
+                assert pagina.locator("#acta-descargar").is_enabled()
+                assert "Orden del día propuesto" in pagina.locator("#acta-resultados").inner_text()
                 recursos.pop("/textos/es/selectivos-acta-visor.json")
-                assert pagina.goto(origen + entrada + "?lang=en").status == 200
-                pagina.wait_for_function("() => document.querySelector('#acta-estado').textContent.includes('could not be loaded')")
-                assert pagina.locator("#acta-archivo").is_disabled()
-                assert pagina.locator("#acta-descargar").is_disabled()
+                pagina.locator("#acta-idioma").select_option("en")
+                pagina.wait_for_function("() => document.querySelector('#acta-estado').textContent.includes('No se ha podido cambiar el idioma')")
+                assert pagina.locator("html").get_attribute("lang") == "es" and "lang=es&vista=acta#revision" in pagina.url
+                assert pagina.locator("#acta-resultados").inner_text() != ""
+                assert pagina.locator("#acta-descargar").is_enabled()
                 assert not errores and not dialogos, (errores, dialogos)
                 assert all(m == "GET" and u.startswith(origen + "/") for m, u in peticiones), peticiones
                 assert contexto.cookies() == []
@@ -199,7 +214,8 @@ def main():
                 assert pagina.evaluate("indexedDB.databases()") == []
                 navegador.close()
                 resultado = {"chrome": "OK", "ancho": [1440, 390, 720, 320], "errores_js": errores, "solicitudes_externas": 0,
-                    "http_negocio": 0, "original_sha256": hashlib.sha256(original).hexdigest(), "descarga_identica": True}
+                    "http_negocio": 0, "original_sha256": hashlib.sha256(original).hexdigest(), "descarga_identica": True,
+                    "idioma_url_y_refresco": "OK", "respaldo_y_error_sin_perder_archivo": "OK"}
                 if os.environ.get("VEC_S5_ACTA_EXPORT") == "1":
                     resultado["capturas"] = {n: base64.b64encode((salida / n).read_bytes()).decode()
                         for n in ("acta-1440.png", "acta-1440-en.png", "acta-390.png", "acta-propuestas-1440.png", "acta-propuestas-390.png")}

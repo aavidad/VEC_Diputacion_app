@@ -97,7 +97,7 @@ func TestLeerCorreoAvisosTraduceErroresYNoConfirma(t *testing.T) {
 	}
 	// Un LOGIN que no es el ejecutor interno exclusivo no llega a leer.
 	tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: false}}}
-	if _, err := registroAvisosPGPrueba(tx).LeerCorreoActivoAvisos(context.Background(), materialAvisosPG, v3AvisosPGPrueba(t, ports.AudienciaCorreoAvisosLlamamientoInterna)); !errors.Is(err, ports.ErrCorreosNoDisponible) || len(tx.llamadas) != 7 {
+	if _, err := registroAvisosPGPrueba(tx).LeerCorreoActivoAvisos(context.Background(), materialAvisosPG, v3AvisosPGPrueba(t, ports.AudienciaCorreoAvisosLlamamientoInterna)); !errors.Is(err, ports.ErrCorreosNoDisponible) || len(tx.llamadas) != 2 {
 		t.Fatalf("login no acreditado: %v %d", err, len(tx.llamadas))
 	}
 	// Otra audiencia no abre transacción.
