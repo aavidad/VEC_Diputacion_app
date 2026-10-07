@@ -141,3 +141,11 @@ func TestAdmisionDenegadaAuditaYCommitAmbiguoNoSeDaPorExito(t *testing.T) {
 		t.Fatalf("sin respuesta confirmó efecto: %v", err)
 	}
 }
+
+func TestFechaUTCConservaCausaDeParseo(t *testing.T) {
+	err := fechaUTC([]byte(`"fecha-invalida"`), time.Now().UTC())
+	var parseo *time.ParseError
+	if !errors.Is(err, errRespuestaAdmision) || !errors.As(err, &parseo) {
+		t.Fatalf("se perdió la causa temporal: %v", err)
+	}
+}
