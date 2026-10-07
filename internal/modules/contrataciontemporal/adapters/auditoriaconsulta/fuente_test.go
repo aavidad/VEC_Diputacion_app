@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
@@ -70,5 +71,45 @@ func TestRegistroCTRechazaSalidaAjenayNoFiltraErrorSQL(t *testing.T) {
 	}
 	if !errors.Is(normalizar(context.Background(), errors.New("detalle privado")), auditoria.ErrNoDisponible) {
 		t.Fatal("error técnico SQL revelado")
+	}
+}
+
+type transaccionCierreCT struct {
+	pgx.Tx
+	err   error
+	veces int
+}
+
+func (t *transaccionCierreCT) Rollback(ctx context.Context) error {
+	t.veces++
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		return errors.New("rollback sin plazo")
+	}
+	return t.err
+}
+
+func TestConsultaCTCierraAntesDeDevolverElResultado(t *testing.T) {
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	pagina := auditoria.PaginaFuente{Registros: []auditoria.Registro{{ID: "fila"}}}
+	fallo := auditoria.ErrDenegada
+	tx := &transaccionCierreCT{}
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if tx.veces != 1 || !errors.Is(fallo, auditoria.ErrDenegada) || len(pagina.Registros) != 1 {
+		t.Fatalf("rollback válido alteró el resultado: veces=%d fallo=%v pagina=%+v", tx.veces, fallo, pagina)
+	}
+	tx.err = pgx.ErrTxClosed // COMMIT ya confirmó la lectura.
+	fallo = nil
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if fallo != nil || len(pagina.Registros) != 1 {
+		t.Fatalf("transacción confirmada alterada: fallo=%v pagina=%+v", fallo, pagina)
+	}
+	tx.err = errors.New("rollback interrumpido")
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if !errors.Is(fallo, auditoria.ErrNoDisponible) || len(pagina.Registros) != 0 {
+		t.Fatalf("cierre fallido entregó la lectura: fallo=%v pagina=%+v", fallo, pagina)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
@@ -16,6 +17,46 @@ func TestFuenteDeniegaSinMaterialNiPool(t *testing.T) {
 	var fuente Fuente
 	if pagina, err := fuente.ConsultarAuditoria(context.Background(), auditoria.ConsultaAutorizada{}); len(pagina.Registros) != 0 || !errors.Is(err, auditoria.ErrNoDisponible) {
 		t.Fatalf("consulta sin fuente disponible: pagina=%+v error=%v", pagina, err)
+	}
+}
+
+type transaccionCierreBolsa struct {
+	pgx.Tx
+	err   error
+	veces int
+}
+
+func (t *transaccionCierreBolsa) Rollback(ctx context.Context) error {
+	t.veces++
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		return errors.New("rollback sin plazo")
+	}
+	return t.err
+}
+
+func TestConsultaBolsaCierraAntesDeDevolverElResultado(t *testing.T) {
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	pagina := auditoria.PaginaFuente{Registros: []auditoria.Registro{{ID: "fila"}}}
+	fallo := auditoria.ErrDenegada
+	tx := &transaccionCierreBolsa{}
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if tx.veces != 1 || !errors.Is(fallo, auditoria.ErrDenegada) || len(pagina.Registros) != 1 {
+		t.Fatalf("rollback válido alteró el resultado: veces=%d fallo=%v pagina=%+v", tx.veces, fallo, pagina)
+	}
+	tx.err = pgx.ErrTxClosed // COMMIT ya confirmó la lectura.
+	fallo = nil
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if fallo != nil || len(pagina.Registros) != 1 {
+		t.Fatalf("transacción confirmada alterada: fallo=%v pagina=%+v", fallo, pagina)
+	}
+	tx.err = errors.New("rollback interrumpido")
+	cerrarTransaccionConsulta(ctx, tx, &pagina, &fallo)
+	if !errors.Is(fallo, auditoria.ErrNoDisponible) || len(pagina.Registros) != 0 {
+		t.Fatalf("cierre fallido entregó la lectura: fallo=%v pagina=%+v", fallo, pagina)
 	}
 }
 
