@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cargarTextos } from "../../../comun/textos.js";
-import { TEXTOS_NOMINAS, crearTraductorNominas } from "./i18n.js";
+import { cargarTextosNominas, crearTraductorNominas } from "./i18n.js";
 import { montarVistaNominas } from "./vista.js";
 
 test("Nóminas usa catálogos completos en los idiomas del portal", async () => {
@@ -34,12 +34,72 @@ test("si falta el catálogo elegido se usa el respaldo común", async () => {
   assert.equal(avisos.length, 1);
 });
 
+test("Nóminas solicita el idioma activo solo al abrir la vista", async () => {
+  const base = await cargarTextos("nominas");
+  const llamadas = [];
+  await cargarTextosNominas((modulo, opciones) => {
+    llamadas.push({ modulo, opciones });
+    return base;
+  });
+  assert.deepEqual(llamadas, [{ modulo: "nominas", opciones: { soloIdiomaActivo: true } }]);
+
+  const { raiz, buscar } = crearDOM();
+  let cargas = 0;
+  const montada = await montarVistaNominas({ raiz, cargarCatalogo: async () => {
+    cargas++;
+    return base;
+  } });
+  assert.equal(cargas, 1);
+  assert.ok(buscar("nominas-historial"));
+  montada.desmontar();
+});
+
+test("un fallo doble de catálogo conserva un reintento sin montar datos", async () => {
+  const base = await cargarTextos("nominas");
+  const { raiz, buscar } = crearDOM();
+  const avisos = [];
+  let cargas = 0;
+  const opciones = {
+    raiz,
+    mensajeErrorCatalogo: "No se pudieron cargar los textos.",
+    anunciar: (mensaje, tipo) => avisos.push({ mensaje, tipo }),
+    cargarCatalogo: async () => {
+      if (++cargas === 1) throw new Error("fallo de red con detalles privados");
+      return base;
+    },
+  };
+  const fallo = await montarVistaNominas(opciones);
+  assert.equal(fallo.estado, "error_catalogo");
+  assert.equal(buscar("nominas-historial"), undefined);
+  assert.deepEqual(avisos, [{ mensaje: opciones.mensajeErrorCatalogo, tipo: "error" }]);
+  const montada = await fallo.reintentar();
+  assert.equal(cargas, 2);
+  assert.ok(buscar("nominas-historial"));
+  montada.desmontar();
+});
+
+test("cerrar durante la carga impide montar una respuesta tardía", async () => {
+  const base = await cargarTextos("nominas");
+  const { raiz } = crearDOM();
+  let cancelar;
+  let resolver;
+  const pendiente = montarVistaNominas({
+    raiz,
+    registrarDesmontar: (fn) => { cancelar = fn; },
+    cargarCatalogo: () => new Promise((resolve) => { resolver = resolve; }),
+  });
+  cancelar();
+  resolver(base);
+  assert.equal((await pendiente).estado, "desmontada");
+  assert.equal(raiz.children.length, 0);
+});
+
 const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
 const i18n = await readFile(new URL("./i18n.js", import.meta.url), "utf8");
-const i18nVersionada = new URL("./i18n.js?v=20261007-u-nominas", import.meta.url);
-assert.match(vista, /from "\.\/i18n\.js\?v=20261007-u-nominas"/);
-assert.equal((await import(i18nVersionada.href)).crearTraductorNominas()("titulo"), crearTraductorNominas(TEXTOS_NOMINAS)("titulo"));
-assert.match(i18n, /await cargarTextos\("nominas"\)/);
+const i18nVersionada = new URL("./i18n.js?v=20261007-u-nominas-retoma", import.meta.url);
+assert.match(vista, /from "\.\/i18n\.js\?v=20261007-u-nominas-retoma"/);
+assert.equal(typeof (await import(i18nVersionada.href)).cargarTextosNominas, "function");
+assert.doesNotMatch(i18n, /await cargarTextos\("nominas"\)|TEXTOS_NOMINAS/);
 assert.doesNotMatch(i18n, /MENSAJES_NOMINAS_ES|"es-ES"|"en-GB"|Nóminas y retribuciones|Payslips and pay/);
 assert.equal(typeof (await import("./vista.js")).montarVistaNominas, "function");
 assert.doesNotMatch(vista, /datos-presentacion|datos-sinteticos|localStorage|sessionStorage|document\.cookie|fetch\(|"es-ES"|"en-GB"/);
@@ -93,14 +153,14 @@ function crearDOM() {
   return { raiz, doc, buscar };
 }
 
-test("la ayuda extensa se abre solo con ? y Escape devuelve el foco", () => {
+test("la ayuda extensa se abre solo con ? y Escape devuelve el foco", async () => {
   const { raiz, doc, buscar } = crearDOM();
-  const vistaMontada = montarVistaNominas({ raiz });
+  const vistaMontada = await montarVistaNominas({ raiz });
   const ayuda = buscar("nominas-ayuda");
   const boton = buscar("nominas-ayuda-boton");
   const texto = ayuda.querySelector("p");
   assert.equal(boton.textContent, "?");
-  assert.equal(boton.atributos.get("aria-label"), crearTraductorNominas()("ayuda"));
+  assert.equal(boton.atributos.get("aria-label"), crearTraductorNominas(await cargarTextosNominas())("ayuda"));
   assert.equal(boton.atributos.get("aria-controls"), texto.id);
   assert.equal(texto.hidden, true);
   boton.listeners.get("click")();
@@ -118,10 +178,10 @@ test("filtrar período actualiza filas, detalle y foco sin conservar otro recibo
     { referencia: "REC-SEP", periodo: "2026-09", tipo: "Nómina", version: 1, descargable: false },
     { referencia: "REC-AGO", periodo: "2026-08", tipo: "Nómina", version: 2, descargable: false },
   ];
-  const vistaMontada = montarVistaNominas({ raiz, fuente: {
+  const vistaMontada = await montarVistaNominas({ raiz, fuente: {
     consultar: async () => ({ estado: "disponible", origen: "Fuente de prueba", recibos }),
   } });
-  await vistaMontada.consultar();
+  await vistaMontada.consultaInicial;
   const detalle = buscar("nominas-detalle");
   const texto = (nodo) => [nodo.textContent, ...nodo.children.map(texto)].join(" ");
   let selector = buscar("nominas-barra").querySelector("select");
@@ -151,13 +211,14 @@ test("la vista recibe textos ingleses y fecha del formateador común", async () 
     },
   };
   const { raiz, buscar } = crearDOM();
-  const vistaMontada = montarVistaNominas({ raiz, textos, fuente: {
+  const vistaMontada = await montarVistaNominas({ raiz, textos, fuente: {
     consultar: async () => ({
       estado: "disponible", origen: "Authorised source", actualizado_en: "2026-10-25T23:30:00Z",
       recibos: [{ referencia: "REC-OCT", periodo: "2026-10", tipo: "Payslip", version: 1, fecha_emision: "2026-10-25T23:30:00Z", descargable: false }],
     }),
   } });
-  await vistaMontada.consultar();
+  await vistaMontada.consultaInicial;
+  assert.equal(raiz.children[0].lang, "en");
   const texto = (nodo) => [nodo.textContent, ...nodo.children.map(texto)].join(" ");
   assert.match(texto(raiz), /Payslips and pay[\s\S]*Payslip history/);
   assert.match(texto(raiz), /Authorised source/);

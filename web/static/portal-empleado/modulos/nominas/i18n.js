@@ -1,8 +1,11 @@
 import { cargarTextos } from "../../../comun/textos.js";
 
-export const TEXTOS_NOMINAS = await cargarTextos("nominas");
+/** Solo se piden los textos cuando se abre la vista de Nóminas. */
+export function cargarTextosNominas(cargar = cargarTextos) {
+  return cargar("nominas", { soloIdiomaActivo: true });
+}
 
-export function crearTraductorNominas(textos = TEXTOS_NOMINAS) {
+export function crearTraductorNominas(textos) {
   if (typeof textos?.traducir !== "function" || typeof textos?.fecha !== "function") {
     throw new TypeError("nominas:textos");
   }

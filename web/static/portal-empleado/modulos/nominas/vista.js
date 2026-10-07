@@ -1,4 +1,4 @@
-import { crearTraductorNominas, TEXTOS_NOMINAS } from "./i18n.js?v=20261007-u-nominas";
+import { cargarTextosNominas, crearTraductorNominas } from "./i18n.js?v=20261007-u-nominas-retoma";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FORMATO_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -49,20 +49,35 @@ async function validarDocumento(respuesta, ventana) {
 }
 
 /**
- * Montaje: montarVistaNominas({ raiz, anunciar?, registrarDesmontar?, fuente?, textos? }).
+ * Montaje: montarVistaNominas({ raiz, anunciar?, registrarDesmontar?, fuente?, textos?, cargarCatalogo?, mensajeErrorCatalogo? }).
  * fuente.consultar({ signal }) devuelve { estado, origen, actualizado_en, recibos }.
  * fuente.descargar(referencia, { signal }) devuelve { contenido: Blob PDF, nombre }.
  * El conector autorizado obtiene el original; la vista valida el archivo y dispara
  * la descarga local sin guardar el contenido en almacenamiento web.
  * Sin fuente no se consulta ni se muestra el atlas sintético de presentación.
  */
-export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente, textos = TEXTOS_NOMINAS } = {}) {
+export async function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente, textos, cargarCatalogo = cargarTextosNominas, mensajeErrorCatalogo } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || (fuente !== undefined && typeof fuente?.consultar !== "function")) throw new TypeError("vista de Nóminas no disponible");
+  let cargaVigente = true;
+  registrarDesmontar?.(() => { cargaVigente = false; });
+  if (!textos) {
+    try {
+      textos = await cargarCatalogo();
+    } catch {
+      if (!cargaVigente) return Object.freeze({ estado: "desmontada", desmontar: () => {} });
+      // El shell conserva el módulo y puede anunciar un mensaje ya traducido.
+      globalThis.console?.error?.("nominas:catalogo_no_disponible");
+      if (typeof mensajeErrorCatalogo === "string" && mensajeErrorCatalogo.trim()) anunciar(mensajeErrorCatalogo, "error");
+      return Object.freeze({ estado: "error_catalogo", desmontar: () => { cargaVigente = false; }, reintentar: () => cargaVigente ? montarVistaNominas({ raiz, anunciar, registrarDesmontar, fuente, cargarCatalogo, mensajeErrorCatalogo }) : null });
+    }
+  }
+  if (!cargaVigente) return Object.freeze({ estado: "desmontada", desmontar: () => {} });
   const doc = raiz.ownerDocument;
   const t = crearTraductorNominas(textos);
   const fechaVisible = (valor) => textos.fecha(valor, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
   const contenedor = elemento(doc, "section", undefined, "modulo-nominas");
   contenedor.dataset.nominas = "";
+  if (textos.idioma) contenedor.lang = textos.idioma;
   const cabecera = elemento(doc, "header", undefined, "nominas-cabecera");
   cabecera.append(elemento(doc, "h2", t("titulo")));
   const ayuda = elemento(doc, "div", undefined, "nominas-ayuda");
@@ -328,6 +343,6 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   }
   registrarDesmontar?.(desmontar);
   pintar();
-  if (fuente) void consultar();
-  return Object.freeze({ desmontar, consultar });
+  const consultaInicial = fuente ? consultar() : Promise.resolve();
+  return Object.freeze({ desmontar, consultar, consultaInicial });
 }
