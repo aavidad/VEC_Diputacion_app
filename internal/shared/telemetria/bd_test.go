@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -19,13 +20,14 @@ import (
 
 func TestOperacionSinValores(t *testing.T) {
 	for sql, want := range map[string]string{
-		"SELECT * FROM vec_bolsa.listar_participaciones($1, $2)": "vec_bolsa.listar_participaciones",
-		"select vec_ct.consultar($1)":                            "vec_ct.consultar",
-		"INSERT INTO vec_auditoria.intentos (a) VALUES ($1)":     "vec_auditoria.intentos",
-		"SELECT 'juan.perez(' , x FROM s.t":                      "s.t",
-		"/* datos.de_juan( */ begin":                             "begin",
-		"COMMIT":                                                 "commit",
-		"":                                                       "sql",
+		"SELECT * FROM vec_usuarios.catalogo_vigente_preferencias_v1($1)": "vec_usuarios.catalogo_vigente_preferencias_v1",
+		"select vec_usuarios.consultar_preferencias_propias_v1($1)":       "vec_usuarios.consultar_preferencias_propias_v1",
+		"INSERT INTO vec_auditoria.intentos (a) VALUES ($1)":              "insert",
+		"SELECT 'juan.perez(' , x FROM s.t":                               "select",
+		"SELECT vec_persona_juan.perez($1)":                               "select",
+		"/* datos.de_juan( */ begin":                                      "begin",
+		"COMMIT":                                                          "commit",
+		"":                                                                "sql",
 	} {
 		if got := operacion(sql); got != want {
 			t.Errorf("operacion(%q) = %q, se esperaba %q", sql, got, want)
@@ -47,21 +49,25 @@ func TestAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
 			time.Sleep(3 * time.Millisecond) // más lenta que las de datos: no debe nombrarse
 			tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
 		}
-		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT * FROM vec_bolsa.listar($1)"})
+		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT * FROM vec_usuarios.catalogo_vigente_preferencias_v1($1)"})
 		time.Sleep(2 * time.Millisecond)
 		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
 		for i := 0; i < 20; i++ {
-			c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_bolsa.una($1)"})
+			c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_usuarios.consultar_preferencias_propias_v1($1)"})
 			tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{})
 		}
-		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_bolsa.una($1)"})
+		c = tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_usuarios.consultar_preferencias_propias_v1($1)"})
 		tr.TraceQueryEnd(c, nil, pgx.TraceQueryEndData{Err: &pgconn.PgError{Code: "57014", Message: "con datos de Juan"}})
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vec/bolsa", nil))
 	l := lineas(t, &b)[0]
 	if l["vec.bd.consultas"] != float64(22) || l["vec.lenta"] != true || l["level"] != "WARN" || l["vec.bd.error"] != "bd_57014" ||
-		l["vec.bd.consulta_mas_lenta"] != "vec_bolsa.listar" {
+		l["vec.bd.consulta_mas_lenta"] != "vec_usuarios.catalogo_vigente_preferencias_v1" {
 		t.Errorf("linea = %v", l)
+	}
+	resumen, ok := l["vec.bd.operaciones"].([]any)
+	if !ok || len(resumen) != 2 {
+		t.Errorf("resumen por operación = %v", l["vec.bd.operaciones"])
 	}
 	if strings.Contains(b.String(), "Juan") {
 		t.Error("el texto del error llego al registro")
@@ -188,4 +194,90 @@ func TestErrorTypeConservaElFalloTrasElRollback(t *testing.T) {
 	if l["error.type"] != "bd_57014" || l["vec.bd.error"] != "bd_57014" || l["vec.bd.consultas"] != float64(1) {
 		t.Errorf("linea = %v", l)
 	}
+}
+
+func TestBatchCuentaResultadosObservadosSinAtribuirDuracionAlPrimerSQL(t *testing.T) {
+	var b bytes.Buffer
+	o := opciones(&b)
+	o.Lenta = time.Nanosecond
+	tr := trazador{}
+	h := Middleware(o, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lote := &pgx.Batch{}
+		lote.Queue("SELECT vec_bolsa.primera($1)", "dato privado")
+		lote.Queue("SELECT vec_bolsa.segunda($1)", "dato privado")
+		lote.Queue("SELECT vec_bolsa.tercera($1)", "dato privado")
+		ctx := tr.TraceBatchStart(r.Context(), nil, pgx.TraceBatchStartData{Batch: lote})
+		tr.TraceBatchQuery(ctx, nil, pgx.TraceBatchQueryData{SQL: lote.QueuedQueries[0].SQL})
+		err := &pgconn.PgError{Code: "57014", Message: "dato privado"}
+		tr.TraceBatchEnd(ctx, nil, pgx.TraceBatchEndData{Err: err})
+		tr.TraceBatchEnd(ctx, nil, pgx.TraceBatchEndData{Err: err}) // pgx puede llamar End dos veces en un fallo temprano
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
+	l := lineas(t, &b)[0]
+	if l["vec.bd.consultas"] != float64(1) || l["vec.bd.lotes"] != float64(1) ||
+		l["vec.bd.lote.resultados_observados"] != float64(1) || l["vec.bd.lote.errores"] != float64(1) ||
+		l["vec.bd.error"] != "bd_57014" || l["vec.bd.consulta_mas_lenta"] != nil || l["vec.bd.operaciones"] != nil {
+		t.Errorf("lote = %v", l)
+	}
+	if l["vec.bd.lote.duracion_hasta_cierre"].(float64) < 0 || strings.Contains(b.String(), "dato privado") {
+		t.Errorf("duración o privacidad del lote: %s", b.String())
+	}
+}
+
+func TestResumenOperacionesAcotadoYErroresCerrados(t *testing.T) {
+	m := &medida{}
+	m.operaciones = make(map[string]*resumenConsulta)
+	for n := 0; n < maxOperacionesPeticion-1; n++ {
+		m.operaciones[fmt.Sprintf("operacion_estatica_%d", n)] = &resumenConsulta{n: 1}
+	}
+	ctx := context.WithValue(context.Background(), claveMedida{}, m)
+	tr := trazador{}
+	for n := 0; n < 6; n++ {
+		q := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_usuarios.consultar_preferencias_propias_v1($1)", Args: []any{"dato privado"}})
+		tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{})
+	}
+	for n := 0; n < 5; n++ {
+		q := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: fmt.Sprintf("SELECT vec_persona_%d.valor($1)", n)})
+		tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{})
+	}
+	for n, codigo := range []string{"23505", "40001", "57014", "55P03", "42P01"} {
+		q := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "SELECT vec_usuarios.consultar_preferencias_propias_v1($1)"})
+		tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{Err: &pgconn.PgError{Code: codigo, Message: fmt.Sprintf("dato privado %d", n)}})
+	}
+	resumen := m.resumenOperaciones()
+	if len(resumen) != maxOperacionesPeticion+1 {
+		t.Fatalf("operaciones = %d, se esperaban %d", len(resumen), maxOperacionesPeticion+1)
+	}
+	var otras, primera *operacionMedida
+	for i := range resumen {
+		if resumen[i].Nombre == "otras" {
+			otras = &resumen[i]
+		}
+		if resumen[i].Nombre == "vec_usuarios.consultar_preferencias_propias_v1" {
+			primera = &resumen[i]
+		}
+	}
+	if otras == nil || otras.N != 5 || primera == nil || primera.N != 11 || len(primera.Errores) != maxClasesErrorOperacion+1 || primera.Errores["otras"] != 1 || m.desconocidas.Load() != 5 {
+		t.Errorf("resumen acotado incorrecto: %+v", resumen)
+	}
+}
+
+func BenchmarkTrazadorConsulta(b *testing.B) {
+	tr := trazador{}
+	sql := "SELECT vec_usuarios.consultar_preferencias_propias_v1($1)"
+	b.Run("sin_trazador", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			_ = context.Background()
+		}
+	})
+	b.Run("trazador_peticion", func(b *testing.B) {
+		ctx := context.WithValue(context.Background(), claveMedida{}, &medida{})
+		b.ReportAllocs()
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			q := tr.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: sql})
+			tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{})
+		}
+	})
 }
