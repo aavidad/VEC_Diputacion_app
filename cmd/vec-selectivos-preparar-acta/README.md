@@ -40,6 +40,8 @@ coteja la identidad, la versión y la fase propuesta, y rechaza una salida de
 tribunal alterada que no coincida con la preparación recalculada. `cotejo_local`
 identifica esta comprobación. Cambiar espacios o mensajes del archivo cambia su
 huella, por lo que debe conservarse el archivo exacto que se haya cotejado.
+Los avisos del resultado distinguen lo comprobado en el archivo local de la
+procedencia, vigencia y habilitación que todavía debe confirmar la autoridad.
 
 Sin `-tribunal-salida`, el comando mantiene el contrato anterior: acepta la
 huella aportada si tiene formato válido y deja el antecedente y la fase pendientes

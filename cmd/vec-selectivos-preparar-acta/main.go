@@ -45,7 +45,8 @@ func cargarCatalogo(dir, idioma string) (*i18n.Catalog, error) {
 		return nil, errEntradaJSON
 	}
 	for _, clave := range []string{"titulo", "limite", "error_entrada", "error_salida", "antecedente_no_cotejado",
-		"pertenencia_no_verificada", "material_ausente", "circuito_pendiente", "campo_antecedente_tribunal",
+		"pertenencia_no_verificada", "limite_cotejo_local", "antecedente_cotejado_local", "fase_cotejada_local",
+		"material_ausente", "circuito_pendiente", "campo_antecedente_tribunal",
 		"campo_fase_propuesta", "campo_designacion", "campo_habilitacion", "campo_sesion_celebrada", "campo_asistencia",
 		"campo_deliberaciones", "campo_acuerdos_adoptados", "campo_aprobacion", "campo_firma", "campo_sesion_ref",
 		"campo_fecha_propuesta", "campo_orden_dia_propuesto", "campo_acuerdos_propuestos", "campo_textos_orden_dia", "campo_textos_acuerdos"} {
@@ -76,16 +77,15 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	if err == nil {
 		err = leerJSON(entrada, &material)
 	}
+	var preparacion domain.PreparacionActa
 	if err == nil && *salidaTribunal != "" {
 		var tribunal domain.PreparacionTribunal
 		var huella string
 		tribunal, huella, err = leerSalidaTribunal(*salidaTribunal)
 		if err == nil {
-			material, err = application.CotejarSalidaTribunal(ctx, tribunal, huella, material)
+			preparacion, err = application.CotejarSalidaTribunal(ctx, tribunal, huella, material)
 		}
-	}
-	var preparacion domain.PreparacionActa
-	if err == nil {
+	} else if err == nil {
 		preparacion, err = application.PrepararMaterialActa(ctx, material)
 	}
 	if err != nil {
@@ -105,7 +105,11 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		mensajes = append(mensajes, pendienteVisible{pendiente.Campo, pendiente.Codigo, campo + ": " + motivo})
 	}
 	titulo, _ := catalogo.Message(*idioma, "titulo")
-	limite, _ := catalogo.Message(*idioma, "limite")
+	claveLimite := "limite"
+	if *salidaTribunal != "" {
+		claveLimite = "limite_cotejo_local"
+	}
+	limite, _ := catalogo.Message(*idioma, claveLimite)
 	enc := json.NewEncoder(salida)
 	enc.SetIndent("", "  ")
 	if enc.Encode(struct {

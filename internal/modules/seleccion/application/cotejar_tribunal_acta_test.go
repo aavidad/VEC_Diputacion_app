@@ -29,11 +29,12 @@ func TestCotejarSalidaTribunalEnlazaFaseYHuella(t *testing.T) {
 	tribunal, acta := materialTribunalActa()
 	huella := strings.Repeat("c", 64)
 	resultado, err := application.CotejarSalidaTribunal(context.Background(), tribunal, huella, acta)
-	if err != nil || resultado.AntecedenteTribunal.HuellaAportadaSHA256 != huella || acta.AntecedenteTribunal.HuellaAportadaSHA256 != "" {
+	if err != nil || resultado.MaterialPropuesto.AntecedenteTribunal.HuellaAportadaSHA256 != huella || acta.AntecedenteTribunal.HuellaAportadaSHA256 != "" {
 		t.Fatalf("cotejo: %+v, %v", resultado, err)
 	}
-	if _, err := domain.PrepararActa(resultado); err != nil {
-		t.Fatalf("el material cotejado debe ser preparable: %v", err)
+	if len(resultado.Pendientes) < 2 || resultado.Pendientes[0] != (domain.PendienteActa{Campo: "antecedente_tribunal", Codigo: "antecedente_cotejado_local"}) ||
+		resultado.Pendientes[1] != (domain.PendienteActa{Campo: "fase_propuesta", Codigo: "fase_cotejada_local"}) {
+		t.Fatalf("el cotejo local no debe negar los hechos comprobados: %+v", resultado.Pendientes)
 	}
 }
 
