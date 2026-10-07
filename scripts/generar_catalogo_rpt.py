@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Genera el catálogo público de la RPT (puestos y categorías) para VEC.
+"""Prepara un candidato de catálogo público de la RPT para revisión.
 
-Lee la importación local `config/rpt_positions_import.json` (no versionada: nace del
-PDF de la RPT publicada) y escribe `data/catalogos/rpt/v1.rpt-2026.json` con lo que es
-público y útil para Contratación, Bolsa, Cronos y Dietas: puestos con su centro, grupo,
-escala, nivel de destino, complemento específico anual y dotación; y categorías
-derivadas de las denominaciones con su grupo. No incluye ocupantes, rutas locales,
-páginas ni texto en bruto.
+Lee la importación local del PDF publicado y exige una salida explícita. El
+resultado contiene puestos y alternativas de categorías para comparar con la
+versión publicada; no se instala ni alimenta nuevas altas. No incluye ocupantes,
+rutas locales, páginas ni texto en bruto.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -21,6 +20,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 ENTRADA = RAIZ / "config" / "rpt_positions_import.json"
 SALIDA = RAIZ / "data" / "catalogos" / "rpt" / "v1.rpt-2026.json"
+ESQUEMA_CANDIDATO = "vec.catalogo.rpt.candidato.v1"
 GRUPOS_VALIDOS = ("A1", "A2", "B", "C1", "C2", "AP")
 
 
@@ -68,9 +68,15 @@ def grupos_de(valor: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--in", dest="entrada", type=Path, default=ENTRADA)
-    parser.add_argument("--out", type=Path, default=SALIDA)
+    parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--generated-on", type=date.fromisoformat, default=date.today())
     args = parser.parse_args()
+    if args.out.resolve() == SALIDA.resolve() or (
+        args.out.exists() and SALIDA.exists() and os.path.samefile(args.out, SALIDA)
+    ):
+        parser.error("la salida no puede sobrescribir el catálogo RPT publicado")
+    if args.out.resolve() == args.entrada.resolve():
+        parser.error("la salida no puede sobrescribir la importación de entrada")
     if not args.entrada.exists():
         print("falta la importación local indicada", file=sys.stderr)
         return 2
@@ -84,7 +90,6 @@ def main() -> int:
         grupos = grupos_de(p.get("group", ""))
         if len(nombres) == 1 and len(grupos) == 1:
             grupos_acreditados.setdefault(nombres[0], set()).add(grupos[0])
-    pendientes: set[str] = set()
     for p in datos["positions"]:
         grupos = grupos_de(p.get("group", ""))
         # Categoría: la columna de categoría de la RPT; si falta, la denominación del
@@ -96,7 +101,6 @@ def main() -> int:
             origen = "denominacion"
         denominaciones = [nombre for nombre in denominaciones if nombre]
         claves = [clave(nombre) for nombre in denominaciones]
-        categoria_clave = claves[0] if len(claves) == 1 else ""
         puestos_salida.append({
             "codigo": p["code"],
             "denominacion": p["name"].strip(),
@@ -105,8 +109,9 @@ def main() -> int:
             "delegacion": p.get("delegation", "").strip(),
             "grupos": grupos,
             "escala": (p.get("scale") or "").strip() if (p.get("scale") or "") in ("AE", "AG", "AGAE", "HN") else "",
-            "categoria_clave": categoria_clave,
-            "categorias_claves": claves,
+            "categoria_clave": "",
+            "categorias_claves": [],
+            "categorias_pendientes": [],
             "nivel_destino": int(p.get("destination_level") or 0),
             "complemento_especifico_anual_centimos": int(p.get("annual_amount_cents") or 0),
             "dotacion": int(p.get("dot") or 0),
@@ -116,7 +121,6 @@ def main() -> int:
         for denominacion, clave_categoria in zip(denominaciones, claves):
             grupos_categoria = grupos if len(denominaciones) == 1 else sorted(grupos_acreditados.get(denominacion, set()), key=GRUPOS_VALIDOS.index)
             if not grupos_categoria:
-                pendientes.add(denominacion)
                 continue
             c = categorias.setdefault(clave_categoria, {
                 "clave": clave_categoria, "denominacion": denominacion, "origen": origen, "grupos": [],
@@ -138,6 +142,25 @@ def main() -> int:
                 if puestos_salida[-1]["complemento_especifico_anual_centimos"]:
                     c["complementos_especificos_anuales_centimos"].append(puestos_salida[-1]["complemento_especifico_anual_centimos"])
 
+    # Las referencias solo se fijan tras saber qué categorías entran en el
+    # candidato. Una celda con varias alternativas nunca se vuelve singular.
+    for puesto, origen_pdf in zip(puestos_salida, datos["positions"]):
+        denominaciones = denominaciones_categoria(origen_pdf.get("category_code") or "")
+        origen = "categoria"
+        if not denominaciones and (origen_pdf.get("type") or "") == "N":
+            denominaciones = [limpiar_denominacion(origen_pdf.get("name") or "")]
+            origen = "denominacion"
+        denominaciones = [nombre for nombre in denominaciones if nombre]
+        claves = [clave(nombre) for nombre in denominaciones]
+        resueltas = [valor for valor in claves if valor in categorias]
+        puesto["categorias_claves"] = resueltas
+        puesto["categorias_pendientes"] = [
+            {"denominacion": nombre, "origen": origen}
+            for nombre, valor in zip(denominaciones, claves) if valor not in categorias
+        ]
+        if len(claves) == 1 and len(resueltas) == 1:
+            puesto["categoria_clave"] = resueltas[0]
+
     def mediana(valores: list[int]) -> int:
         if not valores:
             return 0
@@ -154,7 +177,8 @@ def main() -> int:
             "complemento_especifico_anual_centimos_mediana": mediana(c["complementos_especificos_anuales_centimos"]),
         })
     salida = {
-        "esquema": "vec.catalogo.rpt.v1",
+        "esquema": ESQUEMA_CANDIDATO,
+        "estado": "preparacion_no_autoritativa",
         "fuente": {
             "documento": "Relación de Puestos de Trabajo de la Diputación de Granada 2026 (publicada), revisión 2026-05-07",
             "importacion": datos.get("version", ""),
@@ -169,7 +193,10 @@ def main() -> int:
         },
         "categorias": lista_categorias,
         "puestos": puestos_salida,
-        "categorias_pendientes_grupo": sorted(pendientes),
+        "categorias_pendientes_grupo": sorted({
+            pendiente["denominacion"] for puesto in puestos_salida
+            for pendiente in puesto["categorias_pendientes"]
+        }),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(salida, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

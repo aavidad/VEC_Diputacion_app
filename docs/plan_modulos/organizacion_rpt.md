@@ -315,14 +315,25 @@ del puesto 407 son «ENFERMERO/A» y «MÉDICO/A»; el grupo compuesto A1/A2 se
 conserva en el puesto sin asignar un subgrupo a cada alternativa. El 748 tiene
 tres alternativas numeradas de ingeniería.
 
-El catálogo generado para comparación queda fuera de Git. Tiene 842 puestos,
+El candidato generado para comparación queda fuera de Git. Tiene 842 puestos,
 1.714 dotaciones, 41 centros y 131 categorías frente a las 145 del v1 publicado.
 La comparación conserva claves de puesto, dotación, centro, delegación, nivel,
-complemento, tipo y provisión. El generador permite `--in`, `--out` y
-`--generated-on` para reproducir el candidato sin activar el fichero de
-consulta. Las alternativas cuyo grupo individual no consta quedan anotadas en
-`categorias_pendientes_grupo`; el catálogo candidato no debe alimentar altas
-hasta que se acuerde el contrato de publicación y se revisen esas diferencias.
+complemento, tipo y provisión. El generador exige `--out`, impide escribir sobre
+el v1 publicado y emite `vec.catalogo.rpt.candidato.v1` con estado
+`preparacion_no_autoritativa`; los lectores del esquema v1 no lo aceptan. El
+ensayo local usó este comando tras extraer la importación del PDF acreditado:
+
+```bash
+python3 scripts/generar_catalogo_rpt.py --in /var/tmp/codext-rpt-import-20261007.json --out /var/tmp/codext-rpt-candidato-20261007.json --generated-on 2026-09-17
+```
+
+Las denominaciones sin grupo acreditado quedan anotadas en
+`categorias_pendientes_grupo` y, con su origen, junto a cada puesto afectado.
+Son 11 puestos en el ensayo. Todas las referencias de categoría de los puestos
+apuntan a una categoría presente en el candidato; una celda de varias opciones
+conserva vacía la referencia singular aunque una alternativa esté resuelta.
+El catálogo candidato no debe alimentar altas hasta que se acuerde el contrato
+de publicación y se revisen esas diferencias.
 
 `data/catalogos/rpt/v1.rpt-2026.json` y su huella siguen intactos. El lector
 de altas de desarrollo ofrece todas sus categorías, incluidas las referencias
