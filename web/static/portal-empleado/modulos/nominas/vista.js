@@ -1,9 +1,8 @@
-import { crearTraductorNominas } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorNominas, TEXTOS_NOMINAS } from "./i18n.js?v=20261007-u-nominas";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FORMATO_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
 const NOMBRE_PDF = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}\.pdf$/i;
-const fechaES = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 let siguienteDetalleId = 0;
 
 function elemento(doc, etiqueta, texto, clase) {
@@ -13,11 +12,11 @@ function elemento(doc, etiqueta, texto, clase) {
   return nodo;
 }
 
-function panel(doc, titulo, subtitulo, clase) {
+function panel(doc, titulo, clase) {
   const seccion = elemento(doc, "section", undefined, `panel ${clase}`);
   const cabecera = elemento(doc, "header", undefined, "cabecera-panel");
   const texto = elemento(doc, "div");
-  texto.append(elemento(doc, "h3", titulo), elemento(doc, "p", subtitulo));
+  texto.append(elemento(doc, "h3", titulo));
   cabecera.append(texto);
   const cuerpo = elemento(doc, "div", undefined, "cuerpo-panel");
   seccion.append(cabecera, cuerpo);
@@ -50,21 +49,22 @@ async function validarDocumento(respuesta, ventana) {
 }
 
 /**
- * Montaje: montarVistaNominas({ raiz, anunciar?, registrarDesmontar?, fuente? }).
+ * Montaje: montarVistaNominas({ raiz, anunciar?, registrarDesmontar?, fuente?, textos? }).
  * fuente.consultar({ signal }) devuelve { estado, origen, actualizado_en, recibos }.
  * fuente.descargar(referencia, { signal }) devuelve { contenido: Blob PDF, nombre }.
  * El conector autorizado obtiene el original; la vista valida el archivo y dispara
  * la descarga local sin guardar el contenido en almacenamiento web.
  * Sin fuente no se consulta ni se muestra el atlas sintético de presentación.
  */
-export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente } = {}) {
+export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente, textos = TEXTOS_NOMINAS } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || (fuente !== undefined && typeof fuente?.consultar !== "function")) throw new TypeError("vista de Nóminas no disponible");
   const doc = raiz.ownerDocument;
-  const t = crearTraductorNominas();
+  const t = crearTraductorNominas(textos);
+  const fechaVisible = (valor) => textos.fecha(valor, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
   const contenedor = elemento(doc, "section", undefined, "modulo-nominas");
   contenedor.dataset.nominas = "";
   const cabecera = elemento(doc, "header", undefined, "nominas-cabecera");
-  cabecera.append(elemento(doc, "h2", t("titulo")), elemento(doc, "p", t("descripcion")));
+  cabecera.append(elemento(doc, "h2", t("titulo")));
   const ayuda = elemento(doc, "div", undefined, "nominas-ayuda");
   const botonAyuda = elemento(doc, "button", "?", "boton boton-secundario nominas-ayuda-boton");
   botonAyuda.type = "button";
@@ -91,17 +91,17 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   estadoVisible.setAttribute("aria-live", "polite");
   const metadatos = elemento(doc, "p", undefined, "nominas-metadatos");
   const principal = elemento(doc, "div", undefined, "nominas-principal");
-  const historial = panel(doc, t("historial"), t("historial_subtitulo"), "nominas-historial");
+  const historial = panel(doc, t("historial"), "nominas-historial");
   const lateral = elemento(doc, "div", undefined, "nominas-lateral");
   lateral.tabIndex = 0;
   lateral.setAttribute("role", "region");
   lateral.setAttribute("aria-label", t("lateral"));
-  const detalle = panel(doc, t("detalle"), t("detalle_subtitulo"), "nominas-detalle");
+  const detalle = panel(doc, t("detalle"), "nominas-detalle");
   detalle.seccion.id = `nominas-detalle-${++siguienteDetalleId}`;
   detalle.seccion.hidden = true;
-  const certificados = panel(doc, t("certificados"), t("certificados_subtitulo"), "nominas-certificados");
+  const certificados = panel(doc, t("certificados"), "nominas-certificados");
   certificados.cuerpo.append(elemento(doc, "p", t("certificados_pendientes")));
-  const aclaraciones = panel(doc, t("aclaraciones"), t("aclaraciones_subtitulo"), "nominas-aclaraciones");
+  const aclaraciones = panel(doc, t("aclaraciones"), "nominas-aclaraciones");
   aclaraciones.cuerpo.append(elemento(doc, "p", t("aclaraciones_pendientes")));
   const botonAclaracion = elemento(doc, "button", t("solicitar_aclaracion"), "boton boton-secundario nominas-accion-bloqueada");
   botonAclaracion.type = "button";
@@ -135,7 +135,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     metadatos.replaceChildren();
     if (origen && ["disponible", "vacio"].includes(estado)) {
       metadatos.append(elemento(doc, "span", `${t("origen")}: ${origen}`));
-      if (actualizada) metadatos.append(elemento(doc, "span", `${t("actualizado")}: ${fechaES.format(actualizada)}`));
+      if (actualizada) metadatos.append(elemento(doc, "span", `${t("actualizado")}: ${fechaVisible(actualizada)}`));
     }
   }
 
@@ -149,7 +149,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       ["periodo", recibo.periodo],
       ["tipo", recibo.tipo],
       ["version", String(recibo.version)],
-      ["fecha", recibo.fecha ? fechaES.format(recibo.fecha) : t("dato_no_disponible")],
+      ["fecha", recibo.fecha ? fechaVisible(recibo.fecha) : t("dato_no_disponible")],
       ["referencia", recibo.referencia],
     ]) {
       datos.append(elemento(doc, "dt", t(clave)), elemento(doc, "dd", valor));
@@ -240,7 +240,6 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       return;
     }
     const region = elemento(doc, "div", undefined, "nominas-tabla");
-    historial.cuerpo.append(elemento(doc, "p", t("tabla_desplazable"), "nominas-ayuda-tabla"));
     region.tabIndex = 0;
     region.setAttribute("role", "region");
     region.setAttribute("aria-label", t("historial"));
@@ -256,7 +255,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     const tbody = elemento(doc, "tbody");
     for (const recibo of visibles) {
       const fila = elemento(doc, "tr");
-      for (const valor of [recibo.periodo, recibo.tipo, String(recibo.version), recibo.fecha ? fechaES.format(recibo.fecha) : t("dato_no_disponible")]) fila.append(elemento(doc, "td", valor));
+      for (const valor of [recibo.periodo, recibo.tipo, String(recibo.version), recibo.fecha ? fechaVisible(recibo.fecha) : t("dato_no_disponible")]) fila.append(elemento(doc, "td", valor));
       const celda = elemento(doc, "td");
       const ver = elemento(doc, "button", t("ver_detalle"), "boton boton-secundario nominas-ver");
       ver.type = "button";

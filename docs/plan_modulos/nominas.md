@@ -83,7 +83,7 @@ su custodio en un corte dependiente; no se crean autoridades paralelas.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
-| N00 · inventario | Revalidar piezas y deuda, sin repetir vista o preparador. | Este plan durante su turno. | SHA/FIN vigentes. | 1–2 |
+| N00 · inventario e idioma | Revalidar piezas y deuda; pasar los textos de la vista existente a catálogos ES/EN y formatear sus fechas con el lector común. La vista sigue sin fuente de recibos conectada. | Este plan, `modulos/nominas/{i18n.js,vista.js,nominas.test.mjs}` y `textos/{es,en}/nominas.json`. | SHA/FIN vigentes e idioma común del portal. | 1–2 |
 | N01 · fuente | Contrato de lectura, titular, versión, cobertura y continuación oficial. | Contrato junto al adaptador propio. | Duda129; RRHH/Sistemas; custodia y tratamiento. | 3–5 |
 | N02 · B1 | Consumidor nominal que consulta o deniega un recurso exacto con auditoría. | Nuevos `nominas/ports/{autorizacion,auditoria}.go`; consumidor propio. | N01; ABI K/L y perfiles fijos provisionados por huella/CAS. | 6–10 |
 | N03 · B2/B3 | Correspondencia persona/relación/entidad histórica, con conflicto explicado. | Puerto/consumidor de relación de Nóminas. | B entrega relación y datos de servicio; K antes de lectura personal. DTO puede acordarse antes. | 3–5 |
