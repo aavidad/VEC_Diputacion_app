@@ -21,15 +21,16 @@ type descifradorFilasRRHH interface {
 type LectorCandidatosRRHHPostgreSQL struct {
 	pool        *pgxpool.Pool
 	descifrador descifradorFilasRRHH
+	intentos    ports.PoliticaIntentosContacto
 }
 
 var _ ports.LectorCandidatosRRHHNominal = (*LectorCandidatosRRHHPostgreSQL)(nil)
 
-func NuevoLectorCandidatosRRHHPostgreSQL(pool *pgxpool.Pool, descifrador descifradorFilasRRHH) (*LectorCandidatosRRHHPostgreSQL, error) {
+func NuevoLectorCandidatosRRHHPostgreSQL(pool *pgxpool.Pool, descifrador descifradorFilasRRHH, intentos ports.PoliticaIntentosContacto) (*LectorCandidatosRRHHPostgreSQL, error) {
 	if pool == nil || descifrador == nil {
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}
-	return &LectorCandidatosRRHHPostgreSQL{pool: pool, descifrador: descifrador}, nil
+	return &LectorCandidatosRRHHPostgreSQL{pool: pool, descifrador: descifrador, intentos: intentos}, nil
 }
 
 func (l *LectorCandidatosRRHHPostgreSQL) LeerCandidatosNominal(ctx context.Context, q ports.ConsultaCandidatosRRHHNominal, material vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.PaginaCandidatosRRHHNominal, error) {
@@ -40,7 +41,7 @@ func (l *LectorCandidatosRRHHPostgreSQL) LeerCandidatosNominal(ctx context.Conte
 		material.ResumenCapacidad().AudienciaConsumo() != ports.AudienciaRRHHCandidatosConsultar {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadWrite})
+	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
@@ -98,6 +99,22 @@ func (l *LectorCandidatosRRHHPostgreSQL) LeerCandidatosNominal(ctx context.Conte
 		}
 	} else {
 		pagina.TotalFiltrado = pagina.TotalPrefiltrado
+	}
+	if l.intentos != nil {
+		politica, reglas, configurada, err := l.intentos.PoliticaIntentosTelefonicos(ctx)
+		if err != nil || (configurada && politica.Validar() != nil) {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
+		if configurada {
+			politica.ResultadosSinContacto = append([]string(nil), politica.ResultadosSinContacto...)
+			pagina.PoliticaIntentos = &politica
+			for _, regla := range reglas {
+				if regla.Referencia == "" {
+					return vacio, ports.ErrResumenBolsasNoDisponible
+				}
+				pagina.ReferenciasReglasIntentos = append(pagina.ReferenciasReglasIntentos, regla.Referencia)
+			}
+		}
 	}
 	if ctx.Err() != nil || tx.Commit(ctx) != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible

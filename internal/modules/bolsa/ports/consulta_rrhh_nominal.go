@@ -29,6 +29,7 @@ type OrdenConsultaResumenRRHH struct {
 	Vinculo              vd.VinculoAutenticacionActorV2
 	Motivo               vd.ReferenciaEntradaCatalogo
 	Correlacion          vd.ReferenciaCorrelacionAutorizacionV2
+	CeseActivo           bool
 }
 
 type AutorizadorConsultaRRHHV3 interface {
@@ -82,6 +83,8 @@ type PaginaCandidatosRRHHNominal struct {
 	Candidatos                        []CandidatoRRHHNominal
 	Contactos                         []domain.ContactoParticipacion
 	Marcas                            map[string]domain.MarcasParticipacion
+	PoliticaIntentos                  *domain.PoliticaIntentosTelefonicos
+	ReferenciasReglasIntentos         []string
 	TurnoSiguiente                    *CandidatoRRHHNominal
 	TurnoUltimo                       *TurnoCandidatoRRHHNominal
 	HayMas                            bool

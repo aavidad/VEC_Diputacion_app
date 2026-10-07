@@ -56,7 +56,7 @@ func ConfigurarLecturasNominalesRRHHBolsaDesarrollo(ctx context.Context, fuente 
 		return ErrComposicionDesarrolloIncompleta
 	}
 	var instaladas bool
-	if err := fuente.poolNominal.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+	if err := fuente.poolNominal.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
 		AND to_regprocedure('vec_bolsa_llamamientos.consultar_candidatos_rrhh_nominal_v1(text,text,text,text,text,text,integer,text,text[],boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
 		AND to_regprocedure('vec_bolsa_llamamientos.finalizar_barrido_rrhh_nominal_v1(text,text,text,text[])') IS NOT NULL`).Scan(&instaladas); err != nil || !instaladas {
 		return ErrComposicionDesarrolloIncompleta
@@ -68,7 +68,7 @@ func ConfigurarLecturasNominalesRRHHBolsaDesarrollo(ctx context.Context, fuente 
 		}, desde) != nil {
 		return ErrComposicionDesarrolloIncompleta
 	}
-	lectorCandidatos, err := postgresbolsa.NuevoLectorCandidatosRRHHPostgreSQL(fuente.poolNominal, fuente.recuperadorSelectivo)
+	lectorCandidatos, err := postgresbolsa.NuevoLectorCandidatosRRHHPostgreSQL(fuente.poolNominal, fuente.recuperadorSelectivo, fuente.intentos)
 	if err != nil {
 		return ErrComposicionDesarrolloIncompleta
 	}
@@ -145,27 +145,73 @@ func (n *lecturasNominalesRRHHBolsaDesarrollo) prepararOrden(ctx context.Context
 	}
 	return puertosbolsa.OrdenConsultaResumenRRHH{Accion: accion, UnidadRef: n.preparador.soporte.unidadRef,
 		AmbitoRef: n.preparador.soporte.ambitoRef, Resultado: seguridad.Resultado, Vinculo: seguridad.Vinculo,
-		Motivo: motivo, Correlacion: correlacion}, vinculo.PrincipalID, nil
+		Motivo: motivo, Correlacion: correlacion, CeseActivo: n.fuente.ceseActivo}, vinculo.PrincipalID, nil
 }
 
-func (n *lecturasNominalesRRHHBolsaDesarrollo) consultarResumen(ctx context.Context, accion string) (datasetBolsasRRHHDesarrollo, error) {
+func (n *lecturasNominalesRRHHBolsaDesarrollo) consultarResumen(ctx context.Context, accion string) (map[string]any, error) {
 	orden, _, err := n.prepararOrden(ctx, accion)
 	if err != nil {
-		return datasetBolsasRRHHDesarrollo{}, err
+		return nil, err
 	}
 	servicio := n.bolsas
 	if accion == puertosbolsa.AccionRRHHEstadisticasConsultar {
 		servicio = n.estadisticas
 	}
 	if servicio == nil {
-		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		return nil, ErrComposicionDesarrolloIncompleta
 	}
 	resumen, err := servicio.Consultar(ctx, orden)
 	if err != nil {
-		return datasetBolsasRRHHDesarrollo{}, err
+		return nil, err
 	}
-	return n.fuente.proyectarResumenConjunto(ctx, resumen.GeneradoEn, resumen.Filas,
-		resumen.Politicas, resumen.LlamamientosEnCurso, resumen.HistoricoLlamamientosDisponible)
+	if accion == puertosbolsa.AccionRRHHBolsasConsultar {
+		bolsas := make([]map[string]any, 0, len(resumen.Bolsas))
+		for _, b := range resumen.Bolsas {
+			politica := politicaOrdenRRHHDesarrollo{Referencia: b.Politica.PoliticaRef,
+				Criterio: b.Politica.Criterio, TipoLista: b.Politica.TipoLista, Reposicion: b.Politica.Reposicion,
+				Rotulo: b.Politica.Rotulo, Actor: b.Politica.Actor,
+				VigenteDesde: b.Politica.VigenteDesde.UTC().Format(time.RFC3339),
+				Version:      b.Politica.Version, Provisional: b.Politica.Provisional}
+			conteos := mapaEstadosVacio()
+			for estado, total := range b.PorEstado {
+				conteos[estado] = total
+			}
+			var hasta *string
+			if b.VigenteHasta != nil {
+				v := b.VigenteHasta.UTC().Format(time.RFC3339)
+				hasta = &v
+			}
+			bolsas = append(bolsas, salidaBolsaRRHH(b.BolsaRef, b.CategoriaRef,
+				n.fuente.denominacion(b.CategoriaRef), politica.TipoLista,
+				b.ConfirmadaEn.UTC().Format(time.RFC3339), hasta, conteos, b.LlamamientosEnCurso, politica))
+		}
+		return map[string]any{"esquema": "vec.bolsa.rrhh.bolsas.v1",
+			"generado_en": resumen.GeneradoEn.UTC().Format(time.RFC3339), "bolsas": bolsas}, nil
+	}
+	if accion != puertosbolsa.AccionRRHHEstadisticasConsultar || resumen.Estadisticas == nil {
+		return nil, ErrComposicionDesarrolloIncompleta
+	}
+	s := resumen.Estadisticas
+	porBolsa := make([]map[string]any, 0, len(s.PorBolsa))
+	for _, b := range s.PorBolsa {
+		conteos := mapaEstadosVacio()
+		for estado, total := range b.PorEstado {
+			conteos[estado] = total
+		}
+		porBolsa = append(porBolsa, map[string]any{"bolsa_ref": b.BolsaRef,
+			"categoria": n.fuente.denominacion(b.CategoriaRef), "tipo_lista": b.TipoLista,
+			"vigente": b.Vigente, "total": b.Total, "por_estado": conteos})
+	}
+	porEstado := mapaEstadosVacio()
+	for estado, total := range s.PersonasPorEstado {
+		porEstado[estado] = total
+	}
+	return map[string]any{"esquema": "vec.bolsa.rrhh.estadisticas.v1",
+		"generado_en": resumen.GeneradoEn.UTC().Format(time.RFC3339),
+		"bolsas":      map[string]any{"total": s.BolsasTotal, "vigentes": s.BolsasVigentes, "sustituidas": s.BolsasSustituidas},
+		"personas":    map[string]any{"total": s.PersonasTotal, "por_estado": porEstado},
+		"llamamientos": map[string]any{"en_curso": s.LlamamientosEnCurso, "historico_disponible": false,
+			"total": nil, "por_canal": nil, "por_resultado": nil}, "por_bolsa": porBolsa}, nil
 }
 
 func huellaFiltroTextoRRHHBolsa(bolsaRef, estado, texto string) string {
@@ -315,7 +361,7 @@ func (n *lecturasNominalesRRHHBolsaDesarrollo) consultarCandidatos(ctx context.C
 	} else if pagina.HayMas {
 		pagina.CursorRefSiguiente = cursorSQLRRHHBolsa(pagina.CursorRefSiguiente, pagina.SnapshotSHA256)
 	}
-	return n.respuestaCandidatosNominal(ctx, pagina)
+	return n.respuestaCandidatosNominal(pagina)
 }
 
 func (n *lecturasNominalesRRHHBolsaDesarrollo) recuperarSeleccionBloqueada(id string) (seleccionTextoRRHHBolsa, error) {
@@ -335,13 +381,11 @@ func seleccionTextoRRHHBolsaValida(s seleccionTextoRRHHBolsa, principalID, perso
 		indice >= 1 && indice < len(s.ids) && time.Now().Before(s.expira)
 }
 
-func (n *lecturasNominalesRRHHBolsaDesarrollo) respuestaCandidatosNominal(ctx context.Context, p puertosbolsa.PaginaCandidatosRRHHNominal) (map[string]any, error) {
+func (n *lecturasNominalesRRHHBolsaDesarrollo) respuestaCandidatosNominal(p puertosbolsa.PaginaCandidatosRRHHNominal) (map[string]any, error) {
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: p.GeneradoEn.UTC().Format(time.RFC3339), Contactos: p.Contactos}
 	if n.fuente.marcas != nil {
-		if err := n.fuente.cargarMarcasBase(ctx, &datos); err != nil {
-			return nil, err
-		}
 		datos.Marcas = p.Marcas
+		datos.PoliticaIntentos = p.PoliticaIntentos
 	}
 	for _, c := range p.Candidatos {
 		var disponible *string

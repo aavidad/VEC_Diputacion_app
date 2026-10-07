@@ -16,7 +16,7 @@ BEGIN
     OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NULL
     OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NULL
     OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_marcas_participaciones_v1(text,timestamptz)') IS NULL
-    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  THEN RAISE EXCEPTION 'B84: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -29,6 +29,11 @@ CREATE TABLE vec_bolsa_llamamientos.barrido_rrhh_tx (
  bolsa_ref text NOT NULL,
  actor_ref text NOT NULL,
  origen_login text NOT NULL,
+ instantanea_ref text NOT NULL,
+ version_instantanea bigint NOT NULL CHECK (version_instantanea>0),
+ estado_filtro text NOT NULL CHECK (estado_filtro IN ('','disponible','no_disponible','trabajando','pendiente_incorporacion','renuncia','excluido','disponible_desde','en_revision')),
+ filtro_recurso_ref text NOT NULL CHECK (filtro_recurso_ref ~ '^bolsa:[A-Za-z0-9:_-]+:filtro:[a-f0-9]{64}$'),
+ elegibles_refs text[] NOT NULL CHECK (pg_catalog.cardinality(elegibles_refs)<=5000),
  snapshot_sha256 text NOT NULL CHECK (snapshot_sha256 ~ '^[a-f0-9]{64}$'),
  corte timestamptz NOT NULL,
  transaccion xid8 NOT NULL
@@ -42,7 +47,7 @@ CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.barrido_rrhh_tx
 REVOKE ALL ON TABLE vec_bolsa_llamamientos.barrido_rrhh_tx FROM PUBLIC;
 
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_barrido_rrhh_tx_finalizado_v1()
-RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.barrido_rrhh_tx b
              WHERE b.consumo_huella_sha256=NEW.consumo_huella_sha256) THEN
@@ -57,20 +62,22 @@ CREATE CONSTRAINT TRIGGER barrido_rrhh_finalizado
  EXECUTE FUNCTION vec_bolsa_llamamientos.exigir_barrido_rrhh_tx_finalizado_v1();
 
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(
- p_accion text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_accion text,p_cese_activo boolean,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE
  v_consumo record;
  v_corte timestamptz;
- v_situaciones jsonb;
- v_politicas jsonb;
- v_emisiones jsonb;
+ v_bolsas jsonb;
+ v_incoherentes integer;
+ v_sin_politica integer;
+ v_stats jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR session_user=current_user
     OR NOT pg_catalog.pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR p_cese_activo IS NULL
     OR p_accion NOT IN ('bolsa.rrhh.bolsas.consultar','bolsa.rrhh.estadisticas.consultar')
  THEN RAISE EXCEPTION 'B84: lectura denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.consumir_consulta_rrhh_bolsa_v3_atestada(
@@ -83,19 +90,68 @@ BEGIN
  v_corte:=pg_catalog.date_trunc('microseconds',pg_catalog.clock_timestamp());
  WITH s AS MATERIALIZED (
    SELECT * FROM vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(v_corte)
- ), b AS MATERIALIZED (SELECT DISTINCT s.bolsa_ref FROM s)
- SELECT (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) ORDER BY x.categoria_ref,x.orden),'[]'::jsonb) FROM s x),
-        (SELECT coalesce(pg_catalog.jsonb_object_agg(x.bolsa_ref,
-          vec_bolsa_llamamientos.contar_llamamientos_en_curso_v1(x.bolsa_ref)),'{}'::jsonb) FROM b x)
- INTO v_situaciones,v_emisiones;
- IF pg_catalog.jsonb_path_exists(v_situaciones,'$[*] ? (@.participacion_ref == null)') THEN
-   RAISE EXCEPTION 'B84: constitucion sin participaciones' USING ERRCODE='55000';
+ ), v AS MATERIALIZED (
+   SELECT s.bolsa_ref,
+     CASE
+      WHEN p_cese_activo AND s.cese_en_restriccion IS TRUE AND s.situacion IN ('disponible','trabajando','disponible_desde') THEN 'disponible_desde'
+      WHEN p_cese_activo AND s.cese_fecha_efecto IS NOT NULL AND s.cese_en_restriccion IS FALSE
+           AND s.situacion='trabajando' AND s.cese_trabajo_cesado IS TRUE
+           AND (s.fecha_disponible IS NULL OR s.fecha_disponible<=v_corte) THEN 'disponible'
+      WHEN p_cese_activo AND s.cese_fecha_efecto IS NOT NULL AND s.cese_en_restriccion IS FALSE
+           AND s.situacion='trabajando' AND s.cese_trabajo_cesado IS TRUE THEN 'disponible_desde'
+      WHEN p_cese_activo AND s.cese_fecha_efecto IS NOT NULL AND s.cese_en_restriccion IS FALSE
+           AND s.situacion='disponible_desde' AND s.fecha_disponible<=v_corte THEN 'disponible'
+      ELSE s.situacion END AS estado
+   FROM s
+ ), c AS MATERIALIZED (
+   SELECT v.bolsa_ref,v.estado,pg_catalog.count(*)::integer AS total
+   FROM v GROUP BY v.bolsa_ref,v.estado
+ ), m AS MATERIALIZED (
+   SELECT l.bolsa_ref,l.categoria_ref,l.confirmada_en,l.vigente_hasta
+   FROM vec_bolsa_llamamientos.listar_constituciones_v1() l
+ ), p AS MATERIALIZED (
+   SELECT * FROM vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(v_corte)
+ ), a AS MATERIALIZED (
+   SELECT m.bolsa_ref,m.categoria_ref,m.confirmada_en,m.vigente_hasta,
+          CASE WHEN p.politica_ref IS NULL THEN NULL ELSE pg_catalog.to_jsonb(p) END AS politica,
+          (SELECT coalesce(pg_catalog.jsonb_object_agg(c.estado,c.total),'{}'::jsonb)
+             FROM c WHERE c.bolsa_ref=m.bolsa_ref) AS por_estado,
+          vec_bolsa_llamamientos.contar_llamamientos_en_curso_v1(m.bolsa_ref) AS llamamientos_en_curso
+     FROM m LEFT JOIN p ON p.bolsa_ref=m.bolsa_ref
+ )
+ SELECT (SELECT pg_catalog.count(*)::integer FROM s
+          WHERE participacion_ref IS NULL OR situacion IS NULL),
+        (SELECT pg_catalog.count(*)::integer FROM a WHERE politica IS NULL),
+        (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(a) ORDER BY a.categoria_ref),'[]'::jsonb) FROM a)
+ INTO v_incoherentes,v_sin_politica,v_bolsas;
+ IF v_incoherentes<>0 OR v_sin_politica<>0 THEN
+   RAISE EXCEPTION 'B84: resumen agregado incompatible' USING ERRCODE='55000';
  END IF;
- SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(p) ORDER BY p.bolsa_ref),'[]'::jsonb)
- INTO v_politicas FROM vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(v_corte) p;
- RETURN pg_catalog.jsonb_build_object(
-   'generado_en',v_corte,'situaciones',v_situaciones,'politicas',v_politicas,
-   'llamamientos_en_curso',v_emisiones,'historico_llamamientos_disponible',false);
+ IF p_accion='bolsa.rrhh.bolsas.consultar' THEN
+   RETURN pg_catalog.jsonb_build_object('generado_en',v_corte,'bolsas',v_bolsas);
+ END IF;
+ WITH b AS MATERIALIZED (SELECT x.valor FROM pg_catalog.jsonb_array_elements(v_bolsas) AS x(valor)),
+ e AS MATERIALIZED (
+   SELECT z.clave,pg_catalog.sum(z.valor::integer)::integer AS total
+   FROM b CROSS JOIN LATERAL pg_catalog.jsonb_each_text(b.valor->'por_estado') AS z(clave,valor)
+   GROUP BY z.clave
+ )
+ SELECT pg_catalog.jsonb_build_object(
+   'bolsas',pg_catalog.jsonb_build_object('total',pg_catalog.jsonb_array_length(v_bolsas),
+      'vigentes',(SELECT pg_catalog.count(*) FROM b WHERE b.valor->'vigente_hasta'='null'::jsonb),
+      'sustituidas',(SELECT pg_catalog.count(*) FROM b WHERE b.valor->'vigente_hasta'<>'null'::jsonb)),
+   'personas',pg_catalog.jsonb_build_object('total',(SELECT coalesce(pg_catalog.sum(e.total),0) FROM e),
+      'por_estado',(SELECT coalesce(pg_catalog.jsonb_object_agg(e.clave,e.total),'{}'::jsonb) FROM e)),
+   'llamamientos',pg_catalog.jsonb_build_object('en_curso',(SELECT coalesce(pg_catalog.sum((b.valor->>'llamamientos_en_curso')::integer),0) FROM b),
+      'historico_disponible',false,'total',NULL,'por_canal',NULL,'por_resultado',NULL),
+   'por_bolsa',(SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+       'bolsa_ref',b.valor->>'bolsa_ref','categoria_ref',b.valor->>'categoria_ref',
+       'tipo_lista',b.valor#>>'{politica,tipo_lista}',
+       'vigente',b.valor->'vigente_hasta'='null'::jsonb,
+       'total',(SELECT coalesce(pg_catalog.sum(z.valor::integer),0) FROM pg_catalog.jsonb_each_text(b.valor->'por_estado') z(clave,valor)),
+       'por_estado',b.valor->'por_estado') ORDER BY b.valor->>'categoria_ref'),'[]'::jsonb) FROM b))
+ INTO v_stats;
+ RETURN pg_catalog.jsonb_build_object('generado_en',v_corte,'estadisticas',v_stats);
 END $f$;
 
 -- Una consulta de candidatos consume su propia acción AD213. El modo
@@ -109,7 +165,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.consultar_candidatos_rrhh_nominal_v1(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE
  v_consumo record;
  v_decision jsonb;
@@ -124,6 +180,7 @@ DECLARE
  v_filtrado integer;
  v_pagina jsonb;
  v_refs text[];
+ v_elegibles text[];
  v_numeros integer[];
  v_tiene_mas boolean;
  v_siguiente text;
@@ -268,6 +325,9 @@ BEGIN
   (SELECT coalesce(pg_catalog.jsonb_object_agg(z.estado,z.total),'{}'::jsonb) FROM
       (SELECT estado,pg_catalog.count(*)::integer AS total FROM ordenados GROUP BY estado) z),
   (SELECT pg_catalog.count(*)::integer FROM prefiltro),
+  CASE WHEN p_modo='barrido_texto' THEN
+     (SELECT pg_catalog.array_agg(x.participacion_ref ORDER BY x.posicion) FROM prefiltro x)
+   ELSE NULL::text[] END,
   (p_cursor_ref='' OR EXISTS (SELECT 1 FROM cursor)),
   (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'participacion_ref',p.participacion_ref,'fila_numero',p.fila_numero,
@@ -282,7 +342,7 @@ BEGIN
   (SELECT p.participacion_ref FROM pagina p ORDER BY CASE WHEN p_modo='pagina_texto' THEN pg_catalog.array_position(p_ids,p.participacion_ref) ELSE p.posicion::integer END DESC LIMIT 1),
   (SELECT pg_catalog.to_jsonb(x) FROM siguiente x),
   (SELECT pg_catalog.to_jsonb(x) FROM ultimo x)
- INTO v_snapshot,v_total,v_estado_conteos,v_filtrado,v_cursor_valido,v_pagina,v_refs,v_numeros,v_tiene_mas,v_siguiente,v_turno_siguiente,v_turno_ultimo;
+ INTO v_snapshot,v_total,v_estado_conteos,v_filtrado,v_elegibles,v_cursor_valido,v_pagina,v_refs,v_numeros,v_tiene_mas,v_siguiente,v_turno_siguiente,v_turno_ultimo;
 
  IF v_total IS NULL OR v_filtrado IS NULL OR v_snapshot !~ '^[a-f0-9]{64}$'
     OR (p_modo='barrido_texto' AND v_filtrado>5000)
@@ -313,9 +373,11 @@ BEGIN
    v_contactos:='[]'::jsonb;
    v_marcas:='[]'::jsonb;
    INSERT INTO vec_bolsa_llamamientos.barrido_rrhh_tx(
-      consumo_huella_sha256,bolsa_ref,actor_ref,origen_login,snapshot_sha256,corte,transaccion)
+      consumo_huella_sha256,bolsa_ref,actor_ref,origen_login,instantanea_ref,version_instantanea,
+      estado_filtro,filtro_recurso_ref,elegibles_refs,snapshot_sha256,corte,transaccion)
    VALUES(v_consumo.consumo_huella_sha256,p_bolsa_ref,v_decision->>'principal_id',session_user,
-      v_snapshot,v_corte,pg_catalog.pg_current_xact_id());
+      v_bolsa.instantanea_ref,v_bolsa.version_instantanea,p_estado,v_esperado,
+      coalesce(v_elegibles,ARRAY[]::text[]),v_snapshot,v_corte,pg_catalog.pg_current_xact_id());
  END IF;
  RETURN pg_catalog.jsonb_build_object(
    'generado_en',v_corte,'bolsa_ref',p_bolsa_ref,'categoria_ref',v_bolsa.categoria_ref,
@@ -334,7 +396,7 @@ END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.finalizar_barrido_rrhh_nominal_v1(
  p_consumo_huella_sha256 text,p_bolsa_ref text,p_snapshot_sha256 text,p_ids text[])
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE v_barrido vec_bolsa_llamamientos.barrido_rrhh_tx%ROWTYPE;
  v_contactos jsonb; v_marcas jsonb;
 BEGIN
@@ -353,12 +415,13 @@ BEGIN
     OR v_barrido.snapshot_sha256 IS DISTINCT FROM p_snapshot_sha256
     OR v_barrido.origen_login IS DISTINCT FROM session_user
     OR v_barrido.transaccion IS DISTINCT FROM pg_catalog.pg_current_xact_id()
-    OR (SELECT pg_catalog.count(*) FROM pg_catalog.unnest(p_ids) AS x(ref)) <>
-       (SELECT pg_catalog.count(*) FROM pg_catalog.unnest(p_ids) AS x(ref)
-          JOIN vec_bolsa_llamamientos.constitucion c ON c.bolsa_ref=p_bolsa_ref
-          JOIN vec_bolsa_llamamientos.constitucion_entrada e
-            ON e.instantanea_ref=c.instantanea_ref AND e.version_instantanea=c.version_instantanea
-             AND e.participacion_ref=x.ref)
+    OR v_barrido.filtro_recurso_ref !~ '^bolsa:[A-Za-z0-9:_-]+:filtro:[a-f0-9]{64}$'
+    OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.listar_constituciones_v1() l
+         WHERE l.bolsa_ref=v_barrido.bolsa_ref
+           AND l.instantanea_ref=v_barrido.instantanea_ref
+           AND l.version_instantanea=v_barrido.version_instantanea)
+    OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_ids) AS x(ref)
+         WHERE NOT x.ref=ANY(v_barrido.elegibles_refs))
  THEN RAISE EXCEPTION 'B84: página ajena al barrido' USING ERRCODE='42501'; END IF;
  IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.contacto_participacion c
       WHERE c.bolsa_ref=p_bolsa_ref AND c.participacion_ref=ANY(p_ids) AND c.registrada_en<=v_barrido.corte)>20000
@@ -378,8 +441,8 @@ BEGIN
  RETURN pg_catalog.jsonb_build_object('contactos',v_contactos,'marcas',v_marcas);
 END $f$;
 
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1(text,boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_candidatos_rrhh_nominal_v1(text,text,text,text,text,text,integer,text,text[],boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_candidatos_rrhh_nominal_v1(text,text,text,text,text,text,integer,text,text[],boolean,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.finalizar_barrido_rrhh_nominal_v1(text,text,text,text[]) FROM PUBLIC;

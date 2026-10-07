@@ -1,9 +1,11 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -144,7 +146,7 @@ func leerPoliticasResumen(ctx context.Context, consulta consultaResumenBolsas, e
 // LeerResumenNominal consume la decisión, inserta la auditoría común y lee
 // situaciones, políticas y contadores bajo la misma transacción. El SQL B84
 // no concede lectura directa de las tablas ni del staging al LOGIN.
-func (l *LectorResumenBolsasPostgreSQL) LeerResumenNominal(ctx context.Context, accion string, material vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ResumenBolsasNominal, error) {
+func (l *LectorResumenBolsasPostgreSQL) LeerResumenNominal(ctx context.Context, accion string, ceseActivo bool, material vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ResumenBolsasNominal, error) {
 	var vacio ports.ResumenBolsasNominal
 	if l == nil || l.pool == nil || ctx == nil || ctx.Err() != nil || material.ValidarEstructura() != nil ||
 		(accion != ports.AccionRRHHBolsasConsultar && accion != ports.AccionRRHHEstadisticasConsultar) ||
@@ -158,7 +160,7 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumenNominal(ctx context.Context, 
 	if material.ResumenCapacidad().AudienciaConsumo() != audiencia || material.ResumenCapacidad().EfectoRef() != recurso {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadWrite})
+	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
@@ -167,8 +169,8 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumenNominal(ctx context.Context, 
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
 	var crudo []byte
-	err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`,
-		accion, material.CapacidadCanonica(), material.DecisionCanonica(), material.MotivoCanonico(), material.ContextoActorCanonico(),
+	err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.consultar_resumen_rrhh_nominal_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`,
+		accion, ceseActivo, material.CapacidadCanonica(), material.DecisionCanonica(), material.MotivoCanonico(), material.ContextoActorCanonico(),
 		material.PersonaVersion(), material.PerfilVersion(), material.PayloadVECAD3(), material.SobreCOSESign1(),
 		material.EvidenciaVerificacion(), material.RaizPublicaSPKI()).Scan(&crudo)
 	if err != nil {
@@ -177,7 +179,7 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumenNominal(ctx context.Context, 
 	if len(crudo) == 0 || len(crudo) > 32<<20 {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	resultado, err := decodificarResumenNominal(crudo)
+	resultado, err := decodificarResumenNominal(crudo, accion)
 	if err != nil || ctx.Err() != nil || tx.Commit(ctx) != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
@@ -198,25 +200,12 @@ func errorResumenNominal(err error) error {
 	return ports.ErrResumenBolsasNoDisponible
 }
 
-type resumenNominalSQL struct {
-	GeneradoEn  time.Time `json:"generado_en"`
-	Situaciones []struct {
-		BolsaRef            string     `json:"bolsa_ref"`
-		CategoriaRef        string     `json:"categoria_ref"`
-		ConfirmadaEn        time.Time  `json:"confirmada_en"`
-		InstantaneaRef      string     `json:"instantanea_ref"`
-		Version             int64      `json:"version_instantanea"`
-		Orden               int64      `json:"orden"`
-		ParticipacionRef    string     `json:"participacion_ref"`
-		Situacion           *string    `json:"situacion"`
-		Desde               *time.Time `json:"desde"`
-		FechaDisponible     *time.Time `json:"fecha_disponible"`
-		CeseFechaEfecto     *string    `json:"cese_fecha_efecto"`
-		CeseDisponibleDesde *string    `json:"cese_disponible_desde"`
-		CeseEnRestriccion   *bool      `json:"cese_en_restriccion"`
-		CeseTrabajoCesado   *bool      `json:"cese_trabajo_cesado"`
-	} `json:"situaciones"`
-	Politicas []struct {
+type bolsaAgregadaSQL struct {
+	BolsaRef     string     `json:"bolsa_ref"`
+	CategoriaRef string     `json:"categoria_ref"`
+	ConfirmadaEn time.Time  `json:"confirmada_en"`
+	VigenteHasta *time.Time `json:"vigente_hasta"`
+	Politica     struct {
 		BolsaRef     string    `json:"bolsa_ref"`
 		PoliticaRef  string    `json:"politica_ref"`
 		Version      int64     `json:"version_politica"`
@@ -227,58 +216,135 @@ type resumenNominalSQL struct {
 		Rotulo       string    `json:"rotulo"`
 		Actor        string    `json:"actor"`
 		VigenteDesde time.Time `json:"vigente_desde"`
-	} `json:"politicas"`
-	LlamamientosEnCurso             map[string]int `json:"llamamientos_en_curso"`
-	HistoricoLlamamientosDisponible bool           `json:"historico_llamamientos_disponible"`
+	} `json:"politica"`
+	PorEstado           map[string]int `json:"por_estado"`
+	LlamamientosEnCurso int            `json:"llamamientos_en_curso"`
 }
 
-func decodificarResumenNominal(crudo []byte) (ports.ResumenBolsasNominal, error) {
-	var s resumenNominalSQL
+type estadisticasAgregadasSQL struct {
+	Bolsas struct {
+		Total       int `json:"total"`
+		Vigentes    int `json:"vigentes"`
+		Sustituidas int `json:"sustituidas"`
+	} `json:"bolsas"`
+	Personas struct {
+		Total     int            `json:"total"`
+		PorEstado map[string]int `json:"por_estado"`
+	} `json:"personas"`
+	Llamamientos struct {
+		EnCurso             int            `json:"en_curso"`
+		HistoricoDisponible bool           `json:"historico_disponible"`
+		Total               *int           `json:"total"`
+		PorCanal            map[string]int `json:"por_canal"`
+		PorResultado        map[string]int `json:"por_resultado"`
+	} `json:"llamamientos"`
+	PorBolsa []struct {
+		BolsaRef     string         `json:"bolsa_ref"`
+		CategoriaRef string         `json:"categoria_ref"`
+		TipoLista    string         `json:"tipo_lista"`
+		Vigente      bool           `json:"vigente"`
+		Total        int            `json:"total"`
+		PorEstado    map[string]int `json:"por_estado"`
+	} `json:"por_bolsa"`
+}
+
+func decodificarJSONResumenExclusivo(raw []byte, destino any) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destino); err != nil {
+		return err
+	}
+	var sobrante any
+	if err := decoder.Decode(&sobrante); err != io.EOF {
+		return ports.ErrResumenBolsasNoDisponible
+	}
+	return nil
+}
+
+func decodificarResumenNominal(crudo []byte, accion string) (ports.ResumenBolsasNominal, error) {
 	var vacio ports.ResumenBolsasNominal
-	if json.Unmarshal(crudo, &s) != nil || s.GeneradoEn.IsZero() || len(s.Situaciones) > maximoFilasResumenBolsas ||
-		s.LlamamientosEnCurso == nil || s.HistoricoLlamamientosDisponible {
+	var campos map[string]json.RawMessage
+	if json.Unmarshal(crudo, &campos) != nil || len(campos) != 2 || campos["generado_en"] == nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	out := ports.ResumenBolsasNominal{GeneradoEn: s.GeneradoEn, Politicas: map[string]dominiobolsa.PoliticaOrdenBolsa{},
-		LlamamientosEnCurso: s.LlamamientosEnCurso}
-	for _, p := range s.Politicas {
-		politica := dominiobolsa.PoliticaOrdenBolsa{BolsaRef: p.BolsaRef, PoliticaRef: p.PoliticaRef, Version: uint64(p.Version),
-			Criterio: p.Criterio, TipoLista: p.TipoLista, Reposicion: p.Reposicion, Provisional: p.Provisional,
-			Rotulo: p.Rotulo, Actor: p.Actor, VigenteDesde: p.VigenteDesde}
-		if p.Version <= 0 || politica.Validar() != nil || out.Politicas[p.BolsaRef].PoliticaRef != "" {
-			return vacio, ports.ErrResumenBolsasNoDisponible
-		}
-		out.Politicas[p.BolsaRef] = politica
-	}
-	for _, f := range s.Situaciones {
-		if f.BolsaRef == "" || f.CategoriaRef == "" || f.ParticipacionRef == "" || f.Version <= 0 || f.Orden <= 0 ||
-			f.ConfirmadaEn.IsZero() || f.Situacion == nil || f.Desde == nil || f.Desde.IsZero() {
-			return vacio, ports.ErrResumenBolsasNoDisponible
-		}
-		fila := ports.SituacionResumenParticipacion{BolsaRef: f.BolsaRef, CategoriaRef: f.CategoriaRef,
-			ConfirmadaEn: f.ConfirmadaEn, InstantaneaRef: f.InstantaneaRef, VersionInstantanea: uint64(f.Version),
-			Orden: uint64(f.Orden), ParticipacionRef: f.ParticipacionRef,
-			Situacion: &ports.SituacionParticipacion{ParticipacionRef: f.ParticipacionRef, Situacion: *f.Situacion,
-				Desde: *f.Desde, FechaDisponible: f.FechaDisponible}}
-		if f.CeseFechaEfecto != nil {
-			if f.CeseDisponibleDesde == nil || f.CeseEnRestriccion == nil || f.CeseTrabajoCesado == nil {
-				return vacio, ports.ErrResumenBolsasNoDisponible
-			}
-			efecto, e1 := time.Parse("2006-01-02", *f.CeseFechaEfecto)
-			disponible, e2 := time.Parse("2006-01-02", *f.CeseDisponibleDesde)
-			if e1 != nil || e2 != nil {
-				return vacio, ports.ErrResumenBolsasNoDisponible
-			}
-			cese, presente, e3 := validarEstadoCese(efecto, disponible, *f.CeseEnRestriccion, *f.CeseTrabajoCesado, s.GeneradoEn)
-			if e3 != nil || !presente {
-				return vacio, ports.ErrResumenBolsasNoDisponible
-			}
-			fila.Cese = &cese
-		}
-		out.Filas = append(out.Filas, fila)
-	}
-	if len(out.Politicas) != len(out.LlamamientosEnCurso) {
+	var generado time.Time
+	if json.Unmarshal(campos["generado_en"], &generado) != nil || generado.IsZero() {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
+	out := ports.ResumenBolsasNominal{GeneradoEn: generado}
+	if accion == ports.AccionRRHHBolsasConsultar {
+		var bolsas []bolsaAgregadaSQL
+		if campos["bolsas"] == nil || decodificarJSONResumenExclusivo(campos["bolsas"], &bolsas) != nil ||
+			len(bolsas) > 10000 {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
+		vistas := make(map[string]bool, len(bolsas))
+		for _, b := range bolsas {
+			politica := dominiobolsa.PoliticaOrdenBolsa{BolsaRef: b.Politica.BolsaRef, PoliticaRef: b.Politica.PoliticaRef,
+				Version: uint64(b.Politica.Version), Criterio: b.Politica.Criterio, TipoLista: b.Politica.TipoLista,
+				Reposicion: b.Politica.Reposicion, Provisional: b.Politica.Provisional, Rotulo: b.Politica.Rotulo,
+				Actor: b.Politica.Actor, VigenteDesde: b.Politica.VigenteDesde}
+			if b.BolsaRef == "" || b.CategoriaRef == "" || b.ConfirmadaEn.IsZero() || b.Politica.Version <= 0 ||
+				politica.BolsaRef != b.BolsaRef || politica.Validar() != nil || vistas[b.BolsaRef] ||
+				!conteosResumenNominalValidos(b.PorEstado, -1) || b.LlamamientosEnCurso < 0 {
+				return vacio, ports.ErrResumenBolsasNoDisponible
+			}
+			vistas[b.BolsaRef] = true
+			out.Bolsas = append(out.Bolsas, ports.BolsaResumenNominal{BolsaRef: b.BolsaRef, CategoriaRef: b.CategoriaRef,
+				ConfirmadaEn: b.ConfirmadaEn, VigenteHasta: b.VigenteHasta, Politica: politica,
+				PorEstado: b.PorEstado, LlamamientosEnCurso: b.LlamamientosEnCurso})
+		}
+		return out, nil
+	}
+	if accion != ports.AccionRRHHEstadisticasConsultar || campos["estadisticas"] == nil {
+		return vacio, ports.ErrResumenBolsasNoDisponible
+	}
+	var s estadisticasAgregadasSQL
+	if decodificarJSONResumenExclusivo(campos["estadisticas"], &s) != nil || s.Bolsas.Total < 0 ||
+		s.Bolsas.Total != s.Bolsas.Vigentes+s.Bolsas.Sustituidas || len(s.PorBolsa) != s.Bolsas.Total ||
+		!conteosResumenNominalValidos(s.Personas.PorEstado, s.Personas.Total) || s.Llamamientos.EnCurso < 0 ||
+		s.Llamamientos.HistoricoDisponible || s.Llamamientos.Total != nil ||
+		s.Llamamientos.PorCanal != nil || s.Llamamientos.PorResultado != nil {
+		return vacio, ports.ErrResumenBolsasNoDisponible
+	}
+	resumen := &ports.EstadisticasBolsasNominal{BolsasTotal: s.Bolsas.Total, BolsasVigentes: s.Bolsas.Vigentes,
+		BolsasSustituidas: s.Bolsas.Sustituidas, PersonasTotal: s.Personas.Total,
+		PersonasPorEstado: s.Personas.PorEstado, LlamamientosEnCurso: s.Llamamientos.EnCurso}
+	vistas := make(map[string]bool, len(s.PorBolsa))
+	var totalPersonas int
+	for _, b := range s.PorBolsa {
+		if b.BolsaRef == "" || b.CategoriaRef == "" || b.TipoLista == "" || vistas[b.BolsaRef] ||
+			!conteosResumenNominalValidos(b.PorEstado, b.Total) {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
+		vistas[b.BolsaRef] = true
+		totalPersonas += b.Total
+		resumen.PorBolsa = append(resumen.PorBolsa, ports.EstadisticasBolsaNominal{
+			BolsaRef: b.BolsaRef, CategoriaRef: b.CategoriaRef, TipoLista: b.TipoLista,
+			Vigente: b.Vigente, Total: b.Total, PorEstado: b.PorEstado})
+	}
+	if totalPersonas != s.Personas.Total {
+		return vacio, ports.ErrResumenBolsasNoDisponible
+	}
+	out.Estadisticas = resumen
 	return out, nil
+}
+
+func conteosResumenNominalValidos(estados map[string]int, total int) bool {
+	if estados == nil {
+		return false
+	}
+	var suma int
+	for estado, n := range estados {
+		switch estado {
+		case "disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision":
+		default:
+			return false
+		}
+		if n < 0 || n > maximoFilasResumenBolsas-suma {
+			return false
+		}
+		suma += n
+	}
+	return total < 0 || suma == total
 }
