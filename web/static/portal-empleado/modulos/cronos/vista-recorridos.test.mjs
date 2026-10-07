@@ -1,7 +1,8 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { MENSAJES_CRONOS } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { montarVistaRecorridosCronos, renderizarRecorridosCronos } from "./vista-recorridos.js";
 
 const directorio = new URL("./", import.meta.url);

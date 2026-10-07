@@ -1,16 +1,18 @@
-import { cargarTextos } from "../../../comun/textos.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 /** Textos de movimientos (calendario, ausencias y olvidos) y de permisos propios. */
-export const MENSAJES_CRONOS_SOLICITUDES = (await cargarTextos("cronos")).seccion("solicitudes");
-
-const CLAVES = Object.freeze(Object.keys(MENSAJES_CRONOS_SOLICITUDES));
+export let MENSAJES_CRONOS_SOLICITUDES;
+export function instalarMENSAJES_CRONOS_SOLICITUDES(mensajes) { MENSAJES_CRONOS_SOLICITUDES = mensajes; }
 
 /** Traductor estricto: una clave desconocida o un catálogo incompleto fallan. */
 export function crearTraductorSolicitudesCronos(mensajes = MENSAJES_CRONOS_SOLICITUDES) {
+  if (!MENSAJES_CRONOS_SOLICITUDES) throw new Error("catálogo i18n de solicitudes Cronos sin preparar");
+  const CLAVES = Object.keys(MENSAJES_CRONOS_SOLICITUDES);
   const catalogo = { ...MENSAJES_CRONOS_SOLICITUDES, ...mensajes };
   if (CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo i18n de solicitudes de Cronos incompleto");
+  const vigente = MENSAJES_CRONOS_SOLICITUDES;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS_SOLICITUDES !== vigente) throw new Error("catálogo de solicitudes Cronos sustituido");
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_c, variable) => String(variables[variable] ?? ""));
   };

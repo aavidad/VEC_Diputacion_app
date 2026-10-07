@@ -1,3 +1,4 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -279,7 +280,7 @@ test("el envío pendiente impide cerrar o iniciar otra escritura; desmontar anul
 
 test("el traductor real carga ambas lenguas y exige catálogo completo", async () => {
   const { cargarTextos } = await import("../../../comun/textos.js");
-  const { crearTraductorIncidenciasCronos } = await import("./i18n-incidencias.js");
+  const { crearTraductorIncidenciasCronos } = await import("./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v5");
   for (const idioma of ["es", "en"]) {
     const base = (await cargarTextos("cronos", { idioma })).seccion("solicitudes");
     const extension = (await cargarTextos("cronos-incidencias", { idioma })).seccion("incidencias");

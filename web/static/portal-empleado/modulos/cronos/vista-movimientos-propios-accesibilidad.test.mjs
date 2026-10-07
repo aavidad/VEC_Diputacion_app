@@ -1,3 +1,4 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ErrorClienteSolicitudesCronos } from "./cliente-solicitudes-http.js";

@@ -1,3 +1,4 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -402,7 +403,7 @@ test("503 de refresco conserva borrador y filtro; recuperación sólo GET y dene
 
 test("los catálogos completos funcionan con el traductor real y escapan sus variables", async () => {
   const { cargarTextos } = await import("../../../comun/textos.js");
-  const { crearTraductorNotificacionesHistorialCronos } = await import("./i18n-notificaciones-historial.js");
+  const { crearTraductorNotificacionesHistorialCronos } = await import("./i18n-notificaciones-historial.js?v=20261001-cronos-c9-historial-v2");
   for (const idioma of ["es", "en"]) {
     const textos = await cargarTextos("cronos-notificaciones-historial", { idioma });
     assert.deepEqual(textos.faltantes, []);

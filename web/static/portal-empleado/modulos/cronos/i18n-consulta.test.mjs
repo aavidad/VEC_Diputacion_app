@@ -1,8 +1,9 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cargarTextos } from "../../../comun/textos.js";
-import { crearTraductorConsultaCronos } from "./i18n-consulta.js";
+import { crearTraductorConsultaCronos } from "./i18n-consulta.js?v=20261001-cronos-grafo-bandeja-v5";
 
 test("los catálogos de consulta mantienen claves y variables completas en ambos idiomas", async () => {
   const raiz = new URL("../../../textos/", import.meta.url);

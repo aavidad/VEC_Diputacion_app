@@ -1,3 +1,4 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -7,7 +8,7 @@ import {
   validarDatosCronos,
 } from "./contrato.js";
 import { renderizarJornadaCronos, validarSeleccionPeriodoCronos } from "./vista.js";
-import { MENSAJES_CRONOS } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { ESQUEMA_CONTEXTO_ACTOR_FRONTEND, validarYCongelarContextoActor } from "../../identidad/contexto-actor.js";
 
 function contexto() {

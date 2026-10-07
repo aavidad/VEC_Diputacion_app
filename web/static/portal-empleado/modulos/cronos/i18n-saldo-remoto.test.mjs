@@ -1,7 +1,8 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 
 const CLAVES_SALDO = [
   "titulo", "ayuda", "periodos", "hoy", "semana", "mes", "anio", "rango",

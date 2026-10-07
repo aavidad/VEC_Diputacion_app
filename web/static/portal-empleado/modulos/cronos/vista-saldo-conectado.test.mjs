@@ -1,7 +1,8 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { MENSAJES_CRONOS } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { ErrorClienteSaldoCronos } from "./cliente-saldo-http.js";
 import { montarVistaSaldoCronos, renderizarVistaSaldoCronos } from "./vista-saldo-conectado.js";
 

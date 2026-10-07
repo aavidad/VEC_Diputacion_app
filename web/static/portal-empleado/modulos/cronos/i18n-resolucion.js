@@ -1,23 +1,30 @@
 import { MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
-import { cargarTextos } from "../../../comun/textos.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 /** Textos de la resolución de permisos (jefatura y RRHH) y de los avisos propios. */
-export const MENSAJES_CRONOS_RESOLUCION = (await cargarTextos("cronos")).seccion("resolucion");
+export let MENSAJES_CRONOS_RESOLUCION;
+export function instalarMENSAJES_CRONOS_RESOLUCION(mensajes) { MENSAJES_CRONOS_RESOLUCION = mensajes; }
 
-const MENSAJES_BANDEJA = (await cargarTextos("cronos-resolucion")).seccion("bandeja");
-const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_RESOLUCION, ...MENSAJES_BANDEJA });
-const CLAVES = Object.freeze(Object.keys(CATALOGO));
+export let MENSAJES_BANDEJA;
+export function instalarMENSAJES_BANDEJA(mensajes) { MENSAJES_BANDEJA = mensajes; }
 
 /**
  * Traductor estricto de estas vistas: incluye los textos comunes de las
  * solicitudes (cantidades, periodos, estados). Una clave desconocida o un
  * catálogo incompleto fallan.
  */
-export function crearTraductorResolucionCronos(mensajes = CATALOGO) {
+export function crearTraductorResolucionCronos(mensajes) {
+  if (!MENSAJES_CRONOS_SOLICITUDES || !MENSAJES_CRONOS_RESOLUCION || !MENSAJES_BANDEJA) throw new Error("catálogo de resolución Cronos sin preparar");
+  const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_RESOLUCION, ...MENSAJES_BANDEJA });
+  const CLAVES = Object.keys(CATALOGO);
   const catalogo = { ...CATALOGO, ...mensajes };
   if (CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo i18n de resolución de Cronos incompleto");
+  const solicitudesVigentes = MENSAJES_CRONOS_SOLICITUDES;
+  const resolucionVigente = MENSAJES_CRONOS_RESOLUCION;
+  const bandejaVigente = MENSAJES_BANDEJA;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS_SOLICITUDES !== solicitudesVigentes || MENSAJES_CRONOS_RESOLUCION !== resolucionVigente
+      || MENSAJES_BANDEJA !== bandejaVigente) throw new Error("catálogo de resolución Cronos sustituido");
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_c, variable) => String(variables[variable] ?? ""));
   };

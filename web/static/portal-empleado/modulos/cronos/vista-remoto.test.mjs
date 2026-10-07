@@ -1,6 +1,7 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearTraductorCronos } from "./i18n.js";
+import { crearTraductorCronos } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { montarVistaRemotoCronos, renderizarVistaRemotoCronos } from "./vista-remoto.js";
 
 const permitido = { autorizado: true, continuidad_confirmada: true,
