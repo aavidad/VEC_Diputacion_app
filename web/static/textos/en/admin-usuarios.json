@@ -179,7 +179,7 @@
     "retirar": "Remove a profile",
     "retirar_este": "Remove this profile",
     "retirar_resumen": "Profiles you can remove: {cuenta}",
-    "retiradas_no_disponibles": "We could not check which profiles you can remove. Select “Change profiles” to try again.",
+    "retiradas_no_disponibles": "We could not check the available profile changes. Select “Reload” to try again.",
     "sin_altas": "There are no profiles to assign to this person in their unit.",
     "sin_bajas": "This person has no profiles that can be removed in their unit.",
     "truncado": "There are more profiles than shown. If you cannot find the one you need, contact IT.",

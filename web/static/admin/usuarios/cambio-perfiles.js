@@ -4,9 +4,9 @@
 import { escapar } from "./render.js?v=20261005-admin-lote-pantalla-v1";
 import { validarPreparacion, fechasAlta, hastaPropuesto, construirLote, validarReciboLote, diaMadrid } from "./cambio-contratos.js?v=20261005-admin-lote-pantalla-v1";
 
-export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThis.crypto, persona, nombre, unidadRef, retirarPerfilRef = "", preparacionInicial, ahora = () => Date.now(), alVolver } = {}) {
+export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThis.crypto, persona, nombre, unidadRef, retirarPerfilRef = "", preparacionInicial, ahora = () => Date.now(), alVolver, alEstadoPendiente = () => {} } = {}) {
   if (!cont || typeof textos?.traducir !== "function" || typeof cliente?.preparar !== "function" || typeof cliente?.aplicarLote !== "function"
-    || typeof persona !== "string" || typeof unidadRef !== "string" || typeof alVolver !== "function") throw new TypeError("montaje_invalido");
+    || typeof persona !== "string" || typeof unidadRef !== "string" || typeof alVolver !== "function" || typeof alEstadoPendiente !== "function") throw new TypeError("montaje_invalido");
   const t = textos.traducir;
   const tx = (clave, variables) => escapar(t(clave, variables));
   const fecha = (valor, larga = false) => textos.fecha(new Date(valor), larga ? { dateStyle: "long", timeZone: "Europe/Madrid" } : { dateStyle: "medium", timeZone: "Europe/Madrid" });
@@ -20,7 +20,16 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
   // lectores de pantalla anuncien «Preparando…» y «Guardando…».
   cont.innerHTML = `<p id="${id("aviso")}" role="status" aria-live="polite" class="cambio-aviso"></p><div id="${id("panel")}"></div>`;
   const avisar = (clave) => { const a = nodo("aviso"); if (a) a.textContent = clave ? t(clave) : ""; };
-  const motivoTexto = (clave) => { const k = `lote.motivos.${clave}`, v = t(k); return v === k ? t("lote.motivo_otro") : v; };
+  const motivosSinTexto = new Set();
+  const motivoTexto = (clave) => {
+    const valor = textos.mensajes?.lote?.motivos?.[clave];
+    if (typeof valor === "string" && valor.trim()) return valor;
+    if (!motivosSinTexto.has(clave)) {
+      motivosSinTexto.add(clave);
+      globalThis.console?.warn?.("admin_usuarios_motivo_sin_traduccion", clave);
+    }
+    return t("lote.motivo_otro");
+  };
   const paso = (n) => `<p class="cambio-paso">${tx("lote.paso", { paso: textos.numero(n), total: textos.numero(3) })}</p>`;
   const cabecera = (clave, n) => `<div class="cabecera-panel"><div>${n ? paso(n) : ""}<h3 id="${id("titulo")}" tabindex="-1">${tx(clave)}</h3><p>${escapar(nombre)}</p></div></div>`;
   const enfocar = () => nodo("titulo")?.focus?.();
@@ -42,12 +51,13 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
   function pintarError(clave, reintentar = reintentable(clave)) {
     pintar(`${cabecera("lote.titulo")}<div class="cuerpo-panel"><div class="resumen-errores" role="alert"><p>${tx(clave)}</p></div>
       ${clave === "lote.errores.incierto" ? `<p id="${id("resultado")}" role="status" aria-live="polite" tabindex="-1"></p>` : ""}
-      <div class="acciones-paso"><button type="button" class="boton-secundario" data-cambio="volver">${tx("lote.volver_ficha")}</button>
+      <div class="acciones-paso">${clave === "lote.errores.incierto" ? "" : `<button type="button" class="boton-secundario" data-cambio="volver">${tx("lote.volver_ficha")}</button>`}
       ${clave === "lote.errores.incierto" ? `<button type="button" class="boton-primario" data-cambio="reintentar-confirmacion" id="${id("confirmar")}">${tx("lote.reintentar_misma_solicitud")}</button>` :
         reintentar ? `<button type="button" class="boton-primario" data-cambio="preparar">${tx("lote.volver_a_preparar")}</button>` : ""}</div></div>`);
   }
 
   async function preparar() {
+    if (incierto) return;
     abortar(); prep = null; cambio = null; cuerpo = null;
     pintar(cabecera("lote.titulo")); avisar("lote.cargando");
     const c = new AbortController(); control = c;
@@ -185,6 +195,7 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
     catch (e) { nodo("resultado").textContent = t(e?.codigo === "referencia" ? "lote.errores.referencia" : "lote.errores.motivo_requerido"); return; }
     abortar(); const c = new AbortController(); control = c;
     enviando = true; incierto = true;
+    alEstadoPendiente(true);
     nodo("resultado").textContent = t("lote.enviando"); nodo("resultado").focus?.();
     const botonConfirmar = nodo("confirmar"), botonCorregir = nodo("corregir");
     if (botonConfirmar) botonConfirmar.disabled = true;
@@ -199,7 +210,7 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
       // Sólo una respuesta del servidor dice que no se aplicó; sin ella, no se sabe.
       if (Number.isInteger(e?.estado) && e.estado >= 400 && e.estado < 500) { incierto = false; pintarError(mensajeError(e)); }
       else pintarError("lote.errores.incierto", false);
-    } finally { enviando = false; }
+    } finally { enviando = false; if (vivo && control === c) alEstadoPendiente(incierto); }
   }
 
   function pintarRecibo(r) {
@@ -218,8 +229,8 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
     if (enlace && cont.contains(enlace)) { evento.preventDefault?.(); nodo(enlace.dataset.campo)?.focus?.(); return; }
     const boton = evento.target?.closest?.("[data-cambio]"); if (!boton || boton.disabled || !cont.contains(boton)) return;
     const a = boton.dataset.cambio;
-    if (enviando && a !== "volver") return;
-    if (a === "volver") { if (incierto && enviando) return; abortar(); alVolver(); }
+    if (enviando || incierto && a !== "reintentar-confirmacion") return;
+    if (a === "volver") { abortar(); alVolver(); }
     else if (a === "preparar") void preparar();
     else if (a === "eleccion") { guardarBorrador(); pintarEleccion(); }
     else if (a === "via-asignar") { cambio = { via: "asignar" }; pintarAsignar(); }
@@ -230,12 +241,13 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
   }
   function submit(evento) {
     evento.preventDefault?.();
-    if (evento.target !== nodo("form") || enviando) return;
+    if (evento.target !== nodo("form") || enviando || incierto) return;
     guardarBorrador();
     const leido = leerFormulario(); if (!leido) return;
     cambio = leido; cuerpo = null; pintarRevision();
   }
   function change(evento) {
+    if (incierto) return;
     if (evento.target?.name === id("empieza")) { nodo("bloque-desde").hidden = evento.target.value !== "fecha"; }
     if (evento.target === nodo("perfil")) {
       const alta = prep.altas[Number(nodo("perfil").value)];

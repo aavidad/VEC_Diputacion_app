@@ -130,8 +130,9 @@ test("un fallo incierto permite repetir exactamente la misma operación y confir
   const textos = await cargarTextos("admin-usuarios");
   const cont = new Contenedor();
   const cuerpos = [];
+  let salidas = 0;
   const montaje = montarCambioPerfiles(cont, { textos, cripto, persona: PERSONA, nombre: "Antonio Reyes Álvarez", unidadRef: UNIDAD,
-    ahora: () => AHORA, alVolver() {}, cliente: { preparar: async () => preparacion(), aplicarLote: async (cuerpo) => {
+    ahora: () => AHORA, alVolver() { salidas++; }, cliente: { preparar: async () => preparacion(), aplicarLote: async (cuerpo) => {
       cuerpos.push(structuredClone(cuerpo));
       if (cuerpos.length === 1) throw new TypeError("sin_respuesta");
       return respuestaLote(cuerpo);
@@ -150,13 +151,39 @@ test("un fallo incierto permite repetir exactamente la misma operación y confir
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(montaje.incierto(), true);
   assert.match(cont.panel, /data-cambio="reintentar-confirmacion"/u);
+  assert.doesNotMatch(cont.panel, /data-cambio="volver"/u);
+  pulsar("volver");
+  pulsar("preparar");
+  assert.equal(salidas, 0);
   pulsar("reintentar-confirmacion");
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(montaje.incierto(), false);
   assert.equal(cuerpos.length, 2);
   assert.deepEqual(cuerpos[1], cuerpos[0]);
   assert.match(cont.panel, /recibo_admin:/u);
+  pulsar("volver");
+  assert.equal(salidas, 1);
   montaje.desmontar();
+});
+
+test("un motivo configurado sin texto usa el rótulo neutro y registra la clave faltante", async () => {
+  const textos = await cargarTextos("admin-usuarios");
+  const datos = structuredClone(preparacion());
+  const referenciaMotivoSinTexto = "nueva_causa";
+  datos.preparacion.motivos[0].clave_i18n = referenciaMotivoSinTexto;
+  const cont = new Contenedor(), avisos = [], advertir = console.warn;
+  console.warn = (...partes) => avisos.push(partes);
+  try {
+    const montaje = montarCambioPerfiles(cont, { textos, cripto, persona: PERSONA, nombre: "Antonio Reyes Álvarez", unidadRef: UNIDAD,
+      ahora: () => AHORA, alVolver() {}, cliente: { preparar: async () => datos, aplicarLote: async () => ({}) } });
+    await montaje.listo;
+    cont.listeners.click[0]({ target: { closest: (selector) => selector === "[data-cambio]"
+      ? { dataset: { cambio: "via-asignar" }, disabled: false } : null } });
+    assert.match(cont.panel, new RegExp(textos.traducir("lote.motivo_otro"), "u"));
+    assert.doesNotMatch(cont.panel, />nueva_causa</u);
+    assert.deepEqual(avisos, [["admin_usuarios_motivo_sin_traduccion", referenciaMotivoSinTexto]]);
+    montaje.desmontar();
+  } finally { console.warn = advertir; }
 });
 
 test("la pantalla traduce los fallos de preparación y ofrece las dos vías", async () => {

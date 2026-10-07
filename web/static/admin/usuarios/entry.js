@@ -14,6 +14,7 @@ try {
   document.getElementById("usuarios-selector-resumen").textContent = textosSelector.traducir("general.titulo");
   selector = montarSelectorPerfil({ contenedor: document.getElementById("usuarios-selector"), textos: textosSelector,
     cliente: crearClienteSelectorPerfil(), limpiarEstado() {
+      if (montaje?.incierto()) throw new Error("lote_sin_confirmacion");
       montaje?.desmontar(); montaje = null; root.hidden = true; root.replaceChildren(); panelSelector.open = true;
     }, async cargarContexto({ signal }) {
       if (signal.aborted) return;
@@ -21,8 +22,8 @@ try {
       // Lecturas de usuarios y, si el servidor monta el lote, preparar y aplicar.
       const lecturas = crearClienteLecturasUsuarios({ proyeccion: "metadatos_v1" });
       const cliente = Object.freeze({ ...lecturas, aplicarLote: crearClienteActosUsuarios().aplicarLote });
-      const actual = montarUsuarios(root, { textos, cliente }); montaje = actual;
-      signal.addEventListener("abort", () => actual.desmontar(), { once: true });
+      const actual = montarUsuarios(root, { textos, cliente, alEstadoLote: (pendiente) => { panelSelector.inert = pendiente; } }); montaje = actual;
+      signal.addEventListener("abort", () => { if (!actual.incierto()) actual.desmontar(); }, { once: true });
       await actual.listo;
       if (!signal.aborted && montaje === actual) { panelSelector.open = false; root.focus(); }
     } });
