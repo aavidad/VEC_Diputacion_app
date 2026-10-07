@@ -30,7 +30,7 @@ const BOLSAS_AUTORIZADAS = Object.freeze([{ bolsa_ref: BOLSA.bolsa_ref }, { bols
 
 test("cada situación conserva bolsa e idioma en una URL restaurable", () => {
   for (const estado of SITUACIONES_PARTICIPACION_BOLSA) {
-    const ruta = rutaCandidatosBolsaCompartible("?lang=en&tema=alto", BOLSA.bolsa_ref, estado);
+    const ruta = rutaCandidatosBolsaCompartible("?lang=en&tema=alto&cursor=obsoleto", BOLSA.bolsa_ref, estado);
     const url = new URL(ruta, "https://vec.example/portal-empleado/");
     assert.equal(url.hash, "#bolsa/bolsa-candidatos");
     assert.equal(url.searchParams.get("lang"), "en");
@@ -43,12 +43,13 @@ test("cada situación conserva bolsa e idioma en una URL restaurable", () => {
 
 test("volver al resumen retira bolsa y estado sin perder los demás parámetros", () => {
   const ruta = rutaCandidatosBolsaCompartible("?lang=es", BOLSA.bolsa_ref, "renuncia");
-  const vuelta = rutaResumenBolsasCompartible(new URL(ruta, "https://vec.example/").search);
+  const vuelta = rutaResumenBolsasCompartible(new URL(ruta, "https://vec.example/").search + "&cursor=obsoleto");
   const url = new URL(vuelta, "https://vec.example/portal-empleado/");
   assert.equal(url.hash, "#bolsa/resumen");
   assert.equal(url.searchParams.get("lang"), "es");
   assert.equal(url.searchParams.has("bolsa_ref"), false);
   assert.equal(url.searchParams.has("estado"), false);
+  assert.equal(url.searchParams.has("cursor"), false);
   assert.equal(leerCandidatosBolsaCompartible(url.search, BOLSAS_AUTORIZADAS), null);
 });
 
@@ -58,6 +59,7 @@ test("duplicados, estado ajeno y bolsa fuera de la lectura autorizada no abren l
     "?bolsa_ref=bolsa:sintetica:1&estado=disponible&estado=renuncia",
     "?estado=disponible", "?bolsa_ref=bolsa:sintetica:1&estado=desconocido",
     "?bolsa_ref=bolsa:ajena:999", "?bolsa_ref=bolsa:sintetica:1%2Fextra",
+    "?bolsa_ref=bolsa:sintetica:1&cursor=obsoleto",
   ]) assert.throws(() => leerCandidatosBolsaCompartible(search, BOLSAS_AUTORIZADAS), search);
   assert.throws(() => rutaCandidatosBolsaCompartible("", BOLSA.bolsa_ref, "desconocido"));
   assert.throws(() => leerCandidatosBolsaCompartible(`?bolsa_ref=${BOLSA.bolsa_ref}`, []));
