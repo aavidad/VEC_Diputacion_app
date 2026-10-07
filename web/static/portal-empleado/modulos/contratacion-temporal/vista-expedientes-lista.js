@@ -99,7 +99,7 @@ function busquedaParcial(cuadro, filtro) {
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
 export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada,
-  totalConjunto = null) {
+  totalConjunto = null, cuentaSoloPagina = false) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
   const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
@@ -108,7 +108,9 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
   ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
-    <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: totalConjunto ?? cuadro.expedientes.length }))}</p>
+    <p class="solo-lectura" role="status" aria-live="polite">${escapar(cuentaSoloPagina
+      ? t("lista_resultados_pagina", { total: filas.length })
+      : t("lista_resultados", { total: filas.length, de: totalConjunto ?? cuadro.expedientes.length }))}</p>
     ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
     ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
@@ -172,7 +174,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       </form>`}
       ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
     ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
-    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados, totalConjunto)}
+    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados,
+      totalConjunto, totalConjunto === null && (parcial || paginaAnterior))}
       ${paginacion}
     </section>`;
 }
