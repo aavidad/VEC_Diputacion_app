@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+await prepararTextosPortal("ayuda");
+const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=20261001-ct-a-i18n-v1");
 import {
   CLAVES_SIN_ENTRADA_PORTAL,
   crearCoordinadorModulosPortal,
