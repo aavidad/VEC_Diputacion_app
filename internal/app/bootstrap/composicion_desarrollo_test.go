@@ -17,10 +17,30 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/config"
+	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglas"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestLecturaNominalRRHHBolsaRecibeIntentosAntesDeConfigurar(t *testing.T) {
+	fuente := &fuenteConstituidaRRHHDesarrollo{}
+	llamadas := 0
+	configurar := func(recibida *fuenteConstituidaRRHHDesarrollo) error {
+		llamadas++
+		if recibida != fuente || recibida.intentos == nil {
+			t.Fatal("la configuración recibió una fuente sin política de intentos")
+		}
+		return nil
+	}
+	if err := configurarLecturasNominalesPreparadasRRHHBolsa(fuente, configurar); !errors.Is(err, ErrComposicionDesarrolloIncompleta) || llamadas != 0 {
+		t.Fatalf("configuración antes de parámetros: llamadas=%d error=%v", llamadas, err)
+	}
+	fuente.intentos = reglasbolsa.NuevosIntentosContacto(nil)
+	if err := configurarLecturasNominalesPreparadasRRHHBolsa(fuente, configurar); err != nil || llamadas != 1 {
+		t.Fatalf("configuración después de parámetros: llamadas=%d error=%v", llamadas, err)
+	}
+}
 
 func TestComposicionLecturasRRHHBolsaAislaAccionesEnPDPComun(t *testing.T) {
 	const perfil = "prf_bolsa_bback"

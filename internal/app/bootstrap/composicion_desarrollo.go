@@ -40,6 +40,16 @@ func selectorCapacidadRRHHDesarrollo(cfg config.Config, nombre string) (bool, er
 	}
 }
 
+func configurarLecturasNominalesPreparadasRRHHBolsa(
+	fuente *fuenteConstituidaRRHHDesarrollo,
+	configurar func(*fuenteConstituidaRRHHDesarrollo) error,
+) error {
+	if fuente == nil || fuente.intentos == nil || configurar == nil {
+		return ErrComposicionDesarrolloIncompleta
+	}
+	return configurar(fuente)
+}
+
 // ComposicionSeguridadDesarrollo agrupa proveedores concretos ya validados.
 // Los campos privados impiden extraer las claves locales; solo se entregan las
 // interfaces existentes y la marca obligatoria para persistencia.
@@ -325,15 +335,6 @@ func nuevoServidorDesarrollo(
 	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
-	if cfg.BolsaBorradoresEnabled {
-		if err := ConfigurarLecturasNominalesRRHHBolsaDesarrollo(ctxBolsas, fuenteConstituida,
-			autoridadContratacion.manejadorSituacionParticipacion,
-			autoridadContratacion.gobiernoRRHHNominalBolsa,
-			autoridadContratacion.emisoresRRHHNominalBolsa); err != nil {
-			cancelarBolsas()
-			return nil, nil, err
-		}
-	}
 	// Avisos y marcas de Bolsa con los parámetros del catálogo (000041).
 	if err = componerParametrosAvisosBolsaDesarrollo(ctxBolsas, reglasEjemplo.bolsa, fuenteConstituida); err != nil {
 		cancelarBolsas()
@@ -343,6 +344,18 @@ func nuevoServidorDesarrollo(
 	if err = componerAvisosNoIncorporacionBolsaDesarrollo(ctxBolsas, cfg, fuenteConstituida); err != nil {
 		cancelarBolsas()
 		return nil, nil, err
+	}
+	if cfg.BolsaBorradoresEnabled {
+		if err := configurarLecturasNominalesPreparadasRRHHBolsa(fuenteConstituida,
+			func(fuente *fuenteConstituidaRRHHDesarrollo) error {
+				return ConfigurarLecturasNominalesRRHHBolsaDesarrollo(ctxBolsas, fuente,
+					autoridadContratacion.manejadorSituacionParticipacion,
+					autoridadContratacion.gobiernoRRHHNominalBolsa,
+					autoridadContratacion.emisoresRRHHNominalBolsa)
+			}); err != nil {
+			cancelarBolsas()
+			return nil, nil, err
+		}
 	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
