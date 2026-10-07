@@ -1,10 +1,10 @@
-import { cargarTextos } from "../../../comun/textos.js";
-
 /** Textos de otros medios de transporte y otros gastos con justificante. */
-export const MENSAJES_OTROS_GASTOS = (await cargarTextos("dietas")).seccion("otros_gastos");
+export let MENSAJES_OTROS_GASTOS;
+export function publicarMensajesOtrosGastos(mensajes) { MENSAJES_OTROS_GASTOS = mensajes; }
 
 export function crearTraductorOtrosGastosDietas(traducirBase) {
   if (typeof traducirBase !== "function") throw new TypeError("traductor de Dietas no disponible");
+  if (!MENSAJES_OTROS_GASTOS) throw new Error("textos de Dietas sin preparar");
   return (clave, variables = {}) => {
     if (!Object.hasOwn(MENSAJES_OTROS_GASTOS, clave)) return traducirBase(clave, variables);
     try {
@@ -17,6 +17,7 @@ export function crearTraductorOtrosGastosDietas(traducirBase) {
 
 /** Rótulo de un tipo del catálogo; nunca muestra el código interno. */
 export function rotuloTipoOtroGasto(traducir, codigo) {
+  if (!MENSAJES_OTROS_GASTOS) throw new Error("textos de Dietas sin preparar");
   const clave = `otros_gastos_tipo_${codigo}`;
   return typeof codigo === "string" && Object.hasOwn(MENSAJES_OTROS_GASTOS, clave)
     ? traducir(clave) : traducir("otros_gastos_tipo_desconocido");

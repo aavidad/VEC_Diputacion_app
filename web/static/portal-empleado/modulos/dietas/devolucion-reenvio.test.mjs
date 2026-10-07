@@ -1,3 +1,4 @@
+import "./test-preparar-i18n.mjs";
 // D6: la persona ve su documento devuelto con el motivo, lo corrige y lo
 // reenvía a revisión del administrativo; nunca lo elimina.
 import assert from "node:assert/strict";

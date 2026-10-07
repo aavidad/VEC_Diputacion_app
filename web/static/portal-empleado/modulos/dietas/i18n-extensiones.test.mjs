@@ -1,9 +1,10 @@
+import "./test-preparar-i18n.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js";
-import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
 
 test("el catálogo común traduce Dietas, el documento y el circuito con el mismo traductor", () => {
   for (const clave of ["borradores_propios_titulo_registrados", "comision_bloque_kilometraje", "comision_total_provisional", "circuito_etapa_fiscalizacion"])

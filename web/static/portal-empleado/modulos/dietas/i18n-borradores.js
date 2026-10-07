@@ -1,11 +1,11 @@
-import { cargarTextos } from "../../../comun/textos.js";
-
 /** Complemento del catálogo común de Dietas para la consulta de borradores propios. */
-export const MENSAJES_BORRADORES = (await cargarTextos("dietas")).seccion("borradores");
+export let MENSAJES_BORRADORES;
+export function publicarMensajesBorradores(mensajes) { MENSAJES_BORRADORES = mensajes; }
 
 export function crearTraductorBorradoresDietas(traducirBase) {
   if (typeof traducirBase !== "function")
     throw new TypeError("traductor de Dietas no disponible");
+  if (!MENSAJES_BORRADORES) throw new Error("textos de Dietas sin preparar");
   return (clave, variables = {}) => {
     if (!Object.hasOwn(MENSAJES_BORRADORES, clave)) return traducirBase(clave, variables);
     try {

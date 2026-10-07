@@ -1,3 +1,4 @@
+import "./test-preparar-i18n.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261001-ct-a-i18n-v1";

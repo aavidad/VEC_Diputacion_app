@@ -1,3 +1,4 @@
+import "./test-preparar-i18n.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js";

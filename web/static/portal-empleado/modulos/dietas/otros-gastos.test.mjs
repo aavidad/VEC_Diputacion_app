@@ -1,3 +1,4 @@
+import "./test-preparar-i18n.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
@@ -8,7 +9,7 @@ import {
   actualizarHuellaOtroGasto, calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto,
   leerOtrosGastos, numerarLineasOtroGasto,
 } from "./formulario-otros-gastos.js";
-import { crearTraductorOtrosGastosDietas, MENSAJES_OTROS_GASTOS, rotuloTipoOtroGasto } from "./i18n-otros-gastos.js";
+import { crearTraductorOtrosGastosDietas, MENSAJES_OTROS_GASTOS, rotuloTipoOtroGasto } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { crearTraductorDietas } from "./i18n.js";
 
 const CATALOGO = Object.freeze({ version: "provisional:otros-gastos:20260925", rotulo: "PROVISIONAL · pendiente de confirmación por RRHH",
