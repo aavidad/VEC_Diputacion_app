@@ -9,8 +9,8 @@
  * manifiesto config/contratacion_temporal_flujo_visual_rrhh_v1.json. No
  * deduce responsables ni tareas: eso solo lo dice el servidor.
  */
-import { cargarTextos } from "../../../comun/textos.js";
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
+import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 
 export const FASES_RRHH = Object.freeze([
   "solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion",
@@ -36,15 +36,16 @@ const ESTADO_UNICO = Object.freeze({
 });
 
 
-const ROTULOS = Object.freeze(Object.fromEntries(await Promise.all(
-  IDIOMAS_DISPONIBLES.map(async ({ codigo }) => [codigo,
-    (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh"),
-  ]),
-)));
+const ROTULOS = (await cargarCatalogosContratacion("portal", "fases_rrhh")).actual;
+
+function comprobarIdiomaCargado(idioma) {
+  if (idioma !== IDIOMA_ACTUAL) throw new RangeError("catálogo del idioma solicitado no cargado");
+}
 
 /** Rótulo del catálogo en el idioma de la interfaz. */
 export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
+  comprobarIdiomaCargado(idioma);
+  const catalogo = ROTULOS;
   if (!Object.hasOwn(catalogo, clave)) throw new Error(`falta el rótulo ${clave}`);
   return Object.entries(variables).reduce(
     (texto, [nombre, valor]) => texto.replaceAll(`{${nombre}}`, String(valor)), catalogo[clave],
@@ -110,6 +111,14 @@ export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
 
 /** Las mismas claves para el catálogo del portal (portada), con prefijo propio. */
 export function mensajesTramitePortal(idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
+  comprobarIdiomaCargado(idioma);
+  const catalogo = ROTULOS;
   return Object.freeze(Object.fromEntries(Object.entries(catalogo).map(([clave, texto]) => [`tramite_${clave}`, texto])));
+}
+
+/** Para consultas explícitas en otro idioma, sin precargarlo en la navegación. */
+export async function cargarMensajesTramitePortalEnIdioma(idioma) {
+  const { actual } = await cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh");
+  return Object.freeze(Object.fromEntries(Object.entries(actual)
+    .map(([clave, texto]) => [`tramite_${clave}`, texto])));
 }

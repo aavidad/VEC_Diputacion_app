@@ -18,12 +18,12 @@ import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js
 import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_MOAD_ES,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -473,7 +473,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 /** British English messages for the temporary staff requests module. */
 export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ...MENSAJES_MOAD_EN,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
   justificante_copiado: "Reference copied",
@@ -914,8 +914,8 @@ export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
     || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes de contratación temporal no válidos");
   }
-  const base = IDIOMA_ACTUAL === "en"
-    ? MENSAJES_CONTRATACION_TEMPORAL_EN : MENSAJES_CONTRATACION_TEMPORAL_ES;
+  const base = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES : MENSAJES_CONTRATACION_TEMPORAL_EN;
   const mensajes = { ...base, ...sobrescrituras };
   for (const [clave, valor] of Object.entries(mensajes)) {
     if (typeof valor !== "string" || valor.trim() === "") {
