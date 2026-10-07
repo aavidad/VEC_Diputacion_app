@@ -44,7 +44,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20260930-reglas-recuperacion-v2");
+  assert.equal(version, "20261007-p5-solicitudes-reglas-v1");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
   assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);

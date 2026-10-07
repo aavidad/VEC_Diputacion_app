@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES } from "./i18n.js?v=20261005-solicitudes-i18n-v3";
+import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES } from "./i18n.js?v=20261007-p5-solicitudes-reglas-v1";
 
 const PESTANAS = Object.freeze(["bandeja", "nueva", "seguimiento", "certificados"]);
 const SITUACIONES = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);

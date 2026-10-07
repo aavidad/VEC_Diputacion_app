@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-reglas-recuperacion-v2";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20261007-p5-solicitudes-reglas-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";

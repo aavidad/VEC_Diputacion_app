@@ -102,10 +102,10 @@
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1879 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1367 web/static/portal-empleado/portal-modulos-coordinador.js
-1405 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1372 web/static/portal-empleado/portal-modulos-coordinador.js
+1406 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1022 web/static/portal-empleado/portal-componentes.css
-1200 web/static/portal-empleado/portal.js
+1204 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
 890 web/static/portal-empleado/portal-bolsas.test.mjs
 949 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
@@ -132,3 +132,4 @@
 1226 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
 810 deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
 1196 scripts/recorridos/propuesta_firma/recorrer.py
+801 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs

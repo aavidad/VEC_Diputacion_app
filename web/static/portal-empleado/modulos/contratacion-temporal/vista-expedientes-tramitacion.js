@@ -3,7 +3,7 @@
 import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261007-p5-solicitudes-reglas-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";

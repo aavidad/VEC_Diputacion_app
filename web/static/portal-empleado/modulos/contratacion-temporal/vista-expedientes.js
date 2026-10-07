@@ -2,7 +2,7 @@
 
 import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261007-p5-solicitudes-reglas-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261006-resumen-inicio-v2";
@@ -23,7 +23,7 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261006-resumen-inicio-v2";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261006-resumen-inicio-v2";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261006-resumen-inicio-v2";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261006-resumen-inicio-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261007-p5-solicitudes-reglas-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261006-resumen-inicio-v2";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261001-ct-a-i18n-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261001-ct-a-i18n-v1";
