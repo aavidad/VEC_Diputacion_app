@@ -491,8 +491,8 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
     assert.match(html, new RegExp(`data-vista="${vista}"`));
   assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/);
-  assert.match(javascript, /function renderizarLlamamientoSinBolsa\(\)/u);
-  assert.match(javascript, /textoPortal\("txt_elija_una_bolsa_para_iniciar_un_llamamiento"\)/u);
+  assert.match(javascript, /renderizarPantallaLlamamientos\(\{ estado, encabezadoVista/u);
+  assert.match(javascript, /instalarSelectorLlamamientos\(\{ documento: document/u);
   assert.equal(traducirPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento"), "Elija una bolsa para iniciar un llamamiento.");
 });
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261007-ct-menu-recuperacion-v1";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
@@ -288,6 +288,21 @@ test("Bolsa y Contratación denegadas no muestran datos retenidos", () => {
   assert.doesNotMatch(html, /Auxiliar &lt;A&gt;|<strong class="valor-kpi">3<\/strong>|Lo pendiente/u);
   assert.match(html, /Sin permiso/u);
   assert.doesNotMatch(html, /data-vista="contratacion-temporal"/u);
+});
+
+test("Inicio RRHH explica la caída de CT anunciado y permite reintentar sin abrir su módulo", () => {
+  const accesoCT = () => ({ disponible: false, estado: "no_disponible", vista: "" });
+  const conCT = portadaRRHH({
+    obtenerCatalogo: () => [moduloBolsa, { clave: "contratacion_temporal" }],
+    resolverAcceso: (clave) => clave === "contratacion_temporal" ? accesoCT() : { disponible: true, vista: "resumen" },
+  });
+  assert.match(conCT, /id="inicio-ct-no-disponible"/u);
+  assert.match(conCT, /La gestión de peticiones de personal temporal no está disponible ahora/u);
+  assert.match(conCT, /data-accion="recargar-fuente">Reintentar<\/button>/u);
+  assert.doesNotMatch(conCT, /data-vista="contratacion-temporal"/u);
+  assert.ok(conCT.indexOf("inicio-ct-no-disponible") < conCT.indexOf("rejilla-kpi cuatro"));
+  const sinCT = portadaRRHH({ resolverAcceso: (clave) => clave === "contratacion_temporal" ? accesoCT() : { disponible: true, vista: "resumen" } });
+  assert.doesNotMatch(sinCT, /inicio-ct-no-disponible/u);
 });
 
 test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento sin instante", () => {

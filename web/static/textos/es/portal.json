@@ -143,7 +143,7 @@
     "contratacion_temporal_miga": "Portal del Empleado → Peticiones de personal temporal",
     "contratacion_temporal_titulo": "Gestión de peticiones de personal temporal",
     "contratacion_temporal_descripcion_no_disponible": "La composición real de Peticiones de personal temporal todavía no está disponible en este portal.",
-    "contratacion_temporal_aviso_no_disponible": "Esta vista no monta el módulo ni habilita sus operaciones.",
+    "contratacion_temporal_aviso_no_disponible": "La gestión de peticiones de personal temporal no está disponible ahora. Si el problema continúa, avise a Informática.",
     "accion_volver_portal": "Volver al portal",
     "vista_no_disponible_titulo": "Esta pantalla no está disponible",
     "vista_no_disponible_texto": "No tiene acceso a esta pantalla o no está activada en esta instalación. Si la necesita, avise a Informática.",

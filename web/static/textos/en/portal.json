@@ -143,7 +143,7 @@
     "contratacion_temporal_miga": "Employee Portal → Temporary staff requests",
     "contratacion_temporal_titulo": "Manage temporary staff requests",
     "contratacion_temporal_descripcion_no_disponible": "Temporary staff requests are not yet available in this portal.",
-    "contratacion_temporal_aviso_no_disponible": "This view does not load the module or enable its actions.",
+    "contratacion_temporal_aviso_no_disponible": "Temporary staff requests are unavailable right now. If the problem continues, contact IT.",
     "accion_volver_portal": "Back to the portal",
     "vista_no_disponible_titulo": "This screen is not available",
     "vista_no_disponible_texto": "You do not have access to this screen, or it is not turned on in this system. If you need it, contact IT.",
