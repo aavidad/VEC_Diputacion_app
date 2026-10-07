@@ -75,6 +75,7 @@
     "lista_vacia_crear": "Todavía no hay ninguna petición. Cree una con «Nueva petición de personal».",
     "lista_vacia_sin_alta": "No hay peticiones para este perfil. Actualice la lista si esperaba ver alguna.",
     "lista_textos_respaldo": "No se pudieron cargar todos los textos. Pulse «Actualizar lista» para volver a intentarlo.",
+    "lista_filtro_no_disponible": "Este filtro no se puede aplicar a todas las páginas. Pulse «Reintentar» para abrir la lista completa.",
     "cabecera_resultado_rc": "Retención de crédito",
     "cabecera_decision_gobernada": "Vía de cobertura decidida",
     "estado_inicial": "Preparado para cargar las peticiones.",

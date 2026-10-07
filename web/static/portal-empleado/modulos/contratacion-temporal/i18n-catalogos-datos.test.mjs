@@ -82,6 +82,7 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
 const CLAVES_CUADRO_LIGERO = Object.freeze([
   "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
   "lista_textos_respaldo",
+  "lista_filtro_no_disponible",
 ]);
 
 const CLAVES_FIN_MODALIDAD = Object.freeze({

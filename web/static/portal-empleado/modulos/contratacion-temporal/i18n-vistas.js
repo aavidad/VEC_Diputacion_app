@@ -37,12 +37,37 @@ const VISTAS = Object.freeze({
   ]),
 });
 
+// Registro cerrado: la guarda de manifiestos puede comprobar cada origen JSON.
+const LECTORES = Object.freeze({
+  portal: [(opciones) => cargarTextos("portal", opciones), (idioma) => reintentarTextos("portal", { idioma })],
+  "contratacion-temporal-ficha-lista": [(opciones) => cargarTextos("contratacion-temporal-ficha-lista", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-ficha-lista", { idioma })],
+  "contratacion-temporal-lista-plazos": [(opciones) => cargarTextos("contratacion-temporal-lista-plazos", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-lista-plazos", { idioma })],
+  "contratacion-temporal-analisis-catalogo": [(opciones) => cargarTextos("contratacion-temporal-analisis-catalogo", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-analisis-catalogo", { idioma })],
+  "contratacion-temporal-cambios-expediente": [(opciones) => cargarTextos("contratacion-temporal-cambios-expediente", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-cambios-expediente", { idioma })],
+  "contratacion-temporal-firma-incorporacion-expedientes": [(opciones) => cargarTextos("contratacion-temporal-firma-incorporacion-expedientes", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-firma-incorporacion-expedientes", { idioma })],
+  "contratacion-temporal-moad": [(opciones) => cargarTextos("contratacion-temporal-moad", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-moad", { idioma })],
+  "contratacion-temporal-textos-vistas": [(opciones) => cargarTextos("contratacion-temporal-textos-vistas", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-textos-vistas", { idioma })],
+  "contratacion-temporal-circuito-firma": [(opciones) => cargarTextos("contratacion-temporal-circuito-firma", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-circuito-firma", { idioma })],
+  "contratacion-temporal-firma-incorporacion-portal": [(opciones) => cargarTextos("contratacion-temporal-firma-incorporacion-portal", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-firma-incorporacion-portal", { idioma })],
+});
+
 async function cargarGrupo(fuentes, idioma, { leer, reintentar }) {
   const modulos = [...new Set(fuentes.map(([modulo]) => modulo))];
   const entradas = await Promise.all(modulos.map(async (modulo) => {
+    const lector = LECTORES[modulo];
+    if (!lector) throw new TypeError("catálogo CT de vista no registrado");
     const catalogo = reintentar && leer === undefined
-      ? await reintentarTextos(modulo, { idioma })
-      : await cargarTextos(modulo, { idioma, ...(leer ? { leer } : {}) });
+      ? await lector[1](idioma)
+      : await lector[0]({ idioma, ...(leer ? { leer } : {}) });
     return [modulo, catalogo];
   }));
   return Object.fromEntries(entradas);
