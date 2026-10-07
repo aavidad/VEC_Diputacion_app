@@ -13,7 +13,24 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-var ErrIdentidadOrdinariaNoDisponible = errors.New("composicion interna: identidad ordinaria no disponible")
+var ErrIdentidadOrdinariaNoDisponible = errors.New("identidad_ordinaria_no_disponible")
+
+// errorFuente oculta los mensajes de las autoridades subordinadas al cruzar
+// la frontera HTTP. La causa sigue disponible para clasificación interna con
+// errors.Is/As, sin aparecer en Error().
+type errorFuente struct{ causa error }
+
+func (e *errorFuente) Error() string { return ErrIdentidadOrdinariaNoDisponible.Error() }
+func (e *errorFuente) Unwrap() []error {
+	return []error{ErrIdentidadOrdinariaNoDisponible, e.causa}
+}
+
+func falloFuente(causa error) error {
+	if causa == nil {
+		return ErrIdentidadOrdinariaNoDisponible
+	}
+	return &errorFuente{causa: causa}
+}
 
 // PerfilNominal fija la única selección permitida para una cuenta. La
 // provisión procede de configuración privada, nunca de datos HTTP.
@@ -75,11 +92,20 @@ func (f *Fuente) Resolver(ctx context.Context) (
 	var snapshot core.InstantaneaAutorizacion
 	if f == nil || f.identidad == nil || dependenciaNula(f.revalidador) ||
 		dependenciaNula(f.resolutor) || dependenciaNula(f.autorizacion) ||
-		dependenciaNula(f.reloj) || ctx == nil || ctx.Err() != nil {
+		dependenciaNula(f.reloj) || ctx == nil {
 		return vinculo, resultado, snapshot, ErrIdentidadOrdinariaNoDisponible
 	}
+	if err := ctx.Err(); err != nil {
+		return vinculo, resultado, snapshot, falloFuente(err)
+	}
 	cuenta, auditoria, err := f.identidad.ExtraerCapsulaIdentidadPeticion(ctx)
-	if err != nil || cuenta.Validar() != nil || cuenta.Garantia != core.AuthAssuranceHigh ||
+	if err != nil {
+		return vinculo, resultado, snapshot, falloFuente(err)
+	}
+	if err := cuenta.Validar(); err != nil {
+		return vinculo, resultado, snapshot, falloFuente(err)
+	}
+	if cuenta.Garantia != core.AuthAssuranceHigh ||
 		(cuenta.Metodo != core.AuthMethodKerberos && cuenta.Metodo != core.AuthMethodCertificate) ||
 		auditoria.CuentaRef() != cuenta.CuentaRef ||
 		auditoria.CuentaOrdinariaRef() != cuenta.CuentaRef || auditoria.CuentaPrivilegiada() ||
@@ -101,11 +127,17 @@ func (f *Fuente) Resolver(ctx context.Context) (
 		},
 		f.resolutor, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: nominal.PerfilActivoRef}, f.reloj,
 	)
-	if err != nil || ctx.Err() != nil {
-		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, ErrIdentidadOrdinariaNoDisponible
+	if err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, falloFuente(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, falloFuente(err)
 	}
 	datos, err := vinculo.Datos()
-	if err != nil || datos.CuentaRef != cuenta.CuentaRef || datos.CuentaOrdinariaRef != cuenta.CuentaRef ||
+	if err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, falloFuente(err)
+	}
+	if datos.CuentaRef != cuenta.CuentaRef || datos.CuentaOrdinariaRef != cuenta.CuentaRef ||
 		datos.CuentaPrivilegiada || datos.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 ||
 		datos.GarantiaObservada != core.AuthAssuranceHigh || datos.MetodoObservado != cuenta.Metodo ||
 		datos.AutenticacionRef != auditoria.AutenticacionRef() || datos.SesionRef != auditoria.SesionRef() ||
@@ -116,8 +148,14 @@ func (f *Fuente) Resolver(ctx context.Context) (
 		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, ErrIdentidadOrdinariaNoDisponible
 	}
 	snapshot, err = f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, datos.PrincipalID, nominal.PerfilActivoRef)
-	if err != nil || ctx.Err() != nil || snapshot.Validar() != nil {
-		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, ErrIdentidadOrdinariaNoDisponible
+	if err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, falloFuente(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, falloFuente(err)
+	}
+	if err := snapshot.Validar(); err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, falloFuente(err)
 	}
 	ahora := f.reloj.Ahora()
 	if snapshot.AsignacionPerfil.PrincipalID != datos.PrincipalID ||
@@ -129,8 +167,11 @@ func (f *Fuente) Resolver(ctx context.Context) (
 		!snapshot.AsignacionPerfil.VigenteEn(ahora) ||
 		ahora.Before(snapshot.VersionRol.PublicadaEn) ||
 		ahora.Before(snapshot.ControlVigenciaVersionRol.ActualizadoEn) ||
-		!vinculo.VigenteEn(ahora, resultado) || ctx.Err() != nil {
+		!vinculo.VigenteEn(ahora, resultado) {
 		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, ErrIdentidadOrdinariaNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, falloFuente(err)
 	}
 	return vinculo, resultado, snapshot, nil
 }
