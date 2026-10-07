@@ -437,12 +437,11 @@ type bolsasRRHHDesarrolloDatos struct{ datos datasetBolsasRRHHDesarrollo }
 
 func (h *bolsasRRHHDesarrolloDatos) respuestaBolsas() map[string]any {
 	bolsas := make([]map[string]any, 0, len(h.datos.Bolsas))
+	conteos := h.contarEstadosPorBolsa()
 	for _, bolsa := range h.datos.Bolsas {
-		conteo := mapaEstadosVacio()
-		for _, candidata := range h.datos.Candidaturas {
-			if candidata.BolsaRef == bolsa.Referencia {
-				conteo[estadoBolsaCanonico(candidata.Estado)]++
-			}
+		conteo := conteos[bolsa.Referencia]
+		if conteo == nil {
+			conteo = mapaEstadosVacio()
 		}
 		bolsas = append(bolsas, salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden))
 	}
@@ -601,14 +600,15 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 	porEstado := mapaEstadosVacio()
 	porBolsa := make([]map[string]any, 0, len(h.datos.Bolsas))
+	conteos := h.contarEstadosPorBolsa()
 	vigentes, sustituidas := 0, 0
 	for _, bolsa := range h.datos.Bolsas {
-		conteo := mapaEstadosVacio()
-		for _, candidata := range h.datos.Candidaturas {
-			if candidata.BolsaRef == bolsa.Referencia {
-				conteo[estadoBolsaCanonico(candidata.Estado)]++
-				porEstado[estadoBolsaCanonico(candidata.Estado)]++
-			}
+		conteo := conteos[bolsa.Referencia]
+		if conteo == nil {
+			conteo = mapaEstadosVacio()
+		}
+		for estado, n := range conteo {
+			porEstado[estado] += n
 		}
 		total := 0
 		for _, n := range conteo {
@@ -645,6 +645,22 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 		"llamamientos": map[string]any{"total": len(h.datos.Llamamientos), "por_canal": canales, "por_resultado": resultados},
 		"por_bolsa":    porBolsa,
 	}
+}
+
+// contarEstadosPorBolsa recorre las candidaturas una sola vez. En una carga
+// importada con muchas bolsas, repetir todo el recorrido para cada bolsa
+// convertía la proyección del cuadro y las estadísticas en O(bolsas × personas).
+func (h *bolsasRRHHDesarrolloDatos) contarEstadosPorBolsa() map[string]map[string]int {
+	conteos := make(map[string]map[string]int, len(h.datos.Bolsas))
+	for _, candidata := range h.datos.Candidaturas {
+		conteo := conteos[candidata.BolsaRef]
+		if conteo == nil {
+			conteo = mapaEstadosVacio()
+			conteos[candidata.BolsaRef] = conteo
+		}
+		conteo[estadoBolsaCanonico(candidata.Estado)]++
+	}
+	return conteos
 }
 
 func mapaEstadosVacio() map[string]int {
