@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sync"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/firmaemisorv2"
@@ -54,6 +55,7 @@ type CompetenciaFirmaVecV2 struct {
 	presente  bool
 	ambigua   bool
 	sesion    SesionFirmanteAcreditadaV2
+	autoridad AutoridadSesionFirmanteV2
 	fallida   bool
 }
 
@@ -138,6 +140,10 @@ func (c *CompetenciaFirmaVecV2) resolver(ctx context.Context, a AutoridadSesionF
 	if !c.presente || c.ambigua || c.fallida || c.peticion == nil || c.peticion.Context().Err() != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
+	if c.sesion != nil && !mismaAutoridadSesionFirmaVecV2(c.autoridad, a) {
+		c.fallida = true
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
 	var vinculo core.VinculoAutenticacionActorV2
 	var resultado core.ResultadoContextoActorRegistradoV2
 	var err error
@@ -149,6 +155,7 @@ func (c *CompetenciaFirmaVecV2) resolver(ctx context.Context, a AutoridadSesionF
 				Version: e.VinculoCredencialFirmanteRevision, HuellaSHA256: e.VinculoCredencialFirmanteHuella}}
 		c.sesion, err = a.AcreditarSesionFirmaVecV2(c.peticion, seleccion, e.FirmantePrincipalRef, e.Solicitud.CertificadoHuella)
 		if err == nil && !dependenciaNula(c.sesion) {
+			c.autoridad = a
 			vinculo, resultado, err = c.sesion.AbrirSesionFirmaVecV2(ctx, c.peticion)
 		}
 	} else {
@@ -162,13 +169,24 @@ func (c *CompetenciaFirmaVecV2) resolver(ctx context.Context, a AutoridadSesionF
 		CertificadoCanalSHA256: c.evidencia.Solicitud.CertificadoHuella}, nil
 }
 
+// La cápsula acreditada nunca puede pasar a otra fuente nominal aun cuando
+// ambas reciban el mismo context.Context. La autoridad de sesión es estatal.
+func mismaAutoridadSesionFirmaVecV2(primera, segunda AutoridadSesionFirmanteV2) bool {
+	if dependenciaNula(primera) || dependenciaNula(segunda) {
+		return false
+	}
+	a, b := reflect.ValueOf(primera), reflect.ValueOf(segunda)
+	return a.Kind() == reflect.Pointer && b.Kind() == reflect.Pointer &&
+		a.Type() == b.Type() && a.Pointer() == b.Pointer()
+}
+
 type FuenteNominalFirmaVecV2 struct{ autoridad AutoridadSesionFirmanteV2 }
 
 var _ firmaemisorv2.FuenteContextoActorFirmaV2 = (*FuenteNominalFirmaVecV2)(nil)
 var _ consultafirmasv2.FuenteContexto = (*FuenteNominalFirmaVecV2)(nil)
 
 func NuevaFuenteNominalFirmaVecV2(a AutoridadSesionFirmanteV2) (*FuenteNominalFirmaVecV2, error) {
-	if dependenciaNula(a) {
+	if dependenciaNula(a) || reflect.ValueOf(a).Kind() != reflect.Pointer {
 		return nil, ports.ErrFirmaDocumentoDenegada
 	}
 	return &FuenteNominalFirmaVecV2{autoridad: a}, nil

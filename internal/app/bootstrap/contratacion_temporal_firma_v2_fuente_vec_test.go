@@ -155,6 +155,19 @@ func TestFuenteNominalFirmaVecV2AbreUnaSesionYRevalidaEnCadaUso(t *testing.T) {
 	if err != nil || consulta.OrganizacionRef != q.OrganizacionRef || consulta.FirmantePrincipalCandidatoRef != e.persona {
 		t.Fatalf("consulta R5 del firmante: %v", err)
 	}
+	ajena, err := firmavec.NuevaFuenteNominalFirmaVecV2(&autoridadSesionFirmanteV2{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cruzada, err := ajena.RevalidarContextoActorFirmaV2(r.Context())
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || cruzada.Resultado.Contexto.PersonaRef != "" {
+		t.Fatalf("otra autoridad reutilizó la sesión AUT56: err=%v", err)
+	}
+	// La lectura ajena invalida el contenedor para cualquier uso posterior,
+	// igual que la cápsula anterior al traslado al paquete neutral.
+	if _, err := f.RevalidarContextoActorFirmaV2(r.Context()); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatal("contenedor cruzado todavía legible", err)
+	}
 	if _, err := f.RevalidarContextoActorFirmaV2(context.Background()); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
 		t.Fatal("fuente sin contenedor admitida", err)
 	}
