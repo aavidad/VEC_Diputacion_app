@@ -135,7 +135,7 @@ incongruente impide preparar el cálculo; la versión vigente válida conserva
 el importe y el rótulo provisional. El catálogo actual no contiene un acto
 aprobatorio: añadir metadatos no aprueba tarifas ni liquida una comisión.
 
-### DIE-01: candidato local del 7 de octubre
+### DIE-01: integrado el 7 de octubre (#838)
 
 El lector PostgreSQL devuelve las dos referencias guardadas con la versión.
 El preparador comprueba su formato y exige que coincidan en las tarifas de
@@ -152,5 +152,7 @@ una fecha anterior a su vigencia. Una medición local con 10 001 versiones,
 30 003 filas de dietas y 20 002 de kilometraje, añadidas en una transacción
 revertida, obtuvo tres búsquedas por índice; ejecución SQL de 0,041 ms y p95
 de 0,105 ms en 190 lecturas. La planificación fue de 0,336 ms. Esta evidencia
-acredita la lectura del catálogo de ensayo; queda pendiente la revisión
-independiente y no acredita un recorrido nominal por HTTP o navegador.
+acredita la lectura del catálogo de ensayo. Dos revisiones independientes
+ratificaron el commit `8d7f0472d` y su CI completa terminó en verde. Dirección
+lo integró en `main` mediante `aab120dc2`. No hubo nuevas migraciones ni
+instalación, y no se acredita un recorrido nominal por HTTP o navegador.
