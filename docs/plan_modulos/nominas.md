@@ -106,6 +106,27 @@ conectores productivos o banca. Tras esas salidas se desglosará esa implementac
 con fuentes y volúmenes conocidos. Si N01 solo admite derivación, se entrega esa
 continuación y permanecen pendientes las lecturas; no se fabrica un recibo sintético.
 
+### Preparación de la fuente N01
+
+`internal/modules/nominas` dispone de un contrato neutral para pedir una página
+de descriptores. La consulta lleva persona, relación, entidad pagadora, periodo,
+límite y cursor. La respuesta conserva esos filtros y declara versión de la fuente,
+cobertura, total y continuación. Cada descriptor identifica origen, recibo,
+versión y custodio mediante las referencias que entregue la fuente. La validación
+rechaza cruces de persona, relación, entidad o periodo, referencias vacías o de
+tamaño excesivo, duplicados y páginas que superan el límite. El máximo técnico
+por página es 100; no fija cuántos recibos puede tener una persona.
+
+El primer resultado fija versión y cobertura para las páginas siguientes. El
+adaptador que se acuerde deberá mantener estable también el total para ese mismo
+filtro y resolver la continuidad si cambia la fuente. Personal B aporta relación
+e historia, pero no identifica la entidad pagadora: esa correspondencia y el
+periodo de nómina han de venir de la fuente admitida. Este contrato no decide
+titularidad, permiso, auditoría, custodia de bytes ni firma; sus consumidores
+deberán acreditarlos antes de mostrar o descargar un original. La duda 129 sigue
+abierta para fuente, cobertura inicial e interfaz. Esta preparación no cierra
+N01–N04 ni constituye una consulta funcional.
+
 N08/N09 solo proceden si hace falta estado durable propio. Se eliminan y recalculan
 si la fuente/Documentos ya conservan todo el estado requerido. Toda migración futura
 reserva número y orden causal en `RESERVAS_MIGRACIONES.md` fuera de Git; queda en
