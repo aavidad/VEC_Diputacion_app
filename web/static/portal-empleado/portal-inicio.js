@@ -12,8 +12,8 @@
  * sobre todo el cuadro con los criterios de la lista (recuentos-peticiones.js)
  * y la misma autorización; la portada no descarga filas ni deduce tareas.
  */
-import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 import { renderizarAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";

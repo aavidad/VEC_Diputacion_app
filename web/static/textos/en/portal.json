@@ -37,6 +37,8 @@
     "ofertas_sae_estado_texto": "Job offers sent to the Andalusian Employment Service (SAE) are not recorded in this application yet. HR has to decide which details are kept for each offer. In the meantime, keep handling them as you do now.",
     "ofertas_sae_volver": "Back to Home",
     "txt_ayuda_pantalla": "Help for this screen",
+    "preferencias_titulo_base": "My preferences",
+    "preferencias_textos_error": "The text for My preferences could not be loaded. Check your connection and select Retry.",
     "inicio_rrhh_pestana_expedientes": "Cases in progress",
     "inicio_rrhh_pestana_bolsas": "Job pools",
     "inicio_rrhh_pestana_sae": "SAE job offers",
@@ -151,6 +153,9 @@
     "accion_ir_inicio_portal": "Go to the Employee Portal home page",
     "operacion_no_compuesta": "This action stays disabled until its server command is available and authorised.",
     "accion_entrar": "Open",
+    "organizacion_arranque_reintentar": "Try again",
+    "organizacion_arranque_titulo": "Organisation",
+    "organizacion_arranque_error": "This Organisation screen could not be loaded.",
     "accion_reintentar": "Try again",
     "paginacion_marco_etiqueta": "Table pagination",
     "paginacion_marco_recuento": "Showing {inicio}–{fin} of {total}",
@@ -167,7 +172,8 @@
     "txt_b8_solicitud_documental": "Validated document request",
     "txt_solicitud_documental_rrhh": "Document request",
     "txt_solicitud_documental_rrhh_pendiente": "HR must check the document and decide; the request has not changed the status.",
-    "txt_b8_resolucion_solicitud": "Request resolved:"
+    "txt_b8_resolucion_solicitud": "Request resolved:",
+    "peticiones_centro_arranque_error": "Requests from the centre could not be loaded."
   },
   "textos": {
     "reincorporacion_titulo": "Return of the post holder",

@@ -1,0 +1,17 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "Ejercicio sintético preparatorio. No acredita identidad, empleo, perfiles ni acceso al portal.",
+    "uso_invalido": "Los parámetros no son válidos. Ejecute --help y vuelva a indicar los archivos necesarios.",
+    "entrada_insegura": "El archivo privado no cumple los permisos o la ruta exigidos.",
+    "entrada_invalida": "El plan, la aprobación o la conexión no coinciden.",
+    "acuse_inseguro": "No se pudo preparar el archivo de salida privado.",
+    "operacion_no_confirmada": "No se pudo confirmar la solicitud. Conserve los archivos y compruebe el resultado con reconcile antes de repetir apply.",
+    "commit_no_confirmado": "No se sabe si la declaración preparatoria quedó registrada. Conserve plan, conexión y aprobación; ejecute reconcile con un acuse nuevo. No repita apply.",
+    "acuse_no_guardado": "La respuesta quedó confirmada, pero no se guardó el acuse. Conserve los mismos archivos y ejecute reconcile con un acuse nuevo.",
+    "identidad_confirmada": "Declaración preparatoria registrada. No acredita identidad ni acceso al portal.",
+    "identidad_rechazada": "La solicitud fue denegada y el intento quedó auditado. Consulte el acuse privado.",
+    "identidad_no_disponible": "No se completó la solicitud; el intento quedó auditado. Consulte el acuse privado.",
+    "plan_preparado": "Plan preparado. Requiere aprobación privada y aplicación por la autoridad SQL."
+  }
+}

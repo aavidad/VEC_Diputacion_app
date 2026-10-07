@@ -9,8 +9,8 @@
  * pidió el servidor (estado o fase de origen) se muestran también como
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
-import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -89,26 +89,26 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
     <button type="button" class="boton-terciario" data-ct-exp-quitar-filtro="todos">${escapar(t("lista_quitar_todos"))}</button></div>`;
 }
 
-// La búsqueda y los filtros de pantalla solo ven la página cargada: si hay
-// más páginas y algún filtro está puesto (también «Mostrar» distinto de «En
-// trámite», al que llevan las cifras de la portada), se avisa.
+// Solo los filtros que realmente se aplican en pantalla se limitan a la página
+// cargada. Un texto o estado ya aplicado por el servidor no lleva este aviso.
 function busquedaParcial(cuadro, filtro) {
   return Boolean(cuadro.paginacion?.cursor_siguiente)
-    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria || filtro.mostrar !== "en_tramite");
+    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria
+      || !["en_tramite", "todas"].includes(filtro.mostrar));
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
-export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
+export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
-  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en, (expediente) => [
+  const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
     ayudas.numeroVisible(expediente.numero_visible),
     ayudas.centroVisible(expediente.centro).etiqueta,
   ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
-    ${busquedaParcial(cuadro, filtroEntrada) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
+    ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
     ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
       ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`
@@ -127,7 +127,8 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
 }
 
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
-export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "") {
+export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
+  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
   const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
@@ -140,7 +141,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
   const categorias = distintos(cuadro.expedientes, "categoria");
   return `<header class="cabeza-pagina">
       <div><h3 class="ct-exp-lista-titulo">${escapar(titulo)}</h3></div>
-      <button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>
+      ${altaDisponible ? `<button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>` : ""}
+      ${actualizarDisponible ? `<button type="button" class="boton-terciario" data-ct-exp-recargar>${escapar(t("lista_actualizar"))}</button>` : ""}
     </header>
     ${parcial ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
     <section class="panel ct-exp-listado" aria-labelledby="ct-exp-lista-titulo-panel">
@@ -164,8 +166,9 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
           </div>
         </details>
       </form>`}
-      ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t("lista_vacia_crear"))}</p>`
-    : renderizarResultadosLista(estado, t, filtro, ayudas)}
+      ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
+    ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
+    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados)}
       ${paginacion}
     </section>`;
 }

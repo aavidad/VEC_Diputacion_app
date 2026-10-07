@@ -4,8 +4,11 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261007-ct-ficha-b7-v1";
-const versionCircuito = "20261007-ct-ficha-final-v1";
+const versionCoordinador = "20261007-pantallas-textos-final-v1";
+const versionCircuito = "20261007-pantallas-textos-final-v1";
+const versionVista = "20261007-pantallas-textos-final-v1";
+const versionContratacion = "20261007-pantallas-textos-final-v1";
+
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
@@ -31,8 +34,8 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
     readFile(new URL("../../produccion.manifest", raiz), "utf8"),
   ]);
   const nueva = versionCoordinador;
-  const versionVista = versionCircuito;
-  const firma = versionVista;
+  const firma = versionCircuito;
+
   // portal.js puede renovarse después por otros cambios; basta que sea posterior.
   exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
   const versiones = [
@@ -59,7 +62,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   ];
   const [html, coordinador, formalizacion, firma, categorias, arranque, clienteCategorias] =
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
-  const version = "20261007-ct-ficha-final-v1";
+  const version = "20261007-pantallas-textos-final-v1";
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
   for (const hoja of [
     "./modulos/contratacion-temporal/cliente-http.js",

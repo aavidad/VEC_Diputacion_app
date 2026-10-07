@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesContratacionTemporalEnIdioma, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
+const MENSAJES_CONTRATACION_TEMPORAL_ES = await cargarMensajesContratacionTemporalEnIdioma("es");
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";
 
@@ -29,9 +30,9 @@ async function ficherosAuditados() {
 
 const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html"];
 
-test("Contratación temporal conserva claves y marcadores en inglés", () => {
-  const es = MENSAJES_CONTRATACION_TEMPORAL_ES;
-  const en = MENSAJES_CONTRATACION_TEMPORAL_EN;
+test("Contratación temporal conserva claves y marcadores en inglés", async () => {
+  const es = await cargarMensajesContratacionTemporalEnIdioma("es");
+  const en = await cargarMensajesContratacionTemporalEnIdioma("en");
   assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
   const marcadores = (valor) => [...valor.matchAll(/\{[a-z_]+\}/gu)].map((match) => match[0]).sort();
   for (const clave of Object.keys(es)) {

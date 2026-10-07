@@ -19,7 +19,7 @@ import {
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
 import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -51,6 +51,71 @@ function raizFalsa() {
     removeAttribute() {},
   };
 }
+
+test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una vez al abrirla", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const consultas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async (ruta, opciones) => {
+      if (ruta !== "/api/vec/contratacion-temporal/cuadro/consultas") {
+        throw new Error(`ruta CT inesperada: ${ruta}`);
+      }
+      const solicitud = JSON.parse(opciones.body);
+      consultas.push(solicitud);
+      return respuestaJSON({ data: {
+        esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+        generada_en: "2026-10-01T09:00:00Z", expedientes: [], hay_mas: false,
+        ...(solicitud.resumen ? { resumen: { en_tramite: 0, con_incidencia: 0,
+          vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} } } : {}),
+      } });
+    } },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(consultas.length, 0, "la carga modular no hace POST CT");
+  assert.equal(coordinador.obtenerCuadroInicio(), null);
+  const resumen = await coordinador.prepararResumenInicio();
+  assert.deepEqual(resumen.resumen.por_fase, {});
+  await coordinador.prepararResumenInicio();
+  assert.equal(consultas.length, 1);
+  assert.equal(consultas[0].resumen, true);
+  assert.equal(consultas[0].paginacion.limite, 1);
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  assert.equal(consultas.length, 2, "la lista hace su propia consulta paginada, sin repetir resumen");
+  assert.equal(consultas[1].paginacion.limite, 100);
+  assert.equal(Object.hasOwn(consultas[1], "resumen"), false);
+  assert.match(raiz.innerHTML, /No hay peticiones en trámite/u);
+  coordinador.desmontarVistaActual();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa(),
+    { filtroLista: { mostrar: "incidencia" } }), true);
+  assert.equal(consultas.length, 3);
+  assert.equal(consultas[2].filtros.estado_clave, "incidencia");
+  assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 1);
+  coordinador.desmontarVistaActual();
+});
+
+test("el cargador CT ligero exige un único perfil CT atestado", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  for (const roles of [["personal_interno"], [], ["tecnico_rrhh", "intervencion"]]) {
+    let consultas = 0;
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles }),
+      entorno: { Headers, fetch: async () => { consultas += 1; throw new Error("consulta CT inesperada"); } },
+    });
+    await coordinador.cargarInterno();
+    assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+    assert.equal(coordinador.esPerfilRRHH(), false);
+    assert.equal(consultas, 0);
+  }
+});
 
 function raizDietasFalsa() {
   const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
@@ -963,6 +1028,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
   );
 
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
   for (const [idioma, texto, navegacion, cabecera] of [
     ["es-ES", "Expediente cargado.", "Lista de peticiones", "Fecha de registro"],
     ["en-GB", "Case file loaded.", "Request list", "Date recorded"],
@@ -991,7 +1057,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
           mensajesAdaptador = opciones.mensajes;
           assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
           assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
-          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, mensajesEN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (

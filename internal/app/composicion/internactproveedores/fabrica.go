@@ -29,11 +29,13 @@ import (
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
 	pl "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	app "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrProveedoresCTNoDisponibles = errors.New("composicion interna: proveedores CT no disponibles")
@@ -49,19 +51,29 @@ type Configuracion struct {
 // Proveedores conserva la propiedad de los pools y la devuelve al montaje.
 // No instala SQL, claves, asignaciones ni gobierno al arrancar.
 type Proveedores struct {
-	Cadena          *inc.CadenaAutorizacionAplicacion
-	Detalle         *appct.ServicioConsultaDetalleRRHH
-	Planes          []byte
-	TernaPlanes     ct.ReferenciaVersionadaPersonalRPT
-	FuentePersonal  []byte
-	TernaPersonal   fuenteejercicio.TernaEsperada
-	pools           []*pgxpool.Pool
-	motivos         *pgct.PoolResolucionMotivosRRHHPostgreSQL
-	consultas       *pgct.PoolConsultasRRHHPostgreSQL
-	firmante        *firmanteV3
-	pdp             *app.ServicioAutorizacionSolicitudLigadaV3
-	catalogoMotivos string
-	gobierno        *gobiernoV3Compartido
+	Cadena             *inc.CadenaAutorizacionAplicacion
+	Detalle            *appct.ServicioConsultaDetalleRRHH
+	Planes             []byte
+	TernaPlanes        ct.ReferenciaVersionadaPersonalRPT
+	FuentePersonal     []byte
+	TernaPersonal      fuenteejercicio.TernaEsperada
+	pools              []*pgxpool.Pool
+	motivos            *pgct.PoolResolucionMotivosRRHHPostgreSQL
+	consultas          *pgct.PoolConsultasRRHHPostgreSQL
+	firmante           *firmanteV3
+	pdp                *app.ServicioAutorizacionSolicitudLigadaV3
+	fuenteAutorizacion *pgvec.AlmacenAutorizacion
+	catalogoMotivos    string
+	gobierno           *gobiernoV3Compartido
+}
+
+// FuenteAutorizacionV3 entrega la misma fuente central que consumen los PDP
+// ya montados. No abre otra conexión ni resuelve una instantánea al consultarla.
+func (p *Proveedores) FuenteAutorizacionV3() vecports.FuenteAutorizacion {
+	if p == nil || p.fuenteAutorizacion == nil {
+		return nil
+	}
+	return p.fuenteAutorizacion
 }
 
 // gobiernoV3Compartido es la única raíz de atestación del proceso: la carga CT
@@ -96,6 +108,7 @@ func (p *Proveedores) Cerrar() {
 		p.firmante = nil
 	}
 	p.pdp = nil
+	p.fuenteAutorizacion = nil
 	p.gobierno = nil
 	p.catalogoMotivos = ""
 	clear(p.Planes)
@@ -194,6 +207,7 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if e != nil {
 		return fallo()
 	}
+	salida.fuenteAutorizacion = fuente
 	registro, e := pgvec.NuevoAlmacenAutorizacion(salida.pools[1])
 	if e != nil {
 		return fallo()
@@ -648,7 +662,7 @@ func abrirPool(ctx context.Context, m PoolMaterial, p perfilPool) (*pgxpool.Pool
 		}
 		return acreditarPerfilEfectivo(ctx, con, p)
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, cfg)
 	if err != nil {
 		return nil, ErrProveedoresCTNoDisponibles
 	}

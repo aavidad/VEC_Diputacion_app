@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   cargarContratosFicha,
   cargarMensajesContratos,
+  prepararMensajesContratos,
   consultarContratosParticipacion,
   ESQUEMA_CONTRATOS,
   manejarClickContratos,
@@ -11,6 +12,7 @@ import {
   rutaContratosParticipacion,
   traducirContratos,
 } from "./portal-bolsas-contratos.js?v=20261001-ct-a-i18n-v1";
+await prepararMensajesContratos();
 
 const escaparHTML = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 

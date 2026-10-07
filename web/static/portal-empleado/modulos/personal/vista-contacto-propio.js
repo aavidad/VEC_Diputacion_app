@@ -1,7 +1,7 @@
 import { crearClienteCorreos, direccionCorreoAdmisible, MAX_CORREOS } from "../../../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const textos = await cargarTextos("personal-contacto");
 const t = (clave) => textos.traducir(clave);

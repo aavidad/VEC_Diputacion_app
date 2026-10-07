@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cambiarIdioma, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES, leerRecursoJSON, localizacionDe, montarSelectorIdioma,
-  normalizarIndiceIdiomas, seleccionarIdioma } from "./idioma.js";
-import { cargarTextos, crearTextos, esMensajePlural, urlCatalogo } from "./textos.js";
+import { cambiarIdioma, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES, leerPorRed, leerRecursoJSON, localizacionDe, montarSelectorIdioma,
+  normalizarIndiceIdiomas, prepararIdiomas, seleccionarIdioma } from "./idioma.js";
+import { cargarTextos, crearTextos, esCatalogoValido, esMensajePlural, reintentarTextos, urlCatalogo } from "./textos.js";
 
 // Índice propio de la prueba: los idiomas son datos, también un tercero inventado.
 const INDICE = normalizarIndiceIdiomas({
@@ -13,6 +13,8 @@ const INDICE = normalizarIndiceIdiomas({
     { codigo: "cc", nombre: "Idioma C", localizacion: "fr-FR" },
   ],
 });
+
+await prepararIdiomas();
 
 test("el idioma sale del índice de datos: URL, navegador y defecto", () => {
   assert.equal(seleccionarIdioma("cc", ["bb"], INDICE), "cc");
@@ -94,7 +96,7 @@ test("plurales con Intl.PluralRules y formatos por la localización del catálog
   assert.equal(esMensajePlural({ other: "b", titulo: "c" }), false);
 });
 
-test("cargarTextos lee respaldo y propio; si falta el propio usa el respaldo entero", async () => {
+test("cargarTextos lee sólo el elegido y usa el respaldo entero si falla", async () => {
   const leidos = [];
   const leer = async (url) => {
     leidos.push(url.pathname.split("/textos/")[1]);
@@ -104,15 +106,18 @@ test("cargarTextos lee respaldo y propio; si falta el propio usa el respaldo ent
   };
   const raiz = new URL("https://vec.example/textos/");
   const bb = await cargarTextos("prueba", { idioma: "bb", porDefecto: "aa", leer, raiz, avisar: () => {} });
-  assert.deepEqual(leidos.sort(), ["aa/prueba.json", "bb/prueba.json"]);
+  assert.deepEqual(leidos, ["bb/prueba.json"]);
   assert.equal(bb.idioma, "bb");
   assert.equal(bb.traducir("general.saludo", { nombre: "Ann" }), "Hello, Ann");
+  assert.throws(() => bb.traducir("general.solo"), /desconocida/u);
   const avisos = [];
   const cc = await cargarTextos("prueba", { idioma: "cc", porDefecto: "aa", leer, raiz, avisar: (m) => avisos.push(m) });
   assert.equal(cc.idioma, "aa");
+  assert.equal(cc.incidenciaCatalogo.codigo, "catalogo_no_disponible");
   assert.equal(cc.traducir("general.saludo", { nombre: "Ana" }), "Hola, Ana");
   assert.equal(avisos.length, 1);
-  await assert.rejects(cargarTextos("otro", { idioma: "bb", porDefecto: "aa", leer, raiz, avisar: () => {} }));
+  await assert.rejects(cargarTextos("otro", { idioma: "bb", porDefecto: "aa", leer, raiz, avisar: () => {} }), /no existe/u);
+  assert.deepEqual(leidos.slice(-2), ["bb/otro.json", "aa/otro.json"]);
 });
 
 test("las rutas de catálogo no admiten recorridos ni nombres arbitrarios", () => {
@@ -132,6 +137,101 @@ test("el transporte JSON solo lee el propio origen, sin redirecciones ni Referer
   assert.deepEqual(llamadas, []);
 });
 
+test("el transporte reintenta una vez 502, 503 y caída de red; conserva la incidencia final", async () => {
+  const url = new URL("./idioma.js", import.meta.url);
+  for (const fallo of [502, 503, new Error("red")]) {
+    const llamadas = [];
+    const fetchImpl = async (_url, opciones) => {
+      llamadas.push(opciones);
+      if (llamadas.length === 1) {
+        if (fallo instanceof Error) throw fallo;
+        return { ok: false, status: fallo };
+      }
+      return { ok: true, headers: { get: () => null }, text: async () => "{}" };
+    };
+    assert.equal(await leerPorRed(url, fetchImpl), "{}");
+    assert.equal(llamadas.length, 2);
+    assert.equal(llamadas[0].credentials, "same-origin");
+    assert.equal(llamadas[0].redirect, "error");
+    assert.equal(llamadas[0].cache, "no-store");
+  }
+  let intentos = 0;
+  await assert.rejects(leerPorRed(url, async () => { intentos++; return { ok: false, status: 503 }; }), /503/u);
+  assert.equal(intentos, 2);
+});
+
+test("la lectura de red limita bytes UTF-8 y cancela el flujo demasiado grande", async () => {
+  const url = new URL("./idioma.js", import.meta.url);
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    text: async () => "á".repeat(1_100_000) })), /demasiado grande/u);
+  let cancelado = false;
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    body: { getReader: () => ({ read: async () => ({ done: false, value: new Uint8Array(2_097_153) }),
+      cancel: async () => { cancelado = true; }, releaseLock: () => {} }) } })), /demasiado grande/u);
+  assert.equal(cancelado, true);
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    body: { getReader: () => ({ read: async () => ({ done: false, value: new Uint8Array(2_097_153) }),
+      cancel: async () => { throw new Error("cancelación fallida"); }, releaseLock: () => {} }) } })),
+  (error) => error instanceof AggregateError && error.errors.length === 2
+    && /demasiado grande/u.test(error.errors[0].message)
+    && /cancelación fallida/u.test(error.errors[1].message));
+});
+
+test("JSON roto en el elegido recupera el catálogo por defecto y registra la causa", async () => {
+  const leidos = [];
+  const leer = async (url) => {
+    leidos.push(url.pathname);
+    if (url.pathname.includes("/en/")) throw new SyntaxError("JSON inválido");
+    return RESPALDO;
+  };
+  const textos = await cargarTextos("prueba", { idioma: "en", porDefecto: "es", leer,
+    raiz: new URL("https://vec.example/textos/"), avisar: () => {} });
+  assert.equal(textos.idioma, "es");
+  assert.equal(textos.incidenciaCatalogo.causa.name, "SyntaxError");
+  assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "es"]);
+});
+
+test("catálogo 200 inválido se reintenta y luego usa respaldo válido", async () => {
+  for (const malo of [{}, { general: {} }, { general: { saludo: "" } },
+    { general: { dias: { one: "día" } } }, { general: { saludo: 3 } }]) {
+    assert.equal(esCatalogoValido(malo), false);
+    const leidos = [];
+    const textos = await cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+      leer: async (url) => { leidos.push(url.pathname); return url.pathname.includes("/en/") ? malo : RESPALDO; },
+      raiz: new URL("https://vec.example/textos/"), avisar: () => {} });
+    assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en", "es"]);
+    assert.equal(textos.idioma, "es");
+    assert.equal(textos.incidenciaCatalogo.causa.name, "TypeError");
+  }
+});
+
+test("catálogo elegido inválido puede recuperarse en su reintento sin pedir respaldo", async () => {
+  const leidos = [];
+  const textos = await cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+    leer: async (url) => { leidos.push(url.pathname); return leidos.length === 1 ? {} : RESPALDO; },
+    raiz: new URL("https://vec.example/textos/"), avisar: () => {} });
+  assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en"]);
+  assert.equal(textos.idioma, "en");
+  assert.equal(textos.incidenciaCatalogo, null);
+});
+
+test("catálogo por defecto inválido también rechaza tras un único reintento", async () => {
+  const leidos = [];
+  await assert.rejects(cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+    leer: async (url) => { leidos.push(url.pathname); return {}; },
+    raiz: new URL("https://vec.example/textos/"), avisar: () => {} }), /no válido/u);
+  assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en", "es", "es"]);
+});
+
+test("los catálogos reales es y en se cargan sin incidencia", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("portal", { idioma, porDefecto: "es" });
+    assert.equal(textos.idioma, idioma);
+    assert.equal(textos.incidenciaCatalogo, null);
+    assert.ok(Object.keys(textos.seccion("general")).length > 0);
+  }
+});
+
 // 06/10/2026: el catálogo del idioma por defecto es el respaldo de todos los
 // demás y se descargaba una vez por idioma pedido. Ahora se lee una sola vez.
 test("cada catálogo se lee una sola vez y una lectura fallida se puede repetir", async () => {
@@ -145,4 +245,11 @@ test("cada catálogo se lee una sola vez y una lectura fallida se puede repetir"
   await assert.rejects(fallida);
   assert.notEqual(leerCatalogoUnaVez(ausente), fallida);
   await assert.rejects(leerCatalogoUnaVez(ausente));
+});
+
+test("reintentarTextos invalida la lectura previa y devuelve una nueva instancia", async () => {
+  const primero = await cargarTextos("portal", { idioma: "es", porDefecto: "es" });
+  const segundo = await reintentarTextos("portal", { idioma: "es", porDefecto: "es" });
+  assert.notEqual(segundo, primero);
+  assert.deepEqual(segundo.seccion("general"), primero.seccion("general"));
 });
