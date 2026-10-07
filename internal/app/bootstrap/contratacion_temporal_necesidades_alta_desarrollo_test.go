@@ -71,6 +71,15 @@ func TestProyeccionPreparadaDeCuatroCausasDeNecesidadVersionadas(t *testing.T) {
 	if catalogo.Causas[1].FechaFin != "opcional" || catalogo.Causas[1].CausaFin != "reincorporacion_titular" {
 		t.Fatal("se perdió la regla de fin abierto de sustitución")
 	}
+	puestoObligatorio := false
+	for _, campo := range catalogo.Causas[1].CamposObligatorios {
+		if campo == "puesto_codigo" {
+			puestoObligatorio = true
+		}
+	}
+	if !puestoObligatorio {
+		t.Fatal("sustitución sin puesto RPT obligatorio")
+	}
 }
 
 func TestJornadaSinReglaUsaDatoYReglaDeclaradaIncompletaFalla(t *testing.T) {

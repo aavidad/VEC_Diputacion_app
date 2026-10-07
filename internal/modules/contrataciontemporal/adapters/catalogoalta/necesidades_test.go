@@ -129,10 +129,20 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	if c.ValidarDatos(programa) == nil {
 		t.Fatal("programa más corto que la cobertura")
 	}
-	sustitucion := domain.DatosNecesidadAlta{CausaClave: "sustitucion", Periodo: domain.PeriodoPrevisto{Inicio: inicio, CausaFin: "reincorporacion_titular"}, JornadaMinutos: 2250, Campos: campos(nil)}
+	sustitucion := domain.DatosNecesidadAlta{CausaClave: "sustitucion", Periodo: domain.PeriodoPrevisto{Inicio: inicio, CausaFin: "reincorporacion_titular"}, JornadaMinutos: 2250, Campos: campos(map[string]string{"puesto_codigo": "3388"})}
 	ligar(&sustitucion)
 	if err := c.ValidarDatos(sustitucion); err != nil {
 		t.Fatal("fin por reincorporación rechazado", err)
+	}
+	delete(sustitucion.Campos, "puesto_codigo")
+	if c.ValidarDatos(sustitucion) == nil {
+		t.Fatal("sustitución sin puesto RPT")
+	}
+	sustitucion.Campos["puesto_codigo"] = "3388"
+	sustitucion.Campos["plaza_codigo"] = "1201"
+	sustitucion.Campos["titular_ref"] = "persona:opaca:1"
+	if err := c.ValidarDatos(sustitucion); err != nil {
+		t.Fatal("puesto, plaza y titular nominal opcional", err)
 	}
 }
 

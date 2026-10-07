@@ -28,8 +28,8 @@
       "fecha_fin": "opcional",
       "causa_fin": "reincorporacion_titular",
       "maximo_meses": 36,
-      "campos_permitidos": ["titular_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
-      "campos_obligatorios": ["organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+      "campos_permitidos": ["puesto_codigo", "plaza_codigo", "titular_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["puesto_codigo", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
     },
     {
       "clave": "acumulacion_tareas",
