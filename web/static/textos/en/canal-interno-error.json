@@ -5,5 +5,6 @@
   "idioma": "Language",
   "pie": "Provincial Council of Granada · Public information",
   "error": "The information could not be loaded in the selected language. Check your connection and select Retry.",
+  "error_fuentes": "The institutional links could not be loaded. Check your connection and select Retry.",
   "reintentar": "Retry"
 }

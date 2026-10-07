@@ -23,6 +23,7 @@ export function validarFuentes(datos) {
 
 const porId = (id) => document.getElementById(id);
 let textos;
+let errorDeFuentes = false;
 
 function ponerTextos() {
   porId("ayuda-boton").hidden = false;
@@ -47,7 +48,7 @@ function mostrarError() {
   porId("ayuda").hidden = true;
   porId("ayuda-boton").setAttribute("aria-expanded", "false");
   const mensaje = document.createElement("p");
-  mensaje.textContent = textos.traducir("error");
+  mensaje.textContent = textos.traducir(errorDeFuentes ? "error_fuentes" : "error");
   const reintentar = document.createElement("button");
   reintentar.type = "button";
   reintentar.textContent = textos.traducir("reintentar");
@@ -56,14 +57,17 @@ function mostrarError() {
 }
 
 async function cargar() {
+  errorDeFuentes = false;
   porId("estado").replaceChildren();
   porId("pagina").hidden = true;
   try {
     textos = await cargarTextos("canal-interno", { leer: leerRecursoJSON });
     if (textos.idioma !== IDIOMA_ACTUAL || textos.faltantes.length > 0) throw new TypeError("catálogo incompleto");
     ponerTextos();
+    errorDeFuentes = true;
     const fuentes = validarFuentes(await leerRecursoJSON(RUTA_FUENTES));
     Object.entries(fuentes).forEach(([clave, registro]) => { porId(clave).href = registro.url; });
+    errorDeFuentes = false;
     porId("pagina").hidden = false;
   } catch {
     try {

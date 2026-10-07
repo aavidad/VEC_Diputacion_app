@@ -5,5 +5,6 @@
   "idioma": "Idioma",
   "pie": "Diputación Provincial de Granada · Información pública",
   "error": "No se ha podido cargar la información en el idioma elegido. Compruebe la conexión y pulse Reintentar.",
+  "error_fuentes": "No se han podido cargar los enlaces institucionales. Compruebe la conexión y pulse Reintentar.",
   "reintentar": "Reintentar"
 }

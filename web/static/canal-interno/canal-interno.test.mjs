@@ -29,7 +29,7 @@ test("los dos catálogos traducen todas las claves visibles de la página", asyn
     for (const clave of claves) assert.ok(catalogo[clave], `${idioma}: ${clave}`);
     for (const clave of ["documento", "ayuda_boton", "error", "reintentar"]) assert.ok(catalogo[clave], `${idioma}: ${clave}`);
     const error = await leer(`../textos/${idioma}/canal-interno-error.json`);
-    for (const clave of ["documento", "saltar", "marca", "idioma", "pie", "error", "reintentar"]) assert.ok(error[clave], `${idioma}: ${clave}`);
+    for (const clave of ["documento", "saltar", "marca", "idioma", "pie", "error", "error_fuentes", "reintentar"]) assert.ok(error[clave], `${idioma}: ${clave}`);
   }
 });
 
