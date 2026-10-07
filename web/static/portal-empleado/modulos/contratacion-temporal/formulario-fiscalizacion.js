@@ -5,8 +5,8 @@ import {
   validarSolicitudResultadoFiscalizacion,
 } from "./contrato-fiscalizacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_FIRMA_REMISION_ES } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_REMISION_ACTUAL } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
@@ -194,7 +194,7 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
   let anunciarActual = anunciar;
   let alConfirmarActual = alConfirmar;
   let t = crearTraductorContratacionTemporal({
-    ...MENSAJES_FIRMA_REMISION_ES, ...MENSAJES_INFORME_TRAS_SUBSANACION_ES, ...mensajes,
+    ...MENSAJES_FIRMA_REMISION_ACTUAL, ...MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL, ...mensajes,
   });
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,

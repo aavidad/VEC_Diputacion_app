@@ -12,8 +12,8 @@ import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.
@@ -137,12 +137,10 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
 }
 
 test("los catálogos y los traductores conservan marcadores, sobrescrituras y claves desconocidas", async () => {
-  const contratacion = await import("./i18n.js");
-  const expedientes = await import("./i18n-expedientes.js");
-  for (const [nombre, codigo] of Object.entries(codigos)) {
+  for (const codigo of Object.values(codigos)) {
     for (const [mensajes, crear] of [
-      [contratacion[`MENSAJES_CONTRATACION_TEMPORAL_${nombre}`], crearTraductorContratacionTemporal],
-      [expedientes[`MENSAJES_EXPEDIENTES_CONTRATACION_${nombre}`], crearTraductorExpedientesContratacion],
+      [await cargarMensajesContratacionTemporalEnIdioma(codigo), crearTraductorContratacionTemporal],
+      [await cargarMensajesExpedientesContratacionEnIdioma(codigo), crearTraductorExpedientesContratacion],
     ]) {
       const traducir = crear(mensajes);
       for (const [clave, original] of Object.entries(mensajes)) {
@@ -198,7 +196,7 @@ test("las exportaciones no cambian al reordenar el índice ni al cambiar el idio
     await writeFile(join(temporal, "textos/idiomas.json"), JSON.stringify(indice));
     const modulo = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js")));
     const esperado = (await cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", codigos.EN)).actual;
-    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_ES, esperado);
+    assert.equal(modulo.MENSAJES_ANALISIS_CATALOGO_ES, undefined);
     assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, esperado);
     const helper = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js")));
     assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, esperado);
