@@ -80,7 +80,7 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 	catalogo, err := h.fuenteGobiernoRol.ObtenerCatalogoAccionesAdministracionV1(r.Context(),
 		dto.CatalogoRef, dto.CatalogoVersion, dto.CatalogoHuellaSHA256)
 	if err != nil {
-		falloError(w, err)
+		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
 		return
 	}
 	var seleccion *domain.EntradaAccionAdministracionV1
@@ -123,7 +123,7 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 		Intencion: intencion, HuellaPlanEsperada: huellaPlan, CorrelacionRef: sesion.CorrelacionRef}
 	propuesta, err := h.gobiernoRol.ProponerGobiernoPerfil(r.Context(), solicitud)
 	if err != nil {
-		falloError(w, err)
+		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
 		return
 	}
 	if propuesta.Material.OperacionRef != dto.OperacionRef || propuesta.Material.Plan.VersionRolObjetivoRef != propuestaRol.Referencia() {
@@ -164,7 +164,7 @@ func (h *Handler) postGobiernoRolCerrar(w http.ResponseWriter, r *http.Request, 
 	}
 	cierre, err := h.gobiernoRol.CerrarGobiernoRolPorReferencia(r.Context(), solicitud)
 	if err != nil {
-		falloError(w, err)
+		h.responderErrorGobiernoRol(w, r, sesion, err, dto.PropuestaRef)
 		return
 	}
 	completa, err := solicitud.CompletarCierreGobiernoRolConMaterial(cierre.Material)
@@ -183,4 +183,21 @@ func (h *Handler) postGobiernoRolCerrar(w http.ResponseWriter, r *http.Request, 
 	}{cierre.OperacionRef, cierre.Material.OperacionRef,
 		cierre.Material.Plan.VersionRolObjetivoRef, cierre.Recibo.ReciboRef,
 		cierre.Recibo.AuditoriaRef, cierre.AuditoriaAccesoRef, cierre.ConfirmadoEn})
+}
+
+func (h *Handler) responderErrorGobiernoRol(w http.ResponseWriter, r *http.Request,
+	sesion SesionConfiable, err error, recurso string) {
+	if errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) {
+		falloError(w, err)
+		return
+	}
+	// Antes de que AUT60 registre un intento (fuente ausente, rol sin
+	// concesión, PDP/emisor caído o transacción no abierta), la frontera
+	// conserva el fallo con la sesión nominal. Si este registro falla,
+	// responde indisponibilidad y no finge que el intento quedó auditado.
+	estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
+	if errors.Is(err, domain.ErrAutorizacionDenegada) {
+		estado, codigo = http.StatusForbidden, "acceso_denegado"
+	}
+	h.denegarActor(w, r, sesion, estado, codigo, "escribir", recurso)
 }

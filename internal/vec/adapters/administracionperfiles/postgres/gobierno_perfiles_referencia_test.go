@@ -156,7 +156,7 @@ func cierreGobiernoReferenciaPrueba(t *testing.T, ahora, confirmadoEn time.Time)
 		CatalogoID:           "motivos_administracion",
 		CatalogoVersion:      1,
 		CatalogoHuellaSHA256: strings.Repeat("c", 64),
-		EntradaClave:         "gobierno_rol_nuevo",
+		EntradaClave:         "motivo_" + strings.Repeat("a", 32),
 	}
 	concesion := domain.ConcesionRol{
 		Accion:         "bolsa.carga_convoca.confirmar",

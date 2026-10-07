@@ -8,7 +8,6 @@ import (
 )
 
 var _ ports.AutoridadCierreGobiernoRolPorReferencia = (*AutoridadGobiernoRolNuevo)(nil)
-var _ ports.AutoridadCierreGobiernoRolPorReferencia = (*AutoridadPerfilesConGobierno)(nil)
 
 // CerrarGobiernoRolPorReferencia conserva la propuesta original como fuente
 // de proponente y RolID. AUT60 resuelve ambos bajo el cerrojo/CAS de la misma
@@ -43,7 +42,7 @@ func (a *AutoridadGobiernoRolNuevo) CerrarGobiernoRolPorReferencia(ctx context.C
 				PropuestaHuellaSHA256: r.PropuestaHuellaSHA256, Decision: r.Decision,
 				ConfirmadoEn: r.ConfirmadoEn, AuditoriaAccesoRef: r.AuditoriaAccesoRef,
 				Recibo: r.Recibo.Dominio()}
-			if r.Cierre.ValidarPara(completa) != nil {
+			if r.Cierre.ValidarPara(completa) != nil || r.Cierre.ConfirmadoEn.After(a.reloj.Ahora()) {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
 			return nil

@@ -2,9 +2,15 @@ package ports
 
 import (
 	"context"
+	"errors"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+// ErrGobiernoRolIntentoAuditado sólo marca un fallo cuya auditoría de intento
+// AUT60 ya confirmó en la misma transacción. La frontera HTTP registra los
+// demás fallos; no infiere auditoría de un SQLSTATE ni del PDP en memoria.
+var ErrGobiernoRolIntentoAuditado = errors.New("gobierno_rol_intento_auditado")
 
 // AutoridadCierreGobiernoRolPorReferencia conserva el cierre en la autoridad
 // central. Debe recuperar la propuesta original dentro de la misma transacción

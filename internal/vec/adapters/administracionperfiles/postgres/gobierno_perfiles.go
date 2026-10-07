@@ -52,14 +52,18 @@ const acreditarGobiernoRolSQL = `SELECT current_user=session_user AND r.rolcanlo
    AND pg_catalog.has_schema_privilege(current_user,n.oid,'CREATE'))
  AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,
+   pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),'EXECUTE')
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\' AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE')
    AND p.oid NOT IN (pg_catalog.to_regprocedure('vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
-    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')))
+    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+    pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)')))
  FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`
 
 func NuevaAutoridadGobiernoRolNuevo(ctx context.Context, pool *pgxpool.Pool,
@@ -128,7 +132,7 @@ func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoPerfil(ctx context.Context,
 	var r propuestaGobiernoRolRespuesta
 	err = a.ejecutarGobierno(ctx, o.Solicitud.Actor, o.Solicitud.Evidencia,
 		o.Solicitud.InstantaneaAutorizacion, e, proponerGobiernoRolSQL, func(b []byte) error {
-		if decodificarGobiernoRol(b, &r) != nil || r.Estado != "permitido" ||
+			if decodificarGobiernoRol(b, &r) != nil || r.Estado != "permitido" ||
 				r.HuellaSHA256 == "" || !r.CaducaEn.After(a.reloj.Ahora()) {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
@@ -174,7 +178,7 @@ func (a *AutoridadGobiernoRolNuevo) CerrarGobiernoPerfil(ctx context.Context,
 				PropuestaHuellaSHA256: r.PropuestaHuellaSHA256, Decision: r.Decision,
 				ConfirmadoEn: r.ConfirmadoEn, AuditoriaAccesoRef: r.AuditoriaAccesoRef,
 				Recibo: r.Recibo.Dominio()}
-			if r.Cierre.ValidarPara(s) != nil {
+			if r.Cierre.ValidarPara(s) != nil || r.Cierre.ConfirmadoEn.After(a.reloj.Ahora()) {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
 			return nil
@@ -304,7 +308,10 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 		// autorización nueva, nunca entregando un recibo provisional.
 		return fallo
 	}
-	return errorIntento
+	if errorIntento != nil {
+		return errors.Join(ports.ErrGobiernoRolIntentoAuditado, errorIntento)
+	}
+	return nil
 }
 
 func traducirGobiernoRol(ctx context.Context, _ error) error {
@@ -355,22 +362,4 @@ func (r reciboGobiernoRolRespuesta) Dominio() *domain.ReciboGobiernoPerfil {
 		AsignacionPerfilRef: r.AsignacionPerfilRef, CorrelacionRef: r.CorrelacionRef,
 		Motivo: r.Motivo, AuditoriaRef: r.AuditoriaRef, VersionRol: r.VersionRol,
 		ControlPosterior: r.ControlPosterior}
-}
-
-// AutoridadPerfilesConGobierno añade el puerto nuevo sin modificar el
-// adaptador AUT24 ni su LOGIN. Su construcción corresponde a composición.
-type AutoridadPerfilesConGobierno struct {
-	ports.AutoridadActosAdministracionPerfiles
-	*AutoridadGobiernoRolNuevo
-}
-
-var _ ports.AutoridadActosAdministracionPerfiles = (*AutoridadPerfilesConGobierno)(nil)
-var _ ports.AutoridadGobiernoPerfiles = (*AutoridadPerfilesConGobierno)(nil)
-
-func NuevaAutoridadPerfilesConGobierno(actos ports.AutoridadActosAdministracionPerfiles,
-	gobierno *AutoridadGobiernoRolNuevo) (*AutoridadPerfilesConGobierno, error) {
-	if ausente(actos) || gobierno == nil {
-		return nil, ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	return &AutoridadPerfilesConGobierno{AutoridadActosAdministracionPerfiles: actos, AutoridadGobiernoRolNuevo: gobierno}, nil
 }
