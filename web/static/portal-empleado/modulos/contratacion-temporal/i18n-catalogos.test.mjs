@@ -8,8 +8,6 @@ const fuente = (await readFile(new URL("./i18n-catalogos.js", import.meta.url), 
 
 function preparar(lector) {
   const crear = new Function("lector", `
-    let IDIOMA_ACTUAL = "und";
-    const prepararIdiomas = async () => { IDIOMA_ACTUAL = "en"; };
     const cargarTextos = lector;
     ${fuente}
     return { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma };
@@ -28,8 +26,9 @@ function datos(modulo, idioma) {
 test("prepara el índice antes de elegir el idioma predeterminado y pide solo ese idioma", async () => {
   const leidos = [];
   const helper = preparar(async (modulo, { idioma }) => {
-    leidos.push(`${idioma}/${modulo}`);
-    return datos(modulo, idioma);
+    const efectivo = idioma ?? "en";
+    leidos.push(`${efectivo}/${modulo}`);
+    return datos(modulo, efectivo);
   });
   const catalogos = await helper.cargarCatalogosContratacion("contratacion-temporal-prueba");
   assert.deepEqual(leidos.sort(), ["en/contratacion-temporal-compatibilidad", "en/contratacion-temporal-prueba"]);
@@ -41,8 +40,9 @@ test("prepara el índice antes de elegir el idioma predeterminado y pide solo es
 test("el idioma explícito se consulta por separado y el respaldo común informa su idioma real", async () => {
   const leidos = [];
   const helper = preparar(async (modulo, { idioma }) => {
-    leidos.push(`${idioma}/${modulo}`);
-    return datos(modulo, modulo === "contratacion-temporal-prueba" && idioma === "en" ? "es" : idioma);
+    const efectivo = idioma ?? "en";
+    leidos.push(`${efectivo}/${modulo}`);
+    return datos(modulo, modulo === "contratacion-temporal-prueba" && efectivo === "en" ? "es" : efectivo);
   });
   const explicito = await helper.cargarCatalogosContratacionEnIdioma("contratacion-temporal-prueba", "es");
   assert.equal(explicito.actual.titulo, "es:general");
@@ -58,7 +58,7 @@ test("el helper no memoriza un rechazo y permite reintentar en la misma sesión"
   let caido = true;
   const helper = preparar(async (modulo, { idioma }) => {
     if (caido && modulo === "contratacion-temporal-prueba") throw new Error("caída de prueba");
-    return datos(modulo, idioma);
+    return datos(modulo, idioma ?? "en");
   });
   await assert.rejects(helper.cargarCatalogosContratacion("contratacion-temporal-prueba"), /caída de prueba/u);
   caido = false;
