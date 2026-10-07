@@ -40,7 +40,11 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := func(huella string, contenido []byte) ([]byte, string) {
-		b, err := json.Marshal(planMinimo{CatalogoCanon: string(contenido), CatalogoSHA256: huella})
+		b, err := json.Marshal(planMinimo{OperacionRef: "caa_" + strings.Repeat("a", 22),
+			CatalogoCanon: string(contenido), CatalogoRef: c.Referencia, CatalogoVersion: "1",
+			CatalogoSHA256: huella, PaqueteRef: c.FuenteRef, PaqueteVersion: "1",
+			PaqueteSHA256: c.FuenteHuellaSHA256, AprobacionRef: "aprobacion:sintetica",
+			AprobacionSHA256: strings.Repeat("c", 64)})
 		if err != nil {
 			t.Fatal(err)
 		}

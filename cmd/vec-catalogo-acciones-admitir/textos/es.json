@@ -8,7 +8,7 @@
   "plan_inseguro": "No se puede abrir el plan aprobado con seguridad.",
   "plan_invalido": "El plan no coincide con la huella indicada o contiene un catálogo inválido.",
   "admision_no_confirmada": "No se pudo confirmar la admisión. Consulte el estado antes de repetirla.",
-  "commit_indeterminado": "No se conoce el resultado de la confirmación. Consulte el recibo con la misma operación.",
+  "commit_indeterminado": "No se conoce el resultado. Consulte la instantánea con la referencia, versión y huella del plan antes de repetir el mismo plan.",
   "admision_rechazada": "La autoridad ha rechazado la admisión del catálogo.",
   "admision_no_disponible": "La autoridad no ha podido tramitar la admisión. Consulte el estado antes de repetirla.",
   "catalogo_admitido": "El catálogo quedó admitido con recibo durable."

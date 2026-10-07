@@ -13,6 +13,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -36,8 +37,16 @@ type configuracion struct {
 }
 
 type planMinimo struct {
-	CatalogoCanon  string `json:"catalogo_canon"`
-	CatalogoSHA256 string `json:"catalogo_sha256"`
+	OperacionRef     string `json:"operacion_ref"`
+	CatalogoCanon    string `json:"catalogo_canon"`
+	CatalogoRef      string `json:"catalogo_ref"`
+	CatalogoVersion  string `json:"catalogo_version"`
+	CatalogoSHA256   string `json:"catalogo_sha256"`
+	PaqueteRef       string `json:"paquete_ref"`
+	PaqueteVersion   string `json:"paquete_version"`
+	PaqueteSHA256    string `json:"paquete_sha256"`
+	AprobacionRef    string `json:"aprobacion_ref"`
+	AprobacionSHA256 string `json:"aprobacion_sha256"`
 }
 
 type salida struct {
@@ -131,37 +140,26 @@ func ejecutar(args []string, stdout, stderr io.Writer) int {
 	if err := validarPlanAntesDeEnviar(plan, shaPlan); err != nil {
 		return fallo("plan_invalido")
 	}
+	var aprobado planMinimo
+	if json.Unmarshal(plan, &aprobado) != nil {
+		return fallo("plan_invalido")
+	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return fallo("conexion_no_disponible")
 	}
-	defer tx.Rollback(context.Background())
-	if _, err := tx.Exec(ctx, `SET LOCAL TIME ZONE 'UTC'`); err != nil {
-		return fallo("admision_no_confirmada")
-	}
-	var respuesta []byte
-	if err := tx.QueryRow(ctx, `SELECT vec_autorizacion.registrar_catalogo_acciones_admin_v1($1::text,$2::text)`, string(plan), shaPlan).Scan(&respuesta); err != nil {
-		return fallo("admision_no_confirmada")
-	}
-	var r struct {
-		Estado string          `json:"estado"`
-		Replay bool            `json:"replay"`
-		Recibo json.RawMessage `json:"recibo"`
-	}
-	if json.Unmarshal(respuesta, &r) != nil || (r.Estado != "permitido" && r.Estado != "denegado" && r.Estado != "error") {
-		return fallo("admision_no_confirmada")
-	}
-	if err := tx.Commit(ctx); err != nil {
+	r, err := aplicarPlanEnTransaccion(ctx, tx, plan, shaPlan, aprobado)
+	if errors.Is(err, errCommitAdmision) {
 		return fallo("commit_indeterminado")
+	}
+	if err != nil {
+		return fallo("admision_no_confirmada")
 	}
 	if r.Estado == "error" {
 		return emitir(stderr, "admision_no_disponible", salida{Estado: r.Estado}, 1)
 	}
 	if r.Estado != "permitido" {
 		return emitir(stderr, "admision_rechazada", salida{Estado: r.Estado}, 1)
-	}
-	if len(r.Recibo) == 0 || bytes.Equal(r.Recibo, []byte("null")) {
-		return fallo("commit_indeterminado")
 	}
 	return emitir(stdout, "catalogo_admitido", salida{Estado: r.Estado, Replay: r.Replay, Recibo: r.Recibo}, 0)
 }
@@ -225,7 +223,10 @@ func validarPlanAntesDeEnviar(plan []byte, aprobada string) error {
 		return os.ErrPermission
 	}
 	var p planMinimo
-	if json.Unmarshal(plan, &p) != nil || p.CatalogoCanon == "" || !huellaValida(p.CatalogoSHA256) {
+	if json.Unmarshal(plan, &p) != nil || p.CatalogoCanon == "" || !huellaValida(p.CatalogoSHA256) ||
+		!huellaValida(p.PaqueteSHA256) || !huellaValida(p.AprobacionSHA256) ||
+		p.AprobacionRef == "" || p.PaqueteRef == "" || p.CatalogoRef == "" ||
+		!strings.HasPrefix(p.OperacionRef, "caa_") || len(p.OperacionRef) < 26 {
 		return os.ErrInvalid
 	}
 	var c domain.CatalogoAccionesAdministracionV1
@@ -237,7 +238,9 @@ func validarPlanAntesDeEnviar(plan []byte, aprobada string) error {
 		return os.ErrInvalid
 	}
 	h, err := c.HuellaSHA256()
-	if err != nil || h != p.CatalogoSHA256 {
+	if err != nil || h != p.CatalogoSHA256 || p.CatalogoRef != c.Referencia ||
+		p.CatalogoVersion != strconv.Itoa(c.Version) || p.PaqueteRef != c.FuenteRef ||
+		p.PaqueteVersion != strconv.Itoa(c.FuenteVersion) || p.PaqueteSHA256 != c.FuenteHuellaSHA256 {
 		return os.ErrInvalid
 	}
 	return nil

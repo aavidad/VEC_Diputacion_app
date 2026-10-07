@@ -51,8 +51,9 @@ vec-catalogo-acciones-admitir --fase consultar --config /ruta/privada/config.jso
 ```
 
 La salida JSON contiene un código y un mensaje del catálogo `es` o `en`. Una
-admisión confirmada entrega el recibo; un error de confirmación obliga a
-consultar el estado y a conservar la misma operación, sin generar otra. El
+admisión confirmada entrega el recibo. Si el resultado es incierto, consulte
+la instantánea por referencia, versión y huella del plan antes de repetir ese
+mismo plan y su `operacion_ref`. El
 catálogo no asigna perfiles. Los descriptores nominales de B1 y FirmaDEV y su
 aprobación externa siguen siendo dependencias: una prueba sintética del clon
 no los publica ni reduce la garantía HIGH de producción.

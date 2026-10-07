@@ -8,7 +8,7 @@
   "plan_inseguro": "The approved plan cannot be opened safely.",
   "plan_invalido": "The plan does not match the supplied hash or contains an invalid catalog.",
   "admision_no_confirmada": "Admission could not be confirmed. Check its status before trying again.",
-  "commit_indeterminado": "The commit result is unknown. Check the receipt using the same operation.",
+  "commit_indeterminado": "The result is unknown. Look up the snapshot using the plan's reference, version and hash before retrying the same plan.",
   "admision_rechazada": "The authority rejected the catalog admission.",
   "admision_no_disponible": "The authority could not process admission. Check its status before trying again.",
   "catalogo_admitido": "The catalog was admitted with a durable receipt."
