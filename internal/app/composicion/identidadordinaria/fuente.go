@@ -7,6 +7,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -144,7 +145,7 @@ func (f *Fuente) Resolver(ctx context.Context) (
 		datos.PerfilActivoRef != nominal.PerfilActivoRef ||
 		datos.PoliticaGarantiaRef != auditoria.PoliticaGarantiaRef() ||
 		datos.PoliticaGarantiaHuellaSHA256 != auditoria.PoliticaGarantiaHuellaSHA256() ||
-		!vinculo.VigenteEn(f.reloj.Ahora(), resultado) {
+		!vinculo.VigenteEn(f.reloj.Ahora().UTC().Truncate(time.Microsecond), resultado) {
 		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, snapshot, ErrIdentidadOrdinariaNoDisponible
 	}
 	snapshot, err = f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, datos.PrincipalID, nominal.PerfilActivoRef)
@@ -157,7 +158,7 @@ func (f *Fuente) Resolver(ctx context.Context) (
 	if err := snapshot.Validar(); err != nil {
 		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, core.InstantaneaAutorizacion{}, falloFuente(err)
 	}
-	ahora := f.reloj.Ahora()
+	ahora := f.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if snapshot.AsignacionPerfil.PrincipalID != datos.PrincipalID ||
 		snapshot.AsignacionPerfil.PerfilActivoRef != nominal.PerfilActivoRef ||
 		snapshot.AsignacionPerfil.VersionRolRef != nominal.VersionRolRef ||

@@ -257,6 +257,24 @@ func TestFuenteResuelveUnaVezYConservaResultado(t *testing.T) {
 	}
 }
 
+func TestFuenteAceptaRelojEquivalenteConNanosegundos(t *testing.T) {
+	for _, ahora := range []time.Time{
+		instantePrueba.Add(123 * time.Nanosecond),
+		instantePrueba.Add(123 * time.Nanosecond).In(time.FixedZone("zona_equivalente", 2*60*60)),
+	} {
+		e := nuevoEntornoPrueba(t)
+		e.reloj.ahora = ahora
+		f, err := NuevaFuente(e.config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, resultado, snapshot, err := f.Resolver(e.ctx)
+		if err != nil || v.ValidarPara(resultado) != nil || snapshot.Validar() != nil {
+			t.Fatalf("reloj equivalente denegado: %v", err)
+		}
+	}
+}
+
 func TestFuenteDeniegaRevocacionPerfilYRolRetirado(t *testing.T) {
 	casos := []struct {
 		name string
