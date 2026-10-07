@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 
@@ -15,14 +16,13 @@ func run(in io.Reader, out, diagnostico io.Writer) int {
 		var p application.Preparacion
 		p, err = application.Preparar(d)
 		if err == nil {
-			if jsonio.Escribir(out, p) == nil {
+			if err = jsonio.Escribir(out, p); err == nil {
 				return 0
 			}
-			err = io.ErrShortWrite
 		}
 	}
 	clave := "formacion.error.salida"
-	if err != io.ErrShortWrite {
+	if !errors.Is(err, jsonio.ErrSalida) {
 		clave = err.Error()
 	}
 	// Solo se emiten claves controladas; nunca se devuelve el contenido de entrada.
