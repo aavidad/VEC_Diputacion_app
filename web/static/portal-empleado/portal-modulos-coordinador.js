@@ -100,16 +100,16 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, adaptador, incorporacionB2] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261006-resumen-inicio-v2"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261007-ct-ficha-final-v1"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261006-resumen-inicio-v2"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261007-ct-ficha-final-v1"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261006-resumen-inicio-v2");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261007-ct-ficha-final-v1");
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-auditoria-disponibilidad-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1"),
@@ -163,8 +163,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20260929-i18n-documentos-v1"),
-      import("./modulos/documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1"),
+      import("./modulos/documentos/vista.js?v=20261007-ct-ficha-final-v1"),
+      import("./modulos/documentos/cliente-http.js?v=20261007-ct-ficha-final-v1"),
     ]);
     return Object.freeze({ vista, cliente });
   },

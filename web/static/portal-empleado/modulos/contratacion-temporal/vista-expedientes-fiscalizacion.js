@@ -2,7 +2,7 @@
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261007-ct-ficha-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 

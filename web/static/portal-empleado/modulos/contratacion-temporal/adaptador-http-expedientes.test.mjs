@@ -433,6 +433,32 @@ test("no marca la obtención de candidato sin mapeo acreditado del servidor", as
   assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
 });
 
+test("la rectificación conserva una fase actual visible si el servidor sigue en solicitud", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarDetalleRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...resumen, fase_clave: "solicitud", estado_clave: "en_curso" },
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: [{ secuencia: 1, version_expediente: 2,
+      accion_clave: "contratacion_temporal.analisis.rectificar",
+      realizada_en: "2026-09-03T09:00:00Z", fase_origen: "solicitud",
+      fase_destino: "solicitud", estado_origen: "en_curso", estado_destino: "en_curso" }],
+    presentacion_flujo: {
+      referencia: "flujo-visual:rrhh:temporal", fase_actual: "solicitud",
+      fases: ["solicitud", "analisis_rrhh", "gestion_bolsa"].map((clave, indice) => ({
+        clave, orden: indice + 1, clave_i18n: `contratacion_temporal.fase.${clave}`,
+      })),
+    },
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(expediente.fases[0].estado_clave, "en_curso");
+  assert.equal(expediente.fases[1].estado_clave, "completado");
+  assert.equal(expediente.fases.filter(({ estado_clave }) => estado_clave === "en_curso").length, 1);
+});
+
 test("completa sólo la obtención de candidato desde la propuesta formalizada", async () => {
   const detalle = detalleV9();
   detalle.presentacion_flujo = {
