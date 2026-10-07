@@ -81,6 +81,107 @@ test("la cola de peticiones no deja dos en vuelo a la vez", async () => {
   assert.deepEqual(await resultados[2].value.json(), { ok: "/b" });
 });
 
+test("la cola acota preferencias a 64 KiB sin recortar la respuesta de imagen", async () => {
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async (ruta) => {
+    llamadas++;
+    if (ruta.endsWith("mis-preferencias")) return new Response("x".repeat(70 * 1024), { headers: { "Content-Type": "application/json" } });
+    return new Response("x".repeat(200 * 1024), { headers: { "Content-Type": "application/json" } });
+  });
+  await assert.rejects(serie("/api/vec/usuarios/mis-preferencias", {}), /respuesta_serie_demasiado_grande/u);
+  const imagen = await serie("/api/vec/usuarios/mi-imagen", {});
+  assert.equal((await imagen.arrayBuffer()).byteLength, 200 * 1024);
+  assert.equal(llamadas, 2);
+});
+
+test("cancelar un cuerpo bloqueado libera la cola para la siguiente petición", async () => {
+  let leyendo;
+  const lectura = new Promise((resolve) => { leyendo = resolve; });
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async () => {
+    llamadas++;
+    if (llamadas === 1) return new Response(new ReadableStream({ pull() { leyendo(); return new Promise(() => {}); } }));
+    return respuesta({ recuperado: true });
+  });
+  const controlador = new AbortController();
+  const primera = serie("/api/vec/usuarios/mis-preferencias", { signal: controlador.signal });
+  const segunda = serie("/api/vec/usuarios/mis-preferencias", {});
+  await lectura;
+  controlador.abort();
+  await assert.rejects(primera, /respuesta_serie_cancelada/u);
+  assert.deepEqual(await (await segunda).json(), { recuperado: true });
+  assert.equal(llamadas, 2);
+});
+
+test("Content-Length excesivo no bloquea la cola si cancel no termina", { timeout: 2000 }, async () => {
+  let primeraSignal;
+  let segundaTrasAbortar = false;
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async (_ruta, opciones) => {
+    llamadas++;
+    if (llamadas === 1) {
+      primeraSignal = opciones.signal;
+      return { status: 200, headers: { get: () => String(70 * 1024) }, body: { cancel: () => new Promise(() => {}) } };
+    }
+    segundaTrasAbortar = primeraSignal.aborted;
+    return respuesta({ siguiente: true });
+  });
+  const primera = serie("/api/vec/usuarios/mis-preferencias", {});
+  const segunda = serie("/api/vec/usuarios/mis-preferencias", {});
+  await assert.rejects(primera, (fallo) => fallo.message === "respuesta_serie_demasiado_grande"
+    && fallo.causa_limpieza?.codigo === "cancelacion_sin_acuse");
+  assert.deepEqual(await (await segunda).json(), { siguiente: true });
+  assert.equal(llamadas, 2);
+  assert.equal(segundaTrasAbortar, true);
+});
+
+test("stream excesivo no bloquea la cola si reader.cancel no termina", { timeout: 2000 }, async () => {
+  let primeraSignal;
+  let segundaTrasAbortar = false;
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async (_ruta, opciones) => {
+    llamadas++;
+    if (llamadas === 1) {
+      primeraSignal = opciones.signal;
+      return new Response(new ReadableStream({
+        start(controlador) { controlador.enqueue(new Uint8Array(70 * 1024)); },
+        cancel() { return new Promise(() => {}); },
+      }), { headers: { "Content-Type": "application/json" } });
+    }
+    segundaTrasAbortar = primeraSignal.aborted;
+    return respuesta({ siguiente: true });
+  });
+  const primera = serie("/api/vec/usuarios/mis-preferencias", {});
+  const segunda = serie("/api/vec/usuarios/mis-preferencias", {});
+  await assert.rejects(primera, (fallo) => fallo.message === "respuesta_serie_demasiado_grande"
+    && fallo.causa_limpieza?.codigo === "cancelacion_sin_acuse");
+  assert.deepEqual(await (await segunda).json(), { siguiente: true });
+  assert.equal(llamadas, 2);
+  assert.equal(segundaTrasAbortar, true);
+});
+
+test("un rechazo de cancelación conserva sólo la causa técnica cerrada", async () => {
+  const serie = peticionesEnSerie(async () => ({ status: 200,
+    headers: { get: () => String(70 * 1024) },
+    body: { cancel: () => Promise.reject(new Error("DNI 12345678Z")) } }));
+  await assert.rejects(serie("/api/vec/usuarios/mis-preferencias", {}), (fallo) =>
+    fallo.message === "respuesta_serie_demasiado_grande"
+      && fallo.causa_limpieza?.codigo === "cancelacion_fallida"
+      && !JSON.stringify(fallo).includes("12345678Z"));
+});
+
+test("una señal ya cancelada no inicia fetch ni retiene la cola", async () => {
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async () => { llamadas++; return respuesta({ ok: true }); });
+  const controlador = new AbortController();
+  controlador.abort();
+  const primera = serie("/api/vec/usuarios/mis-preferencias", { signal: controlador.signal });
+  const segunda = serie("/api/vec/usuarios/mis-preferencias", {});
+  await assert.rejects(primera, /respuesta_serie_cancelada/u);
+  assert.deepEqual(await (await segunda).json(), { ok: true });
+  assert.equal(llamadas, 1);
+});
+
 /** Elemento mínimo para pintar avatares sin DOM real. */
 function elementoPrueba() {
   const clases = new Set(["avatar"]);

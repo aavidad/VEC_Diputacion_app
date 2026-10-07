@@ -8,7 +8,7 @@ import { MENSAJES_SEGUIMIENTO_CESE, MENSAJES_SEGUIMIENTO_CESE_EN } from "./i18n-
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js";
 import { MENSAJES_EXPEDIENTES_CONTRATACION_ES, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
-import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
+import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 
 const conjuntos = [
   ["contratacion-temporal-circuito-firma", MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN],
@@ -20,7 +20,7 @@ const conjuntos = [
 
 const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map(([, nombre]) => nombre).sort();
 
-test("los catálogos conservan claves, exportaciones y variables en ambos idiomas", async () => {
+test("los catálogos conservan claves y variables en ambos idiomas; las exportaciones siguen el activo", async () => {
   const [es, en] = IDIOMAS_DISPONIBLES;
   assert.ok(es && en, "el índice requiere dos idiomas");
   for (const [modulo, mensajesES, mensajesEN] of conjuntos) {
@@ -36,8 +36,11 @@ test("los catálogos conservan claves, exportaciones y variables en ambos idioma
     if (seccionesES.valores_controlados) {
       assert.deepEqual(seccionesES.valores_controlados, seccionesEN.valores_controlados);
     }
-    assert.deepEqual(mensajesES, datosES, `${modulo}: exportación ES`);
-    assert.deepEqual(mensajesEN, datosEN, `${modulo}: exportación EN`);
+    const datosActivos = IDIOMA_ACTUAL === es.codigo ? datosES : datosEN;
+    assert.deepEqual(IDIOMA_ACTUAL === es.codigo ? mensajesES : mensajesEN, datosActivos,
+      `${modulo}: catálogo activo`);
+    assert.equal(IDIOMA_ACTUAL === es.codigo ? mensajesEN : mensajesES, undefined,
+      `${modulo}: el idioma inactivo se carga sólo de forma explícita`);
     assert.deepEqual(Object.keys(datosES).sort(), Object.keys(datosEN).sort(), `${modulo}: claves`);
     for (const clave of Object.keys(datosES)) {
       assert.ok(datosES[clave] && datosEN[clave], `${modulo}.${clave}: texto vacío`);
@@ -53,17 +56,22 @@ test("los dos agregadores conservan todos los valores extraídos", () => {
     [MENSAJES_FIRMA_INCORPORACION.expedientes.ES, MENSAJES_EXPEDIENTES_CONTRATACION_ES],
     [MENSAJES_FIRMA_INCORPORACION.expedientes.EN, MENSAJES_EXPEDIENTES_CONTRATACION_EN],
   ]) {
+    if (extraido === undefined) continue;
     for (const [clave, valor] of Object.entries(extraido)) assert.equal(actual[clave], valor, clave);
     assert.deepEqual(Object.keys(extraido), Object.keys(actual).filter((clave) => Object.hasOwn(extraido, clave)));
   }
 });
 
-test("el traductor de firma conserva idioma, interpolación, sobrescritura y fallo cerrado", () => {
+test("el traductor de firma conserva idioma, interpolación, sobrescritura y fallo cerrado", async () => {
   const [es, en] = IDIOMAS_DISPONIBLES;
-  const tES = crearTraductorCircuitoFirma({}, es.localizacion);
-  const tEN = crearTraductorCircuitoFirma({}, en.localizacion);
-  assert.equal(tES("circuito_firma_pasos", { documento: "PDF" }), MENSAJES_CIRCUITO_FIRMA_ES.circuito_firma_pasos.replace("{documento}", "PDF"));
-  assert.equal(tEN("circuito_firma_pasos", { documento: "PDF" }), MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_pasos.replace("{documento}", "PDF"));
+  const datos = async (codigo) => JSON.parse(await readFile(
+    new URL(`../../../textos/${codigo}/contratacion-temporal-circuito-firma.json`, import.meta.url), "utf8"));
+  const catalogoES = (await datos(es.codigo)).general;
+  const catalogoEN = (await datos(en.codigo)).general;
+  const tES = crearTraductorCircuitoFirma(catalogoES, es.localizacion);
+  const tEN = crearTraductorCircuitoFirma(catalogoEN, en.localizacion);
+  assert.equal(tES("circuito_firma_pasos", { documento: "PDF" }), catalogoES.circuito_firma_pasos.replace("{documento}", "PDF"));
+  assert.equal(tEN("circuito_firma_pasos", { documento: "PDF" }), catalogoEN.circuito_firma_pasos.replace("{documento}", "PDF"));
   assert.equal(crearTraductorCircuitoFirma({ circuito_firma_titulo: "Otro" })("circuito_firma_titulo"), "Otro");
   assert.throws(() => tES("clave_desconocida"), /falta la traducción/u);
 });

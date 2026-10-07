@@ -1,3 +1,5 @@
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+
 export const MENSAJES_REINCORPORACION_RRHH_ES = Object.freeze({
   rrhh_reincorporacion_titulo: "Registrar la reincorporación del titular",
   rrhh_reincorporacion_subtitulo: "Actuación de RRHH en el expediente de petición de personal temporal",
@@ -74,7 +76,8 @@ export const MENSAJES_REINCORPORACION_RRHH_EN = Object.freeze({
   rrhh_reincorporacion_bolsa_pendiente: "Awaiting confirmation from the recruitment pool",
 });
 
-export function crearTraductorReincorporacionRRHH(mensajes = MENSAJES_REINCORPORACION_RRHH_ES) {
+export function crearTraductorReincorporacionRRHH(mensajes = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_REINCORPORACION_RRHH_ES : MENSAJES_REINCORPORACION_RRHH_EN) {
   return (clave) => {
     if (!Object.hasOwn(mensajes, clave) || typeof mensajes[clave] !== "string") {
       throw new Error(`falta la traducción ${clave}`);
