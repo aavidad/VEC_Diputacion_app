@@ -39,3 +39,18 @@ func TestGobiernoRolAuditaFalloAntesDelConsumoYRespetaIntentoConfirmado(t *testi
 		t.Fatal("caída de auditoría previa al PDP aparentó acceso registrado")
 	}
 }
+
+func TestGobiernoRolSinOverlayNoMontaRuta(t *testing.T) {
+	sesion := &sesionPrueba{resultado: sesionAplicacionNominalPrueba(t)}
+	auditor := &auditorPrueba{}
+	h, err := NuevoHandlerUsuariosMetadatos("https://admin.example.test", sesion, &lecturasPrueba{}, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionADMIN(http.MethodPost, RutaGobiernoRolProponer, `{}`))
+	if w.Code != http.StatusNotFound || auditor.llamadas != 1 ||
+		auditor.ultima.Codigo != "recurso_no_encontrado" {
+		t.Fatal("ruta Gov ausente respondió como servicio montado")
+	}
+}

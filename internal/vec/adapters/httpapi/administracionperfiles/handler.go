@@ -212,6 +212,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.get(w, r, sesion)
 		return
 	}
+	if (r.URL.Path == RutaGobiernoRolProponer || r.URL.Path == RutaGobiernoRolCerrar) && h.gobiernoRol == nil {
+		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
+		return
+	}
 	if h.soloLectura {
 		h.denegarActor(w, r, sesion, http.StatusServiceUnavailable, "servicio_no_disponible", "escribir", "")
 		return
