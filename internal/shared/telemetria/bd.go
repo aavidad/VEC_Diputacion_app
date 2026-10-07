@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,18 +19,68 @@ import (
 // que se instala en cada pool con Instrumentar; la lógica de los módulos no
 // cambia, solo hace falta que la consulta use el contexto de la petición.
 type medida struct {
-	consultas atomic.Int64
-	bd        atomic.Int64 // nanosegundos en consultas
-	espera    atomic.Int64 // nanosegundos esperando conexión libre
+	consultas      atomic.Int64
+	bd             atomic.Int64 // nanosegundos en consultas
+	espera         atomic.Int64 // nanosegundos esperando conexión libre
+	lotes          atomic.Int64
+	desconocidas   atomic.Int64 // SQL sin alias positivo; solo se emite en diagnóstico
+	resultadosLote atomic.Int64 // callbacks observados, no consultas enviadas
+	erroresLote    atomic.Int64
+	duracionLote   atomic.Int64 // hasta cerrar el lote; incluye consumo del cliente
 
-	mu        sync.Mutex
-	maxima    time.Duration
-	sqlMaxima string // solo se analiza si la petición resulta lenta
+	mu          sync.Mutex
+	maxima      time.Duration
+	opMaxima    string
+	operaciones map[string]*resumenConsulta
 	// ultimoErr es la clase del último error con la base de datos. Una
 	// consulta de datos correcta posterior lo vacía, así que un error ya
 	// manejado no se atribuye a un fallo posterior; las órdenes de control
 	// (ROLLBACK, COMMIT…) y los préstamos correctos no lo tocan.
 	ultimoErr string
+}
+
+const maxOperacionesPeticion = 16
+const maxClasesErrorOperacion = 4
+
+type resumenConsulta struct {
+	n       int64
+	total   time.Duration
+	maxima  time.Duration
+	errores map[string]int64
+}
+
+type operacionMedida struct {
+	Nombre  string           `json:"nombre"`
+	N       int64            `json:"n"`
+	Total   float64          `json:"total"`
+	Maxima  float64          `json:"maxima"`
+	Errores map[string]int64 `json:"errores,omitempty"`
+}
+
+// resumenOperaciones solo se serializa al terminar una petición lenta o fallida.
+// El número de nombres y clases por petición es fijo, también ante SQL dinámico.
+func (m *medida) resumenOperaciones() []operacionMedida {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	nombres := make([]string, 0, len(m.operaciones))
+	for nombre := range m.operaciones {
+		nombres = append(nombres, nombre)
+	}
+	sort.Strings(nombres)
+	salida := make([]operacionMedida, 0, len(nombres))
+	for _, nombre := range nombres {
+		r := m.operaciones[nombre]
+		var errores map[string]int64
+		if len(r.errores) > 0 {
+			errores = make(map[string]int64, len(r.errores))
+			for clase, n := range r.errores {
+				errores[clase] = n
+			}
+		}
+		salida = append(salida, operacionMedida{Nombre: nombre, N: r.n,
+			Total: r.total.Seconds(), Maxima: r.maxima.Seconds(), Errores: errores})
+	}
+	return salida
 }
 
 type claveMedida struct{}
@@ -55,10 +106,13 @@ func Instrumentar(cfg *pgxpool.Config) {
 type trazador struct{}
 
 type inicio struct {
-	m   *medida
-	t   time.Time
-	sql string
-	n   int64
+	m            *medida
+	t            time.Time
+	sql          string
+	n            int64
+	lote         bool
+	terminado    atomic.Bool
+	errResultado atomic.Bool
 }
 
 type claveInicio struct{}
@@ -109,18 +163,60 @@ func empezar(ctx context.Context, sql string, n int64) context.Context {
 
 func terminar(ctx context.Context, err error) {
 	i, _ := ctx.Value(claveInicio{}).(*inicio)
-	if i == nil {
+	if i == nil || i.lote {
 		return
 	}
 	d := time.Since(i.t)
 	i.m.consultas.Add(i.n)
 	i.m.bd.Add(int64(d))
-	i.m.mu.Lock()
-	if i.n > 0 && d > i.m.maxima {
-		i.m.maxima, i.m.sqlMaxima = d, i.sql
+	var nombre, clase string
+	if i.n > 0 {
+		var conocida bool
+		nombre, conocida = clasificarOperacion(i.sql)
+		if !conocida {
+			i.m.desconocidas.Add(1)
+		}
 	}
 	if err != nil {
-		i.m.ultimoErr = claseError(err)
+		clase = claseError(err)
+	}
+	i.m.mu.Lock()
+	if i.n > 0 {
+		if d > i.m.maxima {
+			i.m.maxima, i.m.opMaxima = d, nombre
+		}
+		if i.m.operaciones == nil {
+			i.m.operaciones = make(map[string]*resumenConsulta)
+		}
+		r := i.m.operaciones[nombre]
+		if r == nil {
+			if len(i.m.operaciones) >= maxOperacionesPeticion {
+				nombre = "otras"
+			}
+			r = i.m.operaciones[nombre]
+			if r == nil {
+				r = &resumenConsulta{}
+				i.m.operaciones[nombre] = r
+			}
+		}
+		r.n++
+		r.total += d
+		if d > r.maxima {
+			r.maxima = d
+		}
+		if err != nil {
+			if r.errores == nil {
+				r.errores = make(map[string]int64)
+			}
+			if _, ok := r.errores[clase]; !ok && len(r.errores) >= maxClasesErrorOperacion {
+				r.errores["otras"]++
+			} else {
+				r.errores[clase]++
+			}
+		}
+	}
+	if err != nil {
+		i.m.ultimoErr = clase
 	} else if i.n > 0 {
 		// Solo una consulta de datos correcta lo vacía: el ROLLBACK que sigue
 		// a un fallo no debe borrar su causa.
@@ -138,22 +234,52 @@ func (trazador) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, d pgx.TraceQuery
 }
 
 func (trazador) TraceBatchStart(ctx context.Context, _ *pgx.Conn, d pgx.TraceBatchStartData) context.Context {
-	if d.Batch == nil || len(d.Batch.QueuedQueries) == 0 || d.Batch.QueuedQueries[0] == nil {
+	if d.Batch == nil || len(d.Batch.QueuedQueries) == 0 {
 		return ctx
 	}
-	var n int64
-	for _, q := range d.Batch.QueuedQueries {
-		if q != nil {
-			n += consultasDe(q.SQL)
-		}
+	m := medidaDe(ctx)
+	if m == nil {
+		return ctx
 	}
-	return empezar(ctx, d.Batch.QueuedQueries[0].SQL, n)
+	return context.WithValue(ctx, claveInicio{}, &inicio{m: m, t: time.Now(), lote: true})
 }
 
-func (trazador) TraceBatchQuery(context.Context, *pgx.Conn, pgx.TraceBatchQueryData) {}
+func (trazador) TraceBatchQuery(ctx context.Context, _ *pgx.Conn, d pgx.TraceBatchQueryData) {
+	i, _ := ctx.Value(claveInicio{}).(*inicio)
+	if i == nil || !i.lote || i.terminado.Load() {
+		return
+	}
+	i.m.resultadosLote.Add(1)
+	n := consultasDe(d.SQL)
+	i.m.consultas.Add(n)
+	i.m.mu.Lock()
+	if d.Err != nil {
+		i.errResultado.Store(true)
+		i.m.erroresLote.Add(1)
+		i.m.ultimoErr = claseError(d.Err)
+	} else if n > 0 {
+		i.m.ultimoErr = ""
+	}
+	i.m.mu.Unlock()
+}
 
 func (trazador) TraceBatchEnd(ctx context.Context, _ *pgx.Conn, d pgx.TraceBatchEndData) {
-	terminar(ctx, d.Err)
+	i, _ := ctx.Value(claveInicio{}).(*inicio)
+	if i == nil || !i.lote || !i.terminado.CompareAndSwap(false, true) {
+		return
+	}
+	duracion := time.Since(i.t)
+	i.m.lotes.Add(1)
+	i.m.bd.Add(int64(duracion))
+	i.m.duracionLote.Add(int64(duracion))
+	if d.Err != nil {
+		if !i.errResultado.Load() {
+			i.m.erroresLote.Add(1)
+		}
+		i.m.mu.Lock()
+		i.m.ultimoErr = claseError(d.Err)
+		i.m.mu.Unlock()
+	}
 }
 
 type claveEspera struct{}
@@ -205,18 +331,58 @@ var (
 	primeraOrden = regexp.MustCompile(`(?i)^\s*([a-z]+)`)
 )
 
-// operacion da un nombre sin valores para una consulta: la primera función
-// cualificada (esquema.funcion), el objeto tras FROM/INTO/UPDATE/JOIN/CALL o
-// la orden (begin, commit…). Antes quita literales y comentarios.
-func operacion(sql string) string {
+// Alias de SQL literal identificado en los adaptadores. Un identificador no
+// registrado puede contener material dinámico; solo se emite su verbo cerrado.
+var aliasesOperacion = map[string]struct{}{
+	"vec_usuarios.catalogo_vigente_preferencias_v1":               {},
+	"vec_usuarios.consultar_preferencias_propias_v1":              {},
+	"vec_usuarios.recuperar_preferencias_operacion_v1":            {},
+	"vec_usuarios.guardar_preferencias_propias_v1":                {},
+	"vec_usuarios.registrar_denegacion_preferencias_v1":           {},
+	"vec_identidad_sesiones_v1.registrar_sesion_v1":               {},
+	"vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1":    {},
+	"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1":     {},
+	"vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1": {},
+	"vec_identidad_externa_v1.registrar_sesion_v1":                {},
+	"vec_identidad_externa_v1.reconciliar_registro_sesion_v1":     {},
+	"vec_identidad_externa_v1.revalidar_sesion_y_cuentas_v1":      {},
+	"vec_autorizacion_atestada_v3.leer_configuracion_interna_v2":  {},
+	"vec_autorizacion_atestada_v3.leer_configuracion_externa_v1":  {},
+}
+
+var verbosOperacion = map[string]struct{}{
+	"select": {}, "insert": {}, "update": {}, "delete": {}, "with": {}, "call": {},
+	"begin": {}, "commit": {}, "rollback": {}, "set": {}, "copy": {},
+	"create": {}, "alter": {}, "drop": {}, "grant": {}, "revoke": {},
+	"do": {}, "explain": {}, "values": {},
+}
+
+// clasificarOperacion limita el análisis a 2048 bytes, elimina literales y
+// comentarios, y solo acepta alias exactos aprobados en código. El indicador
+// distingue las consultas cuyo nombre se ha reducido al verbo.
+func clasificarOperacion(sql string) (string, bool) {
 	if len(sql) > 2048 {
 		sql = sql[:2048]
 	}
 	sql = literalSQL.ReplaceAllString(sql, " ")
-	for _, re := range []*regexp.Regexp{funcionSQL, objetoSQL, primeraOrden} {
-		if m := re.FindStringSubmatch(sql); m != nil && len(m[1]) <= 127 {
-			return strings.ToLower(m[1])
+	for _, re := range []*regexp.Regexp{funcionSQL, objetoSQL} {
+		for _, m := range re.FindAllStringSubmatch(sql, -1) {
+			alias := strings.ToLower(m[1])
+			if _, ok := aliasesOperacion[alias]; ok {
+				return alias, true
+			}
 		}
 	}
-	return "sql"
+	if m := primeraOrden.FindStringSubmatch(sql); m != nil {
+		verbo := strings.ToLower(m[1])
+		if _, ok := verbosOperacion[verbo]; ok {
+			return verbo, false
+		}
+	}
+	return "sql", false
+}
+
+func operacion(sql string) string {
+	nombre, _ := clasificarOperacion(sql)
+	return nombre
 }
