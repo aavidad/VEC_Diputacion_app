@@ -109,8 +109,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const cargarVista = async () => {
       const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261006-resumen-inicio-v2");
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
-        import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
-        import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
+        import("./modulos/auditoria/vista.js?v=20261007-auditoria-disponibilidad-v1"),
+        import("./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1"),
       ]);
       return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
     };

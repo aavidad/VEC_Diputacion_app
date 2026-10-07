@@ -68,3 +68,12 @@ Ninguno toca las PR en marcha (#713, #715, #719, #727, #733, #734, #736–#742).
 7. **C11 · Revisión de usabilidad del recorrido de RRHH** (bandeja, detalle, análisis, llamamiento, ficha del candidato de Bolsa) con `revisor-usabilidad-vec`. Entrega la lista de cambios por pantalla, ordenada por gravedad. Tamaño S.
 8. **B6 · Decidir sobre las PR antiguas** del proceso externo (#179, #204, #205, #206, #209, #221) y de plazos (#233, #237, #240): qué se rescata, sobre qué main y qué se cierra. Lo decide dirección. Desbloquea B5 (correo corporativo) y C6 (plazo tras subsanar). Tamaño S.
 9. **B3 · Renuncia justificada y «en revisión» de punta a punta:** el aspirante entrega el justificante desde Mi Bolsa, RRHH lo valida y el estado cambia, con auditoría. Va después de B2. Tamaño S–M.
+
+
+## Correcciones del recorrido del 07/10: auditoría del expediente
+
+La consulta web distingue ahora una ruta de auditoría no disponible (404) de un acceso denegado (401/403). Ante un fallo temporal permite reintentar y mantiene los filtros cerrados hasta recuperar las opciones del servidor. El número del expediente se recibe como dato de presentación desde la ficha; no se deduce de su referencia opaca. El montaje que lo transmite se entrega con la corrección de la ficha de CT.
+
+La activación sigue en manos de dirección: el despliegue requiere `VEC_RRHH_AUDITORIA_ENABLED` y sus dependencias nominales. Esta corrección de interfaz no activa el servicio ni cambia permisos, consultas o registros de auditoría. La referencia de documentos `expediente:ct:<64 hex>` necesita además el contrato Go y SQL nuevo del equipo V; el parche del navegador queda pendiente de esa entrega.
+
+Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; después, las lecturas de Bolsa con una decisión V3, auditoría y consulta en la misma transacción, paginación SQL y listas filtradas para las cifras del resumen. CT187 continúa en la PR #840; su medición y sus límites constan allí. No se da por terminado el recorrido completo ni la firma.

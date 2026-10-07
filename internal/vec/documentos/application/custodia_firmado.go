@@ -28,7 +28,7 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 		dependenciaNula(s.Almacen) || dependenciaNula(s.Politicas) || dependenciaNula(s.Reloj) ||
 		ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaExpedienteModuloValida(in.ModuloID, in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || !domain.ReferenciaOpacaValida(in.FirmaOperacionRef) ||
 		!domain.HuellaValida(in.HuellaOriginalSHA256) || in.Version == 0 ||
 		len(in.Contenido) < 5 || len(in.Contenido) > limiteFirmado || !bytes.HasPrefix(in.Contenido, []byte("%PDF-")) ||

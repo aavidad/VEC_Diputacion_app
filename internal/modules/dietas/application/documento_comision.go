@@ -333,9 +333,15 @@ func (p *PreparadorComision) PrepararEdicion(ctx context.Context, s ports.Solici
 		calculo.VersionGrafo = ""
 		calculo.Motor = "OSRM"
 	}
+	var fuenteDietas, fuenteKilometraje string
 	for grupo := 1; grupo <= 3; grupo++ {
 		tarifa, e := p.tarifas.Consultar(ctx, regla.VersionTarifaRef, grupo, "automovil", fechaTarifa)
-		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa {
+		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa || !tarifa.ReferenciasNormativasValidas() {
+			return s, domain.ErrTramosProvisionalesNoDisponibles
+		}
+		if grupo == 1 {
+			fuenteDietas, fuenteKilometraje = tarifa.ReferenciaDietas, tarifa.ReferenciaKilometraje
+		} else if tarifa.ReferenciaDietas != fuenteDietas || tarifa.ReferenciaKilometraje != fuenteKilometraje {
 			return s, domain.ErrTramosProvisionalesNoDisponibles
 		}
 		tramos, e := domain.CalcularTramosNacionalesProvisionales(inicio, fin, zona, tarifa.Dieta, regla)

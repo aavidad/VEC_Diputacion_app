@@ -4,18 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 
 
 DEFAULT_OUTPUT = Path("config/rpt_positions_import.json")
 DEFAULT_EXPECTED_ROWS = 842
 DEFAULT_EXPECTED_DOTATIONS = 1714
-SOURCE_URL = "https://www.dipgra.es/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/recursos-humanos/"
+SOURCE_URL = "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Recursos-Humanos-Relacion-de-Puestos-de-Trabajo/Relacion-de-Puestos-de-Trabajo.pdf"
 
 CENTER_RE = re.compile(r"Centro:\s+([0-9A-Z]+)\s+(.+)$")
 ROW_RE = re.compile(r"^\s*(\d{1,4})\s+([A-ZÁÉÍÓÚÜÑ0-9][^\n]*?)\s{2,}(.+)$")
@@ -77,17 +77,27 @@ def administration_and_provision(fields: list[str]) -> tuple[str, str]:
 
 
 def is_continuation(value: str) -> bool:
-    value = clean(value)
-    if not value:
+    if not value.strip():
         return False
-    if "Página " in value or "Centro:" in value or value.startswith("RPT Diputación"):
+    normalized = clean(value)
+    if "Página " in normalized or "Centro:" in normalized or normalized.startswith("RPT Diputación"):
         return False
-    return ROW_RE.match(value) is None
+    return parse_row(value) is None
 
 
 def looks_like_observation(value: str) -> bool:
     upper = value.upper()
     return any(token in upper for token in ("EXTINGUIR", "EXP", "ESPECIAL", "FORM"))
+
+
+def continuation_cells(line: str, position: dict) -> tuple[str, str, str]:
+    """Lee cada celda por su columna, incluso si comparten línea."""
+    destination_column = position.get("destination_column", 115)
+    return (
+        clean(line[:65]),
+        clean(line[65:destination_column]),
+        clean(line[destination_column:]),
+    )
 
 
 def parse_row(line: str) -> dict | None:
@@ -136,6 +146,15 @@ def parse_row(line: str) -> dict | None:
         "requirements": clean(" ".join(fields[amount_index + 3 :])),
         "raw": clean(line),
     }
+
+    destination_match = re.search(
+        r"\s{2,}" + re.escape(fields[cd_index]) + r"\s{2,}"
+        + re.escape(fields[amount_index - 1]), line
+    )
+    position["destination_column"] = (
+        destination_match.start() + len(destination_match.group(0)) - len(destination_match.group(0).lstrip())
+        if destination_match else 115
+    )
 
     group_index = -1
     for idx in range(3, cd_index):
@@ -186,19 +205,19 @@ def parse_text(text: str) -> list[dict]:
             position["center_name"] = center_name
             position["page"] = page_index
 
-            if index + 1 < len(lines):
-                next_line = clean(lines[index + 1])
-                if is_continuation(next_line):
-                    position["category_code"] = clean(f"{position.get('category_code', '')} {next_line}")
-                    position["raw"] = clean(f"{position.get('raw', '')} {next_line}")
-                    index += 1
-
-            if index + 1 < len(lines):
-                next_line = clean(lines[index + 1])
-                if is_continuation(next_line) and looks_like_observation(next_line):
-                    position["observations"] = clean(f"{position.get('observations', '')} {next_line}")
-                    position["raw"] = clean(f"{position.get('raw', '')} {next_line}")
-                    index += 1
+            while index + 1 < len(lines) and is_continuation(lines[index + 1]):
+                continuation = lines[index + 1]
+                next_line = clean(continuation)
+                name, category, other = continuation_cells(continuation, position)
+                if name:
+                    position["name"] = clean(f"{position['name']} {name}")
+                if category:
+                    position["category_code"] = clean(f"{position.get('category_code', '')} {category}")
+                if other and looks_like_observation(other):
+                    position["observations"] = clean(f"{position.get('observations', '')} {other}")
+                position["raw"] = clean(f"{position.get('raw', '')} {next_line}")
+                index += 1
+            position.pop("destination_column", None)
 
             positions.append(position)
             index += 1
@@ -215,7 +234,7 @@ def provision_label(code: str) -> str:
     }.get(clean(code), clean(code) or "Segun RPT")
 
 
-def build_import(positions: list[dict]) -> dict:
+def build_import(positions: list[dict], source_digest: str = "") -> dict:
     official_counts = Counter(item["official_code"] for item in positions)
     seen: dict[str, int] = defaultdict(int)
     imported = []
@@ -279,7 +298,7 @@ def build_import(positions: list[dict]) -> dict:
 
     return {
         "source": SOURCE_URL,
-        "version": f"rpt-diputacion-granada-2026-05-07-generated-{datetime.now(timezone.utc).date().isoformat()}",
+        "version": f"rpt-diputacion-granada-2026-05-07-sha256-{source_digest}" if source_digest else "rpt-diputacion-granada-2026-05-07",
         "replace": True,
         "positions": imported,
     }
@@ -321,7 +340,7 @@ def main() -> int:
     if dotations != args.expected_dotations:
         raise SystemExit(f"RPT dotations = {dotations}, expected {args.expected_dotations}")
 
-    payload = build_import(positions)
+    payload = build_import(positions, hashlib.sha256(args.pdf.read_bytes()).hexdigest())
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {args.out} with {len(payload['positions'])} positions and {dotations} dotations")
