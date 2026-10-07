@@ -134,6 +134,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			codigo = 1
 		}
 		return responder(salida, r, codigo)
+	case auditoria.EsquemaVerificacionIdentidadInternaSintetica:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONIdentidadInterna(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaIdentidadInternaSinteticaV1(d, checkpoint, *maxRegistros)
 	default:
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
