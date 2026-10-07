@@ -19,6 +19,19 @@ const (
 	DominioFamiliaCuadroRRHHSesionV2  = "vec.contratacion_temporal.filtros_rrhh.cuadro.v2"
 )
 
+type FiltroPlazoCuadroRRHH string
+
+const (
+	FiltroPlazoVencido     FiltroPlazoCuadroRRHH = "vencido"
+	FiltroPlazoVenceHoy    FiltroPlazoCuadroRRHH = "vence_hoy"
+	FiltroPlazoVenceSemana FiltroPlazoCuadroRRHH = "vence_semana"
+)
+
+func (f FiltroPlazoCuadroRRHH) valido() bool {
+	return f == "" || f == FiltroPlazoVencido ||
+		f == FiltroPlazoVenceHoy || f == FiltroPlazoVenceSemana
+}
+
 // ConsultaCuadroRRHHSesionV2 describe únicamente el corte y la paginación.
 // La identidad y el alcance se obtienen del puerto común de sesión al consumirla.
 type ConsultaCuadroRRHHSesionV2 struct {
@@ -30,6 +43,7 @@ type ConsultaCuadroRRHHSesionV2 struct {
 	numEstados   uint8
 	fases        [32]domain.ClaveFase
 	numFases     uint8
+	plazoEstado  FiltroPlazoCuadroRRHH
 	limite       uint16
 	cursor       string
 }
@@ -64,6 +78,7 @@ func (c ConsultaCuadroRRHHSesionV2) validar() error {
 		(c.centroRef != "" && !domain.ReferenciaOpacaValida(c.centroRef)) ||
 		(c.categoriaRef != "" && !domain.ReferenciaOpacaValida(c.categoriaRef)) ||
 		c.numEstados > 6 || c.numFases > 32 ||
+		!c.plazoEstado.valido() ||
 		c.limite < 1 || c.limite > LimiteMaximoCuadroRRHH ||
 		(c.cursor != "" && !cursorRRHHValido(c.cursor)) {
 		return ErrSolicitudConsultaRRHHInvalida
@@ -86,6 +101,16 @@ func (c ConsultaCuadroRRHHSesionV2) CentroRef() string    { return c.centroRef }
 func (c ConsultaCuadroRRHHSesionV2) CategoriaRef() string { return c.categoriaRef }
 func (c ConsultaCuadroRRHHSesionV2) Limite() uint16       { return c.limite }
 func (c ConsultaCuadroRRHHSesionV2) Cursor() string       { return c.cursor }
+func (c ConsultaCuadroRRHHSesionV2) PlazoEstado() FiltroPlazoCuadroRRHH {
+	return c.plazoEstado
+}
+func (c ConsultaCuadroRRHHSesionV2) ConPlazoEstado(filtro FiltroPlazoCuadroRRHH) (ConsultaCuadroRRHHSesionV2, error) {
+	c.plazoEstado = filtro
+	if c.validar() != nil {
+		return ConsultaCuadroRRHHSesionV2{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	return c, nil
+}
 func (c ConsultaCuadroRRHHSesionV2) EstadosClave() []domain.EstadoOperativo {
 	return append([]domain.EstadoOperativo(nil), c.estados[:c.numEstados]...)
 }
@@ -101,6 +126,7 @@ type canonFiltrosCuadroRRHHSesionV2 struct {
 	CategoriaRef string   `json:"categoria_ref"`
 	EstadosClave []string `json:"estados_clave"`
 	FasesClave   []string `json:"fases_clave"`
+	PlazoEstado  string   `json:"plazo_estado"`
 	Limite       uint16   `json:"limite"`
 }
 
@@ -112,6 +138,7 @@ type canonConsultaCuadroRRHHSesionV2 struct {
 	CategoriaRef string   `json:"categoria_ref"`
 	EstadosClave []string `json:"estados_clave"`
 	FasesClave   []string `json:"fases_clave"`
+	PlazoEstado  string   `json:"plazo_estado"`
 	Limite       uint16   `json:"limite"`
 	Cursor       string   `json:"cursor"`
 }
@@ -128,7 +155,7 @@ func (c ConsultaCuadroRRHHSesionV2) canon(familia bool) ([]byte, error) {
 		Dominio: dominio, Version: 2, Texto: c.texto,
 		CentroRef: c.centroRef, CategoriaRef: c.categoriaRef,
 		EstadosClave: make([]string, c.numEstados),
-		FasesClave:   make([]string, c.numFases), Limite: c.limite,
+		FasesClave:   make([]string, c.numFases), PlazoEstado: string(c.plazoEstado), Limite: c.limite,
 	}
 	for i, estado := range c.estados[:c.numEstados] {
 		valor.EstadosClave[i] = string(estado)
@@ -143,7 +170,7 @@ func (c ConsultaCuadroRRHHSesionV2) canon(familia bool) ([]byte, error) {
 		Dominio: valor.Dominio, Version: valor.Version, Texto: valor.Texto,
 		CentroRef: valor.CentroRef, CategoriaRef: valor.CategoriaRef,
 		EstadosClave: valor.EstadosClave, FasesClave: valor.FasesClave,
-		Limite: valor.Limite, Cursor: c.cursor,
+		PlazoEstado: valor.PlazoEstado, Limite: valor.Limite, Cursor: c.cursor,
 	})
 }
 

@@ -15,6 +15,7 @@ type filtrosCuadroRRHHSesionV2JSON struct {
 	CategoriaRef string   `json:"categoria_ref"`
 	EstadosClave []string `json:"estados_clave"`
 	FasesClave   []string `json:"fases_clave"`
+	PlazoEstado  string   `json:"plazo_estado"`
 }
 
 type consultaCuadroRRHHSesionV2JSON struct {
@@ -47,6 +48,10 @@ func solicitudCuadroRRHHSesionV2DesdePeticion(
 		entrada.Filtros.CategoriaRef, estados, fases,
 		*entrada.Paginacion.Limite, entrada.Paginacion.Cursor,
 	)
+	if err != nil {
+		return ports.ConsultaCuadroRRHHSesionV2{}, false, errContenidoConsultaRRHHNoValido
+	}
+	solicitud, err = solicitud.ConPlazoEstado(ports.FiltroPlazoCuadroRRHH(entrada.Filtros.PlazoEstado))
 	if err != nil {
 		return ports.ConsultaCuadroRRHHSesionV2{}, false, errContenidoConsultaRRHHNoValido
 	}

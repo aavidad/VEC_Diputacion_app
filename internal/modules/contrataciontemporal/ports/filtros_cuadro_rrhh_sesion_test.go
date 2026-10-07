@@ -26,7 +26,7 @@ func TestConsultaCuadroSesionV2ConservaFamiliaYLigaCadaPagina(t *testing.T) {
 		return c
 	}
 	primera := crear("", []domain.EstadoOperativo{domain.EstadoEnCurso, domain.EstadoCompletado})
-	const esperado = `{"dominio":"vec.contratacion_temporal.consulta_rrhh.cuadro.v2","version":2,"texto":"2026/CT","centro_ref":"centro:desarrollo:001","categoria_ref":"categoria:desarrollo:c2","estados_clave":["completado","en_curso"],"fases_clave":["fiscalizacion","solicitud"],"limite":25,"cursor":""}`
+	const esperado = `{"dominio":"vec.contratacion_temporal.consulta_rrhh.cuadro.v2","version":2,"texto":"2026/CT","centro_ref":"centro:desarrollo:001","categoria_ref":"categoria:desarrollo:c2","estados_clave":["completado","en_curso"],"fases_clave":["fiscalizacion","solicitud"],"plazo_estado":"","limite":25,"cursor":""}`
 	canon, err := primera.CanonConsulta()
 	if err != nil || string(canon) != esperado {
 		t.Fatalf("canon v2 distinto: %s %v", canon, err)
@@ -48,6 +48,17 @@ func TestConsultaCuadroSesionV2ConservaFamiliaYLigaCadaPagina(t *testing.T) {
 	f3, _ := otra.HuellaFamilia()
 	if f3 == f1 {
 		t.Fatal("otro filtro reutilizó familia")
+	}
+	conPlazo, err := primera.ConPlazoEstado(FiltroPlazoVencido)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f4, _ := conPlazo.HuellaFamilia()
+	if f4 == f1 {
+		t.Fatal("el plazo reutilizó la familia sin filtro")
+	}
+	if _, err := primera.ConPlazoEstado("plazo_desconocido"); err == nil {
+		t.Fatal("plazo desconocido admitido")
 	}
 	if _, err := json.Marshal(primera); !errors.Is(err, ErrMaterialConsultaRRHHSensible) {
 		t.Fatal("consulta serializable")

@@ -16,10 +16,16 @@ func TestParserCuadroRRHHSesionV2FijaFiltrosYResumen(t *testing.T) {
 	}
 }
 
-func TestParserCuadroRRHHSesionV2RechazaPlazoSinPredicado(t *testing.T) {
-	const cuerpo = `{"filtros":{"texto":"","plazo_estado":"vencido"},"paginacion":{"limite":25,"cursor":""}}`
+func TestParserCuadroRRHHSesionV2ValidaPlazoGobernado(t *testing.T) {
+	const valido = `{"filtros":{"texto":"","plazo_estado":"vencido"},"paginacion":{"limite":25,"cursor":""}}`
+	s, _, err := solicitudCuadroRRHHSesionV2DesdePeticion(
+		httptest.NewRecorder(), nuevaPeticionConsultaRRHHPrueba(RutaConsultaCuadroRRHH, valido))
+	if err != nil || s.PlazoEstado() != "vencido" {
+		t.Fatalf("filtro de plazo perdido: %v", err)
+	}
+	const cuerpo = `{"filtros":{"texto":"","plazo_estado":"otro"},"paginacion":{"limite":25,"cursor":""}}`
 	if _, _, err := solicitudCuadroRRHHSesionV2DesdePeticion(
 		httptest.NewRecorder(), nuevaPeticionConsultaRRHHPrueba(RutaConsultaCuadroRRHH, cuerpo)); err == nil {
-		t.Fatal("un filtro sin predicado SQL pasó el contrato HTTP")
+		t.Fatal("un filtro de plazo desconocido pasó el contrato HTTP")
 	}
 }
