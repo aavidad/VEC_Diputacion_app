@@ -6,7 +6,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261006-resumen-inicio-v2";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261006-resumen-inicio-v2";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261007-ct-ficha-final-v1";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261002-ct-fin-moad-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
@@ -19,13 +19,13 @@ import {
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261006-resumen-inicio-v2";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261006-resumen-inicio-v2";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261006-resumen-inicio-v2";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261007-ct-ficha-final-v1";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261007-ct-ficha-final-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261007-ct-ficha-final-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261006-resumen-inicio-v2";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261006-resumen-inicio-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261007-ct-ficha-final-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261006-resumen-inicio-v2";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261001-ct-a-i18n-v1";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-ct-ficha-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261002-ct-fin-moad-v1";
@@ -43,7 +43,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
 }
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261006-resumen-inicio-v2";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261007-ct-ficha-final-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
