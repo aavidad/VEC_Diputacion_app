@@ -109,6 +109,60 @@ test("un fallo doble de catálogo conserva un reintento sin montar datos", async
   montada.desmontar();
 });
 
+test("dos reintentos simultáneos comparten carga y montan una sola vista", async () => {
+  const base = await cargarTextos("nominas");
+  const { raiz } = crearDOM();
+  let cargas = 0;
+  let resolver;
+  const fallo = await montarVistaNominas({ raiz, cargarCatalogo: () => {
+    if (++cargas === 1) return Promise.reject(new Error("fallo temporal"));
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const primero = fallo.reintentar();
+  const segundo = fallo.reintentar();
+  assert.equal(primero, segundo);
+  assert.equal(cargas, 2);
+  resolver(base);
+  const [uno, dos] = await Promise.all([primero, segundo]);
+  assert.equal(uno, dos);
+  assert.equal(raiz.children.length, 1);
+  fallo.desmontar();
+  assert.equal(raiz.children.length, 0);
+});
+
+test("desmontar durante el reintento impide pintar el catálogo tardío", async () => {
+  const base = await cargarTextos("nominas");
+  const { raiz } = crearDOM();
+  let resolver;
+  let cargas = 0;
+  const fallo = await montarVistaNominas({ raiz, cargarCatalogo: () => {
+    if (++cargas === 1) return Promise.reject(new Error("fallo temporal"));
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const reintento = fallo.reintentar();
+  fallo.desmontar();
+  resolver(base);
+  assert.equal((await reintento).estado, "desmontada");
+  assert.equal(raiz.children.length, 0);
+  assert.equal(fallo.reintentar(), null);
+  assert.equal(cargas, 2);
+});
+
+test("un catálogo incompleto falla antes de montar y admite reintento", async () => {
+  const base = await cargarTextos("nominas");
+  const incompleto = { ...base, traducir: (ruta, valores) => {
+    if (ruta === "general.descarga_error") throw new Error("clave ausente");
+    return base.traducir(ruta, valores);
+  } };
+  const { raiz } = crearDOM();
+  const fallo = await montarVistaNominas({ raiz, textos: incompleto, cargarCatalogo: async () => base });
+  assert.equal(fallo.estado, "error_catalogo");
+  assert.equal(raiz.children.length, 0);
+  const montada = await fallo.reintentar();
+  assert.equal(raiz.children.length, 1);
+  montada.desmontar();
+});
+
 test("cerrar durante la carga impide montar una respuesta tardía", async () => {
   const base = await cargarTextos("nominas");
   const { raiz } = crearDOM();

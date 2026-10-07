@@ -3,7 +3,23 @@ import { cargarTextosNominas, crearTraductorNominas } from "./i18n.js?v=20261007
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FORMATO_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
 const NOMBRE_PDF = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}\.pdf$/i;
+const CLAVES_VISTA = [
+  "titulo", "ayuda", "ayuda_texto", "historial", "lateral", "detalle", "certificados",
+  "certificados_pendientes", "aclaraciones", "aclaraciones_pendientes", "solicitar_aclaracion",
+  "origen", "actualizado", "periodo", "tipo", "version", "fecha", "acciones", "referencia",
+  "dato_no_disponible", "descargar", "descarga_en_curso", "descarga_no_disponible",
+  "descarga_iniciada", "descarga_error", "todos", "reintentar", "sin_recibos",
+  "ver_detalle", "seleccionado",
+];
 let siguienteDetalleId = 0;
+
+function validarTextosVista(textos) {
+  const traducir = crearTraductorNominas(textos);
+  for (const clave of [...CLAVES_VISTA, ...[...ESTADOS].flatMap((estado) => [`estado_${estado}`, `explicacion_${estado}`])]) {
+    if (!traducir(clave, { periodo: "", version: "" }).trim()) throw new TypeError("catálogo de nóminas incompleto");
+  }
+  return traducir;
+}
 
 function elemento(doc, etiqueta, texto, clase) {
   const nodo = doc.createElement(etiqueta);
@@ -59,21 +75,31 @@ async function validarDocumento(respuesta, ventana) {
 export async function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente, textos, cargarCatalogo = cargarTextosNominas, mensajeErrorCatalogo } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || (fuente !== undefined && typeof fuente?.consultar !== "function")) throw new TypeError("vista de Nóminas no disponible");
   let cargaVigente = true;
-  registrarDesmontar?.(() => { cargaVigente = false; });
-  if (!textos) {
-    try {
-      textos = await cargarCatalogo();
-    } catch {
-      if (!cargaVigente) return Object.freeze({ estado: "desmontada", desmontar: () => {} });
-      // El shell conserva el módulo y puede anunciar un mensaje ya traducido.
-      globalThis.console?.error?.("nominas:catalogo_no_disponible");
-      if (typeof mensajeErrorCatalogo === "string" && mensajeErrorCatalogo.trim()) anunciar(mensajeErrorCatalogo, "error");
-      return Object.freeze({ estado: "error_catalogo", desmontar: () => { cargaVigente = false; }, reintentar: () => cargaVigente ? montarVistaNominas({ raiz, anunciar, registrarDesmontar, fuente, cargarCatalogo, mensajeErrorCatalogo }) : null });
-    }
+  let desmontarReintento;
+  const cancelarCarga = () => {
+    cargaVigente = false;
+    desmontarReintento?.();
+  };
+  registrarDesmontar?.(cancelarCarga);
+  let t;
+  try {
+    if (!textos) textos = await cargarCatalogo();
+    t = validarTextosVista(textos);
+  } catch {
+    if (!cargaVigente) return Object.freeze({ estado: "desmontada", desmontar: () => {} });
+    // El shell conserva el módulo y puede anunciar un mensaje ya traducido.
+    globalThis.console?.error?.("nominas:catalogo_no_disponible");
+    if (typeof mensajeErrorCatalogo === "string" && mensajeErrorCatalogo.trim()) anunciar(mensajeErrorCatalogo, "error");
+    let reintento;
+    return Object.freeze({ estado: "error_catalogo", desmontar: cancelarCarga, reintentar: () => {
+      if (!cargaVigente) return null;
+      reintento ??= montarVistaNominas({ raiz, anunciar, fuente, cargarCatalogo, mensajeErrorCatalogo,
+        registrarDesmontar: (desmontar) => { desmontarReintento = desmontar; if (!cargaVigente) desmontar(); } });
+      return reintento;
+    } });
   }
   if (!cargaVigente) return Object.freeze({ estado: "desmontada", desmontar: () => {} });
   const doc = raiz.ownerDocument;
-  const t = crearTraductorNominas(textos);
   const fechaVisible = (valor) => textos.fecha(valor, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
   const contenedor = elemento(doc, "section", undefined, "modulo-nominas");
   contenedor.dataset.nominas = "";
