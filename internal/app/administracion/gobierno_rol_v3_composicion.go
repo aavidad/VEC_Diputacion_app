@@ -18,8 +18,6 @@ import (
 type DependenciasGobiernoRolNuevoV3 struct {
 	PoolGobierno    *pgxpool.Pool
 	FuenteCatalogo  ports.FuenteCatalogoAccionesAdministracionV1
-	CatalogoRoles   ports.CatalogoRolesAdministrables
-	ActosExistentes ports.AutoridadActosAdministracionPerfiles
 	Confianza       ConfiguracionConfianzaPerfilesV3
 	DependenciasPDP DependenciasConfianzaPerfilesV3
 	Motivos         map[string]domain.ReferenciaEntradaCatalogo
@@ -32,7 +30,6 @@ type DependenciasGobiernoRolNuevoV3 struct {
 func NuevoServicioGobiernoRolNuevoV3(ctx context.Context,
 	d DependenciasGobiernoRolNuevoV3) (*application.ServicioAdministracionPerfiles, error) {
 	if ctx == nil || d.PoolGobierno == nil || dependenciaConfianzaPerfilesNula(d.FuenteCatalogo) ||
-		dependenciaConfianzaPerfilesNula(d.CatalogoRoles) || dependenciaConfianzaPerfilesNula(d.ActosExistentes) ||
 		dependenciaConfianzaPerfilesNula(d.Reloj) || d.PoolGobierno == d.DependenciasPDP.PoolFuente ||
 		d.PoolGobierno == d.DependenciasPDP.PoolRegistro || d.PoolGobierno == d.DependenciasPDP.PoolMotivos {
 		return nil, ErrConfiguracion
@@ -52,9 +49,5 @@ func NuevoServicioGobiernoRolNuevoV3(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	actos, err := gobierno.NuevaAutoridadPerfilesConGobierno(d.ActosExistentes, autoridad)
-	if err != nil {
-		return nil, err
-	}
-	return application.NuevoServicioAdministracionPerfiles(d.CatalogoRoles, actos, d.Reloj)
+	return application.NuevoServicioAdministracionPerfiles(autoridad, autoridad, d.Reloj)
 }
