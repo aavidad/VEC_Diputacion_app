@@ -107,7 +107,7 @@ function tablaRPT(documento, pagina, t, recargar) {
           celda.append(boton);
         } else if (pagina.vista !== "puestos") {
           const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
-          boton.className = "boton-enlace"; boton.dataset.personalRptPublicaEnlace = campo;
+          boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaEnlace = campo;
           boton.setAttribute("aria-label", t(pagina.vista === "centros" ? "ver_puestos_centro" : "ver_puestos_categoria", { valor: item.denominacion }));
           boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
           celda.append(boton);
@@ -143,7 +143,7 @@ function resumenEnlazado(documento, pagina, recargar, t) {
   const numero = new Intl.NumberFormat(LOCALIZACION_ACTUAL, { useGrouping: "always" });
   [["puestos", "puestos", "puestos"], ["dotacion", "dotacion", "puestos"], ["categorias", "categorias", "categorias"], ["centros", "centros", "centros"]].forEach(([campo, clave, vista]) => {
     const boton = nodo(documento, "button", t(`resumen_${clave}`, { total: numero.format(pagina.resumen[campo]) }));
-    boton.type = "button"; boton.className = "boton-enlace"; boton.dataset.personalRptPublicaResumenEnlace = campo;
+    boton.type = "button"; boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaResumenEnlace = campo;
     boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true }));
     cuerpo.append(boton);
   });
