@@ -482,7 +482,8 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 		return
 	}
 	if r.URL.Path != rutaCatalogosAltaContratacionTemporalDesarrollo ||
-		r.URL.RawQuery != "" || r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
+		(r.URL.RawQuery != "" && r.URL.RawQuery != "version=2") ||
+		r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
 		cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(r.Header) {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 			w, r, http.StatusBadRequest, "solicitud_invalida",
@@ -503,12 +504,21 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
-	contenido, err := json.Marshal(respuestaCatalogosAltaContratacionTemporalDesarrollo{
-		Data: datosCatalogosAltaContratacionTemporalDesarrollo{
-			catalogosAltaContratacionTemporalDesarrollo: catalogos,
-			PreparacionVias: preparacionViasCatalogosAlta(&catalogos),
-		},
-	})
+	var contenido []byte
+	if r.URL.RawQuery == "version=2" {
+		var datos datosCatalogosAltaV2
+		datos, err = datosCatalogosAltaV2Desde(catalogos)
+		if err == nil {
+			contenido, err = json.Marshal(respuestaCatalogosAltaV2{Data: datos})
+		}
+	} else {
+		contenido, err = json.Marshal(respuestaCatalogosAltaContratacionTemporalDesarrollo{
+			Data: datosCatalogosAltaContratacionTemporalDesarrollo{
+				catalogosAltaContratacionTemporalDesarrollo: catalogos,
+				PreparacionVias: preparacionViasCatalogosAlta(&catalogos),
+			},
+		})
+	}
 	if err != nil {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 			w, r, http.StatusServiceUnavailable, "servicio_no_disponible",

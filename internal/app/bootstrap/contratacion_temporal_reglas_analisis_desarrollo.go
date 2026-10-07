@@ -5,13 +5,9 @@ import (
 	"errors"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
-
-// minutosJornadaCompletaPredeterminadaDesarrollo es la jornada completa de
-// referencia cuando no hay catálogo de reglas o este no publica la regla c07:
-// 37 h 30 min semanales. Con catálogo manda la regla c07.jornada_completa.
-const minutosJornadaCompletaPredeterminadaDesarrollo = 37*60 + 30
 
 // maximoMinutosJornadaCompletaDesarrollo es una semana entera: una regla
 // mayor no es una jornada y se rechaza.
@@ -64,17 +60,22 @@ func nuevasFuentesReglasAnalisisDesarrollo(
 // fuenteJornadaCompletaDesarrollo resuelve la jornada completa en cada
 // consulta, para que una nueva versión del catálogo se aplique sin reiniciar.
 type fuenteJornadaCompletaDesarrollo struct {
-	resolutor *reglas.Resolutor
+	resolutor    *reglas.Resolutor
+	rutaCatalogo string
 }
 
-// minutos devuelve los minutos semanales de la jornada completa. Sin catálogo
-// o sin la regla c07 se aplica el valor predeterminado; un catálogo declarado
-// pero no disponible, o una regla con otra unidad, no se sustituye por él.
+// minutos devuelve la referencia semanal. La regla c07 configurada prevalece;
+// sin catálogo de reglas se usa la publicación de necesidades distribuida.
+// Si una publicación de reglas omite c07, la configuración es incompleta.
 func (f fuenteJornadaCompletaDesarrollo) minutos(ctx context.Context) (int, error) {
 	regla, err := f.resolutor.Regla(ctx, reglas.CTJornadaCompleta)
 	switch {
-	case errors.Is(err, reglas.ErrReglasNoConfiguradas), errors.Is(err, reglas.ErrReglaNoEncontrada):
-		return minutosJornadaCompletaPredeterminadaDesarrollo, nil
+	case errors.Is(err, reglas.ErrReglasNoConfiguradas):
+		catalogo, errorCatalogo := catalogoalta.CargarNecesidades(f.rutaCatalogo)
+		if errorCatalogo != nil {
+			return 0, errJornadaCompletaNoDisponible
+		}
+		return int(catalogo.JornadaReferenciaMinutos), nil
 	case err != nil:
 		return 0, errJornadaCompletaNoDisponible
 	case regla.Unidad != reglas.UnidadMinutosSemanales || regla.Cantidad < 1 ||
