@@ -95,7 +95,8 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
     { filtroLista: { mostrar: "incidencia" } }), true);
   assert.equal(consultas.length, 3);
   assert.equal(consultas[2].filtros.estado_clave, "incidencia");
-  assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 1);
+  assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 3,
+    "Inicio y cada página usan el resumen global de su propia consulta");
   coordinador.desmontarVistaActual();
 });
 
