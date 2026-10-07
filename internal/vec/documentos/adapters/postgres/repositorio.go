@@ -277,7 +277,7 @@ func (r *Repositorio) ConfirmarReferenciaExterna(ctx context.Context, a ports.Al
 }
 
 func (r *Repositorio) ListarExpediente(ctx context.Context, c ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {
-	if !domain.ReferenciaOpacaValida(c.ExpedienteRef) || c.Autorizacion.RecursoRef != c.ExpedienteRef ||
+	if !domain.ReferenciaExpedienteValida(c.ExpedienteRef) || c.Autorizacion.RecursoRef != c.ExpedienteRef ||
 		c.Autorizacion.AmbitoRef != c.ExpedienteRef || c.Limite < 1 || c.Limite > 100 ||
 		(c.Cursor != "" && !domain.ReferenciaOpacaValida(c.Cursor)) {
 		return ports.PaginaDocumentos{}, ports.ErrSolicitudInvalida
@@ -322,7 +322,7 @@ func (r *Repositorio) ListarExpediente(ctx context.Context, c ports.ConsultaExpe
 
 func (r *Repositorio) Obtener(ctx context.Context, c ports.ConsultaDocumento) (domain.Documento, error) {
 	if !domain.ReferenciaOpacaValida(c.DocumentoID) || c.Version == 0 ||
-		c.Autorizacion.RecursoRef != c.DocumentoID || !domain.ReferenciaOpacaValida(c.Autorizacion.AmbitoRef) {
+		c.Autorizacion.RecursoRef != c.DocumentoID || !domain.ReferenciaExpedienteValida(c.Autorizacion.AmbitoRef) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	preimagen, err := c.PreimagenDescargar()
@@ -349,7 +349,7 @@ func (r *Repositorio) ConfirmarPreparacion(ctx context.Context, p ports.Preparac
 	if !domain.ReferenciaOpacaValida(p.ID) || !domain.ReferenciaOpacaValida(p.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(p.DocumentoID) ||
 		!domain.ReferenciaOpacaValida(p.DestinatarioRef) || !domain.IdentificadorTecnicoValido(p.Canal) ||
-		p.Version == 0 || p.Autorizacion.RecursoRef != p.ID || !domain.ReferenciaOpacaValida(p.Autorizacion.AmbitoRef) {
+		p.Version == 0 || p.Autorizacion.RecursoRef != p.ID || !domain.ReferenciaExpedienteValida(p.Autorizacion.AmbitoRef) {
 		return domain.NotificacionPreparada{}, ports.ErrSolicitudInvalida
 	}
 	preimagen, err := p.PreimagenPreparar()
