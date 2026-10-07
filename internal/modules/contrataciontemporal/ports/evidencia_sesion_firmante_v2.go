@@ -9,10 +9,11 @@ import (
 
 // SolicitudSesionFirmanteV2 aporta sólo cotejos esperados. La fuente común
 // obtiene la identidad de su propia sesión autenticada y registrada; estos
-// campos nunca son una autoridad para crear o elegir una cuenta.
+// campos nunca son una autoridad para crear o elegir una cuenta, perfil o rol.
 type SolicitudSesionFirmanteV2 struct {
 	CertificadoCanalSHA256, PersonaEsperadaRef string
 	CuentaEsperadaRef, PerfilEsperadoRef       string
+	RolEsperadoID                              string
 	CertificadoVerificadoEn                    time.Time
 	CertificadoTLSValidoHasta                  time.Time
 }

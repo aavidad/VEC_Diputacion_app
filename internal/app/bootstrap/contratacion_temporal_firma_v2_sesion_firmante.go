@@ -28,6 +28,7 @@ type autoridadSesionFirmanteV2 struct {
 	fuente       ports.FuenteSesionFirmanteV2
 	reloj        vp.Reloj
 	preacreditar func(*http.Request) error
+	garantia     core.AuthAssurance
 }
 
 type capsulaSesionFirmanteV2 struct {
@@ -50,7 +51,8 @@ func nuevaAutoridadSesionFirmanteV2ConFuente(fuente ports.FuenteSesionFirmanteV2
 	if dependenciaEsNulaContratacionTemporalDesarrollo(fuente) || dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
 		return nil, errSesionFirmanteV2NoDisponible
 	}
-	return &autoridadSesionFirmanteV2{fuente: fuente, reloj: reloj, preacreditar: preacreditar}, nil
+	return &autoridadSesionFirmanteV2{fuente: fuente, reloj: reloj, preacreditar: preacreditar,
+		garantia: core.AuthAssuranceHigh}, nil
 }
 
 // acreditar no acepta identidad ambiental. La selección y la referencia CA25
@@ -121,7 +123,8 @@ func (a *autoridadSesionFirmanteV2) abrirConContexto(ctx context.Context, r *htt
 	}
 	solicitud := ports.SolicitudSesionFirmanteV2{CertificadoCanalSHA256: c.huellaAUT56,
 		PersonaEsperadaRef: c.personaCA25, CuentaEsperadaRef: c.seleccion.CuentaRef,
-		PerfilEsperadoRef: c.seleccion.PerfilActivoRef, CertificadoVerificadoEn: c.verificadoEn,
+		PerfilEsperadoRef: c.seleccion.PerfilActivoRef, RolEsperadoID: c.seleccion.RolID,
+		CertificadoVerificadoEn:   c.verificadoEn,
 		CertificadoTLSValidoHasta: c.validoHasta}
 	sesion, err := a.fuente.AbrirSesionFirmanteV2(ctx, solicitud)
 	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(sesion) {
@@ -170,7 +173,7 @@ func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r 
 		!ahora.Before(e.CertificadoValidoHasta) || e.CertificadoValidoHasta.After(c.validoHasta) ||
 		datos.CuentaRef != c.seleccion.CuentaRef || datos.PerfilActivoRef != c.seleccion.PerfilActivoRef ||
 		datos.PrincipalID != c.personaCA25 || datos.CuentaPrivilegiada ||
-		datos.MetodoObservado != core.AuthMethodCertificate || datos.GarantiaObservada != core.AuthAssuranceHigh ||
+		datos.MetodoObservado != core.AuthMethodCertificate || datos.GarantiaObservada != a.garantia ||
 		datos.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 ||
 		e.Resultado.Contexto.PersonaRef != c.personaCA25 ||
 		!e.Resultado.Contexto.AlcanceProyecciones().IncluyeEmpleado() || !a.peticionVigente(r, c) {
