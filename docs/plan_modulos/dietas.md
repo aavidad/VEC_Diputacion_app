@@ -134,3 +134,23 @@ kilometraje de `version_tarifa_provisional`. Cierre: una fuente ausente o
 incongruente impide preparar el cálculo; la versión vigente válida conserva
 el importe y el rótulo provisional. El catálogo actual no contiene un acto
 aprobatorio: añadir metadatos no aprueba tarifas ni liquida una comisión.
+
+### DIE-01: candidato local del 7 de octubre
+
+El lector PostgreSQL devuelve las dos referencias guardadas con la versión.
+El preparador comprueba su formato y exige que coincidan en las tarifas de
+los tres grupos antes de calcular, tanto al crear como al editar. Si falta
+una referencia o cambia entre grupos, deja el cálculo sin preparar. La
+versión vigente conserva los importes y el rótulo provisional. El cambio no
+publica reglas ni acredita un acto de RRHH.
+
+Pasaron las pruebas Go focales de dominio, aplicación y adaptador, y Semgrep
+local sobre los siete archivos Go modificados (42 reglas, 0 hallazgos). En un
+PostgreSQL 18 desechable, la prueba del lector con el rol
+`vec_dietas_ejecutor` leyó la versión original y denegó una versión ajena y
+una fecha anterior a su vigencia. Una medición local con 10 001 versiones,
+30 003 filas de dietas y 20 002 de kilometraje, añadidas en una transacción
+revertida, obtuvo tres búsquedas por índice; ejecución SQL de 0,041 ms y p95
+de 0,105 ms en 190 lecturas. La planificación fue de 0,336 ms. Esta evidencia
+acredita la lectura del catálogo de ensayo; queda pendiente la revisión
+independiente y no acredita un recorrido nominal por HTTP o navegador.
