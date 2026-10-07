@@ -51,9 +51,15 @@
   align-items: start;
 }
 
-.personal-ficha-panel-ancho { grid-column: 1 / -1; }
-.personal-ficha-panel .cuerpo-panel { display: grid; gap: var(--portal-espacio-3); }
-.personal-ficha-panel .cuerpo-panel > p { margin: 0; }
+.personal-ficha-panel-ancho { grid-column: 1 / -1; min-width: 0; }
+.personal-ficha-panel > .cuerpo-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: var(--portal-espacio-3);
+}
+.personal-ficha-panel > .cuerpo-panel > [data-personal-ficha-catalogos] { min-width: 0; }
+.personal-ficha-panel > .cuerpo-panel > p { margin: 0; }
 .personal-ficha-panel dl { min-width: 0; overflow-wrap: anywhere; }
 
 .personal-ficha-bloques {
