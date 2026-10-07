@@ -16,6 +16,16 @@ import (
 
 type autorizacionAdmisionPrueba struct{ snapshot vd.InstantaneaAutorizacion }
 
+// El doble antiguo carece deliberadamente de captura PDP: si la vía DEV
+// lo llama con éxito, el adaptador debe denegar sin material.
+func (e *emisorPrueba) EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx context.Context,
+	s vd.SolicitudAutorizacionLigadaV3, r vd.ResultadoContextoActorRegistradoV2,
+) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error) {
+	d, c, x, err := e.EmitirMaterialAutorizacionAtestadaV3(ctx, s, r)
+	return d, c, x, nil, err
+}
+
 func (a autorizacionAdmisionPrueba) ObtenerInstantaneaAutorizacion(context.Context, string, string) (vd.InstantaneaAutorizacion, error) {
 	return a.snapshot, nil
 }
@@ -27,6 +37,14 @@ func (e *emisorFalloAdmisionPrueba) EmitirMaterialAutorizacionAtestadaV3(context
 ) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	e.llamadas++
 	return vd.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errors.New("fuente V3 de prueba caída")
+}
+
+func (e *emisorFalloAdmisionPrueba) EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx context.Context,
+	s vd.SolicitudAutorizacionLigadaV3, r vd.ResultadoContextoActorRegistradoV2,
+) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error) {
+	d, c, x, err := e.EmitirMaterialAutorizacionAtestadaV3(ctx, s, r)
+	return d, c, x, nil, err
 }
 
 func TestFirmaVecDesarrolloExigeGateYNoAdmiteHIGHComoExcepcion(t *testing.T) {
@@ -73,7 +91,7 @@ func TestFirmaVecDesarrolloSinPoliticaVigenteNoLlegaAlEmisorV3(t *testing.T) {
 	}
 }
 
-func TestFirmaVecDesarrolloAdmiteSinEmitirV3HastaCapturaFresca(t *testing.T) {
+func TestFirmaVecDesarrolloExigeCapturaAntesDeEntregarMaterial(t *testing.T) {
 	base, fuente, emisorBase, material, _, ctx := escenario(t, ports.ViaFirmaCertificadoVEC)
 	ahora := base.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	retirada := ahora.Add(10 * time.Minute)
@@ -123,11 +141,11 @@ func TestFirmaVecDesarrolloAdmiteSinEmitirV3HastaCapturaFresca(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 0 {
+	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 1 {
 		t.Fatalf("admisión previa o rechazo de emisor V3: err=%v llamadas=%d", err, emisor.llamadas)
 	}
 	emisorBase.reloj.ahora = retirada
-	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 0 {
+	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 1 {
 		t.Fatalf("política retirada alcanzó V3: err=%v llamadas=%d", err, emisor.llamadas)
 	}
 }

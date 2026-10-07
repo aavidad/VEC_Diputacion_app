@@ -7,6 +7,7 @@ import (
 	"errors"
 	"maps"
 	"reflect"
+	"time"
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -38,6 +39,13 @@ type EmisorComunV3 interface {
 	EmitirMaterialAutorizacionAtestadaV3(context.Context, vd.SolicitudAutorizacionLigadaV3, vd.ResultadoContextoActorRegistradoV2) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+// El emisor de desarrollo devuelve la captura evaluada por el mismo PDP que
+// registró la decisión. No admite una instantánea elegida por este adaptador.
+type EmisorComunV3ConCaptura interface {
+	EmisorComunV3
+	EmitirMaterialAutorizacionAtestadaV3ConCaptura(context.Context, vd.SolicitudAutorizacionLigadaV3, vd.ResultadoContextoActorRegistradoV2) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error)
+}
+
 type Emisor struct {
 	fuente FuenteContextoActorFirmaV2
 	emisor EmisorComunV3
@@ -48,7 +56,8 @@ type Emisor struct {
 	autorizacion vp.FuenteAutorizacion
 	// Sólo el constructor DEV instala esta admisión; la vía corporativa
 	// conserva su requisito HIGH y no consume excepciones de desarrollo.
-	admision *vecapp.AdmisionGarantiaFirmaVecDesarrollo
+	admision         *vecapp.AdmisionGarantiaFirmaVecDesarrollo
+	emisorConCaptura EmisorComunV3ConCaptura
 }
 
 // NuevoEmisor recibe el motivo gobernado y el reloj común en composición.
@@ -76,11 +85,11 @@ func NuevoEmisorConAmbitos(f FuenteContextoActorFirmaV2, e EmisorComunV3, motivo
 
 // NuevoEmisorFirmaVecDesarrollo exige la admisión común del acto VEC. No
 // concede permiso: V3 y su consumidor durable conservan sus guardas propias.
-func NuevoEmisorFirmaVecDesarrollo(f FuenteContextoActorFirmaV2, e EmisorComunV3,
+func NuevoEmisorFirmaVecDesarrollo(f FuenteContextoActorFirmaV2, e EmisorComunV3ConCaptura,
 	motivo vd.ReferenciaEntradaCatalogo, reloj vd.RelojVinculoAutenticacionActorV2,
 	autorizacion vp.FuenteAutorizacion, admision *vecapp.AdmisionGarantiaFirmaVecDesarrollo,
 ) (*Emisor, error) {
-	if admision == nil {
+	if admision == nil || nulo(e) {
 		return nil, ports.ErrCompetenciaFirmanteNoDisponible
 	}
 	x, err := NuevoEmisorConAmbitos(f, e, motivo, reloj, autorizacion)
@@ -88,6 +97,7 @@ func NuevoEmisorFirmaVecDesarrollo(f FuenteContextoActorFirmaV2, e EmisorComunV3
 		return nil, err
 	}
 	x.admision = admision
+	x.emisorConCaptura = e
 	return x, nil
 }
 
@@ -218,6 +228,8 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	}
 	var base ContextoActorFirmaV2
 	var err error
+	var evidenciaAdmision vecapp.EvidenciaAdmisionGarantiaActo
+	var descriptorAdmision vecapp.DescriptorAdmisionGarantiaActo
 	if e.admision != nil {
 		if m.Via != ports.ViaFirmaCertificadoVEC {
 			return cero, ports.ErrFirmaDocumentoDenegada
@@ -262,12 +274,12 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 		if err != nil || r.Atributos["material_sha256"] != huellaMaterial {
 			return cero, ports.ErrFirmaDocumentoDenegada
 		}
-		descriptor := vecapp.DescriptorAdmisionGarantiaActo{
+		descriptorAdmision = vecapp.DescriptorAdmisionGarantiaActo{
 			Accion: accion, Audiencia: audiencia, ModuloID: r.ModuloID,
 			TipoRecurso: r.Tipo, Finalidad: ports.FinalidadFirmaDocumento,
 			RecursoRef: r.Referencia, MaterialHuellaSHA256: huellaMaterial,
 		}
-		evidenciaAdmision, err := e.admision.Admitir(ctx, base.Vinculo, base.Resultado, instantanea, descriptor)
+		evidenciaAdmision, err = e.admision.Admitir(ctx, base.Vinculo, base.Resultado, instantanea, descriptorAdmision)
 		if err != nil || ctx.Err() != nil {
 			return cero, opaco(ctx, err)
 		}
@@ -276,10 +288,6 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 			!e.reloj.Ahora().Before(resumen.VigenteHasta) {
 			return cero, ports.ErrFirmaDocumentoDenegada
 		}
-		// ValidarEvidencia requiere la captura usada por el PDP y la ventana
-		// de su decisión real. Hasta que esa captura exista en el contrato
-		// común, no emitir siquiera una concesión candidata V3.
-		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	correlacion, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
@@ -297,11 +305,22 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	if err != nil || ctx.Err() != nil {
 		return cero, opaco(ctx, err)
 	}
-	decision, confirmacion, exportador, err := e.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+	var decision vd.DecisionAutorizacionLigadaV3
+	var confirmacion vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	var exportador vp.ExportadorMaterialConsumoAutorizacionAtestadaV3
+	var captura vp.CapturaEvaluacionSolicitudLigadaV3
+	if e.admision != nil {
+		if nulo(e.emisorConCaptura) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		decision, confirmacion, exportador, captura, err = e.emisorConCaptura.EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx, solicitud, resultado)
+	} else {
+		decision, confirmacion, exportador, err = e.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+	}
 	if err != nil || ctx.Err() != nil {
 		return cero, opaco(ctx, err)
 	}
-	if decision.ValidarPara(solicitud) != nil || nulo(exportador) {
+	if decision.ValidarPara(solicitud) != nil || nulo(exportador) || (e.admision != nil && nulo(captura)) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
@@ -319,6 +338,25 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	ahora, resumen := e.reloj.Ahora(), material.ResumenCapacidad()
 	if ahora.Before(resumen.EmitidaEn()) || !ahora.Before(resumen.ExpiraEn()) {
 		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	if e.admision != nil {
+		ahoraCanonico := ahora.UTC().Truncate(time.Microsecond)
+		evaluada, err := captura.InstantaneaPara(solicitud, resultado, decision, confirmacion, material, audiencia, ahoraCanonico)
+		if err != nil || ctx.Err() != nil {
+			return cero, opaco(ctx, err)
+		}
+		if e.admision.ValidarEvidencia(ctx, evidenciaAdmision, base.Vinculo, resultado, evaluada, descriptorAdmision) != nil {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		emitidaEn, validaHasta, err := decision.VentanaValidez()
+		if err != nil || evidenciaAdmision.ExigirVentanaDecisionV3(emitidaEn, validaHasta) != nil {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		resumenAdmision, err := evidenciaAdmision.Resumen()
+		if err != nil || resumen.ExpiraEn().After(resumenAdmision.VigenteHasta) ||
+			!ahoraCanonico.Before(resumenAdmision.VigenteHasta) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
 	}
 	if ctx.Err() != nil {
 		return cero, opaco(ctx, nil)
