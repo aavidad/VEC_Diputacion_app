@@ -26,22 +26,13 @@ El estado y el plan de cada módulo están en `ESTADO_PROYECTO.md` y en
 - Un borrador no es un documento firmado, y autenticarse con certificado no es
   firmar: ninguno de los dos se presenta como firma legal.
 
-## Prioridad vigente
+## Prioridad vigente (07/10/2026)
 
-La prioridad es el módulo `contrataciontemporal`, basado en el procedimiento
-remitido por RRHH. Bolsa no se borra: mantiene convocatorias, candidaturas,
-posiciones, reglas y llamamientos.
-
-Si una tarea de contratación temporal necesita una capacidad común de VEC,
-Bolsa, Personal, documentos o firma:
-
-1. se define una tarea dependiente y acotada;
-2. se implementa en el módulo que posee esa autoridad;
-3. se prueba e integra;
-4. se vuelve inmediatamente al camino crítico de contratación temporal.
-
-No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
-instrucción de dirección.
+Se terminan todos los módulos de la app en paralelo: cada equipo en su área y,
+dentro de ella, primero lo que es base de otros (identidad, permisos,
+catálogos, datos maestros) y después las pantallas que lo usan. Lo que ve
+RRHH tiene que ir rápido: pantallas por debajo de 300 ms con volumen realista.
+Se trabaja en local y GitHub; el servidor de desarrollo compartido no se toca.
 
 ## Lectura obligatoria
 
