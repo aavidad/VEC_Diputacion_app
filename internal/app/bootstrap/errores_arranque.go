@@ -2,6 +2,28 @@ package bootstrap
 
 import "errors"
 
+const mensajeFuenteConfiguracionArranque = "bootstrap: fuente configurada no disponible"
+
+// Este marcador identifica una fuente configurada sin transportar su ruta ni
+// sustituir la causa original que necesitan errors.Is y errors.As.
+type falloFuenteConfiguracionArranque struct{ causa error }
+
+func (*falloFuenteConfiguracionArranque) Error() string              { return mensajeFuenteConfiguracionArranque }
+func (f *falloFuenteConfiguracionArranque) Unwrap() error            { return f.causa }
+func (*falloFuenteConfiguracionArranque) ClaseErrorArranque() string { return "configuracion" }
+
+func marcarFalloFuenteConfiguracionArranque(componente string, err error) error {
+	if err == nil {
+		return nil
+	}
+	switch componente {
+	case "fuente_organizacion", "catalogo_rpt":
+	default:
+		componente = "sin_etiqueta"
+	}
+	return marcarFalloComponenteArranque(componente, &falloFuenteConfiguracionArranque{causa: err})
+}
+
 // falloComponenteArranque conserva la causa y añade la etapa de composición
 // conocida por el punto de llamada. La etiqueta procede solo del código.
 type falloComponenteArranque struct {

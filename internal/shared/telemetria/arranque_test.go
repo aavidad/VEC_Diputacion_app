@@ -2,6 +2,7 @@ package telemetria
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,23 @@ func TestRegistrarArranqueNoExponeDatosDeErrorNiConfiguracion(t *testing.T) {
 	}
 	if ClaseErrorArranque(errors.New(secreto)) != "otro" {
 		t.Fatal("texto de error aceptado como causa")
+	}
+}
+
+type falloConfiguracionArranquePrueba struct{ error }
+
+func (falloConfiguracionArranquePrueba) ClaseErrorArranque() string { return "configuracion" }
+
+func TestClaseErrorArranqueAdmiteMarcadorTipadoSinPerderCausasPrevias(t *testing.T) {
+	causa := falloConfiguracionArranquePrueba{errors.New("ruta privada sintetica")}
+	if got := ClaseErrorArranque(fmt.Errorf("composicion: %w", causa)); got != "configuracion" {
+		t.Fatalf("clase de fuente configurada: %q", got)
+	}
+	if got := ClaseErrorArranque(errors.Join(causa, context.Canceled)); got != "cancelada" {
+		t.Fatalf("cancelacion sustituida por configuracion: %q", got)
+	}
+	if got := MensajeErrorArranque(errors.New("bootstrap: fuente configurada no disponible")); got != "bootstrap: fuente configurada no disponible" {
+		t.Fatalf("mensaje fijo rechazado: %q", got)
 	}
 }
 

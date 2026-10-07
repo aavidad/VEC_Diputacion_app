@@ -71,7 +71,15 @@ func ClaseErrorArranque(err error) string {
 	if err == nil {
 		return "otro"
 	}
-	return claseError(err)
+	clase := claseError(err)
+	if clase != "otro" {
+		return clase
+	}
+	var clasificado interface{ ClaseErrorArranque() string }
+	if errors.As(err, &clasificado) {
+		return causaArranque(clasificado.ClaseErrorArranque())
+	}
+	return "otro"
 }
 
 // MensajeErrorArranque conserva las causas técnicas que se pueden construir
@@ -192,6 +200,7 @@ func prefijoArranqueConocido(texto, causa string) string {
 func mensajeInternoArranque(valor string) string {
 	switch valor {
 	case "bootstrap: material criptografico de desarrollo invalido",
+		"bootstrap: fuente configurada no disponible",
 		"bootstrap: material criptografico de desarrollo invalido: ruta enlazada o no canonica",
 		"bootstrap: material criptografico de desarrollo invalido: el directorio pertenece al repositorio",
 		"bootstrap: material criptografico de desarrollo invalido: TLS no corresponde al material del perfil",
