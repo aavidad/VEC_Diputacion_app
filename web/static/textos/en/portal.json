@@ -155,7 +155,7 @@
     "accion_entrar": "Open",
     "organizacion_arranque_reintentar": "Try again",
     "organizacion_arranque_titulo": "Organisation",
-    "organizacion_arranque_error": "The organisation texts could not be loaded.",
+    "organizacion_arranque_error": "This Organisation screen could not be loaded.",
     "accion_reintentar": "Try again",
     "paginacion_marco_etiqueta": "Table pagination",
     "paginacion_marco_recuento": "Showing {inicio}–{fin} of {total}",

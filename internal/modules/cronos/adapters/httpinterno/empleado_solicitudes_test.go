@@ -94,6 +94,22 @@ func TestMovimientosYPermisosPropiosParametrosYFalloCerrado(t *testing.T) {
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "sin_empleado") {
 		t.Fatal("sin empleado no deniega con motivo", w.Code, w.Body.String())
 	}
+	resolver.err = nil
+	caso.err = ports.ErrEmpleadoNoAcreditado
+	w = httptest.NewRecorder()
+	mov.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultarMovimientosPropios+"?periodo=hoy", nil))
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"error":"sin_empleado"`) ||
+		strings.Contains(w.Body.String(), "calendario") || strings.Contains(w.Body.String(), "correcciones") ||
+		w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("vínculo caducado no se deniega sin datos", w.Code, w.Body.String())
+	}
+	caso.err = ports.ErrDependenciaNoDisponible
+	w = httptest.NewRecorder()
+	mov.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultarMovimientosPropios+"?periodo=hoy", nil))
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), `"error":"no_disponible"`) ||
+		strings.Contains(w.Body.String(), "calendario") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("auditoría caída expuso movimientos", w.Code, w.Body.String())
+	}
 }
 
 func TestSolicitudesPropiasCuerpoEstrictoYErroresNominales(t *testing.T) {
