@@ -191,6 +191,12 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		return nil
 	}
 	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
+	if resumenConjunto == nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("resumen_conjunto_bolsa_000082", ErrComposicionDesarrolloIncompleta)
+		poolBolsa.Close()
+		poolImportacion.Close()
+		return nil
+	}
 	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
@@ -224,6 +230,8 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 type alcanceCargaBolsasRRHH struct {
 	bolsa   string
 	detalle bool
+	corte   time.Time
+	resumen map[string]ports.SituacionResumenParticipacion
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
@@ -240,10 +248,31 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumen(ctx context.Context) (da
 
 // cargarBolsa sirve la lista de candidatos de una sola bolsa.
 func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsa(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
-	if bolsaRef == "" {
+	if f == nil || f.ahora == nil || bolsaRef == "" {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
-	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true})
+	alcance := alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true}
+	if f.resumenConjunto != nil {
+		alcance.corte = f.ahora()
+		filas, _, err := f.resumenConjunto.LeerResumen(ctx, alcance.corte)
+		if err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
+		alcance.resumen = make(map[string]ports.SituacionResumenParticipacion)
+		for _, fila := range filas {
+			if fila.BolsaRef != bolsaRef {
+				continue
+			}
+			if fila.ParticipacionRef == "" || fila.Situacion == nil {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
+			if _, repetida := alcance.resumen[fila.ParticipacionRef]; repetida {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
+			alcance.resumen[fila.ParticipacionRef] = fila
+		}
+	}
+	return f.cargarAlcance(ctx, alcance)
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alcance alcanceCargaBolsasRRHH) (datasetBolsasRRHHDesarrollo, error) {
@@ -253,7 +282,10 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 	if f.ceseActivo && f.estadosCese == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
-	corte := f.ahora()
+	corte := alcance.corte
+	if corte.IsZero() {
+		corte = f.ahora()
+	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
@@ -322,7 +354,13 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
 		}
-		situacionesLote, cesesLote, err := f.leerSituacionesBolsa(ctx, entradas, corte)
+		var situacionesLote map[string]ports.SituacionParticipacion
+		var cesesLote map[string]ports.EstadoCese
+		if alcance.resumen != nil {
+			situacionesLote, cesesLote, err = situacionesDesdeResumenBolsa(alcance.resumen, vigente, entradas)
+		} else {
+			situacionesLote, cesesLote, err = f.leerSituacionesBolsa(ctx, entradas, corte)
+		}
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
@@ -372,6 +410,31 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		}
 	}
 	return datos, nil
+}
+
+// situacionesDesdeResumenBolsa une la lectura de conjunto B82 con la
+// constitución concreta. Una instantánea distinta o una fila ausente impide
+// servir una página mezclada durante una sustitución concurrente de bolsa.
+func situacionesDesdeResumenBolsa(resumen map[string]ports.SituacionResumenParticipacion, vigente ports.ConstitucionVigente, entradas []ports.EntradaConstitucion) (map[string]ports.SituacionParticipacion, map[string]ports.EstadoCese, error) {
+	if len(resumen) != len(entradas) {
+		return nil, nil, ErrComposicionDesarrolloIncompleta
+	}
+	situaciones := make(map[string]ports.SituacionParticipacion, len(entradas))
+	ceses := make(map[string]ports.EstadoCese)
+	for _, entrada := range entradas {
+		fila, existe := resumen[entrada.ParticipacionRef]
+		if !existe || fila.Situacion == nil || fila.Situacion.ParticipacionRef != entrada.ParticipacionRef ||
+			fila.BolsaRef != vigente.Bolsa.BolsaRef || fila.CategoriaRef != vigente.CategoriaRef ||
+			fila.InstantaneaRef != vigente.Instantanea.InstantaneaRef || fila.VersionInstantanea != vigente.Instantanea.Version ||
+			fila.Orden != entrada.Orden || !fila.ConfirmadaEn.Equal(vigente.ConfirmadaEn) {
+			return nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+		situaciones[entrada.ParticipacionRef] = *fila.Situacion
+		if fila.Cese != nil {
+			ceses[entrada.ParticipacionRef] = *fila.Cese
+		}
+	}
+	return situaciones, ceses, nil
 }
 
 // filasVisibles descifra del acta protegida el nombre y el documento

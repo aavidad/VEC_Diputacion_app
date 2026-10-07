@@ -11,22 +11,23 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-// lectorResumenBolsasInstalado compone el lector de conjunto solo si Bolsa
-// 000082 está instalada; si no, el cuadro sigue con la lectura por bolsa.
+// lectorResumenBolsasInstalado exige Bolsa 000082 para la fuente RRHH. La
+// composición deja la fuente indisponible si falta, en vez de servir miles de
+// participaciones mediante consultas individuales sin avisar.
 func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports.LectorResumenBolsas {
 	var instalada bool
 	if err := pool.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NOT NULL
 		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil {
-		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (Bolsa 000082); el cuadro lee bolsa a bolsa: %v", err)
+		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (Bolsa 000082); fuente indisponible: %v", err)
 		return nil
 	}
 	if !instalada {
-		log.Printf("bolsa rrhh: resumen de conjunto (Bolsa 000082) no instalado; el cuadro lee bolsa a bolsa")
+		log.Printf("bolsa rrhh: resumen de conjunto (Bolsa 000082) no instalado; fuente indisponible")
 		return nil
 	}
 	lector, err := postgresbolsa.NuevoLectorResumenBolsasPostgreSQL(pool)
 	if err != nil {
-		log.Printf("bolsa rrhh: lector de resumen de conjunto no disponible; el cuadro lee bolsa a bolsa: %v", err)
+		log.Printf("bolsa rrhh: lector de resumen de conjunto no disponible; fuente indisponible: %v", err)
 		return nil
 	}
 	return lector
