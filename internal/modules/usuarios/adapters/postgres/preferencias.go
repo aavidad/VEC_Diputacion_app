@@ -21,6 +21,14 @@ const (
 	consultarPropiasSQL  = `SELECT vec_usuarios.consultar_preferencias_propias_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	recuperarSQL         = `SELECT vec_usuarios.recuperar_preferencias_operacion_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	guardarSQL           = `SELECT vec_usuarios.guardar_preferencias_propias_v1($1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+	// Los seis ajustes conservan los mismos valores y alcance de SET LOCAL.
+	// Una sentencia los aplica antes de acreditar el LOGIN y de leer datos.
+	ajustesTransaccionSQL = `SELECT pg_catalog.set_config('search_path','pg_catalog, pg_temp',true),
+ pg_catalog.set_config('row_security','on',true),
+ pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('lock_timeout','3s',true),
+ pg_catalog.set_config('statement_timeout','15s',true),
+ pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)`
 )
 
 // El login debe heredar únicamente el ejecutor Usuarios y ninguna autoridad de
@@ -118,17 +126,8 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 		_ = tx.Rollback(context.Background())
 		return nil, errorSeguro(ctx, err)
 	}
-	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog, pg_temp",
-		"SET LOCAL row_security = on",
-		"SET LOCAL TIME ZONE 'UTC'",
-		"SET LOCAL lock_timeout = '3s'",
-		"SET LOCAL statement_timeout = '15s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '20s'",
-	} {
-		if _, err := tx.Exec(ctx, ajuste); err != nil {
-			return fallar(err)
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionSQL); err != nil {
+		return fallar(err)
 	}
 	var valido bool
 	if err := tx.QueryRow(ctx, acreditarEjecutorSQL, r.rol).Scan(&valido); err != nil {
