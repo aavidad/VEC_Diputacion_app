@@ -208,8 +208,117 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.filtrar_publicaciones_cuadro_rr
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v2, numeric) FROM PUBLIC;
 
+-- El consumidor de sesión proporcionará alcance/corte/ancla tras validarlos.
+-- Página y recuentos leen una sola materialización filtrada en el mismo corte.
+-- Este helper no concede acceso, no interpreta el token ni crea auditoría.
+CREATE FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
+    p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+    p_corte_global numeric,
+    p_ultimo_actualizado_en timestamptz,
+    p_ultimo_expediente_ref text
+) RETURNS TABLE (
+    resumenes vec_contratacion_temporal.resumen_publicacion_rrhh_v1[],
+    hay_mas boolean,
+    total_filtrado bigint,
+    en_tramite bigint,
+    terminados bigint,
+    recuento_estados text[],
+    recuento_fases text[],
+    recuento_numeros bigint[],
+    ultimo_actualizado_en timestamptz,
+    ultimo_expediente_ref text
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path = pg_catalog, pg_temp
+SET row_security = 'on'
+SET timezone = 'UTC'
+SET lock_timeout = '1s'
+SET statement_timeout = '4s'
+SET idle_in_transaction_session_timeout = '6s'
+AS $funcion$
+BEGIN
+    IF CURRENT_USER <> 'vec_contratacion_temporal_propietario'
+       OR p_alcance IS NULL OR p_consulta IS NULL
+       OR p_corte_global IS NULL
+       OR p_corte_global NOT BETWEEN 0 AND 9007199254740991::numeric
+       OR p_corte_global <> pg_catalog.trunc(p_corte_global)
+       OR (p_consulta.cursor = '' AND (
+           p_ultimo_actualizado_en IS NOT NULL OR p_ultimo_expediente_ref IS NOT NULL))
+       OR (p_consulta.cursor <> '' AND (
+           p_ultimo_actualizado_en IS NULL OR p_ultimo_expediente_ref IS NULL))
+       OR (p_ultimo_actualizado_en IS NOT NULL AND (
+           p_ultimo_actualizado_en <> pg_catalog.date_trunc('microseconds', p_ultimo_actualizado_en)
+           OR p_ultimo_expediente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$')) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'cuadro RRHH no disponible';
+    END IF;
+    PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1(p_alcance);
+    PERFORM vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v2(p_consulta);
+    RETURN QUERY
+    WITH conjunto AS MATERIALIZED (
+        SELECT f.* FROM vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_v2(
+            p_alcance, p_consulta, p_corte_global) f
+    ), grupos AS MATERIALIZED (
+        SELECT f.estado_clave, f.fase_clave, pg_catalog.count(*)::bigint numero
+          FROM conjunto f
+         GROUP BY f.estado_clave, f.fase_clave
+    ), pagina AS MATERIALIZED (
+        SELECT f.*, pg_catalog.row_number() OVER (
+                   ORDER BY f.actualizado_en DESC, f.expediente_ref COLLATE "C" DESC
+               ) AS posicion
+          FROM conjunto f
+         WHERE p_ultimo_actualizado_en IS NULL
+            OR f.actualizado_en < p_ultimo_actualizado_en
+            OR (f.actualizado_en = p_ultimo_actualizado_en
+                AND f.expediente_ref COLLATE "C" < p_ultimo_expediente_ref COLLATE "C")
+         ORDER BY f.actualizado_en DESC, f.expediente_ref COLLATE "C" DESC
+         LIMIT p_consulta.limite::integer + 1
+    )
+    SELECT COALESCE((
+               SELECT pg_catalog.array_agg(
+                   ROW(p.expediente_ref, p.organizacion_ref, p.numero_visible,
+                       p.version, p.flujo_ref, p.flujo_version,
+                       p.flujo_huella_sha256, p.fase_clave, p.estado_clave,
+                       p.centro_ref, p.categoria_ref, p.modalidad_clave,
+                       p.unidad_ref, p.creado_en, p.actualizado_en
+                   )::vec_contratacion_temporal.resumen_publicacion_rrhh_v1
+                   ORDER BY p.posicion
+               ) FROM pagina p WHERE p.posicion <= p_consulta.limite
+           ), ARRAY[]::vec_contratacion_temporal.resumen_publicacion_rrhh_v1[]),
+           (SELECT pg_catalog.count(*) > p_consulta.limite FROM pagina),
+           (SELECT pg_catalog.count(*)::bigint FROM conjunto),
+           (SELECT pg_catalog.count(*)::bigint FROM conjunto f
+             WHERE f.estado_clave NOT IN ('completado', 'cancelado')),
+           (SELECT pg_catalog.count(*)::bigint FROM conjunto f
+             WHERE f.estado_clave IN ('completado', 'cancelado')),
+           COALESCE((SELECT pg_catalog.array_agg(g.estado_clave
+               ORDER BY g.estado_clave COLLATE "C", g.fase_clave COLLATE "C")
+               FROM grupos g), ARRAY[]::text[]),
+           COALESCE((SELECT pg_catalog.array_agg(g.fase_clave
+               ORDER BY g.estado_clave COLLATE "C", g.fase_clave COLLATE "C")
+               FROM grupos g), ARRAY[]::text[]),
+           COALESCE((SELECT pg_catalog.array_agg(g.numero
+               ORDER BY g.estado_clave COLLATE "C", g.fase_clave COLLATE "C")
+               FROM grupos g), ARRAY[]::bigint[]),
+           (SELECT p.actualizado_en FROM pagina p
+             WHERE p.posicion <= p_consulta.limite
+             ORDER BY p.posicion DESC LIMIT 1),
+           (SELECT p.expediente_ref FROM pagina p
+             WHERE p.posicion <= p_consulta.limite
+             ORDER BY p.posicion DESC LIMIT 1);
+END $funcion$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
+    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+    numeric, timestamptz, text) FROM PUBLIC;
+
 COMMENT ON FUNCTION vec_contratacion_temporal.filtrar_publicaciones_cuadro_rrhh_v2(
     vec_contratacion_temporal.alcance_consulta_rrhh_v1,
     vec_contratacion_temporal.consulta_cuadro_rrhh_v2, numeric) IS
 'Conjunto privado de publicaciones al corte para el lector RRHH de sesión; no concede acceso ni registra auditoría.';
+COMMENT ON FUNCTION vec_contratacion_temporal.paginar_y_contar_cuadro_rrhh_v2(
+    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+    numeric, timestamptz, text) IS
+'Página y recuentos RRHH de un mismo conjunto filtrado; el consumidor acredita sesión, cursor y auditoría en su transacción.';
 COMMIT;
