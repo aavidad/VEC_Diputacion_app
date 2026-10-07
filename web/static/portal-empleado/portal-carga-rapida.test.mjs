@@ -669,15 +669,21 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
 });
 
 test("RPT abre cliente y vista del mismo corte conservando una sola URL hasta la raíz", async () => {
-  const [html, portal, coordinador, vista, cache] = await Promise.all([
+  const [html, portal, coordinador, composicion, vista, cache] = await Promise.all([
     "index.html", "portal.js", "portal-modulos-coordinador.js",
-    "modulos/personal/vista-rpt-publica.js", "cache-publica-v1.json",
+    "portal-composicion-empleado.js", "modulos/personal/vista-rpt-publica.js", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const hoja = "20261007-t-rpt-enlaces-v1";
-  const raiz = "20261007-t-rpt-enlaces-root-v1";
+  const ficha = "20261007-t-rpt-ficha-v1";
+  const raiz = "20261007-t-rpt-ficha-root-v1";
   assert.equal(versionDe(coordinador, "./modulos/personal/cliente-http-rpt-publica.js"), hoja);
   assert.equal(versionDe(coordinador, "./modulos/personal/vista-rpt-publica.js"), hoja);
   assert.equal(versionDe(vista, "./cliente-http-rpt-publica.js"), hoja);
+  assert.equal(versionDe(coordinador, "./modulos/personal/vista-ficha-integral.js"), ficha);
+  assert.equal(versionDe(coordinador, "./portal-composicion-empleado.js"), raiz);
+  assert.equal(versionDe(html, "/portal-empleado/portal-composicion-empleado.js"), raiz);
+  assert.equal(versionDe(html, "/portal-empleado/modulos/personal/ficha-integral.css"), ficha);
+  assert.match(composicion, /rptDisponible: publicos\.includes\("rpt"\)/u);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), raiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), raiz);
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), raiz);
