@@ -1,0 +1,19 @@
+{
+  "esquema": "vec.seleccion.calificaciones-ejercicio.v1",
+  "convocatoria_ref": "convocatoria_sintetica",
+  "bases_version": 2,
+  "bases_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configuracion": {
+    "version": 2, "modalidad": "oposicion", "turno_acceso": "libre", "destino": "plaza", "plazas": 1,
+    "fases": [
+      {"referencia": "ejercicio_1", "tipo": "prueba", "minimo_micropuntos": 5000000, "maximo_micropuntos": 10000000, "peso": 50},
+      {"referencia": "ejercicio_2", "tipo": "prueba", "minimo_micropuntos": 5000000, "maximo_micropuntos": 10000000, "peso": 50}
+    ],
+    "desempates": ["ejercicio_1"]
+  },
+  "ejercicio_ref": "cuestionario_1", "fase_ref": "ejercicio_1", "revision": 1,
+  "notas": [
+    {"solicitud_ref": "aspirante_b", "puntos_micropuntos": null},
+    {"solicitud_ref": "aspirante_a", "puntos_micropuntos": 7000000, "fuente_ref": "correccion_a"}
+  ]
+}

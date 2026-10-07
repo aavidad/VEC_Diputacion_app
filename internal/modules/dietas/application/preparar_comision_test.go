@@ -23,7 +23,14 @@ func (m *motorComisionPrueba) Calcular(_ context.Context, s ports.SolicitudCalcu
 	return ports.ResultadoCalculoRuta{Motor: "osrm_on_premise", VersionGrafo: "grafo-sintetico-v1", Alternativas: []ports.AlternativaRuta{{Tramos: []ports.TramoRuta{{DistanciaMetros: 12000}}}}}, nil
 }
 
-type tarifasComisionPrueba struct{}
+type tarifasComisionPrueba struct {
+	referenciaDietas string
+	referenciaKM     string
+	alterarFuentes   bool
+	grupoDiferente   int
+	tarifaKM         string
+	alterarTarifa    bool
+}
 
 func (tarifasComisionPrueba) ConsultarRegla(_ context.Context, version string, fecha time.Time) (domain.ReglaDevengoProvisional, error) {
 	if (version != "" && version != VersionTarifaComisionProvisional) || fecha.Format("2006-01-02") != "2026-09-23" {
@@ -32,11 +39,85 @@ func (tarifasComisionPrueba) ConsultarRegla(_ context.Context, version string, f
 	return domain.ReglaDevengoProvisional{ReglaRef: "provisional:regla:nacional-ordinaria:20260923", VersionTarifaRef: VersionTarifaComisionProvisional, PaisISO2: "ES", Variante: "nacional_ordinaria", HuellaSHA256: strings.Repeat("a", 64), Configuracion: domain.ConfiguracionDevengoProvisional{Regla: "nacional_ordinaria_provisional_v1", Zona: "Europe/Madrid", DuracionMinimaMismoDiaHoras: 5, HoraSalida100AntesDe: 14, HoraSalida50AntesDe: 22, HoraRegreso50DespuesDe: 14, HoraRegresoMismoDiaDespuesDe: 16, DiasMaximos: 31, Alojamiento: "tope_pendiente_justificante", PorcentajeMismoDia: 50, PorcentajeSalidaTemprana: 100, PorcentajeSalidaMedia: 50, PorcentajeRegreso: 50, PorcentajeIntermedio: 100, PorcentajeAlojamientoTope: 100}}, nil
 }
 
-func (tarifasComisionPrueba) Consultar(_ context.Context, version string, grupo int, vehiculo string, fecha time.Time) (domain.TarifaComisionProvisional, error) {
+func (f tarifasComisionPrueba) Consultar(_ context.Context, version string, grupo int, vehiculo string, fecha time.Time) (domain.TarifaComisionProvisional, error) {
 	if version != VersionTarifaComisionProvisional || vehiculo != "automovil" || fecha.Format("2006-01-02") != "2026-09-23" {
 		return domain.TarifaComisionProvisional{}, errors.New("tarifa incorrecta")
 	}
-	return domain.TarifaComisionProvisional{Dieta: domain.TarifaNacionalProvisional{VersionRef: version, Rotulo: domain.RotuloTarifaProvisional, PaisISO2: "ES", Grupo: grupo, VigenteDesde: "2026-09-23", ManutencionCentimos: 5000, AlojamientoTopeCentimos: 6000}, EURPorKM: "0.2600"}, nil
+	dietas, km := "BOE-A-2005-19988 / RD 462/2002", "BOE-A-2023-16462 / RD 462/2002"
+	if f.alterarFuentes {
+		dietas, km = f.referenciaDietas, f.referenciaKM
+	}
+	if grupo == f.grupoDiferente {
+		dietas = "BOE-A-2002-10337 / RD 462/2002"
+	}
+	tarifaKM := "0.2600"
+	if f.alterarTarifa {
+		tarifaKM = f.tarifaKM
+	}
+	return domain.TarifaComisionProvisional{Dieta: domain.TarifaNacionalProvisional{VersionRef: version, Rotulo: domain.RotuloTarifaProvisional, PaisISO2: "ES", Grupo: grupo, VigenteDesde: "2026-09-23", ManutencionCentimos: 5000, AlojamientoTopeCentimos: 6000}, EURPorKM: tarifaKM, ReferenciaDietas: dietas, ReferenciaKilometraje: km}, nil
+}
+
+func TestPreparadorComisionRechazaTarifaKilometrajeMalformada(t *testing.T) {
+	for _, tarifa := range []string{"", "0", "0.26", "0.26xx", "1.2600"} {
+		t.Run("tarifa="+tarifa, func(t *testing.T) {
+			p, err := NuevoPreparadorComision(
+				map[string]ports.CoordenadaRuta{
+					"18087": {Nombre: "Granada", Latitud: 37.17, Longitud: -3.59},
+					"18003": {Nombre: "Albolote", Latitud: 37.23, Longitud: -3.65},
+				},
+				&motorComisionPrueba{}, tarifasComisionPrueba{tarifaKM: tarifa, alterarTarifa: true},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			alta := ports.SolicitudCrearBorradorPropio{
+				ClaveIdempotencia: "clave_0123456789abcdef", FechaInicio: "2026-09-23", FechaFin: "2026-09-23",
+				HoraInicio: "08:00", HoraFin: "18:00", Motivo: "Visita técnica", CodigosRuta: []string{"18087", "18003"},
+			}
+			preparada, err := p.Preparar(context.Background(), alta)
+			if !errors.Is(err, domain.ErrTramosProvisionalesNoDisponibles) || preparada.Calculo != nil ||
+				preparada.ClaveIdempotencia != alta.ClaveIdempotencia {
+				t.Fatalf("tarifa %q: cálculo=%+v clave=%q error=%v", tarifa, preparada.Calculo, preparada.ClaveIdempotencia, err)
+			}
+		})
+	}
+}
+
+func TestPreparadorComisionRechazaFuenteAusenteOIncongruente(t *testing.T) {
+	casos := []struct {
+		nombre string
+		dietas string
+		km     string
+	}{
+		{"sin referencia dietas", "", "BOE-A-2023-16462 / RD 462/2002"},
+		{"sin referencia kilometraje", "BOE-A-2005-19988 / RD 462/2002", ""},
+		{"referencia dietas mal formada", "BOE inválido", "BOE-A-2023-16462 / RD 462/2002"},
+		{"referencia kilometraje mal formada", "BOE-A-2005-19988 / RD 462/2002", "BOE inválido"},
+	}
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			p, err := NuevoPreparadorComision(map[string]ports.CoordenadaRuta{"18087": {Nombre: "Granada", Latitud: 37.17, Longitud: -3.59}, "18003": {Nombre: "Albolote", Latitud: 37.23, Longitud: -3.65}}, &motorComisionPrueba{}, tarifasComisionPrueba{referenciaDietas: tc.dietas, referenciaKM: tc.km, alterarFuentes: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			alta := ports.SolicitudCrearBorradorPropio{ClaveIdempotencia: "clave_0123456789abcdef", FechaInicio: "2026-09-23", FechaFin: "2026-09-23", HoraInicio: "08:00", HoraFin: "18:00", Motivo: "Visita técnica", CodigosRuta: []string{"18087", "18003"}}
+			preparada, err := p.Preparar(context.Background(), alta)
+			if !errors.Is(err, domain.ErrTramosProvisionalesNoDisponibles) || preparada.Calculo != nil {
+				t.Fatalf("alta calculada con fuente inválida: cálculo=%+v error=%v", preparada.Calculo, err)
+			}
+		})
+	}
+	t.Run("fuentes distintas entre grupos", func(t *testing.T) {
+		p, err := NuevoPreparadorComision(map[string]ports.CoordenadaRuta{"18087": {Nombre: "Granada", Latitud: 37.17, Longitud: -3.59}, "18003": {Nombre: "Albolote", Latitud: 37.23, Longitud: -3.65}}, &motorComisionPrueba{}, tarifasComisionPrueba{grupoDiferente: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		alta := ports.SolicitudCrearBorradorPropio{ClaveIdempotencia: "clave_0123456789abcdef", FechaInicio: "2026-09-23", FechaFin: "2026-09-23", HoraInicio: "08:00", HoraFin: "18:00", Motivo: "Visita técnica", CodigosRuta: []string{"18087", "18003"}}
+		preparada, err := p.Preparar(context.Background(), alta)
+		if !errors.Is(err, domain.ErrTramosProvisionalesNoDisponibles) || preparada.Calculo != nil {
+			t.Fatalf("alta calculada con fuentes incongruentes: cálculo=%+v error=%v", preparada.Calculo, err)
+		}
+	})
 }
 func TestPrepararComisionConservaOrdenYCalculaImporteServidor(t *testing.T) {
 	motor := &motorComisionPrueba{}
@@ -82,6 +163,19 @@ func TestPrepararEdicionSinVehiculoNoConsultaOSRMYConDosRutasSumaAjuste(t *testi
 	s, err = p.PrepararEdicion(context.Background(), base)
 	if err != nil || motor.llamadas != 2 || s.Calculo == nil || len(s.Calculo.Rutas) != 2 || s.Calculo.Kilometros != "25.0000" || s.Calculo.ImporteKilometrajeCentimos != 650 || s.Documento == nil || s.Documento.KilometrajeCentimos != 650 {
 		t.Fatalf("dos rutas: %v llamadas=%d cálculo=%+v", err, motor.llamadas, s.Calculo)
+	}
+	for _, fuentes := range []tarifasComisionPrueba{
+		{referenciaDietas: "", referenciaKM: "BOE-A-2023-16462 / RD 462/2002", alterarFuentes: true},
+		{grupoDiferente: 2},
+	} {
+		pInvalido, err := NuevoPreparadorComision(p.puntos, motor, fuentes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rechazada, err := pInvalido.PrepararEdicion(context.Background(), base)
+		if !errors.Is(err, domain.ErrTramosProvisionalesNoDisponibles) || rechazada.Calculo != nil || rechazada.Documento != nil {
+			t.Fatalf("edición calculada con fuente inválida: cálculo=%+v documento=%+v error=%v", rechazada.Calculo, rechazada.Documento, err)
+		}
 	}
 }
 

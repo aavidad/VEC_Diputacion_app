@@ -10,7 +10,7 @@
  * completo: por eso conserva su estado aquí y se vuelve a pintar en el nuevo
  * contenedor cada vez. No guarda nada en el navegador.
  */
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261007-pantallas-textos-final-v1";
 
 const MAX_FICHERO = 20 * 1024 * 1024;
 const REFERENCIA = /^[!-~]{3,128}$/u;

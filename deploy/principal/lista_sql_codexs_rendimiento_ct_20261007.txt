@@ -1,0 +1,4 @@
+# CT187: consulta de conjunto e índice parcial de peticiones-centro.
+# Requiere CT184; una transacción. Solo instalar tras revisión SQL independiente
+# y ensayo en clon compatible. Ningún DOWN ni reaplicación sobre historia.
+deploy/postgresql/contratacion_temporal/migraciones/000187_rendimiento_listas_ct.up.sql

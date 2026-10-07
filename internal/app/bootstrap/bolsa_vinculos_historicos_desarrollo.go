@@ -18,6 +18,7 @@ import (
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
@@ -167,7 +168,7 @@ func abrirPoolRecuperacionConvocaRelleno(ctx context.Context, cfg config.Config)
 		return nil
 	}
 	telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, pc)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, pc)
 	if err != nil {
 		return nil, ErrPoolImportacionConvocaNoDisponible
 	}

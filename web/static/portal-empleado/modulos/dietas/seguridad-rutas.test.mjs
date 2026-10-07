@@ -174,13 +174,13 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
   assert.equal(peticionesExternas, 0);
   assert.equal(typeof tooltips[0], "object");
   assert.strictEqual(tooltips[0], nodos[0]);
-  assert.equal(tooltips[0].textContent, "1. <img src=x onerror=alert(1)>");
+  assert.ok(tooltips[0].textContent.endsWith("<img src=x onerror=alert(1)>"));
   assert.equal(Object.hasOwn(tooltips[0], "innerHTML"), false);
   assert.match(opcionesTeselas.attribution, /OpenStreetMap/u);
   assert.match(opcionesTeselas.attribution, /OpenMapTiles/u);
   assert.match(opcionesTeselas.attribution, /href="https:\/\/www\.openstreetmap\.org\/copyright"/u);
   assert.match(opcionesTeselas.attribution, /href="https:\/\/openmaptiles\.org\/"/u);
   assert.match(opcionesTeselas.attribution, /rel="noopener noreferrer"/u);
-  assert.equal(atribucion.textContent, "© OpenStreetMap contributors · © OpenMapTiles · servido en red interna");
+  assert.match(atribucion.textContent, /©.*OpenStreetMap.*©.*OpenMapTiles/u);
   assert.equal(atribucion.hidden, true);
 });

@@ -8,7 +8,7 @@ import {
 
 } from "./circuito-firma.js?v=20261002-ct-r5-grafo-v1";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
@@ -16,6 +16,7 @@ import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 // cargados para que el montaje no dependa de la lectura del fichero.
 const textosFasePrueba = await cargarTextos("contratacion-temporal-firma", { idioma: IDIOMA_POR_DEFECTO });
 const cargarTextosPrueba = async () => textosFasePrueba;
+const MENSAJES_CIRCUITO_FIRMA_EN = (await cargarTextos("contratacion-temporal-circuito-firma", { idioma: "en" })).seccion("general");
 
 function paso(orden, total, extra = {}) {
   return {
@@ -112,7 +113,7 @@ test("v2 conserva la alternativa opaca; v1 exige ausencia y v2 exige una lista v
 test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma oficial", () => {
   const datos = validarCircuitoFirma(circuitoConAlternativa());
   const es = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma());
-  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma({}, "en-GB"));
+  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(es, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
   assert.match(en, /HR Directorate or Head of the HR Service/u);
   assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
@@ -243,7 +244,7 @@ test("las dos vías de firma usan el idioma del portal", () => {
     const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort();
     assert.deepEqual(variables(valor), variables(MENSAJES_CIRCUITO_FIRMA_ES[clave]), clave);
   }
-  const traductor = crearTraductorCircuitoFirma({}, "en-GB");
+  const traductor = crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
   assert.match(html, /Sending to the corporate signature service/u);
   assert.match(html, /Sending unavailable/u);
@@ -263,12 +264,12 @@ test("las dos vías de firma usan el idioma del portal", () => {
 test("el catálogo de prueba traduce documentos y cargos conocidos sin alterar valores ajenos", () => {
   const dato = circuito();
   dato.documentos[0].pasos[0].cargo = "Técnico/a de RRHH responsable del expediente";
-  const html = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  const html = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(html, /Final report/u);
   assert.match(html, /HR officer responsible for the case/u);
   assert.doesNotMatch(html, /Informe definitivo|Técnico\/a de RRHH/u);
   dato.documentos[0].etiqueta = "Nombre ajeno <x>";
-  const otro = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  const otro = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(otro, /Nombre ajeno &lt;x&gt;/u);
 });
 
@@ -479,8 +480,9 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261006-resumen-inicio-v2"],
-    ["vista-expedientes.js", "20261006-resumen-inicio-v2"],
+    ["circuito-firma.js", "20261007-pantallas-textos-final-v1"],
+    ["vista-expedientes.js", "20261007-pantallas-textos-final-v1"],
+
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

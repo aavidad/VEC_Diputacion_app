@@ -22,6 +22,7 @@ import (
 	dietaspg "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -287,7 +288,7 @@ func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, 
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, e := pgxpool.NewWithConfig(ctx, c)
+	pool, e := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if e != nil {
 		return nil, "", fallo
 	}

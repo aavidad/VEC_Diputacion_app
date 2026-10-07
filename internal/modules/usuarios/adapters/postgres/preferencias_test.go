@@ -7,11 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
@@ -46,6 +48,7 @@ type txPrueba struct {
 	valido    bool
 	respuesta []byte
 	errSQL    error
+	errAjuste error
 	errCommit error
 	consultas []llamadaPrueba
 	ajustes   []string
@@ -55,7 +58,7 @@ type txPrueba struct {
 
 func (t *txPrueba) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
 	t.ajustes = append(t.ajustes, sql)
-	return pgconn.CommandTag{}, nil
+	return pgconn.CommandTag{}, t.errAjuste
 }
 func (t *txPrueba) QueryRow(_ context.Context, sql string, args ...any) filaPreferencias {
 	t.consultas = append(t.consultas, llamadaPrueba{sql, args})
@@ -164,7 +167,7 @@ func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 	}
 	tx := &txPrueba{valido: true, respuesta: datos}
 	c, err := repositorioPrueba(tx, superficie).CatalogoVigente(context.Background(), orden)
-	if err != nil || !reflect.DeepEqual(c, base) || tx.commits != 1 || len(tx.ajustes) != 6 {
+	if err != nil || !reflect.DeepEqual(c, base) || tx.commits != 1 || len(tx.ajustes) != 1 || tx.ajustes[0] != ajustesTransaccionSQL {
 		t.Fatalf("catalogo/tx: %v %#v", err, c)
 	}
 	if len(tx.consultas) != 2 || tx.consultas[0].args[0] != rolEjecutorPreferencias(superficie) || tx.consultas[1].sql != consultarCatalogoSQL || tx.consultas[1].args[0] != string(superficie) {
@@ -174,9 +177,124 @@ func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 	if _, err := repositorioPrueba(tx, superficie).CatalogoVigente(context.Background(), orden); !errors.Is(err, ports.ErrNoDisponible) || len(tx.consultas) != 1 || tx.commits != 0 {
 		t.Fatal("login no exclusivo paso la sonda")
 	}
+	tx = &txPrueba{valido: true, errAjuste: errors.New("ajuste fallido")}
+	if _, err := repositorioPrueba(tx, superficie).CatalogoVigente(context.Background(), orden); !errors.Is(err, ports.ErrNoDisponible) || len(tx.consultas) != 0 || tx.commits != 0 || tx.rollbacks == 0 {
+		t.Fatal("ajuste fallido llegó a acreditar el login o consultar datos")
+	}
 	conClaveAjena := bytes.Replace(datos, []byte(`"tamanos_texto"`), []byte(`"tamano_textos"`), 1)
 	if _, err := decodificarCatalogo(conClaveAjena); !errors.Is(err, ports.ErrNoDisponible) {
 		t.Fatal("catálogo con clave vieja aceptado")
+	}
+}
+
+// Se ejecuta con un PostgreSQL 18 efímero. Comprueba el alcance real de los
+// ajustes en una conexión reutilizada, también después de un error SQL.
+func TestAjustesPreferenciasPG18LocalesATransaccion(t *testing.T) {
+	dsn := os.Getenv("VEC_USUARIOS_AJUSTES_PG18_DSN")
+	if dsn == "" {
+		t.Skip("PostgreSQL 18 efímero no configurado")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelar()
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal("no se pudo conectar al PostgreSQL 18 efímero")
+	}
+	defer conn.Close(context.Background())
+	const leer = `SELECT current_setting('search_path'),current_setting('row_security'),
+ current_setting('timezone'),current_setting('lock_timeout'),current_setting('statement_timeout'),
+ current_setting('idle_in_transaction_session_timeout')`
+	valores := func(consultor interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	}) [6]string {
+		t.Helper()
+		var got [6]string
+		if err := consultor.QueryRow(ctx, leer).Scan(&got[0], &got[1], &got[2], &got[3], &got[4], &got[5]); err != nil {
+			t.Fatal("no se pudieron leer los ajustes de la conexión")
+		}
+		return got
+	}
+	for _, ajuste := range []struct{ nombre, valor string }{
+		{"search_path", "public"}, {"row_security", "off"}, {"timezone", "Europe/Madrid"},
+		{"lock_timeout", "1s"}, {"statement_timeout", "5s"}, {"idle_in_transaction_session_timeout", "5s"},
+	} {
+		if _, err := conn.Exec(ctx, `SELECT pg_catalog.set_config($1,$2,false)`, ajuste.nombre, ajuste.valor); err != nil {
+			t.Fatal("no se pudo preparar la sesión de prueba")
+		}
+	}
+	base := valores(conn)
+	esperados := [6]string{"pg_catalog, pg_temp", "on", "UTC", "3s", "15s", "20s"}
+	for _, confirmar := range []bool{true, false} {
+		tx, err := conn.Begin(ctx)
+		if err != nil {
+			t.Fatal("no se pudo abrir la transacción de prueba")
+		}
+		if _, err := tx.Exec(ctx, ajustesTransaccionSQL); err != nil {
+			_ = tx.Rollback(ctx)
+			t.Fatal("no se pudieron aplicar los ajustes transaccionales")
+		}
+		if got := valores(tx); got != esperados {
+			_ = tx.Rollback(ctx)
+			t.Fatalf("ajustes transaccionales = %q; esperados %q", got, esperados)
+		}
+		if confirmar {
+			err = tx.Commit(ctx)
+		} else {
+			err = tx.Rollback(ctx)
+		}
+		if err != nil || valores(conn) != base {
+			t.Fatal("los ajustes transaccionales persistieron tras COMMIT o ROLLBACK")
+		}
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal("no se pudo abrir la transacción de fallo")
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_catalog.set_config('row_security','valor_invalido',true)`); err == nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal("PostgreSQL aceptó un ajuste inválido")
+	}
+	if err := tx.Rollback(ctx); err != nil || valores(conn) != base {
+		t.Fatal("la conexión retuvo un ajuste después del error y ROLLBACK")
+	}
+}
+
+func BenchmarkAjustesPreferenciasPG18(b *testing.B) {
+	dsn := os.Getenv("VEC_USUARIOS_AJUSTES_PG18_DSN")
+	if dsn == "" {
+		b.Skip("PostgreSQL 18 efímero no configurado")
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		b.Fatal("no se pudo conectar al PostgreSQL 18 efímero")
+	}
+	defer conn.Close(ctx)
+	for nombre, ajustes := range map[string][]string{
+		"seis_SET_LOCAL": {
+			"SET LOCAL search_path = pg_catalog, pg_temp", "SET LOCAL row_security = on",
+			"SET LOCAL TIME ZONE 'UTC'", "SET LOCAL lock_timeout = '3s'",
+			"SET LOCAL statement_timeout = '15s'", "SET LOCAL idle_in_transaction_session_timeout = '20s'",
+		},
+		"una_SELECT": {ajustesTransaccionSQL},
+	} {
+		b.Run(nombre, func(b *testing.B) {
+			for range b.N {
+				tx, err := conn.Begin(ctx)
+				if err != nil {
+					b.Fatal("no se pudo abrir la transacción de medida")
+				}
+				for _, sql := range ajustes {
+					if _, err := tx.Exec(ctx, sql); err != nil {
+						_ = tx.Rollback(ctx)
+						b.Fatal("falló un ajuste durante la medida")
+					}
+				}
+				if err := tx.Rollback(ctx); err != nil {
+					b.Fatal("no se pudo cerrar la transacción de medida")
+				}
+			}
+		})
 	}
 }
 

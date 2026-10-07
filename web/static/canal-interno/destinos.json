@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "revision": "2026-10-07",
+  "fuente_institucional": "https://www.dipgra.es/e-administracion/administracion-electronica/sistema-interno-de-informacion/",
+  "destinos": {
+    "canal": {
+      "url": "https://centinela.lefebvre.es/lp/canal-denuncias/diputacion-granada",
+      "organo": "Diputación Provincial de Granada",
+      "fuente": "Página institucional del Sistema Interno de Información",
+      "publicacion": "sin fecha publicada en la página",
+      "vigencia": "enlace visible el 2026-10-07; disponibilidad a cargo del Sistema institucional"
+    },
+    "institucional": {
+      "url": "https://www.dipgra.es/e-administracion/administracion-electronica/sistema-interno-de-informacion/",
+      "organo": "Diputación Provincial de Granada",
+      "fuente": "Página institucional del Sistema Interno de Información",
+      "publicacion": "sin fecha publicada en la página",
+      "vigencia": "página consultada el 2026-10-07"
+    },
+    "estrategia": {
+      "url": "https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1723590017898-final-7e73c306-2.pdf?p=1779215866944",
+      "organo": "Junta de Gobierno de la Diputación Provincial de Granada",
+      "fuente": "BOP-GRA-2024-157001",
+      "publicacion": "2024-08-14",
+      "vigencia": "documento publicado; comprobar modificaciones en el BOP"
+    },
+    "reglamento": {
+      "url": "https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1751497250139-final-40f10e71-1.pdf",
+      "organo": "Pleno de la Diputación Provincial de Granada",
+      "fuente": "BOP-GRA-2025-124002",
+      "publicacion": "2025-07-03",
+      "vigencia": "aprobación definitiva publicada; comprobar modificaciones en el BOP"
+    },
+    "ley": {
+      "url": "https://www.boe.es/eli/es/l/2023/02/20/2/con",
+      "organo": "Cortes Generales",
+      "fuente": "BOE-A-2023-4513",
+      "publicacion": "2023-02-21",
+      "vigencia": "texto consolidado del BOE; consultar su versión vigente"
+    }
+  }
+}

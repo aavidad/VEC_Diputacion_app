@@ -64,8 +64,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261002-ct-fin-modalidad-v1"],
-    ["portal-modulos-coordinador.js", "20261002-ct-fin-modalidad-v1"],
-    ["portal.js", "20261002-r4-moad-v6"],
+    ["portal-modulos-coordinador.js", "20261007-raiz-conjunta-v2"],
+    ["portal.js", "20261007-raiz-conjunta-v2"],
     ["portal-eventos.js", "20261002-ct-fin-modalidad-v1"],
     ["portal-bolsas-ofertas.js", "20261002-r3-r4-ofertas-v1"],
     ["portal-bolsas-traza-valores.js", "20261002-r-rrhh18-v2"],
@@ -74,7 +74,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
     ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261007-u-cronos-dietas-v1"],
     ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
     ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-bandeja-v5"],
@@ -89,18 +89,18 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261002-r4-moad-v6"],
+    ["portal.js", "20261007-raiz-conjunta-v2"],
     ["portal-vistas-utilidades.js", "20261001-ct-a-i18n-v1"],
-    ["portal-preferencias-integracion.js", "20261001-ct-a-i18n-v1"],
-    ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
-    ["portal-preferencias-api.js", versionTemas],
+    ["portal-preferencias-integracion.js", "20261007-p7-http-v1"],
+    ["portal-preferencias.js", "20261007-p7-http-v1"],
+    ["portal-preferencias-api.js", "20261007-p7-http-v1"],
     ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
     ["portal-panel-interno.js", "20261007-b1-carga-v1"],
     ["portal-bolsas-api.js", "20261002-r-rrhh18-v3"],
     ["portal-bolsas-contrato.js", "20261002-r-rrhh18-v3"],
     ["portal-llamamientos-operaciones-api.js", "20261002-r-rrhh18-v3"],
     ["reglas/enlace.js", "20261001-ct-a-i18n-v1"],
-    ["portal-modulos-coordinador.js", "20261002-ct-fin-modalidad-v1"],
+    ["portal-modulos-coordinador.js", "20261007-raiz-conjunta-v2"],
     ["modulos/dietas/vista-recorridos.js", "20261002-codexe-d7c-ux-v3"],
     ["modulos/dietas/vista-bandeja-circuito.js", "20261001-ct-a-i18n-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261002-ct-fin-modalidad-v1"],
@@ -110,9 +110,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/renderizado-llamamiento.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261002-ct-fin-modalidad-v1"],
-    ["portal-modulos-coordinador.js", "20261002-ct-fin-modalidad-v1"],
+    ["portal-modulos-coordinador.js", "20261007-raiz-conjunta-v2"],
     ["modulos/bolsa/baremo/montaje.js", "20261001-f-reconciliacion-319-v1"],
-    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261007-u-cronos-dietas-v1"],
     ["modulos/dietas/vista-borradores-propios.js", "20261002-codexe-d7c-ux-v3"],
     ["modulos/dietas/vista-rectificacion-dietas.js", "20261002-codexe-d7c-ux-v3"],
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
@@ -141,7 +141,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/recuentos-peticiones.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/vista-expedientes-lista.js", "20261001-f-reconciliacion-325-v1"],
-    ["portal.js", "20261002-r4-moad-v6"],
+    ["portal.js", "20261007-raiz-conjunta-v2"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261005-ct-llamamiento-fiscalizacion-v1");
@@ -223,8 +223,61 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "portal-inicio.js",
-    "portal-modulos-coordinador.js",
   ]) versionesEspeciales.set(ruta, "20261006-resumen-inicio-v2");
+  for (const ruta of ["portal-catalogo-modulos.js", "portal-inicio.js"])
+    versionesEspeciales.set(ruta, "20261007-ct-menu-recuperacion-v1");
+  versionesEspeciales.set("portal.js", "20261007-raiz-main-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261007-raiz-main-v1");
+  versionesEspeciales.set("portal-arranque-aviso.js", "20261007-ct-arranque-autonomo-v1");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-llamamientos-selector.js"])
+    versionesEspeciales.set(ruta, "20261007-bolsa-llamamientos-unico-v1");
+  for (const ruta of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"])
+    versionesEspeciales.set(ruta, "20261007-auditoria-disponibilidad-v1");
+  // Todos estos importadores reales cambiaron de bytes o alcanzan una hoja cambiada.
+  for (const ruta of [
+    "ayuda-contenido.js", "ayudante-tramites.js", "categorias-rpt/arranque.js", "categorias-rpt/cliente.js",
+    "modulos/auditoria/vista.js", "modulos/bolsa/rrhh-plazos-api.js", "modulos/bolsa/rrhh-plazos-ui.js", "modulos/bolsa/rrhh-politica-cese-vista.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js", "modulos/contratacion-temporal/alta-renderer-puro.js", "modulos/contratacion-temporal/cancelacion-expediente.js", "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/cliente-http-documentacion-formalizacion.js", "modulos/contratacion-temporal/cliente-http-estadisticas.js", "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js", "modulos/contratacion-temporal/componentes-expedientes.js", "modulos/contratacion-temporal/consulta-seguimiento.js", "modulos/contratacion-temporal/contrato-estadisticas.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js", "modulos/contratacion-temporal/etiquetas-vias-cobertura.js", "modulos/contratacion-temporal/fase-firma.js", "modulos/contratacion-temporal/fases-expediente.js",
+    "modulos/contratacion-temporal/fases-rrhh-datos.js", "modulos/contratacion-temporal/ficha-ginpix.js", "modulos/contratacion-temporal/formulario-analisis.js", "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-asignacion.js", "modulos/contratacion-temporal/formulario-cierre-administrativo.js", "modulos/contratacion-temporal/formulario-cobertura.js", "modulos/contratacion-temporal/formulario-fiscalizacion.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js", "modulos/contratacion-temporal/formulario-informe-juridico.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js", "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js", "modulos/contratacion-temporal/i18n-analisis-catalogo.js", "modulos/contratacion-temporal/i18n-avisos-via-cobertura.js",
+    "modulos/contratacion-temporal/i18n-borradores-publicados.js", "modulos/contratacion-temporal/i18n-cambios-expediente.js", "modulos/contratacion-temporal/i18n-cancelacion.js", "modulos/contratacion-temporal/i18n-catalogos.js",
+    "modulos/contratacion-temporal/i18n-circuito-firma.js", "modulos/contratacion-temporal/i18n-expedientes.js", "modulos/contratacion-temporal/i18n-fases-rrhh.js", "modulos/contratacion-temporal/i18n-ficha-lista.js",
+    "modulos/contratacion-temporal/i18n-firma-incorporacion-datos.js", "modulos/contratacion-temporal/i18n-firma-remision.js", "modulos/contratacion-temporal/i18n-informe-tras-subsanacion.js", "modulos/contratacion-temporal/i18n-llamamiento.js",
+    "modulos/contratacion-temporal/i18n-seguimiento-cese.js", "modulos/contratacion-temporal/i18n-subsanacion-reparos.js", "modulos/contratacion-temporal/i18n-textos-vistas.js", "modulos/contratacion-temporal/i18n-vistas.js",
+    "modulos/contratacion-temporal/i18n.js", "modulos/contratacion-temporal/incorporacion-personal-b2.js", "modulos/contratacion-temporal/informe-tras-subsanacion.js", "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/recuentos-peticiones.js", "modulos/contratacion-temporal/renderizado-llamamiento.js", "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js", "modulos/contratacion-temporal/rrhh-plantillas-cliente.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-vista.js", "modulos/contratacion-temporal/rrhh-reincorporacion-formulario.js", "modulos/contratacion-temporal/rrhh-reincorporacion-i18n.js", "modulos/contratacion-temporal/seguimiento-cese.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js", "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-cuadro-ligera.js", "modulos/contratacion-temporal/vista-estadisticas.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js", "modulos/contratacion-temporal/vista-expedientes-cambios.js", "modulos/contratacion-temporal/vista-expedientes-cancelacion.js", "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "modulos/contratacion-temporal/vista-expedientes-lista.js", "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista.js", "modulos/cronos/fecha-civil.js",
+    "modulos/cronos/vista-movimientos-propios.js", "modulos/cronos/vista-permisos-propios.js", "modulos/dietas/mapa-ruta.js", "modulos/dietas/vista-bandeja-circuito.js",
+    "modulos/dietas/vista-borradores-propios.js", "modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-rectificacion-dietas.js", "modulos/documentos/cliente-http.js",
+    "modulos/documentos/vista.js", "modulos/personal/i18n.js", "modulos/personal/registro-b2-actos.js", "modulos/personal/registro-b2-catalogos.js",
+    "modulos/personal/registro-b2.js", "modulos/personal/vista-contacto-propio.js", "modulos/personal/vista-estructura-organizativa-publica.js", "modulos/personal/vista-ficha-integral.js",
+    "modulos/personal/vista.js", "modulos/solicitudes/i18n.js", "modulos/solicitudes/vista-tramites-propios.js", "modulos/solicitudes/vista.js",
+    "organizacion/historico.js", "organizacion/organizacion.js", "peticiones-centro/cancelaciones-centro.js", "peticiones-centro/i18n-peticiones-centro.js",
+    "peticiones-centro/incorporaciones-centro.js", "peticiones-centro/peticiones-centro.js", "portal-arranque-aviso.js", "portal-bolsas-api.js",
+    "portal-bolsas-avisos.js", "portal-bolsas-contacto-origen.js", "portal-bolsas-contacto-registro.js", "portal-bolsas-contrato.js",
+    "portal-bolsas-contratos.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-intentos.js", "portal-bolsas-marcas.js",
+    "portal-bolsas-ofertas.js", "portal-bolsas-operaciones.js", "portal-bolsas-reincorporaciones.js", "portal-bolsas-sanciones.js",
+    "portal-bolsas-traza-valores.js", "portal-borrador-llamamiento-api.js", "portal-borrador-llamamiento-ui.js", "portal-borradores-acceso.js",
+    "portal-borradores-api.js", "portal-borradores-ui-soporte.js", "portal-borradores-ui.js", "portal-borradores-vista.js",
+    "portal-catalogo-modulos.js", "portal-eventos.js", "portal-i18n.js", "portal-idioma.js",
+    "portal-inicio.js", "portal-llamamientos-api.js", "portal-llamamientos-flujo.js", "portal-llamamientos-operaciones-api.js",
+    "portal-llamamientos-selector.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js",
+    "portal-preferencias-api.js", "portal-preferencias-integracion.js", "portal-preferencias.js", "portal-referencias-i18n.js",
+    "portal-vistas-convocatorias.js", "portal-vistas-utilidades.js", "portal.js", "reglas/enlace.js",
+    "reglas/i18n.js", "reglas/reglas.js",
+  ]) versionesEspeciales.set(ruta, "20261007-pantallas-textos-final-v1");
+  for (const ruta of ["portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261007-b1-carga-v1");
+
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -358,7 +411,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
   assert.equal(versionDe(coordinador, "./modulos/cronos/vista-avisos-propios.js"), "20261001-cronos-avisos-confirmados-v1");
   assert.equal(versionDe(coordinador, "./modulos/cronos/vista-bandeja-permisos.js"), "20261001-f-reconciliacion-321-v1");
-  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-permisos-propios.js"), "20261001-cronos-calendario-seleccion-v1");
+  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-permisos-propios.js"), "20261007-pantallas-textos-final-v1");
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);

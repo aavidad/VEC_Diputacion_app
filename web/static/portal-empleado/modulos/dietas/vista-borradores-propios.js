@@ -4,7 +4,7 @@ import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260929-i18n-dietas-v1";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261002-codexe-d7c-ux-v3";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
 const todos = (raiz, selector) => Array.from(raiz?.querySelectorAll(selector) || []);

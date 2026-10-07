@@ -192,7 +192,7 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 		Cursor        string `json:"cursor"`
 		Limite        uint32 `json:"limite"`
 	}
-	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaOpacaValida(entrada.ExpedienteRef) || entrada.Limite == 0 || entrada.Limite > maxListado || (entrada.Cursor != "" && !domain.ReferenciaValida(entrada.Cursor)) {
+	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaExpedienteValida(entrada.ExpedienteRef) || entrada.Limite == 0 || entrada.Limite > maxListado || (entrada.Cursor != "" && !domain.ReferenciaValida(entrada.Cursor)) {
 		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
@@ -260,7 +260,7 @@ func (h *manejador) servirOriginal(w http.ResponseWriter, r *http.Request) {
 		DocumentoRef  string `json:"documento_ref"`
 		Version       uint64 `json:"version"`
 	}
-	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaOpacaValida(entrada.ExpedienteRef) ||
+	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaExpedienteValida(entrada.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(entrada.DocumentoRef) || entrada.Version == 0 {
 		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return

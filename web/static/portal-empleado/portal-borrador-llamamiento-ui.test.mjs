@@ -7,10 +7,9 @@ const ref = `borrador-llamamiento:alta:${"b".repeat(64)}`;
 const recibido = { borrador_ref: ref, estado: "borrador_interno", version: "1", resumen: "Preparar cobertura interna", recibo_ref: `recibo:${"b".repeat(64)}`, registrado_en: "2026-09-21T10:30:00Z", reintento_idempotente: false };
 const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
 
-test("el montaje de llamamientos incorpora el corte y lo desmonta al salir", () => {
-  assert.match(portal, /crearSuperficieBorradorLlamamiento/);
-  assert.match(portal, /vista === "llamamientos"[\s\S]{0,200}superficieBorradorLlamamiento\.desmontar/);
-  assert.match(portal, /if \(vista === "llamamientos"\) \{ superficieBorradorLlamamiento\.activar\(\);[\s\S]{0,160}superficieBorradorLlamamiento\.renderizar/);
+test("el llamamiento del portal usa el asistente B7 y retira el borrador paralelo", () => {
+  assert.match(portal, /renderizarPantallaLlamamientos/);
+  assert.doesNotMatch(portal, /crearSuperficieBorradorLlamamiento|superficieBorradorLlamamiento/);
 });
 
 test("la superficie muestra un formulario acotado y no afirma selección ni contacto", () => {

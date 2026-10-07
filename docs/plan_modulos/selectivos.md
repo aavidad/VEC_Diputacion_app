@@ -1,5 +1,22 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
+## Selector de idioma común — 7 de octubre de 2026
+
+La entrada de Selección usa `montarSelectorIdioma`, de la interfaz común,
+en lugar de construir sus opciones y navegación por separado. Conserva filtros
+y ancla al cambiar de idioma. Cada opción declara su idioma y el selector muestra
+el catálogo que se ha cargado, incluido el respaldo cuando falla una traducción.
+
+Pruebas focales de Selección e idioma: 16 correctas. La revisión en Chrome con
+una respuesta de ensayo sintética comprueba escritorio, móvil, teclado, cambio
+de idioma y un catálogo inglés no disponible. No acredita acceso nominal a la
+API ni modifica el cierre de S2–S8.
+
+Sigue pendiente adaptar los visores que cambian idioma sin perder el archivo
+abierto. Requieren un contrato común que permita repintar sin navegar. La carga
+del idioma activo y el reintento de catálogos corresponden al lector común de V;
+Personal adaptará después su carga para evitar esperas al importar el portal.
+
 ## Cierre del 2 de octubre de 2026: estado vigente
 
 Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
@@ -16,7 +33,7 @@ históricas a H describen el reparto anterior.
 | S3 · solicitud recuperable | [#403](https://github.com/aavidad/VEC_Diputacion_app/pull/403) fusionada; fuente `f87269037`, diez comprobaciones CI verdes. Produce JSON y recupera exactamente los mismos 1089 bytes. | Registro y presentación, representación, firma y tasa conforme a las bases. |
 | S4 · admisión y subsanación | Preparación por CLI: revisión de requisitos (#533), aportaciones (#539), visor (#538), borrador de lista provisional con motivos y plazo de subsanación de catálogo configurable (`--salida lista-provisional`, S4-L1) borrador de la definitiva desde la provisional y la resolución de cada exclusión (`--salida lista-definitiva`, S4-L3), visor de ambas listas (S4-L2/L4) y revisión de la provisional que incorpora solicitudes omitidas (`--salida revision-provisional`, S4-L5). | Hechos autorizados de RUM/Personal; aprobación por el perfil competente, identidad y orden por apellidos al publicar, vencimiento con Calendarios, registro de los escritos de subsanación, rectificación de decisiones ya tomadas, comprobar automáticamente que la definitiva parte de la última revisión de la provisional (necesita el registro de revisiones publicadas; hasta entonces la definitiva lo deja como pendiente para RRHH) y publicación. |
 | S5 · tribunal y actas | Pendiente. | Órganos y perfiles confirmados; composición, habilitación y actas firmadas. |
-| S6 · fases y calificaciones | Pendiente. | Bases exactas, tribunal y hechos de RUM; cálculo común, reclamación y publicación aprobada. |
+| S6 · fases y calificaciones | Preparación local con `vec-seleccion-calificaciones`: revisión de un ejercicio ligada a bases, configuración, fase, fuentes y antecedente, con huella del material normalizado. Las notas ausentes permanecen pendientes. Dos revisiones independientes de `92a66d9e4e03` y pruebas focales correctas. | Cotejar bases, admisión y anonimato, fuentes de corrección y acta S5; autor competente, CAS y registro durable, cálculo común de méritos, reclamación y publicación aprobada. La huella local no acredita esos actos. |
 | S7 · aprobados y traspaso | Pendiente. | Resultado aprobado y recibo idempotente de Bolsa/Personal, con rectificaciones. |
 | S8 · OEP y plazas | Pendiente. | Referencias y actos de RPT/Personal; cuadro de ejecución. |
 

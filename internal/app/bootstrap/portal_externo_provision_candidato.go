@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	core "vec-diputacion-granada/internal/vec/domain"
 
 	"vec-diputacion-granada/internal/shared/plazoarranque"
@@ -185,7 +186,7 @@ func abrirPoolProvisionCandidatoExterno(ctx context.Context, dsn string) (*pgxpo
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, ErrProvisionCandidatoExterno
 	}

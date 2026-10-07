@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	almacenvec "vec-diputacion-granada/internal/vec/adapters/almacen"
 	"vec-diputacion-granada/internal/vec/adapters/conservacion"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
@@ -419,7 +420,7 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, "", ErrComposicionDocumentosNoDisponible
 	}
@@ -564,7 +565,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return incidencias
 	})
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("firma_verificacion", err)
 	}
 	if !activo {
 		return nil, nil

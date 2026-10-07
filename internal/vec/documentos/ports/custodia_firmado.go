@@ -66,7 +66,7 @@ func (c CustodiaFirmadoPersistente) PreimagenCustodia() ([]byte, error) {
 	if c.Politica.Validar() != nil || !domain.HuellaValida(c.HuellaSHA256) ||
 		!domain.HuellaValida(c.HuellaOriginalSHA256) || c.HuellaOriginalSHA256 == c.HuellaSHA256 ||
 		!domain.ReferenciaOpacaValida(c.ID) || !domain.ReferenciaOpacaValida(c.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(c.ModuloID) || !domain.ReferenciaOpacaValida(c.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(c.ModuloID) || !domain.ReferenciaExpedienteModuloValida(c.ModuloID, c.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(c.TipoRef) || !domain.ReferenciaOpacaValida(c.FirmaOperacionRef) ||
 		c.Version == 0 || c.Tamano < 1 {
 		return nil, ErrSolicitudInvalida

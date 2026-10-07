@@ -5,10 +5,10 @@ export const FUENTE_RPT =
 export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
-import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { crearTraductorPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 import { iniciarHistorico, iniciarPreparacionLocal, iniciarPestanasOrganizacion,
-  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js?v=20261001-b-org-local-reconcile367-v1";
+  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js?v=20261007-pantallas-textos-final-v1";
 const traducirOrganizacion = crearTraductorPersonal();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
