@@ -63,3 +63,31 @@ func TestCatalogoConfigurableNoAgregaCodigos(t *testing.T) {
 		t.Fatal("filas retiradas aceptadas")
 	}
 }
+
+func TestCatalogoV2TemasCerradosYContrasteIndependiente(t *testing.T) {
+	c := CatalogoBasePreferencias()
+	c.VersionRef = "usuarios-preferencias-v2"
+	for _, tema := range []string{"diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"} {
+		c.Temas = append(c.Temas, OpcionPreferencia{Codigo: tema, NombreKey: "ui.usuarios.preferencias.tema." + tema})
+	}
+	if err := c.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	for _, opcion := range c.Temas {
+		v := c.Predeterminados
+		v.Tema, v.AltoContraste = opcion.Codigo, true
+		if err := c.ValidarValores(v); err != nil {
+			t.Fatalf("tema %q con contraste: %v", opcion.Codigo, err)
+		}
+	}
+	v := c.Predeterminados
+	v.Tema = "url(https://example.invalid)"
+	if c.ValidarValores(v) == nil {
+		t.Fatal("tema libre aceptado")
+	}
+	c.Temas = c.Temas[:len(c.Temas)-1]
+	v.Tema = "noche_suave"
+	if c.ValidarValores(v) == nil {
+		t.Fatal("tema no ofertado aceptado")
+	}
+}

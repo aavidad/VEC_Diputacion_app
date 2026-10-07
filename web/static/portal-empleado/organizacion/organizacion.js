@@ -6,7 +6,9 @@ export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
-import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js";
+import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
+import { iniciarHistorico, iniciarPreparacionLocal, iniciarPestanasOrganizacion,
+  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js?v=20261001-b-org-local-reconcile367-v1";
 const traducirOrganizacion = crearTraductorPersonal();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
@@ -229,6 +231,7 @@ export function crearEstadoFormulario() {
   });
 }
 function mostrarTextos() {
+  if (document.documentElement) document.documentElement.lang = IDIOMA_ACTUAL;
   document
     .querySelectorAll("[data-i18n]")
     .forEach((e) => (e.textContent = traducirOrganizacion("organizacion_" + e.dataset.i18n)));
@@ -485,6 +488,7 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
   return cargar();
 }
 if (typeof document !== "undefined") {
-  const pestanas = iniciarPestanasOrganizacion();
-  iniciarOrganizacion(crearCliente(), iniciarHistorico(), iniciarImportacion(), pestanas);
+  const pestanas = iniciarPestanasOrganizacion(undefined, PREPARACION_LOCAL_ORGANIZACION.habilitada);
+  iniciarPreparacionLocal();
+  iniciarOrganizacion(crearCliente(), iniciarHistorico(), null, pestanas);
 }

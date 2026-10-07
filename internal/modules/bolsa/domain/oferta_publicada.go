@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -97,4 +98,30 @@ func (d DatosOferta) Validar() error {
 
 func textoOfertaValido(texto string) bool {
 	return strings.TrimSpace(texto) == texto && len(texto) >= minimoTextoOferta && len(texto) <= maximoTextoOferta
+}
+
+// NotificacionOferta conserva la declaración de RRHH sobre el correo externo
+// con el extracto de la oferta. No acredita entrega a cada destinatario.
+type NotificacionOferta struct {
+	NotificadaEn       time.Time `json:"notificada_en"`
+	ReferenciaCorreo   string    `json:"referencia_correo"`
+	HuellaCorreoSHA256 string    `json:"huella_correo_sha256"`
+	Fuente             string    `json:"fuente"`
+}
+
+var referenciaCorreoOferta = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}$`)
+var huellaCorreoOferta = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+// ValidarPara exige un hecho pasado o presente y una referencia sin contenido
+// personal. La autoridad de la declaración es RRHH, revalidada al publicar.
+func (n NotificacionOferta) ValidarPara(ahora time.Time) error {
+	_, offset := n.NotificadaEn.Zone()
+	if ahora.IsZero() || n.NotificadaEn.IsZero() || offset != 0 ||
+		n.NotificadaEn.Nanosecond()%1000 != 0 || n.NotificadaEn.After(ahora) ||
+		!referenciaCorreoOferta.MatchString(n.ReferenciaCorreo) || !referenciaLlamamientoOpacaValida(n.ReferenciaCorreo) ||
+		!huellaCorreoOferta.MatchString(n.HuellaCorreoSHA256) ||
+		n.Fuente != "correo_externo_declarado_rrhh" {
+		return ErrDatosOfertaInvalidos
+	}
+	return nil
 }

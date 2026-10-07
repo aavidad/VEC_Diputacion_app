@@ -22,6 +22,20 @@ func TestVerificacionNoMarcaFirmaSinVinculoYRevocacionVigente(t *testing.T) {
 	if err := r.ValidarContra(s); err != nil {
 		t.Fatalf("validacion positiva: %v", err)
 	}
+	s.FormatoEsperado = "PAdES"
+	r.Formato = "CAdES"
+	if r.ValidarContra(s) == nil {
+		t.Fatal("acepto formato distinto al exigido por el consumidor")
+	}
+	r.Formato = "PAdES"
+	if err := r.ValidarContra(s); err != nil {
+		t.Fatalf("rechazo formato esperado: %v", err)
+	}
+	s.FormatoEsperado = ""
+	r.Formato = "CAdES"
+	if err := r.ValidarContra(s); err != nil {
+		t.Fatalf("consumidor generico bloqueado por formato: %v", err)
+	}
 	r.VinculoOriginal = false
 	if r.ValidarContra(s) == nil {
 		t.Fatal("acepto firma sin vinculo original")

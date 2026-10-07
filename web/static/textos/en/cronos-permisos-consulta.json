@@ -1,0 +1,9 @@
+{
+  "consulta": {
+    "actualizar": "Refresh",
+    "reintentar": "Retry",
+    "cargando": "Loading your leave…",
+    "error": "Your leave could not be loaded. Check your connection and select Retry.",
+    "no_solicitable": "The selected leave is no longer available to request. Your draft is kept while this screen stays open."
+  }
+}

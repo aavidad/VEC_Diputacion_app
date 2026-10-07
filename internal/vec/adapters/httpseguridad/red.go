@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
+	"time"
 )
 
 var ErrRedNoAutorizada = errors.New("red no autorizada")
@@ -14,6 +15,7 @@ type PoliticaRed struct {
 	superficie Superficie
 	zona       ZonaRed
 	prefijos   []netip.Prefix
+	retiradaEn time.Time
 }
 
 // NuevaPoliticaRed construye una lista explicita. Una entrada mal formada no se
@@ -40,7 +42,10 @@ func NuevaPoliticaRed(configuracion ConfiguracionSuperficie) (PoliticaRed, error
 			}
 			prefijo = netip.PrefixFrom(prefijo.Addr().Unmap(), bitsIPv4).Masked()
 		}
-		if configuracion.ZonaRed != ZonaRedPublica && prefijo.Bits() == 0 {
+		if configuracion.ZonaRed != ZonaRedPublica && prefijo.Bits() == 0 &&
+			!(configuracion.Superficie == SuperficieAdministracionPrivilegiada &&
+				configuracion.PoliticaAdministracion == PoliticaAdministracionCertificadoTemporal &&
+				time.Now().Before(configuracion.RetiradaPoliticaAdministracionEn)) {
 			return PoliticaRed{}, fmt.Errorf("%w: una zona protegida no admite una red universal", ErrConfiguracionSuperficie)
 		}
 		if _, existe := vistos[prefijo]; existe {
@@ -56,6 +61,7 @@ func NuevaPoliticaRed(configuracion ConfiguracionSuperficie) (PoliticaRed, error
 		superficie: configuracion.Superficie,
 		zona:       configuracion.ZonaRed,
 		prefijos:   prefijos,
+		retiradaEn: configuracion.RetiradaPoliticaAdministracionEn,
 	}, nil
 }
 
@@ -63,7 +69,8 @@ func NuevaPoliticaRed(configuracion ConfiguracionSuperficie) (PoliticaRed, error
 // transporte. La zona pertenece a la politica fijada al arrancar y nunca puede
 // ser declarada por una peticion o por una cabecera de proxy.
 func (p PoliticaRed) Autorizar(direccionPar netip.Addr) error {
-	if !p.superficie.Valida() || !p.zona.Valida() || !direccionPar.IsValid() {
+	if !p.superficie.Valida() || !p.zona.Valida() || !direccionPar.IsValid() ||
+		(!p.retiradaEn.IsZero() && !time.Now().Before(p.retiradaEn)) {
 		return ErrRedNoAutorizada
 	}
 	for _, prefijo := range p.prefijos {

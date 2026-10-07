@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
 
 test("una confirmación real no avanza a detalle ni configuración", async () => {
   const confirmacion = { propuesta_ref: "propuesta:01", necesidad: { referencia: "necesidad:01" } };

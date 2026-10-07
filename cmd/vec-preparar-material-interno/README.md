@@ -1,5 +1,17 @@
 # vec-preparar-material-interno
 
+La opción alternativa `-incorporacion-config RUTA` prepara el `servidor.json`
+de incorporación B2 pura y sus 22 operaciones. Sustituye a `-motivos`, mantiene
+`-inventario-ct`, `-material-idempotencia`, `-dsn-archivo` y `-salida`, y conserva
+las referencias, los motivos y los ocho DSN nominales de la entrada aprobada.
+Las claves usan los descriptores y la derivación del publicador de main; versión
+y revisión proceden del gobierno vigente. También se comprueba cada motivo en
+la autoridad histórica y se compara `ct_detalle` con el resolutor RRHH real.
+Ese resolutor conserva su transacción `SERIALIZABLE READ WRITE`; la instantánea
+de gobierno continúa siendo `REPEATABLE READ READ ONLY`. No se publica gobierno
+ni se provisionan perfiles. Véase el procedimiento en
+[`scripts/operacion/hito7_b2/LEEME.md`](../../scripts/operacion/hito7_b2/LEEME.md).
+
 Compone y valida el inventario privado `personal_b2_v3.json` (formato 4) que
 carga `vec-interno` para montar el registro B2 de Personal, junto con las ocho
 claves HMAC de capacidad que referencia. Sustituye al script privado usado en

@@ -9,9 +9,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -90,31 +93,87 @@ func main() {
 		}
 		return
 	}
+	inicioComposicion := time.Now()
+	inicioFase := inicioComposicion
 	cfg := config.Load()
+	registrarArranque := func(fase, resultado, causa string) {
+		telemetria.RegistrarArranque(os.Stderr, telemetria.EventoArranque{
+			Servicio: "vec-server", Superficie: superficieServidor(cfg), Entorno: entornoSupervision(),
+			Fase: fase, Resultado: resultado, Causa: causa, Duracion: time.Since(inicioFase),
+		})
+	}
+	// Paciencia de las comprobaciones de arranque con CPU escasa: solo amplía
+	// plazos mientras se compone el servidor; un valor no válido no arranca.
+	plazo, err := plazoarranque.Analizar(os.Getenv(envArranquePlazoPreflight))
+	if err != nil {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
+		registrarArranque("configuracion", "fallida", "configuracion")
+		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s error=%s", envArranquePlazoPreflight, telemetria.MensajeErrorArranque(err))
+	}
+	if err := plazoarranque.Fijar(plazo); err != nil {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
+		registrarArranque("configuracion", "fallida", "configuracion")
+		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s error=%s", envArranquePlazoPreflight, telemetria.MensajeErrorArranque(err))
+	}
+	if plazo > 0 {
+		log.Printf("arranque: plazo mínimo de las comprobaciones previas %s", plazo)
+	}
 	emisor, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
 	srv, err := bootstrap.NuevoServidorHTTPSupervisado(cfg, emisor)
+	// Compuesto (o fallido) el servidor, los plazos vuelven a ser los declarados.
+	plazoarranque.Terminar()
 	if err != nil {
 		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
-		log.Fatalf("bootstrap server: %v", err)
+		causa := telemetria.ClaseErrorArranque(err)
+		componente := bootstrap.ComponenteFalloArranque(err)
+		registrarArranque("composicion", "fallida", causa)
+		log.Fatalf("bootstrap server: etapa=composicion componente=%s causa=%s error=%s", componente, causa, telemetria.MensajeErrorArranque(err))
 	}
+	// Registro de acceso técnico: una línea JSON por petición en stderr. Va
+	// dentro de la supervisión, que aporta la correlación.
+	telemetria.Montar(srv, telemetria.Opciones{
+		Destino: os.Stderr, Servicio: "vec-server", Superficie: superficieServidor(cfg),
+		Entorno: entornoSupervision(), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
+	})
 	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
 		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
 			cerrarSupervision()
 			registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaConfiguracion)
+			registrarArranque("configuracion", "fallida", "configuracion")
 			log.Fatal("serve TLS: VEC_TLS_CERT_FILE and VEC_TLS_KEY_FILE must be configured together")
 		}
+		registrarArranque("composicion", "preparada", "")
 		log.Printf("vec server listening with TLS on %s", srv.Addr)
+		inicioFase = time.Now()
 		err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
 	} else {
+		registrarArranque("composicion", "preparada", "")
 		log.Printf("vec server listening on %s", srv.Addr)
+		inicioFase = time.Now()
 		err = srv.ListenAndServe()
 	}
 	cerrarSupervision()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
-		log.Fatalf("serve: %v", err)
+		causa := telemetria.ClaseErrorArranque(err)
+		registrarArranque("escucha", "fallida", causa)
+		log.Fatalf("serve: etapa=escucha causa=%s error=%s", causa, telemetria.MensajeErrorArranque(err))
 	}
+}
+
+// envArranquePlazoPreflight fija, en segundos (1-600), el plazo mínimo de las
+// comprobaciones previas del arranque. Vacía: los plazos declarados.
+const envArranquePlazoPreflight = "VEC_ARRANQUE_PLAZO_PREFLIGHT"
+
+// superficieServidor nombra el portal que atiende el proceso en el registro
+// de acceso: "interno", "externo" o "integrada" si sirve ambos.
+func superficieServidor(cfg config.Config) string {
+	if cfg.PortalProceso == config.ValorPortalProcesoInterno || cfg.PortalProceso == config.ValorPortalProcesoExterno {
+		return cfg.PortalProceso
+	}
+	return "integrada"
 }

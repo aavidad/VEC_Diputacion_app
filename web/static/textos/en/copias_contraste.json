@@ -1,0 +1,14 @@
+{
+  "alcance": "Logical PostgreSQL comparison. Backup verification also requires a physical restore, files and a VEC startup check.",
+  "igual": "The checked inventories and contents match. Continue the remaining backup checks.",
+  "diferente": "The restored inventories differ. Do not mark the backup as valid; review the reasons and repeat the corrected trial.",
+  "no_comprobable": "The inventory is incomplete or contains objects unsupported by this reader. Complete their verification before validating the backup.",
+  "captura_completada": "Logical inventory captured. Keep the file protected with the evidence that writers were excluded.",
+  "copias_contraste_error_argumentos": "The arguments are incomplete or do not match the selected mode. Check the help and repeat the command.",
+  "copias_contraste_error_catalogo": "The full message catalogue could not be read. Check the file for the selected language.",
+  "copias_contraste_error_entrada": "A valid inventory could not be read. Check the file format and size.",
+  "copias_contraste_error_configuracion": "The configuration is invalid. Check the private connection, PostgreSQL version, limits and declared references.",
+  "copias_contraste_error_captura": "The PostgreSQL read could not be completed. Check the isolated target and its permissions, then repeat the capture.",
+  "copias_contraste_error_salida": "The result could not be written. Check the output destination and repeat the command.",
+  "ayuda": "Capture: --modo capturar --configuracion FILE --catalogo CATALOGUE. Compare: --modo comparar --esperado INVENTORY --observado INVENTORY --catalogo CATALOGUE. Capture requires an isolated PostgreSQL 18 target in read-only mode with no writers. Files contain private evidence. Exit 0: complete capture or equality; 1: difference or not verifiable; 2: error."
+}

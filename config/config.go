@@ -36,6 +36,8 @@ const (
 	EnvHTTPAllowedCIDRs                            = "VEC_HTTP_ALLOWED_CIDRS"
 	EnvTLSCertFile                                 = "VEC_TLS_CERT_FILE"
 	EnvTLSKeyFile                                  = "VEC_TLS_KEY_FILE"
+	EnvCTNumeroExpedienteSourcePath                = "VEC_CT_NUMERO_EXPEDIENTE_SOURCE_PATH"
+	EnvCTCircuitoRRHHSourcePath                    = "VEC_CT_CIRCUITO_RRHH_SOURCE_PATH"
 	EnvPersonalCatalogPath                         = "VEC_PERSONAL_CATALOG_PATH"
 	EnvIncorporacionV2File                         = "VEC_CT_INCORPORACION_V2_FILE"
 	EnvContratacionTemporalSubsanacionPoliticaFile = "VEC_CT_SUBSANACION_POLITICA_FILE"
@@ -145,6 +147,8 @@ type Config struct {
 	HTTPAllowedCIDRs                            []string
 	TLSCertFile                                 string
 	TLSKeyFile                                  string
+	CTNumeroExpedienteSourcePath                string
+	CTCircuitoRRHHSourcePath                    string
 	PersonalCatalogPath                         string
 	PersonalCatalogInMemory                     bool
 	PersonalOrganizacionSourcePath              string
@@ -192,6 +196,7 @@ type Config struct {
 	CTPreimagenesPerfilesRRHH                   string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
+	PortalModulosVisiblesLista                  string
 	FirmaVerificacionEnabled                    string
 	FirmaVerificacionURL                        string
 	FirmaVerificacionCAFile                     string
@@ -202,10 +207,12 @@ type Config struct {
 	FirmaVerificacionNombreServidorTLS          string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
+	OrganizacionHistoricaGobiernoEnabled        string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
+	AuditoriaSelladoPostgreSQL                  ConfiguracionPostgreSQLAuditoriaSellado
 	BolsaPoliticaOfertasCalculadorPostgreSQL    ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
@@ -255,6 +262,8 @@ func Load() Config {
 		HTTPAllowedCIDRs:                       splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
 		TLSCertFile:                            envFirst(EnvTLSCertFile),
 		TLSKeyFile:                             envFirst(EnvTLSKeyFile),
+		CTNumeroExpedienteSourcePath:           envFirst(EnvCTNumeroExpedienteSourcePath),
+		CTCircuitoRRHHSourcePath:               envFirst(EnvCTCircuitoRRHHSourcePath),
 		PersonalCatalogPath:                    envFirst(EnvPersonalCatalogPath),
 		PersonalOrganizacionSourcePath:         envFirst(EnvPersonalOrganizacionSourcePath),
 		RPTCatalogoPath:                        envFirst(EnvRPTCatalogoPath),
@@ -310,6 +319,7 @@ func Load() Config {
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
 		DocumentosEnabled:                  envFirst(EnvDocumentosEnabled),
+		PortalModulosVisiblesLista:         envFirst(EnvPortalModulosVisibles),
 		FirmaVerificacionEnabled:           envFirst(EnvFirmaVerificacionEnabled),
 		FirmaVerificacionURL:               envFirst(EnvFirmaVerificacionURL),
 		FirmaVerificacionCAFile:            envFirst(EnvFirmaVerificacionCAFile),
@@ -330,6 +340,7 @@ func Load() Config {
 		},
 		BolsaRelevoNoIncorporacionPostgreSQL:     NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
 		BolsaRelevoCesePostgreSQL:                NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
+		AuditoriaSelladoPostgreSQL:               NuevaConfiguracionPostgreSQLAuditoriaSellado(envFirst(EnvAuditoriaSelladoDatabaseURL)),
 		BolsaPoliticaOfertasCalculadorPostgreSQL: NuevaConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador(envFirst(EnvBolsaPoliticaOfertasCalculadorDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
@@ -347,6 +358,7 @@ func Load() Config {
 			dsnContextoActor:         envFirst(EnvContratacionTemporalContextoActorDatabaseURL),
 			dsnAuditoriaFrontera:     envFirst(EnvContratacionTemporalAuditoriaFronteraDatabaseURL),
 		},
+		OrganizacionHistoricaGobiernoEnabled: envFirst(EnvOrganizacionHistoricaGobiernoEnabled),
 	}.Normalize()
 }
 
@@ -417,6 +429,8 @@ func (c Config) Normalize() Config {
 	c.BolsaPublicSourcePath = defaultString(c.BolsaPublicSourcePath, DefaultBolsaPublicSourcePath)
 	c.PersonalOrganizacionSourcePath = strings.TrimSpace(c.PersonalOrganizacionSourcePath)
 	c.RPTCatalogoPath = strings.TrimSpace(c.RPTCatalogoPath)
+	c.CTNumeroExpedienteSourcePath = strings.TrimSpace(c.CTNumeroExpedienteSourcePath)
+	c.CTCircuitoRRHHSourcePath = strings.TrimSpace(c.CTCircuitoRRHHSourcePath)
 	if c.PersonalOrganizacionVersion == 0 {
 		c.PersonalOrganizacionVersion = 1
 	}
@@ -454,6 +468,7 @@ func (c Config) Normalize() Config {
 	c.CTPreimagenesPerfilesRRHH = strings.TrimSpace(c.CTPreimagenesPerfilesRRHH)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
+	c.PortalModulosVisiblesLista = strings.TrimSpace(c.PortalModulosVisiblesLista)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)
 	c.FirmaVerificacionURL = strings.TrimSpace(c.FirmaVerificacionURL)
 	c.FirmaVerificacionCAFile = strings.TrimSpace(c.FirmaVerificacionCAFile)
@@ -464,10 +479,12 @@ func (c Config) Normalize() Config {
 	c.FirmaVerificacionNombreServidorTLS = strings.TrimSpace(c.FirmaVerificacionNombreServidorTLS)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
+	c.OrganizacionHistoricaGobiernoEnabled = strings.TrimSpace(c.OrganizacionHistoricaGobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
+	c.AuditoriaSelladoPostgreSQL = c.AuditoriaSelladoPostgreSQL.normalizar()
 	c.BolsaPoliticaOfertasCalculadorPostgreSQL = c.BolsaPoliticaOfertasCalculadorPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()

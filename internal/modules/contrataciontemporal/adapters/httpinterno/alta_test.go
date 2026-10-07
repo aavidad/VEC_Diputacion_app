@@ -98,7 +98,7 @@ func contextoCanalValidoPrueba() application.SolicitudRegistrarExpediente {
 func reciboValidoPrueba() ports.ReciboAlta {
 	return ports.ReciboAlta{
 		ExpedienteRef: "expediente:ct:0001",
-		NumeroVisible: "2026/CT-0001",
+		NumeroVisible: "2026/5487",
 		Version:       1,
 		ReciboRef:     "recibo:ct:0001",
 		AuditoriaRef:  "auditoria:ct:0001",
@@ -110,6 +110,7 @@ func reciboValidoPrueba() ports.ReciboAlta {
 func cuerpoValidoPrueba() []byte {
 	return []byte(`{
 		"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732",
+		"numero_expediente_moad":"2026/5487",
 		"solicitud":{
 			"centro_ref":"centro:solicitante:001",
 			"contacto_ref":"contacto:opaco:001",
@@ -242,6 +243,23 @@ func TestManejadorAltaConfirmaYMinimizaRecibo(t *testing.T) {
 		t.Fatalf("comando no ligado: llamadas=%d comandos=%+v", llamadas, comandos)
 	}
 	comprobarCabecerasSegurasPrueba(t, respuesta)
+}
+
+func TestManejadorAltaSinNumeroSoloSirveRecuperacionAcreditada(t *testing.T) {
+	cuerpo := bytes.Replace(cuerpoValidoPrueba(), []byte(`"numero_expediente_moad":"2026/5487",`), nil, 1)
+	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
+	ejecutor.recibo.NumeroVisible = "2026/CT-0001"
+	ejecutor.err = application.ErrSolicitudRegistroInvalida
+	rechazada := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpo))
+	if rechazada.Code != http.StatusUnprocessableEntity || codigoErrorPrueba(t, rechazada) != "contenido_no_valido" {
+		t.Fatalf("alta nueva sin MOAD: estado=%d", rechazada.Code)
+	}
+	ejecutor.err = nil
+	recuperada := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpo))
+	if recuperada.Code != http.StatusCreated || !bytes.Contains(recuperada.Body.Bytes(), []byte(`"numero_visible":"2026/CT-0001"`)) ||
+		bytes.Contains(recuperada.Body.Bytes(), []byte("numero_expediente_moad")) {
+		t.Fatalf("recibo histórico presentado como MOAD: estado=%d cuerpo=%s", recuperada.Code, recuperada.Body.String())
+	}
 }
 
 func TestManejadorAltaConservaExitoConfirmadoTrasCancelacion(t *testing.T) {

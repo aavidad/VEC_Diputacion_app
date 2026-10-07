@@ -380,8 +380,12 @@ components:
       additionalProperties: false
       required:
         - clave_idempotencia
+        - numero_expediente_moad
         - solicitud
       properties:
+        numero_expediente_moad:
+          description: Número externo asignado por MOAD desde la apertura; el formato de negocio procede del catálogo versionado configurado.
+          $ref: '#/components/schemas/NumeroVisibleExpedienteV1'
         clave_idempotencia:
           $ref: '#/components/schemas/ClaveIdempotenciaV1'
         solicitud:

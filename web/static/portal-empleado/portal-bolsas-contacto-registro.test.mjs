@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   crearControladorRegistroContacto, registrarContacto, renderizarRegistroContacto, rutaRegistroContacto, validarComandoContacto,
-} from "./portal-bolsas-contacto-registro.js";
+} from "./portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1";
 
 const valido = { correo: "persona@ejemplo.es", telefono_1: "600000001", telefono_2: "", motivo: "Corrección tras llamada", origen: "convoca" };
 

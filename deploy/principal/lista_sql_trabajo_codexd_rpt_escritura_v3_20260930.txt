@@ -1,0 +1,11 @@
+# Preimagen obligatoria: H3 (8), H4 (9) y H6 (45) completos, incluida AD3-125;
+# después, AD3-132 instalada y verificada por su circuito DBA propio.
+# Solo entonces: roles -> catalogos 000001 -> 000002 -> AD3-117 ->
+# catalogos 000003 -> AD3-126. En clon fresco H1 no basta AD3-114.
+# No reaplicar estas SQL en una base que ya conserve historia RPT.
+deploy/postgresql/catalogos_configurables/roles_up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000001_autoridad_categorias.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000002_lecturas_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000003_usos_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000126_usos_categorias_rpt.up.sql

@@ -1,13 +1,11 @@
 {
   "rutas": {
-    "inicio": "Home and deadlines",
-    "convocatorias": "Recruitment notices",
-    "convocatoria": "Recruitment notice details",
+    "inicio": "Home",
+    "convocatorias": "Calls for applications",
+    "convocatoria": "Call for applications details",
     "perfil": "Profile and contact details",
     "meritos": "Merits and documents",
-    "solicitud": "New application",
-    "autobaremacion": "Self-assessment of points",
-    "seguimiento": "My applications",
+    "seguimiento": "My case files",
     "llamamientos": "Availability and call-ups",
     "subsanaciones": "Corrections",
     "alegaciones": "Representations",
@@ -24,10 +22,10 @@
     "error": {
       "titulo": "Your personal area could not be loaded",
       "detalle": "The service is unavailable.",
-      "garantia": "No provisional data is shown and no action has been taken.",
+      "garantia": "No data is presented as confirmed and no action has been taken.",
       "reintentar": "Retry secure connection",
       "autenticacion": {
-        "titulo": "Identify yourself to view your employment pool",
+        "titulo": "Identify yourself to view your job pool",
         "detalle": "Use your electronic identity card or digital certificate to continue."
       },
       "acceso": {
@@ -51,7 +49,7 @@
     }
   },
   "capacidad": {
-    "noHabilitada": "{operacion} is not enabled for the current identity and application.",
+    "noHabilitada": "{operacion}: this action is not yet available in the personal area.",
     "accionNoReconocida": "This action is not recognised here.",
     "operacionNoDisponible": "This action is unavailable."
   },
@@ -61,7 +59,7 @@
   "miBolsa": {
     "situacion": {
       "titulo": "Latest recorded status of my participation",
-      "sinDato": "The current status of this participation is not yet available in My employment pool.",
+      "sinDato": "The current status of this participation is not yet available in My job pool.",
       "estado": "Status",
       "desde": "From",
       "hasta": "Until",
@@ -69,13 +67,14 @@
       "fechaDisponible": "Stated availability date",
       "explicacion": {
         "_": "What this means",
-        "disponible": "You are recorded as available in the employment pool. Any call-up depends on your position and the applicable rules.",
-        "no_disponible": "You are recorded as temporarily unavailable in the employment pool.",
-        "trabajando": "A period of work has been reported to the employment pool.",
+        "disponible": "You are recorded as available in the job pool. Any call-up depends on your position and the applicable rules.",
+        "no_disponible": "You are recorded as unavailable in the job pool.",
+        "trabajando": "A working status has been reported to the job pool.",
         "pendiente_incorporacion": "A start of employment is pending; this does not yet establish an employment relationship.",
         "renuncia": "A decision to decline has been recorded for this participation.",
         "excluido": "An exclusion has been recorded for this participation.",
-        "disponible_desde": "A date for becoming available again has been stated. This does not establish a call-up or determine any legal effect on its own."
+        "disponible_desde": "A date for becoming available again has been stated. This does not establish a call-up or determine any legal effect on its own.",
+        "en_revision": "HR is awaiting supporting evidence to review your status. Providing it does not change your status until HR validates it."
       },
       "disponible": "Available",
       "no_disponible": "Unavailable",
@@ -83,18 +82,19 @@
       "pendiente_incorporacion": "Awaiting start of employment",
       "renuncia": "Declined",
       "excluido": "Excluded",
-      "disponible_desde": "Available from a specified date"
+      "disponible_desde": "Available from a specified date",
+      "en_revision": "Under review"
     },
     "disponibilidad": {
       "titulo": "Availability",
       "subtitulo": "Status by participation",
-      "detalle": "You cannot yet request to pause or resume your availability here."
+      "detalle": "You can check your status. Contact the HR Service to request a review."
     },
-    "ordenInicial": "My initial position in the employment pool",
-    "vigenciaBolsa": "Employment pool validity period",
+    "ordenInicial": "My initial position in the job pool",
+    "vigenciaBolsa": "Job pool validity period",
     "llamamiento": {
       "titulo": "Latest email outcome",
-      "subtitulo": "From my employment pool call-ups",
+      "subtitulo": "From my job pool call-ups",
       "categoria": "Category",
       "fecha": "Recorded dispatch",
       "canal": "Channel",
@@ -104,7 +104,7 @@
       "no_enviado": "Not sent",
       "limite": "An email being sent does not mean it has arrived or that there is a reply yet.",
       "sinDato": "No email call-ups are recorded for these participations.",
-      "bolsa": "Employment pool"
+      "bolsa": "Job pool"
     },
     "identidad": {
       "noFacilitada": "Identity not provided",
@@ -115,7 +115,7 @@
       "sinDato": "No contract information available."
     },
     "historial": {
-      "titulo": "My employment pool history",
+      "titulo": "My job pool history",
       "subtitulo": "Actions recorded in VEC for my participations",
       "cargando": "Loading authorised history…",
       "vacio": "No actions are recorded in your VEC history.",
@@ -127,7 +127,7 @@
       "anterior": "Previous",
       "siguiente": "Next",
       "pagina": "Page {pagina}",
-      "contrato": "Contract reported to the employment pool",
+      "contrato": "Contract reported to the job pool",
       "incorporacion": "Start of employment reported to the employment pool",
       "llamamiento": "Call-up email",
       "renuncia": "Decision to decline",
@@ -146,7 +146,7 @@
       "respuesta_registrada": "Response recorded",
       "propuesta_pendiente_rrhh": "Proposal awaiting Human Resources review",
       "modo": "Handling",
-      "firme": "Recorded directly in the employment pool",
+      "firme": "Recorded directly in the job pool",
       "propuesta_rrhh": "Awaiting Human Resources confirmation",
       "limite": "Only what is recorded in VEC appears here. A sent email may not have arrived, and a recorded decline or start of work may still be waiting for HR to resolve it."
     },
@@ -227,21 +227,21 @@
       "titulo": "User guide",
       "subtitulo": "Full help text",
       "encabezado": "Read this guide",
-      "texto": "This guide explains the employment pool personal area. Home shows deadlines and pending actions. In Recruitment notices, you can review the terms and start an application. The Merits inventory lets you reuse qualifications, experience and documents. The self-assessment of points is provisional and will be reviewed by Human Resources. Payment, signing, registration, call-up, correction and representation actions require confirmation and a receipt.",
+      "texto": "This guide explains the job pool personal area. You can now view the information retrieved for My job pool. Calls for applications, deadlines, applications, merits and self-assessment are not yet available in this enquiry. An action is recorded only when the service confirms its receipt.",
       "limiteServicio": "Every real operation depends on confirmation from the authorised service."
     }
   },
   "ofertas": {
     "titulo": "Published offers",
-    "subtitulo": "From my employment pools",
+    "subtitulo": "From my job pools",
     "centro": "Workplace",
     "inicio": "Start",
     "fin": "End",
     "sinFin": "No end date",
     "descripcion": "Description",
-    "vence": "Express interest before",
-    "manifestar": "I am interested",
-    "manifestada": "Interest expressed on {fecha} · Receipt {recibo}",
+    "vence": "Accept before",
+    "manifestar": "Accept",
+    "manifestada": "Accepted on {fecha} · Receipt {recibo}",
     "estado": {
       "abierta": "Open",
       "pendiente_resolucion": "Deadline passed; pending HR decision",
@@ -250,15 +250,35 @@
     }
   },
   "portal": {
-    "titulo": "Availability and response",
-    "subtitulo": "By employment pool",
+    "titulo": "Responses and requests to HR",
+    "subtitulo": "By job pool",
+    "documental": {
+      "fechaFinCausa": "End date of the reason, if the document establishes it",
+      "documentoRef": "Supporting document reference",
+      "documentoRefAyuda": "Use the reference shown on the document, without spaces or accents.",
+      "referenciaNoValida": "Use an internal reference without spaces or identity document details such as an ID number or passport.",
+      "documento": "Select supporting document",
+      "documentoAviso": "The file is not sent. Its reference and fingerprint are recorded for HR to check.",
+      "enviar": "Send request to HR",
+      "limite": "HR must check the document and decide. The request does not change your status in the job pool.",
+      "resultado": {
+        "pendiente_rrhh": "Request pending HR decision. Receipt {recibo}.",
+        "validada": "HR has already validated this request. Original receipt {recibo}.",
+        "rechazada": "HR has already rejected this request. Original receipt {recibo}."
+      },
+      "errorIncierto": "The outcome could not be confirmed. Retrying keeps the original details; reload My job pool if you need to change them.",
+      "ultima": "Latest document request",
+      "reciboResolucion": "HR decision receipt",
+      "estado": {"pendiente_rrhh": "Pending HR decision", "validada": "Validated by HR", "rechazada": "Rejected by HR"}
+    },
     "pausa": "Request a pause until",
     "pausaEnviar": "Request pause",
     "reactivar": "Request reactivation",
     "pendiente": "{tipo} request pending HR decision",
     "tipo": {
       "pausa": "Pause",
-      "reactivacion": "Reactivation"
+      "reactivacion": "Reactivation",
+      "documental_rrhh": "document review"
     },
     "recibo": "Receipt",
     "llamamiento": "Open call-up",
@@ -275,10 +295,10 @@
       "_": "Reason",
       "enfermedad": "Illness",
       "maternidad_paternidad_adopcion": "Maternity, paternity or adoption",
-      "alta_seguridad_social": "Registered with Social Security (in employment)",
+      "alta_seguridad_social": "Registered with Social Security",
       "matrimonio_union_hecho": "Marriage or civil partnership"
     },
-    "justificante": "Supporting document",
+    "justificante": "Supporting document (the file is not sent)",
     "justificanteRef": "Supporting document reference",
     "responder": "Send response",
     "modo": {
@@ -289,14 +309,14 @@
     "enviando": "Sending…",
     "hecho": "Recorded. Receipt {recibo}.",
     "error": {
-      "solicitud_pendiente": "You already have a request pending HR decision in this employment pool.",
-      "situacion_no_admite": "Your current status in the employment pool does not allow this request.",
+      "solicitud_pendiente": "You already have a request pending HR decision in this job pool.",
+      "situacion_no_admite": "Your current status in the job pool does not allow this request.",
       "sin_llamamiento_abierto": "There is no open call-up to respond to.",
       "fuera_de_plazo": "The response deadline has passed.",
       "causa_no_admitida": "The reason given is not accepted.",
       "pausa_fuera_de_limite": "The end date of the pause is not allowed.",
       "oferta_no_abierta": "The offer is no longer open.",
-      "disposicion_ya_manifestada": "You had already expressed interest in this offer.",
+      "disposicion_ya_manifestada": "You had already accepted this offer.",
       "contacto_cambiado": "HR has updated your contact details. Reload the page before confirming them.",
       "contacto_ya_confirmado": "These contact details were already confirmed.",
       "sin_contacto": "There are no recorded contact details to confirm.",
@@ -304,19 +324,26 @@
       "datos_no_validos": "Check the form data.",
       "acceso_denegado": "You do not have permission for this action.",
       "autenticacion_requerida": "Identify yourself again to continue.",
-      "servicio_no_disponible": "Service unavailable. Nothing has been recorded; you can try again."
+      "servicio_no_disponible": "The outcome could not be confirmed. Check My job pool before sending the request again."
     }
   },
   "vista": {
     "comun": {
-      "porcentaje": "{valor}%",
-      "porcentajeLeido": "{valor} percent"
+      "campoObligatorio": "(required)",
+      "campoOpcional": "(optional)"
     },
     "inicio": {
+      "consultaBolsa": {
+        "titulo": "Your job pool participation",
+        "descripcion": "View the details of your participation that are already available.",
+        "subtitulo": "Information available in this enquiry",
+        "detalle": "You can view your job pool participation here. Recruitment deadlines and applications are not yet available in this area.",
+        "abrir": "View my job pool"
+      },
       "cifras": {
         "pendientes": "Pending actions",
         "pendientesAyuda": "Check deadlines and messages",
-        "convocatorias": "Open recruitment notices",
+        "convocatorias": "Open calls for applications",
         "convocatoriasAyuda": "Processes available now",
         "solicitudes": "Active applications",
         "solicitudesAyuda": "Being processed or reviewed",
@@ -324,16 +351,18 @@
         "puntosAyuda": "Subject to technical review"
       },
       "abrir": "Open",
-      "atender": "Deal with it",
+      "atender": "Take action",
       "puntos": "{puntos} points",
       "verSeguimiento": "View progress",
       "titulo": "What needs your attention",
       "descripcion": "Deadlines, actions and the status of your processes in one place.",
-      "verConvocatorias": "View recruitment notices",
+      "verConvocatorias": "View calls for applications",
       "resumen": "Personal summary",
       "plazos": {
         "titulo": "Upcoming deadlines",
         "subtitulo": "Dates calculated for your processes",
+        "vacioTitulo": "No deadlines reported",
+        "vacioDetalle": "This enquiry contains no deadlines. Check the terms of each call for applications when available.",
         "cuenta": {
           "one": "{cuenta} deadline",
           "other": "{cuenta} deadlines"
@@ -361,16 +390,24 @@
       },
       "actividad": {
         "titulo": "Recent activity",
-        "subtitulo": "Audit trail visible to the person concerned"
+        "subtitulo": "Audit trail visible to the person concerned",
+        "vacioTitulo": "No recorded activity",
+        "vacioDetalle": "There are no actions to show in this enquiry yet."
       }
     },
     "convocatorias": {
+      "consultaBolsa": {
+        "titulo": "Calls for applications unavailable here",
+        "descripcion": "The list of calls for applications is not yet available in this area.",
+        "subtitulo": "This enquiry shows your job pool participation",
+        "detalle": "Calls for applications are not connected to this area. You can view the available information about your job pool.",
+        "abrir": "View my job pool"
+      },
       "todas": "All",
       "publicada": "Published on {fecha}",
       "verDetalle": "View details and requirements",
-      "iniciarSolicitud": "Start application",
-      "titulo": "Recruitment notices and selection processes",
-      "descripcion": "Check the terms, requirements, deadlines and status before starting an application.",
+      "titulo": "Calls for applications and selection processes",
+      "descripcion": "Check the terms, requirements, deadlines and status of each call.",
       "filtros": {
         "buscar": "Search",
         "buscarEjemplo": "Title, reference or category",
@@ -379,15 +416,22 @@
         "aplicar": "Apply filters"
       },
       "sinResultados": "No results",
-      "sinResultadosDetalle": "Change the filters to see other recruitment notices.",
+      "sinResultadosDetalle": "Change the filters to see other calls for applications.",
+      "sinConvocatorias": "No calls for applications in this enquiry",
+      "sinConvocatoriasDetalle": "No calls for applications were received to display. Please check again later.",
       "detalle": {
-        "documentoPublico": "Public document of the recruitment notice",
+        "noEncontradaTitulo": "Call for applications unavailable",
+        "noEncontradaDetalle": "The requested details cannot be opened.",
+        "noEncontradaEstado": "No call for applications is shown",
+        "noEncontradaAyuda": "Return to the list and choose an available call for applications.",
+        "noEncontradaAyudaBolsa": "Calls for applications are not yet available here. View your job pool participation.",
+        "documentoPublico": "Public document of the call for applications",
         "abrir": "Open {formato}",
         "documento": "document",
         "descargar": "Download",
         "prepararDescarga": "Prepare download of {titulo}",
         "volver": "Back to the list",
-        "resumen": "Recruitment notice summary",
+        "resumen": "Call for applications summary",
         "estado": "Status",
         "categoria": "Category",
         "publicacion": "Publication",
@@ -395,19 +439,13 @@
         "cve": "CVE / Official Gazette (BOP) reference",
         "plazo": "Deadline",
         "presentacionHasta": "Applications until",
-        "plazas": "Posts or employment pool",
+        "plazas": "Posts or job pool",
         "tasa": "Fee",
         "requisitos": "Eligibility requirements",
         "requisitosSubtitulo": "The final check will be carried out according to the terms",
         "requisitosNota": "Read the full terms. This list is for convenience and does not replace the approved text.",
         "documentacion": "Public documents",
-        "documentacionSubtitulo": "Terms, annexes and scoring scale",
-        "antes": "Before you start",
-        "antesSubtitulo": "The assistant will check each step",
-        "paso1": "Personal and contact details.",
-        "paso2": "Requirements and reusable merits.",
-        "paso3": "Self-assessment of points.",
-        "paso4": "Payment, signature and registration."
+        "documentacionSubtitulo": "Terms, annexes and scoring scale"
       }
     },
     "perfil": {
@@ -427,7 +465,7 @@
         "subtitulo": "Choose the alerts you want to receive"
       },
       "titulo": "Profile, identity and contact details",
-      "descripcion": "A single identity for applications, employment pools, certificates and future modules.",
+      "descripcion": "A single identity for applications, job pools, certificates and future modules.",
       "identidad": {
         "titulo": "Identity details",
         "subtitulo": "Your main identity comes from the authentication system",
@@ -512,106 +550,6 @@
         "tabla": "Documents provided or obtained ex officio"
       }
     },
-    "solicitud": {
-      "pasos": {
-        "convocatoria": "Recruitment notice",
-        "datos": "Details",
-        "meritos": "Merits",
-        "autobaremo": "Self-assessment",
-        "registro": "Payment, signature and registration",
-        "titulo": "Application steps",
-        "numero": "Step {numero}"
-      },
-      "guardarBorradorContinuar": "Save draft and continue",
-      "guardarContinuar": "Save and continue",
-      "anterior": "Previous",
-      "paso1": {
-        "leyenda": "Recruitment notice open for applications",
-        "comprobacion": "The service will check the current deadline",
-        "declaracion": "I have read the terms and declare that I meet the requirements",
-        "declaracionDetalle": "The service will check the deadline, requirements and grounds for exclusion again before registration."
-      },
-      "paso2": {
-        "identidad": "Identity",
-        "identificador": "Identifier",
-        "correo": "Email",
-        "telefono": "Telephone",
-        "verificacion": "Verification",
-        "declaracion": "I confirm that my personal and contact details are correct",
-        "declaracionDetalle": "You can change them in Profile and contact details before continuing."
-      },
-      "paso3": {
-        "leyenda": "Merits you want to include",
-        "nota": "Select at least one merit. Documents are reused without duplicating the file, and the application keeps the exact reference and version."
-      },
-      "paso4": {
-        "total": "Self-assessed total for the selected merits and ex officio data",
-        "provisionales": "provisional points",
-        "nota": "The calculation uses the merits you chose and the items obtained ex officio for this recruitment notice. It is not binding on HR, and each item will be reviewed according to the terms."
-      },
-      "paso5": {
-        "sinBorrador": "Draft not available.",
-        "sinBorradorDetalle": "Go back to the previous step and save it before starting payment, signature or registration.",
-        "pagoConfirmado": "Payment or exemption confirmed",
-        "pagar": "Pay or prove exemption",
-        "pagarDescripcion": "Confirm the payment or proof of exemption",
-        "firmaConfirmada": "Signature confirmed",
-        "firmar": "Sign application",
-        "firmarDescripcion": "Sign the application electronically",
-        "firmaBloqueadaAyuda": "Confirm the payment or exemption first",
-        "firmaBloqueada": "Signing locked until payment or exemption is confirmed",
-        "registrada": "Application registered.",
-        "registradaDetalle": "Keep the receipt and registry entry returned by the service.",
-        "declaracion": "I confirm the complete application to be submitted",
-        "declaracionDetalle": "I have reviewed the recruitment notice, requirements, details, merits, self-assessment, fee or exemption and signature.",
-        "registrar": "Register application",
-        "registroBloqueado": "Registration locked.",
-        "registroBloqueadoDetalle": "You must first confirm the payment or exemption and the signature.",
-        "borrador": "Selected draft:",
-        "tasa": "1. Fee or exemption",
-        "importe": "Amount shown:",
-        "firma": "2. Electronic signature",
-        "firmaDetalle": "The exact representation of the application will be signed.",
-        "registro": "3. Registration",
-        "registroDetalle": "Registration is the act that submits the application and is only enabled after payment or exemption and signature."
-      },
-      "error": "You cannot continue.",
-      "pasoDe": "Step {paso} of {total}",
-      "revisionFinal": "Final review",
-      "enPreparacion": "In preparation",
-      "titulo": "New application",
-      "sinGuardar": "Unsaved draft"
-    },
-    "autobaremo": {
-      "recalculado": "Result recalculated.",
-      "meritos": {
-        "one": "{cuenta} merit.",
-        "other": "{cuenta} merits."
-      },
-      "titulo": "Itemised self-assessment",
-      "descripcion": "Traceable estimate applied to the version of the recruitment notice terms.",
-      "recalcular": "Recalculate self-assessment",
-      "recalcularDescripcion": "Recalculate the self-assessment with the selected merits",
-      "criterios": "Criteria applied",
-      "criteriosSubtitulo": "{convocatoria} · current version of the terms",
-      "convocatoriaSeleccionada": "Selected recruitment notice",
-      "resultado": "Provisional result",
-      "resultadoSubtitulo": {
-        "one": "{cuenta} selected merit plus ex officio items",
-        "other": "{cuenta} selected merits plus ex officio items"
-      },
-      "estimada": "Estimated score",
-      "deMaximo": "out of {maximo} possible",
-      "nota": "This is not an official score. HR will accept, reject or adjust each item with reasons and an audit trail.",
-      "provisional": "Provisional",
-      "reglas": "What will be taken into account",
-      "reglasSubtitulo": "Rules configured from the terms",
-      "regla1": "Exact periods and overlaps.",
-      "regla2": "Working-hours percentage and reductions.",
-      "regla3": "Administration, category and branch.",
-      "regla4": "Caps per block and maximum score.",
-      "regla5": "Ex officio and submitted documents."
-    },
     "seguimiento": {
       "titulo": "My files and progress",
       "descripcion": "Status, score, position, documents and next steps.",
@@ -634,8 +572,8 @@
       "seleccionar": "Select",
       "posicion": {
         "titulo": "My position",
-        "subtitulo": "Status and ranking in the assigned employment pool",
-        "bolsa": "Employment pool",
+        "subtitulo": "Status and ranking in the assigned job pool",
+        "bolsa": "Job pool",
         "categoria": "Category",
         "orden": "Position",
         "ordenDe": "#{orden} of {total}",
@@ -677,7 +615,7 @@
     "miBolsa": {
       "sinDatos": "No data",
       "participacion": "My participation",
-      "estadoBolsa": "Employment pool status",
+      "estadoBolsa": "Job pool status",
       "ordenDe": "{orden} of {total}",
       "vigenciaHasta": "{desde} · until {hasta}",
       "vigenciaAbierta": "{desde} · current",
@@ -685,11 +623,11 @@
       "mostrando": "Showing {desde} to {hasta} of {total}",
       "anterior": "Previous",
       "siguiente": "Next",
-      "participacionesEtiqueta": "My employment pool participations",
+      "participacionesEtiqueta": "My job pool participations",
       "participaciones": "My participations",
       "sinParticipaciones": "No active participations",
-      "sinParticipacionesDetalle": "There are no employment pool participations recorded for the current identity.",
-      "titulo": "My employment pool"
+      "sinParticipacionesDetalle": "There are no job pool participations recorded for the current identity.",
+      "titulo": "My job pool"
     },
     "subsanaciones": {
       "documentoSolicitado": "Document requested",
@@ -724,7 +662,6 @@
       "consta": "The representation is recorded as {estado}.",
       "titulo": "Representations and review",
       "descripcion": "Challenge a provisional score or decision with grounds and evidence.",
-      "verPuntuacion": "View itemised score",
       "vacio": {
         "titulo": "No representations",
         "subtitulo": "There are no linked representations",
@@ -742,7 +679,7 @@
       "preferencias": {
         "aviso": "Alert channels are not connected here. Saving a preference does not set up any sending, delivery or administrative notification.",
         "leyenda": "Alerts you want to receive once the authorised channel is available",
-        "convocatorias": "New recruitment notices for compatible categories",
+        "convocatorias": "New calls for applications for compatible categories",
         "convocatoriasDetalle": "Based on validated qualifications and your preferences.",
         "plazos": "Deadlines in my files",
         "plazosDetalle": "Corrections, representations and publications.",
@@ -806,7 +743,7 @@
         "titulo": "Search help",
         "subtitulo": "Answers about registration, merits, scoring and call-ups",
         "pregunta": "What do you need to know?",
-        "ejemplo": "Example: submit a correction",
+        "ejemplo": "Example: respond to a call-up",
         "boton": "Search"
       },
       "lateral": "Help options and channels",
@@ -838,27 +775,10 @@
       }
     }
   },
-  "autobaremo": {
-    "pendienteRegla": "{tipo} · applicable rule pending"
-  },
-  "flujo": {
-    "pasoNoValido": "The application step is not valid.",
-    "sinConvocatoria": "Select a recruitment notice that is open for applications.",
-    "sinRequisitos": "You must confirm that you have read the terms and meet the declared requirements.",
-    "completarPaso1": "First complete the recruitment notice and the declaration of requirements.",
-    "sinDatos": "You must confirm that your personal and contact details are correct.",
-    "completarPaso2": "Confirm your details before selecting merits.",
-    "sinMeritos": "Select at least one merit to continue.",
-    "sinMeritosAutobaremo": "Select at least one merit before reviewing the self-assessment.",
-    "borradorIncompleto": "The draft does not include the recruitment notice, requirements, details, merits and a reviewed self-assessment."
-  },
   "cliente": {
-    "sinEnvelope": "{nombre} does not contain the expected data envelope.",
     "tipoRespuesta": "The service did not return UTF-8 JSON.",
     "respuestaExcesiva": "The response exceeds the permitted size.",
     "jsonInvalido": "The service returned invalid JSON.",
-    "idempotencia": "The operation cannot be guaranteed to run only once.",
-    "solicitudExcesiva": "The request exceeds the permitted size.",
     "http401": "Your identification has expired or is not available.",
     "http403": "Your session does not have permission for this operation.",
     "http409": "The file has changed. Reload the information before continuing.",
@@ -868,11 +788,7 @@
     "sinTransporte": "The HTTP client is not available.",
     "sinConexion": "A secure connection to the service could not be established.",
     "contactoNoValido": "The contact status is not valid.",
-    "reciboContacto": "The contact receipt does not match.",
-    "sinCapacidad": "The server has not granted permission for this action.",
-    "sinConfirmacion": "This action requires explicit confirmation.",
-    "accionNoAdmitida": "The requested action is not supported by this client.",
-    "sinCargaDocumental": "Secure document upload is not connected yet. The file has not been sent."
+    "reciboContacto": "The contact receipt does not match."
   },
   "app": {
     "parametrosNoAdmitidos": "The address contains parameters that the personal area does not accept.",
@@ -891,79 +807,16 @@
       "huella": "Fingerprint",
       "huellaPendiente": "Pending from the document service"
     },
-    "confirmacion": {
-      "accion": "Action",
-      "objeto": "Subject",
-      "expediente": "Personal file",
-      "resultado": "Expected result",
-      "resultadoDetalle": "Confirmation issued by the authorised service",
-      "nota": "The server will check identity, permission, status and duplicate submission again."
-    },
-    "confirmar": "Confirm operation",
-    "reciboNoValido": "The service did not return a valid receipt for the personal area.",
-    "borradorSinReferencia": "The service saved the draft but did not return its authorised reference.",
-    "operacionFallida": "The operation could not be completed.",
-    "operacionNoCompletada": "Operation not completed.",
-    "reciboAjeno": "The receipt does not belong to the enabled personal area.",
-    "recibo": {
-      "referencia": "Reference",
-      "accion": "Action",
-      "objetivo": "Target",
-      "fecha": "Date (UTC)",
-      "actor": "Actor"
-    },
-    "descargarCertificado": "Download certificate (PDF)",
-    "descargarRecibo": "Download receipt (PDF)",
-    "operacionCompletada": "Operation completed. Receipt {recibo}.",
-    "pdf": {
-      "reciboNoValido": "The document receipt is not valid.",
-      "reciboPresentacion": "A presentation receipt is not accepted here.",
-      "certificadoAjeno": "The requested certificate does not belong to the file shown.",
-      "tipoCertificado": "CERTIFICATE",
-      "tipoRecibo": "ACTION RECEIPT",
-      "titulo": "Human Resources Portal action receipt",
-      "subtitulo": "Diputación de Granada (Granada Provincial Council) · Human Resources and Internal Affairs",
-      "marca": "Document issued by the Human Resources management system",
-      "actuacion": "Action",
-      "resultado": "Result",
-      "referencia": "Procedure reference",
-      "fecha": "Date of issue (UTC)",
-      "identidad": "Acting identity",
-      "certificacionCertificado": "The certificate is issued by the authorised document service and requires its verifiable signature or seal.",
-      "certificacionRecibo": "This records the action indicated, its result and a verification reference. The authorised service must issue and keep the receipt."
-    },
-    "sinRecibo": "There is no receipt available to download.",
-    "sinGenerador": "The authorised document generator is not available.",
-    "sinDocumento": "No document has been generated.",
-    "certificadoPreparado": "Certificate PDF ready to download.",
-    "reciboPreparado": "Receipt PDF ready to download.",
-    "certificadoFallido": "The certificate PDF could not be generated.",
-    "reciboFallido": "The receipt PDF could not be generated.",
-    "sinDescarga": "No document has been downloaded.",
     "lectura": {
       "aviso": "Reading private files aloud requires an approved connector and policy. See the text guide in Help.",
       "anuncio": "Read-aloud not started. Opening the text guide in Help."
     },
     "respuestaAjena": "The response does not match the identity requested.",
-    "guardeBorrador": "Save the draft first and wait for the service to return its reference.",
-    "guardarBorradorDescripcion": "Save the complete draft before payment, signature and registration",
-    "pasoNoValido": "This step does not pass the checks.",
-    "revisarCampos": "You cannot continue. Check the fields indicated.",
-    "accionNoHabilitadaExpediente": "This action is not enabled for the current identity and file.",
-    "sinDeclaracion": "You must confirm the final declaration before registering the application.",
-    "sinDeclaracionAnuncio": "The application cannot be registered without the final declaration.",
     "clienteNoValido": "The injected client does not meet the personal area contract."
   },
   "operacion": {
-    "actualizar_contacto": "Update contact details",
     "incorporar_merito": "Add merit and evidence",
-    "guardar_borrador": "Save draft",
-    "calcular_autobaremo": "Calculate self-assessment",
-    "iniciar_pago": "Make payment or prove exemption",
-    "firmar_solicitud": "Sign application",
-    "registrar_solicitud": "Register application",
     "cambiar_disponibilidad": "Change availability",
-    "responder_llamamiento": "Respond to call-up",
     "presentar_subsanacion": "Submit correction",
     "presentar_alegacion": "Submit representation",
     "marcar_mensaje": "Mark message as read",
@@ -972,27 +825,27 @@
     "solicitar_descarga": "Prepare download"
   },
   "html": {
-    "titulo": "My personal area · Employment pools",
+    "titulo": "My personal area · Job pools",
     "saltar": "Skip to main content",
     "navegacion": "Personal area navigation",
     "irInicio": "Go to the personal area home page",
     "logo": "Diputación de Granada",
     "marca": "My personal area",
-    "marcaDetalle": "Public employment and employment pools",
-    "contexto": "Employment pool enabled",
+    "marcaDetalle": "Public employment and job pools",
+    "contexto": "Job pool enabled",
     "opciones": "Personal area options",
     "grupoResumen": "Summary",
     "grupoInformacion": "My information",
     "grupoTramitacion": "Procedures",
-    "grupoComunicaciones": "Communications",
-    "miBolsa": "My employment pool",
+    "grupoComunicaciones": "Messages and help",
+    "miBolsa": "My job pool",
     "pieLateral": "General HR portal",
-    "pieLateralDetalle": "Initial phase · Employment pools module",
+    "pieLateralDetalle": "Initial phase · Job pools module",
     "abrirNavegacion": "Open navigation",
     "migas": "Breadcrumbs",
     "cargando": "Loading personal area…",
-    "buscarEtiqueta": "Search recruitment notices and help",
-    "buscarEjemplo": "Search recruitment notices or help",
+    "buscarEtiqueta": "Search calls for applications and help",
+    "buscarEjemplo": "Search calls for applications or help",
     "buscar": "Search",
     "escuchar": "Listen",
     "sesionSinResolver": "Session not resolved",
@@ -1003,12 +856,6 @@
     "accesibilidad": "Accessibility",
     "proteccionDatos": "Data protection",
     "ayuda": "Help",
-    "confirmacionNecesaria": "Confirmation required",
-    "confirmarAccion": "Confirm action",
-    "cancelar": "Cancel",
-    "resultadoOperacion": "Operation result",
-    "recibo": "Receipt",
-    "descargarPDF": "Download PDF",
     "cerrar": "Close",
     "informacionDetallada": "Detailed information",
     "detalle": "Details",
@@ -1036,8 +883,8 @@
     },
     "contacto": {
       "titulo": "Phone and address",
-      "nadaPedido": "Your calls do not ask for a phone or address at the moment.",
-      "sinCatalogo": "We cannot tell which details your calls ask for right now. Please try again later."
+      "nadaPedido": "Your calls for applications do not ask for a phone number or address at the moment.",
+      "sinCatalogo": "We cannot check which details your calls for applications require right now. Try again later."
     },
     "opcional": "(optional)",
     "condicion": {
@@ -1091,7 +938,7 @@
       }
     },
     "quitar": {
-      "pregunta": "Remove “{campo}” from your record? You cannot add it again until a call asks for it."
+      "pregunta": "Remove “{campo}” from your record? You cannot add it again until a call for applications requires it."
     }
   }
 }

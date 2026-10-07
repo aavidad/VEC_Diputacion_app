@@ -1,0 +1,99 @@
+/* Disposición propia; paneles, tabla, campos y botones usan el tema común. */
+.baremo-pagina { height: 100dvh; overflow: auto; padding: 20px; }
+.baremo-editor { display: flex; flex-direction: column; gap: 16px; max-width: 1480px; margin-inline: auto; }
+.baremo-editor h1 { font-size: 26px; font-weight: 600; margin: 0; }
+.baremo-editor h2 { font-size: 18px; font-weight: 600; margin: 0; }
+.baremo-editor h3 { font-size: 16px; font-weight: 600; }
+.baremo-editor .cabecera-panel { flex-wrap: wrap; gap: 12px; }
+.baremo-cabecera, .baremo-controles { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.baremo-limite { flex-basis: 100%; margin: 0; color: var(--portal-muted); }
+.baremo-editor form { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.baremo-editor .campo { position: relative; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.baremo-editor input, .baremo-editor select { width: 100%; min-height: 40px; padding: 8px; color: var(--portal-tinta); background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: 8px; }
+.baremo-editor input[aria-invalid="true"] { outline: 2px solid var(--portal-peligro); }
+.baremo-trabajo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 16px; }
+.baremo-topes .cuerpo-panel { display: grid; gap: 12px; }
+.baremo-reglas { min-width: 0; }
+.baremo-reglas .tabla-contenedor { max-height: 32dvh; }
+.baremo-reglas td .campo:not(:has([data-umbral], [data-minimo-formacion], [data-restos-modo])) > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.baremo-reglas input { min-width: 115px; }
+.baremo-resultados { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; max-height: 28dvh; overflow: auto; }
+.baremo-resultados > p { grid-column: 1 / -1; }
+.baremo-resultado { min-width: 0; }
+.baremo-resultado dl div { display: flex; justify-content: space-between; font-weight: 600; font-variant-numeric: tabular-nums; }
+.baremo-resultado dd { margin: 0; }
+.baremo-acciones { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.baremo-acciones p { flex-basis: 100%; margin: 0; }
+.baremo-acciones #baremo-activacion { font-size: 13px; color: var(--portal-muted); }
+.baremo-importar { position: relative; overflow: hidden; }
+.baremo-importar input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.baremo-importar:focus-within { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+@media (max-width: 760px) {
+ .baremo-pagina { padding: 12px; }
+ .baremo-trabajo, .baremo-resultados { grid-template-columns: minmax(0,1fr); }
+ .baremo-controles > * { width: 100%; }
+ .baremo-reglas .tabla-contenedor, .baremo-resultados { max-height: none; }
+ .baremo-editor h1 { font-size: 22px; }
+ .baremo-acciones > button { flex: 1 1 100%; }
+}
+
+.baremo-condicion { display: block; font-weight: 400; color: var(--portal-muted); font-size: 13px; }
+
+.baremo-editor [data-error-campo] { color: var(--portal-peligro); white-space: normal; max-width: 28ch; }
+
+@media (min-width: 1000px) and (min-height: 700px) {
+ .baremo-pagina { overflow: hidden; }
+ .baremo-editor { height: 100%; gap: 12px; }
+ .baremo-editor form { flex: 1; gap: 12px; }
+ .baremo-trabajo { flex: 1; min-height: 0; }
+ .baremo-reglas, .baremo-topes { display: flex; flex-direction: column; min-height: 0; }
+ .baremo-reglas .tabla-contenedor { flex: 1; min-height: 0; max-height: none; overflow: auto; }
+ .baremo-topes .cuerpo-panel { min-height: 0; overflow: auto; }
+ .baremo-editor form > section:last-of-type { flex: 0 1 250px; display: flex; flex-direction: column; min-height: 120px; }
+ /* Jornada necesita espacio para el selector y el umbral, dentro del mismo marco. */
+ .baremo-editor:has([data-jornada-modo]) form > section:last-of-type { flex-basis: 200px; }
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas tbody th,
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas td { vertical-align: top; }
+ .baremo-resultados { flex: 1; min-height: 0; max-height: none; padding-block: 12px; }
+ .baremo-resultado h3 { margin-block: 0 12px; }
+ .baremo-cabecera, .baremo-controles { padding-block: 12px; }
+ .baremo-acciones { padding-block: 12px; }
+}
+
+.baremo-modulos { display: flex; flex-direction: column; gap: 12px; }
+.baremo-navegacion { display: flex; gap: 8px; flex-wrap: wrap; }
+#baremo-panel-bolsa, #baremo-panel-concursos { min-width: 0; min-height: 0; }
+#baremo-panel-concursos h1 { margin: 0; font-size: 26px; font-weight: 600; }
+#baremo-panel-concursos h2 { font-size: 18px; font-weight: 600; }
+@media (min-width: 1000px) and (min-height: 700px) {
+ .baremo-modulos { height: 100%; }
+ #baremo-panel-bolsa, #baremo-panel-concursos { flex: 1; }
+}
+
+.concursos-editor .baremo-reglas th { min-width: 200px; }
+.concursos-editor .baremo-reglas details { font-weight: 400; }
+.concursos-editor summary { cursor: pointer; padding-block: 8px; color: var(--portal-azul-700); }
+.concursos-editor .baremo-reglas details .tabla-datos { min-width: 600px; }
+.concursos-editor .baremo-reglas details .tabla-contenedor { max-width: 760px; }
+.concursos-hechos { margin: 0; font-size: 13px; }
+.concursos-hechos > div { display: flex; justify-content: space-between; gap: 12px; padding-block: 4px; }
+.concursos-hechos dd { margin: 0; font-variant-numeric: tabular-nums; }
+.concursos-traza { margin-top: 12px; }
+.concursos-traza dl { display: grid; gap: 4px; }
+.concursos-traza dd { overflow-wrap: anywhere; font-weight: 400; font-size: 13px; }
+.concursos-editor #concursos-error { padding: 12px; color: var(--portal-peligro); background: var(--portal-superficie); border-radius: 8px; }
+.concursos-editor #concursos-error:empty { display: none; }
+.concursos-editor #concursos-error p { margin: 0; }
+.concursos-editor .baremo-controles .campo { flex: 1 1 180px; }
+.concursos-editor .baremo-controles > label:first-child { flex: 2 1 210px; }
+.concursos-editor .baremo-reglas .tabla-datos { min-width: 640px; }
+.concursos-resultados .tabla-datos { min-width: 400px; }
+.concursos-resultados details li { max-width: 65ch; overflow-wrap: anywhere; }
+@media (min-width: 1000px) and (min-height: 700px) {
+ .concursos-editor .baremo-reglas .tabla-contenedor { overflow: auto; }
+ .concursos-editor .concursos-resultados-panel { flex: 0 1 265px; }
+}
+@media (max-width: 760px) {
+ .concursos-editor .baremo-controles .campo { flex-basis: 100%; }
+ .concursos-editor .baremo-reglas details .tabla-contenedor { max-width: 600px; }
+}

@@ -1,0 +1,18 @@
+{
+  "version_esquema": "1",
+  "idioma": "en",
+  "textos": {
+    "titulo": "Incidents by period",
+    "aviso": "Local exercise using synthetic data. The selection does not grant access to real data.",
+    "completo": "Complete coverage",
+    "incompleto": "Incomplete coverage; the total remains undetermined.",
+    "desconocido": "Data is missing; the total cannot be determined.",
+    "registro_incompleto": "Incomplete record",
+    "pendiente": "Pending",
+    "resuelta": "Resolved",
+    "observados": "Observed incidents, people and days",
+    "cobertura": "Coverage by person and day",
+    "limites": "Only declared facts are counted. Absence and absenteeism rates are not calculated. Small groups may allow people to be identified.",
+    "entrada_invalida": "The exercise could not be read. Check the files, digests and period."
+  }
+}

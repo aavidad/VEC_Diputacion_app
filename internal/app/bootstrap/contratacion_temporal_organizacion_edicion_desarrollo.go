@@ -17,6 +17,7 @@ import (
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -52,7 +53,7 @@ func nuevasRutasOrganizacionContratacionTemporalDesarrollo(cfg config.Config, al
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	// La semilla y las migraciones se instalan explícitamente. No hay fallback
 	// al fichero si falla el almacén seleccionado, ni importación al arrancar.

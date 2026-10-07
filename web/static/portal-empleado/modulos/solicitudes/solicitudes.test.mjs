@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js";
+import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES } from "./i18n.js";
 import { montarVistaSolicitudes, renderizarSolicitudes } from "./vista.js";
 
 const datos = {
@@ -36,9 +36,9 @@ const tick = () => new Promise((resolver) => setImmediate(resolver));
 const objetivo = (atributo, valor = "") => ({ closest: (selector) => selector === `[${atributo}]` ? { dataset: { solicitudesDetalle: valor } } : null });
 const objetivoTab = (pestana) => ({ closest: (selector) => selector === "[data-solicitudes-tab]" ? { dataset: { solicitudesTab: pestana } } : null });
 
-test("vista carga el catálogo i18n con URL F2 inmutable", async () => {
+test("vista carga el catálogo i18n con URL versionada", async () => {
   const vista = await readFile(new URL("vista.js", import.meta.url), "utf8");
-  assert.match(vista, /from "\.\/i18n\.js\?v=20260924-f2-web2"/);
+  assert.match(vista, /from "\.\/i18n\.js\?v=20261005-solicitudes-i18n-v3"/);
   const modulo = await import("./vista.js?v=20260926-integracion-bolsa-ct-v1");
   assert.equal(typeof modulo.montarVistaSolicitudes, "function");
   assert.match(modulo.renderizarSolicitudes(), /Consulta no configurada/);
@@ -223,7 +223,7 @@ test("respuesta tardía no repinta tras desmontaje y el catálogo i18n exige cla
   await tick();
   assert.equal(raiz.innerHTML, "");
   assert.throws(() => crearTraductorSolicitudes({ titulo: "Parcial" }), /incompleto/);
-  assert.equal(crearTraductorSolicitudes(MENSAJES_SOLICITUDES_ES)("anuncio_detalle", { referencia: "SOL-001" }), "Ficha de SOL-001 seleccionada.");
+  assert.equal(crearTraductorSolicitudes(MENSAJES_SOLICITUDES)("anuncio_detalle", { referencia: "SOL-001" }), "Ficha de SOL-001 seleccionada.");
 });
 
 test("CSS conserva paneles, tabla con scroll y foco, adaptación 1024/390 y alto contraste", async () => {

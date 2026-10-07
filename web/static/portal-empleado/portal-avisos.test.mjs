@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
-import { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js";
+import { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const [portal, estilos, html] = await Promise.all([
@@ -11,9 +10,9 @@ const [portal, estilos, html] = await Promise.all([
   readFile(new URL("index.html", import.meta.url), "utf8"),
 ]);
 
-test("el aviso R5 apunta al borrador DEMO exacto mediante una vista interna", () => {
-  const [aviso] = obtenerDatosPresentacion().avisos;
-  assert.deepEqual(aviso, {
+// Avisos sintéticos de prueba: el primero enlaza con un borrador concreto.
+const AVISOS_PRUEBA = Object.freeze([
+  {
     texto: "Informe jurídico pendiente en DEMO-BORRADOR-001.",
     destino: {
       vista: "elaboracion",
@@ -21,8 +20,10 @@ test("el aviso R5 apunta al borrador DEMO exacto mediante una vista interna", ()
       estado: "disponible",
       referencia: "DEMO-BORRADOR-001",
     },
-  });
-});
+  },
+  { texto: "Tres llamamientos previstos en siete días." },
+  { texto: "Dos circuitos de firma por configurar." },
+]);
 
 test("el botón nativo conserva teclado, foco y navegación opaca sin construir URL", async () => {
   let escuchar;
@@ -40,7 +41,7 @@ test("el botón nativo conserva teclado, foco y navegación opaca sin construir 
     documento,
     escaparHTML: String,
     porId: (id) => elementos[id],
-    obtenerAvisos: () => obtenerDatosPresentacion().avisos,
+    obtenerAvisos: () => AVISOS_PRUEBA,
     disponible: () => true,
     navegar: (vista, opciones) => orden.push([vista, opciones]),
     anunciar: (mensaje) => orden.push(mensaje),
@@ -73,7 +74,7 @@ test("el deeplink permanece cerrado sin autorización positiva de Elaboración",
     escaparHTML: String,
     porId: (id) => id === "dialogo-detalle" ? dialogo
       : id === "contenido-dialogo" ? contenido : { textContent: "" },
-    obtenerAvisos: () => obtenerDatosPresentacion("tecnico").avisos,
+    obtenerAvisos: () => AVISOS_PRUEBA,
     disponible: () => false,
     navegar: () => assert.fail("no debe navegar sin capacidad"),
     anunciar: () => assert.fail("no debe anunciar un acceso denegado como disponible"),

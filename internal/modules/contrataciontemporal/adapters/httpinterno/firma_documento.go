@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 // Rutas del registro de firmas de prueba de los borradores. La firma llega
@@ -123,7 +124,7 @@ func (h *manejadorFirmaDocumento) consultar(w http.ResponseWriter, r *http.Reque
 		h.responderError(w, r, err)
 		return
 	}
-	responderJSONCobertura(w, r, http.StatusOK, map[string]any{"data": vistaEstadoFirmas(estado, h.servicio.VerificacionDisponible())})
+	responderJSONCobertura(w, r, http.StatusOK, map[string]any{"data": vistaEstadoFirmas(estado, h.servicio.VerificacionDisponible(), organizacion, in.ExpedienteRef)})
 }
 
 type pasoEstadoFirmaJSON struct {
@@ -134,6 +135,26 @@ type pasoEstadoFirmaJSON struct {
 	Estado       string `json:"estado"`
 	ReciboRef    string `json:"recibo_ref,omitempty"`
 	RegistradaEn string `json:"registrada_en,omitempty"`
+	// DocumentoCustodiado es el PDF firmado de este paso que guarda
+	// Documentos; con él la ficha lo descarga por la ruta de Documentos.
+	DocumentoCustodiado *documentoCustodiadoJSON `json:"documento_custodiado,omitempty"`
+}
+
+type documentoCustodiadoJSON struct {
+	ExpedienteRef string `json:"expediente_ref"`
+	DocumentoRef  string `json:"documento_ref"`
+	Version       uint64 `json:"version"`
+	HuellaSHA256  string `json:"huella_sha256"`
+}
+
+// documentoCustodiado devuelve el enlace de la firma, si lo tiene. La
+// referencia del expediente es la que agrupa sus documentos en Documentos.
+func documentoCustodiado(organizacion, expediente, ref string, version uint64, huella string) *documentoCustodiadoJSON {
+	if ref == "" || version == 0 || huella == "" {
+		return nil
+	}
+	return &documentoCustodiadoJSON{ExpedienteRef: ports.ExpedienteDocumentalRef(organizacion, expediente),
+		DocumentoRef: ref, Version: version, HuellaSHA256: huella}
 }
 
 type documentoEstadoFirmaJSON struct {
@@ -146,7 +167,13 @@ type documentoEstadoFirmaJSON struct {
 	Pasos           []pasoEstadoFirmaJSON `json:"pasos"`
 }
 
-func vistaEstadoFirmas(e application.EstadoFirmasExpediente, verificacion bool) map[string]any {
+func vistaEstadoFirmas(e application.EstadoFirmasExpediente, verificacion bool, organizacion, expediente string) map[string]any {
+	enlaces := map[string]ports.FirmaRegistrada{}
+	for _, f := range e.Firmas {
+		if f.DocumentoCustodiaRef != "" && f.ReciboRef != "" {
+			enlaces[f.ReciboRef] = f
+		}
+	}
 	documentos := make([]documentoEstadoFirmaJSON, 0, len(e.Documentos))
 	for _, d := range e.Documentos {
 		c, _ := e.Circuito.Documento(d.Documento)
@@ -154,6 +181,9 @@ func vistaEstadoFirmas(e application.EstadoFirmasExpediente, verificacion bool) 
 			Completo: d.Completo, UltimaSecuencia: d.UltimaSecuencia, OriginalSHA256: d.OriginalEsperadoHuella}
 		for i, p := range d.Pasos {
 			paso := pasoEstadoFirmaJSON{Orden: p.Orden, Estado: string(p.Estado), ReciboRef: p.ReciboRef}
+			if f, ok := enlaces[p.ReciboRef]; ok && p.ReciboRef != "" && f.Documento == d.Documento {
+				paso.DocumentoCustodiado = documentoCustodiado(organizacion, expediente, f.DocumentoCustodiaRef, f.DocumentoCustodiaVersion, f.FirmadoHuella)
+			}
 			if i < len(c.Pasos) {
 				paso.Cargo, paso.Accion, paso.Devolucion = c.Pasos[i].Cargo, c.Pasos[i].Accion, string(c.Pasos[i].Devolucion)
 			}
@@ -213,6 +243,9 @@ func (h *manejadorFirmaDocumento) firmar(w http.ResponseWriter, r *http.Request,
 		// Verificada por el validador, pero sin eficacia administrativa.
 		"firma_verificada": rec.Resultado == domain.ResultadoFirmaFirmado, "firma_eficaz": false,
 	}
+	if c := documentoCustodiado(organizacion, m.ExpedienteRef, rec.DocumentoCustodiaRef, rec.DocumentoCustodiaVersion, m.FirmadoHuella); c != nil {
+		salida["documento_custodiado"] = c
+	}
 	if rec.Resultado == domain.ResultadoFirmaFirmado {
 		salida["verificacion"] = map[string]string{
 			"estado": "valida", "motivo": string(resultado.MotivoVerificacion), "politica": m.PoliticaVerificacion,
@@ -237,17 +270,22 @@ func (h *manejadorFirmaDocumento) responderError(w http.ResponseWriter, r *http.
 	case errors.Is(err, application.ErrVerificacionFirmaApagada):
 		responderErrorFirmaDocumento(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", "")
 	case errors.As(err, &rechazo):
-		responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", string(rechazo.Motivo))
+		if rechazo.Motivo == docports.MotivoValidadorNoDisponible || rechazo.Motivo == docports.MotivoCredencialRechazada {
+			responderErrorFirmaDocumento(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", string(rechazo.Motivo))
+		} else {
+			responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", string(rechazo.Motivo))
+		}
 	case errors.Is(err, application.ErrPasoFirmaNoPendiente):
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "paso_no_pendiente", "")
 	case errors.Is(err, ports.ErrCadenaFirmaDocumentoRota):
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "cadena_rota", "")
-	case errors.Is(err, ports.ErrFirmaDocumentoEnConflicto), errors.Is(err, ports.ErrClaveFirmaDocumentoUsada):
+	case errors.Is(err, ports.ErrFirmaDocumentoEnConflicto), errors.Is(err, ports.ErrClaveFirmaDocumentoUsada),
+		errors.Is(err, ports.ErrCustodiaFirmadoEnConflicto):
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "conflicto", "")
 	case errors.Is(err, ports.ErrFirmaDocumentoDenegada), errors.Is(err, ports.ErrAutorizacionDenegada),
 		errors.Is(err, ports.ErrCustodiaFirmadoDenegada):
 		responderErrorFirmaDocumento(w, r, http.StatusForbidden, "acceso_denegado", "")
-	case errors.Is(err, ports.ErrSolicitudFirmaDocumentoInvalida):
+	case errors.Is(err, ports.ErrSolicitudFirmaDocumentoInvalida), errors.Is(err, ports.ErrCustodiaFirmadoInvalida):
 		responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", "")
 	case errors.Is(err, ports.ErrExpedienteConsultaFirmasNoEncontrado):
 		responderErrorFirmaDocumento(w, r, http.StatusNotFound, "recurso_no_encontrado", "")

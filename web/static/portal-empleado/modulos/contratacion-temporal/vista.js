@@ -1,5 +1,5 @@
-import { LIMITES_ALTA_CONTRATACION } from "./contrato.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 function escaparHTML(valor) {
@@ -135,12 +135,28 @@ function campoSeleccion({
   </div>`;
 }
 
+function campoNumeroMOAD(estado, t, deshabilitado) {
+  if (!Object.hasOwn(estado.borrador, "numero_expediente_moad")) return "";
+  const ejemplo = estado.catalogos.numero_expediente_moad?.ejemplo;
+  return `<div class="ct-campo">
+    <label for="ct-numero_expediente_moad">${escaparHTML(t("numero_expediente_moad"))} <b aria-hidden="true">*</b></label>
+    <input id="ct-numero_expediente_moad" name="numero_expediente_moad" type="text" required
+      maxlength="${LIMITES_ALTA_CONTRATACION.numeroExpediente}" autocomplete="off"
+      value="${escaparHTML(estado.borrador.numero_expediente_moad)}"
+      aria-label="${escaparHTML(t("numero_moad_obligatorio"))}"
+      ${ejemplo ? `placeholder="${escaparHTML(t("numero_moad_ejemplo", { ejemplo }))}"` : ""}
+      ${atributosAccesibles(estado, "numero_expediente_moad")}${deshabilitado ? " disabled" : ""}>
+    ${errorCampo(estado, "numero_expediente_moad", t)}
+  </div>`;
+}
+
 function camposCentro(estado, t, deshabilitado) {
   const centro = obtenerCentro(estado);
   const categoria = obtenerCategoria(estado);
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("centro_leyenda"))}</legend>
     <div class="ct-campos">
+      ${campoNumeroMOAD(estado, t, deshabilitado)}
       ${campoSeleccion({
     estado,
     t,
@@ -195,6 +211,10 @@ function camposCentro(estado, t, deshabilitado) {
 
 function camposDetalle(estado, t, deshabilitado) {
   const maximo = LIMITES_ALTA_CONTRATACION.texto;
+  const motivo = estado.catalogos.motivos.find(({ clave }) => clave === estado.borrador.motivo_clave);
+  const reglaFin = motivo?.fecha_fin ?? "obligatoria";
+  const causaFin = !estado.borrador.fin && motivo?.causa_fin
+    ? t(`causa_fin_${motivo.causa_fin}`) : "";
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("detalle_periodo_leyenda"))}</legend>
     <div class="ct-campos">
@@ -218,10 +238,12 @@ function camposDetalle(estado, t, deshabilitado) {
         ${errorCampo(estado, "inicio", t)}
       </div>
       <div class="ct-campo">
-        <label for="ct-fin">${escaparHTML(t("fin"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-fin" name="fin" type="date" required
+        ${reglaFin === "no_aplica" ? `<span>${escaparHTML(t("fin"))}</span>`
+          : `<label for="ct-fin">${escaparHTML(t("fin"))}${reglaFin === "obligatoria" ? ' <b aria-hidden="true">*</b>' : ""}</label>`}
+        ${reglaFin === "no_aplica" ? "" : `<input id="ct-fin" name="fin" type="date"${reglaFin === "obligatoria" ? " required" : ""}
           value="${escaparHTML(estado.borrador.fin)}"
-          ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>
+          ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>`}
+        ${causaFin ? `<p class="ct-aviso-campo" role="status">${escaparHTML(causaFin)}</p>` : ""}
         ${errorCampo(estado, "fin", t)}
       </div>
       <div class="ct-campo ct-campo-ancho">
@@ -388,6 +410,7 @@ function revision(estado, t, locale) {
     <h3 id="ct-revision-titulo" tabindex="-1">${escaparHTML(t("revision_titulo"))}</h3>
     <p class="ct-aviso">${escaparHTML(t("revision_aviso"))}</p>
     <dl class="ct-resumen">
+      ${Object.hasOwn(borrador, "numero_expediente_moad") ? filaResumen(t("numero_expediente_moad"), borrador.numero_expediente_moad) : ""}
       ${filaResumen(t("resumen_centro"), centro?.etiqueta ?? borrador.centro_ref)}
       ${filaResumen(t("resumen_contacto"), contacto)}
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
@@ -397,7 +420,8 @@ function revision(estado, t, locale) {
       ${filaResumen(
     t("resumen_periodo"),
     `${formatearFechaCivil(borrador.inicio, locale)} — `
-      + `${formatearFechaCivil(borrador.fin, locale)}`,
+      + (borrador.fin ? formatearFechaCivil(borrador.fin, locale)
+        : t(`causa_fin_${estado.catalogos.motivos.find(({ clave }) => clave === borrador.motivo_clave).causa_fin}`)),
   )}
       ${filaResumen(t("resumen_rc"), rc)}
       ${filaResumen(
@@ -474,9 +498,10 @@ export function renderizarRevisionPeticionCentro(estado, opciones = {}) {
   return revision(estado, crearTraductorContratacionTemporal(opciones.mensajes), opciones.locale ?? "es-ES");
 }
 
-function extraerBorrador(formularioDOM) {
+function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
   return {
+    ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),
     centro_ref: String(datos.get("centro_ref") ?? ""),
     contacto_ref: String(datos.get("contacto_ref") ?? ""),
     categoria_ref: String(datos.get("categoria_ref") ?? ""),
@@ -496,7 +521,7 @@ function extraerBorrador(formularioDOM) {
 }
 
 export function extraerBorradorPeticionCentro(formularioDOM) {
-  return extraerBorrador(formularioDOM);
+  return extraerBorrador(formularioDOM, false);
 }
 
 function enfocarVisible(elemento) {
@@ -588,15 +613,34 @@ export function montarAltaContratacionTemporal({
 
   function alCambiar(evento) {
     const campo = evento.target?.name;
-    if (!["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+    if (!["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
     const formularioDOM = evento.target.closest?.("[data-ct-form]");
     if (!formularioDOM || !raiz.contains(formularioDOM)) return;
     const borrador = extraerBorrador(formularioDOM);
+    if (campo === "motivo_clave" && presentador.obtenerEstado().catalogos.motivos.find(
+      ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     presentador.actualizarBorrador(borrador);
     const selectorFoco = campo === "rc_existe"
       ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]`
       : `#ct-${campo}`;
     repintar(selectorFoco);
+  }
+
+  function alSalirCampo(evento) {
+    const control = evento.target;
+    if (control?.name !== "numero_expediente_moad") return;
+    const invalido = !numeroExpedienteMOADValido(control.value);
+    const idError = "ct-numero_expediente_moad-error";
+    const error = raiz.querySelector(`#${idError}`);
+    if (invalido) {
+      control.setAttribute?.("aria-invalid", "true");
+      control.setAttribute?.("aria-describedby", idError);
+      if (!error) control.insertAdjacentHTML?.("afterend", `<span class="ct-error-campo" id="${idError}">${escaparHTML(t("error_numero_moad"))}</span>`);
+    } else {
+      control.removeAttribute?.("aria-invalid");
+      control.removeAttribute?.("aria-describedby");
+      error?.remove?.();
+    }
   }
 
   function alIntroducir(evento) {
@@ -615,6 +659,7 @@ export function montarAltaContratacionTemporal({
   raiz.addEventListener("submit", alEnviar);
   raiz.addEventListener("change", alCambiar);
   raiz.addEventListener("input", alIntroducir);
+  raiz.addEventListener("focusout", alSalirCampo);
   repintar();
 
   return () => {
@@ -623,6 +668,7 @@ export function montarAltaContratacionTemporal({
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("change", alCambiar);
     raiz.removeEventListener("input", alIntroducir);
+    raiz.removeEventListener("focusout", alSalirCampo);
     presentador.desmontar?.();
   };
 }

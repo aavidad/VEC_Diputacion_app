@@ -1,6 +1,6 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
+import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;
 const PERSONA = /^per_[A-Za-z0-9_-]{22,128}$/u;

@@ -20,6 +20,7 @@ import (
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	app "vec-diputacion-granada/internal/vec/application"
@@ -30,6 +31,7 @@ import (
 // JSON de respuesta o errores. Las coordenadas no son concesiones; el PDP,
 // consumidores y lectores PostgreSQL revalidan el gobierno efectivo.
 type archivoIncorporacionV2 struct {
+	PersonalB2    *archivoIncorporacionPersonalB2      `json:"personal_b2,omitempty"`
 	Continuidad   *archivoContinuidadNominal           `json:"continuidad_nominal,omitempty"`
 	Esquema       string                               `json:"esquema"`
 	Referencias   ReferenciasCTIncorporacionDesarrollo `json:"referencias"`
@@ -98,15 +100,15 @@ func leerConfiguracionIncorporacionV2(ruta string) (archivoIncorporacionV2, *os.
 	defer borrarBytes(b)
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
-	if d.Decode(&c) != nil || d.Decode(new(any)) != io.EOF || c.Esquema != "vec.contratacion-temporal.incorporacion-servidor.v2" || !c.Referencias.valida() || len(c.Pools) != len(rolesPoolsIncorporacionV2) {
+	if d.Decode(&c) != nil || d.Decode(new(any)) != io.EOF || c.Esquema != "vec.contratacion-temporal.incorporacion-servidor.v2" || !c.Referencias.valida() || !poolsConfiguracionIncorporacionValidos(c) {
 		return c, nil, f
 	}
-	for k := range rolesPoolsIncorporacionV2 {
+	for k := range rolesPoolsConfiguracionIncorporacion(c) {
 		if c.Pools[k] == "" {
 			return c, nil, f
 		}
 	}
-	if !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoAlta) || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoLectura) || c.MotivoAlta.CatalogoID != c.MotivoLectura.CatalogoID || len(c.CentrosAlta) > 256 || (core.AmbitoPerfil{Clave: "centro_ref", Valores: c.CentrosAlta}).Validar() != nil {
+	if (c.Planes != "" && (!core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoAlta) || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoLectura) || c.MotivoAlta.CatalogoID != c.MotivoLectura.CatalogoID)) || len(c.CentrosAlta) > 256 || (c.Planes != "" && (core.AmbitoPerfil{Clave: "centro_ref", Valores: c.CentrosAlta}).Validar() != nil) {
 		return c, nil, f
 	}
 	ok = true
@@ -155,6 +157,9 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 		return vacia, nil, f
 	}
 	defer raiz.Close()
+	if c.Planes == "" {
+		return cargarIncorporacionB2Pura(cfg, c, raiz, alta, consultas, reloj, fronteras)
+	}
 	planes, err := leerArchivoIncorporacionV2(raiz, c.Planes, 256<<10)
 	if err != nil {
 		return vacia, nil, f
@@ -173,6 +178,9 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, err
 	}
+	if err := extenderPerfilesNominalesB2(nominales, c.Referencias, c.PersonalB2, reloj.Ahora()); err != nil {
+		return vacia, nil, err
+	}
 	for _, perfil := range []*perfilFijoCTDesarrollo{nominales.detalle, nominales.alta, nominales.ct} {
 		if !descriptorDetalle.admitePerfil(perfil.perfilRef()) {
 			return vacia, nil, f
@@ -185,7 +193,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	pools := map[string]*pgxpool.Pool{}
 	var una sync.Once
@@ -287,8 +295,20 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err := configurarSesionesNominalesIncorporacion(ctx, nominales, consultas.identidad); err != nil {
 		return vacia, nil, err
 	}
+	montaje, e := cargarMontajeIncorporacionPersonalB2(ctx, raiz, c.PersonalB2, nominales, pools, alta.postgresql.registroAutorizacion, material, detalle, c.Referencias.OrganizacionRef, reloj)
+	if e != nil {
+		return vacia, nil, e
+	}
+	nominales.montajeB2 = montaje
+	cerrarBase := cerrar
+	cerrar = func() {
+		if montaje != nil {
+			montaje.cerrar()
+		}
+		cerrarBase()
+	}
 	completa = true
-	return ConfiguracionIncorporacionDesarrollo{nominales: nominales, continuidad: continuidad, fronteras: fronteras, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
+	return ConfiguracionIncorporacionDesarrollo{legadoCompuesto: true, nominales: nominales, continuidad: continuidad, fronteras: fronteras, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
 		MotivoAlta: c.MotivoAlta, MotivoLectura: c.MotivoLectura, AltaPersonal: pools["alta_personal"], RegistroCT: pools["registro_ct"],
 		Preparacion: inc.ConfiguracionPreparacionDurableV2PostgreSQL{Planes: planes, TernaPlanes: c.TernaPlanes, FuentePersonal: personal, TernaPersonal: c.TernaPersonal,
 			Pools: inc.PoolsPreparacionDurableV2{InicialCT: pools["raices_ct"], LocalizadorCT: pools["localizador_ct"], LocalizadorPersonal: pools["localizador_personal"], LecturaPersonal: pools["lector_personal"], Historia: pgct.PoolsHistoriaIncorporacionV2{RegistroCT: pools["historia_ct"], Autenticacion: pools["historia_autenticacion"], Contexto: pools["historia_contexto"], Evaluacion: pools["historia_evaluacion"], Concesion: pools["historia_concesion"]}}}}, cerrar, nil

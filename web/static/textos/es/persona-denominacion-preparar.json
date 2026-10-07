@@ -1,0 +1,13 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "denominacion_catalogo_no_disponible": "No se puede leer el catálogo de mensajes.",
+    "denominacion_uso_invalido": "Indique los archivos privados, Persona, versión esperada, procedencia, ámbito y datos sintéticos.",
+    "denominacion_configuracion_no_disponible": "No está disponible la configuración privada de protección.",
+    "denominacion_material_no_disponible": "No está disponible el material maestro privado existente.",
+    "denominacion_nombre_no_disponible": "No se puede preparar la denominación con el nombre indicado.",
+    "denominacion_salida_no_disponible": "No se puede guardar la preparación en un archivo privado nuevo.",
+    "denominacion_preparacion_divergente": "La preparación existente no coincide o su protección ya no está disponible.",
+    "denominacion_preparada": "Preparación guardada. Falta comprobar Persona y autorizar su publicación."
+  }
+}

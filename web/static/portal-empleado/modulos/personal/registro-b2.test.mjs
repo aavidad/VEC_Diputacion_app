@@ -20,6 +20,9 @@ function raizFalsa() {
 function nodos(n) { return [n, ...n.children.flatMap(nodos)]; }
 function buscar(n, predicado) { return nodos(n).find(predicado); }
 function texto(n) { return nodos(n).map((item) => item.textContent).join(" "); }
+function textoVisible(n) {
+  return [n.textContent, ...(n.tagName === "details" && !n.open ? n.children.slice(0, 1) : n.children).map(textoVisible)].join(" ");
+}
 const completar = () => new Promise((resolve) => setImmediate(resolve));
 const corte = { vigente_en: "2026-09-25", conocido_en: "2026-09-25T10:00:00Z" };
 const traza = { desde: "2024-01-01", registrada_en: "2024-01-01T10:00:00Z", version: 1, acto_ref: "acto-uno", fuente_ref: "fuente-uno", fuente_version: "1" };
@@ -57,7 +60,7 @@ test("varias relaciones requieren elección antes de mostrar ocupaciones", async
   const selector = buscar(raiz, (n) => n.dataset.registroB2Relacion !== undefined);
   selector.value = "relacion-uno"; selector.listeners.get("change")();
   assert.match(texto(raiz), /Ocupaciones/); assert.match(texto(raiz), /Sin denominación/);
-  assert.doesNotMatch(texto(raiz), /plaza-uno|puesto-uno|unidad-uno|relacion-uno|acto-uno|fuente-uno|Referencia/);
+  assert.doesNotMatch(textoVisible(raiz), /plaza-uno|puesto-uno|unidad-uno|relacion-uno|acto-uno|fuente-uno|Referencia/);
 });
 
 test("la ficha prioriza la denominación histórica del catálogo sobre su referencia", async () => {
@@ -81,7 +84,33 @@ test("situaciones y servicios no muestran columnas de acto ni fuente sin denomin
   const cabeceras = nodos(raiz).filter((n) => n.tagName === "th").map((n) => n.textContent);
   assert.ok(cabeceras.includes("Situación")); assert.ok(cabeceras.includes("Días reconocidos"));
   assert.ok(!cabeceras.includes("Acto")); assert.ok(!cabeceras.includes("Fuente"));
-  assert.doesNotMatch(texto(raiz), /acto-uno|fuente-uno/);
+  assert.doesNotMatch(textoVisible(raiz), /acto-uno|fuente-uno/);
+});
+
+test("cada hecho conserva su origen legible y deja las referencias en un segundo pliegue", async () => {
+  const raiz = raizFalsa(); const respuesta = ficha([{
+    ...relacion("rel_aaaaaaaaaaaaaaaaaaaaaa"),
+    catalogo_snapshot: { regimen: { denominacion: "Régimen histórico", version: 2 }, modalidad: { denominacion: "Modalidad histórica", version: 3 } },
+  }]);
+  respuesta.ficha.ocupaciones[0] = { ...respuesta.ficha.ocupaciones[0], relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", estado: "vigente", traza: { ...traza, hasta: "2025-02-01" }, catalogo_snapshot: { modalidad: { denominacion: "Modalidad anterior", version: 1 } } };
+  respuesta.ficha.situaciones = [{ relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", estado: "finalizada", traza, catalogo_snapshot: { situacion: { denominacion: "Excedencia", version: 4 } } }];
+  respuesta.ficha.servicios = [{ relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", estado: "reconocido", periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01", dias_reconocidos: 366, traza, catalogo_snapshot: { clase_servicio: { denominacion: "Servicio previo", version: 2 } } }];
+  montarRegistroB2({ raiz, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", cliente: { consultarFicha: () => respuesta, listarVacantes() {} }, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  await completar();
+  const detalles = nodos(raiz).filter((n) => n.className === "personal-registro-b2-traza");
+  assert.equal(detalles.length, 4);
+  assert.equal(detalles.every((n) => n.children[0].tagName === "summary" && n.children[0].textContent === "Ver origen"), true);
+  assert.match(detalles[1].children[0].attrs.get("aria-label"), /fila 1 de Ocupaciones/u);
+  assert.doesNotMatch(textoVisible(raiz), /acto-uno|fuente-uno|plaza-uno/);
+  const ocupacion = detalles[1]; ocupacion.open = true;
+  assert.match(textoVisible(ocupacion), /Fecha de registro.*1 ene 2024.*Fecha de efectos.*1 ene 2024.*Fecha de fin.*1 feb 2025/u);
+  assert.match(textoVisible(ocupacion), /Versión del dato.*Estado.*Vigente.*Fuente.*Sin denominación disponible.*Acto.*Sin denominación disponible/u);
+  assert.match(textoVisible(ocupacion), /Modalidad anterior.*versión 1/u);
+  assert.doesNotMatch(textoVisible(ocupacion), /acto-uno|fuente-uno|plaza-uno/);
+  const tecnico = buscar(ocupacion, (n) => n.className === "personal-registro-b2-traza-tecnica");
+  assert.equal(tecnico.children[0].tagName, "summary"); tecnico.open = true;
+  assert.match(textoVisible(ocupacion), /fuente-uno.*acto-uno.*plaza-uno.*puesto-uno/u);
+  assert.equal(nodos(ocupacion).some((n) => n.tagName === "a"), false);
 });
 
 test("fallo 503 no finge vacantes vacías y ofrece reintento", async () => {
@@ -325,4 +354,28 @@ test("el cliente lista empleados por GET exacto con paginación acotada", async 
   assert.match(rutas[0][0], /limite=25/u); assert.match(rutas[0][0], /cursor=p_25_a+/u);
   assert.equal(rutas[0][1].method, "GET"); assert.equal(rutas[0][1].credentials, "same-origin");
   await assert.rejects(cliente.listarEmpleados({ vigenteEn: "2026-09-25", conocidoEn: "2026-09-25T10:00:00.000000Z", limite: 101 }), TypeError);
+});
+
+
+test("Vacantes monta una sola hoja con tres ejes, corte y origen estructural, conservando la paginación", async () => {
+  const raiz = raizFalsa(); const consultas = [];
+  const cliente = { consultarFicha: () => ficha(), listarVacantes: (consulta) => {
+    consultas.push(consulta);
+    return { pagina: { organismo_ref: "organismo_sintetico", corte: { vigente_en: consulta.vigenteEn, conocido_en: consulta.conocidoEn }, limite: consulta.limite, cursor: consulta.cursor, cursor_siguiente: consulta.cursor ? "" : "cursor_siguiente", cobertura: "completa", vacantes: [{
+      plaza_ref: "plaza_sintetica", puesto_ref: "puesto_sintetico", unidad_ref: "unidad_sintetica", unidad_denominacion: "Unidad sintética", puesto_denominacion: "Puesto sintético", codigo_plaza_fuente: "00041", estado_cobertura: "vacante_sin_ocupacion", version_plantilla_ref: "plantilla_version_sintetica",
+      traza: { desde: "2024-01-01", registrada_en: "2024-01-01T10:00:00Z", revision_estructural: 3, version_plantilla_ref: "plantilla_version_sintetica", acto_ref: "acto_sintetico", fuente_ref: "fuente_sintetica", fuente_huella_sha256: "a".repeat(64) },
+    }] } };
+  } };
+  montarRegistroB2({ raiz, cliente, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  buscar(raiz, (n) => n.dataset.registroB2Tab === "vacantes").listeners.get("click")(); await completar();
+  assert.equal(nodos(raiz).filter((n) => n.dataset.personalVacantesB2 !== undefined).length, 1);
+  assert.equal(nodos(raiz).filter((n) => n.tagName === "table").length, 1);
+  assert.match(textoVisible(raiz), /00041.*Sin ocupación registrada.*Consta un puesto vinculado.*Pendiente de determinar/u);
+  assert.match(textoVisible(raiz), /Fecha de referencia.*Hechos conocidos hasta/u);
+  assert.doesNotMatch(textoVisible(raiz), /plaza_sintetica|acto_sintetico|fuente_sintetica/u);
+  const detalle = buscar(raiz, (n) => n.className === "personal-registro-b2-traza" && !n.open); detalle.open = true;
+  assert.match(textoVisible(detalle), /Revisión de la plaza.*3/u);
+  buscar(raiz, (n) => n.textContent === "Siguiente").listeners.get("click")(); await completar();
+  assert.equal(consultas[1].cursor, "cursor_siguiente");
+  assert.equal(consultas[1].vigenteEn, consultas[0].vigenteEn); assert.equal(consultas[1].conocidoEn, consultas[0].conocidoEn);
 });

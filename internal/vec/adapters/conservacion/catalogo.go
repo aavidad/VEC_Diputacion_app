@@ -1,6 +1,6 @@
 // Package conservacion resuelve la política de conservación documental desde
 // un catálogo versionado local, sin depender de otra aplicación. El catálogo
-// v1 es PROVISIONAL: sus plazos son valores de desarrollo rotulados como tales
+// v1 y v2 son PROVISIONALES: sus plazos son valores de desarrollo rotulados como tales
 // hasta que RRHH fije los reales (dudas.md, pregunta 60). Cuando exista una
 // autoridad documental corporativa bastará con otro adaptador del mismo puerto.
 package conservacion
@@ -15,6 +15,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"strconv"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/ports"
@@ -23,20 +24,25 @@ import (
 //go:embed politicas_conservacion.v1.json
 var catalogoV1 []byte
 
+//go:embed politicas_conservacion.v2.json
+var catalogoV2 []byte
+
 var (
-	ErrCatalogoInvalido  = errors.New("vec: catálogo de conservación documental inválido")
-	ErrTipoNoCatalogado  = errors.New("vec: tipo documental sin política de conservación")
-	claveCatalogo        = regexp.MustCompile(`^[a-z][a-z0-9_.]{2,127}$`)
-	maximoEntradas       = 256
-	maximoPlazoAnios     = 100
-	dominioReferencias   = "vec.documentos.conservacion.v1"
-	catalogoEsperado     = "vec.documentos.conservacion"
-	versionCatalogoLocal = uint64(1)
+	ErrCatalogoInvalido = errors.New("vec: catálogo de conservación documental inválido")
+	ErrTipoNoCatalogado = errors.New("vec: tipo documental sin política de conservación")
+	claveCatalogo       = regexp.MustCompile(`^[a-z][a-z0-9_.]{2,127}$`)
+	maximoEntradas      = 256
+	maximoPlazoAnios    = 100
+	dominioReferencias  = "vec.documentos.conservacion.v1"
+	catalogoEsperado    = "vec.documentos.conservacion"
+	versionCatalogoV1   = uint64(1)
+	versionCatalogoV2   = uint64(2)
 )
 
-// custodiaFirmado es el valor de "custodia" que reserva un tipo a la custodia
-// de documentos firmados.
-const custodiaFirmado = "firmado"
+const (
+	custodiaFirmado    = "firmado"
+	custodiaOriginalCT = "original_ct"
+)
 
 type entradaJSON struct {
 	Tipo          string `json:"tipo"`
@@ -45,8 +51,7 @@ type entradaJSON struct {
 	BaseJuridica  string `json:"base_juridica"`
 	PlazoAnios    int    `json:"plazo_anios"`
 	Proteccion    string `json:"proteccion"`
-	// Custodia "firmado" reserva el tipo a la custodia de documentos
-	// firmados (Documentos 000009): el alta genérica no lo admite.
+	// Custodia reserva tipos al circuito de originales CT o al de firmados.
 	Custodia string `json:"custodia,omitempty"`
 }
 
@@ -65,6 +70,7 @@ type entrada struct {
 	huella                                                          [sha256.Size]byte
 	plazoAnios                                                      int
 	custodiaFirmado                                                 bool
+	custodiaOriginalCT                                              bool
 }
 
 // Catalogo es inmutable tras construirse; es seguro entre goroutines.
@@ -85,6 +91,12 @@ func NuevoCatalogoProvisional(reloj ports.Reloj) (*Catalogo, error) {
 	return NuevoCatalogo(catalogoV1, reloj)
 }
 
+// NuevoCatalogoProvisionalV2 carga las seis clases de borrador original CT.
+// El catálogo v1 permanece disponible para interpretar sus políticas históricas.
+func NuevoCatalogoProvisionalV2(reloj ports.Reloj) (*Catalogo, error) {
+	return NuevoCatalogo(catalogoV2, reloj)
+}
+
 // NuevoCatalogo valida estrictamente un catálogo: campos cerrados, claves
 // técnicas, plazos acotados, vigencia en UTC y tipos no repetidos.
 func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
@@ -96,7 +108,7 @@ func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
 	dec.DisallowUnknownFields()
 	var extra any
 	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) ||
-		c.Catalogo != catalogoEsperado || c.Version != versionCatalogoLocal || c.Rotulo == "" ||
+		c.Catalogo != catalogoEsperado || (c.Version != versionCatalogoV1 && c.Version != versionCatalogoV2) || c.Rotulo == "" ||
 		len(c.Politicas) == 0 || len(c.Politicas) > maximoEntradas ||
 		c.VigenteDesde.Location() != time.UTC || c.VigenteHasta.Location() != time.UTC ||
 		c.VigenteDesde.Nanosecond()%1000 != 0 || c.VigenteHasta.Nanosecond()%1000 != 0 ||
@@ -112,7 +124,8 @@ func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
 			!claveCatalogo.MatchString(e.Serie) || !claveCatalogo.MatchString(e.BaseJuridica) ||
 			e.PlazoAnios < 1 || e.PlazoAnios > maximoPlazoAnios ||
 			e.Proteccion != string(ports.ProteccionPoliticaConservacionDocumentalOrdinaria) ||
-			(e.Custodia != "" && e.Custodia != custodiaFirmado) {
+			(e.Custodia != "" && e.Custodia != custodiaFirmado && e.Custodia != custodiaOriginalCT) ||
+			(e.Custodia == custodiaOriginalCT && c.Version != versionCatalogoV2) {
 			return nil, ErrCatalogoInvalido
 		}
 		if _, repetido := cat.porTipo[e.Tipo]; repetido {
@@ -131,8 +144,8 @@ func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
 		en := entrada{
 			tipo: e.Tipo, tipoRef: referencia("tipo", e.Tipo), procedimientoRef: referencia("procedimiento", e.Procedimiento),
 			serieRef: referencia("serie", e.Serie), baseRef: referencia("base_juridica", e.BaseJuridica),
-			politicaRef: referencia("politica", e.Tipo+"\x00v1"), huella: sha256.Sum256(canon), plazoAnios: e.PlazoAnios,
-			custodiaFirmado: e.Custodia == custodiaFirmado,
+			politicaRef: referencia("politica", e.Tipo+"\x00v"+strconv.FormatUint(c.Version, 10)), huella: sha256.Sum256(canon), plazoAnios: e.PlazoAnios,
+			custodiaFirmado: e.Custodia == custodiaFirmado, custodiaOriginalCT: e.Custodia == custodiaOriginalCT,
 		}
 		cat.porTipo[e.Tipo] = en.tipoRef
 		cat.porTipoRef[en.tipoRef] = en
@@ -167,6 +180,15 @@ func (c *Catalogo) CustodiaFirmadoReservada(tipoRef string) bool {
 		return false
 	}
 	return c.porTipoRef[tipoRef].custodiaFirmado
+}
+
+// CustodiaOriginalCTReservada indica si el tipo está reservado al circuito
+// de originales preparatorios de Contratación temporal.
+func (c *Catalogo) CustodiaOriginalCTReservada(tipoRef string) bool {
+	if c == nil {
+		return false
+	}
+	return c.porTipoRef[tipoRef].custodiaOriginalCT
 }
 
 // ClaveTipo devuelve la clave estable de un tipo catalogado a partir de su

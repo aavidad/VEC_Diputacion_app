@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 
 function candidata(orden, estado_clave = "disponible") {
   return { participacion_ref: `participacion:${String(orden).padStart(3, "0")}`, estado_clave, orden };
@@ -189,7 +189,9 @@ test("B7 muestra página local, consulta pendiente, límite y confirmación de c
   assert.doesNotMatch(html, /<summary/);
   assert.match(html, /Configurar llamamiento<\/button>/);
   assert.match(html, /Consultando todas las páginas/);
-  assert.match(html, /data-bolsa-accion="b7-fuente-siguiente"/);
+  // Una sola paginación: sin más filas ni más tramos en la bolsa, Anterior y Siguiente quedan desactivados.
+  assert.match(html, /<button type="button" class="boton-secundario" disabled>Anterior<\/button> <button type="button" class="boton-secundario" disabled>Siguiente<\/button>/);
+  assert.doesNotMatch(html, /b7-fuente-|Más candidaturas de la bolsa|Página anterior de la bolsa/);
   assert.match(html, /data-bolsa-accion="b7-limpiar-seleccion"/);
   flujo.consultando = false;
   flujo.participaciones = Array.from({ length: 100 }, (_, i) => candidata(i + 1).participacion_ref);
@@ -389,4 +391,28 @@ test("B7 exige el plazo indicado por RRHH antes de revisar o emitir", () => {
   } finally {
     globalThis.FormData = FormDataOriginal;
   }
+});
+
+test("B7 usa una sola paginación: al agotar las filas cargadas, Siguiente y Anterior piden el tramo contiguo de la bolsa", () => {
+  const bolsa = { bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria", vigente_desde: "2026-09-01", total: 120, por_estado: { disponible: 101 } };
+  const flujo = { paso: 2, estados: ["disponible"], participaciones: [], pagina: 0, cursoresPagina: [""], consultando: false, error: "" };
+  const fuente = { bolsa, candidatos: Array.from({ length: 8 }, (_, i) => candidata(i + 1)), contactos: [], hay_mas: true };
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "info", encabezadoVista: (_s, titulo) => `<h2>${titulo}</h2>`,
+    escaparHTML: (valor) => String(valor ?? ""), numero: (valor) => String(valor ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (valor) => valor,
+    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: fuente, error: "" }),
+    obtenerEstadoCandidatos: () => ({ nuevo_llamamiento: flujo }),
+  });
+  const botones = () => presentador.renderizarVista("bolsa-candidatos").match(/<button type="button" class="boton-secundario" [^>]*>(Anterior|Siguiente)<\/button>/g);
+  assert.deepEqual(botones(), ['<button type="button" class="boton-secundario" disabled>Anterior</button>',
+    '<button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="1">Siguiente</button>']);
+  flujo.pagina = 1;
+  assert.deepEqual(botones(), ['<button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="0">Anterior</button>',
+    '<button type="button" class="boton-secundario" data-bolsa-accion="b7-fuente-siguiente">Siguiente</button>']);
+  flujo.pagina = 0; flujo.cursoresPagina = ["", "cursor:2"]; fuente.hay_mas = false;
+  assert.deepEqual(botones(), ['<button type="button" class="boton-secundario" data-bolsa-accion="b7-fuente-anterior">Anterior</button>',
+    '<button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="1">Siguiente</button>']);
+  flujo.consultando = true;
+  assert.match(botones()[0], /disabled>Anterior/);
 });

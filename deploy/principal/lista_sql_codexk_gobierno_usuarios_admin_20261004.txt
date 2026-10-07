@@ -1,0 +1,3 @@
+# POST185 -> AD186 -> AD187 (main, ya instaladas sólo en clon K).
+# Aplicar sólo 188 faltante; nunca reaplicar las dependencias instaladas.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000188_gobierno_usuarios_admin.up.sql

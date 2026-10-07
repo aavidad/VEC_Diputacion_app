@@ -346,12 +346,13 @@ func huellaMaterialCursorRRHH(
 type constructorCanonResultadoRRHH struct {
 	bytesCanonicos []byte
 	err            error
+	periodoV4      bool
 }
 
 func nuevoConstructorCanonResultadoRRHH(
 	cabecera string,
 ) *constructorCanonResultadoRRHH {
-	constructor := &constructorCanonResultadoRRHH{}
+	constructor := &constructorCanonResultadoRRHH{periodoV4: cabecera == cabeceraCanonContenidoDetalleRRHHV4}
 	constructor.crudo([]byte(cabecera))
 	return constructor
 }

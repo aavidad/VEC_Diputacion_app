@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { diezmilesimasDesdeHorasMinutos, horasMinutosDesdeDiezmilesimas, montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
+import { diezmilesimasDesdeHorasMinutos, horasMinutosDesdeDiezmilesimas, montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261001-ct-a-i18n-v1";
 
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
 const HUELLA = "a".repeat(64);
@@ -157,6 +157,29 @@ function montar({ operacion = "registrar", cliente, raiz = crearRaiz(), extras =
   });
   return { ...raiz, desmontar };
 }
+
+test("análisis muestra la causa de la modalidad y envía el periodo sin fin", async () => {
+  const catalogos = crearCatalogos();
+  catalogos.modalidades[0] = { ...catalogos.modalidades[0],
+    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular" };
+  const enviados = [];
+  const vista = montar({ cliente: { registrarAnalisis(solicitud) {
+    enviados.push(solicitud); return Promise.resolve(crearRecibo());
+  } }, extras: { catalogos, analisisInicial: {
+    modalidad_clave: "sustitucion", categoria_ref: "categoria:rrhh:001",
+    grupo_subgrupo: "A1", causa_clave: "sustitucion",
+    periodo: { inicio: "2026-09-01T00:00:00Z", causa_fin: "reincorporacion_titular" },
+    porcentaje_jornada: 10000,
+    entrada_rc: { referencia: "entrada-rc:opaca:001", huella_sha256: HUELLA },
+  } } });
+  assert.match(vista.raiz.innerHTML, /Hasta la reincorporación de la persona titular/);
+  assert.doesNotMatch(vista.raiz.innerHTML, /<input id="ct-analisis-fin"/);
+  await vista.enviar(crearValores({ fin: "" }));
+  assert.equal(enviados.length, 1);
+  assert.deepEqual(enviados[0].analisis.periodo, {
+    inicio: "2026-09-01T00:00:00Z", causa_fin: "reincorporacion_titular",
+  });
+});
 
 test("la configuración y el contexto son cerrados y no aceptan autoridad del formulario", () => {
   const raiz = crearRaiz();
@@ -324,7 +347,7 @@ test("rectificar exige el motivo gobernado y usa únicamente rectificarAnalisis"
   assert.match(vista.raiz.innerHTML, /Seleccione un motivo disponible/u);
 
   await vista.enviar();
-  assert.match(vista.raiz.innerHTML, /Rectificación confirmada/u);
+  assert.match(vista.raiz.innerHTML, /Rectificación guardada/u);
   assert.match(vista.raiz.innerHTML, /recibo:opaco:analisis:001/u);
   assert.equal(registro, 0);
   assert.equal(rectificacion.motivo_rectificacion_clave, "correccion_datos");
@@ -425,8 +448,8 @@ test("un resultado indeterminado bloquea cualquier reenvío y redacta el error p
   await vista.enviar();
   assert.equal(llamadas, 1);
   assert.match(vista.raiz.innerHTML, /data-ct-analisis-indeterminado/u);
-  assert.match(vista.raiz.innerHTML, /No repita la operación/u);
-  assert.doesNotMatch(vista.raiz.innerHTML, /dsn|contraseña|secreta|Análisis confirmado/u);
+  assert.match(vista.raiz.innerHTML, /No repita el análisis/u);
+  assert.doesNotMatch(vista.raiz.innerHTML, /dsn|contraseña|secreta|Análisis guardado/u);
   await vista.enviar();
   assert.equal(llamadas, 1);
   vista.desmontar();
@@ -441,7 +464,7 @@ test("una respuesta no verificable se presenta como indeterminada, nunca como é
     },
   });
   await vista.enviar();
-  assert.match(vista.raiz.innerHTML, /Resultado indeterminado/u);
+  assert.match(vista.raiz.innerHTML, /No sabemos si se ha guardado/u);
   assert.doesNotMatch(vista.raiz.innerHTML, /data-ct-analisis-recibo/u);
   vista.desmontar();
 });
@@ -465,7 +488,7 @@ test("un fallo determinado no se reintenta solo y un reenvío manual conserva la
 
   await vista.enviar();
   assert.equal(llamadas, 1);
-  assert.match(vista.raiz.innerHTML, /No dispone de autorización/u);
+  assert.match(vista.raiz.innerHTML, /No tiene permiso para guardar este análisis/u);
   assert.doesNotMatch(vista.raiz.innerHTML, /detalle privado/u);
   await Promise.resolve();
   assert.equal(llamadas, 1);
@@ -634,4 +657,33 @@ test("la jornada previa se reenvía exacta si no se tocan horas ni minutos", asy
   await vista2.enviar(crearValores({ jornada_horas: "28", jornada_minutos: "9", jornada_original: "7501" }));
   assert.equal(otra[0].analisis.porcentaje_jornada, 7507);
   vista2.desmontar();
+});
+
+test("un análisis nuevo parte de los datos de la petición, editables y solo si existen en el catálogo", () => {
+  const peticion = {
+    modalidad_clave: "vacante", categoria_ref: "categoria:rrhh:001", grupo_subgrupo: "A1",
+    periodo: { inicio: "2026-10-01T00:00:00Z", fin: "2026-12-31T00:00:00Z" },
+  };
+  const vista = montar({ cliente: { registrarAnalisis() {} }, extras: { datosPeticion: peticion } });
+  const html = vista.raiz.innerHTML;
+  assert.match(html, /<option value="vacante" selected>/u);
+  assert.match(html, /<option value="categoria:rrhh:001" selected>/u);
+  assert.match(html, /<option value="A1" selected>/u);
+  assert.match(html, /name="inicio" type="date" required value="2026-10-01"/u);
+  assert.match(html, /value="2026-12-31"/u);
+  assert.match(html, /Los campos con \* son obligatorios\./u);
+  vista.desmontar();
+
+  const ajena = montar({ cliente: { registrarAnalisis() {} }, extras: { datosPeticion: {
+    modalidad_clave: "retirada", categoria_ref: "categoria:rrhh:999", grupo_subgrupo: "C2",
+    periodo: { inicio: "2026-10-01T00:00:00Z", causa_fin: "reincorporacion_titular" },
+  } } });
+  assert.doesNotMatch(ajena.raiz.innerHTML, /<option value="[^"]+" selected>/u);
+  assert.match(ajena.raiz.innerHTML, /value="2026-10-01"/u);
+  ajena.desmontar();
+
+  const rectificacion = montar({ operacion: "rectificar", cliente: { rectificarAnalisis() {} },
+    extras: { datosPeticion: peticion } });
+  assert.doesNotMatch(rectificacion.raiz.innerHTML, /<option value="vacante" selected>/u);
+  rectificacion.desmontar();
 });

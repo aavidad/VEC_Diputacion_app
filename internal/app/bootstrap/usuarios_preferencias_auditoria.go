@@ -9,6 +9,7 @@ import (
 	"time"
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -39,6 +40,17 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 			return errComposicionUsuariosPreferencias
 		}
 		return r.delegado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+	}
+	// La guarda de vigencia del dispatcher puede rechazar después de capturar
+	// el GET interno. Ese intento conserva identidad y correlación originales;
+	// la orden de frontera no sustituye actor, motivo ni material capturados.
+	if ctx != nil {
+		if intento, presente := ctx.Value(claveIntentoConsultaCorreos{}).(*intentoConsultaCorreos); presente {
+			if intento == nil || intento.autoridad == nil || orden.Ruta != usuarioshttp.RutaMisCorreos {
+				return errComposicionUsuariosCorreos
+			}
+			return intento.autoridad.AuditarIntentoConsultaCorreos(ctx, http.StatusForbidden)
+		}
 	}
 	var seleccionado registradorDenegacionPreferenciasUsuarios
 	switch orden.Ruta {
@@ -87,7 +99,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	if estado == http.StatusForbidden {
 		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
 	}
-	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	correlacion, err := nuevaCorrelacionDenegacionPreferenciasUsuarios()
 	if err != nil {

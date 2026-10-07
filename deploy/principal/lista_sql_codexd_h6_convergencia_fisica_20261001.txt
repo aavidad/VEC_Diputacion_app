@@ -1,0 +1,5 @@
+# Sobre la copia física H6 con las 46 SQL H6, seis RPT y cuatro B anteriores.
+# AD133 y AD135 permanecen pendientes; no se ejecutan ni se marcan instaladas.
+# El orden de estas dos migraciones es obligatorio.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000139_convergencia_fisica_h6.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000140_raiz_externa_convergencia_fisica_h6.up.sql

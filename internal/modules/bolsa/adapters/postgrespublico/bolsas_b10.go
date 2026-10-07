@@ -12,7 +12,12 @@ import (
 	httpbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
 )
 
-const maximoPosicionesB10 = 100000
+const (
+	maximoPosicionesB10 = 100000
+	// maximoPaginaB10 cubre el límite máximo de la consulta pública (100)
+	// más la fila que indica si hay más.
+	maximoPaginaB10 = 101
+)
 
 var (
 	patronReferenciaBolsaB10 = regexp.MustCompile(`^[a-z0-9][a-z0-9:._-]{2,159}$`)
@@ -23,7 +28,10 @@ var (
 	}
 )
 
-var _ httpbolsa.FuenteBolsasPublicas = (*Fuente)(nil)
+var (
+	_ httpbolsa.FuenteBolsasPublicas       = (*Fuente)(nil)
+	_ httpbolsa.FuentePaginaBolsasPublicas = (*Fuente)(nil)
+)
 
 // BolsasPublicas devuelve exclusivamente la proyeccion pública B10. La
 // instantánea repetible se ancla al manifiesto que ya validó esta Fuente.
@@ -83,6 +91,105 @@ func (f *Fuente) ListaPublica(ctx context.Context, bolsaRef string) (httpbolsa.B
 		return httpbolsa.BolsaPublica{}, nil, time.Time{}, errorPostgreSQLPublico(ctx, err)
 	}
 	return bolsa, posiciones, generadoEn, nil
+}
+
+// PaginaListaPublica lee solo el tramo pedido de la lista B10: como mucho
+// cantidad posiciones a partir de desde. Antes coteja en la misma instantánea
+// que la lista completa sigue siendo exactamente 1..total (recuento, mínimo y
+// máximo sobre la clave primaria), así que conserva la garantía de integridad
+// de ListaPublica sin trasladar miles de filas por petición.
+func (f *Fuente) PaginaListaPublica(ctx context.Context, bolsaRef string, desde, cantidad int) (httpbolsa.BolsaPublica, []httpbolsa.PosicionPublica, time.Time, error) {
+	if ctx == nil || !f.valida() || bolsaRef != strings.TrimSpace(bolsaRef) || !patronReferenciaBolsaB10.MatchString(bolsaRef) ||
+		desde < 1 || desde > maximoPosicionesB10 || cantidad < 1 || cantidad > maximoPaginaB10 {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, ErrPostgreSQLPublicoNoDisponible
+	}
+	tx, err := f.iniciarLectura(ctx, true)
+	if err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, errorPostgreSQLPublico(ctx, err)
+	}
+	defer rollbackPostgreSQLPublico(tx)
+
+	generadoEn, err := leerInstanteFuenteB10(ctx, tx, f.manifiestoSHA256)
+	if err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, err
+	}
+	bolsa, encontrada, err := leerBolsaB10(ctx, tx, bolsaRef)
+	if err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, err
+	}
+	if !encontrada {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, httpbolsa.ErrBolsaPublicaNoEncontrada
+	}
+	if err := comprobarSecuenciaPosicionesB10(ctx, tx, bolsaRef, bolsa.Total); err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, err
+	}
+	posiciones, err := leerTramoPosicionesB10(ctx, tx, bolsaRef, bolsa.Total, desde, cantidad)
+	if err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return httpbolsa.BolsaPublica{}, nil, time.Time{}, errorPostgreSQLPublico(ctx, err)
+	}
+	return bolsa, posiciones, generadoEn, nil
+}
+
+// comprobarSecuenciaPosicionesB10 exige que las posiciones de la bolsa sean
+// exactamente 1..total. La clave primaria (bolsa_ref, orden) impide órdenes
+// repetidos, así que recuento, mínimo y máximo bastan para probarlo. Lo hace
+// PostgreSQL con un recorrido solo de índice, sin enviar las filas. Depende de
+// que posiciones_bolsa_v1 siga siendo una proyección 1:1 de la tabla (000002):
+// una vista que repitiera filas obligaría a contar órdenes distintos.
+func comprobarSecuenciaPosicionesB10(ctx context.Context, tx pgx.Tx, bolsaRef string, total int) error {
+	var recuento, minimo, maximo int64
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*), COALESCE(min(orden), 0), COALESCE(max(orden), 0)
+		  FROM vec_bolsa_publica_lectura.posiciones_bolsa_v1
+		 WHERE bolsa_ref = $1`, bolsaRef).Scan(&recuento, &minimo, &maximo); err != nil {
+		return errorPostgreSQLPublico(ctx, err)
+	}
+	esperado := int64(total)
+	if recuento != esperado || maximo != esperado || (total == 0 && minimo != 0) || (total > 0 && minimo != 1) {
+		return ErrDatosPostgreSQLPublicosNoConfiables
+	}
+	return nil
+}
+
+// leerTramoPosicionesB10 acota también el orden por arriba: la vista es
+// security_barrier y PostgreSQL no puede usar el orden del índice con LIMIT,
+// pero con el intervalo cerrado solo recorre las filas del tramo.
+func leerTramoPosicionesB10(ctx context.Context, tx pgx.Tx, bolsaRef string, total, desde, cantidad int) ([]httpbolsa.PosicionPublica, error) {
+	esperadas := 0
+	if desde <= total {
+		esperadas = min(cantidad, total-desde+1)
+	}
+	filas, err := tx.Query(ctx, `
+		SELECT orden, documento_enmascarado, estado_clave
+		  FROM vec_bolsa_publica_lectura.posiciones_bolsa_v1
+		 WHERE bolsa_ref = $1 AND orden >= $2 AND orden < $3
+		 ORDER BY orden`, bolsaRef, int64(desde), int64(desde)+int64(cantidad))
+	if err != nil {
+		return nil, errorPostgreSQLPublico(ctx, err)
+	}
+	defer filas.Close()
+	posiciones := make([]httpbolsa.PosicionPublica, 0, esperadas)
+	for filas.Next() {
+		var orden int64
+		var posicion httpbolsa.PosicionPublica
+		if err := filas.Scan(&orden, &posicion.DocumentoEnmascarado, &posicion.EstadoClave); err != nil ||
+			orden != int64(desde+len(posiciones)) || orden > int64(total) ||
+			!patronDocumentoB10.MatchString(posicion.DocumentoEnmascarado) || !estadoB10Valido(posicion.EstadoClave) {
+			return nil, ErrDatosPostgreSQLPublicosNoConfiables
+		}
+		posicion.Orden = int(orden)
+		posiciones = append(posiciones, posicion)
+	}
+	if err := filas.Err(); err != nil {
+		return nil, errorPostgreSQLPublico(ctx, err)
+	}
+	if len(posiciones) != esperadas {
+		return nil, ErrDatosPostgreSQLPublicosNoConfiables
+	}
+	return posiciones, nil
 }
 
 func leerInstanteFuenteB10(ctx context.Context, tx pgx.Tx, manifiestoEsperado string) (time.Time, error) {

@@ -1,15 +1,28 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
 import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
-import { escaparHTML } from "./componentes-expedientes.js";
-import { montarFichaGINPIX } from "./ficha-ginpix.js";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261006-resumen-inicio-v2";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261006-resumen-inicio-v2";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261006-resumen-inicio-v2";
+import { cargarTextos } from "../../../comun/textos.js";
+
+export function crearResolverEtiquetasIncorporacionB2(textos, personal) {
+  return (clave) => {
+    if (clave === "personal.ocupacion.clase.reserva") return personal.traducir("general.registro_b2_clase_reserva");
+    if (clave.startsWith("motivo.")) {
+      try { return textos.traducir(`ct_incorporacion_b2_motivo_${clave.slice(7)}`); }
+      catch { return null; }
+    }
+    return null;
+  };
+}
 
 export function crearGestorIncorporacion({
   raiz,
@@ -17,6 +30,7 @@ export function crearGestorIncorporacion({
   clienteLlamamiento,
   resolucionFormalizacionDisponible,
   incorporacionEjercicioDisponible,
+  incorporacionPersonalB2 = null,
   confirmarOperacion,
   mensajes = {},
   locale = "es-ES",
@@ -30,6 +44,85 @@ export function crearGestorIncorporacion({
   let consultaIncorporacionEjercicio = null;
   let desmontarResolucionFormalizacion = null;
   let consultaResolucionFormalizacion = null;
+  let desmontarPersonalB2 = null;
+  let consultaPersonalB2 = null;
+
+  function candidatoPersonalB2(estado) {
+    if (!esMontada() || !incorporacionPersonalB2
+      || !["consultar", "preparar", "confirmar"].every((metodo) => typeof incorporacionPersonalB2[metodo] === "function")
+      || estado?.carga !== "listo" || estado?.vista !== "expediente"
+      || estado.expediente?.demostracion !== false || !Number.isSafeInteger(estado.expediente.version)
+      || estado.expediente.version < 7) return false;
+    const resumen = estado.cuadro?.expedientes?.find((fila) => fila.expediente_ref === estado.expediente.expediente_ref);
+    return resumen?.version === estado.expediente.version
+      && ["nombramiento", "seguimiento"].includes(resumen.fase_clave);
+  }
+
+  async function ofrecerPersonalB2() {
+    const estado = presentador.obtenerEstado();
+    if (!candidatoPersonalB2(estado)) return ofrecerIncorporacionEjercicio();
+    if (desmontarPersonalB2 || consultaPersonalB2 || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio) return;
+    const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
+    if (!contenedor) return;
+    const expedienteRef = estado.expediente.expediente_ref;
+    const version = estado.expediente.version;
+    const controlador = new AbortController();
+    consultaPersonalB2 = controlador;
+    const vigente = () => {
+      const actual = presentador.obtenerEstado();
+      return esMontada() && consultaPersonalB2 === controlador && !controlador.signal.aborted
+        && raiz.contains?.(contenedor) && raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") === contenedor
+        && actual?.vista === "expediente" && actual.carga === "listo"
+        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
+    };
+    const t = crearTraductorExpedientesContratacion(mensajes);
+    contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
+    const [textos, personal, lectura] = await Promise.allSettled([
+      cargarTextosIncorporacionPersonalB2(), cargarTextos("personal"),
+      incorporacionPersonalB2.consultar(expedienteRef, { signal: controlador.signal }),
+    ]);
+    if (!vigente()) return;
+    if (textos.status !== "fulfilled" || personal.status !== "fulfilled") {
+      contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t("incorporacion_preparacion_no_disponible"))}</p>
+        <button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-incorporacion-b2">${escaparHTML(t("incorporacion_preparacion_reintentar"))}</button>`;
+      consultaPersonalB2 = null;
+      return;
+    }
+    const consulta = lectura.status === "fulfilled" ? lectura.value : null;
+    const puedeB2 = consulta && (consulta.plan !== null || consulta.recibo !== null
+      || (consulta.prerrequisitos.length > 0 && consulta.prerrequisitos.every((p) => p.cumplido)));
+    if (consulta && !puedeB2 && incorporacionProcede(estado)) {
+      consultaPersonalB2 = null;
+      await ofrecerIncorporacionEjercicio();
+      if (contenedor.innerHTML.includes('data-ct-exp-accion="consultar-incorporacion"')) {
+        const pendientes = consulta.prerrequisitos.filter((p) => !p.cumplido).map((p) => {
+          try { return textos.value.traducir(p.clave_i18n); }
+          catch { return textos.value.traducir("faltan_comprobaciones"); }
+        });
+        contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(textos.value.traducir("pendientes_antes_legacy"))}</p>
+          ${pendientes.length ? `<ul>${[...new Set(pendientes)].map((p) => `<li>${escaparHTML(p)}</li>`).join("")}</ul>` : ""}
+          ${contenedor.innerHTML}`;
+      }
+      return;
+    }
+    let primeraLectura = true;
+    const cliente = Object.freeze({
+      consultar(ref, opciones) {
+        if (primeraLectura) {
+          primeraLectura = false;
+          return lectura.status === "fulfilled" ? Promise.resolve(lectura.value) : Promise.reject(lectura.reason);
+        }
+        return incorporacionPersonalB2.consultar(ref, opciones);
+      },
+      preparar: (solicitud, opciones) => incorporacionPersonalB2.preparar(solicitud, opciones),
+      confirmar: (solicitud, opciones) => incorporacionPersonalB2.confirmar(solicitud, opciones),
+    });
+    desmontarPersonalB2 = montarIncorporacionPersonalB2({
+      raiz: contenedor, cliente, expedienteRef, versionEsperada: version, textos: textos.value,
+      resolverEtiqueta: crearResolverEtiquetasIncorporacionB2(textos.value, personal.value),
+      esVigente: vigente,
+    });
+  }
 
   async function montarResolucionFormalizacion() {
     const estado = presentador.obtenerEstado();
@@ -381,14 +474,20 @@ export function crearGestorIncorporacion({
   return Object.freeze({
     montarResolucionFormalizacion,
     montarIncorporacionEjercicio,
-    ofrecerIncorporacionEjercicio,
+    ofrecerIncorporacionEjercicio: ofrecerPersonalB2,
     abortar() {
+      consultaPersonalB2?.abort();
+      consultaPersonalB2 = null;
       consultaResolucionFormalizacion?.abort();
       consultaResolucionFormalizacion = null;
       consultaIncorporacionEjercicio?.abort();
       consultaIncorporacionEjercicio = null;
     },
     retirar() {
+      consultaPersonalB2?.abort();
+      consultaPersonalB2 = null;
+      desmontarPersonalB2?.();
+      desmontarPersonalB2 = null;
       consultaResolucionFormalizacion?.abort();
       consultaResolucionFormalizacion = null;
       consultaIncorporacionEjercicio?.abort();

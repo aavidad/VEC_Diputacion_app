@@ -1,11 +1,12 @@
 {
-  "servicio_no_disponible": "The employment pool could not be loaded. Try again in a few minutes.",
-  "ruta_invalida": "This link is invalid. Return to the list of employment pools.",
+  "servicio_no_disponible": "The job pool could not be loaded. Try again in a few minutes.",
+  "ruta_invalida": "This link is invalid. Return to the list of job pools.",
   "consulta_invalida": "This query is invalid. Check the filters and try again.",
-  "recurso_no_encontrado": "This page could not be found. Return to the list of employment pools.",
+  "recurso_no_encontrado": "This page could not be found. Return to the list of job pools.",
   "error_interno": "The query could not be completed. Try again in a few minutes.",
   "tiempo_operacion_agotado": "The query is taking too long. Try again.",
   "peticion_cancelada": "The query was cancelled. You can try again.",
-  "bolsa_no_encontrada": "This employment pool could not be found. Return to the list of employment pools.",
-  "metodo_no_permitido": "This page only supports viewing employment pools. Return to the list of employment pools."
+  "bolsa_no_encontrada": "This job pool could not be found. Return to the list of job pools.",
+  "metodo_no_permitido": "This page only supports viewing job pools. Return to the list of job pools.",
+  "capacidad_temporal_agotada": "There are many queries right now. Try again in a few seconds."
 }

@@ -1,0 +1,230 @@
+{
+  "demostracion": true,
+  "idioma": "es",
+  "persona_nombre": "Lucía Moreno Salas",
+  "solicitud": {
+    "desde": "2026-06-02",
+    "hasta": "2026-06-10",
+    "conocido_en": "2026-10-01T12:00:00Z",
+    "snapshot": {
+      "sintetico": true,
+      "ref": "snapshot:lucia:v2",
+      "persona_ref": "persona:ensayo:lucia",
+      "conocido_en": "2026-10-01T12:00:00Z",
+      "fuente": {
+        "referencia": "fuente:snapshot:lucia:v2",
+        "sha256": "757d27d05db704216b80ae603ff5e0d0b51a284d322f598b48ed6f722e37ab3f"
+      },
+      "adscripciones": [
+        {
+          "ref": "adscripcion:lucia:granada",
+          "version": 1,
+          "centro_ref": "centro:granada",
+          "desde": "2026-01-01",
+          "hasta": "2026-06-05",
+          "fuente": {
+            "referencia": "fuente:adscripcion:lucia:granada",
+            "sha256": "e09c50d17be8fb3bb058d956a8be6bc058efca7008fc150710d7e926e5a1150e"
+          }
+        },
+        {
+          "ref": "adscripcion:lucia:motril",
+          "version": 1,
+          "centro_ref": "centro:motril",
+          "desde": "2026-06-05",
+          "hasta": "2027-01-01",
+          "fuente": {
+            "referencia": "fuente:adscripcion:lucia:motril",
+            "sha256": "2c1135d1c4dcb800e8fd003d1f09935eb4c6322f47430acd169e8a62459702f9"
+          }
+        }
+      ]
+    }
+  },
+  "calendarios": {
+    "conocido_en": "2026-10-01T12:00:00Z",
+    "versiones": [
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:es:2026:v1",
+            "ambito": {
+              "tipo": "nacional",
+              "ref": "es"
+            },
+            "anio": 2026,
+            "numero": 1,
+            "denominacion": "Calendario sintético de es, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:es:2026:v1",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-01-15T00:00:00Z"
+          },
+          "dias": [
+            {
+              "fecha": "2026-01-01",
+              "efecto": "festivo",
+              "denominacion": "Día señalado sintético"
+            }
+          ]
+        },
+        "fuente": {
+          "referencia": "fuente:cal:es:2026:v1",
+          "sha256": "2d305375eb858293d0e6e51f27efbb3fb81b16725f3a0e26f6069d134f3a8e73"
+        }
+      },
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:andalucia:2026:v1",
+            "ambito": {
+              "tipo": "autonomico",
+              "ref": "andalucia"
+            },
+            "anio": 2026,
+            "numero": 1,
+            "denominacion": "Calendario sintético de andalucia, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:andalucia:2026:v1",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-01-15T00:00:00Z"
+          },
+          "dias": []
+        },
+        "fuente": {
+          "referencia": "fuente:cal:andalucia:2026:v1",
+          "sha256": "2ebd6492ce37110adf87c41c50c590104578853e8f832b75499f1fc6ed261799"
+        }
+      },
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:granada:2026:v2",
+            "ambito": {
+              "tipo": "local",
+              "ref": "granada"
+            },
+            "anio": 2026,
+            "numero": 2,
+            "denominacion": "Calendario sintético de granada, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:granada:2026:v2",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-09-01T00:00:00Z",
+            "sustituye_id": "cal:granada:2026:v1",
+            "comunidad_ref": "andalucia"
+          },
+          "dias": [
+            {
+              "fecha": "2026-06-03",
+              "efecto": "festivo",
+              "denominacion": "Día señalado sintético"
+            }
+          ]
+        },
+        "fuente": {
+          "referencia": "fuente:cal:granada:2026:v2",
+          "sha256": "7f7081b7db3d94f83c9d622e5d0831470d9993e943c889f98fca0a15bf700777"
+        }
+      },
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:motril:2026:v1",
+            "ambito": {
+              "tipo": "local",
+              "ref": "motril"
+            },
+            "anio": 2026,
+            "numero": 1,
+            "denominacion": "Calendario sintético de motril, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:motril:2026:v1",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-01-15T00:00:00Z",
+            "comunidad_ref": "andalucia"
+          },
+          "dias": [
+            {
+              "fecha": "2026-06-08",
+              "efecto": "festivo",
+              "denominacion": "Día señalado sintético"
+            }
+          ]
+        },
+        "fuente": {
+          "referencia": "fuente:cal:motril:2026:v1",
+          "sha256": "c1f8ea7147b3295d27cec5add3d30d55dd41b6f9f540bc03017358539b777459"
+        }
+      },
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:centro:granada:2026:v1",
+            "ambito": {
+              "tipo": "centro",
+              "ref": "centro:granada"
+            },
+            "anio": 2026,
+            "numero": 1,
+            "denominacion": "Calendario sintético de centro:granada, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:centro:granada:2026:v1",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-01-15T00:00:00Z",
+            "comunidad_ref": "andalucia",
+            "municipio_ref": "granada"
+          },
+          "dias": []
+        },
+        "fuente": {
+          "referencia": "fuente:cal:centro:granada:2026:v1",
+          "sha256": "3d1734b6011850b1ba27b1e4bef5c957cc2ab5571563d4a4c18b20213b83bcdb"
+        }
+      },
+      {
+        "calendario": {
+          "version": {
+            "id": "cal:centro:motril:2026:v1",
+            "ambito": {
+              "tipo": "centro",
+              "ref": "centro:motril"
+            },
+            "anio": 2026,
+            "numero": 1,
+            "denominacion": "Calendario sintético de centro:motril, 2026",
+            "procedencia": {
+              "norma": "Fuente ficticia para el ensayo de calendario histórico",
+              "referencia": "fuente:cal:centro:motril:2026:v1",
+              "publicada_en": "2026-01-01",
+              "sintetica": true
+            },
+            "conocido_desde": "2026-01-15T00:00:00Z",
+            "comunidad_ref": "andalucia",
+            "municipio_ref": "motril"
+          },
+          "dias": []
+        },
+        "fuente": {
+          "referencia": "fuente:cal:centro:motril:2026:v1",
+          "sha256": "27e52833d8835fe93c9b5643b8a104e205d79e003585d0d835f799da0d133571"
+        }
+      }
+    ]
+  }
+}

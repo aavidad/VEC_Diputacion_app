@@ -1,0 +1,9 @@
+# Runtime nominal de administración: una sola lista, en este orden.
+# 1. AD194 corrige la repetición de AD192 (llega por trabajo/claude-ad194-secuencia-ad192-20261005).
+#    IS16 y CA36 se detienen con «falta AD194» si no está instalada.
+# 2. IS16 requiere IS14/15, CA31 y AD192 instaladas.
+# 3. CA36 consume el cotejo propietario de IS16.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000194_secuencia_repeticion_contexto_admin.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000016_runtime_admin_perfiles.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000036_contexto_admin_nominal.up.sql

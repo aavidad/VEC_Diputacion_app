@@ -1,0 +1,277 @@
+{
+  "configuracion": {
+    "schema_version": "provision.adjudicacion.v1",
+    "proceso_ref": "concurso:sintetico:1",
+    "version": "ensayo:v1",
+    "bases_ref": "bases:sinteticas:1",
+    "huella_bases": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "politica_ref": "politica:sintetica:1",
+    "politica_version": "v1",
+    "metodo": "aceptacion_diferida_personas_proponen_ensayo_v1",
+    "prioridad": "total_descendente",
+    "incompatibilidad": "un_puesto_por_persona",
+    "desempates": [
+      {
+        "regla_id": "regla:cursos",
+        "sentido": "mayor"
+      }
+    ],
+    "version_motor_valoracion": "provision.v1",
+    "version_reglas_valoracion": "reglas:v1",
+    "huella_reglas_valoracion": "91c1b370c2a1d3af010783277c4d2264e76c0f4e5fcf900a768854204c7cddb0"
+  },
+  "entrada": {
+    "universo_ref": "universo:sintetico:1",
+    "universo_version": "v1",
+    "cerrado": true,
+    "sintetico": true,
+    "vacantes": [
+      {
+        "vacante_ref": "vacante:a",
+        "puesto_ref": "puesto:a"
+      },
+      {
+        "vacante_ref": "vacante:b",
+        "puesto_ref": "puesto:b"
+      }
+    ],
+    "solicitudes": [
+      {
+        "solicitud_ref": "solicitud:persona:a",
+        "version": "v1",
+        "persona_ref": "persona:a",
+        "instantanea_ref": "instantanea:persona:a",
+        "preferencias": [
+          {
+            "vacante_ref": "vacante:a",
+            "admision": "admitida",
+            "valoracion": {
+              "estado": "simulacion_local_sin_efectos",
+              "version_motor": "provision.v1",
+              "convocatoria_ref": "concurso:sintetico:1",
+              "version_reglas": "reglas:v1",
+              "instantanea_ref": "instantanea:persona:a",
+              "puesto_ref": "puesto:a",
+              "huella_reglas": "91c1b370c2a1d3af010783277c4d2264e76c0f4e5fcf900a768854204c7cddb0",
+              "huella_entrada": "0824f0819c80c9d1d9ea21bc9c6059e969da99c52d33bbc48e9d6371cf188d4e",
+              "huella_resultado": "35680f3c4f8efc76c139811c2b16cca69dc70d542c1fc2b46728b7b99431c3e9",
+              "completo": true,
+              "incidencias": [],
+              "desglose": [
+                {
+                  "regla_id": "regla:cursos",
+                  "familia": "cursos",
+                  "referencia_base": "base:sintetica:apartado",
+                  "estado": "calculado",
+                  "detalles": [
+                    {
+                      "hecho_id": "curso:sintetico:1",
+                      "evidencia_ref": "evidencia:sintetica:1",
+                      "motivo": "computado",
+                      "unidades": "20/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "0",
+                      "maximo": "0",
+                      "resultado": "0"
+                    },
+                    {
+                      "hecho_id": "grupo:cursos",
+                      "evidencia_ref": "",
+                      "motivo": "suma_horas",
+                      "unidades": "20/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "20000000",
+                      "maximo": "100000000",
+                      "resultado": "20000000"
+                    }
+                  ],
+                  "bruto": "20000000",
+                  "maximo": "100000000",
+                  "resultado": "20000000"
+                }
+              ],
+              "bruto": "20000000",
+              "maximo_total": "100000000",
+              "total": "20000000"
+            }
+          },
+          {
+            "vacante_ref": "vacante:b",
+            "admision": "admitida",
+            "valoracion": {
+              "estado": "simulacion_local_sin_efectos",
+              "version_motor": "provision.v1",
+              "convocatoria_ref": "concurso:sintetico:1",
+              "version_reglas": "reglas:v1",
+              "instantanea_ref": "instantanea:persona:a",
+              "puesto_ref": "puesto:b",
+              "huella_reglas": "91c1b370c2a1d3af010783277c4d2264e76c0f4e5fcf900a768854204c7cddb0",
+              "huella_entrada": "c73a58140343f9b2a2dfefd09e31ce17ea216aada1b8913393cb82fabce7c693",
+              "huella_resultado": "2a5e5ccf8c390471f332f7782eef945584b670342ec0cd7af60091cef7b11f9c",
+              "completo": true,
+              "incidencias": [],
+              "desglose": [
+                {
+                  "regla_id": "regla:cursos",
+                  "familia": "cursos",
+                  "referencia_base": "base:sintetica:apartado",
+                  "estado": "calculado",
+                  "detalles": [
+                    {
+                      "hecho_id": "curso:sintetico:1",
+                      "evidencia_ref": "evidencia:sintetica:1",
+                      "motivo": "computado",
+                      "unidades": "20/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "0",
+                      "maximo": "0",
+                      "resultado": "0"
+                    },
+                    {
+                      "hecho_id": "grupo:cursos",
+                      "evidencia_ref": "",
+                      "motivo": "suma_horas",
+                      "unidades": "20/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "20000000",
+                      "maximo": "100000000",
+                      "resultado": "20000000"
+                    }
+                  ],
+                  "bruto": "20000000",
+                  "maximo": "100000000",
+                  "resultado": "20000000"
+                }
+              ],
+              "bruto": "20000000",
+              "maximo_total": "100000000",
+              "total": "20000000"
+            }
+          }
+        ]
+      },
+      {
+        "solicitud_ref": "solicitud:persona:b",
+        "version": "v1",
+        "persona_ref": "persona:b",
+        "instantanea_ref": "instantanea:persona:b",
+        "preferencias": [
+          {
+            "vacante_ref": "vacante:a",
+            "admision": "admitida",
+            "valoracion": {
+              "estado": "simulacion_local_sin_efectos",
+              "version_motor": "provision.v1",
+              "convocatoria_ref": "concurso:sintetico:1",
+              "version_reglas": "reglas:v1",
+              "instantanea_ref": "instantanea:persona:b",
+              "puesto_ref": "puesto:a",
+              "huella_reglas": "91c1b370c2a1d3af010783277c4d2264e76c0f4e5fcf900a768854204c7cddb0",
+              "huella_entrada": "2ac53896a4935306e6099f78d4302630d3abc0495c1ef2f71e3f01043bbb89a7",
+              "huella_resultado": "bac3e5a53e8e988abee524e03624e6f63d4292b2d4d8844533f327ca19b883b5",
+              "completo": true,
+              "incidencias": [],
+              "desglose": [
+                {
+                  "regla_id": "regla:cursos",
+                  "familia": "cursos",
+                  "referencia_base": "base:sintetica:apartado",
+                  "estado": "calculado",
+                  "detalles": [
+                    {
+                      "hecho_id": "curso:sintetico:1",
+                      "evidencia_ref": "evidencia:sintetica:1",
+                      "motivo": "computado",
+                      "unidades": "10/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "0",
+                      "maximo": "0",
+                      "resultado": "0"
+                    },
+                    {
+                      "hecho_id": "grupo:cursos",
+                      "evidencia_ref": "",
+                      "motivo": "suma_horas",
+                      "unidades": "10/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "10000000",
+                      "maximo": "100000000",
+                      "resultado": "10000000"
+                    }
+                  ],
+                  "bruto": "10000000",
+                  "maximo": "100000000",
+                  "resultado": "10000000"
+                }
+              ],
+              "bruto": "10000000",
+              "maximo_total": "100000000",
+              "total": "10000000"
+            }
+          },
+          {
+            "vacante_ref": "vacante:b",
+            "admision": "admitida",
+            "valoracion": {
+              "estado": "simulacion_local_sin_efectos",
+              "version_motor": "provision.v1",
+              "convocatoria_ref": "concurso:sintetico:1",
+              "version_reglas": "reglas:v1",
+              "instantanea_ref": "instantanea:persona:b",
+              "puesto_ref": "puesto:b",
+              "huella_reglas": "91c1b370c2a1d3af010783277c4d2264e76c0f4e5fcf900a768854204c7cddb0",
+              "huella_entrada": "1abf311ae645b2b394f708aac38ae412dbea5e791952a6473db82613aadb686a",
+              "huella_resultado": "3724fad66f0d7c12e65644eb40d8dd3ca7e71d8130b991df077a03dafd988716",
+              "completo": true,
+              "incidencias": [],
+              "desglose": [
+                {
+                  "regla_id": "regla:cursos",
+                  "familia": "cursos",
+                  "referencia_base": "base:sintetica:apartado",
+                  "estado": "calculado",
+                  "detalles": [
+                    {
+                      "hecho_id": "curso:sintetico:1",
+                      "evidencia_ref": "evidencia:sintetica:1",
+                      "motivo": "computado",
+                      "unidades": "10/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "0",
+                      "maximo": "0",
+                      "resultado": "0"
+                    },
+                    {
+                      "hecho_id": "grupo:cursos",
+                      "evidencia_ref": "",
+                      "motivo": "suma_horas",
+                      "unidades": "10/1",
+                      "factor_jornada": "1/1",
+                      "coeficiente": "1000000",
+                      "bruto": "10000000",
+                      "maximo": "100000000",
+                      "resultado": "10000000"
+                    }
+                  ],
+                  "bruto": "10000000",
+                  "maximo": "100000000",
+                  "resultado": "10000000"
+                }
+              ],
+              "bruto": "10000000",
+              "maximo_total": "100000000",
+              "total": "10000000"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

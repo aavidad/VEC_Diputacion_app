@@ -1,0 +1,18 @@
+{
+  "catalogos": [
+    {
+      "referencia": "seleccion-admision-ejemplo",
+      "version": "ejemplo-1",
+      "paquete_ejemplo": true,
+      "duda_ref": "dudas-139",
+      "plazo_subsanacion": {"unidad": "dias_habiles", "cantidad": 10},
+      "motivos": [
+        {"codigo": "tasa_no_justificada", "subsanable": true},
+        {"codigo": "solicitud_no_cumplimentada", "subsanable": true},
+        {"codigo": "documento_identidad_no_aportado", "subsanable": true},
+        {"codigo": "titulacion_no_acreditada", "subsanable": true},
+        {"codigo": "solicitud_fuera_de_plazo", "subsanable": false}
+      ]
+    }
+  ]
+}

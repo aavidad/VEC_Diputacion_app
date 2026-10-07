@@ -42,16 +42,17 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
     resolverAcceso: (clave) => clave === "bolsa"
       ? { disponible: false, estado: "denegado" } : { disponible: true, vista: "contratacion-temporal" },
     esPerfilRRHH: () => true,
-    obtenerCuadroInicio: () => ({ expedientes: [], parcial: false, generadoEn: "2026-09-29T07:00:00Z" }),
+    obtenerCuadroInicio: () => ({ generadoEn: "2026-09-29T07:00:00Z", resumen: { en_tramite: 0, con_incidencia: 0,
+      vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} } }),
     ahora: () => new Date("2026-09-29T08:00:00Z"),
     locale: "en-GB",
   })();
-  assert.match(html, /No cases need attention/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /No deadline is due today and there are no open issues\./u);
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
   assert.match(html, /SAE job offers[\s\S]*?To be agreed with HR|To be agreed with HR[\s\S]*?SAE job offers/u);
   assert.match(html, /New staff request/u);
-  assert.doesNotMatch(html, /expedientes pendientes|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
+  assert.doesNotMatch(html, /Lo pendiente|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
 });
 
 test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catálogo castellano", async () => {
@@ -70,7 +71,7 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   aplicarTextosPortal(documento);
   assert.equal(documento.documentElement.lang, "en");
   assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
-    ["Human Resources Management", "Interface language", "Español", "English"]);
+    ["Human Resources management", "Interface language", "Español", "English"]);
   assert.equal(traducirPortal("txt_portal_del_empleado"), "Employee Portal");
   assert.equal(traducirPortal("contratacion_temporal_encabezado"), "Temporary staff requests");
   assert.equal(traducirPortal("auditoria_expediente_panel"), "Case audit trail");

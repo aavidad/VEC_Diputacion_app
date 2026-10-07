@@ -1,0 +1,119 @@
+{
+  "esquema": "vec.administracion.acciones_sistemas.v1",
+  "catalogo_ref": "catalogo:administracion:acciones_sistemas:v1",
+  "version": 1,
+  "perfil_fijo": {
+    "rol_id": "operador_plataforma",
+    "categoria_administrativa": "sistemas",
+    "tipo_perfil": "fijo_sistema"
+  },
+  "acciones": [
+    {
+      "accion_ref": "accion:administracion.registros_tecnicos.consultar",
+      "accion": "administracion.registros_tecnicos.consultar",
+      "modulo_id": "administracion",
+      "tipo_recurso": "registro_tecnico",
+      "finalidades": [
+        "operacion_tecnica"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "codigo",
+        "componente",
+        "correlacion",
+        "correlacion_ref",
+        "entorno",
+        "esquema",
+        "etapa",
+        "instante",
+        "nivel",
+        "recuento",
+        "resultado",
+        "severidad",
+        "version_binario"
+      ],
+      "obligaciones": [],
+      "dimensiones_ambito": [
+        "organizacion_ref"
+      ],
+      "clase_control": "administrador_sistemas"
+    }
+  ],
+  "familias": [
+    "vec.incidencia_tecnica.v1",
+    "vec.resultado_tecnico.v1"
+  ],
+  "campos_excluidos": [
+    "identidad",
+    "mensaje",
+    "paths",
+    "recurso",
+    "sql",
+    "texto_error_libre"
+  ],
+  "recurso": {
+    "referencia": "dataset_opaco",
+    "propiedad": [
+      "organizacion_ref",
+      "proceso"
+    ],
+    "resolucion": "configuracion_privada_propietaria",
+    "rutas_aportadas_cliente": false,
+    "organizacion_aportada_cliente": false
+  },
+  "filtros": [
+    "desde",
+    "hasta",
+    "familia",
+    "codigo",
+    "resultado",
+    "nivel",
+    "severidad",
+    "componente",
+    "etapa",
+    "entorno",
+    "correlacion"
+  ],
+  "fechas_filtro": "UTC",
+  "paginacion": {
+    "limites_configuracion_ejemplo": {
+      "por_defecto": 32,
+      "maximo": 100
+    },
+    "cursor": "opaco",
+    "cursor_vinculado": [
+      "dataset",
+      "fuente",
+      "filtros",
+      "organizacion_ref"
+    ]
+  },
+  "operaciones": [
+    "consultar"
+  ],
+  "operaciones_excluidas": [
+    "buscar_texto_libre",
+    "exportar",
+    "escribir",
+    "gestionar_roles",
+    "consultar_auditoria_nominal"
+  ],
+  "precondiciones_lector": [
+    "sesion_sistemas",
+    "decision_V3_exacta",
+    "lector_propietario",
+    "auditoria_transaccional",
+    "confirmacion_commit"
+  ],
+  "auditoria_transaccional": "invariante_kernel",
+  "fuente_codigo": [
+    {
+      "archivo": "internal/vec/adapters/observabilidad/recolector.go",
+      "huella_sha256": "a0495cbe9c57f3f224d68d8a934c9df970f1f95b6704662b87058ed4cf2c1201"
+    },
+    {
+      "archivo": "internal/vec/adapters/observabilidad/resultado_jsonl.go",
+      "huella_sha256": "c55a7c7a6ea8bd51256517e1c1c1a687a0ea6368e56038e9678be4eb5a89ee3c"
+    }
+  ]
+}

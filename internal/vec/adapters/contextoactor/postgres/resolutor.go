@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -201,20 +202,31 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutar(
 	consulta string,
 	argumentos []any,
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
+	return r.ejecutarConClasificador(ctx, consulta, argumentos, errorContextoActorPostgreSQLReintentable)
+}
+
+// ejecutarConClasificador comparte la transacción y sus guardas. Cada fachada
+// decide qué abortos de consulta tienen garantía de repetición segura.
+func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutarConClasificador(
+	ctx context.Context,
+	consulta string,
+	argumentos []any,
+	reintentable func(error) bool,
+) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	defer revertirContextoActorPostgreSQL(tx)
 	if prepararTransaccionContextoActorPostgreSQL(ctx, tx) != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	respuesta, err := consultarRespuestaContextoActor(ctx, tx, consulta, argumentos)
 	if err != nil {
 		if denegacion := denegacionProyeccionContextoActorPostgreSQL(err); denegacion != nil {
 			return respuestaContextoActorPostgreSQL{}, estadoContextoActorDenegado, denegacion
 		}
-		if errorContextoActorPostgreSQLReintentable(err) {
+		if reintentable(err) {
 			return respuestaContextoActorPostgreSQL{}, estadoContextoActorReintentable, nil
 		}
 		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
@@ -263,7 +275,7 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) reconciliar(
 	consulta string,
 	argumentos []any,
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor) {
-	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tx, err := r.pool.BeginTx(ctxReconciliacion, pgx.TxOptions{
 		// READ COMMITTED permite renovar snapshot despues de esperar el mismo
@@ -377,7 +389,7 @@ func revertirContextoActorPostgreSQL(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

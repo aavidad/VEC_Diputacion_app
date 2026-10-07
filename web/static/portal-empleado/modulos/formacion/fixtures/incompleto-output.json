@@ -1,0 +1,174 @@
+{
+  "alcance": "preparacion_sintetica",
+  "version": 1,
+  "fuente": {
+    "referencia": "FOR-001",
+    "version": "2026-10-01",
+    "escenario": "sintetico"
+  },
+  "fuente_corporativa": {
+    "plan_url": "https://www.dipgra.es/servicios/empleo-y-formacion/formacion-para-el-empleo-publico/plan-agrupado-de-formacion/",
+    "plataforma_url": "https://formacion.dipgra.es/"
+  },
+  "plan": {
+    "referencia": "plan:2027",
+    "titulo_clave": "formacion.plan.2027",
+    "desde": "",
+    "hasta": "",
+    "presupuesto_centimos": null,
+    "plazas": null,
+    "configuracion": {
+      "version": "",
+      "modalidades": [],
+      "prioridades": []
+    },
+    "acciones": []
+  },
+  "ediciones": [
+    {
+      "referencia": "edicion:1",
+      "accion_referencia": "",
+      "titulo_clave": "formacion.accion.expedientes",
+      "modalidad_clave": "",
+      "desde": "",
+      "hasta": "",
+      "plazas": null,
+      "horas": null,
+      "necesidad_clave": "",
+      "presupuesto_centimos": null,
+      "prioridad_clave": "",
+      "pendientes": [
+        "formacion.pendiente.accion",
+        "formacion.pendiente.aprobacion_edicion",
+        "formacion.pendiente.fechas_edicion",
+        "formacion.pendiente.horas",
+        "formacion.pendiente.inscripciones",
+        "formacion.pendiente.modalidad",
+        "formacion.pendiente.necesidad",
+        "formacion.pendiente.plazas_edicion",
+        "formacion.pendiente.presupuesto_edicion",
+        "formacion.pendiente.prioridad"
+      ]
+    }
+  ],
+  "pendientes": [
+    "formacion.pendiente.acciones",
+    "formacion.pendiente.aprobacion_plan",
+    "formacion.pendiente.asistencia_certificacion",
+    "formacion.pendiente.configuracion",
+    "formacion.pendiente.criterios_seleccion",
+    "formacion.pendiente.fechas_plan",
+    "formacion.pendiente.fuente_maestra",
+    "formacion.pendiente.meritos",
+    "formacion.pendiente.plazas_plan",
+    "formacion.pendiente.presupuesto_plan",
+    "formacion.pendiente.publicacion"
+  ],
+  "checklist": [
+    {
+      "clave": "formacion.pendiente.acciones",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.aprobacion_plan",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.asistencia_certificacion",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.configuracion",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.criterios_seleccion",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.fechas_plan",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.fuente_maestra",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.meritos",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.plazas_plan",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.presupuesto_plan",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.publicacion",
+      "estado": "pendiente",
+      "referencia": "plan:2027"
+    },
+    {
+      "clave": "formacion.pendiente.accion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.aprobacion_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.fechas_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.horas",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.inscripciones",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.modalidad",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.necesidad",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.plazas_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.presupuesto_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.prioridad",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    }
+  ]
+}

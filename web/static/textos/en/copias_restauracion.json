@@ -1,0 +1,19 @@
+{
+  "copias_restauracion_propuesta_invalida": "The proposal is incomplete or contains unsupported data.",
+  "copias_restauracion_propuesta_alterada": "The proposal has changed. Prepare a new proposal and review it again.",
+  "copias_restauracion_caducada": "The proposal has expired. Prepare a new proposal.",
+  "copias_restauracion_misma_persona": "Another person must perform the review.",
+  "copias_restauracion_configuracion_invalida": "Dual control is required for operations. It may only be explicitly disabled in the offline example.",
+  "copias_restauracion_autoridad_no_vigente": "A current permission for this action has not been established.",
+  "copias_restauracion_dependencia_ausente": "A provider required to check the operation is missing.",
+  "copias_restauracion_compatibilidad_bloqueada": "The backup set is incompatible or cannot be checked.",
+  "copias_restauracion_preimagen_cambiada": "The destination, backup set or policy has changed. Prepare a new proposal.",
+  "copias_restauracion_copia_previa_ausente": "A complete, verified backup of the current state under the same writer exclusion is missing.",
+  "copias_restauracion_ventana_no_vigente": "The restoration window is not current.",
+  "copias_restauracion_cas_conflicto": "The reviewed version no longer matches the stored version.",
+  "copias_restauracion_registro_no_valido": "The proposal register cannot be verified.",
+  "copias_restauracion_error_argumentos": "Specify a private register directory and a supported action.",
+  "copias_restauracion_error_entrada": "The input does not meet the required format.",
+  "copias_restauracion_declaracion_guardada": "The offline declaration is stored. It does not establish identity, permission or restoration.",
+  "copias_restauracion_perdida_cambios": "Restoration will replace the complete destination set. Changes made after the backup will be lost; review and reconcile them before continuing."
+}

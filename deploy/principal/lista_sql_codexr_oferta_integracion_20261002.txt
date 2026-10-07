@@ -1,0 +1,3 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000071_plazo_desde_notificacion.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000070_adjudicacion_telematica.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000075_ofertas_nuevas_aceptacion_previa.up.sql

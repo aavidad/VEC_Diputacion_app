@@ -1,0 +1,6 @@
+{
+  "sintetica": true,
+  "accion": "retencion",
+  "instante": "2026-10-01T00:00:00Z",
+  "copias": [{"referencia": "copia:unica", "destino": "destino:ensayo", "fecha": "2026-01-01T00:00:00Z", "verificada": true}]
+}

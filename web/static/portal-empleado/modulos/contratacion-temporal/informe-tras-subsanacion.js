@@ -5,9 +5,9 @@
  * subsanación está registrada y el informe nuevo todavía no. */
 
 import { validarSolicitudInformeJuridico } from "./contrato-informe-juridico.js";
-import { escaparHTML } from "./componentes-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";

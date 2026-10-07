@@ -10,6 +10,7 @@ import (
 	"errors"
 	"reflect"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
@@ -206,7 +207,7 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	referencias, err := p.generador.GenerarReferenciasAlta(ctx)
+	referencias, err := p.generador.GenerarReferenciasAlta(ctx, solicitud.NumeroExpedienteMOAD)
 	if err != nil {
 		return ports.PreparacionAlta{}, errorDependencia(ctx)
 	}
@@ -433,7 +434,7 @@ func revertirTransaccion(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

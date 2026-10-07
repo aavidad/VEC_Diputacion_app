@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
 
 const valores = Object.freeze({ idioma: "es", tamano_texto: "normal", alto_contraste: false,
   tema: "sistema", inicio: "cuadro", filas: 20, aviso_correo_tareas: false, aviso_correo_plazos: false });
@@ -26,6 +26,55 @@ test("GET conserva la versión cero y el catálogo servidor sin crear ni escribi
   assert.equal(peticiones[0].opciones.method, "GET");
   assert.equal(peticiones[0].opciones.credentials, "same-origin");
   assert.equal(peticiones[0].opciones.body, undefined);
+});
+
+test("v2 permite los seis temas; v1 rechaza un tema adelantado", async () => {
+  const temasNuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...temasNuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  for (const tema of temasNuevos) {
+    const elegidos = { ...valores, tema };
+    const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => opciones.method === "GET"
+      ? respuesta({ data: { catalogo: catalogoV2, estado: { version: 0, catalogo_version_ref: catalogoV2.version_ref, valores: elegidos } } })
+      : respuesta({ data: { recibo_ref: "recibo:tema", version: 1, catalogo_version_ref: catalogoV2.version_ref,
+        valores: elegidos, fecha_utc: "2026-09-30T00:00:00Z" } }, 201) });
+    assert.equal((await cliente.consultar()).estado.valores.tema, tema);
+    assert.equal((await cliente.guardar({ version: 0, catalogoVersion: catalogoV2.version_ref,
+      clave: "tema-123456789012345", valores: elegidos })).valores.tema, tema);
+    await assert.rejects(cliente.guardar({ version: 0, catalogoVersion: catalogo.version_ref,
+      clave: "tema-123456789012345", valores: elegidos }), /valores de preferencias inválidos/u);
+  }
+  const fueraDeCatalogo = { ...catalogoV2, temas: catalogoV2.temas.slice(0, -1) };
+  const cliente = crearClientePreferencias({ fetchImpl: async () => respuesta({ data: { catalogo: fueraDeCatalogo,
+    estado: { version: 0, catalogo_version_ref: fueraDeCatalogo.version_ref, valores: { ...valores, tema: "noche_suave" } } } }) });
+  await assert.rejects(cliente.consultar(), /estado de preferencias inválido|valores de preferencias inválidos/u);
+});
+
+test("GET lee estado histórico v1 con catálogo actual v2 y guarda con v2", async () => {
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, { codigo: "salvia", nombre_key: "ui.usuarios.preferencias.tema.salvia" }] };
+  const estadoHistorico = { version: 4, catalogo_version_ref: "usuarios-preferencias-v1", valores };
+  const llamadas = [];
+  const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => {
+    llamadas.push(opciones);
+    return opciones.method === "GET" ? respuesta({ data: { catalogo: catalogoV2, estado: estadoHistorico } })
+      : respuesta({ data: { recibo_ref: "recibo:actualizado", version: 5,
+        catalogo_version_ref: "usuarios-preferencias-v2", valores: { ...valores, tema: "salvia" },
+        fecha_utc: "2026-09-30T00:00:00Z" } }, 201);
+  } });
+  const leido = await cliente.consultar();
+  assert.equal(leido.catalogo.version_ref, "usuarios-preferencias-v2");
+  assert.equal(leido.estado.version, 4);
+  const nuevo = { ...leido.estado.valores, tema: "salvia" };
+  await cliente.guardar({ version: leido.estado.version, catalogoVersion: leido.catalogo.version_ref,
+    clave: "tema-123456789012345", valores: nuevo });
+  assert.equal(JSON.parse(llamadas[1].body).catalogo_version_ref, "usuarios-preferencias-v2");
+  const adelantado = crearClientePreferencias({ fetchImpl: async () => respuesta({ data: { catalogo,
+    estado: { ...estadoHistorico, catalogo_version_ref: "usuarios-preferencias-v2" } } }) });
+  await assert.rejects(adelantado.consultar(), /estado de preferencias inválido/u);
+  const falsoHistorico = crearClientePreferencias({ fetchImpl: async () => respuesta({ data: { catalogo: catalogoV2,
+    estado: { ...estadoHistorico, valores: nuevo } } }) });
+  await assert.rejects(falsoHistorico.consultar(), /valores de preferencias inválidos/u);
 });
 
 test("PUT envía solo CAS, catálogo, clave y valores, y conserva el recibo", async () => {

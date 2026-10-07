@@ -325,11 +325,78 @@ func TestEntregaPeticionDesarrolloLigaIdentidadMaterialYAltaOriginal(t *testing.
 	}
 }
 
-type selladorEntregaPeticionPrueba struct{ clave string }
+type selladorEntregaPeticionPrueba struct{ clave, perfil string }
 
 func (s *selladorEntregaPeticionPrueba) SellarAmbitoIdempotencia(_ context.Context, m ports.SolicitudSellarAmbitoIdempotencia) (ports.ColeccionSellosHMAC, error) {
 	s.clave = m.ClaveIdempotencia
+	s.perfil = m.PerfilRef
 	return ports.NuevaColeccionSellosHMAC("hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:"+strings.Repeat("a", 64), nil)
+}
+
+type derivadorHuellaEntregaOriginalPrueba struct{ material ports.MaterialHuellaAlta }
+
+func (d *derivadorHuellaEntregaOriginalPrueba) DerivarHuellaAlta(_ context.Context, m ports.MaterialHuellaAlta) (ports.ColeccionSellosHMAC, error) {
+	d.material = m
+	return ports.NuevaColeccionSellosHMAC("hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:"+strings.Repeat("b", 64), nil)
+}
+
+func TestVerificadorOriginalNoConcedePerfilHistoricoYRechazaHuellaMOAD(t *testing.T) {
+	s, _ := escenarioPerfilesFijosPrueba(t)
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principal.ID, principal.Attributes["certificate_sha256"] = s.principalID, s.certificadoSHA256
+	fijo := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "POST")
+	if fijo == nil {
+		t.Fatal("perfil fijo de entrega ausente")
+	}
+	s.mu.Lock()
+	fijo.contextoEsperadoRegistrado = fijo.contexto.Resultado
+	fijo.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: fijo.contexto}
+	s.mu.Unlock()
+	v, err := fijo.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	capacidad := capacidadConsultaContratacionTemporalDesarrollo{
+		sello: s.sello, ruta: rutaEntregaPeticionCentro, metodo: "POST", principal: principal,
+		certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour),
+		contextoOperacion: &contextoOperacionCTDesarrollo{},
+	}
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	ambitos := &selladorEntregaPeticionPrueba{}
+	huellas := &derivadorHuellaEntregaOriginalPrueba{}
+	s.ambitos = ambitos
+	p := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s, huellas: huellas}, reloj: relojContratacionTemporalDesarrollo{}}
+	e := entregaPreparadaPerfilFijoPrueba(v.PrincipalID, "perfil:rrhh:historico", ahora)
+	recibo := ports.ReciboAlta{ExpedienteRef: "expediente:ct:historico", NumeroVisible: "2026/CT-0001", Version: 1,
+		ReciboRef: "recibo:ct:historico", AuditoriaRef: "auditoria:ct:historico", EventoRef: "evento:ct:historico", ConfirmadaEn: ahora}
+	original := ports.OriginalAltaEntrega{
+		Esquema:         "vec.contratacion-temporal.original-alta-entrega.v1",
+		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		ActorRef:        e.ActorRef, PerfilRef: e.PerfilRef,
+		Flujo:              domain.ReferenciaFlujo{DefinicionRef: "flujo:ct:historico", Version: 1, HuellaSHA256: strings.Repeat("c", 64)},
+		AmbitoHMAC:         e.AmbitoAltaHMAC,
+		HuellaPeticionHMAC: "hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:" + strings.Repeat("b", 64),
+		ReciboAlta:         recibo,
+	}
+	if err := p.VerificarOriginalAltaEntrega(ctx, e, original); err != nil ||
+		ambitos.perfil != e.PerfilRef || huellas.material.PerfilRef != e.PerfilRef ||
+		huellas.material.NumeroExpedienteMOAD != "" {
+		t.Fatalf("original con perfil histórico: error=%v ámbito=%q huella=%+v", err, ambitos.perfil, huellas.material)
+	}
+	politica := domain.PoliticaFin{ReglaRef: "regla:ct:fin-historica", CatalogoVersion: 2,
+		CatalogoHuellaSHA256: strings.Repeat("e", 64), FechaFin: "opcional", CausaFin: "fin_sustitucion"}
+	e.Peticion.Solicitud.Periodo.Fin = time.Time{}
+	e.Peticion.Solicitud.Periodo.CausaFin = "fin_sustitucion"
+	original.PoliticaFin = &politica
+	if err := p.VerificarOriginalAltaEntrega(ctx, e, original); err != nil ||
+		huellas.material.Solicitud.Periodo.PoliticaFin != politica {
+		t.Fatalf("política Fin original perdida antes de huella: %v", err)
+	}
+	original.HuellaPeticionHMAC = "hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:" + strings.Repeat("d", 64)
+	if err := p.VerificarOriginalAltaEntrega(ctx, e, original); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
+		t.Fatalf("alta MOAD sin número recuperada como anterior: %v", err)
+	}
 }
 
 func TestEntregaPeticionDesarrolloRechazaSelloDeOtraClaveAntesDeAutorizar(t *testing.T) {

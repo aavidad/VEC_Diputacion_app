@@ -1,0 +1,11 @@
+{
+  "justificacion": {
+    "ver_pendientes": "View leave awaiting evidence",
+    "estado_pendiente": "Evidence pending",
+    "sin_pendientes": "You have no leave awaiting evidence for this year.",
+    "registro_pendiente": "Supporting evidence cannot yet be registered on this screen.",
+    "ayuda_titulo": "Help with supporting evidence for leave",
+    "ayuda_origen": "The system marks these approved leave requests as awaiting evidence.",
+    "ayuda_custodia": "If the document is held in custody, its reference and fingerprint will identify it without uploading its contents."
+  }
+}

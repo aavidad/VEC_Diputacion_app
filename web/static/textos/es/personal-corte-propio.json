@@ -1,0 +1,11 @@
+{
+  "general": {
+    "fecha": "Fecha de referencia (obligatoria)",
+    "consultar": "Consultar servicios",
+    "actuales": "Ver servicios actuales",
+    "fecha_invalida": "Introduzca una fecha válida.",
+    "al_corte": "Servicios a fecha de {fecha}",
+    "alcance": "Esta fecha se aplica solo a Servicios. No reconstruye toda su historia laboral ni su situación administrativa.",
+    "ayuda": "La consulta utiliza las revisiones conocidas en este momento. Relaciones y puestos mantiene su consulta actual."
+  }
+}

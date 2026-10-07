@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -54,6 +56,38 @@ func TestRepetirTrasCarreraSerializablePolitica(t *testing.T) {
 	if err := RepetirTrasCarreraSerializable(ctx, func() error { n++; cancelar(); return carrera }); err != carrera || n != 1 {
 		t.Fatalf("contexto: err=%v intentos=%d", err, n)
 	}
+}
+
+type contextoCancelarConTemporizadorVencido struct {
+	context.Context
+	cancelar context.CancelFunc
+}
+
+func (c contextoCancelarConTemporizadorVencido) Done() <-chan struct{} {
+	// En el reloj virtual, vence cualquier espera posible antes del select.
+	time.Sleep(esperaMaximaCarreraSerializable + 2*time.Millisecond)
+	c.cancelar()
+	return c.Context.Done()
+}
+
+func TestRepetirTrasCarreraSerializableNoReintentaConTemporizadorYCancelacionListos(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		for range 20 {
+			ctx, cancelar := context.WithCancel(context.Background())
+			carrera := &pgconn.PgError{Code: "40001"}
+			intentos := 0
+			err := RepetirTrasCarreraSerializable(contextoCancelarConTemporizadorVencido{ctx, cancelar}, func() error {
+				intentos++
+				if intentos > 1 {
+					return nil
+				}
+				return carrera
+			})
+			if err != carrera || intentos != 1 || ctx.Err() != context.Canceled {
+				t.Fatalf("cancelación con temporizador vencido: err=%v intentos=%d contexto=%v", err, intentos, ctx.Err())
+			}
+		}
+	})
 }
 
 // Muchas peticiones simultáneas sobre la misma «fila»: todas toman su

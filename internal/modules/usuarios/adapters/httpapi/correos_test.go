@@ -55,13 +55,116 @@ func (o ordenCorreosHTTPPrueba) ResolverOrdenCorreos(context.Context) (ports.Ord
 }
 
 type registroCorreosHTTPPrueba struct {
-	persona string
-	err     error
-	vista   ports.VistaCorreos
+	persona           string
+	err               error
+	vista             ports.VistaCorreos
+	consultas         int
+	consultaTerminada bool
 }
 
 func (r *registroCorreosHTTPPrueba) ConsultarPropios(context.Context, ports.OrdenCorreos, ports.MaterialCorreos, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.VistaCorreos, error) {
+	r.consultas++
+	r.consultaTerminada = true
 	return r.vista, r.err
+}
+
+type auditorIntentosConsultaHTTPPrueba struct {
+	estados                   []int
+	preparaciones             int
+	errPreparar, errRegistrar error
+	alRegistrar               func()
+}
+
+func (a *auditorIntentosConsultaHTTPPrueba) PrepararIntentoConsultaCorreos(context.Context) error {
+	a.preparaciones++
+	return a.errPreparar
+}
+func (a *auditorIntentosConsultaHTTPPrueba) AuditarIntentoConsultaCorreos(_ context.Context, estado int) error {
+	if a.alRegistrar != nil {
+		a.alRegistrar()
+	}
+	a.estados = append(a.estados, estado)
+	return a.errRegistrar
+}
+
+func TestConsultaCorreosInternaErroresAuditadosAntesDeResponder(t *testing.T) {
+	for _, errConsulta := range []error{ports.ErrCorreosNoAutenticado, ports.ErrCorreosProhibido, ports.ErrCorreosConflicto, ports.ErrCorreosInvalidos, ports.ErrCorreosLimite, ports.ErrCorreosNoDisponible, context.Canceled} {
+		t.Run(errConsulta.Error(), func(t *testing.T) {
+			legacy, registro, frontera := manejadorCorreosPrueba(t)
+			w := httptest.NewRecorder()
+			a := &auditorIntentosConsultaHTTPPrueba{alRegistrar: func() {
+				if !registro.consultaTerminada || w.Body.Len() != 0 {
+					t.Fatal("registró antes de retorno SQL o después de escribir respuesta")
+				}
+			}}
+			m, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			registro.err = errConsulta
+			m.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaMisCorreos, nil))
+			estado, _ := clasificarErrorCorreos(errConsulta)
+			if w.Code != estado || len(a.estados) != 1 || a.estados[0] != estado || len(frontera.estados) != 0 || registro.consultas != 1 {
+				t.Fatal("error sin auditoría común o con registro legado duplicado")
+			}
+		})
+	}
+}
+
+func TestConsultaCorreosInternaCuerpoInvalidoSeAuditaSinConsultar(t *testing.T) {
+	legacy, registro, frontera := manejadorCorreosPrueba(t)
+	a := &auditorIntentosConsultaHTTPPrueba{}
+	m, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if estado, _ := peticionCorreos(t, m, http.MethodGet, `{}`); estado != 422 || registro.consultas != 0 || len(a.estados) != 1 || a.estados[0] != 422 {
+		t.Fatal("GET inválido consultó datos o perdió auditoría")
+	}
+}
+
+func TestConsultaCorreosInternaRegistroCaidoNoDevuelveDatos(t *testing.T) {
+	legacy, registro, frontera := manejadorCorreosPrueba(t)
+	a := &auditorIntentosConsultaHTTPPrueba{errRegistrar: errors.New("registro caído")}
+	m, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, errorOrden := range []error{ports.ErrCorreosNoAutenticado, ports.ErrCorreosProhibido, ports.ErrCorreosNoDisponible} {
+		m.orden = ordenCorreosHTTPPrueba{err: errorOrden}
+		estado, sobre := peticionCorreos(t, m, http.MethodGet, "")
+		if estado != 503 || len(sobre["data"]) != 0 || registro.consultas != 0 || len(frontera.estados) != 0 {
+			t.Fatal("registro fallido expuso datos o volvió al legado")
+		}
+	}
+	a.errPreparar = errors.New("sin captura")
+	previas := len(a.estados)
+	if estado, _ := peticionCorreos(t, m, http.MethodGet, ""); estado != 503 || len(a.estados) != previas || registro.consultas != 0 {
+		t.Fatal("sin captura fabricó auditoría o consultó")
+	}
+}
+
+func TestConsultaCorreosInternaNoDuplicaPositivoNiCambiaPOST(t *testing.T) {
+	legacy, registro, frontera := manejadorCorreosPrueba(t)
+	a := &auditorIntentosConsultaHTTPPrueba{}
+	m, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if estado, _ := peticionCorreos(t, m, http.MethodGet, ""); estado != 200 || len(a.estados) != 0 || a.preparaciones != 1 || registro.consultas != 1 {
+		t.Fatal("positivo no consultó o añadió intento")
+	}
+	m.orden = ordenCorreosHTTPPrueba{err: ports.ErrCorreosProhibido}
+	if estado, _ := peticionCorreos(t, m, http.MethodPost, `{}`); estado != 403 || len(a.estados) != 0 || a.preparaciones != 1 || len(frontera.estados) != 1 {
+		t.Fatal("POST usó captura o registrador de consulta")
+	}
+	if _, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, nil); err == nil {
+		t.Fatal("constructor interno sin registrador")
+	}
+	var nulo *auditorIntentosConsultaHTTPPrueba
+	if _, err := NuevoManejadorConsultaCorreosInternaConIntentos(legacy.servicio, legacy.orden, frontera, nulo); err == nil {
+		t.Fatal("constructor interno con registrador nil tipado")
+	}
 }
 func (r *registroCorreosHTTPPrueba) RecuperarOperacion(context.Context, ports.OrdenCorreos, ports.MaterialCorreos, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCorreos, bool, error) {
 	return ports.ReciboCorreos{}, false, nil

@@ -14,6 +14,41 @@ export const MAXIMO_HORAS_RESPUESTA = 720;
 // apartado cuando la política de la bolsa aún no lo tiene.
 const REGLAS_EJEMPLO_PLAZAS = Object.freeze({ llamada: "b30.plazas_llamada", respuesta: "b30.plazas_plazo_respuesta", tras: "b30.plazas_tras_renuncia" });
 
+/**
+ * Lector de reglas vigentes que comparte la lectura en curso: las propuestas
+ * del formulario (plazo, plazas y confirmación) se piden a la vez al abrir el
+ * llamamiento y reciben una sola respuesta. Al terminar se olvida, de modo
+ * que volver a abrir o recargar lee otra vez lo vigente.
+ */
+export function crearLectorReglasCompartido(obtenerCliente) {
+  let enCurso = null;
+  return () => {
+    enCurso ??= Promise.resolve().then(obtenerCliente).then((lector) => lector.reglas())
+      .finally(() => { enCurso = null; });
+    return enCurso;
+  };
+}
+// Carga diferida: el cliente de reglas no entra en la precarga del portal.
+const leerReglasCompartidas = crearLectorReglasCompartido(async () =>
+  (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente());
+
+/** Reglas vigentes: con `cliente` (pruebas) se lee de él; si no, la lectura compartida. */
+export function leerReglasVigentes({ cliente } = {}) {
+  return cliente ? cliente.reglas() : leerReglasCompartidas();
+}
+
+/** La confirmación nueva procede del catálogo; sin regla se conserva el modo vigente. */
+export async function cargarConfirmacionAdjudicacion({ cliente } = {}) {
+  try {
+    const datos = await leerReglasVigentes({ cliente });
+    const reglas = datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
+      .flatMap((c) => c.reglas).filter((r) => r.clave === "b30.confirmacion_adjudicacion");
+    return reglas.length === 1 && reglas[0].valor === "aceptacion_previa" ? reglas[0].valor : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Apartado de plazas completo y con valores admitidos. */
 export function plazasCompletas(plazas) {
   return Boolean(plazas) && Object.keys(plazas).length === 3 && LLAMADAS_PLAZAS.includes(plazas.llamada)
@@ -28,9 +63,7 @@ export function plazasCompletas(plazas) {
  */
 export async function cargarEjemploPlazas({ cliente } = {}) {
   try {
-    // Carga diferida: el cliente de reglas no entra en la precarga del portal.
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
-    const datos = await lector.reglas();
+    const datos = await leerReglasVigentes({ cliente });
     const reglas = new Map(datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
       .flatMap((c) => c.reglas).map((r) => [r.clave, r]));
     const ejemplo = { llamada: reglas.get(REGLAS_EJEMPLO_PLAZAS.llamada)?.valor,
@@ -42,15 +75,17 @@ export async function cargarEjemploPlazas({ cliente } = {}) {
   }
 }
 
-export function validarPoliticaEditable(politica) {
+export function validarPoliticaEditable(politica, { permitirLegada = false } = {}) {
   const plazo = politica?.plazo;
   const horas = plazo?.unidad === "horas_naturales";
   if (!plazo || (!horas && !UNIDADES_DIAS.has(plazo.unidad)) || !Number.isSafeInteger(plazo.cantidad)
     || plazo.cantidad < 1 || plazo.cantidad > (horas ? 720 : 30)
+    || (plazo.inicio !== "notificacion" && !(permitirLegada && plazo.inicio === undefined))
     || plazo.computo !== (horas ? "continuo_utc" : "administrativo")
     || typeof plazo.municipio_sede !== "string" || !MUNICIPIO.test(plazo.municipio_sede)
     || politica?.adjudicacion?.criterio !== "orden_vigente"
     || politica.adjudicacion.elegibilidad !== "disposicion_en_plazo"
+    || (politica.adjudicacion.confirmacion !== undefined && politica.adjudicacion.confirmacion !== "aceptacion_previa")
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
     || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles"
     || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))) {
@@ -74,7 +109,9 @@ export function validarPoliticaRecibida(sobre) {
     || (Object.hasOwn(p, "puede_publicar") && typeof p.puede_publicar !== "boolean")) {
     throw new TypeError("respuesta de política de ofertas no válida");
   }
-  const politica = { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica) : null };
+  // Las versiones anteriores conservan sus cuatro campos: lectura y replay,
+  // sin inventar un inicio ni permitir que se publique otra versión desde ellas.
+  const politica = { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica, { permitirLegada: true }) : null };
   delete politica.puede_publicar;
   return politica;
 }
@@ -124,7 +161,8 @@ export function crearClientePoliticaOfertas({ fetchImpl = fetch } = {}) {
       if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
       const recibida = validarPoliticaRecibida(await respuesta.json());
       if (recibida.bolsa_ref !== bolsa_ref || !recibida.configurada
-        || recibida.version !== version_esperada + 1 || !recibida.recibo_ref) {
+        || recibida.version !== version_esperada + 1 || !recibida.recibo_ref
+        || recibida.politica.plazo.inicio !== "notificacion") {
         throw new TypeError("recibo de política incoherente");
       }
       return { ok: true, status: respuesta.status, politica: recibida };

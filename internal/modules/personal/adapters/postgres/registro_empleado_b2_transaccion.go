@@ -132,9 +132,10 @@ func normalizarErrorRegistroEmpleadoB2(ctx context.Context, err error) error {
 	if errors.As(err, &pg) && pg.Code == "P7401" {
 		return errRegistroEmpleadoB2Cobertura
 	}
+	// 40001 obliga a recuperar o reintentar con la misma clave original.
 	// El catálogo B2 devuelve 23514 para versión ausente, retirada o fuera de
 	// vigencia. Todas estas causas comparten el mismo conflicto opaco.
-	if errors.As(err, &pg) && (pg.Code == "23505" || pg.Code == "23514") {
+	if errors.As(err, &pg) && (pg.Code == "23505" || pg.Code == "23514" || pg.Code == "40001") {
 		return errRegistroEmpleadoB2Conflicto
 	}
 	// 54000: la función SQL rechaza una respuesta con más filas de las que

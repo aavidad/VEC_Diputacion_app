@@ -1,0 +1,10 @@
+{
+  "copias_destino_configuracion": "Revisa la configuración y activa el modo sintético.",
+  "copias_destino_catalogo": "No se pudo cargar el catálogo de mensajes.",
+  "copias_destino_material": "No se pudo comprobar el componente. Revisa su referencia y la clave configurada.",
+  "copias_destino_no_disponible": "El destino no está disponible.",
+  "copias_destino_existe": "Ya existe un componente con esa referencia.",
+  "copias_destino_almacenar": "Componente sintético almacenado y cifrado.",
+  "copias_destino_comprobar": "Componente sintético comprobado.",
+  "copias_destino_borrar": "Componente sintético borrado."
+}

@@ -139,9 +139,9 @@ type DocumentoCircuito struct {
 	Devolucion      *domain.DevolucionComision `json:"devolucion,omitempty"`
 }
 
-// Competencia de un revisor: unidad y etapa acreditadas por una fuente
-// gobernada. Nunca se deduce de un cargo, de un perfil ni de una referencia
-// libre de la asignación D7.
+// Competencia de un revisor: unidad y etapa del perfil fijo publicado en la
+// autoridad central (duda 122). Nunca se deduce de un cargo ni de referencias
+// libres de la asignación D7. La operación exige además autorización V3.
 const (
 	FuenteCompetenciaSinFuente  = "sin_fuente"
 	FuenteCompetenciaAcreditada = "acreditada"
@@ -159,7 +159,7 @@ type EstadoCompetenciasCircuito struct {
 
 // FuenteCompetenciaCircuito es la única autoridad que fija la unidad sobre
 // la que el actor revisa en una etapa. Responde ErrCompetenciaCircuitoSinFuente
-// mientras no exista el catálogo de validadores competentes.
+// cuando el ensamblado no dispone de una fuente central consumible.
 type FuenteCompetenciaCircuito interface {
 	EstadoCompetencias(context.Context, vecdomain.ResultadoContextoActorRegistradoV2) (EstadoCompetenciasCircuito, error)
 	UnidadCompetente(context.Context, vecdomain.ResultadoContextoActorRegistradoV2, domain.EtapaCircuito) (string, error)

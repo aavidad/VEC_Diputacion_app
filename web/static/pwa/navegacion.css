@@ -1,0 +1,29 @@
+.pwa-navegacion[hidden] { display: none !important; }
+.pwa-navegacion { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.pwa-navegacion button { min-height: 2.5rem; padding: 0.45rem 0.75rem; border: 1px solid currentColor; border-radius: 0.5rem; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.pwa-navegacion button:hover { background: var(--portal-superficie-alterna, transparent); }
+.pwa-navegacion button:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+
+/* La navegación instalada ocupa una fila propia sin comprimir la identidad. */
+body.portal-empleado-app.pwa-instalada .cabecera-portal { flex-wrap: wrap; }
+body.portal-empleado-app.pwa-instalada .cabecera-portal > .contexto-cabecera { flex: 1 1 auto; }
+body.portal-empleado-app.pwa-instalada .cabecera-portal > .acciones-cabecera { flex: 0 1 auto; flex-wrap: wrap; }
+body.portal-empleado-app.pwa-instalada .cabecera-portal > .pwa-navegacion { flex: 1 0 100%; justify-content: flex-end; }
+body.area-personal-app.pwa-instalada .cabecera-portal > .pwa-navegacion { grid-column: 1 / -1; justify-self: end; }
+body.admin-perfiles-app.pwa-instalada .admin-cabecera { flex-wrap: wrap; }
+body.admin-perfiles-app.pwa-instalada .admin-cabecera > .pwa-navegacion { flex: 1 0 100%; justify-content: flex-end; }
+
+@media (max-width: 680px) {
+  body.portal-empleado-app.pwa-instalada .cabecera-portal > .pwa-navegacion,
+  body.admin-perfiles-app.pwa-instalada .admin-cabecera > .pwa-navegacion,
+  body.area-personal-app.pwa-instalada .cabecera-portal > .pwa-navegacion { justify-content: center; }
+  body.portal-empleado-app.pwa-instalada .cabecera-portal > .pwa-navegacion {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+@media not all and (display-mode: standalone) {
+  .pwa-navegacion { display: none !important; }
+}

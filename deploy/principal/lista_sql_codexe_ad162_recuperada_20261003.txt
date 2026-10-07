@@ -1,0 +1,6 @@
+# Preparación V2 recuperada sin modificar la SQL ensayada en el clon E.
+# Preimagen: post-AD158 exacta, con AD151/AD156/AD157 instaladas.
+# Aplicar antes de AD159/CT170 y de cualquier delta posterior al núcleo.
+# Si AD162 ya está instalada, no reaplicarla ni ejecutar DOWN.
+# No activa CT172 ni las fuentes nominales de firma.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000162_firma_revision_pdf_v2.up.sql

@@ -11,15 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type EntradaRegistrarContactoParticipacion struct {
-	BolsaRef, ParticipacionRef, LlamamientoRef, Canal, Resultado, Anotacion, ClaveIdempotencia string
-	Instante                                                                                   time.Time
+	BolsaRef, ParticipacionRef, LlamamientoRef, OfertaRef, EvidenciaRef, EvidenciaHuellaSHA256, Canal, Resultado, Anotacion, ClaveIdempotencia string
+	Instante                                                                                                                                   time.Time
 }
+
+const RutaContactosOferta = "/api/vec/bolsa/ofertas/contactos"
+
 type PreparadorContactoParticipacion interface {
 	PrepararSolicitudRegistrarContacto(context.Context, EntradaRegistrarContactoParticipacion) (puertosbolsa.SolicitudRegistrarContactoParticipacion, error)
 	PrepararConsultaContactos(context.Context, string, string, string, int) (puertosbolsa.ConsultaContactosParticipacion, error)
@@ -42,6 +46,15 @@ func NuevoHandlerContactoParticipacion(p PreparadorContactoParticipacion, o Oper
 	return &HandlerContactoParticipacion{p, o}, nil
 }
 func (h *HandlerContactoParticipacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r != nil && r.URL != nil && r.URL.Path == RutaContactosOferta && r.URL.RawPath == "" {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			responderContacto(w, 405, map[string]any{"error": map[string]string{"codigo": "metodo_no_permitido"}})
+			return
+		}
+		h.listarOferta(w, r)
+		return
+	}
 	bolsa, participacion, ok := ReferenciasRutaContactosParticipacion(r)
 	if !ok {
 		responderContacto(w, 404, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})
@@ -68,11 +81,14 @@ func (h *HandlerContactoParticipacion) registrar(w http.ResponseWriter, r *http.
 		return
 	}
 	var c struct {
-		Canal          string    `json:"canal"`
-		Instante       time.Time `json:"instante"`
-		Resultado      string    `json:"resultado"`
-		Anotacion      string    `json:"anotacion"`
-		LlamamientoRef string    `json:"llamamiento_ref"`
+		Canal                 string    `json:"canal"`
+		Instante              time.Time `json:"instante"`
+		Resultado             string    `json:"resultado"`
+		Anotacion             string    `json:"anotacion"`
+		LlamamientoRef        string    `json:"llamamiento_ref"`
+		OfertaRef             string    `json:"oferta_ref"`
+		EvidenciaRef          string    `json:"evidencia_ref"`
+		EvidenciaHuellaSHA256 string    `json:"evidencia_huella_sha256"`
 	}
 	d := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	d.DisallowUnknownFields()
@@ -80,7 +96,7 @@ func (h *HandlerContactoParticipacion) registrar(w http.ResponseWriter, r *http.
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	s, err := h.preparador.PrepararSolicitudRegistrarContacto(r.Context(), EntradaRegistrarContactoParticipacion{bolsa, participacion, c.LlamamientoRef, c.Canal, c.Resultado, c.Anotacion, clave, c.Instante})
+	s, err := h.preparador.PrepararSolicitudRegistrarContacto(r.Context(), EntradaRegistrarContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, LlamamientoRef: c.LlamamientoRef, OfertaRef: c.OfertaRef, EvidenciaRef: c.EvidenciaRef, EvidenciaHuellaSHA256: c.EvidenciaHuellaSHA256, Canal: c.Canal, Resultado: c.Resultado, Anotacion: c.Anotacion, ClaveIdempotencia: clave, Instante: c.Instante})
 	if err != nil {
 		responderErrorContacto(w, err)
 		return
@@ -107,9 +123,16 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 	}
 	v, e := url.ParseQuery(r.URL.RawQuery)
 	llamamiento, conLlamamiento := v["llamamiento_ref"]
-	if e != nil || len(v) > 3 || (conLlamamiento && !referenciaLlamamientoConsultaValida(llamamiento)) {
+	oferta, conOferta := v["oferta_ref"]
+	if e != nil || len(v) > 4 || (conLlamamiento && !referenciaLlamamientoConsultaValida(llamamiento)) || (conOferta && !referenciaOfertaContactoValida(oferta)) || (conOferta && conLlamamiento) {
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
+	}
+	for clave, lista := range v {
+		if (clave != "llamamiento_ref" && clave != "oferta_ref" && clave != "cursor" && clave != "limite") || len(lista) != 1 {
+			responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+			return
+		}
 	}
 	cursor := v.Get("cursor")
 	limite := 20
@@ -128,14 +151,18 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 		responderErrorContacto(w, e)
 		return
 	}
+	if conOferta {
+		consulta.OfertaRef = oferta[0]
+	}
 	p, e := h.operador.ListarContactosParticipacion(r.Context(), consulta)
 	if e != nil {
+		publicarAcuseConsultaContactos(w, e)
 		responderErrorContacto(w, e)
 		return
 	}
 	items := make([]map[string]any, 0, len(p.Contactos))
 	for _, c := range p.Contactos {
-		items = append(items, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": valorNulo(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
+		items = append(items, salidaContactoLeido(c))
 	}
 	datos := map[string]any{"esquema": "vec.bolsa.rrhh.contactos.v1", "contactos": items, "cursor_siguiente": valorNulo(p.CursorSiguiente), "hay_mas": len(p.Contactos) == limite}
 	if conLlamamiento {
@@ -148,6 +175,62 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 	}
 	responderContacto(w, 200, map[string]any{"data": datos})
 }
+
+func referenciaOfertaContactoValida(v []string) bool {
+	if len(v) != 1 || len(v[0]) != len("oferta:")+64 || !strings.HasPrefix(v[0], "oferta:") {
+		return false
+	}
+	for _, r := range strings.TrimPrefix(v[0], "oferta:") {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *HandlerContactoParticipacion) listarOferta(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength != 0 || r.Header.Get("Accept") != "application/json" {
+		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+		return
+	}
+	v, err := url.ParseQuery(r.URL.RawQuery)
+	bolsa, oferta := v["bolsa_ref"], v["oferta_ref"]
+	if err != nil || len(v) < 2 || len(v) > 4 || len(bolsa) != 1 || bolsa[0] == "" || len(bolsa[0]) > 256 || !referenciaOfertaContactoValida(oferta) {
+		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+		return
+	}
+	for clave, lista := range v {
+		if (clave != "bolsa_ref" && clave != "oferta_ref" && clave != "cursor" && clave != "limite") || len(lista) != 1 {
+			responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+			return
+		}
+	}
+	limite := 50
+	if v.Has("limite") {
+		limite, err = strconv.Atoi(v.Get("limite"))
+	}
+	if err != nil || limite < 1 || limite > 100 || len(v.Get("cursor")) > 256 {
+		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+		return
+	}
+	q, err := h.preparador.PrepararConsultaContactosBolsa(r.Context(), bolsa[0], v.Get("cursor"), limite)
+	if err != nil {
+		responderErrorContacto(w, err)
+		return
+	}
+	q.OfertaRef = oferta[0]
+	p, err := h.operador.ListarContactosBolsa(r.Context(), q)
+	if err != nil {
+		publicarAcuseConsultaContactos(w, err)
+		responderErrorContacto(w, err)
+		return
+	}
+	items := make([]map[string]any, 0, len(p.Contactos))
+	for _, c := range p.Contactos {
+		items = append(items, salidaContactoLeido(c))
+	}
+	responderContacto(w, 200, map[string]any{"data": map[string]any{"esquema": "vec.bolsa.rrhh.contactos-oferta.v1", "bolsa_ref": bolsa[0], "oferta_ref": oferta[0], "contactos": items, "cursor_siguiente": valorNulo(p.CursorSiguiente), "hay_mas": len(p.Contactos) == limite}})
+}
 func ReferenciasRutaContactosParticipacion(r *http.Request) (string, string, bool) {
 	if r == nil || r.URL == nil || r.URL.RawPath != "" || strings.Contains(r.URL.EscapedPath(), "%") {
 		return "", "", false
@@ -159,7 +242,13 @@ func ReferenciasRutaContactosParticipacion(r *http.Request) (string, string, boo
 	return s[0], s[2], true
 }
 func salidaContacto(c dominiobolsa.ContactoParticipacion, recibo string, reutilizado bool) map[string]any {
-	return map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": valorNulo(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion, "recibo_ref": valorNulo(recibo), "reutilizado": reutilizado}
+	datos := salidaContactoLeido(c)
+	datos["recibo_ref"] = valorNulo(recibo)
+	datos["reutilizado"] = reutilizado
+	return datos
+}
+func salidaContactoLeido(c dominiobolsa.ContactoParticipacion) map[string]any {
+	return map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": valorNulo(c.LlamamientoRef), "oferta_ref": valorNulo(c.OfertaRef), "evidencia_ref": valorNulo(c.EvidenciaRef), "evidencia_huella_sha256": valorNulo(c.EvidenciaHuellaSHA256), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion}
 }
 func valorNulo(v string) any {
 	if v == "" {
@@ -181,6 +270,15 @@ func responderErrorContacto(w http.ResponseWriter, err error) {
 		responderContacto(w, 404, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})
 	default:
 		responderContacto(w, 503, map[string]any{"error": map[string]string{"codigo": "servicio_no_disponible"}})
+	}
+}
+
+// publicarAcuseConsultaContactos solo expone referencias de un intento AD169
+// cuyo acuse ya validó la aplicación; nunca datos del contacto.
+func publicarAcuseConsultaContactos(w http.ResponseWriter, err error) {
+	if acuse, confirmado := application.AcuseConsultaContactosFallida(err); confirmado {
+		w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+		w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
 	}
 }
 func responderContacto(w http.ResponseWriter, estado int, v any) {

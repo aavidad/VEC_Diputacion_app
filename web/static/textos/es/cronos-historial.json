@@ -1,0 +1,20 @@
+{
+  "historial": {
+    "titulo": "Mis solicitudes de permiso",
+    "filtro": "Mostrar solicitudes",
+    "todas": "Todas",
+    "pendientes": "Pendientes",
+    "concedidos": "Concedidas",
+    "denegados": "Denegadas",
+    "cancelados": "Canceladas",
+    "anterior": "Solicitudes anteriores",
+    "siguiente": "Solicitudes siguientes",
+    "recuento": "Solicitudes {desde}–{hasta} de {total}. Página {pagina} de {paginas}.",
+    "sin_resultados": "No hay solicitudes con este estado en el año seleccionado.",
+    "permiso_sin_nombre": "Nombre del permiso no disponible",
+    "recibo_titulo": "Última solicitud registrada",
+    "recibo_detalle": "Ver recibo de la solicitud",
+    "recibo_referencia": "Referencia del recibo",
+    "recibo_fecha": "Fecha de registro"
+  }
+}

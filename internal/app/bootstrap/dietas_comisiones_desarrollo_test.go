@@ -66,8 +66,8 @@ func TestComisionesDietasSoloSeMontanConSelectorYMaterialNominal(t *testing.T) {
 
 func TestDescriptoresDietasNominalesEnCatalogoComun(t *testing.T) {
 	descriptores := descriptoresMaterialDietasDesarrollo()
-	if len(descriptores) != 20 {
-		t.Fatalf("audiencias Dietas/Personal = %d, se esperan 20", len(descriptores))
+	if len(descriptores) != 24 {
+		t.Fatalf("audiencias Dietas/Personal = %d, se esperan 24", len(descriptores))
 	}
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatalf("catálogo V3 rechaza audiencias nominales: %v", err)

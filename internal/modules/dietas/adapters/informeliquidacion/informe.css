@@ -1,0 +1,66 @@
+/* Documento autónomo: la composición inyecta tokens del tema común VEC. */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--portal-fondo); color: var(--portal-tinta); font: 1rem/1.5 system-ui, sans-serif; }
+main { width: min(100% - 48px, 1120px); margin: 32px auto; }
+h1 { margin: 0 0 16px; font-size: 1.5rem; line-height: 1.25; }
+h2 { margin: 0; font-size: 1.1rem; }
+h3 { margin: 24px 0 8px; font-size: 1rem; }
+p { max-width: 75ch; }
+.cabecera-informe { margin-bottom: 24px; }
+.estado { display: inline-block; margin: 0; padding: 6px 12px; border-radius: var(--portal-radio); color: var(--portal-aviso); background: var(--portal-aviso-suave); font-weight: 650; }
+.limite { margin: 12px 0 0; }
+.panel { min-width: 0; margin-bottom: 24px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
+.cabecera-panel { padding: 16px 24px; background: var(--portal-cabecera-panel); border-radius: var(--portal-radio-lg) var(--portal-radio-lg) 0 0; }
+.cuerpo-panel { padding: 20px 24px; }
+dl { margin: 0; }
+dt { font-weight: 600; }
+dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.datos-comision { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.tabla-ayuda { margin: 16px 24px; color: var(--portal-muted); font-size: .875rem; }
+.tabla-scroll { max-width: 100%; overflow-x: auto; border-radius: 0 0 var(--portal-radio-lg) var(--portal-radio-lg); scrollbar-color: var(--portal-muted) var(--portal-superficie-alterna); }
+table { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
+thead, tfoot { background: var(--portal-cabecera-panel); }
+th, td { padding: 12px 16px; border-bottom: 1px solid var(--portal-borde); text-align: left; overflow-wrap: anywhere; vertical-align: top; }
+thead th { font-size: .875rem; }
+thead th:first-child { width: 25%; }
+thead th:last-child { width: 24%; }
+tbody th { font-weight: 600; }
+tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
+tbody tr:hover { background: var(--portal-azul-100); }
+tfoot th, tfoot td { border-bottom: 0; font-weight: 700; }
+.importe { text-align: right; font-variant-numeric: tabular-nums; }
+.detalle-linea { display: block; margin-top: 4px; font-size: .875rem; color: var(--portal-muted); font-weight: 400; }
+summary { padding: 16px 24px; cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
+summary:hover { background: var(--portal-superficie-alterna); }
+:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 3px; }
+.tabla-scroll:focus-visible { outline-offset: -3px; }
+.datos-detalle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+.huella { font-family: ui-monospace, monospace; font-size: .875rem; }
+.fuentes { padding-left: 24px; overflow-wrap: anywhere; }
+.reglas > div { margin-bottom: 12px; }
+.limite-huella { color: var(--portal-muted); font-size: .875rem; }
+.solo-lectura { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 600px) {
+  main { width: calc(100% - 24px); margin: 20px auto; }
+  .cabecera-panel, summary { padding: 12px 16px; }
+  .cuerpo-panel { padding: 16px; }
+  .datos-comision, .datos-detalle { grid-template-columns: minmax(0, 1fr); }
+  .tabla-ayuda { margin: 12px 16px; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 15mm; }
+  body { background: var(--portal-superficie); font-size: 10pt; }
+  main { width: 100%; margin: 0; }
+  .panel { box-shadow: none; }
+  .cabecera-informe { break-inside: avoid; }
+  .tabla-ayuda { display: none; }
+  .tabla-scroll { overflow: visible; }
+  table { min-width: 0; }
+  thead { display: table-header-group; }
+  tfoot { display: table-row-group; }
+  tr { break-inside: avoid; }
+  .detalle-tecnico::details-content { content-visibility: visible; }
+  .detalle-tecnico > .cuerpo-panel { display: block !important; }
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+}

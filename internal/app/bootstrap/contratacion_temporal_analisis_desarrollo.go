@@ -54,7 +54,8 @@ func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 	return solicitud.ArtefactoRef == artefactoAnalisisContratacionTemporalDesarrollo &&
 		solicitud.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
 		categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) &&
-		conModalidad && opciones.causaValida(datos.CausaClave) && conEntradaRC &&
+		conModalidad && modalidad.periodoValido(datos.Periodo) &&
+		opciones.causaValida(datos.CausaClave) && conEntradaRC &&
 		(datos.MotivoUrgencia == "" || opciones.urgenciaDisponible) &&
 		!(modalidad.Duracion != nil && modalidad.Duracion.Bloquear &&
 			modalidad.Duracion.superaDuracion(datos.Periodo))
@@ -241,6 +242,9 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 	for _, modalidad := range opciones.modalidades {
 		modalidades = append(modalidades, opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
 			Clave: string(modalidad.Clave), Etiqueta: modalidad.Etiqueta,
+			FechaFin: modalidad.FechaFin, CausaFin: string(modalidad.CausaFin),
+			ReglaRef: modalidad.ReglaRef, CatalogoVersion: modalidad.CatalogoVersion,
+			CatalogoHuellaSHA256: modalidad.CatalogoHuellaSHA256,
 		})
 		if modalidad.Duracion != nil {
 			duraciones = append(duraciones, duracionMaximaConfiguracionAnalisisCT{
@@ -341,6 +345,12 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
+	recuperacionPoliticaFin, err := postgrescontratacion.NuevoRecuperadorPoliticaFinPostgreSQL(
+		alta.postgresql.ejecucion,
+	)
+	if err != nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
 	servicio, err := application.NuevoServicioOperacionAnalisis(
 		alta.soporte,
 		artefactos,
@@ -351,8 +361,12 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		alta.autorizador,
 		reloj,
 		transaccion,
+		alta.soporte,
 	)
 	if err != nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacionPoliticaFin); err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
 	return servicio, nil

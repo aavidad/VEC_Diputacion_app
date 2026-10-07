@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion/migraciones/000046_fechas_prospectivas_mantenimiento_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000045_mantenimiento_perfil_fijo_lote.up.sql

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearAyudanteTramites } from "./ayudante-tramites.js";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
 
 test("las instrucciones de alternativas y motivo D4 se consultan en el ayudante existente", () => {
   let pulsar;

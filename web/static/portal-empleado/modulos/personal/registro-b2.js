@@ -1,8 +1,16 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260929-i18n-personal-v1";
+import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261002-b-base-401-acumulada-v3";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
+import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
+import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
+import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-base-401-acumulada-v3";
+import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261002-b-base-401-acumulada-v3";
+
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261004-personal-vacantes-filtro-v1";
+
+import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v3";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -57,14 +65,53 @@ function presentar(item, campo, t) {
 }
 function estado(d, texto, alerta = false) { const p = nodo(d, "p", texto); p.className = "personal-registro-b2-estado"; p.setAttribute("role", alerta ? "alert" : "status"); return p; }
 function panel(d, titulo) { const s = nodo(d, "section"); s.className = "panel"; const h = nodo(d, "header"); h.className = "cabecera-panel"; h.append(nodo(d, "h3", titulo)); const c = nodo(d, "div"); c.className = "cuerpo-panel"; s.append(h, c); return { elemento: s, cuerpo: c }; }
-function tabla(d, t, titulo, columnas, filas) {
+function datoTraza(d, lista, titulo, valor) {
+  lista.append(nodo(d, "dt", titulo), nodo(d, "dd", valor));
+}
+function detalleTraza(d, item, t, tt, numeroFila, nombreTabla) {
+  const traza = item.traza;
+  const detalle = nodo(d, "details"); detalle.className = "personal-registro-b2-traza";
+  const resumen = nodo(d, "summary", tt("ver_origen"));
+  resumen.setAttribute("aria-label", tt("origen_fila", { fila: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(numeroFila), tabla: nombreTabla }));
+  detalle.append(resumen);
+  const lista = nodo(d, "dl");
+  datoTraza(d, lista, tt("fecha_registro"), formatoInstante(traza.registrada_en, t));
+  datoTraza(d, lista, tt("fecha_efectos"), formatoFecha(traza.desde, t));
+  datoTraza(d, lista, tt("fecha_fin"), traza.hasta ? formatoFecha(traza.hasta, t) : tt("sin_fin"));
+  datoTraza(d, lista, tt("version_hecho"), Number.isSafeInteger(traza.version) && traza.version > 0 ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(traza.version) : tt("sin_valor"));
+  datoTraza(d, lista, tt("estado"), item.estado ? etiquetaEstado(item.estado, t) : tt("sin_valor"));
+  datoTraza(d, lista, tt("fuente"), tt("sin_denominacion"));
+  datoTraza(d, lista, tt("acto"), tt("sin_denominacion"));
+  const snapshots = Object.entries({ regimen: item.catalogo_snapshot?.regimen, modalidad: item.catalogo_snapshot?.modalidad, situacion: item.catalogo_snapshot?.situacion, clase_servicio: item.catalogo_snapshot?.clase_servicio });
+  for (const [tipo, snapshot] of snapshots) {
+    if (!snapshot) continue;
+    const nombre = textoSeguro(snapshot.denominacion, 256) || tt("sin_denominacion");
+    const version = Number.isSafeInteger(snapshot.version) && snapshot.version > 0 ? tt("version_catalogo", { version: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(snapshot.version) }) : tt("sin_valor");
+    datoTraza(d, lista, tt(tipo), `${nombre} · ${version}`);
+  }
+  detalle.append(lista);
+  const tecnico = nodo(d, "details"); tecnico.className = "personal-registro-b2-traza-tecnica";
+  tecnico.append(nodo(d, "summary", tt("detalle_tecnico")));
+  const referencias = nodo(d, "dl");
+  for (const [clave, valor] of [
+    ["fuente_ref", traza.fuente_ref], ["acto_ref", traza.acto_ref], ["fuente_version", traza.fuente_version],
+    ["plaza_ref", item.plaza_ref], ["puesto_ref", item.puesto_ref],
+  ]) {
+    const seguro = typeof valor === "number" && Number.isSafeInteger(valor) && valor > 0 ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(valor) : textoSeguro(valor, 256);
+    if (seguro) datoTraza(d, referencias, tt(clave), seguro);
+  }
+  tecnico.append(referencias); detalle.append(tecnico);
+  return detalle;
+}
+function tabla(d, t, titulo, columnas, filas, tt) {
   const region = nodo(d, "div"); region.className = "tabla-contenedor"; region.setAttribute("role", "region"); region.setAttribute("tabindex", "0"); region.setAttribute("aria-label", t(titulo));
   const tab = nodo(d, "table"); tab.className = "tabla-datos"; tab.append(nodo(d, "caption", t(titulo)));
   const thead = nodo(d, "thead"); const cab = nodo(d, "tr");
   for (const [, clave] of columnas) { const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); cab.append(th); }
+  if (tt) { const th = nodo(d, "th", tt("ver_origen")); th.setAttribute("scope", "col"); cab.append(th); }
   thead.append(cab); tab.append(thead);
   const body = nodo(d, "tbody");
-  for (const item of filas) {
+  for (const [indice, item] of filas.entries()) {
     const tr = nodo(d, "tr");
     for (const [campo] of columnas) {
       const td = nodo(d, "td");
@@ -73,6 +120,7 @@ function tabla(d, t, titulo, columnas, filas) {
       td.textContent = snapshot && textoSeguro(snapshot.denominacion, 256) ? snapshot.denominacion : presentar(item, campo, t);
       tr.append(td);
     }
+    if (tt) { const td = nodo(d, "td"); td.append(detalleTraza(d, item, t, tt, indice + 1, t(titulo))); tr.append(td); }
     body.append(tr);
   }
   tab.append(body); region.append(tab); return region;
@@ -83,6 +131,10 @@ function validarFicha(respuesta) {
       f.eficacia_administrativa !== false || f.firma_oficial !== false || !f.corte || !fechaValida(f.corte.vigente_en) || !instanteValido(f.corte.conocido_en) ||
       !BLOQUES.every(([clave]) => Array.isArray(f[clave]) && f[clave].length <= 200 && f[clave].every((fila) => fila && typeof fila === "object" && fila.traza && fechaValida(fila.traza.desde) && (!fila.traza.hasta || fechaValida(fila.traza.hasta)) && Number.isSafeInteger(fila.traza.version) && fila.traza.version > 0 && (clave !== "servicios" || (fechaValida(fila.periodo_desde) && fechaValida(fila.periodo_hasta)))))) throw new TypeError("ficha de empleado incompatible");
   return f;
+}
+function validarVinculoPreparacion(ficha, modelo, campoVersion = "version") {
+  if (modelo !== undefined && (!modelo || modelo.empleado_ref !== ficha.empleado_ref || modelo[campoVersion] !== ficha.version || modelo.corte?.vigente_en !== ficha.corte.vigente_en || !instanteValido(modelo.corte?.conocido_en) || Date.parse(modelo.corte.conocido_en) !== Date.parse(ficha.corte.conocido_en))) throw new TypeError("personal.preparacion.ficha_incompatible");
+  return modelo;
 }
 function validarPagina(respuesta) {
   const p = respuesta?.pagina;
@@ -122,22 +174,23 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
       typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof reloj !== "function") throw new TypeError("Registro de Personal no disponible");
-  const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
+  const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const tt = crearTraductorTraza(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista"; cabecera.append(nodo(d, "h2", t("registro_b2_titulo")));
   const ayuda = nodo(d, "details"); ayuda.className = "personal-registro-b2-ayuda"; const resumenAyuda = nodo(d, "summary", "?"); resumenAyuda.setAttribute("aria-label", t("registro_b2_ayuda_abrir")); const textoAyuda = nodo(d, "div"); textoAyuda.append(nodo(d, "p", t("registro_b2_ayuda"))); ayuda.append(resumenAyuda, textoAyuda); cabecera.append(ayuda);
   const pestañas = nodo(d, "div"); pestañas.className = "personal-registro-b2-pestanas"; pestañas.setAttribute("role", "tablist"); pestañas.setAttribute("aria-label", t("registro_b2_pestanas"));
   const contenido = nodo(d, "div"); contenido.className = "personal-registro-b2-contenido"; contenido.setAttribute("role", "tabpanel"); contenido.setAttribute("tabindex", "0"); contenido.id = "personal-registro-b2-panel";
   s.append(cabecera, pestañas, contenido); raiz.append(s);
-  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos;
+  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos; let comparacion;
   let vigenteEn = hoyMadrid(reloj); let conocidoEnLocal = localFechaHora(reloj());
-  let seleccionRelacion = "";
+  let seleccionRelacion = ""; let preparacionServicios; let preparacionRPT; let preparacionCarrera;
   const paginas = { vacantes: { cursor: "", anteriores: [] }, empleados: { cursor: "", anteriores: [] } };
   const botones = new Map();
-  const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; };
-  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
+  const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; comparacion?.desmontar(); comparacion = undefined; };
+  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
   registrarDesmontar?.(desmontar);
 
   function pintarFicha(ficha) {
+    comparacion?.desmontar(); comparacion = undefined;
     const ultimas = new Map();
     for (const relacion of ficha.relaciones) if (!ultimas.has(relacion.relacion_ref) || ultimas.get(relacion.relacion_ref).traza.version < relacion.traza.version) ultimas.set(relacion.relacion_ref, relacion);
     const relacionesUnicas = [...ultimas.values()];
@@ -145,13 +198,17 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     const cuerpoResumen = nodo(d, "div"); cuerpoResumen.className = "cuerpo-panel personal-registro-b2-resumen";
     cuerpoResumen.append(nodo(d, "h3", t("registro_b2_ficha")), nodo(d, "p", t("registro_b2_version", { version: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(ficha.version) })));
     resumen.append(cuerpoResumen); contenido.append(resumen);
+    comparacion = montarComparacionFichaB2({ raiz: contenido, cliente, empleadoRef: empleado, corteBase: ficha.corte, anunciar,
+      alIniciar: () => { ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; contenido.replaceChildren(comparacion.elemento); },
+    });
     if (relacionesUnicas.length > 1) {
       const form = nodo(d, "div"); form.className = "personal-registro-b2-toolbar";
       const label = nodo(d, "label", t("registro_b2_elegir_relacion")); const select = nodo(d, "select"); select.dataset.registroB2Relacion = "";
       const opcionVacia = nodo(d, "option", t("registro_b2_elegir_relacion")); opcionVacia.value = ""; select.append(opcionVacia);
       for (const relacion of relacionesUnicas) { const opcion = nodo(d, "option", `${nombreOReferencia(relacion, "unidad_denominacion", "unidad_ref", t)} · ${periodo(relacion.traza, t)}`); opcion.value = relacion.relacion_ref; select.append(opcion); }
       select.value = ficha.relaciones.some((r) => r.relacion_ref === seleccionRelacion) ? seleccionRelacion : "";
-      select.addEventListener("change", () => { seleccionRelacion = select.value; contenido.replaceChildren(); pintarFicha(ficha); });
+      seleccionRelacion = select.value;
+      select.addEventListener("change", () => { if (!activo || vista !== "ficha" || ultimaFicha !== ficha) return; seleccionRelacion = select.value; contenido.replaceChildren(); pintarFicha(ficha); });
       label.append(select); form.append(label); contenido.append(form);
     } else seleccionRelacion = relacionesUnicas[0]?.relacion_ref || "";
     const rejilla = nodo(d, "div"); rejilla.className = "personal-registro-b2-grupos";
@@ -160,10 +217,13 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       const filas = clave === "relaciones" ? ficha[clave] : ficha[clave].filter((fila) => fila.relacion_ref === seleccionRelacion);
       if (clave !== "relaciones" && relacionesUnicas.length > 1 && !seleccionRelacion) bloque.cuerpo.append(estado(d, t("registro_b2_relacion_pendiente")));
       else if (filas.length === 0) bloque.cuerpo.append(estado(d, t("registro_b2_vacio")));
-      else bloque.cuerpo.append(tabla(d, t, nombreTabla, columnas, filas));
+      else bloque.cuerpo.append(tabla(d, t, nombreTabla, columnas, filas, tt));
       rejilla.append(bloque.elemento);
     }
     contenido.append(rejilla);
+    if (preparacionServicios) contenido.append(crearPanelPreparacionServiciosCER({ documento: d, modelo: preparacionServicios, relacionRef: seleccionRelacion }));
+    if (preparacionRPT) contenido.append(crearPanelRelacionParaRPT({ documento: d, modelo: preparacionRPT, relacionRef: seleccionRelacion }));
+    if (preparacionCarrera) contenido.append(renderizarPreparacionAntecedentesCarrera({ documento: d, modelo: { ...preparacionCarrera, relaciones: preparacionCarrera.relaciones.filter((r) => r.relacion_ref === seleccionRelacion) } }));
   }
   function paginacion(clave, pagina, etiqueta) {
     const estadoPagina = paginas[clave];
@@ -225,17 +285,17 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     contenido.append(p.elemento);
   }
   function pintarVacantes(pagina) {
-    const p = panel(d, t("registro_b2_vacantes"));
-    if (pagina.vacantes.length === 0) p.cuerpo.append(estado(d, t("registro_b2_vacio")));
-    else p.cuerpo.append(tabla(d, t, "registro_b2_tabla_vacantes", [
-      ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["unidad", "registro_b2_unidad"], ["cobertura", "registro_b2_estado"],
-    ], pagina.vacantes));
-    p.cuerpo.append(paginacion("vacantes", pagina, "registro_b2_paginacion"));
-    contenido.append(p.elemento);
+    const hoja = crearVistaVacantesB2({ documento: d, pagina,
+      formatos: { fecha: (valor) => formatoFecha(valor, t), instante: (valor) => formatoInstante(valor, t), numero: (valor) => new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(valor) },
+      anadirDatoTraza: (lista, titulo, valor) => datoTraza(d, lista, titulo, valor),
+    });
+    hoja.children[1].append(paginacion("vacantes", pagina, "registro_b2_paginacion"));
+    contenido.append(hoja);
   }
   async function consultar() {
     if (!activo) return;
     limpiarVuelo();
+    ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined;
     const conocidoEn = conocidoUTC(conocidoEnLocal);
     if (!fechaValida(vigenteEn) || !conocidoEn) { contenido.replaceChildren(estado(d, t("registro_b2_fecha_invalida"), true)); return; }
     if (vista === "ficha" && !empleado) {
@@ -257,6 +317,10 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       if (vista === "ficha") {
         const ficha = validarFicha(respuesta);
         if (ficha.empleado_ref !== empleado || ficha.corte.vigente_en !== vigenteEn || Date.parse(ficha.corte.conocido_en) !== Date.parse(conocidoEn)) throw new TypeError("ficha de otro empleado o corte");
+        preparacionServicios = validarVinculoPreparacion(ficha, respuesta.preparacion_servicios);
+        preparacionRPT = validarVinculoPreparacion(ficha, respuesta.preparacion_rpt, "version_ficha");
+        preparacionCarrera = validarVinculoPreparacion(ficha, respuesta.preparacion_carrera);
+        if (preparacionCarrera !== undefined) validarPreparacionAntecedentesCarrera(preparacionCarrera);
         ultimaFicha = ficha; pintarFicha(ficha);
       } else {
         const pagina = vista === "empleados" ? validarPaginaEmpleados(respuesta) : validarPagina(respuesta);
@@ -265,6 +329,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       }
     } catch (error) {
       if (!activo || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
+      ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined;
       const errorCliente = error instanceof ErrorRegistroB2 || error?.name === "ErrorRegistroB2";
       const reintentable = vista === "vacantes" && errorCliente && error.estado === 503;
       const clave = reintentable && error.codigo === "cobertura_no_acreditada" ? "registro_b2_no_determinable" : errorCliente && [401, 403].includes(error.estado) ? "registro_b2_denegado" : "registro_b2_error";
@@ -301,7 +366,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
         const opciones = { ...catalogos, regimenes: publicadas.regimenes, modalidades: publicadas.modalidades, situaciones: publicadas.situaciones, clasesServicio: publicadas.clasesServicio };
         contenido.replaceChildren();
         if (!accionesRegistroB2Disponibles({ cliente, catalogos: opciones, personaRef, empleadoRef: empleado })) { contenido.append(estado(d, t("registro_b2_actos_no_disponibles"))); return; }
-        montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos: opciones, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; seleccionRelacion = recibo.relacion_ref; } });
+        montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos: opciones, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = recibo.relacion_ref; } });
       }).catch(() => {
         if (!activo || vista !== "actos" || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
         contenido.replaceChildren(estado(d, t("registro_b2_catalogos_error"), true));
@@ -325,10 +390,10 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   });
   function elegirEmpleado(ref) {
     if (!activo || typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref)) return;
-    empleado = ref; ultimaFicha = undefined; seleccionRelacion = "";
+    empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = "";
     cambiarVista("ficha"); botones.get("ficha")?.focus?.();
   }
-  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
+  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
   cambiarVista(empleado || !botones.has("empleados") ? "ficha" : "empleados");
   return Object.freeze({ desmontar, cambiarEmpleado });
 }

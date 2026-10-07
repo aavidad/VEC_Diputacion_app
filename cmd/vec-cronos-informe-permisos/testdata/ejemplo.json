@@ -1,0 +1,33 @@
+{
+  "demo": true,
+  "nombre": "Carmen Molina Ortega",
+  "ejercicio": 2026,
+  "corte_utc": "2026-10-01T10:00:00Z",
+  "campos_permitidos": ["etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"],
+  "filas": [
+    {
+      "tipo_ref": "vacaciones_ejemplo",
+      "resumen": {
+        "etiqueta": "Vacaciones (ejemplo)",
+        "unidad": "dia",
+        "computo": "laborables",
+        "pendiente_resolver": 2,
+        "concedido": 12,
+        "restante": 8,
+        "conciliacion": "conciliado"
+      }
+    },
+    {
+      "tipo_ref": "asuntos_propios_ejemplo",
+      "resumen": {
+        "etiqueta": "Asuntos propios (ejemplo)",
+        "unidad": "hora",
+        "computo": "laborables",
+        "pendiente_resolver": 30,
+        "concedido": 120,
+        "restante": null,
+        "conciliacion": "sin_conciliar"
+      }
+    }
+  ]
+}

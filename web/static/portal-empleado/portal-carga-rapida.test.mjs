@@ -3,11 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
-import { traducirPortal } from "./portal-i18n.js";
-import { crearVistaInicioPortal } from "./portal-inicio.js";
-import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js";
-import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-b-servicios-351-main-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { versionDe } from "./versiones-cache.test-helper.mjs";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";
+import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-f-reconciliacion-324-v1";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {
   const renderizar = crearVistaInicioPortal({
@@ -67,6 +68,31 @@ const recursosDietas = () => ({
   calculador: { crearCalculadorRutasDietasHTTP: () => ({}) },
   mapa: { crearVisorRutaDietas: () => ({}) },
   recorridos: { montarVistaRecorridosDietas() {} },
+});
+
+test("Mi espacio publica navegación diferida sin cargar ni consultar módulos propios", async () => {
+  const cargados = [];
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => CATALOGO.filter(({ clave }) => clave !== "contratacion_temporal"),
+    entorno: { fetch: () => assert.fail("los accesos no deben sondear APIs propias") },
+    cargadoresInternos: {
+      contratacion_temporal: () => assert.fail("CT no está en el catálogo"),
+      cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
+      personal: () => assert.fail("Personal no se ha abierto"), dietas: () => assert.fail("Dietas no se ha abierto"),
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
+  assert.deepEqual(cargados, []);
+  for (const vista of ["personal-registro", "cronos-bandeja", "cronos-bandeja-notificaciones"]) assert.equal(VISTAS_AUTOSERVICIO_EMPLEADO.has(vista), false);
+  assert.match(crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
+    obtenerCatalogo: () => coordinador.obtenerCatalogo(), resolverAcceso: coordinador.resolverAcceso,
+    obtenerAccesosEmpleado: coordinador.obtenerAccesosEmpleado })(), /Mi espacio/);
+  assert.deepEqual(cargados, []);
+  await coordinador.prepararVista("cronos");
+  assert.deepEqual(cargados, ["cronos"]);
+  assert.equal(coordinador.vistaDisponible("cronos"), true);
+  assert.equal(coordinador.obtenerAccesosEmpleado().cronos.estado, "disponible");
 });
 
 /** Cada cargador espera a que la prueba lo libere: se controla el orden de llegada. */
@@ -173,10 +199,11 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargarFasesCircuito: async () => ({ solicitud: "Firma de la petición" }),
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
@@ -192,6 +219,54 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   pendientes.cuadro.resolver({ expedientes: [] });
   await carga;
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+});
+
+// 06/10/2026: la vista de CT (unos 130 ficheros) se esperaba antes de pedir el
+// cuadro, y con HTTP/1.1 eso retrasaba Inicio entero. Ahora el cuadro se pide
+// con el código mínimo y la vista solo se carga al abrir CT.
+test("contratación temporal consulta su cuadro sin cargar su vista hasta que se abre", async () => {
+  const resumenInicio = Object.freeze({ generadoEn: "2026-10-06T08:00:00Z", resumen: Object.freeze({ en_tramite: 1 }) });
+  const pasos = [];
+  const vistaPendiente = diferido();
+  const montajes = [];
+  const cliente = {
+    obtenerCatalogosAlta: async () => { pasos.push("alta"); return { centros: [], categorias: [] }; },
+    obtenerConfiguracionAnalisis: async () => { pasos.push("analisis"); throw new Error("503"); },
+    registrarSolicitud: async () => ({}),
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: {
+          crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
+            resumenInicio: async () => { pasos.push("cuadro"); return resumenInicio; } }),
+          etiquetaCatalogo: (_catalogo, valor) => valor,
+        },
+        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        cargarVista: () => { pasos.push("vista"); return vistaPendiente.promesa; },
+      }),
+    },
+  });
+  await coordinador.cargarInterno();
+  // Inicio ya tiene los recuentos del servidor, sin la vista.
+  assert.deepEqual(pasos.sort(), ["alta", "analisis", "cuadro"]);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(coordinador.obtenerCuadroInicio(), resumenInicio);
+  const raiz = { replaceChildren() {} };
+  const montaje = coordinador.montarVista("contratacion-temporal", raiz);
+  await esperarTurnos();
+  assert.equal(pasos.at(-1), "vista", "abrir CT pide la vista");
+  assert.deepEqual(montajes, [], "y espera a que llegue");
+  vistaPendiente.resolver({ vista: {
+    montarModuloContratacionTemporal: async () => { montajes.push("ct"); return { desmontar() {} }; },
+  } });
+  assert.equal(await montaje, true);
+  assert.deepEqual(montajes, ["ct"]);
+  assert.equal(pasos.filter((paso) => paso === "vista").length, 1, "la vista se pide una sola vez");
 });
 
 test("cambiar de vista o repintar Inicio durante la carga no cancela los módulos pendientes", async () => {
@@ -343,7 +418,7 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
           obtenerCatalogosAlta: consulta("alta"), obtenerConfiguracionAnalisis: consulta("analisis"),
           registrarSolicitud: async () => ({}), registrarAnalisis: async () => ({}),
         }) },
-        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { numeroExpedienteVisible, montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },
@@ -375,10 +450,6 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
   assert.equal(altaMontada.catalogos.centros[0].etiqueta, "DEPORTES");
   // Al llegar se avisa para repintar Inicio con los nombres.
   assert.deepEqual(avisos, ["catalogo", "contratacion_temporal", "contratacion_temporal"]);
-  assert.equal(coordinador.obtenerTramitesInicio()[0].centro, "DEPORTES");
-  // La petición de centro usa la clave de la organización; el anterior a la numeración, sin número.
-  assert.deepEqual([coordinador.obtenerTramitesInicio()[1].centro, coordinador.obtenerTramitesInicio()[1].numero_visible],
-    ["TRANSFORMACIÓN DIGITAL", "Sin numerar"]);
 });
 
 test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async () => {
@@ -392,7 +463,7 @@ test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async ()
           obtenerCatalogosAlta: () => alta.promesa, obtenerConfiguracionAnalisis: async () => { throw new Error("403"); },
           registrarSolicitud: async () => ({}),
         }) },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: async () => { throw new Error("503"); } }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: async () => { throw new Error("503"); } }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
@@ -426,7 +497,7 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(iniciados, ["contratacion_temporal"], "solo el módulo con entrada");
+  assert.deepEqual(iniciados, ["contratacion_temporal", "contratacion_temporal"], "solo el módulo con entrada; su importación se reintenta una vez");
   assert.equal(coordinador.resolverAcceso("personal").estado, "diferido");
   assert.equal(coordinador.vistaPendiente("personal"), true, "su URL directa dice «Comprobando», no «no disponible»");
   const carga = coordinador.prepararVista("personal");
@@ -438,7 +509,7 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
   await carga;
   assert.equal(coordinador.vistaDisponible("personal"), true);
   assert.deepEqual(iniciados.filter((clave) => clave !== "personal_catalogos_publicos"),
-    ["contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
+    ["contratacion_temporal", "contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
   assert.equal(coordinador.vistaPendiente("cronos"), true);
 });
 
@@ -541,6 +612,14 @@ async function recorrerGrafo(entrada, { dinamicos }) {
 
 test("ningún módulo del portal se pide con dos URL distintas (una sola descarga y una sola instancia)", async () => {
   const urls = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: true });
+  const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
+  for (const url of [
+    "/portal-empleado/portal-bolsas-api.js?v=20261002-r-rrhh18-v3",
+    "/portal-empleado/portal-bolsas-contrato.js?v=20261002-r-rrhh18-v3",
+    `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
+    "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
+  ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
   const porFichero = new Map();
   for (const url of urls) {
     const fichero = url.split("?")[0];

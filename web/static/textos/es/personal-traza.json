@@ -1,0 +1,27 @@
+{
+  "general": {
+    "ver_origen": "Ver origen",
+    "origen_fila": "Ver origen de la fila {fila} de {tabla}",
+    "fecha_registro": "Fecha de registro",
+    "fecha_efectos": "Fecha de efectos",
+    "fecha_fin": "Fecha de fin (no incluida)",
+    "sin_fin": "Sin fecha de fin",
+    "version_hecho": "Versión del dato",
+    "estado": "Estado",
+    "fuente": "Fuente",
+    "acto": "Acto",
+    "sin_denominacion": "Sin denominación disponible",
+    "regimen": "Régimen",
+    "modalidad": "Modalidad",
+    "situacion": "Situación",
+    "clase_servicio": "Clase de servicio",
+    "version_catalogo": "versión {version}",
+    "detalle_tecnico": "Ver referencias técnicas",
+    "fuente_ref": "Referencia de la fuente",
+    "acto_ref": "Referencia del acto",
+    "fuente_version": "Versión de la fuente",
+    "plaza_ref": "Referencia de la plaza",
+    "puesto_ref": "Referencia del puesto",
+    "sin_valor": "No consta"
+  }
+}

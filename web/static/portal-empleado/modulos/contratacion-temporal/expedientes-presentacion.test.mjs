@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { exigirRenovado } from "../../versiones-cache.test-helper.mjs";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -21,13 +21,13 @@ import {
   crearDocumentosContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js";
+} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
@@ -45,7 +45,8 @@ test("la continuidad real abre el índice documental sin fingir envío GINPIX ni
 
   assert.match(html, /Documentos y continuidad de la incorporación/u);
   assert.match(html, /data-ct-exp-vista="documentos">Consultar documentos del expediente/u);
-  assert.match(html, /recibo de incorporación confirmado/u);
+  // Las explicaciones de límites van a la ayuda «?», no a la pantalla.
+  assert.doesNotMatch(html, /recibo de incorporación confirmado y consultas disponibles/u);
   assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar|ginpix\.enviar/u);
   assert.doesNotMatch(renderizarExpediente({ ...estado, navegacion: { documentos: false } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
   assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
@@ -60,9 +61,9 @@ test("documentos explica ficha manual y seguimiento con textos inyectados escapa
   const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
 
   assert.match(html, /Ficha manual para GINPIX/u);
-  assert.match(html, /Sin transmisión &lt;externa&gt;/u);
+  assert.doesNotMatch(html, /Sin transmisión/u);
   assert.match(html, /Seguimiento de la incorporación/u);
-  assert.match(html, /El seguimiento original se consulta desde el mismo recibo/u);
+  assert.match(html, /El seguimiento se consulta en el expediente/u);
   assert.match(html, /data-ct-exp-vista="expediente">Expediente/u);
   assert.doesNotMatch(html, /<externa>|data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar/u);
 });
@@ -166,8 +167,8 @@ test("la lista presenta una referencia de centro legible y deja la técnica en t
   const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
     demostracion: false, indicadores: [], expedientes: [{ expediente_ref: "expediente:ct:centro", numero_visible: "2026/CT-000042", centro: "centro:desarrollo:001", categoria: "Auxiliar", modalidad: "Sustitución", estado_clave: "en_curso", estado: "En curso", fase_actual: "Solicitud", plazo: "Sin plazo" }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
-  assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001<small>Auxiliar<\/small>/u);
-  assert.match(html, /<option value="centro:desarrollo:001">Centro desarrollo · 001<\/option>/u);
+  assert.match(html, /title="centro:desarrollo:001">Centro con código 001<small>Auxiliar<\/small>/u);
+  assert.match(html, /<option value="centro:desarrollo:001">Centro con código 001<\/option>/u);
 });
 
 test("sin plazo calculado la lista lo dice sin inventar fecha", () => {
@@ -335,7 +336,7 @@ test("el espacio operativo separa tareas y distribución en paneles legibles", a
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
-  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css["']\s*\)\s*;/mu);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=20261001-codexf-accesibilidad-v1["']\s*\)\s*;/mu);
   const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
   assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [
@@ -690,7 +691,7 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
   // El identificador técnico anterior a la numeración no se muestra: figura sin numerar.
-  assert.ok(html.includes(">Expediente Sin numerar</h2>"));
+  assert.ok(html.includes(">Expediente sin número asignado</h2>"));
   assert.ok(!html.includes(expediente.numero_visible));
   assert.match(html, /ct-exp-ficha-cabecera/u);
   const diseno = await readFile(new URL("./expedientes-diseno.css", import.meta.url), "utf8");

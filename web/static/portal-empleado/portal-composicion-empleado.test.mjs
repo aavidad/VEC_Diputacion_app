@@ -135,6 +135,42 @@ test("Personal monta ficha antes de crear catálogos y limpia registros temprano
   assert.equal(desmontajeFicha, 1);
 });
 
+test("el acceso de Personal a correos usa sólo la ruta interna existente de preferencias", () => {
+  let entradaFicha; let peticiones = 0; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { entradaFicha = entrada; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("no debe consultar"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { peticiones += 1; } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {}, anunciar() {} });
+  entradaFicha.abrirCorreos();
+  assert.equal(location.hash, "#mis-preferencias");
+  assert.equal(peticiones, 0);
+  assert.deepEqual(focos, [{ preventScroll: true }]);
+  assert.deepEqual(entradaFicha.fuentes, {});
+});
+
+test("los accesos propios de Mi ficha llevan el foco al contenido estable al cambiar de vista", () => {
+  let entrada; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(opciones) { entrada = opciones; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("sin consulta de catálogo"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { assert.fail("navegar no consulta datos"); } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {} });
+  for (const destino of ["cronos", "dietas"]) {
+    entrada.navegarModulo(destino);
+    assert.equal(location.hash, `#${destino}`);
+  }
+  entrada.navegarModulo("personal-registro");
+  assert.equal(location.hash, "#dietas", "no abre gestión desde estos accesos");
+  assert.deepEqual(focos, [{ preventScroll: true }, { preventScroll: true }]);
+});
+
 test("Personal limpia una vez también si un catálogo falla después de registrar temprano", async () => {
   let limpiarTemprano = 0;
   let resolverTardio;
@@ -188,6 +224,27 @@ test("Dietas interna compone el circuito de revisión solo con su cliente HTTP s
   assert.strictEqual(llamadas.at(-1)[2].clienteCircuito, circuito);
   const sinCircuito = componerDietasInternas(recursosDietas([], { cliente: {}, asignacion, calculador: {}, visor: {} }), { fetch() {} });
   assert.notEqual(sinCircuito, undefined);
+});
+
+test("Dietas entrega el cliente de rectificación propia solo tras consultar relaciones a Personal", async () => {
+  const llamadas = [];
+  const relaciones = [{ relacion_ref: `rel_${"a".repeat(22)}`, unidad_ref: "U1", version: 1 }];
+  const asignacion = { async obtenerRelaciones() { llamadas.push(["relaciones"]); return {
+    relaciones_autorizadas: relaciones, fecha_referencia: "2026-10-02",
+  }; } };
+  const clienteRectificacion = Object.freeze({ consultar() {}, solicitar() {} });
+  const recursos = { ...recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }),
+    clienteRectificacion: { crearClienteRectificacionDietasHTTP({ fetchImpl }) {
+      assert.equal(typeof fetchImpl, "function");
+      llamadas.push(["rectificacion"]);
+      return clienteRectificacion;
+    } } };
+  const dietas = componerDietasInternas(recursos, { fetch() {} });
+  await dietas.montar({ raiz: "raiz", anunciar() {}, registrarDesmontar() {} });
+  const [, , opciones] = llamadas.at(-1);
+  assert.deepEqual(opciones.relacionesAutorizadas, relaciones);
+  assert.strictEqual(opciones.clienteRectificacion, clienteRectificacion);
+  assert.equal(Object.hasOwn(opciones, "clienteRectificacionAdmin"), false);
 });
 
 function domFalso() {
@@ -244,6 +301,38 @@ test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no
   assert.equal(recibidas.calendario.incrustada, true);
   recibidas.movimientos.abrirCorreccion();
   assert.equal(olvidos, 1);
+});
+
+test("fichaje confirmado actualiza las lecturas montadas sin sustituir el periodo ni actuar tras salir", async () => {
+  const lecturas = [];
+  let confirmar;
+  const parte = (nombre) => () => ({ desmontar() {}, actualizar() { lecturas.push(nombre); } });
+  const cronos = componerCronosInterno(recursosCronos({
+    saldo: parte("saldo"), movimientos: parte("movimientos"), calendario: parte("calendario"),
+    remoto: (opciones) => { confirmar = opciones.onRegistrado; return { desmontar() {} }; },
+  }), {});
+  const montaje = cronos.montar({ raiz: domFalso() });
+  assert.deepEqual(lecturas, []);
+  await confirmar();
+  assert.deepEqual(lecturas, ["saldo", "movimientos", "calendario"]);
+  montaje.desmontar();
+  await confirmar();
+  assert.equal(lecturas.length, 3);
+});
+
+test("una parte no montada no impide actualizar el resto después del fichaje", async () => {
+  let confirmar;
+  let lecturas = 0;
+  const falla = () => { throw new Error("no disponible"); };
+  const cronos = componerCronosInterno(recursosCronos({
+    saldo: falla, calendario: falla,
+    movimientos: () => ({ desmontar() {}, actualizar() { lecturas += 1; } }),
+    remoto: (opciones) => { confirmar = opciones.onRegistrado; return { desmontar() {} }; },
+  }), {});
+  const montaje = cronos.montar({ raiz: domFalso() });
+  await confirmar();
+  assert.equal(lecturas, 1);
+  montaje.desmontar();
 });
 
 test("Cronos ofrece bandeja y avisos solo con sus tres piezas y un único cliente de resolución", () => {

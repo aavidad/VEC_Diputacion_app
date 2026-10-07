@@ -1,0 +1,26 @@
+# Cadena nueva del linaje A sobre la preimagen íntegra indicada abajo.
+# El orden histórico externo -> RPT es un negativo: AD126 lo rechaza (55000).
+# Dirección aceptó A como única preimagen el 01/10; no hay una matriz B ficticia.
+# Base de código: main f63c393befbd7508aa5cded7efabd97460359713 (#222).
+# Preimagen real: H1 sintético -> H3/H4/H6 (62 SQL originales, sin reapply)
+# -> AD132 por su circuito DBA, con recibo válido, antes de las seis RPT.
+# En el ensayo privado se usó REVOKE TEMP de laboratorio autorizado por #222;
+# esto no acredita AD132 ni permite sustituirla en una instalación.
+# Seis RPT exactas de #222: roles Catálogos -> Cat1 -> Cat2 -> AD117 -> Cat3 -> AD126.
+# Después: AUT17 -> AUT18 -> AD118 -> AUT21, bytes fuente externa congelada
+# 89d72021d0630b40d1689d797bec34521c1a8dbd reutilizados sin cambios en esta rama.
+# AD111/114/115/116 pertenecen al prefijo H6: no repetirlas ni reordenarlas.
+# AD121/122/123 se sustituyen hacia delante; no ejecutar esos tres archivos.
+# AD134/136 y gobierno Cat4 son posteriores y quedan fuera de esta preimagen.
+# Sólo ejecutar las seis líneas siguientes sobre la preimagen íntegra admitida.
+deploy/postgresql/autorizacion/migraciones/000017_perfil_usuarios_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000018_usuarios_externo_fechas_cero_canonicas.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000118_consumo_usuarios_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000021_clausura_externa_tipos_temporales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000133_convergencia_post_rpt.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000135_raiz_externa_post_convergencia.up.sql
+# Continuación H7 posterior: Documentos10 -> Usuarios11 -> Usuarios12 -> Usuarios13
+# -> AD124 -> Documentos11 -> Usuarios15, tras revisar su fuente exacta.
+# AD124 original espera search_path anterior: la continuación necesita un cierre
+# forward propio. No ejecutarla ni declararla instalada por esta lista.
+# Esta lista no autoriza esa continuación, cidonia ni el uso de datos reales.

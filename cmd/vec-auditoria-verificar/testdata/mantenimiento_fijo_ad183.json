@@ -1,0 +1,142 @@
+{
+  "esquema": "vec.auditoria.verificacion.mantenimiento-perfil-fijo-admin.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:ad183",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 5,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "49977a8729280d37c796c77ea622b2eb62e315c18088e13980df860a6b4a1fce",
+    "registros": 5
+  },
+  "registros": [
+    {
+      "tipo_registro": "mantenimiento_perfil_fijo_admin",
+      "mantenimiento_fijo": {
+        "evento_ref": "evento_0000000000000000000000000000477d",
+        "operador_login": "operador_ámbito_sintético",
+        "plan_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "preimagen_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "catalogo_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "rol_origen_ref": "rol_fijo:aplicacion:v4",
+        "rol_origen_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "rol_destino_ref": "rol_fijo:aplicacion:v5",
+        "rol_destino_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "asignacion_1_origen_ref": "asignacion:opaca:primera:v1",
+        "asignacion_1_origen_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "asignacion_1_destino_ref": "asignacion:opaca:primera:v2",
+        "asignacion_1_destino_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "asignacion_2_origen_ref": "asignacion:opaca:segunda:v1",
+        "asignacion_2_origen_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "asignacion_2_destino_ref": "asignacion:opaca:segunda:v2",
+        "asignacion_2_destino_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "mantenimiento_perfil_fijo_admin",
+        "correlacion_ref": "correlacion_0000000000000000000000000000477d",
+        "auditoria_ref": "aud_v3_mf_0000000000000000000000000000477d",
+        "secuencia": 1,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "huella_sha256": "0f77d05f4f2973bfbb5486903c8a24ad431cdf7d569b5de7b6d76d549c4272f3",
+        "registrada_en": "2026-10-04T02:05:00.123456Z",
+        "evento_material_sha256": "965a3fe7ca9026d9b56b929c499d002c3e6d1bc584e9f94bee58f33aeb4c6193",
+        "modulo_id": "administracion",
+        "accion": "mantener_version_perfil_fijo_admin_v1",
+        "recurso_ref": "mantenimiento_admin:11111111111111111111111111111111",
+        "resultado": "permitido",
+        "motivo_ref": "mantenimiento_registrado"
+      }
+    },
+    {
+      "tipo_registro": "intento_mantenimiento_perfil_fijo_admin",
+      "intento_mantenimiento_fijo": {
+        "evento_ref": "evento_0000000000000000000000000000477e",
+        "operador_login": "operador_mantenimiento_sintetico",
+        "solicitud_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "accion": "mantener_version_perfil_fijo_admin_v1",
+        "recurso_ref": "solicitud_mantenimiento:00000000000000000000000000000002",
+        "resultado": "permitido",
+        "motivo_ref": "mantenimiento_registrado",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "mantenimiento_perfil_fijo_admin",
+        "correlacion_ref": "correlacion_0000000000000000000000000000477e",
+        "auditoria_ref": "aud_v3_mfi_0000000000000000000000000000477e",
+        "secuencia": 2,
+        "anterior_sha256": "0f77d05f4f2973bfbb5486903c8a24ad431cdf7d569b5de7b6d76d549c4272f3",
+        "huella_sha256": "a3ae5aeab7a9fe4c854febc9a48487e3f13dba8a48fcde7f48ad960cbb75f50b",
+        "registrada_en": "2026-10-04T02:05:00.123456Z",
+        "evento_material_sha256": "2ed67e8a42a26504b55496dbd1c52e1546938ccf18cd9a712632af718b42ae8e",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_mantenimiento_perfil_fijo_admin",
+      "intento_mantenimiento_fijo": {
+        "evento_ref": "evento_0000000000000000000000000000477f",
+        "operador_login": "operador_mantenimiento_sintetico",
+        "solicitud_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "accion": "mantener_version_perfil_fijo_admin_v1",
+        "recurso_ref": "solicitud_mantenimiento:00000000000000000000000000000003",
+        "resultado": "permitido",
+        "motivo_ref": "mantenimiento_replay",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "mantenimiento_perfil_fijo_admin",
+        "correlacion_ref": "correlacion_0000000000000000000000000000477f",
+        "auditoria_ref": "aud_v3_mfi_0000000000000000000000000000477f",
+        "secuencia": 3,
+        "anterior_sha256": "a3ae5aeab7a9fe4c854febc9a48487e3f13dba8a48fcde7f48ad960cbb75f50b",
+        "huella_sha256": "260f5cb03ea64e02d9edd2bd792d2500691409ce8f0177c9a71bd6d558183bc4",
+        "registrada_en": "2026-10-04T02:05:00.123456Z",
+        "evento_material_sha256": "5e1efbabd30b0713ebdd632f13caaf2ac77f77e45e0854fcb08d6f1c79c21e20",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_mantenimiento_perfil_fijo_admin",
+      "intento_mantenimiento_fijo": {
+        "evento_ref": "evento_00000000000000000000000000004780",
+        "operador_login": "operador_mantenimiento_sintetico",
+        "solicitud_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "accion": "mantener_version_perfil_fijo_admin_v1",
+        "recurso_ref": "solicitud_mantenimiento:00000000000000000000000000000004",
+        "resultado": "denegado",
+        "motivo_ref": "mantenimiento_denegado",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "mantenimiento_perfil_fijo_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000004780",
+        "auditoria_ref": "aud_v3_mfi_00000000000000000000000000004780",
+        "secuencia": 4,
+        "anterior_sha256": "260f5cb03ea64e02d9edd2bd792d2500691409ce8f0177c9a71bd6d558183bc4",
+        "huella_sha256": "45651b0b5a3e712e6b168bb30d14f0d59aae0c83cb399724632d99c030a66aab",
+        "registrada_en": "2026-10-04T02:05:00.123456Z",
+        "evento_material_sha256": "ac7541aa0bf7cd8254cfa654654a56a0fd7aa376ca10700566c360bdb62300d1",
+        "modulo_id": "administracion"
+      }
+    },
+    {
+      "tipo_registro": "intento_mantenimiento_perfil_fijo_admin",
+      "intento_mantenimiento_fijo": {
+        "evento_ref": "evento_00000000000000000000000000004781",
+        "operador_login": "operador_mantenimiento_sintetico",
+        "solicitud_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "accion": "mantener_version_perfil_fijo_admin_v1",
+        "recurso_ref": "solicitud_mantenimiento:00000000000000000000000000000005",
+        "resultado": "error",
+        "motivo_ref": "mantenimiento_error",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "mantenimiento_perfil_fijo_admin",
+        "correlacion_ref": "correlacion_00000000000000000000000000004781",
+        "auditoria_ref": "aud_v3_mfi_00000000000000000000000000004781",
+        "secuencia": 5,
+        "anterior_sha256": "45651b0b5a3e712e6b168bb30d14f0d59aae0c83cb399724632d99c030a66aab",
+        "huella_sha256": "49977a8729280d37c796c77ea622b2eb62e315c18088e13980df860a6b4a1fce",
+        "registrada_en": "2026-10-04T02:05:00.123456Z",
+        "evento_material_sha256": "50c1e2583d1bf39484a6a2d884e269aa7caa8e575bcd54323f2940e09e5fa4f4",
+        "modulo_id": "administracion"
+      }
+    }
+  ]
+}

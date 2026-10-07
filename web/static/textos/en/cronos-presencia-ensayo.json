@@ -1,0 +1,19 @@
+{
+  "version_esquema": "1",
+  "idioma": "en",
+  "textos": {
+    "titulo": "Recorded state at the cutoff",
+    "aviso": "Synthetic data trial. States reflect punches recorded at the specified cutoff.",
+    "indeterminado": "Undetermined state",
+    "agregado": "Selected team summary",
+    "cobertura": "Coverage indicates whether the synthetic source contains the complete sequence from the start of the date to the cutoff.",
+    "limites": "With no punches, incomplete data or ambiguous data, the state remains undetermined. This trial does not calculate hours or attest physical presence or absence.",
+    "entrada_invalida": "The trial could not be read. Check the files, their hashes and the language.",
+    "entrada_registrada": "Open workday according to punches",
+    "pausa_registrada": "Pause recorded",
+    "salida_registrada": "Exit recorded",
+    "cobertura_incompleta": "The source does not cover the full period up to the cutoff. Check its coverage.",
+    "sin_marcajes": "The source covers the period but contains no punches. Check the records for that date.",
+    "secuencia_ambigua": "Punches have identical times or an inconsistent sequence. Check their order and type."
+  }
+}

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"net"
 	"strings"
@@ -9,13 +10,18 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/vec/documentos/adapters/validadorautofirma"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	"vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrComposicionFirmaVerificacionNoDisponible = errors.New("bootstrap: verificacion de firma no disponible")
 
 // nuevoVerificadorFirmaDocumentos compone exclusivamente el puerto interno.
 // La presencia del cliente no publica rutas ni habilita una transicion a firmado.
-func nuevoVerificadorFirmaDocumentos(cfg config.Config) (docports.VerificadorFirmaMotivado, error) {
+func nuevoVerificadorFirmaDocumentos(cfg config.Config, fuenteResultados ...func() vecports.EmisorResultadosTecnicosConContexto) (docports.VerificadorFirmaMotivado, error) {
+	if len(fuenteResultados) > 1 {
+		return nil, ErrComposicionFirmaVerificacionNoDisponible
+	}
 	cfg = cfg.Normalize()
 	switch cfg.FirmaVerificacionEnabled {
 	case "", "false":
@@ -65,9 +71,24 @@ func nuevoVerificadorFirmaDocumentos(cfg config.Config) (docports.VerificadorFir
 		}
 		defer borrarBytes(clave)
 	}
+	var observar func(context.Context, bool)
+	if len(fuenteResultados) == 1 && fuenteResultados[0] != nil {
+		observar = func(ctx context.Context, disponible bool) {
+			emisor := fuenteResultados[0]()
+			if emisor == nil {
+				return
+			}
+			resultado := domain.ResultadoTecnicoNoDisponible
+			if disponible {
+				resultado = domain.ResultadoTecnicoCorrecto
+			}
+			emisor.EmitirResultadoConContexto(ctx, domain.SolicitudResultadoTecnico{
+				Resultado: resultado, Componente: domain.ComponenteIncidenciaGrxFirma, Etapa: domain.EtapaIncidenciaPeticion})
+		}
+	}
 	cliente, err := validadorautofirma.Nuevo(validadorautofirma.Configuracion{
 		URL: cfg.FirmaVerificacionURL, CAPEM: ca, NombreServidorTLS: cfg.FirmaVerificacionNombreServidorTLS, Token: token,
-		CertificadoClientePEM: certificado, ClaveClientePEM: clave, Timeout: plazo,
+		CertificadoClientePEM: certificado, ClaveClientePEM: clave, Timeout: plazo, Disponibilidad: observar,
 	})
 	if err != nil {
 		return nil, ErrComposicionFirmaVerificacionNoDisponible

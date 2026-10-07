@@ -1,0 +1,16 @@
+{
+  "version": "20261003-pwa-ci-v5",
+  "comunes": [
+    "/pwa/instalar.js?v=20261003-pwa-ci-v5",
+    "/pwa/navegacion.css?v=20261002-pwa-v2",
+    "/pwa/icons/vec-192.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-512.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-maskable-192.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-maskable-512.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec.ico?v=20261002-pwa-v1"
+  ],
+  "propios": [
+    "/area-personal/area-personal.css?v=20261005-b4-v1",
+    "/area-personal/arranque.js?v=20261005-b4b-v1"
+  ]
+}

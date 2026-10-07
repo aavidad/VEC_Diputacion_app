@@ -1,0 +1,51 @@
+{
+  "general": {
+    "titulo": "Antecedentes para Carrera",
+    "preparacion": "Preparación pendiente de completar",
+    "error": "No se pudo preparar los antecedentes. Vuelva a consultar la ficha.",
+    "origen": "Ver origen",
+    "fecha_registro": "Fecha de registro",
+    "version_hecho": "Versión del hecho",
+    "version_fuente": "Versión de la fuente",
+    "version_ficha": "Versión de la ficha",
+    "acto": "Acto de origen",
+    "servicios": "Periodos de servicio",
+    "situaciones": "Situaciones registradas",
+    "estado": "Estado en el registro",
+    "periodo": "Periodo",
+    "dias_acto": "Días según el acto",
+    "periodo_fechas": "{desde} a {hasta}",
+    "vigente_en": "Fecha de referencia",
+    "conocido_en": "Información conocida hasta",
+    "sin_denominacion": "Régimen sin denominación",
+    "relacion": "Relación {numero}: {regimen} · {estado}",
+    "fuente": "Fuente",
+    "estado_revision_anterior": "{estado} · Versión sustituida",
+    "estado_ultima_revision": "{estado} · Última versión conocida"
+  },
+  "pendientes": {
+    "fuente_institucional": "Falta acreditar la fuente institucional de estos antecedentes.",
+    "cobertura_antecedentes": "Falta confirmar que constan todos los antecedentes necesarios.",
+    "politica_carrera": "Falta la política aprobada de Carrera que determina los requisitos.",
+    "sin_relacion": "No consta una relación de servicio en este corte.",
+    "grupo_subgrupo": "Falta el grupo o subgrupo acreditado.",
+    "puesto_nivel_m": "Faltan los antecedentes del puesto y nivel de Organización y RPT.",
+    "grado_personal_h": "Falta el acto de reconocimiento del grado personal, que corresponde a Carrera.",
+    "regimen_sin_catalogo": "Falta la versión del catálogo que acredita el régimen.",
+    "servicios_no_reconocidos": "Hay servicios declarados o comprobados que todavía no están reconocidos.",
+    "servicios_fuera_corte": "Hay periodos de servicio que terminan después de la fecha de referencia.",
+    "sin_servicios": "No constan servicios en esta relación.",
+    "sin_situaciones": "No constan situaciones en esta relación.",
+    "periodos_solapados": "Hay periodos de servicio que se solapan y requieren revisión.",
+    "hechos_fuera_corte": "Hay hechos registrados cuyos efectos comienzan después de la fecha de referencia."
+  },
+  "estados": {
+    "vigente": "Vigente",
+    "suspendida": "Suspendida",
+    "finalizada": "Finalizada",
+    "rectificada": "Rectificada",
+    "declarado": "Declarado",
+    "comprobado": "Comprobado",
+    "reconocido": "Reconocido en el registro"
+  }
+}

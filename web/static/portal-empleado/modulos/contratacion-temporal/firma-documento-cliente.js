@@ -42,13 +42,24 @@ function texto(valor, maximo = 512) {
   return typeof valor === "string" && valor.length > 0 && valor.length <= maximo;
 }
 
+// Referencia opaca de Documentos: «ref:» y 64 hexadecimales.
+const REFERENCIA_DOCUMENTOS = /^ref:[0-9a-f]{64}$/u;
+
+/** PDF firmado custodiado en Documentos: lo necesario para descargarlo. */
+function validarCustodiado(valor) {
+  return soloClaves(valor, ["expediente_ref", "documento_ref", "version", "huella_sha256"])
+    && REFERENCIA_DOCUMENTOS.test(valor.expediente_ref) && REFERENCIA_DOCUMENTOS.test(valor.documento_ref)
+    && Number.isSafeInteger(valor.version) && valor.version >= 1 && HUELLA.test(valor.huella_sha256);
+}
+
 function validarPaso(paso, indice) {
-  if (!soloClaves(paso, ["orden", "cargo", "accion", "devolucion", "estado"], ["motivo_devolucion", "recibo_ref", "registrada_en"])
+  if (!soloClaves(paso, ["orden", "cargo", "accion", "devolucion", "estado"], ["motivo_devolucion", "recibo_ref", "registrada_en", "documento_custodiado"])
+    || (paso.documento_custodiado !== undefined && (paso.estado !== "firmado" || !validarCustodiado(paso.documento_custodiado)))
     || paso.orden !== indice + 1 || !texto(paso.cargo) || !ESTADOS.includes(paso.estado)
     || (paso.motivo_devolucion !== undefined && !texto(paso.motivo_devolucion, 500))
     || (paso.recibo_ref !== undefined && !REFERENCIA.test(paso.recibo_ref))
     || (paso.registrada_en !== undefined && !texto(paso.registrada_en, 64))) return null;
-  return Object.freeze({ ...paso });
+  return Object.freeze({ ...paso, ...(paso.documento_custodiado ? { documento_custodiado: Object.freeze({ ...paso.documento_custodiado }) } : {}) });
 }
 
 /** Valida el estado real del circuito; cualquier desviación lo invalida. */
@@ -75,12 +86,14 @@ function validarRecibo(datos) {
   const firmado = datos?.resultado === "firmado";
   if (!soloClaves(datos, ["esquema", "firma_ref", "recibo_ref", "expediente_ref", "expediente_version", "documento", "paso_orden",
     "paso_ref", "catalogo_ref", "catalogo_huella_sha256", "secuencia", "resultado", "perfil_ref", "registrada_en", "ya_registrada",
-    "firma_verificada", "firma_eficaz", firmado ? "verificacion" : "motivo_devolucion"])
+    "firma_verificada", "firma_eficaz", firmado ? "verificacion" : "motivo_devolucion"], firmado ? ["documento_custodiado"] : [])
     || datos.esquema !== ESQUEMA_RECIBO || datos.firma_eficaz !== false || datos.firma_verificada !== firmado
     || !REFERENCIA.test(datos.recibo_ref) || !REFERENCIA.test(datos.firma_ref) || !Number.isSafeInteger(datos.secuencia)
     || !["firmado", "devuelto"].includes(datos.resultado) || !texto(datos.registrada_en, 64)) return null;
   if (firmado && (!objetoPlano(datos.verificacion) || datos.verificacion.estado !== "valida"
     || datos.verificacion.motivo !== "verificada" || !HUELLA.test(datos.verificacion.firmado_sha256 ?? ""))) return null;
+  if (datos.documento_custodiado !== undefined && (!validarCustodiado(datos.documento_custodiado)
+    || datos.documento_custodiado.huella_sha256 !== datos.verificacion.firmado_sha256)) return null;
   return Object.freeze({ ...datos });
 }
 

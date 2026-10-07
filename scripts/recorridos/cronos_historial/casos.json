@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "descripcion": "Consultar permisos propios y recorrer el historial por teclado, con nombres accesibles, foco visible y zoom nativo.",
+  "dependencias": ["Servidor interno autorizado con datos sintéticos", "Certificado cliente sintético existente y TLS de confianza", "Concesiones nominales para permisos propios y consultas existentes del shell", "Más de veinte solicitudes propias en el año inicial, filas distinguibles y al menos una concedida"],
+  "idiomas": ["es", "en"],
+  "visitas": [{"ancho":1440,"zoom":1},{"ancho":390,"zoom":1},{"ancho":1440,"zoom":2}],
+  "tamano_pagina": 20,
+  "filtro": "concedidos",
+  "limites": "No crea solicitudes, resuelve permisos, genera certificados ni acredita autenticación, persistencia o cumplimiento global WCAG.",
+  "fixture": {
+    "anio": 2026,
+    "cantidad_solicitudes": 41,
+    "nombres": {"es":"Asuntos propios", "en":"Personal leave"},
+    "permiso": {"permiso_ref":"permiso:cronos:asuntos-propios", "version_ref":"catalogo:cronos:asuntos-propios:v1", "unidad":"dia", "computo":"laborables", "circuito":"A", "minimo":1, "maximo_solicitud":null, "maximo_mensual":null, "maximo_anual":6, "justificante_exigido":false, "solicitable":false, "sintetico":true, "solicitado":1, "concedido":1, "pendiente_justificar":0, "resta":4},
+    "solicitud": {"solicitud_ref":"permiso:cronos:solicitud:ejemplo", "catalogo_version_ref":"catalogo:cronos:asuntos-propios:v1", "permiso_ref":"permiso:cronos:asuntos-propios", "desde":"2026-03-02", "hasta":"2026-03-02", "cantidad":1, "unidad":"dia", "estado":"concedido", "version":2, "pendiente_justificar":false, "solicitada_en":"2026-02-20T08:00:00Z"},
+    "estado_alternativo": "solicitado"
+  }
+}

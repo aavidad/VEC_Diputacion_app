@@ -12,6 +12,7 @@ import (
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	lector "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type ResolverRaizIncorporacionV2 interface {
@@ -112,7 +113,7 @@ func (o *operacionRegistroTX) validar() error {
 }
 func (o *operacionRegistroTX) cerrar() {
 	if !nuloRegistroTX(o.tx) && !o.confirmado {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = o.tx.Rollback(c)
 	}

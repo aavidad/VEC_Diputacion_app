@@ -11,10 +11,16 @@ func calcularHuellaSemanticaPropuestaDecisionCobertura(
 	canon CanonHuellaSemanticaPropuestaDecisionCobertura,
 	p PublicacionPropuestaDecisionCobertura,
 ) (string, error) {
-	material, err := materialCanonicoSemanticoPropuestaDecisionCoberturaV1(
-		canon,
-		p,
-	)
+	var material []byte
+	var err error
+	switch canon {
+	case CanonHuellaSemanticaPropuestaDecisionCoberturaV1():
+		material, err = materialCanonicoSemanticoPropuestaDecisionCoberturaV1(canon, p)
+	case CanonHuellaSemanticaPropuestaDecisionCoberturaV2():
+		material, err = materialCanonicoSemanticoPropuestaDecisionCoberturaV2(canon, p)
+	default:
+		return "", ErrDatoInvalido
+	}
 	if err != nil {
 		return "", err
 	}
@@ -23,6 +29,28 @@ func calcularHuellaSemanticaPropuestaDecisionCobertura(
 }
 
 func materialCanonicoSemanticoPropuestaDecisionCoberturaV1(
+	canon CanonHuellaSemanticaPropuestaDecisionCobertura,
+	p PublicacionPropuestaDecisionCobertura,
+) ([]byte, error) {
+	if canon != CanonHuellaSemanticaPropuestaDecisionCoberturaV1() ||
+		canonPropuestaParaPeriodo(p.Periodo) != CanonHuellaPropuestaDecisionCoberturaV1() {
+		return nil, ErrDatoInvalido
+	}
+	return materialCanonicoSemanticoPropuestaDecisionCobertura(canon, p)
+}
+
+func materialCanonicoSemanticoPropuestaDecisionCoberturaV2(
+	canon CanonHuellaSemanticaPropuestaDecisionCobertura,
+	p PublicacionPropuestaDecisionCobertura,
+) ([]byte, error) {
+	if canon != CanonHuellaSemanticaPropuestaDecisionCoberturaV2() ||
+		canonPropuestaParaPeriodo(p.Periodo) != CanonHuellaPropuestaDecisionCoberturaV2() {
+		return nil, ErrDatoInvalido
+	}
+	return materialCanonicoSemanticoPropuestaDecisionCobertura(canon, p)
+}
+
+func materialCanonicoSemanticoPropuestaDecisionCobertura(
 	canon CanonHuellaSemanticaPropuestaDecisionCobertura,
 	p PublicacionPropuestaDecisionCobertura,
 ) ([]byte, error) {
@@ -45,7 +73,7 @@ func materialCanonicoSemanticoPropuestaDecisionCoberturaV1(
 		!p.FinalidadClave.Valida() ||
 		!referenciaValida(p.FinalidadRef) ||
 		!referenciaValida(p.CategoriaRef) ||
-		!periodoAnalisisValido(p.Periodo) ||
+		!periodoPropuestaCoberturaValido(p.Periodo) ||
 		!p.Estado.valido() ||
 		(p.Estado == PropuestaCoberturaViable) != p.ViaPropuesta.Valida() {
 		return nil, ErrDatoInvalido
@@ -67,8 +95,7 @@ func materialCanonicoSemanticoPropuestaDecisionCoberturaV1(
 	e.cadena(string(p.FinalidadClave))
 	e.cadena(p.FinalidadRef)
 	e.cadena(p.CategoriaRef)
-	e.instante(p.Periodo.Inicio)
-	e.instante(p.Periodo.Fin)
+	escribirPeriodoPropuestaCobertura(&e, p.Periodo)
 	e.cadena(string(p.Estado))
 	e.cadena(string(p.ViaPropuesta))
 	escribirResultadosSemanticosPropuesta(&e, resultados)

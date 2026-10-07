@@ -58,8 +58,18 @@ test("mi bolsa distingue estado vigente de la participación y vigencia de la bo
   assert.match(vista, /No disponible/u);
   assert.match(vista, /20 sept 2026/u);
   assert.match(vista, /Sin fecha de fin registrada/u);
-  assert.match(vista, /Consta temporalmente no disponible en Bolsa/u);
+  assert.match(vista, /Consta no disponible en Bolsa/u);
   assert.doesNotMatch(vista, /Datos de ejemplo|motivo|Pausa comunicada/u);
+});
+
+test("mi bolsa explica la revisión documental sin mostrarla como disponibilidad", () => {
+  const datos = datosPrueba();
+  const participaciones = [{ bolsa: "bolsa:prueba", categoria: "Auxiliar", version: 3, orden_inicial: 2, total_instantanea: 40, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
+    situacion_actual: { estado: "en_revision", desde: "2026-10-02T10:00:00Z", hasta: null, fecha_disponible: null } }];
+  const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
+  assert.match(vista, /En revisión/u);
+  assert.match(vista, /Su aportación no cambia el estado hasta que RRHH la valide/u);
+  assert.doesNotMatch(vista, /Pedir pausa|Pedir la reactivación/u);
 });
 
 test("mi bolsa muestra el último resultado B7 propio sin respuesta ni plazo", () => {

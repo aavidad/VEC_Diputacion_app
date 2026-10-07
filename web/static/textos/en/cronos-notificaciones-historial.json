@@ -1,0 +1,22 @@
+{
+  "historial": {
+    "actualizar": "Refresh history",
+    "actualizando": "Loading history…",
+    "actualizado": "History refreshed.",
+    "error_consulta": "Could not load history. Select Refresh history to try again. Your draft is still in the form.",
+    "alcance": "Each request returns at most 500 notifications. Filters apply to those notifications.",
+    "estado": "Notification status",
+    "todos": "All statuses",
+    "registradas": "Awaiting attention",
+    "atendidas": "Attended",
+    "aplicar": "Apply filter",
+    "quitar": "Clear filter",
+    "filtro_activo": "Applied filter: {estado}.",
+    "mostrando": "Showing {desde}–{hasta} of {total} retrieved notifications.",
+    "sin_resultados": "No retrieved notifications have this status. Clear the filter to see other statuses.",
+    "paginacion": "Notification history pages",
+    "pagina": "Page {actual} of {total}",
+    "anterior": "Previous page",
+    "siguiente": "Next page"
+  }
+}

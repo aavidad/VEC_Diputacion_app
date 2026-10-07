@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -51,6 +52,63 @@ func ordenOrganizacionHistoricaPrueba(t *testing.T) ports.OrdenConsultaOrganizac
 		t.Fatal(err)
 	}
 	return ports.OrdenConsultaOrganizacionHistorica{Material: material, Autorizacion: autorizacion}
+}
+
+type txCierreOHPrueba struct {
+	*txP
+	falloRollback error
+}
+
+func (t *txCierreOHPrueba) Rollback(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	t.rollbacks++
+	return t.falloRollback
+}
+
+type autorizacionCierreOHPrueba struct {
+	valor vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+func (a autorizacionCierreOHPrueba) AutorizarConsultaOrganizacionHistorica(context.Context, domain.MaterialConsultaOrganizacionHistorica) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return a.valor, nil
+}
+
+type registroCierreOHPrueba struct {
+	tx       *txCierreOHPrueba
+	llamadas int
+	motivo   string
+	t        *testing.T
+}
+
+func (r *registroCierreOHPrueba) VerificarRegistroConsultaOrganizacionHistorica(context.Context) error {
+	return nil
+}
+func (r *registroCierreOHPrueba) RegistrarIntentoConsultaOrganizacionHistorica(ctx context.Context, in ports.IntentoConsultaOrganizacionHistorica) error {
+	if ctx.Err() != nil || r.tx.rollbacks != 1 || r.tx.commits != 0 {
+		r.t.Fatal("append anterior al cierre o cancelado")
+	}
+	r.llamadas++
+	r.motivo = in.Motivo
+	return nil
+}
+func TestOrganizacionHistoricaAppendDespuesDelRollbackInclusoSiFalla(t *testing.T) {
+	for _, fallo := range []error{nil, pgx.ErrTxClosed, errors.New("fallo privado de rollback")} {
+		o := ordenOrganizacionHistoricaPrueba(t)
+		tx := &txCierreOHPrueba{txP: &txP{errQ: &pgconn.PgError{Code: "42501"}}, falloRollback: fallo}
+		r, _ := nuevoRepositorioOrganizacionHistoricaPostgreSQL(&poolP{tx: tx})
+		i := &registroCierreOHPrueba{tx: tx, t: t}
+		s, _ := personalapp.NuevoServicioConsultaOrganizacionHistorica(autorizacionCierreOHPrueba{o.Autorizacion}, r, i)
+		_, err := s.Consultar(context.Background(), o.Material.Solicitud())
+		esperado, motivo := domain.ErrConsultaOrganizacionHistoricaDenegada, "denegado"
+		if fallo != nil && !errors.Is(fallo, pgx.ErrTxClosed) {
+			esperado, motivo = domain.ErrOrganizacionHistoricaNoDisponible, "no_disponible"
+		}
+		if !errors.Is(err, esperado) || i.llamadas != 1 || i.motivo != motivo {
+			t.Fatal("cierre o intento mal clasificado")
+		}
+	}
 }
 
 func respuestaOrganizacionVacia(t *testing.T, o ports.OrdenConsultaOrganizacionHistorica) []byte {

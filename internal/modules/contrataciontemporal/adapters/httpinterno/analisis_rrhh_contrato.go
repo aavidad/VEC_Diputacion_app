@@ -163,15 +163,20 @@ func nuevaEntradaOperacionAnalisisRRHH(
 			errContenidoAnalisisRRHHNoValido
 	}
 	inicio, errInicio := fechaCivilUTC(analisis.Periodo.Inicio)
-	fin, errFin := fechaCivilUTC(analisis.Periodo.Fin)
+	var fin time.Time
+	var errFin error
+	if analisis.Periodo.Fin != "" {
+		fin, errFin = fechaCivilUTC(analisis.Periodo.Fin)
+	}
 	datos := ports.DatosFuncionalesOperacionAnalisis{
 		ModalidadClave: domain.ClaveCatalogo(analisis.ModalidadClave),
 		CategoriaRef:   analisis.CategoriaRef,
 		GrupoSubgrupo:  analisis.GrupoSubgrupo,
 		CausaClave:     domain.ClaveCatalogo(analisis.CausaClave),
 		Periodo: domain.PeriodoPrevisto{
-			Inicio: inicio,
-			Fin:    fin,
+			Inicio:   inicio,
+			Fin:      fin,
+			CausaFin: domain.ClaveCatalogo(analisis.Periodo.CausaFin),
 		},
 		PorcentajeJornada: domain.JornadaDiezmilesimas(
 			*analisis.PorcentajeJornada,

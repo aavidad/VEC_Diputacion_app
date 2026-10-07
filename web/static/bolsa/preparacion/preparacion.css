@@ -1,0 +1,18 @@
+/* Distribución de este recorrido; superficies y controles vienen del tema público. */
+    #preparacion { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 12px; height: calc(100dvh - 80px); padding-bottom: 16px; }
+    #preparacion h1, #preparacion p { margin: 0; }
+    #pasos-preparacion { display: flex; flex-wrap: wrap; gap: 8px; }
+    #trabajo-preparacion { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 0; overflow: hidden; }
+    #trabajo-preparacion > header, #acciones-preparacion { padding: 12px 16px; background: var(--bolsa-surface-muted); }
+    #cuerpo-preparacion { padding: 16px; overflow: auto; min-height: 0; overflow-wrap: anywhere; }
+    #cuerpo-preparacion h2 { font-size: 1.1rem; margin: 16px 0 8px; }
+    #cuerpo-preparacion h3 { font-size: 1rem; margin: 12px 0 4px; }
+    #cuerpo-preparacion .lista-detalle > li { margin-bottom: 12px; }
+    #acciones-preparacion { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    #motivo-presentacion { flex-basis: 100%; }
+    #estado-preparacion:empty { min-height: 0; }
+    #error-archivos:empty, #error-lectura:empty { display: none; }
+    #ayuda-preparacion p { padding: 12px; }
+    @media (max-width: 800px) { #preparacion { height: auto; } #cuerpo-preparacion { overflow: visible; } }
+
+.resumen-local { white-space: pre-wrap; font-family: inherit; }

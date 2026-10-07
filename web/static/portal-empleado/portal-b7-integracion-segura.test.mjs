@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearControladorBolsas } from "./portal-bolsas-api.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 
 const candidata = { participacion_ref: "participacion:001", nombre_visible: "Nombre privado sintético", estado_clave: "disponible", orden: 1 };
 const datos = { generado_en: "2026-09-23T10:00:00Z", bolsa: { bolsa_ref: "bolsa:01", categoria: "Auxiliar", total: 1, por_estado: { disponible: 1 } }, candidatos: [candidata], contactos: [], hay_mas: false, cursor_siguiente: null };
@@ -154,8 +154,8 @@ for (const status of [400, 409, 422]) test(`B7 libera la clave tras rechazo defi
     assert.equal(envios.length, 1);
     assert.equal(app.flujo.clave_idempotencia, "");
     assert.equal(app.flujo.revision_obligatoria, true);
-    assert.match(app.html(), status === 400 ? /rechazó los datos del llamamiento \(400\)/ :
-      status === 409 ? /clave ya corresponde a otro llamamiento/ : /rechazó la emisión \(422\)/);
+    assert.match(app.html(), status === 400 ? /faltan datos o no son válidos/ :
+      status === 409 ? /clave ya corresponde a otro llamamiento/ : /la selección ya no coincide con la bolsa/);
     assert.match(app.html(), /class="boton-primario" disabled aria-describedby="b7-motivo-revision"/);
     assert.match(app.html(), /id="b7-motivo-revision"[^>]*>Revise la configuración o actualice la selección/);
     assert.match(app.html(), /data-bolsa-accion="b7-revisar-configuracion"/);

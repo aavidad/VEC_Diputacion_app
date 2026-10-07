@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +17,7 @@ const (
 	cabeceraContenidoDetalleRRHHPostgreSQLV2 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
 	cabeceraContenidoDetalleRRHHPostgreSQL   = cabeceraContenidoDetalleRRHHPostgreSQLV2
 	cabeceraContenidoDetalleRRHHPostgreSQLV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
+	cabeceraContenidoDetalleRRHHPostgreSQLV4 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V4\n"
 	formatoInstanteCanonicoRRHHPostgreSQL    = "2006-01-02T15:04:05.000000Z"
 )
 
@@ -111,8 +113,11 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	canon []byte,
 ) (contenidoDetalleRRHHDecodificado, error) {
 	cabecera := cabeceraContenidoDetalleRRHHPostgreSQLV2
-	esV3 := bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV3))
-	if esV3 {
+	esV4 := bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV4))
+	esV3 := esV4 || bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV3))
+	if esV4 {
+		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV4
+	} else if esV3 {
 		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV3
 	}
 	lector, err := nuevoLectorCanonRRHHPostgreSQL(canon, cabecera)
@@ -123,7 +128,7 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{}, err
 	}
-	solicitud, err := lector.solicitud()
+	solicitud, err := lector.solicitud(esV4)
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{}, err
 	}
@@ -134,7 +139,7 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 			errCanonConsultaRRHHPostgreSQL
 	}
 
-	analisis, referenciaAnalisis, err := lector.analisis()
+	analisis, referenciaAnalisis, err := lector.analisis(esV4)
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{}, err
 	}
@@ -330,6 +335,33 @@ func (l *lectorCanonRRHHPostgreSQL) instante() (time.Time, error) {
 	return instante, nil
 }
 
+func (l *lectorCanonRRHHPostgreSQL) periodoFin(esV4 bool) (time.Time, domain.ClaveCatalogo, error) {
+	if !esV4 {
+		fin, err := l.instante()
+		return fin, "", err
+	}
+	valor, err := l.texto()
+	if err != nil {
+		return time.Time{}, "", errCanonConsultaRRHHPostgreSQL
+	}
+	if causa, ok := strings.CutPrefix(valor, "causa:"); ok {
+		clave := domain.ClaveCatalogo(causa)
+		if clave.Valida() {
+			return time.Time{}, clave, nil
+		}
+		return time.Time{}, "", errCanonConsultaRRHHPostgreSQL
+	}
+	fecha, ok := strings.CutPrefix(valor, "fecha:")
+	if !ok {
+		return time.Time{}, "", errCanonConsultaRRHHPostgreSQL
+	}
+	fin, err := time.Parse(formatoInstanteCanonicoRRHHPostgreSQL, fecha)
+	if err != nil || fin.Location() != time.UTC || fin.Format(formatoInstanteCanonicoRRHHPostgreSQL) != fecha {
+		return time.Time{}, "", errCanonConsultaRRHHPostgreSQL
+	}
+	return fin, "", nil
+}
+
 func (l *lectorCanonRRHHPostgreSQL) resumen() (
 	ports.ResumenExpedienteRRHH,
 	error,
@@ -372,25 +404,25 @@ func (l *lectorCanonRRHHPostgreSQL) resumen() (
 	return resumen, nil
 }
 
-func (l *lectorCanonRRHHPostgreSQL) solicitud() (
+func (l *lectorCanonRRHHPostgreSQL) solicitud(esV4 bool) (
 	ports.SolicitudOperativaRRHH,
 	error,
 ) {
 	grupo, e1 := l.texto()
 	motivo, e2 := l.texto()
 	inicio, e3 := l.instante()
-	fin, e4 := l.instante()
+	fin, causaFin, e4 := l.periodoFin(esV4)
 	if algunErrorCanonRRHHPostgreSQL(e1, e2, e3, e4) {
 		return ports.SolicitudOperativaRRHH{},
 			errCanonConsultaRRHHPostgreSQL
 	}
 	return ports.SolicitudOperativaRRHH{
 		GrupoSubgrupo: grupo, MotivoClave: domain.ClaveCatalogo(motivo),
-		PeriodoInicio: inicio, PeriodoFin: fin,
+		PeriodoInicio: inicio, PeriodoFin: fin, PeriodoCausaFin: causaFin,
 	}, nil
 }
 
-func (l *lectorCanonRRHHPostgreSQL) analisis() (
+func (l *lectorCanonRRHHPostgreSQL) analisis(esV4 bool) (
 	*ports.AnalisisOperativoRRHH,
 	ports.ReferenciaHitoAnalisisRRHH,
 	error,
@@ -416,7 +448,7 @@ func (l *lectorCanonRRHHPostgreSQL) analisis() (
 	categoria, e2 := l.texto()
 	causa, e3 := l.texto()
 	inicio, e4 := l.instante()
-	fin, e5 := l.instante()
+	fin, causaFin, e5 := l.periodoFin(esV4)
 	jornada, e6 := l.enteroSinSigno()
 	resultadoRC, e7 := l.texto()
 	costePresente, e8 := l.booleano()
@@ -451,7 +483,7 @@ func (l *lectorCanonRRHHPostgreSQL) analisis() (
 	return &ports.AnalisisOperativoRRHH{
 		ModalidadClave: domain.ClaveCatalogo(modalidad),
 		CategoriaRef:   categoria, CausaClave: domain.ClaveCatalogo(causa),
-		PeriodoInicio: inicio, PeriodoFin: fin,
+		PeriodoInicio: inicio, PeriodoFin: fin, PeriodoCausaFin: causaFin,
 		PorcentajeJornada: domain.JornadaDiezmilesimas(jornada),
 		ResultadoRC:       domain.ResultadoValidacionRC(resultadoRC),
 		CostePrevisto:     coste, FuenteCosteRef: fuenteCoste,

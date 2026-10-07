@@ -1,10 +1,11 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260930-portales-i18n-integracion-v1";
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";
 export const FASE_LISTA = "lista";
 export const FASE_ERROR = "error";
+export const FASE_NO_DISPONIBLE = "no_disponible";
 
 export function copiar(valor) {
   return valor === undefined ? undefined : JSON.parse(JSON.stringify(valor));

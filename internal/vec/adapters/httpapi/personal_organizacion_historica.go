@@ -13,6 +13,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -124,7 +125,9 @@ func (h *handlerOrganizacionHistorica) ServeHTTP(w http.ResponseWriter, r *http.
 	resultado, err := h.consulta.Consultar(r.Context(), personaldomain.SolicitudConsultaOrganizacionHistorica{Selector: filtros, Actor: actor})
 	if err != nil {
 		if errors.Is(err, personaldomain.ErrConsultaOrganizacionHistoricaDenegada) {
-			h.denegar(w, r.Context(), http.StatusForbidden, "acceso_denegado", actor.Principal.ID)
+			// El caso de uso nominal sólo devuelve denegación después del acuse
+			// común. No añadir una segunda entrada CT162 al mismo intento.
+			responderOrganizacionHistorica(w, http.StatusForbidden, "acceso_denegado", nil)
 			return
 		}
 		if errors.Is(err, personaldomain.ErrConsultaOrganizacionHistoricaInvalida) {
@@ -165,7 +168,7 @@ func (h *handlerOrganizacionHistorica) denegar(w http.ResponseWriter, ctx contex
 		CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo,
 		Ruta: RutaOrganizacionHistoricaPersonal, ActorRef: actor,
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta))
 	defer cancelar()
 	if err := h.auditoria.RegistrarDenegacionOrganizacionHistorica(ctxAuditoria, orden); err != nil {
 		responderOrganizacionHistorica(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)

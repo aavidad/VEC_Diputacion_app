@@ -80,7 +80,7 @@ test("ADMIN usa claves i18n cerradas y no carga ejemplos ni almacenamiento web",
 
 test("imports directos versionados montan ADMIN y cargan la preview", async () => {
   const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
-  for (const [nombre, version] of [["i18n.js", "20260929-i18n-administracion-v1"], ["vista-apariencia.js", "20260929-pref-508a-v1"]]) {
+  for (const [nombre, version] of [["i18n.js", "20260929-i18n-administracion-v1"], ["vista-apariencia.js", "20260930-codexf-temas-v2"]]) {
     const ruta = `./${nombre}?v=${version}`;
     assert.ok(fuente.includes(`from "${ruta}"`), nombre);
     assert.notEqual(new URL(ruta, import.meta.url).href, new URL(`./${nombre}`, import.meta.url).href);

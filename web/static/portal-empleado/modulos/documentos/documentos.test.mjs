@@ -149,7 +149,7 @@ test("solo se pinta la descarga de lo descargable y la huella externa queda visi
   assert.equal(todos(filas[2]).some((n) => n.tagName === "BUTTON"), false, "sin botón deshabilitado perpetuo");
   const detalle = nodos.find((n) => n.tagName === "DETAILS" && n.className === "documentos-huella");
   const resumen = detalle.children.find((n) => n.tagName === "SUMMARY");
-  assert.equal(resumen.textContent, `Huella ${"b".repeat(12)}…`);
+  assert.equal(resumen.textContent, "Ver huella digital");
   assert.equal(detalle.children.find((n) => n.tagName === "CODE").textContent, externa);
   assert.equal(nodos.some((n) => n.title), false, "la huella no depende de un title");
 });
@@ -158,7 +158,7 @@ test("i18n y vista solo muestran ayuda tras el signo de interrogación", async (
   const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
   const css = await readFile(new URL("./documentos.css", import.meta.url), "utf8");
   assert.equal(crearTraductorDocumentos()("tipo_comision"), "Comisión de servicio");
-  assert.equal(crearTraductorDocumentos()("firma_pendiente_firma"), "Pendiente de firma");
+  assert.equal(crearTraductorDocumentos()("firma_pendiente_firma"), "Firma oficial pendiente");
   assert.match(vista, /"summary", "\?"/u);
   assert.doesNotMatch(vista, /localStorage|sessionStorage|document\.cookie|datos-sinteticos|datos-presentacion/iu);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/iu);

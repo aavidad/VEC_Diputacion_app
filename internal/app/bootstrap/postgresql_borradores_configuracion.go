@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -284,7 +285,7 @@ func comprobarIdentidadPoolPostgreSQLBorradores(
 	) {
 		return "", ErrIdentidadPostgreSQLBorradoresInvalida
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, duracionSondaPostgreSQLBorradores)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(duracionSondaPostgreSQLBorradores))
 	defer cancelar()
 	var usuarioSesion, usuarioEfectivo string
 	var identidadValida bool

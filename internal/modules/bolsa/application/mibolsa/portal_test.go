@@ -15,9 +15,21 @@ import (
 )
 
 type registroPortalPrueba struct {
-	solicitudes []bolsa.SolicitudPortalCandidato
-	respuestas  []bolsa.RespuestaPortalCandidato
-	plazo       bolsa.PlazoRespuestaPortal
+	solicitudes           []bolsa.SolicitudPortalCandidato
+	documentales          []bolsa.SolicitudDocumentalPortal
+	estadoDocumental      string
+	reutilizadaDocumental bool
+	respuestas            []bolsa.RespuestaPortalCandidato
+	plazo                 bolsa.PlazoRespuestaPortal
+}
+
+func (r *registroPortalPrueba) SolicitarDocumentalPortal(_ context.Context, s bolsa.SolicitudDocumentalPortal) (bolsa.ReciboSolicitudDocumentalPortal, error) {
+	r.documentales = append(r.documentales, s)
+	estado := r.estadoDocumental
+	if estado == "" {
+		estado = "pendiente_rrhh"
+	}
+	return bolsa.ReciboSolicitudDocumentalPortal{SolicitudRef: s.SolicitudRef, ReciboRef: s.ReciboRef, ContenidoSHA256: s.ContenidoSHA256, RegistradaEn: s.RegistradaEn, Version: 1, Estado: estado, Reutilizada: r.reutilizadaDocumental}, nil
 }
 
 func (r *registroPortalPrueba) SolicitarPortal(_ context.Context, s bolsa.SolicitudPortalCandidato) (bolsa.ReciboSolicitudPortal, error) {
@@ -91,6 +103,53 @@ func nuevoEntornoPortal(t *testing.T, accion, audiencia string, reglas reglasPor
 	p.portal, err = NuevoPortal(p.registro, e.autorizador, p.proveedor, reglas, reloj)
 	exigir(t, err)
 	return p
+}
+
+func TestPortalSolicitudDocumentalPropiaPendiente(t *testing.T) {
+	p := nuevoEntornoPortal(t, bolsa.AccionPresentarSolicitudDocumentalPropia, bolsa.AudienciaPresentarSolicitudDocumentalPropia, reglasPortalPrueba{})
+	comando := ComandoSolicitudDocumentalPortal{Bolsa: "bolsa:auxiliar", DocumentoRef: "documento:parte-1", DocumentoSHA256: strings.Repeat("a", 64), FechaFinCausa: "2026-10-02", Clave: "clave-documental-1"}
+	recibo, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando)
+	exigir(t, err)
+	if len(p.registro.documentales) != 1 || len(p.registro.solicitudes) != 0 || p.firmas != 1 || recibo.Estado != "pendiente_rrhh" {
+		t.Fatal("la solicitud documental no quedó separada de la pausa y pendiente de RRHH")
+	}
+	s := p.registro.documentales[0]
+	if s.CandidatoRef != referenciaServicioContextoActorPrueba("can_", "c") || s.Material.ValidarEstructura() != nil ||
+		s.ContenidoSHA256 != huellaPortal("contenido-solicitud-documental", s.CandidatoRef, comando.Bolsa, comando.DocumentoRef, comando.DocumentoSHA256, comando.FechaFinCausa) ||
+		!strings.HasPrefix(recibo.SolicitudRef, "solicitud-documental:") || !strings.HasPrefix(recibo.ReciboRef, "recibo:solicitud-documental:") {
+		t.Fatalf("material documental no ligado: %+v", s)
+	}
+	comando.FechaFinCausa = "2026-02-30"
+	if _, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando); !errors.Is(err, bolsa.ErrPortalCandidatoInvalido) || len(p.registro.documentales) != 1 {
+		t.Fatalf("fecha civil imposible admitida: %v", err)
+	}
+	comando.FechaFinCausa = "2026-10-02"
+	comando.DocumentoRef = "dni:prueba"
+	if _, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando); !errors.Is(err, bolsa.ErrPortalCandidatoInvalido) || len(p.registro.documentales) != 1 {
+		t.Fatalf("referencia de identidad dejó pendiente irresoluble: %v", err)
+	}
+	comando.DocumentoRef = "documento:parte-1"
+	comando.FechaFinCausa = ""
+	comando.Clave = "clave-documental-sin-fecha"
+	sinFecha, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando)
+	if err != nil || sinFecha.Estado != "pendiente_rrhh" || p.registro.documentales[len(p.registro.documentales)-1].FechaFinCausa != "" {
+		t.Fatalf("solicitud sin fecha inventó fin de causa: %+v, %v", sinFecha, err)
+	}
+	for _, estado := range []string{"validada", "rechazada"} {
+		p.registro.estadoDocumental, p.registro.reutilizadaDocumental = estado, true
+		repetida, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, ComandoSolicitudDocumentalPortal{Bolsa: "bolsa:auxiliar", DocumentoRef: "documento:parte-1", DocumentoSHA256: strings.Repeat("a", 64), FechaFinCausa: "2026-10-02", Clave: "clave-documental-1"})
+		if err != nil || !repetida.Reutilizada || repetida.Estado != estado || repetida.ReciboRef != recibo.ReciboRef || repetida.ContenidoSHA256 != recibo.ContenidoSHA256 {
+			t.Fatalf("replay %s no conserva recibo: %+v, %v", estado, repetida, err)
+		}
+	}
+}
+
+func TestHuellaSolicitudDocumentalSinFechaCoincideConSQLB77(t *testing.T) {
+	got := huellaPortal("contenido-solicitud-documental", "can_"+strings.Repeat("A", 22),
+		"bolsa:sintetica:rrhh17", "documento:sintetico:rrhh17", strings.Repeat("a", 64), "")
+	if got != "9bff03e2c2b23f401a5208d2073851a14dcf26094f57539c07cc6e10b9e7fff2" {
+		t.Fatalf("canon documental sin fecha no coincide con B77: %s", got)
+	}
 }
 
 func TestPortalSolicitaPausaConAccionPropiaYReglas(t *testing.T) {

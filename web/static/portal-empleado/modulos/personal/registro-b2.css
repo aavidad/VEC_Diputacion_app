@@ -1,3 +1,5 @@
+@import url("./comparacion-ficha-b2.css?v=20261003-personal-comparacion-b2-v4");
+
 .personal-registro-b2 {
   display: grid;
   min-width: 0;
@@ -94,6 +96,7 @@
 
 .personal-registro-b2-contenido {
   display: grid;
+  grid-auto-rows: max-content;
   min-width: 0;
   min-height: 0;
   align-content: start;
@@ -132,6 +135,38 @@
 .personal-registro-b2 .tabla-datos td { overflow-wrap: break-word; }
 .personal-registro-b2-secundario { display: block; margin-top: var(--portal-espacio-1); color: var(--portal-muted); font-size: .75rem; }
 .personal-registro-b2 .tabla-datos tbody tr:hover { background: var(--portal-azul-100); }
+
+.personal-registro-b2-traza { min-width: 170px; }
+.personal-registro-b2-traza > summary,
+.personal-registro-b2-traza-tecnica > summary {
+  width: fit-content;
+  min-height: 32px;
+  padding: var(--portal-espacio-1) var(--portal-espacio-2);
+  border-radius: var(--portal-radio);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-weight: 600;
+}
+.personal-registro-b2-traza > summary:focus-visible,
+.personal-registro-b2-traza-tecnica > summary:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+.personal-registro-b2-traza[open] { padding-bottom: var(--portal-espacio-2); }
+.personal-registro-b2-traza dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--portal-espacio-1) var(--portal-espacio-2);
+  margin: var(--portal-espacio-2) 0;
+  font-size: .82rem;
+}
+.personal-registro-b2-traza :is(dt, dd, summary) { white-space: normal; overflow-wrap: anywhere; }
+.personal-registro-b2-traza dt { color: var(--portal-muted); }
+.personal-registro-b2-traza dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.personal-registro-b2-traza-tecnica {
+  margin-top: var(--portal-espacio-2);
+  border-top: 1px solid var(--portal-borde);
+}
 
 .personal-registro-b2-estado {
   margin: 0;
@@ -356,3 +391,14 @@
   .personal-registro-b2 .personal-registro-b2-empleados td:last-child { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
   .personal-registro-b2 .personal-registro-b2-empleados td[data-registro-b2-vacio] { display: none; }
 }
+
+/* La búsqueda de una página conserva controles íntegros al ampliar el texto. */
+[data-personal-vacantes-b2] .cabecera-panel { flex-wrap: wrap; }
+[data-personal-vacantes-b2] .cabecera-panel :is(h3, span),
+[data-personal-vacantes-b2] .personal-registro-b2-toolbar :is(label, input, button) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+[data-personal-vacantes-b2] .personal-registro-b2-toolbar input { width: 100%; }

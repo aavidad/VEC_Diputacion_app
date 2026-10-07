@@ -1,0 +1,14 @@
+import { crearClienteCategorias } from "./cliente.js?v=20261006-resumen-inicio-v2";
+import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
+import { montarVistaCategorias } from "./vista.js?v=20261001-rpt-categorias-v1";
+import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+
+const vista = montarVistaCategorias({
+  doc: document,
+  puerto: crearClienteCategorias(),
+  t,
+  idiomaUI: TEXTOS_CATEGORIAS.idioma,
+  idiomaDatos: IDIOMA_POR_DEFECTO,
+  localizacion: TEXTOS_CATEGORIAS.localizacion,
+});
+void vista.cargar();

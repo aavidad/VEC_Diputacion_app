@@ -21,7 +21,7 @@ func dictamenPrueba() *dictamenAutofirma {
 		Revocacion: aspectoAutofirma{Estado: "vigente"}, SelloTiempo: aspectoAutofirma{Estado: "no_presente"},
 	}
 	return &dictamenAutofirma{
-		Contrato: ContratoDictamen, Estado: "valida", Motivo: "verificada",
+		Contrato: contratoDictamenV1, Estado: "valida", Motivo: "verificada", Formato: "PAdES",
 		Integridad: aspectoAutofirma{Estado: "valida"}, Cadena: aspectoAutofirma{Estado: "valida"},
 		Certificado: aspectoAutofirma{Estado: "vigente"}, Revocacion: aspectoAutofirma{Estado: "vigente"},
 		SelloTiempo: aspectoAutofirma{Estado: "no_presente"}, VinculoOriginal: aspectoAutofirma{Estado: "acreditado"},
@@ -41,7 +41,7 @@ func resultadoBase() ports.ResultadoVerificacionFirma {
 
 func TestDictamenValidoSeTraduceAVerificada(t *testing.T) {
 	r := traducir(resultadoBase(), dictamenPrueba())
-	if r.Motivo != ports.MotivoFirmaVerificada || r.Resultado.FirmanteRef != "ref:"+huellaCertPrueba ||
+	if r.Motivo != ports.MotivoFirmaVerificada || r.Resultado.Formato != "PAdES" || r.Resultado.FirmanteRef != "ref:"+huellaCertPrueba ||
 		!r.Resultado.VinculoOriginal || r.Resultado.RevocacionEstado != "vigente" {
 		t.Fatalf("dictamen valido: %+v", r)
 	}

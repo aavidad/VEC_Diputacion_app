@@ -2,19 +2,21 @@
  * Circuito de firma de los borradores del expediente. Consulta el catálogo
  * vigente y, si el registro de firmas está compuesto, el estado real de cada
  * paso. Mantiene visible la fase oficial aunque el catálogo o el registro no
- * respondan. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver».
+ * respondan. Las acciones siguen cerradas hasta el preflight nominal R5.
  * Una firma de prueba registrada no acredita envío ni firma en Firmadoc.
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
-import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
-import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js";
-import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261006-resumen-inicio-v2";
+import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
+import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261006-resumen-inicio-v2";
+import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261003-ct-firma-v2-v1";
+import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
-const ESQUEMA = "vec.contratacion_temporal.circuito_firma.v1";
+const ESQUEMA_V1 = "vec.contratacion_temporal.circuito_firma.v1";
+const ESQUEMA_V2 = "vec.contratacion_temporal.circuito_firma.v2";
 const MAXIMO_RESPUESTA = 64 * 1024;
 const MAXIMO_DOCUMENTOS = 32;
 const MAXIMO_PASOS = 16;
@@ -37,6 +39,7 @@ const NO_CONECTADO = Object.freeze({ conectado: false, motivo: "conexion_pendien
 const MOTIVO_PORTAFIRMAS = /^[a-z][a-z0-9_]{2,63}$/u;
 const CAMPOS_DOCUMENTO = ["documento", "etiqueta", "pasos"];
 const CAMPOS_PASO = ["orden", "cargo", "perfil_ref", "accion", "condicion", "habilita", "devolucion", "sustitucion", "estado", "referencia"];
+const CAMPO_ALTERNATIVAS = "perfiles_ref_alternativos";
 
 function camposExactos(valor, campos) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor)
@@ -48,12 +51,19 @@ function textoAcotado(valor, maximo = 512) {
   return typeof valor === "string" && valor.trim() !== "" && valor.length <= maximo;
 }
 
-function validarPaso(paso, indice, total) {
-  if (!camposExactos(paso, CAMPOS_PASO) || paso.orden !== indice + 1
+function validarPaso(paso, indice, total, esquema) {
+  const conAlternativas = paso !== null && typeof paso === "object" && Object.hasOwn(paso, CAMPO_ALTERNATIVAS);
+  if (!camposExactos(paso, conAlternativas && esquema === ESQUEMA_V2 ? [...CAMPOS_PASO, CAMPO_ALTERNATIVAS] : CAMPOS_PASO)
+    || paso.orden !== indice + 1
     || !textoAcotado(paso.cargo) || !PERFIL.test(paso.perfil_ref) || !textoAcotado(paso.referencia)
     || Object.entries(VOCABULARIO).some(([campo, valores]) => !valores.includes(paso[campo]))
     || (indice === total - 1) === (paso.habilita === "siguiente_paso")) return null;
-  return Object.freeze({ ...paso });
+  if (!conAlternativas) return Object.freeze({ ...paso });
+  const alternativas = paso.perfiles_ref_alternativos;
+  if (!Array.isArray(alternativas) || alternativas.length < 1 || alternativas.length > MAXIMO_PASOS
+    || alternativas.some((ref) => typeof ref !== "string" || !PERFIL.test(ref))
+    || new Set([paso.perfil_ref, ...alternativas]).size !== alternativas.length + 1) return null;
+  return Object.freeze({ ...paso, perfiles_ref_alternativos: Object.freeze([...alternativas]) });
 }
 
 /**
@@ -73,21 +83,25 @@ function validarPortafirmas(valor) {
  */
 export function validarCircuitoFirma(datos) {
   const conPortafirmas = datos !== null && typeof datos === "object" && Object.hasOwn(datos, "portafirmas");
-  if (!camposExactos(datos, conPortafirmas ? [...CAMPOS_CIRCUITO, "portafirmas"] : CAMPOS_CIRCUITO) || datos.esquema !== ESQUEMA
+  if (!camposExactos(datos, conPortafirmas ? [...CAMPOS_CIRCUITO, "portafirmas"] : CAMPOS_CIRCUITO)
+    || (datos.esquema !== ESQUEMA_V1 && datos.esquema !== ESQUEMA_V2)
     || !textoAcotado(datos.catalogo_ref) || !HUELLA.test(datos.huella_sha256)
     || typeof datos.ejemplo !== "boolean" || datos.firma_eficaz !== false
     || (conPortafirmas && !validarPortafirmas(datos.portafirmas))
     || !Array.isArray(datos.documentos) || datos.documentos.length < 1
     || datos.documentos.length > MAXIMO_DOCUMENTOS) return null;
   const documentos = [];
+  let conAlternativas = false;
   for (const documento of datos.documentos) {
     if (!camposExactos(documento, CAMPOS_DOCUMENTO) || !CLAVE.test(documento.documento)
       || !textoAcotado(documento.etiqueta) || !Array.isArray(documento.pasos)
       || documento.pasos.length < 1 || documento.pasos.length > MAXIMO_PASOS) return null;
-    const pasos = documento.pasos.map((paso, indice) => validarPaso(paso, indice, documento.pasos.length));
+    const pasos = documento.pasos.map((paso, indice) => validarPaso(paso, indice, documento.pasos.length, datos.esquema));
     if (pasos.includes(null)) return null;
+    conAlternativas ||= pasos.some((paso) => Object.hasOwn(paso, CAMPO_ALTERNATIVAS));
     documentos.push(Object.freeze({ documento: documento.documento, etiqueta: documento.etiqueta, pasos: Object.freeze(pasos) }));
   }
+  if ((datos.esquema === ESQUEMA_V2) !== conAlternativas) return null;
   return Object.freeze({
     catalogo_ref: datos.catalogo_ref, huella_sha256: datos.huella_sha256,
     ejemplo: datos.ejemplo, documentos: Object.freeze(documentos), portafirmas: conPortafirmas ? validarPortafirmas(datos.portafirmas) : NO_CONECTADO,
@@ -156,7 +170,7 @@ export function crearClienteHTTPCircuitoFirma({ fetchImpl = globalThis.fetch } =
 }
 
 function renderizarPaso(paso, t, circuito, documento) {
-  const tono = TONO_ESTADO[paso.estado];
+  const tono = circuito.estado_no_acreditado ? "neutro" : TONO_ESTADO[paso.estado];
   const cargo = traducirValorCircuitoFirma("cargo", paso.cargo, t);
   const detalles = [
     t(`circuito_firma_accion_${paso.accion}`),
@@ -164,15 +178,15 @@ function renderizarPaso(paso, t, circuito, documento) {
     t(`circuito_firma_devolucion_${paso.devolucion}`),
     t(`circuito_firma_sustitucion_${paso.sustitucion}`),
   ];
-  return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
+  return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${!circuito.estado_no_acreditado && paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
     <span class="ct-circuito-orden" aria-hidden="true">${paso.orden}</span>
     <div class="ct-circuito-paso-cuerpo">
       <p class="ct-circuito-cargo">${escaparHTML(cargo)}</p>
       <p class="ct-circuito-detalle">${detalles.map(escaparHTML).join(" · ")}</p>
       ${paso.estado === "devuelto" && paso.motivo_devolucion ? `<p class="ct-circuito-motivo">${escaparHTML(t("circuito_firma_motivo", { motivo: paso.motivo_devolucion }))}</p>` : ""}
-      ${renderizarAccionesPaso(circuito, documento, paso, t)}
+      ${circuito.preflight_compuesto ? "" : renderizarAccionesPaso(circuito, documento, paso, t)}
     </div>
-    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
+    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(circuito.estado_no_acreditado ? "circuito_firma_estado_pendiente_consulta" : `circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
   </li>`;
 }
 
@@ -189,29 +203,30 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
       ${circuito?.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
-    <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
+    <p id="ct-firma-aviso" class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
     ${fase ? renderizarFaseFirma({
     catalogo: fase.catalogo, real: circuito?.registro ? circuito : null, textos: fase.textos,
     nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
   }) : ""}
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
-      <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
-      <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
+      <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_envio_corporativo_titulo"))}</h4>
+      <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_envio_corporativo_pendiente"))}</span>
       <div class="ct-circuito-envio">
-        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
-        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
+        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_accion"))}</button>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_bloqueado"))}</p>
       </div>
       <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
         <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
       </details>
     </section>
     ${circuito ? `<details class="ct-circuito-prueba" data-ct-firma-detalles>
-      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
+      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_sin_eficacia"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
       <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => {
     const etiqueta = traducirValorCircuitoFirma("documento", documento.etiqueta, t);
     return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
       <h5>${escaparHTML(etiqueta)}</h5>
       <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
+      ${circuito.preflight_compuesto ? renderizarAccionesPaso(circuito, documento, documento.pasos[0], t) : ""}
     </article>`;
   }).join("")}</div></details>` : fase && estadoConsulta === "no_disponible" ? "" : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
@@ -226,11 +241,16 @@ export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
   clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {}, cargarTextos,
   locale = globalThis.document?.documentElement?.lang || "es-ES",
+  crearDocumentos = crearFuenteDocumentosHTTP, entornoDescarga = globalThis,
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
   const t = crearTraductorCircuitoFirma(mensajes, locale);
   const controlador = new AbortController();
   let consulta = null;
+  let circuitoActual = null;
+  const consultaFirmaCompuesta = typeof dependenciasAcciones.clientePreflight?.consultar === "function"
+    && typeof dependenciasAcciones.obtenerVinculoOriginal === "function"
+    && typeof dependenciasAcciones.obtenerOriginal === "function";
   const textosFase = cargarTextosFaseFirma(cargarTextos);
   const fase = async (resultado) => {
     const textos = await textosFase;
@@ -273,17 +293,22 @@ export function crearGestorCircuitoFirma({
     // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
     // responde o no coincide, no se muestran estados derivados del ejemplo.
     const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
-    const real = fusionado && !solicitud ? Object.freeze({ ...fusionado, acciones: false }) : fusionado;
+    const real = fusionado ? Object.freeze({ ...fusionado,
+      acciones: Boolean(solicitud), preflight_compuesto: consultaFirmaCompuesta && Boolean(solicitud),
+    }) : consultaFirmaCompuesta && solicitud ? Object.freeze({ ...circuito,
+      acciones: true, preflight_compuesto: true, estado_no_acreditado: true,
+    }) : null;
     return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
   }
 
   const acciones = crearAccionesFirma({
-    obtenerEstado, t, clienteFirma, ...dependenciasAcciones,
+    ...dependenciasAcciones, obtenerEstado, obtenerCircuito: () => circuitoActual, t,
     async alCambiar(aviso) {
       const nuevo = await conEstadoReal(await consulta);
       const datosFase = await fase(nuevo);
       const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
       if (!actual || !esMontada()) return;
+      circuitoActual = nuevo.circuito;
       const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
       const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
       actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado, datosFase);
@@ -301,7 +326,53 @@ export function crearGestorCircuitoFirma({
       }
     },
   });
-  function manejar(evento) { void acciones.manejarClic(evento); }
+  // Descarga el PDF firmado que guarda Documentos: la ruta de Documentos
+  // autoriza la terna expediente, documento y versión, y el cliente coteja la
+  // huella antes de entregar el fichero.
+  let descargando = false;
+  async function descargarFirmado(boton) {
+    if (descargando) return;
+    descargando = true;
+    boton.setAttribute("aria-disabled", "true");
+    boton.setAttribute("aria-describedby", "ct-firma-aviso");
+    const textos = await textosFase;
+    const aviso = boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
+    const decir = (clave, valores) => { if (aviso && textos) aviso.textContent = textos.traducir(clave, valores); };
+    const documento = boton.closest?.(".ct-fase-firma-fila")?.querySelector?.(".ct-fase-firma-documento strong")?.textContent?.trim();
+    decir("fase.descargando");
+    let url = "";
+    try {
+      const d = boton.dataset;
+      const fuente = crearDocumentos({ expedienteRef: d.ctFirmadoExpediente });
+      const archivo = await fuente.descargar(d.ctFirmadoDocumento, {
+        version: Number(d.ctFirmadoVersion), mime: "application/pdf", huella: d.ctFirmadoHuella, signal: controlador.signal,
+      });
+      const pagina = entornoDescarga.document;
+      if (!pagina?.body || typeof entornoDescarga.URL?.createObjectURL !== "function" || typeof entornoDescarga.Blob !== "function") {
+        throw new TypeError("descarga no disponible");
+      }
+      url = entornoDescarga.URL.createObjectURL(new entornoDescarga.Blob([archivo.contenido], { type: archivo.tipo }));
+      const enlace = pagina.createElement("a");
+      try {
+        enlace.href = url; enlace.download = archivo.nombre; enlace.hidden = true;
+        pagina.body.append(enlace); enlace.click();
+      } finally { enlace.remove(); }
+      decir(documento ? "fase.descargado" : "fase.descargado_sin_nombre", { documento });
+    } catch (error) {
+      if (controlador.signal.aborted) return;
+      decir(error?.codigo === "denegado" ? "fase.descarga_denegada" : "fase.descarga_error");
+    } finally {
+      if (url) setTimeout(() => entornoDescarga.URL.revokeObjectURL?.(url), 0);
+      boton.removeAttribute("aria-disabled");
+      descargando = false;
+    }
+  }
+
+  function manejar(evento) {
+    const boton = evento?.target?.closest?.("[data-ct-descargar-firmado]");
+    if (boton?.dataset?.ctDescargarFirmado !== undefined) { void descargarFirmado(boton); return; }
+    void acciones.manejarClic(evento);
+  }
 
   function insertar(resultado, datosFase) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
@@ -309,11 +380,13 @@ export function crearGestorCircuitoFirma({
     const ancla = raiz.querySelector?.("[data-ct-exp-ancla-firma]")
       ?? raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
     if (typeof ancla?.insertAdjacentHTML !== "function") return;
+    circuitoActual = resultado.circuito;
     ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado, datosFase));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
   function montarSiProcede(estado) {
+    acciones.actualizar();
     if (estado?.vista !== "expediente" || !estado.expediente ||
       (typeof cliente?.obtenerCircuito !== "function" && typeof cliente?.obtenerCircuitoConEstado !== "function")) return;
     consulta ??= Promise.resolve(obtenerCatalogo()).catch(() => ({ estado: "no_disponible" }));
@@ -327,6 +400,6 @@ export function crearGestorCircuitoFirma({
 
   return Object.freeze({
     montarSiProcede,
-    retirar() { controlador.abort(); },
+    retirar() { circuitoActual = null; acciones.retirar(); controlador.abort(); },
   });
 }

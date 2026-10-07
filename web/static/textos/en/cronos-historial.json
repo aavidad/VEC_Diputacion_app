@@ -1,0 +1,20 @@
+{
+  "historial": {
+    "titulo": "My leave requests",
+    "filtro": "Show requests",
+    "todas": "All",
+    "pendientes": "Pending",
+    "concedidos": "Granted",
+    "denegados": "Denied",
+    "cancelados": "Cancelled",
+    "anterior": "Previous requests",
+    "siguiente": "Next requests",
+    "recuento": "Requests {desde}–{hasta} of {total}. Page {pagina} of {paginas}.",
+    "sin_resultados": "No requests have this status in the selected year.",
+    "permiso_sin_nombre": "Leave name unavailable",
+    "recibo_titulo": "Last request registered",
+    "recibo_detalle": "View request receipt",
+    "recibo_referencia": "Receipt reference",
+    "recibo_fecha": "Registration date"
+  }
+}

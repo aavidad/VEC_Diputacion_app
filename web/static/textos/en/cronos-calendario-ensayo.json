@@ -1,0 +1,18 @@
+{
+  "titulo": "Historical workplace calendar: synthetic demonstration",
+  "alcance": "Working days describe the workplace calendar. They do not establish that the person was scheduled to work.",
+  "limites": "This demonstration does not calculate working time, minutes, attendance, balances or administrative deadlines. It does not query Personal or official sources.",
+  "fuentes": "Source references and hashes are declared demonstration data. Documents, files and links are never opened. Input and result hashes support reproduction and comparison.",
+  "determinado": "The interval has one assignment and a complete workplace calendar.",
+  "parcial": "Some intervals have a calendar; others cannot be determined.",
+  "indeterminado": "The calendar for this interval cannot be determined.",
+  "adscripcion_sin_cobertura": "No assignment covers these dates.",
+  "adscripcion_multiple": "Several assignments cover the same dates. The demonstration does not choose one.",
+  "calendario_sin_cobertura": "A required workplace calendar layer is missing for this year.",
+  "calendario_no_disponible": "A complete calendar could not be retrieved.",
+  "programacion_persona_no_disponible": "The person's schedule profile and roster are missing.",
+  "presencia_y_saldo_fuera_de_alcance": "Time records and balances are outside this demonstration.",
+  "entrada_invalida": "The input is not a valid demonstration. Supply one synthetic JSON document on standard input with no arguments.",
+  "consulta_no_disponible": "The query could not be reproduced using the supplied snapshot and knowledge time.",
+  "salida_no_disponible": "The result could not be written."
+}

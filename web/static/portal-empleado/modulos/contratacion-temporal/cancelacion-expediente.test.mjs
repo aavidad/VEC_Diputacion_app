@@ -4,9 +4,9 @@ import {
   CONFLICTOS_CANCELACION_EXPEDIENTE, RUTA_CANCELACIONES_EXPEDIENTE, RUTA_CANCELACION_EXPEDIENTE, crearClienteCancelacionHTTP,
   validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion,
 } from "./cliente-http-cancelacion.js";
-import { contextoCancelacionDesdeEstado, montarPanelCancelacion, rutaCancelacionNoMontada } from "./cancelacion-expediente.js";
+import { contextoCancelacionDesdeEstado, montarPanelCancelacion, rutaCancelacionNoMontada } from "./cancelacion-expediente.js?v=20261001-ct-a-i18n-v1";
 import { codigoValidoParaRuta, claveI18nValida } from "./cliente-http-transporte.js";
-import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 const EXP = "expediente:ct:cancelacion:001";
 const UUID = "123e4567-e89b-42d3-a456-426614174000";

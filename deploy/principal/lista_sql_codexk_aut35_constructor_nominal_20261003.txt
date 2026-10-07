@@ -1,0 +1,2 @@
+# Requiere Personal29 instalado antes; su lista causal pertenece a esa rama.
+deploy/postgresql/autorizacion/migraciones/000035_constructor_nominal_firmante_ct.up.sql

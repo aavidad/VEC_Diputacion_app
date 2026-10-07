@@ -1,0 +1,6 @@
+# Bolsa 000082: lecturas de conjunto del cuadro y las estadísticas de RRHH.
+# Solo lectura: crea dos funciones nuevas y no toca nada instalado. Puede
+# instalarse con la aplicación en marcha y antes o después del binario: sin
+# ella el binario nuevo sigue leyendo bolsa a bolsa (más lento, mismo
+# resultado). Una transacción; ningún DOWN. No acredita instalación.
+deploy/postgresql/bolsa_llamamientos/migraciones/000082_resumen_rrhh_conjunto.up.sql

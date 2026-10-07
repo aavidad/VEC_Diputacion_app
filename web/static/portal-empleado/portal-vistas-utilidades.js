@@ -1,4 +1,4 @@
-import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 /**
  * Componentes HTML puros compartidos por las vistas de consulta.
@@ -40,9 +40,7 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
       ? filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td${atributoColumna(indice)}>${celda}</td>`).join("")}</tr>`).join("")
       : `<tr><td colspan="${cabeceras.length}" class="vacio-controlado">${escaparHTML(vacio)}</td></tr>`;
     const clasePrioridad = prioridadColumnas ? ` tabla-contenedor--prioritaria tabla-contenedor--${prioridadColumnas}` : "";
-    const atributosRegion = prioridadColumnas
-      ? ` tabindex="0" role="region" aria-label="${escaparHTML(traducirBolsaInterna("tabla_region_operativa", { titulo }))}" data-tabla-prioritaria="${prioridadColumnas}"`
-      : "";
+    const atributosRegion = ` tabindex="0" role="region" aria-label="${escaparHTML(prioridadColumnas ? traducirBolsaInterna("tabla_region_operativa", { titulo }) : titulo)}"${prioridadColumnas ? ` data-tabla-prioritaria="${prioridadColumnas}"` : ""}`;
     const claseTabla = prioridadColumnas ? ` tabla-datos--prioritaria tabla-datos--${prioridadColumnas}` : "";
     return `<div class="tabla-contenedor${clasePrioridad}"${atributosRegion}><table class="tabla-datos${claseTabla}"><caption>${escaparHTML(titulo)}</caption><thead><tr>${cabeceras.map((cabecera, indice) => `<th scope="col"${atributoColumna(indice)}>${escaparHTML(cabecera)}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
   }

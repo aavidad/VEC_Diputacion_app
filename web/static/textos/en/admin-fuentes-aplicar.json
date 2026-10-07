@@ -1,0 +1,16 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "This command applies synthetic sources through the database authority. It does not create a LOGIN or approve or grant permissions. Invocations that do not reach COMMIT do not establish a persisted audit record.",
+    "uso_invalido": "Provide the plan, connection, approval, a new acknowledgement file, message catalog and positive timeout.",
+    "entrada_insegura": "A private file cannot be read. Check its permissions and location outside the repository.",
+    "entrada_invalida": "The plan or private configuration does not meet the contract. Check its format and hashes.",
+    "acuse_inseguro": "The acknowledgement destination is unsafe or already exists. Choose another private file before sending the operation.",
+    "operacion_no_confirmada": "The operation has not been confirmed. No receipt or audit record is presented as persisted.",
+    "commit_no_confirmado": "COMMIT could not be confirmed. The result is indeterminate. Keep the plan and request a check before acting.",
+    "acuse_no_guardado": "COMMIT is confirmed, but the acknowledgement could not be saved. Keep the plan to recover the original receipt with a new acknowledgement file.",
+    "fuentes_confirmadas": "The operation is confirmed and its acknowledgement has been saved.",
+    "fuentes_rechazadas": "The database rejected the operation and confirmed its attempt record. Consult the private acknowledgement.",
+    "fuentes_no_disponibles": "The operation ended with an error and its attempt record was confirmed. Consult the private acknowledgement."
+  }
+}

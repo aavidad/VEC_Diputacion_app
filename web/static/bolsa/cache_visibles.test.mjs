@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raizWeb = new URL("../../", import.meta.url);
-const versionI18n = "20260928-i18n-ingles-v1";
-const versionI18nIndice = "20260928-i18n-ingles-v1";
-const versionControlador = "20260924-rescate-bolsa-v3";
-const versionLista = "20260924-b10-reintento-foco-v1";
+const versionI18n = "20260930-codexe-publico-v2-v1";
+const versionI18nIndice = "20260930-codexe-publico-v2-v1";
+const versionControlador = "20261001-convoca-preparacion-v1";
+const versionLista = "20260930-codexe-publico-v2-v1";
 const versionAnterior = "20260924-bolsa-publica-final";
 const versionListaAnterior = "20260924-bolsa-ayuda-v3";
 
@@ -32,6 +32,7 @@ test("una caché immutable previa solicita el catálogo y los controladores F2 p
     ]],
     ["listas.html", [
       `/bolsa/i18n-publica.js?v=${versionI18n}`,
+      `/bolsa/lista-bolsas-api.js?v=${versionLista}`,
       `/bolsa/lista-bolsas.js?v=${versionLista}`,
     ]],
   ]);
@@ -59,7 +60,7 @@ test("una caché immutable previa solicita el catálogo y los controladores F2 p
   }
 
   assert.deepEqual(usadosDesdeCacheAnterior, new Set(), "ningún script cambiado reutiliza los bytes antiguos");
-  assert.deepEqual(descargas, new Set([...esperados.values()].flat()), "se descargan las tres URL renovadas");
+  assert.deepEqual(descargas, new Set([...esperados.values()].flat()), "se descargan las URL renovadas");
 });
 
 test("las páginas y los scripts renovados constan en ambos manifiestos de producto", async () => {
@@ -72,6 +73,8 @@ test("las páginas y los scripts renovados constan en ambos manifiestos de produ
     "static/bolsa/listas.html",
     "static/bolsa/i18n-publica.js",
     "static/bolsa/bolsa.js",
+    "static/bolsa/contrato-v2.js",
+    "static/bolsa/lista-bolsas-api.js",
     "static/bolsa/lista-bolsas.js",
   ]) {
     assert.ok(publico.has(ruta), `${ruta}: manifiesto público`);

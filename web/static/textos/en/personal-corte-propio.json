@@ -1,0 +1,11 @@
+{
+  "general": {
+    "fecha": "Reference date (required)",
+    "consultar": "View service records",
+    "actuales": "View current service records",
+    "fecha_invalida": "Enter a valid date.",
+    "al_corte": "Service records as of {fecha}",
+    "alcance": "This date applies only to Service records. It does not reconstruct your full employment history or administrative status.",
+    "ayuda": "The query uses the revisions known at the time of consultation. Employment and positions keeps its current query."
+  }
+}

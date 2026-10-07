@@ -1,0 +1,13 @@
+{
+  "esquema": "vec.bolsa.catalogo_jornada.v1",
+  "version": 1,
+  "contrato_reglas": "vec.bolsa.conjunto_reglas_baremo.v1",
+  "motor": "vec.bolsa.motor_experiencia.v1",
+  "opciones": [
+    { "modo": "proporcional", "etiqueta": "jornada_proporcional", "requiere_umbral": false, "disponible": true },
+    { "modo": "integra", "etiqueta": "jornada_integra", "requiere_umbral": false, "disponible": true },
+    { "modo": "integra_desde_umbral", "etiqueta": "jornada_integra_desde_umbral", "requiere_umbral": true, "disponible": true },
+    { "modo": "protegida_integra", "etiqueta": "jornada_protegida_integra", "requiere_umbral": false, "disponible": true },
+    { "modo": "por_horas", "etiqueta": "jornada_por_horas", "requiere_umbral": false, "disponible": false, "motivo": "jornada_por_horas_no_disponible" }
+  ]
+}

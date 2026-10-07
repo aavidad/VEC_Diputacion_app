@@ -1,0 +1,248 @@
+{
+  "preparacion": {
+    "estado": "pendiente",
+    "material_propuesto": {
+      "alcance": "preparacion_sintetica",
+      "identidad_material": "material:ejemplo:bases",
+      "version_material": 2,
+      "contenido": {
+        "identificador_publico": "seleccion-ejemplo",
+        "tipo": "concurso_oposicion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-ejemplo",
+          "catalogo_version": 1,
+          "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "categorias": [
+          "administrativo",
+          "auxiliar_administrativo"
+        ],
+        "titulo": "Propuesta sintética de bases",
+        "resumen": "Datos configurables de ejemplo, sin fuente aprobada.",
+        "descripcion": "La ruta del documento es una propuesta. No acredita existencia, firma, custodia ni publicación.",
+        "plazos": null,
+        "requisitos": [
+          {
+            "referencia": "req:ejemplo:titulo",
+            "orden": 1,
+            "titulo": "Requisito propuesto",
+            "descripcion": "Pendiente de fuente de RRHH.",
+            "obligatorio": true
+          }
+        ],
+        "documentos": null,
+        "ayuda": null
+      },
+      "referencias": {
+        "fuente_bases": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "catalogos": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "calendario": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "reglas_baremacion": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "flujo_proceso": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "flujo_solicitud": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "plantilla": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "plaza": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "oep": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        },
+        "rpt": {
+          "id": "",
+          "version": 0,
+          "huella_contenido_sha256": ""
+        }
+      }
+    },
+    "pendientes": [
+      {
+        "campo": "fuente_bases",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "catalogos",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "calendario",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "reglas_baremacion",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "flujo_proceso",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "flujo_solicitud",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "plantilla",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "plaza",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "oep",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "rpt",
+        "codigo": "referencia_ausente"
+      },
+      {
+        "campo": "plazos",
+        "codigo": "material_ausente"
+      },
+      {
+        "campo": "documentos_propuestos",
+        "codigo": "material_ausente"
+      },
+      {
+        "campo": "contenido",
+        "codigo": "contenido_no_validado"
+      },
+      {
+        "campo": "documentos_admitidos",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "firma_y_custodia",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "acto_aprobacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "publicacion_oficial",
+        "codigo": "circuito_pendiente"
+      }
+    ]
+  },
+  "limite": "Material sintético para preparar las bases. Las referencias y los documentos siguen sin verificar. No crea una convocatoria, firma, aprobación ni publicación.",
+  "mensajes": [
+    {
+      "campo": "fuente_bases",
+      "codigo": "referencia_ausente",
+      "mensaje": "Fuente de las bases: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "catalogos",
+      "codigo": "referencia_ausente",
+      "mensaje": "Catálogos: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "calendario",
+      "codigo": "referencia_ausente",
+      "mensaje": "Calendario: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "reglas_baremacion",
+      "codigo": "referencia_ausente",
+      "mensaje": "Reglas de baremación: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "flujo_proceso",
+      "codigo": "referencia_ausente",
+      "mensaje": "Flujo del proceso: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "flujo_solicitud",
+      "codigo": "referencia_ausente",
+      "mensaje": "Flujo de la solicitud: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "plantilla",
+      "codigo": "referencia_ausente",
+      "mensaje": "Plantilla: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "plaza",
+      "codigo": "referencia_ausente",
+      "mensaje": "Plaza: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "oep",
+      "codigo": "referencia_ausente",
+      "mensaje": "Oferta de empleo público: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "rpt",
+      "codigo": "referencia_ausente",
+      "mensaje": "Relación de puestos de trabajo: Falta la referencia exacta con versión y huella."
+    },
+    {
+      "campo": "plazos",
+      "codigo": "material_ausente",
+      "mensaje": "Plazos propuestos: Falta este dato en la propuesta."
+    },
+    {
+      "campo": "documentos_propuestos",
+      "codigo": "material_ausente",
+      "mensaje": "Documentos propuestos: Falta este dato en la propuesta."
+    },
+    {
+      "campo": "contenido",
+      "codigo": "contenido_no_validado",
+      "mensaje": "Contenido de las bases: El contenido propuesto no pasa la validación completa de Bolsa. Se conserva para completarlo o corregirlo."
+    },
+    {
+      "campo": "documentos_admitidos",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Documentos admitidos: Pendiente del circuito autorizado y de su evidencia. El material propuesto no acredita este paso."
+    },
+    {
+      "campo": "firma_y_custodia",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Firma y custodia: Pendiente del circuito autorizado y de su evidencia. El material propuesto no acredita este paso."
+    },
+    {
+      "campo": "acto_aprobacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Acto de aprobación: Pendiente del circuito autorizado y de su evidencia. El material propuesto no acredita este paso."
+    },
+    {
+      "campo": "publicacion_oficial",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Publicación oficial: Pendiente del circuito autorizado y de su evidencia. El material propuesto no acredita este paso."
+    }
+  ]
+}

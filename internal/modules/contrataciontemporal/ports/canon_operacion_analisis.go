@@ -15,6 +15,7 @@ const (
 	esquemaSemanticaOperacionAnalisis = "VEC-CT-ANALISIS-SEMANTICA-ARTEFACTO-O3-V2"
 	esquemaConsultaOperacionAnalisis  = "VEC-CT-ANALISIS-CONSULTA-CONFIRMADA-O3-V1"
 	esquemaAnalisisDerivadoO3         = "VEC-CT-ANALISIS-DERIVADO-O3-V1"
+	esquemaAnalisisDerivadoO3V2       = "VEC-CT-ANALISIS-DERIVADO-O3-V2"
 	maximoBytesCanonOperacionAnalisis = 64 * 1024
 )
 
@@ -208,13 +209,24 @@ func huellaAnalisisDerivadoO3(
 	analisis domain.AnalisisRRHH,
 ) (string, error) {
 	canon := nuevoCanonOperacionAnalisis()
-	canon.texto(esquemaAnalisisDerivadoO3)
+	if analisis.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+		canon.texto(esquemaAnalisisDerivadoO3)
+	} else {
+		canon.texto(esquemaAnalisisDerivadoO3V2)
+	}
 	canon.texto(string(analisis.ModalidadClave))
 	canon.texto(analisis.CategoriaRef)
 	canon.texto(analisis.GrupoSubgrupo)
 	canon.texto(string(analisis.CausaClave))
 	canon.instante(analisis.Periodo.Inicio)
-	canon.instante(analisis.Periodo.Fin)
+	if analisis.Periodo.Fin.IsZero() {
+		canon.texto(string(analisis.Periodo.CausaFin))
+	} else {
+		canon.instante(analisis.Periodo.Fin)
+	}
+	if analisis.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		escribirPoliticaFinCanonica(canon, analisis.Periodo.PoliticaFin)
+	}
 	canon.enteroSinSigno(uint64(analisis.PorcentajeJornada))
 	canon.texto(analisis.EntradaRCEsperada.Referencia)
 	canon.texto(analisis.EntradaRCEsperada.HuellaSHA256)
@@ -282,10 +294,25 @@ func escribirDatosFuncionalesCanonicos(
 	canon.texto(datos.GrupoSubgrupo)
 	canon.texto(string(datos.CausaClave))
 	canon.instante(datos.Periodo.Inicio)
-	canon.instante(datos.Periodo.Fin)
+	if datos.Periodo.Fin.IsZero() {
+		canon.texto(string(datos.Periodo.CausaFin))
+	} else {
+		canon.instante(datos.Periodo.Fin)
+	}
+	if datos.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		escribirPoliticaFinCanonica(canon, datos.Periodo.PoliticaFin)
+	}
 	canon.enteroSinSigno(uint64(datos.PorcentajeJornada))
 	canon.texto(datos.EntradaRC.Referencia)
 	canon.texto(datos.EntradaRC.HuellaSHA256)
+}
+
+func escribirPoliticaFinCanonica(canon *canonOperacionAnalisis, politica domain.PoliticaFin) {
+	canon.texto(politica.ReglaRef)
+	canon.enteroSinSigno(politica.CatalogoVersion)
+	canon.texto(politica.CatalogoHuellaSHA256)
+	canon.texto(politica.FechaFin)
+	canon.texto(string(politica.CausaFin))
 }
 
 // escribirObservacionesIdempotencia liga las observaciones del análisis a la

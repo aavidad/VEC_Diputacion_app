@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { traducirPortal } from "./portal-i18n.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {
@@ -75,8 +75,9 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
     obtenerModalFicha: () => modalFicha,
   });
   const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /aria-describedby="bolsa-resultado-sin-expediente" disabled aria-disabled="true">Registrar resultado/);
-  assert.match(html, /id="bolsa-resultado-sin-expediente"[^>]+>La aceptación o renuncia se registra en el expediente/);
+  // La aceptación o renuncia se registra en Contratación temporal: el botón lleva allí, nunca queda muerto.
+  assert.match(html, /<a class="boton-secundario boton-ancho" href="\/portal-empleado\/#contratacion-temporal">Registrar resultado en Peticiones de personal temporal<\/a>/);
+  assert.doesNotMatch(html, /bolsa-resultado-sin-expediente|disabled aria-disabled="true">Registrar resultado/);
   assert.doesNotMatch(html, /data-bolsa-accion="abrir-resultado"|data-bolsa-form="resultado"|href="[^"]*llamamiento:01/);
 
   modalFicha = { abierto: true, candidato, bolsa, registroContacto: {}, intentosContacto: { carga: "cargando" }, reciboContacto: "recibo:contacto:01" };
@@ -99,8 +100,7 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   assert.doesNotMatch(sinPermiso, /Registrar resultado|bolsa-resultado-sin-expediente|data-bolsa-accion="abrir-ficha"/);
 
   // En Node la interfaz está en el idioma por defecto; el inglés se comprueba en su catálogo de datos.
-  assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente"), /\bHTTP\b|B3|CT[0-9]/);
   const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
-  assert.match(ingles.panel_resultado_sin_expediente, /This employment pool does not identify the case/);
-  assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or withdraws/);
+  assert.equal(Object.hasOwn(ingles, "panel_resultado_sin_expediente"), false);
+  assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or declines/);
 });

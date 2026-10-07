@@ -109,6 +109,28 @@ func TestAuditoriaOperacionesB8RegistraGETyPOST(t *testing.T) {
 	}
 }
 
+func TestAuditoriaSolicitudesDocumentalesRRHHRegistraDenegacionesYCierraSiFalla(t *testing.T) {
+	ruta := RutaSolicitudesDocumentalesPendientesRRHH + "?bolsa_ref=bolsa%3A01&participacion_ref=participacion%3A01"
+	for _, estado := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		registrador := &registradorIntentoBorradorDoble{}
+		h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(estado) }), registrador, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+		if w.Code != estado || len(registrador.intentos) != 1 ||
+			registrador.intentos[0].Accion != puertosbolsa.AccionIntentoConsultarBorradorLlamamiento ||
+			registrador.intentos[0].ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion ||
+			registrador.intentos[0].Resultado != resultadoIntentoBorradorLlamamiento(estado) {
+			t.Fatalf("GET documental %d sin traza: status=%d intentos=%+v", estado, w.Code, registrador.intentos)
+		}
+		registrador.err = errors.New("detalle privado del registrador")
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+		if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "privado") || strings.Contains(w.Body.String(), "participacion:01") {
+			t.Fatalf("fallo de bitácora expone datos o permite GET: %d %s", w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestAuditoriaReincorporacionesTitularRegistraLecturaDenegacionYFallo(t *testing.T) {
 	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/reincorporaciones-titular"
 	for _, caso := range []struct {

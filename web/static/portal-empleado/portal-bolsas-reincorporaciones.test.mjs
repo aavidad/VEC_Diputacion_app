@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js";
+import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import {
   ESQUEMA_REINCORPORACIONES_TITULAR,
   LIMITES_REINCORPORACIONES_TITULAR,
@@ -9,7 +9,7 @@ import {
   manejarClickReincorporacionesTitular,
   renderizarReincorporacionesTitular,
   rutaReincorporacionesTitular,
-} from "./portal-bolsas-reincorporaciones.js";
+} from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
 
 const escaparHTML = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const item = Object.freeze({

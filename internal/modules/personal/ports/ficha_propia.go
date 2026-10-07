@@ -30,15 +30,15 @@ type RepositorioFichaPropia interface {
 	ConsultarFichaPropia(context.Context, OrdenFichaPropia) (ResultadoFichaPropia, error)
 }
 
-// DenegacionFichaPropia es el hecho minimizado de una denegación de la
-// frontera HTTP. ActorRef solo se informa con la identidad ya acreditada.
-type DenegacionFichaPropia struct {
-	CorrelacionRef string
-	Motivo         string
-	EstadoHTTP     int
-	ActorRef       string
+// IntentoFichaPropia describe un fallo nominal. La identidad, el empleado y la
+// correlación proceden de la captura del servidor, nunca de estos datos.
+type IntentoFichaPropia struct {
+	Motivo string
 }
 
-type RegistroDenegacionFichaPropia interface {
-	RegistrarDenegacionFichaPropia(context.Context, DenegacionFichaPropia) error
+// RegistroIntentosFichaPropia adapta el destino común de auditoría. Se invoca
+// después de cerrar la consulta original; un fallo impide devolver sus datos.
+type RegistroIntentosFichaPropia interface {
+	VerificarRegistroFichaPropia(context.Context) error
+	RegistrarIntentoFichaPropia(context.Context, IntentoFichaPropia) error
 }

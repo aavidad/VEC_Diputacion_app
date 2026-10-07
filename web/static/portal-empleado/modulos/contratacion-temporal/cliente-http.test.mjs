@@ -32,6 +32,7 @@ const IDENTIDAD = Object.freeze({
 function comandoAlta() {
   return {
     clave_idempotencia: "4d36e96e-e325-4f9b-bebc-291d91d6f732",
+    numero_expediente_moad: "2026/12345",
     solicitud: {
       centro_ref: "centro:solicitante:001",
       contacto_ref: "contacto:opaco:001",
@@ -63,6 +64,7 @@ function reciboAlta() {
 function catalogosAlta() {
   return {
     esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+    numero_expediente_moad: { referencia: "catalogo:numero:moad", version: 1, patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/12345" },
     centros: [{
       referencia: "centro:solicitante:001",
       etiqueta: "Centro solicitante",

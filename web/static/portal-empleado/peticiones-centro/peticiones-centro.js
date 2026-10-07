@@ -1,23 +1,25 @@
 import {
   crearBorradorAlta,
-  crearComandoAlta,
+  crearComandoPeticionCentro,
   validarBorradorAlta,
   validarCatalogosAlta,
-} from "../modulos/contratacion-temporal/contrato.js";
+  numeroExpedienteMOADValido,
+} from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1";
 import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20260929-demo-centro-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261002-ct-fin-moad-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/bandeja",
   operaciones: "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
   rrhh: "/api/vec/contratacion-temporal/peticiones-centro/rrhh",
+  catalogosAlta: "/api/vec/contratacion-temporal/catalogos-alta",
 });
 const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
@@ -246,6 +248,9 @@ function estadoPeticion(estado) {
 function periodoLegible(periodo) {
   const inicio = fechaValida(periodo?.inicio); const fin = fechaValida(periodo?.fin);
   if (inicio && fin) return traducirCentro("pc_periodo_desde_hasta", { inicio: fecha(periodo.inicio), fin: fecha(periodo.fin) });
+  if (inicio && periodo?.causa_fin) return traducirCentro("pc_periodo_con_causa", {
+    inicio: fecha(periodo.inicio), causa: traducirCentro(`causa_fin_${periodo.causa_fin}`),
+  });
   if (inicio) return traducirCentro("pc_periodo_desde", { inicio: fecha(periodo.inicio) });
   if (fin) return traducirCentro("pc_periodo_hasta", { fin: fecha(periodo.fin) });
   return traducirCentro("pc_sin_fechas");
@@ -275,13 +280,14 @@ function detallePeticion(peticion, contexto) {
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
+  const etiquetaMotivo = catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
     [TEXTO.estado, contexto ? estadoPeticion(peticion.estado) : peticion.estado],
     [traducirCentro("ct_txt_centro"), nombreCentro(s.centro_ref, contexto)], [traducirCentro("ct_txt_contacto"), etiqueta(centro?.contactos, s.contacto_ref)],
-    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), s.motivo_clave],
+    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => etiqueta(catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante?.puesto_ref === c?.puesto_ref
@@ -349,27 +355,28 @@ function tablaRRHH(peticiones, seleccionada) {
   return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("ct_txt_referencia")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
-export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "" } = {}) {
+export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "", numeroMOAD = "", politicaNumero = null, errorNumero = false } = {}) {
   const peticion = entrega?.peticion;
   const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (["denegado", "sin_verificar", "resultado_incierto"].includes(modo)) return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
-  if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
+  if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
-  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button></div>` : ""}</aside>`;
+  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
   return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
 export async function registrarAltaRRHH(cliente, comando) {
   try {
-    const resultado = await cliente(RUTAS.rrhh, { method: "POST", cuerpo: { peticion_ref: comando.peticion_ref, version_esperada: 2 } });
+    const resultado = await cliente(RUTAS.rrhh, { method: "POST", cuerpo: { peticion_ref: comando.peticion_ref, version_esperada: 2, ...(Object.hasOwn(comando, "numero_expediente_moad") ? { numero_expediente_moad: comando.numero_expediente_moad } : {}) } });
     const recibo = resultado?.recibo_alta;
     if (!resultado?.peticion?.referencia || resultado.peticion.referencia !== comando.peticion_ref
       || resultado.estado_entrega !== "confirmada" || !recibo?.expediente_ref || !recibo.recibo_ref || !recibo.confirmada_en
+      || (Object.hasOwn(comando, "numero_expediente_moad") && recibo.numero_visible !== comando.numero_expediente_moad)
       || !Number.isFinite(Date.parse(recibo.confirmada_en))) throw new Error(TEXTO.rrhhError);
     return resultado;
   } catch (error) {
-    if ([400, 401, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409, 422].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -427,16 +434,18 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
   let peticiones = []; let entrega = null; let modo = "bandeja"; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let confirmado = false;
+  let numeroMOAD = ""; let politicaNumero = null; let errorNumero = false;
   const retirarDatos = (error) => {
     const confirmada = Boolean(recibo);
     resultadoIncierto = resultadoIncierto || Boolean(operacionPendiente);
     operacionPendiente = null;
     peticiones = []; entrega = null; recibo = null; confirmado = false;
+    numeroMOAD = ""; politicaNumero = null; errorNumero = false;
     modo = esDenegacion(error) ? "denegado" : "sin_verificar";
     mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${resultadoIncierto ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
   };
   const dibujar = () => {
-    raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje });
+    raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje, numeroMOAD, politicaNumero, errorNumero });
     raiz.setAttribute("aria-busy", String(ocupado));
     if (ocupado) raiz.querySelectorAll("button, input").forEach((control) => { control.disabled = true; });
   };
@@ -471,6 +480,14 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
     } catch (error) {
       if (esDenegacion(error)) retirarDatos(error);
       else if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
+      else if (error.status === 422 && !Object.hasOwn(comando, "numero_expediente_moad")) {
+        operacionPendiente = null; modo = "bandeja";
+        mensaje = traducirCentro("numero_moad_recuperacion_no_disponible");
+      }
+      else if (error.status === 422) {
+        operacionPendiente = null; modo = "confirmar"; errorNumero = true;
+        mensaje = traducirCentro("numero_moad_formato_no_valido", { ejemplo: politicaNumero?.ejemplo ?? "" });
+      }
       else { modo = "bandeja"; mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.rrhhError; }
     } finally { ocupado = false; dibujar(); }
   };
@@ -482,13 +499,32 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
     event.preventDefault();
     if (control.dataset.seleccionarRrhh) { entrega = peticiones.find((item) => item.peticion.referencia === control.dataset.seleccionarRrhh) || null; recibo = null; dibujar(); return; }
     if (control.dataset.accion === "recargar-rrhh") { await cargar(); return; }
-    if (control.dataset.accion === "abrir-alta-rrhh" && ["pendiente", "preparada"].includes(entrega?.estado_entrega)) { modo = "confirmar"; confirmado = false; recibo = null; dibujar(); return; }
+    if (control.dataset.accion === "recuperar-alta-anterior" && entrega?.estado_entrega === "preparada") {
+      await ejecutar({ peticion_ref: entrega.peticion.referencia, version_esperada: 2 });
+      return;
+    }
+    if (control.dataset.accion === "abrir-alta-rrhh" && ["pendiente", "preparada"].includes(entrega?.estado_entrega)) {
+      ocupado = true; mensaje = ""; dibujar();
+      try {
+        const catalogos = validarCatalogosAlta(await cliente(RUTAS.catalogosAlta));
+        if (!catalogos.numero_expediente_moad) throw new Error();
+        politicaNumero = catalogos.numero_expediente_moad;
+        numeroMOAD = ""; errorNumero = false; modo = "confirmar"; confirmado = false; recibo = null;
+      } catch (error) {
+        if (esDenegacion(error)) retirarDatos(error);
+        else mensaje = traducirCentro("numero_moad_no_disponible");
+      } finally { ocupado = false; dibujar(); }
+      return;
+    }
     if (control.dataset.accion === "cancelar-alta-rrhh") { modo = "bandeja"; dibujar(); return; }
     if (control.dataset.accion === "reintentar-alta-rrhh" && operacionPendiente) { await ejecutar(operacionPendiente); return; }
     if (control.dataset.accion === "confirmar-alta-rrhh" && modo === "confirmar") {
+      numeroMOAD = raiz.querySelector("[name=numero_expediente_moad]")?.value ?? "";
+      errorNumero = !numeroExpedienteMOADValido(numeroMOAD);
       confirmado = raiz.querySelector("[name=confirmacion-alta-rrhh]")?.checked === true;
+      if (errorNumero) { mensaje = traducirCentro("error_numero_moad"); dibujar(); raiz.querySelector("#pc-numero-moad")?.focus?.(); return; }
       if (!confirmado || !entrega?.peticion?.referencia) { mensaje = TEXTO.confirmacion; dibujar(); return; }
-      await ejecutar({ peticion_ref: entrega.peticion.referencia, version_esperada: 2 });
+      await ejecutar({ peticion_ref: entrega.peticion.referencia, version_esperada: 2, numero_expediente_moad: numeroMOAD });
     }
   });
   raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;
@@ -616,7 +652,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (accion === "cerrar-detalle") { peticion = null; dibujar(); return; }
     if (accion === "reintentar" && operacionPendiente) { await ejecutar(operacionPendiente); return; }
     if (accion === "confirmar-presentar" && modo === "revision" && contexto?.actor.puede_presentar) {
-      const comando = crearComandoAlta(estado.borrador, contexto.catalogos, claveUUID());
+      const comando = crearComandoPeticionCentro(estado.borrador, contexto.catalogos, claveUUID());
       await ejecutar({ operacion: "presentar", ...comando }); return;
     }
     if (accion === "confirmar-ratificar" && modo === "ratificacion" && contexto?.actor.puede_ratificar) {
@@ -641,10 +677,12 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const campo = event.target.name;
     const formulario = event.target.closest?.("[data-ct-form]");
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)
-      || !formulario || !["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+      || !formulario || !["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
     const borrador = extraerBorradorPeticionCentro(formulario);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
+    if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
+      ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     estado = estadoBase(contexto.catalogos, borrador); dibujar();
     raiz.querySelector(campo === "rc_existe" ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]` : `#ct-${campo}`)?.focus();
   });

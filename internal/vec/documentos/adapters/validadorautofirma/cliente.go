@@ -1,21 +1,5 @@
-// Package validadorautofirma traduce el puerto de verificacion de firma de
-// Documentos al validador de GrxFirma desplegado como servicio aparte en
-// modo `-rest-solo-verificacion`.
-//
-// VEC no importa codigo de GrxFirma: este adaptador solo habla su API REST
-// `POST /verify` (JSON con `content_base64` y `original_content_base64`) e
-// interpreta exclusivamente el `dictamen` con contrato
-// `autofirmav2.dictamen-verificacion.v1`. Los campos heredados (`valid`,
-// `result`) se ignoran. Cualquier otro contrato, estado fuera de catalogo,
-// huella de eco distinta o veredicto incoherente con sus aspectos se traduce
-// a `indeterminada` / `respuesta_no_interpretable`. Tambien lo son un
-// dictamen con claves desconocidas o duplicadas, datos sobrantes, un eco del
-// original ausente cuando el vinculo se evaluo, o agregados que no son el
-// peor estado de sus firmantes (regla de agregacion del contrato v1).
-//
-// VEC no delega el veredicto: recalcula el suyo sobre los aspectos del
-// dictamen con ports.PoliticaVerificacionFirmaV1 y solo lo acepta si coincide
-// con el del validador, o si es mas estricto que un `valida` de este.
+// Package validadorautofirma consulta GrxFirma por TLS 1.3 y traduce solo el
+// dictamen v2. Los indicadores heredados de la envoltura nunca acreditan firma.
 package validadorautofirma
 
 import (
@@ -24,27 +8,24 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-	"unicode"
 
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 const (
 	// RutaVerificacion es la ruta REST del validador de GrxFirma.
-	RutaVerificacion = "/verify"
+	RutaVerificacion = "/v2/verify"
 	// ContratoDictamen es el unico contrato de dictamen que se interpreta.
-	ContratoDictamen = "autofirmav2.dictamen-verificacion.v1"
+	ContratoDictamen = "autofirmav2.dictamen-verificacion.v2"
 
 	tiempoPredeterminado = 20 * time.Second
 	tiempoMaximo         = 60 * time.Second
@@ -53,9 +34,8 @@ const (
 	maximaRespuesta = 256 << 10
 	minimoToken     = 32
 	maximoToken     = 512
-	maximoFirmantes = 16
 	// maximaProfundidad acota el recorrido de claves duplicadas; el contrato
-	// v1 y sus campos heredados no superan cuatro niveles.
+	// v2 y la envoltura heredada tienen estructura acotada.
 	maximaProfundidad = 32
 	nombreDocumento   = "documento"
 	estadoNoInformado = "no_informado"
@@ -85,14 +65,19 @@ type Configuracion struct {
 	CertificadoClientePEM []byte
 	ClaveClientePEM       []byte
 	Timeout               time.Duration
+	// Disponibilidad observa únicamente una respuesta 5xx o un dictamen
+	// interpretable del origen autorizado. El receptor debe ser no bloqueante.
+	// No recibe errores, credenciales ni contenido del documento.
+	Disponibilidad func(context.Context, bool)
 }
 
 // Cliente implementa ports.VerificadorFirma y ports.VerificadorFirmaMotivado.
 // No tiene estado global: cada instancia posee su transporte.
 type Cliente struct {
-	url   string
-	token string
-	http  *http.Client
+	url            string
+	token          string
+	http           *http.Client
+	disponibilidad func(context.Context, bool)
 }
 
 var (
@@ -151,8 +136,9 @@ func Nuevo(config Configuracion) (*Cliente, error) {
 		ForceAttemptHTTP2:      false,
 	}
 	return &Cliente{
-		url:   strings.TrimSuffix(config.URL, "/") + RutaVerificacion,
-		token: token,
+		url:            strings.TrimSuffix(config.URL, "/") + RutaVerificacion,
+		token:          token,
+		disponibilidad: config.Disponibilidad,
 		http: &http.Client{
 			Transport:     transporte,
 			Timeout:       limite,
@@ -176,97 +162,25 @@ func tokenValido(token string) bool {
 // peticionAutofirma reproduce solo los campos necesarios de la API de
 // GrxFirma. El nombre es fijo: no se envia el nombre real del fichero.
 type peticionAutofirma struct {
-	Name           string `json:"name"`
-	ContentBase64  string `json:"content_base64"`
-	OriginalBase64 string `json:"original_content_base64"`
+	ContratoSolicitado string `json:"contrato_solicitado"`
+	Name               string `json:"name"`
+	ContentBase64      string `json:"content_base64"`
+	OriginalBase64     string `json:"original_content_base64"`
 }
 
-// respuestaAutofirma toma el dictamen en bruto; los campos heredados de
-// primer nivel se ignoran. El dictamen se decodifica despues con
-// DisallowUnknownFields contra el contrato v1 completo.
-type respuestaAutofirma struct {
-	Dictamen json.RawMessage `json:"dictamen"`
+var motivosDictamen = map[string]ports.MotivoVerificacionFirma{
+	"verificada":                     ports.MotivoFirmaVerificada,
+	"integridad_no_valida":           ports.MotivoIntegridadNoValida,
+	"certificado_no_valido":          ports.MotivoCertificadoNoValido,
+	"confianza_no_valida":            ports.MotivoConfianzaNoValida,
+	"integridad_parcial":             ports.MotivoIntegridadParcial,
+	"firmante_no_identificado":       ports.MotivoFirmanteNoIdentificado,
+	"certificado_no_acreditado":      ports.MotivoCertificadoNoAcreditado,
+	"confianza_no_acreditada":        ports.MotivoConfianzaNoAcreditada,
+	"revocacion_no_acreditada":       ports.MotivoRevocacionNoAcreditada,
+	"sello_tiempo_no_acreditado":     ports.MotivoSelloTiempoNoAcreditado,
+	"vinculo_original_no_acreditado": ports.MotivoVinculoOriginalNoAcreditado,
 }
-
-// dictamenAutofirma enumera todas las claves del contrato v1. Las que VEC no
-// usa (formato, fecha de comprobacion, asunto, emisor, serie, motivos
-// tecnicos, fuentes y fechas de aspecto) se aceptan como json.RawMessage para
-// que DisallowUnknownFields no las rechace, y se descartan sin interpretarlas.
-type dictamenAutofirma struct {
-	Contrato                string              `json:"contrato"`
-	Estado                  string              `json:"estado"`
-	Motivo                  string              `json:"motivo"`
-	Formato                 json.RawMessage     `json:"formato"`
-	ComprobadoEn            json.RawMessage     `json:"comprobadoEn"`
-	Integridad              aspectoAutofirma    `json:"integridad"`
-	Cadena                  aspectoAutofirma    `json:"cadena"`
-	Certificado             aspectoAutofirma    `json:"certificado"`
-	Revocacion              aspectoAutofirma    `json:"revocacion"`
-	SelloTiempo             aspectoAutofirma    `json:"selloTiempo"`
-	VinculoOriginal         aspectoAutofirma    `json:"vinculoOriginal"`
-	HuellaFirmadoSHA256     string              `json:"huellaFirmadoSHA256"`
-	HuellaOriginalSHA256    string              `json:"huellaOriginalSHA256"`
-	CertificadoHuellaSHA256 string              `json:"certificadoHuellaSHA256"`
-	Firmantes               []firmanteAutofirma `json:"firmantes"`
-	Extensiones             extensionesDictamen `json:"extensiones"`
-}
-
-type aspectoAutofirma struct {
-	Estado string          `json:"estado"`
-	Motivo json.RawMessage `json:"motivo"`
-	Fuente json.RawMessage `json:"fuente"`
-	Fecha  json.RawMessage `json:"fecha"`
-}
-
-type firmanteAutofirma struct {
-	CertificadoHuellaSHA256 string           `json:"certificadoHuellaSHA256"`
-	Serie                   json.RawMessage  `json:"serie"`
-	Asunto                  json.RawMessage  `json:"asunto"`
-	Emisor                  json.RawMessage  `json:"emisor"`
-	Cadena                  aspectoAutofirma `json:"cadena"`
-	Certificado             aspectoAutofirma `json:"certificado"`
-	Revocacion              aspectoAutofirma `json:"revocacion"`
-	SelloTiempo             aspectoAutofirma `json:"selloTiempo"`
-}
-
-type extensionesDictamen struct {
-	RevocacionRemota  string `json:"revocacionRemota"`
-	SelloTiempoRemoto string `json:"selloTiempoRemoto"`
-}
-
-// Catalogos cerrados del contrato v1. Son constantes de lectura: no se
-// modifican en ejecucion.
-var (
-	estadosIntegridad  = []string{"valida", "parcial", "no_valida"}
-	estadosCadena      = []string{"valida", "no_valida", "no_comprobada"}
-	estadosCertificado = []string{"vigente", "no_vigente", "uso_no_permitido", "no_comprobado"}
-	estadosRevocacion  = []string{ports.RevocacionVigente, ports.RevocacionRevocado, ports.RevocacionNoComprobada}
-	estadosSello       = []string{ports.SelloTiempoNoPresente, ports.SelloTiempoValido,
-		ports.SelloTiempoNoValido, ports.SelloTiempoNoComprobado}
-	estadosVinculo = []string{"acreditado", "no_acreditado", "no_aportado"}
-	// Ordenes de agregacion del contrato v1, de peor a mejor. El agregado de
-	// cada aspecto es el peor estado de sus firmantes; sin firmantes, el
-	// estado por defecto del contrato.
-	ordenCadena      = []string{"no_valida", "no_comprobada", "valida"}
-	ordenCertificado = []string{"uso_no_permitido", "no_vigente", "no_comprobado", "vigente"}
-	ordenRevocacion  = []string{ports.RevocacionRevocado, ports.RevocacionNoComprobada, ports.RevocacionVigente}
-	ordenSello       = []string{ports.SelloTiempoNoValido, ports.SelloTiempoNoComprobado,
-		ports.SelloTiempoNoPresente, ports.SelloTiempoValido}
-	estadosExtension = []string{"desactivada", "activa"}
-	motivosDictamen  = map[string]ports.MotivoVerificacionFirma{
-		"verificada":                     ports.MotivoFirmaVerificada,
-		"integridad_no_valida":           ports.MotivoIntegridadNoValida,
-		"certificado_no_valido":          ports.MotivoCertificadoNoValido,
-		"confianza_no_valida":            ports.MotivoConfianzaNoValida,
-		"integridad_parcial":             ports.MotivoIntegridadParcial,
-		"firmante_no_identificado":       ports.MotivoFirmanteNoIdentificado,
-		"certificado_no_acreditado":      ports.MotivoCertificadoNoAcreditado,
-		"confianza_no_acreditada":        ports.MotivoConfianzaNoAcreditada,
-		"revocacion_no_acreditada":       ports.MotivoRevocacionNoAcreditada,
-		"sello_tiempo_no_acreditado":     ports.MotivoSelloTiempoNoAcreditado,
-		"vinculo_original_no_acreditado": ports.MotivoVinculoOriginalNoAcreditado,
-	}
-)
 
 // Verificar implementa ports.VerificadorFirma. Devuelve el resultado tipado;
 // solo `valida` con ValidarContra positivo habilita la firma.
@@ -295,23 +209,25 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 		SelloTiempoEstado:   estadoNoInformado,
 		RevocacionEstado:    estadoNoInformado,
 	}
-	// El original se envia siempre, tambien en PAdES: GrxFirma acredita el
-	// vinculo cuando el original es prefijo exacto del PDF firmado y una firma
-	// cubre todos sus bytes. Sin original no hay vinculo que acreditar.
-	peticion := peticionAutofirma{
-		Name:           nombreDocumento,
-		ContentBase64:  base64.StdEncoding.EncodeToString(s.ContenidoFirmado),
-		OriginalBase64: base64.StdEncoding.EncodeToString(s.ContenidoOriginal),
+	recibida, motivo, err := c.verificarDictamenV2(ctx, s)
+	if err != nil {
+		return ports.VerificacionFirmaMotivada{}, err
 	}
-	recibida, motivo := c.llamar(ctx, peticion)
 	if motivo != "" {
 		return motivar(base, motivo), nil
 	}
-	return traducir(base, recibida), nil
+	resultado := traducirV2(base, &recibida, s)
+	if s.FormatoEsperado != "" && resultado.Motivo == ports.MotivoFirmaVerificada &&
+		resultado.Resultado.Formato != s.FormatoEsperado {
+		// El dictamen puede ser positivo para otro formato, pero ese positivo
+		// no satisface el contrato de este consumidor. No adoptar sus aspectos.
+		return motivar(base, ports.MotivoRespuestaNoInterpretable), nil
+	}
+	return resultado, nil
 }
 
-func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dictamenAutofirma, ports.MotivoVerificacionFirma) {
-	var cero *dictamenAutofirma
+func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dictamenV2, ports.MotivoVerificacionFirma) {
+	var cero *dictamenV2
 	cuerpo, err := json.Marshal(peticion)
 	if err != nil {
 		return cero, ports.MotivoValidadorNoDisponible
@@ -339,6 +255,9 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 	case respuesta.StatusCode == http.StatusBadRequest || respuesta.StatusCode == http.StatusRequestEntityTooLarge ||
 		respuesta.StatusCode == http.StatusUnprocessableEntity:
 		return cero, ports.MotivoRechazadaPorValidador
+	case respuesta.StatusCode >= http.StatusInternalServerError && respuesta.StatusCode <= 599:
+		c.observarDisponibilidad(ctx, false)
+		return cero, ports.MotivoValidadorNoDisponible
 	case respuesta.StatusCode != http.StatusOK:
 		return cero, ports.MotivoValidadorNoDisponible
 	}
@@ -350,107 +269,11 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 	if err != nil {
 		return cero, ports.MotivoValidadorNoDisponible
 	}
-	dictamen, ok := decodificarRespuesta(contenido)
-	if !ok {
+	dictamen, err := decodificarRespuestaV2(contenido)
+	if err != nil {
 		return cero, ports.MotivoRespuestaNoInterpretable
 	}
 	return dictamen, ""
-}
-
-// decodificarRespuesta acepta exactamente un objeto JSON de hasta
-// maximaRespuesta bytes, sin claves duplicadas en ningun nivel (tampoco por
-// plegado de mayusculas, que encoding/json haria coincidir) y con un dictamen
-// sin claves ajenas al contrato v1. Un dictamen ausente o nulo devuelve nil,
-// que traducir tambien trata como no interpretable.
-func decodificarRespuesta(contenido []byte) (*dictamenAutofirma, bool) {
-	if len(contenido) > maximaRespuesta || !sinClavesDuplicadas(contenido) {
-		return nil, false
-	}
-	lector := json.NewDecoder(bytes.NewReader(contenido))
-	var recibida respuestaAutofirma
-	if lector.Decode(&recibida) != nil || lector.Decode(new(any)) != io.EOF {
-		return nil, false
-	}
-	if len(recibida.Dictamen) == 0 || string(recibida.Dictamen) == "null" {
-		return nil, true
-	}
-	estricto := json.NewDecoder(bytes.NewReader(recibida.Dictamen))
-	estricto.DisallowUnknownFields()
-	dictamen := new(dictamenAutofirma)
-	if estricto.Decode(dictamen) != nil || estricto.Decode(new(any)) != io.EOF {
-		return nil, false
-	}
-	return dictamen, true
-}
-
-// sinClavesDuplicadas recorre el documento por tokens y exige un unico valor
-// de nivel superior, profundidad acotada y claves unicas por objeto tras el
-// plegado que aplica encoding/json al emparejar campos.
-func sinClavesDuplicadas(contenido []byte) bool {
-	lector := json.NewDecoder(bytes.NewReader(contenido))
-	if recorrerValor(lector, 0) != nil {
-		return false
-	}
-	_, err := lector.Token()
-	return err == io.EOF
-}
-
-// errEstructuraRespuesta es la causa cerrada de una respuesta cuyo recorrido
-// por tokens no es admisible; cuando procede de encoding/json la conserva.
-var errEstructuraRespuesta = errors.New("validadorautofirma: estructura de respuesta no admisible")
-
-func recorrerValor(lector *json.Decoder, profundidad int) error {
-	token, err := lector.Token()
-	if err != nil {
-		return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
-	}
-	delimitador, compuesto := token.(json.Delim)
-	if !compuesto {
-		return nil
-	}
-	if profundidad >= maximaProfundidad {
-		return errEstructuraRespuesta
-	}
-	switch delimitador {
-	case '{':
-		vistas := make(map[string]struct{})
-		for lector.More() {
-			token, err := lector.Token()
-			if err != nil {
-				return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
-			}
-			clave, esClave := token.(string)
-			if !esClave {
-				return errEstructuraRespuesta
-			}
-			plegada := plegarClave(clave)
-			if _, repetida := vistas[plegada]; repetida {
-				return errEstructuraRespuesta
-			}
-			vistas[plegada] = struct{}{}
-			if err := recorrerValor(lector, profundidad+1); err != nil {
-				return err
-			}
-		}
-	case '[':
-		for lector.More() {
-			if err := recorrerValor(lector, profundidad+1); err != nil {
-				return err
-			}
-		}
-	default:
-		return errEstructuraRespuesta
-	}
-	if _, err = lector.Token(); err != nil {
-		return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
-	}
-	return nil
-}
-
-// plegarClave reproduce el plegado sin distincion de mayusculas con el que
-// encoding/json asocia claves a campos, para detectar duplicados equivalentes.
-func plegarClave(clave string) string {
-	return strings.Map(func(r rune) rune { return unicode.ToUpper(unicode.ToLower(r)) }, clave)
 }
 
 func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma) ports.VerificacionFirmaMotivada {
@@ -458,162 +281,10 @@ func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma
 	return ports.VerificacionFirmaMotivada{Resultado: r, Motivo: m}
 }
 
-// traducir interpreta el dictamen con fallo cerrado. Primero valida contrato,
-// catalogos y huellas de eco; despues recalcula el veredicto con la politica
-// de VEC y lo contrasta con el declarado por el validador.
-func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.VerificacionFirmaMotivada {
-	// VEC envia siempre el original: salvo que el validador declare no haberlo
-	// recibido (`no_aportado`, sin eco), su eco es obligatorio y exacto.
-	if !dictamenInterpretable(d) || d.HuellaFirmadoSHA256 != r.HuellaFirmadoSHA256 ||
-		(d.VinculoOriginal.Estado == "no_aportado") != (d.HuellaOriginalSHA256 == "") ||
-		(d.HuellaOriginalSHA256 != "" && d.HuellaOriginalSHA256 != r.HuellaOriginalSHA256) {
-		return motivar(r, ports.MotivoRespuestaNoInterpretable)
+// observarDisponibilidad no cambia la decisión de verificación. Una respuesta
+// bien formada demuestra disponibilidad incluso si su dictamen es no_valida.
+func (c *Cliente) observarDisponibilidad(ctx context.Context, disponible bool) {
+	if c != nil && c.disponibilidad != nil && ctx != nil && ctx.Err() == nil {
+		c.disponibilidad(ctx, disponible)
 	}
-	declarado := motivosDictamen[d.Motivo]
-	if string(declarado.EstadoAsociado()) != d.Estado {
-		return motivar(r, ports.MotivoRespuestaNoInterpretable)
-	}
-	sinAdoptar := r
-	r.VinculoOriginal = d.VinculoOriginal.Estado == "acreditado"
-	r.RevocacionEstado = d.Revocacion.Estado
-	r.SelloTiempoEstado = d.SelloTiempo.Estado
-	if len(d.Firmantes) == 1 && d.CertificadoHuellaSHA256 != "" {
-		// La referencia del firmante es la huella de su certificado; su
-		// correspondencia con la persona la resuelve la aplicacion.
-		r.CertificadoHuellaSHA256 = d.CertificadoHuellaSHA256
-		r.FirmanteRef = "ref:" + d.CertificadoHuellaSHA256
-	}
-	propio := veredictoVEC(d)
-	switch {
-	case propio == declarado:
-		return motivar(r, propio)
-	case declarado == ports.MotivoFirmaVerificada:
-		// VEC es mas estricta que el validador (original no aportado o varios
-		// firmantes): prevalece su motivo, nunca el positivo.
-		return motivar(r, propio)
-	default:
-		// Un veredicto negativo que no casa con sus aspectos indica deriva
-		// del contrato: no se adopta ningun aspecto de esa respuesta.
-		return motivar(sinAdoptar, ports.MotivoRespuestaNoInterpretable)
-	}
-}
-
-// veredictoVEC aplica ports.PoliticaVerificacionFirmaV1 sobre los aspectos
-// agregados, con la misma precedencia que el contrato: defectos
-// concluyentes antes que comprobaciones no concluidas. Solo es seguro porque
-// dictamenInterpretable ya exigio que cada agregado sea exactamente el peor
-// estado de los firmantes: ningun defecto de un firmante queda oculto.
-func veredictoVEC(d *dictamenAutofirma) ports.MotivoVerificacionFirma {
-	switch {
-	case d.Integridad.Estado == "no_valida":
-		return ports.MotivoIntegridadNoValida
-	case d.Certificado.Estado == "no_vigente" || d.Certificado.Estado == "uso_no_permitido" ||
-		d.Revocacion.Estado == ports.RevocacionRevocado:
-		return ports.MotivoCertificadoNoValido
-	case d.Cadena.Estado == "no_valida":
-		return ports.MotivoConfianzaNoValida
-	case d.Integridad.Estado != "valida":
-		return ports.MotivoIntegridadParcial
-	case len(d.Firmantes) == 0:
-		return ports.MotivoFirmanteNoIdentificado
-	case d.Certificado.Estado != "vigente":
-		return ports.MotivoCertificadoNoAcreditado
-	case d.Cadena.Estado != "valida":
-		return ports.MotivoConfianzaNoAcreditada
-	case d.Revocacion.Estado != ports.RevocacionVigente:
-		return ports.MotivoRevocacionNoAcreditada
-	case !ports.SelloTiempoAdmisible(d.SelloTiempo.Estado):
-		return ports.MotivoSelloTiempoNoAcreditado
-	case d.VinculoOriginal.Estado != "acreditado":
-		return ports.MotivoVinculoOriginalNoAcreditado
-	case len(d.Firmantes) != 1 || d.CertificadoHuellaSHA256 == "":
-		return ports.MotivoFirmanteNoIdentificado
-	default:
-		return ports.MotivoFirmaVerificada
-	}
-}
-
-// dictamenInterpretable exige contrato exacto, estados de catalogo en todos
-// los aspectos y firmantes, y huellas bien formadas y coherentes.
-func dictamenInterpretable(d *dictamenAutofirma) bool {
-	if d == nil || d.Contrato != ContratoDictamen ||
-		!en(d.Integridad.Estado, estadosIntegridad) || !en(d.Cadena.Estado, estadosCadena) ||
-		!en(d.Certificado.Estado, estadosCertificado) || !en(d.Revocacion.Estado, estadosRevocacion) ||
-		!en(d.SelloTiempo.Estado, estadosSello) || !en(d.VinculoOriginal.Estado, estadosVinculo) ||
-		!en(d.Extensiones.RevocacionRemota, estadosExtension) ||
-		!en(d.Extensiones.SelloTiempoRemoto, estadosExtension) ||
-		len(d.Firmantes) > maximoFirmantes || !huellaValida(d.HuellaFirmadoSHA256) ||
-		(d.HuellaOriginalSHA256 != "" && !huellaValida(d.HuellaOriginalSHA256)) {
-		return false
-	}
-	if _, ok := motivosDictamen[d.Motivo]; !ok {
-		return false
-	}
-	for _, f := range d.Firmantes {
-		if !huellaValida(f.CertificadoHuellaSHA256) || !en(f.Cadena.Estado, estadosCadena) ||
-			!en(f.Certificado.Estado, estadosCertificado) || !en(f.Revocacion.Estado, estadosRevocacion) ||
-			!en(f.SelloTiempo.Estado, estadosSello) {
-			return false
-		}
-	}
-	// Coherencia exacta firmantes-agregados: con un firmante, sus cuatro
-	// aspectos son los agregados; con varios, cada agregado es el peor.
-	if d.Cadena.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Cadena.Estado }, ordenCadena, "no_comprobada") ||
-		d.Certificado.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Certificado.Estado }, ordenCertificado, "no_comprobado") ||
-		d.Revocacion.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Revocacion.Estado }, ordenRevocacion, ports.RevocacionNoComprobada) ||
-		d.SelloTiempo.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.SelloTiempo.Estado }, ordenSello, ports.SelloTiempoNoPresente) {
-		return false
-	}
-	switch {
-	case d.CertificadoHuellaSHA256 == "":
-		return len(d.Firmantes) != 1
-	case len(d.Firmantes) != 1:
-		return false
-	default:
-		return huellaValida(d.CertificadoHuellaSHA256) &&
-			d.CertificadoHuellaSHA256 == d.Firmantes[0].CertificadoHuellaSHA256 &&
-			d.CertificadoHuellaSHA256 != strings.Repeat("0", sha256.Size*2)
-	}
-}
-
-// agregado devuelve el peor estado de los firmantes segun orden (de peor a
-// mejor), o porDefecto sin firmantes, como compone el contrato v1. Los
-// estados ya se validaron contra catalogo, que coincide con el orden.
-func agregado(firmantes []firmanteAutofirma, estado func(firmanteAutofirma) string, orden []string, porDefecto string) string {
-	if len(firmantes) == 0 {
-		return porDefecto
-	}
-	peor := len(orden)
-	for _, f := range firmantes {
-		for i, candidato := range orden {
-			if candidato == estado(f) && i < peor {
-				peor = i
-			}
-		}
-	}
-	if peor == len(orden) {
-		return ""
-	}
-	return orden[peor]
-}
-
-func en(valor string, catalogo []string) bool {
-	for _, c := range catalogo {
-		if valor == c {
-			return true
-		}
-	}
-	return false
-}
-
-func huellaValida(s string) bool {
-	if len(s) != sha256.Size*2 {
-		return false
-	}
-	for i := 0; i < len(s); i++ {
-		if (s[i] < '0' || s[i] > '9') && (s[i] < 'a' || s[i] > 'f') {
-			return false
-		}
-	}
-	return true
 }

@@ -53,13 +53,14 @@ function validarConsulta(consulta) {
     || (cursor !== undefined && !referencia(cursor))) throw new TypeError("consulta del circuito de Dietas no válida");
   return Object.freeze({ etapa, ...(fecha_desde ? { fecha_desde } : {}), ...(fecha_hasta ? { fecha_hasta } : {}), limit, ...(cursor ? { cursor } : {}) });
 }
+const motivoDecisionValido = (valor, minimo) => texto(valor, 0, 600) && codificador.encode(valor).byteLength >= minimo;
 function validarDecision(entrada) {
   const campos = ["etapa", "decision", "motivo", "clave_idempotencia", "version_esperada"];
   if (!registro(entrada) || Object.keys(entrada).some((clave) => !campos.includes(clave)) || !etapaValida(entrada.etapa)
     || !["aprobar", "devolver"].includes(entrada.decision) || typeof entrada.clave_idempotencia !== "string"
     || !/^[A-Za-z0-9:_-]{16,128}$/u.test(entrada.clave_idempotencia) || !Number.isSafeInteger(entrada.version_esperada)
-    || entrada.version_esperada < 1 || (entrada.motivo !== undefined && !texto(entrada.motivo, 0, 600))
-    || (entrada.decision === "devolver" && !texto(entrada.motivo, 3, 600))) throw new TypeError("decisión del circuito de Dietas no válida");
+    || entrada.version_esperada < 1 || (entrada.motivo !== undefined && !motivoDecisionValido(entrada.motivo, 0))
+    || (entrada.decision === "devolver" && !motivoDecisionValido(entrada.motivo, 3))) throw new TypeError("decisión del circuito de Dietas no válida");
   return Object.freeze({ etapa: entrada.etapa, decision: entrada.decision, motivo: entrada.motivo ?? "", clave_idempotencia: entrada.clave_idempotencia, version_esperada: entrada.version_esperada });
 }
 function validarComision(comision, referenciaEsperada) {
@@ -94,7 +95,7 @@ const CAMPOS_DOCUMENTO = ["referencia", "numero_documento", "fecha_apertura", "e
 // versión previa. Nunca trae quién devolvió.
 function validarDevolucionAnterior(devolucion, version) {
   if (!registro(devolucion) || Object.keys(devolucion).length !== 4 || !etapaValida(devolucion.etapa)
-    || !texto(devolucion.motivo, 3, 600) || !Number.isSafeInteger(devolucion.version) || devolucion.version < 3
+    || !motivoDecisionValido(devolucion.motivo, 3) || !Number.isSafeInteger(devolucion.version) || devolucion.version < 3
     || devolucion.version >= version || typeof devolucion.devuelta_en !== "string"
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(devolucion.devuelta_en)
     || !Number.isFinite(Date.parse(devolucion.devuelta_en))) throw new TypeError("devolución del circuito incompatible");

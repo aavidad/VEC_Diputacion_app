@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261002-ct-fin-moad-v1";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -7,15 +7,15 @@ import {
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
   validarSolicitudRectificacionCobertura,
-} from "./contrato-cobertura.js";
+} from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
 import {
   validarConfiguracionAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
-} from "./contrato-analisis.js";
+} from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261006-resumen-inicio-v2";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";

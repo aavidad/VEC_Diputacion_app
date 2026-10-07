@@ -5,14 +5,16 @@ import test from "node:test";
 import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
-} from "./circuito-firma.js";
-import { crearAccionesFirma, fusionarEstadoFirmas } from "./circuito-firma-acciones.js";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js";
+
+} from "./circuito-firma.js?v=20261002-ct-r5-grafo-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 // Los textos de la fase de firma se leen una vez; el gestor los recibe ya
 // cargados para que el montaje no dependa de la lectura del fichero.
-const textosFasePrueba = await cargarTextos("contratacion-temporal-firma");
+const textosFasePrueba = await cargarTextos("contratacion-temporal-firma", { idioma: IDIOMA_POR_DEFECTO });
 const cargarTextosPrueba = async () => textosFasePrueba;
 
 function paso(orden, total, extra = {}) {
@@ -34,6 +36,17 @@ function circuito() {
     portafirmas: { conectado: false, motivo: "conexion_pendiente" },
     documentos: [{ documento: "informe_definitivo", etiqueta: "Informe definitivo", pasos: [paso(1, 2), paso(2, 2)] }],
   };
+}
+
+function circuitoConAlternativa() {
+  const datos = circuito();
+  datos.esquema = "vec.contratacion_temporal.circuito_firma.v2";
+  datos.documentos[0].documento = "resolucion";
+  datos.documentos[0].etiqueta = "Resolución de nombramiento o contratación";
+  datos.documentos[0].pasos[0].cargo = "Dirección de RRHH o Jefatura del Servicio de RRHH";
+  datos.documentos[0].pasos[0].accion = "visto_bueno";
+  datos.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh"];
+  return datos;
 }
 
 function respuestaJSON(cuerpo, estado = 200) {
@@ -65,6 +78,54 @@ test("valida el contrato exacto y rechaza desviaciones", () => {
   }
 });
 
+test("v2 conserva la alternativa opaca; v1 exige ausencia y v2 exige una lista válida", () => {
+  const datos = circuitoConAlternativa();
+  const validado = validarCircuitoFirma(datos);
+  assert.deepEqual(validado.documentos[0].pasos[0].perfiles_ref_alternativos, ["perfil:ct:direccion_rrhh"]);
+  assert.equal(Object.isFrozen(validado.documentos[0].pasos[0].perfiles_ref_alternativos), true);
+  const cliente = crearClienteHTTPCircuitoFirma({ fetchImpl: async () => respuestaJSON({ data: datos }) });
+  return cliente.obtenerCircuito().then((resultado) => {
+    assert.deepEqual(resultado.documentos[0].pasos[0].perfiles_ref_alternativos, ["perfil:ct:direccion_rrhh"]);
+    const alteraciones = [
+      (c) => { c.esquema = "vec.contratacion_temporal.circuito_firma.v1"; },
+      (c) => { delete c.documentos[0].pasos[0].perfiles_ref_alternativos; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = []; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh", "perfil:ct:direccion_rrhh"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = [c.documentos[0].pasos[0].perfil_ref]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["", "perfil:ct:direccion_rrhh"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["Nombre Apellido"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh", "<script>"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = "perfil:ct:direccion_rrhh"; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = Array(17).fill("perfil:ct:direccion_rrhh"); },
+      (c) => { c.documentos[0].pasos[0].persona = "Nombre Apellido"; },
+      (c) => { c.documentos[0].pasos[0].permiso = true; },
+      (c) => { c.firma_eficaz = true; },
+    ];
+    for (const alterar of alteraciones) {
+      const copia = circuitoConAlternativa();
+      alterar(copia);
+      assert.equal(validarCircuitoFirma(copia), null);
+    }
+  });
+});
+
+test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma oficial", () => {
+  const datos = validarCircuitoFirma(circuitoConAlternativa());
+  const es = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma());
+  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma({}, "en-GB"));
+  assert.match(es, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
+  assert.match(en, /HR Directorate or Head of the HR Service/u);
+  assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
+  assert.match(es, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
+  assert.match(es, /Envío al portafirmas corporativo/u);
+  assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
+  assert.match(en, /Sending to the corporate signature service/u);
+  assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
+  assert.doesNotMatch(es, /data-ct-firma-accion=/u);
+  assert.match(es, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
+  assert.doesNotMatch(es, /Portafirmas conectado|firma eficaz|Enviar a Firmadoc/u);
+});
+
 test("el cliente pide la ruta de solo lectura y falla cerrado", async () => {
   let peticion;
   const cliente = crearClienteHTTPCircuitoFirma({
@@ -94,16 +155,16 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
-  assert.match(html, /Firma oficial en Firmadoc/u);
-  assert.match(html, /No conectado/u);
-  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Firmadoc<\/button>/u);
-  assert.match(html, /No disponible hasta que Informática conecte VEC con Firmadoc/u);
-  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
-  assert.match(html, /AutoFirma · PRUEBA sin eficacia administrativa/u);
+  assert.match(html, /Envío al portafirmas corporativo/u);
+  assert.match(html, /Envío no disponible/u);
+  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
+  assert.match(html, /El envío desde este panel no está disponible/u);
+  assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
+  assert.match(html, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(html, /<details class="ct-circuito-limite">/u);
   assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
   assert.doesNotMatch(html, /<details[^>]*\sopen/u);
-  assert.doesNotMatch(html, /Enviad[ao] a Firmadoc|Firma oficial completada/u);
+  assert.doesNotMatch(html, /Enviad[ao] a Firmadoc|Firma oficial completada|Portafirmas conectado/u);
   assert.doesNotMatch(html, /Circuito de ejemplo/u);
   assert.match(html, /Pendiente de firma de prueba por Cargo &lt;1&gt;/u);
   assert.match(html, /Prueba en espera del paso anterior/u);
@@ -112,11 +173,11 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   assert.doesNotMatch(html, /<1>/u);
 });
 
-test("si falla el catálogo, conserva visible la fase oficial sin afirmar estado de firma", () => {
+test("si falla el catálogo, conserva la vía de registro bloqueada sin afirmar estado de firma", () => {
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(null, t, "no_disponible");
-  assert.match(html, /Firma oficial en Firmadoc/u);
-  assert.match(html, /No conectado/u);
+  assert.match(html, /Envío al portafirmas corporativo/u);
+  assert.match(html, /Envío no disponible/u);
   assert.match(html, /El estado de las firmas no está disponible/u);
   assert.doesNotMatch(html, /data-ct-firma-accion|Firma de prueba registrada por/u);
   const denegado = renderizarCircuitoFirma(null, t, "denegado");
@@ -125,7 +186,7 @@ test("si falla el catálogo, conserva visible la fase oficial sin afirmar estado
   assert.doesNotMatch(denegado, /El estado de las firmas no está disponible/u);
 });
 
-test("dos pasos CT118 firmados no convierten Firmadoc en envío o firma oficial", () => {
+test("dos pasos CT118 firmados no acreditan registro en Portafirmas", () => {
   const catalogo = validarCircuitoFirma(circuito());
   const estado = {
     huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
@@ -135,24 +196,34 @@ test("dos pasos CT118 firmados no convierten Firmadoc en envío o firma oficial"
   const unido = fusionarEstadoFirmas(catalogo, estado);
   const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
   assert.equal((html.match(/Firma de prueba registrada por/gu) ?? []).length, 2);
-  assert.match(html, /No conectado/u);
-  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
+  assert.match(html, /Envío no disponible/u);
+  assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
 });
 
-test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
+test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verificador", async () => {
   const catalogo = validarCircuitoFirma(circuito());
-  const real = fusionarEstadoFirmas(catalogo, {
-    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
-      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
-  });
-  const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
-  assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
-  assert.match(html, />Firmar en PRUEBA<\/button>/u);
-  assert.match(html, />Devolver en PRUEBA<\/button>/u);
-  assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
-  assert.match(html, /Pendiente de firma de prueba por/u);
+  for (const verificacion of [false, true]) {
+    const real = fusionarEstadoFirmas(catalogo, {
+      huella_sha256: catalogo.huella_sha256, verificacion_disponible: verificacion,
+      documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+        pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
+    });
+    const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
+    assert.match(html, /Firma con certificado en VEC/u);
+    assert.match(html, /Envío al portafirmas corporativo/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
+    assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
+    assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
+  }
+  let efectos = 0;
+  const acciones = crearAccionesFirma({ clienteFirma: { registrar: async () => { efectos++; } },
+    clienteBorrador: { descargarBorrador: async () => { efectos++; } },
+    autofirma: { firmarPDF: async () => { efectos++; } } });
+  await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "firmar" } }) } });
+  assert.equal(efectos, 0);
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -165,7 +236,7 @@ test("todas las claves de vocabulario tienen traducción", () => {
   }
 });
 
-test("la fase Firmadoc usa el idioma del portal", () => {
+test("las dos vías de firma usan el idioma del portal", () => {
   assert.deepEqual(Object.keys(MENSAJES_CIRCUITO_FIRMA_EN).sort(), Object.keys(MENSAJES_CIRCUITO_FIRMA_ES).sort());
   for (const [clave, valor] of Object.entries(MENSAJES_CIRCUITO_FIRMA_EN)) {
     assert.ok(valor.trim(), clave);
@@ -174,16 +245,17 @@ test("la fase Firmadoc usa el idioma del portal", () => {
   }
   const traductor = crearTraductorCircuitoFirma({}, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
-  assert.match(html, /Official signing in Firmadoc/u);
-  assert.match(html, /Not connected/u);
-  assert.match(html, /Send to Firmadoc<\/button>/u);
-  assert.match(html, /Not available until IT connects VEC to Firmadoc/u);
-  assert.match(html, /No recorded submission or official signature in VEC/u);
+  assert.match(html, /Sending to the corporate signature service/u);
+  assert.match(html, /Sending unavailable/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
+  assert.match(html, /Sending from this panel is not available/u);
+  assert.match(html, /This panel does not evidence a signature, submission or record in Portafirmas/u);
   assert.match(html, /Awaiting test signature by/u);
   assert.match(html, /Allows referral to Financial Control/u);
   assert.match(html, /If returned, goes back to drafting/u);
-  assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve/u);
-  assert.match(html, /AutoFirma · TEST with no administrative effect/u);
+  assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve|Firmado en Portafirmas|Firma con certificado en VEC/u);
+  assert.match(html, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
+  assert.doesNotMatch(html, /Official signing in Firmadoc|GrxFirma or AutoFirma · TEST/u);
   assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, /TEST/u);
   assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_devolver, /TEST/u);
 });
@@ -239,7 +311,7 @@ test("un fallo de consulta deja el estado pendiente visible en el expediente act
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1);
-  assert.match(insertados[0], /No conectado/u);
+  assert.match(insertados[0], /Envío no disponible/u);
   assert.match(insertados[0], /El estado de las firmas no está disponible/u);
   gestor.retirar();
 });
@@ -274,76 +346,12 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
   }
 });
 
-test("tras registrar una firma, el repintado conserva el detalle abierto y devuelve el foco al aviso", async () => {
-  const ref = "expediente:ct:001";
-  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
-    expediente: { expediente_ref: ref, version: 7, demostracion: false },
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
-      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  let actual = null;
-  let focoRestaurado = false;
-  function seccion() {
-    const detalles = { open: true };
-    const limite = { open: false };
-    const aviso = { textContent: "", focus: () => { focoRestaurado = true; } };
-    return {
-      detalles, aviso,
-      set outerHTML(html) { assert.match(html, /AutoFirma · PRUEBA/u); actual = seccion(); actual.detalles.open = false; },
-      querySelector: (selector) => selector === "[data-ct-firma-detalles]" ? detalles
-        : selector === ".ct-circuito-limite" ? limite
-          : selector === "[data-ct-firma-aviso]" ? aviso : null,
-      addEventListener: (tipo, callback) => { if (tipo === "click") actual.manejar = callback; },
-    };
-  }
-  const fases = { insertAdjacentHTML: () => { actual = seccion(); } };
-  const raiz = { querySelector: (selector) => selector === ".ct-exp-progreso" ? fases
-    : selector === "[data-ct-circuito-firma]" ? actual : null };
-  const catalogo = validarCircuitoFirma(circuito());
-  const registro = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
-      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }] };
-  const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
-    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
-    clienteFirma: { consultarConEstado: async () => ({ estado: "disponible", datos: registro }),
-      registrar: async () => ({ recibo_ref: "recibo:firma:1" }) },
-    dependenciasAcciones: { clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
-      autofirma: { firmarPDF: async () => new Uint8Array([1, 2, 3]) },
-      aleatorio: (n) => new Uint8Array(n).fill(1) },
-  });
-  gestor.montarSiProcede(estado);
-  await new Promise((resolver) => setTimeout(resolver, 0));
-  const salida = { textContent: "" };
-  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
-    querySelectorAll: () => [] };
-  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
-    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
-  actual.manejar({ target: { closest: () => boton } });
-  await new Promise((resolver) => setTimeout(resolver, 0));
-  assert.equal(actual.detalles.open, true);
-  assert.equal(focoRestaurado, true);
-  assert.match(actual.aviso.textContent, /recibo:firma:1/u);
-  gestor.retirar();
-});
-
-test("un rechazo del verificador no muestra sus códigos internos", async () => {
-  const ref = "expediente:ct:001";
-  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
-    expediente: { expediente_ref: ref, version: 7, demostracion: false },
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
-      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  const salida = { textContent: "" };
-  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
-    querySelectorAll: () => [] };
-  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
-    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
-  const acciones = crearAccionesFirma({ obtenerEstado: () => estado, t: crearTraductorCircuitoFirma({}, "en-GB"),
-    clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
-    autofirma: { firmarPDF: async () => new Uint8Array([1]) },
-    clienteFirma: { registrar: async () => { throw { codigo: "firma_no_verificada", motivo: "revocacion_no_acreditada" }; } },
-    aleatorio: (n) => new Uint8Array(n) });
-  await acciones.manejarClic({ target: { closest: () => boton } });
-  assert.match(salida.textContent, /could not be verified/u);
-  assert.doesNotMatch(salida.textContent, /firma_no_verificada|revocacion_no_acreditada/u);
+test("el montaje no ejecuta CT118 ni entrega un recibo aparente", async () => {
+  let efectos = 0;
+  const acciones = crearAccionesFirma({ clienteFirma: { registrar: async () => { efectos++; } },
+    autofirma: { firmarPDF: async () => { efectos++; } } });
+  await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "confirmar-devolucion" } }) } });
+  assert.equal(efectos, 0);
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
@@ -389,4 +397,100 @@ test("sin el campo portafirmas el circuito vale y Firmadoc cuenta como no conect
   assert.ok(valido);
   assert.deepEqual({ ...valido.portafirmas }, { conectado: false, motivo: "conexion_pendiente" });
   assert.equal(validarCircuitoFirma(circuito()).portafirmas.conectado, false);
+});
+
+test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en lenguaje llano", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false }, cuadro: { demostracion: false, expedientes: [] } };
+  const aviso = { textContent: "" };
+  let bloque = null;
+  let manejar = null;
+  const fases = { insertAdjacentHTML: () => {
+    bloque = { querySelector: (s) => s === "[data-ct-firma-aviso]" ? aviso : null,
+      addEventListener: (tipo, f) => { if (tipo === "click") manejar = f; } };
+  } };
+  const raiz = { querySelector: (s) => s === ".ct-exp-progreso" ? fases : s === "[data-ct-circuito-firma]" ? bloque : null };
+  const pedidas = [];
+  let fallo = null;
+  let esperarDescarga = null;
+  const crearDocumentos = ({ expedienteRef }) => ({
+    async descargar(documento, { version, mime, huella }) {
+      pedidas.push({ expedienteRef, documento, version, mime, huella });
+      if (esperarDescarga) await esperarDescarga;
+      if (fallo) throw fallo;
+      return { contenido: new Uint8Array([37, 80, 68, 70]), nombre: "documento-ref.pdf", tipo: "application/pdf" };
+    },
+  });
+  const enlaces = [];
+  const entornoDescarga = {
+    Blob, URL: { createObjectURL: () => "blob:x", revokeObjectURL() {} },
+    document: { body: { append(e) { enlaces.push(e); } }, createElement: () => ({ click() { this.pulsado = true; }, remove() {} }) },
+  };
+  const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "no_disponible" }) }, crearDocumentos, entornoDescarga });
+  gestor.montarSiProcede(estado);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(typeof manejar, "function");
+  const atributos = new Map();
+  const fila = { querySelector: (s) => s === ".ct-fase-firma-documento strong" ? { textContent: "Resolución de nombramiento" } : null };
+  const boton = {
+    disabled: false,
+    setAttribute: (nombre, valor) => atributos.set(nombre, valor),
+    removeAttribute: (nombre) => atributos.delete(nombre),
+    dataset: { ctDescargarFirmado: "", ctFirmadoExpediente: `ref:${"e".repeat(64)}`, ctFirmadoDocumento: `ref:${"d".repeat(64)}`,
+      ctFirmadoVersion: "1", ctFirmadoHuella: "1".repeat(64) },
+    closest: (s) => s === "[data-ct-descargar-firmado]" ? boton : s === "[data-ct-circuito-firma]" ? bloque
+      : s === ".ct-fase-firma-fila" ? fila : null,
+  };
+  const pulsar = async () => { manejar({ target: boton }); for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); };
+  let terminarDescarga;
+  esperarDescarga = new Promise((resolver) => { terminarDescarga = resolver; });
+  await pulsar();
+  assert.equal(atributos.get("aria-disabled"), "true", "la descarga en curso conserva el botón en el orden de foco");
+  assert.equal(atributos.get("aria-describedby"), "ct-firma-aviso");
+  assert.equal(boton.disabled, false);
+  await pulsar();
+  assert.equal(pedidas.length, 1, "un segundo clic durante la descarga no inicia otra petición");
+  terminarDescarga();
+  esperarDescarga = null;
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(pedidas[0], { expedienteRef: `ref:${"e".repeat(64)}`, documento: `ref:${"d".repeat(64)}`, version: 1,
+    mime: "application/pdf", huella: "1".repeat(64) });
+  assert.equal(enlaces[0]?.download, "documento-ref.pdf");
+  assert.equal(enlaces[0]?.pulsado, true);
+  assert.match(aviso.textContent, /PDF firmado descargado: Resolución de nombramiento/u);
+  assert.doesNotMatch(aviso.textContent, /documento-ref\.pdf/u);
+  assert.equal(boton.disabled, false);
+  assert.equal(atributos.has("aria-disabled"), false);
+  fallo = Object.assign(new Error("denegado"), { codigo: "denegado", estado: 403 });
+  await pulsar();
+  assert.match(aviso.textContent, /No tiene permiso/u);
+  fallo = Object.assign(new Error("consulta_fallida"), { codigo: "consulta_fallida", estado: 503 });
+  await pulsar();
+  assert.match(aviso.textContent, /No se ha podido descargar el PDF firmado/u);
+  assert.doesNotMatch(aviso.textContent, /503|consulta_fallida/u);
+  gestor.retirar();
+});
+
+test("los importadores locales de la vista y el circuito evitan las URLs immutable anteriores", async () => {
+  const [vista, pruebas] = await Promise.all([
+    readFile(new URL("./vista-expedientes.js", import.meta.url), "utf8"),
+    readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
+  ]);
+  const versiones = new Map([
+    ["circuito-firma.js", "20261006-resumen-inicio-v2"],
+    ["vista-expedientes.js", "20261006-resumen-inicio-v2"],
+  ]);
+  const anterior = "20260929-custodia-506-v1";
+  const importadores = [
+    [vista, "circuito-firma.js"],
+    [pruebas, "vista-expedientes.js"],
+  ];
+  for (const [codigo, modulo] of importadores) {
+    const rutas = [...codigo.matchAll(new RegExp(`\\./${modulo.replace(".", "\\.")}\\?v=([^"']+)`, "gu"))];
+    assert.equal(rutas.length, 1, modulo);
+    assert.equal(rutas[0][1], versiones.get(modulo), modulo);
+    assert.notEqual(`${modulo}?v=${rutas[0][1]}`, `${modulo}?v=${anterior}`);
+  }
 });

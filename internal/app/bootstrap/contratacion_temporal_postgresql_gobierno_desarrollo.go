@@ -17,7 +17,9 @@ import (
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -160,9 +162,12 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		   FROM vec_autorizacion_atestada_v3.puntero_clave_emision p
 		   JOIN vec_autorizacion_atestada_v3.clave_capacidad_version c
 		     ON (c.clave_id,c.version)=(p.clave_id,p.version)
-		  WHERE p.orden=(SELECT max(orden) FROM
-		         vec_autorizacion_atestada_v3.puntero_clave_emision
-		         WHERE establecida_en <= pg_catalog.statement_timestamp())
+		  WHERE p.orden=(SELECT max(pc.orden) FROM
+		         vec_autorizacion_atestada_v3.puntero_clave_emision pc
+		         JOIN vec_autorizacion_atestada_v3.clave_capacidad_version kc
+		           ON (kc.clave_id,kc.version)=(pc.clave_id,pc.version)
+		         WHERE pc.establecida_en <= pg_catalog.statement_timestamp()
+		           AND kc.audiencia_consumo = ANY($2::text[]))
 		    AND pg_catalog.left(p.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:puntero-clave:'))=
 		        'acto:ct:desarrollo:puntero-clave:'
@@ -206,11 +211,17 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 // publicación siguiente, el gobierno como «ajeno» y tumbara el arranque. Cada
 // audiencia es nominal y la admite su migración AD3; no hay comodines.
 func audienciasConsumoGobiernoCTDesarrollo() []string {
+	s2 := DescriptoresMaterialPreparacionBasesV3()
+	meritos := descriptoresMaterialMeritosInternosDesarrollo()
 	return []string{
 		audienciaConsumoAltaContratacionTemporal,
+		s2[0].Audiencia,
+		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		// Descarga de borradores de la consulta de detalle (AD199/CT177).
+		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		// CT133: sólo al activar lectura documental con perfil propio.
@@ -261,6 +272,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
 		ports.AudienciaConsultaFirmasDocumentoV3,
+		// Consulta (AD162) y recuperación (AD178) de firmas V2; sólo con
+		// VEC_CT_FIRMAS_R5_V2_ENABLED.
+		ports.AudienciaConsultaFirmasR5V2,
+		ports.AudienciaRecuperacionFirmasR5V2,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
@@ -268,14 +283,22 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
+		// Consulta completa de datos de contacto (AD197/B78).
+		puertosbolsa.AudienciaConsultarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
+		// Gobierno de borradores de baremo: descriptor propio de composición.
+		DescriptorMaterialGobiernoReglasBaremoV3().Audiencia,
+		// Registro y consulta propia de Méritos: sólo preparación interna nominal.
+		meritos[0].Audiencia, meritos[1].Audiencia,
 		auditoria.AudienciaConsumo,
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
+		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
+		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,
 		// Confirmación del contacto propio (AD3-86); solo con el portal.
 		puertosbolsa.AudienciaConfirmarContactoPropio,
 		audienciaConsumoPersonalDietasDesarrollo,
@@ -289,6 +312,11 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		audienciaConsumoRegistrarAsignacionDietas,
 		audienciaConsumoCorregirAsignacionDietas,
 		audienciaConsumoCorregirGrupoDietas,
+		// D7c de Dietas consume las fachadas de Personal y AD3-61 existentes.
+		personalports.AudienciaSolicitarRectificacionDietas,
+		personalports.AudienciaConsultarRectificacionDietas,
+		personalports.AudienciaConsultarRectificacionesCompetentesDietas,
+		personalports.AudienciaResolverRectificacionDietas,
 		audienciaConsumoRevisarDietas,
 		audienciaConsumoAutorizarDietas,
 		audienciaConsumoLiquidarDietas,
@@ -322,12 +350,28 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		personal.AudienciaPublicarCatalogoEmpleadoB2,
 		personal.AudienciaRetirarCatalogoEmpleadoB2,
 		personal.AudienciaEmpleadosB2,
+		personal.AudienciaConsultaOrganizacionHistorica,
+		// B2 de incorporación: cinco audiencias anteriores y cuatro lecturas o
+		// usos nominales añadidos por AD3-128/127/117/126. El catálogo las
+		// selecciona únicamente con la configuración privada.
+		puertosbolsa.AudienciaConsultaAnclajeAceptacionCT,
+		personal.AudienciaPlanIncorporacionCT,
+		ports.AudienciaRegistrarPlanNominalB2,
+		ports.AudienciaLeerPlanNominalB2,
+		ports.AudienciaConfirmarOrigenB2,
+		puertosbolsa.AudienciaConsultaPersonaAceptacionCT,
+		ports.AudienciaConsultarVinculoCategoriaRPT,
+		ports.AudienciaConsultarPublicacionCategoriaRPT,
+		"vec_catalogos_configurables.usos_categorias.v1",
 		// Consumidores del catálogo común sin entrada previa en la lista:
 		// Mi bolsa (AD3-43), Documentos (AD3-60) y ficha propia (AD3-74).
 		puertosbolsa.AudienciaMiBolsa,
 		puertosbolsa.AudienciaHistorialMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
+		personal.AudienciaExportacionServiciosPropios,
+		personal.AudienciaHistoriaServiciosPropia,
+		personal.AudienciaHistoriaRelacionesPropia,
 	}
 }
 
@@ -619,6 +663,36 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 	})
 }
 
+// ejecutarLecturaGobiernoCTDesarrollo lee el gobierno de atestación en una
+// transacción REPEATABLE READ de solo lectura: instantánea coherente y
+// confirmada, sin el cerrojo consultivo global ni bloqueos de fila de la
+// publicación. Así cada operación CT relee el gobierno sin esperar en fila a
+// las demás ni a las consultas que tienen el checkpoint bloqueado.
+func ejecutarLecturaGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, leer func(pgx.Tx) error) error {
+	if ctx == nil || pool == nil || leer == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	defer func() {
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
+		defer cancelar()
+		_ = tx.Rollback(ctxRollback)
+	}()
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	if err := leer(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	return nil
+}
+
 func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
 	conexion, err := pool.Acquire(ctx)
 	if err != nil {
@@ -631,7 +705,7 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer func() {
-		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		var liberado bool
 		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
@@ -647,10 +721,10 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
+	// Plazo propio también para ROLLBACK: se ejecuta con el cerrojo `renovacion` tomado por la
 	// renovación y no debe esperar indefinidamente a una red cortada.
 	defer func() {
-		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(ctxRollback)
 	}()

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_SIN_ENTRADA_PORTAL,
   crearCoordinadorModulosPortal,
   vistaConEntradaPortal,
-} from "./portal-modulos-coordinador.js";
-import { crearVistaInicioPortal } from "./portal-inicio.js";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
 
 // El portal solo ofrece Bolsa y la contratación temporal: Personal, Cronos y
 // Dietas se siguen cargando (su URL directa funciona), pero no tienen entrada

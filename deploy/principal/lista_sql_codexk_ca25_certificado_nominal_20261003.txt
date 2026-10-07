@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion/migraciones/000033_catalogo_fijo_fuentes_nominales.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000025_certificado_firmante_nominal_v2.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000165_publicacion_certificado_nominal_v3.up.sql

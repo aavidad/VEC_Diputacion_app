@@ -25,6 +25,122 @@ function categoria(clave = "auxiliar-administrativo", version = 1, catalogo_cate
   };
 }
 
+const fecha = "2026-09-30T10:00:00Z";
+const valorCatalogo = { clave: "bolsa", version: 1, etiqueta: "Bolsa", semantica: "informacion" };
+const fuente = { revision: "sintetica-v2", actualizada_en: fecha, demostracion: false };
+const resumenBase = {
+  identificador_publico: "auxiliares-2026", version: "v2", huella_sha256: HUELLA_A,
+  titulo: "Bolsa sintética", resumen: "Información pública.", tipo: valorCatalogo, estado: valorCatalogo,
+  catalogo_categorias: snapshot(), categorias: [{ clave: "auxiliar-administrativo", version: 1 }],
+  numero_requisitos: 0, numero_documentos: 0, numero_ayudas: 0, publicada_en: fecha,
+};
+
+// Los casos históricos se centran en el snapshot: esta fábrica aporta los
+// demás campos que exige el DTO completo antes de ejercer el validador real.
+function validarListadoDePrueba(datos) {
+  return contrato.validarListado({
+    fuente, paginacion: { pagina: 1, tamano: 12, total: 1, paginas: 1 },
+    ...datos,
+    facetas: {
+      tipos: [], estados: [], ...datos.facetas,
+      categorias: datos.facetas.categorias.map((entrada) => ({ numero_resultados: 1, ...entrada })),
+    },
+    convocatorias: datos.convocatorias.map((entrada) => ({ ...resumenBase, ...entrada })),
+  });
+}
+
+function validarDetalleDePrueba(datos) {
+  return contrato.validarDetalle({
+    fuente, descripcion: "Detalle sintético.", plazos: [], requisitos: [], documentos: [], ayuda: [],
+    ...datos, convocatoria: { ...resumenBase, ...datos.convocatoria },
+  });
+}
+
+function listadoCompleto() {
+  return {
+    esquema: "vec.bolsa.publico.convocatorias.v2", fuente,
+    facetas: { tipos: [structuredClone(valorCatalogo)], categorias: [{ ...categoria(), numero_resultados: 1 }],
+      estados: [structuredClone(valorCatalogo)] },
+    diccionario_categorias: [categoria()],
+    paginacion: { pagina: 1, tamano: 12, total: 1, paginas: 1 },
+    convocatorias: [structuredClone(resumenBase)],
+  };
+}
+
+function detalleCompleto() {
+  return {
+    esquema: "vec.bolsa.publico.convocatoria.v2", fuente,
+    convocatoria: { ...structuredClone(resumenBase), numero_requisitos: 1, numero_documentos: 1, numero_ayudas: 1 },
+    diccionario_categorias: [categoria()], descripcion: "Detalle sintético.",
+    plazos: [{ titulo: "Presentación", tipo: structuredClone(valorCatalogo), abre_en: fecha,
+      cierra_en: "2026-10-10T10:00:00Z", etiqueta_situacion: "Abierto", semantica_situacion: "informacion" }],
+    requisitos: [{ titulo: "Titulación", descripcion: "Titulación declarada.", obligatorio: true }],
+    documentos: [{ titulo: "Bases", descripcion: "Bases publicadas.", tipo: structuredClone(valorCatalogo),
+      formato: "pdf", url: "/bolsa/documentos/bases.pdf" }],
+    ayuda: [{ pregunta: "Consulta", respuesta: "Consulte las bases.", categoria: structuredClone(valorCatalogo) }],
+  };
+}
+
+test("V2 conserva un listado y detalle completos con documento local válido", () => {
+  assert.equal(contrato.validarListado(listadoCompleto()).get("auxiliares-2026")[0].clave, "auxiliar-administrativo");
+  assert.equal(contrato.validarDetalle(detalleCompleto())[0].clave, "auxiliar-administrativo");
+  assert.equal(contrato.urlDocumentoPublicoValida(`/bolsa/documentos/${"a".repeat(222)}`), true);
+  assert.equal(contrato.urlDocumentoPublicoValida("/bolsa/documentos/bases-año.pdf"), true);
+});
+
+test("V2 rechaza todos los componentes de URL que no admite Go antes del href", () => {
+  for (const url of [
+    "javascript:alert(1)", "https://ejemplo.invalid/bolsa/documentos/bases.pdf",
+    "//ejemplo.invalid/bolsa/documentos/bases.pdf", "/bolsa/documentos/bases.pdf?descarga=1",
+    "/bolsa/documentos/bases.pdf#seccion", "/bolsa/documentos/bases.pdf?",
+    "/bolsa/documentos/../privado", "/bolsa/documentos/./bases.pdf",
+    "/bolsa/documentos/%2e%2e/privado", "/bolsa/documentos/bases\\pdf",
+    " /bolsa/documentos/bases.pdf", `/bolsa/documentos/${"a".repeat(223)}`,
+    "/bolsa/documentos/bases\u0000.pdf", null, 12,
+  ]) {
+    const datos = detalleCompleto();
+    datos.documentos[0].url = url;
+    assert.equal(contrato.urlDocumentoPublicoValida(url), false, String(url));
+    assert.throws(() => contrato.validarDetalle(datos), /documento público inválido/, String(url));
+  }
+});
+
+test("V2 comprueba los campos consumidos de lista y detalle antes del renderizado", () => {
+  const invalidosListado = [
+    (datos) => { delete datos.fuente; },
+    (datos) => { datos.paginacion.total = "1"; },
+    (datos) => { datos.facetas.tipos[0].etiqueta = null; },
+    (datos) => { datos.diccionario_categorias[0].descripcion = {}; },
+    (datos) => { datos.facetas.categorias[0].numero_resultados = -1; },
+    (datos) => { datos.convocatorias[0].tipo = null; },
+    (datos) => { datos.convocatorias[0].titulo = null; },
+    (datos) => { datos.convocatorias[0].publicada_en = "1"; },
+    (datos) => { datos.convocatorias[0].numero_documentos = "1"; },
+    (datos) => { datos.convocatorias[0].plazo_destacado = { titulo: "Plazo" }; },
+  ];
+  for (const alterar of invalidosListado) {
+    const datos = listadoCompleto();
+    alterar(datos);
+    assert.throws(() => contrato.validarListado(datos));
+  }
+
+  const invalidosDetalle = [
+    (datos) => { delete datos.descripcion; },
+    (datos) => { datos.convocatoria.publicada_en = "fecha inválida"; },
+    (datos) => { datos.plazos[0].tipo = null; },
+    (datos) => { datos.plazos[0].tipo.descripcion = {}; },
+    (datos) => { datos.requisitos[0].obligatorio = "true"; },
+    (datos) => { datos.documentos[0].formato = null; },
+    (datos) => { datos.ayuda[0].pregunta = null; },
+    (datos) => { datos.documentos = {}; },
+  ];
+  for (const alterar of invalidosDetalle) {
+    const datos = detalleCompleto();
+    alterar(datos);
+    assert.throws(() => contrato.validarDetalle(datos));
+  }
+});
+
 test("V2 resuelve una página mixta con categorías históricas desde el diccionario", () => {
   const datos = {
     esquema: "vec.bolsa.publico.convocatorias.v2",
@@ -38,7 +154,7 @@ test("V2 resuelve una página mixta con categorías históricas desde el diccion
       { identificador_publico: "actual-b", catalogo_categorias: snapshot(2, HUELLA_B), categorias: [{ clave: "auxiliar-administrativo", version: 2 }] },
     ],
   };
-  const resueltas = contrato.validarListado(datos);
+  const resueltas = validarListadoDePrueba(datos);
   assert.equal(resueltas.get("historica-a")[0].etiqueta, "Auxiliar administrativo");
   assert.equal(resueltas.get("actual-b")[0].etiqueta, "Auxiliar administrativo actualizado");
 });
@@ -48,7 +164,7 @@ test("V2 falla cerrado ante referencia desconocida o versión distinta", () => {
     { clave: "categoria-inexistente", version: 1 },
     { clave: "auxiliar-administrativo", version: 2 },
   ]) {
-    assert.throws(() => contrato.validarListado({
+    assert.throws(() => validarListadoDePrueba({
       esquema: "vec.bolsa.publico.convocatorias.v2",
       facetas: { categorias: [categoria()] },
       diccionario_categorias: [categoria()],
@@ -75,19 +191,19 @@ test("el detalle V2 exige diccionario propio biyectivo", () => {
     esquema: "vec.bolsa.publico.convocatoria.v2",
     convocatoria: { catalogo_categorias: snapshot(), categorias: [{ clave: "auxiliar-administrativo", version: 1 }] },
   };
-  assert.equal(contrato.validarDetalle({ ...base, diccionario_categorias: [categoria()] })[0].clave, "auxiliar-administrativo");
-  assert.throws(() => contrato.validarDetalle({
+  assert.equal(validarDetalleDePrueba({ ...base, diccionario_categorias: [categoria()] })[0].clave, "auxiliar-administrativo");
+  assert.throws(() => validarDetalleDePrueba({
     ...base,
     diccionario_categorias: [categoria(), categoria("administrativo", 1)],
   }), /no biyectivo/);
-  assert.throws(() => contrato.validarDetalle({ ...base, diccionario_categorias: [] }), /fuera de límites/);
+  assert.throws(() => validarDetalleDePrueba({ ...base, diccionario_categorias: [] }), /fuera de límites/);
 });
 
 test("V1 no tiene fallback implícito en el runtime productivo", () => {
-  assert.throws(() => contrato.validarListado({
+  assert.throws(() => validarListadoDePrueba({
     esquema: "vec.bolsa.publico.convocatorias.v1", facetas: { categorias: [] }, diccionario_categorias: [], convocatorias: [],
   }), /esquema público inesperado/);
-  assert.throws(() => contrato.validarDetalle({
+  assert.throws(() => validarDetalleDePrueba({
     esquema: "vec.bolsa.publico.convocatoria.v1", convocatoria: { catalogo_categorias: snapshot(), categorias: [] }, diccionario_categorias: [],
   }), /esquema de detalle inesperado/);
 });
@@ -98,8 +214,8 @@ test("V2 rechaza categorías vacías y límites técnicos excedidos", () => {
     facetas: { categorias: [categoria()] }, diccionario_categorias: diccionario,
     convocatorias: [{ identificador_publico: "auxiliares-2026", catalogo_categorias: snapshot(), categorias }],
   });
-  assert.throws(() => contrato.validarListado(listado([])), /inválidas/);
-  assert.throws(() => contrato.validarListado(listado(
+  assert.throws(() => validarListadoDePrueba(listado([])), /inválidas/);
+  assert.throws(() => validarListadoDePrueba(listado(
     Array.from({ length: 129 }, (_, indice) => ({ clave: `categoria-${indice}`, version: 1 })),
     Array.from({ length: 129 }, (_, indice) => categoria(`categoria-${indice}`, 1)),
   )), /inválidas/);
@@ -109,12 +225,12 @@ test("V2 rechaza categorías vacías y límites técnicos excedidos", () => {
   assert.throws(() => contrato.crearDiccionario(
     Array.from({ length: 4097 }, (_, indice) => categoria(`categoria-${indice}`, 1)),
   ), /excesivo/);
-  assert.throws(() => contrato.validarDetalle({
+  assert.throws(() => validarDetalleDePrueba({
     esquema: "vec.bolsa.publico.convocatoria.v2",
     convocatoria: { catalogo_categorias: snapshot(), categorias: [] },
     diccionario_categorias: [],
   }), /fuera de límites/);
-  assert.throws(() => contrato.validarDetalle({
+  assert.throws(() => validarDetalleDePrueba({
     esquema: "vec.bolsa.publico.convocatoria.v2",
     convocatoria: { catalogo_categorias: snapshot(), categorias: [{ clave: "categoria-0", version: 1 }] },
     diccionario_categorias: Array.from({ length: 129 }, (_, indice) => categoria(`categoria-${indice}`, 1)),
@@ -136,7 +252,7 @@ test("V2 falla cerrado cuando catalogo_id, versión o cualquiera de las huellas 
   ]) {
     const datos = structuredClone(base);
     datos.convocatorias[0].catalogo_categorias = manipulacion;
-    assert.throws(() => contrato.validarListado(datos), /snapshot/);
+    assert.throws(() => validarListadoDePrueba(datos), /snapshot/);
   }
 });
 

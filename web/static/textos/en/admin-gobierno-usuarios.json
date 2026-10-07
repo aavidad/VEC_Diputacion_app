@@ -1,0 +1,22 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "This command prepares, applies and verifies the Administration keys: the two user management keys; with set 1, 2, 3 or 4, also the batch profile changes key; with set 2, 3 or 4, the signature plan governance key as well; with set 3 or 4, also the Personal post publication key; and, with set 4, the signer certificate key. The DBA creates the technical LOGIN and the approved configuration. The receipt only counts after COMMIT.",
+    "uso_invalido": "Give the phase (preparar, aplicar or verificar), the private configuration, the text catalogue and a positive time limit. Give the receipt only when applying.",
+    "configuracion_insegura": "The private configuration cannot be read. It must be your own file with 0600 permissions, in your own 0700 folder outside the repository.",
+    "configuracion_invalida": "The private configuration has the wrong format or lacks data for this phase. Check the fields, absolute paths, connections and validity hours (1 to 24).",
+    "salida_insegura": "The output folder is not safe. Use your own folder with 0700 permissions outside the repository.",
+    "acuse_inseguro": "The receipt must be a new file name, without folders, inside the output folder.",
+    "preparacion_lista": "Preparation finished. Give the DBA the fingerprints in aprobacion-candidata.json so they can create the approved configuration before applying.",
+    "preparacion_fallida": "Preparation failed. If the output folder holds partial files, do not use it and start again in another empty folder.",
+    "operacion_no_confirmada": "The operation was not confirmed and no receipt was saved.",
+    "commit_no_confirmado": "COMMIT could not be confirmed and the outcome is unknown. Do not prepare again: repeat aplicar with the same plan and another receipt name to recover the outcome.",
+    "acuse_no_guardado": "COMMIT is confirmed, but the receipt could not be saved. Repeat aplicar with another receipt name to recover the original receipt.",
+    "gobierno_confirmado": "The database confirmed the keys and the receipt was saved.",
+    "gobierno_rechazado": "The database rejected the operation and recorded the attempt. Check the private receipt.",
+    "gobierno_no_disponible": "The operation ended with an error and the database recorded the attempt. Check the private receipt.",
+    "cadena_verificada": "The user governance audit chain was recalculated with no differences. The report is in the output folder.",
+    "cadena_rechazada": "The audit chain does not match when recalculated. Check the report in the output folder.",
+    "verificacion_no_disponible": "The audit chain could not be read or the report could not be saved."
+  }
+}

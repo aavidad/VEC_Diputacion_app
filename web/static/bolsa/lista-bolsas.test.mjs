@@ -224,6 +224,7 @@ test("cliente HTTP público: utiliza exclusivamente credentials: 'omit' y no con
 
 test("cliente HTTP público: invoca endpoints canónicos y propaga parámetros seguros", async () => {
   const peticionesRealizadas = [];
+  const controlador = new AbortController();
   const fakeFetch = async (url, opts) => {
     peticionesRealizadas.push({ url, opts });
     if (url.includes("/lista")) {
@@ -241,18 +242,28 @@ test("cliente HTTP público: invoca endpoints canónicos y propaga parámetros s
   };
 
   // Consulta de bolsas
-  const respBolsas = await consultarBolsasPublicas({ fetchImpl: fakeFetch });
+  const respBolsas = await consultarBolsasPublicas({ fetchImpl: fakeFetch, signal: controlador.signal });
   assert.ok(respBolsas.bolsas.length > 0);
   assert.equal(peticionesRealizadas[0].url, "/api/publico/bolsa/bolsas");
   assert.equal(peticionesRealizadas[0].opts.credentials, "omit");
+  assert.equal(peticionesRealizadas[0].opts.signal, controlador.signal);
 
   // Consulta de lista con documento enmascarado válido
   const respLista = await consultarListaBolsaPublica({
     bolsa_ref: "bolsa:sintetico:administrativo",
     documento: "***1234**",
     fetchImpl: fakeFetch,
+    signal: controlador.signal,
   });
   assert.ok(respLista.posiciones.length > 0);
+  assert.equal(peticionesRealizadas[1].opts.signal, controlador.signal);
+  for (const { url, opts } of peticionesRealizadas) {
+    assert.match(url, /^\/api\/publico\/bolsa\/bolsas(?:\/|$)/);
+    assert.equal(opts.mode, "same-origin");
+    assert.equal(opts.cache, "no-store");
+    assert.equal(opts.referrerPolicy, "no-referrer");
+    assert.equal(opts.redirect, "error");
+  }
   const urlLista = peticionesRealizadas[1].url;
   assert.ok(urlLista.includes("/api/publico/bolsa/bolsas/bolsa:sintetico:administrativo/lista"));
   assert.ok(urlLista.includes("documento=***1234**") || urlLista.includes("documento=%2A%2A%2A1234%2A%2A"));
@@ -265,6 +276,97 @@ test("cliente HTTP público: invoca endpoints canónicos y propaga parámetros s
   });
   const urlSinParam = peticionesRealizadas[2].url;
   assert.ok(!urlSinParam.includes("documento="));
+});
+
+test("la consulta pública aborta el reintento anterior y descarta su respuesta tardía", async () => {
+  const peticiones = [];
+  const fakeFetch = (url, opts) => new Promise((resolver) => {
+    peticiones.push({ url, opts, resolver });
+  });
+  const elementos = {
+    seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+  };
+  const ctrl = crearControladorListaBolsas({
+    elementos,
+    ventana: null,
+    api: {
+      consultarBolsasPublicas: (opciones) => consultarBolsasPublicas({ ...opciones, fetchImpl: fakeFetch }),
+    },
+  });
+
+  const primera = ctrl.cargarBolsas();
+  const reintento = ctrl.cargarBolsas();
+  assert.equal(peticiones.length, 2);
+  assert.equal(peticiones[0].opts.signal.aborted, true);
+  assert.equal(peticiones[1].opts.signal.aborted, false);
+
+  peticiones[0].resolver({ ok: true, json: async () => generarFixtureBolsasPublicas() });
+  await primera;
+  assert.equal(elementos.cuerpoTablaBolsas.innerHTML, "");
+  assert.equal(elementos.bolsasError.hidden, true);
+  assert.equal(elementos.bolsasCargando.hidden, false);
+
+  peticiones[1].resolver({ ok: true, json: async () => generarFixtureBolsasPublicas() });
+  await reintento;
+  assert.match(elementos.cuerpoTablaBolsas.innerHTML, /ADMINISTRATIVO/);
+  assert.equal(elementos.bolsasCargando.hidden, true);
+});
+
+test("al cambiar de lista o volver, aborta la petición y ninguna respuesta antigua cambia la vista", async () => {
+  const [bolsaA, bolsaB] = generarFixtureBolsasPublicas().data.bolsas;
+  assert.ok(bolsaA && bolsaB);
+  const peticiones = [];
+  const fakeFetch = (url, opts) => new Promise((resolver, rechazar) => {
+    peticiones.push({ url, opts, resolver, rechazar });
+  });
+  const elementos = {
+    seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    infoBolsaActiva: { innerHTML: "" }, cuerpoTablaLista: { innerHTML: "" },
+    contenedorPaginacion: { hidden: true }, botonSiguiente: { dataset: {}, disabled: false },
+  };
+  const ctrl = crearControladorListaBolsas({
+    elementos,
+    ventana: null,
+    api: {
+      consultarBolsasPublicas: (opciones) => consultarBolsasPublicas({ ...opciones, fetchImpl: fakeFetch }),
+      consultarListaBolsaPublica: (opciones) => consultarListaBolsaPublica({ ...opciones, fetchImpl: fakeFetch }),
+    },
+  });
+
+  const primera = ctrl.seleccionarBolsa(bolsaA.bolsa_ref);
+  const segunda = ctrl.seleccionarBolsa(bolsaB.bolsa_ref);
+  assert.equal(peticiones[0].opts.signal.aborted, true);
+  assert.equal(peticiones[1].opts.signal.aborted, false);
+  assert.match(peticiones[1].url, new RegExp(bolsaB.bolsa_ref));
+
+  // Un transporte puede resolver pese al aborto: la guarda de secuencia sigue vigente.
+  peticiones[0].resolver({ ok: true, json: async () => generarFixtureListaPublica(bolsaA.bolsa_ref) });
+  await primera;
+  assert.equal(elementos.infoBolsaActiva.innerHTML, "");
+  assert.equal(elementos.listaError.hidden, true);
+
+  peticiones[1].resolver({ ok: true, json: async () => generarFixtureListaPublica(bolsaB.bolsa_ref) });
+  await segunda;
+  assert.match(elementos.infoBolsaActiva.innerHTML, new RegExp(bolsaB.categoria));
+
+  const tercera = ctrl.seleccionarBolsa(bolsaA.bolsa_ref);
+  ctrl.volverABolsas();
+  assert.equal(peticiones[2].opts.signal.aborted, true);
+  assert.equal(peticiones[3].opts.signal.aborted, false);
+  peticiones[2].rechazar(new DOMException("Cancelada", "AbortError"));
+  await tercera;
+  assert.equal(elementos.seccionLista.hidden, true);
+  assert.equal(elementos.listaError.hidden, true);
+  assert.equal(elementos.infoBolsaActiva.innerHTML, "");
+  peticiones[3].resolver({ ok: true, json: async () => generarFixtureBolsasPublicas() });
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(elementos.seccionBolsas.hidden, false);
+  assert.match(elementos.cuerpoTablaBolsas.innerHTML, /ADMINISTRATIVO/);
 });
 
 test("controlador público: ciclo de vida de renderizado de bolsas y selección de lista", async () => {
@@ -455,11 +557,13 @@ test("controlador público: restaura lista y filtro con Atrás/Adelante", async 
   await new Promise((resolver) => setImmediate(resolver));
 
   assert.equal(elementos.inputDocumento.value, "***1234**");
-  assert.deepEqual(consultas.at(-1), {
+  assert.deepEqual({ ...consultas.at(-1), signal: undefined }, {
     bolsa_ref: "bolsa:sintetico:administrativo",
     documento: "***1234**",
     cursor: "",
+    signal: undefined,
   });
+  assert.ok(consultas.at(-1).signal instanceof AbortSignal);
 
   ventana.location.href = "https://vec.test/bolsa/listas.html?bolsa=bolsa%3Asintetico%3Aadministrativo&documento=12345678Z";
   listeners.get("popstate")();
@@ -831,4 +935,35 @@ test("las ayudas generadas muestran solo interrogación y conservan nombre acces
   assert.equal(formato.title, "Formato de búsqueda");
   assert.deepEqual(ayudaPrivacidad.hijos.slice(1), [introduccion, aviso]);
   assert.deepEqual(ayudaFormato.hijos.slice(1), [textoFormato]);
+});
+
+test("B10 muestra la fecha de Madrid y el número inglés aunque el navegador esté en Nueva York", async () => {
+  const idiomaAnterior = globalThis.VECBolsaI18n;
+  const zonaAnterior = process.env.TZ;
+  try {
+    process.env.TZ = "America/New_York";
+    const indiceIdiomas = JSON.parse(readFileSync(join(rutaRaiz, "web/static/textos/idiomas.json"), "utf8"));
+    const inglesa = indiceIdiomas.idiomas.find((entrada) => entrada.codigo === "en");
+    globalThis.VECBolsaI18n = { ...idiomaAnterior, idioma: inglesa.codigo, localizacion: inglesa.localizacion,
+      numero: (valor) => new Intl.NumberFormat(inglesa.localizacion).format(valor) };
+    const { crearControladorListaBolsas: crearEn } = await import("./lista-bolsas.js?regresion-fecha-madrid-en");
+    const elementos = {
+      seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+      bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+      cuerpoTablaBolsas: { innerHTML: "" },
+    };
+    const respuesta = generarFixtureBolsasPublicas().data;
+    respuesta.bolsas = [{ ...respuesta.bolsas[0], vigente_desde: "2026-09-30T00:00:00Z", total: 12345 }];
+    const controlador = crearEn({ elementos, ventana: null, api: { consultarBolsasPublicas: async () => respuesta } });
+    await controlador.cargarBolsas();
+    const fechaMadrid = new Intl.DateTimeFormat(inglesa.localizacion, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    const fechaVisitante = new Intl.DateTimeFormat(inglesa.localizacion, { dateStyle: "medium", timeZone: "America/New_York" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    assert.notEqual(fechaMadrid, fechaVisitante);
+    assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes(fechaMadrid));
+    assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes("12,345"));
+  } finally {
+    globalThis.VECBolsaI18n = idiomaAnterior;
+    if (zonaAnterior === undefined) delete process.env.TZ;
+    else process.env.TZ = zonaAnterior;
+  }
 });

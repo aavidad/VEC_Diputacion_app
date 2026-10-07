@@ -1,0 +1,81 @@
+{
+  "esquema": "vec.contratacion_temporal.manifest_flujo_visual_rrhh.v1",
+  "fuente": {
+    "referencia": "fuente:rrhh:decisiones-20261002",
+    "huella_sha256": "4d20a0fbf2ba63b92291fedd201ed62cbdfefd6789e743da5e203fd2437b6b5f"
+  },
+  "flujo_origen": {
+    "referencia": "flujo:ct:rrhh:20261002",
+    "version": 2,
+    "huella_sha256": "1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"
+  },
+  "presentacion": {
+    "esquema": "vec.contratacion_temporal.presentacion_flujo_rrhh.v1",
+    "referencia": "flujo:ct:rrhh:presentacion",
+    "version": 2,
+    "clave_i18n": "contratacion_temporal.flujo.rrhh",
+    "fases": [
+      {
+        "clave": "circuito_solicitud",
+        "orden": 1,
+        "clave_i18n": "contratacion_temporal.fase.circuito_solicitud"
+      },
+      {
+        "clave": "circuito_autorizacion_rrhh",
+        "orden": 2,
+        "clave_i18n": "contratacion_temporal.fase.circuito_autorizacion_rrhh"
+      },
+      {
+        "clave": "circuito_credito",
+        "orden": 3,
+        "clave_i18n": "contratacion_temporal.fase.circuito_credito"
+      },
+      {
+        "clave": "circuito_oferta",
+        "orden": 4,
+        "clave_i18n": "contratacion_temporal.fase.circuito_oferta"
+      },
+      {
+        "clave": "circuito_adjudicacion",
+        "orden": 5,
+        "clave_i18n": "contratacion_temporal.fase.circuito_adjudicacion"
+      },
+      {
+        "clave": "circuito_informe_jefatura",
+        "orden": 6,
+        "clave_i18n": "contratacion_temporal.fase.circuito_informe_jefatura"
+      },
+      {
+        "clave": "circuito_intervencion",
+        "orden": 7,
+        "clave_i18n": "contratacion_temporal.fase.circuito_intervencion"
+      },
+      {
+        "clave": "circuito_resolucion",
+        "orden": 8,
+        "clave_i18n": "contratacion_temporal.fase.circuito_resolucion"
+      },
+      {
+        "clave": "circuito_ginpix",
+        "orden": 9,
+        "clave_i18n": "contratacion_temporal.fase.circuito_ginpix"
+      },
+      {
+        "clave": "circuito_firma_interesado",
+        "orden": 10,
+        "clave_i18n": "contratacion_temporal.fase.circuito_firma_interesado"
+      },
+      {
+        "clave": "circuito_incorporacion",
+        "orden": 11,
+        "clave_i18n": "contratacion_temporal.fase.circuito_incorporacion"
+      },
+      {
+        "clave": "circuito_seguimiento",
+        "orden": 12,
+        "clave_i18n": "contratacion_temporal.fase.circuito_seguimiento"
+      }
+    ]
+  },
+  "mapeos_fase_origen": []
+}

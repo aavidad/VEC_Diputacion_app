@@ -59,3 +59,25 @@ func TestRegistroEmpleadoB2DenegacionSQLNoFiltraDetalle(t *testing.T) {
 		t.Fatal("denegación incorrecta", err)
 	}
 }
+
+func TestRegistroEmpleadoB2SerializacionConflictoYBloqueoNoDisponible(t *testing.T) {
+	for _, caso := range []struct {
+		codigo   string
+		esperado error
+	}{{"40001", errRegistroEmpleadoB2Conflicto}, {"55P03", errRegistroEmpleadoB2NoDisponible}} {
+		for _, fase := range []string{"consulta", "commit"} {
+			t.Run(caso.codigo+fase, func(t *testing.T) {
+				tx := &txP{fila: filaP{vals: []any{[]byte(`{"ok":true}`)}}}
+				if fase == "consulta" {
+					tx.fila = filaP{err: &pgconn.PgError{Code: caso.codigo, Message: "detalle privado"}}
+				} else {
+					tx.errC = &pgconn.PgError{Code: caso.codigo, Message: "detalle privado"}
+				}
+				_, e := ejecutarRegistroEmpleadoB2(context.Background(), &poolP{tx: tx}, consultaFichaEmpleadoB2SQL, []byte(`{}`), ordenP(t).Autorizacion, 100, func([]byte) (string, error) { return "ok", nil })
+				if !errors.Is(e, caso.esperado) || tx.rollbacks != 1 || strings.Contains(e.Error(), "privado") {
+					t.Fatal("clasificacion error transaccional", e)
+				}
+			})
+		}
+	}
+}

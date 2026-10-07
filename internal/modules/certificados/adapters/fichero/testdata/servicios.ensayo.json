@@ -1,0 +1,12 @@
+{
+  "esquema": "vec.certificados.fuente-servicios.ensayo.v1",
+  "sintetica": true,
+  "procedencia_ref": "ensayo:servicios-muestra-v1",
+  "nombre": "Elena Martín Robles",
+  "corte": {"vigente_en": "2026-10-01", "conocido_en": "2026-10-01T08:00:00Z"},
+  "servicios": [
+    {"inicio": "2022-01-01", "fin": "2022-06-30", "clase": "Administrativa", "dias": 181, "estado": "declarado"},
+    {"inicio": "2023-01-01", "fin": "2023-06-30", "clase": "Administrativa", "dias": 181, "estado": "comprobado"},
+    {"inicio": "2024-01-01", "fin": "2024-06-30", "clase": "Administrativa", "dias": 182, "estado": "reconocido"}
+  ]
+}

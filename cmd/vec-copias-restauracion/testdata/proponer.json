@@ -1,0 +1,561 @@
+{
+  "accion": "proponer",
+  "ahora": "2026-10-01T18:00:00Z",
+  "configuracion": {
+    "doble_control": null,
+    "entorno": "sintetico_offline"
+  },
+  "destino": {
+    "formato_version": 1,
+    "ref": "inventario:sintetico:destino",
+    "completo": true,
+    "postgresql": {
+      "version": "18.4",
+      "runtime_sha256": "989724a43280ae2a7880bc53c6c6fc01866572b0c54fe5e07115d7b426ad3a28",
+      "plataforma": "linux-amd64",
+      "herramientas": [
+        {
+          "id": "pg_dump",
+          "version": "18.4",
+          "sha256": "b51709ab9719f738b6045a7a633fe49100aeaa435db500066ef758bc1348cee8"
+        },
+        {
+          "id": "pg_restore",
+          "version": "18.4",
+          "sha256": "36eab6ed7a82c68ab5ba95778cb47c55a0c2c8945f3a443d567e77afb3429eed"
+        },
+        {
+          "id": "psql",
+          "version": "18.4",
+          "sha256": "8e8ae289dc164e42053332a907be7c7afbc8f1f5593683d754c45371acc0f428"
+        },
+        {
+          "id": "postgres",
+          "version": "18.4",
+          "sha256": "2f072e18ff2a5c177ea1b7c23cc926031177333f2a9191260b6f2d46369d4a4f"
+        }
+      ],
+      "extensiones": [
+        {
+          "id": "plpgsql",
+          "version": "1.0"
+        }
+      ],
+      "cluster_ref": "cluster:sintetico:destino",
+      "bases": [
+        "base:sintetica:vec"
+      ],
+      "almacenes": [],
+      "ambito_completo": true
+    },
+    "release": {
+      "id": "release:sintetica:2",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "plataforma": "linux-amd64",
+      "binarios": [
+        {
+          "id": "vec-admin",
+          "tipo": "binario",
+          "sha256": "658de69e8985ed9f534e76348dfede3a5e1b4346286bd963e340dfa8e623b935",
+          "tamano_bytes": 9
+        },
+        {
+          "id": "vec-server",
+          "tipo": "binario",
+          "sha256": "b9eebd23d352a4454392aef3d1c7a28b5662c6487765f2d34bc8c4d01896cb50",
+          "tamano_bytes": 10
+        }
+      ],
+      "componentes": [
+        {
+          "id": "activos-web",
+          "tipo": "web",
+          "sha256": "6ce77c12465d6ac3c0a4829f600f6dbf11f8513c8e25f54d1726f106656def49",
+          "tamano_bytes": 11
+        },
+        {
+          "id": "textos",
+          "tipo": "catalogos",
+          "sha256": "b358f976517912e2f7cfb2fb0ef91c7db1fb84a9c86cb2e09facebdc4f5b8a07",
+          "tamano_bytes": 6
+        },
+        {
+          "id": "material",
+          "tipo": "material",
+          "sha256": "064d123c31c68541bce40a476df4f1509c603e901fec4b0fef05d947faf08b28",
+          "tamano_bytes": 8
+        },
+        {
+          "id": "configuracion",
+          "tipo": "configuracion",
+          "sha256": "b14965d4379e8d9ffef4812dbd8569f9cf1401746b0b33cfcaf7d0e088df94af",
+          "tamano_bytes": 13
+        },
+        {
+          "id": "documentos",
+          "tipo": "ficheros",
+          "sha256": "1d35e788b74d8a01d363fb143fc2be3abbaf825573cfac5a54e85b57cabb2039",
+          "tamano_bytes": 10
+        }
+      ],
+      "esquema_esperado": [
+        {
+          "id": "administracion",
+          "esquema_sha256": "3ab0f266f0f3da66444daf0fd3838313515302ad8313b4482991f46f68fc0f0d",
+          "migraciones": [
+            {
+              "id": "000001",
+              "sha256": "ee301002bed06c3e7464583c651794d46dc0399c1ae2bde7327a2e016536a071"
+            }
+          ]
+        },
+        {
+          "id": "contrataciontemporal",
+          "esquema_sha256": "31fe45f2cbb744f7713dc9cac5aab851c95ed4d28a706c98560da5143e26cce9",
+          "migraciones": [
+            {
+              "id": "000158",
+              "sha256": "192d631ed15fc77e5f41f5917a889c90c97bafe07c76bbbe9f3dd41ee54fc6ed"
+            },
+            {
+              "id": "000159",
+              "sha256": "a657a8b18d46d948977cdde95a1e2cfde8100a55baf3375f7288b0bf09f5a939"
+            }
+          ]
+        }
+      ]
+    },
+    "modulos": [
+      {
+        "id": "administracion",
+        "esquema_sha256": "3ab0f266f0f3da66444daf0fd3838313515302ad8313b4482991f46f68fc0f0d",
+        "migraciones": [
+          {
+            "id": "000001",
+            "sha256": "ee301002bed06c3e7464583c651794d46dc0399c1ae2bde7327a2e016536a071"
+          }
+        ]
+      },
+      {
+        "id": "contrataciontemporal",
+        "esquema_sha256": "31fe45f2cbb744f7713dc9cac5aab851c95ed4d28a706c98560da5143e26cce9",
+        "migraciones": [
+          {
+            "id": "000158",
+            "sha256": "192d631ed15fc77e5f41f5917a889c90c97bafe07c76bbbe9f3dd41ee54fc6ed"
+          },
+          {
+            "id": "000159",
+            "sha256": "a657a8b18d46d948977cdde95a1e2cfde8100a55baf3375f7288b0bf09f5a939"
+          }
+        ]
+      }
+    ]
+  },
+  "manifiesto": {
+    "formato_version": 1,
+    "conjunto_ref": "copia:sintetica:1",
+    "operacion_ref": "operacion:sintetica:1",
+    "solicitante_ref": "persona:sintetica:paula-moreno",
+    "motivo_ref": "motivo:sintetico:ensayo",
+    "politica_ref": "politica:sintetica:1",
+    "inicio": "2026-10-01T17:30:00Z",
+    "fin": "2026-10-01T17:31:00Z",
+    "tamano_bytes": 99,
+    "inventario": {
+      "formato_version": 1,
+      "ref": "inventario:sintetico:origen",
+      "completo": true,
+      "postgresql": {
+        "version": "18.4",
+        "runtime_sha256": "989724a43280ae2a7880bc53c6c6fc01866572b0c54fe5e07115d7b426ad3a28",
+        "plataforma": "linux-amd64",
+        "herramientas": [
+          {
+            "id": "pg_dump",
+            "version": "18.4",
+            "sha256": "b51709ab9719f738b6045a7a633fe49100aeaa435db500066ef758bc1348cee8"
+          },
+          {
+            "id": "pg_restore",
+            "version": "18.4",
+            "sha256": "36eab6ed7a82c68ab5ba95778cb47c55a0c2c8945f3a443d567e77afb3429eed"
+          },
+          {
+            "id": "psql",
+            "version": "18.4",
+            "sha256": "8e8ae289dc164e42053332a907be7c7afbc8f1f5593683d754c45371acc0f428"
+          },
+          {
+            "id": "postgres",
+            "version": "18.4",
+            "sha256": "2f072e18ff2a5c177ea1b7c23cc926031177333f2a9191260b6f2d46369d4a4f"
+          }
+        ],
+        "extensiones": [
+          {
+            "id": "plpgsql",
+            "version": "1.0"
+          }
+        ],
+        "cluster_ref": "cluster:sintetico:origen",
+        "bases": [
+          "base:sintetica:vec"
+        ],
+        "almacenes": [],
+        "ambito_completo": true
+      },
+      "release": {
+        "id": "release:sintetica:1",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "plataforma": "linux-amd64",
+        "binarios": [
+          {
+            "id": "vec-admin",
+            "tipo": "binario",
+            "sha256": "658de69e8985ed9f534e76348dfede3a5e1b4346286bd963e340dfa8e623b935",
+            "tamano_bytes": 9
+          },
+          {
+            "id": "vec-server",
+            "tipo": "binario",
+            "sha256": "b9eebd23d352a4454392aef3d1c7a28b5662c6487765f2d34bc8c4d01896cb50",
+            "tamano_bytes": 10
+          }
+        ],
+        "componentes": [
+          {
+            "id": "activos-web",
+            "tipo": "web",
+            "sha256": "6ce77c12465d6ac3c0a4829f600f6dbf11f8513c8e25f54d1726f106656def49",
+            "tamano_bytes": 11
+          },
+          {
+            "id": "textos",
+            "tipo": "catalogos",
+            "sha256": "b358f976517912e2f7cfb2fb0ef91c7db1fb84a9c86cb2e09facebdc4f5b8a07",
+            "tamano_bytes": 6
+          },
+          {
+            "id": "material",
+            "tipo": "material",
+            "sha256": "064d123c31c68541bce40a476df4f1509c603e901fec4b0fef05d947faf08b28",
+            "tamano_bytes": 8
+          },
+          {
+            "id": "configuracion",
+            "tipo": "configuracion",
+            "sha256": "b14965d4379e8d9ffef4812dbd8569f9cf1401746b0b33cfcaf7d0e088df94af",
+            "tamano_bytes": 13
+          },
+          {
+            "id": "documentos",
+            "tipo": "ficheros",
+            "sha256": "1d35e788b74d8a01d363fb143fc2be3abbaf825573cfac5a54e85b57cabb2039",
+            "tamano_bytes": 10
+          }
+        ],
+        "esquema_esperado": [
+          {
+            "id": "administracion",
+            "esquema_sha256": "3ab0f266f0f3da66444daf0fd3838313515302ad8313b4482991f46f68fc0f0d",
+            "migraciones": [
+              {
+                "id": "000001",
+                "sha256": "ee301002bed06c3e7464583c651794d46dc0399c1ae2bde7327a2e016536a071"
+              }
+            ]
+          },
+          {
+            "id": "contrataciontemporal",
+            "esquema_sha256": "31fe45f2cbb744f7713dc9cac5aab851c95ed4d28a706c98560da5143e26cce9",
+            "migraciones": [
+              {
+                "id": "000158",
+                "sha256": "192d631ed15fc77e5f41f5917a889c90c97bafe07c76bbbe9f3dd41ee54fc6ed"
+              },
+              {
+                "id": "000159",
+                "sha256": "a657a8b18d46d948977cdde95a1e2cfde8100a55baf3375f7288b0bf09f5a939"
+              }
+            ]
+          }
+        ]
+      },
+      "modulos": [
+        {
+          "id": "administracion",
+          "esquema_sha256": "3ab0f266f0f3da66444daf0fd3838313515302ad8313b4482991f46f68fc0f0d",
+          "migraciones": [
+            {
+              "id": "000001",
+              "sha256": "ee301002bed06c3e7464583c651794d46dc0399c1ae2bde7327a2e016536a071"
+            }
+          ]
+        },
+        {
+          "id": "contrataciontemporal",
+          "esquema_sha256": "31fe45f2cbb744f7713dc9cac5aab851c95ed4d28a706c98560da5143e26cce9",
+          "migraciones": [
+            {
+              "id": "000158",
+              "sha256": "192d631ed15fc77e5f41f5917a889c90c97bafe07c76bbbe9f3dd41ee54fc6ed"
+            },
+            {
+              "id": "000159",
+              "sha256": "a657a8b18d46d948977cdde95a1e2cfde8100a55baf3375f7288b0bf09f5a939"
+            }
+          ]
+        }
+      ]
+    },
+    "componentes": [
+      {
+        "id": "vec-admin",
+        "tipo": "binario",
+        "sha256": "658de69e8985ed9f534e76348dfede3a5e1b4346286bd963e340dfa8e623b935",
+        "tamano_bytes": 9
+      },
+      {
+        "id": "vec-server",
+        "tipo": "binario",
+        "sha256": "b9eebd23d352a4454392aef3d1c7a28b5662c6487765f2d34bc8c4d01896cb50",
+        "tamano_bytes": 10
+      },
+      {
+        "id": "activos-web",
+        "tipo": "web",
+        "sha256": "6ce77c12465d6ac3c0a4829f600f6dbf11f8513c8e25f54d1726f106656def49",
+        "tamano_bytes": 11
+      },
+      {
+        "id": "textos",
+        "tipo": "catalogos",
+        "sha256": "b358f976517912e2f7cfb2fb0ef91c7db1fb84a9c86cb2e09facebdc4f5b8a07",
+        "tamano_bytes": 6
+      },
+      {
+        "id": "material",
+        "tipo": "material",
+        "sha256": "064d123c31c68541bce40a476df4f1509c603e901fec4b0fef05d947faf08b28",
+        "tamano_bytes": 8
+      },
+      {
+        "id": "configuracion",
+        "tipo": "configuracion",
+        "sha256": "b14965d4379e8d9ffef4812dbd8569f9cf1401746b0b33cfcaf7d0e088df94af",
+        "tamano_bytes": 13
+      },
+      {
+        "id": "documentos",
+        "tipo": "ficheros",
+        "sha256": "1d35e788b74d8a01d363fb143fc2be3abbaf825573cfac5a54e85b57cabb2039",
+        "tamano_bytes": 10
+      },
+      {
+        "id": "cluster-fisico",
+        "tipo": "base_fisica",
+        "sha256": "52084194bc77fa2ac321d1e50559689647d9227604c2d0f3329d94e53bc08439",
+        "tamano_bytes": 14
+      },
+      {
+        "id": "base-logica",
+        "tipo": "base_logica",
+        "sha256": "55b3908a0b4e9b0696ad4945273a2c3c994557ddb360773f987e22ab932853d9",
+        "tamano_bytes": 11
+      },
+      {
+        "id": "globals",
+        "tipo": "globals",
+        "sha256": "5eb59dc5e05cccd8f3152647d36ae68d52b3d635390b280d5e2fb5b2b054e95c",
+        "tamano_bytes": 7
+      }
+    ],
+    "inventario_sha256": "ac9bdd79519987e70b0eecee1669335dd2e1369dbceecee2b20a4743fd9d1e7b",
+    "consistencia": {
+      "modo": "fisica_fria_y_logica",
+      "escritores_excluidos": true,
+      "parada_limpia": true,
+      "evidencia_ref": "captura:sintetica",
+      "punto_recuperacion_ref": "punto:sintetico"
+    },
+    "proteccion": {
+      "formato": "formato:sintetico",
+      "algoritmo": "algoritmo:sintetico",
+      "clave_ref": "clave:sintetica:referencia",
+      "clave_version": "1",
+      "autenticacion_ref": "autenticacion:no_comprobada",
+      "cifrado_sha256": "a9df739296bcc3c6fd7fa38e2f8a02be991bde586dec8ab217b12b556f6a2ada"
+    },
+    "verificacion": {
+      "estado": "valida",
+      "verificador_version": "verificador:sintetico:1",
+      "fecha": "2026-10-01T17:33:00Z",
+      "fisica": {
+        "ref": "fisica:sintetica",
+        "recuentos_sha256": "906b8034af052a64622716d7f41ea46542a0281c42ee4dd4454f7a590bc24273",
+        "contenido_sha256": "d566521c81aea59c6eb898332b398149d9ae463968c9c585a5d1b7dc6cea1fc2",
+        "esquema_sha256": "0ceb9301429379640529f4ff616920fb778f263eadd347109393fc14a9a32724",
+        "roles_sha256": "7284b04ad81f53212d56fa8262ed70253cd51ca538514935557532adb6043ebc",
+        "acl_sha256": "f3a66bb8a4b8781ee5fa9f7375771a820afc5f54a4db23e9b5571d16e26a5810",
+        "secuencias_sha256": "ae731c8e5857ccc76981af458b80fcb0a1cf75f487fe896f40b33cd8e9e4e9ed",
+        "objetos_grandes_sha256": "394756f4df45b53d0d865b27dbac4fba5d713f0845c8d1122773d11560e59628",
+        "ficheros_sha256": "6c970e93546ebc072fcb829dfa2aea42c88ba82ba18fa9cc0db0c3df53837d9c",
+        "arranque_ref": "arranque:sintetico"
+      },
+      "logica": {
+        "ref": "logica:sintetica",
+        "recuentos_sha256": "906b8034af052a64622716d7f41ea46542a0281c42ee4dd4454f7a590bc24273",
+        "contenido_sha256": "d566521c81aea59c6eb898332b398149d9ae463968c9c585a5d1b7dc6cea1fc2",
+        "esquema_sha256": "0ceb9301429379640529f4ff616920fb778f263eadd347109393fc14a9a32724",
+        "roles_sha256": "7284b04ad81f53212d56fa8262ed70253cd51ca538514935557532adb6043ebc",
+        "acl_sha256": "f3a66bb8a4b8781ee5fa9f7375771a820afc5f54a4db23e9b5571d16e26a5810",
+        "secuencias_sha256": "ae731c8e5857ccc76981af458b80fcb0a1cf75f487fe896f40b33cd8e9e4e9ed",
+        "objetos_grandes_sha256": "394756f4df45b53d0d865b27dbac4fba5d713f0845c8d1122773d11560e59628",
+        "ficheros_sha256": "6c970e93546ebc072fcb829dfa2aea42c88ba82ba18fa9cc0db0c3df53837d9c",
+        "arranque_ref": "arranque:sintetico"
+      }
+    }
+  },
+  "persona_declarada_ref": "persona:sintetica:1",
+  "politica": {
+    "formato_version": 1,
+    "ref": "politica:sintetica:actual",
+    "runtimes": [
+      {
+        "version": "18.4",
+        "runtime_sha256": "989724a43280ae2a7880bc53c6c6fc01866572b0c54fe5e07115d7b426ad3a28",
+        "plataforma": "linux-amd64",
+        "herramientas": [
+          {
+            "id": "pg_dump",
+            "version": "18.4",
+            "sha256": "b51709ab9719f738b6045a7a633fe49100aeaa435db500066ef758bc1348cee8"
+          },
+          {
+            "id": "pg_restore",
+            "version": "18.4",
+            "sha256": "36eab6ed7a82c68ab5ba95778cb47c55a0c2c8945f3a443d567e77afb3429eed"
+          },
+          {
+            "id": "psql",
+            "version": "18.4",
+            "sha256": "8e8ae289dc164e42053332a907be7c7afbc8f1f5593683d754c45371acc0f428"
+          },
+          {
+            "id": "postgres",
+            "version": "18.4",
+            "sha256": "2f072e18ff2a5c177ea1b7c23cc926031177333f2a9191260b6f2d46369d4a4f"
+          }
+        ],
+        "extensiones": [
+          {
+            "id": "plpgsql",
+            "version": "1.0"
+          }
+        ]
+      }
+    ],
+    "releases": [
+      {
+        "id": "release:sintetica:1",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "plataforma": "linux-amd64",
+        "binarios": [
+          {
+            "id": "vec-admin",
+            "tipo": "binario",
+            "sha256": "658de69e8985ed9f534e76348dfede3a5e1b4346286bd963e340dfa8e623b935",
+            "tamano_bytes": 9
+          },
+          {
+            "id": "vec-server",
+            "tipo": "binario",
+            "sha256": "b9eebd23d352a4454392aef3d1c7a28b5662c6487765f2d34bc8c4d01896cb50",
+            "tamano_bytes": 10
+          }
+        ],
+        "componentes": [
+          {
+            "id": "activos-web",
+            "tipo": "web",
+            "sha256": "6ce77c12465d6ac3c0a4829f600f6dbf11f8513c8e25f54d1726f106656def49",
+            "tamano_bytes": 11
+          },
+          {
+            "id": "textos",
+            "tipo": "catalogos",
+            "sha256": "b358f976517912e2f7cfb2fb0ef91c7db1fb84a9c86cb2e09facebdc4f5b8a07",
+            "tamano_bytes": 6
+          },
+          {
+            "id": "material",
+            "tipo": "material",
+            "sha256": "064d123c31c68541bce40a476df4f1509c603e901fec4b0fef05d947faf08b28",
+            "tamano_bytes": 8
+          },
+          {
+            "id": "configuracion",
+            "tipo": "configuracion",
+            "sha256": "b14965d4379e8d9ffef4812dbd8569f9cf1401746b0b33cfcaf7d0e088df94af",
+            "tamano_bytes": 13
+          },
+          {
+            "id": "documentos",
+            "tipo": "ficheros",
+            "sha256": "1d35e788b74d8a01d363fb143fc2be3abbaf825573cfac5a54e85b57cabb2039",
+            "tamano_bytes": 10
+          }
+        ],
+        "esquema_esperado": [
+          {
+            "id": "administracion",
+            "esquema_sha256": "3ab0f266f0f3da66444daf0fd3838313515302ad8313b4482991f46f68fc0f0d",
+            "migraciones": [
+              {
+                "id": "000001",
+                "sha256": "ee301002bed06c3e7464583c651794d46dc0399c1ae2bde7327a2e016536a071"
+              }
+            ]
+          },
+          {
+            "id": "contrataciontemporal",
+            "esquema_sha256": "31fe45f2cbb744f7713dc9cac5aab851c95ed4d28a706c98560da5143e26cce9",
+            "migraciones": [
+              {
+                "id": "000158",
+                "sha256": "192d631ed15fc77e5f41f5917a889c90c97bafe07c76bbbe9f3dd41ee54fc6ed"
+              },
+              {
+                "id": "000159",
+                "sha256": "a657a8b18d46d948977cdde95a1e2cfde8100a55baf3375f7288b0bf09f5a939"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "releases_revocadas": []
+  },
+  "propuesta": {
+    "formato_version": 1,
+    "ref": "propuesta:sintetica:1",
+    "conjunto_ref": "copia:sintetica:1",
+    "conjunto_sha256": "28f6f48df0b4329b1ad9629b4e20448b581b28234485830f2593d9a00ab1847a",
+    "destino_ref": "inventario:sintetico:destino",
+    "preimagen_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "motivo_ref": "motivo:sintetico:ensayo",
+    "ventana_ref": "ventana:sintetica:1",
+    "ventana_inicio": "2026-10-01T18:00:00Z",
+    "ventana_fin": "2026-10-01T19:00:00Z",
+    "politica_ref": "politica:sintetica:actual",
+    "politica_sha256": "425b6abe8334390c87d2e409c0097e405ee5acaa1a40d3b623b41074e02dc4dd",
+    "proponente_persona_ref": "persona:sintetica:1",
+    "creada": "2026-10-01T18:00:00Z",
+    "caduca": "2026-10-01T19:00:00Z",
+    "doble_control": true,
+    "entorno": "sintetico_offline"
+  },
+  "sha256": "",
+  "version": 0
+}

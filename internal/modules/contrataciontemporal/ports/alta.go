@@ -58,14 +58,18 @@ func (r ReferenciasAlta) Validar() error {
 }
 
 type MaterialHuellaAlta struct {
-	OrganizacionRef string
-	ActorRef        string
-	PerfilRef       string
-	Flujo           domain.ReferenciaFlujo
-	Solicitud       domain.SolicitudCentro
+	NumeroExpedienteMOAD string
+	OrganizacionRef      string
+	ActorRef             string
+	PerfilRef            string
+	Flujo                domain.ReferenciaFlujo
+	Solicitud            domain.SolicitudCentro
 }
 
 func (m MaterialHuellaAlta) Validar() error {
+	if m.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(m.NumeroExpedienteMOAD) {
+		return ErrPreparacionAltaInvalida
+	}
 	if !domain.ReferenciaOpacaValida(m.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(m.ActorRef) ||
 		!domain.ReferenciaOpacaValida(m.PerfilRef) ||
@@ -85,11 +89,12 @@ type DerivadorHuellaAlta interface {
 }
 
 type SolicitudPrepararAlta struct {
-	ClaveIdempotencia   string
-	HuellasPeticionHMAC ColeccionSellosHMAC
-	OrganizacionRef     string
-	ActorRef            string
-	PerfilRef           string
+	NumeroExpedienteMOAD string
+	ClaveIdempotencia    string
+	HuellasPeticionHMAC  ColeccionSellosHMAC
+	OrganizacionRef      string
+	ActorRef             string
+	PerfilRef            string
 }
 
 func (s SolicitudPrepararAlta) Validar() error {

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarCuadro } from "./componentes-expedientes.js";
+import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 const t = crearTraductorExpedientesContratacion();
 const resumen = Object.freeze({
@@ -48,7 +48,9 @@ test("con plazo_fase pinta fecha y estado en texto, sin la procedencia de la reg
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
-  assert.match(html, /ct-fase-en_curso ct-plazo-vencido">En trámite · plazo vencido el 29 sept 2026<\/span>/u);
+  // El vencimiento se dice una sola vez, en la columna Plazo.
+  assert.match(html, /ct-fase-en_curso">En trámite<\/span>/u);
+  assert.doesNotMatch(html, /plazo vencido el/u);
   assert.match(html, /<span class="ct-exp-chip ct-plazo-vencido">Vencido<\/span>\s*<small>Venció ayer · 29 sept 2026<\/small>/u);
   assert.doesNotMatch(html, /c03\.plazo_fiscalizacion|regla/u);
 });

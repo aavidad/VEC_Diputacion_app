@@ -73,6 +73,9 @@ func expedientePuenteBolsaPrueba(t *testing.T) ports.ExpedienteParaSeleccion {
 		EntradaRCEsperada: domain.VinculoEntradaRC{Referencia: "entrada:rc:sintetica", HuellaSHA256: h},
 		ValidacionRC: domain.ValidacionRC{Resultado: domain.RCNoRequerida, EntradaRef: "entrada:rc:sintetica", HuellaEntradaSHA256: h,
 			FuenteRef: "fuente:rc:sintetica", ReciboRef: "recibo:rc:sintetica", ValidadaEn: base, Motivo: "Caso sintético sin RC."},
+		// Sin retención, la constancia de las partidas va con el coste aproximado.
+		CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+		FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 	}, a("analisis.validado", "gestion_bolsa", time.Minute))
 	if err != nil {
 		t.Fatal("analisis fixture:", err)
@@ -179,6 +182,23 @@ func TestPuenteBolsaLlamamientoDesarrolloReferenciasYFuenteEstables(t *testing.T
 	reloj.instante = time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
 	if _, _, err := p2.fuente(otraClave); err == nil {
 		t.Fatal("fuente caducada admitida")
+	}
+}
+
+func TestPuenteBolsaSinFinPrevistoConservaCausaCatalogada(t *testing.T) {
+	p, ctx, preparacion, _ := puenteBolsaPrueba(t)
+	preparacion.expediente.Fiscalizado.Analisis.Periodo.Fin = time.Time{}
+	preparacion.expediente.Fiscalizado.Analisis.Periodo.CausaFin = "reincorporacion_titular"
+	fuente, documento, err := p.fuente(preparacion)
+	if err != nil || !documento.Datos.Necesidad.FinPrevisto.IsZero() ||
+		documento.Datos.Necesidad.CausaFinClave != "reincorporacion_titular" {
+		t.Fatalf("fin por causa no conservado en Bolsa: %v, %+v", err, documento.Datos.Necesidad)
+	}
+	contenido, _, err := fuente.ExportarFuenteFirmada(ctx, preparacion.necesidad)
+	if err != nil || !bytes.Contains(contenido, []byte(`"fin_previsto":null`)) ||
+		!bytes.Contains(contenido, []byte(`"causa_fin_clave":"reincorporacion_titular"`)) ||
+		bytes.Contains(contenido, []byte("0001-")) {
+		t.Fatalf("fuente con horizonte inventado: %v, %s", err, contenido)
 	}
 }
 

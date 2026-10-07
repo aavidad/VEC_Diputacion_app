@@ -310,6 +310,7 @@ func solicitudesCentroGobiernoAltaIguales(
 		primera.Detalle != segunda.Detalle ||
 		!primera.Periodo.Inicio.Equal(segunda.Periodo.Inicio) ||
 		!primera.Periodo.Fin.Equal(segunda.Periodo.Fin) ||
+		primera.Periodo.CausaFin != segunda.Periodo.CausaFin ||
 		primera.RC.Existe != segunda.RC.Existe ||
 		primera.RC.Numero != segunda.RC.Numero ||
 		!primera.RC.Fecha.Equal(segunda.RC.Fecha) ||

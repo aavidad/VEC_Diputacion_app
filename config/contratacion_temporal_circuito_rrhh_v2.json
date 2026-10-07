@@ -1,0 +1,232 @@
+{
+  "flujo": {
+    "definicion_ref": "flujo:ct:rrhh:20261002",
+    "version": 2,
+    "huella_sha256": "1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"
+  },
+  "estado_inicial": "solicitud",
+  "transiciones": [
+    {
+      "clave": "contratacion_temporal.circuito.peticion_firmada",
+      "tipo": "peticion_firmada",
+      "origen": "solicitud",
+      "destino": "autorizacion_rrhh",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "tecnico_rrhh",
+      "firmas_requeridas": [
+        "tecnico_solicitante",
+        "delegacion_solicitante"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.autorizacion_rrhh",
+      "tipo": "autorizacion_rrhh",
+      "origen": "autorizacion_rrhh",
+      "destino": "credito",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh",
+      "autorizante_cargo_clave": "direccion_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.credito_comprobado",
+      "tipo": "credito_comprobado",
+      "origen": "credito",
+      "destino": "oferta",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.oferta_emitida",
+      "tipo": "oferta_emitida",
+      "origen": "oferta",
+      "destino": "adjudicacion",
+      "requiere_documento": false,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.adjudicacion",
+      "tipo": "adjudicacion",
+      "origen": "adjudicacion",
+      "destino": "informe_jefatura",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.informe_jefatura",
+      "tipo": "informe_jefatura",
+      "origen": "informe_jefatura",
+      "destino": "intervencion",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.intervencion_favorable",
+      "tipo": "intervencion_favorable",
+      "origen": "intervencion",
+      "destino": "resolucion",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "intervencion"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.intervencion_reparo",
+      "tipo": "intervencion_reparo",
+      "origen": "intervencion",
+      "destino": "subsanacion_servicio",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "intervencion"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.informe_subsanacion",
+      "tipo": "informe_jefatura",
+      "origen": "subsanacion_servicio",
+      "destino": "intervencion",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.resolucion_firmada",
+      "tipo": "resolucion_firmada",
+      "origen": "resolucion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.resolucion_firmada_visto_bueno_direccion",
+      "tipo": "resolucion_firmada",
+      "origen": "resolucion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "direccion_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.ginpix_manual",
+      "tipo": "ginpix_registrado",
+      "origen": "ginpix",
+      "destino": "firma_interesado",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.firma_interesado",
+      "tipo": "firma_interesado",
+      "origen": "firma_interesado",
+      "destino": "incorporacion",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "interesado",
+      "firmas_requeridas": [
+        "interesado"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.incorporacion",
+      "tipo": "incorporacion",
+      "origen": "incorporacion",
+      "destino": "seguimiento",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "personal"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.devolucion_ginpix",
+      "tipo": "devolucion",
+      "origen": "ginpix",
+      "destino": "devolucion_servicio",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.devolucion_firma_interesado",
+      "tipo": "devolucion",
+      "origen": "firma_interesado",
+      "destino": "devolucion_servicio",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.devolucion_incorporacion",
+      "tipo": "devolucion",
+      "origen": "incorporacion",
+      "destino": "devolucion_servicio",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    },
+    {
+      "clave": "contratacion_temporal.circuito.informe_devolucion",
+      "tipo": "informe_jefatura",
+      "origen": "devolucion_servicio",
+      "destino": "intervencion",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.resolucion_sin_cambio",
+      "tipo": "resolucion_firmada",
+      "origen": "intervencion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.resolucion_sin_cambio_visto_bueno_direccion",
+      "tipo": "resolucion_firmada",
+      "origen": "intervencion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "direccion_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.reinicio",
+      "tipo": "reinicio",
+      "origen": "seguimiento",
+      "destino": "solicitud",
+      "requiere_documento": true,
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh"
+    }
+  ]
+}

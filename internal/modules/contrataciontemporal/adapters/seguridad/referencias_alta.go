@@ -19,15 +19,14 @@ var ErrGeneracionReferenciaAlta = errors.New(
 )
 
 type GeneradorReferenciasAltaCriptografico struct {
-	lector   io.Reader
-	ahora    func() time.Time
-	contador ports.ContadorNumeroVisible
+	lector io.Reader
+	ahora  func() time.Time
 }
 
-func NuevoGeneradorReferenciasAltaCriptograficoConContador(contador ports.ContadorNumeroVisible) *GeneradorReferenciasAltaCriptografico {
-	g := NuevoGeneradorReferenciasAltaCriptografico()
-	g.contador = contador
-	return g
+// Conserva las composiciones de actuaciones anteriores. El contador no se
+// utiliza: MOAD aporta el número y este generador sólo acuña referencias.
+func NuevoGeneradorReferenciasAltaCriptograficoConContador(_ ports.ContadorNumeroVisible) *GeneradorReferenciasAltaCriptografico {
+	return NuevoGeneradorReferenciasAltaCriptografico()
 }
 
 func NuevoGeneradorReferenciasAltaCriptografico() *GeneradorReferenciasAltaCriptografico {
@@ -39,6 +38,7 @@ func NuevoGeneradorReferenciasAltaCriptografico() *GeneradorReferenciasAltaCript
 
 func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasAlta(
 	ctx context.Context,
+	numeroMOAD string,
 ) (ports.ReferenciasAlta, error) {
 	if !generadorValido(g) || ctx == nil {
 		return ports.ReferenciasAlta{}, ErrGeneracionReferenciaAlta
@@ -54,13 +54,9 @@ func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasAlta(
 	if err != nil {
 		return ports.ReferenciasAlta{}, err
 	}
-	visible, err := g.numeroVisible(ctx)
-	if err != nil {
-		return ports.ReferenciasAlta{}, err
-	}
 	referencias := ports.ReferenciasAlta{
 		ExpedienteRef: expediente,
-		NumeroVisible: visible,
+		NumeroVisible: numeroMOAD,
 		ReciboRef:     recibo,
 	}
 	if referencias.Validar() != nil {
@@ -206,23 +202,6 @@ func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasFiscalizacion(
 		return ports.ReferenciasEfectoFiscalizacion{}, ErrGeneracionReferenciaAlta
 	}
 	return referencias, nil
-}
-
-func (g *GeneradorReferenciasAltaCriptografico) numeroVisible(
-	ctx context.Context,
-) (string, error) {
-	if g == nil || g.contador == nil {
-		return "", ErrGeneracionReferenciaAlta
-	}
-	zona, err := time.LoadLocation("Europe/Madrid")
-	if err != nil {
-		return "", ErrGeneracionReferenciaAlta
-	}
-	instante := g.ahora().In(zona)
-	if instante.Year() < 1 || instante.Year() > 9999 {
-		return "", ErrGeneracionReferenciaAlta
-	}
-	return g.contador.SiguienteNumeroVisible(ctx, instante.Year())
 }
 
 func (g *GeneradorReferenciasAltaCriptografico) generar(

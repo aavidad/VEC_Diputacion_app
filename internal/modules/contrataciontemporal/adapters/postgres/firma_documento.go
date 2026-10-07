@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // RegistroFirmasDocumentoPostgreSQL escribe y lee el registro CT118 con el
@@ -241,7 +242,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) registrarUnaVez(ctx context.Context,
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			_ = tx.Rollback(c)
 		}
@@ -285,7 +286,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context,
 		return nil, errorFirma118(ctx, err)
 	}
 	defer func() {
-		c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(c)
 	}()

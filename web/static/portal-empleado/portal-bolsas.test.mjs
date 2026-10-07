@@ -23,7 +23,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
-} from "./portal-bolsas-contrato.js";
+} from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
 import {
   consultarBolsas,
   consultarCandidatosBolsa,
@@ -37,7 +37,7 @@ import {
   rutaCandidatosBolsa,
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js";
+} from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
 function comprobarTransporteInterno(opciones) {
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.mode, "same-origin");
@@ -111,7 +111,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**
@@ -623,7 +623,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Registrar resultado/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
   assert.match(htmlB5, /Criterios de orden/);
-  assert.match(htmlB5, /Puntuación descendente; desempate estable por nº del acta/);
+  assert.match(htmlB5, /Por puntuación; si hay empate, por orden del acta/);
   assert.doesNotMatch(htmlB5, /Pendiente de RRHH/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
@@ -705,14 +705,14 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
     obtenerModalFicha: () => modalFicha,
   });
   const htmlInicial = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlInicial, /Ficha de participación/);
+  assert.doesNotMatch(htmlInicial, /Ficha de /);
   assert.match(htmlInicial, /data-bolsa-control-principal="true"/);
   assert.match(htmlInicial, /aria-expanded="false"/);
   assert.doesNotMatch(htmlInicial, /Ficha en aspirante|<th scope="col">Acciones<\/th>/);
   modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
   const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
   const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
-  assert.match(htmlAbierto, /Ficha de participación/);
+  assert.match(htmlAbierto, new RegExp(`<h3 id="titulo-${fichaId}">Ficha de ${candidato.nombre_visible}</h3>`));
   // La referencia interna solo enlaza la fila con su ficha; no se muestra como dato.
   assert.doesNotMatch(htmlAbierto, /Referencia de participación|<code>participacion:/);
   assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
@@ -733,7 +733,7 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   assert.match(htmlSegundo, new RegExp(`data-participacion-ref="${candidato.participacion_ref}"[^>]*>[\\s\\S]*?aria-expanded="false"`));
   modalFicha = null;
   const htmlCerrado = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
+  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|<h3 id="titulo-ficha/);
 });
 test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativos", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
@@ -758,7 +758,7 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   flujo.paso = 2;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /2\. Seleccionar candidatos/);
-  assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
+  assert.match(html, /<p>Los candidatos se llaman siempre por el orden de la bolsa\.<\/p>.*<th scope="col">Selección<\/th><th scope="col">Nº orden<\/th>/s);
   // Las explicaciones del paso van en la ayuda «?», no en la pantalla.
   assert.doesNotMatch(html, /no ocupan turno|<summary/);
   assert.doesNotMatch(html, new RegExp(pausado.nombre_visible));
@@ -771,8 +771,8 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.match(html, /3\. Configurar llamamiento/);
   assert.doesNotMatch(html, /comunes a todas las personas|no presupone un plazo legal|no acreditan entrega/);
   assert.match(html, /name="plazo" required minlength="2" maxlength="160" value=""/);
-  assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH<\/span><input name="plazo"/);
-  assert.match(html, /<label class="campo"><span>Modalidad<\/span><select name="modalidad"/);
+  assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH \(obligatorio\)<\/span><input name="plazo"/);
+  assert.match(html, /<label class="campo"><span>Modalidad \(obligatorio\)<\/span><select name="modalidad".*<label class="campo"><span>Canal<\/span><input value="Correo electrónico" readonly>/s);
   assert.doesNotMatch(html, /48 horas|relay de desarrollo|value="Pendiente de definición por RRHH"/);
   assert.match(html, /<input type="hidden" name="plantilla_version" value="bolsa-llamamiento-v1">/);
   assert.doesNotMatch(html, /<span>Plantilla<\/span>/);

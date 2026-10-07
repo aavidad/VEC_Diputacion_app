@@ -199,6 +199,7 @@ func cuerpoAltaContratacionTemporalDesarrolloPrueba() string {
 	fin := inicio.AddDate(0, 3, 0)
 	return fmt.Sprintf(`{
 		"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732",
+		"numero_expediente_moad":"2026/5487",
 		"solicitud":{
 			"centro_ref":"centro:desarrollo:001",
 			"contacto_ref":"contacto:desarrollo:001",

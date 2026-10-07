@@ -1,0 +1,137 @@
+{
+  "alcance": "preparacion_sintetica",
+  "version": "rum01:1",
+  "fecha_corte": "2026-10-01",
+  "personas": [
+    {
+      "referencia": "persona:ensayo:01",
+      "nombre": "Lucía Serrano Molina"
+    },
+    {
+      "referencia": "persona:ensayo:02",
+      "nombre": "Daniel Ruiz Cárdenas"
+    }
+  ],
+  "hechos": [
+    {
+      "referencia": "hecho:ensayo:01",
+      "persona_ref": "persona:ensayo:01",
+      "version": 1,
+      "tipo": "titulacion",
+      "concepto_ref": "concepto:titulacion",
+      "denominacion": "Grado en Administración y Dirección de Empresas",
+      "procedencia": {
+        "fuente_ref": "fuente:ensayo:aportacion",
+        "version": "2026-01",
+        "hecho_origen_ref": "origen:01",
+        "capturada_en": "2026-10-01T10:00:00Z"
+      },
+      "vigencia": {
+        "desde": "2025-06-20"
+      },
+      "estado": "declarado",
+      "evidencias": []
+    },
+    {
+      "referencia": "hecho:ensayo:01",
+      "persona_ref": "persona:ensayo:01",
+      "version": 2,
+      "tipo": "titulacion",
+      "concepto_ref": "concepto:titulacion",
+      "denominacion": "Grado en Administración y Dirección de Empresas",
+      "procedencia": {
+        "fuente_ref": "fuente:ensayo:aportacion",
+        "version": "2026-01",
+        "hecho_origen_ref": "origen:01",
+        "capturada_en": "2026-10-01T10:00:00Z"
+      },
+      "vigencia": {
+        "desde": "2025-06-20"
+      },
+      "estado": "pendiente",
+      "evidencias": [
+        {
+          "id": "documento:ensayo:titulacion",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "referencia": "hecho:ensayo:02",
+      "persona_ref": "persona:ensayo:01",
+      "version": 1,
+      "tipo": "curso_superacion",
+      "concepto_ref": "concepto:curso_superacion",
+      "denominacion": "Gestión de expedientes electrónicos",
+      "procedencia": {
+        "fuente_ref": "fuente:ensayo:aportacion",
+        "version": "2026-01",
+        "hecho_origen_ref": "origen:02",
+        "capturada_en": "2026-10-01T10:00:00Z"
+      },
+      "vigencia": {
+        "desde": "2026-09-15"
+      },
+      "estado": "acreditado",
+      "evidencias": [
+        {
+          "id": "documento:ensayo:curso",
+          "version": 1
+        }
+      ],
+      "horas": 20,
+      "revision": {
+        "referencia": "revision:ensayo:02",
+        "actor_ref": "actor:ensayo:revisor",
+        "motivo_ref": "motivo:ensayo:cotejo",
+        "fecha": "2026-10-01T09:30:00Z"
+      }
+    },
+    {
+      "referencia": "hecho:ensayo:03",
+      "persona_ref": "persona:ensayo:02",
+      "version": 1,
+      "tipo": "experiencia",
+      "concepto_ref": "concepto:experiencia",
+      "denominacion": "Servicios administrativos",
+      "procedencia": {
+        "fuente_ref": "fuente:ensayo:aportacion",
+        "version": "2026-01",
+        "hecho_origen_ref": "origen:03",
+        "capturada_en": "2026-10-01T10:00:00Z"
+      },
+      "vigencia": {
+        "desde": "2020-02-01",
+        "hasta": "2022-12-31"
+      },
+      "estado": "rechazado",
+      "evidencias": [],
+      "revision": {
+        "referencia": "revision:ensayo:03",
+        "actor_ref": "actor:ensayo:revisor",
+        "motivo_ref": "motivo:ensayo:cotejo",
+        "fecha": "2026-10-01T09:30:00Z"
+      }
+    },
+    {
+      "referencia": "hecho:ensayo:04",
+      "persona_ref": "persona:ensayo:02",
+      "version": 1,
+      "tipo": "curso_asistencia",
+      "concepto_ref": "concepto:curso_asistencia",
+      "denominacion": "Atención a la ciudadanía",
+      "procedencia": {
+        "fuente_ref": "fuente:ensayo:aportacion",
+        "version": "2026-01",
+        "hecho_origen_ref": "origen:04",
+        "capturada_en": "2026-10-01T10:00:00Z"
+      },
+      "vigencia": {
+        "desde": "2026-11-15"
+      },
+      "estado": "declarado",
+      "evidencias": [],
+      "horas": 20
+    }
+  ]
+}

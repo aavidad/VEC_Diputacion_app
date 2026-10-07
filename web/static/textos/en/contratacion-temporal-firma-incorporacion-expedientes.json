@@ -1,0 +1,51 @@
+{
+  "incorporacion": {
+    "incorporacion_consulta_bajo_demanda": "Commencement of duty is checked on request. Checking it does not record any commencement.",
+    "incorporacion_consultar": "Check commencement of duty",
+    "incorporacion_preparacion_cargando": "Checking the commencement preparation stored on the server.",
+    "incorporacion_preparacion_denegada": "You do not have permission to check commencement for this case file.",
+    "incorporacion_preparacion_pendiente": "Commencement preparation is not available for this case file. This enquiry does not record a commencement.",
+    "incorporacion_preparacion_detalle_obsoleto": "The displayed details (v{version_anterior}) are out of date. No action is enabled until version {version_actual} is retrieved.",
+    "incorporacion_preparacion_actualizar": "Refresh commencement information",
+    "incorporacion_preparacion_no_disponible": "Commencement has not been prepared or the enquiry is unavailable. This enquiry does not record a commencement.",
+    "incorporacion_preparacion_reintentar": "Check commencement again"
+  },
+  "hito": {
+    "hito_incorporacion": "Commencement confirmed"
+  },
+  "continuidad": {
+    "continuidad_expediente_titulo": "Documents and continuation of commencement",
+    "continuidad_expediente_descripcion": "View the document index for this case file. The manual GINPIX form and tracking require a confirmed commencement receipt and available enquiries.",
+    "continuidad_expediente_documentos": "View case-file documents",
+    "continuidad_documentos_titulo": "GINPIX form and tracking",
+    "continuidad_documentos_ficha": "Manual GINPIX form",
+    "continuidad_documentos_ficha_estado": "You can download the form from the case file once the start of service is recorded.",
+    "continuidad_documentos_ficha_limite": "The downloaded form does not transmit data or confirm registration in GINPIX.",
+    "continuidad_documentos_seguimiento": "Commencement tracking",
+    "continuidad_documentos_seguimiento_estado": "Follow-up can be viewed in the case file once the start of service is recorded.",
+    "continuidad_documentos_seguimiento_limite": "Viewing the tracking information does not record notes or end the employment relationship."
+  },
+  "firma": {
+    "firma": "Signature"
+  },
+  "borrador": {
+    "borrador_sin_firma": "Preparatory document. It does not constitute a signature, effective appointment, dispatch or commencement of duty."
+  },
+  "firma_pendiente": {
+    "firma_pendiente_sobrelinea": "Next stage",
+    "firma_pendiente_titulo": "Official signature pending",
+    "firma_pendiente_estado": "Connection to Firmadoc is pending.",
+    "firma_enviar": "Send for signature",
+    "firma_enviar_motivo": "The Firmadoc connection is not available yet. The signers' workflow must be confirmed.",
+    "firma_autofirma_prueba_titulo": "Test with GrxFirma or AutoFirma",
+    "firma_autofirma_prueba": "Your signing program (GrxFirma or AutoFirma) can only test a local signature; it does not evidence submission to Firmadoc or an effective signature in this case.",
+    "firma_pendiente_documento": "Preliminary document",
+    "firma_pendiente_documento_valor": "Legal report prepared; no signature is recorded.",
+    "firma_pendiente_destino": "Intended workflow",
+    "firma_pendiente_destino_valor": "Provincial Council corporate signature system → Financial Control Office",
+    "firma_pendiente_pasos": "Required before proceeding",
+    "firma_pendiente_paso_configuracion": "HR must confirm the documents, roles and order of the signature workflow.",
+    "firma_pendiente_paso_remision": "Submission to the Financial Control Office will be shown once the workflow is integrated and confirms the outcome.",
+    "firma_pendiente_limite": "VEC has not sent the document and does not evidence a signature or submission."
+  }
+}

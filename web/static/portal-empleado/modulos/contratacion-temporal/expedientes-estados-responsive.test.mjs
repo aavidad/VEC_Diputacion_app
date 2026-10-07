@@ -6,17 +6,17 @@ import {
   renderizarCuadro,
   renderizarEstadoCarga,
   renderizarExpediente,
-} from "./componentes-expedientes.js";
+} from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js";
+} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 const t = crearTraductorExpedientesContratacion();
 
@@ -118,9 +118,15 @@ test("estado vacío del cuadro: texto en castellano claro y acción posible Rein
   assert.match(htmlEstado, /data-ct-exp-accion="reintentar"/u);
   assert.match(htmlEstado, /Reintentar/u);
 
+  // Sin filtros del servidor, la lista vacía invita a crear una petición.
   const htmlCuadro = renderizarCuadro(estadoVacio, t);
-  assert.match(htmlCuadro, /Sin resultados/u);
-  assert.match(htmlCuadro, /data-ct-exp-accion="reintentar"/u);
+  assert.match(htmlCuadro, /No hay peticiones en trámite/u);
+  assert.match(htmlCuadro, /Todavía no hay ninguna petición\. Cree una con «Nueva petición de personal»\./u);
+  assert.match(htmlCuadro, /data-ct-exp-vista="alta"/u);
+  // Con un filtro del servidor, se mantiene el estado vacío con Reintentar.
+  const htmlFiltrado = renderizarCuadro({ ...estadoVacio, filtros: { texto: "", estado: "cancelado", fase: "" } }, t);
+  assert.match(htmlFiltrado, /Sin resultados/u);
+  assert.match(htmlFiltrado, /data-ct-exp-accion="reintentar"/u);
 });
 
 test("estado de error en expediente: texto claro en castellano y acciones Reintentar y Volver al cuadro", () => {

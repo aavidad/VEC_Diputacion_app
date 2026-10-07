@@ -171,6 +171,11 @@ func TestSelladorAmbitoNoExponeClaveEnResultado(t *testing.T) {
 			datosSello,
 		)
 	}
+	solicitud.ClaveIdempotencia = "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5c"
+	otro, err := adaptador.SellarAmbitoIdempotencia(context.Background(), solicitud)
+	if err != nil || otro.Contiene(datosSello.Activo.Valor) {
+		t.Fatalf("otra clave recuperaría el ámbito histórico: %v", err)
+	}
 }
 
 func TestSelladoresRechazanDominioOCancelacion(t *testing.T) {

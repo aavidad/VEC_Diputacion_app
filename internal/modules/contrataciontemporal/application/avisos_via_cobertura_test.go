@@ -110,6 +110,19 @@ func TestAvisosViaCoberturaBolsaAgotadaProponeSAEYConvocatoria(t *testing.T) {
 	}
 }
 
+func TestAvisoSAESinFinPrevistoNoAtribuyeDuracion(t *testing.T) {
+	situacion := &situacionBolsaAvisosPrueba{situacion: ports.SituacionBolsaCobertura{
+		Existe: true, BolsaRef: "bolsa:1", ConstituidaEn: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Integrantes: 4,
+	}}
+	evaluador := evaluadorAvisosPrueba(t, situacion, &reglasAvisosPrueba{reglas: reglasAvisosEjemplo("0")})
+	periodo := domain.PeriodoPrevisto{Inicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), CausaFin: "reincorporacion_titular"}
+	resultado, evaluado := evaluador.Evaluar(context.Background(), "categoria:rpt:auxiliar", periodo)
+	if !evaluado || len(resultado.Avisos) < 2 || resultado.Avisos[1].Clave != AvisoPropuestaOfertaSAE ||
+		resultado.Avisos[1].FinPrevisto != "" || resultado.Avisos[1].ExcedeDuracion {
+		t.Fatalf("duración desconocida presentada como fechada: %+v", resultado)
+	}
+}
+
 func TestAvisosViaCoberturaUmbralDelCatalogo(t *testing.T) {
 	situacion := &situacionBolsaAvisosPrueba{situacion: ports.SituacionBolsaCobertura{
 		Existe: true, BolsaRef: "bolsa:1", ConstituidaEn: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Integrantes: 10, Disponibles: 2,

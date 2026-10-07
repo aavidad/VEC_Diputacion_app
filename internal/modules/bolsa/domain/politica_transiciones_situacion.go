@@ -13,18 +13,20 @@ var ErrPoliticaTransicionesInvalida = errors.New("bolsa: politica de transicione
 const separadorTransicion = ">"
 
 // maximoTransiciones acota una lista recibida antes de reservar memoria:
-// siete situaciones, sin salir de «excluido» ni repetir la misma.
-const maximoTransiciones = 42
+// ocho situaciones, sin repetir la misma. El orden de las siete anteriores
+// permanece estable para conservar las políticas históricas.
+const maximoTransiciones = 56
 
 // PoliticaTransicionesSituacion es la tabla de transiciones de situación que
 // rige un cambio. Procede del catálogo configurable (b28.transiciones.<origen>)
 // publicado en la base de datos; sin publicación rige la compilada, que es la
 // versión 1 de la migración 000032. Toda política respeta tres invariantes
-// fijas, las mismas que exige la base de datos: nunca se sale de «excluido»,
+// fijas, las mismas que exige la base de datos: «excluido» solo puede volver
+// a «disponible» mediante la reincorporación justificada que valida RRHH,
 // no hay transiciones a la misma situación y desde cualquier otra situación
-// se puede dar de baja definitiva (art. 11). La readmisión por recurso de
-// reposición estimado es la única salida de «excluido» y no forma parte de la
-// política: la aplica la base solo desde el registro del recurso (000037).
+// se puede dar de baja definitiva (art. 11). Sin publicación, «excluido»
+// permanece terminal. Una exclusión por sanción conserva el circuito de
+// recurso (000037), que no forma parte de esta política.
 // El valor cero equivale a la compilada.
 type PoliticaTransicionesSituacion struct {
 	destinos map[string][]string
@@ -45,11 +47,13 @@ func PoliticaTransicionesSituacionCompilada() PoliticaTransicionesSituacion {
 // repetidas y cualquier tabla que incumpla una invariante fija.
 func NuevaPoliticaTransicionesSituacion(tabla map[string][]string) (PoliticaTransicionesSituacion, error) {
 	total := 0
+	usaRevision := len(tabla[SituacionEnRevision]) != 0
 	for origen, destinos := range tabla {
 		if !situacionParticipacionValida(origen) {
 			return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 		}
 		total += len(destinos)
+		usaRevision = usaRevision || slices.Contains(destinos, SituacionEnRevision)
 	}
 	if total > maximoTransiciones {
 		return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
@@ -58,11 +62,13 @@ func NuevaPoliticaTransicionesSituacion(tabla map[string][]string) (PoliticaTran
 	for _, origen := range SituacionesParticipacion() {
 		destinos := tabla[origen]
 		for i, destino := range destinos {
-			if !situacionParticipacionValida(destino) || destino == origen || origen == SituacionExcluido || slices.Contains(destinos[:i], destino) {
+			if !situacionParticipacionValida(destino) || destino == origen || (origen == SituacionExcluido && destino != SituacionDisponible) || slices.Contains(destinos[:i], destino) {
 				return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 			}
 		}
-		if origen != SituacionExcluido && !slices.Contains(destinos, SituacionExcluido) {
+		// Las políticas anteriores a RRHH18 no conocen «en_revision». Su
+		// lectura no debe añadir ni exigir pares que no publicaron.
+		if origen != SituacionExcluido && (origen != SituacionEnRevision || usaRevision) && !slices.Contains(destinos, SituacionExcluido) {
 			return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 		}
 		ordenados := make([]string, 0, len(destinos))

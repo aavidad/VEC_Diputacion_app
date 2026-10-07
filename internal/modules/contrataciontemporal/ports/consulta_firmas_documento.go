@@ -6,6 +6,12 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+// ErrExpedienteConsultaFirmasNoEncontrado: expediente o versión inexistente.
+// Contrato de los lectores autorizados V2 (consulta y recuperación R5): sólo
+// lo devuelven después de confirmar la transacción que consumió la decisión V3
+// con su auditoría de consumo. Por eso la auditoría de intentos no añade otro
+// registro (adapters/auditoriafirma); un lector que lo devuelva antes de
+// consumir dejaría el acceso sin auditar.
 var ErrExpedienteConsultaFirmasNoEncontrado = errors.New("contratacion temporal: expediente de firmas no encontrado")
 
 const (

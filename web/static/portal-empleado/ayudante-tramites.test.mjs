@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js";
-import { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } from "./ayudante-tramites.js";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
+import { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
 
 test("el ayudante cubre trámites comunes de Dietas, Cronos y Personal", () => {
   const ids = new Set(TRAMITES_AYUDANTE_PORTAL.map((tramite) => tramite.id));

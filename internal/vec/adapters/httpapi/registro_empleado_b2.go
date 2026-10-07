@@ -13,6 +13,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -185,7 +186,17 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
 		return
 	}
-	responderRegistroEmpleadoB2(w, http.StatusOK, "", map[string]any{"data": map[string]any{"ficha": resultado.Ficha, "evidencia": resultado.Evidencia}})
+	datos := map[string]any{"ficha": resultado.Ficha, "evidencia": resultado.Evidencia}
+	if resultado.PreparacionServicios != nil {
+		datos["preparacion_servicios"] = resultado.PreparacionServicios
+	}
+	if resultado.PreparacionRPT != nil {
+		datos["preparacion_rpt"] = resultado.PreparacionRPT
+	}
+	if resultado.PreparacionCarrera != nil {
+		datos["preparacion_carrera"] = resultado.PreparacionCarrera
+	}
+	responderRegistroEmpleadoB2(w, http.StatusOK, "", map[string]any{"data": datos})
 }
 
 func evidenciaRegistroEmpleadoB2HTTPValida(e personalports.EvidenciaRegistroEmpleadoB2) bool {
@@ -275,7 +286,7 @@ func (h *handlerRegistroEmpleadoB2) denegar(w http.ResponseWriter, ctx context.C
 		ruta = RutaVacantesEmpleadoB2
 	}
 	orden := DenegacionRegistroEmpleadoB2{CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo, Ruta: ruta, ActorRef: actor}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta))
 	defer cancelar()
 	if err := h.auditoria.RegistrarDenegacionRegistroEmpleadoB2(ctxAuditoria, orden); err != nil {
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)

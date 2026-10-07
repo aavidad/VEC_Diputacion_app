@@ -1,0 +1,40 @@
+{
+  "contrato": "autofirmav2.dictamen-verificacion.v2",
+  "estado": "indeterminada",
+  "motivo": "pdf_no_comprobado",
+  "formato": "PAdES",
+  "comprobadoEn": "2026-10-02T21:05:41Z",
+  "integridad": {
+    "estado": "parcial",
+    "motivo": "pdf_no_comprobado"
+  },
+  "cadena": {
+    "estado": "no_comprobada"
+  },
+  "certificado": {
+    "estado": "no_comprobado"
+  },
+  "revocacion": {
+    "estado": "no_comprobada"
+  },
+  "selloTiempo": {
+    "estado": "no_comprobado"
+  },
+  "vinculoOriginal": {
+    "estado": "no_acreditado",
+    "motivo": "original_no_acreditado"
+  },
+  "huellaFirmadoSHA256": "e586d12b692bca853bf5efa6fc301f623815fabe9b7d6863689994c783a1d5aa",
+  "huellaOriginalSHA256": "e45da948f71fcc1bced76a652e5744b336a6ad72e4513686117f36fa846fe567",
+  "extensiones": {
+    "revocacionRemota": "desactivada",
+    "selloTiempoRemoto": "desactivada"
+  },
+  "firmas": [],
+  "cambiosPosteriores": {
+    "estado": "no_comprobados",
+    "detalle": [
+      "pdf_no_comprobado"
+    ]
+  }
+}

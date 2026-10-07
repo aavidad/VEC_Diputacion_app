@@ -7,8 +7,8 @@ import { validarCatalogosAlta } from "./contrato.js";
 import {
   preparacionPresentable, renderizarViasPreparacion, selectorPestanaPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
-import { renderizarAlta } from "./vista-expedientes-render.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
+import { renderizarAlta } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
 
 const HUELLA = "a".repeat(64);
 const t = (clave) => clave;

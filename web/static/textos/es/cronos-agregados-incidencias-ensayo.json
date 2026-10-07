@@ -1,0 +1,18 @@
+{
+  "version_esquema": "1",
+  "idioma": "es",
+  "textos": {
+    "titulo": "Incidencias por periodo",
+    "aviso": "Ensayo local con datos sintéticos. La selección no concede acceso a datos reales.",
+    "completo": "Cobertura completa",
+    "incompleto": "Cobertura incompleta; el total queda sin determinar.",
+    "desconocido": "Faltan datos para determinar el total.",
+    "registro_incompleto": "Registro incompleto",
+    "pendiente": "Pendiente",
+    "resuelta": "Resuelta",
+    "observados": "Incidencias, personas y días observados",
+    "cobertura": "Cobertura por persona y día",
+    "limites": "Se cuentan hechos declarados. No se calculan ausencias ni porcentajes de absentismo. Los grupos pequeños pueden permitir identificar personas.",
+    "entrada_invalida": "No se ha podido leer el ensayo. Revise los archivos, las huellas y el periodo."
+  }
+}

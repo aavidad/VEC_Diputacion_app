@@ -1,0 +1,173 @@
+{
+  "alcance": "preparacion_sintetica",
+  "version": 1,
+  "fuente": {
+    "referencia": "FOR-001",
+    "version": "2026-10-01",
+    "escenario": "sintetico"
+  },
+  "fuente_corporativa": {
+    "plan_url": "https://www.dipgra.es/servicios/empleo-y-formacion/formacion-para-el-empleo-publico/plan-agrupado-de-formacion/",
+    "plataforma_url": "https://formacion.dipgra.es/"
+  },
+  "plan": {
+    "referencia": "plan:formacion:2027",
+    "titulo_clave": "formacion.plan.2027",
+    "desde": "2027-01-01",
+    "hasta": "2027-12-31",
+    "presupuesto_centimos": 1800000,
+    "plazas": 60,
+    "configuracion": {
+      "version": "preparacion-1",
+      "modalidades": [
+        "formacion.modalidad.presencial",
+        "formacion.modalidad.mixta",
+        "formacion.modalidad.distancia"
+      ],
+      "prioridades": [
+        "formacion.prioridad.alta",
+        "formacion.prioridad.media"
+      ]
+    },
+    "acciones": [
+      {
+        "referencia": "accion:expedientes",
+        "titulo_clave": "formacion.accion.expedientes",
+        "necesidad_clave": "formacion.necesidad.expedientes"
+      },
+      {
+        "referencia": "accion:atencion",
+        "titulo_clave": "formacion.accion.atencion",
+        "necesidad_clave": "formacion.necesidad.atencion"
+      },
+      {
+        "referencia": "accion:accesibilidad",
+        "titulo_clave": "formacion.accion.accesibilidad",
+        "necesidad_clave": "formacion.necesidad.accesibilidad"
+      }
+    ]
+  },
+  "ediciones": [
+    {
+      "referencia": "edicion:1",
+      "accion_referencia": "accion:expedientes",
+      "titulo_clave": "formacion.accion.expedientes",
+      "modalidad_clave": "formacion.modalidad.presencial",
+      "desde": "2027-02-15",
+      "hasta": "2027-02-17",
+      "plazas": 20,
+      "horas": 15,
+      "necesidad_clave": "formacion.necesidad.expedientes",
+      "presupuesto_centimos": 600000,
+      "prioridad_clave": "formacion.prioridad.alta",
+      "pendientes": [
+        "formacion.pendiente.aprobacion_edicion",
+        "formacion.pendiente.inscripciones"
+      ]
+    },
+    {
+      "referencia": "edicion:2",
+      "accion_referencia": "accion:atencion",
+      "titulo_clave": "formacion.accion.atencion",
+      "modalidad_clave": "formacion.modalidad.mixta",
+      "desde": "2027-04-12",
+      "hasta": "2027-04-13",
+      "plazas": 20,
+      "horas": 10,
+      "necesidad_clave": "formacion.necesidad.atencion",
+      "presupuesto_centimos": 400000,
+      "prioridad_clave": "formacion.prioridad.media",
+      "pendientes": [
+        "formacion.pendiente.aprobacion_edicion",
+        "formacion.pendiente.inscripciones"
+      ]
+    },
+    {
+      "referencia": "edicion:3",
+      "accion_referencia": "accion:accesibilidad",
+      "titulo_clave": "formacion.accion.accesibilidad",
+      "modalidad_clave": "formacion.modalidad.distancia",
+      "desde": "2027-06-07",
+      "hasta": "2027-06-11",
+      "plazas": 20,
+      "horas": 20,
+      "necesidad_clave": "formacion.necesidad.accesibilidad",
+      "presupuesto_centimos": 800000,
+      "prioridad_clave": "formacion.prioridad.alta",
+      "pendientes": [
+        "formacion.pendiente.aprobacion_edicion",
+        "formacion.pendiente.inscripciones"
+      ]
+    }
+  ],
+  "pendientes": [
+    "formacion.pendiente.aprobacion_plan",
+    "formacion.pendiente.asistencia_certificacion",
+    "formacion.pendiente.criterios_seleccion",
+    "formacion.pendiente.fuente_maestra",
+    "formacion.pendiente.meritos",
+    "formacion.pendiente.publicacion"
+  ],
+  "checklist": [
+    {
+      "clave": "formacion.pendiente.aprobacion_plan",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.asistencia_certificacion",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.criterios_seleccion",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.fuente_maestra",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.meritos",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.publicacion",
+      "estado": "pendiente",
+      "referencia": "plan:formacion:2027"
+    },
+    {
+      "clave": "formacion.pendiente.aprobacion_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.inscripciones",
+      "estado": "pendiente",
+      "referencia": "edicion:1"
+    },
+    {
+      "clave": "formacion.pendiente.aprobacion_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:2"
+    },
+    {
+      "clave": "formacion.pendiente.inscripciones",
+      "estado": "pendiente",
+      "referencia": "edicion:2"
+    },
+    {
+      "clave": "formacion.pendiente.aprobacion_edicion",
+      "estado": "pendiente",
+      "referencia": "edicion:3"
+    },
+    {
+      "clave": "formacion.pendiente.inscripciones",
+      "estado": "pendiente",
+      "referencia": "edicion:3"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# AD170: delta posterior a AD162 instalada, sin reaplicar ni modificar núcleo.
+# Requiere perfiles/audiencias V2 y consumidor privado de AD162 existentes.
+# CT172 consumirá esta fachada; faltan revisiones y ensayo de la candidata.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000170_firma_descriptor_atestado_v2.up.sql

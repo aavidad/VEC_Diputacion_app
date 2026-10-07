@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { cargarTextos } from "../../../comun/textos.js";
-import { calcularFaseDocumento, cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js";
+import { calcularFaseDocumento, cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261001-ct-a-i18n-v1";
 
 const es = await cargarTextos("contratacion-temporal-firma", { idioma: "es", porDefecto: "es" });
 const en = await cargarTextos("contratacion-temporal-firma", { idioma: "en", porDefecto: "es" });
@@ -18,7 +18,7 @@ test("el estado de la fase sale de la historia registrada", () => {
   const a = "2026-09-28T08:30:00Z";
   const b = "2026-09-29T09:15:00Z";
   assert.deepEqual({ ...calcularFaseDocumento(documento(["pendiente_firma", "en_espera"], 1), true) },
-    { estado: "borrador", paso: documento(["pendiente_firma", "en_espera"], 1).pasos[0], total: 2, desde: "" });
+    { estado: "borrador", paso: documento(["pendiente_firma", "en_espera"], 1).pasos[0], total: 2, desde: "", custodiado: null });
   const pendiente = calcularFaseDocumento(documento(["firmado", "pendiente_firma"], 2, [a]), true);
   assert.equal(pendiente.estado, "pendiente_firma");
   assert.equal(pendiente.paso.orden, 2);
@@ -112,4 +112,29 @@ test("una devolución dice quién la hizo y el motivo, y la firma completa se de
 test("con permiso denegado la fase no añade su propio aviso", () => {
   const catalogo = { documentos: [documento(["pendiente_firma"], 1)] };
   assert.doesNotMatch(renderizarFaseFirma({ catalogo, real: null, textos: es, aviso: false }), /ct-fase-firma-aviso/u);
+});
+
+test("un documento con PDF firmado guardado ofrece descargarlo, con la terna que autoriza Documentos", () => {
+  const c = { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "1".repeat(64) };
+  const doc = documento(["firmado"], 0, ["2026-09-29T09:15:00Z"]);
+  doc.pasos[0].documento_custodiado = c;
+  const fase = calcularFaseDocumento(doc, true);
+  assert.equal(fase.custodiado, doc.pasos[0]);
+  const html = renderizarFaseFirma({ catalogo: { documentos: [doc] }, real: { documentos: [doc] }, textos: es });
+  assert.match(html, /data-ct-descargar-firmado/u);
+  assert.match(html, new RegExp(`data-ct-firmado-expediente="${c.expediente_ref}"`, "u"));
+  assert.match(html, new RegExp(`data-ct-firmado-documento="${c.documento_ref}"`, "u"));
+  assert.match(html, /data-ct-firmado-version="1"/u);
+  assert.match(html, new RegExp(`data-ct-firmado-huella="${c.huella_sha256}"`, "u"));
+  assert.match(html, />Descargar PDF firmado</u);
+  assert.match(html, /aria-label="Descargar PDF firmado: Resolución &lt;x&gt;"/u, "el nombre accesible empieza por el texto visible");
+  assert.match(html, /sin validez oficial/u);
+  assert.match(renderizarFaseFirma({ catalogo: { documentos: [doc] }, real: { documentos: [doc] }, textos: en }), />Download signed PDF</u);
+  // Sin PDF guardado, sin estado real o con dos pasos: lo que corresponde.
+  const sin = documento(["firmado"], 0);
+  assert.doesNotMatch(renderizarFaseFirma({ catalogo: { documentos: [sin] }, real: { documentos: [sin] }, textos: es }), /data-ct-descargar-firmado/u);
+  assert.doesNotMatch(renderizarFaseFirma({ catalogo: { documentos: [doc] }, real: null, textos: es }), /data-ct-descargar-firmado/u);
+  const dos = documento(["firmado", "pendiente_firma"], 2);
+  dos.pasos[0].documento_custodiado = c;
+  assert.match(renderizarFaseFirma({ catalogo: { documentos: [dos] }, real: { documentos: [dos] }, textos: es }), /Firma del paso 1 de 2\./u);
 });

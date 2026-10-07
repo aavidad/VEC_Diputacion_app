@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearSuperficieBorradorLlamamiento, crearTraductorBorradorLlamamiento, MENSAJES_BORRADOR_LLAMAMIENTO_ES } from "./portal-borrador-llamamiento-ui.js";
+import { crearSuperficieBorradorLlamamiento, crearTraductorBorradorLlamamiento, MENSAJES_BORRADOR_LLAMAMIENTO_ES } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
 
 const ref = `borrador-llamamiento:alta:${"b".repeat(64)}`;
 const recibido = { borrador_ref: ref, estado: "borrador_interno", version: "1", resumen: "Preparar cobertura interna", recibo_ref: `recibo:${"b".repeat(64)}`, registrado_en: "2026-09-21T10:30:00Z", reintento_idempotente: false };

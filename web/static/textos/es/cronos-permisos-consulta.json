@@ -1,0 +1,9 @@
+{
+  "consulta": {
+    "actualizar": "Actualizar",
+    "reintentar": "Reintentar",
+    "cargando": "Consultando permisos…",
+    "error": "No se pudieron consultar tus permisos. Comprueba la conexión y pulsa Reintentar.",
+    "no_solicitable": "El permiso seleccionado ya no admite solicitudes. Conservamos tu borrador mientras mantengas abierta esta pantalla."
+  }
+}

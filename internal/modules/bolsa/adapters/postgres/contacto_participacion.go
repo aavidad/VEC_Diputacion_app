@@ -38,7 +38,9 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	defer tx.Rollback(context.Background())
 	m := c.Material
 	out := ports.RegistroContactoParticipacion{Contacto: c.Contacto}
-	if requiereRegistroContactoV2(c) {
+	if c.Contacto.OfertaRef != "" {
+		err = registrarContactoOfertaV3(ctx, tx, c, &out)
+	} else if requiereRegistroContactoV2(c) {
 		err = registrarContactoV2(ctx, tx, c, &out)
 	} else {
 		err = tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`, c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
@@ -54,6 +56,13 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	}
 	return out, nil
 }
+func registrarContactoOfertaV3(ctx context.Context, tx pgx.Tx, c ports.ComandoRegistrarContactoParticipacion, out *ports.RegistroContactoParticipacion) error {
+	m := c.Material
+	return tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v3($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21,$22,$23,$24)`,
+		c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef,
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.Contacto.OfertaRef, nuloTexto(c.Contacto.EvidenciaRef), nuloTexto(c.Contacto.EvidenciaHuellaSHA256),
+	).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
+}
 func nuloTexto(v string) any {
 	if v == "" {
 		return nil
@@ -61,21 +70,24 @@ func nuloTexto(v string) any {
 	return v
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) ListarContactosParticipacion(ctx context.Context, q ports.ConsultaContactosParticipacion) (ports.PaginaContactosParticipacion, error) {
-	return r.listar(ctx, q.BolsaRef, q.ParticipacionRef, q.Cursor, q.Limite, q.Material)
+	return r.listar(ctx, q.BolsaRef, q.ParticipacionRef, q.OfertaRef, q.Cursor, q.Limite, q.Material)
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) ListarContactosBolsa(ctx context.Context, q ports.ConsultaContactosBolsa) (ports.PaginaContactosParticipacion, error) {
-	return r.listar(ctx, q.BolsaRef, "", q.Cursor, q.Limite, q.Material)
+	return r.listar(ctx, q.BolsaRef, "", q.OfertaRef, q.Cursor, q.Limite, q.Material)
 }
-func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context, bolsa, participacion, cursor string, limite int, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.PaginaContactosParticipacion, error) {
+func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context, bolsa, participacion, oferta, cursor string, limite int, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.PaginaContactosParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || m.ValidarEstructura() != nil {
 		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PaginaContactosParticipacion{}, ctx.Err()
+		}
 		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT contacto_ref,bolsa_ref,participacion_ref,coalesce(llamamiento_ref,''),canal,instante,actor,resultado,anotacion FROM vec_bolsa_llamamientos.listar_contactos_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10::numeric,$11,$12,$13,$14)`, bolsa, nuloTexto(participacion), nuloTexto(cursor), limite, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	filas, err := tx.Query(ctx, `SELECT contacto_ref,bolsa_ref,participacion_ref,coalesce(llamamiento_ref,''),canal,instante,actor,resultado,anotacion,coalesce(oferta_ref,''),coalesce(evidencia_ref,''),coalesce(evidencia_huella,'') FROM vec_bolsa_llamamientos.listar_contactos_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10::numeric,$11,$12,$13,$14,$15)`, bolsa, nuloTexto(participacion), nuloTexto(cursor), limite, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), nuloTexto(oferta))
 	if err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -83,7 +95,7 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	p := ports.PaginaContactosParticipacion{}
 	for filas.Next() {
 		var c dominiobolsa.ContactoParticipacion
-		if err = filas.Scan(&c.ContactoRef, &c.BolsaRef, &c.ParticipacionRef, &c.LlamamientoRef, &c.Canal, &c.Instante, &c.Actor, &c.Resultado, &c.Anotacion); err != nil {
+		if err = filas.Scan(&c.ContactoRef, &c.BolsaRef, &c.ParticipacionRef, &c.LlamamientoRef, &c.Canal, &c.Instante, &c.Actor, &c.Resultado, &c.Anotacion, &c.OfertaRef, &c.EvidenciaRef, &c.EvidenciaHuellaSHA256); err != nil {
 			return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 		}
 		c.Instante = c.Instante.UTC()
@@ -104,7 +116,14 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	}
 	return p, nil
 }
+
+// errorContactoParticipacion traduce el error de PostgreSQL. Un plazo
+// agotado o una cancelación se conservan (como errorConstitucion) para que
+// la ruta responda 504 y no un «no disponible» genérico.
 func errorContactoParticipacion(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return err
+	}
 	var p *pgconn.PgError
 	if errors.As(err, &p) {
 		switch p.Code {

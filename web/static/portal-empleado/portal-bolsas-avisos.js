@@ -1,7 +1,7 @@
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";
@@ -86,6 +86,9 @@ function copiable(referencia, claveAria) {
 
 function detalleAviso(aviso) {
   if (aviso.tipo === "solicitud_portal") {
+    if (aviso.detalle.solicitud === "documental_rrhh") {
+      return `${texto(traducirPortal("txt_solicitud_documental_rrhh"))}. ${texto(traducirPortal("txt_solicitud_documental_rrhh_pendiente"))}`;
+    }
     const hasta = aviso.detalle.pausa_hasta ? ` hasta ${texto(fechaVisible(aviso.detalle.pausa_hasta))}` : "";
     return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || traducirPortal("txt_solicitud"))}${hasta}. ${texto(traducirReferencia("aviso_solicitud_valida"))} ${copiable(aviso.referencia, "aviso_solicitud_copiar_aria")}`;
   }

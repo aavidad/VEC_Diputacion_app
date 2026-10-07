@@ -1,22 +1,28 @@
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
+const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
+const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
-import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js";
+import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+  ...MENSAJES_MOAD_ES,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
@@ -172,16 +178,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_estado_listo: "El análisis está preparado para su revisión.",
   analisis_estado_solo_lectura: "La rectificación está disponible solo para consulta.",
   analisis_estado_validacion: "Revise los campos indicados antes de continuar.",
-  analisis_estado_enviando: "Enviando una única petición. Espere la confirmación.",
   analisis_estado_cancelando: "Cancelando la espera de respuesta.",
-  analisis_estado_confirmado: "El recibo del análisis se ha verificado.",
-  analisis_estado_indeterminado:
-    "El resultado no puede determinarse. La operación queda bloqueada.",
-  analisis_estado_acceso_denegado: "No dispone de autorización para esta operación.",
-  analisis_estado_conflicto:
-    "El expediente cambió o la intención entra en conflicto. Revise su estado antes de continuar.",
-  analisis_estado_rechazado: "La operación fue rechazada sin confirmar el análisis.",
-  analisis_estado_error: "No se pudo confirmar el análisis.",
   analisis_campos_leyenda: "Datos del análisis",
   analisis_modalidad: "Modalidad",
   analisis_categoria: "Categoría profesional",
@@ -217,16 +214,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",
-  analisis_indeterminado_titulo: "Resultado indeterminado",
-  analisis_indeterminado_descripcion:
-    "No repita la operación. Consulte el estado por el canal protegido o solicite asistencia.",
-  analisis_recibo_sobrelinea: "Confirmación verificada",
-  analisis_recibo_titulo: "Análisis confirmado",
-  analisis_recibo_rectificacion_titulo: "Rectificación confirmada",
-  analisis_recibo_descripcion:
-    "El recibo corresponde a la operación, el expediente y la versión enviados.",
   analisis_recibo_expediente: "Referencia del expediente",
-  analisis_recibo_version: "Versión resultante",
   analisis_recibo_referencia: "Justificante",
   analisis_recibo_fecha: "Fecha de confirmación",
   cobertura_titulo: "Decidir la vía de cobertura",
@@ -479,56 +467,12 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cierre_estado_con_preparacion: "Seleccione un motivo publicado por el servidor.", cierre_estado_sin_preparacion: "No hay nueva preparación autorizada; puede cargar una solicitud original.",
   cierre_lectura_error: "No se pudo recuperar la preparación del cierre. El cierre no está habilitado; puede reintentar la lectura.",
   cierre_reintentar_lectura: "Reintentar la lectura de cierre", cierre_detalle_obsoleto: "La anotación se registró en la versión {version}. El detalle mostrado (v{version_anterior}) está obsoleto y el cierre permanece deshabilitado hasta actualizarlo.",
-  ficha_ginpix_titulo: "Ficha GINPIX", ficha_ginpix_resumen_titulo: "Resumen final para GINPIX",
-  ficha_ginpix_destino: "Destino", ficha_ginpix_categoria: "Categoría",
-  ficha_ginpix_inicio: "Inicio de incorporación", ficha_ginpix_fin: "Fin de incorporación",
-  ficha_ginpix_registrada: "Incorporación registrada", ficha_ginpix_recibo: "Recibo de incorporación confirmado",
-  ficha_ginpix_exportacion_manual: "Exportación manual", ficha_ginpix_exportacion_manual_disponible: "Ficha estructurada disponible para descargar.",
-  ficha_ginpix_transmision: "Transmisión externa", ficha_ginpix_transmision_pendiente: "Pendiente de integración con GINPIX.",
-  ficha_ginpix_nombre_archivo: "Nombre de archivo", ficha_ginpix_descargar: "Descargar ficha GINPIX",
-  ficha_ginpix_aviso: "La descarga no realiza envío ni firma, ni produce eficacia administrativa.",
-  ficha_ginpix_descargando: "Preparando la descarga.", ficha_ginpix_error: "No se ha podido preparar la descarga.",
-  seguimiento_incorporacion_titulo: "Seguimiento de la incorporación",
-  consulta_seguimiento_pagina_titulo: "Consulta de seguimiento",
-  consulta_seguimiento_pagina_contexto: "Peticiones de personal temporal · incorporación",
-  consulta_seguimiento_seleccion_titulo: "Expediente",
-  consulta_seguimiento_referencia: "Referencia interna del expediente",
-  consulta_seguimiento_consultar: "Consultar seguimiento",
-  consulta_seguimiento_sin_seleccion: "Sin expediente seleccionado.",
-  consulta_seguimiento_referencia_invalida: "La referencia del expediente no es válida.",
-  consulta_seguimiento_cargando: "Consultando seguimiento…",
-  consulta_seguimiento_sin_datos: "No hay seguimiento disponible para este expediente.",
-  consulta_seguimiento_no_disponible: "La consulta no está disponible en este momento.",
-  consulta_seguimiento_resultado_titulo: "Seguimiento registrado",
-  consulta_seguimiento_lectura: "Solo lectura",
-  consulta_seguimiento_trazabilidad: "Referencias de trazabilidad",
-  consulta_seguimiento_volver: "Volver al portal",
-  seguimiento_incorporacion_consultar: "Consultar seguimiento original", seguimiento_incorporacion_cargando: "Consultando el seguimiento original…",
-  seguimiento_incorporacion_error: "No se ha podido consultar el seguimiento original.", seguimiento_incorporacion_recibo: "Recibo de incorporación",
-  seguimiento_incorporacion_estado: "Estado posterior histórico", seguimiento_incorporacion_periodo: "Período",
-  seguimiento_incorporacion_registrado: "Registrado", seguimiento_incorporacion_hitos: "Actuaciones históricas",
-  seguimiento_incorporacion_sin_hitos: "No constan actuaciones históricas.", seguimiento_incorporacion_documentos: "Documentos",
-  seguimiento_incorporacion_sin_documentos: "Sin documentos referenciados.", seguimiento_incorporacion_sin_recibo: "El seguimiento solo se consulta desde un recibo V2 confirmado.",
-  seguimiento_incorporacion_referencia: "Referencia", seguimiento_incorporacion_transicion: "Transición",
-  seguimiento_incorporacion_efectiva: "Efectiva", seguimiento_incorporacion_expediente: "Expediente",
-  seguimiento_incorporacion_version_expediente: "Versión de expediente", seguimiento_incorporacion_seguimiento: "Seguimiento",
-  seguimiento_incorporacion_version_seguimiento: "Versión de seguimiento",
-  seguimiento_incorporacion_referencia_tecnica: "Referencia técnica",
-  seguimiento_incorporacion_clave_tecnica: "Valor técnico sin etiqueta publicada: {clave}",
-  seguimiento_incorporacion_estado_pendiente: "Pendiente",
-  seguimiento_incorporacion_estado_pendiente_incorporacion: "Pendiente de incorporación",
-  seguimiento_incorporacion_estado_incorporada: "Incorporada",
-  seguimiento_incorporacion_estado_vigente: "Vigente",
-  seguimiento_incorporacion_estado_cerrado_administrativamente: "Cerrado administrativamente",
-  seguimiento_incorporacion_transicion_confirmar_incorporacion: "Confirmar incorporación",
-  seguimiento_incorporacion_transicion_cerrar_administrativamente_sin_cese: "Cerrar administrativamente sin cese",
-  seguimiento_incorporacion_documento_justificante: "Justificante",
-  seguimiento_incorporacion_documento_resolucion_ejercicio: "Resolución de nombramiento",
-  seguimiento_incorporacion_documento_anexo_ejercicio: "Anexo de la resolución",
+  ...MENSAJES_FIRMA_INCORPORACION.portal.ES,
 });
 
 /** British English messages for the temporary staff requests module. */
 export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+  ...MENSAJES_MOAD_EN,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
@@ -674,14 +618,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   analisis_estado_listo: "The assessment is ready for review.",
   analisis_estado_solo_lectura: "The correction is available for viewing only.",
   analisis_estado_validacion: "Review the indicated fields before continuing.",
-  analisis_estado_enviando: "Submitting one request. Wait for confirmation.",
   analisis_estado_cancelando: "Cancelling the wait for a response.",
-  analisis_estado_confirmado: "The assessment receipt has been verified.",
-  analisis_estado_indeterminado: "The result cannot be determined. The operation remains blocked.",
-  analisis_estado_acceso_denegado: "You are not authorised to perform this operation.",
-  analisis_estado_conflicto: "The case has changed or the request conflicts with its state. Review the state before continuing.",
-  analisis_estado_rechazado: "The operation was rejected without confirming the assessment.",
-  analisis_estado_error: "The assessment could not be confirmed.",
   analisis_campos_leyenda: "Assessment details",
   analisis_modalidad: "Type of appointment",
   analisis_categoria: "Job category",
@@ -713,14 +650,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   analisis_error_observaciones: "Comments cannot exceed 4,000 characters or contain prohibited characters.",
   analisis_error_motivo: "Select an available reason for correction.",
   analisis_error_contrato: "Review the assessment details before continuing.",
-  analisis_indeterminado_titulo: "Uncertain result",
-  analisis_indeterminado_descripcion: "Do not repeat the operation. Check its status through the protected channel or request assistance.",
-  analisis_recibo_sobrelinea: "Confirmation verified",
-  analisis_recibo_titulo: "Assessment confirmed",
-  analisis_recibo_rectificacion_titulo: "Correction confirmed",
-  analisis_recibo_descripcion: "The receipt matches the submitted operation, case and version.",
   analisis_recibo_expediente: "Case reference",
-  analisis_recibo_version: "Resulting version",
   analisis_recibo_referencia: "Receipt",
   analisis_recibo_fecha: "Confirmation date",
 
@@ -976,69 +906,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   cierre_lectura_error: "Closure preparation could not be retrieved. Closure is disabled; you can retry the enquiry.",
   cierre_reintentar_lectura: "Retry closure enquiry",
   cierre_detalle_obsoleto: "The note was recorded in version {version}. The displayed details (v{version_anterior}) are out of date and closure remains disabled until they are refreshed.",
-  ficha_ginpix_titulo: "GINPIX record",
-  ficha_ginpix_resumen_titulo: "Final summary for GINPIX",
-  ficha_ginpix_destino: "Destination",
-  ficha_ginpix_categoria: "Category",
-  ficha_ginpix_inicio: "Start of service",
-  ficha_ginpix_fin: "End of service",
-  ficha_ginpix_registrada: "Start of service recorded",
-  ficha_ginpix_recibo: "Start of service receipt confirmed",
-  ficha_ginpix_exportacion_manual: "Manual export",
-  ficha_ginpix_exportacion_manual_disponible: "Structured record available to download.",
-  ficha_ginpix_transmision: "External transmission",
-  ficha_ginpix_transmision_pendiente: "GINPIX integration pending.",
-  ficha_ginpix_nombre_archivo: "File name",
-  ficha_ginpix_descargar: "Download GINPIX record",
-  ficha_ginpix_aviso: "Downloading does not send or sign the record, or give it administrative effect.",
-  ficha_ginpix_descargando: "Preparing the download.",
-  ficha_ginpix_error: "The download could not be prepared.",
-  seguimiento_incorporacion_titulo: "Start of service follow-up",
-  consulta_seguimiento_pagina_titulo: "Follow-up enquiry",
-  consulta_seguimiento_pagina_contexto: "Temporary staff requests · start of service",
-  consulta_seguimiento_seleccion_titulo: "Case",
-  consulta_seguimiento_referencia: "Internal case reference",
-  consulta_seguimiento_consultar: "View follow-up",
-  consulta_seguimiento_sin_seleccion: "No case selected.",
-  consulta_seguimiento_referencia_invalida: "The case reference is invalid.",
-  consulta_seguimiento_cargando: "Retrieving follow-up…",
-  consulta_seguimiento_sin_datos: "No follow-up is available for this case.",
-  consulta_seguimiento_no_disponible: "The enquiry is currently unavailable.",
-  consulta_seguimiento_resultado_titulo: "Recorded follow-up",
-  consulta_seguimiento_lectura: "Read only",
-  consulta_seguimiento_trazabilidad: "Audit references",
-  consulta_seguimiento_volver: "Back to portal",
-  seguimiento_incorporacion_consultar: "View original follow-up",
-  seguimiento_incorporacion_cargando: "Retrieving the original follow-up…",
-  seguimiento_incorporacion_error: "The original follow-up could not be retrieved.",
-  seguimiento_incorporacion_recibo: "Start of service receipt",
-  seguimiento_incorporacion_estado: "Historical subsequent status",
-  seguimiento_incorporacion_periodo: "Period",
-  seguimiento_incorporacion_registrado: "Recorded",
-  seguimiento_incorporacion_hitos: "Historical actions",
-  seguimiento_incorporacion_sin_hitos: "No historical actions recorded.",
-  seguimiento_incorporacion_documentos: "Documents",
-  seguimiento_incorporacion_sin_documentos: "No referenced documents.",
-  seguimiento_incorporacion_sin_recibo: "Follow-up can only be viewed from a confirmed V2 receipt.",
-  seguimiento_incorporacion_referencia: "Reference",
-  seguimiento_incorporacion_transicion: "Transition",
-  seguimiento_incorporacion_efectiva: "Effective",
-  seguimiento_incorporacion_expediente: "Case",
-  seguimiento_incorporacion_version_expediente: "Case version",
-  seguimiento_incorporacion_seguimiento: "Follow-up",
-  seguimiento_incorporacion_version_seguimiento: "Follow-up version",
-  seguimiento_incorporacion_referencia_tecnica: "Technical reference",
-  seguimiento_incorporacion_clave_tecnica: "Technical value without a published label: {clave}",
-  seguimiento_incorporacion_estado_pendiente: "Pending",
-  seguimiento_incorporacion_estado_pendiente_incorporacion: "Awaiting start of service",
-  seguimiento_incorporacion_estado_incorporada: "Started service",
-  seguimiento_incorporacion_estado_vigente: "Active",
-  seguimiento_incorporacion_estado_cerrado_administrativamente: "Administratively closed",
-  seguimiento_incorporacion_transicion_confirmar_incorporacion: "Confirm start of service",
-  seguimiento_incorporacion_transicion_cerrar_administrativamente_sin_cese: "Close administratively without termination of service",
-  seguimiento_incorporacion_documento_justificante: "Receipt",
-  seguimiento_incorporacion_documento_resolucion_ejercicio: "Appointment resolution",
-  seguimiento_incorporacion_documento_anexo_ejercicio: "Resolution annex",
+  ...MENSAJES_FIRMA_INCORPORACION.portal.EN,
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

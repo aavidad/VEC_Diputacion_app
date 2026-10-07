@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title data-i18n="tituloDocumento"></title>
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
+    <script type="module" src="./arranque.js?v=20261006-resumen-inicio-v2"></script>
+  </head>
+  <body class="portal-empleado-app">
+    <a class="salto-contenido" href="#categorias" data-i18n="saltarContenido"></a>
+    <main class="portal-superficie" id="categorias" tabindex="-1">
+      <header class="cabecera-portal">
+        <div class="contexto-cabecera">
+          <nav class="migas" data-i18n-label="ruta">
+            <a href="/portal-empleado/" data-i18n="portal"></a> <span aria-hidden="true">›</span>
+            <span data-i18n="titulo"></span>
+          </nav>
+          <h1 data-i18n="titulo"></h1>
+        </div>
+        <div class="acciones-cabecera">
+          <details>
+            <summary class="boton-cabecera" data-i18n="ayuda"></summary>
+            <p data-i18n="ayudaContenido"></p>
+          </details>
+          <a class="boton-secundario" href="/portal-empleado/" data-i18n="volver"></a>
+        </div>
+      </header>
+
+      <div class="contenido-portal">
+        <div id="espacio-trabajo" class="columna-cuadro">
+          <section class="panel" aria-labelledby="lista-titulo">
+            <div class="cabecera-panel">
+              <div>
+                <h2 id="lista-titulo" data-i18n="listaTitulo"></h2>
+                <p data-i18n="procedencia"></p>
+              </div>
+              <button type="button" class="boton-primario" disabled aria-describedby="motivo-escritura" data-i18n="anadir"></button>
+            </div>
+            <div class="cuerpo-panel">
+              <p id="motivo-escritura" role="note" data-i18n="motivoEscritura"></p>
+              <form class="barra-filtros-bolsa" role="search" id="filtros" aria-labelledby="lista-titulo">
+                <div class="campo-filtro">
+                  <label for="buscar" data-i18n="buscar"></label>
+                  <input id="buscar" type="search" maxlength="100" autocomplete="off" disabled />
+                </div>
+                <div class="campo-filtro">
+                  <label for="grupo" data-i18n="grupoFiltro"></label>
+                  <select id="grupo" disabled><option value="" data-i18n="todos"></option></select>
+                </div>
+              </form>
+              <p id="estado" role="status" aria-live="polite" data-i18n="cargando"></p>
+              <button type="button" id="reintentar" class="boton-secundario" hidden data-i18n="reintentar"></button>
+              <p id="cuenta" aria-live="polite" hidden></p>
+            </div>
+            <div class="tabla-contenedor" id="tabla-contenedor" tabindex="0" hidden>
+              <table class="tabla-datos">
+                <caption data-i18n="tablaTitulo"></caption>
+                <thead><tr>
+                  <th scope="col" data-i18n="colCategoria"></th>
+                  <th scope="col" data-i18n="colGrupo"></th>
+                  <th scope="col" data-i18n="colDetalle"></th>
+                </tr></thead>
+                <tbody id="filas"></tbody>
+              </table>
+            </div>
+            <nav class="paginacion-marco" id="paginacion" data-i18n-label="paginacionLabel" hidden>
+              <span id="pagina-estado" aria-live="polite"></span>
+              <div class="paginacion-marco__paginas">
+                <button type="button" id="anterior" data-i18n="anterior"></button>
+                <button type="button" id="siguiente" data-i18n="siguiente"></button>
+              </div>
+            </nav>
+          </section>
+          <section class="panel" id="detalle" tabindex="-1" aria-labelledby="detalle-titulo" hidden>
+            <div class="cabecera-panel"><h2 id="detalle-titulo" data-i18n="detalleTitulo"></h2></div>
+            <div class="cuerpo-panel">
+              <dl>
+                <dt data-i18n="colCategoria"></dt><dd id="detalle-nombre"></dd>
+                <dt data-i18n="colGrupo"></dt><dd id="detalle-grupos"></dd>
+                <dt data-i18n="estadoGobierno"></dt><dd data-i18n="noDisponible"></dd>
+              </dl>
+              <button type="button" class="boton-secundario" disabled aria-describedby="motivo-deshabilitar" data-i18n="deshabilitar"></button>
+              <p id="motivo-deshabilitar" role="note" data-i18n="motivoDeshabilitar"></p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

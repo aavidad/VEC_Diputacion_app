@@ -56,3 +56,46 @@ ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/cont
 
 # Reglas: la variable clave contiene un identificador de regla del catálogo en una prueba; no es una credencial.
 f18d0c0d3e59e9e622819764889ad356cb438f93:web/static/portal-empleado/reglas/texto-presentacion.test.mjs:vep-clave-castellana-asignada:37
+# B2: identificador de regla y UUID de idempotencia sinteticos en pruebas; no son credenciales.
+d5cbc96f0fdf0e64c8b7296adef62e86f5220c97:internal/vec/reglas/resolutor_test.go:vep-clave-castellana-asignada:88
+19b2452f7455e58e4722df9a4b3d9bcffb88e2c7:web/static/portal-empleado/modulos/contratacion-temporal/incorporacion-personal-b2.test.mjs:vep-clave-castellana-asignada:8
+
+# R1: versiones publicas de cache en pruebas, no claves de acceso.
+144b6f98212ebdf25a4b1f5fa2c36a5774b465d6:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:94
+4cf15a58808496a5e425537c81e9eac25ab68c88:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:94
+# R1: clave-oferta-b71 identifica una operacion sintetica del ensayo; no es un secreto.
+f2fd58e53da6d7eaf8c8b76d58d5118f7b2fecda:deploy/postgresql/bolsa_llamamientos/pruebas_sql/plazo_notificacion_b71/pruebas.sql:vep-clave-castellana-asignada:98
+
+# R1: version publica del modulo de politica en el mapa de precargas; no es una API key.
+18610ca23a99cc0ce5d9d518094acf8d32278f0c:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:63
+# Referencia pública de caché Bolsa, no credencial
+2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93
+
+# Identificador público de clave sintética RPT, no secreto.
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027.sql.borrador:vep-clave-castellana-asignada:111
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh.borrador:vep-clave-castellana-asignada:99
+# Identificador público de clave sintética CRN11, no secreto
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026.sql:vep-clave-castellana-asignada:51
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026_pg18.sh:vep-clave-castellana-asignada:58
+
+# R2: claves de operaciones sinteticas en fixtures SQL y versiones publicas de modulos; no son credenciales.
+67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:134
+67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:149
+67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:150
+67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:151
+5427942ba042d0ed37dc4b5a9326e6003a50cd6c:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica.sql:vep-clave-castellana-asignada:75
+
+# R3: identificadores de idempotencia sinteticos en pruebas HTTP/SQL, no credenciales.
+3677379327ac17a2b97a58531933c8365db74264:internal/modules/bolsa/adapters/httpinterno/operacion_situacion_participacion_test.go:generic-api-key:47
+f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:76
+f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:182
+
+# A3: SHA256 publico del consumo sintetico en vector de cadena; no es un token SumoLogic.
+011070c0f65a39ca1f42a9174832b109ac37e226:cmd/vec-auditoria-verificar/testdata/cadena_mixta_v2.json:sumologic-access-token:1
+
+# AD171: SHA256 público del consumo sintético idéntico al vector V2; no es un token SumoLogic.
+9cc9e7a84a8f19940364aa9cf829421d611b59be:cmd/vec-auditoria-verificar/testdata/preperfil_mixta_v3.json:sumologic-access-token:1
+
+# Copias: referencia pública de cuenta ordinaria sintética en fixture sellada.
+# No es clave, credencial ni dato personal; sólo este hallazgo histórico.
+440cebf1ade5acc38857d784e9745dbca9c69000:internal/modules/administracion/adapters/intentoscopias/fixture_test.go:generic-api-key:65

@@ -1,0 +1,18 @@
+{
+  "aviso_simulacion": "Ejercicio con datos sintéticos. No ejecuta copias ni restauraciones, no autentica evidencias y no guarda un registro durable.",
+  "revalidar_antes_de_captura": "Compruebe de nuevo la compatibilidad y la autorización antes de iniciar una captura real.",
+  "conciliar_captura_sin_repetir": "Compruebe qué llegó a capturarse. No repita la captura hasta conciliar su resultado.",
+  "revalidar_antes_de_ensayos": "Compruebe el conjunto y su autenticidad antes de preparar los dos ensayos aislados.",
+  "conciliar_ensayos_pendientes": "Recupere y compruebe los resultados de los ensayos pendientes. No declare válida la copia.",
+  "autenticar_evidencias_antes_de_uso": "Se han declarado satisfactorios ambos ensayos. Falta autenticar y comprobar sus evidencias antes de usar la copia.",
+  "revisar_ensayo_fallido": "Un ensayo ha fallado. La copia no puede usarse; revise el resultado y prepare otra operación si procede.",
+  "historia_invalida": "No se puede reconstruir la historia de la operación.",
+  "entrada_invalida": "Use un documento JSON sintético completo dentro del límite permitido.",
+  "operacion_entrada_invalida": "La operación contiene una referencia, huella o resultado no admitidos.",
+  "operacion_conflicto_idempotencia": "La clave ya se usó con otro contenido. Conserve la operación original.",
+  "operacion_conflicto_version": "La versión esperada difiere de la actual. Recupere la historia antes de continuar.",
+  "operacion_vinculo_distinto": "La declaración pertenece a otra solicitud, conjunto, manifiesto o ejecución.",
+  "operacion_transicion_invalida": "Ese paso no corresponde al estado actual de la operación.",
+  "operacion_historia_invalida": "La historia tiene un salto, un paso repetido o un vínculo alterado. No se ha reconstruido.",
+  "salida_fallida": "No se pudo escribir el resultado del ejercicio."
+}

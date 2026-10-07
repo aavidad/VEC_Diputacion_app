@@ -1,0 +1,8 @@
+# Preimagen: AUT33/CA25/AD165, Personal28/AD166, AUT32/AD167 instaladas.
+# Permitido usa auditoría común del consumo V3 con acuse durable.
+# Exposición bloqueada: denegado/error depende de pieza común de L
+# (respuesta Dirección 03/10 11:45; ruta, firma y hash aún pendientes).
+# Favorable V3, caducidad y huella de asignación: fixture nominal pendiente.
+# AD168 coteja núcleo y audiencia post-AD166 del clon causal K; no usa AD150.
+deploy/postgresql/autorizacion/migraciones/000034_capacidades_admin_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000168_consumidor_capacidades_admin.up.sql

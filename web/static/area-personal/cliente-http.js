@@ -1,4 +1,4 @@
-import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261005-b4b-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 
@@ -7,6 +7,11 @@ const mensaje = (clave, variables) => traducir(`areaPersonal.cliente.${clave}`, 
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
 export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/area-personal/mis-preferencias";
 const CAMPOS_MIS_PREFERENCIAS = Object.freeze(["idioma", "tamano_texto", "alto_contraste", "tema", "inicio", "filas", "aviso_correo_tareas", "aviso_correo_plazos"]);
+const TEMAS_PREFERENCIAS_V1 = Object.freeze(["sistema", "claro", "oscuro"]);
+const TEMAS_PREFERENCIAS = Object.freeze({
+  "usuarios-preferencias-v1": TEMAS_PREFERENCIAS_V1,
+  "usuarios-preferencias-v2": Object.freeze([...TEMAS_PREFERENCIAS_V1, "diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"]),
+});
 const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
 const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
 export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
@@ -14,26 +19,7 @@ export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
     .map((accion) => [accion, `${RUTA_CONTACTO_PROPIO}/operaciones/${accion}`]),
 ));
 const MAXIMO_JSON_BYTES = 512 * 1024;
-const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
 const DENEGACIONES_CONTACTO = Object.freeze({ 401: "autenticacion_requerida", 403: "acceso_denegado", 404: "no_encontrada" });
-const ACCIONES = Object.freeze({
-  actualizar_contacto: ["PUT", "/api/vec/personas/mi-perfil/contacto"],
-  incorporar_merito: ["POST", "/api/vec/bolsa/mi-expediente/meritos"],
-  guardar_borrador: ["PUT", "/api/vec/bolsa/mis-solicitudes/borrador"],
-  calcular_autobaremo: ["POST", "/api/vec/bolsa/mis-solicitudes/autobaremo"],
-  iniciar_pago: ["POST", "/api/vec/bolsa/mis-solicitudes/pago"],
-  firmar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/firma"],
-  registrar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/registro"],
-  cambiar_disponibilidad: ["POST", "/api/vec/bolsa/mi-disponibilidad"],
-  responder_llamamiento: ["POST", "/api/vec/bolsa/mis-llamamientos/respuesta"],
-  presentar_subsanacion: ["POST", "/api/vec/bolsa/mis-subsanaciones"],
-  presentar_alegacion: ["POST", "/api/vec/bolsa/mis-alegaciones"],
-  marcar_mensaje: ["POST", "/api/vec/bolsa/mis-mensajes/lectura"],
-  actualizar_notificaciones: ["PUT", "/api/vec/personas/mis-preferencias/notificaciones"],
-  solicitar_certificado: ["POST", "/api/vec/bolsa/mis-certificados"],
-  solicitar_descarga: ["POST", "/api/vec/bolsa/mis-documentos/descarga"],
-});
-
 export class ErrorClienteAreaPersonal extends Error {
   constructor(codigo, mensaje, causa) {
     super(mensaje, causa ? { cause: causa } : undefined);
@@ -56,12 +42,13 @@ const CODIGOS_PREFERENCIAS = Object.freeze({
   422: "validacion", 503: "servicio",
 });
 
-function validarValoresPreferencias(valores) {
+function validarValoresPreferencias(valores, catalogoVersion) {
   return valores && typeof valores === "object" && !Array.isArray(valores)
+    && Object.hasOwn(TEMAS_PREFERENCIAS, catalogoVersion)
     && (valores.idioma === "navegador" || IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === valores.idioma))
     && ["normal", "grande", "muy_grande"].includes(valores.tamano_texto)
     && typeof valores.alto_contraste === "boolean"
-    && ["sistema", "claro", "oscuro"].includes(valores.tema)
+    && TEMAS_PREFERENCIAS[catalogoVersion].includes(valores.tema)
     && ["cuadro", "peticiones", "bolsas"].includes(valores.inicio)
     && [20, 50, 100].includes(valores.filas)
     && typeof valores.aviso_correo_tareas === "boolean"
@@ -73,20 +60,21 @@ function validarEstadoPreferencias(estado) {
   if (!estado || typeof estado !== "object" || Array.isArray(estado)
     || typeof estado.persona_ref !== "string" || !estado.persona_ref
     || !Number.isSafeInteger(estado.version) || estado.version < 0
-    || typeof estado.catalogo_version_ref !== "string" || !estado.catalogo_version_ref
-    || !validarValoresPreferencias(estado.valores)) throw new ErrorPreferencias("respuesta");
+    || !Object.hasOwn(TEMAS_PREFERENCIAS, estado.catalogo_version_ref)
+    || !validarValoresPreferencias(estado.valores, estado.catalogo_version_ref)) throw new ErrorPreferencias("respuesta");
   return estado;
 }
 
 function validarCatalogoPreferencias(catalogo) {
   if (!catalogo || typeof catalogo !== "object" || Array.isArray(catalogo)
-    || typeof catalogo.version_ref !== "string" || !catalogo.version_ref
+    || !Object.hasOwn(TEMAS_PREFERENCIAS, catalogo.version_ref)
     || !["idiomas", "tamanos_texto", "temas", "inicios"].every((campo) =>
       Array.isArray(catalogo[campo]) && catalogo[campo].length > 0
       && catalogo[campo].every((opcion) => typeof opcion?.codigo === "string"
+        && (campo !== "temas" || TEMAS_PREFERENCIAS[catalogo.version_ref].includes(opcion.codigo))
         && typeof opcion?.nombre_key === "string"))
     || !Array.isArray(catalogo.filas) || catalogo.filas.some((valor) => ![20, 50, 100].includes(valor))
-    || !validarValoresPreferencias(catalogo.predeterminados)) throw new ErrorPreferencias("respuesta");
+    || !validarValoresPreferencias(catalogo.predeterminados, catalogo.version_ref)) throw new ErrorPreferencias("respuesta");
   return catalogo;
 }
 
@@ -123,16 +111,19 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
       const { valor: dato } = await solicitar("GET", null, opciones);
       const catalogo = validarCatalogoPreferencias(dato?.catalogo);
       const estado = validarEstadoPreferencias(dato?.estado);
-      if (estado.catalogo_version_ref !== catalogo.version_ref) throw new ErrorPreferencias("respuesta", 200);
+      if (catalogo.version_ref === "usuarios-preferencias-v1" && estado.catalogo_version_ref !== catalogo.version_ref) {
+        throw new ErrorPreferencias("respuesta", 200);
+      }
+      if (!catalogo.temas.some((opcion) => opcion.codigo === estado.valores.tema)) throw new ErrorPreferencias("respuesta", 200);
       return Object.freeze({ catalogo, estado });
     },
     async guardar(cuerpo, opciones) {
       if (!cuerpo || Object.keys(cuerpo).length !== 4
         || !Object.keys(cuerpo).every((campo) => ["version_esperada", "catalogo_version_ref", "clave_operacion", "valores"].includes(campo))
         || !Number.isSafeInteger(cuerpo.version_esperada) || cuerpo.version_esperada < 0
-        || typeof cuerpo.catalogo_version_ref !== "string" || !cuerpo.catalogo_version_ref
+        || !Object.hasOwn(TEMAS_PREFERENCIAS, cuerpo.catalogo_version_ref)
         || typeof cuerpo.clave_operacion !== "string" || !/^[A-Za-z0-9_.:-]{16,128}$/u.test(cuerpo.clave_operacion)
-        || !validarValoresPreferencias(cuerpo.valores)) throw new ErrorPreferencias("validacion");
+        || !validarValoresPreferencias(cuerpo.valores, cuerpo.catalogo_version_ref)) throw new ErrorPreferencias("validacion");
       const { valor: resultado, estado } = await solicitar("PUT", cuerpo, opciones);
       validarEstadoPreferencias(resultado);
       if (resultado.version !== cuerpo.version_esperada + 1
@@ -271,14 +262,6 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
   });
 }
 
-function exigirEnvelope(valor, nombre) {
-  if (!valor || typeof valor !== "object" || Array.isArray(valor)
-    || !valor.data || typeof valor.data !== "object" || Array.isArray(valor.data)) {
-    throw new ErrorClienteAreaPersonal("respuesta_incompatible", mensaje("sinEnvelope", { nombre }));
-  }
-  return valor.data;
-}
-
 async function leerJSONAcotado(respuesta) {
   const tipo = respuesta.headers?.get?.("Content-Type") || "";
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(tipo)) {
@@ -301,28 +284,6 @@ async function leerJSONAcotado(respuesta) {
   }
 }
 
-function nuevaIdempotencia() {
-  if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new ErrorClienteAreaPersonal("idempotencia_no_disponible", mensaje("idempotencia"));
-  }
-  return `WEB-${globalThis.crypto.randomUUID()}`;
-}
-
-function contieneDescriptorFichero(valor) {
-  if (!valor || typeof valor !== "object") return false;
-  if (Array.isArray(valor)) return valor.some(contieneDescriptorFichero);
-  if (typeof valor.nombre === "string" && typeof valor.tipo === "string" && Number.isFinite(valor.tamano)) return true;
-  return Object.values(valor).some(contieneDescriptorFichero);
-}
-
-function serializarSolicitudAcotada(valor) {
-  const texto = JSON.stringify(valor);
-  if (new TextEncoder().encode(texto).byteLength > MAXIMO_SOLICITUD_BYTES) {
-    throw new ErrorClienteAreaPersonal("solicitud_excesiva", mensaje("solicitudExcesiva"));
-  }
-  return texto;
-}
-
 function mensajeHTTP(estado) {
   if (estado === 401) return mensaje("http401");
   if (estado === 403) return mensaje("http403");
@@ -337,7 +298,6 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     return Object.freeze({
       modo: "http",
       cargar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
-      ejecutar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
     });
   }
 
@@ -395,43 +355,5 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     return Object.freeze({ fuente: "real", consulta: validarRespuestaMiBolsa(envelope) });
   }
 
-  async function ejecutar({ accion, payload = {}, confirmacion = false, capacidad = false } = {}) {
-    if (capacidad !== true) {
-      throw new ErrorClienteAreaPersonal("capacidad_denegada", mensaje("sinCapacidad"));
-    }
-    if (confirmacion !== true) {
-      throw new ErrorClienteAreaPersonal("confirmacion_ausente", mensaje("sinConfirmacion"));
-    }
-    const definicion = ACCIONES[accion];
-    if (!definicion) throw new ErrorClienteAreaPersonal("accion_no_admitida", mensaje("accionNoAdmitida"));
-    if (contieneDescriptorFichero(payload)) {
-      throw new ErrorClienteAreaPersonal("carga_documental_no_compuesta", mensaje("sinCargaDocumental"));
-    }
-    const [metodo, ruta] = definicion;
-    const envelope = await solicitar(ruta, {
-      method: metodo,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": nuevaIdempotencia(),
-      },
-      body: serializarSolicitudAcotada({
-        data: {
-          esquema: "vec.bolsa.area-personal.accion.v1",
-          accion,
-          confirmacion: true,
-          payload,
-        },
-      }),
-    }, [200, 201]);
-    const datos = exigirEnvelope(envelope, "La confirmación de la operación");
-    return Object.freeze({
-      recibo: validarRecibo(datos.recibo),
-      datos: datos.resultado && typeof datos.resultado === "object" ? structuredClone(datos.resultado) : null,
-    });
-  }
-
-  return Object.freeze({ modo: "http", cargar, cargarContactoPropio, ejecutar });
+  return Object.freeze({ modo: "http", cargar, cargarContactoPropio });
 }
-
-export const RUTAS_AREA_PERSONAL = Object.freeze({ miBolsa: RUTA_MI_BOLSA, acciones: ACCIONES });

@@ -23,6 +23,7 @@ import (
 	"unicode/utf8"
 
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -163,7 +164,7 @@ func (c *Calculador) Calcular(ctx context.Context, solicitud dietasports.Solicit
 	if err != nil {
 		return dietasports.ResultadoCalculoRuta{}, err
 	}
-	ctx, cancelar := context.WithTimeout(ctx, tiempoMaximoSolicitud)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(tiempoMaximoSolicitud))
 	defer cancelar()
 	peticion, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

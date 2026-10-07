@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title></title>
+  <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20261001-provision-ciclo-v5">
+  <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-provision-ciclo-v5">
+  <link rel="stylesheet" href="/portal-empleado/portal-modulos.css?v=20261001-provision-ciclo-v5">
+</head>
+<body class="portal-empleado-app">
+  <a class="salto-contenido" href="#contenido-principal" data-texto="saltar"></a>
+  <div class="portal-empleado-shell">
+    <aside class="portal-lateral">
+      <div class="marca-portal"><strong data-texto="portal"></strong><p data-texto="organizacion"></p></div>
+      <nav class="navegacion-modulos">
+        <a href="/portal-empleado/modulos/bolsa/baremo/" class="enlace-lateral">
+          <span class="indicador-menu" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m6-6-6 6 6 6"/></svg></span>
+          <span data-texto="volver_al_baremador"></span>
+        </a>
+        <a class="enlace-lateral" href="./index.html" aria-current="page">
+          <span class="indicador-menu" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
+          <span data-texto="titulo"></span>
+        </a>
+      </nav>
+    </aside>
+    <div class="portal-superficie">
+      <header class="cabecera-portal">
+        <div class="contexto-cabecera">
+          <div class="migas"><a href="/portal-empleado/modulos/bolsa/baremo/" data-texto="volver_al_baremador"></a></div>
+          <h1 data-texto="titulo"></h1>
+        </div>
+        <div class="acciones-cabecera">
+          <label class="selector-idioma"><span data-texto="idioma"></span><select id="provision-idioma"></select></label>
+        </div>
+      </header>
+      <main id="contenido-principal" class="contenido-portal" tabindex="-1"><div id="espacio-trabajo"></div></main>
+    </div>
+  </div>
+  <script type="module" src="./entrada.js?v=20261001-provision-ciclo-v5"></script>
+</body>
+</html>

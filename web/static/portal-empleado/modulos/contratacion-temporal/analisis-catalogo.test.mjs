@@ -5,7 +5,7 @@ import {
   periodoSuperaDuracionMaxima,
   validarConfiguracionAnalisis,
 } from "./contrato-analisis.js";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261001-ct-a-i18n-v1";
 
 // Opciones del análisis publicadas por el catálogo de reglas: modalidades sin
 // lista fija, duración máxima por modalidad (aviso o bloqueo) y urgencia.

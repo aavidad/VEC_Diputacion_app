@@ -96,6 +96,13 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaDesdePreimagen(ctx con
 	return a.publicarInstantaneaConPreimagen(ctx, instantanea, &preimagen)
 }
 
+func (a autoridadPostgreSQLDesarrollo) leerAsignacionPublicada(ctx context.Context, perfilRef string) (instantaneaPublicadaDesarrollo, bool, error) {
+	if a.pool == nil {
+		return instantaneaPublicadaDesarrollo{}, false, falloPostgreSQLCTDesarrollo(nil)
+	}
+	return leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, a.pool, perfilRef)
+}
+
 func (a autoridadPostgreSQLDesarrollo) publicarInstantanea(ctx context.Context, instantanea dominiovec.InstantaneaAutorizacion) error {
 	return a.publicarInstantaneaConPreimagen(ctx, instantanea, nil)
 }

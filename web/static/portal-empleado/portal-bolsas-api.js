@@ -12,17 +12,17 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20260930-portales-i18n-integracion-v1";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260930-portales-i18n-integracion-v1";
+} from "./portal-bolsas-contrato.js?v=20261002-r-rrhh18-v3";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261002-r-rrhh18-v2";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-portales-i18n-integracion-v1";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260930-portales-i18n-integracion-v1";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261002-r-rrhh18-v3";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261002-r-rrhh18-v3";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -50,7 +50,8 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
 export function seleccionarParticipacionesPorEstado(candidatos, estados, limite = 100) {
   const estadosIncluidos = new Set(estados || []);
   return (candidatos || [])
-    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden) && seleccionableEnLlamamiento(candidato))
+    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden)
+      && !["en_revision", "trabajando", "excluido"].includes(candidato.estado_clave) && seleccionableEnLlamamiento(candidato))
     .sort((izquierda, derecha) => izquierda.orden - derecha.orden
       || String(izquierda.participacion_ref).localeCompare(String(derecha.participacion_ref), "es"))
     .slice(0, limite)
@@ -89,8 +90,10 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
         return { ok: false, status: 409, mensaje: traducirPortal("txt_la_lista_cambio_durante_la_consulta_vuelva_a_sel") };
       }
       referencias.add(candidata.participacion_ref);
-      // Quien ya presta servicios con el catálogo en «excluir» no es elegible.
-      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden) && seleccionableEnLlamamiento(candidata)) {
+      // RRHH18 mantiene visibles los estados bloqueados, pero nunca los
+      // añade al llamamiento aunque se manipule el filtro de selección.
+      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden)
+        && !["en_revision", "trabajando", "excluido"].includes(candidata.estado_clave) && seleccionableEnLlamamiento(candidata)) {
         total += 1;
         primeras.push({ participacion_ref: candidata.participacion_ref, estado_clave: candidata.estado_clave, orden: candidata.orden });
         primeras.sort((a, b) => a.orden - b.orden || a.participacion_ref.localeCompare(b.participacion_ref, "es"));
@@ -214,7 +217,7 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
       ok: false,
       status: 0,
       codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_candida"),
+      mensaje: traducirPortal("txt_no_se_pudo_cargar_la_relacion_de_aspirantes"),
     };
   }
 }
@@ -562,7 +565,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     flujo.ordenSeleccion ||= {};
     for (const candidata of presentes) {
       flujo.ordenSeleccion[candidata.participacion_ref] = candidata.orden;
-      if (marcadas.has(candidata.participacion_ref)) seleccionadas.add(candidata.participacion_ref);
+      if (marcadas.has(candidata.participacion_ref)
+        && !["en_revision", "trabajando", "excluido"].includes(candidata.estado_clave) && seleccionableEnLlamamiento(candidata)) seleccionadas.add(candidata.participacion_ref);
       else seleccionadas.delete(candidata.participacion_ref);
     }
     flujo.participaciones = [...seleccionadas].sort((a, b) => (flujo.ordenSeleccion[a] || 0) - (flujo.ordenSeleccion[b] || 0) || a.localeCompare(b, "es"));

@@ -70,7 +70,7 @@ func (s SolicitudConsultarCobertura) Validar() error {
 		!s.ViaClave.Valida() ||
 		s.Comprobacion.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(s.CategoriaRef) ||
-		!periodoFuenteAnalisisValido(s.Periodo) ||
+		!periodoCoberturaValido(s.Periodo) ||
 		!instanteFuenteAnalisisCanonico(s.SolicitadaEn) {
 		return ErrPeticionFuenteCoberturaInvalida
 	}

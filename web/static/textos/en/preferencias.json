@@ -62,12 +62,18 @@
           "tema": {
             "sistema": "Same as device",
             "claro": "Light",
-            "oscuro": "Dark"
+            "oscuro": "Dark",
+            "diputacion_granada": "Granada Provincial Council",
+            "arena": "Sand",
+            "salvia": "Sage",
+            "lavanda": "Lavender",
+            "azul_sereno": "Calm blue",
+            "noche_suave": "Soft night"
           },
           "inicio": {
             "cuadro": "Dashboard",
             "peticiones": "Temporary staff requests",
-            "bolsas": "Employment pools"
+            "bolsas": "Job pools"
           }
         }
       }
@@ -123,12 +129,18 @@
         "tema": {
           "sistema": "Same as device",
           "claro": "Light",
-          "oscuro": "Dark"
+          "oscuro": "Dark",
+          "diputacion_granada": "Granada Provincial Council",
+          "arena": "Sand",
+          "salvia": "Sage",
+          "lavanda": "Lavender",
+          "azul_sereno": "Calm blue",
+          "noche_suave": "Soft night"
         },
         "inicio": {
           "cuadro": "Dashboard",
           "peticiones": "Temporary staff requests",
-          "bolsas": "Employment pools"
+          "bolsas": "Job pools"
         }
       },
       "error": {

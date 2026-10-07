@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -74,11 +73,15 @@ type politicaOrdenRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
-	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	mutar     http.Handler
-	invalidar func()
-	contactos lectorContactosBolsaDesarrollo
-	avisos    *bolsaapplication.ServicioAvisosRRHH
+	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
+	// si faltan, se usa cargar con todo el detalle.
+	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar       http.Handler
+	invalidar   func()
+	contactos   lectorContactosBolsaDesarrollo
+	avisos      *bolsaapplication.ServicioAvisosRRHH
 }
 
 type lectorContactosBolsaDesarrollo interface {
@@ -99,6 +102,8 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	if fuente != nil {
 		manejador.avisos = fuente.avisos
+		manejador.resumen = fuente.cargarResumen
+		manejador.cargarBolsa = fuente.cargarBolsa
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
@@ -109,6 +114,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaEstadisticasBolsaRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaAvisosBolsaRRHHDesarrollo, Manejador: manejador},
+			{Ruta: bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH, Manejador: manejador},
 		},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -146,6 +152,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esContratos {
 		_, _, esContratos = bolsahttp.ReferenciasRutaContratosParticipacion(r)
 	}
+	esSolicitudesDocumentales := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodGet && r.URL != nil && r.URL.Path == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH
 	esSancion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esSancion {
 		_, _, _, esSancion = bolsahttp.ReferenciasRutaSancionesParticipacion(r)
@@ -153,7 +160,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -162,7 +169,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
@@ -179,7 +186,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(w, r)
 		if !ok {
 			return
 		}
@@ -195,7 +202,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(w, r)
 		if !ok {
 			return
 		}
@@ -212,13 +219,19 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	vista, ok := h.vistaDurable(r.Context(), w)
+	vista, ok := h.vistaBolsa(w, r, bolsaRef)
 	if !ok {
 		return
 	}
-	if (h.contactos == nil && h.mutar != nil) || (h.contactos != nil && !h.cargarContactos(r.Context(), vista, bolsaRef)) {
-		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+	if h.contactos == nil && h.mutar != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "contactos", ErrComposicionDesarrolloIncompleta)
 		return
+	}
+	if h.contactos != nil {
+		if err := h.cargarContactos(r.Context(), vista, bolsaRef); err != nil {
+			responderFalloBolsaRRHHDesarrollo(w, r, "contactos", err)
+			return
+		}
 	}
 	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
@@ -291,26 +304,60 @@ func consultaAvisosRRHH(cruda string) (bolsaapplication.ConsultaAvisos, bool) {
 	return resultado, true
 }
 
-func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+// cargarContactos lee los contactos de la bolsa por páginas. Cada página
+// consume su propia autorización V3, así que una página incompleta es la
+// última: pedir otra solo para recibirla vacía duplicaba la autorización.
+func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) error {
+	const porPagina = 100
 	cursor := ""
 	for pagina := 0; pagina < 100; pagina++ {
-		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, porPagina)
 		if err != nil {
-			return false
+			return err
 		}
 		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
-		if len(p.Contactos) < 100 || p.CursorSiguiente == "" {
-			return true
+		if p.CursorSiguiente == "" || len(p.Contactos) < porPagina {
+			return nil
+		}
+		if p.CursorSiguiente == cursor {
+			return errContactosBolsaRRHHIncoherentes
 		}
 		cursor = p.CursorSiguiente
 	}
-	return false
+	return errContactosBolsaRRHHIncoherentes
 }
 
-func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
-	datos, err := h.cargar(ctx)
+func (h *bolsasRRHHDesarrollo) vistaDurable(w http.ResponseWriter, r *http.Request) (*bolsasRRHHDesarrolloDatos, bool) {
+	datos, err := h.cargar(r.Context())
 	if err != nil {
-		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderFalloBolsaRRHHDesarrollo(w, r, "carga", err)
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaResumen sirve el cuadro y las estadísticas: cada petición hace su
+// propia lectura, sin compartirla con otras peticiones.
+func (h *bolsasRRHHDesarrollo) vistaResumen(w http.ResponseWriter, r *http.Request) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.resumen == nil {
+		return h.vistaDurable(w, r)
+	}
+	datos, err := h.resumen(r.Context())
+	if err != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "resumen", err)
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaBolsa lee solo la bolsa pedida, con nombres y marcas.
+func (h *bolsasRRHHDesarrollo) vistaBolsa(w http.ResponseWriter, r *http.Request, bolsaRef string) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.cargarBolsa == nil {
+		return h.vistaDurable(w, r)
+	}
+	datos, err := h.cargarBolsa(r.Context(), bolsaRef)
+	if err != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "bolsa", err)
 		return nil, false
 	}
 	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
@@ -422,27 +469,33 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	if bolsa == nil {
 		return nil, false
 	}
-	candidatas := make([]int, 0)
+	todos := make([]bolsaapplication.CandidatoTurno, 0)
+	contactosBolsa := make([]dominiobolsa.ContactoParticipacion, 0)
+	for _, candidata := range h.datos.Candidaturas {
+		if candidata.BolsaRef == ref {
+			todos = append(todos, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
+		}
+	}
+	for _, contacto := range h.datos.Contactos {
+		if contacto.BolsaRef == ref {
+			contactosBolsa = append(contactosBolsa, contacto)
+		}
+	}
+	turno := bolsaapplication.ProyectarTurnoCandidatos(bolsa.PoliticaOrden.Referencia, bolsa.PoliticaOrden.Version, bolsa.PoliticaOrden.Provisional, todos, contactosBolsa)
+	candidatas := make([]bolsaapplication.CandidatoTurno, 0)
+	indices := make(map[string]int)
 	for indice, candidata := range h.datos.Candidaturas {
 		if candidata.BolsaRef != ref || (consulta.estado != "" && estadoBolsaCanonico(candidata.Estado) != consulta.estado) || (consulta.texto != "" && !strings.Contains(strings.ToLower(candidata.Nombre+" "+candidata.Documento), consulta.texto)) {
 			continue
 		}
-		candidatas = append(candidatas, indice)
+		candidatas = append(candidatas, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
+		indices[candidata.Referencia] = indice
 	}
-	sort.Slice(candidatas, func(i, j int) bool {
-		a, b := h.datos.Candidaturas[candidatas[i]], h.datos.Candidaturas[candidatas[j]]
-		if a.Orden == nil {
-			return false
-		}
-		if b.Orden == nil {
-			return true
-		}
-		return *a.Orden < *b.Orden
-	})
+	candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
 	inicio := 0
 	if consulta.cursor != "" {
-		for i, indice := range candidatas {
-			if h.datos.Candidaturas[indice].Referencia == consulta.cursor {
+		for i, candidata := range candidatas {
+			if candidata.ParticipacionRef == consulta.cursor {
 				inicio = i + 1
 				break
 			}
@@ -456,8 +509,8 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 		fin = len(candidatas)
 	}
 	salida := make([]map[string]any, 0, fin-inicio)
-	for _, indice := range candidatas[inicio:fin] {
-		salida = append(salida, h.salidaCandidata(h.datos.Candidaturas[indice]))
+	for _, candidata := range candidatas[inicio:fin] {
+		salida = append(salida, h.salidaCandidata(h.datos.Candidaturas[indices[candidata.ParticipacionRef]]))
 	}
 	conteo := mapaEstadosVacio()
 	for _, candidata := range h.datos.Candidaturas {
@@ -468,7 +521,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	hayMas := fin < len(candidatas)
 	var siguiente any = nil
 	if hayMas {
-		siguiente = h.datos.Candidaturas[candidatas[fin-1]].Referencia
+		siguiente = candidatas[fin-1].ParticipacionRef
 	}
 	contactos := make([]map[string]any, 0)
 	for _, c := range h.datos.Contactos {
@@ -476,7 +529,21 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 			contactos = append(contactos, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": nuloBootstrap(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
 		}
 	}
-	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v2", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden), "candidatos": salida, "contactos": contactos, "turno": salidaTurnoCandidatos(turno), "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+}
+
+func salidaTurnoCandidatos(turno bolsaapplication.TurnoCandidatos) map[string]any {
+	var ultimo any
+	if turno.UltimoLlamado != nil {
+		candidato, contacto := turno.UltimoLlamado.Candidato, turno.UltimoLlamado.Contacto
+		ultimo = map[string]any{"participacion_ref": candidato.ParticipacionRef, "nombre_visible": candidato.NombreVisible, "orden": candidato.Orden, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
+	}
+	var siguiente any
+	if turno.Siguiente != nil {
+		candidato := turno.Siguiente
+		siguiente = map[string]any{"participacion_ref": candidato.ParticipacionRef, "nombre_visible": candidato.NombreVisible, "orden": candidato.Orden}
+	}
+	return map[string]any{"politica_ref": turno.PoliticaRef, "politica_version": turno.PoliticaVersion, "provisional": turno.Provisional, "ultimo_llamado": ultimo, "siguiente": siguiente, "estado_siguiente": turno.EstadoSiguiente}
 }
 
 func nuloBootstrap(v string) any {
@@ -492,7 +559,7 @@ func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, ha
 		p := politica[0]
 		criterio = map[string]any{"politica_ref": p.Referencia, "version": p.Version, "criterio": p.Criterio, "tipo_lista": p.TipoLista, "reposicion": p.Reposicion, "provisional": p.Provisional, "rotulo": p.Rotulo, "actor": p.Actor, "vigente_desde": p.VigenteDesde}
 	}
-	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["trabajando"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia"] + conteo["pendiente_incorporacion"] + conteo["disponible_desde"], "por_estado": conteo, "llamamientos_en_curso": llamamientos, "politica_orden": criterio}
+	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["trabajando"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia"] + conteo["pendiente_incorporacion"] + conteo["disponible_desde"] + conteo["en_revision"], "por_estado": conteo, "llamamientos_en_curso": llamamientos, "politica_orden": criterio}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
@@ -507,21 +574,19 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 	EstadoDesde string  `json:"estado_desde"`
 	Disponible  *string `json:"disponible_desde"`
 }) map[string]any {
-	var ultimo map[string]string
-	for _, llamada := range h.datos.Llamamientos {
-		if llamada.Candidatura == candidata.Referencia && (ultimo == nil || llamada.Comunicado > ultimo["comunicado_en"]) {
-			ultimo = map[string]string{"llamamiento_ref": llamada.Referencia, "comunicado_en": llamada.Comunicado, "canal": llamada.Canal, "resultado": llamada.Resultado}
-		}
-	}
 	var llamada any = nil
-	if ultimo != nil {
-		llamada = ultimo
-	}
 	contactos := 0
-	for _, c := range h.datos.Contactos {
-		if c.ParticipacionRef == candidata.Referencia {
+	contactosBolsa := make([]dominiobolsa.ContactoParticipacion, 0)
+	for _, contacto := range h.datos.Contactos {
+		if contacto.BolsaRef == candidata.BolsaRef && contacto.ParticipacionRef == candidata.Referencia {
 			contactos++
+			contactosBolsa = append(contactosBolsa, contacto)
 		}
+	}
+	candidatoTurno := bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia}
+	if ultimo := bolsaapplication.UltimoLlamadoDesdeContactos([]bolsaapplication.CandidatoTurno{candidatoTurno}, contactosBolsa); ultimo != nil {
+		contacto := ultimo.Contacto
+		llamada = map[string]any{"llamamiento_ref": contacto.LlamamientoRef, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
 	}
 	salida := map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
 	if h.datos.Marcas != nil {
@@ -583,7 +648,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 }
 
 func mapaEstadosVacio() map[string]int {
-	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0}
+	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0, "en_revision": 0}
 }
 func estadoBolsaCanonico(origen string) string { return origen }
 func estadoBolsaVisible(estado string) bool    { _, ok := mapaEstadosVacio()[estado]; return ok }

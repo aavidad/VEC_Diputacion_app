@@ -1,0 +1,6 @@
+# Corte 4c-3 de firmas: comprobación de la publicación vigente del plan antes del PDP.
+# Requiere la lista de firmas del plan (CC7, CT176). No toca el núcleo de Autorización.
+# CC8 sólo concede su comprobador al propietario CT; CT178 lo ofrece al ejecutor CT.
+# Cada migración se aplica una sola vez; ninguna tiene DOWN.
+deploy/postgresql/catalogos_configurables/migraciones/000008_comprobar_publicacion_plan_firma.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000178_comprobar_plan_firma_publicado.up.sql

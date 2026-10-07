@@ -75,3 +75,26 @@ func TestLectorFlujoVisualRRHHRechazaOrigenYManifestAlterados(t *testing.T) {
 		})
 	}
 }
+
+func TestFlujoVisualRRHHV2SigueHuellaAdministrativaPublicada(t *testing.T) {
+	d, err := cargarDefinicionCircuitoRRHH("../../../config/contratacion_temporal_circuito_rrhh_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := os.ReadFile("../../../config/contratacion_temporal_flujo_visual_rrhh_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lector, err := LeerLectorFlujoVisualRRHH(strings.NewReader(string(contenido)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resultado, err := lector.Resolver(t.Context(), d.Flujo, "resolucion"); err != nil || len(resultado.Fases) != 12 {
+		t.Fatalf("la presentación debe seguir la misma definición administrativa: fases=%d err=%v", len(resultado.Fases), err)
+	}
+	alterado := d.Flujo
+	alterado.HuellaSHA256 = strings.Repeat("a", 64)
+	if _, err := lector.Resolver(t.Context(), alterado, "resolucion"); !errors.Is(err, ErrManifestFlujoVisualRRHHInvalido) {
+		t.Fatalf("la presentación aceptó otra huella: %v", err)
+	}
+}

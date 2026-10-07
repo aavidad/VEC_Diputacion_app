@@ -23,8 +23,9 @@ import (
 // publica capacidades ni transforma el rol técnico RRHH en permiso Personal.
 // Autoridad/Detalle/Reloj de Preparacion se ligan aquí, no desde configuración.
 type ConfiguracionIncorporacionDesarrollo struct {
-	continuidad *continuidadNominalDesarrollo
-	nominales   *perfilesNominalesIncorporacion
+	legadoCompuesto bool
+	continuidad     *continuidadNominalDesarrollo
+	nominales       *perfilesNominalesIncorporacion
 	// fronteras se recibe de la composición del servidor y liga todas las
 	// subconsultas de incorporación al mismo catálogo inmutable CT/Bolsa.
 	// No se reconstruye ni se deduce desde la ruta.

@@ -1,0 +1,32 @@
+{
+  "esquema": "dietas-informes-csv-v1",
+  "referencia": "dietas-informes-csv-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_fecha": "02/01/2006",
+  "cabeceras": {
+    "referencia": "Referencia",
+    "version_comision": "Versión",
+    "persona": "Persona",
+    "unidad": "Unidad",
+    "situacion": "Situación del ejemplo",
+    "importe_incluido_centimos": "Importe incluido (céntimos)",
+    "aviso": "Aviso"
+  },
+  "campos_fecha": {
+    "fecha_inicio": "Fecha de inicio",
+    "fecha_liquidacion": "Fecha de liquidación",
+    "fecha_fiscalizacion": "Fecha de fiscalización"
+  },
+  "conceptos": {
+    "manutencion": "Manutención (céntimos)",
+    "kilometraje": "Kilometraje (céntimos)",
+    "otros_gastos": "Otros gastos (céntimos)"
+  },
+  "situaciones": {
+    "orientativo": "Orientativo",
+    "liquidado": "Liquidado",
+    "fiscalizado": "Fiscalizado"
+  },
+  "sintetico": "EJEMPLO SINTÉTICO. No es una liquidación registrada ni una exportación autorizada."
+}

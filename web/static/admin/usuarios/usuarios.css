@@ -1,0 +1,55 @@
+/* Composición de Usuarios sobre los componentes y tokens corporativos. */
+.usuarios {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100dvh - 180px);
+  flex-direction: column;
+  gap: 12px;
+  color: var(--portal-tinta);
+}
+.usuarios .cabeza-pagina { margin: 0; align-items: center; }
+.usuarios .cabeza-pagina h2 { font-size: 1.4rem; }
+.usuarios-estado { min-height: 24px; margin: 0; }
+.usuarios-trabajo { min-height: 0; overflow: auto; scrollbar-color: var(--portal-muted) var(--portal-superficie-alterna); }
+.usuarios-pestanas { display: flex; gap: 8px; flex-wrap: wrap; }
+.usuarios-pestanas button { min-height: 44px; padding: 8px 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); cursor: pointer; }
+.usuarios-pestanas button[aria-selected="true"] { border-color: var(--portal-azul-700); background: var(--portal-azul-100); color: var(--portal-azul-700); font-weight: 600; }
+.usuarios-filtros { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(120px, 1fr)); gap: 16px; align-items: end; }
+.usuarios-filtros .acciones-paso { grid-column: 1 / -1; margin: 0; justify-content: flex-end; }
+.usuarios-filtros-activos { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px; }
+.usuarios .tabla-contenedor { overflow: auto; max-height: none; }
+.usuarios .tabla-datos { min-width: 620px; }
+.usuarios .tabla-datos th, .usuarios .tabla-datos td { height: 48px; }
+.usuarios .tabla-datos tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
+.usuarios .enlace-fila { min-height: 32px; padding: 4px 0; border: 0; background: transparent; color: var(--portal-azul-700); font-weight: 600; text-align: start; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.usuarios-perfiles { display: grid; gap: 16px; margin: 12px 0 24px; padding: 0; list-style: none; }
+.usuarios-perfiles > li { padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.usuarios-acceso { margin-top: 24px; }
+.usuarios-fila-perfil { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.usuarios-seleccion { display: grid; gap: 16px; margin: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
+.usuarios-seleccion legend { font-weight: 600; padding: 0 8px; }
+.usuarios-opcion { padding: 12px 0; }
+.usuarios-opcion + .usuarios-opcion { border-top: 1px solid var(--portal-borde); }
+.usuarios-checkbox { display: flex; gap: 12px; align-items: center; font-weight: 600; min-height: 44px; cursor: pointer; }
+.usuarios-checkbox input { width: 24px; height: 24px; accent-color: var(--portal-azul-700); }
+.usuarios-historia { margin-top: 24px; }
+.usuarios-historia > summary { min-height: 44px; cursor: pointer; color: var(--portal-azul-700); font-weight: 600; }
+.usuarios-historial { display: grid; gap: 20px; padding-left: 24px; }
+.usuarios-historial p { margin: 4px 0; }
+.usuarios .resumen-expediente { margin: 12px 0; }
+.usuarios .resumen-expediente dd { overflow-wrap: anywhere; }
+.usuarios code { display: block; margin: 8px 0; overflow-wrap: anywhere; }
+.usuarios .acciones-paso { flex-wrap: wrap; }
+.usuarios-ayuda { max-width: 68ch; }
+.usuarios-ayuda p { padding: 12px; background: var(--portal-superficie-alterna); }
+@media (max-width: 850px) { .usuarios-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-height: 650px) { .usuarios { max-height: none; } .usuarios-trabajo { overflow: visible; } }
+@media (max-width: 600px) {
+  .usuarios { max-height: none; }
+  .usuarios-filtros { grid-template-columns: minmax(0, 1fr); }
+  .usuarios-trabajo { overflow: visible; }
+  .usuarios .cabecera-panel { flex-wrap: wrap; }
+  .usuarios .cuerpo-panel { padding: 16px; }
+  .usuarios .acciones-paso button { flex: 0 1 auto; width: 100%; min-height: 44px; }
+}

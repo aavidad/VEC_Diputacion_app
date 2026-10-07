@@ -1,4 +1,5 @@
 import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
+import { crearTraductorFichajeCronos, MENSAJES_FICHAJE_CRONOS } from "./i18n-fichaje.js?v=20261001-cronos-grafo-bandeja-v5";
 import { validarDisponibilidadRemota, validarReciboMarcajeRemoto } from "./cliente-remoto-http.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
@@ -20,7 +21,8 @@ function traducir(t, clave, variables) { return escapar(t(clave, variables)); }
 
 /** Modelo de presentación. No concede permisos: sólo representa el GET validado. */
 export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "consultando", recibo = null,
-  pendiente = null, avisoSecuencia = false, t = crearTraductorCronos(), locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
+  pendiente = null, avisoSecuencia = false, actualizacionLecturasPendiente = false,
+  t = crearTraductorCronos(), tFichaje = crearTraductorFichajeCronos(), locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   let disponible = null; let continuidadAusente = false; let secuenciaAusente = false;
   if (disponibilidad) {
     try { disponible = validarDisponibilidadRemota(disponibilidad); }
@@ -71,20 +73,24 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
   }).join("");
   const reintento = ["incierto", "servicio_incierto", "recuperacion_no_disponible", "autenticacion", "acceso_denegado"].includes(estado) && pendiente
     ? `<button type="button" data-cronos-remoto-reintentar class="boton-primario">${traducir(t, "remoto_reintentar")}</button>` : "";
-  const resultado = estado === "registrado" && recibo
-    ? `<div class="cronos-estado cronos-estado-exito" role="status">${traducir(t, recibo.replay ? "remoto_replay" : "remoto_registrado")}</div>
+  const mensajeEstado = recibo && !pendiente && estado === "consultando"
+    ? traducir(tFichaje, "consultando_siguiente")
+    : recibo && !pendiente && ["error", "servicio", "no_disponible"].includes(estado)
+      ? traducir(tFichaje, "error_actualizacion") : traducir(t, etiquetaEstado);
+  const resultado = recibo
+    ? `<div data-cronos-remoto-recibo tabindex="-1"><div class="cronos-estado cronos-estado-exito" role="status" aria-live="polite">${estado === "registrado" ? traducir(t, recibo.replay ? "remoto_replay" : "remoto_registrado") : traducir(tFichaje, "ultimo_confirmado")}</div>
       <dl class="cronos-resumen-datos"><div><dt>${traducir(t, "remoto_hora_servidor")}</dt><dd><time datetime="${escapar(recibo.instante_utc)}">${escapar(instanteVisible(recibo.instante_utc, locale, zonaHoraria))}</time></dd></div>
-      <div><dt>${traducir(t, "remoto_recibo")}</dt><dd><code>${escapar(recibo.referencia)}</code></dd></div></dl>` : "";
+      <div><dt>${traducir(t, "remoto_recibo")}</dt><dd><code>${escapar(recibo.referencia)}</code></dd></div></dl></div>` : "";
   return `<section class="panel cronos-panel" data-cronos-remoto aria-labelledby="cronos-remoto-titulo">
     <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-remoto-titulo">${traducir(t, "remoto_titulo")}</h3>
       <p>${traducir(t, "remoto_origen")}</p></div>
       <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}" title="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}">?</button></div>
     <div class="cuerpo-panel"><p>${escapar(periodo)}</p>
-      <p class="${estado === "no_disponible" ? "cronos-vacio" : `cronos-estado cronos-estado-${autorizado && estado === "listo" && disponible.movimientos_permitidos.length ? "exito" : "aviso"}`}" role="status" aria-live="polite">${traducir(t, etiquetaEstado)}${estado === "servicio_incierto" ? ` ${traducir(t, "remoto_incierto")}` : ""}</p>
+      <p data-cronos-remoto-estado tabindex="-1" class="${estado === "no_disponible" ? "cronos-vacio" : `cronos-estado cronos-estado-${autorizado && estado === "listo" && disponible.movimientos_permitidos.length ? "exito" : "aviso"}`}" role="status" aria-live="polite">${mensajeEstado}${estado === "servicio_incierto" ? ` ${traducir(t, "remoto_incierto")}` : ""}</p>
       ${avisoSecuencia ? `<p role="status">${traducir(t, "remoto_secuencia_no_permitida")}</p>` : ""}
       <div class="cronos-acciones">${estado === "no_disponible" ? "" : acciones}${reintento}
         <button type="button" data-cronos-remoto-actualizar class="boton-secundario" ${pendiente || ["consultando", "enviando", "recuperando", "incierto", "servicio_incierto", "recuperacion_no_disponible"].includes(estado) ? 'disabled aria-disabled="true"' : ""}>${traducir(t, "remoto_actualizar")}</button></div>
-      ${resultado}</div>
+      ${resultado}${actualizacionLecturasPendiente ? `<p role="status" aria-live="polite">${traducir(tFichaje, "lecturas_pendientes")}</p>` : ""}</div>
   </section>`;
 }
 
@@ -96,26 +102,60 @@ function nuevaClave(cryptoImpl) {
   return clave;
 }
 
-/** Montaje explícito del bloque remoto; el shell decide cuándo mostrarlo. */
+/**
+ * Montaje explícito; el shell decide cuándo mostrarlo.
+ * onRegistrado recibe una copia congelada tras validar POST o recuperación.
+ * Puede devolver una promesa de actualización de otras lecturas. Su fallo deja
+ * actualizacionLecturasPendiente, sin alterar el recibo ni permitir otro POST.
+ */
 export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS,
+  mensajesFichaje = MENSAJES_FICHAJE_CRONOS, onRegistrado,
   cryptoImpl = globalThis.crypto, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   if (!raiz?.ownerDocument?.createElement || typeof raiz.append !== "function"
-    || typeof cliente?.disponibilidad !== "function" || typeof cliente?.registrar !== "function") {
+    || typeof cliente?.disponibilidad !== "function" || typeof cliente?.registrar !== "function"
+    || (onRegistrado !== undefined && typeof onRegistrado !== "function")) {
     throw new TypeError("montaje remoto de Cronos incompleto");
   }
   const t = crearTraductorCronos(mensajes);
+  const tFichaje = crearTraductorFichajeCronos(mensajesFichaje);
   const nodo = raiz.ownerDocument.createElement("div");
   let activo = true; let generacion = 0; let controlador = null;
+  let notificacion = 0; let actualizacionLecturasPendiente = false;
   let disponibilidad = null; let estado = "consultando"; let pendiente = null; let recibo = null; let avisoSecuencia = false;
   function pintar() {
     if (!activo) return;
-    nodo.innerHTML = renderizarVistaRemotoCronos({ disponibilidad, estado, recibo, pendiente, avisoSecuencia, t, locale, zonaHoraria });
+    const enfocado = raiz.ownerDocument.activeElement;
+    const restaurar = nodo.contains?.(enfocado) === true;
+    const movimiento = enfocado?.getAttribute?.("data-cronos-remoto-movimiento");
+    const selector = MOVIMIENTOS.includes(movimiento) ? `[data-cronos-remoto-movimiento="${movimiento}"]:not(:disabled)`
+      : enfocado?.hasAttribute?.("data-cronos-remoto-actualizar") ? "[data-cronos-remoto-actualizar]:not(:disabled)"
+        : enfocado?.getAttribute?.("data-accion") === "ayuda" ? '[data-accion="ayuda"]' : null;
+    nodo.innerHTML = renderizarVistaRemotoCronos({ disponibilidad, estado, recibo, pendiente, avisoSecuencia, actualizacionLecturasPendiente, t, tFichaje, locale, zonaHoraria });
+    if (restaurar) {
+      const destino = (selector && nodo.querySelector?.(selector))
+        || nodo.querySelector?.("[data-cronos-remoto-reintentar]")
+        || nodo.querySelector?.("[data-cronos-remoto-movimiento]:not(:disabled)")
+        || nodo.querySelector?.("[data-cronos-remoto-actualizar]:not(:disabled)")
+        || nodo.querySelector?.("[data-cronos-remoto-recibo]")
+        || nodo.querySelector?.("[data-cronos-remoto-estado]");
+      destino?.focus({ preventScroll: true });
+    }
+  }
+  function notificarRegistro() {
+    // El recibo ya está confirmado: un consumidor no puede convertirlo en incierto.
+    const version = ++notificacion; actualizacionLecturasPendiente = false;
+    const alFallar = () => {
+      if (!activo || version !== notificacion) return;
+      actualizacionLecturasPendiente = true; pintar();
+    };
+    try { Promise.resolve(onRegistrado?.(Object.freeze({ ...recibo }))).catch(alFallar); }
+    catch { alFallar(); }
   }
   function cancelar() { controlador?.abort(); controlador = null; generacion += 1; }
   async function actualizar() {
     if (!activo || pendiente || ["enviando", "recuperando", "incierto", "servicio_incierto", "recuperacion_no_disponible"].includes(estado)) return;
     cancelar(); const version = generacion; controlador = new AbortController();
-    disponibilidad = null; recibo = null; estado = "consultando"; pintar();
+    disponibilidad = null; estado = "consultando"; pintar();
     try {
       const respuesta = await cliente.disponibilidad({ signal: controlador.signal });
       if (!activo || version !== generacion) return;
@@ -154,7 +194,8 @@ export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRO
         const recuperado = await cliente.recuperar(pendiente, { signal: controlador.signal });
         if (!activo || version !== generacion) return;
         recibo = validarReciboMarcajeRemoto({ recibo: recuperado });
-        pendiente = null; estado = "registrado"; controlador = null; pintar(); return;
+        pendiente = null; estado = "registrado"; controlador = null; pintar();
+        notificarRegistro(); await actualizar(); return;
       } catch (error) {
         if (!activo || version !== generacion) return;
         if (error?.codigo !== "ausencia_confirmada" || error?.estado !== 404) {
@@ -187,7 +228,7 @@ export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRO
       if (!activo || version !== generacion) return;
       // También valida adaptadores inyectados: la vista no confirma por una mera promesa resuelta.
       recibo = validarReciboMarcajeRemoto({ recibo: respuesta });
-      pendiente = null; estado = "registrado";
+      pendiente = null; estado = "registrado"; refrescar = true;
     } catch (error) {
       if (!activo || version !== generacion) return;
       if (error?.codigo === "teletrabajo_no_autorizado") {
@@ -209,7 +250,13 @@ export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRO
       } else {
         pendiente = null; estado = "error_registro";
       }
-    } finally { if (activo && version === generacion) { controlador = null; pintar(); if (refrescar) void actualizar(); } }
+    } finally {
+      if (activo && version === generacion) {
+        controlador = null; pintar();
+        if (estado === "registrado") notificarRegistro();
+        if (refrescar) await actualizar();
+      }
+    }
   }
   function alPulsar(evento) {
     const boton = evento.target?.closest?.("[data-cronos-remoto-movimiento], [data-cronos-remoto-reintentar], [data-cronos-remoto-actualizar]");
@@ -221,5 +268,5 @@ export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRO
   nodo.addEventListener("click", alPulsar);
   raiz.append(nodo); pintar(); void actualizar();
   return Object.freeze({ actualizar, enviar, desmontar() { if (!activo) return; activo = false; cancelar(); nodo.removeEventListener("click", alPulsar); nodo.remove(); },
-    estado: () => Object.freeze({ estado, disponibilidad, pendiente: pendiente && { ...pendiente }, recibo }) });
+    estado: () => Object.freeze({ estado, disponibilidad, pendiente: pendiente && { ...pendiente }, recibo, actualizacionLecturasPendiente }) });
 }

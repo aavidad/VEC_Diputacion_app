@@ -1,0 +1,19 @@
+{
+  "copias_restauracion_propuesta_invalida": "La propuesta está incompleta o contiene datos no admitidos.",
+  "copias_restauracion_propuesta_alterada": "La propuesta ha cambiado. Prepare otra propuesta y vuelva a revisarla.",
+  "copias_restauracion_caducada": "La propuesta ha caducado. Prepare otra propuesta.",
+  "copias_restauracion_misma_persona": "La revisión debe hacerla otra persona.",
+  "copias_restauracion_configuracion_invalida": "El doble control es obligatorio en operación. Solo se puede desactivar expresamente en el ejemplo offline.",
+  "copias_restauracion_autoridad_no_vigente": "No se ha acreditado un permiso vigente para esta acción.",
+  "copias_restauracion_dependencia_ausente": "Falta un proveedor necesario para comprobar la operación.",
+  "copias_restauracion_compatibilidad_bloqueada": "El conjunto no es compatible o no se puede comprobar.",
+  "copias_restauracion_preimagen_cambiada": "El destino, el conjunto o la política han cambiado. Prepare otra propuesta.",
+  "copias_restauracion_copia_previa_ausente": "Falta una copia completa y verificada del estado actual bajo la misma exclusión de escritores.",
+  "copias_restauracion_ventana_no_vigente": "La ventana de restauración no está vigente.",
+  "copias_restauracion_cas_conflicto": "La versión revisada ya no coincide con la versión guardada.",
+  "copias_restauracion_registro_no_valido": "No se puede comprobar el registro de propuestas.",
+  "copias_restauracion_error_argumentos": "Indique un directorio privado de registro y una acción admitida.",
+  "copias_restauracion_error_entrada": "La entrada no cumple el formato requerido.",
+  "copias_restauracion_declaracion_guardada": "La declaración offline está guardada. No acredita identidad, permiso ni restauración.",
+  "copias_restauracion_perdida_cambios": "La restauración sustituirá el conjunto completo del destino. Se perderán los cambios posteriores a la copia; deben revisarse y conciliarse antes de continuar."
+}

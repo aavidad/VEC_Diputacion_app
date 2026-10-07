@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title></title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-inc-b2-a11y-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1" />
+    <script type="module" src="./arranque.js?v=20261002-admin-modulos-v1"></script>
+  </head>
+  <body class="portal-empleado-app">
+    <a class="salto-contenido" href="#espacio-trabajo" data-i18n="general.saltar"></a>
+    <main class="portal-superficie">
+      <header class="cabecera-portal">
+        <div class="contexto-cabecera">
+          <nav class="migas" data-i18n-label="general.ruta"><span data-i18n="general.administracion"></span></nav>
+          <h1 data-i18n="general.titulo"></h1>
+        </div>
+        <div class="acciones-cabecera">
+          <label class="campo"><span data-i18n="general.idioma"></span><select id="idioma"></select></label>
+          <details><summary class="boton-cabecera" data-i18n="general.ayuda"></summary><p data-i18n="general.ayuda_contenido"></p></details>
+        </div>
+      </header>
+      <div class="contenido-portal"><div id="espacio-trabajo" tabindex="-1"></div></div>
+    </main>
+  </body>
+</html>

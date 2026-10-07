@@ -8,7 +8,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 const HUELLA = "a".repeat(64);
 const FORM_DATA_ORIGINAL = globalThis.FormData;
@@ -665,7 +665,7 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
   const { expediente, tareaRef } = crearExpediente();
   const reciboAlta = {
     expediente_ref: "expediente:alta:analisis:001",
-    numero_visible: "2026/CT-9001",
+    numero_visible: "2026/9001",
     version: 1,
     recibo_ref: "recibo:alta:analisis:001",
     confirmada_en: "2026-09-04T08:15:00Z",
@@ -679,6 +679,7 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
     alta: {
       catalogos: {
         esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        numero_expediente_moad: { referencia: "catalogo:ct:moad", version: 1, patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/9001" },
         centros: [{
           referencia: "centro:sintetico:001",
           etiqueta: "Centro sintético",
@@ -718,6 +719,7 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
   });
   const alta = escenario.raiz.obtenerAlta();
   alta.enviar({
+    numero_expediente_moad: "2026/9001",
     centro_ref: "centro:sintetico:001",
     contacto_ref: "contacto:sintetico:001",
     categoria_ref: "categoria:rrhh:001",

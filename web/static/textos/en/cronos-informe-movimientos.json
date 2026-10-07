@@ -1,0 +1,28 @@
+{
+  "version": "1",
+  "formato_fecha": "02/01/2006",
+  "formato_hora": "15:04:05 -07:00 MST",
+  "referencia": "cronos-informe-movimientos-en",
+  "idioma": "en-GB",
+  "titulo": "Clocking events for the period",
+  "sintetico": "Synthetic example. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
+  "nombre_sintetico": "Example person: {{nombre}}",
+  "periodo": "Period: {{desde}} to {{hasta}}",
+  "zona": "Time zone: {{zona}}",
+  "fuente_completa": "The example source is declared complete. It does not verify the real register.",
+  "fuente_incompleta": "The example source is incomplete. Information may be missing.",
+  "fila": "{{fecha}} {{hora}}. {{movimiento}}. Origin: {{origen}}.",
+  "origen_sin_verificar": "Unverified",
+  "vacio": "The example list has no clocking events. This does not establish an absence from work.",
+  "limite": "This document lists the facts supplied for the example. It does not calculate time worked, a balance or absences.",
+  "movimientos": {
+    "entrada": "Clock in",
+    "salida": "Clock out",
+    "inicio_pausa": "Start break",
+    "fin_pausa": "End break"
+  },
+  "origenes": {
+    "terminal": "Terminal (declared)",
+    "remoto": "Remote (declared)"
+  }
+}

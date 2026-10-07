@@ -1,0 +1,8 @@
+# Borrador CT172: binding del descriptor por AD170 nuevo, aún sin ensayo final.
+# Verificar la preimagen inventariada antes de ensayar.
+# Requiere CT170/CT174, AD162/AD170 y AUT32/AUT35 con fuentes CA25/Personal28/29.
+# ABI AUT35 acordado el 03/10: fabricante interno jsonb/jsonb/jsonb → bytea.
+# Falta publicar y revisar su candidata y ensayar esta migración exacta.
+# Esta lista no acredita instalación ni autoriza activar CT172.
+# Añadir únicamente deltas causales faltantes; no reaplicar prefijos instalados.
+deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql

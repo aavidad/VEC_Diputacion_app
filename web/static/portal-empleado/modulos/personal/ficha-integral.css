@@ -54,6 +54,7 @@
 .personal-ficha-panel-ancho { grid-column: 1 / -1; }
 .personal-ficha-panel .cuerpo-panel { display: grid; gap: var(--portal-espacio-3); }
 .personal-ficha-panel .cuerpo-panel > p { margin: 0; }
+.personal-ficha-panel dl { min-width: 0; overflow-wrap: anywhere; }
 
 .personal-ficha-bloques {
   display: grid;
@@ -131,3 +132,11 @@
   .personal-ficha-pestanas button { min-height: 44px; }
   .personal-ficha-desplazar { display: block; }
 }
+
+.personal-ficha-corte { display: flex; flex-wrap: wrap; align-items: end; gap: var(--portal-espacio-3); }
+.personal-ficha-corte-campo { display: grid; min-width: 0; gap: var(--portal-espacio-1); }
+.personal-ficha-corte label { font-size: .83rem; font-weight: 650; }
+.personal-ficha-corte input { box-sizing: border-box; min-height: 40px; max-width: 100%; padding: var(--portal-espacio-2); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
+.personal-ficha-corte-campo p { margin: 0; color: var(--portal-peligro); }
+.personal-ficha-corte-campo p:empty { display: none; }
+.personal-ficha-corte button { min-height: 40px; }

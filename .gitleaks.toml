@@ -12,6 +12,14 @@ regexes = [
   '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
 ]
 
+# Un selector Go de huella coincide con la expresión Vault del detector.
+# Solo esa regla y ese identificador exacto quedan exceptuados.
+[[rules]]
+id = "vault-service-token"
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [ '''^s[.]AceptacionRegistroSHA256$''' ]
+
 [[rules]]
 id = "vep-contrasena-asignada"
 description = "Contrasena escrita en claro"
@@ -58,6 +66,11 @@ regexes = [
   '''^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
   '''^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
 ]
+
+# Referencia pública de clave sintética; material sólo en scratch privado.
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [ '''^clave:rpt27:ensayo$''' ]
 
 [[rules]]
 id = "vep-par-credenciales-directo"

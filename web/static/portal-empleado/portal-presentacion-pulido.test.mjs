@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   enfocarYMostrarResultado,
   restaurarFocoTrasReintentoBorradores,
-} from "./portal-eventos.js";
+} from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 
 test("el recibo dinámico conserva el foco y queda visible respetando movimiento reducido", () => {
   const llamadas = [];

@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	core "vec-diputacion-granada/internal/vec/domain"
+
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 type consultaSnapshotContextoExterno interface {
@@ -157,7 +160,7 @@ func EjecutarProvisionCandidatoExterno(ctx context.Context, cfg config.Config, d
 }
 
 func revertirProvisionExterna(ctx context.Context, tx pgx.Tx) error {
-	limite, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	limite, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if err := tx.Rollback(limite); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 		return ErrProvisionCandidatoExterno
@@ -181,6 +184,7 @@ func abrirPoolProvisionCandidatoExterno(ctx context.Context, dsn string) (*pgxpo
 	for k, v := range map[string]string{"application_name": "vec-provisionar-candidato-externo", "search_path": "pg_catalog", "timezone": "UTC", "statement_timeout": "15s", "lock_timeout": "3s", "idle_in_transaction_session_timeout": "20s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, ErrProvisionCandidatoExterno

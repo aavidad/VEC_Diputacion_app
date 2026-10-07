@@ -22,7 +22,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
-} from "./portal-bolsas-contrato.js";
+} from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
 
 import {
   consultarBolsas,
@@ -32,9 +32,9 @@ import {
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js";
+} from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
 
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
@@ -444,7 +444,7 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   assert.match(html, /Nuevo llamamiento/);
   assert.match(html, /Registrar resultado/);
   assert.match(html, /data-bolsa-accion="iniciar-b7"/);
-  assert.match(html, /disabled aria-disabled="true">Registrar resultado/);
+  assert.match(html, /href="\/portal-empleado\/#contratacion-temporal">Registrar resultado en Peticiones de personal temporal<\/a>/);
   assert.doesNotMatch(html, /Pendiente de RRHH/);
   assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 

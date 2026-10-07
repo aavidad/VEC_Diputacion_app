@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"sort"
@@ -311,6 +312,37 @@ type NecesidadCobertura struct {
 	FinPrevisto       time.Time            `json:"fin_previsto"`
 	CreadaEn          time.Time            `json:"creada_en"`
 	Requisitos        []RequisitoCobertura `json:"requisitos"`
+	CausaFinClave     string               `json:"causa_fin_clave,omitempty"`
+}
+
+// MarshalJSON conserva los bytes de las necesidades fechadas. Una necesidad
+// abierta publica null, nunca una fecha ficticia derivada del valor cero de Go.
+func (n NecesidadCobertura) MarshalJSON() ([]byte, error) {
+	type canonico NecesidadCobertura
+	if !n.FinPrevisto.IsZero() {
+		return json.Marshal(canonico(n))
+	}
+	type abierto struct {
+		NecesidadRef      string               `json:"necesidad_ref"`
+		Version           uint64               `json:"version"`
+		BolsaRef          string               `json:"bolsa_ref"`
+		VersionBolsa      uint64               `json:"version_bolsa"`
+		HuellaBolsaSHA256 string               `json:"huella_bolsa_sha256"`
+		CategoriaRef      string               `json:"categoria_ref"`
+		PuestoRef         string               `json:"puesto_ref"`
+		UnidadRef         string               `json:"unidad_ref"`
+		TipoCoberturaRef  string               `json:"tipo_cobertura_ref"`
+		NumeroPuestos     uint64               `json:"numero_puestos"`
+		InicioPrevisto    time.Time            `json:"inicio_previsto"`
+		FinPrevisto       *time.Time           `json:"fin_previsto"`
+		CreadaEn          time.Time            `json:"creada_en"`
+		Requisitos        []RequisitoCobertura `json:"requisitos"`
+		CausaFinClave     string               `json:"causa_fin_clave"`
+	}
+	return json.Marshal(abierto{n.NecesidadRef, n.Version, n.BolsaRef, n.VersionBolsa,
+		n.HuellaBolsaSHA256, n.CategoriaRef, n.PuestoRef, n.UnidadRef,
+		n.TipoCoberturaRef, n.NumeroPuestos, n.InicioPrevisto, nil, n.CreadaEn,
+		n.Requisitos, n.CausaFinClave})
 }
 
 type AltaNecesidadCobertura = NecesidadCobertura
@@ -325,9 +357,11 @@ func NuevaNecesidadCobertura(alta AltaNecesidadCobertura) (NecesidadCobertura, e
 	if err != nil {
 		return NecesidadCobertura{}, ErrNecesidadCoberturaInvalida
 	}
-	necesidad.FinPrevisto, err = normalizarInstanteLlamamiento(necesidad.FinPrevisto)
-	if err != nil {
-		return NecesidadCobertura{}, ErrNecesidadCoberturaInvalida
+	if !necesidad.FinPrevisto.IsZero() {
+		necesidad.FinPrevisto, err = normalizarInstanteLlamamiento(necesidad.FinPrevisto)
+		if err != nil {
+			return NecesidadCobertura{}, ErrNecesidadCoberturaInvalida
+		}
 	}
 	necesidad.CreadaEn, err = normalizarInstanteLlamamiento(necesidad.CreadaEn)
 	if err != nil {
@@ -350,9 +384,10 @@ func (n NecesidadCobertura) Validar() error {
 		!referenciaLlamamientoOpacaValida(n.UnidadRef) ||
 		!referenciaLlamamientoOpacaValida(n.TipoCoberturaRef) ||
 		n.NumeroPuestos == 0 || n.NumeroPuestos > maximoPuestosNecesidad ||
-		!instanteLlamamientoCanonico(n.InicioPrevisto) || !instanteLlamamientoCanonico(n.FinPrevisto) ||
-		!instanteLlamamientoCanonico(n.CreadaEn) || !n.FinPrevisto.After(n.InicioPrevisto) ||
-		!n.CreadaEn.Before(n.FinPrevisto) ||
+		!instanteLlamamientoCanonico(n.InicioPrevisto) || !instanteLlamamientoCanonico(n.CreadaEn) ||
+		(n.FinPrevisto.IsZero() && !claveLlamamientoValida(n.CausaFinClave)) ||
+		(!n.FinPrevisto.IsZero() && (n.CausaFinClave != "" || !instanteLlamamientoCanonico(n.FinPrevisto) ||
+			!n.FinPrevisto.After(n.InicioPrevisto) || !n.CreadaEn.Before(n.FinPrevisto))) ||
 		len(n.Requisitos) > maximoRequisitosCobertura {
 		return ErrNecesidadCoberturaInvalida
 	}
@@ -365,6 +400,11 @@ func (n NecesidadCobertura) Validar() error {
 		}
 	}
 	return nil
+}
+
+func (n NecesidadCobertura) HorizonteVigenteEn(instante time.Time) bool {
+	return instanteLlamamientoCanonico(instante) && !instante.Before(n.CreadaEn) &&
+		(n.FinPrevisto.IsZero() || instante.Before(n.FinPrevisto))
 }
 
 func (n NecesidadCobertura) ClonarCanonica() (NecesidadCobertura, error) {
@@ -859,9 +899,9 @@ func proponerLlamamiento(orden OrdenProponerPrimerLlamamiento, continuacion *Ant
 		instantanea.HuellaListadoSHA256 != bolsa.HuellaListadoSHA256 ||
 		!bolsa.VigenteEn(instantanea.ReferidaEn) || !politica.VigenteEn(instantanea.ReferidaEn) ||
 		!bolsa.VigenteEn(generadaEn) || !politica.VigenteEn(generadaEn) ||
-		instantanea.ReferidaEn.Before(necesidad.CreadaEn) || !instantanea.ReferidaEn.Before(necesidad.FinPrevisto) ||
+		!necesidad.HorizonteVigenteEn(instantanea.ReferidaEn) ||
 		generadaEn.Before(instantanea.GeneradaEn) || generadaEn.Before(necesidad.CreadaEn) ||
-		!generadaEn.Before(necesidad.FinPrevisto) {
+		!necesidad.HorizonteVigenteEn(generadaEn) {
 		return PropuestaLlamamiento{}, ErrPropuestaLlamamientoInvalida
 	}
 	huellaBolsa, err := bolsa.HuellaCanonicaSHA256()

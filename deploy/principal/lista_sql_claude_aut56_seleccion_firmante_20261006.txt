@@ -1,0 +1,5 @@
+# AUT56 (4c-4, corte 2): AUT35 coteja el enlace de cargo por TIPO de recurso del paso y fachada
+# seleccionar_firmante_plan_ct_v1 para el ejecutor CT. Requiere Personal37 y Personal38 (#765, #776),
+# que deben instalarse justo antes: con Personal38 sola la firma nominal queda cerrada hasta AUT56.
+# Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion/migraciones/000056_seleccion_firmante_plan_ct.up.sql

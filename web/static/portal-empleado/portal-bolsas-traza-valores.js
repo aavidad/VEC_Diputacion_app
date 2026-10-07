@@ -4,8 +4,8 @@
 // cambió (nunca el correo o el teléfono en claro).
 
 import { actorTraducido } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const CAMPOS = Object.freeze({
   situacion: "campo_situacion",
@@ -16,7 +16,7 @@ const CAMPOS = Object.freeze({
   telefono_2: "campo_telefono_2",
 });
 
-const SITUACIONES = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
+const SITUACIONES = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
 const VERSION = /^version:([1-9][0-9]{0,18})$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$/;
 
@@ -44,6 +44,7 @@ const TEXTOS = Object.freeze({
   situacion_renuncia: "Renuncia",
   situacion_excluido: "Excluido",
   situacion_disponible_desde: "Disponible desde una fecha",
+  situacion_en_revision: traducirPortal("txt_b8_en_revision"),
   paginacion: "Paginación de cambios registrados",
   mostrando: "Mostrando {desde} a {hasta} de {total}",
   anterior: "Anterior",

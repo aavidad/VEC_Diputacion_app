@@ -49,6 +49,12 @@ type PoliticaInterna string
 
 const PoliticaInternaDesarrolloCertificadoPersonal PoliticaInterna = "desarrollo_certificado_personal_protegido"
 
+// PoliticaAdministracion identifica la excepcion temporal exclusiva de ADMIN.
+// La fecha limita tanto la admision del certificado como la red abierta.
+type PoliticaAdministracion string
+
+const PoliticaAdministracionCertificadoTemporal PoliticaAdministracion = "administracion_certificado_temporal"
+
 // Valida informa de si la superficie pertenece al conjunto cerrado.
 func (s Superficie) Valida() bool {
 	switch s {
@@ -107,6 +113,9 @@ type ConfiguracionSuperficie struct {
 	RequiereCuentaPrivilegiada          bool
 	PoliticaInterna                     PoliticaInterna
 	RetiradaPoliticaInternaEn           time.Time
+	PoliticaAdministracion              PoliticaAdministracion
+	RetiradaPoliticaAdministracionEn    time.Time
+	CertificadoClienteDirecto           bool
 }
 
 // Validar aplica invariantes de una superficie individual. Ante cualquier
@@ -142,7 +151,8 @@ func (c ConfiguracionSuperficie) Validar() error {
 			c.MinimoFactoresVerificados != 0 || c.MinimoGruposCriptograficosDistintos != 0 ||
 			c.GarantiaMinima != "" || c.RequiereCuentaPrivilegiada || c.DuracionMaximaAsercion != 0 ||
 			c.EdadMaximaAutenticacion != 0 || c.ToleranciaReloj != 0 ||
-			c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero() {
+			c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero() ||
+			c.PoliticaAdministracion != "" || !c.RetiradaPoliticaAdministracionEn.IsZero() || c.CertificadoClienteDirecto {
 			return fmt.Errorf("%w: la superficie anonima no puede crear ni aceptar sesiones", ErrConfiguracionSuperficie)
 		}
 		return nil
@@ -158,8 +168,15 @@ func (c ConfiguracionSuperficie) Validar() error {
 		!c.GarantiaMinima.Valida() {
 		return fmt.Errorf("%w: emisor, duracion y frescura de autenticacion son obligatorios", ErrConfiguracionSuperficie)
 	}
-	if err := validarConfianzaProxyTLS(c); err != nil {
-		return err
+	if c.CertificadoClienteDirecto {
+		if c.Superficie != SuperficieAdministracionPrivilegiada ||
+			len(c.HuellasProxyTLSPermitidas) != 0 || len(c.IdentidadesSANProxyPermitidas) != 0 {
+			return fmt.Errorf("%w: el certificado directo solo pertenece a ADMIN", ErrConfiguracionSuperficie)
+		}
+	} else {
+		if err := validarConfianzaProxyTLS(c); err != nil {
+			return err
+		}
 	}
 	if err := validarPoliticaFactores(c); err != nil {
 		return err
@@ -168,6 +185,10 @@ func (c ConfiguracionSuperficie) Validar() error {
 	if c.Superficie != SuperficieInternaCorporativa &&
 		(c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero()) {
 		return fmt.Errorf("%w: la politica temporal solo pertenece a la superficie interna", ErrConfiguracionSuperficie)
+	}
+	if c.Superficie != SuperficieAdministracionPrivilegiada &&
+		(c.PoliticaAdministracion != "" || !c.RetiradaPoliticaAdministracionEn.IsZero()) {
+		return fmt.Errorf("%w: politica ADMIN en otra superficie", ErrConfiguracionSuperficie)
 	}
 	switch c.Superficie {
 	case SuperficieExternaPersonal:
@@ -191,6 +212,22 @@ func (c ConfiguracionSuperficie) Validar() error {
 		}
 		fallthrough
 	case SuperficieAdministracionPrivilegiada:
+		if c.PoliticaAdministracion == PoliticaAdministracionCertificadoTemporal {
+			if !c.CertificadoClienteDirecto || c.RetiradaPoliticaAdministracionEn.IsZero() ||
+				!time.Now().Before(c.RetiradaPoliticaAdministracionEn) ||
+				c.RetiradaPoliticaAdministracionEn.Location() != time.UTC ||
+				c.RetiradaPoliticaAdministracionEn.Nanosecond() != 0 ||
+				len(c.MetodosAdmitidos) != 1 || c.MetodosAdmitidos[0] != MetodoCertificado ||
+				len(c.FactoresRequeridos) != 1 || c.FactoresRequeridos[0] != MetodoCertificado ||
+				c.MinimoFactoresVerificados != 1 || c.MinimoGruposCriptograficosDistintos != 1 ||
+				c.GarantiaMinima != dominiovec.AuthAssuranceHigh {
+				return fmt.Errorf("%w: politica ADMIN temporal incompleta", ErrConfiguracionSuperficie)
+			}
+			break
+		}
+		if c.PoliticaAdministracion != "" || !c.RetiradaPoliticaAdministracionEn.IsZero() {
+			return fmt.Errorf("%w: politica ADMIN desconocida", ErrConfiguracionSuperficie)
+		}
 		if !contieneMetodo(c.FactoresRequeridos, MetodoKerberos) ||
 			!contieneMetodo(c.FactoresRequeridos, MetodoCertificado) ||
 			c.MinimoGruposCriptograficosDistintos < 2 || c.GarantiaMinima != dominiovec.AuthAssuranceHigh {

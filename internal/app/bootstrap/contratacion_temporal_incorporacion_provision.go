@@ -28,6 +28,9 @@ type perfilesNominalesIncorporacion struct {
 	soporte           *soporteAltaContratacionTemporalDesarrollo
 	consultas         *autoridadConsultasRRHHDesarrollo
 	detalle, alta, ct *perfilFijoCTDesarrollo
+	b2                map[string]*perfilFijoCTDesarrollo
+	montajeB2         *montajeIncorporacionPersonalB2
+	legadoCompuesto   bool
 }
 
 func principalCanalNominalIncorporacion(s *soporteAltaContratacionTemporalDesarrollo) core.Principal {
@@ -96,7 +99,7 @@ func nuevosPerfilesNominalesIncorporacion(s *soporteAltaContratacionTemporalDesa
 	if err != nil {
 		return nil, err
 	}
-	return &perfilesNominalesIncorporacion{s, consultas, detalle, alta, confirmacion}, nil
+	return &perfilesNominalesIncorporacion{soporte: s, consultas: consultas, detalle: detalle, alta: alta, ct: confirmacion, legadoCompuesto: true}, nil
 }
 
 // Debe invocarse antes de construir el catálogo inmutable. La selección
@@ -143,7 +146,7 @@ func provisionarPerfilesNominalesIncorporacion(ctx context.Context, pool *pgxpoo
 	if p == nil || p.soporte == nil {
 		return ct.ErrComposicionIncorporacionAplicacion
 	}
-	for _, perfil := range []*perfilFijoCTDesarrollo{p.detalle, p.alta, p.ct} {
+	for _, perfil := range p.todos() {
 		estado, err := asegurarPerfilFijoCTDesarrollo(ctx, pool, p.soporte, perfil, aprobacion, preimagenPropiaPerfilFijoCTDesarrollo(perfil, actoAsignacionPerfilFijoCTDesarrollo))
 		if err != nil {
 			return err
@@ -162,7 +165,7 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 	if p == nil || base == nil || p.soporte != base.soporte {
 		return ct.ErrComposicionIncorporacionAplicacion
 	}
-	for _, perfil := range []*perfilFijoCTDesarrollo{p.detalle, p.alta, p.ct} {
+	for _, perfil := range p.todos() {
 		esperado, err := contextoEsperadoRegistradoParaSemillaDesarrollo(ctx, base.resolutor, p.soporte, perfil.contexto.Resultado)
 		if err != nil {
 			return err
@@ -196,7 +199,7 @@ func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *p
 		return vacio, err
 	}
 	holder, ok := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
-	if !ok || holder == nil || (perfil != p.detalle && perfil != p.alta && perfil != p.ct) {
+	if !ok || holder == nil || !p.contiene(perfil) {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
 	if _, valida := p.soporte.capacidadValida(ctx); !valida {

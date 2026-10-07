@@ -5,9 +5,10 @@ import (
 	"regexp"
 )
 
-// PoliticaOfertas es deliberadamente de ejemplo mientras RRHH no ratifique
-// plazo, inicio y efectos (dudas 1-3, 14, 33 y 43). La edición crea una nueva
-// versión; las ofertas anteriores conservan la versión que las gobernó.
+// PoliticaOfertas conserva el plazo y el calendario configurables de cada
+// bolsa. RRHH ha fijado dos días desde la notificación (02/10/2026); la
+// unidad y el calendario siguen siendo configurables. La edición crea una
+// nueva versión; las ofertas anteriores conservan la que las gobernó.
 type PoliticaOfertas struct {
 	Plazo        PlazoPoliticaOfertas        `json:"plazo"`
 	Adjudicacion AdjudicacionPoliticaOfertas `json:"adjudicacion"`
@@ -47,6 +48,8 @@ func (p PlazasPoliticaOfertas) Validar() error {
 }
 
 type PlazoPoliticaOfertas struct {
+	// Vacío conserva la forma histórica; las nuevas ofertas exigen notificación.
+	Inicio        string `json:"inicio,omitempty"`
 	Unidad        string `json:"unidad"`
 	Cantidad      int    `json:"cantidad"`
 	Computo       string `json:"computo"`
@@ -56,6 +59,7 @@ type PlazoPoliticaOfertas struct {
 type AdjudicacionPoliticaOfertas struct {
 	Criterio     string `json:"criterio"`
 	Elegibilidad string `json:"elegibilidad"`
+	Confirmacion string `json:"confirmacion,omitempty"`
 }
 
 type NoCubiertaPoliticaOfertas struct {
@@ -75,13 +79,27 @@ func (p PoliticaOfertas) Validar() error {
 	plazoValido := ((unidad == "dias_habiles" || unidad == "dias_naturales") &&
 		cantidad >= 1 && cantidad <= 30 && computo == "administrativo") ||
 		(unidad == "horas_naturales" && cantidad >= 1 && cantidad <= 720 && computo == "continuo_utc")
-	if !plazoValido || !municipioINE.MatchString(p.Plazo.MunicipioSede) ||
+	if !plazoValido || (p.Plazo.Inicio != "" && p.Plazo.Inicio != "notificacion") ||
+		!municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
+		!ConfirmacionAdjudicacionValida(p.Adjudicacion.Confirmacion) ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
 	}
 	if p.Plazas != nil {
 		return p.Plazas.Validar()
+	}
+	return nil
+}
+
+// ValidarParaOfertasNuevas impide que una versión histórica sin origen
+// explícito se interprete como una política desde la notificación.
+func (p PoliticaOfertas) ValidarParaOfertasNuevas() error {
+	if err := p.Validar(); err != nil {
+		return err
+	}
+	if p.Plazo.Inicio != "notificacion" {
+		return ErrPoliticaOfertasInvalida
 	}
 	return nil
 }

@@ -20,8 +20,21 @@ const (
 )
 
 type ServicioCorrecciones struct {
-	repositorio ports.RepositorioCorrecciones
-	reloj       ports.Reloj
+	repositorio   ports.RepositorioCorrecciones
+	reloj         ports.Reloj
+	lectorVinculo ports.LectorVinculoPropioHistoricoCRN11
+}
+
+func NuevoServicioCorreccionesConVinculoHistorico(r ports.RepositorioCorrecciones, reloj ports.Reloj, lector ports.LectorVinculoPropioHistoricoCRN11) (*ServicioCorrecciones, error) {
+	if lector == nil {
+		return nil, ports.ErrDependenciaNoDisponible
+	}
+	s, err := NuevoServicioCorrecciones(r, reloj)
+	if err != nil {
+		return nil, err
+	}
+	s.lectorVinculo = lector
+	return s, nil
 }
 
 func NuevoServicioCorrecciones(r ports.RepositorioCorrecciones, reloj ports.Reloj) (*ServicioCorrecciones, error) {
@@ -97,11 +110,43 @@ func (s *ServicioCorrecciones) actuar(ctx context.Context, orden ports.OrdenCons
 }
 
 func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.OrdenConsumoCorreccion, clave ports.ClaveRecuperacionCorreccion) (ports.ReciboCorreccion, error) {
-	if _, _, err := s.actorVigente(ctx, orden); err != nil {
+	actor, instante, err := s.actorVigente(ctx, orden)
+	if err != nil {
 		return ports.ReciboCorreccion{}, err
 	}
 	if err := (domain.ClaveRecuperacionCorreccion{SolicitudRef: clave.SolicitudRef, ClaveOperacion: clave.ClaveOperacion, Paso: clave.Paso}).Validar(); err != nil {
 		return ports.ReciboCorreccion{}, err
+	}
+	if clave.Paso == domain.PasoSolicitudCorreccion {
+		if clave.SolicitudRef != "correccion:cronos:"+clave.ClaveOperacion {
+			return ports.ReciboCorreccion{}, domain.ErrCorreccionInvalida
+		}
+		empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
+		if err != nil || len(empleados) != 1 || !vinculoEmpleadoCRN11Vigente(actor, empleados[0], instante) {
+			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
+		}
+		if s.lectorVinculo == nil {
+			return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
+		}
+		copia, err := actor.Clonar()
+		if err != nil {
+			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
+		}
+		vinculo, err := s.lectorVinculo.ConsultarVinculoPropioCRN11(ctx, ports.InputConsultaVinculoPropioCRN11{Actor: copia, EmpleadoRef: empleados[0]})
+		if err != nil {
+			return ports.ReciboCorreccion{}, err
+		}
+		actorActual, instante, err := s.actorVigente(ctx, orden)
+		if err != nil {
+			return ports.ReciboCorreccion{}, err
+		}
+		if !vinculoEmpleadoCRN11Vigente(actorActual, empleados[0], instante) {
+			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
+		}
+		if !vinculoPropioHistoricoCRN11Valido(vinculo, actor.PersonaRef, empleados[0], instante) {
+			return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
+		}
+		orden = orden.ConVinculoPropioHistoricoCRN11(vinculo)
 	}
 	recibo, err := s.repositorio.RecuperarRecibo(ctx, clave, orden)
 	if err != nil {
@@ -113,8 +158,17 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 	return recibo, nil
 }
 
+func vinculoEmpleadoCRN11Vigente(actor vecdomain.ContextoActor, empleado string, instante time.Time) bool {
+	for _, vinculo := range actor.Instantanea.Vinculos {
+		if vinculo.Tipo == vecdomain.TipoReferenciaContextoActorEmpleado && vinculo.Referencia == empleado {
+			return vinculo.VigenteEn(instante)
+		}
+	}
+	return false
+}
+
 func (s *ServicioCorrecciones) actorVigente(ctx context.Context, orden ports.OrdenConsumoCorreccion) (vecdomain.ContextoActor, time.Time, error) {
-	if s == nil || s.repositorio == nil || s.reloj == nil || ctx == nil || orden.ProveedorMaterial() == nil {
+	if s == nil || s.repositorio == nil || s.reloj == nil || ctx == nil || ctx.Err() != nil || orden.ProveedorMaterial() == nil {
 		return vecdomain.ContextoActor{}, time.Time{}, ports.ErrCorreccionNoAutorizada
 	}
 	actor, err := orden.ContextoActor()
@@ -126,6 +180,14 @@ func (s *ServicioCorrecciones) actorVigente(ctx context.Context, orden ports.Ord
 		return vecdomain.ContextoActor{}, time.Time{}, ports.ErrCorreccionNoAutorizada
 	}
 	return actor, instante, nil
+}
+
+func vinculoPropioHistoricoCRN11Valido(v ports.VinculoPropioHistoricoCRN11, persona, empleado string, instante time.Time) bool {
+	return v.PersonaRef == persona && v.EmpleadoRef == empleado && v.Version > 0 &&
+		strings.TrimSpace(v.VinculoRef) != "" && strings.TrimSpace(v.FuenteRef) != "" &&
+		strings.TrimSpace(v.Evidencia.ReciboRef) != "" && strings.TrimSpace(v.Evidencia.DecisionRef) != "" &&
+		strings.TrimSpace(v.Evidencia.AuditoriaRef) != "" && instanteCorreccionReciboValido(v.Evidencia.ConsultadaEn) &&
+		!v.Evidencia.ConsultadaEn.After(instante)
 }
 
 func estadoResultanteCorreccion(paso domain.PasoCorreccion, resultado domain.ResultadoCorreccion) domain.EstadoCorreccion {
@@ -160,7 +222,7 @@ func reciboRecuperadoValido(r ports.ReciboCorreccion, clave ports.ClaveRecuperac
 	}
 	switch clave.Paso {
 	case domain.PasoSolicitudCorreccion:
-		return r.Version == 1 && r.Estado == domain.CorreccionPendienteResponsable
+		return r.Replay && r.Version == 1 && r.Estado == domain.CorreccionPendienteResponsable
 	case domain.PasoDecisionResponsable:
 		return r.Version == 2 && (r.Estado == domain.CorreccionPendienteRRHH || r.Estado == domain.CorreccionDenegadaResponsable)
 	case domain.PasoResolucionRRHH:

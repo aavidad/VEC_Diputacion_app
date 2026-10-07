@@ -4,8 +4,8 @@ import test from "node:test";
 import { renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { validarAvisosViaCobertura } from "./contrato-avisos-via-cobertura.js";
 import { validarPropuestaCobertura } from "./contrato-cobertura.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 
 const HUELLA = "a".repeat(64);
 const REGLA_AGOTAMIENTO = {
@@ -61,6 +61,22 @@ test("el contrato acepta los avisos y los congela", () => {
   const conPropuesta = validarPropuestaCobertura(propuesta());
   assert.equal(conPropuesta.avisos_via.avisos[1].excede_duracion, true);
   assert.equal(validarPropuestaCobertura(propuesta(false)).avisos_via, undefined);
+});
+
+test("la propuesta sin fin no fabrica comparación de duración", () => {
+  const entrada = avisos();
+  delete entrada.avisos[1].fin_previsto;
+  delete entrada.avisos[1].excede_duracion;
+  const validada = validarAvisosViaCobertura(entrada);
+  assert.equal(Object.hasOwn(validada.avisos[1], "fin_previsto"), false);
+  assert.equal(Object.hasOwn(validada.avisos[1], "excede_duracion"), false);
+  const vista = renderizarAvisosViaCobertura(validada, crearTraductorContratacionTemporal(), {
+    formateadorFechas: new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "UTC" }),
+  });
+  assert.match(vista, /Sin fecha de fin prevista/);
+  assert.doesNotMatch(vista, /supera esa duración máxima/);
+  entrada.avisos[1].excede_duracion = false;
+  assert.throws(() => validarAvisosViaCobertura(entrada), TypeError);
 });
 
 test("el contrato rechaza avisos incoherentes o con campos de más", () => {

@@ -20,11 +20,15 @@ type filaConsultaRRHHPrueba struct {
 	err      error
 	destinos int
 	eventos  *[]string
+	llenar   func([]any) error
 }
 
 func (f *filaConsultaRRHHPrueba) Scan(destinos ...any) error {
 	*f.eventos = append(*f.eventos, "scan")
 	f.destinos = len(destinos)
+	if f.llenar != nil {
+		return f.llenar(destinos)
+	}
 	return f.err
 }
 
@@ -32,10 +36,12 @@ type transaccionConsultaRRHHPrueba struct {
 	fila           *filaConsultaRRHHPrueba
 	consulta       string
 	argumentos     int
+	valores        []any
 	consultas      int
 	confirmaciones int
 	reversiones    int
 	errCommit      error
+	alRevertir     func()
 	eventos        *[]string
 }
 
@@ -52,6 +58,9 @@ func (t *transaccionConsultaRRHHPrueba) Commit(context.Context) error {
 func (t *transaccionConsultaRRHHPrueba) Rollback(context.Context) error {
 	*t.eventos = append(*t.eventos, "rollback")
 	t.reversiones++
+	if t.alRevertir != nil {
+		t.alRevertir()
+	}
 	return nil
 }
 func (*transaccionConsultaRRHHPrueba) CopyFrom(
@@ -101,6 +110,7 @@ func (t *transaccionConsultaRRHHPrueba) QueryRow(
 	t.consultas++
 	t.consulta = consulta
 	t.argumentos = len(argumentos)
+	t.valores = argumentos
 	return t.fila
 }
 func (*transaccionConsultaRRHHPrueba) Conn() *pgx.Conn { return nil }
@@ -352,7 +362,7 @@ func TestEjecutarConsultaRRHHFallaCerradoSinReintentos(t *testing.T) {
 		},
 		{
 			nombre:    "commit_falla",
-			errCommit: &pgconn.PgError{Code: "40001", Message: "privado"},
+			errCommit: errors.New("confirmación sin respuesta"),
 			esperado:  ports.ErrConsultaRRHHNoDisponible,
 			commits:   1, validaciones: 1,
 			eventos: []string{

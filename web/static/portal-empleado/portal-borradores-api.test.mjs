@@ -6,7 +6,7 @@ import {
   MATRIZ_FETCH_BORRADORES,
   RUTAS_API_BORRADORES,
   crearClienteBorradores,
-} from "./portal-borradores-api.js";
+} from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   CLAVE_IDEMPOTENCIA_A,

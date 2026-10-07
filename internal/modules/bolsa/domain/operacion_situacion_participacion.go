@@ -13,15 +13,19 @@ var ErrOperacionSituacionParticipacionInvalida = errors.New("bolsa: operacion de
 // persona en la bolsa. No son situaciones nuevas: cada una produce exactamente
 // una de las de B2, de modo que el historial sigue siendo el mismo.
 const (
-	OperacionPausar    = "pausar"
-	OperacionReactivar = "reactivar"
-	OperacionExcluir   = "excluir"
+	OperacionPausar      = "pausar"
+	OperacionReactivar   = "reactivar"
+	OperacionExcluir     = "excluir"
+	OperacionRevisar     = "revisar"
+	OperacionRegularizar = "regularizar"
 )
 
 var destinoOperacionSituacion = map[string]string{
-	OperacionPausar:    SituacionNoDisponible,
-	OperacionReactivar: SituacionDisponible,
-	OperacionExcluir:   SituacionExcluido,
+	OperacionPausar:      SituacionNoDisponible,
+	OperacionReactivar:   SituacionDisponible,
+	OperacionExcluir:     SituacionExcluido,
+	OperacionRevisar:     SituacionEnRevision,
+	OperacionRegularizar: SituacionDisponible,
 }
 
 // Tipos de justificante admitidos. El documento vive en su custodia; VEC
@@ -75,7 +79,7 @@ type OperacionSituacionParticipacion struct {
 
 // OperacionesSituacionParticipacion devuelve el catálogo en orden estable.
 func OperacionesSituacionParticipacion() []string {
-	return []string{OperacionPausar, OperacionReactivar, OperacionExcluir}
+	return []string{OperacionPausar, OperacionReactivar, OperacionExcluir, OperacionRevisar, OperacionRegularizar}
 }
 
 // DestinoOperacionSituacion traduce la operación a la situación de B2 que
@@ -90,6 +94,11 @@ func DestinoOperacionSituacion(operacion string) (string, bool) {
 func OperacionesDisponiblesDesde(origen string) []string {
 	disponibles := make([]string, 0, len(destinoOperacionSituacion))
 	for _, operacion := range OperacionesSituacionParticipacion() {
+		// El catálogo compilado precede a RRHH18. Las operaciones nuevas
+		// requieren la política publicada y sus guardas documentales.
+		if operacion == OperacionRevisar || operacion == OperacionRegularizar {
+			continue
+		}
 		destino := destinoOperacionSituacion[operacion]
 		if _, ok := transicionesSituacionParticipacion[origen][destino]; ok {
 			disponibles = append(disponibles, operacion)

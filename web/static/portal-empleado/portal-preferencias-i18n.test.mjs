@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { cargarMensajesPortal } from "./portal-i18n.js";
+import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { renderizarPreferencias } from "../area-personal/preferencias.js";
 
 const catalogo = async (idioma) => JSON.parse(await readFile(

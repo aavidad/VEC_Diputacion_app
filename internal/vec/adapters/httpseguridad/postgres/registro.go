@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
@@ -126,21 +127,19 @@ func (r *RegistroSesionesPostgreSQL) ConsumirAsercionYRegistrar(
 	if alta.EspacioIdentidad != r.espacioIdentidad {
 		return httpseguridad.ConfirmacionAltaSesion{}, httpseguridad.ErrSesionNoValida
 	}
-	seudonimos, err := r.seudonimizador.SeudonimizarAlta(ctx, IdentificadoresAlta{
+	seudonimos, aliasOrdinario, err := SeudonimizarAltaConAliasCuentaOrdinaria(ctx, r.seudonimizador, IdentificadoresAlta{
 		EspacioIdentidad: alta.EspacioIdentidad,
 		AsercionID:       alta.AsercionID, SesionID: alta.SesionID, SujetoID: alta.SujetoID,
 		CuentaID: alta.CuentaID, CuentaOrdinariaID: alta.CuentaOrdinariaID,
-	})
-	if err != nil || !seudonimos.valida(
-		r.espacioIdentidad, r.dominioHMACRef, alta.CuentaPrivilegiada,
-	) {
+	}, r.espacioIdentidad, r.dominioHMACRef)
+	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
 	operacionRef, err := nuevaReferenciaOperacion(r.aleatorio)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
-	argumentos := argumentosAlta(operacionRef, seudonimos, alta)
+	argumentos := argumentosAlta(operacionRef, seudonimos, aliasOrdinario, alta)
 	respuesta, err := r.ejecutarAlta(ctx, consultaRegistrarSesion, argumentos)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, err
@@ -245,7 +244,7 @@ func (r *RegistroSesionesPostgreSQL) reconciliarAlta(
 ) (respuestaAlta, error) {
 	// Un COMMIT incierto no se reintenta. Se consulta exclusivamente la
 	// operacion CSPRNG de esta invocacion y se cotejan todos sus campos.
-	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	txReconciliacion, errReconciliacion := r.registro.BeginTx(
 		ctxReconciliacion, opcionesTransaccion(),
@@ -318,11 +317,12 @@ func respuestasIguales(a, b respuestaAlta) bool {
 func argumentosAlta(
 	operacionRef string,
 	s SeudonimosAlta,
+	aliasOrdinario []byte,
 	a httpseguridad.AltaSesionAtomica,
 ) []any {
 	var ordinaria any
 	if a.CuentaPrivilegiada {
-		ordinaria = s.CuentaOrdinariaIDHMAC[:]
+		ordinaria = aliasOrdinario
 	}
 	return []any{
 		operacionRef, s.Esquema, s.DominioRef, s.ClaveID, int64(s.ClaveVersion),
@@ -382,7 +382,7 @@ func revertir(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

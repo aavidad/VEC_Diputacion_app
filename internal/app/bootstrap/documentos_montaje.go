@@ -1,7 +1,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -38,6 +37,9 @@ import (
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var ErrComposicionDocumentosNoDisponible = errors.New("bootstrap: Documentos no disponible")
@@ -75,6 +77,9 @@ type configuracionDocumentosDesarrollo struct {
 	// RegistroExterno es opcional: sin él no se publica el registro de
 	// referencias externas (documentos_registro_externo.go).
 	RegistroExterno *registroExternoDocumentosDesarrollo `json:"registro_externo,omitempty"`
+	// CustodiaFirmado es opcional: sin ella Contratación temporal no
+	// custodia sus PDF firmados (documentos_custodia_firmado.go).
+	CustodiaFirmado *custodiaFirmadoConfigDesarrollo `json:"custodia_firmado,omitempty"`
 }
 
 // almacenDocumentosDesarrollo selecciona el conector de originales. El
@@ -102,6 +107,8 @@ type autoridadDocumentosDesarrollo struct {
 	registrador registradorDenegacionesDocumentos
 	incidencias vecports.EmisorIncidenciasTecnicas
 	cerrar      func()
+	// custodia es nil salvo con la sección custodia_firmado del material.
+	custodia *custodiaDocumentosDesarrollo
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -222,7 +229,7 @@ func (a *autoridadDocumentosDesarrollo) denegar(w http.ResponseWriter, r *http.R
 	if _, err := rand.Read(aleatorio[:]); err == nil {
 		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if err := a.registrador.RegistrarDenegacion(ctx, docpg.OrdenDenegacionFrontera{CorrelacionRef: correlacion, Motivo: motivo,
 		Ruta: ruta, Metodo: metodo, ActorRef: actorRef}); err != nil {
@@ -411,6 +418,7 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, "", ErrComposicionDocumentosNoDisponible
@@ -546,9 +554,17 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, err
 	}
-	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg)
+	// El mismo emisor técnico de Documentos se resuelve cuando el servidor ya
+	// terminó de componerlo; el verificador conserva su instancia inicial.
+	var incidencias *observabilidad.EmisorJSONLines
+	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg, func() vecports.EmisorResultadosTecnicosConContexto {
+		if incidencias == nil {
+			return nil
+		}
+		return incidencias
+	})
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("firma_verificacion", err)
 	}
 	if !activo {
 		return nil, nil
@@ -557,19 +573,9 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || material == nil {
 		return nil, errDocumentosEn()
 	}
-	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", ficheroMaterialDocumentos), 256<<10)
-	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, errDocumentosEn()
-	}
-	defer borrarBytes(contenido)
-	var c configuracionDocumentosDesarrollo
-	dec := json.NewDecoder(bytes.NewReader(contenido))
-	dec.DisallowUnknownFields()
-	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.Motivos.Listar.Validar() != nil ||
-		!c.RegistroExterno.valido(c.Motivos.Listar.CatalogoID) {
-		return nil, errDocumentosEn()
+	c, err := cargarConfiguracionDocumentosDesarrollo(cfg)
+	if err != nil {
+		return nil, err
 	}
 	cuentas := map[string]cuentaRutasDietasDesarrollo{}
 	for _, cuenta := range c.Cuentas {
@@ -586,7 +592,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var pools []*pgxpool.Pool
 	var cierres []func()
@@ -711,13 +717,13 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
-	incidencias, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: registroIncidenciasSeguro(registroIncidencias),
+	incidencias, err = observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: registroIncidenciasSeguro(registroIncidencias),
 		Capacidad: 256, Entorno: os.Getenv("VEC_ENTORNO")})
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
 	cierres = append(cierres, func() {
-		ctxCierre, cancelarCierre := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxCierre, cancelarCierre := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelarCierre()
 		_ = incidencias.Cerrar(ctxCierre)
 	})
@@ -731,6 +737,10 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
 		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
+	a.custodia, err = nuevaCustodiaDocumentosDesarrollo(c.CustodiaFirmado, repositorio, almacen, politicas, reloj, seudonimosAlmacen)
+	if err != nil {
+		return nil, errDocumentosEn()
+	}
 	consulta := autoridadConsultaDocumentos{autoridad: a, emisor: emisor, motivo: c.Motivos.Listar}
 	rutas, err := dochttp.NuevasRutas(dochttp.Configuracion{
 		Servicio:    servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},

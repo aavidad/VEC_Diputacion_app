@@ -4,12 +4,13 @@ import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260929-i18n-dietas-v1";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260929-i18n-dietas-v1";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261002-codexe-d7c-ux-v3";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
 const todos = (raiz, selector) => Array.from(raiz?.querySelectorAll(selector) || []);
 
 const MAXIMO_LOCALIDADES = 12;
+let secuenciaAvisos = 0;
 
 function nodo(documento, etiqueta, texto = "") {
   const resultado = documento.createElement(etiqueta);
@@ -78,6 +79,22 @@ function referenciasRelacionAutorizadas(valores) {
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
   return Object.freeze(referencias);
 }
+function etiquetasDeRelaciones(valores, referencias) {
+  if (!Array.isArray(valores) || valores.length > referencias.length)
+    throw new TypeError("etiquetas de relaciones de Dietas no válidas");
+  const etiquetas = new Map();
+  const nombres = new Set();
+  for (const entrada of valores) {
+    if (!referencias.includes(entrada?.referencia) || etiquetas.has(entrada.referencia) ||
+        typeof entrada.etiqueta !== "string" || entrada.etiqueta.trim() !== entrada.etiqueta ||
+        entrada.etiqueta.length < 1 || entrada.etiqueta.length > 256 ||
+        /[\x00-\x1f\x7f]|rel_[A-Za-z0-9_-]{22,128}/u.test(entrada.etiqueta) || nombres.has(entrada.etiqueta))
+      throw new TypeError("etiquetas de relaciones de Dietas no válidas");
+    etiquetas.set(entrada.referencia, entrada.etiqueta);
+    nombres.add(entrada.etiqueta);
+  }
+  return etiquetas;
+}
 function fechaLegible(valor, conHora = false) {
   const fecha = new Date(conHora ? valor : `${valor}T00:00:00Z`);
   return Number.isFinite(fecha.getTime())
@@ -141,6 +158,11 @@ export function montarVistaBorradoresPropios(
     // Sólo la composición que haya consultado una fuente autorizada puede
     // aportar estas referencias opacas. Esta vista no deduce ni fabrica una.
     relacionesAutorizadas = [],
+    // Presentación de las mismas referencias: { referencia, etiqueta }, con
+    // centro y unidad legibles obtenidos por la composición autorizada.
+    // No autentica, no concede permisos ni sustituye la fuente de Personal,
+    // que aún debe aportar estos nombres. Con varias, se exige cobertura total.
+    etiquetasRelaciones = [],
   } = {},
 ) {
   if (
@@ -189,6 +211,8 @@ export function montarVistaBorradoresPropios(
   };
   const entradasRelacion = referenciasRelacionAutorizadas(relacionesAutorizadas);
   const relaciones = Object.freeze(entradasRelacion.map((entrada) => entrada.relacion_ref));
+  const etiquetasRelacion = etiquetasDeRelaciones(etiquetasRelaciones, relaciones);
+  const relacionIndeterminada = relaciones.length > 1 && etiquetasRelacion.size !== relaciones.length;
   const unidadesAutorizadas = new Map(entradasRelacion.map((entrada) => [entrada.relacion_ref, entrada.unidad_ref]));
   let puntosRuta = calculadorRuta ? [] : catalogoProyectado;
   let nombresRuta = new Map(puntosRuta.map((punto) => [punto.codigo, punto.nombre]));
@@ -203,6 +227,9 @@ export function montarVistaBorradoresPropios(
   let avisoPersistente = null;
   let listaPersistente = null;
   let fichaPersistente = null;
+  const controlesCongelados = new Map();
+  const camposInvalidos = new Set();
+  const avisoId = `dietas-borradores-aviso-${++secuenciaAvisos}`;
   // La clave de toda intención enviada pertenece a su contenido exacto. Otra
   // comisión puede prepararse sin perder la recuperación de la primera.
   const operaciones = new Map();
@@ -257,6 +284,8 @@ export function montarVistaBorradoresPropios(
     controladorCatalogo?.abort();
     operaciones.clear();
     intentosAccion.clear();
+    controlesCongelados.clear();
+    camposInvalidos.clear();
     ultimoAlta = null;
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     raiz.removeEventListener("submit", enviar);
@@ -272,6 +301,45 @@ export function montarVistaBorradoresPropios(
     try {
       anunciar(tBorradores(clave), tono);
     } catch {}
+  }
+  function limpiarValidacion() {
+    for (const campo of camposInvalidos) {
+      campo.removeAttribute("aria-invalid");
+      campo.removeAttribute("aria-describedby");
+    }
+    camposInvalidos.clear();
+  }
+  function validarIntervaloYRuta(form, base) {
+    limpiarValidacion();
+    const campo = (nombre) => [...todos(form, "input"), ...todos(form, "select")]
+      .find((entrada) => entrada.name === nombre);
+    let codigoAviso;
+    let entrada;
+    if (base.fecha_fin < base.fecha_inicio ||
+        (base.fecha_fin === base.fecha_inicio && base.hora_fin <= base.hora_inicio)) {
+      codigoAviso = "borradores_propios_fechas_invalidas";
+      entrada = campo(base.fecha_fin < base.fecha_inicio ? "fecha_fin" : "hora_fin");
+    } else if (!rutaValida(base.codigos_ruta)) {
+      codigoAviso = "borradores_propios_paradas_distintas";
+      const vistos = new Set();
+      const posicion = base.codigos_ruta.findIndex((codigo) => {
+        if (!nombresRuta.has(codigo) || vistos.has(codigo)) return true;
+        vistos.add(codigo);
+        return false;
+      });
+      entrada = [campo("origen_codigo"), ...todos(form, "select")
+        .filter((selector) => selector.name === "parada_codigo"), campo("destino_codigo")][posicion];
+    }
+    if (!codigoAviso) return true;
+    mensaje(codigoAviso, "aviso");
+    pintar();
+    if (entrada) {
+      entrada.setAttribute("aria-invalid", "true");
+      entrada.setAttribute("aria-describedby", avisoId);
+      camposInvalidos.add(entrada);
+    }
+    enfocar(entrada || avisoPersistente);
+    return false;
   }
   async function consultarAsignacion(item) {
     controladorAsignacion?.abort();
@@ -443,29 +511,31 @@ export function montarVistaBorradoresPropios(
     revisar.className = "boton-secundario";
     revisar.dataset.dietasBorradorRevisar = "";
     const selectorRelacion = (() => {
-      if (!relaciones.length) return null;
+      if (!relaciones.length || relacionIndeterminada) return null;
+      if (relaciones.length === 1) {
+        const entrada = nodo(documento, "input");
+        entrada.name = "relacion_ref";
+        entrada.type = "hidden";
+        entrada.value = relaciones[0];
+        return entrada;
+      }
       const etiqueta = nodo(
         documento,
         "label",
-        traducir("borradores_propios_referencia"),
+        traducir("ra_relacion"),
       );
-      const selector = nodo(documento, relaciones.length === 1 ? "input" : "select");
+      const selector = nodo(documento, "select");
       selector.name = "relacion_ref";
-      if (relaciones.length === 1) {
-        selector.type = "hidden";
-        selector.value = relaciones[0];
-      } else {
-        selector.required = true;
-        const inicial = nodo(documento, "option", "—");
-        inicial.value = "";
-        selector.append(inicial);
-        relaciones.forEach((referencia) => {
-          const opcion = nodo(documento, "option", referencia);
-          opcion.value = referencia;
-          selector.append(opcion);
-        });
-        selector.value = relacionSeleccionada || "";
-      }
+      selector.required = true;
+      const inicial = nodo(documento, "option", "—");
+      inicial.value = "";
+      selector.append(inicial);
+      relaciones.forEach((referencia) => {
+        const opcion = nodo(documento, "option", etiquetasRelacion.get(referencia));
+        opcion.value = referencia;
+        selector.append(opcion);
+      });
+      selector.value = relacionSeleccionada || "";
       etiqueta.append(selector);
       return etiqueta;
     })();
@@ -1059,7 +1129,8 @@ export function montarVistaBorradoresPropios(
       boton.type = "button";
       boton.className = metodo === "enviar" ? "boton-primario" : "boton-secundario";
       boton.dataset[atributo] = item.comision.referencia;
-      boton.disabled = !corregible || estadoRelaciones === "no_disponible" || typeof cliente?.[metodo] !== "function" || controlador !== null ||
+      boton.disabled = !corregible || estadoRelaciones === "no_disponible" ||
+        (relacionIndeterminada && metodo !== "eliminar") || typeof cliente?.[metodo] !== "function" || controlador !== null ||
         (metodo !== "eliminar" && !asignacionVerificada()) ||
         (metodo === "editar" && !item.comision.calculo) ||
         (metodo === "enviar" && !item.comision.documento);
@@ -1175,10 +1246,15 @@ export function montarVistaBorradoresPropios(
   }
   function pintar() {
     if (!activaAhora()) return;
+    // Restaurar la disponibilidad propia antes de volver a aplicar el estado
+    // de la vista. Así una carga no habilita controles que dependen de D3/D4/D5.
+    for (const [control, deshabilitado] of controlesCongelados) control.disabled = deshabilitado;
+    controlesCongelados.clear();
     if (!formularioPersistente) {
       formularioPersistente = formulario();
       avisoPersistente = nodo(documento, "p");
       avisoPersistente.dataset.dietasBorradoresEstado = "";
+      avisoPersistente.id = avisoId;
       avisoPersistente.setAttribute("aria-live", "polite");
       avisoPersistente.setAttribute("tabindex", "-1");
       const espacio = nodo(documento, "div");
@@ -1217,7 +1293,8 @@ export function montarVistaBorradoresPropios(
       ["origen_codigo", "destino_codigo", "parada_codigo"].includes(selector.name)).forEach((selector) => { selector.required = !extranjero; });
     const botonGuardar = formularioPersistente.querySelector("[data-dietas-borrador-guardar]");
     if (botonGuardar) botonGuardar.textContent = tBorradores(edicion ? "comision_editar" : "borradores_propios_guardar");
-    const controlesBloqueados = !conectada || controlador !== null || estadoRelaciones === "no_disponible" || (relaciones.length > 1 && !relacionSeleccionada);
+    const controlesBloqueados = !conectada || controlador !== null || estadoRelaciones === "no_disponible" ||
+      relacionIndeterminada || (relaciones.length > 1 && !relacionSeleccionada);
     for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]", "[data-dietas-calcular-ruta]"]) {
       const boton = formularioPersistente.querySelector(selector);
       if (boton) boton.disabled = controlesBloqueados || extranjero || (selector === "[data-dietas-calcular-ruta]" && !calculadorRuta);
@@ -1255,8 +1332,17 @@ export function montarVistaBorradoresPropios(
         boton.disabled = controlesBloqueados || (subir && indice === 0) || (bajar && indice === totalParadas - 1);
       });
     }
+    formularioPersistente.setAttribute("aria-busy", String(controlador !== null));
+    if (controlador !== null) {
+      for (const control of [...todos(formularioPersistente, "input"), ...todos(formularioPersistente, "select"),
+        ...todos(formularioPersistente, "button")]) {
+        controlesCongelados.set(control, control.disabled);
+        control.disabled = true;
+      }
+    }
     avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible"
-      ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles") : estado.mensaje);
+      ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles")
+      : relacionIndeterminada ? "borradores_propios_error_relacion" : estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
     avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
@@ -1349,7 +1435,8 @@ export function montarVistaBorradoresPropios(
     const form = evento.target?.closest?.("[data-dietas-borrador-form]");
     if (!form || !activaAhora()) return;
     evento.preventDefault();
-    if (!conectada || controlador || estadoRelaciones === "no_disponible" || (relaciones.length > 1 && !relacionSeleccionada)) return;
+    if (!conectada || controlador || estadoRelaciones === "no_disponible" || relacionIndeterminada ||
+        (relaciones.length > 1 && !relacionSeleccionada)) return;
     if (form.querySelector("[data-dietas-pais]")?.value !== "ES") {
       mensaje("comision_pais_sin_calculo", "aviso"); pintar(); return;
     }
@@ -1374,13 +1461,7 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
-    if (base.fecha_fin < base.fecha_inicio ||
-        (base.fecha_fin === base.fecha_inicio && base.hora_fin <= base.hora_inicio)) {
-      mensaje("borradores_propios_fechas_invalidas", "aviso");
-      pintar();
-      return;
-    }
-    if (!rutaValida(base.codigos_ruta)) { mensaje("borradores_propios_paradas_distintas","aviso"); pintar(); return; }
+    if (!validarIntervaloYRuta(form, base)) return;
     if (calculadorRuta && calculoCabeceraFirma !== JSON.stringify(base.codigos_ruta)) {
       mensaje("ruta_calcular_antes_guardar", "aviso"); pintar(); return;
     }
@@ -1400,6 +1481,7 @@ export function montarVistaBorradoresPropios(
       intentoEdicion = { contenido, clave };
       controlador = new AbortController();
       const signal = controlador.signal;
+      let edicionConfirmada = false;
       mensaje("comision_actividad"); pintar();
       try {
         const item = await cliente.editar(edicion.comision.referencia, {
@@ -1409,6 +1491,7 @@ export function montarVistaBorradoresPropios(
           version_esperada: edicion.recibo.version, clave_idempotencia: clave,
         }, { signal });
         if (!activaAhora() || signal.aborted) return;
+        edicionConfirmada = true;
         edicion = null;
         intentoEdicion = null;
         estado = { ...estado, detalle: item, detalleOrigen: "put" };
@@ -1424,7 +1507,7 @@ export function montarVistaBorradoresPropios(
         mensaje(error?.codigo === "conflicto_version" ? "comision_conflicto_version" : errorClave(error), "error");
       } finally {
         if (controlador?.signal === signal) controlador = null;
-        if (activaAhora()) { pintar(); if (!edicion) enfocarRecibo(); }
+        if (activaAhora()) { pintar(); if (edicionConfirmada) enfocarRecibo(); else if (!signal.aborted) enfocar(avisoPersistente); }
       }
       return;
     }
@@ -1497,6 +1580,7 @@ export function montarVistaBorradoresPropios(
       if (activaAhora()) {
         pintar();
         if (altaConfirmada) enfocarRecibo();
+        else if (!signal.aborted) enfocar(avisoPersistente);
       }
     }
   }
@@ -1508,6 +1592,7 @@ export function montarVistaBorradoresPropios(
   }
   function invalidarPreparacion(evento) {
     if (!evento.target?.closest?.("[data-dietas-borrador-form]")) return;
+    limpiarValidacion();
     const resumen = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
     if (resumen) resumen.hidden = true;
     if (["origen_codigo", "destino_codigo", "parada_codigo"].includes(evento.target?.name)) {
@@ -1525,7 +1610,7 @@ export function montarVistaBorradoresPropios(
   }
   function abrirEdicion() {
     const item = estado.detalle;
-    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" ||
+    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" || relacionIndeterminada ||
         !asignacionVerificada() || !item.comision.calculo || typeof cliente?.editar !== "function") return;
     edicion = item;
     intentoEdicion = null;
@@ -1562,7 +1647,8 @@ export function montarVistaBorradoresPropios(
   }
   async function ejecutarAccionComision(accion) {
     const item = estado.detalle;
-    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" || typeof cliente?.[accion] !== "function" ||
+    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" ||
+        (relacionIndeterminada && accion !== "eliminar") || typeof cliente?.[accion] !== "function" ||
         (accion === "eliminar" && enCorreccion(item)) ||
         (accion === "enviar" && (!asignacionVerificada() || !item.comision.documento)) || controlador) return;
     const reenvio = accion === "enviar" && enCorreccion(item);
@@ -1621,8 +1707,17 @@ export function montarVistaBorradoresPropios(
     }
     const quitarRuta = evento.target?.closest?.("[data-dietas-ruta-quitar]");
     if (quitarRuta && edicion && !controlador) {
-      quitarRuta.closest("[data-dietas-ruta-linea]")?.remove();
-      renumerarRutas(formularioPersistente); pintar(); return;
+      const fila = quitarRuta.closest("[data-dietas-ruta-linea]");
+      const indice = todos(formularioPersistente, "[data-dietas-ruta-linea]").indexOf(fila);
+      const restaurarFoco = documento.activeElement?.closest?.("[data-dietas-ruta-linea]") === fila;
+      fila?.remove();
+      renumerarRutas(formularioPersistente); pintar();
+      if (restaurarFoco) {
+        const restantes = todos(formularioPersistente, "[data-dietas-ruta-linea]");
+        enfocar(restantes[Math.min(indice, restantes.length - 1)]?.querySelector("select")
+          || formularioPersistente.querySelector("[data-dietas-ruta-anadir]"));
+      }
+      return;
     }
     const accionParadaRuta = ["dietasRutaParadaAnadir", "dietasRutaParadaSubir", "dietasRutaParadaBajar", "dietasRutaParadaQuitar"]
       .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
@@ -1632,13 +1727,23 @@ export function montarVistaBorradoresPropios(
       const valores = todos(fila, "select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || "");
       const [accion, boton] = accionParadaRuta;
       const indice = Number(boton.dataset[accion]);
-      if (accion === "dietasRutaParadaAnadir" && valores.length < 10) valores.push("");
-      else if (accion === "dietasRutaParadaSubir" && indice > 0 && indice < valores.length) [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]];
-      else if (accion === "dietasRutaParadaBajar" && indice >= 0 && indice < valores.length - 1) [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]];
-      else if (accion === "dietasRutaParadaQuitar" && indice >= 0 && indice < valores.length) valores.splice(indice, 1);
-      else return;
+      const lista = fila.querySelector("[data-dietas-ruta-paradas-lista]");
+      const restaurarFoco = documento.activeElement === boton
+        || documento.activeElement?.closest?.("[data-dietas-ruta-paradas-lista]") === lista;
+      let focoIndice;
+      if (accion === "dietasRutaParadaAnadir" && valores.length < 10) {
+        valores.push(""); focoIndice = valores.length - 1;
+      } else if (accion === "dietasRutaParadaSubir" && indice > 0 && indice < valores.length) {
+        [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]]; focoIndice = indice - 1;
+      } else if (accion === "dietasRutaParadaBajar" && indice >= 0 && indice < valores.length - 1) {
+        [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]]; focoIndice = indice + 1;
+      } else if (accion === "dietasRutaParadaQuitar" && indice >= 0 && indice < valores.length) {
+        valores.splice(indice, 1); focoIndice = Math.min(indice, valores.length - 1);
+      } else return;
       pintarParadasRuta(fila, valores);
       fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_pendiente");
+      if (restaurarFoco) enfocar(lista.querySelectorAll("select")[focoIndice]
+        || fila.querySelector("[data-dietas-ruta-parada-anadir]"));
       return;
     }
     const calcularRutaVehiculo = evento.target?.closest?.("[data-dietas-ruta-calcular]");
@@ -1681,7 +1786,18 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const quitarOtro = evento.target?.closest?.("[data-dietas-otro-quitar]");
-    if (quitarOtro && edicion && !controlador) { quitarOtro.closest("[data-dietas-otro-linea]")?.remove(); pintar(); return; }
+    if (quitarOtro && edicion && !controlador) {
+      const fila = quitarOtro.closest("[data-dietas-otro-linea]");
+      const indice = todos(formularioPersistente, "[data-dietas-otro-linea]").indexOf(fila);
+      const restaurarFoco = documento.activeElement?.closest?.("[data-dietas-otro-linea]") === fila;
+      fila?.remove(); pintar();
+      if (restaurarFoco) {
+        const restantes = todos(formularioPersistente, "[data-dietas-otro-linea]");
+        enfocar(restantes[Math.min(indice, restantes.length - 1)]?.querySelector("select")
+          || formularioPersistente.querySelector("[data-dietas-otro-anadir]"));
+      }
+      return;
+    }
     if (evento.target?.closest?.("[data-dietas-borrador-editar]") && !controlador) { abrirEdicion(); return; }
     if (evento.target?.closest?.("[data-dietas-borrador-eliminar]")) { await ejecutarAccionComision("eliminar"); return; }
     if (evento.target?.closest?.("[data-dietas-borrador-enviar]")) { await ejecutarAccionComision("enviar"); return; }
@@ -1708,7 +1824,7 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const revisar = evento.target?.closest?.("[data-dietas-borrador-revisar]");
-    if (revisar && !revisar.disabled && activaAhora() && !controlador && conectada) {
+    if (revisar && !revisar.disabled && activaAhora() && !controlador && conectada && !relacionIndeterminada) {
       const form = revisar.closest("[data-dietas-borrador-form]");
       if (!form?.checkValidity?.()) { form?.reportValidity?.(); return; }
       const datos = new FormData(form);
@@ -1717,12 +1833,8 @@ export function montarVistaBorradoresPropios(
       const horaInicio = String(datos.get("hora_inicio") || "");
       const horaFin = String(datos.get("hora_fin") || "");
       const codigos = codigosRuta(form, datos);
-      if (fin < inicio || (fin === inicio && horaFin <= horaInicio)) {
-        mensaje("borradores_propios_fechas_invalidas", "aviso"); pintar(); enfocar(avisoPersistente); return;
-      }
-      if (!rutaValida(codigos)) {
-        mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); enfocar(avisoPersistente); return;
-      }
+      if (!validarIntervaloYRuta(form, { fecha_inicio: inicio, fecha_fin: fin,
+        hora_inicio: horaInicio, hora_fin: horaFin, codigos_ruta: codigos })) return;
       const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
       resumen.replaceChildren(
         nodo(documento, "h4", tBorradores("borradores_propios_preparacion_titulo")),
@@ -1804,7 +1916,7 @@ export function montarVistaBorradoresPropios(
   }
   function cambiarRelacion(evento) {
     const selector = evento.target?.closest?.('[name="relacion_ref"]');
-    if (!selector || relaciones.length < 2 || !activaAhora()) return;
+    if (!selector || relaciones.length < 2 || relacionIndeterminada || !activaAhora()) return;
     if (controlador) {
       selector.value = relacionSeleccionada || "";
       return;

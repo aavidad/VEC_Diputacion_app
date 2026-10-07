@@ -1,0 +1,23 @@
+{
+  "referencia": "cronos-informe-saldo-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_fecha": "02/01/2006",
+  "titulo": "Saldo horario propio",
+  "periodo": "Periodo: del {{desde}} al {{hasta}}",
+  "previsto": "Tiempo previsto: {{valor}}",
+  "trabajado": "Tiempo trabajado: {{valor}}",
+  "saldo": "Saldo: {{valor}}",
+  "duracion": "{{horas}} h {{minutos}} min",
+  "desconocido": "No disponible",
+  "estado": "Estado del saldo: {{valor}}",
+  "estados": {
+    "disponible": "Disponible",
+    "no_disponible": "Falta la jornada prevista",
+    "incompleto": "Datos incompletos"
+  },
+  "limite": "El informe resume el periodo consultado. Los datos pendientes de completar pueden cambiar el saldo.",
+  "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. La descarga para personas empleadas todavía no está habilitada.",
+  "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
+  "duracion_corta": "{{minutos}} min"
+}

@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "base_principal": "39ec9858d2983e24786db9d909e86cdce19db720",
+  "codigo_main": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+  "integradas": [
+    {
+      "orden": 1,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "99c13589878ea3c8e48635854e86f216c88fed4cc0876b1daa777089142d38ae"
+    },
+    {
+      "orden": 2,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000173_consumo_fecha_nominal.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "707a2d32e95678ea452a206e1bde2cec8528ce4851fe90b527b4ba448ff5ae14"
+    },
+    {
+      "orden": 3,
+      "archivo": "deploy/postgresql/contexto_actor_v1/migraciones/000031_seleccion_admin_auditoria_comun.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "8f6f61bc804ebd5fbf6fd58f75991b0804029a8d2ad33447d46743577a3f997b"
+    },
+    {
+      "orden": 4,
+      "archivo": "deploy/postgresql/identidad_sesiones_v1/migraciones/000014_seleccion_admin_auditoria_comun.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "e99f7c4ce296b20ffa5b225a1c2867f8c0c946c613ea5f02254301b4edf36dca"
+    },
+    {
+      "orden": 5,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000174_auditoria_fuentes_iniciales_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "6dc657372fe3ec9a7ca7d8d3f9be6cf68936c242bee315ea63e2e67dca56ebdc"
+    },
+    {
+      "orden": 6,
+      "archivo": "deploy/postgresql/identidad_sesiones_v1/migraciones/000015_fuentes_iniciales_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "265a024e2eaa4ae65f2c10a641f2de18c0ef25d96ab9bdffc6c3c8eb315d8a1a"
+    },
+    {
+      "orden": 7,
+      "archivo": "deploy/postgresql/contexto_actor_v1/migraciones/000033_fuentes_iniciales_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "88a9146dbd5bbec87cbf35e44875e46a275d905cbf4719752e21975f71d813fd"
+    },
+    {
+      "orden": 8,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000176_auditoria_unidad_inicial_personal.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "356598632ae2cd7b908ce3d0037310915cf11d4a8205eecdc0e791dc057f3fc8"
+    },
+    {
+      "orden": 9,
+      "archivo": "deploy/postgresql/personal/migraciones/000033_unidad_inicial_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "ebc3cc75820d939556eec75e9c7ecef40288225d91cafd697dedfeaef41a9ef9"
+    },
+    {
+      "orden": 10,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000036_descriptor_fijo_sistemas_admin_v1.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "2f4f474596c1c4a769e7c39e02651725a0650b9e47a55d385e3fac54850bd678"
+    },
+    {
+      "orden": 11,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000037_bootstrap_central_admin_v3.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "a68616980008f40390bf39b019f87b48b87ffca23eb302b67265da02777181e4"
+    },
+    {
+      "orden": 12,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000038_bootstrap_titularidad_sin_perfil.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "4f70b84b1c5ed895766115414acff50aebaa40d52704922e71678503a011e1dc"
+    },
+    {
+      "orden": 13,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000179_auditoria_intentos_bootstrap_central_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "bf5008ef4646a25c265e19869945cf467416df66894a1fdf90e3236c51d5d00a"
+    },
+    {
+      "orden": 14,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000183_mantenimiento_perfil_fijo_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "7ff41ab28436c0ce1461329d2aa759f43aced5fd9e111e4eb3922891283af73b"
+    },
+    {
+      "orden": 15,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000042_mantenimiento_perfil_fijo_denominacion.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "f89e687cb4d0da741937d43c754edfa26377f77f81cca5f5231d3079f9b6c403"
+    },
+    {
+      "orden": 16,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000184_denominacion_persona_nominal.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "5927b660c826d6fd10fa4dec15246a1eaa6fa965a328ebb69bb912e26968b5f4"
+    },
+    {
+      "orden": 17,
+      "archivo": "deploy/postgresql/contexto_actor_v1/migraciones/000032_denominacion_persona_cifrada.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "3029e345807fbcd95d4d8796a0d72eb4d17fd8676612ecae9959ef43dd269159"
+    },
+    {
+      "orden": 18,
+      "archivo": "deploy/postgresql/contexto_actor_v1/migraciones/000034_metadata_usuarios_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "c0c469a08d1f2139be63c29c8602275edf5c700d335395536791a7a1cbfa38cf"
+    },
+    {
+      "orden": 19,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000043_lecturas_usuarios_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "a42bee4fb5bb9aed1fcf757f177e83af828ca05efbdc2b100b01467a8c76e5cc"
+    },
+    {
+      "orden": 20,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000185_lecturas_usuarios_admin_nominal.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "ec13f92b6ed20061c4c6405c52e98879bbe2527e351954011e03f2d4dbedea2f"
+    },
+    {
+      "orden": 21,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000046_fechas_prospectivas_mantenimiento_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "04c33302d943670a103b3e29f7eb0f145553a8a3120ae6ce4acbdf837ce227b7"
+    },
+    {
+      "orden": 22,
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000045_mantenimiento_perfil_fijo_lote.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "f8a1481ab6612bb882fea7ff4ccfe325518b5b9c7470b2e91deffeee865a4b4c"
+    },
+    {
+      "orden": 23,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000186_sello_periodico_auditoria.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "7f1fa3f1edaff46bc7847b50209f333276a19c89c5b607c2dd9e8f845ef9da1e"
+    },
+    {
+      "orden": 24,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000187_preservacion_provisional_auditoria.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "be49898bfedda9b77d95d1eb57ea4f14caba479f38499574c2fa56528f465e82"
+    },
+    {
+      "orden": 25,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000188_gobierno_usuarios_admin.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "069c8de9eaf3a40368f626f53feb8a1078fb6dfe88b035c0c1c6a32802015ba1"
+    },
+    {
+      "orden": 26,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000189_frontera_admin_tecnica.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "d69b8866d90ccb756fa412640e1342bd26bb9a7381a4436ec92b2952dc74d4fa"
+    },
+    {
+      "orden": 27,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000191_gobierno_usuarios_alias.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "6b04797acf03fe4d079c730bee1c12f3c0f2cecf97538014be47ebdff54ae413"
+    },
+    {
+      "orden": 28,
+      "archivo": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000192_contexto_admin_pre_v2.up.sql",
+      "source_commit": "86f97d14c74944798cee0d0cc86b6eba83f90274",
+      "sql_sha256": "f6f7bbdb6c86492c65e86e18dfcd4308a0fc1f0eb7f3a15aad1f828d066053e8"
+    }
+  ],
+  "candidatas_no_integradas": [
+    {
+      "label": "AUT39",
+      "source_commit": "6d029e2627c72d9a8307327315420f8ded02bb5d",
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000039_fuentes_iniciales_admin.up.sql",
+      "sha256": "b6915c4547076742563ea6bb91f832080c62e1e35742194decefbe598a6ac3d7",
+      "exit": 0
+    },
+    {
+      "label": "AUT40",
+      "source_commit": "97118f00e7079aa37df7ff2419b8bd626428ea89",
+      "archivo": "deploy/postgresql/autorizacion/migraciones/000040_bootstrap_central_admin_auditado.up.sql",
+      "sha256": "d0f5c99c70398e5d671ee72786e50f96dab13e8613629af9261d537ceb769ed9",
+      "exit": 0
+    },
+    {
+      "label": "IS16",
+      "source_commit": "57f63cc889ce4dd5b4dce60a70857b161e075f6c",
+      "archivo": "deploy/postgresql/identidad_sesiones_v1/migraciones/000016_runtime_admin_perfiles.up.sql",
+      "sha256": "2f88dafdcf8f2a6038cb42bc5879bc5b143f23e240184b6c040352e721bd5c92",
+      "exit": 0
+    },
+    {
+      "label": "CA36",
+      "source_commit": "ffafcf7f67dfec7b2bd8d4f1eecfb8bd525d4cc0",
+      "archivo": "deploy/postgresql/contexto_actor_v1/migraciones/000036_contexto_admin_nominal.up.sql",
+      "sha256": "6dfe1b8a3a6fcdce21a58690049745a0f37b5ee7862a8be4fe016f8beec62c3f",
+      "exit": 0
+    }
+  ],
+  "ensayo": {
+    "postgresql": "18.4",
+    "origen": "copia fria sintetica H9",
+    "UP_main": 28,
+    "UP_candidatas": 4,
+    "fuentes_titularidad_unidad_bootstrap": "permitido",
+    "aplicacion": 2,
+    "sistemas": 1,
+    "auditoria_H9": 6240,
+    "auditoria_final_tras_reinicio": 6253,
+    "replay_fuentes_unidad_bootstrap": "recibos_identicos",
+    "negative_aprobacion_fuentes_bootstrap": "denegado_confirmado",
+    "frio_post_arranque_sha256": "f7c080048ec19825da2bd244de8ad1df28438dc08bcd64a19efc4bf2ac94cf4b",
+    "principal_modificada": false,
+    "frio_restaurado_readonly": true
+  }
+}

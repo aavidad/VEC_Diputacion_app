@@ -59,7 +59,7 @@ var rutasComunesExterno = rutasPortal{
 	},
 	prefijos: []string{
 		"/bolsa/", "/verificar/", "/acceso/", "/api/publico/",
-		"/assets/", "/comun/", "/textos/", "/locales/",
+		"/assets/", "/comun/", "/textos/", "/locales/", "/pwa/",
 	},
 }
 

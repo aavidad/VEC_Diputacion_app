@@ -53,7 +53,7 @@ var TiposBorradorConocidos = []ports.TipoBorradorRRHH{
 var (
 	marcaPlantilla      = regexp.MustCompile(`\{\{([?!/]?)([a-z][a-z0-9_]{0,63})\}\}`)
 	patronAccionRequida = regexp.MustCompile(`^[a-z][a-z0-9_]{0,95}$`)
-	prefijosEtiqueta    = []string{"modalidad.", "causa.", "comprobacion.", "resultado."}
+	prefijosEtiqueta    = []string{"modalidad.", "causa.", "fin.", "comprobacion.", "resultado."}
 )
 
 // PlantillaBorrador es una plantilla ya validada. Sus textos sólo contienen
@@ -137,6 +137,14 @@ func (p *PlantillasBorrador) etiqueta(prefijo, clave string) string {
 		}
 	}
 	return clave
+}
+
+func (p *PlantillasBorrador) tieneEtiqueta(prefijo, clave string) bool {
+	if p == nil || clave == "" {
+		return false
+	}
+	valor, ok := p.etiquetas[prefijo+clave]
+	return ok && strings.TrimSpace(valor) != ""
 }
 
 // ValidarCatalogoPlantillasBorrador comprueba también los borradores antes de

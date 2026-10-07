@@ -1,0 +1,7 @@
+{
+  "preflight": "Entradas preparadas. Navegador y servidor no comprobados.",
+  "exito": "Lecturas comprobadas en Chrome. Consulte resultado.json en la carpeta privada.",
+  "entrada": "No ejecutado: revise el JSON privado, Chrome, Playwright y el material sintético.",
+  "fallo": "Recorrido cortado. Consulte el paso y los contadores en resultado.json; no repita escrituras.",
+  "uso": "Uso: node scripts/recorridos-f/recorrer.mjs --config /RUTA_PRIVADA/lecturas.json --modo preflight|lectura [--salida /RUTA_PRIVADA/CARPETA_NUEVA] [--comparar /RUTA_PRIVADA/resultado-anterior.json]"
+}

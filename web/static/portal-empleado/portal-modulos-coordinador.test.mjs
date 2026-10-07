@@ -5,21 +5,21 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js";
+} from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -304,7 +304,7 @@ test("los ocho módulos registrados conservan estado fiel sin inventar vistas", 
   }
 });
 
-test("CT inventariado queda no_disponible y fuera del menú si falla su carga real", async () => {
+test("CT fallida ofrece reintento de menú solo al perfil fijo atestado", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];
   const catalogo = crearCatalogoModulosDesdeManifiestos(
@@ -313,6 +313,7 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
     traducir: (clave) => {
       clavesTraducidas.push(clave);
       return `i18n:${clave}`;
@@ -330,17 +331,79 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
     vista: "",
     estado: "no_disponible",
     textoEstado: "i18n:estado_modulo_no_disponible_titulo",
+    recuperable: true,
   });
-  // Sin servicio, el menú no ofrece la entrada en lugar de mostrarla deshabilitada.
   const navegacion = coordinador.renderizarNavegacion(true, "portal");
-  assert.doesNotMatch(navegacion, /data-modulo-portal="contratacion_temporal"/);
+  assert.match(navegacion, /data-modulo-portal="contratacion_temporal"[^>]*data-accion="recargar-fuente"/);
   assert.doesNotMatch(navegacion, /data-vista=/);
-  assert.deepEqual(clavesTraducidas, [
-    "estado_modulo_no_disponible_titulo",
-    "estado_modulo_no_disponible_titulo",
-  ]);
+  assert.ok(clavesTraducidas.includes("txt_reintentar"));
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
-  assert.equal(cargasContratacion, 1);
+  assert.equal(cargasContratacion, 2, "la importación se reintenta una sola vez");
+});
+
+test("sin CT inventariada o sin perfil CT atestado no aparece el reintento", async () => {
+  const conCT = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  for (const [catalogo, roles] of [[conCT, ["personal_interno"]], [conCT, ["administrativo"]],
+    [conCT, []], [[], ["tecnico_rrhh"]]]) {
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles }),
+      cargadoresInternos: { contratacion_temporal: async () => { throw new Error("fallo"); } },
+    });
+    await coordinador.cargarInterno();
+    assert.doesNotMatch(coordinador.renderizarNavegacion(), /data-modulo-portal="contratacion_temporal"/);
+  }
+});
+
+test("CT reintenta el catálogo del circuito y registra un fallo sin volcar la excepción", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const idiomas = [];
+  const avisos = [];
+  const consultas = [];
+  let fallar = true;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargarFasesCircuito: async (idioma) => {
+      idiomas.push(idioma);
+      if (fallar) throw new Error("dato-personal-que-no-debe-salir");
+      return { solicitud: "Firma de la petición" };
+    },
+    entorno: { console: { error: (...argumentos) => avisos.push(argumentos) } },
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => ({
+        async obtenerCatalogosAlta() { consultas.push("alta"); throw new Error("sin alta"); },
+        async obtenerConfiguracionAnalisis() { consultas.push("analisis"); throw new Error("sin análisis"); },
+      }) },
+      adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({
+        capacidades: [],
+        async resumenInicio() { consultas.push("resumen"); return { expedientes: [] }; },
+      }) },
+      presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+      vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
+    }) },
+  });
+  assert.deepEqual(idiomas, [], "el catálogo no se pide al importar o construir el portal");
+  await coordinador.cargarInterno();
+  assert.deepEqual(consultas, [], "un catálogo fallido no inicia consultas CT");
+  assert.deepEqual(avisos, [["portal.modulo.carga_fallida", {
+    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible", causa: "catalogo", intento: 1,
+  }], ["portal.modulo.carga_fallida", {
+    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible", causa: "catalogo", intento: 2,
+  }]]);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+
+  fallar = false;
+  await coordinador.cargarInterno();
+  assert.deepEqual(idiomas, ["es", "es", "es"], "solo se pide el idioma activo y se reintenta");
+  assert.deepEqual(consultas.sort(), ["alta", "analisis", "resumen"]);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(avisos.length, 2);
 });
 
 
@@ -370,6 +433,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
     escaparHTML: String,
     entorno: { fetch: async (ruta) => {
       llamadas.push(ruta);
+      if (ruta === "/api/interna/personal/mi-ficha") return new Response(null, { status: 404 });
       return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
         : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
     } },
@@ -382,7 +446,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "catalogos"]);
   assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 0);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(llamadas.at(-1), "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
@@ -394,6 +458,54 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.ok(raiz.querySelectorAll("[data-personal-ficha-destino]").every((boton) => boton.disabled === true));
   coordinador.desmontarVistaActual();
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
+
+test("Mi ficha ofrece destinos propios diferidos sin cargarlos ni consultar sus datos", async () => {
+  for (const destinos of [[], ["cronos"], ["dietas"], ["cronos", "dietas"]]) {
+    const peticiones = []; const cargadas = []; const location = { hash: "#personal" };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { location, fetch: async (ruta) => {
+        peticiones.push(ruta);
+        if (ruta === "/api/interna/personal/mi-ficha") return respuestaPersonalJSON({ data: {
+          ficha: { corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" },
+            relaciones: [], servicios: [] },
+          recibo_ref: "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100", consultada_en: "2026-09-25T09:00:00.000000Z",
+        } });
+        return new Response(null, { status: 404 });
+      } },
+      cargarCatalogoInterno: async () => [{ clave: "personal" }, ...destinos.map((clave) => ({ clave }))],
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+        personal_catalogos_publicos: async () => { throw new Error("sin catálogos públicos"); },
+        cronos: async () => { cargadas.push("cronos"); throw new Error("no disponible"); },
+        dietas: async () => { cargadas.push("dietas"); throw new Error("no disponible"); },
+      },
+    });
+    await coordinador.cargarInterno();
+    assert.deepEqual(peticiones, []);
+    await coordinador.prepararVista("personal");
+    const raiz = raizDietasFalsa();
+    assert.equal(await coordinador.montarVista("personal", raiz), true);
+    const botones = raiz.querySelectorAll("[data-personal-ficha-destino]");
+    for (const boton of botones) {
+      const destino = boton.dataset.personalFichaDestino;
+      assert.equal(boton.disabled, !destinos.includes(destino), destino);
+      assert.equal(coordinador.vistaDisponible(destino), false, "navegar no equivale a tener el destino montado");
+      boton.listeners.click();
+      if (destinos.includes(destino)) assert.equal(location.hash, `#${destino}`);
+    }
+    assert.deepEqual(cargadas, [], "la ficha no carga los destinos");
+    assert.deepEqual(peticiones, ["/api/interna/personal/mi-ficha"], "sólo consulta la ficha propia");
+    if (destinos.length) {
+      await coordinador.prepararVista(destinos[0]);
+      assert.equal(coordinador.obtenerAccesosEmpleado()[destinos[0]].estado, "no_disponible");
+      await coordinador.montarVista("personal", raiz);
+      assert.equal(raiz.querySelector(`[data-personal-ficha-destino="${destinos[0]}"]`).disabled, true,
+        "un destino cuya carga ha fallado deja de ofrecerse");
+    }
+    coordinador.desmontarVistaActual();
+  }
 });
 
 test("la ficha propia muestra el estado de carga común y salir de Personal cancela su consulta", async () => {
@@ -453,7 +565,7 @@ test("con ficha propia servida, Personal ofrece relaciones y servicios con datos
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
   assert.equal(raiz.querySelector("[data-portal-carga-vista]"), null, "la carga común se retira al montar la ficha");
-  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "relaciones", "servicios", "catalogos"]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "relaciones", "servicios", "catalogos"]);
   raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
   await new Promise((resolve) => setImmediate(resolve));
   const celdas = raiz.querySelectorAll("td").map((celda) => celda.textContent);
@@ -472,7 +584,8 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
   ]) {
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
-      entorno: { fetch: async () => respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
+      entorno: { fetch: async (ruta) => ruta === "/api/interna/personal/mi-ficha"
+        ? new Response(null, { status: 404 }) : respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
       cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }, { clave: "dietas" }]),
       cargadoresInternos: {
         contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
@@ -539,7 +652,7 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
   const catalogo = [...crearCatalogoModulosDesdeManifiestos([manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL), Object.freeze({ clave: "personal" })];
   const fuenteCT = Object.freeze({
     capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"]),
-    async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
   });
   const cargadorCT = async () => ({
     cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
@@ -634,7 +747,7 @@ test("los catálogos públicos de Personal van en un cargador opcional incluido 
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
     "vista.js", "vista-ficha-integral.js", "registro-b2.js", "registro-b2-cliente.js",
-    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js"]);
+    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js", "vista-contacto-propio.js"]);
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }
@@ -749,6 +862,42 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
   }
 });
 
+test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas directas se conservan", async () => {
+  const reales = await recursosCronosInternos(); const montadas = [];
+  const montar = (nombre) => ({ registrarDesmontar } = {}) => {
+    montadas.push(nombre); const desmontar = () => {}; registrarDesmontar?.(desmontar); return { desmontar };
+  };
+  const recursos = { ...reales,
+    permisosPropios: { montarPermisosPropiosCronos: montar("permisos") },
+    bandejaPermisos: { montarBandejaPermisosCronos: montar("bandeja") },
+    avisosPropios: { montarAvisosPropiosCronos: montar("avisos") },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: () => ({}) },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => clave },
+    notificacionesPropias: { montarNotificacionesPropiasCronos: montar("notificaciones") },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: montar("bandeja-notificaciones") },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: () => ({}) },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }],
+    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), cronos: async () => recursos },
+  });
+  await cargarConDiferidos(coordinador); const raiz = raizDietasFalsa();
+  for (const vista of ["cronos-permisos", "cronos-avisos", "cronos-notificaciones"]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    const navegacion = raiz.querySelector("[data-cronos-subvistas]").innerHTML;
+    assert.doesNotMatch(navegacion, /data-vista="cronos-bandeja(?:-notificaciones)?"/);
+  }
+  assert.deepEqual(montadas, ["permisos", "avisos", "notificaciones"]);
+  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"]]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    assert.equal(montadas.at(-1), montaje);
+    assert.match(raiz.querySelector("[data-cronos-subvistas]").innerHTML, new RegExp(`data-vista="${vista}" aria-current="page"`));
+  }
+  coordinador.desmontarVistaActual();
+});
+
 test("CT interno se activa solo después de una consulta autorizada", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
@@ -761,7 +910,7 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
       "contratacion_temporal.cuadro.consultar",
       "contratacion_temporal.expediente.consultar",
     ]),
-    async listar({ signal } = {}) {
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar({ signal } = {}) {
       consultas += 1;
       signalConsulta = signal;
       return { expedientes: [] };
@@ -820,9 +969,11 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
   ]) {
     const llamadas = [];
     let presentador;
+    let mensajesAdaptador;
+    const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
     const fuente = {
       capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
-      async listar() { llamadas.push("cuadro"); return cuadro; },
+      async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { llamadas.push("cuadro"); return cuadro; },
       async obtener(ref) { llamadas.push(`detalle:${ref}`); return expediente; },
       async ejecutar() { throw new Error("solo lectura"); },
     };
@@ -837,8 +988,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         }) },
         adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
           assert.equal(opciones.locale, idioma);
-          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
-          else assert.deepEqual(opciones.mensajes, {});
+          mensajesAdaptador = opciones.mensajes;
+          assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
+          assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
@@ -847,7 +1000,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
           mensajes, locale, zonaHoraria }) => {
           assert.equal(locale, idioma);
-          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          assert.equal(mensajes, mensajesAdaptador);
           const estado = actual.obtenerEstado();
           const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
             recibo_ref: "recibo:ct:sintetico:001",
@@ -918,7 +1071,7 @@ test("el enlace directo CT conserva denegación y cancela la consulta al salir",
   let presentador;
   const fuente = {
     capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
-    async listar() { return cuadro; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return cuadro; },
     obtener(_ref, { signal }) {
       detalle += 1;
       senalDetalle = signal;
@@ -969,7 +1122,7 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
       "contratacion_temporal.cuadro.consultar",
       "contratacion_temporal.expediente.consultar",
     ]),
-    async listar() { return { expedientes: [] }; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
     async obtener() { return {}; },
     async ejecutar() { throw new Error("solo lectura"); },
   });
@@ -1018,7 +1171,7 @@ test("sin perfil de Intervención no se monta la fiscalización: CT no se ofrece
   });
   const fuente = Object.freeze({
     capacidades: Object.freeze([]),
-    async listar() { throw new Error("403"); },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { throw new Error("403"); },
     async obtener() { throw new Error("403"); },
     async ejecutar() { throw new Error("403"); },
   });
@@ -1067,7 +1220,7 @@ test("CT recupera incorporación con continuidad si falla análisis y el alta si
   });
   const fuente = Object.freeze({
     capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar"]),
-    async listar() { return { expedientes: [] }; },
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
     async obtener() { return {}; },
     async ejecutar() { throw new Error("solo lectura"); },
   });
@@ -1137,7 +1290,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   let analisisMontado;
   const fuente = Object.freeze({
     capacidades: Object.freeze([]),
-    async listar() {
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() {
       consultasCuadro += 1;
       orden.push("cuadro");
       const error = new Error("cuadro pendiente");

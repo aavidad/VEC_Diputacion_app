@@ -95,6 +95,42 @@ function normalizarOpciones(lista, {
   }));
 }
 
+const REGLAS_FIN = new Set(["obligatoria", "opcional", "no_aplica"]);
+
+export function normalizarModalidadesAnalisis(lista) {
+  const vistas = new Set();
+  return Object.freeze(valoresListaCerrada(lista, "modalidades").map((opcion) => {
+    const tieneRegla = esRegistro(opcion) && Object.hasOwn(opcion, "fecha_fin");
+    const tieneCausa = esRegistro(opcion) && Object.hasOwn(opcion, "causa_fin");
+    const tieneReferencia = esRegistro(opcion) && Object.hasOwn(opcion, "regla_ref");
+    const tieneVersion = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_version");
+    const tieneHuella = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_huella_sha256");
+    exigirCamposExactos(opcion, ["clave", "etiqueta",
+      ...(tieneRegla ? ["fecha_fin"] : []), ...(tieneCausa ? ["causa_fin"] : []),
+      ...(tieneReferencia ? ["regla_ref"] : []),
+      ...(tieneVersion ? ["catalogo_version"] : []),
+      ...(tieneHuella ? ["catalogo_huella_sha256"] : [])], "modalidades");
+    if (!claveValida(opcion.clave) || vistas.has(opcion.clave)
+      || !etiquetaValida(opcion.etiqueta)
+      || (tieneRegla && !REGLAS_FIN.has(opcion.fecha_fin))
+      || (tieneCausa && !claveValida(opcion.causa_fin))
+      || (opcion.fecha_fin === "no_aplica" && !tieneCausa)
+      || (tieneReferencia !== tieneVersion || tieneVersion !== tieneHuella)
+      || (tieneReferencia && (!tieneRegla || !referenciaValida(opcion.regla_ref)
+        || !Number.isSafeInteger(opcion.catalogo_version) || opcion.catalogo_version < 1
+        || !huellaValida(opcion.catalogo_huella_sha256)))) {
+      throw new TypeError("modalidades no válidas");
+    }
+    vistas.add(opcion.clave);
+    return Object.freeze({ clave: opcion.clave, etiqueta: opcion.etiqueta,
+      fecha_fin: opcion.fecha_fin ?? "obligatoria",
+      ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}),
+      ...(tieneReferencia ? { regla_ref: opcion.regla_ref,
+        catalogo_version: opcion.catalogo_version,
+        catalogo_huella_sha256: opcion.catalogo_huella_sha256 } : {}) });
+  }));
+}
+
 function referenciaValida(valor) {
   return typeof valor === "string" && PATRON_REFERENCIA.test(valor);
 }
@@ -213,9 +249,7 @@ export function validarConfiguracionAnalisis(configuracion) {
   }
   // Qué modalidades existen lo decide el catálogo del servidor; aquí solo se
   // exige la forma de cada opción.
-  const modalidades = normalizarOpciones(configuracion.modalidades, {
-    nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
-  });
+  const modalidades = normalizarModalidadesAnalisis(configuracion.modalidades);
   const duraciones = tieneDuraciones
     ? normalizarDuracionesMaximas(configuracion.duraciones_maximas, modalidades)
     : null;
@@ -319,11 +353,17 @@ function ordinalFecha({ anio, mes, dia }) {
 }
 
 function periodoValido(periodo) {
-  exigirCamposExactos(periodo, ["inicio", "fin"], "periodo del análisis");
+  const tieneFin = esRegistro(periodo) && Object.hasOwn(periodo, "fin");
+  const tieneCausa = esRegistro(periodo) && Object.hasOwn(periodo, "causa_fin");
+  exigirCamposExactos(periodo, ["inicio", ...(tieneFin ? ["fin"] : []),
+    ...(tieneCausa ? ["causa_fin"] : [])], "periodo del análisis");
   const inicio = descomponerFechaCivil(periodo.inicio);
-  const fin = descomponerFechaCivil(periodo.fin);
-  if (inicio === null || fin === null
-    || ordinalFecha(fin) < ordinalFecha(inicio)) return false;
+  const fin = tieneFin && periodo.fin !== null ? descomponerFechaCivil(periodo.fin) : null;
+  if (inicio === null || (tieneFin && periodo.fin !== null && fin === null)
+    || (fin === null && (!tieneCausa || !claveValida(periodo.causa_fin)))
+    || (fin !== null && tieneCausa)) return false;
+  if (fin === null) return true;
+  if (ordinalFecha(fin) < ordinalFecha(inicio)) return false;
 
   const anioLimite = inicio.anio + MAXIMO_ANIOS_PERIODO;
   if (anioLimite > 9_999) return true;
@@ -373,11 +413,36 @@ export function validarDatosPreviosAnalisis(entrada) {
     modalidad_clave: entrada.modalidad_clave,
     categoria_ref: entrada.categoria_ref,
     causa_clave: entrada.causa_clave,
-    periodo: Object.freeze({ inicio: entrada.periodo.inicio, fin: entrada.periodo.fin }),
+    periodo: Object.freeze({ inicio: entrada.periodo.inicio,
+      ...(entrada.periodo.fin ? { fin: entrada.periodo.fin } : {}),
+      ...(entrada.periodo.causa_fin ? { causa_fin: entrada.periodo.causa_fin } : {}) }),
     porcentaje_jornada: entrada.porcentaje_jornada,
   };
   if (tieneObservaciones) salida.observaciones = entrada.observaciones;
   return Object.freeze(salida);
+}
+
+// Datos de la petición del centro con los que se prerrellena un análisis nuevo
+// (WCAG 3.3.7: no volver a pedir lo ya dado). Son sugerencias editables: el
+// formulario descarta las que no existan en los catálogos vigentes.
+export function validarDatosPeticionAnalisis(entrada) {
+  const tieneModalidad = esRegistro(entrada) && Object.hasOwn(entrada, "modalidad_clave");
+  exigirCamposExactos(entrada, [
+    "categoria_ref", "grupo_subgrupo", "periodo", ...(tieneModalidad ? ["modalidad_clave"] : []),
+  ], "datos de la petición para el análisis");
+  if (!referenciaValida(entrada.categoria_ref) || typeof entrada.grupo_subgrupo !== "string"
+    || entrada.grupo_subgrupo.length > 80 || !periodoValido(entrada.periodo)
+    || (tieneModalidad && !claveValida(entrada.modalidad_clave))) {
+    throw new TypeError("datos de la petición para el análisis no válidos");
+  }
+  return Object.freeze({
+    ...(tieneModalidad ? { modalidad_clave: entrada.modalidad_clave } : {}),
+    categoria_ref: entrada.categoria_ref,
+    grupo_subgrupo: entrada.grupo_subgrupo,
+    periodo: Object.freeze({ inicio: entrada.periodo.inicio,
+      ...(entrada.periodo.fin ? { fin: entrada.periodo.fin } : {}),
+      ...(entrada.periodo.causa_fin ? { causa_fin: entrada.periodo.causa_fin } : {}) }),
+  });
 }
 
 function validarAnalisis(analisis) {
@@ -426,10 +491,9 @@ function validarAnalisis(analisis) {
     categoria_ref: analisis.categoria_ref,
     grupo_subgrupo: analisis.grupo_subgrupo,
     causa_clave: analisis.causa_clave,
-    periodo: Object.freeze({
-      inicio: analisis.periodo.inicio,
-      fin: analisis.periodo.fin,
-    }),
+    periodo: Object.freeze({ inicio: analisis.periodo.inicio,
+      ...(analisis.periodo.fin ? { fin: analisis.periodo.fin } : {}),
+      ...(analisis.periodo.causa_fin ? { causa_fin: analisis.periodo.causa_fin } : {}) }),
     porcentaje_jornada: analisis.porcentaje_jornada,
     entrada_rc: Object.freeze({
       referencia: analisis.entrada_rc.referencia,

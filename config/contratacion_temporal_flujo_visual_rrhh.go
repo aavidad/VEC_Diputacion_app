@@ -8,6 +8,13 @@ import _ "embed"
 //go:embed contratacion_temporal_flujo_visual_rrhh_v1.json
 var presentacionFlujoRRHHDesarrollo string
 
+//go:embed contratacion_temporal_flujo_visual_rrhh_v2.json
+var presentacionCircuitoRRHH string
+
 func PresentacionFlujoRRHHDesarrollo() string {
 	return presentacionFlujoRRHHDesarrollo
+}
+
+func PresentacionCircuitoRRHH() string {
+	return presentacionCircuitoRRHH
 }

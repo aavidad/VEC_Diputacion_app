@@ -1,4 +1,5 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { cargarTextos } from "../comun/textos.js";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento
@@ -10,39 +11,16 @@ const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/;
 const POR_PAGINA = 6;
 
-export const MENSAJES_CONTRATOS = Object.freeze({
-  titulo: "Histórico de contratos",
-  descripcion: "Contratos registrados en Peticiones de personal temporal a partir de un llamamiento de esta bolsa.",
-  tabla: "Contratos de la participación",
-  col_tipo: "Hecho",
-  col_periodo: "Periodo",
-  col_modalidad: "Modalidad",
-  col_categoria: "Categoría",
-  col_causa: "Causa",
-  col_registrado: "Registrado",
-  tipo_incorporacion: "Incorporación",
-  hasta_previsto: "{inicio} – {fin} (prevista)",
-  sin_fin: "{inicio} – sin fecha de fin",
-  sin_dato: "—",
-  cargando: "Cargando histórico de contratos…",
-  vacio: "No hay contratos registrados para esta participación.",
-  reintentar: "Reintentar histórico",
-  paginacion: "Paginación del histórico de contratos",
-  mostrando: "Mostrando {desde} a {hasta} de {total}",
-  anterior: "Anterior",
-  siguiente: "Siguiente",
-  error_red: "No se pudo comunicar con el histórico de contratos.",
-  error_contrato: "La respuesta del histórico de contratos no respeta su contrato.",
-  error_403: "La sesión no dispone de permiso para consultar el histórico de contratos.",
-  error_404: "El histórico de contratos no está disponible todavía en este entorno.",
-  error_503: "El histórico de contratos no está disponible ahora. Puede reintentar.",
-  error_http: "No se pudo consultar el histórico de contratos (HTTP {estado}).",
-});
+/** Catálogo propio, leído por la autoridad común de idioma y textos. */
+export async function cargarMensajesContratos(idioma) {
+  return (await cargarTextos("bolsa", { idioma })).seccion("contratos_participacion");
+}
+export const MENSAJES_CONTRATOS = await cargarMensajesContratos();
 
 /** Traductor estricto: una clave inexistente es un error de programación. */
 export function traducirContratos(clave, variables = {}, catalogo = MENSAJES_CONTRATOS) {
   const plantilla = catalogo[clave];
-  if (typeof plantilla !== "string") throw new Error(`Clave i18n de contratos inexistente: ${clave}`);
+  if (!Object.hasOwn(catalogo, clave) || typeof plantilla !== "string") throw new Error(`Clave i18n de contratos inexistente: ${clave}`);
   return plantilla.replace(/\{(\w+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));
 }
 
@@ -68,26 +46,26 @@ function itemValido(item) {
     && typeof item.categoria_ref === "string" && item.categoria_ref.length <= 512;
 }
 
-function errorHttp(status) {
+function errorHttp(status, catalogo) {
   const clave = { 403: "error_403", 404: "error_404", 503: "error_503" }[status];
-  return { ok: false, status, mensaje: clave ? traducirContratos(clave) : traducirContratos("error_http", { estado: status }) };
+  return { ok: false, status, mensaje: traducirContratos(clave || "error_http", {}, catalogo) };
 }
 
-export async function consultarContratosParticipacion(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
+export async function consultarContratosParticipacion(bolsa, participacion, { fetchImpl = fetch, signal, catalogo = MENSAJES_CONTRATOS } = {}) {
   try {
     const respuesta = await fetchImpl(rutaContratosParticipacion(bolsa, participacion), {
       method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
-    if (!respuesta.ok) return errorHttp(respuesta.status);
+    if (!respuesta.ok) return errorHttp(respuesta.status, catalogo);
     const cuerpo = await respuesta.json();
     const items = cuerpo?.data?.items;
     if (cuerpo?.data?.esquema !== ESQUEMA_CONTRATOS || !Array.isArray(items) || !items.every(itemValido)) {
-      return { ok: false, status: 0, mensaje: traducirContratos("error_contrato") };
+      return { ok: false, status: 0, mensaje: traducirContratos("error_contrato", {}, catalogo) };
     }
     return { ok: true, datos: items };
   } catch (error) {
     if (error?.name === "AbortError") return { ok: false, status: 0, abortada: true, mensaje: "" };
-    return { ok: false, status: 0, mensaje: traducirContratos("error_red") };
+    return { ok: false, status: 0, mensaje: traducirContratos("error_red", {}, catalogo) };
   }
 }
 
@@ -111,46 +89,52 @@ export async function cargarContratosFicha(modalFicha, { estado, renderizar, con
   renderizar();
 }
 
-const FORMATO_FECHA = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, day: "2-digit", month: "2-digit", year: "numeric" });
-
-function fecha(valor) {
-  return valor ? FORMATO_FECHA.format(new Date(valor)) : traducirContratos("sin_dato");
+function fecha(valor, textos) {
+  return valor ? textos.formatoFecha.format(new Date(valor)) : textos.t("sin_dato");
 }
 
-/** Rótulo legible de una clave de catálogo ajena cuando no hay traducción. */
-function rotuloClave(clave) {
-  if (!clave) return traducirContratos("sin_dato");
+/** Las claves desconocidas siguen visibles como datos del catálogo de origen. */
+function rotuloClave(clave, prefijo, textos) {
+  if (!clave) return textos.t("sin_dato");
+  const mensaje = `${prefijo}_${clave}`;
+  if (Object.hasOwn(textos.catalogo, mensaje)) return textos.t(mensaje);
   const texto = clave.replace(/[._-]+/g, " ");
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-function rotuloTipo(tipo) {
-  return Object.hasOwn(MENSAJES_CONTRATOS, `tipo_${tipo}`) ? traducirContratos(`tipo_${tipo}`) : rotuloClave(tipo);
-}
-
-function periodo(item) {
-  if (!item.inicio) return traducirContratos("sin_dato");
+function periodo(item, textos) {
+  if (!item.inicio) return textos.t("sin_dato");
   return item.fin_previsto
-    ? traducirContratos("hasta_previsto", { inicio: fecha(item.inicio), fin: fecha(item.fin_previsto) })
-    : traducirContratos("sin_fin", { inicio: fecha(item.inicio) });
+    ? textos.t("hasta_previsto", { inicio: fecha(item.inicio, textos), fin: fecha(item.fin_previsto, textos) })
+    : textos.t("sin_fin", { inicio: fecha(item.inicio, textos) });
 }
 
 // La categoría del contrato llega como referencia opaca de Contratación: se
 // nombra con la categoría de la bolsa en la que se hizo el llamamiento.
-export function renderizarContratosParticipacion({ estado = {}, escaparHTML, categoria = "" }) {
-  const t = (clave, variables) => escaparHTML(traducirContratos(clave, variables));
+export function renderizarContratosParticipacion({ estado = {}, escaparHTML, categoria = "", catalogo = MENSAJES_CONTRATOS, localizacion = LOCALIZACION_PORTAL }) {
+  const textos = {
+    catalogo,
+    t: (clave, variables) => traducirContratos(clave, variables, catalogo),
+    formatoFecha: new Intl.DateTimeFormat(localizacion, { timeZone: ZONA_HORARIA_PORTAL, day: "2-digit", month: "2-digit", year: "numeric" }),
+    formatoNumero: new Intl.NumberFormat(localizacion),
+  };
+  const t = (clave, variables) => escaparHTML(textos.t(clave, variables));
   const carga = estado.carga || "cargando";
   let contenido;
   if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
-  else if (carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirContratos("error_red"))}</p><button type="button" class="boton-secundario" data-b13-accion="reintentar">${t("reintentar")}</button>`;
+  else if (carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || textos.t("error_red"))}</p><button type="button" class="boton-secundario" data-b13-accion="reintentar">${t("reintentar")}</button>`;
   else if (!estado.items?.length) contenido = `<p class="vacio-controlado" role="status">${t("vacio")}</p>`;
   else {
     const total = estado.items.length;
     const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
     const pagina = Math.min(Math.max(0, Number(estado.pagina) || 0), paginas - 1);
     const visibles = estado.items.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
-    const filas = visibles.map((item) => `<tr><td>${escaparHTML(rotuloTipo(item.tipo))}</td><td>${escaparHTML(periodo(item))}</td><td>${escaparHTML(rotuloClave(item.modalidad_clave))}</td><td>${item.categoria_ref && categoria ? escaparHTML(categoria) : t("sin_dato")}</td><td>${escaparHTML(rotuloClave(item.causa_clave))}</td><td>${escaparHTML(fecha(item.ocurrido_en))}</td></tr>`).join("");
-    const resumen = t("mostrando", { desde: pagina * POR_PAGINA + 1, hasta: Math.min((pagina + 1) * POR_PAGINA, total), total });
+    const filas = visibles.map((item) => `<tr><td>${escaparHTML(rotuloClave(item.tipo, "tipo", textos))}</td><td>${escaparHTML(periodo(item, textos))}</td><td>${escaparHTML(rotuloClave(item.modalidad_clave, "modalidad", textos))}</td><td>${item.categoria_ref && categoria ? escaparHTML(categoria) : t("sin_dato")}</td><td>${escaparHTML(rotuloClave(item.causa_clave, "causa", textos))}</td><td>${escaparHTML(fecha(item.ocurrido_en, textos))}</td></tr>`).join("");
+    const resumen = t("mostrando", {
+      desde: textos.formatoNumero.format(pagina * POR_PAGINA + 1),
+      hasta: textos.formatoNumero.format(Math.min((pagina + 1) * POR_PAGINA, total)),
+      total: textos.formatoNumero.format(total),
+    });
     const navegacion = paginas > 1
       ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>`
       : `<p>${resumen}</p>`;

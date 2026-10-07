@@ -1,0 +1,11 @@
+# Precondiciones: Bolsa 000060/000061 y AD3-000115. Comprobar sus objetos y huellas
+# en el destino; no reaplicar migraciones instaladas ni ejecutar DOWN.
+# Orden causal nuevo, una sola vez y tras copia de seguridad de la principal:
+deploy/postgresql/bolsa_llamamientos/migraciones/000073_reincorporacion_b8_justificada.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000076_revision_regularizacion_rrhh.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000155_solicitud_documental_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000077_solicitud_documental_rrhh.up.sql
+# Después: revisar y publicar la política v4 derivada del catálogo de ejemplo
+# data/demo/reglas/bolsa_reglas.rrhh-20261002.v4.json. El archivo demo no
+# acredita aprobación legal. Provisionar el perfil fijo mediante huella y CAS
+# fuera de peticiones. No hay permisos por petición.

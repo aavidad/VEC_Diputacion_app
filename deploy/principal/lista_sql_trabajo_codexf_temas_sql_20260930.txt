@@ -1,0 +1,2 @@
+# Requiere Usuarios 000015 y 000016 instaladas antes (rama Codex-B).
+deploy/postgresql/usuarios_vec/migraciones/000017_temas_preferencias_v2.up.sql

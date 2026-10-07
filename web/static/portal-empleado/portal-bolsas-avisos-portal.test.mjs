@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js";
+import { renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
 
 const sobre = (items, conteos) => ({ data: { esquema: "vec.bolsa.rrhh.avisos.v1", provisionalidad: "Pendiente", items, conteos, paginacion: { desde: 1, hasta: items.length, total: items.length } } });
 
@@ -26,4 +26,15 @@ test("sin portal compuesto la bandeja conserva su contrato anterior", () => {
   assert.doesNotThrow(() => validarAvisosBolsa(sobre([], { salto_orden: 0, tres_anos: 0 })));
   assert.throws(() => validarAvisosBolsa(sobre([], { salto_orden: 0, tres_anos: 0, solicitud_portal: -1 })), /no válido/u);
   assert.throws(() => validarAvisosBolsa(sobre([{ tipo: "otro", bolsa: "bolsa:1", referencia: "ref:1", fecha: "2026-09-25T10:00:00Z", detalle: {} }], { salto_orden: 0, tres_anos: 0 })), /no válido/u);
+});
+
+test("RRHH ve la solicitud documental pendiente sin datos técnicos ni efecto de estado", () => {
+  const datos = validarAvisosBolsa(sobre([
+    { tipo: "solicitud_portal", bolsa: "bolsa:demo:1", referencia: "solicitud-documental:" + "a".repeat(64), fecha: "2026-10-02T10:00:00Z",
+      detalle: { participacion_ref: "participacion:1", solicitud: "documental_rrhh", documento_ref: "documento:parte-1", documento_sha256: "b".repeat(64), estado: "pendiente_rrhh" } },
+  ], { salto_orden: 0, tres_anos: 0, solicitud_portal: 1, respuesta_portal: 0 }));
+  const visible = renderizarBloqueAvisos({ estado: "listo", datos }).replace(/data-[a-z-]+="[^"]*"/gu, "");
+  assert.match(visible, /Solicitud documental\. RRHH debe comprobar el justificante/u);
+  assert.doesNotMatch(visible, /documento:parte-1|solicitud-documental:|participacion:1/u);
+  assert.doesNotMatch(visible, /pausa o reactivación/u);
 });

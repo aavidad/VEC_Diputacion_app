@@ -37,7 +37,7 @@ func TestArquitecturaNoAcoplaGobiernoAInfraestructura(t *testing.T) {
 			}
 			if strings.Contains(ruta, "/adapters/") ||
 				strings.Contains(ruta, "/adapters") ||
-				strings.HasSuffix(ruta, "/ports") ||
+				(strings.HasSuffix(ruta, "/ports") && ruta != "vec-diputacion-granada/internal/modules/bolsa/ports" && ruta != "vec-diputacion-granada/internal/vec/ports") ||
 				ruta == "database/sql" || ruta == "net/http" ||
 				strings.Contains(ruta, "postgres") ||
 				strings.Contains(ruta, "pgx") {

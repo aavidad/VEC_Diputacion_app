@@ -85,7 +85,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claveIdempotencia, solicitud, err := solicitudAltaDesdePeticion(w, r)
+	claveIdempotencia, numeroMOAD, solicitud, err := solicitudAltaDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorAlta(w, r, clasificarErrorAlta(errContexto), errContexto)
 		return
@@ -106,6 +106,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	comando, correcto := comandoDesdeContextoCanal(
 		contextoCanal,
 		claveIdempotencia,
+		numeroMOAD,
 		solicitud,
 	)
 	if !correcto {
@@ -118,7 +119,8 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recibo, err := h.ejecutor.Registrar(r.Context(), comando)
-	if reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
+	if (recibo.NumeroVisible == numeroMOAD || numeroMOAD == "" && err == nil) &&
+		reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
 		// Un recibo válido confirma el COMMIT. Una cancelación observada a la
 		// vez no degrada el éxito a un resultado ambiguo ni induce reintento.
 		responderExitoAlta(w, r, recibo)
@@ -144,6 +146,7 @@ func rutaAltaExacta(r *http.Request) bool {
 func comandoDesdeContextoCanal(
 	contexto application.SolicitudRegistrarExpediente,
 	claveIdempotencia string,
+	numeroMOAD string,
 	solicitud domain.SolicitudCentro,
 ) (application.SolicitudRegistrarExpediente, bool) {
 	resolver := ports.SolicitudResolverContextoAutorizacionAltaV3{
@@ -154,18 +157,19 @@ func comandoDesdeContextoCanal(
 	clon, err := solicitud.Clonar()
 	if err != nil || resolver.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(contexto.OrganizacionRef) ||
-		contexto.ClaveIdempotencia != "" ||
+		contexto.ClaveIdempotencia != "" || contexto.NumeroExpedienteMOAD != "" ||
 		!ports.ClaveIdempotenciaValida(claveIdempotencia) ||
 		!reflect.DeepEqual(contexto.Solicitud, domain.SolicitudCentro{}) {
 		return application.SolicitudRegistrarExpediente{}, false
 	}
 	return application.SolicitudRegistrarExpediente{
-		AutenticacionRef:  contexto.AutenticacionRef,
-		SesionRef:         contexto.SesionRef,
-		PerfilRef:         contexto.PerfilRef,
-		OrganizacionRef:   contexto.OrganizacionRef,
-		ClaveIdempotencia: claveIdempotencia,
-		Solicitud:         clon,
+		AutenticacionRef:     contexto.AutenticacionRef,
+		SesionRef:            contexto.SesionRef,
+		PerfilRef:            contexto.PerfilRef,
+		OrganizacionRef:      contexto.OrganizacionRef,
+		ClaveIdempotencia:    claveIdempotencia,
+		NumeroExpedienteMOAD: numeroMOAD,
+		Solicitud:            clon,
 	}, true
 }
 

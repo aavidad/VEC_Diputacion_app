@@ -115,3 +115,35 @@ func TestCircuitoFirmaDocumentoIncoherente(t *testing.T) {
 		t.Fatal("hueco en los pasos admitido")
 	}
 }
+
+func TestCircuitoFirmaPerfilesAlternativos(t *testing.T) {
+	c := circuitoPrueba()
+	if err := c.Validar(); err != nil || len(c.Pasos[1].PerfilesAlternativos) != 0 {
+		t.Fatalf("el catálogo antiguo debe conservar un perfil único: %v", err)
+	}
+	c.Pasos[1].PerfilesAlternativos = []string{"perfil:ct:direccion_rrhh"}
+	if err := c.Validar(); err != nil {
+		t.Fatalf("Dirección alternativa a Jefatura debe ser válida: %v", err)
+	}
+	sinPrincipal := circuitoPrueba()
+	sinPrincipal.Pasos[1].PerfilRef = ""
+	sinPrincipal.Pasos[1].PerfilesAlternativos = []string{"perfil:ct:direccion_rrhh"}
+	if err := sinPrincipal.Validar(); !errors.Is(err, ErrCircuitoFirmaIncoherente) {
+		t.Fatalf("una alternativa exige perfil principal válido: %v", err)
+	}
+	for nombre, alternativas := range map[string][]string{
+		"vacío":          {""},
+		"mal formado":    {"Dirección de RRHH"},
+		"principal":      {"perfil:ct:jefatura"},
+		"repetido":       {"perfil:ct:direccion_rrhh", "perfil:ct:direccion_rrhh"},
+		"vacío al final": {"perfil:ct:direccion_rrhh", ""},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			invalido := circuitoPrueba()
+			invalido.Pasos[1].PerfilesAlternativos = alternativas
+			if err := invalido.Validar(); !errors.Is(err, ErrCircuitoFirmaIncoherente) {
+				t.Fatalf("alternativas %q: %v", alternativas, err)
+			}
+		})
+	}
+}

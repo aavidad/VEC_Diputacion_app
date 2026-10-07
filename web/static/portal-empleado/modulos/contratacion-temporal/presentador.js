@@ -9,7 +9,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js";
+} from "./contrato.js?v=20261002-ct-fin-moad-v1";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";
@@ -42,7 +42,7 @@ function generarClaveSegura() {
 }
 
 function camposBorrador() {
-  return Object.keys(crearBorradorAlta());
+  return Object.keys(crearBorradorAlta({ conNumeroMOAD: true }));
 }
 
 function copiarBorradorEntrada(entrada) {
@@ -99,7 +99,7 @@ function crearEstadoInicial(catalogos, disponible) {
     disponible,
     ocupado: false,
     catalogos,
-    borrador: crearBorradorAlta(),
+    borrador: crearBorradorAlta({ conNumeroMOAD: true }),
     errores: {},
     mensaje_clave: disponible ? "estado_disponible" : "estado_no_disponible",
     tipo_mensaje: disponible ? "informacion" : "aviso",
@@ -202,8 +202,8 @@ export function crearPresentadorAltaContratacionTemporal({
           comandoActual.clave_idempotencia,
         );
         comandoActual = solicitudesCanonicasIguales(
-          candidatoMismaClave.solicitud,
-          comandoActual.solicitud,
+          { numero: candidatoMismaClave.numero_expediente_moad, solicitud: candidatoMismaClave.solicitud },
+          { numero: comandoActual.numero_expediente_moad, solicitud: comandoActual.solicitud },
         )
           ? candidatoMismaClave
           : crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
@@ -260,6 +260,9 @@ export function crearPresentadorAltaContratacionTemporal({
         );
         respuestaRecibida = true;
         const recibo = validarReciboAlta(respuesta);
+        if (recibo.numero_visible !== comando.numero_expediente_moad) {
+          throw errorPublico("recibo_numero_no_coincide");
+        }
         sustituirEstado({
           fase: FASE_RECIBO,
           ocupado: false,

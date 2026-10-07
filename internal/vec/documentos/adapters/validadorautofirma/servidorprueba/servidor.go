@@ -1,23 +1,19 @@
 // Package servidorprueba imita, solo para pruebas, el contrato REST
-// `POST /verify` del validador de GrxFirma en modo
+// `POST /v2/verify` del validador de GrxFirma en modo
 // `-rest-solo-verificacion`. No verifica firmas: devuelve dictamenes
 // sinteticos elegidos por la prueba. No debe conectarse en ninguna
 // composicion real de VEC.
 //
 // La forma de la respuesta reproduce el contrato
-// `autofirmav2.dictamen-verificacion.v1`: campos heredados (`ok`, `valid`,
-// `reason`, `details`, `signers`, `result`) y `dictamen` con sus aspectos,
-// huellas de eco calculadas sobre los bytes recibidos, firmantes y
-// extensiones remotas desactivadas. Los valores son inventados y sin datos
-// reales.
+// `autofirmav2.dictamen-verificacion.v2`: metadatos de respuesta y `dictamen`
+// con firmas, revisiones, huellas de eco calculadas sobre los bytes recibidos
+// y extensiones remotas desactivadas. Los valores son sintéticos.
 package servidorprueba
 
 import (
-	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log"
@@ -29,7 +25,7 @@ import (
 )
 
 // ContratoDictamen es el unico contrato que interpreta el adaptador.
-const ContratoDictamen = "autofirmav2.dictamen-verificacion.v1"
+const ContratoDictamen = "autofirmav2.dictamen-verificacion.v2"
 
 // Escenario elige la respuesta sintetica del servidor.
 type Escenario string
@@ -168,7 +164,7 @@ func (s *Servidor) atender(w http.ResponseWriter, r *http.Request) {
 	s.llamadas++
 	esc, retardo := s.esc, s.retardo
 	s.mu.Unlock()
-	if r.URL.Path != "/verify" {
+	if r.URL.Path != "/v2/verify" {
 		http.NotFound(w, r)
 		return
 	}
@@ -234,189 +230,20 @@ func (s *Servidor) responder(w http.ResponseWriter, r *http.Request, esc Escenar
 		}
 	}
 	d := dictamenValido(p)
-	aplicar(esc, d)
+	aplicar(esc, d, p)
 	d.recomponer()
+	firmantes := make([]string, 0, len(d.Firmas))
+	for _, firma := range d.Firmas {
+		firmantes = append(firmantes, firma.CertificadoHuellaSHA256)
+	}
 	cuerpo := map[string]any{
-		"ok": true, "valid": d.Estado == "valida", "reason": TextoProveedor,
-		"details": []string{"formato_detectado=CAdES", TextoProveedor}, "signers": []string{"firmante-sintetico"},
-		"result": map[string]any{"valid": d.Estado == "valida", "reason": TextoProveedor,
-			"integrity": map[string]string{"status": "valid", "reason": TextoProveedor}},
+		"ok": true, "valid": d.Estado == "valida", "reason": d.Motivo,
+		"details": []string{TextoProveedor}, "signers": firmantes,
 	}
 	if esc != SinDictamen {
 		cuerpo["dictamen"] = d
 	}
 	escribir(w, http.StatusOK, cuerpo)
-}
-
-// Aspecto reproduce `{estado, motivo?, fuente?, fecha?}` del contrato.
-type Aspecto struct {
-	Estado string `json:"estado"`
-	Motivo string `json:"motivo,omitempty"`
-	Fuente string `json:"fuente,omitempty"`
-	Fecha  string `json:"fecha,omitempty"`
-}
-
-// Firmante reproduce un firmante del dictamen, con datos inventados.
-type Firmante struct {
-	CertificadoHuellaSHA256 string  `json:"certificadoHuellaSHA256"`
-	Serie                   string  `json:"serie,omitempty"`
-	Asunto                  string  `json:"asunto,omitempty"`
-	Emisor                  string  `json:"emisor,omitempty"`
-	Cadena                  Aspecto `json:"cadena"`
-	Certificado             Aspecto `json:"certificado"`
-	Revocacion              Aspecto `json:"revocacion"`
-	SelloTiempo             Aspecto `json:"selloTiempo"`
-}
-
-// Dictamen reproduce `dictamen` de `autofirmav2.dictamen-verificacion.v1`.
-type Dictamen struct {
-	Contrato                string            `json:"contrato"`
-	Estado                  string            `json:"estado"`
-	Motivo                  string            `json:"motivo"`
-	Formato                 string            `json:"formato,omitempty"`
-	ComprobadoEn            string            `json:"comprobadoEn"`
-	Integridad              Aspecto           `json:"integridad"`
-	Cadena                  Aspecto           `json:"cadena"`
-	Certificado             Aspecto           `json:"certificado"`
-	Revocacion              Aspecto           `json:"revocacion"`
-	SelloTiempo             Aspecto           `json:"selloTiempo"`
-	VinculoOriginal         Aspecto           `json:"vinculoOriginal"`
-	HuellaFirmadoSHA256     string            `json:"huellaFirmadoSHA256"`
-	HuellaOriginalSHA256    string            `json:"huellaOriginalSHA256,omitempty"`
-	CertificadoHuellaSHA256 string            `json:"certificadoHuellaSHA256,omitempty"`
-	Firmantes               []Firmante        `json:"firmantes"`
-	Extensiones             map[string]string `json:"extensiones"`
-
-	// fijado impide que recomponer sustituya un veredicto deliberadamente
-	// incoherente de la prueba.
-	fijado bool
-}
-
-func dictamenValido(p Peticion) *Dictamen {
-	fecha := "2026-09-25T10:00:00Z"
-	firmante := Firmante{
-		CertificadoHuellaSHA256: HuellaCertificadoSintetica, Serie: "07",
-		Asunto: "CN=PERSONA SINTETICA", Emisor: "CN=CA SINTETICA",
-		Cadena:      Aspecto{Estado: "valida", Fuente: "anclas_locales"},
-		Certificado: Aspecto{Estado: "vigente", Fecha: "2028-01-31T23:59:59Z"},
-		Revocacion:  Aspecto{Estado: "vigente", Fuente: "crl_local", Fecha: fecha},
-		SelloTiempo: Aspecto{Estado: "no_presente"},
-	}
-	d := &Dictamen{
-		Contrato: ContratoDictamen, Formato: "CAdES", ComprobadoEn: fecha,
-		Integridad:          Aspecto{Estado: "valida"},
-		VinculoOriginal:     Aspecto{Estado: "acreditado", Fuente: "cms_message_digest"},
-		HuellaFirmadoSHA256: huella(p.Firmado),
-		Firmantes:           []Firmante{firmante},
-		Extensiones:         map[string]string{"revocacionRemota": "desactivada", "selloTiempoRemoto": "desactivada"},
-	}
-	if !p.OriginalFalta {
-		d.HuellaOriginalSHA256 = huella(p.Original)
-	} else {
-		d.VinculoOriginal = Aspecto{Estado: "no_aportado"}
-	}
-	return d
-}
-
-func aplicar(esc Escenario, d *Dictamen) {
-	f := &d.Firmantes[0]
-	switch esc {
-	case ValidaConSello:
-		f.SelloTiempo = Aspecto{Estado: "valido", Fuente: "rfc3161", Fecha: "2026-09-25T09:59:00Z"}
-	case SelloNoComprobado:
-		f.SelloTiempo = Aspecto{Estado: "no_comprobado", Motivo: "formato_sin_evaluacion_de_sello"}
-	case SelloNoValido:
-		f.SelloTiempo = Aspecto{Estado: "no_valido", Motivo: "imprint_no_coincide"}
-	case Revocado:
-		f.Revocacion = Aspecto{Estado: "revocado", Fuente: "crl_local", Fecha: "2026-09-01T00:00:00Z"}
-	case RevocacionNoComprobada:
-		f.Revocacion = Aspecto{Estado: "no_comprobada", Motivo: "sin_crl_vigente"}
-	case VinculoNoAcreditado:
-		d.VinculoOriginal = Aspecto{Estado: "no_acreditado", Motivo: "original_no_cubierto"}
-	case VinculoNoAportado:
-		d.HuellaOriginalSHA256 = ""
-		d.VinculoOriginal = Aspecto{Estado: "no_aportado"}
-	case ContratoDesconocido:
-		d.Contrato = "autofirmav2.dictamen-verificacion.v2"
-	case HuellaEcoDistinta:
-		d.HuellaFirmadoSHA256 = strings.Repeat("cd", 32)
-	case HuellaOriginalDistinta:
-		d.HuellaOriginalSHA256 = strings.Repeat("ef", 32)
-	case IntegridadRota:
-		d.Integridad = Aspecto{Estado: "no_valida", Motivo: TextoProveedor}
-	case IntegridadParcial:
-		d.Integridad = Aspecto{Estado: "parcial", Motivo: "contenido_no_cubierto"}
-	case SinAnclas:
-		f.Cadena = Aspecto{Estado: "no_comprobada", Motivo: "sin_ruta_hasta_anclas"}
-	case VariosFirmantes:
-		otro := *f
-		otro.CertificadoHuellaSHA256 = strings.Repeat("12", 32)
-		d.Firmantes = append(d.Firmantes, otro)
-	case ValidaIncoherente:
-		f.Revocacion = Aspecto{Estado: "no_comprobada"}
-		d.Estado, d.Motivo, d.fijado = "valida", "verificada", true
-	case NegativaIncoherente:
-		d.Estado, d.Motivo, d.fijado = "no_valida", "integridad_no_valida", true
-	case EstadoDesconocido:
-		f.Certificado = Aspecto{Estado: "quiza"}
-	}
-}
-
-// recomponer agrega los aspectos por el peor estado y deriva el veredicto
-// con la misma precedencia que GrxFirma.
-func (d *Dictamen) recomponer() {
-	peor := func(orden []string, valor func(Firmante) Aspecto) Aspecto {
-		mejor, rango := Aspecto{}, len(orden)+1
-		for _, f := range d.Firmantes {
-			a := valor(f)
-			r := len(orden)
-			for i, e := range orden {
-				if e == a.Estado {
-					r = i
-				}
-			}
-			if r < rango {
-				mejor, rango = a, r
-			}
-		}
-		return mejor
-	}
-	d.Cadena = peor([]string{"no_valida", "no_comprobada", "valida"}, func(f Firmante) Aspecto { return f.Cadena })
-	d.Certificado = peor([]string{"uso_no_permitido", "no_vigente", "no_comprobado", "vigente"}, func(f Firmante) Aspecto { return f.Certificado })
-	d.Revocacion = peor([]string{"revocado", "no_comprobada", "vigente"}, func(f Firmante) Aspecto { return f.Revocacion })
-	d.SelloTiempo = peor([]string{"no_valido", "no_comprobado", "no_presente", "valido"}, func(f Firmante) Aspecto { return f.SelloTiempo })
-	if len(d.Firmantes) == 1 {
-		d.CertificadoHuellaSHA256 = d.Firmantes[0].CertificadoHuellaSHA256
-	}
-	if d.fijado {
-		return
-	}
-	d.Estado, d.Motivo = "valida", "verificada"
-	switch {
-	case d.Integridad.Estado == "no_valida":
-		d.Estado, d.Motivo = "no_valida", "integridad_no_valida"
-	case d.Certificado.Estado == "no_vigente" || d.Certificado.Estado == "uso_no_permitido" || d.Revocacion.Estado == "revocado":
-		d.Estado, d.Motivo = "no_valida", "certificado_no_valido"
-	case d.Cadena.Estado == "no_valida":
-		d.Estado, d.Motivo = "no_valida", "confianza_no_valida"
-	case d.Integridad.Estado != "valida":
-		d.Estado, d.Motivo = "indeterminada", "integridad_parcial"
-	case d.Certificado.Estado != "vigente":
-		d.Estado, d.Motivo = "indeterminada", "certificado_no_acreditado"
-	case d.Cadena.Estado != "valida":
-		d.Estado, d.Motivo = "indeterminada", "confianza_no_acreditada"
-	case d.Revocacion.Estado != "vigente":
-		d.Estado, d.Motivo = "indeterminada", "revocacion_no_acreditada"
-	case d.SelloTiempo.Estado == "no_valido":
-		d.Estado, d.Motivo = "indeterminada", "sello_tiempo_no_acreditado"
-	case d.VinculoOriginal.Estado == "no_acreditado":
-		d.Estado, d.Motivo = "indeterminada", "vinculo_original_no_acreditado"
-	}
-}
-
-func huella(b []byte) string {
-	suma := sha256.Sum256(b)
-	return hex.EncodeToString(suma[:])
 }
 
 func escribir(w http.ResponseWriter, estado int, cuerpo any) {

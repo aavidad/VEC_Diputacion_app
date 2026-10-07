@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
@@ -102,21 +103,19 @@ func (r *RegistroSesionesExternoPostgreSQL) ConsumirAsercionYRegistrar(
 	if alta.EspacioIdentidad != base.espacioIdentidad {
 		return httpseguridad.ConfirmacionAltaSesion{}, httpseguridad.ErrSesionNoValida
 	}
-	seudonimos, err := base.seudonimizador.SeudonimizarAlta(ctx, IdentificadoresAlta{
+	seudonimos, aliasOrdinario, err := SeudonimizarAltaConAliasCuentaOrdinaria(ctx, base.seudonimizador, IdentificadoresAlta{
 		EspacioIdentidad: alta.EspacioIdentidad,
 		AsercionID:       alta.AsercionID, SesionID: alta.SesionID,
 		SujetoID: alta.SujetoID, CuentaID: alta.CuentaID,
-	})
-	if err != nil || !seudonimos.valida(
-		base.espacioIdentidad, base.dominioHMACRef, false,
-	) {
+	}, base.espacioIdentidad, base.dominioHMACRef)
+	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
 	operacionRef, err := nuevaReferenciaOperacion(base.aleatorio)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, errorSesionSaneado(ctx)
 	}
-	argumentos := argumentosAlta(operacionRef, seudonimos, alta)
+	argumentos := argumentosAlta(operacionRef, seudonimos, aliasOrdinario, alta)
 	respuesta, err := r.ejecutarAlta(ctx, argumentos)
 	if err != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, err
@@ -148,7 +147,7 @@ func (r *RegistroSesionesExternoPostgreSQL) ejecutarAlta(
 		return respuesta, nil
 	}
 	// Un COMMIT incierto se coteja por su operación original, nunca se reenvía.
-	ctxRecuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxRecuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	txRecuperacion, err := r.base.registro.BeginTx(ctxRecuperacion, opcionesTransaccion())
 	if err != nil {

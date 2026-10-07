@@ -32,7 +32,7 @@ func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *
 	if err != nil {
 		return nil, err
 	}
-	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj)
+	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj, catalogo)
 	if err != nil {
 		return nil, err
 	}

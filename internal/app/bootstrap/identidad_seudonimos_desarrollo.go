@@ -3,6 +3,9 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
+	"sync"
 
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -12,17 +15,63 @@ const espacioIdentidadSesionDesarrollo = "https://localhost/vec/desarrollo/ident
 
 var dominioIdentidadSesionDesarrollo = referenciaAltaContratacionTemporalDesarrollo("idh_", espacioIdentidadSesionDesarrollo)
 
-// Adaptación explícita del material local de desarrollo. No es un HSM/KMS
-// corporativo y solo se construye dentro de la composición de desarrollo.
-// Las cinco etiquetas no comparten preimagen con idempotencia ni con Bolsa.
-type seudonimizadorSesionDesarrollo struct {
-	derivador *derivadorIdentidadOperacionDesarrollo
+// ConfiguracionSeudonimosSesionPrivada selecciona un dominio aprovisionado.
+// El formato HMAC de origen es el cargador privado existente. Producción
+// corporativa debe inyectar su broker por el puerto SeudonimizadorAlta.
+type ConfiguracionSeudonimosSesionPrivada struct {
+	DirectorioMaterial, RutaConfiguracionHMAC               string
+	EspacioIdentidad, DominioRef, EspacioClave, DominioHMAC string
+	IncluirCuentaOrdinaria                                  bool
 }
+
+func NuevoSeudonimizadorSesionDesdeArchivo(cfg ConfiguracionSeudonimosSesionPrivada) (postgresidentidad.SeudonimizadorAlta, func(), error) {
+	for _, v := range []string{cfg.EspacioIdentidad, cfg.DominioRef, cfg.EspacioClave, cfg.DominioHMAC} {
+		if !identificadorSesionDesarrolloValido(v) {
+			return nil, nil, httpseguridad.ErrSesionNoValida
+		}
+	}
+	material, err := cargarMaterialIdempotenciaDesarrollo(cfg.DirectorioMaterial, cfg.RutaConfiguracionHMAC)
+	defer material.borrar()
+	if err != nil {
+		return nil, nil, httpseguridad.ErrSesionNoValida
+	}
+	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&material)
+	if err != nil {
+		return nil, nil, httpseguridad.ErrSesionNoValida
+	}
+	derivador.espacioSeudonimos = cfg.EspacioClave
+	s := &seudonimizadorSesionDesarrollo{derivador: derivador, configuracion: &cfg}
+	cerrar := func() { s.mu.Lock(); defer s.mu.Unlock(); s.derivador.borrar() }
+	return s, cerrar, nil
+}
+
+type seudonimizadorSesionDesarrollo struct {
+	mu            sync.RWMutex
+	configuracion *ConfiguracionSeudonimosSesionPrivada
+	derivador     *derivadorIdentidadOperacionDesarrollo
+}
+
+func (*seudonimizadorSesionDesarrollo) String() string { return "[SEUDONIMIZADOR-SESION-PRIVADO]" }
+func (s *seudonimizadorSesionDesarrollo) Format(f fmt.State, _ rune) {
+	_, _ = io.WriteString(f, s.String())
+}
+func (s *seudonimizadorSesionDesarrollo) LogValue() slog.Value { return slog.StringValue(s.String()) }
 
 func (s *seudonimizadorSesionDesarrollo) SeudonimizarAlta(ctx context.Context, ids postgresidentidad.IdentificadoresAlta) (postgresidentidad.SeudonimosAlta, error) {
 	vacio := postgresidentidad.SeudonimosAlta{}
+	if s == nil {
+		return vacio, httpseguridad.ErrSesionNoValida
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	espacio, dominio, dominioHMAC := espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo, "vec.identidad.desarrollo.hmac.v1"
+	ordinaria := false
+	if s.configuracion != nil {
+		espacio, dominio, dominioHMAC = s.configuracion.EspacioIdentidad, s.configuracion.DominioRef, s.configuracion.DominioHMAC
+		ordinaria = s.configuracion.IncluirCuentaOrdinaria
+	}
 	if s == nil || s.derivador == nil || !s.derivador.valido() || contextoInterfazNulo(ctx) || ctx.Err() != nil ||
-		ids.EspacioIdentidad != espacioIdentidadSesionDesarrollo || ids.CuentaOrdinariaID != "" {
+		ids.EspacioIdentidad != espacio || (!ordinaria && ids.CuentaOrdinariaID != "") {
 		return vacio, httpseguridad.ErrSesionNoValida
 	}
 	espacioClave := "vec.identidad.desarrollo"
@@ -31,7 +80,7 @@ func (s *seudonimizadorSesionDesarrollo) SeudonimizarAlta(ctx context.Context, i
 	}
 	resultado := postgresidentidad.SeudonimosAlta{
 		Esquema:          postgresidentidad.EsquemaHMACSHA256V1,
-		EspacioIdentidad: espacioIdentidadSesionDesarrollo, DominioRef: dominioIdentidadSesionDesarrollo,
+		EspacioIdentidad: espacio, DominioRef: dominio,
 		ClaveID:      fmt.Sprintf("%s.g%d", espacioClave, s.derivador.generaciones[0].generacion),
 		ClaveVersion: uint64(s.derivador.generaciones[0].generacion),
 	}
@@ -44,11 +93,17 @@ func (s *seudonimizadorSesionDesarrollo) SeudonimizarAlta(ctx context.Context, i
 		{"sujeto", ids.SujetoID, &resultado.SujetoIDHMAC},
 		{"cuenta", ids.CuentaID, &resultado.CuentaIDHMAC},
 	}
+	if ordinaria {
+		campos = append(campos, struct {
+			etiqueta, valor string
+			destino         *[32]byte
+		}{"cuenta_ordinaria", ids.CuentaOrdinariaID, &resultado.CuentaOrdinariaIDHMAC})
+	}
 	for _, campo := range campos {
 		if !identificadorSesionDesarrolloValido(campo.valor) {
 			return vacio, httpseguridad.ErrSesionNoValida
 		}
-		preimagen := []byte("vec.identidad.desarrollo.hmac.v1\x00" + espacioIdentidadSesionDesarrollo + "\x00" + campo.etiqueta + "\x00" + campo.valor)
+		preimagen := []byte(dominioHMAC + "\x00" + espacio + "\x00" + campo.etiqueta + "\x00" + campo.valor)
 		huellas, err := s.derivador.calcularHMAC(preimagen, preimagen)
 		borrarBytes(preimagen)
 		if err != nil || len(huellas) == 0 {

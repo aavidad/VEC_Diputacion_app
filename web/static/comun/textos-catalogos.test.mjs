@@ -4,6 +4,7 @@ import test from "node:test";
 import { normalizarIndiceIdiomas } from "./idioma.js";
 import { esMensajePlural } from "./textos.js";
 import { LEGADO_CON_DICCIONARIO } from "./textos-legado.test-helper.mjs";
+import { esManifiestoPWA, validarManifiestoPWA } from "../pwa/manifiestos-validacion.test-helper.mjs";
 
 // i18n puro: los textos visibles viven en `textos/<idioma>/<modulo>.json` y el
 // código no contiene diccionarios ni nombra idiomas. Estas pruebas vigilan las
@@ -44,6 +45,19 @@ function hojas(catalogo, ruta = "", salida = new Map()) {
   return salida;
 }
 
+function hojasDeModulo(catalogo, modulo, idioma) {
+  if (!esManifiestoPWA(modulo)) return hojas(catalogo);
+  validarManifiestoPWA(catalogo, modulo, idioma);
+  const { icons, ...mensajes } = catalogo;
+  return hojas(mensajes);
+}
+
+test("los catálogos generales siguen rechazando arrays fuera del esquema PWA", () => {
+  for (const modulo of ["pwa", "pwa-no-registrada", "modulo-ordinario"]) {
+    assert.throws(() => hojasDeModulo({ general: { texto: ["no admitido"] } }, modulo, porDefecto), /valor no admitido/u);
+  }
+});
+
 test("hay al menos un catálogo en el idioma por defecto y un directorio por idioma", async () => {
   assert.ok(modulos.length > 0);
   for (const { codigo } of indice.idiomas) {
@@ -56,8 +70,8 @@ for (const { codigo } of indice.idiomas) {
     const propios = (await readdir(new URL(`${codigo}/`, RAIZ_TEXTOS))).filter((n) => n.endsWith(".json")).sort();
     assert.deepEqual(propios, modulos.map((m) => `${m}.json`).sort(), `textos/${codigo}/ debe tener exactamente los módulos de ${porDefecto}`);
     for (const modulo of modulos) {
-      const base = hojas(await leerJSON(new URL(`${porDefecto}/${modulo}.json`, RAIZ_TEXTOS)));
-      const traducido = hojas(await leerJSON(new URL(`${codigo}/${modulo}.json`, RAIZ_TEXTOS)));
+      const base = hojasDeModulo(await leerJSON(new URL(`${porDefecto}/${modulo}.json`, RAIZ_TEXTOS)), modulo, porDefecto);
+      const traducido = hojasDeModulo(await leerJSON(new URL(`${codigo}/${modulo}.json`, RAIZ_TEXTOS)), modulo, codigo);
       const faltan = [...base.keys()].filter((clave) => !traducido.has(clave));
       const sobran = [...traducido.keys()].filter((clave) => !base.has(clave));
       assert.deepEqual({ faltan, sobran }, { faltan: [], sobran: [] }, `${codigo}/${modulo}.json`);

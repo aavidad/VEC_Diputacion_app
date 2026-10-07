@@ -11,6 +11,7 @@ import (
 	hist "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/historiaincorporacion"
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const consultaHistoriaIncorporacionV2 = `SELECT vec_contratacion_temporal.leer_historia_incorporacion_original_v2($1,$2,$3)::text`
@@ -90,7 +91,7 @@ func (l *LectorHistoriaIncorporacionV2PostgreSQL) LeerRegistroOriginal(ctx conte
 	if !nuloLectorHistoriaV2(tx) {
 		defer func() {
 			if !confirmado {
-				c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 				defer cancel()
 				_ = tx.Rollback(c)
 			}

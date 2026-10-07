@@ -315,6 +315,34 @@ func TestMiBolsaPublicacionExigePreimagenActivaExacta(t *testing.T) {
 	}
 }
 
+func TestMiBolsaSolicitudDocumentalExigeProvisionDelPerfil(t *testing.T) {
+	identidad := &identidadCandidatoBolsaDesarrollo{
+		personaRef: "per_candidato_sintetico_1234567890123456", perfilRef: "prf_candidato_sintetico_1234567890123456",
+		candidatoRef: "can_candidato_sintetico_1234567890123456",
+	}
+	ahora := time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC)
+	anterior, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nueva, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contar := func(i dominiovec.InstantaneaAutorizacion) int {
+		n := 0
+		for _, c := range i.VersionRol.Concesiones {
+			if c.Accion == puertosbolsa.AccionPresentarSolicitudDocumentalPropia {
+				n++
+			}
+		}
+		return n
+	}
+	if contar(anterior) != 0 || contar(nueva) != 1 || len(nueva.VersionRol.Concesiones) != len(anterior.VersionRol.Concesiones)+1 {
+		t.Fatal("el perfil inicial concedería la nueva acción documental sin provisión")
+	}
+}
+
 // Con «pendiente_provision» la política de Mi Bolsa se compone sin
 // instantánea: no entrega autoridad ni admite motivos.
 func TestMiBolsaPendienteProvisionDeniega(t *testing.T) {

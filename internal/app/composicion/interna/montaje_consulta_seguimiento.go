@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log"
 	"net/http"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -30,19 +32,22 @@ type extractorAsercionInstitucional interface {
 // El cargador transfiere los once pools y recursos auxiliares a la aplicación.
 // ConfiguracionV2 incluye F1 registrado, V3 y roles PostgreSQL acreditados.
 type proveedoresConsultaSeguimiento struct {
-	identidad           *httpseguridad.ServicioIdentidad
-	extractor           extractorAsercionInstitucional
-	autoridadRutas      httpapi.AutoridadRutasExactas
-	auditoriaRutas      vecports.RegistradorAuditoriaFronteraRutaExacta
-	vincularPersonalB2  func(context.Context) (context.Context, error)
-	fichaPersonalB2     http.Handler
-	vacantesPersonalB2  http.Handler
-	empleadosPersonalB2 http.Handler
-	altaPersonalB2      http.Handler
-	hechoPersonalB2     http.Handler
-	catalogosPersonalB2 http.Handler
-	configuracionV2     inc.ConfiguracionServidorV2PostgreSQL
-	recursos            []recursoCerrableAplicacionInterna
+	identidad                         *httpseguridad.ServicioIdentidad
+	extractor                         extractorAsercionInstitucional
+	autoridadRutas                    httpapi.AutoridadRutasExactas
+	auditoriaRutas                    vecports.RegistradorAuditoriaFronteraRutaExacta
+	vincularPersonalB2                func(context.Context) (context.Context, error)
+	vincularOrganizacionHistorica     func(context.Context) (context.Context, error)
+	organizacionHistorica             http.Handler
+	organizacionHistoricaNoDisponible bool
+	fichaPersonalB2                   http.Handler
+	vacantesPersonalB2                http.Handler
+	empleadosPersonalB2               http.Handler
+	altaPersonalB2                    http.Handler
+	hechoPersonalB2                   http.Handler
+	catalogosPersonalB2               http.Handler
+	configuracionV2                   inc.ConfiguracionServidorV2PostgreSQL
+	recursos                          []recursoCerrableAplicacionInterna
 }
 
 // La carga exige que todas las autoridades estén presentes antes de abrir red.
@@ -51,13 +56,16 @@ func obtenerProveedoresConsultaSeguimiento(ctx context.Context, cfg Configuracio
 }
 
 type puenteConsultaSeguimiento struct {
-	extractor    extractorAsercionInstitucional
-	api          http.Handler
-	auditoria    vecports.RegistradorAuditoriaFronteraRutaExacta
-	vincularB2   func(context.Context) (context.Context, error)
-	fachada      atomic.Pointer[FachadaIdentidadOffline]
-	limiteCuerpo int64
-	personalB2   bool
+	extractor                         extractorAsercionInstitucional
+	api                               http.Handler
+	auditoria                         vecports.RegistradorAuditoriaFronteraRutaExacta
+	vincularB2                        func(context.Context) (context.Context, error)
+	vincularOH                        func(context.Context) (context.Context, error)
+	organizacionHistorica             bool
+	organizacionHistoricaNoDisponible bool
+	fachada                           atomic.Pointer[FachadaIdentidadOffline]
+	limiteCuerpo                      int64
+	personalB2                        bool
 }
 
 const plazoAuditoriaDenegacionSeguimiento = 250 * time.Millisecond
@@ -72,14 +80,24 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
 		return
 	}
+	esOH := r.URL.Path == httpapi.RutaOrganizacionHistoricaPersonal
 	if r.URL.Path != httpct.RutaConsultaSeguimientoV2 &&
-		(!p.personalB2 || !internagobierno.RutaInternaGobernada(r.URL.Path)) {
+		(!(esOH && (p.organizacionHistorica || p.organizacionHistoricaNoDisponible) || !esOH && p.personalB2) || !internagobierno.RutaInternaGobernada(r.URL.Path)) {
 		responderPuenteSeguimiento(w, http.StatusNotFound)
 		return
 	}
 	if r.URL.RawPath != "" || r.URL.Opaque != "" || r.URL.EscapedPath() != r.URL.Path ||
 		r.URL.Fragment != "" || r.URL.ForceQuery || r.URL.Scheme != "" || r.URL.Host != "" || r.URL.User != nil {
 		responderPuenteSeguimiento(w, http.StatusNotFound)
+		return
+	}
+	if esOH && r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		responderPuenteSeguimiento(w, http.StatusMethodNotAllowed)
+		return
+	}
+	if esOH && p.organizacionHistoricaNoDisponible {
+		responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
 		return
 	}
 	preparada, err := httpseguridad.PrepararPeticionAsercionPasarela(r, p.limiteCuerpo)
@@ -101,12 +119,20 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if preparada.URL.Path != httpct.RutaConsultaSeguimientoV2 {
-		if p.vincularB2 == nil {
+		vincular := p.vincularB2
+		if esOH {
+			vincular = p.vincularOH
+		}
+		if vincular == nil {
 			responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
 			return
 		}
-		ctx, err = p.vincularB2(ctx)
+		ctx, err = vincular(ctx)
 		if err != nil || ctx == nil {
+			if esOH && !errors.Is(err, httpapi.ErrAccesoRutaExactaDenegado) {
+				responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
+				return
+			}
 			if p.auditarDenegacionPersonalB2(preparada.Context(), preparada.URL.Path) {
 				responderPuenteSeguimiento(w, http.StatusForbidden)
 			} else {
@@ -122,17 +148,17 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
 		return false
 	}
-	ruta = httpapi.RutaAuditoriaRegistroEmpleadoB2(ruta)
+	ruta = rutaAuditoriaPersonal(ruta)
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacionDenegacionSeguimiento(),
 		Motivo:         vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
-		Superficie:     vecports.SuperficieAuditoriaFronteraRutaExactaPersonal,
+		Superficie:     superficieAuditoriaPersonal(ruta),
 		Ruta:           ruta,
 	}
 	if orden.Validar() != nil {
 		return false
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoAuditoriaDenegacionSeguimiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoAuditoriaDenegacionSeguimiento))
 	defer cancelar()
 	if err := p.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		log.Printf("composicion interna: auditoria_frontera_no_registrada correlacion=%s", orden.CorrelacionRef)
@@ -156,8 +182,8 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 	correlacion := correlacionDenegacionSeguimiento()
 	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	if ruta != httpct.RutaConsultaSeguimientoV2 {
-		superficie = vecports.SuperficieAuditoriaFronteraRutaExactaPersonal
-		ruta = httpapi.RutaAuditoriaRegistroEmpleadoB2(ruta)
+		superficie = superficieAuditoriaPersonal(ruta)
+		ruta = rutaAuditoriaPersonal(ruta)
 	}
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion,
@@ -168,7 +194,7 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 	if orden.Validar() != nil {
 		return false
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoAuditoriaDenegacionSeguimiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoAuditoriaDenegacionSeguimiento))
 	defer cancelar()
 	if err := p.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		log.Printf("composicion interna: auditoria_frontera_no_registrada correlacion=%s", correlacion)
@@ -204,8 +230,12 @@ func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.Servid
 	if err != nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	return nuevoEnrutadorPersonalB2(ctAPI, p.fichaPersonalB2, p.vacantesPersonalB2, p.empleadosPersonalB2,
+	personalAPI, err := nuevoEnrutadorPersonalB2(ctAPI, p.fichaPersonalB2, p.vacantesPersonalB2, p.empleadosPersonalB2,
 		p.altaPersonalB2, p.hechoPersonalB2, p.catalogosPersonalB2, p.autoridadRutas, p.auditoriaRutas)
+	if err != nil {
+		return nil, err
+	}
+	return nuevoEnrutadorOrganizacionHistorica(personalAPI, p.organizacionHistorica)
 }
 
 func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p proveedoresConsultaSeguimiento) (*AplicacionInterna, error) {
@@ -220,6 +250,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 		interfazNulaIdentidadOffline(p.autoridadRutas) ||
 		interfazNulaIdentidadOffline(p.auditoriaRutas) ||
 		(!manejadorNulo(p.fichaPersonalB2) && p.vincularPersonalB2 == nil) ||
+		(!manejadorNulo(p.organizacionHistorica) && p.vincularOrganizacionHistorica == nil) ||
 		interfazNulaIdentidadOffline(p.configuracionV2.FuenteAutoridad) {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
@@ -238,6 +269,8 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	limiteCuerpo := min(cfg.normalizar().MaximoBytesPeticion, int64(1<<20))
 	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
 		vincularB2: p.vincularPersonalB2,
+		vincularOH: p.vincularOrganizacionHistorica, organizacionHistorica: !manejadorNulo(p.organizacionHistorica),
+		organizacionHistoricaNoDisponible: p.organizacionHistoricaNoDisponible,
 		personalB2: !manejadorNulo(p.fichaPersonalB2) && !manejadorNulo(p.vacantesPersonalB2) &&
 			!manejadorNulo(p.empleadosPersonalB2) &&
 			!manejadorNulo(p.altaPersonalB2) && !manejadorNulo(p.hechoPersonalB2) &&
@@ -307,4 +340,18 @@ func cerrarProveedoresConsultaSeguimiento(p proveedoresConsultaSeguimiento) {
 		}
 	}
 	cerrarPoolsSeguimiento(poolsConsultaSeguimiento(p.configuracionV2))
+}
+
+func superficieAuditoriaPersonal(ruta string) string {
+	if ruta == httpapi.RutaOrganizacionHistoricaPersonal {
+		return vecports.SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal
+	}
+	return vecports.SuperficieAuditoriaFronteraRutaExactaPersonal
+}
+
+func rutaAuditoriaPersonal(ruta string) string {
+	if ruta == httpapi.RutaOrganizacionHistoricaPersonal {
+		return ruta
+	}
+	return httpapi.RutaAuditoriaRegistroEmpleadoB2(ruta)
 }

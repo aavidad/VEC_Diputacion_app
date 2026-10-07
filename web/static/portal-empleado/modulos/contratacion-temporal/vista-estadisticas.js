@@ -9,9 +9,12 @@
  * - Sin uso de la palabra "demo".
  */
 
-import { generarCSVEstadisticas } from "./contrato-estadisticas.js";
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=20261002-ct-fin-moad-v1";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { IDIOMA_ACTUAL, localizacionDe } from "../../../comun/idioma.js";
+
+import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana002-v4";
 
 const traducirCT = crearTraductorContratacionTemporal();
 
@@ -25,6 +28,33 @@ function escaparHTML(valor) {
 }
 
 const textoCT = (clave, variables) => escaparHTML(traducirCT(clave, variables));
+
+const localizacion = localizacionDe(IDIOMA_ACTUAL);
+const fechaConsulta = new Intl.DateTimeFormat(localizacion, { dateStyle: "medium", timeZone: "UTC" });
+const numeroConsulta = new Intl.NumberFormat(localizacion);
+
+/** Contexto de la respuesta recibida; los filtros pueden estar aún en edición. */
+export function renderizarContextoEstadisticas(datos) {
+  if (!datos) return "";
+  const ausente = textoCT("ct_txt_contexto_no_comunicado");
+  const fecha = (valor) => {
+    if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return ausente;
+    const dia = new Date(`${valor}T00:00:00Z`);
+    return Number.isNaN(dia.getTime()) ? ausente
+      : `<time datetime="${escaparHTML(valor)}">${escaparHTML(fechaConsulta.format(dia))}</time>`;
+  };
+  const periodo = PERIODOS_ESTADISTICAS.includes(datos.periodo) ? textoCT(`ct_txt_${datos.periodo}`) : ausente;
+  const zona = typeof datos.zona_horaria === "string" && datos.zona_horaria.trim()
+    ? escaparHTML(datos.zona_horaria) : ausente;
+  const corte = Number.isSafeInteger(datos.corte_global) && datos.corte_global >= 0
+    ? escaparHTML(numeroConsulta.format(datos.corte_global)) : ausente;
+  return `<dl data-ct-contexto-estadisticas>
+    <dt>${textoCT("ct_txt_contexto_fechas_consulta")}</dt><dd>${fecha(datos.desde)} – ${fecha(datos.hasta)}</dd>
+    <dt>${textoCT("ct_txt_contexto_agrupacion")}</dt><dd>${periodo}</dd>
+    <dt>${textoCT("ct_txt_contexto_zona_horaria")}</dt><dd>${zona}</dd>
+    <dt>${textoCT("ct_txt_contexto_corte_publicado")}</dt><dd>${corte}</dd>
+  </dl>`;
+}
 
 function formatearNumero(valor) {
   return new Intl.NumberFormat("es-ES").format(Number(valor || 0));
@@ -215,10 +245,18 @@ export function renderizarFormularioFiltros({ periodo = "mensual", desde = "", h
   `;
 }
 
-export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
+export function renderizarAyudaIndicadoresEstadisticas(ficha, respuesta = null) {
+  if (!ficha) return "";
+  const titulo = escaparHTML(ficha.textos.traducir("ayuda"));
+  return `<details data-ct-ayuda-indicadores><summary class="boton-secundario boton-icono" aria-label="${titulo}">?</summary>
+    ${renderizarFichaIndicadores({ ...ficha, respuesta, conCierre: false })}</details>`;
+}
+
+export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros, fichaIndicadores = null }) {
   const encabezado = `
     <header class="cabecera-vista">
       <h2>${textoCT("ct_txt_estadisticas_de_contratacion_temporal")}</h2>
+      <div data-ct-ayuda-indicadores-slot>${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}</div>
       <p>${textoCT("ct_txt_cuadro_de_evolucion_temporal_altas_llamamientos")}</p>
     </header>
   `;
@@ -278,6 +316,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
       </div>
       <div class="cuerpo-panel">
         ${formularioHtml}
+        ${estadoEstadisticas.carga === "listo" ? renderizarContextoEstadisticas(datos) : ""}
       </div>
     </section>
     <section class="panel">
@@ -299,8 +338,9 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
   `;
 }
 
-export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl }) {
+export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl, fichaIndicadores = null, cargarFicha = cargarFichaIndicadores }) {
   let montada = true;
+  let ficha = fichaIndicadores;
   let generacionConsulta = 0;
   let filtros = {
     periodo: "mensual",
@@ -317,7 +357,7 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   const ejecutarConsulta = typeof cliente === "function" ? cliente : consultarEstadisticas;
 
   function renderizar() {
-    raiz.innerHTML = renderizarVistaEstadisticas({ estadoEstadisticas, filtros });
+    raiz.innerHTML = renderizarVistaEstadisticas({ estadoEstadisticas, filtros, fichaIndicadores: ficha });
   }
 
   async function cargar() {
@@ -393,6 +433,14 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   raiz.addEventListener("click", manejarClick);
   raiz.addEventListener("submit", manejarSubmit);
 
+  if (!ficha) void cargarFicha().then((datos) => {
+    if (!montada) return;
+    ficha = datos;
+    // La ayuda puede llegar mientras se editan filtros. Actualizar solo su hueco
+    // conserva los valores escritos y el foco del formulario.
+    const hueco = raiz.querySelector?.("[data-ct-ayuda-indicadores-slot]");
+    if (hueco) hueco.innerHTML = renderizarAyudaIndicadoresEstadisticas(ficha, estadoEstadisticas.datos);
+  }).catch(() => {});
   void cargar();
 
   return {

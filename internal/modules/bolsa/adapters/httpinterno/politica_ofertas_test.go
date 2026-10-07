@@ -45,7 +45,7 @@ func (o *operadorPoliticaPrueba) Publicar(_ context.Context, c ports.ComandoPubl
 
 func cuerpoPoliticaPrueba(t *testing.T) string {
 	t.Helper()
-	p := domain.PoliticaOfertas{Plazo: domain.PlazoPoliticaOfertas{Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"}, Adjudicacion: domain.AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"}, NoCubierta: domain.NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
+	p := domain.PoliticaOfertas{Plazo: domain.PlazoPoliticaOfertas{Inicio: "notificacion", Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"}, Adjudicacion: domain.AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"}, NoCubierta: domain.NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
 	b, e := json.Marshal(map[string]any{"bolsa_ref": "bolsa:prueba", "version_esperada": 0, "clave_idempotencia": "clave-0001", "politica": p})
 	if e != nil {
 		t.Fatal(e)

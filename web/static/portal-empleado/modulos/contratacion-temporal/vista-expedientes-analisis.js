@@ -1,6 +1,6 @@
 /** Lógica de composición y cercado de cliente para Análisis en contratación temporal. */
 
-import { validarReciboAnalisis } from "./contrato-analisis.js";
+import { validarReciboAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
 export const CAMPOS_COMPOSICION_ANALISIS = Object.freeze(["cliente", "catalogos", "contexto", "analisisInicial", "rectificacion"]);
 export const CAMPOS_COMPOSICION_ANALISIS_OBLIGATORIOS = Object.freeze(["cliente", "catalogos", "contexto", "analisisInicial"]);

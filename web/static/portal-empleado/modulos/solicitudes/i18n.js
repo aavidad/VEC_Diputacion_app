@@ -1,90 +1,32 @@
-/** Textos de la vista; los datos de cada trámite proceden de su autoridad. */
-export const MENSAJES_SOLICITUDES_ES = Object.freeze({
-  sobrelinea: "Área personal · Mis trámites",
-  titulo: "Solicitudes y certificados",
-  descripcion_cabecera: "Consulta el estado y el seguimiento de tus trámites cuando exista una fuente autorizada.",
-  navegacion: "Secciones de solicitudes",
-  bandeja: "Mis trámites",
-  nueva: "Preparar solicitud",
-  seguimiento: "Seguimiento",
-  certificados: "Certificados",
-  estado_cargando: "Cargando trámites…",
-  estado_disponible: "Consulta disponible",
-  estado_vacio: "No hay trámites en esta consulta",
-  estado_no_configurado: "Consulta no configurada",
-  estado_denegado: "Acceso denegado",
-  estado_error: "No se pudo cargar la consulta",
-  detalle_no_configurado: "Falta conectar la fuente autorizada de solicitudes propias.",
-  detalle_denegado: "La fuente no ha autorizado esta consulta. Solicita acceso por el cauce correspondiente.",
-  detalle_error: "La fuente no respondió. Vuelve a abrir esta sección más tarde.",
-  detalle_vacio: "La fuente no ha devuelto trámites para esta consulta.",
-  detalle_cargando: "Se está consultando la fuente de trámites.",
-  ayuda_estado: "La vista muestra solo los datos devueltos por la fuente autorizada. Un estado o aviso no acredita una notificación oficial.",
-  buscar: "Buscar por trámite o referencia",
-  filtrar: "Estado",
-  todos: "Todos los estados",
-  bandeja_titulo: "Bandeja de trámites",
-  bandeja_subtitulo: "Selecciona una referencia para consultar su ficha y seguimiento.",
-  region_bandeja: "Tabla de trámites propios",
-  tabla_tramites: "Trámites propios consultados",
-  referencia: "Referencia",
-  tramite: "Trámite",
-  fecha: "Fecha",
-  unidad: "Unidad",
-  estado: "Estado",
-  accion: "Acción",
-  ver: "Ver ficha",
-  volver_bandeja: "Volver a mis trámites",
-  sin_resultados: "Ningún trámite coincide con los filtros.",
-  sin_dato: "No consta",
-  resumen_activos: "Trámites en curso",
-  resumen_subsanaciones: "Pendientes de subsanación",
-  resumen_finalizados: "Finalizados",
-  resumen_total: "Trámites consultados",
-  kpi_sin_fuente: "—",
-  kpi_fuente: "Según la consulta recibida",
-  nueva_titulo: "Tipos de solicitud",
-  nueva_subtitulo: "El catálogo procede de la fuente del trámite correspondiente.",
-  nueva_vacio: "No hay un catálogo de trámites conectado.",
-  nueva_ayuda: "Cada tipo necesita su propio procedimiento, autorización, registro y recibo. Esta vista no inicia solicitudes.",
-  iniciar: "Iniciar trámite",
-  iniciar_motivo: "Pendiente de conectar el caso de uso, el registro y el recibo del trámite.",
-  seguimiento_titulo: "Ficha y seguimiento",
-  seguimiento_vacio: "Selecciona un trámite de la bandeja para consultar su ficha.",
-  seguimiento_ayuda: "Los hitos mostrados proceden de la fuente. Sin historia devuelta, esta vista no puede acreditar actuaciones.",
-  hito_actual: "Hito actual",
-  descripcion: "Descripción",
-  historial: "Historial recibido",
-  historial_vacio: "La fuente no ha devuelto hitos para este trámite.",
-  siguiente_accion: "Siguiente acción indicada",
-  aportar: "Aportar documento",
-  aportar_motivo: "Pendiente de repositorio documental, autorización, registro y recibo.",
-  certificados_titulo: "Certificados",
-  certificados_subtitulo: "Consulta del catálogo recibido; esta vista no genera ni descarga documentos.",
-  certificados_vacio: "La fuente no ha devuelto certificados.",
-  certificados_ayuda: "Un tipo de certificado en el catálogo no acredita que exista un documento emitido o firmado.",
-  tabla_certificados: "Tipos de certificado consultados",
-  tipo: "Tipo",
-  alcance: "Alcance",
-  situacion: "Situación",
-  emitir: "Emitir o descargar",
-  emitir_motivo: "Pendiente de emisión, firma, custodia y descarga autorizada.",
-  estado_registrada: "Registrada",
-  estado_en_revision: "En revisión",
-  estado_pendiente_subsanacion: "Pendiente de subsanación",
-  estado_finalizada: "Finalizada",
-  estado_no_disponible: "Estado no disponible",
-  anuncio_seccion: "Sección {seccion} seleccionada.",
-  anuncio_detalle: "Ficha de {referencia} seleccionada.",
-});
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
-const CLAVES = Object.keys(MENSAJES_SOLICITUDES_ES);
-export function crearTraductorSolicitudes(catalogo = MENSAJES_SOLICITUDES_ES) {
+const { cargarTextos, crearTextos } = await import("../../../comun/textos.js");
+const textos = await cargarTextos("solicitudes");
+export const MENSAJES_SOLICITUDES = textos.seccion("general");
+const CLAVES = Object.freeze(Object.keys(MENSAJES_SOLICITUDES));
+const OPCIONES_FECHA = Object.freeze({ day: "2-digit", month: "2-digit", year: "numeric", timeZone: ZONA_HORARIA_PORTAL });
+
+export function crearTraductorSolicitudes(catalogo = MENSAJES_SOLICITUDES, localizacion = LOCALIZACION_ACTUAL) {
   if (!catalogo || typeof catalogo !== "object" || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || !catalogo[clave])) {
     throw new TypeError("catálogo i18n de Solicitudes incompleto");
   }
-  return (clave, variables = {}) => {
-    if (!CLAVES.includes(clave)) throw new TypeError(`clave i18n de Solicitudes desconocida: ${clave}`);
-    return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_texto, variable) => String(variables[variable] ?? ""));
-  };
+  const traducciones = crearTextos({ modulo: "solicitudes", localizacion, respaldo: { general: catalogo } });
+  const t = (clave, variables) => traducciones.traducir(`general.${clave}`, variables);
+  return Object.assign(t, {
+    numero: traducciones.numero,
+    minusculas: (valor) => String(valor).toLocaleLowerCase(localizacion),
+    fecha: (valor) => formatearFechaSolicitudes(valor, localizacion, t("sin_dato")),
+  });
+}
+
+/** Fecha civil o instante validados y presentados con el formateo común de textos. */
+export function formatearFechaSolicitudes(valor, localizacion = LOCALIZACION_ACTUAL, sinDato = MENSAJES_SOLICITUDES.sin_dato) {
+  if (typeof valor !== "string" || !/^\d{4}-\d\d-\d\d(?:T.*)?$/.test(valor)) return sinDato;
+  const dia = new Date(`${valor.slice(0, 10)}T12:00:00Z`);
+  if (!Number.isFinite(dia.getTime()) || dia.toISOString().slice(0, 10) !== valor.slice(0, 10)) return sinDato;
+  const instante = valor.length === 10 ? dia : new Date(valor);
+  return Number.isFinite(instante.getTime())
+    ? crearTextos({ modulo: "solicitudes", localizacion, respaldo: {} }).fecha(instante, OPCIONES_FECHA)
+    : sinDato;
 }

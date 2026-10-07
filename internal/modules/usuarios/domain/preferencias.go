@@ -37,7 +37,11 @@ type CatalogoPreferencias struct {
 
 var idiomas = map[string]bool{"navegador": true, "es": true, "en": true}
 var tamanos_texto = map[string]bool{"normal": true, "grande": true, "muy_grande": true}
-var temas = map[string]bool{"sistema": true, "claro": true, "oscuro": true}
+var temas = map[string]bool{
+	"sistema": true, "claro": true, "oscuro": true,
+	"diputacion_granada": true, "arena": true, "salvia": true,
+	"lavanda": true, "azul_sereno": true, "noche_suave": true,
+}
 var inicios = map[string]bool{"cuadro": true, "peticiones": true, "bolsas": true}
 var filas = map[int]bool{20: true, 50: true, 100: true}
 

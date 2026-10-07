@@ -120,6 +120,9 @@ func nuevoFixturePreparacionDecisionCoberturaDurable(
 				ValidadaEn:          base.Add(-90 * time.Second),
 				Motivo:              "contratacion_temporal.rc.no_requerida",
 			},
+			// Sin retención, la constancia de las partidas va con el coste aproximado.
+			CostePrevisto:  &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
+			FuenteCosteRef: "tabla:retributiva-sintetica-2026",
 		},
 		domain.DatosActuacion{
 			AccionClave: domain.ClaveCatalogo(

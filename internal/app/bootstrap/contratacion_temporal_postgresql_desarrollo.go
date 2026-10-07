@@ -19,9 +19,11 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -79,6 +81,10 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
+	auditoriaLecturasBolsa            puertosvec.RegistradorIntentosAuditoria
+	procesoAuditoriaLecturasBolsa     string
+	cerrarAuditoriaLecturasBolsa      func()
+	cerrarFirmasR5V2                  func()
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
 	calculadorPoliticaOfertas         *pgxpool.Pool
@@ -100,10 +106,12 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDatosContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialEmision                         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -119,6 +127,9 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaRelaciones               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -126,7 +137,10 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
+	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	errMaterialOrganizacionHistorica                 error
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
 	detenerEntregaCeses                              func()
@@ -137,6 +151,12 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
 	if d == nil {
 		return
+	}
+	if d.cerrarAuditoriaLecturasBolsa != nil {
+		d.cerrarAuditoriaLecturasBolsa()
+	}
+	if d.cerrarFirmasR5V2 != nil {
+		d.cerrarFirmasR5V2()
 	}
 	if d.cerrarUnaVez != nil {
 		d.cerrarUnaVez()
@@ -183,7 +203,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
@@ -450,6 +470,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	descriptoresMaterial = append(descriptoresMaterial, descriptoresAspirantes...)
+	_, preparacionBasesActiva, err := leerConfiguracionPreparacionBasesV3(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if preparacionBasesActiva {
+		if !cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+			return vacias, errMontajePreparacionBasesV3
+		}
+		descriptores := DescriptoresMaterialPreparacionBasesV3()
+		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -465,6 +496,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if preparacionBasesActiva {
+		etapa = "material_preparacion_bases"
+		for i, descriptor := range DescriptoresMaterialPreparacionBasesV3() {
+			dependencias.materialPreparacionBases[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
+			if err != nil {
+				return vacias, err
+			}
+		}
+	}
 	if usuariosPreferenciasActivas {
 		etapa = "material_usuarios_preferencias"
 		lote, fallo := publicarMaterialPreferenciasUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
@@ -568,6 +608,39 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	seleccionExportacion, err := exportacionServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionExportacion {
+		etapa = "material_personal_exportacion_servicios"
+		dependencias.materialPersonalExportacionServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaExportacionServiciosPropios)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionHistoria, err := historiaServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionHistoria {
+		etapa = "material_personal_historia_servicios"
+		dependencias.materialPersonalHistoriaServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaHistoriaServiciosPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionHistoriaRelaciones, err := historiaRelacionesPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionHistoriaRelaciones {
+		etapa = "material_personal_historia_relaciones"
+		dependencias.materialPersonalHistoriaRelaciones, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaHistoriaRelacionesPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "material_firma_documento"
 	if firmaDocumento {
 		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
@@ -599,6 +672,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 				"publicar_gobierno_personal_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
+			)
+			return vacias, falloPostgreSQLCTDesarrollo(err)
+		}
+	}
+	etapa = "publicar_gobierno_incorporacion_b2"
+	if seleccion.incorporacionB2 {
+		if err := publicarMaterialIncorporacionB2Desarrollo(ctx, gobierno, material, catalogoMaterial); err != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"publicar_gobierno_incorporacion_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
 			)
 			return vacias, falloPostgreSQLCTDesarrollo(err)
 		}
@@ -691,6 +773,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialSituacion = proveedorSituacion
+			proveedorDocumentales, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialConsultaSolicitudesDocumentales = proveedorDocumentales
 			proveedorContacto, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaRegistrarContactoParticipacion)
 			if err != nil {
 				return vacias, err
@@ -706,6 +793,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialDatosContacto = proveedorDatosContacto
+			if dependencias.proveedorMaterialConsultaDatosContacto, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarDatosContactoParticipacion); err != nil {
+				return vacias, err
+			}
 			proveedorEmision, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaEmitirLlamamiento)
 			if err != nil {
 				return vacias, err
@@ -797,6 +887,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	// Organización histórica es opcional e independiente de B2. La selección
+	// y la publicación usan el gobierno central, pero su fallo sólo deja esta
+	// capacidad sin material; no interrumpe las capacidades anteriores.
+	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
+	if falloOH == nil && activoOH {
+		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
+	}
+	dependencias.errMaterialOrganizacionHistorica = falloOH
+	if falloOH != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"material_organizacion_historica", "capacidad_no_disponible",
+		)
+	}
 	completa = true
 	return dependencias, nil
 }
@@ -819,10 +922,10 @@ func descriptorMaterialHistorialMiBolsaDesarrollo() descriptorMaterialConsumidor
 	}
 }
 
-// descriptoresMaterialPortalCandidatoDesarrollo declara las cuatro audiencias
+// descriptoresMaterialPortalCandidatoDesarrollo declara las audiencias
 // de AD3-84 en el catálogo común de material.
 func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
-	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, 4)
+	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, len(puertosbolsa.AccionesPortalCandidato()))
 	for _, par := range puertosbolsa.AccionesPortalCandidato() {
 		nombre := strings.TrimPrefix(par[0], "bolsa.participaciones_propias.")
 		descriptores = append(descriptores, descriptorMaterialConsumidorV3Desarrollo{

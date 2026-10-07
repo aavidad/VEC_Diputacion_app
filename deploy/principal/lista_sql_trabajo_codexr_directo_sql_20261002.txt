@@ -1,0 +1,4 @@
+# B73 depende de Bolsa 000032, 000033 y 000037 ya instaladas.
+# No depende de 000070, 000071 ni 000072.
+# No reaplicar migraciones previas ni ejecutar DOWN sobre historia conservada.
+deploy/postgresql/bolsa_llamamientos/migraciones/000073_reincorporacion_b8_justificada.up.sql

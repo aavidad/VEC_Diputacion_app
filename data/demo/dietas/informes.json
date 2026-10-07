@@ -1,0 +1,19 @@
+{
+  "naturaleza": "sintetica",
+  "schema": "dietas-informes-demo",
+  "version": 1,
+  "fecha_corte": "2026-09-30",
+  "configuracion_ref": "propuesta:catalogo:dietas:informes:ejemplo",
+  "configuracion_version": 1,
+  "moneda": "EUR",
+  "registros": [
+    { "referencia": "DI-001", "version_comision": 1, "situacion": "orientativo", "persona_ref": "persona-demo-01", "persona": "Ana Molina", "unidad_ref": "unidad-demo-01", "unidad": "Servicios Generales", "fecha_inicio": "2026-09-02", "fecha_liquidacion": null, "fecha_fiscalizacion": null, "total_centimos": 6110, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 1860, "otros_gastos": 0 } },
+    { "referencia": "DI-002", "version_comision": 2, "situacion": "liquidado", "persona_ref": "persona-demo-02", "persona": "Luis Pérez", "unidad_ref": "unidad-demo-02", "unidad": "Cultura", "fecha_inicio": "2026-09-04", "fecha_liquidacion": "2026-09-06", "fecha_fiscalizacion": null, "total_centimos": 5500, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 0, "otros_gastos": 1250 } },
+    { "referencia": "DI-003", "version_comision": 1, "situacion": "orientativo", "persona_ref": "persona-demo-03", "persona": "María Ruiz", "unidad_ref": "unidad-demo-01", "unidad": "Servicios Generales", "fecha_inicio": "2026-09-08", "fecha_liquidacion": null, "fecha_fiscalizacion": null, "total_centimos": 2375, "conceptos_centimos": { "manutencion": 0, "kilometraje": 2375, "otros_gastos": 0 } },
+    { "referencia": "DI-004", "version_comision": 3, "situacion": "fiscalizado", "persona_ref": "persona-demo-01", "persona": "Ana Molina", "unidad_ref": "unidad-demo-01", "unidad": "Servicios Generales", "fecha_inicio": "2026-09-11", "fecha_liquidacion": "2026-09-12", "fecha_fiscalizacion": "2026-09-13", "total_centimos": 6090, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 990, "otros_gastos": 850 } },
+    { "referencia": "DI-005", "version_comision": 1, "situacion": "orientativo", "persona_ref": "persona-demo-04", "persona": "Eva Torres", "unidad_ref": "unidad-demo-03", "unidad": "Medio Ambiente", "fecha_inicio": "2026-09-15", "total_centimos": 7530, "fecha_liquidacion": null, "fecha_fiscalizacion": null, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 3280, "otros_gastos": 0 } },
+    { "referencia": "DI-006", "version_comision": 2, "situacion": "liquidado", "persona_ref": "persona-demo-02", "persona": "Luis Pérez", "unidad_ref": "unidad-demo-02", "unidad": "Cultura", "fecha_inicio": "2026-09-18", "fecha_liquidacion": "2026-09-19", "fecha_fiscalizacion": null, "total_centimos": 1750, "conceptos_centimos": { "manutencion": 0, "kilometraje": 1750, "otros_gastos": 0 } },
+    { "referencia": "DI-007", "version_comision": 2, "situacion": "liquidado", "persona_ref": "persona-demo-03", "persona": "María Ruiz", "unidad_ref": "unidad-demo-01", "unidad": "Servicios Generales", "fecha_inicio": "2026-09-22", "fecha_liquidacion": "2026-09-23", "fecha_fiscalizacion": null, "total_centimos": 6350, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 0, "otros_gastos": 2100 } },
+    { "referencia": "DI-008", "version_comision": 3, "situacion": "fiscalizado", "persona_ref": "persona-demo-04", "persona": "Eva Torres", "unidad_ref": "unidad-demo-03", "unidad": "Medio Ambiente", "fecha_inicio": "2026-09-26", "fecha_liquidacion": "2026-09-27", "fecha_fiscalizacion": "2026-09-28", "total_centimos": 5715, "conceptos_centimos": { "manutencion": 4250, "kilometraje": 1465, "otros_gastos": 0 } }
+  ]
+}

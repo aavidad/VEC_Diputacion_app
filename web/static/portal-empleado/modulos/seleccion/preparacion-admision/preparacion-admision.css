@@ -1,0 +1,20 @@
+/* Sólo distribución del visor; componentes y colores del portal común. */
+.modulo-preparacion-admision .cabecera-panel { background: var(--portal-superficie-alterna); }
+.modulo-preparacion-admision :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
+.modulo-preparacion-admision #admision-archivo { min-width: 0; max-width: 100%; }
+.modulo-preparacion-admision .cuerpo-panel > p { margin: 0; }
+.modulo-preparacion-admision .admision-apertura { gap: 12px; }
+.modulo-preparacion-admision .admision-archivo-acciones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: end; }
+.modulo-preparacion-admision .admision-tabla { min-width: 660px; }
+.modulo-preparacion-admision .admision-tabla :is(td, th) { white-space: normal; vertical-align: top; }
+.modulo-preparacion-admision .admision-tabla th[scope="row"] { width: 26%; }
+.modulo-preparacion-admision .tabla-contenedor { max-height: min(440px, 60vh); }
+.modulo-preparacion-admision .admision-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: .8125rem; }
+.modulo-preparacion-admision input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.modulo-preparacion-admision summary { min-height: 32px; padding-block: 6px; cursor: pointer; }
+.modulo-preparacion-admision .salto-contenido:focus { position: fixed; top: 8px; max-width: calc(100% - 16px); }
+@media (max-width: 1100px) { .modulo-preparacion-admision .admision-archivo-acciones { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .modulo-preparacion-admision .admision-tabla { min-width: 0; }
+  .modulo-preparacion-admision .admision-tabla th[scope="row"] { width: auto; }
+}

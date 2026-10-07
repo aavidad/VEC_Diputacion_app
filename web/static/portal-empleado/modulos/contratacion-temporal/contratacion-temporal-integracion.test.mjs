@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import {
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js";
+} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 
 const directorio = new URL("./", import.meta.url);
 const [
@@ -105,7 +105,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261006-resumen-inicio-v2"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

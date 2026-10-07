@@ -1,0 +1,19 @@
+{
+  "version_esquema": "1",
+  "idioma": "en",
+  "textos": {
+    "titulo": "Record incidents by period",
+    "aviso": "Example query with synthetic data. Records are unchanged.",
+    "registrado": "Records available",
+    "registro_incompleto": "Incomplete record sequence",
+    "sin_registros": "No records in the queried source",
+    "indeterminado": "The available data does not allow sequence evaluation",
+    "no_evaluado": "Date after the cutoff: not evaluated",
+    "complete": "Complete coverage up to the cutoff",
+    "incomplete": "Incomplete coverage",
+    "not_available": "Source unavailable",
+    "cobertura": "Record data coverage",
+    "limites": "Does not determine absence, noncompliance, leave, expected hours or physical presence. Does not process corrections.",
+    "entrada_invalida": "Unable to query the example. Check the data and try again."
+  }
+}

@@ -18,8 +18,15 @@ func CanonHuellaSemanticaPropuestaDecisionCoberturaV1() CanonHuellaSemanticaProp
 	}
 }
 
+func CanonHuellaSemanticaPropuestaDecisionCoberturaV2() CanonHuellaSemanticaPropuestaDecisionCobertura {
+	canon := CanonHuellaSemanticaPropuestaDecisionCoberturaV1()
+	canon.VersionEsquema = 2
+	return canon
+}
+
 func (c CanonHuellaSemanticaPropuestaDecisionCobertura) valido() bool {
-	return c == CanonHuellaSemanticaPropuestaDecisionCoberturaV1()
+	return c == CanonHuellaSemanticaPropuestaDecisionCoberturaV1() ||
+		c == CanonHuellaSemanticaPropuestaDecisionCoberturaV2()
 }
 
 // IdentidadSemanticaPropuestaDecisionCobertura sirve para preview y
@@ -36,9 +43,7 @@ type IdentidadSemanticaPropuestaDecisionCobertura struct {
 // demuestra vigencia, evidencia ni autorización.
 func (i IdentidadSemanticaPropuestaDecisionCobertura) Validar() error {
 	if !i.Canon.valido() || !huellaValida(i.HuellaSHA256) ||
-		i.Referencia != referenciaSemanticaPropuestaDecisionCobertura(
-			i.HuellaSHA256,
-		) {
+		i.Referencia != referenciaSemanticaPropuestaParaCanon(i.Canon, i.HuellaSHA256) {
 		return ErrDatoInvalido
 	}
 	return nil
@@ -64,6 +69,9 @@ func (p PropuestaDecisionCobertura) IdentidadSemantica() (
 		return IdentidadSemanticaPropuestaDecisionCobertura{}, ErrDatoInvalido
 	}
 	canon := CanonHuellaSemanticaPropuestaDecisionCoberturaV1()
+	if p.publicacion.Canon == CanonHuellaPropuestaDecisionCoberturaV2() {
+		canon = CanonHuellaSemanticaPropuestaDecisionCoberturaV2()
+	}
 	huella, err := calcularHuellaSemanticaPropuestaDecisionCobertura(
 		canon,
 		p.publicacion,
@@ -72,7 +80,7 @@ func (p PropuestaDecisionCobertura) IdentidadSemantica() (
 		return IdentidadSemanticaPropuestaDecisionCobertura{}, ErrDatoInvalido
 	}
 	return IdentidadSemanticaPropuestaDecisionCobertura{
-		Referencia:   referenciaSemanticaPropuestaDecisionCobertura(huella),
+		Referencia:   referenciaSemanticaPropuestaParaCanon(canon, huella),
 		HuellaSHA256: huella,
 		Canon:        canon,
 	}, nil
@@ -80,4 +88,11 @@ func (p PropuestaDecisionCobertura) IdentidadSemantica() (
 
 func referenciaSemanticaPropuestaDecisionCobertura(huella string) string {
 	return "propuesta-cobertura-semantica:sha256:" + huella
+}
+
+func referenciaSemanticaPropuestaParaCanon(canon CanonHuellaSemanticaPropuestaDecisionCobertura, huella string) string {
+	if canon == CanonHuellaSemanticaPropuestaDecisionCoberturaV2() {
+		return "propuesta-cobertura-semantica:v2:sha256:" + huella
+	}
+	return referenciaSemanticaPropuestaDecisionCobertura(huella)
 }

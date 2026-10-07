@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type ServicioContactoParticipacion struct {
@@ -47,7 +48,7 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
-	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, Canal: solicitud.Canal, Instante: solicitud.Instante.UTC().Truncate(time.Microsecond), Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
+	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: solicitud.Instante.UTC().Truncate(time.Microsecond), Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
 	if contacto.Validar() != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
@@ -107,7 +108,7 @@ func (s *ServicioContactoParticipacion) ListarContactosBolsa(ctx context.Context
 	if err != nil {
 		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
-	base := puertosbolsa.ConsultaContactosParticipacion{Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto, BolsaRef: q.BolsaRef, Cursor: q.Cursor, Limite: q.Limite, Correlacion: q.Correlacion, MotivoAutorizacion: q.MotivoAutorizacion}
+	base := puertosbolsa.ConsultaContactosParticipacion{Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto, BolsaRef: q.BolsaRef, OfertaRef: q.OfertaRef, Cursor: q.Cursor, Limite: q.Limite, Correlacion: q.Correlacion, MotivoAutorizacion: q.MotivoAutorizacion}
 	base, err = s.autorizarConsulta(ctx, base, resuelto)
 	if err != nil {
 		return puertosbolsa.PaginaContactosParticipacion{}, err
@@ -128,6 +129,11 @@ func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		// Solo la denegación nominal ya registrada por el emisor es una
+		// denegación; cualquier otro fallo sigue siendo indisponibilidad.
+		if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return q, dominiovec.ErrAutorizacionDenegada
+		}
 		return q, errorDependenciaSituacion(err)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()

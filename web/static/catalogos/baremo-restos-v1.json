@@ -1,0 +1,44 @@
+{
+  "esquema": "vec.bolsa.catalogo_restos.v1",
+  "version": 1,
+  "contrato_reglas": "vec.bolsa.conjunto_reglas_baremo.v1",
+  "motor": "vec.bolsa.motor_experiencia.v1",
+  "unidad_base": "dia",
+  "tope_unidades_por_periodo": false,
+  "opciones": [
+    {
+      "modo": "conservar_exactos",
+      "etiqueta": "restos_conservar_exactos",
+      "explicacion": "restos_conservar_exactos_explicacion",
+      "momentos_redondeo": [
+        "periodo",
+        "regla"
+      ]
+    },
+    {
+      "modo": "acumular_por_regla",
+      "etiqueta": "restos_acumular_por_regla",
+      "explicacion": "restos_acumular_por_regla_explicacion",
+      "momentos_redondeo": [
+        "regla"
+      ]
+    },
+    {
+      "modo": "descartar_por_periodo",
+      "etiqueta": "restos_descartar_por_periodo",
+      "explicacion": "restos_descartar_por_periodo_explicacion",
+      "momentos_redondeo": [
+        "periodo",
+        "regla"
+      ]
+    },
+    {
+      "modo": "descartar_por_regla",
+      "etiqueta": "restos_descartar_por_regla",
+      "explicacion": "restos_descartar_por_regla_explicacion",
+      "momentos_redondeo": [
+        "regla"
+      ]
+    }
+  ]
+}

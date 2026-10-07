@@ -43,7 +43,8 @@ func (c CoordenadasConjuntoEvidencias) validar() error {
 		!domain.ReferenciaOpacaValida(c.FinalidadRef) ||
 		!c.ViaClave.Valida() ||
 		!domain.ReferenciaOpacaValida(c.CategoriaRef) ||
-		c.Periodo.Validar() != nil {
+		c.Periodo.Validar() != nil ||
+		(c.Periodo.Fin.IsZero() && c.Periodo.PoliticaFin == (domain.PoliticaFin{})) {
 		return ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil
@@ -412,7 +413,9 @@ func coincideConCoordenadas(
 		r.Catalogo.CoincideExactamente(c.Catalogo) &&
 		r.ViaClave == c.ViaClave && r.CategoriaRef == c.CategoriaRef &&
 		r.Periodo.Inicio.Equal(c.Periodo.Inicio) &&
-		r.Periodo.Fin.Equal(c.Periodo.Fin)
+		r.Periodo.Fin.Equal(c.Periodo.Fin) &&
+		r.Periodo.CausaFin == c.Periodo.CausaFin &&
+		r.Periodo.PoliticaFin == c.Periodo.PoliticaFin
 }
 
 func (ConjuntoEvidenciasCobertura) String() string     { return redaccionConjunto }

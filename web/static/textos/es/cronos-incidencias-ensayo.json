@@ -1,0 +1,19 @@
+{
+  "version_esquema": "1",
+  "idioma": "es",
+  "textos": {
+    "titulo": "Incidencias de registro por periodo",
+    "aviso": "Consulta de ejemplo con datos sintéticos. No modifica registros.",
+    "registrado": "Registros disponibles",
+    "registro_incompleto": "Secuencia de registro incompleta",
+    "sin_registros": "No hay registros en la fuente consultada",
+    "indeterminado": "No se puede evaluar la secuencia con los datos disponibles",
+    "no_evaluado": "Fecha posterior al corte: no evaluada",
+    "complete": "Cobertura completa hasta el corte",
+    "incomplete": "Cobertura incompleta",
+    "not_available": "Fuente no disponible",
+    "cobertura": "Cobertura de los datos de registro",
+    "limites": "No determina absentismo, incumplimiento, permisos, jornada prevista ni presencia física. No tramita correcciones.",
+    "entrada_invalida": "No se ha podido consultar el ejemplo. Revise los datos y vuelva a intentarlo."
+  }
+}

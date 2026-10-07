@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,8 +82,10 @@ func TestFirmaDocumentoNoRegistraSiLaCustodiaFalla(t *testing.T) {
 		preparar func(*custodioPrueba)
 		esperado error
 	}{
-		"documentos caído":   {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoNoDisponible }, ports.ErrCustodiaFirmadoNoDisponible},
-		"documentos deniega": {func(c *custodioPrueba) { c.err = errors.New("403") }, ports.ErrCustodiaFirmadoDenegada},
+		"documentos caído":                {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoNoDisponible }, ports.ErrCustodiaFirmadoNoDisponible},
+		"documentos deniega":              {func(c *custodioPrueba) { c.err = errors.New("403") }, ports.ErrCustodiaFirmadoDenegada},
+		"contenido no admitido":           {func(c *custodioPrueba) { c.err = fmt.Errorf("x: %w", ports.ErrCustodiaFirmadoInvalida) }, ports.ErrCustodiaFirmadoInvalida},
+		"otro PDF con la misma operación": {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoEnConflicto }, ports.ErrCustodiaFirmadoEnConflicto},
 		"otra huella": {func(c *custodioPrueba) {
 			c.alterar = func(d *ports.DocumentoCustodiado) { d.HuellaSHA256 = huella([]byte("otro")) }
 		}, ports.ErrResultadoFirmaDocumentoInvalido},
@@ -97,9 +100,22 @@ func TestFirmaDocumentoNoRegistraSiLaCustodiaFalla(t *testing.T) {
 		caso.preparar(custodio)
 		borrador := []byte("%PDF-1.7 borrador")
 		_, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, borrador, append(append([]byte{}, borrador...), 'f'), "clave-firma-000000001"))
-		if !errors.Is(err, caso.esperado) || len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
+		if !errors.Is(err, caso.esperado) || len(registro.registrado) != 0 || len(autorizador.visto) != 1 {
 			t.Errorf("%s: %v (registros %d, autorizaciones %d)", nombre, err, len(registro.registrado), len(autorizador.visto))
 		}
+	}
+}
+
+func TestFirmaDocumentoDenegadaNoCustodia(t *testing.T) {
+	s, registro, autorizador, custodio := servicioConCustodia(t)
+	autorizador.denegar = true
+	original := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte(nil), original...), []byte(" firma")...)
+	_, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, original, firmado, "clave-firma-denegada-001"))
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || len(autorizador.visto) != 1 ||
+		len(custodio.ordenes) != 0 || len(registro.registrado) != 0 {
+		t.Fatalf("denegación tras custodiar o registrar: %v, autorización=%d custodia=%d registro=%d",
+			err, len(autorizador.visto), len(custodio.ordenes), len(registro.registrado))
 	}
 }
 
@@ -179,5 +195,42 @@ func TestMaterialFirmaDocumentoCanonicoConEnlace(t *testing.T) {
 		if x.Validar() == nil {
 			t.Errorf("%s: admitido", nombre)
 		}
+	}
+}
+
+// Reintento de una firma ya registrada (respuesta perdida): el paso ya no está
+// pendiente, pero se recupera el recibo original sin registrar otra firma.
+func TestFirmaDocumentoReintentoDeUnaFirmaYaRegistrada(t *testing.T) {
+	s, registro, autorizador, custodio := servicioConCustodia(t)
+	borrador := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte{}, borrador...), []byte(" firma1")...)
+	sol := solicitudFirmaPrueba(1, borrador, firmado, "clave-firma-000000001")
+	primero, err := s.Firmar(context.Background(), sol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.Firmar(context.Background(), sol)
+	if err != nil || !r.Recibo.YaRegistrada || r.Recibo.Secuencia != primero.Recibo.Secuencia ||
+		r.Recibo.DocumentoCustodiaRef != primero.Recibo.DocumentoCustodiaRef || len(registro.registrado) != 1 || len(autorizador.visto) != 2 {
+		t.Fatalf("reintento: %v %+v (registros %d)", err, r.Recibo, len(registro.registrado))
+	}
+	// La custodia se vuelve a pedir con la misma orden: Documentos devuelve el
+	// original.
+	if len(custodio.ordenes) != 2 || custodio.ordenes[0].DocumentoRef != custodio.ordenes[1].DocumentoRef ||
+		custodio.ordenes[0].ClaveIdempotencia != custodio.ordenes[1].ClaveIdempotencia {
+		t.Fatalf("órdenes de custodia: %+v", custodio.ordenes)
+	}
+	// Con la misma clave en otro paso, o con otro PDF, es otra operación.
+	otroPaso := solicitudFirmaPrueba(2, borrador, firmado, "clave-firma-000000001")
+	if _, err := s.Firmar(context.Background(), otroPaso); !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("misma clave en otro paso: %v", err)
+	}
+	otroPDF := solicitudFirmaPrueba(1, borrador, append(append([]byte{}, borrador...), []byte(" firma2")...), "clave-firma-000000001")
+	if _, err := s.Firmar(context.Background(), otroPDF); !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("misma clave con otro PDF: %v", err)
+	}
+	// Una clave nueva sobre el paso ya firmado sigue sin estar pendiente.
+	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, borrador, firmado, "clave-firma-000000009")); !errors.Is(err, ErrPasoFirmaNoPendiente) {
+		t.Fatalf("clave nueva sobre paso firmado: %v", err)
 	}
 }

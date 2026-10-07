@@ -12,7 +12,7 @@ import {
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
   vistaBolsaOfrecida,
-} from "./portal-menu-bolsa.js";
+} from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 
 test("Auditoría de Bolsa exige una participación procedente de una ficha consultada", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);

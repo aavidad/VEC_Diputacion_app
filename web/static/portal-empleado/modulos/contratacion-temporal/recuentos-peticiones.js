@@ -7,7 +7,7 @@
  * deduce responsables ni tareas: un expediente «pendiente» es el que tiene el
  * plazo de su fase vencido o que vence hoy, o una incidencia abierta.
  */
-import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js";
+import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 const TERMINADOS = new Set(["completado", "cancelado"]);
 const PATRON_DIA = /^\d{4}-\d{2}-\d{2}$/u;
@@ -93,7 +93,8 @@ export function resumirPeticiones({ expedientes = [], parcial = false, generadoE
 
 /** Filtros de la lista que se aplican en pantalla sobre la consulta ya cargada. */
 export const FILTRO_LISTA_INICIAL = Object.freeze({ texto: "", fase: "", centro: "", categoria: "", mostrar: "en_tramite" });
-export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "vencidos", "atencion", "vencen_semana", "espera", "terminadas", "todas"]);
+export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "vencidos", "vence_hoy", "incidencia", "sin_plazo", "atencion",
+  "vencen_semana", "espera", "terminadas", "todas"]);
 
 /** Normaliza un filtro recibido (de la portada o del formulario) sin aceptar claves ajenas. */
 export function filtroListaValido(entrada = {}) {
@@ -116,6 +117,11 @@ function cumpleMostrar(expediente, mostrar, hoy) {
   if (mostrar === "terminadas") return !enTramite(expediente);
   if (!enTramite(expediente)) return false;
   if (mostrar === "vencidos") return tienePlazoVencido(expediente);
+  // Las mismas cifras que la portada: vencen hoy, incidencia abierta y plazo
+  // que no se pudo calcular.
+  if (mostrar === "vence_hoy") return expediente.plazo_estado === "vence_hoy";
+  if (mostrar === "incidencia") return expediente.estado_clave === "incidencia";
+  if (mostrar === "sin_plazo") return expediente.plazo_estado === "no_calculado";
   if (mostrar === "atencion") return requiereAtencion(expediente);
   if (mostrar === "espera") return expediente.estado_clave === "espera";
   if (mostrar === "vencen_semana") {
@@ -127,8 +133,8 @@ function cumpleMostrar(expediente, mostrar, hoy) {
   return true;
 }
 
-/** Aplica los filtros de pantalla y ordena por plazo (lo más urgente, arriba). */
-export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "") {
+/** Aplica los filtros y ordena por plazo; la vista puede aportar etiquetas buscables. */
+export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "", valoresBusqueda = () => []) {
   const hoy = diaConsulta(generadoEn);
   const texto = normalizar(filtro.texto);
   return (Array.isArray(expedientes) ? expedientes : []).filter((expediente) => (
@@ -136,7 +142,7 @@ export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, ge
     && (!filtro.fase || faseRRHH(expediente.fase_clave)?.clave === filtro.fase)
     && (!filtro.centro || expediente.centro === filtro.centro)
     && (!filtro.categoria || expediente.categoria === filtro.categoria)
-    && (!texto || [expediente.numero_visible, expediente.centro, expediente.categoria]
+    && (!texto || [expediente.numero_visible, expediente.centro, expediente.categoria, ...valoresBusqueda(expediente)]
       .some((valor) => normalizar(valor).includes(texto)))
   )).sort(compararPorPlazo);
 }

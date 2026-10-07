@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261001-ct-a-i18n-v1";
 
 const recibo = Object.freeze({
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",

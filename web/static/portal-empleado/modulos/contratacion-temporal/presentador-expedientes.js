@@ -8,8 +8,8 @@ import {
   validarDocumentosContratacionTemporal,
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
-} from "./contrato-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+} from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

@@ -1,0 +1,17 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "catalogo_no_disponible": "No se puede leer el catálogo de mensajes.",
+    "uso_invalido": "Indique plan, conexión, aprobación, acuse nuevo y tiempo límite.",
+    "entrada_insegura": "No se puede leer un archivo privado.",
+    "entrada_invalida": "Los documentos privados no cumplen el contrato.",
+    "aprobacion_divergente": "La aprobación no coincide con los bytes del plan.",
+    "acuse_inseguro": "No se puede reservar un acuse privado nuevo.",
+    "commit_no_confirmado": "No se ha confirmado el COMMIT; conserve la operación original.",
+    "operacion_no_confirmada": "La operación no ha confirmado su resultado.",
+    "acuse_no_guardado": "La base confirmó la operación, pero no se pudo guardar el acuse.",
+    "mantenimiento_confirmado": "Mantenimiento confirmado con auditoría común.",
+    "mantenimiento_rechazado": "Mantenimiento denegado y auditado.",
+    "mantenimiento_no_disponible": "El mantenimiento registró un error y su auditoría."
+  }
+}

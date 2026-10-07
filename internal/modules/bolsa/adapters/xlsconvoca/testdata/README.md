@@ -31,6 +31,14 @@ No se copiaron filas, metadatos ni bytes de los ficheros inspeccionados para
 definir T17. Los binarios se generaron con LibreOffice usando el filtro
 `MS Excel 97`; las pruebas solo requieren los binarios ya incluidos.
 
+`lector_xlsx_equivalencia_test.go` construye libros XLSX en memoria a partir de
+estos XLS sintéticos. Usa `sharedStrings` con texto enriquecido en la primera
+cabecera, `inlineStr` en las filas y celdas vacías dispersas. Compara la hoja y
+el staging de ambos formatos, y comprueba el acta y la recuperación por SHA-256
+con el repositorio de memoria. Otros libros generados en la misma prueba
+comprueban fechas con estilo, límites de tamaño y estructura, macros, vínculos
+externos, fórmulas externas y referencias inválidas a `sharedStrings`.
+
 Huellas SHA-256 del corte inicial:
 
 ```text

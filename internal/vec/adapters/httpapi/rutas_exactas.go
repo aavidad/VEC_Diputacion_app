@@ -205,6 +205,12 @@ func peticionRutaExactaCanonica(peticion *http.Request) bool {
 		peticion.URL.Host != "" || peticion.URL.User != nil {
 		return false
 	}
+	superficie := superficieAuditoriaFronteraRutaExacta(peticion.URL.Path)
+	if (superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo) &&
+		(peticion.Method != http.MethodPost || peticion.URL.RawQuery != "") {
+		return false
+	}
 	escapada := peticion.URL.EscapedPath()
 	return escapada == peticion.URL.Path && !strings.Contains(escapada, "%")
 }
@@ -277,12 +283,17 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
 	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
+	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
 		}
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
+		}
+		if preparacion {
+			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
 	}
@@ -307,11 +318,13 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
+		if preparacion {
+			return ErrAutoridadRutaExactaNoDisponible
+		}
 		return nil
 	}
 	ctxAuditoria, cancelar := context.WithTimeout(
-		context.WithoutCancel(ctx),
-		plazoMaximoAuditoriaFronteraRutaExacta,
+		context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta,
 	)
 	defer cancelar()
 	if err := h.registradorAuditoriaFronteraRutasExactas.RegistrarAuditoriaFronteraRutaExacta(
@@ -328,6 +341,9 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
+		if preparacion {
+			return ErrAutoridadRutaExactaNoDisponible
+		}
 	}
 	return nil
 }
@@ -342,10 +358,16 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
 	case "/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa/historial",
 		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
+		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
 		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto":
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
+	case "/api/vec/seleccion/preparacion-bases/guardar", "/api/vec/seleccion/preparacion-bases/consultar":
+		return ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases
+	case "/api/vec/bolsa/reglas-baremo/borradores/alta", "/api/vec/bolsa/reglas-baremo/versiones/consultar",
+		"/api/vec/bolsa/reglas-baremo/recibos/recuperar":
+		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	default:
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}

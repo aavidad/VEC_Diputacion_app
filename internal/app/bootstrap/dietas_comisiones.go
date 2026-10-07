@@ -28,6 +28,7 @@ import (
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -118,18 +119,19 @@ func (e *emisorComisionesDietasDesarrollo) EmitirMaterialAutorizacionAtestadaV3(
 }
 
 type autoridadComisionesDietasDesarrollo struct {
-	base                *autoridadRutasDietasDesarrollo
-	reloj               vecports.Reloj
-	cuentas             map[string]cuentaRutasDietasDesarrollo
-	rutas               []vechttp.RutaExacta
-	colecciones         []vechttp.RutaColeccion
-	registrador         dietasports.RegistradorAuditoriaFronteraComision
-	registradorPersonal personalports.RegistradorAuditoriaFronteraAsignacionDietas
-	cerrar              func()
+	base                     *autoridadRutasDietasDesarrollo
+	reloj                    vecports.Reloj
+	cuentas                  map[string]cuentaRutasDietasDesarrollo
+	rutas                    []vechttp.RutaExacta
+	colecciones              []vechttp.RutaColeccion
+	registrador              dietasports.RegistradorAuditoriaFronteraComision
+	registradorPersonal      personalports.RegistradorAuditoriaFronteraAsignacionDietas
+	registradorRectificacion personalports.RegistradorAuditoriaFronteraRectificacionDietas
+	cerrar                   func()
 }
 
 func esRutaComisionesDietas(ruta string) bool {
-	return ruta == dietashttp.RutaBorradores || strings.HasPrefix(ruta, dietashttp.RutaBorradores+"/") || ruta == personalhttp.RutaRelacionesDietas || strings.HasPrefix(ruta, personalhttp.RutaRelacionesDietas+"/") || ruta == personalhttp.RutaAsignacionesDietas || strings.HasPrefix(ruta, personalhttp.RutaAsignacionesDietas+"/")
+	return esRutaRectificacionDietas(ruta) || ruta == dietashttp.RutaBorradores || strings.HasPrefix(ruta, dietashttp.RutaBorradores+"/") || ruta == personalhttp.RutaRelacionesDietas || strings.HasPrefix(ruta, personalhttp.RutaRelacionesDietas+"/") || ruta == personalhttp.RutaAsignacionesDietas || strings.HasPrefix(ruta, personalhttp.RutaAsignacionesDietas+"/")
 }
 
 func cabeceraLibreComisionesDietas(cabeceras http.Header) bool {
@@ -146,6 +148,9 @@ var referenciaRutaComisionDietas = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128
 var referenciaRutaRelacionPersonalDietas = regexp.MustCompile(`^rel_[A-Za-z0-9_-]{22,128}$`)
 
 func metodoComisionesDietasValido(ruta, metodo string) bool {
+	if esRutaRectificacionDietas(ruta) {
+		return metodoRectificacionDietasValido(ruta, metodo)
+	}
 	if escrituraAsignacionDietas(ruta, metodo) && !escrituraAsignacionDietasAbierta(catalogoValidadoresCompetentesAsignacionDietas) {
 		return false
 	}
@@ -315,6 +320,9 @@ func (a *autoridadComisionesDietasDesarrollo) denegar(w http.ResponseWriter, r *
 }
 
 func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Context, rutaPeticion, metodo string, estado int, actorRef string) error {
+	if esRutaRectificacionDietas(rutaPeticion) {
+		return a.registrarDenegacionRectificacion(ctx, rutaPeticion, metodo, estado, actorRef)
+	}
 	if rutaPeticion == personalhttp.RutaRelacionesDietas || strings.HasPrefix(rutaPeticion, personalhttp.RutaRelacionesDietas+"/") || rutaPeticion == personalhttp.RutaAsignacionesDietas || strings.HasPrefix(rutaPeticion, personalhttp.RutaAsignacionesDietas+"/") {
 		return a.registrarDenegacionPersonal(ctx, rutaPeticion, metodo, estado, actorRef, false)
 	}
@@ -343,7 +351,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Co
 	if orden.Validar() != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return a.registrador.RegistrarAuditoriaFronteraComision(ctxAuditoria, orden)
 }
@@ -404,7 +412,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacionPersonal(ctx co
 	if orden.Validar() != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return a.registradorPersonal.RegistrarAuditoriaFronteraAsignacionDietas(ctxAuditoria, orden)
 }
@@ -497,7 +505,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"}, {c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"}, {c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"}}
 	var pools []*pgxpool.Pool
@@ -588,6 +596,17 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil || registradorPersonal.Preflight(ctx) != nil {
 		return nil, errComposicionDietasEn()
 	}
+	rectificacionesDisponibles, err := acreditarRectificacionesDietas(ctx, asignacionPersonal, auditoriaPersonal)
+	if err != nil {
+		return nil, errComposicionDietasEn()
+	}
+	var registradorRectificacion personalports.RegistradorAuditoriaFronteraRectificacionDietas
+	if rectificacionesDisponibles {
+		registradorRectificacion, err = personalpg.NuevoRegistradorAuditoriaFronteraRectificacionPostgreSQL(auditoriaPersonal)
+		if err != nil {
+			return nil, errComposicionDietasEn()
+		}
+	}
 	auditoria, usuarioAuditoria, err := abrirPoolAuditoriaFronteraDietasDesarrollo(ctx, c.DSNAuditoriaFrontera)
 	if err != nil || usuarios[usuarioAuditoria] {
 		return nil, errComposicionDietasEn()
@@ -655,6 +674,10 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		"personal.asignacion_dietas.corregir":          emisores[audienciaConsumoCorregirAsignacionDietas],
 		"personal.asignacion_dietas.grupo_corregir":    emisores[audienciaConsumoCorregirGrupoDietas],
 	}
+	emisoresPorAccion[personalports.AccionSolicitarRectificacionDietas] = emisores[personalports.AudienciaSolicitarRectificacionDietas]
+	emisoresPorAccion[personalports.AccionConsultarRectificacionDietas] = emisores[personalports.AudienciaConsultarRectificacionDietas]
+	emisoresPorAccion[personalports.AccionConsultarRectificacionesCompetentesDietas] = emisores[personalports.AudienciaConsultarRectificacionesCompetentesDietas]
+	// Resolver no se inyecta: la confirmación completa depende todavía de D7.
 	// Circuito: cada acción firma con su audiencia propia del gobierno CT.
 	for _, accion := range accionesCircuitoDietas() {
 		audiencia, _ := dietascomp.AudienciaCircuito(accion)
@@ -671,7 +694,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		return nil, errComposicionDietasEn()
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, registradorPersonal: registradorPersonal, cerrar: cerrar}
+	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, registradorPersonal: registradorPersonal, registradorRectificacion: registradorRectificacion, cerrar: cerrar}
 	seguridadComisiones := seguridadComisionesDietasDesarrollo{autoridad: a}
 	calculador, err := nuevoCasoUsoCalculoRutas(cfg)
 	if err != nil || calculador == nil {
@@ -689,11 +712,11 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
-	fuenteCompetencia, err := fuenteCompetenciaCircuitoDietas(catalogoValidadoresCompetentesAsignacionDietas)
+	fuenteCompetencia, err := fuenteCompetenciaCircuitoDietas(fuente, reloj)
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
-	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador, fuenteCompetencia: fuenteCompetencia})
+	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, auditoriaRectificacion: registradorRectificacion, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador, fuenteCompetencia: fuenteCompetencia})
 	if err != nil {
 		return nil, err
 	}

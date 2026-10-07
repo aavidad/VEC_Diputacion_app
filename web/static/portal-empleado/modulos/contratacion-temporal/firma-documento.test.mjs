@@ -4,8 +4,8 @@ import test from "node:test";
 
 import { crearClienteAutoFirma, ErrorAutoFirma, paraPruebas } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento, ErrorFirmaDocumento, RUTA_CONSULTA_FIRMA_DOCUMENTO, RUTA_FIRMA_DOCUMENTO, validarEstadoFirmas } from "./firma-documento-cliente.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
-import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
+import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 
 const t = crearTraductorCircuitoFirma();
 const PDF = new TextEncoder().encode("%PDF-1.7 borrador");
@@ -133,15 +133,16 @@ function circuitoCatalogo() {
     { orden: 1, cargo: "Técnico", estado: "pendiente_firma" }, { orden: 2, cargo: "Jefatura", estado: "en_espera" }] }] });
 }
 
-test("fusiona el estado real y solo ofrece acciones en el paso pendiente", () => {
+test("fusiona el estado real y deja cerrados los controles del paso pendiente", () => {
   const fusion = fusionarEstadoFirmas(circuitoCatalogo(), validarEstadoFirmas(estadoServidor()));
   assert.equal(fusion.documentos[0].pasos[0].estado, "firmado");
   assert.equal(fusion.documentos[0].pasos[1].estado, "pendiente_firma");
   assert.equal(renderizarAccionesPaso(fusion, fusion.documentos[0], fusion.documentos[0].pasos[0], t), "");
   const html = renderizarAccionesPaso(fusion, fusion.documentos[0], fusion.documentos[0].pasos[1], t);
-  assert.match(html, /data-ct-firma-accion="firmar"/u);
-  assert.match(html, /data-ct-firma-accion="devolver"[^>]*aria-expanded="false"/u);
-  assert.match(html, /<label for="ct-firma-motivo-informe_definitivo-2-texto">/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
+  assert.match(html, /permiso nominal para firmar este expediente/u);
+  assert.doesNotMatch(html, /data-ct-firma-accion=|<label|<textarea/u);
   assert.equal(fusionarEstadoFirmas(circuitoCatalogo(), validarEstadoFirmas(estadoServidor({ huella_sha256: "f".repeat(64) }))), null);
   assert.equal(renderizarAccionesPaso(circuitoCatalogo(), circuitoCatalogo().documentos[0], circuitoCatalogo().documentos[0].pasos[0], t), "");
 });
@@ -164,49 +165,42 @@ function dom(motivo = "") {
   return { salida, evento: (accion) => ({ target: { closest: () => boton(accion) } }) };
 }
 
-test("acciones: firma con AutoFirma y registro; devolución con motivo", async () => {
-  const registrados = [];
-  let avisos = 0;
+test("clics forjados de firma y devolución no descargan, no abren AutoFirma ni registran", async () => {
+  const efectos = { descarga: 0, autofirma: 0, registro: 0, aviso: 0 };
   const acciones = crearAccionesFirma({
-    obtenerEstado: estadoExpediente, t, alCambiar: async () => { avisos += 1; }, aleatorio: (n) => new Uint8Array(n).fill(1),
-    clienteBorrador: { descargarBorrador: async (sol, op) => { assert.deepEqual(sol, { expediente_ref: "expediente:ct:001", version_observada: 7 }); assert.equal(op.tipo, "informe_definitivo"); return new Blob([PDF]); } },
-    autofirma: { firmarPDF: async (pdf) => { assert.deepEqual([...pdf], [...PDF]); return FIRMADO; } },
-    clienteFirma: { registrar: async (s) => { registrados.push(s); return { recibo_ref: "recibo-firma-ct:9" }; } },
+    obtenerEstado: estadoExpediente, t, alCambiar: async () => { efectos.aviso += 1; },
+    clienteBorrador: { descargarBorrador: async () => { efectos.descarga += 1; return new Blob([PDF]); } },
+    autofirma: { firmarPDF: async () => { efectos.autofirma += 1; return FIRMADO; } },
+    clienteFirma: { registrar: async () => { efectos.registro += 1; return { recibo_ref: "recibo-firma-ct:9" }; } },
   });
-  const firma = dom();
-  await acciones.manejarClic(firma.evento("firmar"));
-  assert.equal(registrados[0].resultado, "firmado");
-  assert.equal(registrados[0].pasoOrden, 2);
-  assert.match(registrados[0].clave, /^firma-[0-9a-f]{32}$/u);
-  assert.match(firma.salida.textContent, /recibo-firma-ct:9.*sin eficacia|No tiene eficacia administrativa/u);
-  const corto = dom("no");
-  await acciones.manejarClic(corto.evento("confirmar-devolucion"));
-  assert.equal(corto.salida.textContent, t("circuito_firma_motivo_invalido"));
-  const devolucion = dom("Falta la fecha de efectos");
-  await acciones.manejarClic(devolucion.evento("confirmar-devolucion"));
-  assert.equal(registrados[1].resultado, "devuelto");
-  assert.equal(registrados[1].motivoDevolucion, "Falta la fecha de efectos");
-  assert.equal(avisos, 2);
-});
-
-test("acciones: la verificación apagada y el rechazo del validador se explican", async () => {
-  for (const [error, clave] of [[new ErrorFirmaDocumento("verificacion_no_disponible"), "circuito_firma_error_verificacion"],
-    [new ErrorFirmaDocumento("firma_no_verificada", "integridad_no_valida"), "circuito_firma_error_no_verificada"],
-    [new ErrorAutoFirma("autofirma_no_disponible"), "circuito_firma_error_autofirma"]]) {
-    const acciones = crearAccionesFirma({
-      obtenerEstado: estadoExpediente, t, aleatorio: (n) => new Uint8Array(n),
-      clienteBorrador: { descargarBorrador: async () => new Blob([PDF]) },
-      autofirma: { firmarPDF: async () => { if (error instanceof ErrorAutoFirma) throw error; return FIRMADO; } },
-      clienteFirma: { registrar: async () => { throw error; } },
-    });
+  for (const accion of ["firmar", "devolver", "confirmar-devolucion"]) {
     const d = dom();
-    await acciones.manejarClic(d.evento("firmar"));
-    assert.equal(d.salida.textContent, t(clave, { motivo: error.motivo || error.codigo }));
+    await acciones.manejarClic(d.evento(accion));
+    assert.equal(d.salida.textContent, "", accion);
   }
+  assert.deepEqual(efectos, { descarga: 0, autofirma: 0, registro: 0, aviso: 0 });
 });
 
 test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
   assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*sin eficacia administrativa.*portafirmas corporativo/u);
   assert.match(t("circuito_firma_registrada", { recibo: "r" }), /No tiene eficacia administrativa hasta el portafirmas corporativo/u);
+});
+
+test("cliente del registro: el PDF firmado custodiado se valida en estado y recibo", () => {
+  const custodiado = { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "1".repeat(64) };
+  const estado = (paso) => ({ esquema: "vec.contratacion-temporal.estado-firmas-documento.v1", catalogo_ref: "c:1", huella_sha256: "c".repeat(64),
+    ejemplo: true, firma_eficaz: false, verificacion_disponible: true,
+    documentos: [{ documento: "resolucion", etiqueta: "Resolución", paso_pendiente: 0, completo: true, ultima_secuencia: 1, pasos: [paso] }] });
+  const firmado = { orden: 1, cargo: "Órgano", accion: "firma", devolucion: "vuelve_a_redaccion", estado: "firmado" };
+  const valido = validarEstadoFirmas(estado({ ...firmado, documento_custodiado: custodiado }));
+  assert.deepEqual({ ...valido.documentos[0].pasos[0].documento_custodiado }, custodiado);
+  for (const [nombre, cambio] of Object.entries({
+    "referencia de CT": { expediente_ref: "expediente:ct:001" }, "sin huella": { huella_sha256: "" },
+    "versión cero": { version: 0 }, "campo de más": { nombre: "x" },
+  })) {
+    assert.equal(validarEstadoFirmas(estado({ ...firmado, documento_custodiado: { ...custodiado, ...cambio } })), null, nombre);
+  }
+  assert.equal(validarEstadoFirmas(estado({ ...firmado, estado: "devuelto", documento_custodiado: custodiado })), null,
+    "solo un paso firmado lleva PDF");
 });

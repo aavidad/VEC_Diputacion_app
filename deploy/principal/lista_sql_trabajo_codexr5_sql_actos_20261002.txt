@@ -1,0 +1,6 @@
+# Delta único CT164; revisión exacta pendiente, PR borrador.
+# SQL SHA256 1734bc466b2c3ae13582518b8e4cfbc2eaf16f5bafeb5a2abf2e33145b90a942.
+# Prefijo requerido: H7/H8, AD155/B77/XLSX5, AD151 reanclada y CT163 ya instaladas; CT165 preservada.
+# Orden posterior: No modifica el núcleo AD3. AD162 precede a AD159 y CT170 en el corte de firmas.
+# No reaplicar prefijos ni ejecutar DOWN. Un cambio de preimagen requiere reanclaje y revisión.
+deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql

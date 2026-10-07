@@ -101,7 +101,12 @@ func (p *preparadorMiBolsaDesarrollo) PrepararMiBolsa(r *http.Request) (mibolsa.
 	if candidatos != 1 {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	var correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2
+	if capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial {
+		correlacion, err = puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+	} else {
+		correlacion, err = dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	}
 	if err != nil {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
@@ -364,7 +369,7 @@ func emitirMaterialNominalMiBolsaDesarrollo(ctx context.Context, delegado *prove
 // concesionesPortalMiBolsaDesarrollo concede las acciones propias AD3-84:
 // sin campos ni obligaciones, con la misma garantía que la consulta.
 func concesionesPortalMiBolsaDesarrollo() []dominiovec.ConcesionRol {
-	concesiones := make([]dominiovec.ConcesionRol, 0, 4)
+	concesiones := make([]dominiovec.ConcesionRol, 0, len(puertosbolsa.AccionesPortalCandidato()))
 	for _, par := range puertosbolsa.AccionesPortalCandidato() {
 		tipo := puertosbolsa.TipoRecursoMiBolsa
 		if par[0] == puertosbolsa.AccionManifestarDisposicionPropia {
@@ -402,11 +407,16 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		}},
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}
-	if len(portal) == 1 && portal[0] {
+	if len(portal) >= 1 && portal[0] {
 		// Rol distinto (no una versión nueva del de consulta): la asignación
 		// sube de versión al cambiar de rol y la historia anterior se conserva.
 		rol.RolID, rol.Nombre = rolPortalMiBolsaDesarrollo, "Consulta y acciones propias de bolsa en desarrollo"
-		rol.Concesiones = append(rol.Concesiones, concesionesPortalMiBolsaDesarrollo()...)
+		for _, concesion := range concesionesPortalMiBolsaDesarrollo() {
+			if len(portal) > 1 && !portal[1] && concesion.Accion == puertosbolsa.AccionPresentarSolicitudDocumentalPropia {
+				continue
+			}
+			rol.Concesiones = append(rol.Concesiones, concesion)
+		}
 		rol.Concesiones = append(rol.Concesiones, concesionesContactoPropioDesarrollo()...)
 	}
 	asignacion := dominiovec.AsignacionPerfil{
@@ -447,13 +457,14 @@ type autoridadInicialMiBolsaDesarrollo interface {
 
 func publicarPerfilMiBolsaDesarrollo(
 	ctx context.Context, autoridad autoridadInicialMiBolsaDesarrollo,
-	identidad *identidadCandidatoBolsaDesarrollo, ahora time.Time, portal bool,
+	identidad *identidadCandidatoBolsaDesarrollo, ahora time.Time, portal bool, documental ...bool,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	vacia := dominiovec.InstantaneaAutorizacion{}
 	if ctx == nil || ctx.Err() != nil || autoridad == nil {
 		return vacia, errMiBolsaNoDisponible
 	}
-	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, portal)
+	permitirDocumental := len(documental) == 0 || documental[0]
+	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, portal, permitirDocumental)
 	if err != nil {
 		return vacia, errMiBolsaNoDisponible
 	}
@@ -630,22 +641,26 @@ func nuevaRutaMiBolsaDesarrollo(
 			return nil, errMiBolsaNoDisponible
 		}
 	}
+	servicioHistorial, err := mibolsa.NuevoHistorial(consulta, autorizadorPropio, proveedorHistorialMiBolsaDesarrollo{delegado: alta.postgresql.proveedorMaterialHistorialMiBolsa}, reloj)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	lecturasAuditadas, err := nuevasLecturasMiBolsaAuditadas(servicio, servicioHistorial, alta.postgresql.auditoriaLecturasBolsa, alta.postgresql.procesoAuditoriaLecturasBolsa)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
 	preparador := &preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}
 	var consultaHTTP http.Handler
 	if campos == nil {
-		consultaHTTP, err = bolsapersonal.Nuevo(preparador, servicio)
+		consultaHTTP, err = bolsapersonal.Nuevo(preparador, lecturasAuditadas)
 	} else {
-		consultaHTTP, err = bolsapersonal.NuevoConCampos(preparador, servicio, campos)
+		consultaHTTP, err = bolsapersonal.NuevoConCampos(preparador, lecturasAuditadas, campos)
 	}
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsapersonal.RutaMiBolsa, Manejador: consultaHTTP}}
-	servicioHistorial, err := mibolsa.NuevoHistorial(consulta, autorizadorPropio, proveedorHistorialMiBolsaDesarrollo{delegado: alta.postgresql.proveedorMaterialHistorialMiBolsa}, reloj)
-	if err != nil {
-		return nil, errMiBolsaNoDisponible
-	}
-	historialHTTP, err := bolsapersonal.NuevoHistorial(preparador, servicioHistorial)
+	historialHTTP, err := bolsapersonal.NuevoHistorial(preparador, lecturasAuditadas)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
@@ -661,7 +676,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
-	for _, ruta := range []string{bolsapersonal.RutaMiBolsaSolicitudes, bolsapersonal.RutaMiBolsaRespuestas} {
+	for _, ruta := range []string{bolsapersonal.RutaMiBolsaSolicitudes, bolsapersonal.RutaMiBolsaSolicitudesDocumentales, bolsapersonal.RutaMiBolsaRespuestas} {
 		manejador, err := bolsapersonal.NuevoPortal(ruta, preparador, acciones)
 		if err != nil {
 			return nil, errMiBolsaNoDisponible

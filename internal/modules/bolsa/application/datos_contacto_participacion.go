@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrRegistroDatosContactoParticipacionNoDisponible = errors.New("bolsa: registro de datos de contacto de participacion no disponible")
@@ -163,11 +164,18 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 	return registrado, nil
 }
 
-// Consultar entrega a RRHH los datos vigentes, en claro y enmascarados, tras
-// resolver el contexto de unidad y ámbito sobre la bolsa y la participación.
+// Consultar entrega a RRHH los datos vigentes tras resolver el contexto de
+// unidad y ámbito sobre la bolsa y la participación. La consulta enmascarada
+// solo devuelve la forma enmascarada y el origen. La completa (correo y
+// teléfonos en claro) exige la decisión V3 propia de la consulta, con la
+// participación como recurso, y la consume en la misma transacción que lee la
+// versión vigente: el asiento queda en la auditoría común.
 func (s *ServicioDatosContactoParticipacion) Consultar(ctx context.Context, solicitud puertosbolsa.SolicitudConsultarDatosContactoParticipacion) (puertosbolsa.DatosContactoParticipacionLeidos, error) {
 	if ctx == nil || s == nil || solicitud.BolsaRef == "" || solicitud.ParticipacionRef == "" || solicitud.ContextoActor.PersonaRef == "" {
 		return puertosbolsa.DatosContactoParticipacionLeidos{}, ErrRegistroDatosContactoParticipacionNoDisponible
+	}
+	if solicitud.Completo {
+		return s.consultarCompletos(ctx, solicitud)
 	}
 	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, solicitud.ContextoActor, solicitud.BolsaRef, solicitud.ParticipacionRef)
 	if err != nil || resuelto.Validar() != nil {
@@ -188,12 +196,73 @@ func (s *ServicioDatosContactoParticipacion) Consultar(ctx context.Context, soli
 	if err != nil {
 		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
 	}
-	leidos := puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Datos: datos, Enmascarados: datos.Enmascarados()}
-	if vigente.Origen != nil {
-		marca := *vigente.Origen
+	// Sin la decisión de consulta el claro no sale del caso de uso.
+	leidos := puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Enmascarados: datos.Enmascarados()}
+	s.completarOrigen(&leidos, vigente.Origen)
+	return leidos, nil
+}
+
+func (s *ServicioDatosContactoParticipacion) consultarCompletos(ctx context.Context, solicitud puertosbolsa.SolicitudConsultarDatosContactoParticipacion) (puertosbolsa.DatosContactoParticipacionLeidos, error) {
+	if solicitud.ValidarCompleta() != nil {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, ErrRegistroDatosContactoParticipacionNoDisponible
+	}
+	actor := solicitud.ResultadoContexto.Contexto
+	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, solicitud.BolsaRef, solicitud.ParticipacionRef)
+	if err != nil || resuelto.Validar() != nil {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, errorDependenciaDatosContacto(err)
+	}
+	pertenece, err := s.pertenencia.ParticipacionPerteneceABolsa(ctx, solicitud.BolsaRef, solicitud.ParticipacionRef)
+	if err != nil {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
+	}
+	if !pertenece {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, dominiovec.ErrAutorizacionDenegada
+	}
+	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionConsultarDatosContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadConsultarDatosContactoParticipacion, Correlacion: solicitud.Correlacion})
+	if err != nil {
+		// La solicitud se arma con datos del servidor: es un fallo técnico.
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, ErrRegistroDatosContactoParticipacionNoDisponible
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, solicitud.ResultadoContexto)
+	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		// Solo la denegación nominal ya registrada por el emisor es una
+		// denegación; cualquier otro fallo sigue siendo indisponibilidad.
+		if errors.Is(err, puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return puertosbolsa.DatosContactoParticipacionLeidos{}, dominiovec.ErrAutorizacionDenegada
+		}
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, errorDependenciaDatosContacto(err)
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, puertosbolsa.AudienciaConsultarDatosContactoParticipacion) {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, errorDependenciaDatosContacto(err)
+	}
+	// Se descifra dentro de la transacción del consumo: si no se puede entregar
+	// el claro, la base revierte y no queda un consumo sin lectura.
+	var datos dominiobolsa.DatosContactoParticipacion
+	lectura, err := s.repositorio.ConsultarDatosContactoAutorizados(ctx, solicitud.BolsaRef, solicitud.ParticipacionRef, actor.PersonaRef, material,
+		func(l puertosbolsa.LecturaDatosContactoAutorizada) error {
+			if l.Registro.ParticipacionRef != solicitud.ParticipacionRef || l.Registro.Version == 0 || l.AuditoriaRef == "" || l.DecisionRef == "" {
+				return ErrRegistroDatosContactoParticipacionNoDisponible
+			}
+			var errDescifrar error
+			datos, errDescifrar = s.descifrar(ctx, l.Registro)
+			return errDescifrar
+		})
+	if err != nil {
+		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
+	}
+	vigente := lectura.Registro
+	leidos := puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Datos: datos, Enmascarados: datos.Enmascarados(), AuditoriaRef: lectura.AuditoriaRef, DecisionRef: lectura.DecisionRef}
+	s.completarOrigen(&leidos, vigente.Origen)
+	return leidos, nil
+}
+
+func (s *ServicioDatosContactoParticipacion) completarOrigen(leidos *puertosbolsa.DatosContactoParticipacionLeidos, origen *dominiobolsa.MarcaOrigenDatosContacto) {
+	if origen != nil {
+		marca := *origen
 		leidos.Origen, leidos.EstadoOrigen = &marca, marca.Estado(s.reloj().UTC())
 	}
-	return leidos, nil
 }
 
 func (s *ServicioDatosContactoParticipacion) descifrar(ctx context.Context, registro puertosbolsa.RegistroDatosContactoParticipacion) (dominiobolsa.DatosContactoParticipacion, error) {

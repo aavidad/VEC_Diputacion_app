@@ -1,0 +1,20 @@
+{
+  "general": {
+    "titulo": "Service query summary",
+    "descargar": "Download CSV summary",
+    "alcance": "Includes the services in this query. It does not calculate seniority or establish entitlements.",
+    "corte": "Reference date",
+    "corte_no_indicado": "Not provided in the response",
+    "fuente": "Source",
+    "actualizado": "Data queried as of",
+    "desde": "Start",
+    "hasta": "End",
+    "procedencia": "Origin",
+    "reconocimiento": "Recognition",
+    "estado": "Status",
+    "no_consta": "Not recorded",
+    "vacio": "The query returns no services.",
+    "archivo": "service-query-summary.csv",
+    "error": "The summary could not be downloaded. Please try again."
+  }
+}

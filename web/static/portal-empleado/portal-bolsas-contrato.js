@@ -3,21 +3,24 @@
  *
  * Esquemas:
  * - vec.bolsa.rrhh.bolsas.v1
- * - vec.bolsa.rrhh.candidatos.v1
+ * - vec.bolsa.rrhh.candidatos.v1 y v2 (resumen de turno servido)
  *
  * Reglas de privacidad e integridad:
  * - Los documentos viajan siempre enmascarados (***1234**).
  * - Se rechaza cualquier documento sin enmascarar (DNI/NIE), correo electrónico o teléfono.
  * - Vocabulario cerrado de SituacionParticipacionBolsa:
  *   disponible, no_disponible, trabajando, pendiente_incorporacion, renuncia,
- *   excluido y disponible_desde.
+ *   excluido, disponible_desde y en_revision (RRHH18).
+ * - Los conteos históricos con siete estados se conservan: en_revision
+ *   ausente se normaliza a cero; no se admite omitir otros estados.
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20260930-portales-i18n-integracion-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
+export const ESQUEMA_CANDIDATOS_TURNO = "vec.bolsa.rrhh.candidatos.v2";
 export const ESQUEMA_CONTACTOS = "vec.bolsa.rrhh.contactos.v1";
 export const ESQUEMA_ESTADISTICAS = "vec.bolsa.rrhh.estadisticas.v1";
 export const ESQUEMA_ACCION_BOLSA = "vec.bolsa.rrhh.accion.v1";
@@ -30,6 +33,7 @@ export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
   "renuncia",
   "excluido",
   "disponible_desde",
+  "en_revision",
 ]);
 
 export const CANALES_LLAMAMIENTO = Object.freeze([
@@ -38,7 +42,7 @@ export const CANALES_LLAMAMIENTO = Object.freeze([
   "sede",
 ]);
 export const CANALES_CONTACTO = Object.freeze(["telefono", "correo", "sms", "presencial", "otro"]);
-export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado"]);
+export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado", "numero_erroneo", "no_entregado"]);
 
 export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
   "aceptado",
@@ -90,6 +94,16 @@ const CAMPOS_ULTIMO_LLAMAMIENTO = Object.freeze([
   "comunicado_en",
   "canal",
   "resultado",
+]);
+
+const CAMPOS_TURNO = Object.freeze([
+  "politica_ref", "politica_version", "provisional", "ultimo_llamado", "siguiente", "estado_siguiente",
+]);
+const CAMPOS_TURNO_ULTIMO = Object.freeze([
+  "participacion_ref", "nombre_visible", "orden", "comunicado_en", "canal", "resultado",
+]);
+const CAMPOS_TURNO_SIGUIENTE = Object.freeze([
+  "participacion_ref", "nombre_visible", "orden",
 ]);
 
 const CAMPOS_CONTACTO = Object.freeze([
@@ -211,11 +225,7 @@ export function validarBolsa(bolsa) {
 	if (politicaOrden.version < 1 || politicaOrden.criterio !== "puntuacion_desc_acta" || !["cerrada","rotatoria"].includes(politicaOrden.tipo_lista) || !["misma_posicion","fin_lista","no_disponible_hasta_fecha"].includes(politicaOrden.reposicion) || typeof politicaOrden.provisional !== "boolean") throw new Error("politica_orden no es valida");
 	if (politicaOrden.provisional && politicaOrden.rotulo !== "Provisional, pendiente de RRHH (dudas 13–14)") throw new Error("politica provisional sin rotulo obligatorio");
 
-  exigirCamposExactos(bolsa.por_estado, SITUACIONES_PARTICIPACION_BOLSA, "por_estado");
-  const porEstado = {};
-  for (const estado of SITUACIONES_PARTICIPACION_BOLSA) {
-    porEstado[estado] = exigirEnteroNoNegativo(bolsa.por_estado[estado], `por_estado.${estado}`);
-  }
+  const porEstado = validarMapaEstados(bolsa.por_estado, "por_estado");
 
   return Object.freeze({
     bolsa_ref: bolsaRef,
@@ -308,9 +318,10 @@ export function validarCandidato(candidato) {
 
 export function validarRespuestaCandidatosBolsa(envelope) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
-  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente"], "respuesta de candidatos");
+  const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
+  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente", ...(conTurno ? ["turno"] : [])], "respuesta de candidatos");
 
-  if (datos.esquema !== ESQUEMA_CANDIDATOS) {
+  if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
   }
   const generadoEn = exigirInstanteUTC(datos.generado_en, "generado_en");
@@ -320,6 +331,7 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     throw new Error("el campo candidatos debe ser un array");
   }
   const candidatos = Object.freeze(datos.candidatos.map(validarCandidato));
+  const turno = conTurno ? validarTurno(datos.turno, bolsa) : null;
   if (!Array.isArray(datos.contactos)) throw new Error("el campo contactos debe ser un array");
   const contactos = Object.freeze(datos.contactos.map(validarContacto));
 
@@ -342,10 +354,61 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     generado_en: generadoEn,
     bolsa,
     candidatos,
+    turno,
     contactos,
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
   });
+}
+
+function validarTurno(turno, bolsa) {
+  exigirCamposExactos(turno, CAMPOS_TURNO, "turno");
+  const politicaRef = exigirCadenaSegura(turno.politica_ref, "politica_ref");
+  const politicaVersion = exigirEnteroNoNegativo(turno.politica_version, "politica_version");
+  if (politicaVersion === 0 || politicaRef !== bolsa.politica_orden.politica_ref
+    || politicaVersion !== bolsa.politica_orden.version) {
+    throw new Error("la política del turno no coincide con la bolsa");
+  }
+  if (typeof turno.provisional !== "boolean" || turno.provisional !== bolsa.politica_orden.provisional) {
+    throw new Error("el carácter provisional del turno no coincide con la bolsa");
+  }
+  let ultimoLlamado = null;
+  if (turno.ultimo_llamado !== null) {
+    exigirCamposExactos(turno.ultimo_llamado, CAMPOS_TURNO_ULTIMO, "último llamado del turno");
+    if (!CANALES_CONTACTO.includes(turno.ultimo_llamado.canal)
+      || !RESULTADOS_CONTACTO.includes(turno.ultimo_llamado.resultado)) {
+      throw new Error("canal o resultado del último intento no reconocido");
+    }
+    const ordenUltimo = turno.ultimo_llamado.orden === null ? null
+      : exigirEnteroNoNegativo(turno.ultimo_llamado.orden, "orden");
+    if (ordenUltimo === 0) throw new Error("orden del último intento no válido");
+    ultimoLlamado = Object.freeze({
+      participacion_ref: exigirCadenaSegura(turno.ultimo_llamado.participacion_ref, "participacion_ref"),
+      nombre_visible: exigirCadenaSegura(turno.ultimo_llamado.nombre_visible, "nombre_visible"),
+      orden: ordenUltimo,
+      comunicado_en: exigirInstanteUTC(turno.ultimo_llamado.comunicado_en, "comunicado_en"),
+      canal: exigirCadenaSegura(turno.ultimo_llamado.canal, "canal"),
+      resultado: exigirCadenaSegura(turno.ultimo_llamado.resultado, "resultado"),
+    });
+  }
+  if (!["primero_disponible", "sin_disponibles"].includes(turno.estado_siguiente)
+    || (turno.estado_siguiente === "sin_disponibles") !== (turno.siguiente === null)) {
+    throw new Error("estado siguiente del turno no válido");
+  }
+  let siguiente = null;
+  if (turno.siguiente !== null) {
+    exigirCamposExactos(turno.siguiente, CAMPOS_TURNO_SIGUIENTE, "primera persona disponible");
+    const ordenSiguiente = exigirEnteroNoNegativo(turno.siguiente.orden, "orden");
+    if (ordenSiguiente === 0) throw new Error("orden siguiente no válido");
+    siguiente = Object.freeze({
+      participacion_ref: exigirCadenaSegura(turno.siguiente.participacion_ref, "participacion_ref"),
+      nombre_visible: exigirCadenaSegura(turno.siguiente.nombre_visible, "nombre_visible"),
+      orden: ordenSiguiente,
+    });
+  }
+  return Object.freeze({ politica_ref: politicaRef, politica_version: politicaVersion,
+    provisional: turno.provisional, ultimo_llamado: ultimoLlamado,
+    siguiente, estado_siguiente: turno.estado_siguiente });
 }
 
 export function validarContacto(contacto) {
@@ -407,6 +470,14 @@ function validarMapaConteos(mapa, nombre, claves = null) {
   return Object.freeze(salida);
 }
 
+function validarMapaEstados(mapa, nombre) {
+  const claves = esObjeto(mapa) && Object.hasOwn(mapa, "en_revision")
+    ? SITUACIONES_PARTICIPACION_BOLSA
+    : SITUACIONES_PARTICIPACION_BOLSA.filter((estado) => estado !== "en_revision");
+  const conteos = validarMapaConteos(mapa, nombre, claves);
+  return Object.freeze({ ...conteos, en_revision: conteos.en_revision ?? 0 });
+}
+
 export function validarRespuestaEstadisticas(envelope) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
   exigirCamposExactos(datos, ["esquema", "generado_en", "bolsas", "personas", "llamamientos", "por_bolsa"], "respuesta de estadísticas");
@@ -418,12 +489,12 @@ export function validarRespuestaEstadisticas(envelope) {
   const por_bolsa = Object.freeze(datos.por_bolsa.map((bolsa) => {
     exigirCamposExactos(bolsa, ["bolsa_ref", "categoria", "tipo_lista", "vigente", "total", "por_estado"], "estadística por bolsa");
     if (typeof bolsa.vigente !== "boolean") throw new Error("vigente debe ser booleano");
-    return Object.freeze({ bolsa_ref: exigirCadenaSegura(bolsa.bolsa_ref, "bolsa_ref"), categoria: exigirCadenaSegura(bolsa.categoria, "categoria"), tipo_lista: exigirCadenaSegura(bolsa.tipo_lista, "tipo_lista"), vigente: bolsa.vigente, total: exigirEnteroNoNegativo(bolsa.total, "total"), por_estado: validarMapaConteos(bolsa.por_estado, "por_estado", SITUACIONES_PARTICIPACION_BOLSA) });
+    return Object.freeze({ bolsa_ref: exigirCadenaSegura(bolsa.bolsa_ref, "bolsa_ref"), categoria: exigirCadenaSegura(bolsa.categoria, "categoria"), tipo_lista: exigirCadenaSegura(bolsa.tipo_lista, "tipo_lista"), vigente: bolsa.vigente, total: exigirEnteroNoNegativo(bolsa.total, "total"), por_estado: validarMapaEstados(bolsa.por_estado, "por_estado") });
   }));
   return Object.freeze({
     esquema: datos.esquema, generado_en: exigirInstanteUTC(datos.generado_en, "generado_en"),
     bolsas: Object.freeze({ total: exigirEnteroNoNegativo(datos.bolsas.total, "bolsas.total"), vigentes: exigirEnteroNoNegativo(datos.bolsas.vigentes, "bolsas.vigentes"), sustituidas: exigirEnteroNoNegativo(datos.bolsas.sustituidas, "bolsas.sustituidas") }),
-    personas: Object.freeze({ total: exigirEnteroNoNegativo(datos.personas.total, "personas.total"), por_estado: validarMapaConteos(datos.personas.por_estado, "personas.por_estado", SITUACIONES_PARTICIPACION_BOLSA) }),
+    personas: Object.freeze({ total: exigirEnteroNoNegativo(datos.personas.total, "personas.total"), por_estado: validarMapaEstados(datos.personas.por_estado, "personas.por_estado") }),
     llamamientos: Object.freeze({ total: exigirEnteroNoNegativo(datos.llamamientos.total, "llamamientos.total"), por_canal: validarMapaConteos(datos.llamamientos.por_canal, "llamamientos.por_canal"), por_resultado: validarMapaConteos(datos.llamamientos.por_resultado, "llamamientos.por_resultado") }),
     por_bolsa,
   });

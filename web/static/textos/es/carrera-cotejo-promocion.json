@@ -1,0 +1,20 @@
+{
+  "dictamenensayo": "Dictamen aportado de ensayo. Pendiente de revisión competente.",
+  "huellalocal": "Huella del material local de preparación. No verifica las bases.",
+  "errornodisponible": "El cotejo no está disponible. Revise la respuesta del productor y las versiones aportadas.",
+  "errorconsultainvalida": "La consulta está incompleta o contiene referencias repetidas. Revise los datos de preparación.",
+  "errorjsoninvalido": "No se ha podido leer la preparación. Revise el formato del archivo y el catálogo de textos.",
+  "motivocumpleaportado": "El productor del ensayo aporta una comprobación favorable.",
+  "motivonocumpleaportado": "El productor del ensayo aporta una contradicción comprobada.",
+  "motivopendienteaportado": "El productor del ensayo deja el requisito pendiente de comprobación.",
+  "guardatextolibre": "El requisito está expresado solo como texto. Queda pendiente.",
+  "guardareglaausente": "Falta la referencia de la regla del requisito. Queda pendiente.",
+  "guardasoporteausente": "Falta un hecho acreditado con evidencia identificada en el ensayo. Queda pendiente.",
+  "pendienteseleccionnominal": "Pendiente del contrato y lector nominal de Selección.",
+  "pendientelectorpersonalrum": "Pendiente de lectores autorizados de Personal y Méritos.",
+  "pendienteh08": "Pendiente de la autorización propia de Carrera.",
+  "pendienteadmision": "La presentación y la admisión corresponden al proceso selectivo.",
+  "estadocumple": "Cumple en el dictamen aportado.",
+  "estadonocumple": "No cumple en el dictamen aportado.",
+  "estadopendiente": "Pendiente."
+}

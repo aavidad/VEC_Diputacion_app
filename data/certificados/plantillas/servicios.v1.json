@@ -1,0 +1,7 @@
+{
+  "esquema": "vec.certificados.plantilla-ensayo.v1",
+  "id": "servicios",
+  "version": 1,
+  "estado": "ensayo",
+  "bloques": ["limite", "persona", "corte", "fuente", "plantilla", "criterio"]
+}

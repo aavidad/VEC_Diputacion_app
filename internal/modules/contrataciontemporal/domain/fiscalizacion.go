@@ -190,6 +190,7 @@ func (e Expediente) RegistrarFiscalizacion(
 	actuacion DatosActuacion,
 ) (Expediente, error) {
 	if e.Validar() != nil || versionEsperada != e.Version ||
+		e.Circuito != nil ||
 		e.Asignacion == nil || e.InformeJuridico == nil ||
 		!referenciaValida(datos.FiscalizacionRef) || !datos.Resultado.Valido() ||
 		!referenciaValida(datos.UnidadFiscalizadoraRef) ||

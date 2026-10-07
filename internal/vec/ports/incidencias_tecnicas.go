@@ -18,6 +18,14 @@ type EmisorIncidenciasTecnicas interface {
 	Emitir(domain.SolicitudIncidenciaTecnica)
 }
 
+// EmisorIncidenciasTecnicasConContexto conserva la correlación creada por la
+// frontera de transporte. Mantiene las garantías no bloqueantes de Emitir y
+// no admite correlaciones libres en la solicitud ni retiene el contexto.
+type EmisorIncidenciasTecnicasConContexto interface {
+	EmisorIncidenciasTecnicas
+	EmitirConContexto(context.Context, domain.SolicitudIncidenciaTecnica)
+}
+
 // MetricasEmisionIncidencias son contadores acumulados desde la creación del
 // emisor. No llevan etiquetas por persona, expediente ni correlación.
 type MetricasEmisionIncidencias struct {
@@ -31,6 +39,9 @@ type MetricasEmisionIncidencias struct {
 	Escritas uint64
 	// FallosEscritura son escrituras rechazadas por el destino.
 	FallosEscritura uint64
+	// FallosCorrelacion cuenta incidencias que no pudieron escribirse porque
+	// falló la fuente aleatoria; nunca se escribe una correlación compartida.
+	FallosCorrelacion uint64
 	// PendientesEnCola en el instante de la consulta.
 	PendientesEnCola uint64
 }

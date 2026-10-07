@@ -124,7 +124,7 @@ func TestMiBolsaConPortalConcedeSoloAccionesPropias(t *testing.T) {
 	if _, ok := (&politicaMiBolsaDesarrollo{instantanea: sin, motivo: motivoMiBolsaDesarrollo()}).motivoDe(puertosbolsa.AccionSolicitarPausaPropia); ok {
 		t.Fatal("sin portal compuesto se admite una acción propia")
 	}
-	if len(descriptoresMaterialPortalCandidatoDesarrollo()) != 4 {
+	if len(descriptoresMaterialPortalCandidatoDesarrollo()) != len(puertosbolsa.AccionesPortalCandidato()) {
 		t.Fatal("audiencias del portal incompletas")
 	}
 }

@@ -1,0 +1,37 @@
+{
+  "respaldo": "es",
+  "disponibles": {
+    "es": {
+      "mensajes": "mensajes.es.json",
+      "locale": "es-ES",
+      "accesibilidad_exito": "Lecturas y comprobaciones parciales de accesibilidad terminadas en Chrome. Consulte resultado.json en la carpeta privada.",
+      "accesibilidad_fixture": {
+        "titulo": "Lectura sintética local",
+        "etiqueta": "Buscar expediente",
+        "abrir": "Abrir detalle existente",
+        "volver": "Volver a la lectura"
+      },
+      "accesibilidad_uso": "Uso: node scripts/recorridos-f/recorrer.mjs --config /RUTA_PRIVADA/lecturas.json --modo preflight|lectura|accesibilidad [--salida /RUTA_PRIVADA/CARPETA_NUEVA] [--comparar /RUTA_PRIVADA/resultado-anterior.json; solo en modo lectura]",
+      "accesibilidad_pruebas": {
+        "zoom": "El zoom nativo exige ancho CSS reducido y densidad duplicada, sin escala CSS ni visual",
+        "perfil": "El perfil temporal se elimina si falla Chrome o su página de ajustes"
+      }
+    },
+    "en": {
+      "mensajes": "mensajes.en.json",
+      "locale": "en-GB",
+      "accesibilidad_exito": "Readings and partial accessibility checks completed in Chrome. See resultado.json in the private folder.",
+      "accesibilidad_fixture": {
+        "titulo": "Local synthetic reading",
+        "etiqueta": "Search case file",
+        "abrir": "Open existing details",
+        "volver": "Return to the reading"
+      },
+      "accesibilidad_uso": "Usage: node scripts/recorridos-f/recorrer.mjs --config /PRIVATE_PATH/readings.json --modo preflight|lectura|accesibilidad [--salida /PRIVATE_PATH/NEW_FOLDER] [--comparar /PRIVATE_PATH/previous-result.json; reading mode only]",
+      "accesibilidad_pruebas": {
+        "zoom": "Native zoom requires reduced CSS width and doubled density, without CSS or visual scaling",
+        "perfil": "The temporary profile is removed if Chrome or its settings page fails"
+      }
+    }
+  }
+}

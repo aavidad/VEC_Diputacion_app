@@ -7,12 +7,13 @@
   <title data-i18n="publica_titulo_documento">Bolsa y procesos selectivos | Portal VEC</title>
   <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260929-imagen-508c-v2">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
   <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260925-aspecto-v1">
   <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
-  <script src="/bolsa/contrato-v1.js?v=20260919-contrato-publico-v1-runtime" defer></script>
-  <script src="/bolsa/i18n-publica.js?v=20260928-i18n-ingles-v1" defer></script>
-  <script src="/bolsa/bolsa.js?v=20260924-rescate-bolsa-v3" defer></script>
+  <script src="/bolsa/contrato-v2.js?v=20260930-codexe-publico-v2-v1" defer></script>
+  <script src="/bolsa/i18n-publica.js?v=20260930-codexe-publico-v2-v1" defer></script>
+  <script src="/bolsa/bolsa.js?v=20261001-convoca-preparacion-v1" defer></script>
+  <script type="module" src="/bolsa/preparacion/entrada.js?v=20261001-convoca-preparacion-v1"></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal" data-i18n="publica_saltar_contenido">Saltar al contenido principal</a>
@@ -136,6 +137,7 @@
           <p id="detalle-resumen" class="detalle-resumen"></p>
           <p id="detalle-publicacion" class="tarjeta-meta"></p>
           <p id="detalle-descripcion"></p>
+          <a id="preparar-solicitud" class="enlace-detalle" hidden></a>
           <section aria-labelledby="titulo-plazos"><h3 id="titulo-plazos" data-i18n="publica_plazos">Plazos</h3><div id="detalle-plazos"></div></section>
           <section aria-labelledby="titulo-requisitos"><h3 id="titulo-requisitos" data-i18n="publica_requisitos">Requisitos</h3><ol id="detalle-requisitos" class="lista-detalle"></ol></section>
           <section aria-labelledby="titulo-documentos"><h3 id="titulo-documentos" data-i18n="publica_documentos_publicos">Documentos públicos</h3><ul id="detalle-documentos" class="lista-detalle"></ul></section>

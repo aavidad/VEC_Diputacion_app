@@ -37,6 +37,9 @@ func (e Expediente) Validar() error {
 					e.Fiscalizacion.Retorno.ResponsableRef != e.Asignacion.ResponsableRef))) {
 		return ErrExpedienteInvalido
 	}
+	if e.Circuito != nil && !e.circuitoValido() {
+		return ErrExpedienteInvalido
+	}
 	anotacionesAdministrativas := 0
 	for indice, actuacion := range e.Actuaciones {
 		if actuacion.AccionClave == AccionRegistrarAnotacionAdministrativa {
@@ -220,6 +223,10 @@ func (e Expediente) Clonar() Expediente {
 	if e.Fiscalizacion != nil {
 		clon := e.Fiscalizacion.clonar()
 		e.Fiscalizacion = &clon
+	}
+	if e.Circuito != nil {
+		clon := e.Circuito.clonar()
+		e.Circuito = &clon
 	}
 	e.Actuaciones = append([]Actuacion(nil), e.Actuaciones...)
 	for indice := range e.Actuaciones {

@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000155_solicitud_documental_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000077_solicitud_documental_rrhh.up.sql

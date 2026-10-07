@@ -9,6 +9,7 @@ import (
 	"vec-diputacion-granada/config"
 	calendariosdomain "vec-diputacion-granada/internal/modules/calendarios/domain"
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -36,7 +37,7 @@ type reglasEjemploDesarrollo struct {
 }
 
 // rechazarReglasEjemploFueraDesarrollo se aplica en las raíces que componen
-// este paquete (vec-server y vec-presentacion): un catálogo de ejemplo
+// este paquete (vec-server): un catálogo de ejemplo
 // declarado fuera de la doble llave impide arrancar. vec-interno y vec-publico
 // no componen reglas y rechazan cualquier declaración, incluso con la doble
 // llave, mediante config.Config.RechazarReglasEjemploSinComposicion.
@@ -76,7 +77,7 @@ func nuevasReglasEjemploDesarrollo(
 	}
 	if compuestas.circuitoFirmaCT != nil {
 		// Un circuito incompleto impide arrancar en lugar de mostrarse a medias.
-		ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 		defer cancelar()
 		if _, err := compuestas.circuitoFirmaCT.CircuitoFirma(ctx); err != nil {
 			return reglasEjemploDesarrollo{}, errors.Join(errReglasEjemploNoValidas, err)
@@ -104,7 +105,7 @@ func nuevoResolutorReglasEjemplo(
 	if err != nil {
 		return nil, errors.Join(errReglasEjemploNoValidas, err)
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	vigentes, err := resolutor.Reglas(ctx)
 	if err != nil || len(vigentes) == 0 || !vigentes[0].PaqueteEjemplo {

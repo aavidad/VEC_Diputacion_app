@@ -1,6 +1,6 @@
 name = "persistencia_sql"
 description = "Adaptadores PostgreSQL, migraciones y contratos durables."
-model = "gpt-5.6-terra"
+model = "gpt-6-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 

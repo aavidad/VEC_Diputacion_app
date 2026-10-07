@@ -1,6 +1,17 @@
 package httpinterno
 
-import "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+import (
+	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+)
+
+func fechaFinOperativaRRHH(fin time.Time) string {
+	if fin.IsZero() {
+		return ""
+	}
+	return instanteConsultaRRHH(fin)
+}
 
 type envoltorioDetalleRRHH struct {
 	Data detalleRRHHJSON `json:"data"`
@@ -40,10 +51,11 @@ func proyectarPresentacionFlujoRRHH(p ports.PresentacionFlujoRRHH) *presentacion
 }
 
 type solicitudRRHHJSON struct {
-	GrupoSubgrupo string `json:"grupo_subgrupo"`
-	MotivoClave   string `json:"motivo_clave"`
-	PeriodoInicio string `json:"periodo_inicio"`
-	PeriodoFin    string `json:"periodo_fin"`
+	GrupoSubgrupo   string `json:"grupo_subgrupo"`
+	MotivoClave     string `json:"motivo_clave"`
+	PeriodoInicio   string `json:"periodo_inicio"`
+	PeriodoFin      string `json:"periodo_fin,omitempty"`
+	PeriodoCausaFin string `json:"periodo_causa_fin,omitempty"`
 }
 
 type importeRRHHJSON struct {
@@ -56,7 +68,8 @@ type analisisRRHHJSON struct {
 	CategoriaRef      string           `json:"categoria_ref"`
 	CausaClave        string           `json:"causa_clave"`
 	PeriodoInicio     string           `json:"periodo_inicio"`
-	PeriodoFin        string           `json:"periodo_fin"`
+	PeriodoFin        string           `json:"periodo_fin,omitempty"`
+	PeriodoCausaFin   string           `json:"periodo_causa_fin,omitempty"`
 	PorcentajeJornada uint16           `json:"porcentaje_jornada"`
 	ResultadoRC       string           `json:"resultado_rc"`
 	CostePrevisto     *importeRRHHJSON `json:"coste_previsto,omitempty"`
@@ -116,10 +129,11 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		Esquema: esquemaConsultaDetalleRRHH,
 		Resumen: proyectarResumenRRHH(entrada.Resumen),
 		Solicitud: solicitudRRHHJSON{
-			GrupoSubgrupo: entrada.Solicitud.GrupoSubgrupo,
-			MotivoClave:   string(entrada.Solicitud.MotivoClave),
-			PeriodoInicio: instanteConsultaRRHH(entrada.Solicitud.PeriodoInicio),
-			PeriodoFin:    instanteConsultaRRHH(entrada.Solicitud.PeriodoFin),
+			GrupoSubgrupo:   entrada.Solicitud.GrupoSubgrupo,
+			MotivoClave:     string(entrada.Solicitud.MotivoClave),
+			PeriodoInicio:   instanteConsultaRRHH(entrada.Solicitud.PeriodoInicio),
+			PeriodoFin:      fechaFinOperativaRRHH(entrada.Solicitud.PeriodoFin),
+			PeriodoCausaFin: string(entrada.Solicitud.PeriodoCausaFin),
 		},
 		Hitos: make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
 	}
@@ -171,7 +185,8 @@ func proyectarAnalisisRRHH(entrada ports.AnalisisOperativoRRHH) *analisisRRHHJSO
 		ModalidadClave: string(entrada.ModalidadClave),
 		CategoriaRef:   entrada.CategoriaRef, CausaClave: string(entrada.CausaClave),
 		PeriodoInicio:     instanteConsultaRRHH(entrada.PeriodoInicio),
-		PeriodoFin:        instanteConsultaRRHH(entrada.PeriodoFin),
+		PeriodoFin:        fechaFinOperativaRRHH(entrada.PeriodoFin),
+		PeriodoCausaFin:   string(entrada.PeriodoCausaFin),
 		PorcentajeJornada: uint16(entrada.PorcentajeJornada),
 		ResultadoRC:       string(entrada.ResultadoRC),
 		FuenteCosteRef:    entrada.FuenteCosteRef,

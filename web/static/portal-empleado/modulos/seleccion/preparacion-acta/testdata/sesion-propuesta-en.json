@@ -1,0 +1,135 @@
+{
+  "titulo": "Draft for a proposed session",
+  "preparacion": {
+    "estado": "borrador_propuesto",
+    "material_propuesto": {
+      "alcance": "preparacion_sintetica",
+      "identidad_material": "acta:ejemplo-sintetico",
+      "version_material": 1,
+      "antecedente_tribunal": {
+        "identidad_material": "tribunal:ejemplo-sintetico",
+        "version_material": 1,
+        "huella_aportada_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "fase_propuesta": "fase:ejemplo-sintetico",
+      "sesion_ref": "sesion:ejemplo-sintetico",
+      "orden_dia_propuesto": [
+        {
+          "punto_ref": "punto:ejemplo-a",
+          "texto_propuesto": "Revisar el material sintético de preparación del tribunal."
+        }
+      ],
+      "acuerdos_propuestos": [
+        {
+          "propuesta_ref": "acuerdo:ejemplo-a",
+          "punto_ref": "punto:ejemplo-a",
+          "texto_propuesto": "Propuesta para completar las referencias pendientes antes de preparar actuaciones."
+        }
+      ]
+    },
+    "pendientes": [
+      {
+        "campo": "antecedente_tribunal",
+        "codigo": "antecedente_no_cotejado"
+      },
+      {
+        "campo": "fase_propuesta",
+        "codigo": "pertenencia_no_verificada"
+      },
+      {
+        "campo": "designacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "habilitacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "sesion_celebrada",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "asistencia",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "deliberaciones",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "acuerdos_adoptados",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "aprobacion",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "firma",
+        "codigo": "circuito_pendiente"
+      },
+      {
+        "campo": "fecha_propuesta",
+        "codigo": "material_ausente"
+      }
+    ]
+  },
+  "limite": "Synthetic material for review. The committee reference and its supplied hash have not been checked against the original. It does not establish a meeting, attendance, adopted resolutions, approval or signature.",
+  "mensajes": [
+    {
+      "campo": "antecedente_tribunal",
+      "codigo": "antecedente_no_cotejado",
+      "mensaje": "Referenced committee preparation: The reference and hash were supplied for the proposal. They still need to be checked against the original committee preparation."
+    },
+    {
+      "campo": "fase_propuesta",
+      "codigo": "pertenencia_no_verificada",
+      "mensaje": "Proposed phase: It remains to be checked whether this phase belongs to the stated process and committee."
+    },
+    {
+      "campo": "designacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Committee appointment by the competent authority: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "habilitacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Authorisation to act and access by phase: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "sesion_celebrada",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Session taking place: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "asistencia",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Established attendance: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "deliberaciones",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Session deliberations: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "acuerdos_adoptados",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Adopted resolutions: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "aprobacion",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Approval of the minutes: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "firma",
+      "codigo": "circuito_pendiente",
+      "mensaje": "Signature of the minutes: The authorised procedure and its evidence are required. This draft does not establish completion."
+    },
+    {
+      "campo": "fecha_propuesta",
+      "codigo": "material_ausente",
+      "mensaje": "Proposed date: Complete this item in the proposal."
+    }
+  ]
+}

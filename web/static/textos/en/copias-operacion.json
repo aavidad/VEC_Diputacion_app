@@ -1,0 +1,18 @@
+{
+  "aviso_simulacion": "Synthetic exercise. It does not run backups or restores, authenticate evidence or keep a durable record.",
+  "revalidar_antes_de_captura": "Check compatibility and authorization again before starting a real capture.",
+  "conciliar_captura_sin_repetir": "Check what was captured. Do not repeat the capture until its outcome has been reconciled.",
+  "revalidar_antes_de_ensayos": "Check the bundle and its authenticity before preparing both isolated restore tests.",
+  "conciliar_ensayos_pendientes": "Recover and check pending test results. Do not mark the backup as valid.",
+  "autenticar_evidencias_antes_de_uso": "Both tests have been declared successful. Their evidence must still be authenticated and checked before using the backup.",
+  "revisar_ensayo_fallido": "A test has failed. The backup cannot be used; review the result and prepare another operation if appropriate.",
+  "historia_invalida": "The operation history cannot be reconstructed.",
+  "entrada_invalida": "Use a complete synthetic JSON document within the permitted limit.",
+  "operacion_entrada_invalida": "The operation contains an unsupported reference, digest or result.",
+  "operacion_conflicto_idempotencia": "The key was already used with different content. Keep the original operation.",
+  "operacion_conflicto_version": "The expected version differs from the current version. Recover the history before continuing.",
+  "operacion_vinculo_distinto": "The declaration belongs to another request, bundle, manifest or run.",
+  "operacion_transicion_invalida": "That step does not match the current operation state.",
+  "operacion_historia_invalida": "The history contains a gap, a repeated step or an altered link. It has not been reconstructed.",
+  "salida_fallida": "The exercise result could not be written."
+}

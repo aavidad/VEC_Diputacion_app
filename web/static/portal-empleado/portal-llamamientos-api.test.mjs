@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1";
 
 const HUELLA = "a".repeat(64);
 const ETAG = `"vec-propuesta-llamamiento-v1.sha256-${HUELLA}"`;

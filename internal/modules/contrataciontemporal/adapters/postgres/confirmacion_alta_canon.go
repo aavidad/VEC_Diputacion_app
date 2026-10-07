@@ -56,8 +56,21 @@ type solicitudAltaCanonica struct {
 }
 
 type periodoAltaCanonico struct {
-	Inicio string `json:"inicio"`
-	Fin    string `json:"fin"`
+	Inicio      string             `json:"inicio"`
+	Fin         string             `json:"fin,omitempty"`
+	CausaFin    string             `json:"causa_fin,omitempty"`
+	PoliticaFin domain.PoliticaFin `json:"politica_fin,omitzero"`
+}
+
+func canonPeriodoAlta(periodo domain.PeriodoPrevisto) periodoAltaCanonico {
+	salida := periodoAltaCanonico{Inicio: formatoFechaCivil(periodo.Inicio)}
+	if periodo.Fin.IsZero() {
+		salida.CausaFin = string(periodo.CausaFin)
+	} else {
+		salida.Fin = formatoFechaCivil(periodo.Fin)
+	}
+	salida.PoliticaFin = periodo.PoliticaFin
+	return salida
 }
 
 type rcAltaCanonica struct {
@@ -196,8 +209,7 @@ func construirEfectoAltaCanonico(
 			CentroRef: solicitud.CentroRef, ContactoRef: solicitud.ContactoRef,
 			CategoriaRef: solicitud.CategoriaRef, GrupoSubgrupo: solicitud.GrupoSubgrupo,
 			MotivoClave: string(solicitud.MotivoClave), Detalle: solicitud.Detalle,
-			Periodo: periodoAltaCanonico{Inicio: formatoFechaCivil(solicitud.Periodo.Inicio),
-				Fin: formatoFechaCivil(solicitud.Periodo.Fin)},
+			Periodo: canonPeriodoAlta(solicitud.Periodo),
 			RC: rcAltaCanonica{Existe: rc.Existe, Numero: rc.Numero,
 				Fecha: fechaRC,
 				Importe: importeAltaCanonico{Centimos: centimosRC,

@@ -1,0 +1,10 @@
+{
+  "copias_destino_configuracion": "Check the configuration and enable synthetic mode.",
+  "copias_destino_catalogo": "The message catalog could not be loaded.",
+  "copias_destino_material": "The component could not be verified. Check its reference and the configured key.",
+  "copias_destino_no_disponible": "The destination is unavailable.",
+  "copias_destino_existe": "A component with that reference already exists.",
+  "copias_destino_almacenar": "Synthetic component stored and encrypted.",
+  "copias_destino_comprobar": "Synthetic component verified.",
+  "copias_destino_borrar": "Synthetic component deleted."
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js";
-import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js";
+import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
 import {
   API_ORGANIZACION,
   API_CAMBIOS,

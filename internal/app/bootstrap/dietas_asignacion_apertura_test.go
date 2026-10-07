@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
 
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 // La apertura del alta y la corrección completa de D7 exige el catálogo
@@ -91,23 +93,32 @@ func TestAsignacionDietasEmisoresEscrituraSoloConCatalogo(t *testing.T) {
 	}
 }
 
-// Sin el catálogo de validadores competentes el circuito no acredita a nadie;
-// con él relleno, la composición falla hasta que exista su consumidor.
-func TestCircuitoDietasSinFuenteDeCompetenciaHastaElCatalogo(t *testing.T) {
-	fuente, err := fuenteCompetenciaCircuitoDietas(catalogoValidadoresCompetentesAsignacionDietas)
+// El circuito lee perfiles centrales; D7 permanece cerrado y no concede
+// ninguna acción por conectar la fuente de competencia.
+type fuentePerfilCircuitoMontajePrueba struct{}
+
+func (fuentePerfilCircuitoMontajePrueba) ObtenerInstantaneaAutorizacion(context.Context, string, string) (vecdomain.InstantaneaAutorizacion, error) {
+	return vecdomain.InstantaneaAutorizacion{}, vecdomain.ErrAutorizacionDenegada
+}
+
+func TestCircuitoDietasUsaLaFuenteCentralDePerfiles(t *testing.T) {
+	fuente, err := fuenteCompetenciaCircuitoDietas(fuentePerfilCircuitoMontajePrueba{}, relojRutasDietas{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fuente.(dietascomp.FuenteCompetenciaCircuitoSinCatalogo); !ok {
-		t.Fatalf("fuente de competencia inesperada: %T", fuente)
+	if _, ok := fuente.(*dietascomp.FuenteCompetenciaPerfilFijo); !ok {
+		t.Fatalf("fuente inesperada: %T", fuente)
 	}
-	if _, err := fuenteCompetenciaCircuitoDietas("catalogo:base:validadores-competentes:v1"); err == nil {
-		t.Fatal("catálogo abierto sin consumidor aceptado")
+	if _, err := fuenteCompetenciaCircuitoDietas(nil, relojRutasDietas{}); err == nil {
+		t.Fatal("fuente central ausente aceptada")
+	}
+	if escrituraAsignacionDietasAbierta(catalogoValidadoresCompetentesAsignacionDietas) {
+		t.Fatal("lector abrió escritura D7")
 	}
 	for _, accion := range accionesCircuitoDietas() {
 		audiencia, ok := dietascomp.AudienciaCircuito(accion)
 		if !ok || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(audiencia) {
-			t.Fatalf("acción %s sin audiencia publicable por el gobierno CT", accion)
+			t.Fatalf("acción %s sin audiencia nominal", accion)
 		}
 	}
 }

@@ -1,0 +1,16 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "Este comando aplica fuentes sintéticas mediante la autoridad de la base. No crea LOGIN ni aprueba o concede permisos. Las invocaciones que no llegan a COMMIT no acreditan un registro de auditoría.",
+    "uso_invalido": "Indique plan, conexión, aprobación, un acuse nuevo, catálogo de textos y timeout positivo.",
+    "entrada_insegura": "No se puede leer un archivo privado. Compruebe sus permisos y su ubicación fuera del repositorio.",
+    "entrada_invalida": "El plan o la configuración privada no cumple el contrato. Revise el formato y las huellas.",
+    "acuse_inseguro": "El destino del acuse no es seguro o ya existe. Use otro archivo privado antes de enviar la operación.",
+    "operacion_no_confirmada": "La operación no se ha confirmado. No se muestra ningún recibo ni auditoría como persistidos.",
+    "commit_no_confirmado": "No se ha podido confirmar COMMIT. El resultado es indeterminado. Conserve el plan y solicite su comprobación antes de actuar.",
+    "acuse_no_guardado": "COMMIT está confirmado, pero no se ha podido guardar el acuse. Conserve el plan para recuperar el recibo original con un acuse nuevo.",
+    "fuentes_confirmadas": "La operación se ha confirmado y el acuse se ha guardado.",
+    "fuentes_rechazadas": "La base ha rechazado la operación y ha confirmado el registro de su intento. Consulte el acuse privado.",
+    "fuentes_no_disponibles": "La operación ha terminado con error y se ha confirmado el registro de su intento. Consulte el acuse privado."
+  }
+}

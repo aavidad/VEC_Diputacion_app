@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/postgresql"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
@@ -33,6 +35,28 @@ func NuevaConsultaMiBolsaPostgreSQL(pool *pgxpool.Pool) (*ConsultaMiBolsaPostgre
 }
 
 func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puertosbolsa.SolicitudConsultaMiBolsa) (puertosbolsa.InstantaneaMiBolsa, error) {
+	var resultado puertosbolsa.InstantaneaMiBolsa
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		resultado, err = r.consultarMiBolsaIntento(ctx, s)
+		return err
+	})
+	if err != nil {
+		var carrera errorCarreraLecturaMiBolsa
+		if errors.As(err, &carrera) {
+			err = carrera.error
+		}
+		if ctx != nil && ctx.Err() != nil {
+			err = ctx.Err()
+		}
+		return puertosbolsa.InstantaneaMiBolsa{}, err
+	}
+	return resultado, nil
+}
+
+// Cada intento consume la misma autorización y audita la lectura dentro de una
+// transacción nueva. El resultado solo se publica después de confirmar el COMMIT.
+func (r *ConsultaMiBolsaPostgreSQL) consultarMiBolsaIntento(ctx context.Context, s puertosbolsa.SolicitudConsultaMiBolsa) (puertosbolsa.InstantaneaMiBolsa, error) {
 	if ctx == nil || r == nil || valorNulo(r.pool) || s.CandidatoRef == "" || s.ConsultadaEn.IsZero() || s.Material.ValidarEstructura() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrConsultaMiBolsaInvalida
 	}
@@ -41,11 +65,11 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
 	}
 	defer revertir(tx)
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
 	}
 	m := s.Material
 	funcion := funcionConsultarMiBolsaV1
@@ -56,35 +80,36 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text,$2::timestamptz,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
 		s.CandidatoRef, s.ConsultadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
 	if err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
 	}
 	defer borrarBytesPostgreSQL(contenido)
 	resultado, err := decodificarInstantaneaMiBolsa(contenido, s.ConsultadaEn)
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
+	lectura := &consultorProyeccionMiBolsa{tx: tx}
 	// El estado del portal propio se lee en la misma transacción que acaba
 	// de consumir la consulta propia y registrar su auditoría.
 	if len(s.ResultadosEfectivos) != 0 {
-		if resultado.Portal, err = leerPortalCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		if resultado.Portal, err = leerPortalCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
 		}
 	}
 	if s.LeerContacto {
-		if resultado.Contactos, err = leerContactosCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		if resultado.Contactos, err = leerContactosCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
 		}
 	}
 	if s.LeerOfertas {
-		if resultado.Ofertas, err = leerOfertasCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		if resultado.Ofertas, err = leerOfertasCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
 	}
 	return resultado, nil
 }
@@ -171,9 +196,54 @@ func errorMiBolsa(ctx context.Context, err error) error {
 		switch pgErr.Code {
 		case "40001", "40P01", "55P03", "57014":
 			return puertosbolsa.ErrMaterialMiBolsaNoDisponible
-		case "22000", "22023", "23503", "23514", "42501", "55000":
+		case "42501":
+			return errors.Join(dominiovec.ErrAutorizacionDenegada, puertosbolsa.ErrConsultaMiBolsaInvalida)
+		case "22000", "22023", "23503", "23514", "55000":
 			return puertosbolsa.ErrConsultaMiBolsaInvalida
 		}
 	}
 	return puertosbolsa.ErrMaterialMiBolsaNoDisponible
 }
+
+func errorIntentoMiBolsa(ctx context.Context, err error) error {
+	nominal := errorMiBolsa(ctx, err)
+	if postgresql.EsCarreraSerializable(err) {
+		return errorCarreraLecturaMiBolsa{nominal}
+	}
+	return nominal
+}
+
+// Los lectores secundarios traducen sus errores. Conservamos solo la marca
+// del aborto para repetir también la autorización y la auditoría iniciales.
+type consultorProyeccionMiBolsa struct {
+	tx      consultorPortal
+	carrera bool
+}
+
+func (c *consultorProyeccionMiBolsa) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return filaProyeccionMiBolsa{fila: c.tx.QueryRow(ctx, sql, args...), consultor: c}
+}
+
+type filaProyeccionMiBolsa struct {
+	fila      pgx.Row
+	consultor *consultorProyeccionMiBolsa
+}
+
+func (f filaProyeccionMiBolsa) Scan(destinos ...any) error {
+	err := f.fila.Scan(destinos...)
+	f.consultor.carrera = postgresql.EsCarreraSerializable(err)
+	return err
+}
+
+func errorProyeccionMiBolsa(carrera bool, traducido error) error {
+	nominal := errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, traducido)
+	if carrera {
+		return errorCarreraLecturaMiBolsa{nominal}
+	}
+	return nominal
+}
+
+type errorCarreraLecturaMiBolsa struct{ error }
+
+func (errorCarreraLecturaMiBolsa) CarreraSerializable() bool { return true }
+func (e errorCarreraLecturaMiBolsa) Unwrap() error           { return e.error }

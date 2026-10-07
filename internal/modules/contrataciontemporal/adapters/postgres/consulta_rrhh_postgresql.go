@@ -9,6 +9,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -112,12 +113,16 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 		solicitud,
 		argumentos,
 	)
+	consulta, destinos := consultaCuadroRRHHPostgreSQL, destinosCuadroConsultaRRHH(&salida)
+	if solicitud.Resumen() {
+		consulta, destinos = consultaCuadroResumenRRHHPostgreSQL, destinosCuadroResumenConsultaRRHH(&salida)
+	}
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
-		consultaCuadroRRHHPostgreSQL,
+		consulta,
 		argumentosSQL,
-		destinosCuadroConsultaRRHH(&salida),
+		destinos,
 		func() (ports.PaginaCuadroRRHH, error) {
 			salida.cierre.normalizarInstantesSQL()
 			totales, err := salida.construirTotales()
@@ -154,6 +159,12 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 			if pagina.Urgentes, err = salida.urgentesAlineados(pagina.Expedientes); err != nil {
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
+			if solicitud.Resumen() {
+				if pagina.Agregados, err = salida.agregados(); err != nil {
+					return ports.PaginaCuadroRRHH{},
+						&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+				}
 			}
 			if err := pagina.ValidarParaEjecucionInterna(orden); err != nil {
 				return ports.PaginaCuadroRRHH{},
@@ -305,26 +316,69 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 	destinos []any,
 	validar func() (T, error),
 ) (T, error) {
+	for intento := 1; ; intento++ {
+		if ctx != nil && ctx.Err() != nil {
+			var vacio T
+			return vacio, ctx.Err()
+		}
+		resultado, err, carrera := ejecutarIntentoConsultaRRHHEnTransaccion(
+			ctx, pool, consulta, argumentos, destinos, validar,
+		)
+		if err != nil && ctx != nil && ctx.Err() != nil {
+			var vacio T
+			return vacio, ctx.Err()
+		}
+		if consulta != consultaCuadroRRHHPostgreSQL || !carrera ||
+			intento >= postgresqlcomun.IntentosMaximosCarreraSerializable {
+			return resultado, err
+		}
+		// Un 40001 de SQL aborta también el consumo, la auditoría y el
+		// cursor. El intento anterior ya terminó su rollback; se conserva
+		// el mismo material y SQL vuelve a revalidarlo en otra transacción.
+		if !postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
+			if ctx != nil && ctx.Err() != nil {
+				var vacio T
+				return vacio, ctx.Err()
+			}
+			return resultado, err
+		}
+	}
+}
+
+func ejecutarIntentoConsultaRRHHEnTransaccion[T any](
+	ctx context.Context,
+	pool iniciadorTransacciones,
+	consulta string,
+	argumentos []any,
+	destinos []any,
+	validar func() (T, error),
+) (T, error, bool) {
 	var vacio T
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel:   pgx.Serializable,
 		AccessMode: pgx.ReadWrite,
 	})
 	if err != nil {
-		return vacio, normalizarErrorConsultaRRHH(ctx, err)
+		return vacio, normalizarErrorConsultaRRHH(ctx, err), esCarreraConsultaRRHH(ctx, err)
 	}
 	defer revertirTransaccion(tx)
 	if err := tx.QueryRow(ctx, consulta, argumentos...).Scan(destinos...); err != nil {
-		return vacio, normalizarErrorFilaConsultaRRHH(ctx, err)
+		return vacio, normalizarErrorFilaConsultaRRHH(ctx, err), esCarreraConsultaRRHH(ctx, err)
 	}
 	resultado, err := validar()
 	if err != nil {
-		return vacio, err
+		return vacio, err, false
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, normalizarErrorConsultaRRHH(ctx, err)
+		return vacio, normalizarErrorConsultaRRHH(ctx, err), esCarreraConsultaRRHH(ctx, err)
 	}
-	return resultado, nil
+	return resultado, nil, false
+}
+
+func esCarreraConsultaRRHH(ctx context.Context, err error) bool {
+	var errorPG *pgconn.PgError
+	return ctx != nil && ctx.Err() == nil &&
+		errors.As(err, &errorPG) && errorPG.Code == "40001"
 }
 
 func (s *SesionConsultaRRHHPostgreSQL) validarContexto(
@@ -458,6 +512,12 @@ func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 			&s.conIncidencia, &s.enLlamamiento,
 			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes)...,
 	)
+}
+
+func destinosCuadroResumenConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
+	return append(destinosCuadroConsultaRRHH(s),
+		&s.recuentoEstados, &s.recuentoFases, &s.recuentoNumeros,
+		&s.plazoFases, &s.plazoDesde, &s.plazoUrgentes, &s.plazoNumeros)
 }
 
 func destinosDetalleConsultaRRHH(s *salidaDetalleConsultaRRHH) []any {

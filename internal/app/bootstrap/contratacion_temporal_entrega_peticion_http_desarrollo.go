@@ -82,9 +82,11 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 	e, err := m.servicio.Entregar(r.Context(), c)
 	if err != nil {
 		switch {
+		case errors.Is(err, application.ErrSolicitudRegistroInvalida), errors.Is(err, ports.ErrNumeroMOADAusente):
+			fallo(http.StatusUnprocessableEntity, "solicitud_invalida")
 		case errors.Is(err, domain.ErrPeticionCentroInvalida):
 			fallo(400, "solicitud_invalida")
-		case errors.Is(err, ports.ErrEntregaPeticionEnConflicto) && causaFalloEntregaPeticionDesarrollo(err) != "autorizacion_denegada":
+		case (errors.Is(err, ports.ErrEntregaPeticionEnConflicto) || errors.Is(err, ports.ErrClaveIdempotenciaUsada)) && causaFalloEntregaPeticionDesarrollo(err) != "autorizacion_denegada":
 			fallo(409, "peticion_en_conflicto")
 		default:
 			fallo(falloEntregaPeticionDesarrollo(r.Method, errors.Join(err, r.Context().Err())))

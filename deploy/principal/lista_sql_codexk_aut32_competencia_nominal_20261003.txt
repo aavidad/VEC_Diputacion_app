@@ -1,0 +1,4 @@
+# Requiere antes CA25 (certificado nominal) y Personal28 (cargo nominal).
+# AD167 acredita el consumo V3; AUT32 conserva la evidencia y competencia.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000167_comprobar_consumo_firma_ct_v1.up.sql
+deploy/postgresql/autorizacion/migraciones/000032_competencia_nominal_firmante_ct.up.sql

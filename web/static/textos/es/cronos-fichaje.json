@@ -1,0 +1,8 @@
+{
+  "general": {
+    "consultando_siguiente": "Comprobando qué movimiento puede registrar ahora.",
+    "error_actualizacion": "Su último fichaje está confirmado. No se han podido actualizar los movimientos disponibles. Pulse Actualizar.",
+    "ultimo_confirmado": "Último fichaje confirmado",
+    "lecturas_pendientes": "El fichaje está confirmado. Queda pendiente actualizar el resto de la información de jornada."
+  }
+}

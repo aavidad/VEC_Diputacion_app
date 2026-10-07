@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
 import { crearClienteHTTPBorradorRRHH, tipoBorradorDeAccion } from "./cliente-http-informe-definitivo.js";
 
@@ -137,7 +137,7 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
   };
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /Documentos preparatorios disponibles/u);
-  assert.match(html, /Piezas preparatorias agrupadas por formalización/u);
+  assert.match(html, /Son borradores: no están firmados/u);
   assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
   assert.match(html, /data-ct-exp-resultado-descarga="informe-definitivo"[^>]*>Aún no se ha solicitado esta descarga/u);
   assert.match(html, /data-ct-exp-accion="reintentar-descarga-informe-definitivo" disabled hidden/u);

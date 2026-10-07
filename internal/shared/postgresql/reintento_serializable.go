@@ -80,7 +80,7 @@ func EsperarReintentoCarreraSerializable(ctx context.Context, n int) bool {
 	case <-ctx.Done():
 		return false
 	case <-t.C:
-		return true
+		return ctx.Err() == nil
 	}
 }
 

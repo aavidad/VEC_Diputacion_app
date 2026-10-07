@@ -30,9 +30,9 @@ perfiles con agentes ejecutándose, ni prometer concurrencia infinita.
 
 | Encargo | Modelo | Esfuerzo |
 | --- | --- | --- |
-| Código, integración, pruebas con código | gpt-5.6-terra | medium |
-| Documentación y síntesis sustancial | gpt-5.6-sol | medium |
-| Inventarios o ediciones mecánicas breves | gpt-5.6-luna | low |
+| Código, integración, pruebas con código | gpt-6-sol | medium |
+| Documentación y síntesis sustancial | gpt-6-sol | medium |
+| Inventarios o ediciones mecánicas breves | gpt-6-sol | low |
 | Arquitectura difícil, revisión sensible, bloqueo complejo | gpt-6-astra | high |
 
 Usar xhigh sólo ante dificultad concreta o encargo de revisión intensa. Elegir
@@ -48,7 +48,7 @@ para subir el esfuerzo o cambiar a un modelo más capaz sin nueva confirmación 
 Escalar ante razonamiento insuficiente, errores persistentes, hallazgos no resueltos o
 una complejidad que ya sea evidente; no imponer una cuota de intentos fallidos.
 
-Elegir una mejora proporcionada: Terra/medium a Terra/high cuando esté disponible;
+Elegir una mejora proporcionada: Sol/medium a Sol/high;
 Astra/high para arquitectura o problemas complejos; Astra/xhigh ante dificultad
 concreta o revisión intensa. Verificar que el modelo elegido admite ese esfuerzo.
 Una falta de permisos, credenciales, datos o cuota necesita resolver su causa.

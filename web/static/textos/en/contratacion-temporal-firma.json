@@ -12,7 +12,16 @@
     "fecha_desconocida": "Date not available",
     "estado_no_disponible_aviso": "The status of each signature cannot be checked right now. The first signer in the workflow is shown. Please try again later.",
     "devuelto_por": "Returned by",
-    "devuelto_motivo": "{cargo}: {motivo}"
+    "devuelto_motivo": "{cargo}: {motivo}",
+    "descargar_firmado": "Download signed PDF",
+    "descargar_firmado_de": "Download signed PDF: {documento}",
+    "firmado_prueba": "Test signature, not officially valid until Firmadoc.",
+    "firmado_paso": "Signature for step {actual} of {total}.",
+    "descargando": "Downloading the signed PDF…",
+    "descargado": "Signed PDF downloaded: {documento}.",
+    "descargado_sin_nombre": "Signed PDF downloaded.",
+    "descarga_denegada": "You are not allowed to download this signed PDF. If you need it, ask whoever manages the case.",
+    "descarga_error": "The signed PDF could not be downloaded. Try again; if it keeps failing, contact IT."
   },
   "estado": {
     "borrador": "Unsigned draft",

@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000165_publicacion_certificado_nominal_v3.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000166_publicacion_cargo_competencial_v3.up.sql
+deploy/postgresql/personal/migraciones/000028_cargos_competenciales_nominales.up.sql

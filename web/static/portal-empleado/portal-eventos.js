@@ -1,11 +1,11 @@
 /**
  * Controladores de interacción del Portal del Empleado.
  *
- * Recibe sus dependencias desde `portal.js`: no conoce repositorios ni decide
+ * Recibe sus dependencias desde `portal.js?v=20261002-ct-fin-modalidad-v1`: no conoce repositorios ni decide
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({

@@ -1,0 +1,13 @@
+# BORRADOR: AD3-136 UP con huellas medidas; falta su ensayo causal y dos GO.
+# Fuente de etapa 0: origin/main f63c393befbd7508aa5cded7efabd97460359713.
+# Preimagen H6 sintética: 62 SQL originales, AD111/114/115/116 incluidas.
+# AD132 requiere circuito DBA propio; en laboratorio se sustituyó por REVOKE
+# TEMPORARY de PUBLIC, que no acredita instalación ni autoriza despliegue.
+# Seis RPT de #222: roles Catálogos -> Cat1 -> Cat2 -> AD117 -> Cat3 -> AD126.
+# Sigue B PR243@c6b29fd4aa5d3ed384730796c3fc2a153b219313:
+# AUT17 -> AUT18 -> AD118 -> AUT21 -> AD133 -> AD135, una vez cada una.
+# AD121/122/123 y AD134 quedan fuera; no repetir las ya instaladas.
+# También exige AD3-113 y Documentos9; sus definiciones/ACL se miden post-B.
+# Esta lista añade sólo AD136 sobre esa postimagen completa. Ensayar en clon
+# PG18 propio y someter el hash final a dos GO antes de pedir instalación.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000136_custodia_firmado_nucleo.up.sql

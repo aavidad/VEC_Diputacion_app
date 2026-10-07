@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { crearSuperficieConvocatoriasS1 } from "./portal-vistas-convocatorias.js";
+import { crearSuperficieConvocatoriasS1 } from "./portal-vistas-convocatorias.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorConvocatoriasS1, MENSAJES_CONVOCATORIAS_S1 } from "./portal-i18n-convocatorias.js";
 
 test("la vista resuelve el catálogo S1 con la versión de caché F2", async () => {

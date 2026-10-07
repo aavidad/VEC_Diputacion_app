@@ -64,9 +64,11 @@ func proyectarAvisosViaCobertura(entrada *application.ResultadoAvisosViaCobertur
 			disponibles, integrantes, umbral := aviso.Disponibles, aviso.Integrantes, aviso.Umbral
 			proyectado.Disponibles, proyectado.Integrantes, proyectado.Umbral = &disponibles, &integrantes, &umbral
 		case application.AvisoPropuestaOfertaSAE:
-			excede := aviso.ExcedeDuracion
 			proyectado.DuracionMaximaMeses, proyectado.FinMaximo = aviso.DuracionMaximaMeses, aviso.FinMaximo
-			proyectado.FinPrevisto, proyectado.ExcedeDuracion = aviso.FinPrevisto, &excede
+			if aviso.FinPrevisto != "" {
+				excede := aviso.ExcedeDuracion
+				proyectado.FinPrevisto, proyectado.ExcedeDuracion = aviso.FinPrevisto, &excede
+			}
 		}
 		for _, regla := range aviso.Reglas {
 			proyectado.Reglas = append(proyectado.Reglas, procedenciaReglaAvisoJSON{

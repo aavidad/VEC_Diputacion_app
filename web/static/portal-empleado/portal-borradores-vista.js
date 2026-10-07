@@ -1,6 +1,7 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
@@ -389,7 +390,20 @@ export function crearRenderizadorBorradores({
       </section>`;
   }
 
+  // Sin API de borradores en este servidor: se dice en llano, sin códigos ni
+  // reintento, y se ofrece volver al cuadro.
+  function renderNoDisponible() {
+    return `
+      <header class="encabezado-vista"><div><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2></div></header>
+      <section class="panel" aria-labelledby="titulo-borradores-no-disponible"><div class="cuerpo-panel vacio-controlado">
+        <h3 id="titulo-borradores-no-disponible">${textoPortal("borradores_no_disponible_titulo")}</h3>
+        <p>${textoPortal("borradores_no_disponible_texto")}</p>
+        <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro_de_mando")}</button></div>
+      </div></section>`;
+  }
+
   function renderizar() {
+    if (estado.faseLista === FASE_NO_DISPONIBLE) return renderNoDisponible();
     const cabecera = `
       <header class="encabezado-vista">
         <div><p class="sobrelinea">${textoPortal("txt_gestion_interna_de_bolsa")}</p><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2><p>${textoPortal("txt_edicion_durable_con_catalogos_versionados_contro")}</p></div>

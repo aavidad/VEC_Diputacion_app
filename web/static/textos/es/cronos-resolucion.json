@@ -1,0 +1,23 @@
+{
+  "bandeja": {
+    "avisos_reintentar_consulta": "Volver a consultar",
+    "resumen_alcance": "El resumen cuenta solo las solicitudes de esta bandeja para {paso}.",
+    "resumen_total": "Solicitudes en esta bandeja",
+    "resumen_resolubles": "Solicitudes que puede revisar",
+    "resumen_asignacion": "Pendientes de asignar jefatura",
+    "buscar_persona": "Buscar por persona",
+    "filtrar_estado": "Filtrar por estado",
+    "filtro_todos": "Todos los estados",
+    "filtro_jefatura": "Pendientes de jefatura",
+    "filtro_rrhh": "Pendientes de RRHH",
+    "filtro_asignacion": "Sin jefatura asignada",
+    "aplicar_filtros": "Aplicar filtros",
+    "limpiar_filtros": "Quitar filtros",
+    "sin_resultados_filtro": "Ninguna solicitud coincide con estos filtros. Puede quitarlos para ver la bandeja.",
+    "resultados_pagina": "Mostrando {desde}–{hasta} de {total} solicitudes que coinciden; {bandeja} en esta bandeja.",
+    "pagina_indicador": "Página {pagina} de {paginas}",
+    "pagina_anterior": "Página anterior",
+    "pagina_siguiente": "Página siguiente",
+    "paginas_etiqueta": "Páginas de solicitudes"
+  }
+}

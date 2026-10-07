@@ -9,7 +9,7 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
-} from "./peticiones-centro.js";
+} from "./peticiones-centro.js?v=20261001-ct-a-i18n-v1";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
@@ -195,4 +195,29 @@ test("la portada del centro no enseña referencias ni códigos y solo abre el de
   assert.match(sinUnidad, /class="pc-panel pc-detalle"/u);
   assert.match(sinUnidad, /data-accion="cerrar-detalle"/u);
   assert.doesNotMatch(sinUnidad.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
+});
+
+
+test("entrega RRHH conserva MOAD en el comando y exige el mismo número en el recibo", async () => {
+  const comando = { peticion_ref: "peticion:centro:001", version_esperada: 2, numero_expediente_moad: "2026/12345" };
+  const cuerpos = [];
+  let intentos = 0;
+  const cliente = async (_ruta, opciones) => {
+    cuerpos.push(opciones.cuerpo);
+    if (++intentos === 1) throw new Error("interrupción sintética");
+    return { peticion: { referencia: comando.peticion_ref }, estado_entrega: "confirmada", recibo_alta: {
+      numero_visible: comando.numero_expediente_moad, expediente_ref: "expediente:ct:001", recibo_ref: "recibo:alta:001", confirmada_en: "2026-09-06T08:02:00Z",
+    } };
+  };
+  await assert.rejects(registrarAltaRRHH(cliente, comando), (error) => error.indeterminado === true);
+  const resultado = await registrarAltaRRHH(cliente, comando);
+  assert.deepEqual(cuerpos, [comando, comando]);
+  assert.equal(resultado.recibo_alta.numero_visible, comando.numero_expediente_moad);
+  await assert.rejects(registrarAltaRRHH(async () => ({ ...resultado, recibo_alta: { ...resultado.recibo_alta, numero_visible: "2026/98765" } }), comando), (error) => error.indeterminado === true);
+  const html = renderizarPeticionesCentroRRHH({ modo: "confirmar", numeroMOAD: comando.numero_expediente_moad,
+    politicaNumero: { ejemplo: "2026/98765" }, errorNumero: true });
+  assert.match(html, /label for="pc-numero-moad"/);
+  assert.match(html, /value="2026\/12345"/);
+  assert.match(html, /placeholder="Ejemplo: 2026\/98765"/);
+  assert.match(html, /aria-invalid="true" aria-describedby="pc-numero-moad-error"/);
 });

@@ -15,7 +15,9 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 )
 
 // descriptoresPreviosPersonalB2Prueba reúne todos los descriptores que ya
@@ -108,9 +110,31 @@ func TestDescriptoresPersonalB2ColisionRechazada(t *testing.T) {
 const huellaDescriptoresPreviosPersonalB2Prueba = "fa714537fd41f5abc4eaad911d6270baf2c0077663eee114a93d58768e17b505"
 
 func TestDescriptoresPreviosIntactosByteAByte(t *testing.T) {
+	// La huella fija la preimagen anterior a B2. D7c y la consulta documental
+	// llegaron después, como la consulta completa de datos de contacto: deben
+	// existir una vez y conservar la preimagen anterior.
+	nuevas := map[string]bool{
+		personalports.AudienciaSolicitarRectificacionDietas:              true,
+		ctports.AudienciaConsumoDescargaBorradorRRHHV3:                   true,
+		personalports.AudienciaConsultarRectificacionDietas:              true,
+		personalports.AudienciaConsultarRectificacionesCompetentesDietas: true,
+		personalports.AudienciaResolverRectificacionDietas:               true,
+		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH:       true,
+		puertosbolsa.AudienciaConsultarDatosContactoParticipacion:        true,
+	}
+	encontradas := make(map[string]int, len(nuevas))
 	var b strings.Builder
 	for _, d := range descriptoresPreviosPersonalB2Prueba() {
+		if nuevas[d.Audiencia] {
+			encontradas[d.Audiencia]++
+			continue
+		}
 		fmt.Fprintf(&b, "%q|%q|%q|%q\n", d.Audiencia, d.Dominio, d.Prefijo, d.ProveedorNominal)
+	}
+	for audiencia := range nuevas {
+		if encontradas[audiencia] != 1 {
+			t.Fatalf("descriptor posterior %s: esperado 1, encontrados %d", audiencia, encontradas[audiencia])
+		}
 	}
 	suma := sha256.Sum256([]byte(b.String()))
 	if got := hex.EncodeToString(suma[:]); got != huellaDescriptoresPreviosPersonalB2Prueba {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js";
 import { crearTraductorContratos, MENSAJES_CONTRATOS } from "./portal-i18n-contratos.js";
 

@@ -1,0 +1,14 @@
+{
+  "captura_fisica_uso": "Indique un archivo de configuración privada con -config.",
+  "captura_fisica_configuracion": "Revise la configuración, las rutas y el inventario completo.",
+  "captura_fisica_origen": "No se pudo leer o capturar el conjunto. Compruebe los archivos y sus permisos.",
+  "captura_fisica_cambio": "El contenido o sus permisos cambiaron durante la captura. No se conserva una salida completa.",
+  "captura_fisica_limite": "La captura supera el límite de contenido o de entradas configurado.",
+  "captura_fisica_control": "No se pudo comprobar la exclusión, la parada limpia o la recuperación. Revise el estado de los servicios.",
+  "captura_fisica_bloqueo": "Otra captura conserva el bloqueo o este no está disponible.",
+  "captura_fisica_tablespaces_no_soportados": "Esta versión no captura tablespaces externos. La captura se ha detenido.",
+  "captura_fisica_salida": "No se pudo devolver el resultado de la captura.",
+  "pendiente_cifrado_y_verificacion": "Captura realizada. Falta cifrarla y comprobar las dos restauraciones.",
+  "captura_fisica_cancelada": "La captura se ha cancelado. Compruebe el estado de los servicios.",
+  "captura_fisica_tiempo_agotado": "La captura ha agotado el tiempo configurado. Compruebe el estado de los servicios."
+}

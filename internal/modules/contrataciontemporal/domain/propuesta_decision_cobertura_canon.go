@@ -9,7 +9,16 @@ import (
 func calcularHuellaPropuestaDecisionCobertura(
 	publicacion PublicacionPropuestaDecisionCobertura,
 ) (string, error) {
-	material, err := materialCanonicoPropuestaDecisionCoberturaV1(publicacion)
+	var material []byte
+	var err error
+	switch publicacion.Canon {
+	case CanonHuellaPropuestaDecisionCoberturaV1():
+		material, err = materialCanonicoPropuestaDecisionCoberturaV1(publicacion)
+	case CanonHuellaPropuestaDecisionCoberturaV2():
+		material, err = materialCanonicoPropuestaDecisionCoberturaV2(publicacion)
+	default:
+		return "", ErrDatoInvalido
+	}
 	if err != nil {
 		return "", err
 	}
@@ -18,6 +27,26 @@ func calcularHuellaPropuestaDecisionCobertura(
 }
 
 func materialCanonicoPropuestaDecisionCoberturaV1(
+	publicacion PublicacionPropuestaDecisionCobertura,
+) ([]byte, error) {
+	if publicacion.Canon != CanonHuellaPropuestaDecisionCoberturaV1() ||
+		canonPropuestaParaPeriodo(publicacion.Periodo) != publicacion.Canon {
+		return nil, ErrDatoInvalido
+	}
+	return materialCanonicoPropuestaDecisionCobertura(publicacion)
+}
+
+func materialCanonicoPropuestaDecisionCoberturaV2(
+	publicacion PublicacionPropuestaDecisionCobertura,
+) ([]byte, error) {
+	if publicacion.Canon != CanonHuellaPropuestaDecisionCoberturaV2() ||
+		canonPropuestaParaPeriodo(publicacion.Periodo) != publicacion.Canon {
+		return nil, ErrDatoInvalido
+	}
+	return materialCanonicoPropuestaDecisionCobertura(publicacion)
+}
+
+func materialCanonicoPropuestaDecisionCobertura(
 	publicacion PublicacionPropuestaDecisionCobertura,
 ) ([]byte, error) {
 	if !publicacion.Canon.valido() ||
@@ -33,7 +62,7 @@ func materialCanonicoPropuestaDecisionCoberturaV1(
 		!publicacion.FinalidadClave.Valida() ||
 		!referenciaValida(publicacion.FinalidadRef) ||
 		!referenciaValida(publicacion.CategoriaRef) ||
-		!periodoAnalisisValido(publicacion.Periodo) ||
+		!periodoPropuestaCoberturaValido(publicacion.Periodo) ||
 		!instanteCanonico(publicacion.GeneradaEn) ||
 		!instanteCanonico(publicacion.ValidaHasta) ||
 		!publicacion.ValidaHasta.After(publicacion.GeneradaEn) ||
@@ -62,8 +91,7 @@ func materialCanonicoPropuestaDecisionCoberturaV1(
 	escritor.cadena(string(publicacion.FinalidadClave))
 	escritor.cadena(publicacion.FinalidadRef)
 	escritor.cadena(publicacion.CategoriaRef)
-	escritor.instante(publicacion.Periodo.Inicio)
-	escritor.instante(publicacion.Periodo.Fin)
+	escribirPeriodoPropuestaCobertura(&escritor, publicacion.Periodo)
 	escritor.instante(publicacion.GeneradaEn)
 	escritor.instante(publicacion.ValidaHasta)
 	escritor.cadena(string(publicacion.Estado))
@@ -151,4 +179,34 @@ func escribirClavesPropuesta(
 	for _, clave := range claves {
 		escritor.cadena(string(clave))
 	}
+}
+
+// El periodo legado mantiene exactamente sus dos instantes. El canon nuevo
+// distingue fecha y causa, y sella la política que autorizó ese horizonte.
+func escribirPeriodoPropuestaCobertura(e *escritorCanonCatalogo, periodo PeriodoPrevisto) {
+	e.instante(periodo.Inicio)
+	if canonPropuestaParaPeriodo(periodo) == CanonHuellaPropuestaDecisionCoberturaV1() {
+		e.instante(periodo.Fin)
+		return
+	}
+	if periodo.Fin.IsZero() {
+		e.cadena("causa")
+		e.cadena(string(periodo.CausaFin))
+	} else {
+		e.cadena("fecha")
+		e.instante(periodo.Fin)
+	}
+	e.cadena(periodo.PoliticaFin.ReglaRef)
+	e.entero64(periodo.PoliticaFin.CatalogoVersion)
+	e.cadena(periodo.PoliticaFin.CatalogoHuellaSHA256)
+	e.cadena(periodo.PoliticaFin.FechaFin)
+	e.cadena(string(periodo.PoliticaFin.CausaFin))
+}
+
+func periodoPropuestaCoberturaValido(periodo PeriodoPrevisto) bool {
+	if !periodoAnalisisValido(periodo) {
+		return false
+	}
+	return canonPropuestaParaPeriodo(periodo) == CanonHuellaPropuestaDecisionCoberturaV1() ||
+		periodo.PoliticaFin.Validar() == nil
 }

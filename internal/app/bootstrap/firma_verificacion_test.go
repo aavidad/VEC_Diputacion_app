@@ -95,6 +95,13 @@ func TestFirmaVerificacionExigeDocumentosYConfiguracionPrivada(t *testing.T) {
 	if err != nil || verificador == nil || !reflect.DeepEqual(antes, manifiestosShellVEC(cfg)) {
 		t.Fatalf("composicion válida sin rutas propias: verificador=%v error=%v", verificador != nil, err)
 	}
+	// El mismo cliente sirve como verificador acumulado de las vías R5.
+	if verificadorFirmasR5(verificador) == nil {
+		t.Fatal("el cliente GrxFirma no se conserva como verificador de firmas múltiples")
+	}
+	if verificadorFirmasR5(nil) != nil {
+		t.Fatal("sin verificación no hay verificador R5")
+	}
 }
 
 func TestFirmaVerificacionRechazaCredencialesLegiblesYParIncompleto(t *testing.T) {
@@ -162,7 +169,8 @@ func TestFirmaVerificacionRechazaCredencialesLegiblesYParIncompleto(t *testing.T
 				strings.Contains(err.Error(), directorio) {
 				t.Fatalf("credencial expuesta aceptada: verificador=%v error=%v", v != nil, err)
 			}
-			if _, err := nuevosDocumentosDesarrollo(caso, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
+			if _, err := nuevosDocumentosDesarrollo(caso, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) ||
+				ComponenteFalloArranque(err) != "firma_verificacion" {
 				t.Fatalf("montaje de Documentos no cerrado: %v", err)
 			}
 		})
@@ -192,7 +200,8 @@ func TestFirmaVerificacionNombreServidorTLSConfigurable(t *testing.T) {
 	huella := sha256.Sum256(original)
 	solicitud := docports.SolicitudVerificacionFirma{
 		DocumentoID: "ref:" + strings.Repeat("1", 64), Version: 1,
-		HuellaOriginalSHA256: hex.EncodeToString(huella[:]), ContenidoOriginal: original, ContenidoFirmado: []byte{0x30},
+		HuellaOriginalSHA256: hex.EncodeToString(huella[:]), ContenidoOriginal: original,
+		ContenidoFirmado: append(append([]byte(nil), original...), []byte("revision sintetica firmada")...),
 	}
 	// El certificado de httptest cubre example.com y 127.0.0.1, no otro nombre.
 	for nombre, esperado := range map[string]docports.MotivoVerificacionFirma{
@@ -219,7 +228,8 @@ func TestFirmaEncendidaNoOcultaErrorDeDocumentos(t *testing.T) {
 		t.Fatalf("selector de Documentos invalido oculto: %v", err)
 	}
 	cfg.DocumentosEnabled = "false"
-	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) ||
+		ComponenteFalloArranque(err) != "firma_verificacion" {
 		t.Fatalf("firma encendida sin Documentos ignorada: %v", err)
 	}
 }
@@ -230,7 +240,8 @@ func TestComposicionNormalRechazaFirmaEncendida(t *testing.T) {
 			Address: "127.0.0.1:0", PersonalCatalogPath: "memory", StorageMode: config.StorageModeLocalDurable,
 			DataDir: t.TempDir(), FirmaVerificacionEnabled: selector,
 		}))
-		if srv != nil || !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
+		if srv != nil || !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) ||
+			ComponenteFalloArranque(err) != "firma_verificacion" {
 			t.Fatalf("selector %q ignorado en composicion normal: %v", selector, err)
 		}
 	}

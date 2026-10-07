@@ -1,0 +1,67 @@
+{
+  "id": "personal-000025-historia-propia-expediente",
+  "status": "borrador_no_instalable",
+  "alcance": "Contrato de continuación para consulta propia de situación a fecha, historia y documentos vinculados a hechos de Personal. No crea una capacidad ejecutable.",
+  "antecedente": {
+    "personal_000022": "FichaPropia consulta relaciones y servicios reconocidos del empleado canónico; no entrega historia uniforme ni documentos.",
+    "conservar": ["Personal 000022", "Personal 000023", "Personal 000024", "historia y recibos existentes"]
+  },
+  "propietarios": {
+    "personal": ["relaciones de servicio", "ocupaciones", "situaciones", "servicios reconocidos", "vínculo durable entre hecho y terna documental"],
+    "rpt": ["plantilla", "plaza", "puesto", "versiones y reservas de puesto"],
+    "documentos": ["original", "versiones documentales", "custodia", "listado y descarga autorizados"],
+    "identidad_y_autorizacion": ["actor", "empleado canónico", "perfil activo", "concesión nominal vigente"]
+  },
+  "consultas_futuras_distintas": [
+    {
+      "nombre": "situacion_propia_a_fecha",
+      "entrada": ["fecha_efectiva", "corte_conocimiento", "apartado"],
+      "salida": ["hechos vigentes en esa fecha", "fuente y fecha de actualización por bloque", "estado de completitud"],
+      "regla": "Resolver en servidor un único empleado canónico a partir del actor. Mantener fecha de efectos y corte de conocimiento separados."
+    },
+    {
+      "nombre": "historia_propia",
+      "entrada": ["fecha_efectiva_desde", "fecha_efectiva_hasta", "corte_conocimiento", "apartado", "limite", "cursor_opaco"],
+      "salida": ["eventos ordenados", "siguiente_cursor", "fuente y estado de completitud"],
+      "regla": "Periodo acotado, límite máximo y orden total estable por fecha efectiva, fecha de conocimiento e identificador inmutable. El cursor queda ligado criptográficamente a empleado, perfil, consulta, apartado, periodo, corte y orden. Reautorizar y comprobar vínculo canónico en cada página."
+    }
+  ],
+  "identidad_y_permiso": {
+    "entrada_cliente_prohibida": ["empleado_ref", "persona_ref", "organismo_ref", "selector de empleado u organismo propio"],
+    "resolucion": "El servidor obtiene actor y perfil del contexto acreditado y resuelve un único empleado canónico; vínculo ausente, ambiguo o revocado deniega.",
+    "autorizacion": "Operaciones nominales propias posteriores a M3, con finalidad, empleado, perfil, campos, apartado y corte; concesión central positiva, exacta y vigente; consumo y auditoría en la lectura durable. La lectura de documentos tiene operación distinta.",
+    "revocacion": "Una página previa no habilita la siguiente. Invalidar cursor si el perfil, vínculo o permiso cambian."
+  },
+  "historia": {
+    "modelo": "Solo adición: revisión o rectificación nueva enlazada con el hecho anterior, fecha de efectos, fecha de conocimiento, fuente, versión y estado. No reescribir el hecho ni su recibo.",
+    "rectificacion_tardia": "Una rectificación conocida después del corte solo aparece en consultas cuyo corte de conocimiento la incluya; conservar la vista histórica anterior."
+  },
+  "documentos": {
+    "puerto_existente": "internal/vec/documentos/ports/contratos.go: AccionListar, AccionDescargar, ConsultaExpediente y ConsultaDocumento",
+    "vinculo_personal": "Personal conserva la asociación durable hecho_ref -> expediente_ref + documento_id + version. acto_ref o fuente_ref aislados no acreditan ese vínculo.",
+    "acceso": "Comprobar tanto la pertenencia del hecho y terna a la ficha propia como la autorización específica de Documentos para listar o descargar; Documentos custodia el original. Una terna de otro expediente se deniega."
+  },
+  "privacidad_y_fallos": {
+    "ordinario_excluido": ["causas clínicas", "datos familiares reservados", "causas disciplinarias"],
+    "fuente_caida": "indisponible, nunca colección vacía",
+    "fuente_incompleta": "incompleta explícita con fuente y corte; no aparentar historia completa",
+    "eficacia": "La presencia del hecho o documento no acredita firma, eficacia administrativa ni entrega."
+  },
+  "dependencias_pendientes": [
+    "Contrato nominal y enclave D posteriores a M3 aprobados por sus dueños",
+    "Fuente, claves y alcance de relaciones, ocupaciones, situaciones y servicios confirmados por Personal y RRHH",
+    "Contrato de RPT para plaza, puesto, plantilla, versiones y reserva",
+    "Vínculo durable hecho-terna y autorización separada de Documentos",
+    "Dos revisiones independientes de SQL, identidad y datos personales sobre contenido final",
+    "Ensayo SQL en clon principal por Dirección antes de instalación, y recorrido real antes de declarar capacidad"
+  ],
+  "aceptacion_futura": [
+    "Revocar el permiso entre páginas: la siguiente página deniega sin filtrar hechos ni permitir cursor reutilizable.",
+    "Un empleado autenticado no obtiene historia ni documentos de otro empleado aunque cambie cursor o terna.",
+    "Una rectificación tardía conserva la respuesta al corte anterior y aparece al corte posterior enlazada al hecho corregido.",
+    "Un puesto reservado no se presenta como vacante cubrible y conserva versión RPT y procedencia.",
+    "Una terna documental de otro expediente o versión no vinculada se deniega antes de descargar.",
+    "Una fuente caída devuelve indisponibilidad; una fuente parcial se marca incompleta con su corte."
+  ],
+  "validacion_actual": "Solo sintaxis JSON y comprobación de que el SQL compañero consta íntegramente de comentarios. Sin instalación, ensayo de base ni prueba funcional."
+}

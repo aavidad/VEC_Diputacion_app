@@ -85,13 +85,61 @@ func huellaValida(valor string) bool {
 
 type PeriodoPrevisto struct {
 	Inicio time.Time `json:"inicio"`
-	Fin    time.Time `json:"fin"`
+	Fin    time.Time `json:"fin,omitzero"`
+	// CausaFin es la clave del hecho que termina un periodo sin fecha conocida.
+	// La modalidad publicada decide si puede utilizarse esta alternativa.
+	CausaFin    ClaveCatalogo `json:"causa_fin,omitempty"`
+	PoliticaFin PoliticaFin   `json:"politica_fin,omitzero"`
+}
+
+// PoliticaFin fija la regla publicada que autorizó el horizonte del periodo.
+// Es una instantánea del acto; las versiones posteriores del catálogo no la
+// sustituyen ni revalidan el historial.
+type PoliticaFin struct {
+	ReglaRef             string        `json:"regla_ref"`
+	CatalogoVersion      uint64        `json:"catalogo_version"`
+	CatalogoHuellaSHA256 string        `json:"catalogo_huella_sha256"`
+	FechaFin             string        `json:"fecha_fin"`
+	CausaFin             ClaveCatalogo `json:"causa_fin,omitempty"`
+}
+
+func (p PoliticaFin) Validar() error {
+	if !referenciaValida(p.ReglaRef) || p.CatalogoVersion == 0 ||
+		!huellaValida(p.CatalogoHuellaSHA256) {
+		return ErrDatoInvalido
+	}
+	switch p.FechaFin {
+	case "obligatoria":
+		if p.CausaFin != "" {
+			return ErrDatoInvalido
+		}
+	case "opcional", "no_aplica":
+		if !p.CausaFin.Valida() {
+			return ErrDatoInvalido
+		}
+	default:
+		return ErrDatoInvalido
+	}
+	return nil
 }
 
 func (p PeriodoPrevisto) Validar() error {
-	if !fechaCivilCanonica(p.Inicio) || !fechaCivilCanonica(p.Fin) ||
-		p.Fin.Before(p.Inicio) {
+	if !fechaCivilCanonica(p.Inicio) {
 		return ErrDatoInvalido
+	}
+	if p.Fin.IsZero() {
+		if !p.CausaFin.Valida() {
+			return ErrDatoInvalido
+		}
+	} else if p.CausaFin != "" || !fechaCivilCanonica(p.Fin) || p.Fin.Before(p.Inicio) {
+		return ErrDatoInvalido
+	}
+	if p.PoliticaFin != (PoliticaFin{}) {
+		if p.PoliticaFin.Validar() != nil ||
+			(p.Fin.IsZero() && (p.PoliticaFin.FechaFin == "obligatoria" || p.CausaFin != p.PoliticaFin.CausaFin)) ||
+			(!p.Fin.IsZero() && p.PoliticaFin.FechaFin == "no_aplica") {
+			return ErrDatoInvalido
+		}
 	}
 	return nil
 }

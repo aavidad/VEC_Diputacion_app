@@ -17,6 +17,47 @@ import (
 
 type repositorioGuardaEntregaPrueba struct{ llamadas int }
 
+type repositorioNumeroMOADRechazadoPrueba struct {
+	*repositorioGuardaEntregaPrueba
+	err error
+}
+
+func (r *repositorioNumeroMOADRechazadoPrueba) PrepararEntrega(context.Context, ports.ComandoEntregarPeticionCentro) (ports.EntregaPeticionCentro, error) {
+	return ports.EntregaPeticionCentro{}, r.err
+}
+
+func TestHTTPEntregaNumeroMOADInvalidoYConflictoNoSonTemporales(t *testing.T) {
+	for _, caso := range []struct {
+		err    error
+		estado int
+	}{
+		{application.ErrSolicitudRegistroInvalida, http.StatusUnprocessableEntity},
+		{ports.ErrClaveIdempotenciaUsada, http.StatusConflict},
+	} {
+		e := nuevaSesionConsultaPrueba(t)
+		e.soporte.sesionOperativa = e.p
+		canal := e.contexto().Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		canal.ruta, canal.metodo = rutaEntregaPeticionCentro, http.MethodPost
+		canal.contextoOperacion = &contextoOperacionCTDesarrollo{}
+		ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+		p := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: e.soporte}, auditor: &auditorDenegacionEntregaPreV3Prueba{}}
+		repo := &repositorioNumeroMOADRechazadoPrueba{&repositorioGuardaEntregaPrueba{}, caso.err}
+		servicio, err := application.NuevoServicioEntregaPeticionCentro(repo, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := &manejadorEntregaPeticionDesarrollo{p, repo, servicio}
+		body := `{"peticion_ref":"peticion:centro:sintetica","version_esperada":2,"numero_expediente_moad":"2026/5487"}`
+		r := httptest.NewRequest(http.MethodPost, rutaEntregaPeticionCentro, strings.NewReader(body)).WithContext(ctx)
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, r)
+		if w.Code != caso.estado {
+			t.Fatalf("rechazo definitivo presentado como temporal: estado=%d cuerpo=%s", w.Code, w.Body.String())
+		}
+	}
+}
+
 func (r *repositorioGuardaEntregaPrueba) ListarPeticionesRRHH(context.Context) ([]ports.EntregaPeticionCentro, error) {
 	r.llamadas++
 	return nil, ports.ErrPeticionCentroNoDisponible

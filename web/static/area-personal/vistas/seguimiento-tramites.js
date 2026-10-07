@@ -4,7 +4,7 @@ import {
 } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js";
@@ -18,7 +18,7 @@ const h = (texto) => escaparHTML(texto);
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
   pendiente_incorporacion: "aviso", renuncia: "aviso", excluido: "error",
-  disponible_desde: "aviso",
+  disponible_desde: "aviso", en_revision: "merito",
 });
 
 function fechaSituacion(valor) {
@@ -119,5 +119,5 @@ export function renderizarSubsanaciones(datos) {
 
 export function renderizarAlegaciones(datos) {
   const tarjetas = datos.alegaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.asunto)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([[g("fecha"), escaparHTML(item.fecha)], [g("estado"), chip(item.estado)]])}${item.estado === "Borrador" ? `<form data-operacion="presentar_alegacion" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="alegacion-${escaparAtributo(item.id)}">${h(g("fundamento"))}</label><textarea id="alegacion-${escaparAtributo(item.id)}" name="fundamento" required maxlength="2000">${h(g("fundamentoInicial"))}</textarea><small>${h(g("fundamentoAyuda"))}</small></div><div class="campo"><label for="evidencia-${escaparAtributo(item.id)}">${h(g("evidencia"))}</label><input id="evidencia-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>${h(g("declaracion"))}</strong><small>${h(g("declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(g("presentar"))}</button></form>` : `<p class="nota">${h(g("consta", { estado: item.estado }))}</p>`}</div></article>`).join("");
-  return `${encabezadoVista(g("titulo"), g("descripcion"), enlaceRuta("autobaremacion", g("verPuntuacion"), "boton-secundario"))}${tarjetas || panel(g("vacio.titulo"), g("vacio.subtitulo"), `<p>${h(g("vacio.detalle"))}</p>`)}`;
+  return `${encabezadoVista(g("titulo"), g("descripcion"))}${tarjetas || panel(g("vacio.titulo"), g("vacio.subtitulo"), `<p>${h(g("vacio.detalle"))}</p>`)}`;
 }

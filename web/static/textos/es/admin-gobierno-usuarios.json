@@ -1,0 +1,22 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios; con el conjunto 1, 2, 3 o 4, también la del cambio de perfiles por lote; con el 2, 3 o 4, además, la del gobierno del plan de firma, con el 3 o el 4, también la de publicación de cargos de Personal, y con el 4, la de certificados de firmante. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
+    "uso_invalido": "Indique la fase (preparar, aplicar o verificar), la configuración privada, el catálogo de textos y un tiempo máximo positivo. El acuse solo se indica al aplicar.",
+    "configuracion_insegura": "No se puede leer la configuración privada. Debe ser un archivo propio con permisos 0600, en una carpeta propia 0700 fuera del repositorio.",
+    "configuracion_invalida": "La configuración privada no cumple el formato o le faltan datos para esta fase. Revise los campos, las rutas absolutas, las conexiones y las horas de validez (de 1 a 24).",
+    "salida_insegura": "La carpeta de salida no es segura. Use una carpeta propia con permisos 0700 fuera del repositorio.",
+    "acuse_inseguro": "El acuse debe ser un nombre de archivo nuevo, sin carpetas, dentro de la carpeta de salida.",
+    "preparacion_lista": "Preparación terminada. Entregue al DBA las huellas de aprobacion-candidata.json para que cree la configuración aprobada antes de aplicar.",
+    "preparacion_fallida": "No se ha podido preparar. Si la carpeta de salida tiene archivos a medias, no la use y empiece en otra carpeta vacía.",
+    "operacion_no_confirmada": "La operación no se ha confirmado y no se ha guardado ningún acuse.",
+    "commit_no_confirmado": "No se ha podido confirmar COMMIT y el resultado es indeterminado. No prepare de nuevo: repita aplicar con el mismo plan y otro acuse para recuperar el resultado.",
+    "acuse_no_guardado": "COMMIT está confirmado, pero no se ha podido guardar el acuse. Repita aplicar con otro acuse para recuperar el recibo original.",
+    "gobierno_confirmado": "La base ha confirmado las claves y el acuse se ha guardado.",
+    "gobierno_rechazado": "La base ha rechazado la operación y ha registrado el intento. Consulte el acuse privado.",
+    "gobierno_no_disponible": "La operación ha terminado con error y la base ha registrado el intento. Consulte el acuse privado.",
+    "cadena_verificada": "La cadena de auditoría del gobierno de usuarios se ha recalculado sin diferencias. El informe está en la carpeta de salida.",
+    "cadena_rechazada": "La cadena de auditoría no coincide al recalcularla. Consulte el informe en la carpeta de salida.",
+    "verificacion_no_disponible": "No se ha podido leer la cadena de auditoría o guardar el informe."
+  }
+}

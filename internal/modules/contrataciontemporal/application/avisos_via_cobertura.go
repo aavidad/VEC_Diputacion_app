@@ -218,14 +218,17 @@ func (e *EvaluadorAvisosViaCobertura) avisoSAE(
 		registrarAvisosViaNoDisponibles("duracion_sae", err)
 		return AvisoViaCobertura{}, false
 	}
-	finPrevisto := periodo.Fin.UTC().Format(formatoFechaCivilAviso)
-	return AvisoViaCobertura{
+	aviso := AvisoViaCobertura{
 		Clave: AvisoPropuestaOfertaSAE, DuracionMaximaMeses: regla.Cantidad,
-		FinMaximo: vencimiento.UltimoDia, FinPrevisto: finPrevisto,
+		FinMaximo: vencimiento.UltimoDia,
+		Reglas:    []ProcedenciaReglaAviso{procedenciaDe(regla), procedenciaDe(agotamiento)},
+	}
+	if !periodo.Fin.IsZero() {
+		aviso.FinPrevisto = periodo.Fin.UTC().Format(formatoFechaCivilAviso)
 		// Las fechas civiles AAAA-MM-DD se comparan como texto sin ambigüedad.
-		ExcedeDuracion: finPrevisto > vencimiento.UltimoDia,
-		Reglas:         []ProcedenciaReglaAviso{procedenciaDe(regla), procedenciaDe(agotamiento)},
-	}, true
+		aviso.ExcedeDuracion = aviso.FinPrevisto > vencimiento.UltimoDia
+	}
+	return aviso, true
 }
 
 func reglaPorClave(vigentes []reglas.Regla, clave string) (reglas.Regla, bool) {

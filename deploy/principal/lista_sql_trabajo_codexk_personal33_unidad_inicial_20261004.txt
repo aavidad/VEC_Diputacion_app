@@ -1,0 +1,1 @@
+deploy/postgresql/personal/migraciones/000033_unidad_inicial_admin.up.sql

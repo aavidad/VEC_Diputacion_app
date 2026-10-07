@@ -402,7 +402,7 @@ button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
 .paginacion-marco button[aria-current="page"] {
   border-color: var(--portal-azul-700);
   background: var(--portal-azul-700);
-  color: #fff;
+  color: var(--portal-texto-inverso);
 }
 
 .paginacion-marco button:disabled {
@@ -1003,3 +1003,20 @@ button.tarjeta-metrica-rrhh:hover {
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+.rejilla-kpi.rejilla-kpi--compacta {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  align-items: stretch;
+}
+.rejilla-kpi--compacta .tarjeta-kpi {
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px;
+  min-height: 0;
+  height: auto;
+  white-space: normal;
+}
+.rejilla-kpi--compacta .icono-kpi { width: 34px; height: 34px; }
+.rejilla-kpi--compacta .icono-kpi svg { width: 22px; height: 22px; }
+.rejilla-kpi--compacta .tarjeta-kpi > span:last-child { min-width: 0; }
+.rejilla-kpi--compacta .etiqueta-kpi { overflow-wrap: anywhere; }

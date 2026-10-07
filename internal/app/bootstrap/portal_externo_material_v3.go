@@ -60,6 +60,7 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 		return []string{
 			puertosbolsa.AudienciaSolicitarPausaPropia, puertosbolsa.AudienciaSolicitarReactivacionPropia,
 			puertosbolsa.AudienciaResponderLlamamientoPropio, puertosbolsa.AudienciaManifestarDisposicionPropia,
+			puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
 			puertosbolsa.AudienciaConfirmarContactoPropio,
 		}
 	default:

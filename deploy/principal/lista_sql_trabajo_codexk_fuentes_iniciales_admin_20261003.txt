@@ -1,0 +1,2 @@
+deploy/postgresql/identidad_sesiones_v1/migraciones/000015_fuentes_iniciales_admin.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000033_fuentes_iniciales_admin.up.sql

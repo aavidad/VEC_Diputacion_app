@@ -1,0 +1,29 @@
+-- Personal 000025: borrador de contrato. NO INSTALAR.
+-- Todo este archivo son comentarios; no inicia transacción, crea objetos ni concede permisos.
+-- Número reservado fuera de Git por Dirección. No modifica 000022, 000023 ni 000024.
+--
+-- TODO 1. Acordar tras M3 el contrato nominal, enclave D y operaciones separadas
+-- para situación propia a fecha, historia propia y documentos. Inventariar la
+-- preimagen real del clon principal y sus dependencias antes de escribir SQL.
+-- TODO 2. Resolver actor -> un único empleado canónico en la frontera confiable.
+-- Ningún parámetro del cliente elige empleado, persona u organismo de su ficha.
+-- Consumir autorización positiva, exacta y vigente para cada lectura y página;
+-- revalidar vínculo y perfil también al seguir un cursor o recuperar documentos.
+-- TODO 3. Diseñar dos consultas distintas: situación a fecha efectiva y corte de
+-- conocimiento; historia por apartado y periodo acotado, límite y orden estable.
+-- Ligar cursor opaco a empleado, perfil, consulta, apartado, periodo, corte y orden.
+-- TODO 4. Conservar historia de solo adición con versiones, fuente, fechas de
+-- efectos y conocimiento, y rectificaciones enlazadas sin mutar hechos antiguos.
+-- Personal posee relaciones, ocupaciones, situaciones y servicios reconocidos;
+-- RPT posee plantilla, plaza, puesto, sus versiones y condición de reserva.
+-- TODO 5. Persistir en Personal el vínculo hecho_ref -> expediente_ref,
+-- documento_id y version. acto_ref y fuente_ref no prueban pertenencia. Pedir a
+-- Documentos listado y descarga con permisos propios; el original sigue allí.
+-- Comprobar pertenencia a hecho propio y terna exacta antes de descargar.
+-- TODO 6. Excluir causas clínicas, familiares y disciplinarias de la consulta
+-- ordinaria. Fuente caída es indisponibilidad; fuente parcial se marca incompleta.
+-- Un dato presente no acredita firma, eficacia administrativa ni entrega.
+-- TODO 7. Preparar migración ejecutable nueva solo tras contrato aprobado,
+-- doble revisión sensible y ensayo en clon de la principal por Dirección.
+-- Casos: revocación entre páginas, empleado ajeno, rectificación tardía,
+-- puesto reservado y documento de expediente ajeno.

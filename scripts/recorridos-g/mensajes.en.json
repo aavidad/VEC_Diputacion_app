@@ -1,0 +1,5 @@
+{
+  "entrada_invalida": "Chrome was not started: check the scenario, prerequisites and private files.",
+  "recorrido_cortado": "The Dietas scenario stopped. Check the private result; the scenario is not verified.",
+  "recorrido_comprobado": "The selected synthetic scenario finished in Chrome. Management must still verify persistence after a restart."
+}

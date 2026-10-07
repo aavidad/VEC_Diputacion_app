@@ -24,4 +24,6 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/comun/imagen-propia.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/imagen-propia.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/textos/", soloLecturaHTTP(estaticos))
+	// Cada fichero PWA requiere además su entrada exacta en el manifiesto.
+	mux.Handle("/pwa/", soloLecturaHTTP(estaticos))
 }

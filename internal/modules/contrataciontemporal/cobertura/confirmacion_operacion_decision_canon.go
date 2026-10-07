@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -144,7 +145,11 @@ func escribirResumenOrdenC1ConfirmacionOperacionDecisionCobertura(
 	canon *canonOperacionDecisionCobertura,
 	resumen puertosct.ResumenOrdenConsumoCobertura,
 ) {
-	canon.texto("VEC-CT-IDENTIDAD-ORDEN-C1-CONFIRMACION-C3-V1")
+	if resumen.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+		canon.texto("VEC-CT-IDENTIDAD-ORDEN-C1-CONFIRMACION-C3-V1")
+	} else {
+		canon.texto("VEC-CT-IDENTIDAD-ORDEN-C1-CONFIRMACION-C3-V2")
+	}
 	canon.texto(resumen.PeticionRef)
 	canon.texto(resumen.OrganizacionRef)
 	canon.texto(resumen.ExpedienteRef)
@@ -168,7 +173,22 @@ func escribirResumenOrdenC1ConfirmacionOperacionDecisionCobertura(
 	canon.texto(resumen.DefinicionFuenteRef)
 	canon.texto(resumen.CategoriaRef)
 	canon.texto(resumen.Periodo.Inicio.Format(time.RFC3339Nano))
-	canon.texto(resumen.Periodo.Fin.Format(time.RFC3339Nano))
+	if resumen.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+		canon.texto(resumen.Periodo.Fin.Format(time.RFC3339Nano))
+	} else {
+		if resumen.Periodo.Fin.IsZero() {
+			canon.texto("causa")
+			canon.texto(string(resumen.Periodo.CausaFin))
+		} else {
+			canon.texto("fecha")
+			canon.texto(resumen.Periodo.Fin.Format(time.RFC3339Nano))
+		}
+		canon.texto(resumen.Periodo.PoliticaFin.ReglaRef)
+		canon.entero(resumen.Periodo.PoliticaFin.CatalogoVersion)
+		canon.texto(resumen.Periodo.PoliticaFin.CatalogoHuellaSHA256)
+		canon.texto(resumen.Periodo.PoliticaFin.FechaFin)
+		canon.texto(string(resumen.Periodo.PoliticaFin.CausaFin))
+	}
 	canon.texto(resumen.SolicitadaEn.Format(time.RFC3339Nano))
 	canon.texto(resumen.EmitidaEn.Format(time.RFC3339Nano))
 	canon.texto(resumen.ValidaHasta.Format(time.RFC3339Nano))

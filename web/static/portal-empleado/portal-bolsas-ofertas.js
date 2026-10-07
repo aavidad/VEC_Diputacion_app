@@ -1,4 +1,7 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261002-r3-r4-historial-v1";
+import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
 // el plazo para ofrecerse, VEC propone plaza a plaza a la siguiente persona
@@ -36,11 +39,31 @@ const ESTADOS = Object.freeze({ abierta: "info", pendiente_resolucion: "adverten
 const ESTADOS_PLAZA = Object.freeze({ vacante: "advertencia", pendiente_respuesta: "info", cubierta: "exito", llamamiento_directo: "neutro" });
 const ACTOS = new Set(["adjudicada", "aceptada", "renuncia", "sin_respuesta", "llamamiento_directo"]);
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/;
+const REFERENCIA_CORREO = /^[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}$/;
+const HUELLA_CORREO = /^[a-f0-9]{64}$/;
+const FECHA_NOTIFICACION = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
+const FUENTE_CORREO = "correo_externo_declarado_rrhh";
 const FECHA_DIA = /^\d{4}-\d{2}-\d{2}$/;
 
 const instante = (valor) => typeof valor === "string" && !Number.isNaN(Date.parse(valor));
 const enteroOpcional = (valor) => valor === null || valor === undefined || Number.isSafeInteger(valor);
 const referenciaOpcional = (valor) => valor === null || valor === undefined || REFERENCIA.test(valor);
+
+function notificacionValida(notificacion) {
+  return notificacion && FECHA_NOTIFICACION.test(notificacion.notificada_en ?? "") && instante(notificacion.notificada_en) &&
+    REFERENCIA_CORREO.test(notificacion.referencia_correo ?? "") && !referenciaContieneDocumentoIdentidad(notificacion.referencia_correo) &&
+    HUELLA_CORREO.test(notificacion.huella_correo_sha256 ?? "") &&
+    notificacion.fuente === FUENTE_CORREO;
+}
+
+function fechaNotificacionLocal(valor) {
+  const partes = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::([0-5]\d))?$/.exec(String(valor ?? ""));
+  if (!partes) return "";
+  const minutoMadrid = instanteDesdeHoraMadrid(partes[1]);
+  if (minutoMadrid === null) return "";
+  const fecha = new Date(minutoMadrid + Number(partes[2] ?? 0) * 1000);
+  return fecha.toISOString().replace(/\.(\d{3})Z$/, (_total, milisegundos) => `.${milisegundos}000Z`);
+}
 
 function propuestaValida(p) {
   return p === null || p === undefined || p.tipo === "llamamiento_directo" ||
@@ -61,6 +84,8 @@ export function validarOferta(oferta) {
       !d || typeof d.categoria !== "string" || typeof d.centro !== "string" || !FECHA_DIA.test(d.fecha_inicio ?? "") ||
       (d.fecha_fin !== undefined && !FECHA_DIA.test(d.fecha_fin)) || !instante(oferta.publicada_en) || !instante(oferta.vence_antes_de) ||
       !Array.isArray(oferta.disposiciones) || !Number.isSafeInteger(oferta.disposiciones_total) || typeof oferta.plazo?.ejemplo !== "boolean" ||
+      (oferta.confirmacion_adjudicacion !== undefined && oferta.confirmacion_adjudicacion !== null && oferta.confirmacion_adjudicacion !== "aceptacion_previa") ||
+      (oferta.plazo.notificacion != null && !notificacionValida(oferta.plazo.notificacion)) ||
       !Number.isSafeInteger(oferta.numero_plazas) || oferta.numero_plazas < 1 || oferta.numero_plazas > MAXIMO_PLAZAS_OFERTA ||
       !Array.isArray(oferta.plazas) || oferta.plazas.length !== oferta.numero_plazas || !oferta.plazas.every(plazaValida) ||
       (oferta.politica_plazas !== null && oferta.politica_plazas !== undefined && typeof oferta.politica_plazas !== "object")) {
@@ -95,8 +120,10 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
       if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
       return { ok: true, datos: validarOfertasBolsa(await respuesta.json()) };
     },
-    publicar: (bolsaRef, datos, numeroPlazas, clave, { signal } = {}) =>
-      escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas }, clave, signal),
+    publicar: (bolsaRef, datos, numeroPlazas, notificacion, clave, { signal } = {}) =>
+      !notificacionValida(notificacion)
+        ? Promise.resolve({ ok: false, status: 400, codigo: "solicitud_invalida" })
+        : escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas, notificacion }, clave, signal),
     /** Acto sobre una plaza: tipo, persona (null en llamamiento directo) y la secuencia que vio RRHH. */
     registrarActo: (bolsaRef, acto, clave, { signal } = {}) =>
       escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: acto.oferta_ref, numero_de_plaza: acto.numero_de_plaza,
@@ -140,12 +167,33 @@ export function accionesPlaza(plaza) {
 
 const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjunction" });
 
-export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
+export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), clienteHistorial, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
-    registrando: false, confirmacion: null, clavesActo: new Map() };
+    registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "" };
   let controlador = null;
+  let controladorPublicacion = null;
   let documentoInstalado = null;
-  const cambiar = () => alCambiar();
+  const cambiar = () => {
+    const activo = documentoInstalado?.activeElement;
+    const enOfertas = activo?.closest?.(".ofertas-bolsa");
+    const id = enOfertas ? activo.id : "";
+    const accionOfertas = enOfertas ? activo.dataset?.ofertasAccion : "";
+    const accionHistorial = enOfertas ? activo.dataset?.historialAccion : "";
+    const ofertaRef = enOfertas ? activo.dataset?.ofertaRef : "";
+    const participacion = enOfertas ? activo.dataset?.participacion : "";
+    const contactoRef = enOfertas ? activo.dataset?.contactoRef : "";
+    const seleccion = typeof activo?.selectionStart === "number" ? [activo.selectionStart, activo.selectionEnd] : null;
+    alCambiar();
+    if (!enOfertas) return;
+    const nuevo = (id && documentoInstalado?.getElementById?.(id)) ||
+      [...(documentoInstalado?.querySelectorAll?.("[data-ofertas-accion], [data-historial-accion]") || [])].find((e) =>
+        (accionOfertas && e.dataset.ofertasAccion === accionOfertas && e.dataset.ofertaRef === ofertaRef) ||
+        (accionHistorial && e.dataset.historialAccion === accionHistorial && e.dataset.participacion === participacion && e.dataset.contactoRef === contactoRef)) ||
+      (accionHistorial === "identificar" && [...(documentoInstalado?.querySelectorAll?.("[data-historial-participacion]") || [])].find((e) => e.dataset.historialParticipacion === participacion && e.dataset.contactoRef === contactoRef));
+    nuevo?.focus?.({ preventScroll: true });
+    if (seleccion && nuevo?.setSelectionRange) nuevo.setSelectionRange(...seleccion);
+  };
+  const historial = crearSuperficieHistorialOfrecimientos({ cliente: clienteHistorial, alCambiar: cambiar, anunciar });
   const enfocar = (selector) => { documentoInstalado?.querySelector?.(selector)?.focus?.(); };
 
   async function cargar() {
@@ -165,20 +213,24 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     cambiar();
   }
 
-  async function publicar(datos, numeroPlazas) {
+  async function publicar(datos, numeroPlazas, notificacion, fechaLocal) {
     if (estado.enviando || !estado.bolsa) return;
     // Reintentar con el mismo contenido reutiliza la clave y obtiene la misma oferta.
-    const borrador = { datos, numeroPlazas };
+    const borrador = { datos, numeroPlazas, notificacion, fechaLocal };
     if (!estado.claveEnCurso || JSON.stringify(estado.borrador) !== JSON.stringify(borrador)) estado.claveEnCurso = generarClave();
     estado.borrador = borrador; estado.enviando = true; estado.mensaje = ""; estado.errorOperacion = ""; cambiar();
+    controladorPublicacion = new AbortController();
+    const { signal } = controladorPublicacion;
     try {
-      const resultado = await cliente.publicar(estado.bolsa, datos, numeroPlazas, estado.claveEnCurso);
+      const resultado = await cliente.publicar(estado.bolsa, datos, numeroPlazas, notificacion, estado.claveEnCurso, { signal });
+      if (signal.aborted) return;
       if (resultado.ok) {
         estado.mensaje = resultado.status === 200 ? traducir("publicada_antes") : traducir("publicada", { vence: fechaHora(resultado.oferta.vence_antes_de) });
         estado.claveEnCurso = null; estado.borrador = null; anunciar(estado.mensaje);
         void cargar();
       } else estado.errorOperacion = mensajeError(traducir, resultado);
-    } catch { estado.errorOperacion = traducir("error_generico"); }
+    } catch { if (signal.aborted) return; estado.errorOperacion = traducir("error_generico"); }
+    controladorPublicacion = null;
     estado.enviando = false; cambiar();
   }
 
@@ -207,7 +259,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
         participacion_ref: acto.participacion, secuencia_esperada: acto.secuencia }, clave);
       if (resultado.ok) {
         estado.clavesActo.delete(firma); estado.confirmacion = null;
-        estado.mensaje = traducir(`hecho_${acto.tipo}`, { plaza: acto.plaza, orden: acto.orden ?? "" });
+        const telematica = resultado.oferta.confirmacion_adjudicacion === "aceptacion_previa" && acto.tipo === "adjudicada";
+        estado.mensaje = traducir(telematica ? "hecho_adjudicada_telematica" : `hecho_${acto.tipo}`, { plaza: acto.plaza, orden: acto.orden ?? "" });
         anunciar(estado.mensaje); void cargar();
         enfocar('[data-ofertas-aviso="exito"]');
       } else {
@@ -241,7 +294,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   function botonesPlaza(o, plaza) {
     const confirmando = estado.confirmacion;
     if (confirmando && confirmando.ofertaRef === o.oferta_ref && confirmando.plaza === plaza.numero_de_plaza) {
-      const pregunta = traducir(`confirmar_${confirmando.tipo}`, { plaza: plaza.numero_de_plaza, orden: confirmando.orden ?? "" });
+      const telematica = o.confirmacion_adjudicacion === "aceptacion_previa" && confirmando.tipo === "adjudicada";
+      const pregunta = traducir(telematica ? "confirmar_adjudicada_telematica" : `confirmar_${confirmando.tipo}`, { plaza: plaza.numero_de_plaza, orden: confirmando.orden ?? "" });
       const ocupado = estado.registrando ? " disabled" : "";
       return `<div class="acciones-fila" role="group" aria-label="${escapar(pregunta)}"><span>${escapar(pregunta)}</span>` +
         `<button type="button" class="boton-primario" data-ofertas-accion="confirmar"${ocupado}>${escapar(traducir(estado.registrando ? "registrando" : "confirmar"))}</button>` +
@@ -285,17 +339,24 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
       sinTurno ? traducir("sin_turno_cuenta", { cuenta: sinTurno }) : ""].filter(Boolean).join(" · ");
     const dato = (etiqueta, valor, detalle = "") => `<div><dt>${escapar(traducir(etiqueta))}</dt><dd>${escapar(valor)}${detalle ? `<span class="dato-secundario">${escapar(detalle)}</span>` : ""}</dd></div>`;
     const idTitulo = `oferta-${escapar(o.oferta_ref.slice(-12))}`;
+    const notificacion = o.plazo.notificacion;
+    const correo = notificacion ? `<p class="dato-secundario">${escapar(traducir("correo_declarado", { fecha: fechaHora(notificacion.notificada_en) }))}</p>` +
+      `<details><summary>${escapar(traducir("correo_evidencia"))}</summary><dl class="oferta-ficha__datos">${dato("correo_referencia", notificacion.referencia_correo)}` +
+      `${dato("correo_huella", notificacion.huella_correo_sha256)}</dl></details>` : "";
     return `<li class="oferta-ficha" data-oferta-ref="${escapar(o.oferta_ref)}" aria-labelledby="${idTitulo}">` +
       `<div class="oferta-ficha__cabecera"><div><h4 id="${idTitulo}">${escapar(d.categoria)}</h4><p class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</p></div>` +
       `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
-      `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>` +
+      `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${correo}` +
       // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
-      (o.estado === "abierta" ? "" : listaPlazas(o)) + "</li>";
+      (o.estado === "abierta" ? "" : listaPlazas(o)) +
+      `<div class="acciones-fila"><button type="button" class="boton-secundario" data-ofertas-accion="historial" data-oferta-ref="${escapar(o.oferta_ref)}" aria-expanded="${estado.historialOferta === o.oferta_ref}">${escapar(traducirHistorialOfrecimientos("titulo"))}</button></div>` +
+      (estado.historialOferta === o.oferta_ref ? historial.renderizar() : "") + "</li>";
   }
 
   function formulario() {
     const b = estado.borrador?.datos || {};
+    const n = estado.borrador?.notificacion || {};
     const plazas = estado.borrador?.numeroPlazas ?? 1;
     const inactivo = estado.enviando ? " disabled" : "";
     const campo = (id, tipo, etiqueta, valor, extra = "") => `<label class="campo${tipo === "textarea" ? " campo-ancho" : ""}" for="oferta-${id}"><span>${escapar(traducir(etiqueta))}</span>` +
@@ -308,6 +369,10 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
       campo("fecha_fin", "date", "fecha_fin", b.fecha_fin) +
       campo("numero_plazas", "number", "numero_plazas", plazas, ` required min="1" max="${MAXIMO_PLAZAS_OFERTA}" step="1" inputmode="numeric"`) +
       campo("descripcion", "textarea", "descripcion", b.descripcion) +
+      `</div></fieldset><fieldset><legend>${escapar(traducir("correo_titulo"))}</legend><p class="dato-secundario">${escapar(traducir("correo_limite"))}</p><div class="rejilla-formulario">` +
+      campo("notificada_en", "datetime-local", "correo_fecha", estado.borrador?.fechaLocal, ' required step="1"') +
+      campo("referencia_correo", "text", "correo_referencia_obligatoria", n.referencia_correo, ' required maxlength="256" pattern="[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}"') +
+      campo("huella_correo_sha256", "text", "correo_huella_obligatoria", n.huella_correo_sha256, ' required minlength="64" maxlength="64" pattern="[a-f0-9]{64}" autocomplete="off" spellcheck="false"') +
       `</div><div class="acciones-formulario"><button type="submit" class="boton-primario"${inactivo}>${escapar(traducir(estado.enviando ? "publicando" : estado.claveEnCurso ? "reintentar" : "publicar"))}</button></div></fieldset></form>`;
   }
 
@@ -324,6 +389,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   }
 
   function manejarSubmit(evento) {
+    if (historial.manejarSubmit(evento)) return true;
     const form = evento.target?.closest?.('[data-ofertas-form="publicar"]');
     if (!form) return false;
     evento.preventDefault();
@@ -335,15 +401,34 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     if (fin) datos.fecha_fin = fin;
     const plazas = Number(valores.get("numero_plazas") ?? 1);
     if (!Number.isSafeInteger(plazas) || plazas < 1 || plazas > MAXIMO_PLAZAS_OFERTA) { estado.errorOperacion = traducir("error_422"); cambiar(); return true; }
-    void publicar(datos, plazas);
+    const fechaLocal = String(valores.get("notificada_en") ?? "");
+    const notificacion = { notificada_en: fechaNotificacionLocal(fechaLocal),
+      referencia_correo: String(valores.get("referencia_correo") ?? "").trim(),
+      huella_correo_sha256: String(valores.get("huella_correo_sha256") ?? "").trim(), fuente: FUENTE_CORREO };
+    if (referenciaContieneDocumentoIdentidad(notificacion.referencia_correo)) {
+      estado.errorOperacion = traducir("error_correo_referencia_personal"); cambiar(); return true;
+    }
+    if (!notificacionValida(notificacion)) { estado.errorOperacion = traducir("error_correo"); cambiar(); return true; }
+    void publicar(datos, plazas, notificacion, fechaLocal);
     return true;
   }
 
   function manejarClick(evento) {
+    if (historial.manejarClick(evento)) return true;
     const control = evento.target?.closest?.("[data-ofertas-accion]");
     if (!control || control.disabled) return false;
     const accion = control.dataset.ofertasAccion;
     if (accion === "recargar") void cargar();
+    else if (accion === "historial") {
+      const ofertaRef = control.dataset.ofertaRef;
+      if (estado.historialOferta === ofertaRef) {
+        historial.desmontar(); estado.historialOferta = "";
+      } else if (estado.ofertas.some((o) => o.oferta_ref === ofertaRef)) {
+        estado.historialOferta = ofertaRef;
+        historial.activar(estado.bolsa, ofertaRef);
+      }
+      cambiar();
+    }
     else if (accion === "preparar") {
       const orden = control.dataset.orden === undefined ? null : Number(control.dataset.orden);
       pedirConfirmacion({ ofertaRef: control.dataset.ofertaRef, plaza: Number(control.dataset.plaza), tipo: control.dataset.tipo,
@@ -357,14 +442,20 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   return Object.freeze({
     activar(bolsaRef) {
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
-      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", claveEnCurso: null, borrador: null, confirmacion: null });
+      controladorPublicacion?.abort(); controladorPublicacion = null;
+      historial.desmontar();
+      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, confirmacion: null, historialOferta: "" });
       estado.clavesActo.clear();
       void cargar();
     },
-    desmontar() { controlador?.abort(); controlador = null; estado.bolsa = ""; estado.carga = "inactiva"; estado.confirmacion = null; },
+    desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
+      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; },
     renderizar,
     instalar(documento) {
       documentoInstalado = documento;
+      historial.instalar(documento);
+      documento.addEventListener("input", (evento) => { historial.manejarInput(evento); });
+      documento.addEventListener("change", (evento) => { historial.manejarInput(evento); });
       documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
       documento.addEventListener("click", (evento) => { manejarClick(evento); });
     },

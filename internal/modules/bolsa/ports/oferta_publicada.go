@@ -34,17 +34,18 @@ var (
 // PlazoOferta conserva la regla del catálogo que fijó el vencimiento y el
 // cálculo hecho con Calendarios en el momento de publicar.
 type PlazoOferta struct {
-	ReglaRef        string   `json:"regla_ref"`
-	HuellaCatalogo  string   `json:"huella_catalogo"`
-	Unidad          string   `json:"unidad"`
-	Cantidad        int      `json:"cantidad"`
-	Computo         string   `json:"computo"`
-	UltimoDia       string   `json:"ultimo_dia"`
-	Ejemplo         bool     `json:"ejemplo"`
-	Articulo        string   `json:"articulo,omitempty"`
-	Calendarios     []string `json:"calendarios,omitempty"`
-	PoliticaVersion int64    `json:"politica_version,omitempty"`
-	MunicipioSede   string   `json:"municipio_sede,omitempty"`
+	Notificacion    *dominiobolsa.NotificacionOferta `json:"notificacion,omitempty"`
+	ReglaRef        string                           `json:"regla_ref"`
+	HuellaCatalogo  string                           `json:"huella_catalogo"`
+	Unidad          string                           `json:"unidad"`
+	Cantidad        int                              `json:"cantidad"`
+	Computo         string                           `json:"computo"`
+	UltimoDia       string                           `json:"ultimo_dia"`
+	Ejemplo         bool                             `json:"ejemplo"`
+	Articulo        string                           `json:"articulo,omitempty"`
+	Calendarios     []string                         `json:"calendarios,omitempty"`
+	PoliticaVersion int64                            `json:"politica_version,omitempty"`
+	MunicipioSede   string                           `json:"municipio_sede,omitempty"`
 	// En horas naturales estos dos instantes UTC forman parte del recibo y
 	// del material autorizado. UltimoDia queda solo como ayuda de presentación.
 	AperturaEn string `json:"apertura_en,omitempty"`
@@ -52,7 +53,8 @@ type PlazoOferta struct {
 }
 
 // CalculadoraPlazoOferta resuelve el plazo de disposición desde la
-// publicación. Devuelve ErrPlazoOfertaNoConfigurado si no hay regla.
+// notificación acreditada por RRHH. Devuelve ErrPlazoOfertaNoConfigurado
+// si no hay regla.
 type CalculadoraPlazoOferta interface {
 	PlazoDisposicion(context.Context, time.Time) (PlazoOferta, time.Time, error)
 }
@@ -123,6 +125,9 @@ type OfertaPublicada struct {
 	DisposicionesTotal int                      `json:"disposiciones_total"`
 	Propuesta          *PropuestaOferta         `json:"propuesta"`
 	Resolucion         *ResolucionOferta        `json:"resolucion"`
+	// ConfirmacionAdjudicacion procede de la versión de política inmovilizada
+	// por la oferta. Vacía en políticas anteriores a la aceptación previa.
+	ConfirmacionAdjudicacion string `json:"confirmacion_adjudicacion,omitempty"`
 	// NumeroPlazas, la política de plazas aplicada (nula si la versión no la
 	// tiene) y el estado de cada plaza.
 	NumeroPlazas   int                                 `json:"numero_plazas"`
@@ -132,6 +137,7 @@ type OfertaPublicada struct {
 }
 
 type SolicitudPublicarOferta struct {
+	Notificacion       dominiobolsa.NotificacionOferta
 	Vinculo            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef           string

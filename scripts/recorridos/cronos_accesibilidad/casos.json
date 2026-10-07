@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "origen": "https://cronos-offline.invalid",
+  "alcance": "preview_offline_sintetica",
+  "idiomas": ["es", "en"],
+  "pantallas": ["fichaje", "saldo", "calendario_incidencias", "bandeja"],
+  "vistas": [{"ancho":1440,"zoom":1},{"ancho":390,"zoom":1},{"ancho":1440,"zoom":2}],
+  "textos": {
+    "es": {"titulo":"Comprobación local de Cronos","error":"No se pudo completar la comprobación local.","vacaciones":"Vacaciones","traslado":"Traslado de domicilio","festivo":"Fiesta local","persona":"Ana Molina"},
+    "en": {"titulo":"Local Cronos check","error":"The local check could not be completed.","vacaciones":"Annual leave","traslado":"Moving home","festivo":"Local holiday","persona":"Ana Molina"}
+  },
+  "fichaje": {"autorizado":true,"continuidad_confirmada":true,"movimientos_permitidos":["entrada"],"periodo":{"desde":"2026-10-01T00:00:00Z","hasta":"2026-10-02T00:00:00Z"},"motivo":"autorizado"},
+  "saldo": {"periodo":{"tipo":"hoy","desde":"2026-10-01","hasta":"2026-10-01"},"resumen":{"previstos_minutos":null,"trabajados_minutos":420,"saldo_minutos":null,"estado":"no_disponible"},"detalle":[{"fecha":"2026-10-01","previstos_minutos":null,"trabajados_minutos":420,"pausas_minutos":15,"saldo_minutos":null,"estado":"no_disponible","marcajes":[{"instante_utc":"2026-10-01T06:00:00Z","movimiento":"entrada","origen":"remoto"},{"instante_utc":"2026-10-01T13:15:00Z","movimiento":"salida","origen":"remoto"}]}]},
+  "movimientos": {"periodo":{"tipo":"rango","desde":"2026-01-01","hasta":"2026-12-31"},"calendario":{"disponible":true,"dias":[{"fecha":"2026-01-06","tipo":"festivo","nombre":""}]},"marcajes_por_dia":[{"fecha":"2026-09-21","marcajes":4}],"absentismos":[{"solicitud_ref":"permiso:cronos:solicitud:local-000001","permiso_ref":"permiso:cronos:traslado","nombre":"","desde":"2026-09-22","hasta":"2026-09-23","cantidad":2,"unidad":"dia","pendiente_justificar":true}],"correcciones":[{"solicitud_ref":"correccion:cronos:local-000001","fecha_civil":"2026-09-24","hora_pretendida":"08:00","movimiento":"entrada","estado":"pendiente_responsable","version":1,"solicitada_en":"2026-09-25T07:00:00Z"}]},
+  "bandeja": {"paso":"responsable","pendientes":[{"solicitud_ref":"permiso:cronos:solicitud:local-000002","empleado_ref":"emp_AAAAAAAAAAAAAAAAAAAAAA","empleado_etiqueta":"","permiso_ref":"permiso:cronos:vacaciones","nombre":"","circuito":"J-A","pendiente_asignacion":false,"justificante_exigido":false,"desde":"2026-10-05","hasta":"2026-10-07","cantidad":3,"unidad":"dia","estado":"solicitado","version":1,"solicitada_en":"2026-09-24T08:00:00Z"}]}
+}

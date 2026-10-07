@@ -229,6 +229,8 @@ type ReciboFirmaDocumento struct {
 
 // FirmaRegistrada es una fila de la historia de un expediente.
 type FirmaRegistrada struct {
+	// Via distingue la procedencia de CT170; vacío indica una fila legada.
+	Via               string
 	FirmaRef          string
 	ReciboRef         string
 	Documento         string
@@ -243,13 +245,23 @@ type FirmaRegistrada struct {
 	// se devuelve en la lectura de la historia.
 	ConMotivoDevolucion bool
 	OriginalHuella      string
+	OriginalRef         string
+	OriginalVersion     uint64
 	FirmadoHuella       string
 	CertificadoHuella   string
 	FirmanteRef         string
-	SelloTiempoEstado   string
-	ActorRef            string
-	PerfilRef           string
-	RegistradaEn        time.Time
+	// CT170 acredita internamente la identidad, pero AD159 solo devuelve el
+	// indicador. Las filas CT118 legadas no acreditan un hito R5.
+	FirmantePrincipalAcreditado    bool
+	CoincideFirmanteCandidato      bool
+	HistoriaRevision               uint64
+	HistoriaHuella                 string
+	SelloTiempoEstado              string
+	ReferenciaPortafirmasDeclarada string
+	FechaPortafirmasDeclarada      string
+	ActorRef                       string
+	PerfilRef                      string
+	RegistradaEn                   time.Time
 	// ClaveIdempotencia es la de la operación que registró la fila: permite
 	// reconocer el reintento de una firma ya registrada.
 	ClaveIdempotencia string

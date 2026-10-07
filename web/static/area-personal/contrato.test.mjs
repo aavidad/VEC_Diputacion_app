@@ -10,7 +10,6 @@ import {
   validarDatosAreaPersonal,
   validarRespuestaMiBolsa,
   validarPayloadCambiarDisponibilidad,
-  validarRecibo,
 } from "./contrato.js";
 
 // Doble mínimo del panel del área personal con todos los campos obligatorios
@@ -29,21 +28,6 @@ function panelPrueba() {
   };
 }
 
-function reciboPrueba(campos = {}) {
-  return {
-    esquema: "vec.bolsa.area-personal.recibo.v1",
-    presentacion: false,
-    referencia: "REC-PRUEBA-0001",
-    accion: "guardar_borrador",
-    objetivo: "persona:prueba:0001",
-    resultado: "Borrador guardado",
-    actor: "persona:prueba:0001",
-    fecha: "2026-07-18T09:00:00Z",
-    advertencia: "Conserve este recibo para futuras comprobaciones.",
-    ...campos,
-  };
-}
-
 test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua", () => {
   const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000Z", participaciones: [
     { bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000Z", vigente_hasta: null },
@@ -55,6 +39,8 @@ test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua",
   assert.throws(() => validarRespuestaMiBolsa(base), /situación actual/u);
   base.data.participaciones[0].situacion_actual.estado = "disponible";
   assert.throws(() => validarRespuestaMiBolsa(base), /fecha de disponibilidad/u);
+  base.data.participaciones[0].situacion_actual = { estado: "en_revision", desde: "2026-09-21T10:00:00.000Z", hasta: null, fecha_disponible: null };
+  assert.equal(validarRespuestaMiBolsa(base).participaciones[0].situacion_actual.estado, "en_revision");
 });
 
 test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {
@@ -83,13 +69,6 @@ test("un panel que no declara presentacion false no pasa por el contrato", () =>
     datos.meta.presentacion = valor;
     assert.throws(() => validarDatosAreaPersonal(datos), /meta\.presentacion|origen no corresponde/u);
   }
-});
-
-test("el recibo solo admite el esquema productivo sin modo de presentación", () => {
-  assert.equal(validarRecibo(reciboPrueba()).presentacion, false);
-  assert.throws(() => validarRecibo(reciboPrueba({ esquema: "vec.bolsa.area-personal.recibo-demo.v1" })), /esquema del recibo no es compatible/u);
-  assert.throws(() => validarRecibo(reciboPrueba({ presentacion: true })), /no corresponde al modo activo/u);
-  assert.equal(CONTRATO_AREA_PERSONAL.esquemaReciboPresentacion, undefined);
 });
 
 test("el contrato valida los campos ampliados de disponibilidad (B11)", () => {
@@ -147,25 +126,6 @@ test("el contrato valida la sección Mi posición (B11)", () => {
   assert.throws(
     () => validarDatosAreaPersonal(invalido),
     /posicion\.orden debe ser un número/u,
-  );
-});
-
-test("el recibo de cambiar_disponibilidad devuelve estado_clave y disponible_desde (B8)", () => {
-  const reciboValido = reciboPrueba({
-    accion: "cambiar_disponibilidad",
-    resultado: "Disponibilidad actualizada",
-    estado_clave: "no_disponible",
-    disponible_desde: "2026-11-01",
-  });
-  const validado = validarRecibo(reciboValido);
-  assert.equal(validado.estado_clave, "no_disponible");
-  assert.equal(validado.disponible_desde, "2026-11-01");
-
-  const reciboInvalido = structuredClone(reciboValido);
-  reciboInvalido.estado_clave = "estado_inexistente";
-  assert.throws(
-    () => validarRecibo(reciboInvalido),
-    /estado_clave no reconocido en el catálogo/u,
   );
 });
 

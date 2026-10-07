@@ -1,0 +1,485 @@
+{
+  "sintetico": true,
+  "idioma": "es",
+  "formato": "json",
+  "esquema": "vec.personal.comparacion-organizacion.paginas-sinteticas.v1",
+  "antes_paginas": [
+    {
+      "instantanea": {
+        "unidades": [
+          {
+            "traza": {
+              "id": "unidad:cultura",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "catalogo_id": "estructura-organizativa-dipgra",
+            "catalogo_version": 1,
+            "catalogo_revision": 1,
+            "clave_catalogo": "centro:cultura",
+            "tipo": "centro",
+            "etiqueta": "Servicio de Cultura"
+          }
+        ],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": ""
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": "pagina_1"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [
+          {
+            "traza": {
+              "id": "tipo:administrativo",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_rpt_ref": "rpt:2024",
+            "codigo_fuente": "ADM-01",
+            "unidad_id": "unidad:cultura",
+            "denominacion": "Administrativo de Cultura",
+            "clasificacion_ref": "clasificacion:c1"
+          }
+        ],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": "pagina_1"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": "pagina_2"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [
+          {
+            "traza": {
+              "id": "dotacion:administrativo",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_rpt_ref": "rpt:2024",
+            "puesto_tipo_id": "tipo:administrativo",
+            "cantidad": 2
+          }
+        ],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": "pagina_2"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": "pagina_3"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [
+          {
+            "traza": {
+              "id": "plaza:cultura",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_plantilla_ref": "plantilla:2024",
+            "codigo_fuente": "PL-01",
+            "clasificacion_ref": "clasificacion:c1",
+            "unidad_id": "unidad:cultura",
+            "estado_estructural": "vigente"
+          }
+        ],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": "pagina_3"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": "pagina_4"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [
+          {
+            "traza": {
+              "id": "puesto:administrativo",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_rpt_ref": "rpt:2024",
+            "codigo_fuente": "PU-01",
+            "puesto_tipo_id": "tipo:administrativo",
+            "unidad_id": "unidad:cultura",
+            "estado_estructural": "vigente"
+          }
+        ],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": "pagina_4"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": "pagina_5"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [
+          {
+            "traza": {
+              "id": "vinculo:cultura",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "plaza_id": "plaza:cultura",
+            "puesto_id": "puesto:administrativo"
+          }
+        ],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2024-12-31",
+          "conocido_en": "2024-12-31T12:00:00Z",
+          "version_rpt_ref": "rpt:2024",
+          "version_plantilla_ref": "plantilla:2024",
+          "limite": 100,
+          "cursor": "pagina_5"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "cursor_siguiente": ""
+    }
+  ],
+  "despues_paginas": [
+    {
+      "instantanea": {
+        "unidades": [
+          {
+            "traza": {
+              "id": "unidad:cultura",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "catalogo_id": "estructura-organizativa-dipgra",
+            "catalogo_version": 1,
+            "catalogo_revision": 1,
+            "clave_catalogo": "centro:cultura",
+            "tipo": "centro",
+            "etiqueta": "Servicio de Cultura"
+          }
+        ],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2026-09-30",
+          "conocido_en": "2026-09-30T12:00:00Z",
+          "version_rpt_ref": "rpt:2026",
+          "version_plantilla_ref": "plantilla:2026",
+          "limite": 100,
+          "cursor": ""
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2026",
+      "version_plantilla_ref": "plantilla:2026",
+      "cursor_siguiente": "pagina_1"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [
+          {
+            "traza": {
+              "id": "tipo:administrativo",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_rpt_ref": "rpt:2026",
+            "codigo_fuente": "ADM-01",
+            "unidad_id": "unidad:cultura",
+            "denominacion": "Administrativo de Cultura",
+            "clasificacion_ref": "clasificacion:c1"
+          }
+        ],
+        "dotaciones": [],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2026-09-30",
+          "conocido_en": "2026-09-30T12:00:00Z",
+          "version_rpt_ref": "rpt:2026",
+          "version_plantilla_ref": "plantilla:2026",
+          "limite": 100,
+          "cursor": "pagina_1"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2026",
+      "version_plantilla_ref": "plantilla:2026",
+      "cursor_siguiente": "pagina_2"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [
+          {
+            "traza": {
+              "id": "dotacion:administrativo",
+              "version": 1,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_rpt_ref": "rpt:2026",
+            "puesto_tipo_id": "tipo:administrativo",
+            "cantidad": 1
+          }
+        ],
+        "plazas": [],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2026-09-30",
+          "conocido_en": "2026-09-30T12:00:00Z",
+          "version_rpt_ref": "rpt:2026",
+          "version_plantilla_ref": "plantilla:2026",
+          "limite": 100,
+          "cursor": "pagina_2"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2026",
+      "version_plantilla_ref": "plantilla:2026",
+      "cursor_siguiente": "pagina_3"
+    },
+    {
+      "instantanea": {
+        "unidades": [],
+        "puestos_tipo": [],
+        "dotaciones": [],
+        "plazas": [
+          {
+            "traza": {
+              "id": "plaza:cultura",
+              "version": 2,
+              "fuente_ref": "fuente:rpt_sintetica",
+              "acto_ref": "acto:preparacion_sintetica",
+              "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "efectos_desde": "2024-01-01",
+              "conocido_desde": "2024-01-01T00:00:00Z"
+            },
+            "version_plantilla_ref": "plantilla:2026",
+            "codigo_fuente": "PL-01",
+            "clasificacion_ref": "clasificacion:c1",
+            "unidad_id": "unidad:cultura",
+            "estado_estructural": "amortizada"
+          }
+        ],
+        "puestos_individuales": [],
+        "vinculos": [],
+        "selector": {
+          "organismo_ref": "organismo:dipgra",
+          "unidad_clave": "",
+          "vigente_en": "2026-09-30",
+          "conocido_en": "2026-09-30T12:00:00Z",
+          "version_rpt_ref": "rpt:2026",
+          "version_plantilla_ref": "plantilla:2026",
+          "limite": 100,
+          "cursor": "pagina_3"
+        },
+        "cobertura": {
+          "unidades": "completa",
+          "puestos_tipo": "completa",
+          "dotaciones": "completa",
+          "plazas": "completa",
+          "puestos_individuales": "completa",
+          "vinculos": "completa"
+        }
+      },
+      "version_rpt_ref": "rpt:2026",
+      "version_plantilla_ref": "plantilla:2026",
+      "cursor_siguiente": ""
+    }
+  ]
+}

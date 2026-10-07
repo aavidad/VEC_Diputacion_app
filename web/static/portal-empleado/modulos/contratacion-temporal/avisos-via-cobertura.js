@@ -31,6 +31,8 @@ function detalleAviso(aviso, t, formateadorFechas) {
     })];
     if (aviso.excede_duracion) {
       lineas.push(t("avisos_via_propuesta_oferta_sae_excede", { fin_previsto: fecha(aviso.fin_previsto) }));
+    } else if (!Object.hasOwn(aviso, "fin_previsto")) {
+      lineas.push(t("avisos_via_propuesta_oferta_sae_sin_fin"));
     }
     return lineas;
   }

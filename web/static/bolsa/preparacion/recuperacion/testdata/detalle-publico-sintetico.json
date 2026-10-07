@@ -1,0 +1,96 @@
+{
+  "esquema": "vec.bolsa.publico.convocatoria.v2",
+  "fuente": {
+    "revision": "fixture-sintetica",
+    "actualizada_en": "2026-10-01T10:00:00Z",
+    "demostracion": false
+  },
+  "convocatoria": {
+    "identificador_publico": "auxiliares-ejemplo",
+    "version": "v2",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "titulo": "<img src=x onerror=alert(1)> Propuesta sintética",
+    "resumen": "Resumen sintético",
+    "publicada_en": "2026-10-01T10:00:00Z",
+    "tipo": {
+      "clave": "bolsa",
+      "version": 1,
+      "etiqueta": "Ejemplo sintético",
+      "semantica": "informacion"
+    },
+    "estado": {
+      "clave": "bolsa",
+      "version": 1,
+      "etiqueta": "Ejemplo sintético",
+      "semantica": "informacion"
+    },
+    "categorias": [
+      {
+        "clave": "auxiliares",
+        "version": 1
+      }
+    ],
+    "catalogo_categorias": {
+      "catalogo_id": "categorias",
+      "version": 1,
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "numero_requisitos": 1,
+    "numero_documentos": 1,
+    "numero_ayudas": 0
+  },
+  "diccionario_categorias": [
+    {
+      "clave": "auxiliares",
+      "version": 1,
+      "etiqueta": "Auxiliares",
+      "semantica": "informacion",
+      "catalogo_categorias": {
+        "catalogo_id": "categorias",
+        "version": 1,
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ],
+  "descripcion": "Información sintética.",
+  "requisitos": [
+    {
+      "titulo": "Requisito de ejemplo",
+      "descripcion": "Dato del archivo, pendiente de fuente.",
+      "obligatorio": true
+    }
+  ],
+  "plazos": [
+    {
+      "titulo": "Periodo de ejemplo",
+      "tipo": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Ejemplo sintético",
+        "semantica": "informacion"
+      },
+      "abre_en": "2026-10-01T10:00:00Z",
+      "cierra_en": "2026-11-01T10:00:00Z",
+      "etiqueta_situacion": "Etiqueta aportada sin cotejo",
+      "semantica_situacion": "informacion",
+      "descripcion": "Fecha propuesta."
+    }
+  ],
+  "documentos": [
+    {
+      "titulo": "Bases de ejemplo",
+      "descripcion": "Documento público propuesto",
+      "formato": "pdf",
+      "tipo": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Ejemplo sintético",
+        "semantica": "informacion"
+      },
+      "url": "/bolsa/documentos/ejemplo-sintetico-bases.pdf"
+    }
+  ],
+  "ayuda": []
+}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -68,6 +69,13 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
+	descriptores = append(descriptores, fronteraContratacionTemporalDesarrollo(
+		"ct-circuito-rrhh-consultar", postgresct.AccionConsultaCircuitoRRHH,
+		httpinterno.RutaConsultaCircuitoRRHH, []string{perfil}))
+	for _, descriptor := range descriptoresFronterasIncorporacionB2Desarrollo() {
+		descriptor.PerfilesActivosRef = []string{perfil}
+		descriptores = append(descriptores, descriptor)
+	}
 	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(descriptores)
 	if err != nil {
 		t.Fatalf("catálogo real de descriptores CT: %v", err)
@@ -93,6 +101,75 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	rutas = append(rutas, rutaCoberturaCTPrueba("/api/vec/bolsa/avisos"))
 	if err := validarCoberturaRutasCTDesarrollo(rutas, catalogo); err != nil {
 		t.Fatalf("rutas conocidas con fronteras presentes: %v", err)
+	}
+}
+
+func TestCoberturaRutasIncorporacionB2ExigeCadaFrontera(t *testing.T) {
+	descriptores := descriptoresFronterasIncorporacionB2Desarrollo()
+	for i := range descriptores {
+		descriptores[i].PerfilesActivosRef = []string{"prf_cobertura_b2"}
+	}
+	rutas := []vechttp.RutaExacta{rutaCoberturaCTPrueba(httpinterno.RutaPlanB2), rutaCoberturaCTPrueba(httpinterno.RutaConfirmacionB2)}
+	for _, ausente := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}} {
+		filtrados := make([]descriptorFronteraComunDesarrollo, 0, len(descriptores)-1)
+		for _, d := range descriptores {
+			if d.Metodo != ausente.metodo || d.Ruta != ausente.ruta {
+				filtrados = append(filtrados, d)
+			}
+		}
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(filtrados)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validarCoberturaRutasCTDesarrollo(rutas, catalogo); !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+			t.Fatalf("falta %s %s: %v", ausente.metodo, ausente.ruta, err)
+		}
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(descriptores)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validarCoberturaRutasCTDesarrollo(rutas, catalogo); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFronterasIncorporacionB2SoloPerfilesNominalesYAccionesExactas(t *testing.T) {
+	descriptores := descriptoresFronterasIncorporacionB2Desarrollo()
+	esperadas := []struct{ metodo, ruta, accion string }{
+		{http.MethodGet, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.consultar"},
+		{http.MethodPost, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.registrar"},
+		{http.MethodPost, httpinterno.RutaConfirmacionB2, "contratacion_temporal.incorporacion_personal.origen.confirmar"},
+	}
+	if len(descriptores) != len(esperadas) {
+		t.Fatalf("fronteras B2: %d", len(descriptores))
+	}
+	for i, d := range descriptores {
+		if d.Metodo != esperadas[i].metodo || d.Ruta != esperadas[i].ruta || d.ClaveCapacidad != esperadas[i].accion || len(d.PerfilesActivosRef) != 0 {
+			t.Fatalf("frontera B2 abierta o incorrecta: %+v", d)
+		}
+	}
+}
+
+func TestFronterasIncorporacionB2AsignanPerfilesAntesDelCatalogo(t *testing.T) {
+	autoridad, _, _, _ := escenarioPermisoIncorporacionPrueba(t)
+	soporte := autoridad.soporte
+	base := soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	declaraciones := descriptoresFronterasContratacionTemporalDesarrollo(base, []string{base})
+	declaraciones = append(declaraciones, descriptoresFronterasIncorporacionB2Desarrollo()...)
+	asignadas, err := asignarPerfilesNominalesB2EnFronteras(soporte, declaraciones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(asignadas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, par := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}} {
+		d, ok := catalogo.resolver(par.metodo, par.ruta)
+		if !ok || d.admitePerfil(base) || len(d.PerfilesActivosRef) != len(gruposPerfilesIncorporacionB2()) {
+			t.Fatalf("frontera B2 sin perfiles nominales cerrados: %s %s", par.metodo, par.ruta)
+		}
 	}
 }
 

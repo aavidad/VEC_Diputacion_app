@@ -1,0 +1,11 @@
+{
+ "demo": true,
+ "nombre": "Carmen Molina Ortega",
+ "saldo": {
+  "EmpleadoRef": "emp_sintetico_carmen",
+  "Periodo": {"tipo": "rango", "desde": "2026-09-21", "hasta": "2026-09-25"},
+  "Resumen": {"previstos_minutos": 2250, "trabajados_minutos": 2220, "saldo_minutos": -30, "estado": "disponible"},
+  "FuenteRef": "fuente_sintetica_saldo",
+  "FuenteVersion": 1
+ }
+}

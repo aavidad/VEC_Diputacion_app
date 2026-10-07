@@ -1,0 +1,5 @@
+{
+  "directorio": "/srv/vec-control-sintetico",
+  "raices_restauradas": ["/srv/vec-restaurado-sintetico"],
+  "limite_listado": 25
+}

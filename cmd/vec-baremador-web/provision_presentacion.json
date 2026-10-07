@@ -1,0 +1,10 @@
+{
+  "ejemplo_ref": "provision_proceso_sintetico_v1",
+  "proyeccion": {
+    "denominacion_clave": "ejemplo.proceso",
+    "puestos": {
+      "puesto:sintetico:1": {"denominacion_clave": "ejemplo.puesto_1", "centro_clave": "ejemplo.centro_1"},
+      "puesto:sintetico:2": {"denominacion_clave": "ejemplo.puesto_2", "centro_clave": "ejemplo.centro_2"}
+    }
+  }
+}

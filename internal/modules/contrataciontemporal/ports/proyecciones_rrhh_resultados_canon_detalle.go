@@ -11,7 +11,20 @@ const (
 	DominioCanonContenidoDetalleRRHH    = "vec.contratacion_temporal.resultado_rrhh.contenido_detalle.v1"
 	cabeceraCanonContenidoDetalleRRHHV2 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
 	cabeceraCanonContenidoDetalleRRHHV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
+	cabeceraCanonContenidoDetalleRRHHV4 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V4\n"
 )
+
+func (c *constructorCanonResultadoRRHH) periodoFin(fin time.Time, causa domain.ClaveCatalogo) {
+	if !c.periodoV4 {
+		c.instante(fin)
+		return
+	}
+	if fin.IsZero() {
+		c.texto("causa:" + string(causa))
+	} else {
+		c.texto("fecha:" + fin.Format(formatoInstanteCanonicoRRHH))
+	}
+}
 
 // ExportacionCanonicaContenidoDetalleRRHH conserva el detalle reducido antes
 // de registrar la lectura. Se construye desde la misma entrada nominal opaca
@@ -49,6 +62,10 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 	cabecera := cabeceraCanonContenidoDetalleRRHHV2
 	if e.canonV3 {
 		cabecera = cabeceraCanonContenidoDetalleRRHHV3
+		if detalle.Solicitud.PeriodoCausaFin != "" ||
+			(detalle.Analisis != nil && detalle.Analisis.PeriodoCausaFin != "") {
+			cabecera = cabeceraCanonContenidoDetalleRRHHV4
+		}
 	}
 	constructor := nuevoConstructorCanonResultadoRRHH(cabecera)
 	constructor.resumen(detalle.Resumen)
@@ -136,7 +153,7 @@ func (c *constructorCanonResultadoRRHH) solicitud(
 	c.texto(s.GrupoSubgrupo)
 	c.texto(string(s.MotivoClave))
 	c.instante(s.PeriodoInicio)
-	c.instante(s.PeriodoFin)
+	c.periodoFin(s.PeriodoFin, s.PeriodoCausaFin)
 }
 
 func (c *constructorCanonResultadoRRHH) bloqueAnalisis(
@@ -152,7 +169,7 @@ func (c *constructorCanonResultadoRRHH) bloqueAnalisis(
 	c.texto(a.CategoriaRef)
 	c.texto(string(a.CausaClave))
 	c.instante(a.PeriodoInicio)
-	c.instante(a.PeriodoFin)
+	c.periodoFin(a.PeriodoFin, a.PeriodoCausaFin)
 	c.enteroSinSigno(uint64(a.PorcentajeJornada))
 	c.texto(string(a.ResultadoRC))
 	c.booleano(a.CostePrevisto != nil)

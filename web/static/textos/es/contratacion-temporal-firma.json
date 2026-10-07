@@ -12,7 +12,16 @@
     "fecha_desconocida": "Fecha no disponible",
     "estado_no_disponible_aviso": "Ahora no se puede saber en qué estado está cada firma. Se muestra quién firma primero según el circuito. Vuelva a entrar más tarde.",
     "devuelto_por": "Devuelto por",
-    "devuelto_motivo": "{cargo}: {motivo}"
+    "devuelto_motivo": "{cargo}: {motivo}",
+    "descargar_firmado": "Descargar PDF firmado",
+    "descargar_firmado_de": "Descargar PDF firmado: {documento}",
+    "firmado_prueba": "Firma de prueba, sin validez oficial hasta Firmadoc.",
+    "firmado_paso": "Firma del paso {actual} de {total}.",
+    "descargando": "Descargando el PDF firmado…",
+    "descargado": "PDF firmado descargado: {documento}.",
+    "descargado_sin_nombre": "PDF firmado descargado.",
+    "descarga_denegada": "No tiene permiso para descargar este PDF firmado. Si lo necesita, pídalo a quien gestiona el expediente.",
+    "descarga_error": "No se ha podido descargar el PDF firmado. Vuelva a intentarlo; si sigue igual, avise a Informática."
   },
   "estado": {
     "borrador": "Borrador sin firmar",

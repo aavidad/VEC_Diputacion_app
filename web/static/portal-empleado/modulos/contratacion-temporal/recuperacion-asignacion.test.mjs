@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 function estado(version = 7) {
   return {
@@ -70,4 +70,17 @@ test("no ofrece asignación durante carga, fuera de fase o con operación cerrad
   assert.doesNotMatch(renderizarModuloContratacionTemporal(e, {asignacionDisponible:true}), /data-ct-exp-asignacion/);
  }
  assert.doesNotMatch(renderizarModuloContratacionTemporal(estado(),{asignacionDisponible:false}), /data-ct-exp-asignacion/);
+});
+
+test("reconoce la asignación cuando la cabecera muestra el nombre de la unidad", () => {
+  // Desde que el adaptador traduce la unidad, la cabecera trae «Recursos
+  // Humanos» y no la referencia. El informe jurídico debe abrirse igual.
+  const confirmado = estado(8);
+  confirmado.expediente.cabecera = [{ clave: "unidad", valor: "Recursos Humanos" }];
+  const html = renderizarModuloContratacionTemporal(confirmado, {
+    asignacionDisponible: true,
+    informeJuridicoDisponible: true,
+  });
+  assert.match(html, /data-ct-exp-informe-juridico/u);
+  assert.doesNotMatch(html, /data-ct-exp-asignacion(?:[\s>])/u);
 });

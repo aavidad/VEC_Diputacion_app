@@ -115,7 +115,16 @@ func (m MaterialPeticionCentro) Validar() error {
 }
 
 func (m MaterialPeticionCentro) MismaPeticion(actor domain.ActorPeticionCentro, s ComandoPeticionCentro) bool {
-	return m.Validar() == nil && s.Validar() == nil && m.Actor == actor && reflect.DeepEqual(m.Comando, s)
+	if m.Validar() != nil || s.Validar() != nil || m.Actor != actor {
+		return false
+	}
+	historico := m.Comando
+	if historico.Solicitud != nil {
+		copia := *historico.Solicitud
+		copia.Periodo.PoliticaFin = domain.PoliticaFin{}
+		historico.Solicitud = &copia
+	}
+	return reflect.DeepEqual(historico, s)
 }
 
 type ReciboPeticionCentro struct {

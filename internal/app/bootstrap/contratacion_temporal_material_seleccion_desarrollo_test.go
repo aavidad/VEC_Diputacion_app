@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/config"
+	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 )
 
 // seleccionMaterialCTCompletaDesarrollo enciende todos los consumidores.
@@ -14,8 +17,8 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 	return seleccionMaterialCTDesarrollo{
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
-		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
-		incorporacionAcreditada: true, reincorporacionTitular: true, politicaOfertas: true,
+		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, historiaRelacionesPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
+		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
 		plantillasCatalogo: true, plantillasDocumental: true,
 	}
 }
@@ -41,6 +44,45 @@ func TestAudienciasSeleccionCompletaPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatal("la selección completa colisiona en el catálogo común", err)
+	}
+}
+
+func TestIncorporacionB2SeleccionaNueveAudienciasNominales(t *testing.T) {
+	esperadas := map[string]bool{
+		bolsa.AudienciaConsultaAnclajeAceptacionCT:       true,
+		personal.AudienciaPlanIncorporacionCT:            true,
+		ct.AudienciaRegistrarPlanNominalB2:               true,
+		ct.AudienciaLeerPlanNominalB2:                    true,
+		ct.AudienciaConfirmarOrigenB2:                    true,
+		bolsa.AudienciaConsultaPersonaAceptacionCT:       true,
+		ct.AudienciaConsultarVinculoCategoriaRPT:         true,
+		ct.AudienciaConsultarPublicacionCategoriaRPT:     true,
+		"vec_catalogos_configurables.usos_categorias.v1": true,
+	}
+	nuevas := descriptoresMaterialIncorporacionB2()
+	if len(nuevas) != len(esperadas) {
+		t.Fatalf("audiencias B2: %d", len(nuevas))
+	}
+	for _, d := range nuevas {
+		if !esperadas[d.Audiencia] || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia B2 inesperada o no gobernada: %s", d.Audiencia)
+		}
+		delete(esperadas, d.Audiencia)
+	}
+	if len(esperadas) != 0 || audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia("vec_contratacion_temporal.incorporacion_personal.ajena.v1") {
+		t.Fatal("lista de audiencias B2 abierta o incompleta")
+	}
+	apagada := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{})
+	encendida := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{incorporacionB2: true})
+	if len(encendida) != len(apagada)+len(nuevas) {
+		t.Fatal("el selector B2 no añade exactamente nueve audiencias")
+	}
+	for _, d := range nuevas {
+		for _, anterior := range apagada {
+			if anterior.Audiencia == d.Audiencia {
+				t.Fatalf("B2 publicado con selector apagado: %s", d.Audiencia)
+			}
+		}
 	}
 }
 
@@ -188,7 +230,7 @@ func TestPortalCandidatoPedidoSinSusRequisitosDetieneElArranque(t *testing.T) {
 }
 
 func TestDiagnosticoMigracionesPortalCandidato(t *testing.T) {
-	completo := estadoMigracionesPortalCandidato{ad384: true, ad386: true, bolsa29: true, bolsa30: true, bolsa40: true}
+	completo := estadoMigracionesPortalCandidato{ad384: true, ad386: true, bolsa29: true, bolsa30: true, bolsa40: true, bolsa77: true}
 	if err := completo.diagnostico(); err != nil {
 		t.Fatal(err)
 	}
@@ -201,6 +243,7 @@ func TestDiagnosticoMigracionesPortalCandidato(t *testing.T) {
 		{func(e *estadoMigracionesPortalCandidato) { e.bolsa30 = false }, ErrPortalCandidatoFaltaBolsa30},
 		{func(e *estadoMigracionesPortalCandidato) { e.ad386 = false }, ErrPortalCandidatoFaltaAD386},
 		{func(e *estadoMigracionesPortalCandidato) { e.bolsa40 = false }, ErrPortalCandidatoFaltaBolsa40},
+		{func(e *estadoMigracionesPortalCandidato) { e.bolsa77 = false }, ErrPortalCandidatoFaltaBolsa77},
 	}
 	for _, c := range casos {
 		e := completo

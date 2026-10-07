@@ -13,12 +13,12 @@ import {
   validarComandoAlta,
   validarReciboAlta,
 } from "./contrato.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
 import {
   montarAltaContratacionTemporal,
   renderizarAltaContratacionTemporal,
-} from "./vista.js";
+} from "./vista.js?v=20261001-ct-a-i18n-v1";
 
 const directorio = new URL("./", import.meta.url);
 const [contratoFuente, vistaFuente] = await Promise.all([
@@ -31,6 +31,7 @@ const CLAVE_PRUEBA = "12345678-1234-4abc-8def-1234567890ab";
 function catalogosPrueba() {
   return {
     esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+    numero_expediente_moad: { referencia: "catalogo:numero:moad", version: 1, patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/12345" },
     centros: [{
       referencia: "cen_sintetico_001",
       etiqueta: "Centro sintético",
@@ -54,7 +55,8 @@ function catalogosPrueba() {
 
 function borradorValido(cambios = {}) {
   return {
-    ...crearBorradorAlta(),
+    ...crearBorradorAlta({ conNumeroMOAD: true }),
+    numero_expediente_moad: "2026/12345",
     centro_ref: "cen_sintetico_001",
     contacto_ref: "con_sintetico_001",
     categoria_ref: "cat_sintetica_001",
@@ -77,13 +79,33 @@ function borradorValido(cambios = {}) {
 function reciboValido(cambios = {}) {
   return {
     expediente_ref: "exp_sintetico_001",
-    numero_visible: "2026/CT-0001",
+    numero_visible: "2026/12345",
     version: 1,
     recibo_ref: "rec_sintetico_001",
     confirmada_en: "2026-07-23T09:15:00Z",
     ...cambios,
   };
 }
+
+test("la modalidad catalogada permite fin vacío con causa y rechaza fechas indebidas", () => {
+  const catalogos = catalogosPrueba();
+  catalogos.motivos[0] = { ...catalogos.motivos[0],
+    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular",
+    regla_ref: "regla:ct:fin:001", catalogo_version: 2,
+    catalogo_huella_sha256: "a".repeat(64) };
+  const sinFecha = borradorValido({ fin: "" });
+  assert.equal(validarBorradorAlta(sinFecha, catalogos).valido, true);
+  const comando = crearComandoAlta(sinFecha, catalogos, CLAVE_PRUEBA);
+  assert.deepEqual(comando.solicitud.periodo, {
+    inicio: "2026-08-01T00:00:00Z", causa_fin: "reincorporacion_titular",
+  });
+  assert.equal(Object.hasOwn(comando.solicitud.periodo, "regla_ref"), false);
+  assert.equal(validarBorradorAlta(borradorValido(), catalogos).valido, false);
+  catalogos.motivos[0].fecha_fin = "opcional";
+  assert.equal(validarBorradorAlta(borradorValido(), catalogos).valido, true);
+  catalogos.motivos[0].causa_fin = undefined;
+  assert.throws(() => validarCatalogosAlta(catalogos), TypeError);
+});
 
 function crearPresentador({
   catalogos = catalogosPrueba(),
@@ -313,7 +335,7 @@ test("el periodo y la RC respetan los límites exactos de la frontera interna", 
 test("el comando replica el dominio, usa céntimos y aplica copia defensiva", () => {
   const borrador = borradorValido();
   const comando = crearComandoAlta(borrador, catalogosPrueba(), CLAVE_PRUEBA);
-  assert.deepEqual(Object.keys(comando), ["clave_idempotencia", "solicitud"]);
+  assert.deepEqual(Object.keys(comando), ["clave_idempotencia", "solicitud", "numero_expediente_moad"]);
   assert.deepEqual(Object.keys(comando.solicitud), [
     "centro_ref",
     "contacto_ref",
@@ -400,7 +422,7 @@ test("el presentador envía una vez, no expone la clave y acepta solo un recibo 
   const recibo = await presentador.enviar();
   assert.equal(comandos.length, 1);
   assert.equal(comandos[0].clave_idempotencia, CLAVE_PRUEBA);
-  assert.equal(recibo.numero_visible, "2026/CT-0001");
+  assert.equal(recibo.numero_visible, "2026/12345");
   assert.equal(presentador.obtenerEstado().fase, "recibo");
 });
 
@@ -577,7 +599,8 @@ test("el presentador limpia relaciones dependientes fuera de la vista", () => {
   });
   const presentador = crearPresentador({ catalogos });
   presentador.actualizarBorrador({
-    ...crearBorradorAlta(),
+    ...crearBorradorAlta({ conNumeroMOAD: true }),
+    numero_expediente_moad: "2026/12345",
     centro_ref: "cen_sintetico_001",
     categoria_ref: "cat_sintetica_001",
   });
@@ -601,7 +624,7 @@ test("un recibo adulterado o incompleto no produce un falso éxito", async () =>
   for (const respuesta of [
     { ...reciboValido(), decision: "concedida" },
     { ...reciboValido(), expediente_ref: "x" },
-    { numero_visible: "2026/CT-0001" },
+    { numero_visible: "2026/12345" },
   ]) {
     const presentador = crearPresentador({ ejecutor: async () => respuesta });
     presentador.prepararRevision(borradorValido());
@@ -687,7 +710,7 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   assert.match(revision, /id="ct-revision-titulo" tabindex="-1"/);
 
   const conErrores = crearPresentador();
-  assert.equal(conErrores.prepararRevision(crearBorradorAlta()), false);
+  assert.equal(conErrores.prepararRevision(crearBorradorAlta({ conNumeroMOAD: true })), false);
   const htmlErrores = renderizarAltaContratacionTemporal(conErrores.obtenerEstado());
   assert.match(htmlErrores, /role="alert"[^>]+aria-live="assertive"/);
   assert.match(htmlErrores, /aria-invalid="true"/);
@@ -726,7 +749,7 @@ test("el montaje conserva foco, usa controles nativos y no repinta tras desmonta
     presentador,
     anunciar: (...argumentos) => anuncios.push(argumentos),
   });
-  assert.deepEqual([...escuchas.keys()].sort(), ["change", "click", "input", "submit"]);
+  assert.deepEqual([...escuchas.keys()].sort(), ["change", "click", "focusout", "input", "submit"]);
   assert.doesNotMatch(raiz.innerHTML, /tabindex="[1-9]|onkeydown=|onkeypress=/);
 
   const pulsacion = escuchas.get("click")(eventoAccion("confirmar"));
@@ -777,4 +800,51 @@ test("la revisión localiza fechas civiles e importe sin alterar el DTO", () => 
   const comando = crearComandoAlta(borradorValido(), catalogosPrueba(), CLAVE_PRUEBA);
   assert.equal(comando.solicitud.periodo.inicio, "2026-08-01T00:00:00Z");
   assert.equal(comando.solicitud.rc.importe.centimos, 3_245_000);
+});
+
+
+test("MOAD es obligatorio en RRHH, se conserva íntegro y el catálogo no ejecuta reglas de negocio", () => {
+  const catalogos = catalogosPrueba();
+  for (const numero of ["", " 2026/12345", "2026/12345 ", "2026/12\n345", "x".repeat(46)]) {
+    assert.throws(() => crearComandoAlta(borradorValido({ numero_expediente_moad: numero }), catalogos, CLAVE_PRUEBA));
+  }
+  const comando = crearComandoAlta(borradorValido(), catalogos, CLAVE_PRUEBA);
+  assert.equal(comando.numero_expediente_moad, "2026/12345");
+  const { numero_expediente_moad, ...sinNumero } = comando;
+  assert.throws(() => validarComandoAlta(sinNumero));
+  assert.throws(() => validarComandoAlta({ ...comando, solicitud: { ...comando.solicitud, numero_expediente_moad } }));
+  // Un patrón que JavaScript no entiende sigue siendo metadato: la decisión es del servidor.
+  catalogos.numero_expediente_moad.patron = "(?P<numero>[0-9]+)";
+  assert.doesNotThrow(() => validarCatalogosAlta(catalogos));
+  assert.doesNotThrow(() => crearComandoAlta(borradorValido({ numero_expediente_moad: "2026/OTRO" }), catalogos, CLAVE_PRUEBA));
+  assert.throws(() => validarCatalogosAlta({ ...catalogos, numero_expediente_moad: { ...catalogos.numero_expediente_moad, version: 0 } }));
+});
+
+test("cambiar sólo MOAD crea otra clave; respuesta con otro número no confirma el alta", async () => {
+  const claves = [CLAVE_PRUEBA, "87654321-4321-4abc-8def-1234567890ab"];
+  const comandos = [];
+  const presentador = crearPresentador({ claves, ejecutor: async (comando) => { comandos.push(comando); throw new Error(); } });
+  presentador.prepararRevision(borradorValido());
+  await presentador.enviar();
+  presentador.volverAEdicion();
+  presentador.prepararRevision(borradorValido({ numero_expediente_moad: "2026/98765" }));
+  await presentador.enviar();
+  assert.deepEqual(comandos.map((c) => c.clave_idempotencia), claves);
+  assert.equal(comandos[1].numero_expediente_moad, "2026/98765");
+  const cruzado = crearPresentador({ ejecutor: async () => reciboValido({ numero_visible: "2026/98765" }) });
+  cruzado.prepararRevision(borradorValido());
+  assert.equal(await cruzado.enviar(), null);
+  assert.equal(cruzado.obtenerEstado().mensaje_clave, "estado_recibo_invalido");
+  assert.equal(cruzado.obtenerEstado().recibo, null);
+});
+
+test("el campo MOAD y su revisión usan el ejemplo del catálogo, con escape", () => {
+  const presentador = crearPresentador();
+  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado());
+  assert.match(html, /label for="ct-numero_expediente_moad"/);
+  assert.match(html, /name="numero_expediente_moad"[^>]*required/);
+  assert.match(html, /placeholder="Ejemplo: 2026\/12345"/);
+  assert.doesNotMatch(html, /pattern=/);
+  presentador.prepararRevision(borradorValido());
+  assert.match(renderizarAltaContratacionTemporal(presentador.obtenerEstado()), /<dt>Número de expediente MOAD<\/dt><dd>2026\/12345<\/dd>/);
 });

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js";
-import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
@@ -224,7 +224,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
   assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
-  assert.match(llamamiento.innerHTML, /Datos del expediente fiscalizado/u);
+  assert.match(llamamiento.innerHTML, /Llamamiento de este expediente/u);
   assert.match(llamamiento.innerHTML, /value="6"/u);
   modulo.desmontar();
   assert.equal(llamamiento.eventos.size, 0);

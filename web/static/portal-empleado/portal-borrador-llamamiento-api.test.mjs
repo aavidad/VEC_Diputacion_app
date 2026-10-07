@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteBorradorLlamamiento, ErrorAPIBorradorLlamamiento, RUTA_BORRADORES_LLAMAMIENTO } from "./portal-borrador-llamamiento-api.js";
+import { crearClienteBorradorLlamamiento, ErrorAPIBorradorLlamamiento, RUTA_BORRADORES_LLAMAMIENTO } from "./portal-borrador-llamamiento-api.js?v=20261001-ct-a-i18n-v1";
 
 const ref = `borrador-llamamiento:alta:${"a".repeat(64)}`;
 const recibo = { data: { borrador_ref: ref, estado: "borrador_interno", version: "1", resumen: "Preparar cobertura interna", recibo_ref: `recibo:${"a".repeat(64)}`, registrado_en: "2026-09-21T10:30:00Z", reintento_idempotente: false } };

@@ -43,6 +43,11 @@ type SolicitudFirmaDocumento struct {
 	Resultado         domain.ResultadoFirmaDocumento
 	MotivoDevolucion  string
 	Original          []byte
+	// OriginalRef/OriginalVersion identifican el original que devuelve una
+	// fuente autorizada al componer la vía segura. Original queda solo como
+	// compatibilidad del ejercicio anterior.
+	OriginalRef       string
+	OriginalVersion   uint64
 	Firmado           []byte
 	ClaveIdempotencia string
 }
@@ -82,6 +87,7 @@ type ServicioFirmaDocumento struct {
 	registro    ports.RegistroFirmasDocumento
 	autorizador ports.AutorizadorFirmaDocumento
 	verificador docports.VerificadorFirmaMotivado
+	original    ports.FuenteOriginalFirmaAutorizado
 	// rondaPolitica y rondaFuente son nil salvo con catálogo que exige
 	// informe nuevo tras subsanar: entonces el documento que declara vuelve a
 	// firmarse desde el paso 1 con el informe nuevo.
@@ -92,6 +98,27 @@ type ServicioFirmaDocumento struct {
 	// firma, con el tipo documental del catálogo de conservación indicado.
 	custodio      ports.CustodioDocumentoFirmado
 	tiposCustodia map[string]string
+}
+
+// ComponerOriginalAutorizado habilita la obtención del original por referencia
+// y versión. Sin esta fuente, Firmar conserva únicamente el ejercicio legado;
+// FirmarConOriginalAutorizado y la vía externa permanecen cerrados.
+func (s *ServicioFirmaDocumento) ComponerOriginalAutorizado(f ports.FuenteOriginalFirmaAutorizado) error {
+	if s == nil || nula(f) || s.original != nil {
+		return ports.ErrFuenteOriginalFirmaNoDisponible
+	}
+	s.original = f
+	return nil
+}
+
+// FirmarConOriginalAutorizado conserva CT118 para pruebas con original de
+// fuente confiable. CT118 no incluye ref/version del original en su canon y
+// esta entrada no acredita un hito R5; ese avance usa ServicioFirmaVec.
+func (s *ServicioFirmaDocumento) FirmarConOriginalAutorizado(ctx context.Context, sol SolicitudFirmaDocumento) (ResultadoFirmaDocumento, error) {
+	if s == nil || s.original == nil {
+		return ResultadoFirmaDocumento{}, ports.ErrFuenteOriginalFirmaNoDisponible
+	}
+	return s.Firmar(ctx, sol)
 }
 
 // ComponerCustodia hace que el PDF firmado de los documentos indicados
@@ -249,6 +276,19 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		!ports.ClaveIdempotenciaFirmaValida(sol.ClaveIdempotencia) {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
+	if sol.Resultado == domain.ResultadoFirmaFirmado && s.original != nil {
+		original, err := obtenerOriginalFirmaAutorizado(ctx, s.original, ports.SolicitudOriginalFirma{
+			OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef,
+			Documento: sol.Documento, OriginalRef: sol.OriginalRef, OriginalVersion: sol.OriginalVersion,
+		})
+		if err != nil {
+			return cero, err
+		}
+		if len(sol.Original) != 0 && !bytes.Equal(sol.Original, original.Contenido) {
+			return cero, ports.ErrOriginalFirmaNoAutorizado
+		}
+		sol.Original = original.Contenido
+	}
 	switch sol.Resultado {
 	case domain.ResultadoFirmaFirmado:
 		if len(sol.Original) == 0 || len(sol.Firmado) == 0 || len(sol.Original) > ports.MaximoDocumentoFirmaBytes ||
@@ -282,14 +322,28 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 			actual = d
 		}
 	}
-	if actual.Completo || actual.PasoPendiente != sol.PasoOrden {
+	secuencia, originalEsperado := actual.UltimaSecuencia+1, actual.OriginalEsperadoHuella
+	previa, repetida := firmaConClave(estado.Firmas, sol.Documento, sol.ClaveIdempotencia)
+	switch {
+	case repetida:
+		// Reintento de una firma ya registrada (respuesta perdida): el paso ya
+		// no está pendiente, pero se rehace el mismo material para que el
+		// registro devuelva el recibo original. Si no puede ser el mismo, la
+		// clave se está usando para otra cosa.
+		if previa.PasoOrden != sol.PasoOrden || previa.Resultado != sol.Resultado ||
+			previa.CatalogoHuella != estado.Circuito.HuellaCatalogo || previa.ExpedienteVersion != sol.VersionExpediente ||
+			sol.PasoOrden > len(circuitoDoc.Pasos) {
+			return cero, ports.ErrClaveFirmaDocumentoUsada
+		}
+		secuencia, originalEsperado = previa.Secuencia, previa.OriginalHuella
+	case actual.Completo || actual.PasoPendiente != sol.PasoOrden:
 		return cero, ErrPasoFirmaNoPendiente
 	}
 	paso := circuitoDoc.Pasos[sol.PasoOrden-1]
 	material := ports.MaterialFirmaDocumento{
 		OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, VersionExpediente: sol.VersionExpediente,
 		Documento: sol.Documento, CatalogoRef: estado.Circuito.CatalogoRef, CatalogoHuella: estado.Circuito.HuellaCatalogo,
-		PasoRef: paso.Referencia, PasoOrden: paso.Orden, Secuencia: actual.UltimaSecuencia + 1, Resultado: sol.Resultado,
+		PasoRef: paso.Referencia, PasoOrden: paso.Orden, Secuencia: secuencia, Resultado: sol.Resultado,
 		MotivoDevolucion: sol.MotivoDevolucion, ClaveIdempotencia: sol.ClaveIdempotencia,
 	}
 	var motivo docports.MotivoVerificacionFirma
@@ -297,11 +351,16 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		original := huella(sol.Original)
 		// A partir del paso 2 se firma exactamente el borrador que firmó el
 		// paso anterior: todos los pasos firman el mismo documento.
-		if actual.OriginalEsperadoHuella != "" && original != actual.OriginalEsperadoHuella {
+		if originalEsperado != "" && original != originalEsperado {
 			return cero, ports.ErrCadenaFirmaDocumentoRota
 		}
+		documentoID, versionOriginal := identificadorDocumentoVerificacion(sol.ExpedienteRef, sol.Documento), sol.VersionExpediente
+		if s.original != nil {
+			documentoID, versionOriginal = sol.OriginalRef, sol.OriginalVersion
+		}
 		peticion := docports.SolicitudVerificacionFirma{
-			DocumentoID: identificadorDocumentoVerificacion(sol.ExpedienteRef, sol.Documento), Version: sol.VersionExpediente,
+			DocumentoID: documentoID, Version: versionOriginal,
+			FormatoEsperado:      "PAdES",
 			HuellaOriginalSHA256: original, ContenidoOriginal: sol.Original, ContenidoFirmado: sol.Firmado,
 		}
 		dictamen, err := s.verificador.VerificarMotivado(ctx, peticion)
@@ -335,18 +394,10 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	if material.Validar() != nil {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	// El PDF firmado se custodia antes de pedir la autorización de la firma,
-	// que es breve: si la custodia falla no se registra nada; si falla después
-	// el registro, el reintento recupera el mismo documento en Documentos. Si
-	// el registro falla de forma definitiva (autorización denegada, conflicto),
-	// el documento queda custodiado sin firma que lo enlace: la conciliación
-	// de Documentos debe tenerlo en cuenta.
-	if material.DocumentoCustodiaRef != "" {
-		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
-		if err != nil {
-			return cero, err
-		}
-	}
+	// Autorizar el material completo antes de custodiar evita guardar un PDF
+	// firmado por un certificado ajeno al canal. El registro consume la misma
+	// capacidad; si caduca durante la custodia, falla cerrado y un reintento
+	// recupera el documento con la misma clave y los mismos bytes.
 	capacidad, err := s.autorizador.AutorizarFirmaDocumento(ctx, material)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -356,6 +407,12 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	}
 	if err := ValidarCapacidadFirmaDocumento(capacidad, material); err != nil {
 		return cero, err
+	}
+	if material.DocumentoCustodiaRef != "" {
+		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
+		if err != nil {
+			return cero, err
+		}
 	}
 	recibo, err := s.registro.RegistrarFirma(ctx, material, capacidad)
 	if err != nil {
@@ -369,6 +426,17 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		return cero, ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	return ResultadoFirmaDocumento{Recibo: recibo, Material: material, MotivoVerificacion: motivo, Custodiado: custodiado}, nil
+}
+
+// firmaConClave busca en la historia la firma del documento registrada con
+// esta clave de idempotencia.
+func firmaConClave(firmas []ports.FirmaRegistrada, documento, clave string) (ports.FirmaRegistrada, bool) {
+	for _, f := range firmas {
+		if f.Documento == documento && f.ClaveIdempotencia == clave {
+			return f, true
+		}
+	}
+	return ports.FirmaRegistrada{}, false
 }
 
 // custodiarFirmado entrega a Documentos el PDF firmado ya verificado y
@@ -391,8 +459,10 @@ func (s *ServicioFirmaDocumento) custodiarFirmado(ctx context.Context, sol Solic
 		if ctx.Err() != nil {
 			return cero, ctx.Err()
 		}
-		if errors.Is(err, ports.ErrCustodiaFirmadoNoDisponible) {
-			return cero, ports.ErrCustodiaFirmadoNoDisponible
+		for _, centinela := range []error{ports.ErrCustodiaFirmadoNoDisponible, ports.ErrCustodiaFirmadoInvalida, ports.ErrCustodiaFirmadoEnConflicto} {
+			if errors.Is(err, centinela) {
+				return cero, centinela
+			}
 		}
 		return cero, ports.ErrCustodiaFirmadoDenegada
 	}

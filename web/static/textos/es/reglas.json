@@ -243,6 +243,18 @@
             }
           }
         }
+      },
+      "c24": {
+        "sustitucion_reserva_retorno_ejemplo": {
+          "descripcion": {
+            "original": "Una persona se incorpora para sustituir temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y los documentos que acreditan la ocupación, la reserva y el retorno. Esta regla de prueba se puede cambiar o retirar; no registra ninguno de esos actos.",
+            "texto": "Una persona sustituye temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y qué documentos acreditan la ocupación, la reserva del puesto y el retorno. El ejemplo se puede cambiar o retirar; no registra estos actos."
+          },
+          "duda": {
+            "original": "Duda 99.",
+            "texto": "Duda 99."
+          }
+        }
       }
     }
   }

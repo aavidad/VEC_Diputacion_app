@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 const EXPEDIENTE = "expediente:ct:sintetico:asignacion-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";

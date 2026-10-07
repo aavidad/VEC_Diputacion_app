@@ -49,12 +49,7 @@ export function listaDatos(pares) {
 
 export function tabla({ descripcion, columnas, filas, vacio = traducir("areaPersonal.tabla.sinRegistros") }) {
   if (!filas.length) return `<div class="estado-vacio"><strong>${escaparHTML(traducir("areaPersonal.tabla.sinResultados"))}</strong>${escaparHTML(vacio)}</div>`;
-  return `<div class="tabla-contenedor"><table class="tabla-administrativa"><caption>${escaparHTML(descripcion)}</caption><thead><tr>${columnas.map((columna) => `<th scope="col">${escaparHTML(columna)}</th>`).join("")}</tr></thead><tbody>${filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td data-etiqueta="${escaparAtributo(columnas[indice])}">${celda}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-}
-
-export function barraProgreso(valor, maximo) {
-  const porcentaje = Math.max(0, Math.min(100, maximo > 0 ? (Number(valor) / Number(maximo)) * 100 : 0));
-  return `<progress class="barra-progreso" value="${porcentaje.toFixed(1)}" max="100" aria-label="${escaparAtributo(traducir("areaPersonal.vista.comun.porcentajeLeido", { valor: porcentaje.toFixed(1) }))}">${escaparHTML(traducir("areaPersonal.vista.comun.porcentaje", { valor: porcentaje.toFixed(1) }))}</progress>`;
+  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparAtributo(descripcion)}"><table class="tabla-administrativa" role="table"><caption>${escaparHTML(descripcion)}</caption><thead><tr>${columnas.map((columna) => `<th scope="col">${escaparHTML(columna)}</th>`).join("")}</tr></thead><tbody>${filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td data-etiqueta="${escaparAtributo(columnas[indice])}">${celda}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
 export function formatoPuntos(valor) {

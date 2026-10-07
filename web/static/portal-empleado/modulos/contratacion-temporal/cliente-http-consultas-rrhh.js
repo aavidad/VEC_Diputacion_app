@@ -82,7 +82,8 @@ function entero(valor, minimo = 0) {
 }
 
 function validarSolicitudCuadro(entrada) {
-  if (!camposCerrados(entrada, ["filtros", "paginacion"])
+  if (!camposCerrados(entrada, ["filtros", "paginacion"], ["resumen"])
+    || (Object.hasOwn(entrada, "resumen") && entrada.resumen !== true)
     || !camposCerrados(entrada.filtros, ["texto", "estado_clave", "fase_clave"])
     || !camposCerrados(entrada.paginacion, ["limite", "cursor"])
     || !cadena(entrada.filtros.texto, {
@@ -152,18 +153,32 @@ function totalesValidos(totales) {
     && valores.every((v) => v <= totales.total);
 }
 
+// Resumen de la portada (CT-000184): solo recuentos de todo el corte
+// filtrado, enteros no negativos, y el reparto por fase del servidor.
+const CAMPOS_RESUMEN_PORTADA = ["en_tramite", "con_incidencia", "vencidos", "vencen_hoy", "vencen_semana", "sin_calcular"];
+function resumenPortadaValido(resumen) {
+  if (!camposCerrados(resumen, [...CAMPOS_RESUMEN_PORTADA, "por_fase"])
+    || !CAMPOS_RESUMEN_PORTADA.every((campo) => entero(resumen[campo]))
+    || !esRegistro(resumen.por_fase)) return false;
+  const fases = Object.entries(resumen.por_fase);
+  return fases.length <= 64 && fases.every(([fase, numero]) => clave(fase) && entero(numero, 1))
+    && resumen.con_incidencia <= resumen.en_tramite
+    && fases.reduce((suma, [, numero]) => suma + numero, 0) === resumen.en_tramite;
+}
+
 function validarPagina(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "generada_en", "expedientes", "hay_mas"],
-    ["cursor_siguiente", "totales"],
+    ["cursor_siguiente", "totales", "resumen"],
   ) || entrada.esquema !== ESQUEMA_CUADRO || !instante(entrada.generada_en)
     || !Array.isArray(entrada.expedientes)
     || entrada.expedientes.length > MAXIMO_EXPEDIENTES
     || typeof entrada.hay_mas !== "boolean"
     || (Object.hasOwn(entrada, "cursor_siguiente")
       && !cursor(entrada.cursor_siguiente))
-    || (Object.hasOwn(entrada, "totales") && !totalesValidos(entrada.totales))) {
+    || (Object.hasOwn(entrada, "totales") && !totalesValidos(entrada.totales))
+    || (Object.hasOwn(entrada, "resumen") && !resumenPortadaValido(entrada.resumen))) {
     throw new TypeError("página de cuadro RRHH no válida");
   }
   const expedientes = entrada.expedientes.map(validarResumen);
@@ -180,10 +195,13 @@ function validarPagina(entrada) {
 function validarSolicitudProyectada(entrada) {
   if (!camposCerrados(
     entrada,
-    ["grupo_subgrupo", "motivo_clave", "periodo_inicio", "periodo_fin"],
+    ["grupo_subgrupo", "motivo_clave", "periodo_inicio"],
+    ["periodo_fin", "periodo_causa_fin"],
   ) || !cadena(entrada.grupo_subgrupo, { maximo: 80 })
     || !clave(entrada.motivo_clave) || !instante(entrada.periodo_inicio)
-    || !instante(entrada.periodo_fin)) {
+    || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
+      || Object.hasOwn(entrada, "periodo_causa_fin")
+      : !clave(entrada.periodo_causa_fin))) {
     throw new TypeError("solicitud proyectada RRHH no válida");
   }
   return structuredClone(entrada);
@@ -192,15 +210,18 @@ function validarSolicitudProyectada(entrada) {
 function validarAnalisis(entrada) {
   const obligatorios = [
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo_inicio",
-    "periodo_fin", "porcentaje_jornada", "resultado_rc",
+    "porcentaje_jornada", "resultado_rc",
   ];
-  if (!camposCerrados(entrada, obligatorios, ["coste_previsto", "fuente_coste_ref", "observaciones"])
+  if (!camposCerrados(entrada, obligatorios, ["periodo_fin", "periodo_causa_fin",
+    "coste_previsto", "fuente_coste_ref", "observaciones"])
     || !clave(entrada.modalidad_clave) || !referencia(entrada.categoria_ref)
     || (Object.hasOwn(entrada, "observaciones")
       && (typeof entrada.observaciones !== "string" || entrada.observaciones === ""
         || [...entrada.observaciones].length > 4000))
     || !clave(entrada.causa_clave) || !instante(entrada.periodo_inicio)
-    || !instante(entrada.periodo_fin)
+    || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
+      || Object.hasOwn(entrada, "periodo_causa_fin")
+      : !clave(entrada.periodo_causa_fin))
     || !entero(entrada.porcentaje_jornada, 1) || entrada.porcentaje_jornada > 10_000
     || !clave(entrada.resultado_rc)
     || (Object.hasOwn(entrada, "fuente_coste_ref")

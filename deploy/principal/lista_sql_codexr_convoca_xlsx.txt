@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_importacion_convoca/migraciones/000005_acta_xlsx.up.sql

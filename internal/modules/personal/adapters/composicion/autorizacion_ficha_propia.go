@@ -7,7 +7,6 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
-	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -46,7 +45,7 @@ func (p *ProveedorAutorizacionFichaPropia) AutorizarFichaPropia(ctx context.Cont
 	if p == nil || dependenciaNula(p.identidad) || dependenciaNula(p.emisor) || ctx == nil || ctx.Err() != nil || len(material.Canonico()) == 0 {
 		return vacio, personaldomain.ErrFichaPropiaNoDisponible
 	}
-	identidad, err := p.identidad.ResolverIdentidadFichaPropia(ctx)
+	identidad, err := identidadOriginalFichaPropia(ctx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
 		return vacio, personaldomain.ErrFichaPropiaNoDisponible
 	}
@@ -55,7 +54,7 @@ func (p *ProveedorAutorizacionFichaPropia) AutorizarFichaPropia(ctx context.Cont
 	if err != nil || !bytes.Equal(canonActor, identidad.Resultado.RepresentacionCanonica) {
 		return vacio, personaldomain.ErrFichaPropiaNoDisponible
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return vacio, personaldomain.ErrFichaPropiaNoDisponible
 	}

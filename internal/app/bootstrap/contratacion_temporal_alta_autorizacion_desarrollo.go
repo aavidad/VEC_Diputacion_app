@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"time"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -79,6 +80,9 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		rutaFirmaDocumentoCTDesarrollo(ruta) ||
 		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
+		ruta == httpinterno.RutaConsultaCircuitoRRHH ||
+		rutaFirmasR5V2CTDesarrollo(ruta) || rutaOriginalFirmableCTDesarrollo(ruta) ||
+		rutaFirmaExternaV2CTDesarrollo(ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
 }
@@ -234,6 +238,71 @@ func (s *soporteAltaContratacionTemporalDesarrollo) categoriaDeCatalogo(ref stri
 	return s.origen.categoriaDeCatalogo(ref)
 }
 
+func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domain.ClaveCatalogo) bool {
+	if s == nil {
+		return false
+	}
+	opciones := s.opcionesCatalogo
+	if opciones == nil {
+		opciones = opcionesAnalisisPredeterminadas()
+	}
+	_, existe := opciones.modalidad(clave)
+	return existe
+}
+
+// Una modalidad retirada sólo puede continuar un alta cuya confirmación
+// encontró la aplicación en CT167. El contexto operativo se vuelve a
+// consultar para que el marcador privado coincida con actor y perfil vigentes.
+func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
+	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
+) (bool, error) {
+	if s.motivoDeCatalogo(clave) {
+		return true, nil
+	}
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return false, err
+	}
+	vinculo, err := operativo.Vinculo.Datos()
+	if err != nil {
+		return false, err
+	}
+	if application.PoliticaFinAltaConfirmadaPara(
+		ctx, organizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef, clave,
+	) {
+		return true, nil
+	}
+	// La petición ratificada conserva su propia instantánea c12. El
+	// contexto privado de entrega liga actor, perfil, clave y solicitud;
+	// un alta directa sin ese acto sigue sujeta al catálogo vigente.
+	entrega, desdePeticion := altaDePeticionConfiable(ctx)
+	periodo := entrega.Peticion.Solicitud.Periodo
+	return desdePeticion && organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		entrega.ActorRef == vinculo.PrincipalID && entrega.PerfilRef == vinculo.PerfilActivoRef &&
+		entrega.Peticion.Solicitud.MotivoClave == clave && periodo.Fin.IsZero() &&
+		periodo.PoliticaFin.Validar() == nil &&
+		ports.SelloHMACSHA256Valido(entrega.AmbitoAltaHMAC), nil
+}
+
+// PrepararPeriodoModalidad añade al periodo la publicación exacta de c12.
+// Solo la composición interna usa este método; el cliente no aporta la regla.
+func (s *soporteAltaContratacionTemporalDesarrollo) PrepararPeriodoModalidad(
+	ctx context.Context, clave domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
+) (domain.PeriodoPrevisto, error) {
+	if s == nil || ctx == nil || ctx.Err() != nil {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	opciones := s.opcionesCatalogo
+	if opciones == nil {
+		opciones = opcionesAnalisisPredeterminadas()
+	}
+	modalidad, existe := opciones.modalidad(clave)
+	if !existe {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	return modalidad.periodoConPolitica(periodo)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverFlujo,
@@ -246,8 +315,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!centroValido ||
-		!s.categoriaDeCatalogo(solicitud.CategoriaRef) ||
-		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
+		!s.categoriaDeCatalogo(solicitud.CategoriaRef) {
+		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
+	}
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	if err != nil {
+		return ports.ConfiguracionAltaFlujo{}, errors.Join(ports.ErrFlujoNoDisponible, err)
+	}
+	if !admitido {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
 	return s.flujo, nil
@@ -259,8 +334,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 ) (dominiovec.ReferenciaEntradaCatalogo, error) {
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.Flujo != s.flujo.Flujo ||
-		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
+		solicitud.Flujo != s.flujo.Flujo {
+		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
+	}
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	if err != nil {
+		return dominiovec.ReferenciaEntradaCatalogo{}, errors.Join(ports.ErrMotivoAutorizacionNoDisponible, err)
+	}
+	if !admitido {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
 	return s.motivo, nil
@@ -459,6 +540,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoCuadroRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoCuadroRRHH)
 	case httpinterno.RutaConsultaDetalleRRHH:
 		return s.motivoDetalleRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDetalleRRHH)
+	case httpinterno.RutaConsultaCircuitoRRHH:
+		return motivoConsultaCircuitoRRHHDesarrollo(), true
+	case httpinterno.RutaConsultaFirmasR5V2, httpinterno.RutaRecuperacionFirmasR5V2:
+		return motivoFirmasR5V2CTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
+	case httpinterno.RutaOriginalFirmableCT:
+		return motivoOriginalFirmableCTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
+	case httpinterno.RutaRegistroFirmaExterna:
+		return motivoFirmaV2CTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
 	case httpinterno.RutaAltaSolicitudes:
 		return s.motivo, true
 	case httpinterno.RutaPropuestaCobertura:

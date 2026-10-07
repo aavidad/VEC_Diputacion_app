@@ -12,10 +12,11 @@ func TestPoliticaOfertasSoloAdmiteReglaEjecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	for nombre, cambio := range map[string]func(*PoliticaOfertas){
-		"plazo sin calendario": func(v *PoliticaOfertas) { v.Plazo.MunicipioSede = "" },
-		"plazo excesivo":       func(v *PoliticaOfertas) { v.Plazo.Cantidad = 31 },
-		"criterio desconocido": func(v *PoliticaOfertas) { v.Adjudicacion.Criterio = "aleatorio" },
-		"resultado inventado":  func(v *PoliticaOfertas) { v.NoCubierta.Accion = "renuncia_automatica" },
+		"plazo sin calendario":     func(v *PoliticaOfertas) { v.Plazo.MunicipioSede = "" },
+		"plazo excesivo":           func(v *PoliticaOfertas) { v.Plazo.Cantidad = 31 },
+		"criterio desconocido":     func(v *PoliticaOfertas) { v.Adjudicacion.Criterio = "aleatorio" },
+		"confirmación desconocida": func(v *PoliticaOfertas) { v.Adjudicacion.Confirmacion = "respuesta_automatica" },
+		"resultado inventado":      func(v *PoliticaOfertas) { v.NoCubierta.Accion = "renuncia_automatica" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			q := p
@@ -82,5 +83,23 @@ func TestPoliticaOfertasApartadoDePlazas(t *testing.T) {
 		if p.Validar() == nil {
 			t.Fatalf("%+v aceptada", plazas)
 		}
+	}
+}
+
+func TestPoliticaInicioExplicitoSoloObligatorioParaOfertasNuevas(t *testing.T) {
+	p := PoliticaOfertas{Plazo: PlazoPoliticaOfertas{Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"}, Adjudicacion: AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"}, NoCubierta: NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
+	if p.Validar() != nil {
+		t.Fatal("política histórica rechazada en lectura")
+	}
+	if p.ValidarParaOfertasNuevas() == nil {
+		t.Fatal("se interpretó una política sin origen como notificación")
+	}
+	p.Plazo.Inicio = "notificacion"
+	if p.ValidarParaOfertasNuevas() != nil {
+		t.Fatal("política de notificación explícita rechazada")
+	}
+	p.Plazo.Inicio = "publicacion"
+	if p.Validar() == nil || p.ValidarParaOfertasNuevas() == nil {
+		t.Fatal("origen no ejecutable aceptado")
 	}
 }

@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   generarClaveIdempotencia,
   validarClaveIdempotencia,
-} from "./portal-borradores-api.js";
+} from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
 import {
   ESQUEMAS_BORRADORES,
   derivarETagBorrador,

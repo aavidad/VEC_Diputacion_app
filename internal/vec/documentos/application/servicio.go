@@ -65,7 +65,7 @@ func efectoLigado(a ports.AutorizacionV3, preimagen []byte, err error) bool {
 func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (domain.Documento, error) {
 	if !s.disponible() || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaExpedienteModuloValida(in.ModuloID, in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || !domain.MIMEValido(in.MIME) ||
 		len(in.Contenido) == 0 || len(in.Contenido) > limiteOriginal ||
 		in.SolicitudPolitica.Validar() != nil ||
@@ -73,7 +73,7 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef ||
 		// Los tipos reservados solo entran por CustodiarFirmado (y el SQL
 		// lo impone además al confirmar): se rechazan antes de escribir.
-		s.tipoReservadoFirmado(in.TipoRef) {
+		s.tipoReservadoFirmado(in.TipoRef) || s.tipoReservadoOriginalCT(in.TipoRef) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	ahora := s.Reloj.Ahora()
@@ -197,10 +197,10 @@ func (s *Servicio) RegistrarExternoAutorizado(ctx context.Context, in ports.Alta
 func (s *Servicio) registrarExterno(ctx context.Context, in ports.AltaExterna, autorizador ports.AutorizadorRegistroExterno) (domain.Documento, error) {
 	if !s.registroDisponible() || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaExpedienteModuloValida(in.ModuloID, in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || in.Tamano < 0 ||
 		(in.MIME != "" && !domain.MIMEValido(in.MIME)) || in.Custodia.Validar() != nil ||
-		s.tipoReservadoFirmado(in.TipoRef) || in.SolicitudPolitica.Validar() != nil ||
+		s.tipoReservadoFirmado(in.TipoRef) || s.tipoReservadoOriginalCT(in.TipoRef) || in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
@@ -265,7 +265,7 @@ func autorizacionExternaValida(a ports.AutorizacionV3, in ports.AltaExterna, aho
 
 func (s *Servicio) ListarExpediente(ctx context.Context, in ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {
 	if !s.registroDisponible() || ctx == nil || ctx.Err() != nil ||
-		!domain.ReferenciaOpacaValida(in.ExpedienteRef) || in.Limite == 0 || in.Limite > 100 ||
+		!domain.ReferenciaExpedienteValida(in.ExpedienteRef) || in.Limite == 0 || in.Limite > 100 ||
 		(in.Cursor != "" && !domain.ReferenciaValida(in.Cursor)) ||
 		in.Autorizacion.ValidarPara(ports.AccionListar, s.Reloj.Ahora()) != nil {
 		return ports.PaginaDocumentos{}, ports.ErrSolicitudInvalida

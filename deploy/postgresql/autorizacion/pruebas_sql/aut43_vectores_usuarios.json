@@ -1,0 +1,16 @@
+{
+  "conjunto_ref": "conjunto_admin:dfa8fa3eef2981ce04ad7dcccbee704d",
+  "cursor_ejemplo": "usuarios:97ad216bf3a2beb72f5d16f4280abe19cf091fad56d6a0c28938d386101f44c0:per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "vectores": [
+    {
+      "material_canonico": "{\"esquema\":\"vec.admin.usuarios.listar.v1\",\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\",\"conjunto_ref\":\"conjunto_admin:dfa8fa3eef2981ce04ad7dcccbee704d\",\"filtros\":{\"perfil_ref\":\"\",\"unidad_ref\":\"\",\"estado\":\"\"},\"cursor\":\"\",\"limite\":50}",
+      "contexto_canonico": "{\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"},\"atributos\":{\"material_sha256\":\"eb9b4ee7842f339489059734f0613261f5a4464555226c2bc5dc6111cbdf6776\"}}",
+      "contexto_sha256": "a44970b1679b0fb6b534263e3f3923540fa881ba4817b30084a052d24b6c787a"
+    },
+    {
+      "material_canonico": "{\"esquema\":\"vec.admin.usuarios.consultar.v1\",\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\",\"conjunto_ref\":\"conjunto_admin:dfa8fa3eef2981ce04ad7dcccbee704d\",\"persona_ref\":\"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "contexto_canonico": "{\"ambitos\":{\"organizacion_ref\":\"org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"unidad_ref\":\"unidad_admin_sintetica\"},\"atributos\":{\"material_sha256\":\"8a6e67f3c815c001060699aeab2101310c675dbbd093f5875c9739e8033de874\"}}",
+      "contexto_sha256": "23488ca0bca6ef20ede975f7aaabe00976ddadb349c3e757acd4d110c00d82b1"
+    }
+  ]
+}

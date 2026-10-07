@@ -2,6 +2,7 @@ package supervision
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log"
 	"net/http"
@@ -23,7 +24,7 @@ import (
 //     adaptador ya declarase un código específico (marca en el contexto,
 //     ports.EmitirIncidenciaTecnicaEnPeticion): un fallo se cuenta una vez.
 //     No se registran ruta, consulta, IP, cabeceras ni cuerpos; la
-//     correlación la genera el emisor.
+//     correlación se crea al entrar y acompaña el contexto de la petición.
 //   - Un pánico de handler se contiene aquí: se declara PANICO_CONTROLADO y,
 //     si aún no se enviaron cabeceras, se responde un 500 de texto fijo que
 //     conserva las cabeceras de seguridad ya fijadas (CSP, HSTS, etc.) y
@@ -65,12 +66,25 @@ func SupervisarServidor(srv *http.Server, emisor ports.EmisorIncidenciasTecnicas
 
 // SupervisarRespuestas es el middleware común de respuestas 5xx y pánicos.
 func SupervisarRespuestas(siguiente http.Handler, emisor ports.EmisorIncidenciasTecnicas) http.Handler {
+	return supervisarRespuestas(siguiente, emisor, ports.ConCorrelacionIncidenciasPeticion)
+}
+
+func supervisarRespuestas(siguiente http.Handler, emisor ports.EmisorIncidenciasTecnicas, nuevoContexto func(context.Context) (context.Context, error)) http.Handler {
 	if siguiente == nil {
 		siguiente = http.NotFoundHandler()
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		escritor := &escritorSupervisado{ResponseWriter: w}
-		ctx, especificaDeclarada := ports.ConMarcaIncidenciasPeticion(r.Context())
+		ctx, err := nuevoContexto(r.Context())
+		if err != nil && emisor != nil {
+			// No bloquear la petición ni divulgar el error de la fuente.
+			emisor.Emitir(domain.SolicitudIncidenciaTecnica{
+				Codigo:     domain.IncidenciaRecoleccionDegradada,
+				Componente: domain.ComponenteIncidenciaSupervision,
+				Etapa:      domain.EtapaIncidenciaValidacion,
+			})
+		}
+		ctx, especificaDeclarada := ports.ConMarcaIncidenciasPeticion(ctx)
 		r = r.WithContext(ctx)
 		defer func() {
 			valor := recover()
@@ -80,7 +94,7 @@ func SupervisarRespuestas(siguiente http.Handler, emisor ports.EmisorIncidencias
 			if valor == http.ErrAbortHandler {
 				panic(valor)
 			}
-			emitirIncidenciaServidor(emisor, domain.IncidenciaPanicoControlado)
+			emitirIncidenciaServidor(ctx, emisor, domain.IncidenciaPanicoControlado)
 			if escritor.estado != 0 {
 				// Cabeceras ya enviadas: no hay respuesta coherente posible.
 				panic(http.ErrAbortHandler)
@@ -89,18 +103,18 @@ func SupervisarRespuestas(siguiente http.Handler, emisor ports.EmisorIncidencias
 		}()
 		siguiente.ServeHTTP(escritor, r)
 		if escritor.estado >= http.StatusInternalServerError && !especificaDeclarada() {
-			emitirIncidenciaServidor(emisor, domain.IncidenciaHTTPInternoFallido)
+			emitirIncidenciaServidor(ctx, emisor, domain.IncidenciaHTTPInternoFallido)
 		}
 	})
 }
 
 // emitirIncidenciaServidor declara el código en el único componente/etapa
 // que el catálogo v1 admite para una petición HTTP.
-func emitirIncidenciaServidor(emisor ports.EmisorIncidenciasTecnicas, codigo domain.CodigoIncidenciaTecnica) {
+func emitirIncidenciaServidor(ctx context.Context, emisor ports.EmisorIncidenciasTecnicas, codigo domain.CodigoIncidenciaTecnica) {
 	if emisor == nil {
 		return
 	}
-	emisor.Emitir(domain.SolicitudIncidenciaTecnica{
+	ports.EmitirIncidenciaTecnicaEnPeticion(ctx, emisor, domain.SolicitudIncidenciaTecnica{
 		Codigo:     codigo,
 		Componente: domain.ComponenteIncidenciaHTTP,
 		Etapa:      domain.EtapaIncidenciaPeticion,
@@ -224,7 +238,7 @@ func (e *escritorErrorLogSaneado) Write(entrada []byte) (int, error) {
 	longitud := len(entrada)
 	panico := bytes.HasPrefix(entrada, prefijoPanicoNetHTTP)
 	if panico && e.emisor != nil {
-		emitirIncidenciaServidor(e.emisor, domain.IncidenciaPanicoControlado)
+		emitirIncidenciaServidor(nil, e.emisor, domain.IncidenciaPanicoControlado)
 	}
 	if e.destino == nil {
 		return longitud, nil

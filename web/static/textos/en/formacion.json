@@ -1,0 +1,113 @@
+{
+  "titulo": "Training plan",
+  "saltar": "Skip to content",
+  "portal": "Human Resources",
+  "organizacion": "Provincial Council of Granada",
+  "volver": "Back to the portal",
+  "idioma": "Language",
+  "ayuda_signo": "?",
+  "ayuda": "Training help",
+  "ayuda_texto": "Review the editions and the needs they address. Filter by delivery mode and open an edition to see what is missing. Download the draft for review. Visit the institutional source for official procedures.",
+  "preparacion": "Plan preparation · synthetic data",
+  "limite": "This draft uses synthetic data. It does not enrol participants, prove attendance, issue certificates or award points. The plan requires a corporate source and approval.",
+  "sin_dato": "To be specified",
+  "periodo": "{desde} – {hasta}",
+  "exportar": "Download JSON draft",
+  "ver_fuente": "View the institutional plan",
+  "ver_plataforma": "Open the training platform",
+  "ediciones": "Planned editions",
+  "todas_modalidades": "All delivery modes",
+  "quitar_filtro": "Clear filter",
+  "recuento": {
+    "one": "{cuenta} edition",
+    "other": "{cuenta} editions"
+  },
+  "sin_ediciones": "There are no editions for this delivery mode. Change the filter to see the others.",
+  "ver_detalle": "View details",
+  "abrir_edicion": "View {titulo} · {modalidad}",
+  "detalle_edicion": "Edition: {titulo}",
+  "pendiente_item": "Pending: {tarea}",
+  "presentar": "Submit enrolment",
+  "certificado": "Issue certificate",
+  "bloqueo_inscripcion": "Enrolment requires an authorised corporate process. Certification requires verified attendance and successful completion. These actions are not yet connected.",
+  "cerrar_detalle": "Close details",
+  "siguiente": "What is needed to process the plan",
+  "detalle_tecnico": "View draft references",
+  "cargando": "Loading the training draft…",
+  "error_escenario": "The draft could not be loaded. Try again. If the problem continues, contact IT.",
+  "reintentar": "Try again",
+  "campos": {
+    "periodo": "Planned period",
+    "presupuesto": "Planned budget",
+    "plazas": "Planned places",
+    "version": "Draft version",
+    "modalidad": "Delivery mode",
+    "accion": "Training activity",
+    "horas": "Planned hours",
+    "detalle": "Details",
+    "necesidad": "Need addressed",
+    "prioridad": "Planned priority",
+    "fuente": "Source reference",
+    "version_fuente": "Source version",
+    "referencia": "Plan reference"
+  },
+  "fuentes_permitidas": {
+    "plan": "https://www.dipgra.es/servicios/empleo-y-formacion/formacion-para-el-empleo-publico/plan-agrupado-de-formacion/",
+    "plataforma": "https://formacion.dipgra.es/"
+  },
+  "formacion": {
+    "plan": {
+      "2027": "Training plan 2027"
+    },
+    "accion": {
+      "expedientes": "Electronic case management",
+      "atencion": "Public service",
+      "accesibilidad": "Accessible documents"
+    },
+    "necesidad": {
+      "expedientes": "Improve electronic case processing",
+      "atencion": "Improve service to the public",
+      "accesibilidad": "Prepare accessible documents"
+    },
+    "modalidad": {
+      "presencial": "In person",
+      "mixta": "Blended",
+      "distancia": "Distance learning"
+    },
+    "prioridad": {
+      "alta": "High",
+      "media": "Medium"
+    },
+    "pendiente": {
+      "fuente_maestra": "Confirm the corporate source of the plan",
+      "aprobacion_plan": "Obtain approval from the responsible unit",
+      "publicacion": "Publish the plan through the official process",
+      "criterios_seleccion": "Approve selection criteria",
+      "asistencia_certificacion": "Connect attendance, evaluation and certification",
+      "meritos": "Define how verified training is used by each scoring scheme",
+      "fechas_plan": "Specify the plan dates",
+      "plazas_plan": "Specify the planned places",
+      "presupuesto_plan": "Specify the plan budget",
+      "configuracion": "Complete the plan configuration",
+      "acciones": "Define the training activities",
+      "ediciones": "Define the plan editions",
+      "necesidad": "Specify the training need",
+      "aprobacion_edicion": "Approve the edition",
+      "inscripciones": "Connect the enrolment process",
+      "accion": "Link the training activity",
+      "fechas_edicion": "Specify the edition dates",
+      "plazas_edicion": "Specify the edition places",
+      "horas": "Specify the edition hours",
+      "presupuesto_edicion": "Specify the edition budget",
+      "modalidad": "Specify the delivery mode",
+      "prioridad": "Specify the priority"
+    },
+    "checklist": {
+      "for001": "Prepare the plan and editions",
+      "for002": "Connect selection, enrolment and attendance",
+      "for003": "Connect evaluation and certificates"
+    }
+  },
+  "comprobaciones_ediciones": "Pending checks by edition",
+  "nombre_exportacion": "training-draft-v{version}.json"
+}

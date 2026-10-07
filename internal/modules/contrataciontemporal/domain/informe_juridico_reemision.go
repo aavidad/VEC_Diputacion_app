@@ -63,6 +63,7 @@ func (e Expediente) ReemitirInformeJuridicoTrasSubsanacion(
 	borrador, err := informe.validarEntrada()
 	if e.Validar() != nil || err != nil || actuacion.validar() != nil ||
 		!e.PuedeReemitirInformeTrasSubsanacion() ||
+		(e.Circuito != nil && !e.HabilitaInformeSubsanacionCircuitoRRHH()) ||
 		borrador.Estado().ExpedienteRef != e.Referencia ||
 		borrador.Estado().VersionEsperadaExpediente != e.Version ||
 		!informe.EmitidoEn.Equal(actuacion.RealizadaEn) ||

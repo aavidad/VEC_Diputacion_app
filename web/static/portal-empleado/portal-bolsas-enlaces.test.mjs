@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { crearControladorBolsas } from "./portal-bolsas-api.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 
 const BOLSA = Object.freeze({
   bolsa_ref: "bolsa:sintetica:1", categoria_clave: "administrativo", categoria: "ADMINISTRATIVO",

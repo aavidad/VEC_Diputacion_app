@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title></title>
+  <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-inc-b2-a11y-v1">
+  <link rel="stylesheet" href="./seleccion.css?v=20261001-seleccion-v1">
+</head>
+<body class="portal-empleado-app seleccion-app">
+  <a class="salto-contenido" href="#contenido-principal" data-texto="saltar"></a>
+  <div class="portal-empleado-shell">
+    <aside id="seleccion-menu-lateral" class="portal-lateral">
+      <div class="marca-portal"><strong data-texto="portal"></strong><p data-texto="organizacion"></p><button type="button" id="seleccion-cerrar-menu" class="boton-menu-movil boton-secundario" data-texto="cerrar_menu"></button></div>
+      <nav class="navegacion-modulos" aria-label="">
+        <a class="enlace-lateral" href="/portal-empleado/modulos/bolsa/baremo/">
+          <span data-texto="volver"></span>
+        </a>
+        <a class="enlace-lateral" href="./index.html" aria-current="page">
+          <span data-texto="titulo"></span>
+        </a>
+      </nav>
+    </aside>
+    <div class="portal-superficie">
+      <header class="cabecera-portal">
+        <button type="button" id="seleccion-menu" class="boton-menu-movil boton-secundario" aria-expanded="false" aria-controls="seleccion-menu-lateral" data-texto="menu"></button>
+        <div class="contexto-cabecera">
+          <div class="migas"><a href="/portal-empleado/modulos/bolsa/baremo/" data-texto="volver"></a></div>
+          <h1 data-texto="titulo"></h1>
+        </div>
+        <div class="acciones-cabecera">
+          <button type="button" id="seleccion-ayuda" class="boton-secundario" aria-expanded="false" aria-controls="seleccion-panel-ayuda" data-texto="ayuda_boton"></button>
+          <label class="selector-idioma"><span data-texto="idioma"></span><select id="seleccion-idioma"></select></label>
+        </div>
+      </header>
+      <main id="contenido-principal" class="contenido-portal" tabindex="-1">
+        <section id="seleccion-panel-ayuda" class="panel" hidden>
+          <div class="cabecera-panel"><h2 data-texto="ayuda_titulo"></h2></div>
+          <div class="cuerpo-panel"><p data-texto="ayuda_texto"></p></div>
+        </section>
+        <div id="seleccion-raiz" class="seleccion-pila"></div>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="./entrada.js?v=20261007-codext-selector-idioma-v1"></script>
+</body>
+</html>

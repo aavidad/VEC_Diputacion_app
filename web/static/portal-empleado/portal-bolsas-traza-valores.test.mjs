@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js";
-import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261002-r-rrhh18-v2";
+import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const cambio = (campo, valor_anterior, valor_nuevo) => ({ instante: "2026-09-25T08:00:00.123456Z", recibo_ref: "recibo:1", campo, valor_anterior, valor_nuevo, actor: "per_rrhh" });
@@ -9,6 +9,7 @@ const cambio = (campo, valor_anterior, valor_nuevo) => ({ instante: "2026-09-25T
 test("petición RRHH p.4: la traza admite solo valores minimizados", () => {
   assert.deepEqual(validarCambiosTraza(undefined), []);
   assert.ok(validarCambiosTraza([cambio("situacion", "disponible", "no_disponible"), cambio("telefono_1", null, "version:1")]));
+	assert.ok(validarCambiosTraza([cambio("situacion", "renuncia", "en_revision")]));
   assert.equal(validarCambiosTraza([cambio("correo", "a@ejemplo.es", "b@ejemplo.es")]), null, "un correo en claro no es válido");
   assert.equal(validarCambiosTraza([cambio("telefono_2", "version:1", "600000000")]), null);
   assert.equal(validarCambiosTraza([cambio("situacion", "disponible", "inventada")]), null);

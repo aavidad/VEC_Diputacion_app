@@ -857,3 +857,48 @@ aislada no basta para configurar reglas vigentes. Cuantías aplicables,
 competencias, jornadas, conservación, firma y efectos económicos se habilitan
 solo con fuente y circuito acreditados. Esas decisiones limitan su efecto
 concreto; no impiden construir ni probar el registro propio de VEC.
+
+## 23. Continuación de estudio: historia y documentos del expediente propio
+
+La ficha propia de Personal 000022 consulta relaciones de servicio y servicios
+reconocidos del empleado vinculado a la sesión. Esa lectura no reúne todavía la
+historia de todos los hechos de Personal ni sus documentos. Personal 000023 y
+000024 tampoco se modifican en esta propuesta. El contrato preliminar queda en
+`deploy/postgresql/personal/borradores/000025_historia_propia_expediente.json`;
+su SQL compañero contiene únicamente comentarios y no se instala.
+
+La situación en una fecha y la historia son consultas distintas. Ambas fijan
+fecha de efectos y fecha hasta la que se conocían los hechos. La historia se
+consulta por apartado y periodo acotado, con páginas de tamaño limitado y
+orden estable. Cada página exige comprobar de nuevo el permiso y el vínculo
+entre la persona autenticada y su único empleado canónico. El cursor queda
+ligado a empleado, perfil, consulta, apartado, periodo, corte y orden; no
+permite cambiar de ficha. El navegador no elige empleado ni organismo para una consulta propia.
+
+Personal conserva relaciones, ocupaciones, situaciones y servicios, incluidas
+las revisiones y rectificaciones como hechos nuevos enlazados. RPT conserva
+plantilla, plaza, puesto, versiones y reservas. Un puesto reservado no se
+mostrará como vacante libre. Una rectificación conocida después de un corte
+debe aparecer al consultar el corte posterior, sin alterar la respuesta que
+correspondía al anterior.
+
+Para mostrar un documento junto a un hecho, Personal necesita conservar el
+vínculo entre ese hecho y la terna expediente, documento y versión. Una
+referencia al acto o a la fuente, por sí sola, no demuestra el vínculo. El
+módulo Documentos mantiene el original y sus operaciones de listado y descarga;
+ambas requieren autorización específica, además de comprobar que la terna
+pertenece al hecho propio. La consulta ordinaria excluye causas clínicas,
+familiares reservadas y disciplinarias. Si una fuente no responde, el bloque
+se indica como indisponible; si solo aporta parte de la historia, se indica
+como incompleto y se muestra su corte.
+
+Como contraste de servicio, [Mi expediente de Funciona](https://info-sede.funciona.gob.es/en/sede/area-personal/mi-expediente)
+ofrece certificados y documentos registrales; la
+[web del empleado andaluz](https://ws45.juntadeandalucia.es/empleadopublico/emp-cat-.html?p=%2FCategorias_Principales%2F&s=%2FCategorias_Principales%2FAcceso_Mis_Datos%2F)
+ofrece historial administrativo y hoja de acreditación de datos; y la
+[intranet de Diputación](https://www.dipgra.es/intranet/) enlaza sus servicios
+actuales al empleado. Son referencias de presentación y acceso, no normas de
+eficacia para VEC. RRHH y los propietarios deberán validar fuentes, campos,
+permisos y circuito documental antes de programar esta continuación. La
+autenticación, una anotación o un borrador no acreditan firma ni efectos del
+acto.

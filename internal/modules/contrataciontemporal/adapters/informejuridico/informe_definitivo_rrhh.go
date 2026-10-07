@@ -84,6 +84,10 @@ func contenidoBorradorDesarrollo(
 		!plantilla.AdmiteModalidad(detalle.Analisis.ModalidadClave) {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
+	if detalle.Analisis.PeriodoFin.IsZero() &&
+		!plantillas.tieneEtiqueta("fin.", string(detalle.Analisis.PeriodoCausaFin)) {
+		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
+	}
 	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla}
 	if plantilla.RequiereAccion == "" {
 		if detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso {

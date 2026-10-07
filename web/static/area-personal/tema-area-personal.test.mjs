@@ -58,6 +58,11 @@ test("el área personal carga el tema permitido antes de sus alias y sin activos
   }
   assert.doesNotMatch(alias, /#[0-9a-f]{3,8}\b/i, "los alias no fijan otra paleta");
   assert.match(css, /\.ap-navegacion > a:hover, \.ap-navegacion > a\[aria-current="page"\][^}]*background: var\(--ap-azul-700\)/s);
+  assert.match(bloque(".ap-lateral"), /background: var\(--portal-lateral-fondo\);\s*color: var\(--portal-lateral-texto\)/s);
+  for (const selector of [".marca-portal", ".contexto-modulo", ".ap-navegacion > a"]) {
+    assert.match(bloque(selector), /color: var\(--portal-lateral-texto\)/u, selector);
+  }
+  assert.match(bloque('.ap-navegacion > a:hover:not([aria-current="page"])'), /color: var\(--portal-lateral-texto\)/u);
   assert.match(css, /\.panel > header[^}]*background:var\(--ap-superficie\)/s);
   assert.match(css, /input\[type="checkbox"\], input\[type="radio"\] \{ accent-color: var\(--ap-azul-700\)/);
 });
@@ -83,7 +88,8 @@ test("alto contraste mantiene una capa propia y el foco de teclado visible", () 
   }
   assert.doesNotMatch(css, /body\.area-personal-app\[data-contraste="true"\][^{]*\{/);
   assert.match(css, /outline: 3px solid var\(--ap-azul-700\)/);
-  assert.match(css, /\.ap-lateral :focus-visible \{ outline-color: var\(--ap-texto-inverso\)/);
+  assert.match(css, /\.ap-lateral :focus-visible \{ outline-color: var\(--portal-lateral-texto\)/);
+  assert.match(css, /\.ap-navegacion > a\[aria-current="page"\]:focus-visible \{ outline-color: var\(--ap-texto-inverso\)/);
   assert.doesNotMatch(css, /\.campo input:focus[^}]*outline:none/s);
   assert.match(aplicacion, /controladorVisual\?\.aplicarPreferenciasServidor/u);
   assert.doesNotMatch(aplicacion, /localStorage|sessionStorage|document\.cookie/);

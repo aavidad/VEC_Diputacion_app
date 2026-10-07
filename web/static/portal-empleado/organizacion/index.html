@@ -7,8 +7,8 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title data-i18n="documentTitle"></title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/portal-empleado/portal.css" />
-    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css" />
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
     <link rel="stylesheet" href="./organizacion.css" />
   </head>
   <body class="portal-empleado-app">
@@ -28,6 +28,7 @@
               <p id="provenance"></p>
               <p data-i18n="note"></p>
               <p data-i18n="editorHelper"></p>
+              <p id="local-help" data-i18n="localHelp" hidden></p>
               <p data-i18n="historyPageScope" data-org-requiere="history" hidden></p>
               <p data-i18n="importHelp" data-org-requiere="import" hidden></p>
               <p id="import-publish-reason" data-i18n="importPublishBlocked" data-org-requiere="import" hidden></p>
@@ -47,9 +48,30 @@
            sus rutas compuestas; hasta entonces permanecen ocultos. -->
       <nav class="org-tabs" role="tablist" data-i18n-label="tabsLabel" hidden>
         <button type="button" role="tab" id="tab-catalog" class="org-tab" aria-controls="catalog-panel" aria-selected="true" data-i18n="catalogTab"></button>
+        <button type="button" role="tab" id="tab-local" class="org-tab" aria-controls="local-panel" aria-selected="false" data-i18n="localTab" tabindex="-1" hidden></button>
         <button type="button" role="tab" id="tab-history" class="org-tab" aria-controls="history-panel" aria-selected="false" data-i18n="historyTab" tabindex="-1" hidden></button>
         <button type="button" role="tab" id="tab-import" class="org-tab" aria-controls="import-panel" aria-selected="false" data-i18n="importTab" tabindex="-1" hidden></button>
       </nav>
+      <section class="org-panel" role="tabpanel" id="local-panel" aria-labelledby="tab-local" hidden>
+        <div class="org-panel-heading"><h2 data-i18n="localTitle"></h2></div>
+        <div class="org-import-body">
+          <p id="local-notice" data-i18n="localNotice"></p>
+          <div class="org-import-controls">
+            <input id="local-file" type="file" accept=".json,application/json" aria-describedby="local-notice" hidden />
+            <button type="button" id="local-choose" class="org-secondary" data-i18n="localChoose"></button>
+            <button type="button" id="local-clear" class="org-secondary" data-i18n="localClear" disabled></button>
+            <span id="local-file-name" class="org-file-name" aria-live="polite"></span>
+          </div>
+          <div id="local-state" class="org-state" role="status" aria-live="polite"></div>
+          <div id="local-results" hidden>
+            <div id="local-summary" class="org-import-preview"></div>
+            <details id="local-details" class="org-help">
+              <summary data-i18n="localDetails"></summary>
+              <div id="local-technical" class="org-import-preview"></div>
+            </details>
+          </div>
+        </div>
+      </section>
       <section class="org-panel org-history" role="tabpanel" id="history-panel" aria-labelledby="tab-history" hidden>
         <div class="org-panel-heading">
           <h2 id="history-title" data-i18n="historyTitle"></h2>
@@ -245,6 +267,6 @@
         </form>
       </section>
     </main>
-    <script type="module" src="./organizacion.js"></script>
+    <script type="module" src="./organizacion.js?v=20261001-b-org-local-reconcile367-v1"></script>
   </body>
 </html>

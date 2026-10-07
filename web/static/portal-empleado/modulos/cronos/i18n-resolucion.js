@@ -5,7 +5,8 @@ import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 /** Textos de la resolución de permisos (jefatura y RRHH) y de los avisos propios. */
 export const MENSAJES_CRONOS_RESOLUCION = (await cargarTextos("cronos")).seccion("resolucion");
 
-const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_RESOLUCION });
+const MENSAJES_BANDEJA = (await cargarTextos("cronos-resolucion")).seccion("bandeja");
+const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_RESOLUCION, ...MENSAJES_BANDEJA });
 const CLAVES = Object.freeze(Object.keys(CATALOGO));
 
 /**

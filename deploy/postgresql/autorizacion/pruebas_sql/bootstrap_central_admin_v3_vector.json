@@ -1,0 +1,205 @@
+{
+  "esquema": "bootstrap_central.v3.vector.v1",
+  "fuente_abi": "9b1862ee37b4de4cecb1e25063e6348e66e8c61d",
+  "nota": "Vector sintético de canon; no acredita fuentes ni permiso de arranque",
+  "plan": {
+    "version": 3,
+    "preparado_en": "2026-10-02T12:00:00Z",
+    "caduca_en": "2026-10-02T13:00:00Z",
+    "control_continuidad_revision_esperada": 1,
+    "bootstrap_estado_esperado": "pendiente",
+    "rol": {
+      "version_ref": "rol:administracion_perfiles:v4",
+      "huella_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "control_revision": 1,
+      "control_huella_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "fuente_identidad": {
+      "referencia": "autoridad:identidad",
+      "version": 1,
+      "huella_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "fuente_ca_admin": {
+      "referencia": "autoridad:ca",
+      "version": 1,
+      "huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "personas": [
+      {
+        "cuenta_ref": "cta_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "cuenta_version": 2,
+        "persona_ref": "per_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "persona_version": 3,
+        "perfil_ref": "prf_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "vinculo_ref": "vca_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "preimagen_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "procedencia": {
+          "referencia": "fuente:identidad:uno",
+          "version": 1,
+          "huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "vigente_hasta": "2027-01-01T00:00:00Z",
+        "certificado_admin": {
+          "persona_ref": "per_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "cuenta_ref": "cta_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "ca_huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "acreditacion": {
+            "referencia": "cert:uno",
+            "version": 1,
+            "huella_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        },
+        "sistemas": [
+          {
+            "rol": {
+              "version_ref": "rol:operador_plataforma:v1",
+              "huella_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "control_revision": 1,
+              "control_huella_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            },
+            "perfil_ref": "prf_ssssssssssssssssssssssss",
+            "vinculo_ref": "vca_ssssssssssssssssssssssss",
+            "vigente_hasta": "2027-01-01T00:00:00Z",
+            "ambitos": [
+              {
+                "dimension": "organizacion_ref",
+                "valores": [
+                  "organizacion:sintetica"
+                ],
+                "fuente": {
+                  "referencia": "fuente:organizacion:sintetica",
+                  "version": 1,
+                  "huella_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+                }
+              }
+            ]
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "organizacion_ref",
+            "valores": [
+              "organizacion:sintetica"
+            ],
+            "fuente": {
+              "referencia": "fuente:organizacion:sintetica",
+              "version": 1,
+              "huella_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+            }
+          }
+        ]
+      },
+      {
+        "cuenta_ref": "cta_zzzzzzzzzzzzzzzzzzzzzzzz",
+        "cuenta_version": 2,
+        "persona_ref": "per_zzzzzzzzzzzzzzzzzzzzzzzz",
+        "persona_version": 3,
+        "perfil_ref": "prf_zzzzzzzzzzzzzzzzzzzzzzzz",
+        "vinculo_ref": "vca_zzzzzzzzzzzzzzzzzzzzzzzz",
+        "preimagen_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "procedencia": {
+          "referencia": "fuente:identidad:uno",
+          "version": 1,
+          "huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "vigente_hasta": "2027-01-01T00:00:00Z",
+        "certificado_admin": {
+          "persona_ref": "per_zzzzzzzzzzzzzzzzzzzzzzzz",
+          "cuenta_ref": "cta_zzzzzzzzzzzzzzzzzzzzzzzz",
+          "huella_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "ca_huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "acreditacion": {
+            "referencia": "cert:uno",
+            "version": 1,
+            "huella_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        },
+        "sistemas": [],
+        "ambitos": [
+          {
+            "dimension": "organizacion_ref",
+            "valores": [
+              "organizacion:sintetica"
+            ],
+            "fuente": {
+              "referencia": "fuente:organizacion:sintetica",
+              "version": 1,
+              "huella_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+            }
+          }
+        ]
+      }
+    ],
+    "gobierno": {
+      "audiencia_selector_admin": "admin:selector:ensayo:v1",
+      "audiencia_administrativa": "admin:ensayo:v1",
+      "politica_certificado_ref": "politica:admin:ejemplo",
+      "politica_certificado_huella_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "roles": [
+        {
+          "version_ref": "rol:administracion_perfiles:v4",
+          "huella_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "clase": "administrador",
+          "categoria_admin": "aplicacion",
+          "unidad_requerida": false,
+          "ambitos_fijos": [
+            {
+              "clave": "organizacion_ref",
+              "valores": [
+                "organizacion:sintetica"
+              ]
+            }
+          ],
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "vigente_hasta": "2027-01-01T00:00:00Z",
+          "duracion_propuesta_segundos": 300,
+          "fuente_categoria": {
+            "referencia": "rol:administracion_perfiles:v4",
+            "version": 4,
+            "huella_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "dimensiones_ambito": [
+            "organizacion_ref"
+          ],
+          "rol_id": "administracion_perfiles"
+        },
+        {
+          "version_ref": "rol:operador_plataforma:v1",
+          "huella_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "clase": "administrador",
+          "categoria_admin": "sistemas",
+          "unidad_requerida": false,
+          "ambitos_fijos": [
+            {
+              "clave": "organizacion_ref",
+              "valores": [
+                "organizacion:sintetica"
+              ]
+            }
+          ],
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "vigente_hasta": "2027-01-01T00:00:00Z",
+          "duracion_propuesta_segundos": 300,
+          "fuente_categoria": {
+            "referencia": "rol:operador_plataforma:v1",
+            "version": 1,
+            "huella_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "dimensiones_ambito": [
+            "organizacion_ref"
+          ],
+          "rol_id": "operador_plataforma"
+        }
+      ],
+      "motivos": []
+    },
+    "fuente_reparto_aprobado": {
+      "referencia": "fuente:reparto:sintetico",
+      "version": 1,
+      "huella_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  },
+  "canon": "{\"version\":3,\"preparado_en\":\"2026-10-02T12:00:00Z\",\"caduca_en\":\"2026-10-02T13:00:00Z\",\"control_continuidad_revision_esperada\":1,\"bootstrap_estado_esperado\":\"pendiente\",\"rol\":{\"version_ref\":\"rol:administracion_perfiles:v4\",\"huella_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"control_revision\":1,\"control_huella_sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"fuente_identidad\":{\"referencia\":\"autoridad:identidad\",\"version\":1,\"huella_sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\"},\"fuente_ca_admin\":{\"referencia\":\"autoridad:ca\",\"version\":1,\"huella_sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"personas\":[{\"cuenta_ref\":\"cta_aaaaaaaaaaaaaaaaaaaaaaaa\",\"cuenta_version\":2,\"persona_ref\":\"per_aaaaaaaaaaaaaaaaaaaaaaaa\",\"persona_version\":3,\"perfil_ref\":\"prf_aaaaaaaaaaaaaaaaaaaaaaaa\",\"vinculo_ref\":\"vca_aaaaaaaaaaaaaaaaaaaaaaaa\",\"preimagen_huella_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"procedencia\":{\"referencia\":\"fuente:identidad:uno\",\"version\":1,\"huella_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"vigente_hasta\":\"2027-01-01T00:00:00Z\",\"certificado_admin\":{\"persona_ref\":\"per_aaaaaaaaaaaaaaaaaaaaaaaa\",\"cuenta_ref\":\"cta_aaaaaaaaaaaaaaaaaaaaaaaa\",\"huella_sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ca_huella_sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"acreditacion\":{\"referencia\":\"cert:uno\",\"version\":1,\"huella_sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}},\"sistemas\":[{\"rol\":{\"version_ref\":\"rol:operador_plataforma:v1\",\"huella_sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"control_revision\":1,\"control_huella_sha256\":\"6666666666666666666666666666666666666666666666666666666666666666\"},\"perfil_ref\":\"prf_ssssssssssssssssssssssss\",\"vinculo_ref\":\"vca_ssssssssssssssssssssssss\",\"vigente_hasta\":\"2027-01-01T00:00:00Z\",\"ambitos\":[{\"dimension\":\"organizacion_ref\",\"valores\":[\"organizacion:sintetica\"],\"fuente\":{\"referencia\":\"fuente:organizacion:sintetica\",\"version\":1,\"huella_sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\"}}]}],\"ambitos\":[{\"dimension\":\"organizacion_ref\",\"valores\":[\"organizacion:sintetica\"],\"fuente\":{\"referencia\":\"fuente:organizacion:sintetica\",\"version\":1,\"huella_sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\"}}]},{\"cuenta_ref\":\"cta_zzzzzzzzzzzzzzzzzzzzzzzz\",\"cuenta_version\":2,\"persona_ref\":\"per_zzzzzzzzzzzzzzzzzzzzzzzz\",\"persona_version\":3,\"perfil_ref\":\"prf_zzzzzzzzzzzzzzzzzzzzzzzz\",\"vinculo_ref\":\"vca_zzzzzzzzzzzzzzzzzzzzzzzz\",\"preimagen_huella_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"procedencia\":{\"referencia\":\"fuente:identidad:uno\",\"version\":1,\"huella_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"vigente_hasta\":\"2027-01-01T00:00:00Z\",\"certificado_admin\":{\"persona_ref\":\"per_zzzzzzzzzzzzzzzzzzzzzzzz\",\"cuenta_ref\":\"cta_zzzzzzzzzzzzzzzzzzzzzzzz\",\"huella_sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"ca_huella_sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"acreditacion\":{\"referencia\":\"cert:uno\",\"version\":1,\"huella_sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}},\"sistemas\":[],\"ambitos\":[{\"dimension\":\"organizacion_ref\",\"valores\":[\"organizacion:sintetica\"],\"fuente\":{\"referencia\":\"fuente:organizacion:sintetica\",\"version\":1,\"huella_sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\"}}]}],\"gobierno\":{\"audiencia_selector_admin\":\"admin:selector:ensayo:v1\",\"audiencia_administrativa\":\"admin:ensayo:v1\",\"politica_certificado_ref\":\"politica:admin:ejemplo\",\"politica_certificado_huella_sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"roles\":[{\"version_ref\":\"rol:administracion_perfiles:v4\",\"huella_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"clase\":\"administrador\",\"categoria_admin\":\"aplicacion\",\"unidad_requerida\":false,\"ambitos_fijos\":[{\"clave\":\"organizacion_ref\",\"valores\":[\"organizacion:sintetica\"]}],\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-01-01T00:00:00Z\",\"duracion_propuesta_segundos\":300,\"fuente_categoria\":{\"referencia\":\"rol:administracion_perfiles:v4\",\"version\":4,\"huella_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\"},\"dimensiones_ambito\":[\"organizacion_ref\"],\"rol_id\":\"administracion_perfiles\"},{\"version_ref\":\"rol:operador_plataforma:v1\",\"huella_sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"clase\":\"administrador\",\"categoria_admin\":\"sistemas\",\"unidad_requerida\":false,\"ambitos_fijos\":[{\"clave\":\"organizacion_ref\",\"valores\":[\"organizacion:sintetica\"]}],\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-01-01T00:00:00Z\",\"duracion_propuesta_segundos\":300,\"fuente_categoria\":{\"referencia\":\"rol:operador_plataforma:v1\",\"version\":1,\"huella_sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\"},\"dimensiones_ambito\":[\"organizacion_ref\"],\"rol_id\":\"operador_plataforma\"}],\"motivos\":[]},\"fuente_reparto_aprobado\":{\"referencia\":\"fuente:reparto:sintetico\",\"version\":1,\"huella_sha256\":\"9999999999999999999999999999999999999999999999999999999999999999\"}}",
+  "huella_plan_sha256": "ca61b65da45901639332804d130884e765fbfe78af8ad23570152dd35bed8c54"
+}

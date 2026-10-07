@@ -1,0 +1,3 @@
+deploy/postgresql/contratacion_temporal/migraciones/000165_periodo_fin_segun_modalidad.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000166_periodo_fin_cobertura_c1.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000167_consulta_politica_fin_confirmada.up.sql

@@ -1,0 +1,16 @@
+{
+  "consulta": {
+    "actualizar": "Refresh",
+    "reintentar": "Retry",
+    "pagina_anterior": "Previous days",
+    "pagina_siguiente": "Next days",
+    "paginacion": "Balance days",
+    "recuento": "Days {desde}–{hasta} of {total}. Page {pagina} of {paginas}.",
+    "periodo_completo": "The summary covers the whole period: {desde} to {hasta}.",
+    "consulta_lista": "Balance updated.",
+    "paginacion_movimientos": "Movement days",
+    "periodo_movimientos": "Movements from {desde} to {hasta}.",
+    "consulta_movimientos_lista": "Movements updated.",
+    "consultar_movimientos": "View movements"
+  }
+}

@@ -1,0 +1,6 @@
+# Delta único AD158; revisión exacta pendiente, PR borrador.
+# SQL SHA256 4a5c0004e01ca7eb8f0c8cb8e41f0fe18b137b910cbb254f28f0cfc8c73a0b7a.
+# Prefijo requerido: H7/H8, AD155 corregida y AD151/156/157 reancladas ya instaladas.
+# Orden posterior: AD162 → AD159 → CT170; Documentos13 consume las operaciones documentales.
+# No reaplicar prefijos ni ejecutar DOWN. Un cambio de preimagen requiere reanclaje y revisión.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000158_original_firmable_documentos.up.sql

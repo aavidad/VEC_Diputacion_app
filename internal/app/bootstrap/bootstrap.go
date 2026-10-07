@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ import (
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosmodule "vec-diputacion-granada/internal/modules/usuarios"
 	"vec-diputacion-granada/internal/shared/i18n"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
@@ -78,36 +80,39 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // específicos (API VEC, cartografía). Rechaza un emisor nil.
 func NuevoServidorHTTPSupervisado(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	if emisor == nil {
-		return nil, ErrEmisorIncidenciasRequerido
+		return nil, marcarFalloComponenteArranque("emisor_incidencias", ErrEmisorIncidenciasRequerido)
 	}
 	return nuevoServidorHTTP(cfg, emisor)
 }
 
 func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	// Diagnóstico sin efectos: avisa de dependencias de entorno ausentes de
+	// Bolsa y CT antes de cualquier validación que pueda detener el arranque.
+	avisarDependenciasSelectoresBolsaCT(slog.Default(), os.Getenv)
 	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
-		return nil, ErrActivacionDesarrolloInvalida
+		return nil, marcarFalloComponenteArranque("incorporacion_fuera_desarrollo", ErrActivacionDesarrolloInvalida)
 	}
 	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("valores_configuracion", err)
 	}
 	// Un proceso por portal: valor cerrado y solo en desarrollo, antes de
 	// elegir composición (la comprobación completa va en la de desarrollo).
 	if err := rechazarPortalSeparadoFueraDesarrollo(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("separacion_portal", err)
 	}
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("selectores_presentacion", err)
 	}
 	if err := rechazarReglasEjemploFueraDesarrollo(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("reglas_ejemplo", err)
 	}
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("tls_desarrollo", err)
 	}
 	// vec-server: encender un selector fuera de la doble llave también falla.
 	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("selectores_bolsa_ct", err)
 	}
 	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
 		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
@@ -117,19 +122,20 @@ func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecni
 	// Fuera del perfil de desarrollo no se compone la verificacion de firma:
 	// encenderla impide arrancar en lugar de ignorarse.
 	if cfg.FirmaVerificacionEnabled != "" && cfg.FirmaVerificacionEnabled != "false" {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return nil, marcarFalloComponenteArranque("firma_verificacion", ErrComposicionFirmaVerificacionNoDisponible)
 	}
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("modo_autenticacion", err)
 	}
 	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("composicion_productiva", err)
 	}
 	api, err := nuevaAPIDemo(cfg, emisor)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("api_demo", err)
 	}
-	return server.NewHTTPServer(cfg, api)
+	servidor, err := server.NewHTTPServer(cfg, api)
+	return servidor, marcarFalloComponenteArranque("servidor_http", err)
 }
 
 // NewHTTPServerPublicoWithConfig construye el listener anonimo de Bolsa sin
@@ -201,35 +207,35 @@ func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 func nuevaAPIDemo(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, error) {
 	cfg = cfg.Normalize()
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("modo_autenticacion", err)
 	}
 	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("composicion_productiva", err)
 	}
 	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("credenciales_demo", err)
 	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	vecAPI, err := newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal, emisor)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("bolsa_publica_api", err)
 	}
 	if cfg.AuthMode != config.AuthModeFake {
 		return composeVECShellAPI(vecAPI, publicaBolsaAPI), nil
 	}
 	bolsaAPI, err := newBolsaAPIWithConfig(cfg, credencialesFake)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("bolsa_api", err)
 	}
 	return composeAPI(vecAPI, bolsaAPI, publicaBolsaAPI), nil
 }
@@ -296,27 +302,35 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
 	if emisor == nil {
-		return nil, ErrEmisorIncidenciasRequerido
+		return nil, marcarFalloComponenteArranque("emisor_incidencias", ErrEmisorIncidenciasRequerido)
 	}
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("catalogo_personal", err)
 	}
 	manejadorRutaDietas, err := nuevoManejadorProductivoCalculoRutas(cfg, emisor)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("rutas_dietas", err)
 	}
 	store := vecmemory.NewStore()
 	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("servicio_vec", err)
 	}
-	for _, manifest := range manifiestosShellVEC(cfg) {
+	visibles, err := cfg.PortalModulosVisibles()
+	if err != nil {
+		return nil, marcarFalloComponenteArranque("modulos_visibles", err)
+	}
+	manifiestos, err := filtrarManifiestosPortal(manifiestosShellVEC(cfg), visibles)
+	if err != nil {
+		return nil, marcarFalloComponenteArranque("manifiestos_portal", err)
+	}
+	for _, manifest := range manifiestos {
 		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
-			return nil, err
+			return nil, marcarFalloComponenteArranque("registro_modulo", err)
 		}
 	}
-	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
+	manejador, err := vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
 		InternalOperations:                       internalOperations,
 		PersonalCatalog:                          personalCatalog,
 		CategoriasProfesionales:                  categoriasPersonal,
@@ -331,6 +345,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		RegistradorAuditoriaFronteraRutasExactas: registradorAuditoriaFronteraRutasExactas,
 		EmisorIncidenciasTecnicas:                emisor,
 	})
+	return manejador, marcarFalloComponenteArranque("manejador_vec", err)
 }
 
 // manifiestosShellVEC enumera los módulos que el catálogo /api/vec/modules
@@ -485,7 +500,7 @@ func nuevasDependenciasCategoriasProfesionales(
 	if err != nil {
 		return nil, nil, err
 	}
-	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelarValidacion()
 	if _, err := servicio.ListarVigentes(ctxValidacion); err != nil {
 		return nil, nil, errors.Join(errors.New("bootstrap: catalogo profesional gobernado incompatible"), err)
@@ -667,4 +682,29 @@ func demoRuleSet(convocatoriaID string, version string) (candidatedomain.BaremoR
 			candidatedomain.BaremoTieLetraSorteo,
 		},
 	})
+}
+
+// filtrarManifiestosPortal aplica VEC_PORTAL_MODULOS_VISIBLES. Sin lista no
+// cambia nada; con lista, cada clave debe corresponder a un módulo compuesto
+// (si no, el arranque falla cerrado) y solo esos módulos aparecen en el portal.
+func filtrarManifiestosPortal(manifiestos []vecdomain.ModuleManifest, visibles map[string]bool) ([]vecdomain.ModuleManifest, error) {
+	if visibles == nil {
+		return manifiestos, nil
+	}
+	compuestos := make(map[string]bool, len(manifiestos))
+	for _, m := range manifiestos {
+		compuestos[strings.TrimPrefix(m.ID, "vec.module.")] = true
+	}
+	for clave := range visibles {
+		if !compuestos[clave] {
+			return nil, config.ErrConfiguracionPortalModulos
+		}
+	}
+	filtrados := make([]vecdomain.ModuleManifest, 0, len(visibles))
+	for _, m := range manifiestos {
+		if visibles[strings.TrimPrefix(m.ID, "vec.module.")] {
+			filtrados = append(filtrados, m)
+		}
+	}
+	return filtrados, nil
 }

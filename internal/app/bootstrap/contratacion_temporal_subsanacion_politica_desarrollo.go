@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -80,7 +81,7 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependencia
 		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.instantanea")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(f.soporte.reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{f.configuracion.MotivoAutorizacion}, desde) != nil {

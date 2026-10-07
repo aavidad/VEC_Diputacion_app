@@ -1,0 +1,85 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "paquete_ref": "paquete:ejemplo:vec:v1",
+  "politica": {
+    "referencia": "demo:cronos:efectos-permisos:v1",
+    "version": 1,
+    "reglas": [
+      {
+        "referencia": "demo:regla:ebep49a:v1",
+        "permiso_ref": "demo:permiso:ebep49a",
+        "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49a",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      },
+      {
+        "referencia": "demo:regla:ebep49b:v1",
+        "permiso_ref": "demo:permiso:ebep49b",
+        "catalogo_version_ref": "demo:catalogo:ebep49b:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49b",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      },
+      {
+        "referencia": "demo:regla:ebep49c:v1",
+        "permiso_ref": "demo:permiso:ebep49c",
+        "catalogo_version_ref": "demo:catalogo:ebep49c:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49c",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      }
+    ]
+  },
+  "textos": {
+    "es": {
+      "aviso": "Ensayo con datos sintéticos. Las reglas de ejemplo se retiran antes de producción; no acreditan autorización ni aprobación de RRHH.",
+      "sin_permisos": "No hay permisos concedidos en este día.",
+      "permiso_computado": "La jornada prevista se computa como permiso; el trabajo registrado se conserva.",
+      "programacion_ausente": "Falta una programación diaria acreditada.",
+      "hechos_incompletos": "Los datos del día están incompletos o contienen anomalías.",
+      "permisos_coincidentes": "Coinciden varios permisos en el mismo día.",
+      "concesion_no_acreditada": "Falta identificar una concesión de jornada completa.",
+      "permiso_parcial": "El cómputo de permisos parciales está pendiente.",
+      "trabajo_concurrente": "Hay trabajo registrado durante el permiso.",
+      "regla_no_disponible": "No hay una regla para este permiso, versión original del catálogo y colectivo.",
+      "entrada_invalida": "No se ha podido validar la entrada del ensayo.",
+      "fuera_vigencia": "La fecha queda fuera del periodo de aplicación de la regla de ejemplo.",
+      "concesion_incompleta": "Falta el permiso, la versión original del catálogo o el colectivo de la concesión."
+    },
+    "en": {
+      "aviso": "Synthetic data trial. Example rules must be removed before production; they do not establish authorization or HR approval.",
+      "sin_permisos": "There is no approved leave for this day.",
+      "permiso_computado": "Scheduled time counts as leave; recorded work is preserved.",
+      "programacion_ausente": "A verified daily schedule is missing.",
+      "hechos_incompletos": "Daily facts are incomplete or contain anomalies.",
+      "permisos_coincidentes": "Several leave grants overlap on the same day.",
+      "concesion_no_acreditada": "An identified full-day leave grant is missing.",
+      "permiso_parcial": "Partial leave accounting is pending.",
+      "trabajo_concurrente": "Work is recorded during the leave.",
+      "regla_no_disponible": "No rule matches this leave, its original catalogue version and employee group.",
+      "entrada_invalida": "The trial input could not be validated.",
+      "fuera_vigencia": "The date is outside the application period of the example rule.",
+      "concesion_incompleta": "The leave type, original catalogue version or employee group of the grant is missing."
+    }
+  }
+}

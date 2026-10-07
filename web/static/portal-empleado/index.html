@@ -5,21 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" data-pwa-manifest="pwa-portal-empleado" href="/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1">
+    <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v2">
     <title data-i18n-portal="txt_portal_del_empleado_recursos_humanos">Portal del Empleado · Recursos Humanos</title>
     <link rel="stylesheet" href="/portal-empleado/vendor/leaflet-1.9.4/leaflet.css?v=1.9.4" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
     <link rel="stylesheet" href="/styles.css?v=20260717-portal-rrhh">
-    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20260930-portales-i18n-integracion-v1">
-    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260929-imagen-508c-v2">
-    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260927-rrhh-avisos-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261007-ct-menu-recuperacion-v1">
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-preferencias.css?v=20260930-portales-i18n-integracion-v1">
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
-    <link rel="stylesheet" href="/portal-empleado/portal-inicio-rrhh.css?v=20260930-ct-lista-plazos-v1">
-    <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20260925-aspecto-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal-inicio-rrhh.css?v=20261006-resumen-inicio-v2">
+    <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-inc-b2-a11y-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-capacidades.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-modulos.css?v=20260925-aspecto-v1">
-    <link rel="stylesheet" href="/portal-empleado/portal-menu-bolsa.css?v=20260925-aspecto-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal-menu-bolsa.css?v=20260930-codexf-temas-v2">
     <link rel="stylesheet" href="/portal-empleado/portal-contratos.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/ayudante-tramites.css?v=20260920-ayudante-tramites-v1">
     <link rel="stylesheet" href="/portal-empleado/estado-entrega.css?v=20260920-recorridos-presentacion-v1">
@@ -30,18 +32,18 @@
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-catalogo-permisos.css?v=20260925-tanda-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-notificaciones.css?v=20260925-tanda-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/cronos-conectado.css?v=20260925-tanda2-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-solicitudes.css?v=20260925-tanda2-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-solicitudes.css?v=20261001-cronos-calendario-seleccion-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-resolucion.css?v=20260925-cronos-notif-e10-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-notificaciones-rrhh.css?v=20260925-cronos-notif-e10-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/dietas/dietas.css?v=20260925-tanda-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/dietas/borradores-propios.css?v=20260925-d5d6-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/personal/ficha-integral.css?v=20260924-f2-shell-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/personal/registro-b2.css?v=20260925-b2-selector-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/dietas/borradores-propios.css?v=20261002-codexe-d7c-ux-v2">
+    <link rel="stylesheet" href="/portal-empleado/modulos/personal/ficha-integral.css?v=20261004-personal-rectificacion-v2">
+    <link rel="stylesheet" href="/portal-empleado/modulos/personal/registro-b2.css?v=20261004-personal-vacantes-filtro-v2">
     <link rel="stylesheet" href="/portal-empleado/modulos/documentos/documentos.css?v=20260925-documentos-web-v3">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css?v=20260929-demo-ficha-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes.css?v=20260929-demo-ficha-v2">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css?v=20260926-pulido-portal-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/circuito-firma.css?v=20260930-portales-i18n-integracion-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/circuito-firma.css?v=20261003-ct-firma-v2-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-responsive.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-diseno.css?v=20260930-ct-lista-plazos-v1">
@@ -59,94 +61,89 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20260930-ct-lista-recuperada-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-i18n.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-preferencias-integracion.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261007-ct-menu-recuperacion-v1">
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
-    <link rel="modulepreload" href="/comun/imagen-propia.js?v=20260929-imagen-508c-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-preferencias.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-preferencias-api.js">
-    <link rel="modulepreload" href="/comun/tema-vec.js?v=20260929-pref-508a-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-justificante.js">
-    <link rel="modulepreload" href="/portal-empleado/portal-huella-archivo.js">
-    <link rel="modulepreload" href="/portal-empleado/reglas/enlace.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/personal/i18n.js?v=20260925-personal-e10-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-i18n-contacto-origen.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-i18n-correo-llamamiento.js?v=20260930-portales-i18n-integracion-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2">
     <link rel="modulepreload" href="/comun/idioma.js">
+    <link rel="modulepreload" href="/comun/imagen-propia.js?v=20260929-imagen-508c-v2">
+    <link rel="modulepreload" href="/comun/tema-vec.js?v=20260930-codexf-temas-v2">
     <link rel="modulepreload" href="/comun/textos.js">
-    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-contrato.js">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-operaciones.js?v=20260721-acceso-real-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-eventos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-panel-interno.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-flujo.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/ayuda-contenido.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/ayudante-tramites.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-vistas-utilidades.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js">
-    <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20260930-ct-lista-recuperada-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-idioma.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-api.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borrador-llamamiento-ui.js?v=20260930-bolsa-resumen-llamamiento-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-avisos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-ofertas.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20260930-ofertas-reglas-integradas-v4">
-    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2">
-    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/vista.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-marcas.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-operaciones.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reincorporaciones.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-intentos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contratos.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-sanciones.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contacto-origen.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contacto-registro.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-referencias-i18n.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-acceso.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-vista.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui-soporte.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/recuentos-peticiones.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-i18n.js">
-    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-operaciones-api.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borrador-llamamiento-api.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-api.js">
+    <link rel="modulepreload" href="/portal-empleado/ayuda-contenido.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/ayudante-tramites.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-traza-valores.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-borradores-api.js?v=20260930-portales-i18n-integracion-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-textos-vistas.js?v=20260929-demo-ficha-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/vista.js?v=20261007-auditoria-disponibilidad-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-api.js?v=20261006-reglas-una-lectura-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261006-reglas-una-lectura-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js?v=20261006-reglas-no-disponible-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2">
+    <link rel="modulepreload" href="/portal-empleado/modulos/personal/i18n.js?v=20260925-personal-e10-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-api.js?v=20261002-r-rrhh18-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-avisos.js?v=20261002-rrhh17-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contacto-origen.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contrato.js?v=20261002-r-rrhh18-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-intentos.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/hora-madrid.js">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-historial-ofrecimientos.js?v=20261002-r3-r4-historial-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-ofertas.js?v=20261002-r3-r4-ofertas-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2">
+
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-sanciones.js?v=20261002-r-rrhh18-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-traza-valores.js?v=20261002-r-rrhh18-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-borrador-llamamiento-api.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-acceso.js?v=20261006-borradores-no-disponible-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-api.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-contrato.js">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-estado.js?v=20260721-acceso-real-v2">
-    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-operaciones.js?v=20260721-acceso-real-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui.js?v=20261006-borradores-no-disponible-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-borradores-vista.js?v=20261006-borradores-no-disponible-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261007-ct-menu-recuperacion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261005-b-contacto-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-eventos.js?v=20261002-ct-fin-modalidad-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-huella-archivo.js">
+    <link rel="modulepreload" href="/portal-empleado/portal-i18n-contacto-origen.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-i18n-correo-llamamiento.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-i18n.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-idioma.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20261007-ct-menu-recuperacion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-justificante.js">
+    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-operaciones-api.js?v=20261002-r-rrhh18-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contrato.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-panel-interno.js?v=20261005-bolsa-usabilidad-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-preferencias-api.js?v=20260930-codexf-temas-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-preferencias-integracion.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-preferencias.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/reglas/enlace.js?v=20261001-ct-a-i18n-v1">
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20260930-bolsa-resumen-llamamiento-v1"></script>
+    <script type="module" src="/portal-empleado/portal-arranque-aviso.js?v=20261007-ct-arranque-autonomo-v1"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261007-ct-menu-recuperacion-v1"></script>
+    <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>
@@ -283,6 +280,11 @@
               </div>
             </div>
           </div>
+          <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/portal-empleado/" hidden>
+            <button type="button" data-pwa-accion="volver"></button>
+            <button type="button" data-pwa-accion="inicio"></button>
+            <button type="button" data-pwa-accion="recargar"></button>
+          </nav>
         </header>
 
         <main id="contenido-principal" class="contenido-portal" tabindex="-1">

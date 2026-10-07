@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { consultarAvisosBolsa, manejarAccionAvisos, renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js";
+import { consultarAvisosBolsa, manejarAccionAvisos, renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
 
 const datos = {
   esquema: "vec.bolsa.rrhh.avisos.v1",

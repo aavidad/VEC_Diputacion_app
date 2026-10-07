@@ -1,5 +1,12 @@
 {
   "general": {
+    "saldo_fichajes_calculo": "Records and calculation",
+    "saldo_calculo_detalle": "Calculation details",
+    "saldo_sin_jornada_prevista": "No scheduled working hours are recorded for this day.",
+    "saldo_calculo_incompleto": "Incomplete calculation.",
+    "saldo_detalle_tecnico": "Technical details",
+    "saldo_turno_ref": "Shift reference",
+    "saldo_politica_version_ref": "Calculation policy version",
     "accion_entrada": "Clock in",
     "accion_salida": "Clock out",
     "accion_inicio_pausa": "Start break",
@@ -592,6 +599,7 @@
     "error_archivar": "The notice could not be archived. You can retry."
   },
   "notificaciones": {
+    "notificaciones_reintentar_consulta": "Refresh notifications",
     "notificaciones_titulo": "Notifications to HR",
     "nueva_titulo": "New notification",
     "campo_tipo": "Type",
@@ -611,7 +619,7 @@
     "sin_tipos": "There are no notification types available.",
     "error_datos": "Check the type, the date and the message.",
     "error_documento": "Enter the reference and choose the document, or leave both empty.",
-    "error_tipo_no_vigente": "That type is no longer available. The list has been refreshed.",
+    "error_tipo_no_vigente": "This type is no longer available. Choose another type.",
     "error_conflicto_notificacion": "Another notification with that reference already exists. Send it again.",
     "error_envio": "The notification could not be sent. You can retry without duplicating it.",
     "mis_notificaciones": "My notifications",

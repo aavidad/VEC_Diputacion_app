@@ -14,6 +14,7 @@ func TestRutasExactasBolsaAuditanDenegacionYCierranSiFallaElRegistro(t *testing.
 	rutas := []string{
 		"/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa/historial",
 		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
+		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
 		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto",
 	}
 	for _, ruta := range rutas {
@@ -34,7 +35,11 @@ func TestRutasExactasBolsaAuditanDenegacionYCierranSiFallaElRegistro(t *testing.
 				if err != nil {
 					t.Fatal(err)
 				}
-				peticion := httptest.NewRequest(http.MethodGet, ruta+"?dato=privado", nil)
+				metodo := http.MethodGet
+				if ruta == "/api/vec/bolsa/mi-bolsa/solicitudes-documentales" {
+					metodo = http.MethodPost
+				}
+				peticion := httptest.NewRequest(metodo, ruta+"?dato=privado", nil)
 				if caso.actor {
 					ctx, err := ConActorVerificadoAuditoriaBolsa(peticion.Context(), actorOrganizacionHistoricaPrueba(t))
 					if err != nil {

@@ -65,6 +65,8 @@ export function componerCronosInterno(recursos, entorno) {
   });
   return Object.freeze({
     traducir,
+    ...(typeof cliente.solicitudes.consultarPermisos === "function"
+      ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
@@ -103,16 +105,23 @@ export function componerCronosInterno(recursos, entorno) {
           return null;
         }
       };
-      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
-      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto }));
+      const parteSaldo = colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
       // El calendario se monta antes que los movimientos del día: «olvido de
       // marcaje» solo se ofrece si hay un formulario de olvido al que llevar.
       const propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({
         raiz: nodo, cliente: cliente.solicitudes, anunciar, incrustada: true }));
       const abrirOlvido = typeof propios?.abrirOlvido === "function" ? propios.abrirOlvido : undefined;
-      colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
+      const parteMovimientos = colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
         incrustada: true, ...(abrirOlvido ? { abrirCorreccion: () => abrirOlvido() } : {}) }));
       let activo = true;
+      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto,
+        onRegistrado: () => {
+          if (!activo) return;
+          // Cada lectura conserva su periodo y muestra su propio error. El
+          // recibo confirmado no se vuelve a enviar si una lectura falla.
+          return Promise.all([parteSaldo, parteMovimientos, propios].map((parte) => parte?.actualizar?.()));
+        },
+      }));
       const desmontar = () => {
         if (!activo) return;
         activo = false;
@@ -151,6 +160,8 @@ export function componerDietasInternas(recursos, entorno) {
   // dependen de la competencia que acredite la fuente gobernada.
   const clienteCircuito = typeof recursos?.clienteCircuito?.crearClienteCircuitoDietasHTTP === "function"
     ? recursos.clienteCircuito.crearClienteCircuitoDietasHTTP({ fetchImpl }) : undefined;
+  const clienteRectificacion = typeof recursos?.clienteRectificacion?.crearClienteRectificacionDietasHTTP === "function"
+    ? recursos.clienteRectificacion.crearClienteRectificacionDietasHTTP({ fetchImpl }) : undefined;
   return Object.freeze({
     clienteBorradores, clienteAsignacion,
     montar: async ({ raiz, anunciar, registrarDesmontar }) => {
@@ -171,7 +182,7 @@ export function componerDietasInternas(recursos, entorno) {
       }
       if (!vigente) return Object.freeze({ desmontar() {} });
       return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        clienteBorradores, clienteAsignacion, clienteCircuito, calculadorRuta, visorRuta, ...relaciones,
+        clienteBorradores, clienteAsignacion, clienteCircuito, clienteRectificacion, calculadorRuta, visorRuta, ...relaciones,
         anunciar, registrarDesmontar,
       });
     },
@@ -231,9 +242,19 @@ export function componerPersonalVisible(recursos, entorno, {
   };
   const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
     raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+    montarContacto: typeof recursos.contacto?.montarVistaContactoPropio === "function" && typeof entorno.fetch === "function"
+      ? (entrada) => recursos.contacto.montarVistaContactoPropio({ ...entrada, fetchImpl: entorno.fetch.bind(entorno) }) : undefined,
+    // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.
+    abrirCorreos: entorno.location ? () => {
+      entorno.location.hash = "#mis-preferencias";
+      entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+    } : undefined,
     destinosDisponibles: destinosDisponibles(),
     navegarModulo: (modulo) => {
-      if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
+      if (["dietas", "cronos"].includes(modulo) && entorno.location) {
+        entorno.location.hash = `#${modulo}`;
+        entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+      }
     },
   });
   // Ficha propia servida por Personal: una consulta al entrar decide qué

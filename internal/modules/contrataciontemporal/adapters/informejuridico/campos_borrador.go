@@ -38,7 +38,18 @@ var camposBorrador = map[string]func(f *fuenteCampos) string{
 		return f.plantillas.etiqueta("causa.", string(f.detalle.Analisis.CausaClave))
 	},
 	"periodo_inicio": func(f *fuenteCampos) string { return f.detalle.Analisis.PeriodoInicio.Format("02/01/2006") },
-	"periodo_fin":    func(f *fuenteCampos) string { return f.detalle.Analisis.PeriodoFin.Format("02/01/2006") },
+	"periodo_causa_fin": func(f *fuenteCampos) string {
+		if f.detalle.Analisis.PeriodoCausaFin == "" {
+			return ""
+		}
+		return f.plantillas.etiqueta("fin.", string(f.detalle.Analisis.PeriodoCausaFin))
+	},
+	"periodo_fin": func(f *fuenteCampos) string {
+		if f.detalle.Analisis.PeriodoFin.IsZero() {
+			return f.plantillas.etiqueta("fin.", string(f.detalle.Analisis.PeriodoCausaFin))
+		}
+		return f.detalle.Analisis.PeriodoFin.Format("02/01/2006")
+	},
 	"jornada": func(f *fuenteCampos) string {
 		j := f.detalle.Analisis.PorcentajeJornada
 		return fmt.Sprintf("%d,%02d %%", j/100, j%100)

@@ -21,6 +21,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"vec-diputacion-granada/internal/app/bootstrap"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 // variableDSN nombra la variable de entorno alternativa al fichero 0600 con
@@ -37,7 +39,10 @@ type dependencias struct {
 	reloj          func() time.Time
 	antesDeActivar func() error
 	// sincronizarPadre sólo se sustituye en pruebas; nil usa fsync(2).
-	sincronizarPadre func(*os.File) error
+	sincronizarPadre            func(*os.File) error
+	validarMotivosIncorporacion func(context.Context, bootstrap.ConfiguracionPreparacionIncorporacionB2, *os.Root, time.Time) error
+	resolverMotivoDetalle       func(context.Context, string, time.Time) (core.ReferenciaEntradaCatalogo, error)
+	validarMotivoOH             func(context.Context, string, core.ReferenciaEntradaCatalogo, time.Time) error
 }
 
 func main() {
@@ -59,12 +64,22 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas := flag.NewFlagSet("vec-preparar-material-interno", flag.ContinueOnError)
 	banderas.SetOutput(io.Discard)
 	var o opciones
+	var configuracionOH string
 	banderas.StringVar(&o.inventarioCT, "inventario-ct", "", "ruta absoluta de ct_v3.json existente")
 	banderas.StringVar(&o.idempotencia, "material-idempotencia", "", "subdirectorio idempotencia del material de desarrollo de vec-server (0700)")
 	banderas.StringVar(&o.motivos, "motivos", "", "fichero JSON 0600 con los ocho motivos B2")
 	banderas.StringVar(&o.salida, "salida", "", "directorio nuevo (inexistente o vacío, 0700)")
 	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN del LOGIN de gobierno de vec-server")
-	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || o.motivos == "" || o.salida == "" {
+	banderas.StringVar(&o.incorporacionConfig, "incorporacion-config", "", "configuración B2 pura con referencias, motivos y DSN aprobados")
+	banderas.StringVar(&configuracionOH, "organizacion-historica-config", "", "inventario OH privado con motivo y ámbitos admitidos")
+	errParse := banderas.Parse(args)
+	modos := 0
+	for _, v := range []string{o.motivos, o.incorporacionConfig, configuracionOH} {
+		if v != "" {
+			modos++
+		}
+	}
+	if errParse != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || modos != 1 || o.salida == "" {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}
@@ -73,7 +88,15 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		return 2
 	}
 	p := preparacion{opciones: o, dsnEntorno: dsnEntorno, dep: d}
-	sincronizado, err := p.preparar(ctx)
+	var sincronizado bool
+	var err error
+	if configuracionOH != "" {
+		sincronizado, err = p.prepararOrganizacionHistorica(ctx, configuracionOH)
+	} else if o.incorporacionConfig != "" {
+		sincronizado, err = p.prepararIncorporacion(ctx)
+	} else {
+		sincronizado, err = p.preparar(ctx)
+	}
 	if err != nil {
 		fmt.Fprintln(errores, mensajeSeguro(err))
 		return 1
@@ -82,7 +105,19 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		// rename(2) ya se hizo: el material está activado y visible; sólo
 		// falta confirmar que la entrada del directorio padre es durable ante
 		// un corte de energía. No es un fallo de preparación.
-		fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		if configuracionOH != "" {
+			fmt.Fprintln(salida, "material Organización histórica activado; fsync del padre no confirmado")
+		} else {
+			fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		}
+		return 0
+	}
+	if configuracionOH != "" {
+		fmt.Fprintln(salida, "material Organización histórica preparado y validado: organizacion_historica_v3.json y clave propia")
+		return 0
+	}
+	if o.incorporacionConfig != "" {
+		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y 22 operaciones cotejadas")
 		return 0
 	}
 	fmt.Fprintln(salida, "material Personal B2 preparado y validado: personal_b2_v3.json (formato 4) y 8 claves de capacidad")

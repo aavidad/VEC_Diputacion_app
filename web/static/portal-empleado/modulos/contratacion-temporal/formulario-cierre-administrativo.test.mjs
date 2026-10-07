@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 const p = { expediente_ref: "expediente:1", seguimiento_ref: "seguimiento:1", version_esperada: 3, motivos: ["fin_ejercicio_sintetico"] }, id = "11111111-1111-4111-8111-111111111111", s = { expediente_ref: p.expediente_ref, seguimiento_ref: p.seguimiento_ref, version_esperada: p.version_esperada, clave_idempotencia: id, transicion_clave: "cerrar_administrativamente_sin_cese", motivo_clave: "fin_ejercicio_sintetico" }, r = { recibo_ref: "recibo:1", version_seguimiento: 4 };
 function raiz() { const handlers = {}; const emitir = (selector, elements) => handlers.submit({ type: "submit", preventDefault() {}, target: { matches: x => x === selector, elements } }); return { innerHTML: "", addEventListener(tipo, fn) { handlers[tipo] = fn; }, removeEventListener(tipo) { delete handlers[tipo]; }, replaceChildren() { this.innerHTML = ""; }, preparar(motivo = s.motivo_clave) { return emitir("[data-ct-cierre-administrativo-form]", { motivo_clave: { value: motivo } }); }, continuar() { return emitir("[data-ct-cierre-continuar-form]"); } }; }
 function monta(c, confirmarOperacion = () => true, t = undefined) { const x = raiz(); return { x, d: montarFormularioCierreAdministrativo({ raiz: x, cliente: c, preparacion: p, confirmarOperacion, generarClaveIdempotencia: () => id, t }) }; }

@@ -1,0 +1,14 @@
+{
+  "captura_fisica_uso": "Specify a private configuration file with -config.",
+  "captura_fisica_configuracion": "Check the configuration, paths and complete inventory.",
+  "captura_fisica_origen": "The set could not be read or captured. Check the files and their permissions.",
+  "captura_fisica_cambio": "Content or permissions changed during capture. No complete output has been retained.",
+  "captura_fisica_limite": "Capture exceeds the configured content or entry limit.",
+  "captura_fisica_control": "Writer exclusion, clean shutdown or recovery could not be confirmed. Check service status.",
+  "captura_fisica_bloqueo": "Another capture holds the lock, or the lock is unavailable.",
+  "captura_fisica_tablespaces_no_soportados": "This version does not capture external tablespaces. Capture has stopped.",
+  "captura_fisica_salida": "The capture result could not be returned.",
+  "pendiente_cifrado_y_verificacion": "Capture completed. Encryption and both restore checks are still required.",
+  "captura_fisica_cancelada": "Capture was cancelled. Check service status.",
+  "captura_fisica_tiempo_agotado": "Capture exceeded the configured time limit. Check service status."
+}

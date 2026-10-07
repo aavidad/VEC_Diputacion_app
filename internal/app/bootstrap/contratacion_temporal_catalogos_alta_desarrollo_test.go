@@ -268,7 +268,8 @@ func cuerpoAltaDesdeCatalogosContratacionTemporalDesarrolloPrueba(
 		AddDate(0, 0, 1)
 	fin := inicio.AddDate(0, 3, 0)
 	cuerpo := map[string]any{
-		"clave_idempotencia": "781972a8-59d6-4168-a877-d9c61c0ae8e4",
+		"clave_idempotencia":     "781972a8-59d6-4168-a877-d9c61c0ae8e4",
+		"numero_expediente_moad": "2026/5487",
 		"solicitud": map[string]any{
 			"centro_ref": centro, "contacto_ref": contacto,
 			"categoria_ref": categoria, "grupo_subgrupo": grupo,

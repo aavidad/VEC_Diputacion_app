@@ -1,0 +1,19 @@
+{
+  "version_esquema": "1",
+  "idioma": "es",
+  "textos": {
+    "titulo": "Estado registrado al corte",
+    "aviso": "Ensayo con datos sintéticos. Los estados reflejan marcajes registrados al corte indicado.",
+    "indeterminado": "Estado indeterminado",
+    "agregado": "Resumen del equipo seleccionado",
+    "cobertura": "La cobertura indica si la fuente sintética contiene la secuencia completa desde el inicio de la fecha hasta el corte.",
+    "limites": "Sin marcajes o con datos incompletos o ambiguos, el estado queda indeterminado. Este ensayo no calcula horas ni acredita presencia física o absentismo.",
+    "entrada_invalida": "No se ha podido leer el ensayo. Revise los archivos, sus huellas y el idioma.",
+    "entrada_registrada": "Jornada abierta según marcajes",
+    "pausa_registrada": "Pausa registrada",
+    "salida_registrada": "Salida registrada",
+    "cobertura_incompleta": "La fuente no cubre todo el periodo hasta el corte. Revise su cobertura.",
+    "sin_marcajes": "La fuente cubre el periodo, pero no contiene marcajes. Revise los registros de la fecha.",
+    "secuencia_ambigua": "Los marcajes tienen horas iguales o una secuencia incoherente. Revise su orden y tipo."
+  }
+}

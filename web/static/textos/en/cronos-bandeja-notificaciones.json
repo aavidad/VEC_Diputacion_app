@@ -1,0 +1,8 @@
+{
+  "bandeja": {
+    "error_actualizar_bandeja": "The list could not be refreshed. Select ‘Refresh notifications’ to retrieve it.",
+    "detalle_recibo_atencion": "View the handling receipt",
+    "referencia_recibo_atencion": "Receipt reference",
+    "fecha_recibo_atencion": "Recorded on"
+  }
+}

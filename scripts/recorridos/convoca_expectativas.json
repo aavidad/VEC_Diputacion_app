@@ -1,0 +1,34 @@
+{
+  "esquema": "vec.recorrido.convoca.v1",
+  "datos": "sinteticos",
+  "capacidades": {
+    "publico.listado": {
+      "estado": "disponible"
+    },
+    "publico.detalle": {
+      "estado": "disponible"
+    },
+    "externo.mi_bolsa": {
+      "estado": "cerrada",
+      "http": [
+        403
+      ],
+      "codigos_h6": []
+    },
+    "externo.preferencias": {
+      "estado": "cerrada",
+      "http": [
+        403
+      ],
+      "codigos_h6": []
+    }
+  },
+  "dependencias_auxiliares": {
+    "/api/vec/usuarios/area-personal/mi-imagen": [
+      403
+    ],
+    "/api/vec/usuarios/area-personal/mis-correos": [
+      403
+    ]
+  }
+}

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js";
-import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -89,6 +89,27 @@ function clienteFalso(llamadas) {
     },
   };
 }
+
+test("expediente sin fecha de fin muestra la causa en solicitud y análisis", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.solicitud.periodo_fin;
+    detalle.solicitud.periodo_causa_fin = "reincorporacion_titular";
+    delete detalle.analisis.periodo_fin;
+    detalle.analisis.periodo_causa_fin = "reincorporacion_titular";
+    return detalle;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "periodo").valor, /Hasta la reincorporación/);
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "periodo_analizado").valor, /Hasta la reincorporación/);
+  assert.deepEqual(expediente.analisis_previo.periodo, {
+    inicio: "2026-09-04T00:00:00Z", causa_fin: "reincorporacion_titular",
+  });
+});
 
 test("convierte cuadro y detalle del servidor para la pantalla existente", async () => {
   const llamadas = [];
@@ -752,4 +773,28 @@ test("el centro con la clave de la organización se nombra con su entrada del ca
   assert.equal(etiquetaCatalogo(centros, "centro-810a"), "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA");
   assert.equal(etiquetaCatalogo(centros, "centro-999"), "centro-999");
   assert.equal(etiquetaCatalogo(null, "centro-520"), "centro-520");
+});
+
+test("sin análisis, el expediente lleva los datos de la petición para prerrellenarlo", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.analisis; delete detalle.cobertura;
+    return detalle;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.deepEqual(expediente.datos_peticion, {
+    modalidad_clave: "bolsa", categoria_ref: "categoria:auxiliar", grupo_subgrupo: "A2",
+    periodo: { inicio: "2026-09-04T00:00:00Z", fin: "2026-12-31T00:00:00Z" },
+  });
+  assert.equal(expediente.analisis_previo, undefined);
+});
+
+test("con análisis registrado, el expediente no ofrece datos de la petición", async () => {
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso([]) });
+  await adaptador.listar();
+  assert.equal((await adaptador.obtener(resumen.expediente_ref)).datos_peticion, undefined);
 });

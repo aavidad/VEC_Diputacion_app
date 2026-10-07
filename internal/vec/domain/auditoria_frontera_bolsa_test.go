@@ -10,6 +10,7 @@ func TestAuditoriaFronteraBolsaSoloRutasYActorCandidatoVerificado(t *testing.T) 
 		"/api/vec/bolsa/mi-bolsa",
 		"/api/vec/bolsa/mi-bolsa/historial",
 		"/api/vec/bolsa/mi-bolsa/solicitudes",
+		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
 		"/api/vec/bolsa/mi-bolsa/respuestas",
 		"/api/vec/bolsa/mi-bolsa/disposiciones",
 		"/api/vec/bolsa/mi-bolsa/contacto",
@@ -38,6 +39,7 @@ func TestAuditoriaFronteraBolsaSoloRutasYActorCandidatoVerificado(t *testing.T) 
 	for _, ruta := range []string{
 		"/api/vec/bolsa/mi-bolsa/", "/api/vec/bolsa/mi-bolsa/otra",
 		"/api/vec/bolsa/mi-bolsa/historial/otra", "/api/vec/bolsa/mi-bolsa?persona=privada",
+		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales/otra",
 		"/api/vec/bolsa/mi-bolsa%2Fhistorial", "/api/vec/bolsa/convocatorias",
 	} {
 		orden := base

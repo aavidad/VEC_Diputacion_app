@@ -435,6 +435,7 @@ func datosFuncionalesOperacionAnalisisIguales(
 		primero.CausaClave == segundo.CausaClave &&
 		primero.Periodo.Inicio.Equal(segundo.Periodo.Inicio) &&
 		primero.Periodo.Fin.Equal(segundo.Periodo.Fin) &&
+		primero.Periodo.CausaFin == segundo.Periodo.CausaFin &&
 		primero.PorcentajeJornada == segundo.PorcentajeJornada &&
 		primero.EntradaRC.Referencia == segundo.EntradaRC.Referencia &&
 		subtle.ConstantTimeCompare(

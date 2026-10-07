@@ -1,0 +1,45 @@
+<!doctype html>
+<html data-tema="institucional">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260930-codexf-temas-v2">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260925-aspecto-v1">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="./recuperacion.css?v=20261002-codexa-s3-v1">
+  <script type="module" src="./vista.js?v=20261002-codexa-s3-v1"></script>
+</head>
+<body class="portal-bolsa-publico">
+  <a class="salto-contenido" href="#recuperacion" data-texto="saltar"></a>
+  <div class="portal-publico-shell">
+    <aside class="menu-lateral-publico">
+      <a class="marca-publica" href="/bolsa/"><img class="marca-publica__logo" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt=""><strong data-texto="convocatorias"></strong></a>
+      <div class="alcance-zona-publica"><strong data-texto="local"></strong><span data-texto="limite"></span></div>
+      <nav class="navegacion-publica" data-aria="navegacion"><a href="/bolsa/" data-texto="volver"></a></nav>
+    </aside>
+    <div class="portal-publico-superficie">
+      <header class="cabecera-publica"><strong data-texto="titulo"></strong><div class="acciones-accesibilidad"><label for="idioma" data-texto="idioma"></label><select id="idioma"></select></div></header>
+      <main id="recuperacion" class="contenido-publico" tabindex="-1">
+        <div class="detalle-cabecera"><h1 data-texto="titulo"></h1><details><summary data-aria="ayuda">?</summary><p data-texto="ayuda_texto"></p><a id="elegir-convocatoria" href="/bolsa/" data-texto="origen_json"></a></details></div>
+        <section class="panel-listado recuperacion-carga" aria-labelledby="cargar-titulo">
+          <h2 id="cargar-titulo" data-texto="cargar_titulo"></h2>
+          <div class="campo"><label for="archivo" data-texto="archivo"></label><input id="archivo" type="file" accept=".json,application/json" aria-describedby="archivo-pista" hidden><button type="button" id="elegir" class="boton-secundario" aria-controls="archivo" aria-describedby="archivo-pista" data-texto="elegir"></button><small id="archivo-pista" data-texto="archivo_pista"></small></div>
+          <p id="estado" role="status" aria-live="polite" data-texto="vacio"></p><p id="error" role="alert" hidden></p>
+        </section>
+        <section class="panel-listado recuperacion-contenido" aria-labelledby="datos-titulo">
+          <header><h2 id="datos-titulo" data-texto="datos_titulo"></h2><span id="estado-archivo" class="etiqueta" data-semantica="aviso" data-texto="sin_presentar" hidden></span></header>
+          <div id="datos" class="recuperacion-datos" tabindex="-1"><p data-texto="datos_vacios"></p></div>
+          <footer class="recuperacion-acciones">
+            <button id="guardar" type="button" class="boton-primario" disabled data-texto="guardar"></button>
+            <button id="cerrar" type="button" class="boton-secundario" disabled data-texto="cerrar"></button>
+            <details><summary data-texto="pendiente_titulo"></summary><ul><li data-texto="pendiente_fuente"></li><li data-texto="pendiente_formulario"></li><li data-texto="pendiente_identidad"></li><li data-texto="pendiente_circuito"></li></ul></details>
+          </footer>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

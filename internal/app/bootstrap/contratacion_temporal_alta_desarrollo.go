@@ -8,6 +8,7 @@ import (
 	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	seguridadcontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/seguridad"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -148,6 +149,9 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
 	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
 
+	// Se fija antes de provisionar el perfil; el montaje exige el mismo mapa.
+	custodiaFirmaDocumentos map[string]string
+
 	instantaneaConsultaReciboRespuesta dominiovec.InstantaneaAutorizacion
 	motivoConsultaReciboRespuesta      dominiovec.ReferenciaEntradaCatalogo
 	instantaneaConsultaComunicaciones  dominiovec.InstantaneaAutorizacion
@@ -167,10 +171,14 @@ var _ httpinterno.AutoridadContextoCanalAsignacion = (*soporteAltaContratacionTe
 var _ httpinterno.AutoridadContextoCanalInformeJuridico = (*soporteAltaContratacionTemporalDesarrollo)(nil)
 
 type dependenciasAltaContratacionTemporalDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	servicio    *application.ServicioRegistroSolicitud
-	autorizador autorizadorLigadoContratacionTemporalDesarrollo
-	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
+	auditoriaLecturasCT        puertosvec.RegistradorIntentosAuditoria
+	procesoAuditoriaLecturasCT string
+	cerrarAuditoriaLecturasCT  func()
+	soporte                    *soporteAltaContratacionTemporalDesarrollo
+	servicio                   *application.ServicioRegistroSolicitud
+	huellas                    ports.DerivadorHuellaAlta
+	autorizador                autorizadorLigadoContratacionTemporalDesarrollo
+	postgresql                 dependenciasPostgreSQLContratacionTemporalDesarrollo
 	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
 	// el canal del centro; nula mientras la capacidad no esté compuesta.
 	cancelacion *piezasCancelacionCTDesarrollo
@@ -178,6 +186,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
 	if d != nil {
+		if d.cerrarAuditoriaLecturasCT != nil {
+			d.cerrarAuditoriaLecturasCT()
+		}
 		d.postgresql.cerrar()
 	}
 }
@@ -236,6 +247,15 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		FaseInicial:      domain.ClaveFase("solicitud"),
 		UnidadInicialRef: "unidad:desarrollo:rrhh",
 		AccionInicial:    domain.ClaveCatalogo("alta"),
+	}
+	if cfg.CTCircuitoRRHHSourcePath != "" {
+		definicion, err := cargarDefinicionCircuitoRRHH(cfg.CTCircuitoRRHHSourcePath)
+		if err != nil {
+			return vacias, err
+		}
+		flujo.Flujo = definicion.Flujo
+		flujo.FaseInicial = definicion.EstadoInicial
+		flujo.DefinicionCircuito = &definicion
 	}
 	motivo := dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID:           "motivos_autorizacion",
@@ -331,10 +351,14 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	if firmaActiva {
+		soporte.custodiaFirmaDocumentos, err = configuracionCustodiaFirmaCTDesarrollo(cfg)
+		if err != nil {
+			return vacias, err
+		}
 		perfilFirma, err := nuevoPerfilFijoCTDesarrollo(principal, soporte.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 			[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora)
+				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora, len(soporte.custodiaFirmaDocumentos) != 0)
 			})
 		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilFirma) != nil {
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
@@ -359,25 +383,39 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	contador, err := postgrescontratacion.NuevoContadorNumeroVisiblePostgreSQL(postgresql.ejecucion)
+	politicaNumero, err := numeracion.Cargar(cfg.CTNumeroExpedienteSourcePath)
 	if err != nil {
 		postgresql.cerrar()
 		return vacias, err
 	}
-	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
+	recuperacionPoliticaFin, err := postgrescontratacion.NuevoRecuperadorPoliticaFinPostgreSQL(postgresql.ejecucion)
+	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
 	servicio, err := application.NuevoServicioRegistroSolicitud(
 		soporte, soporte, huellas, ambitos, soporte, generador,
 		referencias, postgresql.candidaturas,
 		postgrescontratacion.NuevoDerivadorHuellaEfectoAltaCanonico(),
-		autorizador, reloj, postgresql.transaccionAlta,
+		autorizador, reloj, postgresql.transaccionAlta, soporte,
 	)
 	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
+	if err := servicio.ConfigurarPoliticaNumeroExpediente(politicaNumero); err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacionPoliticaFin); err != nil {
 		postgresql.cerrar()
 		return vacias, err
 	}
 	return dependenciasAltaContratacionTemporalDesarrollo{
 		soporte:     soporte,
 		servicio:    servicio,
+		huellas:     huellas,
 		autorizador: autorizador,
 		postgresql:  postgresql,
 	}, nil

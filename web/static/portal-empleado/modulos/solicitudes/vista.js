@@ -1,4 +1,5 @@
-import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js?v=20260924-f2-web2";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES } from "./i18n.js?v=20261005-solicitudes-i18n-v3";
 
 const PESTANAS = Object.freeze(["bandeja", "nueva", "seguimiento", "certificados"]);
 const SITUACIONES = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
@@ -10,11 +11,7 @@ const referencia = (item) => String(item?.referencia ?? item?.id ?? "");
 const titulo = (item) => item?.titulo ?? item?.tipo;
 const claveEstado = (item) => typeof item?.estado === "string" && ESTADOS.includes(item.estado) ? item.estado : "no_disponible";
 const chip = (item, t) => `<span class="solicitudes-chip solicitudes-chip--${claveEstado(item)}">${escapar(t(`estado_${claveEstado(item)}`))}</span>`;
-function fecha(valor, t) {
-  if (typeof valor !== "string" || !/^\d{4}-\d\d-\d\d(?:T.*)?$/.test(valor)) return t("sin_dato");
-  const instante = new Date(valor.length === 10 ? `${valor}T12:00:00Z` : valor);
-  return Number.isNaN(instante.getTime()) ? t("sin_dato") : new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).format(instante);
-}
+
 const ayuda = (clave, t) => `<details class="solicitudes-ayuda"><summary aria-label="${escapar(t(clave))}" title="${escapar(t(clave))}">?</summary><p>${escapar(t(clave))}</p></details>`;
 const botonPendiente = (clave, motivo, t) => `<div class="solicitudes-accion-pendiente"><button type="button" disabled aria-disabled="true" title="${escapar(t(motivo))}">${escapar(t(clave))}</button><small>${escapar(t(motivo))}</small></div>`;
 
@@ -31,14 +28,14 @@ function resumen(datos, situacion, t) {
     ["resumen_subsanaciones", tramites.filter((item) => claveEstado(item) === "pendiente_subsanacion").length, "!"],
     ["resumen_finalizados", tramites.filter((item) => claveEstado(item) === "finalizada").length, "✓"],
   ];
-  return `<section class="solicitudes-resumen rejilla-kpi" aria-label="${escapar(t("resumen_total"))}">${valores.map(([clave, numero, icono]) => `<article class="tarjeta-kpi solicitudes-kpi"><span class="icono-kpi" aria-hidden="true">${icono}</span><span class="solicitudes-kpi-texto"><span>${escapar(t(clave))}</span><strong class="valor-kpi">${disponible ? numero : escapar(t("kpi_sin_fuente"))}</strong><small>${escapar(disponible ? t("kpi_fuente") : t(`estado_${situacion}`))}</small></span></article>`).join("")}</section>`;
+  return `<section class="solicitudes-resumen rejilla-kpi" aria-label="${escapar(t("resumen_total"))}">${valores.map(([clave, numero, icono]) => `<article class="tarjeta-kpi solicitudes-kpi"><span class="icono-kpi" aria-hidden="true">${icono}</span><span class="solicitudes-kpi-texto"><span>${escapar(t(clave))}</span><strong class="valor-kpi">${disponible ? escapar(t.numero(numero)) : escapar(t("kpi_sin_fuente"))}</strong><small>${escapar(disponible ? t("kpi_fuente") : t(`estado_${situacion}`))}</small></span></article>`).join("")}</section>`;
 }
 function bandeja(datos, estado, t) {
-  const busqueda = estado.busqueda.trim().toLocaleLowerCase("es");
+  const busqueda = t.minusculas(estado.busqueda.trim());
   const filtrados = lista(datos.tramites).filter((item) => (estado.filtro === "todos" || claveEstado(item) === estado.filtro)
-    && `${referencia(item)} ${titulo(item) ?? ""}`.toLocaleLowerCase("es").includes(busqueda));
+    && t.minusculas(`${referencia(item)} ${titulo(item) ?? ""}`).includes(busqueda));
   const cabeceras = ["referencia", "tramite", "fecha", "unidad", "estado", "accion"];
-  return `<section class="solicitudes-panel panel" aria-labelledby="solicitudes-bandeja-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-bandeja-titulo">${escapar(t("bandeja_titulo"))}</h3><p>${escapar(t("bandeja_subtitulo"))}</p></div>${ayuda("ayuda_estado", t)}</header><div class="cuerpo-panel solicitudes-panel-cuerpo"><form class="solicitudes-filtros" data-solicitudes-filtros><label>${escapar(t("buscar"))}<input name="busqueda" value="${escapar(estado.busqueda)}" maxlength="80" autocomplete="off"></label><label>${escapar(t("filtrar"))}<select name="estado"><option value="todos"${estado.filtro === "todos" ? " selected" : ""}>${escapar(t("todos"))}</option>${ESTADOS.map((clave) => `<option value="${clave}"${estado.filtro === clave ? " selected" : ""}>${escapar(t(`estado_${clave}`))}</option>`).join("")}</select></label></form><div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="${escapar(t("region_bandeja"))}"><table class="solicitudes-tabla"><caption>${escapar(t("tabla_tramites"))}</caption><thead><tr>${cabeceras.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filtrados.length ? filtrados.map((item) => `<tr class="solicitudes-fila solicitudes-fila--${claveEstado(item)}"><th scope="row"><button type="button" class="solicitudes-enlace" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(referencia(item))}</button></th><td>${escapar(texto(titulo(item), t))}</td><td>${escapar(fecha(item.fecha, t))}</td><td>${escapar(texto(item.unidad, t))}</td><td>${chip(item, t)}</td><td><button type="button" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(t("ver"))}</button></td></tr>`).join("") : `<tr><td colspan="6" class="solicitudes-vacio">${escapar(t("sin_resultados"))}</td></tr>`}</tbody></table></div></div></section>`;
+  return `<section class="solicitudes-panel panel" aria-labelledby="solicitudes-bandeja-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-bandeja-titulo">${escapar(t("bandeja_titulo"))}</h3><p>${escapar(t("bandeja_subtitulo"))}</p></div>${ayuda("ayuda_estado", t)}</header><div class="cuerpo-panel solicitudes-panel-cuerpo"><form class="solicitudes-filtros" data-solicitudes-filtros><label>${escapar(t("buscar"))}<input name="busqueda" value="${escapar(estado.busqueda)}" maxlength="80" autocomplete="off"></label><label>${escapar(t("filtrar"))}<select name="estado"><option value="todos"${estado.filtro === "todos" ? " selected" : ""}>${escapar(t("todos"))}</option>${ESTADOS.map((clave) => `<option value="${clave}"${estado.filtro === clave ? " selected" : ""}>${escapar(t(`estado_${clave}`))}</option>`).join("")}</select></label></form><div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="${escapar(t("region_bandeja"))}"><table class="solicitudes-tabla"><caption>${escapar(t("tabla_tramites"))}</caption><thead><tr>${cabeceras.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filtrados.length ? filtrados.map((item) => `<tr class="solicitudes-fila solicitudes-fila--${claveEstado(item)}"><th scope="row"><button type="button" class="solicitudes-enlace" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(referencia(item))}</button></th><td>${escapar(texto(titulo(item), t))}</td><td>${escapar(t.fecha(item.fecha))}</td><td>${escapar(texto(item.unidad, t))}</td><td>${chip(item, t)}</td><td><button type="button" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(t("ver"))}</button></td></tr>`).join("") : `<tr><td colspan="6" class="solicitudes-vacio">${escapar(t("sin_resultados"))}</td></tr>`}</tbody></table></div></div></section>`;
 }
 function nueva(datos, t) {
   const catalogo = lista(datos.catalogo);
@@ -53,7 +50,7 @@ function seguimiento(datos, estado, t) {
       <dl>
         <div><dt>${escapar(t("referencia"))}</dt><dd>${escapar(referencia(item))}</dd></div>
         <div><dt>${escapar(t("tramite"))}</dt><dd>${escapar(texto(titulo(item), t))}</dd></div>
-        <div><dt>${escapar(t("fecha"))}</dt><dd>${escapar(fecha(item.fecha, t))}</dd></div>
+        <div><dt>${escapar(t("fecha"))}</dt><dd>${escapar(t.fecha(item.fecha))}</dd></div>
         <div><dt>${escapar(t("estado"))}</dt><dd>${chip(item, t)}</dd></div>
         <div><dt>${escapar(t("unidad"))}</dt><dd>${escapar(texto(item.unidad, t))}</dd></div>
         <div><dt>${escapar(t("hito_actual"))}</dt><dd>${escapar(texto(item.paso, t))}</dd></div>
@@ -64,7 +61,7 @@ function seguimiento(datos, estado, t) {
       </div>
     </div>
     <div class="solicitudes-historial"><h4>${escapar(t("historial"))}</h4>
-      ${historial.length ? `<ol>${historial.map((hito) => `<li><time>${escapar(fecha(hito.fecha, t))}</time><strong>${escapar(texto(hito.titulo, t))}</strong>${hito.detalle ? `<span>${escapar(hito.detalle)}</span>` : ""}</li>`).join("")}</ol>` : `<p>${escapar(t("historial_vacio"))}</p>`}
+      ${historial.length ? `<ol>${historial.map((hito) => `<li><time>${escapar(t.fecha(hito.fecha))}</time><strong>${escapar(texto(hito.titulo, t))}</strong>${hito.detalle ? `<span>${escapar(hito.detalle)}</span>` : ""}</li>`).join("")}</ol>` : `<p>${escapar(t("historial_vacio"))}</p>`}
     </div>${botonPendiente("aportar", "aportar_motivo", t)}`
     : `<p class="solicitudes-vacio">${escapar(t("seguimiento_vacio"))}</p>`;
   return `<section class="solicitudes-panel panel solicitudes-detalle" aria-labelledby="solicitudes-seguimiento-titulo">
@@ -79,8 +76,8 @@ function certificados(datos, t) {
 }
 
 /** Solo presentación. Datos es la respuesta ya autorizada de la fuente inyectada. */
-export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUDES_ES) {
-  const t = crearTraductorSolicitudes(mensajes);
+export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUDES, localizacion = LOCALIZACION_ACTUAL) {
+  const t = crearTraductorSolicitudes(mensajes, localizacion);
   const situacion = SITUACIONES.has(estado.situacion) ? estado.situacion : "no_configurado";
   const datos = situacion === "disponible" && estado.datos && typeof estado.datos === "object" ? estado.datos
     : situacion === "vacio" && estado.datos && typeof estado.datos === "object"
@@ -96,9 +93,9 @@ export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUD
 }
 
 /** Montaje de consulta. fuente.consultar({ signal }) devuelve datos ya autorizados. */
-export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_SOLICITUDES_ES } = {}) {
+export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_SOLICITUDES, localizacion = LOCALIZACION_ACTUAL } = {}) {
   if (!raiz?.replaceChildren || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || (fuente !== undefined && typeof fuente?.consultar !== "function")) throw new TypeError("vista de solicitudes no disponible");
-  const t = crearTraductorSolicitudes(mensajes);
+  const t = crearTraductorSolicitudes(mensajes, localizacion);
   const controlador = new AbortController();
   let activa = true;
   let estado = { pestana: "bandeja", busqueda: "", filtro: "todos", seleccionada: "", situacion: fuente ? "cargando" : "no_configurado", datos: {} };
@@ -108,7 +105,7 @@ export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, regi
     const dentro = conservarFoco && activo && raiz.contains?.(activo);
     const pestanaEnFoco = dentro ? activo.closest?.("[data-solicitudes-tab]")?.dataset.solicitudesTab : "";
     const panelEnFoco = dentro && activo.id === "solicitudes-panel-actual";
-    raiz.innerHTML = renderizarSolicitudes(estado, mensajes);
+    raiz.innerHTML = renderizarSolicitudes(estado, mensajes, localizacion);
     if (PESTANAS.includes(pestanaEnFoco)) raiz.querySelector?.(`[data-solicitudes-tab="${pestanaEnFoco}"]`)?.focus?.();
     else if (panelEnFoco) raiz.querySelector?.("#solicitudes-panel-actual")?.focus?.();
   };

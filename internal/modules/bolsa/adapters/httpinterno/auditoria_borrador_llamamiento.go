@@ -10,6 +10,7 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -79,7 +80,7 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 	if respuesta.excedida {
 		estado = http.StatusServiceUnavailable
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), tiempoMaximoAuditoriaBorradorLlamamiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), plazoarranque.Ampliar(tiempoMaximoAuditoriaBorradorLlamamiento))
 	defer cancelar()
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctxAuditoria, a.generador)
 	if err != nil {
@@ -109,6 +110,11 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	// La lectura documental RRHH comparte la clase durable de consulta de
+	// situación, pero conserva su acción V3 nominal en el caso de uso.
+	if r != nil && r.URL != nil && r.Method == http.MethodGet && r.URL.Path == RutaSolicitudesDocumentalesPendientesRRHH && r.URL.RawPath == "" {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+	}
 	if _, _, ok := ReferenciasRutaOperacionesSituacion(r); ok {
 		if r.Method == http.MethodPost {
 			return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
@@ -162,6 +168,9 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 		return puertosbolsa.AccionIntentoEmitirLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
 	}
 	if _, _, ok := ReferenciasRutaContactosParticipacion(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaContactosParticipacion, true
+	}
+	if r.URL != nil && r.URL.Path == RutaContactosOferta && r.URL.RawPath == "" && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaContactosParticipacion, true
 	}
 	if _, _, ok := ReferenciasRutaContactosParticipacion(r); ok && r.Method == http.MethodPost {
