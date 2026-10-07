@@ -678,3 +678,56 @@ test("la pestaña RPT activa queda visible en móvil sin desplazar página ni mo
     assert.equal(globalThis.window.scrollY, 420);
   } finally { globalThis.window = anterior; }
 });
+
+test("incidencia RPT permite un reintento, conserva la pestaña y ofrece abrir tras recuperarse", async () => {
+  const raiz = raizFalsa(); let resolver, intentos = 0, montajes = 0;
+  const fuentes = { servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) } };
+  montarVistaFichaIntegralPersonal({ raiz, fuentes, ocultarSinFuente: true, rptIncidencia: true,
+    montarCatalogos: () => { montajes += 1; return { desmontar() {} }; },
+    reintentarRPT: () => { intentos += 1; return new Promise((r) => { resolver = r; }); } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true");
+  const aviso = ficha.querySelector("[data-personal-ficha-rpt-aviso]");
+  assert.match(texto(aviso), /No se pudo cargar la RPT publicada/u);
+  const reintentar = ficha.querySelector("[data-personal-ficha-rpt-reintentar]"); reintentar.focus();
+  reintentar.click(); reintentar.click(); await completar();
+  assert.equal(intentos, 1); assert.match(texto(aviso), /Comprobando la RPT publicada/u);
+  tab(ficha, "servicios").click(); await completar();
+  const panel = ficha.querySelector("[data-personal-ficha-integral]") ?? ficha;
+  const focoAjeno = tab(ficha, "servicios"); focoAjeno.focus();
+  resolver("disponible"); await completar();
+  assert.equal(tab(ficha, "servicios").atributos.get("aria-selected"), "true");
+  assert.equal(raiz.ownerDocument.activeElement, focoAjeno);
+  assert.ok(panel); assert.equal(montajes, 0);
+  assert.match(texto(aviso), /ya está disponible/u);
+  ficha.querySelector("[data-personal-ficha-rpt-abrir]").click(); await completar();
+  assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true"); assert.equal(montajes, 1);
+});
+
+test("reintento RPT falla cerrado y ausencia o denegación no ofrecen reintento", async () => {
+  for (const respuesta of [Promise.reject(new Error("secreto interno")), Promise.resolve("desconocido"), "disponible", Promise.resolve("incidencia"), Promise.resolve("ausente"), Promise.resolve("denegado")]) {
+    const raiz = raizFalsa();
+    montarVistaFichaIntegralPersonal({ raiz, rptIncidencia: true, montarCatalogos: () => ({ desmontar() {} }), reintentarRPT: () => respuesta });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+    assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true", "una incidencia no monta el catálogo automáticamente");
+    ficha.querySelector("[data-personal-ficha-rpt-reintentar]").click(); await completar();
+    const aviso = ficha.querySelector("[data-personal-ficha-rpt-aviso]");
+    assert.doesNotMatch(texto(aviso), /secreto interno|desconocido/u);
+    if (texto(aviso).includes("no está disponible") || texto(aviso).includes("No tiene acceso"))
+      assert.equal(ficha.querySelector("[data-personal-ficha-rpt-reintentar]"), null);
+    else assert.ok(ficha.querySelector("[data-personal-ficha-rpt-reintentar]"));
+  }
+  assert.throws(() => montarVistaFichaIntegralPersonal({ raiz: raizFalsa(), rptIncidencia: true, montarCatalogos: () => ({ desmontar() {} }) }), /no disponible/);
+  assert.throws(() => montarVistaFichaIntegralPersonal({ raiz: raizFalsa(), rptDisponible: true }), /no disponible/);
+  assert.throws(() => montarVistaFichaIntegralPersonal({ raiz: raizFalsa(), reintentarRPT: "sí" }), /no disponible/);
+});
+
+test("reintento RPT tardío no repinta una ficha desmontada", async () => {
+  const raiz = raizFalsa(); let resolver;
+  const montaje = montarVistaFichaIntegralPersonal({ raiz, rptIncidencia: true, montarCatalogos: () => ({ desmontar() {} }),
+    reintentarRPT: () => new Promise((r) => { resolver = r; }) });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  ficha.querySelector("[data-personal-ficha-rpt-reintentar]").click(); await completar();
+  montaje.desmontar(); resolver("disponible"); await completar();
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
