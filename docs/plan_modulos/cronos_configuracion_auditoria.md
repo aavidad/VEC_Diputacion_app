@@ -23,8 +23,9 @@ exclusivo transmite el mismo catálogo, huella, evento y secuencia a
 [`vec_autorizacion.publicar_motivos_autorizacion_v2`](../../deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivos_autorizacion_v2.up.sql).
 El checkpoint exige una secuencia contigua y un replay idéntico. Si maestro y
 proyección comparten base, la publicación ocurre en la misma transacción; si
-están en bases distintas, se aplica el circuito de invalidación previo definido
-en la [persistencia de Autorización](../../deploy/postgresql/autorizacion/README.md).
+están en bases distintas, el despliegue permanece cerrado hasta implantar y
+probar la barrera de invalidación previa en dos fases o el arrendamiento corto
+exigidos por la [persistencia de Autorización](../../deploy/postgresql/autorizacion/README.md).
 La proyección SQL no sustituye la aprobación ni la fuente maestra. La
 composición administrativa durable de `ServicioCatalogos` aún no está
 acreditada para este corte; V debe identificar el canal operativo autorizado.
@@ -39,6 +40,14 @@ cuatro campos son exactamente `catalogo_id` (texto), `catalogo_version`
 `entrada_clave` (`motivo_` más 32 hexadecimales). El ID es el mismo que el de
 `motivos.saldo`. La entrada de rechazo tiene una clave distinta de las
 positivas activas.
+
+CONFIG NUEVA: `auditoria_intentos.motivo_denegado`. Esta plantilla muestra la
+línea exacta; los valores entre corchetes se sustituyen por el resultado de la
+publicación. No es un fichero instalable:
+
+```text
+"auditoria_intentos": {"motivo_denegado": {"catalogo_id": "[ID publicado]", "catalogo_version": [entero publicado], "catalogo_huella_sha256": "[SHA256 publicada]", "entrada_clave": "[clave publicada]"}}
+```
 
 Las referencias positivas de `motivos` se actualizan a la publicación que
 resulte, con la versión y huella emitidas por la autoridad; cada acción
