@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"sort"
 	b "vec-diputacion-granada/internal/shared/baremacion"
 )
@@ -65,6 +66,10 @@ func calcularPeriodos(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos,
 		clave := id
 		if r.Agrupacion == "por_periodo" {
 			clave = p.ID + ":" + id
+		} else if r.Agrupacion == "por_nivel" {
+			// El tramo superior agrupa varios niveles; las fracciones sólo se
+			// pueden sumar entre puestos con el mismo nivel de origen.
+			clave = fmt.Sprintf("nivel:%d:%s", p.Nivel, id)
 		}
 		g, existe := grupos[clave]
 		if !existe {

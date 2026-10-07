@@ -28,6 +28,9 @@ func ValidarConfiguracion(c Configuracion) error {
 	if c.SchemaVersion != VersionMotor || !referencia(c.ConvocatoriaRef) || !referencia(c.Version) || !referencia(c.BasesRef) {
 		return fallo("configuracion_invalida", "version_bases")
 	}
+	if c.CoberturaRequerida != "" && c.CoberturaRequerida != "seis_familias_concurso_v1" {
+		return fallo("cobertura_invalida", "cobertura_requerida")
+	}
 	orden, err := c.VentanaDesde.Comparar(c.FechaCorte)
 	if err != nil || orden >= 0 {
 		return fallo("configuracion_invalida", "ventana")
@@ -66,14 +69,17 @@ func ValidarConfiguracion(c Configuracion) error {
 			return fallo("regla_invalida", campo+".tipos")
 		}
 		if temporal(r.Familia) {
-			if r.Conversion == nil || (r.Agrupacion != "por_tramo" && r.Agrupacion != "por_periodo") || r.Solapes != "rechazar" {
+			if r.Conversion == nil || (r.Agrupacion != "por_tramo" && r.Agrupacion != "por_periodo" && r.Agrupacion != "por_nivel") || r.Solapes != "rechazar" {
 				return fallo("politica_temporal_invalida", campo)
+			}
+			if r.Agrupacion == "por_nivel" && r.Familia != ValoracionTrabajo {
+				return fallo("agrupacion_calendario_no_soportada", campo)
 			}
 			if r.Jornada != "integra" && r.Jornada != "proporcional" && r.Jornada != "protegida_integra" {
 				return fallo("politica_jornada_invalida", campo)
 			}
 			v := r.Conversion
-			if (v.Metodo == "meses_completos" || v.Metodo == "anos_desde_meses") && r.Agrupacion != "por_periodo" {
+			if (v.Metodo == "meses_completos" || v.Metodo == "anos_desde_meses") && r.Agrupacion != "por_periodo" && !(r.Familia == ValoracionTrabajo && v.Metodo == "anos_desde_meses" && r.Agrupacion == "por_nivel") {
 				return fallo("agrupacion_calendario_no_soportada", campo)
 			}
 			if v.Divisor <= 0 || v.Divisor > 1000000 || v.UmbralResto < 0 || v.UmbralResto >= v.Divisor {
@@ -90,6 +96,24 @@ func ValidarConfiguracion(c Configuracion) error {
 			}
 		} else if r.Conversion != nil || r.Jornada != "" || r.Solapes != "" || r.Agrupacion != "" {
 			return fallo("regla_incompatible", campo)
+		}
+		if r.PermanenciaPolitica == "" {
+			if r.TipoProvisional != "" || r.FactorProvisionalNumerador != 0 || r.FactorProvisionalDenominador != 0 {
+				return fallo("politica_permanencia_invalida", campo)
+			}
+		} else {
+			if r.Familia != Permanencia || r.PermanenciaPolitica != "resto_provisional_primero_v1" || r.Conversion == nil || r.Conversion.Metodo != "anos_desde_meses" || r.Agrupacion != "por_periodo" || r.Jornada != "integra" || !referencia(r.TipoProvisional) || len(r.Tipos) == 0 || !acepta(r.TipoProvisional, r.Tipos) {
+				return fallo("politica_permanencia_invalida", campo)
+			}
+			factor, err := b.NuevoRacional(r.FactorProvisionalNumerador, r.FactorProvisionalDenominador)
+			if err != nil || factor.Numerador() <= 0 {
+				return fallo("factor_provisional_invalido", campo)
+			}
+			uno, _ := b.NuevoRacional(1, 1)
+			mayor, _ := factor.Comparar(uno)
+			if mayor > 0 {
+				return fallo("factor_provisional_invalido", campo)
+			}
 		}
 		if r.Familia == Cursos {
 			if r.HorasMinimas == nil || !r.HorasMinimas.EsValido() || r.HorasMinimas.Numerador() < 0 {
