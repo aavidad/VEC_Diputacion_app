@@ -87,6 +87,10 @@ const CLAVES_FIN_MODALIDAD = Object.freeze({
   ],
   "i18n-avisos-via-cobertura.js": ["avisos_via_propuesta_oferta_sae_sin_fin"],
 });
+const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
+  "reincorporacion_capacidad_denegada", "reincorporacion_capacidad_no_disponible",
+  "reincorporacion_capacidad_reintentar",
+]);
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
 
@@ -114,6 +118,13 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         }
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
+      }
+      if (archivo === "i18n-ficha-lista.js") {
+        for (const clave of CLAVES_REINCORPORACION_CAPACIDAD) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(valor)
+          .filter(([clave]) => !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor) || nombre.startsWith("rotulos_"), nombre);

@@ -130,5 +130,43 @@ test("un fallo de capacidad conserva un estado controlado sin ofrecer escritura"
     assert.equal(caso.capacidades(), 1);
     assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "error");
     assert.ok(!caso.dom.zona().hijos.some((h) => h.innerHTML.includes("data-ct-rrhh-reincorporacion")));
+    const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    assert.match(aviso.hijos[0].textContent, /No se pudo comprobar si puede registrar la reincorporación/u);
+    assert.equal(aviso.hijos[1].textContent, "Reintentar comprobación de reincorporación");
+  } finally { caso.modulo.desmontar(); }
+});
+
+test("reintentar capacidad tras 503 reutiliza el seguimiento leído y llega al panel", async () => {
+  let intento = 0;
+  const caso = await escenario(() => {
+    intento++;
+    if (intento === 1) throw Object.assign(new Error("temporal"), { estado: 503 });
+    return true;
+  });
+  try {
+    const panel = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+    panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar(); await esperar();
+    const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    assert.ok(aviso);
+    aviso.hijos[1].escuchas.get("click")();
+    await esperar(); await esperar();
+    assert.equal(caso.lecturas(), 2, "el botón de capacidad no repite el POST de seguimiento");
+    assert.equal(caso.capacidades(), 2);
+    assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "permitida");
+    assert.ok(caso.dom.zona().hijos.some((h) => h.innerHTML.includes("data-ct-rrhh-reincorporacion")));
+  } finally { caso.modulo.desmontar(); }
+});
+
+test("un 403 de capacidad explica la denegación y no ofrece reintentar", async () => {
+  const caso = await escenario(() => Promise.reject(Object.assign(new Error("denegado"), { estado: 403 })));
+  try {
+    const panel = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+    panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar(); await esperar();
+    const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    assert.match(aviso.hijos[0].textContent, /No tiene permiso para consultar la reincorporación/u);
+    assert.equal(aviso.hijos.length, 1);
+    assert.equal(caso.capacidades(), 1);
   } finally { caso.modulo.desmontar(); }
 });

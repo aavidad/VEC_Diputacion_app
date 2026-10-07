@@ -206,6 +206,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarEstadisticas = null;
   let desmontarSeguimientoCese = null;
   let desmontarReincorporacion = null;
+  let avisoCapacidadReincorporacion = null;
   let desmontarAuditoriaComun = null;
   let desmontarDocumentosComun = null;
   let desmontarBorradoresPublicados = null;
@@ -224,6 +225,35 @@ export async function montarModuloContratacionTemporal({
     controladorCapacidadReincorporacion = null;
     desmontarReincorporacion?.();
     desmontarReincorporacion = null;
+    avisoCapacidadReincorporacion?.remove();
+    avisoCapacidadReincorporacion = null;
+  }
+
+  function mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento) {
+    const denegada = error?.estado === 401 || error?.estado === 403;
+    const reintentable = !denegada && (error?.estado === 404 || error?.estado === 503
+      || !Number.isInteger(error?.estado));
+    const aviso = raiz.ownerDocument.createElement("div");
+    aviso.className = "ct-exp-mensaje ct-tono-peligro";
+    aviso.setAttribute("role", "alert");
+    aviso.setAttribute("data-ct-exp-capacidad-reincorporacion-aviso", "");
+    const texto = raiz.ownerDocument.createElement("p");
+    texto.textContent = traducirExpedientes(denegada
+      ? "reincorporacion_capacidad_denegada" : "reincorporacion_capacidad_no_disponible");
+    aviso.append(texto);
+    if (reintentable) {
+      const boton = raiz.ownerDocument.createElement("button");
+      boton.type = "button";
+      boton.className = "boton-secundario";
+      boton.textContent = traducirExpedientes("reincorporacion_capacidad_reintentar");
+      boton.addEventListener("click", () => {
+        if (!montada || !aviso.isConnected || avisoCapacidadReincorporacion !== aviso) return;
+        montarReincorporacionSiProcede(estado, seguimiento);
+      });
+      aviso.append(boton);
+    }
+    zona.append(aviso);
+    avisoCapacidadReincorporacion = aviso;
   }
 
   function retirarAuditoriaComun() {
@@ -309,6 +339,10 @@ export async function montarModuloContratacionTemporal({
     if (!clienteReincorporacion || !contexto
       || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
       || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+    const actualAntes = presentador.obtenerEstado();
+    if (actualAntes.carga !== "listo" || actualAntes.vista !== "expediente"
+      || actualAntes.expediente?.expediente_ref !== contexto.expediente_ref
+      || actualAntes.expediente.version !== contexto.version) return;
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!zona) return;
     const controlador = new AbortController();
@@ -338,6 +372,7 @@ export async function montarModuloContratacionTemporal({
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
+        mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
         console.warn({ origen: "ct.capacidad_reincorporacion", estado: Number.isInteger(error?.estado) ? error.estado : null });
       });
   }
