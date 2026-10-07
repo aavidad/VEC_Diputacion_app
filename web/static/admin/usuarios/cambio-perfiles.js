@@ -40,8 +40,10 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
   const reintentable = (clave) => ["lote.errores.conflicto", "lote.errores.invalido", "lote.errores.servicio"].includes(clave);
   function pintarError(clave, reintentar = reintentable(clave)) {
     pintar(`${cabecera("lote.titulo")}<div class="cuerpo-panel"><div class="resumen-errores" role="alert"><p>${tx(clave)}</p></div>
+      ${clave === "lote.errores.incierto" ? `<p id="${id("resultado")}" role="status" aria-live="polite" tabindex="-1"></p>` : ""}
       <div class="acciones-paso"><button type="button" class="boton-secundario" data-cambio="volver">${tx("lote.volver_ficha")}</button>
-      ${reintentar ? `<button type="button" class="boton-primario" data-cambio="preparar">${tx("lote.volver_a_preparar")}</button>` : ""}</div></div>`);
+      ${clave === "lote.errores.incierto" ? `<button type="button" class="boton-primario" data-cambio="reintentar-confirmacion" id="${id("confirmar")}">${tx("lote.reintentar_misma_solicitud")}</button>` :
+        reintentar ? `<button type="button" class="boton-primario" data-cambio="preparar">${tx("lote.volver_a_preparar")}</button>` : ""}</div></div>`);
   }
 
   async function preparar() {
@@ -179,7 +181,9 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
     abortar(); const c = new AbortController(); control = c;
     enviando = true; incierto = true;
     nodo("resultado").textContent = t("lote.enviando"); nodo("resultado").focus?.();
-    nodo("confirmar").disabled = true; nodo("corregir").disabled = true;
+    const botonConfirmar = nodo("confirmar"), botonCorregir = nodo("corregir");
+    if (botonConfirmar) botonConfirmar.disabled = true;
+    if (botonCorregir) botonCorregir.disabled = true;
     try {
       const respuesta = await cliente.aplicarLote(cuerpo, c.signal);
       if (!vivo || control !== c) return;
@@ -217,6 +221,7 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
     else if (a === "via-retirar") { cambio = { via: "retirar" }; pintarRetirar(); }
     else if (a === "corregir") { cuerpo = null; if (cambio.via === "asignar") pintarAsignar(); else pintarRetirar(); }
     else if (a === "confirmar") void confirmar();
+    else if (a === "reintentar-confirmacion" && incierto && cuerpo) void confirmar();
   }
   function submit(evento) {
     evento.preventDefault?.();

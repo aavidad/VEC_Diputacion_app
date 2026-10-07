@@ -19,6 +19,19 @@ function preparacion() {
       vinculo_ref: `vca_${"5".repeat(32)}`, vinculo_version: 2, vigente_desde: "2026-01-01T00:00:00Z", vigente_hasta: "2036-01-01T00:00:00Z", huella_sha256: "6".repeat(64) }],
     truncado: false, motivos: [motivo] } };
 }
+function respuestaLote(cuerpo) {
+  const fila = cuerpo.cambios[0], o = fila.objetivo, alta = fila.operacion === "otorgar";
+  const confirmado = "2026-10-05T10:01:00Z";
+  const acto = `acto_admin:${"a".repeat(32)}`, recibo = `recibo_admin:${"f".repeat(32)}`, auditoria = `aud_v3_${"b".repeat(32)}`;
+  return { recibo: { operacion_ref: cuerpo.operacion_ref, acto_ref: acto, recibo_ref: recibo, auditoria_ref: auditoria,
+    huella_solicitud_sha256: "7".repeat(64), fuentes_sha256: "8".repeat(64), confirmado_en: confirmado,
+    cambios: [{ operacion_ref: cuerpo.operacion_ref, acto_ref: acto, recibo_ref: recibo, auditoria_ref: auditoria,
+      objetivo_persona_ref: o.persona_ref, perfil_ref: o.perfil_ref, vinculo_ref: o.vinculo_ref, unidad_ref: o.unidad_ref,
+      rol_version_ref: fila.rol_version_ref, huella_antes_sha256: o.huella_sha256, huella_despues_sha256: "9".repeat(64),
+      motivo: cuerpo.motivo, estado_posterior: alta ? "activo" : "revocado", version_posterior: alta ? 1 : o.vinculo_version + 1,
+      vigente_desde: confirmado, vigente_hasta: alta ? o.vigente_hasta : "2026-10-05T10:01:00Z", confirmado_en: confirmado }],
+    inicios: [alta ? { modo: fila.inicio_vigencia, vigente_desde: confirmado } : {}] } };
+}
 
 test("la preparación se valida cerrada y para la persona y unidad pedidas", () => {
   const p = validarPreparacion(preparacion(), PERSONA, UNIDAD);
@@ -79,18 +92,31 @@ test("el cuerpo del lote copia la preparación sin inventar nada", () => {
 test("el recibo debe ser el de la orden enviada", () => {
   const p = validarPreparacion(preparacion(), PERSONA, UNIDAD);
   const cuerpo = construirLote(p, { operacion: "revocar", baja: p.bajas[0] }, "alta_funciones", "", cripto);
-  const recibo = { recibo: { operacion_ref: cuerpo.operacion_ref, recibo_ref: `recibo_admin:${"f".repeat(32)}`, confirmado_en: "2026-10-05T10:01:00.5Z",
-    cambios: [{ perfil_ref: p.bajas[0].perfil_ref, estado_posterior: "revocado" }], inicios: [{}] } };
+  const recibo = respuestaLote(cuerpo);
   assert.equal(validarReciboLote(recibo, cuerpo).recibo_ref, recibo.recibo.recibo_ref);
   assert.throws(() => validarReciboLote({ recibo: { ...recibo.recibo, operacion_ref: "acto_admin:" + "0".repeat(32) } }, cuerpo));
   assert.throws(() => validarReciboLote({ recibo: { ...recibo.recibo, cambios: [{ perfil_ref: p.bajas[0].perfil_ref, estado_posterior: "activo" }] } }, cuerpo));
+  const otraPersona = structuredClone(recibo);
+  otraPersona.recibo.cambios[0].objetivo_persona_ref = `per_${"z".repeat(24)}`;
+  assert.throws(() => validarReciboLote(otraPersona, cuerpo));
+  const otraAuditoria = structuredClone(recibo);
+  otraAuditoria.recibo.cambios[0].auditoria_ref = `aud_v3_${"c".repeat(32)}`;
+  assert.throws(() => validarReciboLote(otraAuditoria, cuerpo));
 });
 
 // Contenedor mínimo: guarda el HTML y responde a los selectores por id.
-class Hijo { constructor() { this.html = ""; this.textContent = ""; this.disabled = false; } set innerHTML(v) { this.html = v; } get innerHTML() { return this.html; } focus() {} }
+class Hijo {
+  constructor(actualizar = () => {}) { this.html = ""; this.textContent = ""; this.disabled = false; this.actualizar = actualizar; }
+  set innerHTML(v) { this.html = v; this.actualizar(v); }
+  get innerHTML() { return this.html; }
+  focus() {}
+  setAttribute() {}
+  removeAttribute() {}
+}
 class Contenedor {
   constructor() { this.id = "c"; this.html = ""; this.listeners = {}; this.hijos = new Map(); }
-  set innerHTML(v) { this.html = v; for (const [, i] of v.matchAll(/id="([^"]+)"/gu)) if (!this.hijos.has(i)) this.hijos.set(i, new Hijo()); }
+  actualizar(v) { for (const [, i] of v.matchAll(/id="([^"]+)"/gu)) if (!this.hijos.has(i)) this.hijos.set(i, new Hijo((html) => this.actualizar(html))); }
+  set innerHTML(v) { this.html = v; this.actualizar(v); }
   get innerHTML() { return this.html; }
   get panel() { return this.hijos.get("c-panel").html; }
   querySelector(sel) { return this.hijos.get(sel.slice(1)) || new Hijo(); }
@@ -99,6 +125,39 @@ class Contenedor {
   contains() { return true; }
   replaceChildren() { this.html = ""; }
 }
+
+test("un fallo incierto permite repetir exactamente la misma operación y confirmar su recibo", async () => {
+  const textos = await cargarTextos("admin-usuarios");
+  const cont = new Contenedor();
+  const cuerpos = [];
+  const montaje = montarCambioPerfiles(cont, { textos, cripto, persona: PERSONA, nombre: "Antonio Reyes Álvarez", unidadRef: UNIDAD,
+    ahora: () => AHORA, alVolver() {}, cliente: { preparar: async () => preparacion(), aplicarLote: async (cuerpo) => {
+      cuerpos.push(structuredClone(cuerpo));
+      if (cuerpos.length === 1) throw new TypeError("sin_respuesta");
+      return respuestaLote(cuerpo);
+    } } });
+  await montaje.listo;
+  const pulsar = (accion) => cont.listeners.click[0]({ target: { closest: (selector) => selector === "[data-cambio]"
+    ? { dataset: { cambio: accion }, disabled: false } : null } });
+  pulsar("via-asignar");
+  cont.hijos.get("c-perfil").value = "0";
+  cont.hijos.get("c-motivo").value = "alta_funciones";
+  cont.hijos.get("c-hasta").value = "2026-11-04";
+  cont.hijos.get("c-desde").value = "";
+  cont.hijos.get("c-referencia").value = "";
+  cont.listeners.submit[0]({ target: cont.hijos.get("c-form"), preventDefault() {} });
+  pulsar("confirmar");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(montaje.incierto(), true);
+  assert.match(cont.panel, /data-cambio="reintentar-confirmacion"/u);
+  pulsar("reintentar-confirmacion");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(montaje.incierto(), false);
+  assert.equal(cuerpos.length, 2);
+  assert.deepEqual(cuerpos[1], cuerpos[0]);
+  assert.match(cont.panel, /recibo_admin:/u);
+  montaje.desmontar();
+});
 
 test("la pantalla traduce los fallos de preparación y ofrece las dos vías", async () => {
   const textos = await cargarTextos("admin-usuarios");

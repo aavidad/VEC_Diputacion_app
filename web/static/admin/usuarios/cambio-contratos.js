@@ -143,10 +143,31 @@ export function construirLote(prep, cambio, motivoElegido, referencia, cripto) {
 export function validarReciboLote(datos, cuerpo) {
   exigir(datos && typeof datos === "object" && datos.recibo && typeof datos.recibo === "object");
   const r = datos.recibo;
+  const esperado = cuerpo.cambios[0], objetivo = esperado.objetivo;
   exigir(r.operacion_ref === cuerpo.operacion_ref && Array.isArray(r.cambios) && r.cambios.length === 1
-    && /^recibo_admin:[0-9a-f]{32}$/u.test(r.recibo_ref || "") && instante(r.confirmado_en) && Array.isArray(r.inicios) && r.inicios.length === 1);
-  const c = r.cambios[0];
-  exigir(c && c.perfil_ref === cuerpo.cambios[0].objetivo.perfil_ref
-    && c.estado_posterior === (cuerpo.cambios[0].operacion === "otorgar" ? "activo" : "revocado"));
+    && /^acto_admin:[0-9a-f]{32}$/u.test(r.acto_ref || "")
+    && /^recibo_admin:[0-9a-f]{32}$/u.test(r.recibo_ref || "")
+    && texto(r.auditoria_ref) && HUELLA.test(r.huella_solicitud_sha256)
+    && HUELLA.test(r.fuentes_sha256) && instante(r.confirmado_en)
+    && Array.isArray(r.inicios) && r.inicios.length === 1);
+  const c = r.cambios[0], inicio = r.inicios[0];
+  exigir(c && inicio && c.operacion_ref === cuerpo.operacion_ref && c.acto_ref === r.acto_ref
+    && c.recibo_ref === r.recibo_ref && c.auditoria_ref === r.auditoria_ref
+    && c.objetivo_persona_ref === objetivo.persona_ref && c.perfil_ref === objetivo.perfil_ref
+    && c.vinculo_ref === objetivo.vinculo_ref && c.unidad_ref === objetivo.unidad_ref
+    && c.rol_version_ref === esperado.rol_version_ref && c.huella_antes_sha256 === objetivo.huella_sha256
+    && HUELLA.test(c.huella_despues_sha256) && instante(c.confirmado_en)
+    && Date.parse(c.confirmado_en) === Date.parse(r.confirmado_en)
+    && Object.entries(cuerpo.motivo).every(([k, v]) => c.motivo?.[k] === v)
+    && c.estado_posterior === (esperado.operacion === "otorgar" ? "activo" : "revocado"));
+  if (esperado.operacion === "otorgar") {
+    exigir(c.version_posterior === 1 && instante(c.vigente_desde) && c.vigente_hasta === objetivo.vigente_hasta
+      && inicio.modo === esperado.inicio_vigencia && inicio.vigente_desde === c.vigente_desde
+      && (esperado.inicio_vigencia === "programado" ? inicio.vigente_desde === objetivo.vigente_desde
+        : Date.parse(inicio.vigente_desde) === Date.parse(r.confirmado_en)));
+  } else {
+    exigir(c.version_posterior === objetivo.vinculo_version + 1 && !Object.hasOwn(inicio, "modo")
+      && !Object.hasOwn(inicio, "vigente_desde"));
+  }
   return structuredClone(r);
 }

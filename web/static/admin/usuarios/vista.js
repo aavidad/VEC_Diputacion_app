@@ -243,7 +243,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   const listeners = [["click", click], ["submit", submit], ["change", change], ["keydown", teclado]];
   listeners.forEach(([tipo, fn]) => root.addEventListener(tipo, fn));
   const ventana = root.ownerDocument?.defaultView;
-  const avisarSalida = (evento) => { if (enviando || incierto) { evento.preventDefault(); evento.returnValue = ""; } };
+  const avisarSalida = (evento) => { if (enviando || incierto || cambio?.incierto()) { evento.preventDefault(); evento.returnValue = ""; } };
   ventana?.addEventListener("beforeunload", avisarSalida);
   const listo = cargar();
   return Object.freeze({ listo, cargar, desmontar() { if (!vivo) return; vivo = false;
