@@ -41,8 +41,13 @@ DO $body$ BEGIN RAISE NOTICE 'CREATE FUNCTION falsa5() SECURITY DEFINER'; END $b
         self.assertEqual(inspect_sql(sql, set(range(1, 6))), [])
 
     def test_alter_path(self):
-        self.assertEqual(inspect_sql("ALTER FUNCTION a() SET search_path TO pg_catalog, pg_temp;", {1}), [])
-        self.assertEqual(len(inspect_sql("ALTER PROCEDURE a() SET search_path TO public;", {1})), 1)
+        for kind in ("FUNCTION", "PROCEDURE", "ROUTINE"):
+            with self.subTest(kind=kind):
+                self.assertEqual(inspect_sql(f"ALTER {kind} a() SET search_path TO pg_catalog, pg_temp;", {1}), [])
+                self.assertEqual(len(inspect_sql(f"ALTER {kind} a() SET search_path TO public;", {1})), 1)
+                self.assertEqual(len(inspect_sql(f"ALTER {kind} a() RESET search_path;", {1})), 1)
+                self.assertEqual(len(inspect_sql(f"ALTER {kind} a() RESET ALL;", {1})), 1)
+        self.assertEqual(inspect_sql("ALTER ROUTINE a() RESET lock_timeout;", {1}), [])
 
     def test_reconstruccion_dinamica(self):
         sql = '''DO $body$
@@ -60,6 +65,17 @@ $body$;'''
         self.assertTrue(inspect_sql(sql, {1}))
         sql_format = "DO $$ BEGIN EXECUTE format('CREATE FUNCTION %I() RETURNS int SECURITY DEFINER AS $f$ SELECT 1 $f$', 'a'); END $$;"
         self.assertTrue(inspect_sql(sql_format, {1}))
+        sql_ok = "DO $$ BEGIN EXECUTE 'CREATE FUNCTION a() RETURNS int SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$ SELECT 1 $f$'; END $$;"
+        self.assertEqual(inspect_sql(sql_ok, {1}), [])
+
+    def test_ddl_dinamico_fragmentado(self):
+        for sql in (
+            "DO $$ BEGIN EXECUTE 'CREATE ' || 'FUNCTION a() RETURNS int SECURITY DEFINER AS $f$ SELECT 1 $f$'; END $$;",
+            "DO $$ DECLARE ddl text; BEGIN ddl := 'CREATE FUNCTION a() RETURNS int SECURITY ' || 'DEFINER AS $f$ SELECT 1 $f$'; EXECUTE ddl; END $$;",
+            "DO $$ BEGIN EXECUTE format('CREATE %s a() RETURNS int SECURITY DEFINER AS $f$ SELECT 1 $f$', 'FUNCTION'); END $$;",
+        ):
+            with self.subTest(sql=sql):
+                self.assertTrue(any("no verificable" in reason for _, reason in inspect_sql(sql, {1})))
 
     def test_hunks_solo_lineas_añadidas(self):
         diff = "@@ -2,0 +3,2 @@\n+a\n+b\n@@ -8 +10 @@\n-x\n+y\n@@ -12 +13,0 @@\n-SET search_path=pg_catalog,pg_temp\n"

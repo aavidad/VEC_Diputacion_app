@@ -139,7 +139,7 @@ def is_create_routine(stmt: list[Token]) -> bool:
 
 
 def is_alter_routine(stmt: list[Token]) -> bool:
-    return len(stmt) >= 2 and stmt[0].upper == "ALTER" and stmt[1].upper in ("FUNCTION", "PROCEDURE")
+    return len(stmt) >= 2 and stmt[0].upper == "ALTER" and stmt[1].upper in ("FUNCTION", "PROCEDURE", "ROUTINE")
 
 
 def search_path_values(stmt: list[Token]) -> list[list[str]]:
@@ -198,8 +198,10 @@ def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
                     if paths != [["pg_catalog", "pg_temp"]]:
                         failures.append((stmt[0].line, "SECURITY DEFINER requiere SET search_path = pg_catalog, pg_temp"))
             elif is_alter_routine(stmt):
+                if keyword_pair(stmt, "RESET", "SEARCH_PATH") or keyword_pair(stmt, "RESET", "ALL"):
+                    failures.append((stmt[0].line, "ALTER FUNCTION/PROCEDURE/ROUTINE no puede retirar search_path con RESET"))
                 if keyword_pair(stmt, "SET", "SEARCH_PATH") and search_path_values(stmt) != [["pg_catalog", "pg_temp"]]:
-                    failures.append((stmt[0].line, "ALTER FUNCTION/PROCEDURE requiere search_path = pg_catalog, pg_temp"))
+                    failures.append((stmt[0].line, "ALTER FUNCTION/PROCEDURE/ROUTINE requiere search_path = pg_catalog, pg_temp"))
                 if keyword_pair(stmt, "SECURITY", "DEFINER"):
                     failures.append((stmt[0].line, "ALTER SECURITY DEFINER requiere revisión de su definición y search_path"))
             # DO y cadenas ejecutadas contienen SQL; los cuerpos de funciones
@@ -211,8 +213,30 @@ def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
                 ):
                     failures.append((body.line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
                 if any(t.upper == "EXECUTE" for t in body_tokens):
-                    for literal in (t for t in body_tokens if t.kind == "string"):
-                        if re.search(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\b", literal.value, re.I):
+                    literals = [t for t in body_tokens if t.kind == "string"]
+                    create = r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\b"
+                    joined = "".join(t.value for t in literals)
+                    has_create = re.search(r"\bCREATE\b", joined, re.I)
+                    has_routine = any(re.search(r"\b(?:FUNCTION|PROCEDURE)\b", t.value, re.I)
+                                      for t in literals)
+                    if re.search(create, joined, re.I) or (has_create and has_routine):
+                        for inner in statements(body_tokens):
+                            for i, token in enumerate(inner):
+                                if token.upper != "EXECUTE":
+                                    continue
+                                expression = inner[i + 1:]
+                                direct = bool(expression and (expression[0].kind == "string" or
+                                    (expression[0].upper == "FORMAT" and any(t.kind == "string" for t in expression[1:]))))
+                                concatenated = any(a.value == "|" and b.value == "|"
+                                                   for a, b in zip(expression, expression[1:]))
+                                if not direct or concatenated:
+                                    failures.append((token.line, "DDL dinámico de función concatenado u opaco: definición final no verificable"))
+                        # Si CREATE/FUNCTION están repartidos entre literales,
+                        # ninguna cadena aislada demuestra las opciones finales.
+                        if not any(re.search(create, t.value, re.I) for t in literals):
+                            failures.append((body.line, "DDL dinámico de función fragmentado: definición final no verificable"))
+                    for literal in literals:
+                        if re.search(create, literal.value, re.I):
                             inspect(literal.value, literal.line, depth + 1)
             if stmt[0].upper == "DO":
                 for body in (t for t in stmt if t.kind == "body"):
