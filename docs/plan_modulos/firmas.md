@@ -74,3 +74,26 @@ El descriptor del plan (`plannominal.Fuente`) relee en cada firma el catálogo d
 ## Unidad en la decisión de firma V2 (opción B, aprobada el 05/10)
 
 El recurso de cada decisión de firma lleva exactamente los ámbitos de la asignación de quien actúa: organización y, si la tiene, unidad. SQL relee esa asignación en el consumo y en la vía VEC exige que la unidad sea la del paso del plan. Orden de cortes: interior VEC (AD206 + CT181, #780), plan exterior (AD177), consulta R5 V2 y vía externa. El plan exterior (AD209 + CT185) aplica a la decisión exterior las mismas reglas que AD206 a la interior: Go le pone los ámbitos con los que se emitió la interior y SQL los relee de la asignación en el consumo. Con los dos cortes, un firmante con unidad completa la firma por la vía VEC; uno sin unidad funciona como antes. La consulta y la recuperación R5 V2 (CC10 + AD210 + CT186) llevan la unidad de la asignación en `UnidadRef` y la ligan a un paso del plan publicado (opción A, 06/10). El SQL (#824) instala las v3 y el corte Go (#825) envía la unidad: en la firma múltiple por la vía VEC consulta quien firma, con la unidad de su competencia (la del paso, que AUT32 exige en su asignación). La vía externa y la consulta R5 por HTTP siguen sólo con organización, y la consulta de RRHH con la unidad del expediente queda en `docs/estudio_requisitos/pendientes_v2.md`.
+
+## Estado al cierre del 06/10 (para retomar)
+
+PR abiertas, en este orden de fusión (todas en borrador; las encola dirección):
+
+| PR | Qué | Revisión |
+| --- | --- | --- |
+| #776 → #820 → #821 | 4c-4: Personal38, AUT56 (selección central del firmante) y su Go | GO |
+| #780 | Opción B, decisión interior (AD206 + CT181) | GO |
+| #823 | Opción B, plan exterior (AD209 + CT185) | GO |
+| #824 → #825 | Opción B, consulta R5 V2 con la unidad del paso (CC10 + AD210 + CT186) y su Go | GO |
+| #826 | 4c-5 PR 1: descriptores de `firma_vec.v2` / `firma_externa.v2` y perfil fijo de la vía externa (rol `firma_externa_registro_ct_desarrollo`, que exigen las guardas SQL) | GO |
+| #827 | 4c-5 PR 2: predicado del PDP, motivo y fuente nominal de la vía externa; emisor con `NuevoEmisorConAmbitos` (va sobre #780 con #826) | en revisión |
+
+Decisiones del 06/10: la vía externa y la consulta de RRHH siguen sin unidad (opción C; `dudas.md` 148 y `pendientes_v2.md`). La firma VEC la hace la persona con su asignación de cargo (opción A); la garantía de su sesión es la sintética de desarrollo, declarada y con fecha de retirada, y se exige empleado canónico en Personal además de la persona de CA25.
+
+Siguiente (4c-5 PR 3, partida en 3a y 3b; reparto aprobado):
+
+- **3a, identidad.** La frontera mTLS de CT (`capacidadValida`) sólo admite el certificado del soporte de RRHH, así que `registro-vec` necesita su propia autoridad de ruta, con la forma de la familia empleado (`autoridadRutasDietasDesarrollo`): certificados del resolvedor de desarrollo con doble llave, cápsula de un solo uso por petición, alta de sesión sintética con política de desarrollo y fecha de retirada, revalidador y resolutor de contexto con alcance `{empleado}`. Configuración privada `identidad/firma-vec.json` fuera de Git (DSN de registro de identidad, revalidación y contexto; fecha de retirada) y plantilla sin secretos en el repo. La cuenta y el perfil llegan de la selección de AUT56 guardada en el contenedor sellado de la petición, sólo si su certificado es el del canal; la persona del contexto debe ser la de CA25. Pruebas: otro certificado, otro perfil u otra persona, cápsula repetida, política vencida, empleado ausente o ambiguo. Doble revisión de seguridad.
+  - Ficheros previstos (bootstrap): `contratacion_temporal_firma_v2_sesion_firmante_desarrollo.go` (configuración privada, autoridad de ruta, cápsula y apertura de sesión) y su prueba; plantilla `contratacion_temporal_firma_v2_sesion_firmante.ejemplo.json` junto a ella, que la prueba lee con el mismo cargador. Reutiliza `resolvedorIdentidadDesarrollo.porHuella`, `httpseguridad.RegistroSesiones` (`identidadpg`), `NuevoRevalidadorAutenticacionActorPostgreSQL`, `NuevoResolutorRegistroContextoActorPostgreSQLV2` con `servicioContextoActorDietas` (alcance `{empleado}`) y `NuevaAutoridadContextoActorRegistradoV2`; no toca `capacidadValida` ni el soporte de RRHH.
+  - Orden: (1) cargador y plantilla, con pruebas de configuración inválida, ausente y sin doble llave; (2) autoridad de ruta y cápsula, con pruebas de certificado ajeno al resolvedor y de cápsula repetida; (3) apertura de sesión desde la selección sellada, con pruebas de otro certificado, otro perfil, otra persona, política vencida y empleado ausente o ambiguo; (4) doble revisión de seguridad (security-audit focal y un segundo revisor) antes de 3b.
+- **3b, decisor y emisor.** Decisor sobre la asignación real (`NuevoAlmacenAutorizacion` del pool `vec_autorizacion_fuente`, registro y motivos), emisores de material de `firma_vec.v2` y de la consulta R5, envoltorio de la fuente de competencia de AUT56 que guarda la selección, fuente nominal VEC y `NuevoEmisorConAmbitos`.
+- **4c-8.** Composición en la raíz de las rutas `original`, `preflight`, `registro-vec` y `registro-externo` (perfil fijo de la vía externa al arrancar, manejadores, listas de rutas y de transportes mTLS) y recorrido con dos personas en el clon.

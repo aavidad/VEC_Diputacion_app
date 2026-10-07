@@ -110,6 +110,21 @@ type fuenteNominalFirmasR5V2CTDesarrollo struct {
 	perfil  *perfilFijoCTDesarrollo
 	reloj   relojContratacionTemporalDesarrollo
 	proceso string
+	// rutas de este perfil y su acción auditada, y el motivo de sus
+	// decisiones: los de R5 V2 o los de la firma V2 externa.
+	accionDeRuta func(string) (string, bool)
+	motivo       dominiovec.ReferenciaEntradaCatalogo
+	// consultaPrevia: la ruta consulta las firmas R5 V2 antes de su acción
+	// (vía externa), y esa consulta también se audita.
+	consultaPrevia bool
+}
+
+// nuevaFuenteNominalFirmasR5V2CTDesarrollo: la fuente de las rutas de consulta
+// y recuperación R5 V2.
+func nuevaFuenteNominalFirmasR5V2CTDesarrollo(s *soporteAltaContratacionTemporalDesarrollo, p *perfilFijoCTDesarrollo,
+	reloj relojContratacionTemporalDesarrollo, proceso string) *fuenteNominalFirmasR5V2CTDesarrollo {
+	return &fuenteNominalFirmasR5V2CTDesarrollo{soporte: s, perfil: p, reloj: reloj, proceso: proceso,
+		accionDeRuta: accionFirmasR5V2CTDesarrollo, motivo: motivoFirmasR5V2CTDesarrollo()}
 }
 
 var (
@@ -120,11 +135,12 @@ var (
 // canal acredita la frontera mTLS sellada de una de las dos rutas, su método
 // y el certificado vigente. No consulta la base.
 func (f *fuenteNominalFirmasR5V2CTDesarrollo) canal(ctx context.Context) (capacidadConsultaContratacionTemporalDesarrollo, bool) {
-	if f == nil || f.soporte == nil || f.perfil == nil || contextoInterfazNulo(ctx) || ctx.Err() != nil {
+	if f == nil || f.soporte == nil || f.perfil == nil || f.accionDeRuta == nil || contextoInterfazNulo(ctx) || ctx.Err() != nil {
 		return capacidadConsultaContratacionTemporalDesarrollo{}, false
 	}
 	capacidad, valida := f.soporte.capacidadValida(ctx)
-	return capacidad, valida && rutaFirmasR5V2CTDesarrollo(capacidad.ruta) && capacidad.metodo == http.MethodPost &&
+	_, rutaPropia := f.accionDeRuta(capacidad.ruta)
+	return capacidad, valida && rutaPropia && capacidad.metodo == http.MethodPost &&
 		f.soporte.perfilFijoParaContexto(ctx, capacidad.ruta) == f.perfil &&
 		certificadoConsultaReciboRespuestaVigente(capacidad, f.reloj.Ahora())
 }
@@ -228,9 +244,9 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) CrearOrdenIntentoFirma(ctx context
 	var cero puertosvec.OrdenIntentoAuditoria
 	esperada, ok := "", false
 	if capacidad, valida := f.canal(ctx); valida {
-		esperada, ok = accionFirmasR5V2CTDesarrollo(capacidad.ruta)
+		esperada, ok = f.accionDeRuta(capacidad.ruta)
 	}
-	if !ok || accion != esperada || f.proceso == "" {
+	if !ok || (accion != esperada && !(f.consultaPrevia && accion == ports.AccionConsultarFirmasR5V2)) || f.proceso == "" {
 		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	operativo, _, err := f.operativo(ctx)
@@ -250,15 +266,16 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) CrearOrdenIntentoFirma(ctx context
 	}
 	return puertosvec.NuevaOrdenIntentoAuditoria(intento, operativo.Resultado, operativo.Vinculo, dominiovec.DatosIntentoAuditoria{
 		Accion: accion, ModuloID: ports.ModuloContratacion, RecursoRef: recurso, FinalidadRef: ports.FinalidadFirmaDocumento,
-		Resultado: resultado, Motivo: motivoFirmasR5V2CTDesarrollo(), Proceso: f.proceso,
+		Resultado: resultado, Motivo: f.motivo, Proceso: f.proceso,
 		Canal: canalIntentosFirmasR5V2CTDesarrollo, CorrelacionRef: correlacion,
 	})
 }
 
 // emisorFirmasR5V2CTDesarrollo elige el emisor común de la audiencia de cada
-// acción y entrega al PDP CT la solicitud exacta que va a evaluar.
+// acción y entrega al PDP CT la solicitud exacta que va a evaluar. Una acción
+// sin emisor se deniega.
 type emisorFirmasR5V2CTDesarrollo struct {
-	consulta, recuperacion *emisorMaterialRenovableCTDesarrollo
+	porAccion map[string]*emisorMaterialRenovableCTDesarrollo
 }
 
 func (e *emisorFirmasR5V2CTDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, s dominiovec.SolicitudAutorizacionLigadaV3,
@@ -267,12 +284,7 @@ func (e *emisorFirmasR5V2CTDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx 
 	datos, err := s.Datos()
 	var emisor *emisorMaterialRenovableCTDesarrollo
 	if e != nil && err == nil && ctx != nil {
-		switch datos.Accion {
-		case ports.AccionConsultarFirmasR5V2:
-			emisor = e.consulta
-		case ports.AccionRecuperarFirmasR5V2:
-			emisor = e.recuperacion
-		}
+		emisor = e.porAccion[datos.Accion]
 	}
 	if emisor == nil {
 		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, ports.ErrFirmaDocumentoDenegada
@@ -370,8 +382,9 @@ func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAlta
 			cerrar()
 		}
 	}()
-	fuente := &fuenteNominalFirmasR5V2CTDesarrollo{soporte: s, perfil: fijo, reloj: reloj, proceso: proceso}
-	emisor, err := firmaemisorv2.NuevoEmisor(fuente, &emisorFirmasR5V2CTDesarrollo{consulta: emisores[0], recuperacion: emisores[1]},
+	fuente := nuevaFuenteNominalFirmasR5V2CTDesarrollo(s, fijo, reloj, proceso)
+	emisor, err := firmaemisorv2.NuevoEmisor(fuente, &emisorFirmasR5V2CTDesarrollo{porAccion: map[string]*emisorMaterialRenovableCTDesarrollo{
+		ports.AccionConsultarFirmasR5V2: emisores[0], ports.AccionRecuperarFirmasR5V2: emisores[1]}},
 		motivoFirmasR5V2CTDesarrollo(), reloj)
 	if err != nil {
 		return nil, errFirmasR5V2CTDesarrolloNoDisponible
