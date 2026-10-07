@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import {
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js";
+
+await prepararTextosPersonal();
+const {
   API_ORGANIZACION,
   API_CAMBIOS,
   ESQUEMA_ORGANIZACION,
@@ -11,7 +14,7 @@ import {
   validarOrganizacion,
   crearCliente,
   crearEstadoFormulario,
-} from "./organizacion.js";
+} = await import("./organizacion.js");
 
 const unidad = (extra = {}) => ({
   clave: "u-1",
