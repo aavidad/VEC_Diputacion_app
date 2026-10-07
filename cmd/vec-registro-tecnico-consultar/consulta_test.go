@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,7 +95,10 @@ func archivoPrueba(t *testing.T, contenido []byte) string {
 func ejecutarPrueba(t *testing.T, args ...string) (int, resumenConsulta, string, string) {
 	t.Helper()
 	var salida, diagnostico bytes.Buffer
-	codigo := ejecutar(args, &salida, &diagnostico)
+	codigo, err := ejecutar(args, &salida, &diagnostico)
+	if err != nil {
+		t.Fatalf("error de salida inesperado: %v", err)
+	}
 	var resumen resumenConsulta
 	if salida.Len() > 0 && json.Unmarshal(salida.Bytes(), &resumen) != nil {
 		t.Fatalf("salida no JSON: %q", salida.String())
@@ -101,16 +106,50 @@ func ejecutarPrueba(t *testing.T, args ...string) (int, resumenConsulta, string,
 	return codigo, resumen, salida.String(), diagnostico.String()
 }
 
+type escritorFallidoConsulta struct{}
+
+func (escritorFallidoConsulta) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+type escritorCortoConsulta struct{}
+
+func (escritorCortoConsulta) Write(datos []byte) (int, error) { return len(datos) / 2, nil }
+
+func TestConsultaPropagaErrorDeSalidaConClaseCerrada(t *testing.T) {
+	codigo, err := ejecutar([]string{"--desde", "invalido"}, io.Discard, escritorFallidoConsulta{})
+	if codigo != 2 || !errors.Is(err, errSalidaConsultaNoDisponible) || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("fallo de diagnóstico perdido: código=%d error=%v", codigo, err)
+	}
+	var diagnostico bytes.Buffer
+	codigo, err = ejecutar([]string{"--ayuda"}, escritorFallidoConsulta{}, &diagnostico)
+	if codigo != 2 || !errors.Is(err, errSalidaConsultaNoDisponible) || !errors.Is(err, io.ErrClosedPipe) ||
+		!strings.Contains(diagnostico.String(), "mensaje") || strings.Contains(diagnostico.String(), "closed pipe") {
+		t.Fatalf("fallo de salida principal perdido o expuesto: código=%d error=%v diagnóstico=%q", codigo, err, diagnostico.String())
+	}
+	diagnostico.Reset()
+	archivo := archivoPrueba(t, accesoPrueba(t))
+	codigo, err = ejecutar([]string{"--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivo}, escritorFallidoConsulta{}, &diagnostico)
+	if codigo != 2 || !errors.Is(err, errSalidaConsultaNoDisponible) || !errors.Is(err, io.ErrClosedPipe) ||
+		!strings.Contains(diagnostico.String(), "mensaje") || strings.Contains(diagnostico.String(), archivo) {
+		t.Fatalf("fallo del resumen perdido o expuesto: código=%d error=%v diagnóstico=%q", codigo, err, diagnostico.String())
+	}
+	diagnostico.Reset()
+	codigo, err = ejecutar([]string{"--ayuda"}, escritorCortoConsulta{}, &diagnostico)
+	if codigo != 2 || !errors.Is(err, errSalidaConsultaNoDisponible) || !errors.Is(err, io.ErrShortWrite) ||
+		!strings.Contains(diagnostico.String(), "mensaje") {
+		t.Fatalf("escritura parcial aceptada: código=%d error=%v diagnóstico=%q", codigo, err, diagnostico.String())
+	}
+}
+
 func TestConsultaUsaCatalogoComunDeIdiomas(t *testing.T) {
-	porDefecto, ok := cargarTextos("")
-	if !ok || !strings.Contains(porDefecto.Ayuda, "Indique") {
+	porDefecto, err := cargarTextos("")
+	if err != nil || !strings.Contains(porDefecto.Ayuda, "Indique") {
 		t.Fatal("idioma por defecto del índice común no disponible")
 	}
-	ingles, ok := cargarTextos("en")
-	if !ok || !strings.Contains(ingles.Ayuda, "Provide") {
+	ingles, err := cargarTextos("en")
+	if err != nil || !strings.Contains(ingles.Ayuda, "Provide") {
 		t.Fatal("catálogo inglés no disponible")
 	}
-	if _, ok := cargarTextos("zz"); ok {
+	if _, err := cargarTextos("zz"); err == nil {
 		t.Fatal("idioma ajeno al índice aceptado")
 	}
 }
@@ -150,6 +189,21 @@ func TestConsultaDeclaraEntradasInvalidasSinCopiarDatos(t *testing.T) {
 	if codigo != 3 || r.Validas != 1 || r.Rechazadas != 4 || r.Estado != "parcial" || diagnostico != "" ||
 		strings.Contains(salida+diagnostico, secreto) {
 		t.Fatalf("rechazo no visible o dato copiado: código=%d %+v salida=%q diagnóstico=%q", codigo, r, salida, diagnostico)
+	}
+}
+
+func TestConsultaClasificaInstanteInvalidoSinExponerEntrada(t *testing.T) {
+	var acceso map[string]any
+	if err := json.Unmarshal(bytes.TrimSuffix(accesoPrueba(t), []byte{'\n'}), &acceso); err != nil {
+		t.Fatal(err)
+	}
+	marcador := "dato_temporal_sintetico"
+	acceso["time"] = marcador
+	archivo := archivoPrueba(t, codificarLinea(t, acceso))
+	codigo, r, salida, diagnostico := ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivo)
+	if codigo != 3 || r.Rechazadas != 1 || r.Rechazos["instante_invalido"] != 1 || r.Validas != 0 ||
+		strings.Contains(salida+diagnostico, marcador) {
+		t.Fatalf("fecha inválida sin causa cerrada: código=%d %+v salida=%q diagnóstico=%q", codigo, r, salida, diagnostico)
 	}
 }
 

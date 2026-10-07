@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"math"
 	"os"
@@ -54,6 +55,7 @@ type resumenConsulta struct {
 	Seleccionadas uint64             `json:"seleccionadas"`
 	Filtradas     uint64             `json:"filtradas"`
 	Rechazadas    uint64             `json:"rechazadas"`
+	Rechazos      map[string]uint64  `json:"rechazos_por_clase"`
 	Incidencias   map[string]uint64  `json:"incidencias_por_codigo"`
 	Resultados    map[string]uint64  `json:"resultados_por_tipo"`
 	Errores       map[string]uint64  `json:"errores_por_clase"`
@@ -82,7 +84,7 @@ func consultarArchivos(op opcionesConsulta, catalogo *catalogoincidencias.Catalo
 	r := resumenConsulta{
 		Desde: op.Desde.Format(time.RFC3339Nano), Hasta: op.Hasta.Format(time.RFC3339Nano),
 		Archivos: len(op.Archivos), Incidencias: map[string]uint64{}, Resultados: map[string]uint64{},
-		Errores: map[string]uint64{},
+		Errores: map[string]uint64{}, Rechazos: map[string]uint64{},
 	}
 	vistos := make(map[[2]uint64]bool, len(op.Archivos))
 	for _, ruta := range op.Archivos {
@@ -136,7 +138,7 @@ func consultarPrefijo(f io.ReaderAt, tamanoInicial int64, op opcionesConsulta, c
 		linea, err := lector.ReadSlice('\n')
 		if err == bufio.ErrBufferFull {
 			r.Recibidas++
-			r.Rechazadas++
+			r.registrarRechazo("linea_larga")
 			for err == bufio.ErrBufferFull {
 				clear(linea)
 				linea, err = lector.ReadSlice('\n')
@@ -155,7 +157,14 @@ func consultarPrefijo(f io.ReaderAt, tamanoInicial int64, op opcionesConsulta, c
 		}
 		r.Recibidas++
 		if err != nil || len(linea) == 0 || len(linea)-1 > maxLineaBytes {
-			r.Rechazadas++
+			switch {
+			case err == io.EOF:
+				r.registrarRechazo("linea_incompleta")
+			case len(linea)-1 > maxLineaBytes:
+				r.registrarRechazo("linea_larga")
+			default:
+				r.registrarRechazo("formato_invalido")
+			}
 			clear(linea)
 			if err == io.EOF {
 				break
@@ -168,7 +177,7 @@ func consultarPrefijo(f io.ReaderAt, tamanoInicial int64, op opcionesConsulta, c
 		registro, err := validarRegistro(linea[:len(linea)-1], catalogo)
 		clear(linea)
 		if err != nil {
-			r.Rechazadas++
+			r.registrarRechazoError(err)
 			continue
 		}
 		r.Validas++
@@ -187,6 +196,25 @@ func consultarPrefijo(f io.ReaderAt, tamanoInicial int64, op opcionesConsulta, c
 	}
 	r.BytesPrefijo += leidos
 	return nil
+}
+
+func (r *resumenConsulta) registrarRechazo(clase string) {
+	r.Rechazadas++
+	if r.Rechazos == nil {
+		r.Rechazos = map[string]uint64{}
+	}
+	r.Rechazos[clase]++
+}
+
+func (r *resumenConsulta) registrarRechazoError(err error) {
+	switch {
+	case errors.Is(err, errInstanteTecnicoInvalido):
+		r.registrarRechazo("instante_invalido")
+	case errors.Is(err, os.ErrInvalid):
+		r.registrarRechazo("formato_invalido")
+	default:
+		r.registrarRechazo("registro_no_disponible")
+	}
 }
 
 func (r *resumenConsulta) sumar(e registroConsulta) {

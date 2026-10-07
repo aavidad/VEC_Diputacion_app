@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"math"
 	"os"
@@ -167,7 +168,9 @@ func opcionalVerdadero(objeto map[string]json.RawMessage, clave string) (bool, b
 	return bytes.Equal(valor, []byte("true")), bytes.Equal(valor, []byte("true"))
 }
 
-func cabeceraTecnica(objeto map[string]json.RawMessage) (time.Time, string, bool) {
+var errInstanteTecnicoInvalido = errors.New("instante_tecnico_invalido")
+
+func cabeceraTecnica(objeto map[string]json.RawMessage) (time.Time, string, error) {
 	fecha, okFecha := cadena(objeto, "time")
 	nivel, okNivel := cadena(objeto, "level")
 	servicio, okServicio := cadena(objeto, "service.name")
@@ -175,15 +178,18 @@ func cabeceraTecnica(objeto map[string]json.RawMessage) (time.Time, string, bool
 	entorno, okEntorno := cadena(objeto, "deployment.environment.name")
 	superficie, okSuperficie := cadena(objeto, "vec.superficie")
 	instante, err := time.Parse(time.RFC3339Nano, fecha)
-	if !okFecha || !okNivel || !okServicio || !okVersion || !okEntorno || !okSuperficie || err != nil || instante.IsZero() ||
+	if err != nil || !okFecha || instante.IsZero() {
+		return time.Time{}, "", errInstanteTecnicoInvalido
+	}
+	if !okNivel || !okServicio || !okVersion || !okEntorno || !okSuperficie ||
 		(nivel != "INFO" && nivel != "WARN" && nivel != "ERROR") ||
 		(servicio != "vec-server" && servicio != "vec-admin" && servicio != "vec-publico") ||
 		version != domain.NormalizarVersionBinario(version) ||
 		entorno != string(domain.NormalizarEntornoIncidenciaTecnica(entorno)) ||
 		!superficieValida(superficie) {
-		return time.Time{}, "", false
+		return time.Time{}, "", os.ErrInvalid
 	}
-	return instante.UTC(), nivel, true
+	return instante.UTC(), nivel, nil
 }
 
 func superficieValida(valor string) bool {
@@ -198,20 +204,22 @@ func validarAcceso(objeto map[string]json.RawMessage) (registroConsulta, error) 
 	if !soloCampos(objeto, camposAcceso) {
 		return registroConsulta{}, os.ErrInvalid
 	}
-	instante, nivel, ok := cabeceraTecnica(objeto)
+	instante, nivel, errCabecera := cabeceraTecnica(objeto)
+	if errCabecera != nil {
+		return registroConsulta{}, errCabecera
+	}
 	metodo, okMetodo := cadena(objeto, "http.request.method")
 	ruta, okRuta := cadena(objeto, "url.path")
 	estado, okEstado := entero(objeto, "http.response.status_code", 599)
 	duracion, okDuracion := segundos(objeto, "http.server.request.duration")
-	tamano, okTamano := entero(objeto, "http.response.body.size", 1<<40)
+	_, okTamano := entero(objeto, "http.response.body.size", 1<<40)
 	consultas, okConsultas := entero(objeto, "vec.bd.consultas", 1_000_000)
 	duracionBD, okBD := segundos(objeto, "vec.bd.duracion")
 	espera, okEspera := opcionalSegundos(objeto, "vec.bd.espera_conexion")
 	lenta, okLenta := opcionalVerdadero(objeto, "vec.lenta")
-	interrumpida, okInterrumpida := opcionalVerdadero(objeto, "vec.interrumpida")
-	_, _ = tamano, interrumpida // Validados, sin salir en el agregado.
+	_, okInterrumpida := opcionalVerdadero(objeto, "vec.interrumpida")
 	correlacion, okCorrelacion := opcionalCadena(objeto, "vec.correlacion")
-	if !ok || !okMetodo || !okRuta || !okEstado || !okDuracion || !okTamano || !okConsultas ||
+	if !okMetodo || !okRuta || !okEstado || !okDuracion || !okTamano || !okConsultas ||
 		!okBD || !okEspera || !okLenta || !okInterrumpida || !okCorrelacion ||
 		estado < 100 || !metodoValido(metodo) ||
 		(estado >= 400 && estado < 500 && ruta != "{oculto}") ||
@@ -279,13 +287,16 @@ func validarArranque(objeto map[string]json.RawMessage) (registroConsulta, error
 	if !soloCampos(objeto, camposArranque) {
 		return registroConsulta{}, os.ErrInvalid
 	}
-	instante, nivel, ok := cabeceraTecnica(objeto)
+	instante, nivel, errCabecera := cabeceraTecnica(objeto)
+	if errCabecera != nil {
+		return registroConsulta{}, errCabecera
+	}
 	servicio, okServicio := cadena(objeto, "service.name")
 	fase, okFase := cadena(objeto, "vec.arranque.fase")
 	resultado, okResultado := cadena(objeto, "vec.arranque.resultado")
 	duracion, okDuracion := segundos(objeto, "vec.arranque.duracion")
 	clase, okClase := opcionalCadena(objeto, "error.type")
-	if !ok || !okServicio || !okFase || !okResultado || !okDuracion || !okClase ||
+	if !okServicio || !okFase || !okResultado || !okDuracion || !okClase ||
 		(servicio != "vec-server" && servicio != "vec-admin") ||
 		(fase != "configuracion" && fase != "composicion" && fase != "escucha") ||
 		(resultado != "preparada" && resultado != "fallida") ||

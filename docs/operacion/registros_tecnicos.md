@@ -239,6 +239,10 @@ truncamiento del prefijo durante la lectura termina con código 2 y no entrega
 un resumen incompleto. Un archivo que supera el límite también termina con
 código 2. Una consulta completa termina con código 0.
 
+`rechazos_por_clase` distingue formato o instante inválido, línea larga o
+incompleta y fallo de validación no clasificado. Solo aparecen estas clases
+cerradas; el contenido rechazado no sale en el resumen.
+
 Esta CLI sirve a quien ya tiene acceso local a esos archivos. La acción
 administrativa `administracion.registros_tecnicos.consultar` conserva su propio
 circuito de sesión, autorización y auditoría. Esta herramienta no lo invoca ni
