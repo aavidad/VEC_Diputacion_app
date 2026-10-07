@@ -16,6 +16,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
@@ -223,7 +224,7 @@ func abrirPoolRelevoBolsaDesarrollo(ctx context.Context, dsn, rol, nombreAplicac
 		return comprobarIdentidadRelevoBolsaDesarrollo(ctx, conexion, rol)
 	}
 	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, falloPostgreSQLCTDesarrollo(err)
 	}

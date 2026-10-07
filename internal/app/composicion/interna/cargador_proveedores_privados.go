@@ -20,6 +20,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
 )
 
@@ -333,7 +334,7 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
 		var pool *pgxpool.Pool
-		pool, err = pgxpool.NewWithConfig(ctx, configuracion)
+		pool, err = postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 		if err != nil {
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
