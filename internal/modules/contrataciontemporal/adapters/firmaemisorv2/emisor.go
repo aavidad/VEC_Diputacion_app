@@ -345,8 +345,8 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 		if err != nil || ctx.Err() != nil {
 			return cero, opaco(ctx, err)
 		}
-		if e.admision.ValidarEvidencia(ctx, evidenciaAdmision, base.Vinculo, resultado, evaluada, descriptorAdmision) != nil {
-			return cero, ports.ErrFirmaDocumentoDenegada
+		if err := e.admision.ValidarEvidencia(ctx, evidenciaAdmision, base.Vinculo, resultado, evaluada, descriptorAdmision); err != nil || ctx.Err() != nil {
+			return cero, opaco(ctx, err)
 		}
 		emitidaEn, validaHasta, err := decision.VentanaValidez()
 		if err != nil || evidenciaAdmision.ExigirVentanaDecisionV3(emitidaEn, validaHasta) != nil {

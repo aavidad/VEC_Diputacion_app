@@ -173,3 +173,12 @@ func TestFirmaVecDesarrolloNoExtiendeExcepcionAConsultaNiRecuperacion(t *testing
 		t.Fatalf("recuperación con excepción DEV alcanzó V3: err=%v llamadas=%d", err, emisor.base.llamadas)
 	}
 }
+
+func TestFirmaVecDesarrolloConservaCausaOpacaDeRevalidacion(t *testing.T) {
+	for _, causa := range []error{context.Canceled, context.DeadlineExceeded} {
+		err := opaco(context.Background(), errors.Join(vecapp.ErrAdmisionGarantiaActoDenegada, causa))
+		if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || !errors.Is(err, causa) {
+			t.Fatalf("la cancelación del gate perdió su causa: %v", err)
+		}
+	}
+}
