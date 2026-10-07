@@ -52,7 +52,7 @@ type AcreditadorCertificadoFirmaVecV2 interface {
 }
 
 type ConfiguracionIdentidadCertificadoFirmaVecV2 struct {
-	Fuente      identidadordinaria.ConfiguracionFuenteCertificadoTemporal
+	Fuente      identidadordinaria.ConfiguracionFuenteCertificadoTemporalConAsignacionVigente
 	Vinculador  VinculadorCertificadoFirmaVecV2
 	Preparador  PreparadorPeticionCertificadoFirmaVecV2
 	Emisor      EmisorAsercionCertificadoFirmaVecV2
@@ -95,7 +95,7 @@ func NuevaIdentidadCertificadoFirmaVecV2(c ConfiguracionIdentidadCertificadoFirm
 		return nil, errIdentidadCertificadoFirmaVecNoDisponible
 	}
 	c.Fuente.Reloj = c.Reloj
-	fuente, err := identidadordinaria.NuevaFuenteCertificadoTemporal(c.Fuente)
+	fuente, err := identidadordinaria.NuevaFuenteCertificadoTemporalConAsignacionVigente(c.Fuente)
 	if err != nil {
 		return nil, errIdentidadCertificadoFirmaVecNoDisponible
 	}
