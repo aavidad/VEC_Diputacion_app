@@ -100,11 +100,14 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       promesaPreparacion = cliente.preparar(actualDetalle.persona_ref, actualDetalle.unidad_ref, control.signal);
       const datos = await promesaPreparacion;
       if (!actual("retiradas", control) || detalle !== actualDetalle) return;
-      const autorizadas = new Set(validarPreparacion(datos, actualDetalle.persona_ref, actualDetalle.unidad_ref).bajas.map((b) => b.perfil_ref));
+      const autorizadas = new Map(validarPreparacion(datos, actualDetalle.persona_ref, actualDetalle.unidad_ref).bajas.map((b) => [b.perfil_ref, b]));
       preparacionFicha = datos;
       promesaPreparacion = null;
       for (const sitio of el("detalle").querySelectorAll("[data-retirada-ref]")) {
-        if (!autorizadas.has(sitio.dataset.retiradaRef) || cambio) continue;
+        const baja = autorizadas.get(sitio.dataset.retiradaRef);
+        if (!baja || cambio) continue;
+        const rotulo = sitio.closest("li")?.querySelector(".usuarios-fila-perfil strong");
+        if (rotulo && baja.nombre.trim()) rotulo.textContent = baja.nombre;
         const boton = root.ownerDocument.createElement("button");
         boton.type = "button"; boton.className = "boton-secundario"; boton.dataset.accion = "retirar-perfil";
         boton.dataset.ref = sitio.dataset.retiradaRef; boton.textContent = t("lote.retirar_este");
