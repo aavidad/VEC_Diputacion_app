@@ -1,6 +1,6 @@
 {
   "dictamenensayo": "Supplied trial opinion. Awaiting review by the competent authority.",
-  "huellalocal": "Verification code for the prepared file. Check the current rules before continuing.",
+  "huellalocal": "Verification code for the prepared file. Compare the file’s contents with the current rules before continuing.",
   "errornodisponible": "The preparation could not be compared. Check the files and try again.",
   "errorconsultainvalida": "The query is incomplete or contains repeated references. Review the preparation data.",
   "errorjsoninvalido": "The preparation could not be read. Check the file and try again.",

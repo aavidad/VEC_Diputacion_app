@@ -1,6 +1,6 @@
 {
   "dictamenensayo": "Dictamen aportado de ensayo. Pendiente de revisión competente.",
-  "huellalocal": "Código de comprobación del archivo preparado. Consulte las bases vigentes antes de continuar.",
+  "huellalocal": "Código de comprobación del archivo preparado. Compare el contenido del archivo con las bases vigentes antes de continuar.",
   "errornodisponible": "No se pudo cotejar la preparación. Revise los archivos y vuelva a intentarlo.",
   "errorconsultainvalida": "La consulta está incompleta o contiene referencias repetidas. Revise los datos de preparación.",
   "errorjsoninvalido": "No se pudo leer la preparación. Compruebe el archivo y vuelva a intentarlo.",

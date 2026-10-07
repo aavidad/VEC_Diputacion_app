@@ -114,7 +114,7 @@
     "registro_b2_acto_error": "The action could not be registered.",
     "registro_b2_acto_incierto": "The record could not be confirmed. Select “Retry exactly” to check or complete the same action.",
     "registro_b2_reintentar_exacto": "Retry exactly",
-    "registro_b2_acto_ayuda": "Select the person or employment record and the origin of the action. Review the details before confirming and keep the confirmation. Signing the action, where required, is a separate step.",
+    "registro_b2_acto_ayuda": "Select the person or employment record and the origin of the action. Review the details before confirming and keep the confirmation. Signing and formal registration, where required, are separate steps.",
     "registro_b2_catalogos": "Personnel catalogues",
     "registro_b2_catalogos_tipo": "Vocabulary",
     "registro_b2_catalogos_estado": "Status",

@@ -114,7 +114,7 @@
     "registro_b2_acto_error": "No se pudo registrar la actuación.",
     "registro_b2_acto_incierto": "No se pudo confirmar el registro. Pulse «Reintentar exactamente» para consultar o completar la misma actuación.",
     "registro_b2_reintentar_exacto": "Reintentar exactamente",
-    "registro_b2_acto_ayuda": "Seleccione la persona o relación y la procedencia del acto. Revise los datos antes de confirmar y conserve el justificante. La firma del acto, cuando proceda, se tramita por separado.",
+    "registro_b2_acto_ayuda": "Seleccione la persona o relación y la procedencia del acto. Revise los datos antes de confirmar y conserve el justificante. La firma y el registro formal, cuando procedan, se tramitan por separado.",
     "registro_b2_catalogos": "Catálogos de Personal",
     "registro_b2_catalogos_tipo": "Vocabulario",
     "registro_b2_catalogos_estado": "Estado",
