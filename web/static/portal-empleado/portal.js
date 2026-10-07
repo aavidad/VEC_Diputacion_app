@@ -1420,6 +1420,10 @@ function prepararBolsaBase() {
     import("./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1"),
     import("./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1"),
   ]).then(([panel, bolsas]) => {
+    if (!vistaNecesitaBolsa()) {
+      promesaBolsaBase = null;
+      return;
+    }
     const presentador = panel.crearPresentadorPanelInterno({
   claseEstado, encabezadoVista, escaparHTML, numero,
   obtenerDatosPanel: () => DATOS_PANEL,
