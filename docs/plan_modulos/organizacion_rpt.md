@@ -364,3 +364,33 @@ editor–aprobador, CAS, recibo durable y auditoría transaccional necesitan
 la conciliación SQL posterior; estos tipos no los acreditan por sí solos.
 AUT25, CA21 e IS10 se preservan hasta su decisión, sin duplicar fuentes ni
 activar una garantía sintética como producción.
+
+## Navegación de RPT publicada — 8 de octubre de 2026
+
+Las cifras de puestos, dotación, categorías y centros abren su listado. También
+lo hacen los recuentos de cada categoría y centro. El servidor calcula los
+recuentos vinculados y filtra los puestos por la misma clave; la lista se pide
+al pulsar, por páginas de 25. La URL conserva vista, búsqueda, categoría,
+centro y página para recargar, compartir el enlace o volver atrás.
+
+El contrato público anterior conserva sus campos y recuentos. La nueva
+navegación se pide con `enlaces=1`. No se modifica la fuente RPT v1: en diez
+categorías su recuento publicado difiere del vinculado por clave. La pantalla
+señala esa diferencia y enlaza el recuento que coincide con los puestos de la
+lista. No deduce categorías por su denominación ni incluye ocupantes.
+
+La ficha abre Catálogos desde esos enlaces cuando la sonda RPT es válida.
+Si la sonda falla y existe ficha propia, conserva la Ficha. Las respuestas
+antiguas no sustituyen filtros nuevos; dos pulsaciones iguales comparten una
+petición. El idioma efectivo, incluido el retorno al castellano si falla el
+catálogo inglés, conserva el filtro y el ancla.
+
+Medición del handler público con 200 muestras y páginas de 100: p95 de
+1,04 ms con los 842 puestos de la fuente y 9,31 ms con un catálogo sintético
+de 10.000 puestos. El ensayo entrega el catálogo en memoria y no ejecuta SQL;
+no mide arranque, red, sesión nominal ni tiempo completo de la pantalla.
+
+Esta navegación reutiliza la RPT publicada. Siguen pendientes la edición
+nominal de categorías con aprobación separada y la conciliación SQL de su
+gobierno. P39/AD217 permanece preservado y pausado por dirección; este corte
+no instala ni sustituye esa cadena.
