@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
+await prepararTextosPortal("ayuda");
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
