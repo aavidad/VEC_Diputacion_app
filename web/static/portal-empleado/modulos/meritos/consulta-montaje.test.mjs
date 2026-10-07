@@ -40,6 +40,30 @@ test("el consumidor obtiene el contexto y consulta por HTTP real con la referenc
   consumidor.desmontar(); assert.equal(d.oyentes.size, 0); assert.equal(d.nodos.get("consulta-aviso-sintetico").hidden, true);
 });
 
+test("el respaldo de idioma permite volver a elegir el catálogo fallido sin perder filtros ni ancla", async () => {
+  const d = documentoPrueba(); const solicitudes = []; const navegaciones = []; const reemplazos = [];
+  d.ventana.location = {
+    href: "https://vec.test/consulta-merito/?hecho=opaco&lang=en#contenido-principal",
+    assign(destino) { navegaciones.push(destino); },
+  };
+  d.ventana.history = {
+    state: { vista: "consulta" },
+    replaceState(estado, _titulo, destino) { reemplazos.push({ estado, destino: String(destino) }); d.ventana.location.href = String(destino); },
+  };
+  const consumidor = montarConsumidorConsultaMerito({ documento: d.documento, ventana: d.ventana,
+    fetchImpl: async (ruta, opciones) => { solicitudes.push({ ruta, opciones }); return ruta.endsWith("consulta-contexto") ? contexto() : respuestaPrueba(resultadoPrueba()); } });
+  await consumidor.preparada;
+  assert.equal(reemplazos.length, 1);
+  assert.deepEqual(reemplazos[0].estado, { vista: "consulta" });
+  assert.equal(reemplazos[0].destino, "https://vec.test/consulta-merito/?hecho=opaco&lang=es#contenido-principal");
+  assert.equal(solicitudes.length, 2);
+  const ingles = d.nodos.get("consulta-idiomas").children.find((boton) => boton.lang === "en");
+  ingles.listeners.get("click")();
+  assert.deepEqual(navegaciones, ["https://vec.test/consulta-merito/?hecho=opaco&lang=en#contenido-principal"]);
+  assert.equal(solicitudes.length, 2);
+  consumidor.desmontar();
+});
+
 test("un contexto fallido o ampliado no realiza POST ni carga ejemplos", async () => {
   for (const respuesta of [contexto({ hecho_ref: "hecho:propio-a", sintetico: true, persona_ref: "persona:ajena" }), new Response("privado", { status: 403 })]) {
     const d = documentoPrueba(); let llamadas = 0;
