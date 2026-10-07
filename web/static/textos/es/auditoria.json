@@ -24,6 +24,7 @@
     "estado_vacio": "Sin registros para estos filtros.",
     "estado_denegado": "Acceso denegado. No se muestran datos.",
     "estado_no_disponible": "La consulta de auditoría no está disponible. Avise a Informática si necesita estos datos.",
+    "estado_no_disponible_titulo": "No disponible",
     "estado_error": "No se pudo completar la consulta. Reintente.",
     "estado_invalido": "Revise las fechas: «Hasta» debe ser posterior a «Desde» y el intervalo no puede superar 31 días.",
     "tabla_aria": "Registros de auditoría",

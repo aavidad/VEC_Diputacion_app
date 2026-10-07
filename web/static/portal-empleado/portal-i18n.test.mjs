@@ -363,5 +363,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261006-resumen-inicio-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-auditoria-disponibilidad-v1");
 });

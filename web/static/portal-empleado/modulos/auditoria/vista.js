@@ -194,7 +194,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       </form></div></section>
     <section class="panel auditoria-resultados" aria-labelledby="auditoria-resultados-titulo">
       <div class="cabecera-panel"><h3 id="auditoria-resultados-titulo">${escapar(t("resultados_titulo"))}</h3>
-        <span class="estado-chip ${["denegado", "error"].includes(estado) ? "peligro" : estado === "disponible" ? "exito" : "aviso"}">${escapar(mensaje)}</span></div>
+        <span class="estado-chip ${["denegado", "error"].includes(estado) ? "peligro" : estado === "disponible" ? "exito" : "aviso"}">${escapar(estado === "no_disponible" ? t("estado_no_disponible_titulo") : mensaje)}</span></div>
       <div class="cuerpo-panel"><p class="auditoria-estado-texto" role="status" aria-live="polite">${escapar(mensaje)}</p>
       ${["error", "no_disponible"].includes(estado) && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
