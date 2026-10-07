@@ -36,7 +36,8 @@ export const VISTAS_INTERNAS_BOLSA = Object.freeze([
 // Se mantienen las rutas para la composición futura, pero estos puntos no
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
-  "llamamientos", "contratos", "documentos", "comunicaciones",
+  "contratos", "documentos", "comunicaciones", "convocatorias", "solicitudes",
+  "meritos", "alegaciones", "importacion", "baremacion", "consulta", "configuracion",
 ]);
 
 export function vistaBolsaPendienteNoCompuesta(vista) {
@@ -70,10 +71,9 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
 /**
  * Decide si una entrada del menú de Bolsa se ofrece según la capacidad real
  * que la sirve: el cuadro, los candidatos, las estadísticas y el llamamiento
- * desde cada bolsa usan la API del cuadro (ya comprobada para abrir Bolsa);
+ * desde cada bolsa exigen una lectura positiva de la API del cuadro;
  * Elaboración, su API de borradores; «Documentos y firma», la vista de
- * Contratación temporal; y el resto, el panel interno agregado. Sin esa
- * capacidad la entrada no se ofrece, en lugar de abrir una pantalla vacía.
+ * Contratación temporal. Las rutas antiguas sin consumidor quedan ocultas.
  *
  * La API de borradores no se sondea al cargar el portal (un servidor que no la
  * sirve respondería 404 en cada carga): Elaboración solo se ofrece en el menú
@@ -85,7 +85,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "estadisticas":
     case "llamamientos":
     case VISTA_CANDIDATOS_BOLSA:
-      return true;
+      return capacidades?.bolsasConsultables === true;
     case "elaboracion":
       return capacidades?.borradores === true;
     case "contratacion-temporal":
@@ -95,17 +95,18 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "reglas":
       return capacidades?.politicaCese === true;
     default:
-      return VISTAS_INTERNAS_BOLSA.includes(vista) && capacidades?.panelInterno === true;
+      return false;
   }
 }
 
 /**
- * Navegación directa (enlace o historial) a una vista de Bolsa: se permite lo
- * mismo que el menú ofrece y, además, Elaboración mientras no conste que falta:
- * abrirla por su enlace es lo que comprueba su API de borradores.
+ * Navegación directa (enlace o historial): las pantallas con API real pueden
+ * mostrar carga, vacío, error o denegación aunque su entrada aún no figure en
+ * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
   if (vista === "elaboracion") return capacidades?.borradores !== false;
+  if (["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);
 }
 
