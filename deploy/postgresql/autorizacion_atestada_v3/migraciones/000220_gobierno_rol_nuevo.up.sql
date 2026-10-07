@@ -65,6 +65,10 @@ BEGIN
  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5'
  THEN RAISE EXCEPTION 'AD220: núcleo POST218 divergente; def=%',h USING ERRCODE='55000'; END IF;
  IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
+ OR NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f
+    AND a.grantee=p.proowner AND a.grantor=p.proowner
+    AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
  OR length(original)-length(replace(original,runtime_marca,''))<>length(runtime_marca)
  OR length(original)-length(replace(original,excl_marca,''))<>length(excl_marca)
  OR length(original)-length(replace(original,tupla_marca,''))<>length(tupla_marca)
