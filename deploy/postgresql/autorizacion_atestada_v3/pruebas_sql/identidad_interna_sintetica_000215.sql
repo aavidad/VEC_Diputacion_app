@@ -46,8 +46,8 @@ BEGIN
  IF pg_catalog.has_table_privilege(session_user,'vec_autorizacion_atestada_v3.auditoria_consumo_v3','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
  THEN RAISE EXCEPTION 'AD215 prueba: tabla expuesta'; END IF;
  SELECT pg_catalog.to_jsonb(c) INTO STRICT corte FROM vec_autorizacion_atestada_v3.control_cadena_auditoria c;
- SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(a) ORDER BY a.secuencia),'[]'::jsonb) INTO historia
- FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a;
+ SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(aud) ORDER BY aud.secuencia),'[]'::jsonb) INTO historia
+ FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 aud;
  e:=pg_catalog.jsonb_build_object(
  'tipo_registro','provision_identidad_interna_sintetica','evento_ref','evento_21500000000000000000000000000001',
  'operador_login',session_user::text,'operacion_ref','piis_21500000000000000000000000000001',
@@ -67,8 +67,8 @@ BEGIN
  BEGIN
   INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3
   SELECT (pg_catalog.jsonb_populate_record(NULL::vec_autorizacion_atestada_v3.auditoria_consumo_v3,
-   pg_catalog.to_jsonb(a)||pg_catalog.jsonb_build_object('actor_ref','per_21500000000000000000000000000001'))).*
-  FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.auditoria_ref=x.auditoria_ref;
+   pg_catalog.to_jsonb(aud)||pg_catalog.jsonb_build_object('actor_ref','per_21500000000000000000000000000001'))).*
+  FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 aud WHERE aud.auditoria_ref=x.auditoria_ref;
   RAISE EXCEPTION 'AD215 prueba: familia mezclada admitida';
  EXCEPTION WHEN check_violation THEN NULL; END;
  BEGIN
@@ -156,8 +156,8 @@ BEGIN
   THEN RAISE EXCEPTION 'AD215 prueba: asiento fuera de cadena AD207'; END IF;
  END LOOP;
  IF (SELECT pg_catalog.to_jsonb(c) FROM vec_autorizacion_atestada_v3.control_cadena_auditoria c) IS DISTINCT FROM corte
- OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(a) ORDER BY a.secuencia),'[]'::jsonb)
- FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE operador_login IS DISTINCT FROM session_user) IS DISTINCT FROM historia
+ OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(aud) ORDER BY aud.secuencia),'[]'::jsonb)
+ FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 aud WHERE aud.operador_login IS DISTINCT FROM session_user) IS DISTINCT FROM historia
  THEN RAISE EXCEPTION 'AD215 prueba: historia previa modificada'; END IF;
  RAISE NOTICE 'AD215: efecto único, siete intentos, ACL, ABI, replay, conflictos, material y cola AD207 comprobados';
 END $prueba$;
