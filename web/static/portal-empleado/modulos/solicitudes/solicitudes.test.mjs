@@ -38,7 +38,7 @@ const objetivoTab = (pestana) => ({ closest: (selector) => selector === "[data-s
 
 test("vista carga el catálogo i18n con URL versionada", async () => {
   const vista = await readFile(new URL("vista.js", import.meta.url), "utf8");
-  assert.match(vista, /from "\.\/i18n\.js\?v=20261007-p5-solicitudes-reglas-v1"/);
+  assert.match(vista, /from "\.\/i18n\.js\?v=20261007-pantallas-textos-final-v1"/);
   const modulo = await import("./vista.js?v=20260926-integracion-bolsa-ct-v1");
   assert.equal(typeof modulo.montarVistaSolicitudes, "function");
   assert.match(modulo.renderizarSolicitudes(), /Consulta no configurada/);

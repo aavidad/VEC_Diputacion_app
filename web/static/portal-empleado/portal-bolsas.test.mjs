@@ -1,6 +1,6 @@
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
@@ -27,7 +27,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
-} from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-contrato.js?v=20261007-pantallas-textos-final-v1";
 import {
   consultarBolsas,
   consultarCandidatosBolsa,
@@ -41,7 +41,7 @@ import {
   rutaCandidatosBolsa,
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
 function comprobarTransporteInterno(opciones) {
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.mode, "same-origin");
@@ -115,7 +115,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**
