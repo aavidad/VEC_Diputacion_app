@@ -100,7 +100,7 @@ export function renderizarAlta(
       </div>
     </section>`;
   }
-  return `<div data-ct-exp-preparacion></div><div data-ct-exp-alta></div>
+  return `<div data-ct-exp-alta></div>
     ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
     ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
     ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
