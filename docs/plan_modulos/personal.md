@@ -231,3 +231,24 @@ faltan identidad, perfil y origen V3 propios para esa comprobación.
 Tampoco se ha medido el rendimiento de esta lectura autorizada.
 La siguiente dependencia es reanclar AD175/Personal32 (#555) y después
 AD180/Personal34 (#577), conservando sus consumidores y recibos existentes.
+
+
+## Exportación propia: retoma de #555 — 7 de octubre de 2026
+
+AD175 se reancla sobre AD211 con su permiso de exportación separado del de
+consulta. Personal32 conserva el corte en los recibos nuevos y rechaza los
+antiguos sin corte; no rellena ni modifica sus datos históricos. Se acotan
+todos los argumentos antes del primer parseo de JSON.
+
+En un clon PostgreSQL 18.4 se aplica AD175 y la prueba de preservación instala
+Personal32 una sola vez. Un recibo ficticio, insertado directamente para esta
+prueba, mantiene su contenido y los dos cortes NULL; su modificación falla.
+Metadatos de la consulta e inversión textual del parche correctos. ACL y
+tres negativas reales de tamaños inválidos correctas con un LOGIN técnico
+exclusivo. Dos revisiones favorables del código `7c9e7ecb2`.
+
+El recibo de prueba no procede de una lectura nominal: falta ensayar una
+exportación con identidad, permiso, origen y material firmados propios,
+recuperarla tras reinicio y medir su latencia. Orden: AD211/Personal22,
+después la lista de AD175/Personal32, y finalmente AD180/Personal34.
+No se instala nada en la principal por esta retoma.
