@@ -124,6 +124,8 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	// Las rutas privadas no se registran en esta superficie; reciben 404.
 	mux.Handle("/bolsa", soloLecturaHTTP(redireccionDirectorio("bolsa/")))
 	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
+	mux.Handle("/canal-interno", soloLecturaHTTP(redireccionDirectorio("canal-interno/")))
+	mux.Handle("/canal-interno/", soloLecturaHTTP(estaticos))
 	mux.Handle("/verificar", soloLecturaHTTP(redireccionDirectorio("verificar/")))
 	mux.Handle("/verificar/", soloLecturaHTTP(estaticos))
 	registrarActivosCompartidos(mux, estaticos)

@@ -12,6 +12,8 @@ const CUSTODIAS = new Set(["vec", "externa"]);
 const CONSERVACIONES = new Set(["aprobada", "provisional"]);
 const referencia = (v) => typeof v === "string" && (/^ref:[0-9a-f]{64}$/u.test(v) && !/^ref:0{64}$/u.test(v)
   || /^[a-z][a-z0-9_]{1,31}:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(v));
+const referenciaExpediente = (v) => referencia(v) || typeof v === "string"
+  && /^expediente:ct:[0-9a-f]{64}$/u.test(v) && !/^expediente:ct:0{64}$/u.test(v);
 const huellaValida = (v) => typeof v === "string" && /^[0-9a-f]{64}$/iu.test(v);
 
 function elemento(doc, tag, texto, clase) {
@@ -73,7 +75,7 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
   const panel = elemento(doc, "section", undefined, "panel documentos-panel");
   // La vista no pide referencias al usuario: solo se abre desde un expediente,
   // que entrega la suya por navegación.
-  const expediente = referencia(expedienteRef) ? expedienteRef : "";
+  const expediente = referenciaExpediente(expedienteRef) ? expedienteRef : "";
   const estado = elemento(doc, "p", "", "documentos-estado-consulta");
   estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite");

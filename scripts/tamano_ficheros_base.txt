@@ -91,10 +91,11 @@
 13086 web/static/app.js
 962 web/static/area-personal/aplicacion.js
 863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-916 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
+826 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+925 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 850 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1024 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
-1194 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
+1211 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
@@ -107,8 +108,8 @@
 1022 web/static/portal-empleado/portal-componentes.css
 1200 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
+1027 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 919 web/static/portal-empleado/portal-bolsas.test.mjs
-949 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 820 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 874 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css

@@ -61,6 +61,11 @@ export function crearClienteLecturasUsuarios(opciones = {}) {
     roles: (signal) => pedir("/roles", signal),
     propuestas: (signal) => pedir("/propuestas?estado=pendiente", signal),
     persona: (ref, signal) => { if (typeof ref !== "string" || !REFERENCIA.test(ref)) throw new TypeError("referencia_invalida"); return pedir(`/personas/${encodeURIComponent(ref)}`, signal); },
+    // Preparación del cambio de perfiles (consume una autorización y queda auditada).
+    preparar: (ref, unidad, signal) => {
+      if (typeof ref !== "string" || !/^per_[A-Za-z0-9_-]{22,128}$/u.test(ref) || typeof unidad !== "string" || !/^[a-z][a-z0-9_:-]{2,127}$/u.test(unidad)) throw new TypeError("referencia_invalida");
+      return pedir(`/personas/${encodeURIComponent(ref)}/preparacion-lote?${new URLSearchParams({ unidad_ref: unidad })}`, signal);
+    },
     buscar: (filtros = {}, signal) => {
       const { busqueda = "", cursor = "", perfil_ref = "", unidad_ref = "", estado = "" } = filtros;
       if (opciones.proyeccion === "metadatos_v1" && busqueda !== "") throw new TypeError("filtros_invalidos");
