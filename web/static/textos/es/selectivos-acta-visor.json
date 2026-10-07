@@ -25,6 +25,8 @@
   "error_tamano": "No se puede abrir el archivo: está vacío o supera 4 MiB. Seleccione una salida más pequeña del preparador.",
   "error_formato": "No se puede abrir el archivo: no coincide con la salida del preparador de sesión. Genere de nuevo la salida y selecciónela.",
   "error_catalogo": "No se han podido cargar los textos. Recargue la pantalla antes de abrir un archivo.",
+  "idioma_respaldo": "No se ha podido cargar el idioma elegido. Se muestra el idioma disponible y el archivo sigue abierto.",
+  "idioma_error": "No se ha podido cambiar el idioma. Se conserva el idioma actual y el archivo abierto. Vuelva a intentarlo.",
   "contexto_material": "Contexto de la propuesta",
   "borrador_local": "Borrador local · Pendiente de revisión",
   "sesion_limite": "La agenda y los acuerdos son propuestas. No acreditan convocatoria, celebración, asistencia, deliberación ni votación de una sesión.",

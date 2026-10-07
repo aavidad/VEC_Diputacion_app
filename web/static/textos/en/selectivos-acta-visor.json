@@ -25,6 +25,8 @@
   "error_tamano": "Cannot open the file: it is empty or exceeds 4 MiB. Select a smaller preparation tool output.",
   "error_formato": "Cannot open the file: it does not match the session preparation tool output. Generate the output again and select it.",
   "error_catalogo": "The screen text could not be loaded. Reload the screen before opening a file.",
+  "idioma_respaldo": "The selected language could not be loaded. An available language is shown and the file remains open.",
+  "idioma_error": "The language could not be changed. The current language and open file have been kept. Try again.",
   "contexto_material": "Proposal context",
   "borrador_local": "Local draft · Pending review",
   "sesion_limite": "The agenda and agreements are proposals. They do not establish that a session was convened or held, or that attendance, deliberation or voting occurred.",

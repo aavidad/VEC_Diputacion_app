@@ -3,7 +3,9 @@
 El visor abre la salida local del preparador de sesión S5. Muestra el orden del
 día y las propuestas de acuerdo, vinculadas por el punto de agenda. Conserva
 los textos aportados como datos; cambiar el idioma de la interfaz no traduce
-automáticamente esos textos.
+automáticamente esos textos. El selector común conserva el archivo abierto,
+los otros parámetros y el ancla de la URL. La URL muestra el idioma que se ha
+cargado, incluido el de respaldo si falta el solicitado.
 
 Use sólo material sintético. El archivo no acredita una sesión convocada o
 celebrada, asistencia, deliberaciones, votaciones ni acuerdos adoptados. El
