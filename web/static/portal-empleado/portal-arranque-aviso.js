@@ -26,15 +26,18 @@
 
   let fallo = false;
   let textos = null;
+  const controladores = new Set();
+  const vigente = () => raiz.contains(aviso);
   const observador = new MutationObserver(() => {
-    if (raiz.contains(aviso)) return;
+    if (vigente()) return;
     clearTimeout(plazo);
+    for (const controlador of controladores) controlador.abort();
     observador.disconnect();
   });
   observador.observe(raiz, { childList: true });
 
   function pintar() {
-    if (!textos || !raiz.contains(aviso)) return;
+    if (!textos || !vigente()) return;
     titulo.textContent = fallo ? textos.titulo_error : textos.titulo;
     detalle.textContent = fallo ? textos.error : textos.cargando;
     reintentar.textContent = textos.reintentar;
@@ -42,7 +45,7 @@
   }
 
   function mostrarError(codigo) {
-    if (fallo || !raiz.contains(aviso)) return;
+    if (fallo || !vigente()) return;
     fallo = true;
     // El fallo puede incluir URL o detalles de identidad: solo sale un código fijo.
     console.error("portal.arranque.fallido", { codigo });
@@ -76,9 +79,44 @@
   };
 
   async function leerJSON(ruta) {
-    const respuesta = await fetch(ruta, opcionesLectura);
-    if (!respuesta.ok) throw new Error("recurso de arranque no disponible");
-    return respuesta.json();
+    const controlador = new AbortController();
+    controladores.add(controlador);
+    let temporizador;
+    const vencimiento = new Promise((_, rechazar) => {
+      temporizador = setTimeout(() => {
+        controlador.abort();
+        rechazar(new Error("lectura de arranque agotada"));
+      }, 3_000);
+    });
+    const lectura = async () => {
+      const respuesta = await fetch(ruta, { ...opcionesLectura, signal: controlador.signal });
+      if (!respuesta.ok) throw new Error("recurso de arranque no disponible");
+      const maximo = 128 * 1024;
+      if (!respuesta.body?.getReader) {
+        const texto = await respuesta.text();
+        if (new TextEncoder().encode(texto).byteLength > maximo) throw new Error("catálogo de arranque excesivo");
+        return JSON.parse(texto);
+      }
+      const lector = respuesta.body.getReader();
+      const partes = [];
+      let tamano = 0;
+      while (true) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        tamano += value.byteLength;
+        if (tamano > maximo) {
+          void lector.cancel().catch(() => {});
+          throw new Error("catálogo de arranque excesivo");
+        }
+        partes.push(value);
+      }
+      const bytes = new Uint8Array(tamano);
+      let posicion = 0;
+      for (const parte of partes) { bytes.set(parte, posicion); posicion += parte.byteLength; }
+      return JSON.parse(new TextDecoder().decode(bytes));
+    };
+    try { return await Promise.race([lectura(), vencimiento]); }
+    finally { clearTimeout(temporizador); controladores.delete(controlador); }
   }
 
   async function cargarIndice() {
@@ -111,10 +149,14 @@
 
   async function cargarTextosArranque() {
     const { idioma, porDefecto } = await cargarIndice();
+    if (!vigente()) return;
     const disponibles = [...new Set([idioma, porDefecto].filter(Boolean))];
     for (const candidato of disponibles) {
+      if (!vigente()) return;
       try {
-        textos = validarTextos(await leerJSON(`/textos/${candidato}/portal-arranque.json`));
+        const valores = validarTextos(await leerJSON(`/textos/${candidato}/portal-arranque.json`));
+        if (!vigente()) return;
+        textos = valores;
         document.documentElement.lang = candidato;
         pintar();
         break;
@@ -127,7 +169,7 @@
     // La traducción del shell es opcional y nunca retrasa el aviso autónomo.
     try {
       const idiomaPortal = await import("./portal-idioma.js?v=20261001-ct-a-i18n-v1");
-      if (raiz.contains(aviso)) idiomaPortal.aplicarTextosPortal(document);
+      if (vigente()) idiomaPortal.aplicarTextosPortal(document);
     } catch { /* El aviso autónomo conserva su texto. */ }
   }
 
