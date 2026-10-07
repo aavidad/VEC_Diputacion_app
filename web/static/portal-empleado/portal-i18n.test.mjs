@@ -308,6 +308,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js",
     "portal.js",
   ]) versionesEspeciales.set(ruta, "20261007-carga-pantalla-v1");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261007-t-rpt-enlaces-root-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -445,6 +447,6 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-carga-pantalla-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-t-rpt-enlaces-root-v1");
 
 });

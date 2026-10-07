@@ -667,3 +667,22 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     assert.doesNotMatch(inicial, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`), `${grupo} no bloquea Inicio ni CT`);
   }
 });
+
+test("RPT abre cliente y vista del mismo corte conservando una sola URL hasta la raíz", async () => {
+  const [html, portal, coordinador, vista, cache] = await Promise.all([
+    "index.html", "portal.js", "portal-modulos-coordinador.js",
+    "modulos/personal/vista-rpt-publica.js", "cache-publica-v1.json",
+  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
+  const hoja = "20261007-t-rpt-enlaces-v1";
+  const raiz = "20261007-t-rpt-enlaces-root-v1";
+  assert.equal(versionDe(coordinador, "./modulos/personal/cliente-http-rpt-publica.js"), hoja);
+  assert.equal(versionDe(coordinador, "./modulos/personal/vista-rpt-publica.js"), hoja);
+  assert.equal(versionDe(vista, "./cliente-http-rpt-publica.js"), hoja);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), raiz);
+  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), raiz);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), raiz);
+  assert.equal(versionDe(cache, "/portal-empleado/portal.js"), raiz);
+  const alcanzables = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: true });
+  assert.ok(alcanzables.has(`/portal-empleado/modulos/personal/vista-rpt-publica.js?v=${hoja}`));
+  assert.ok(alcanzables.has(`/portal-empleado/modulos/personal/cliente-http-rpt-publica.js?v=${hoja}`));
+});
