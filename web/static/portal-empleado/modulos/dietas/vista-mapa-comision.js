@@ -10,6 +10,7 @@ import {
   ESQUEMA_SOLICITUD_RUTA_DIETAS,
   PLANTILLA_TESELAS_OSM_INTERNA,
   validarCalculoRutaDietas,
+  validarCatalogoRutasDietas,
   validarSolicitudRutaDietas,
 } from "./contrato.js";
 import { MENSAJES_DIETAS, crearTraductorDietas } from "./i18n.js?v=20260929-i18n-dietas-v1";
@@ -93,6 +94,7 @@ export async function montarVistaMapaComisionDietas({
   raiz,
   calculador,
   visorRuta,
+  catalogoInicial,
   codigos = [],
   anunciar = () => {},
   registrarDesmontar,
@@ -104,6 +106,9 @@ export async function montarVistaMapaComisionDietas({
     || typeof registrarDesmontar !== "undefined" && typeof registrarDesmontar !== "function") {
     throw new TypeError("vista de mapa de comisión de Dietas no disponible");
   }
+  // Solo el consumidor que ya consultó el catálogo puede aportarlo. La vista
+  // aislada conserva su lectura propia y ambas rutas validan el mismo contrato.
+  const catalogoPreparado = catalogoInicial === undefined ? null : validarCatalogoRutasDietas(catalogoInicial);
   const documento = raiz.ownerDocument;
   const t = crearTraductorDietas(mensajes);
   const contenedor = nodo(documento, "section");
@@ -112,7 +117,7 @@ export async function montarVistaMapaComisionDietas({
   raiz.append(contenedor);
 
   let activa = true;
-  let catalogo = null;
+  let catalogo = catalogoPreparado;
   let ruta = codigosRuta(codigos, true);
   let calculo = null;
   let controlador = new AbortController();
@@ -261,6 +266,6 @@ export async function montarVistaMapaComisionDietas({
   }
 
   pintar();
-  await cargarCatalogo();
+  if (!catalogoPreparado) await cargarCatalogo();
   return Object.freeze({ establecerCodigos, calcular, obtenerCalculoParaGuardar, desmontar });
 }
