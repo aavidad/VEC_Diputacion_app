@@ -1,0 +1,4 @@
+deploy/postgresql/identidad_sesiones_v1/migraciones/000017_identidad_interna_sintetica.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000037_identidad_interna_sintetica.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000215_identidad_interna_sintetica.up.sql
+deploy/postgresql/autorizacion/migraciones/000057_identidad_interna_sintetica.up.sql
