@@ -469,3 +469,4 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
     observaciones: String(datos.get("observaciones") ?? ""),
   };
 }
+
