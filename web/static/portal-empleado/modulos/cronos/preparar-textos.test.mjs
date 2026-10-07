@@ -110,6 +110,8 @@ test("el respaldo válido se aplica a todo el grupo sin mezclar idiomas", async 
   } };
   const resultado = await prepararTextosCronos({ pantalla: "permisos", lector });
   assert.equal(resultado.idioma, "es");
+  assert.deepEqual(resultado.incidenciaCatalogo, { idioma: "en", respaldo: "es" });
+  assert.equal(resultado.incidenciaIndice, null);
   assert.deepEqual(lecturas.slice(4), [
     ["cronos", "es"], ["cronos-historial", "es"], ["cronos-permisos", "es"], ["cronos-permisos-consulta", "es"],
   ]);
@@ -151,5 +153,34 @@ test("el respaldo real de V mantiene Permisos disponible en un solo idioma", {
   }) };
   const resultado = await prepararTextosCronos({ pantalla: "permisos", lector });
   assert.equal(resultado.idioma, "es");
+  assert.equal(resultado.incidenciaCatalogo.codigo, "catalogo_no_disponible");
   assert.equal(crearTraductorConsultaPermisosCronos()("actualizar"), "Actualizar");
+});
+
+test("el índice fallido con catálogo íntegro permite Jornada y recupera la incidencia", {
+  skip: typeof lectorReal.reintentarTextos !== "function" && "la base aún no incluye V 9ec23fd1b",
+}, async () => {
+  const incidenciaIndice = Object.freeze({ codigo: "indice_no_disponible", idioma: "es" });
+  const lector = { cargarTextos: (fuente) => lectorReal.cargarTextos(fuente, {
+    idioma: "es", porDefecto: "es", incidenciaIndice,
+    leer: async (url) => JSON.parse(await readFile(url, "utf8")),
+  }) };
+  const provisional = await prepararTextosCronos({ pantalla: "jornada", lector });
+  assert.equal(provisional.idioma, "es");
+  assert.equal(provisional.incidenciaIndice, incidenciaIndice);
+  assert.equal(provisional.incidenciaCatalogo, null);
+  assert.equal(crearTraductorCronos()("jornada_titulo"), "Mi jornada");
+  const recuperado = await prepararTextosCronos({ pantalla: "jornada", reintentar: true });
+  assert.equal(recuperado.incidenciaIndice, null);
+  assert.equal(recuperado.incidenciaCatalogo, null);
+  assert.equal(crearTraductorCronos()("jornada_titulo"), "Mi jornada");
+});
+
+test("una localización inválida sigue bloqueando la publicación", async () => {
+  const lector = { cargarTextos: async (fuente) => {
+    const textos = await cargarTextos(fuente, { idioma: "es", porDefecto: "es" });
+    return fuente === "cronos" ? { ...textos, localizacion: "invalida_!" } : textos;
+  } };
+  await assert.rejects(prepararTextosCronos({ pantalla: "jornada", lector }), /pendientes de recuperación/);
+  assert.throws(() => crearTraductorCronos(), /sin preparar/);
 });

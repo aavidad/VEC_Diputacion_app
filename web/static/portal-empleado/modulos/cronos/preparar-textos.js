@@ -39,7 +39,11 @@ function seccion(textos, nombre) {
 }
 
 function validarCatalogo(textos) {
-  if (textos.incidenciaIndice || textos.faltantes?.length
+  let localizacionValida = false;
+  try { localizacionValida = Intl.getCanonicalLocales(textos?.localizacion).length === 1; }
+  catch { /* localización inválida */ }
+  if (typeof textos?.seccion !== "function" || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u.test(textos.idioma)
+    || !localizacionValida || textos.faltantes?.length
     || (textos.incidenciaCatalogo && textos.incidenciaCatalogo.respaldo !== textos.idioma)) {
     throw new Error("textos de Cronos pendientes de recuperación");
   }
@@ -91,6 +95,8 @@ export function prepararTextosCronos({ pantalla = "jornada", reintentar = false,
   const intento = Promise.all(fuentes.map(async (fuente) => [fuente, validarCatalogo(await cargar(fuente))]))
     .then(async (pares) => {
       if (generaciones.get(pantalla) !== generacion) throw new Error("preparación de Cronos superada");
+      const incidenciaIndice = pares.find(([, textos]) => textos.incidenciaIndice)?.[1].incidenciaIndice ?? null;
+      const incidenciaCatalogo = pares.find(([, textos]) => textos.incidenciaCatalogo)?.[1].incidenciaCatalogo ?? null;
       // Si una fuente usa el respaldo, toda la pantalla usa ese mismo idioma.
       const respaldo = pares.find(([, textos]) => textos.incidenciaCatalogo)?.[1].idioma;
       if (respaldo) {
@@ -100,7 +106,9 @@ export function prepararTextosCronos({ pantalla = "jornada", reintentar = false,
       }
       const catalogos = Object.fromEntries(pares);
       const idioma = catalogos.cronos.idioma;
-      if (pares.some(([, textos]) => textos.idioma !== idioma || textos.incidenciaCatalogo)) {
+      const localizacion = catalogos.cronos.localizacion;
+      if (pares.some(([, textos]) => textos.idioma !== idioma || textos.localizacion !== localizacion
+        || textos.incidenciaCatalogo)) {
         throw new Error("idiomas de Cronos incompatibles");
       }
       // Validar todas las secciones antes de publicar cualquiera de ellas.
@@ -121,7 +129,9 @@ export function prepararTextosCronos({ pantalla = "jornada", reintentar = false,
       if (ultimoEstado.valido && ultimoEstado.idioma !== idioma) invalidarTodo();
       publicar(pantalla, catalogos);
       if (orden >= ultimoEstado.orden) ultimoEstado = { orden, idioma, valido: true };
-      return Object.freeze({ pantalla, idioma, localizacion: catalogos.cronos.localizacion });
+      return Object.freeze({ pantalla, idioma, localizacion,
+        incidenciaIndice: incidenciaIndice ?? pares.find(([, textos]) => textos.incidenciaIndice)?.[1].incidenciaIndice ?? null,
+        incidenciaCatalogo });
     }).catch((error) => {
       if (generaciones.get(pantalla) === generacion && orden >= ultimoEstado.orden) {
         invalidarTodo();
