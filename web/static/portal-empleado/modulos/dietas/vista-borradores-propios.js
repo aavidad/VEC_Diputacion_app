@@ -250,6 +250,7 @@ export function montarVistaBorradoresPropios(
   let reciboRectificacionConfirmado = null;
   let mapaVista = null;
   let montajeMapa = null;
+  let reintentoCatalogo = null;
   let controladorCatalogo = null;
   let falloCatalogoRuta = false;
   let calculoCabeceraFirma = null;
@@ -696,8 +697,16 @@ export function montarVistaBorradoresPropios(
   async function mapaParaCalcular() {
     const actual = mapaVista || await montajeMapa;
     if (actual || !activaAhora()) return actual;
-    montajeMapa = cargarCatalogoRuta();
-    return montajeMapa;
+    if (!reintentoCatalogo) {
+      const intento = cargarCatalogoRuta();
+      reintentoCatalogo = intento;
+      montajeMapa = intento;
+      const terminar = () => {
+        if (reintentoCatalogo === intento) reintentoCatalogo = null;
+      };
+      void intento.then(terminar, terminar);
+    }
+    return reintentoCatalogo;
   }
   function valoresParadas(form) {
     return Array.from(form.querySelectorAll("select"))

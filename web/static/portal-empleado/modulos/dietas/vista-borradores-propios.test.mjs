@@ -184,6 +184,42 @@ test("un fallo conserva el formulario y Calcular ruta reintenta el catálogo una
   } finally { globalThis.FormData = original; vista.desmontar(); }
 });
 
+test("dos clics en Reintentar comparten la lectura y conservan el foco", async () => {
+  const contenedor = raiz(); let lecturas = 0; let completar; let señal; const avisos = [];
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: ({ signal }) => {
+      if (++lecturas === 1) throw new Error("fuente no disponible");
+      señal = signal;
+      return new Promise((resolver) => { completar = resolver; });
+    }, obtenerCatalogoOtrosGastos: async () => null, calcular: async () => { throw new Error("sin ruta"); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) }, anunciar: (mensaje) => avisos.push(mensaje),
+  });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const boton = contenedor.querySelector("[data-dietas-calcular-ruta]");
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const erroresIniciales = avisos.filter((mensaje) => mensaje.includes("No se ha podido calcular la ruta")).length;
+    assert.equal(boton.textContent, "Reintentar");
+    boton.focus();
+    const primero = panel.listeners.click({ target: boton });
+    const segundo = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(lecturas, 2);
+    assert.equal(señal.aborted, false);
+    completar(catalogoRuta());
+    await Promise.all([primero, segundo]);
+    assert.equal(lecturas, 2);
+    assert.equal(señal.aborted, false);
+    assert.ok(contenedor.querySelector("[data-dietas-mapa-comision]"));
+    assert.notEqual(boton.textContent, "Reintentar");
+    assert.equal(contenedor.ownerDocument.activeElement, boton);
+    assert.equal(avisos.filter((mensaje) => mensaje.includes("No se ha podido calcular la ruta")).length, erroresIniciales);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
 test("una respuesta del catálogo tras desmontar no pinta mapa ni modifica el formulario", async () => {
   const contenedor = raiz(); let completar; let señal; const avisos = [];
   const vista = montarVistaBorradoresPropios(contenedor, {
