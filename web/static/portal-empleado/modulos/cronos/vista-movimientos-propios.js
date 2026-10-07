@@ -3,6 +3,8 @@ import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, valid
 import { crearTraductorIncidenciasCronos } from "./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v5";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+export { hoyCivilCronos } from "./fecha-civil.js";
+import { hoyCivilCronos } from "./fecha-civil.js";
 
 const MOVIMIENTOS = ["entrada", "salida", "inicio_pausa", "fin_pausa"];
 const ESTADOS_CORRECCION = ["pendiente_responsable", "pendiente_rrhh", "denegada_responsable", "denegada_rrhh", "pendiente_aplicacion", "aplicada"];
@@ -25,11 +27,6 @@ function fechaVisible(fecha, locale, estilo = "medium") {
 }
 function instanteVisible(instante, locale, zona) {
   return new Intl.DateTimeFormat(locale, { timeZone: zona, dateStyle: "medium", timeStyle: "short" }).format(new Date(instante));
-}
-export function hoyCivilCronos(zona = "Europe/Madrid", ahora = new Date()) {
-  const p = new Intl.DateTimeFormat(/* localización técnica */ "en-CA", { timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora);
-  const v = (t) => p.find((x) => x.type === t)?.value;
-  return `${v("year")}-${v("month")}-${v("day")}`;
 }
 function claveNueva() { return globalThis.crypto.randomUUID(); }
 
