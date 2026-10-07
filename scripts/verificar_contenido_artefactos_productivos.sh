@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
+	static/comun/http.js
+	static/comun/registro-errores.js
 	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
 	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
 	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
