@@ -11,7 +11,7 @@ DECLARE
  fachada oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_carga_convoca_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  definicion text; fuente text; audiencia text;
  def_sha text; src_sha text; check_sha text; validado boolean;
- origenes bigint; origen_exacto boolean; fachada_exacta boolean;
+ origenes bigint; origen_exacto boolean; fachada_exacta boolean; fachada_acl_exacta boolean;
  pre_def constant text:='96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3';
  pre_src constant text:='03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd';
  pre_check constant text:='8dae0267b85ad237770d0ccdb7fbf9862afe6d7d022c0c93f4385c182bcbc68e';
@@ -41,14 +41,20 @@ BEGIN
   AND audiencia_consumo='vec_bolsa_llamamientos.carga_convoca.confirmar.v1'
   AND operacion='bolsa.carga_convoca.confirmar';
  SELECT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=fachada
-  AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+  AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef AND p.provolatile='v'
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
   AND has_function_privilege('vec_bolsa_llamamientos_propietario',fachada,'EXECUTE')
   AND NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',fachada,'EXECUTE'))
  INTO fachada_exacta;
  IF fachada_exacta THEN
-  SELECT count(*)=2 INTO fachada_exacta FROM pg_proc p CROSS JOIN LATERAL
-   aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=fachada;
+  SELECT count(*)=2
+    AND count(*) FILTER (WHERE a.grantee=p.proowner AND a.grantor=p.proowner
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)=1
+    AND count(*) FILTER (WHERE a.grantee='vec_bolsa_llamamientos_propietario'::regrole
+      AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)=1
+   INTO fachada_acl_exacta FROM pg_proc p CROSS JOIN LATERAL
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=fachada;
+  fachada_exacta:=fachada_exacta AND coalesce(fachada_acl_exacta,false);
  END IF;
  IF def_sha=post_def AND src_sha=post_src AND check_sha=post_check AND validado
   AND fachada_exacta AND origenes=1 AND origen_exacto THEN
@@ -61,8 +67,8 @@ BEGIN
    def_sha,src_sha,check_sha;
   RETURN;
  END IF;
- RAISE EXCEPTION 'AD218 PARO clave=estado esperado=PRE218_o_POST218_exactos observado=def:% src:% CHECK:% validado:% fachada:% origenes:% origen_exacto:%',
+ RAISE EXCEPTION 'AD218 PARO clave=estado esperado=PRE218_o_POST218_exactos observado=def:% src:% CHECK:% validado:% fachada:% fachada_exacta:% origenes:% origen_exacto:%',
   coalesce(def_sha,'ausente'),coalesce(src_sha,'ausente'),coalesce(check_sha,'ausente'),
-  coalesce(validado,false),fachada IS NOT NULL,origenes,origen_exacto USING ERRCODE='55000';
+  coalesce(validado,false),fachada IS NOT NULL,coalesce(fachada_exacta,false),origenes,origen_exacto USING ERRCODE='55000';
 END $estado$;
 ROLLBACK;
