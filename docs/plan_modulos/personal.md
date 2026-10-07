@@ -252,3 +252,24 @@ exportación con identidad, permiso, origen y material firmados propios,
 recuperarla tras reinicio y medir su latencia. Orden: AD211/Personal22,
 después la lista de AD175/Personal32, y finalmente AD180/Personal34.
 No se instala nada en la principal por esta retoma.
+
+
+## Historia propia: retoma de #577 — 7 de octubre de 2026
+
+AD180 se reancla sobre AD175 y conserva el permiso propio de lectura de
+revisiones. Personal34 consulta el periodo efectivo y el corte de conocimiento,
+con un límite de 200 revisiones, procedencia y cobertura explícita. Los
+argumentos se acotan antes de convertirlos a JSON.
+
+Ensayo del código `53c69babe` en un clon nuevo PostgreSQL 18.4: UP180 y
+Personal34 únicos, ACL, estructura, rechazo sin consumo y tres negativas
+reales de tamaño correctos. Una dependencia ausente se probó dentro de una
+transacción revertida: el diagnóstico dio su clave, actual=false y esperado=true.
+Dos revisiones independientes favorables. No se reaplica la versión ensayada
+en la copia anterior.
+
+La prueba nominal preparada no se ha ejecutado: falta el material firmado
+propio y su configuración de identidad, perfil y origen. Siguen pendientes
+recorrido de navegador, revocación concurrente, recuperación tras reinicio y
+latencia de la lectura autorizada. Orden final: AD211/Personal22,
+AD175/Personal32 y AD180/Personal34, sin repetir SQL instalada ni DOWN.
