@@ -12,6 +12,11 @@ document.querySelectorAll('.migas a, .navegacion-modulos a').forEach(enlace => {
 });
 document.querySelector('.navegacion-modulos').setAttribute('aria-label', t('navegacion'));
 const selector = document.getElementById('seleccion-idioma');
+const urlIdioma = new URL(location.href);
+if (urlIdioma.searchParams.has('lang') && urlIdioma.searchParams.get('lang') !== textos.idioma) {
+  urlIdioma.searchParams.set('lang', textos.idioma);
+  history.replaceState(history.state, '', urlIdioma);
+}
 montarSelectorIdioma(selector, location, textos.idioma);
 selector.value = textos.idioma;
 const menu = document.getElementById('seleccion-menu');
