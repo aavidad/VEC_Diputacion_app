@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -58,7 +59,8 @@ type datasetBolsasRRHHDesarrollo struct {
 		Canal       string `json:"canal"`
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
-	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
+	Contactos                       []dominiobolsa.ContactoParticipacion `json:"contactos"`
+	HistoricoLlamamientosDisponible bool                                 `json:"-"`
 	// Marcas (Bolsa 000041) por participación; nil si no están compuestas.
 	Marcas map[string]dominiobolsa.MarcasParticipacion `json:"-"`
 	// PoliticaIntentos, si el catálogo la tiene, permite rotular la baja
@@ -76,12 +78,14 @@ type bolsasRRHHDesarrollo struct {
 	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
-	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
-	mutar       http.Handler
-	invalidar   func()
-	contactos   lectorContactosBolsaDesarrollo
-	avisos      *bolsaapplication.ServicioAvisosRRHH
+	resumen         func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa     func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar           http.Handler
+	invalidar       func()
+	contactos       lectorContactosBolsaDesarrollo
+	avisos          *bolsaapplication.ServicioAvisosRRHH
+	requiereNominal bool
+	nominal         *lecturasNominalesRRHHBolsaDesarrollo
 }
 
 type lectorContactosBolsaDesarrollo interface {
@@ -100,10 +104,12 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 		invalidar = fuente.invalidar
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
+	manejador.requiereNominal = true
 	if fuente != nil {
 		manejador.avisos = fuente.avisos
 		manejador.resumen = fuente.cargarResumen
 		manejador.cargarBolsa = fuente.cargarBolsa
+		manejador.nominal = fuente.nominal
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
@@ -186,6 +192,19 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
+		if h.requiereNominal {
+			if h.nominal == nil {
+				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", ErrComposicionDesarrolloIncompleta)
+				return
+			}
+			datos, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHEstadisticasConsultar)
+			if err != nil {
+				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", err)
+				return
+			}
+			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": (&bolsasRRHHDesarrolloDatos{datos: datos}).respuestaEstadisticas()}, r.Method == http.MethodHead)
+			return
+		}
 		vista, ok := h.vistaResumen(w, r)
 		if !ok {
 			return
@@ -200,6 +219,19 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			return
+		}
+		if h.requiereNominal {
+			if h.nominal == nil {
+				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", ErrComposicionDesarrolloIncompleta)
+				return
+			}
+			datos, err := h.nominal.consultarResumen(r.Context(), puertosbolsa.AccionRRHHBolsasConsultar)
+			if err != nil {
+				responderFalloBolsaRRHHDesarrollo(w, r, "resumen_nominal", err)
+				return
+			}
+			responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": (&bolsasRRHHDesarrolloDatos{datos: datos}).respuestaBolsas()}, r.Method == http.MethodHead)
 			return
 		}
 		vista, ok := h.vistaResumen(w, r)
@@ -217,6 +249,23 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	consulta, ok := consultaCandidatos(r.URL.RawQuery)
 	if !ok {
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+		return
+	}
+	if h.requiereNominal {
+		if h.nominal == nil {
+			responderFalloBolsaRRHHDesarrollo(w, r, "candidatos_nominal", ErrComposicionDesarrolloIncompleta)
+			return
+		}
+		respuesta, err := h.nominal.consultarCandidatos(r.Context(), bolsaRef, consulta)
+		if err != nil {
+			if errors.Is(err, puertosbolsa.ErrBolsaRRHHNoEncontrada) || errors.Is(err, puertosbolsa.ErrCursorRRHHNoEncontrado) {
+				responderBolsaRRHHDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
+				return
+			}
+			responderFalloBolsaRRHHDesarrollo(w, r, "candidatos_nominal", err)
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 		return
 	}
 	vista, ok := h.vistaBolsa(w, r, bolsaRef)
@@ -601,8 +650,9 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 	porEstado := mapaEstadosVacio()
 	porBolsa := make([]map[string]any, 0, len(h.datos.Bolsas))
 	conteos := h.contarEstadosPorBolsa()
-	vigentes, sustituidas := 0, 0
+	vigentes, sustituidas, enCurso := 0, 0, 0
 	for _, bolsa := range h.datos.Bolsas {
+		enCurso += bolsa.LlamamientosEnCurso
 		conteo := conteos[bolsa.Referencia]
 		if conteo == nil {
 			conteo = mapaEstadosVacio()
@@ -638,11 +688,21 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
 			resultados[llamamiento.Resultado]++
 		}
 	}
+	llamamientos := map[string]any{"historico_disponible": h.datos.HistoricoLlamamientosDisponible, "en_curso": enCurso}
+	if h.datos.HistoricoLlamamientosDisponible {
+		llamamientos["total"] = len(h.datos.Llamamientos)
+		llamamientos["por_canal"] = canales
+		llamamientos["por_resultado"] = resultados
+	} else {
+		llamamientos["total"] = nil
+		llamamientos["por_canal"] = nil
+		llamamientos["por_resultado"] = nil
+	}
 	return map[string]any{
 		"esquema": "vec.bolsa.rrhh.estadisticas.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn),
 		"bolsas":       map[string]any{"total": len(h.datos.Bolsas), "vigentes": vigentes, "sustituidas": sustituidas},
 		"personas":     map[string]any{"total": personas, "por_estado": porEstado},
-		"llamamientos": map[string]any{"total": len(h.datos.Llamamientos), "por_canal": canales, "por_resultado": resultados},
+		"llamamientos": llamamientos,
 		"por_bolsa":    porBolsa,
 	}
 }

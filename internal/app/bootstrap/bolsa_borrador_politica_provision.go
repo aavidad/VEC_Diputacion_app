@@ -12,15 +12,25 @@ import (
 // indica la política de ofertas (+1) y la reincorporación de titulares (+2).
 // Las de los grupos segundo y tercero solo se publican por provisión aprobada.
 const (
-	saltoProvisionDocumentalBolsa    = 4
-	saltoProvisionDatosContactoBolsa = 8
+	saltoProvisionDocumentalBolsa        = 4
+	saltoProvisionDatosContactoBolsa     = 8
+	saltoProvisionLecturasNominalesBolsa = 16
 )
 
+func versionBaseRolBolsa(v int) int {
+	if v >= 21 && v <= 32 {
+		return v - saltoProvisionLecturasNominalesBolsa
+	}
+	return v
+}
+
 func versionRolBolsaConPoliticaOfertas(v int) bool {
+	v = versionBaseRolBolsa(v)
 	return v >= 5 && v <= 16 && (v-5)%2 == 1
 }
 
 func versionRolBolsaConReincorporacion(v int) bool {
+	v = versionBaseRolBolsa(v)
 	return v >= 5 && v <= 16 && ((v-5)/2)%2 == 1
 }
 

@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/config"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
@@ -35,11 +37,14 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	emisiones      contadorLlamamientosEnCursoBolsa
 	// resumenConjunto (Bolsa 000082) sirve el cuadro y las estadísticas con
 	// dos consultas de conjunto; nil si la migración aún no está instalada.
-	resumenConjunto ports.LectorResumenBolsas
-	recuperador     constitucion.Recuperador
-	categorias      map[string]string
-	grupos          map[string][]string
-	ahora           func() time.Time
+	resumenConjunto      ports.LectorResumenBolsas
+	poolNominal          *pgxpool.Pool
+	recuperadorSelectivo *importacionpg.RepositorioRecuperacionPostgreSQL
+	nominal              *lecturasNominalesRRHHBolsaDesarrollo
+	recuperador          constitucion.Recuperador
+	categorias           map[string]string
+	grupos               map[string][]string
+	ahora                func() time.Time
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
@@ -69,6 +74,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
 	f.mu.Lock()
 	f.cacheada = false
 	f.mu.Unlock()
+	if f.nominal != nil {
+		f.nominal.invalidarSelecciones()
+	}
 }
 
 func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config) *fuenteConstituidaRRHHDesarrollo {
@@ -197,7 +205,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolImportacion.Close()
 		return nil
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, poolNominal: poolBolsa, recuperadorSelectivo: recuperador, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {

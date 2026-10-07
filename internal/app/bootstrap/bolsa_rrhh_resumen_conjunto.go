@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	bolsaapplication "vec-diputacion-granada/internal/modules/bolsa/application"
+	bolsadominio "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -48,6 +49,13 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
+	return f.proyectarResumenConjunto(ctx, corte, filas, politicas, nil, false)
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) proyectarResumenConjunto(ctx context.Context, corte time.Time,
+	filas []ports.SituacionResumenParticipacion, politicas map[string]bolsadominio.PoliticaOrdenBolsa,
+	conteosCurso map[string]int, historicoDisponible bool) (datasetBolsasRRHHDesarrollo, error) {
+	var err error
 	// Agrupa por bolsa conservando el orden de llegada (el de las
 	// constituciones). Una bolsa partida en dos tramos es un resultado
 	// incoherente y se rechaza.
@@ -61,7 +69,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 		}
 		porBolsa[fila.BolsaRef] = append(porBolsa[fila.BolsaRef], fila)
 	}
-	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
+	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339), HistoricoLlamamientosDisponible: historicoDisponible}
 	for _, bolsaRef := range orden {
 		participaciones := porBolsa[bolsaRef]
 		primera := participaciones[0]
@@ -72,9 +80,19 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 		}
 		politica := politicaOrdenRRHHDesarrollo{Referencia: p.PoliticaRef, Criterio: p.Criterio, TipoLista: p.TipoLista, Reposicion: p.Reposicion, Rotulo: p.Rotulo, Actor: p.Actor, VigenteDesde: p.VigenteDesde.UTC().Format(time.RFC3339), Version: p.Version, Provisional: p.Provisional}
-		totalCurso, err := f.emisiones.ContarEnCurso(ctx, bolsaRef)
-		if err != nil {
-			return datasetBolsasRRHHDesarrollo{}, err
+		var totalCurso int
+		if conteosCurso != nil {
+			var existe bool
+			totalCurso, existe = conteosCurso[bolsaRef]
+			if !existe || totalCurso < 0 {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
+		} else {
+			var err error
+			totalCurso, err = f.emisiones.ContarEnCurso(ctx, bolsaRef)
+			if err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
 		}
 		datos.Bolsas = append(datos.Bolsas, struct {
 			Referencia          string                      `json:"bolsa_ref"`

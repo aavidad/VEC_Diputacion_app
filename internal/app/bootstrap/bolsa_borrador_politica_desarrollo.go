@@ -130,6 +130,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 		preimagenIndicada, objetivoIndicado := os.Getenv(envPreimagen), os.Getenv(envObjetivo)
 		sinAprobacion := aprobacion == "" && preimagenIndicada == "" && objetivoIndicado == ""
 		documental := encontrada && version == versionRol+saltoProvisionDocumentalBolsa
+		nominal := encontrada && version == versionRol+saltoProvisionLecturasNominalesBolsa
 		// Con la documental ya aplicada, una aprobación cuya preimagen no es la
 		// asignación publicada es la de aquella provisión: no concede nada nuevo
 		// y no debe impedir el arranque. Se ignora con aviso.
@@ -140,12 +141,12 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 				sinAprobacion = true
 			}
 		}
-		if encontrada && version >= 9 && !documental && version != objetivoVersion {
+		if encontrada && version >= 9 && !documental && !nominal && version != objetivoVersion {
 			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 		}
 		// Ya provisionada: la versión completa, o la documental anterior
 		// mientras no haya otra aprobación para ampliarla.
-		if encontrada && (version == objetivoVersion || documental && sinAprobacion) {
+		if encontrada && (version == objetivoVersion || documental && sinAprobacion || nominal) {
 			esperada, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 				datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, version)
 			if err != nil {
@@ -254,6 +255,10 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 	if !vigente || principalID == "" || perfilRef == "" || unidadRef == "" || ambitoRef == "" {
 		return dominiovec.InstantaneaAutorizacion{}, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
+	baseVersion := versionBaseRolBolsa(versionRol)
+	if baseVersion < 1 || baseVersion > 16 || (versionRol > 16 && (versionRol < 21 || versionRol > 32)) {
+		return dominiovec.InstantaneaAutorizacion{}, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
+	}
 	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
 		tipoRecurso := puertosbolsa.TipoRecursoBorradorLlamamiento
 		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion || accion == puertosbolsa.AccionConsultarDatosContactoParticipacion || accion == puertosbolsa.AccionEmitirLlamamiento {
@@ -272,26 +277,27 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 		concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
 		concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
 	}
-	if versionRol >= 2 {
+	if baseVersion >= 2 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if versionRol >= 3 {
+	if baseVersion >= 3 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarContactoParticipacion, puertosbolsa.FinalidadRegistrarContactoParticipacion))
 	}
-	if versionRol >= 4 {
+	if baseVersion >= 4 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarContactoParticipacion, puertosbolsa.FinalidadConsultarContactoParticipacion))
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionEmitirLlamamiento, puertosbolsa.FinalidadEmitirLlamamiento))
 	}
-	if versionRol >= 5 {
+	if baseVersion >= 5 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarDatosContactoParticipacion, puertosbolsa.FinalidadRegistrarDatosContactoParticipacion))
 	}
-	if versionRol >= 9 {
+	if baseVersion >= 9 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if versionRol >= 9+saltoProvisionDocumentalBolsa {
+	if baseVersion >= 9+saltoProvisionDocumentalBolsa {
 		// Correo y teléfonos completos: acción y finalidad propias (AD197/B78).
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarDatosContactoParticipacion, puertosbolsa.FinalidadConsultarDatosContactoParticipacion))
 	}
+
 	if versionRolBolsaConPoliticaOfertas(versionRol) {
 		concesiones = append(concesiones, dominiovec.ConcesionRol{
 			Accion: puertosbolsa.AccionPublicarPoliticaOfertas, ModuloID: "bolsa",
@@ -312,6 +318,19 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 			GarantiaMinima:   dominiovec.AuthAssuranceHigh,
 			CamposPermitidos: []string{puertosbolsa.CampoConsultarReincorporacionTitular},
 		})
+	}
+	if versionRol >= 21 && versionRol <= 32 {
+		concesiones = append(concesiones,
+			dominiovec.ConcesionRol{Accion: puertosbolsa.AccionRRHHBolsasConsultar, ModuloID: "bolsa",
+				TipoRecurso: puertosbolsa.TipoRecursoRRHHBolsas, Finalidades: []string{puertosbolsa.FinalidadRRHHBolsasConsultar},
+				GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{"bolsas", "conteos"}},
+			dominiovec.ConcesionRol{Accion: puertosbolsa.AccionRRHHEstadisticasConsultar, ModuloID: "bolsa",
+				TipoRecurso: puertosbolsa.TipoRecursoRRHHEstadisticas, Finalidades: []string{puertosbolsa.FinalidadRRHHEstadisticasConsultar},
+				GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{"estadisticas"}},
+			dominiovec.ConcesionRol{Accion: puertosbolsa.AccionRRHHCandidatosConsultar, ModuloID: "bolsa",
+				TipoRecurso: puertosbolsa.TipoRecursoRRHHCandidatos, Finalidades: []string{puertosbolsa.FinalidadRRHHCandidatosConsultar},
+				GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{"candidatos", "contactos", "turno"}},
+		)
 	}
 	version := dominiovec.VersionRol{
 		RolID: "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo", Version: versionRol,

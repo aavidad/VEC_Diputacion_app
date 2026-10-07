@@ -7,9 +7,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	vd "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestResumenRRHHNominalDistingueDenegacionYCursor(t *testing.T) {
+	casos := []struct {
+		codigo   string
+		esperado error
+	}{
+		{"42501", vd.ErrAutorizacionDenegada},
+		{"VBR04", ports.ErrBolsaRRHHNoEncontrada},
+		{"VBR09", ports.ErrCursorRRHHNoEncontrado},
+		{"55000", ports.ErrResumenBolsasNoDisponible},
+	}
+	for _, caso := range casos {
+		if err := errorResumenNominal(&pgconn.PgError{Code: caso.codigo}); !errors.Is(err, caso.esperado) {
+			t.Fatalf("SQLSTATE %s clasificado como %v", caso.codigo, err)
+		}
+	}
+}
 
 func TestLectorResumenBolsasFallaCerradoSinBase(t *testing.T) {
 	var l *LectorResumenBolsasPostgreSQL
