@@ -5,13 +5,12 @@ import {
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
 } from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1";
-import {
-  extraerBorradorPeticionCentro,
-  renderizarFormularioPeticionCentro,
-  renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261002-ct-fin-moad-v1";
-import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
+import { extraerBorrador, formulario as renderizarFormularioPuro,
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261007-pc-i18n-v1";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
+  TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 
 const RUTAS = Object.freeze({
@@ -23,91 +22,8 @@ const RUTAS = Object.freeze({
 });
 const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
-const traducirCentro = crearTraductorContratacionTemporal();
-const TEXTO = Object.freeze({
-  sobrelinea: "Peticiones de personal temporal · circuito previo",
-  titulo: "Petición del centro y ratificación",
-  descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de personal temporal.",
-  pendienteEntrada: "RRHH tramita las peticiones ratificadas desde su bandeja",
-  solicitante: "Presentar petición",
-  ratificador: "Bandeja de ratificación",
-  peticiones: "Peticiones del centro",
-  detalle: "Detalle revisable",
-  sinPeticiones: "No hay peticiones disponibles para este actor.",
-  cargar: "Cargando contexto y peticiones…",
-  recargar: "Recargar bandeja",
-  seleccionar: "Revisar",
-  volver: "Volver a Peticiones de personal temporal",
-  confirmarPresentar: "Confirmar presentación de esta petición",
-  confirmarRatificar: "Confirmar ratificación de esta petición",
-  confirmarPregunta: "Revise todos los datos y confirme expresamente para continuar.",
-  motivo: "Motivo de la ratificación",
-  motivoAyuda: "Explique brevemente la revisión realizada.",
-  ratificar: "Ratificar petición",
-  cancelar: "Volver a la bandeja",
-  estadoPendiente: "Resultado pendiente: conserve esta pantalla y reintente la misma operación.",
-  error: "No se pudo completar la operación.",
-  conflicto: "La petición cambió. Se ha recargado la bandeja; revise antes de continuar.",
-  exito: "Operación registrada",
-  peticionRef: "Referencia de petición",
-  reciboRef: "Referencia del recibo",
-  version: "Versión",
-  actor: "Referencia de quien registró",
-  registrado: "Registrado en",
-  estado: "Estado",
-  solicitanteDatos: "Solicitante y cargo",
-  transferencia: "El alta se realiza en la bandeja de RRHH. Esta vista no consulta su estado de entrega.",
-  peticionNoEnviada: "Este recibo acredita la actuación del centro, no el alta del expediente",
-  confirmacion: "Confirmo expresamente esta operación",
-  volverEditar: "Volver a editar",
-  datosNoDisponibles: "No hay detalle seleccionado.",
-  nombre: "Nombre",
-  cargo: "Cargo",
-  centro: "Centro",
-  pendiente: "pendiente de ratificación",
-  ratificada: "ratificada",
-  enviando: "Registrando la operación. Espere el recibo antes de cerrar.",
-  bandejaNoActualizada: "El registro está confirmado. No se pudo actualizar la bandeja; puede recargarla sin volver a registrar.",
-  motivoInvalido: "Escriba el motivo sin saltos de línea (máximo 1000 bytes) y marque la confirmación.",
-  rrhhSobrelinea: "Peticiones de personal temporal · Recursos Humanos",
-  rrhhTitulo: "Peticiones de los centros",
-  rrhhDescripcion: "Revise los datos ratificados antes de crear el expediente de personal temporal. Esta acción no modifica la petición original.",
-  rrhhPendiente: "Pendiente de preparación",
-  rrhhPreparada: "Preparada para crear expediente",
-  rrhhConfirmada: "Expediente creado",
-  rrhhConfirmar: "Crear expediente en RRHH",
-  rrhhCompletar: "Completar registro",
-  rrhhConfirmacion: "Confirmo expresamente la creación del expediente en RRHH con estos datos.",
-  rrhhAviso: "La confirmación crea un único expediente a partir de la petición ratificada. Revise los datos originales antes de continuar.",
-  rrhhRecibo: "Recibo histórico de alta",
-  rrhhExpediente: "Referencia del expediente",
-  rrhhBandeja: "Abrir bandeja de expedientes",
-  rrhhSinPeticiones: "No hay peticiones disponibles para Recursos Humanos.",
-  rrhhError: "No se pudo completar el registro en RRHH.",
-  accesoDenegado: traducirCentro("pc_acceso_denegado"),
-  lecturaFallida: traducirCentro("pc_lectura_fallida"),
-  operacionConfirmadaOculta: traducirCentro("pc_operacion_confirmada_oculta"),
-  operacionInciertaOculta: traducirCentro("pc_operacion_incierta_oculta"),
-  operacionInciertaVerificada: traducirCentro("pc_operacion_incierta_verificada"),
-});
-const MENSAJES = Object.freeze({
-  ...MENSAJES_CONTRATACION_TEMPORAL_ES,
-  sobrelinea: TEXTO.sobrelinea,
-  titulo: TEXTO.solicitante,
-  descripcion: TEXTO.descripcion,
-  alcance: TEXTO.pendienteEntrada,
-  progreso_etiqueta: "Progreso de la petición",
-  progreso_datos: "Datos",
-  progreso_revision: "Revisión",
-  progreso_recibo: "Registro",
-  revision_titulo: "Revise la petición antes de presentarla",
-  revision_aviso: "La confirmación registrará una petición previa; no crea un expediente.",
-  confirmar: "Confirmar presentación",
-  revisar: "Revisar petición",
-  estado_disponible: "Petición preparada para revisión",
-  resumen_contacto: "Contacto del centro (no quien presenta)",
-  contacto_ref: "Contacto del centro",
-});
+const traducirCentro = traducirPeticionesCentro;
+const TEXTO = TEXTOS_LOCALES_PETICIONES_CENTRO;
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
 
@@ -214,7 +130,7 @@ function vistaSinDatos(cabecera, modo, mensaje, accionRecargar) {
   return `${cabecera}<section class="pc-panel pc-detalle" role="alert"><h2>${esc(titulo)}</h2><p>${esc(mensaje)}</p>${modo === "sin_verificar" ? `<div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="${esc(accionRecargar)}">${esc(traducirCentro("pc_reintentar_consulta"))}</button></div>` : ""}</section>`;
 }
 
-const LOCALIZACION = IDIOMA_ACTUAL === "en" ? "en-GB" : "es-ES";
+const LOCALIZACION = LOCALIZACION_PETICIONES_CENTRO;
 
 function fecha(valor, hora = false) {
   if (!valor || !Number.isFinite(Date.parse(valor))) return "—";
@@ -390,7 +306,8 @@ function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = nul
 }
 
 function formularioHTML(contexto, estado, revision) {
-  const contenido = revision ? renderizarRevisionPeticionCentro(estado, { mensajes: MENSAJES }) : renderizarFormularioPeticionCentro(estado, { mensajes: MENSAJES });
+  const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION)
+    : renderizarFormularioPuro(estado, traducirCentro);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;
 }
 
@@ -432,6 +349,7 @@ export async function registrarOperacionPeticionCentro(cliente, comando, actorRe
 
 export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelector("#aplicacion"), cliente = pedir } = {}) {
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
+  raiz.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   let peticiones = []; let entrega = null; let modo = "bandeja"; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let confirmado = false;
   let numeroMOAD = ""; let politicaNumero = null; let errorNumero = false;
@@ -458,6 +376,9 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
         || bandeja.peticiones.some((item) => !item?.peticion?.referencia || item.peticion.version !== 2
           || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
       peticiones = bandeja.peticiones;
+      if (peticiones.some((item) => item.peticion?.solicitud?.periodo?.causa_fin)) {
+        await prepararAnalisisPeticionesCentro();
+      }
       entrega = peticiones.find((item) => item.peticion.referencia === entrega?.peticion?.referencia) || peticiones[0] || null;
       if (resultadoIncierto) {
         peticiones = []; entrega = null;
@@ -537,6 +458,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     return iniciarPeticionesCentroRRHH({ raiz, cliente });
   }
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
+  raiz.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   let contexto; let peticiones = []; let peticion = null; let modo = "bandeja";
   // Expedientes de las peticiones del centro, tal como los publica la bandeja de
   // incorporaciones de esta página (solo si el perfil puede consultarla).
@@ -575,6 +497,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       || bandeja.peticiones.some((p) => !p?.referencia || !p.solicitud || ![1, 2].includes(p.version)
         || !["pendiente_ratificacion", "ratificada"].includes(p.estado))) throw new Error(TEXTO.error);
     peticiones = bandeja.peticiones;
+    if (peticiones.some((item) => item.solicitud?.periodo?.causa_fin)) {
+      await prepararAnalisisPeticionesCentro();
+    }
     peticion = peticiones.find((p) => p.referencia === (recibo?.peticion_ref || peticion?.referencia)) || null;
   };
   const cargar = async () => {
@@ -640,6 +565,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     try {
     if (control.dataset.seleccionar) { peticion = peticiones.find((p) => p.referencia === control.dataset.seleccionar) || null; dibujar(); return; }
     if (accion === "nueva" && contexto?.actor.puede_presentar) {
+      if (contexto.catalogos.motivos.some((motivo) => motivo.causa_fin)) {
+        await prepararAnalisisPeticionesCentro();
+      }
       modo = "formulario"; recibo = null;
       estado = estadoBase(contexto.catalogos, { ...crearBorradorAlta(), centro_ref: contexto.catalogos.centros[0]?.referencia || "" });
       mensaje = ""; dibujar(); return;
@@ -667,7 +595,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (!event.target.matches("[data-ct-form]")) return;
     event.preventDefault();
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)) return;
-    const borrador = extraerBorradorPeticionCentro(event.target);
+    const borrador = extraerBorrador(event.target, false);
     const validacion = validarBorradorAlta(borrador, contexto.catalogos);
     estado = { ...estadoBase(contexto.catalogos, borrador), errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
     modo = validacion.valido ? "revision" : "formulario"; dibujar();
@@ -678,7 +606,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const formulario = event.target.closest?.("[data-ct-form]");
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)
       || !formulario || !["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
-    const borrador = extraerBorradorPeticionCentro(formulario);
+    const borrador = extraerBorrador(formulario, false);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
     if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
@@ -699,20 +627,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
  * petición y su ratificación quedan registradas, pero el circuito de firma
  * electrónica sigue pendiente del procedimiento corporativo.
  */
-export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = Object.freeze({
-  pc_ayuda_abrir: "Ayuda sobre la petición del centro",
-  pc_ayuda_titulo: "Petición del centro: qué hace y qué no hace",
-  pc_ayuda_certificado_titulo: "¿Entrar con certificado es firmar?",
-  pc_ayuda_certificado: "No. El certificado solo sirve para identificarle al entrar. Presentar o ratificar una petición no firma electrónicamente ningún documento.",
-  pc_ayuda_registro_titulo: "¿Qué queda registrado?",
-  pc_ayuda_registro: "La petición y su ratificación quedan registradas con su autor, su fecha y un recibo. La firma electrónica todavía no está disponible: se incorporará cuando se establezca el circuito de firma corporativo.",
-  pc_ayuda_despues_titulo: "¿Qué pasa después?",
-  pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de personal temporal. El centro no tiene que volver a enviarla.",
-  pc_ayuda_cerrar: "Cerrar",
-});
+export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_AYUDA_PETICIONES_CENTRO : undefined;
 
 /** Traduce una clave de la ayuda; una clave desconocida nunca muestra texto inventado. */
-function traducirAyudaPeticionCentro(clave, mensajes = MENSAJES_AYUDA_PETICIONES_CENTRO_ES) {
+function traducirAyudaPeticionCentro(clave, mensajes = MENSAJES_AYUDA_PETICIONES_CENTRO) {
   return Object.hasOwn(mensajes, clave) ? mensajes[clave] : "";
 }
 

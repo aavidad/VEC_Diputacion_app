@@ -7,9 +7,13 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20260926-pulido-portal-v1";
+import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20261007-pc-i18n-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
+
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
+  MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
 
 export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
   consulta: "/api/vec/contratacion-temporal/peticiones-centro/cancelacion",
@@ -18,48 +22,12 @@ export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
 const MAXIMO_RESPUESTA = 32 * 1024;
 const TIEMPO_MAXIMO_MS = 15_000;
 
-export const MENSAJES_CANCELACIONES_CENTRO_ES = Object.freeze({
-  titulo: "Cancelar un expediente",
-  cargando: "Consultando los expedientes que se pueden cancelar…",
-  sin_expedientes: "No hay expedientes de este centro que se puedan cancelar.",
-  error_lectura: "No se han podido consultar las cancelaciones. Inténtelo de nuevo.",
-  reintentar: "Volver a consultar",
-  expediente: "Expediente",
-  periodo: "Periodo solicitado",
-  situacion: "Situación",
-  cancelacion: "Cancelación",
-  cancelar: "Cancelar",
-  cancelado: "Cancelado",
-  motivo: "Motivo de la cancelación",
-  observaciones: "Observaciones (opcional)",
-  confirmacion_expresa: "Confirmo que el expediente quedará cancelado y no admitirá más actuaciones.",
-  enviar: "Cancelar el expediente",
-  volver: "Volver sin cancelar",
-  enviando: "Cancelando; espere el recibo.",
-  exito: "Expediente cancelado.",
-  error_datos: "Elija un motivo, revise las observaciones y confirme la cancelación.",
-  error_fase_no_admitida: "El expediente ya no está en una fase en la que se pueda cancelar. Se ha actualizado la lista.",
-  error_tras_fiscalizacion: "El expediente ya pasó por fiscalización y no se puede cancelar.",
-  error_cancelacion_existente: "El expediente ya estaba cancelado. Se ha actualizado la lista.",
-  error_version_en_conflicto: "El expediente ha cambiado. Se ha actualizado la lista; revíselo antes de continuar.",
-  error_clave_reutilizada: "Esta cancelación ya se registró con otros datos.",
-  error_acceso_denegado: "No tiene permiso para cancelar este expediente.",
-  error_pendiente: "No se ha podido saber si quedó registrada. Pulse de nuevo: se usará la misma operación y no se duplicará.",
-  error_general: "No se ha podido cancelar el expediente. Inténtelo de nuevo más tarde.",
-  justificante_registrado: "Justificante de la cancelación",
-  justificante_copiar: "Copiar la referencia del recibo",
-  justificante_copiado: "Referencia copiada",
-  fase_solicitud: "Solicitud en RRHH",
-  fase_asignacion_unidad: "Asignación de unidad",
-  fase_informe_juridico: "Informe jurídico",
-  fase_otra: "En tramitación en RRHH",
-  ayuda_titulo: "¿Cuándo puede el centro cancelar un expediente?",
-  ayuda: "Mientras RRHH no haya fiscalizado el expediente, el centro puede cancelarlo si la necesidad ha desaparecido o por otro motivo del catálogo. Solo aparecen los expedientes de las peticiones de su centro que siguen en una fase en la que el catálogo admite la cancelación. Elija el motivo y, si quiere, añada una observación. El expediente queda cancelado, conserva toda su historia y RRHH ve quién lo canceló y por qué.",
-});
+export const MENSAJES_CANCELACIONES_CENTRO_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_CANCELACIONES_CENTRO : undefined;
 
-export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIONES_CENTRO_ES) {
+export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIONES_CENTRO) {
   return (clave, valores = {}) => {
-    const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_CANCELACIONES_CENTRO_ES[clave] ?? clave;
+    const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_CANCELACIONES_CENTRO[clave] ?? clave;
     return plantilla.replace(/\{([a-z_]+)\}/gu, (_, n) => (Object.hasOwn(valores, n) ? String(valores[n]) : `{${n}}`));
   };
 }
@@ -69,7 +37,7 @@ const escapar = (v) => String(v ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp
 function fechaVisible(valor) {
   if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return "—";
   const f = new Date(`${valor}T00:00:00Z`);
-  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
+  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
 }
 
 /** Cliente de las dos rutas del centro: mismo origen, sin caché, redirecciones ni referente. */
@@ -119,6 +87,7 @@ export function crearClienteCancelacionesCentro(fetchImpl = globalThis.fetch) {
 export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIncorporacionesCentro(), cliente = crearClienteCancelacionesCentro(), mensajes,
   generarClave = () => globalThis.crypto?.randomUUID?.() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
+  contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorCancelacionesCentro(mensajes);
   let datos = null;
   let aviso = null;
