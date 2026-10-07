@@ -107,3 +107,87 @@ CT176 consume dos autorizaciones de firma ligadas en la misma transacción. AD17
 Después del registro CT172, `recuperar_consumo_firma_plan_ct_v1` relee el consumo interior actual desde tablas propias AD, exige que los bytes de decisión sean idénticos a los conservados y lo comprueba mediante AD167. Devuelve sólo los siete campos del recibo; no presta un recibo histórico. CT176 revalida el pin mediante CC7 y conserva ambos vínculos antes de COMMIT. Las fachadas nuevas sólo reciben EXECUTE para el propietario CT; el LOGIN no puede invocarlas directamente.
 
 Los datos compartidos se cotejan con el material y el descriptor. `esquema_contexto`, `mapeo_version` y `mapeo_fuente_ref` se verifican por la publicación íntegra fijada, sin afirmar un cotejo independiente de la derivación del selector. Ninguna de estas preparaciones acredita todavía ensayo, instalación ni firma nominal.
+
+## Grupo técnico dedicado (AD200)
+
+Dirección decidió el 5 de octubre de 2026 que el gobierno del plan no lo ejecute
+el runtime CT, sino un grupo técnico propio con una sola pertenencia, como el
+lote de Administración (AD190). AD200 hace tres cosas, en una transacción:
+
+- crea el grupo NOLOGIN `vec_plan_firma_gobierno_ejecutor`, con `CONNECT` sobre
+  la base y `USAGE` sobre el esquema;
+- añade al núcleo una rama de sesión para `gobierno_plan_nominal_firma_ct` que
+  exige `login_gobierno_plan_firma_valido_v1()` y saca ese perfil de la
+  clasificación genérica del runtime CT; la rama de contrato de AD178 no cambia;
+- retira `EXECUTE` de `registrar_y_confirmar_gobierno_plan_firma_v1` al runtime
+  CT y lo concede al grupo nuevo.
+
+El LOGIN válido no tiene atributos privilegiados ni configuración propia,
+pertenece sólo a ese grupo (con INHERIT, sin SET ni ADMIN) y no usa `SET ROLE`.
+El DBA lo crea fuera de las migraciones, por ejemplo:
+
+```sql
+CREATE ROLE <login_gobierno_plan> LOGIN INHERIT PASSWORD '<secreto fuera de Git>';
+GRANT vec_plan_firma_gobierno_ejecutor TO <login_gobierno_plan> WITH INHERIT TRUE, SET FALSE;
+```
+
+El núcleo exige además el origen del consumo (AD172): `resolver_origen_consumo_v1`
+busca `login_nombre=session_user` en `configuracion_origen_consumos_v1`. El DBA
+inserta, también fuera de Git, una fila por operación para el LOGIN nuevo con la
+audiencia `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1`, las
+operaciones `vec.catalogos.crear`, `vec.catalogos.actualizar`,
+`vec.catalogos.publicar` y `vec.catalogos.retirar`, el proceso `vec-admin` y el
+canal `administracion_privilegiada`. Sin esas cuatro filas todo consumo real se
+deniega con `42501 origen de consumo no acreditado`. Las filas que pudiera haber a
+nombre del runtime CT no se pueden modificar ni borrar (la tabla es de solo
+adición); quedan inertes, porque el runtime CT ya no ejecuta la fachada y la
+rama de sesión lo rechaza.
+
+Pertenecer al grupo no acredita a la persona: cada llamada sigue necesitando
+una decisión V3 nominal de la audiencia de gobierno, emitida en la superficie
+`administracion_privilegiada` con cuenta privilegiada y el perfil de Aplicación
+que AUT51 amplió.
+
+Preimagen medida en clon sobre main con AD190, CA35, AUT44 y la lista de Bolsa
+contacto (AD197/B78, #727), que entra antes: núcleo
+`c4d11c9e7a39726df85f25bc040ef0cb33a387032d8d147ba3420d5fa24b6e24`
+(fuente `e689c573…`). Postimagen en ese clon: `546f341d…` (fuente `d02bb7f3…`).
+El CHECK de audiencias no cambia. Una segunda aplicación se detiene en la
+precondición. `pruebas_sql/ad200_grupo_gobierno_plan_firma.sql`, dentro de un
+ROLLBACK, comprueba que un LOGIN exclusivo del grupo pasa la rama de sesión, que
+uno con otra pertenencia se rechaza en ella y que el runtime CT ya no tiene
+`EXECUTE` sobre la fachada.
+`pruebas_sql/ad177_ad178_post_ad193.sql` es anterior a AD190: mide el núcleo
+previo y espera el `EXECUTE` del runtime CT, así que no se ejecuta tras AD190 ni
+tras AD200.
+
+## Ámbitos del recurso de gobierno (AUT52, CC9 y AD201)
+
+AD177 y CC7 calculaban la huella de contexto del recurso de gobierno sin
+ámbitos. El PDP común exige que el recurso tenga exactamente las dimensiones de
+la asignación del actor, y la del administrador con Rol7 tiene organización y
+unidad, así que toda decisión de gobierno se denegaba (`ambito_no_autorizado`).
+Dirección aprobó el 5 de octubre de 2026 que el recurso lleve esos dos ámbitos.
+
+- AUT52, `vec_autorizacion.acreditar_ambitos_gobierno_plan_firma_v1(versión,
+  asignación, persona, organización, unidad)`: la asignación actual de
+  Aplicación (criterio de versión de AUT48) está activa, vigente, es de esa
+  persona y tiene esa organización y esa unidad. Sólo para el propietario AD.
+- CC9, `confirmar_gobierno_plan_nominal_firma_v2(material, organización,
+  unidad, consumo)`: la confirmación de CC7 con la huella con ámbitos; mismas
+  tablas, replay y recibos. Sólo para el propietario AD.
+- AD201, `registrar_y_confirmar_gobierno_plan_firma_v2(material, organización,
+  unidad, …)`: las comprobaciones de la v1 con la huella con ámbitos; exige que
+  la decisión consumida sea la recibida, acredita persona, organización y
+  unidad con AUT52 y confirma con CC9. La v1 deja de ser ejecutable por el grupo
+  dedicado.
+
+En Go, `plannominal.RecursoGobiernoPlanFirma(material, AmbitoGobiernoPlanFirma)`
+construye el mismo recurso. El material del kit no cambia.
+
+Pruebas en ROLLBACK: `pruebas_sql/ad201_gobierno_plan_firma_ambitos.sql` (con
+ámbitos llega al núcleo; huella antigua, organización mal formada y v1 se
+rechazan), `catalogos_configurables/pruebas_sql/plan_nominal_firma_ambitos_cc9_positivo_clon.sql`
+(el recorrido positivo de CC7 con la huella con ámbitos; la v1 y otra unidad no
+ligan la decisión) y `autorizacion/pruebas_sql/aut52_ambitos_gobierno_plan_firma.sql`
+(contra la asignación real del clon). La prueba de AD200 es anterior a AD201.

@@ -297,6 +297,10 @@ type SolicitudCuadroRRHH struct {
 	faseClave   domain.ClaveFase
 	limite      uint16
 	cursor      string
+	// resumen pide además los agregados de todo el corte filtrado para la
+	// portada (CT-000184). No amplía el alcance: agrega lo mismo que la
+	// capacidad deja listar. No forma parte de la huella de la consulta.
+	resumen bool
 }
 
 func NuevaSolicitudCuadroRRHH(
@@ -348,6 +352,11 @@ func (s SolicitudCuadroRRHH) EstadoClave() domain.EstadoOperativo { return s.est
 func (s SolicitudCuadroRRHH) FaseClave() domain.ClaveFase         { return s.faseClave }
 func (s SolicitudCuadroRRHH) Limite() uint16                      { return s.limite }
 func (s SolicitudCuadroRRHH) Cursor() string                      { return s.cursor }
+
+// ConResumen devuelve la misma solicitud pidiendo además el resumen de la
+// portada; Resumen indica si se pidió.
+func (s SolicitudCuadroRRHH) ConResumen() SolicitudCuadroRRHH { s.resumen = true; return s }
+func (s SolicitudCuadroRRHH) Resumen() bool                   { return s.resumen }
 func (s SolicitudCuadroRRHH) HuellaCanonicaSHA256() (string, error) {
 	return huellaSolicitudCuadroRRHH(s)
 }

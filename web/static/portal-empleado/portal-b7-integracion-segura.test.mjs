@@ -154,8 +154,8 @@ for (const status of [400, 409, 422]) test(`B7 libera la clave tras rechazo defi
     assert.equal(envios.length, 1);
     assert.equal(app.flujo.clave_idempotencia, "");
     assert.equal(app.flujo.revision_obligatoria, true);
-    assert.match(app.html(), status === 400 ? /rechazó los datos del llamamiento \(400\)/ :
-      status === 409 ? /clave ya corresponde a otro llamamiento/ : /rechazó la emisión \(422\)/);
+    assert.match(app.html(), status === 400 ? /faltan datos o no son válidos/ :
+      status === 409 ? /clave ya corresponde a otro llamamiento/ : /la selección ya no coincide con la bolsa/);
     assert.match(app.html(), /class="boton-primario" disabled aria-describedby="b7-motivo-revision"/);
     assert.match(app.html(), /id="b7-motivo-revision"[^>]*>Revise la configuración o actualice la selección/);
     assert.match(app.html(), /data-bolsa-accion="b7-revisar-configuracion"/);

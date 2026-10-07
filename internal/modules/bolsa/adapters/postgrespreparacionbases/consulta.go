@@ -8,6 +8,7 @@ import (
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	prep "vec-diputacion-granada/internal/modules/bolsa/domain/preparacionbases"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const ajustes = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true),set_config('idle_in_transaction_session_timeout','20s',true)`
@@ -37,7 +38,7 @@ func (r *Repositorio) ejecutar(ctx context.Context, pool iniciador, consulta str
 		return cero, ports.ErrPreparacionBasesNoDisponible
 	}
 	defer func() {
-		fin, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		fin, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(fin)
 	}()

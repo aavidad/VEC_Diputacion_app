@@ -119,4 +119,9 @@ Si el proceso interno tiene activadas las preferencias de Usuarios (`VEC_USUARIO
 
 Al arrancar se comprueba `preflight_registrador_intentos_v1(proceso, canal)` y que la base sea la misma que usa Usuarios. Si el proceso interno ya usa este archivo para Mi ficha de Personal, sirve el mismo: no hace falta otro.
 
-El portal externo (Área personal) no cambia y no necesita este material.
+«Mis correos» del Área personal no usa este registrador. Pero el mismo archivo lo exigen también otras piezas, aunque las preferencias estén apagadas:
+
+- Contratación temporal con Bolsa (`VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL`) registra sus lecturas auditadas de RRHH con `auditoria-intentos.json`, canal `interna_corporativa`.
+- Mi Bolsa del portal de candidato (`VEC_BOLSA_PORTAL_CANDIDATO_ENABLED=true`) usa otro archivo, `auditoria-intentos-externa.json`, con el mismo formato y canal `externa_personal`. Necesita su propio LOGIN y su propia fila: no comparte cuenta con el interno.
+
+Si falta cualquiera de los dos, el arranque se para con `auditoria.intentos.configuracion_no_disponible`. En la principal los crea el instalador de la tanda H13 (06/10/2026), con los procesos `vec-rrhh` y `vec-portal-personal`.

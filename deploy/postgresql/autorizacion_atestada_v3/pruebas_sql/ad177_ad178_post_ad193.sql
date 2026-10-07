@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Sólo tras AD178 y AD177 instaladas sobre la postimagen de AD193.
+-- Sólo tras AD178 y AD177 instaladas sobre la postimagen de AD193 y ANTES de AD190/AD200 (histórica: mide ese núcleo y el EXECUTE del runtime CT).
 -- Prueba estructural y de rechazos: no crea consumos, no fabrica filas
 -- favorables y no acredita el recorrido causal con productores reales.
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;

@@ -25,6 +25,7 @@ import (
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -205,7 +206,7 @@ func (a *autoridadCronosEmpleadoDesarrollo) denegar(w http.ResponseWriter, r *ht
 	if _, err := rand.Read(aleatorio[:]); err == nil {
 		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if a.registrador == nil || a.registrador.RegistrarDenegacionFronteraCronos(ctx, cronosports.OrdenDenegacionFronteraCronos{CorrelacionRef: correlacion, Motivo: motivo, Ruta: ruta, Metodo: metodo, ActorRef: actorRef}) != nil {
 		responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
@@ -420,7 +421,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{
 		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},

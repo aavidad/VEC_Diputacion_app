@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -30,7 +31,7 @@ func preflightPoliticaCertificado(
 		retirada.IsZero() || retirada.Location() != time.UTC || retirada.Nanosecond() != 0 {
 		return ErrCertificadoPersonalNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, plazoSondaPoolSeguimiento)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
 	defer cancelar()
 	var coincide bool
 	if err := q.QueryRow(sonda, consultaCoincidenciaPoliticaCertificado,

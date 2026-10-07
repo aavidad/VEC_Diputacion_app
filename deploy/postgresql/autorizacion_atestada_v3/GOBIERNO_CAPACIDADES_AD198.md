@@ -16,6 +16,9 @@ migración.
 | Versión | Audiencias (en orden) |
 | --- | --- |
 | 1 | `vec.admin.usuarios.listar.v1`, `vec.admin.usuarios.consultar.v1`, `vec_autorizacion.administracion_perfiles.lote_ordinario.v1` |
+| 2 (AD202) | las tres del conjunto 1, en el mismo orden, y `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1` (tramo `catalogos:plan-firma`) |
+| 3 (AD204) | las cuatro del conjunto 2, en el mismo orden, y `vec_personal.cargo_competencial.publicar.v1` (tramo `personal:cargo-competencial`) |
+| 4 (AD205) | las cinco del conjunto 3, en el mismo orden, y `vec_contexto_actor.certificado_nominal.publicar.v1` (tramo `certificados:nominal`) |
 
 El programa (`bootstrap.AudienciasConjuntoCapacidadesAdmin`) tiene la misma
 lista. La base vuelve a comprobar audiencia, orden y tramo de cada clave.
@@ -76,3 +79,41 @@ y Rol7, más AD190, CA35/AUT44, AUT50 y AD198:
   (mismo recibo y `replay`) y verificar la cadena (`cadena_verificada`). Se
   publican tres claves, la tercera de la audiencia del lote, y una
   configuración nueva del día.
+
+## Conjunto 2 (AD202)
+
+Añade la clave con la que vec-admin emite las decisiones del gobierno del plan
+nominal de firma. Se prepara con `"conjunto_capacidades": 2` y la configuración
+aprobada del LOGIN lleva `conjunto_version = 2`. Ensayado en el clon: la
+operación publica las cuatro claves, repetirla con otro acuse devuelve el mismo
+recibo y la verificación de la cadena no encuentra diferencias. Al pasar al
+conjunto 2 se deja de renovar con el 1: la clave del gobierno del plan sólo la
+renueva el 2.
+
+## Conjunto 3 (AD204)
+
+Añade la clave con la que vec-admin emite las decisiones de publicación de
+cargos competenciales de Personal (AD166 y Personal28). Se prepara con
+`"conjunto_capacidades": 3` y la configuración aprobada del LOGIN lleva
+`conjunto_version = 3`. Al pasar al conjunto 3 se deja de renovar con el 2.
+Ensayado en un PostgreSQL 18.4 desechable (AD198, AD202 y AD204 con salida 0;
+repetir AD204 se para en la preimagen) y en el clon del gobierno del plan: la
+operación publica las cinco claves, repetirla devuelve el mismo recibo y la
+verificación de la cadena no encuentra diferencias.
+
+## Conjunto 4 (AD205)
+
+Añade la clave con la que vec-admin emite las decisiones de publicación y
+retirada de certificados nominales de firmante (AD165, con la fachada v4 de
+AD205). Se prepara con `"conjunto_capacidades": 4` y la configuración aprobada
+lleva `conjunto_version = 4`. Al pasar al conjunto 4 se deja de renovar con el 3.
+
+AD205 trae además la fachada `operar_certificado_nominal_v4`. Su huella de
+recurso es la canónica del PDP: organización y unidad de la asignación y SHA-256
+del descriptor. Sustituye a la v3 en el grupo ejecutor. AD205 también corrige
+`destino_no_administrador_certificado_nominal_v1` (AUT33), que fallaba con 42702
+por un `USING` ambiguo. Se instala después de AD204. Se ensayó en un PostgreSQL
+18.4 desechable (AD198 → AD202 → AD204 → AD205 con salida 0; al repetirla se
+para en la preimagen) y en el clon propio con decisiones V3 reales: publicar,
+reintentar, denegar hacia el propio administrador, retirar y reintentar tras
+reiniciar.

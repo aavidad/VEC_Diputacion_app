@@ -7,6 +7,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
 
@@ -111,8 +112,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 	}
 
 	ctxArranque, cancelar := context.WithTimeout(
-		context.Background(),
-		15*time.Second,
+		context.Background(), plazoarranque.Ampliar(15*time.Second),
 	)
 	defer cancelar()
 	ejecutorHistorico, err :=
@@ -206,6 +206,14 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		reconciliador,
 	)
 	if err != nil {
+		return vacias, err
+	}
+	// Crédito antes de ofrecer: regla c25 del catálogo de reglas vigente.
+	politicaCredito := politicaCreditoOfertaDesarrollo{reglas: dependenciasCT.reglasEjemplo.contratacionTemporal}
+	if err := presentador.ConfigurarPoliticaCredito(politicaCredito); err != nil {
+		return vacias, err
+	}
+	if err := decisor.ConfigurarPoliticaCredito(politicaCredito); err != nil {
 		return vacias, err
 	}
 	consultor, err := application.NuevoServicioConsultaResultadoCobertura(

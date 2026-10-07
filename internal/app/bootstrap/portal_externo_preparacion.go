@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/separacionportales"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -100,7 +101,7 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 	if err != nil {
 		return resumen, err
 	}
-	ctxConexion, cancelar := context.WithTimeout(ctx, 2*time.Minute)
+	ctxConexion, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(2*time.Minute))
 	defer cancelar()
 	gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctxConexion, dsnGobierno,
 		"vec-preparar-portal-externo", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)

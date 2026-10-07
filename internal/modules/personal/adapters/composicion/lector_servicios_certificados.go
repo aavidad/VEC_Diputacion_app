@@ -14,6 +14,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -144,7 +145,7 @@ func (l lectorServiciosCertificadosConIdentidad) capturar(ctx context.Context) (
 	if _, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx); err != nil {
 		return nil, personaldomain.ErrLectorServiciosCertificadosNoDisponible
 	}
-	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), l.limite)
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(l.limite))
 	defer cancelar()
 	identidad, err := l.identidad.ResolverIdentidadLectorServiciosCertificados(auditCtx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {

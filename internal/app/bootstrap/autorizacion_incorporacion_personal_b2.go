@@ -303,6 +303,9 @@ func (a *autoridadIncorporacionPersonalB2) ActorEjecucionPlanB2(ctx context.Cont
 func (a *autoridadIncorporacionPersonalB2) ActorLecturaHechosB2(ctx context.Context) (core.ContextoActor, error) {
 	return a.actor(ctx, personal.AccionFichaEmpleadoB2)
 }
+func (a *autoridadIncorporacionPersonalB2) ActorHechoB2(ctx context.Context) (core.ContextoActor, error) {
+	return a.actor(ctx, personal.AccionHechoEmpleadoB2)
+}
 
 func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDesarrollo, declaraciones []descriptorFronteraComunDesarrollo) ([]descriptorFronteraComunDesarrollo, error) {
 	if s == nil {
@@ -544,6 +547,15 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	if ruta.ruta == httpct.RutaConfirmacionB2 && ruta.metodo == "POST" {
 		_, ok := descriptorIncorporacionB2(accion)
 		return ok
+	}
+	if ruta.ruta == httpct.RutaCesesNombramiento {
+		// Tras un cese CT ya confirmado sólo se lee el origen B2 y la ficha y
+		// se registra la revisión finalizada de la relación.
+		switch accion {
+		case ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2, personal.AccionFichaEmpleadoB2, personal.AccionHechoEmpleadoB2:
+			return ruta.metodo == "POST"
+		}
+		return false
 	}
 	if ruta.ruta != httpct.RutaPlanB2 || (ruta.metodo != "GET" && ruta.metodo != "POST") {
 		return false

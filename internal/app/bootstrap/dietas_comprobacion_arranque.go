@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/config"
 	dietaspg "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // ErrComprobacionArranqueDietas envuelve cualquier rechazo de la comprobación
@@ -74,7 +75,7 @@ func ComprobarArranqueDietasSoloLectura(ctx context.Context, cfg config.Config) 
 	if err != nil {
 		return fmt.Errorf("%w: identidad/dietas-rutas.json: %w", ErrComprobacionArranqueDietas, err)
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 60*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	var abiertos []*pgxpool.Pool
 	defer func() {

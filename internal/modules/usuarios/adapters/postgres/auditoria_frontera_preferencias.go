@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -128,7 +129,7 @@ func nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, consu
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 3*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(3*time.Second))
 	defer cancelar()
 	var valido bool
 	if err := consultor.QueryRow(sonda, preflightDenegacionSQL, rol).Scan(&valido); err != nil || !valido {
@@ -147,7 +148,7 @@ func (r *RegistradorDenegacionPreferenciasPostgreSQL) RegistrarAuditoriaFrontera
 	}
 	// La petición ya fue denegada. Su cancelación no debe impedir registrar el
 	// hecho; se conservan solo valores y trazas del contexto, nunca autoridad.
-	registro, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	registro, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(3*time.Second))
 	defer cancelar()
 	var guardado bool
 	if err := r.consultor.QueryRow(registro, registrarDenegacionSQL,

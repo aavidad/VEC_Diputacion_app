@@ -18,6 +18,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -159,6 +160,10 @@ type firmaDocumentoCTDesarrollo struct {
 	firmaVec     *ctapplication.ServicioFirmaVec
 	// Registro que reciben ambas vías: siempre el decorador con plan (CT176).
 	registroR5 ports.RegistroFirmasVerificadasV2
+	// verificadorR5 es el mismo cliente GrxFirma de la vía V1, visto como
+	// verificador acumulado de firmas múltiples. Nil sin verificación: entonces
+	// R5 no se compone (componerFirmasR5 exige d.verificador).
+	verificadorR5 docports.VerificadorFirmasDocumento
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
@@ -345,7 +350,7 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
@@ -630,6 +635,44 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 	return salida, nil
 }
 
+// verificadorFirmasR5 conserva el cliente sólo si también verifica firmas
+// múltiples. Un verificador motivado que no lo haga deja R5 sin componer.
+func verificadorFirmasR5(v docports.VerificadorFirmaMotivado) docports.VerificadorFirmasDocumento {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(v) {
+		return nil
+	}
+	multiple, ok := v.(docports.VerificadorFirmasDocumento)
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(multiple) {
+		return nil
+	}
+	return multiple
+}
+
+// PoliticaMismaPersonaEnPasos lee la bandera del mismo circuito vigente que
+// fija el paso. Sólo responde para la versión y huella exactas que pide la
+// firma: otra versión, una huella distinta o el catálogo caído nunca permiten
+// que la misma persona firme dos pasos.
+func (f fuenteCircuitoFirmaReglasDesarrollo) PoliticaMismaPersonaEnPasos(ctx context.Context, ref, huella string) (ports.PoliticaMismaPersonaEnPasos, error) {
+	if ctx == nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	c, err := f.CircuitoFirma(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PoliticaMismaPersonaEnPasos{}, ctx.Err()
+		}
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	p := ports.PoliticaMismaPersonaEnPasos{CatalogoRef: c.CatalogoRef, CatalogoHuella: c.HuellaCatalogo,
+		Permite: c.PermiteMismaPersonaEnPasos}
+	if err := p.ValidarContra(ref, huella); err != nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, err
+	}
+	return p, nil
+}
+
+var _ ports.FuentePoliticaMismaPersonaEnPasos = fuenteCircuitoFirmaReglasDesarrollo{}
+
 // rutas compone las dos rutas exactas. Sin circuito no hay firma.
 func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.Resolutor) ([]vechttp.RutaExacta, error) {
 	if f == nil {
@@ -638,6 +681,8 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if circuito == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	// Una composición fallida no conserva el verificador de un intento anterior.
+	f.verificadorR5 = nil
 	verificador, err := nuevoVerificadorFirmaDocumentos(cfg, f.emisorResultadosFirma)
 	if err != nil {
 		return nil, err
@@ -653,6 +698,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.servicio = servicio
+	f.verificadorR5 = verificadorFirmasR5(verificador)
 	f.custodiaR5Compuesta = false
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {

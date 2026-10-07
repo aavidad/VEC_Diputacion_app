@@ -12,6 +12,7 @@ import (
 
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -85,7 +86,7 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		h.entradaRechazada(w, r, z, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
-	ctx, cancelar := context.WithTimeout(r.Context(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var resultado ports.ResultadoPreparacionBasesV3
 	if guardar {

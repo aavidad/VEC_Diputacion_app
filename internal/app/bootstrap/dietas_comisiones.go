@@ -28,6 +28,7 @@ import (
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -350,7 +351,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Co
 	if orden.Validar() != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return a.registrador.RegistrarAuditoriaFronteraComision(ctxAuditoria, orden)
 }
@@ -411,7 +412,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacionPersonal(ctx co
 	if orden.Validar() != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return a.registradorPersonal.RegistrarAuditoriaFronteraAsignacionDietas(ctxAuditoria, orden)
 }
@@ -504,7 +505,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"}, {c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"}, {c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"}}
 	var pools []*pgxpool.Pool

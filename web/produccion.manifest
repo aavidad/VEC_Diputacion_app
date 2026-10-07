@@ -48,6 +48,8 @@ static/area-personal/vistas/comunicaciones-ayuda.js
 static/area-personal/vistas/inicio-convocatorias.js
 static/area-personal/vistas/perfil-meritos-solicitud.js
 static/area-personal/vistas/seguimiento-tramites.js
+static/area-personal/vistas-disponibles.js
+static/area-personal/vistas.json
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css

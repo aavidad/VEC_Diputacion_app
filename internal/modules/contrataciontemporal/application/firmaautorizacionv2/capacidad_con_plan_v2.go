@@ -46,8 +46,8 @@ func decisionTransportadaFirmaPlanV2(x vp.ExportacionMaterialConsumoAutorizacion
 func ValidarCapacidadFirmaConPlanV2(c ports.CapacidadFirmaConPlanV2, m ports.MaterialFirmaVerificadaV2) error {
 	interior, exterior, plan, envoltorio, decisionSHA := c.ExportarParaConsumidor()
 	defer clear(envoltorio)
-	if ValidarCapacidadFirmaVerificadaV2(interior, m) != nil ||
-		exterior.ValidarEstructura() != nil || plan.Validar() != nil {
+	ambitos, err := AmbitosCapacidadFirmaVerificadaV2(interior, m)
+	if err != nil || exterior.ValidarEstructura() != nil || plan.Validar() != nil {
 		return ports.ErrFirmaDocumentoDenegada
 	}
 	i := interior.ExportarMaterialParaConsumidor()
@@ -75,7 +75,7 @@ func ValidarCapacidadFirmaConPlanV2(c ports.CapacidadFirmaConPlanV2, m ports.Mat
 	if ValidarPlanAutorizadoFirmaV2(m, plan, decisionSHA, envoltorio) != nil {
 		return ports.ErrFirmaDocumentoDenegada
 	}
-	r, err := RecursoPlanAutorizadoFirmaV2(m, plan, decisionSHA, envoltorio)
+	r, err := RecursoPlanAutorizadoFirmaV2(m, plan, decisionSHA, envoltorio, ambitos)
 	if err != nil {
 		return ports.ErrFirmaDocumentoDenegada
 	}

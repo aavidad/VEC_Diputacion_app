@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // Comprueba las funciones y la ACL de lectura antes de montar la capacidad.
@@ -12,7 +13,7 @@ func preflightCircuitoRRHHDesarrollo(base consultaPoliticaInformeNuevoCT) error 
 	if dependenciaEsNulaContratacionTemporalDesarrollo(base) {
 		return fmt.Errorf("circuito RRHH: clave=conexion_sql valor=false esperado=true")
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	const consulta = `SELECT
 	 pg_catalog.to_regprocedure('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)') IS NOT NULL,

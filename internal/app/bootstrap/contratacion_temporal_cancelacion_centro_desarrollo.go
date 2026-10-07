@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -70,7 +71,7 @@ func nuevaCancelacionCentroDesarrollo(cfg config.Config, alta *dependenciasAltaC
 		slog.Warn("cancelación por el centro no compuesta: necesita la bandeja de incorporaciones del centro (VEC_CT_INCORPORACION_ACREDITADA_ENABLED)")
 		return &cancelacionCentroDesarrollo{}
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	regla, err := alta.cancelacion.fuente.reglas.Regla(ctx, reglas.CTCancelacionExpediente)
 	if err != nil {

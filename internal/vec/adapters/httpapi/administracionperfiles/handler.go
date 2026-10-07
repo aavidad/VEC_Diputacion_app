@@ -98,6 +98,8 @@ type Handler struct {
 	catalogo         ports.CatalogoRolesAdministrables
 	actos            ServicioActos
 	lotes            ServicioLotesADMIN
+	gobiernoPlan     ServicioGobiernoPlanFirmaADMIN
+	efectos          map[string]efectoNominal
 	soloLectura      bool
 	soloMetadatos    bool
 	auditor          AuditorFrontera
@@ -151,7 +153,8 @@ func dependenciaNula(v any) bool {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.sesiones == nil || h.lecturas == nil || (!h.soloLectura && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) || h.auditor == nil {
+	if h == nil || h.sesiones == nil || h.lecturas == nil || h.auditor == nil ||
+		(!h.soloLectura && h.gobiernoPlan == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}

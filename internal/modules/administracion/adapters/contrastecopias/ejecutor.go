@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	domain "vec-diputacion-granada/internal/modules/administracion/domain/contrastecopias"
 	ports "vec-diputacion-granada/internal/modules/administracion/ports/contrastecopias"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var selloValido = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -31,7 +32,7 @@ func (l *Lector) CapturarEjecutorConFuente(ctx context.Context, exec ports.Ejecu
 	if exec == nil || exclusion == nil || !baseAdmitida.MatchString(base) {
 		return domain.Snapshot{}, errCaptura
 	}
-	ctx, cancel := context.WithTimeout(ctx, l.limites.TiempoMaximo)
+	ctx, cancel := context.WithTimeout(ctx, plazoarranque.Ampliar(l.limites.TiempoMaximo))
 	defer cancel()
 	if len(l.limites.BasesInventariadas) != 0 {
 		return l.capturarBases(ctx, exec, base, exclusion, fuente)

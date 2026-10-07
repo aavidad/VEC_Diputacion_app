@@ -743,7 +743,7 @@
         "titulo": "Buscar en la ayuda",
         "subtitulo": "Respuestas sobre inscripción, méritos, baremo y llamamientos",
         "pregunta": "¿Qué necesita saber?",
-        "ejemplo": "Ejemplo: presentar una subsanación",
+        "ejemplo": "Ejemplo: responder a un llamamiento",
         "boton": "Buscar"
       },
       "lateral": "Opciones y canales de ayuda",
@@ -837,7 +837,7 @@
     "grupoResumen": "Resumen",
     "grupoInformacion": "Mi información",
     "grupoTramitacion": "Tramitación",
-    "grupoComunicaciones": "Comunicaciones",
+    "grupoComunicaciones": "Comunicaciones y ayuda",
     "miBolsa": "Mi bolsa",
     "pieLateral": "Portal genérico de RRHH",
     "pieLateralDetalle": "Fase inicial · Módulo Bolsa",

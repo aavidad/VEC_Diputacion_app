@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // consultarInicioRondaInformeSQL123 lee de CT123 la versión en la que se
@@ -30,7 +31,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) InicioRondaInformeNuevo(ctx context.
 		return 0, errorFirma118(ctx, err)
 	}
 	defer func() {
-		c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(c)
 	}()
