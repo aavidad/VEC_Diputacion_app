@@ -298,6 +298,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       throw errorCliente("cabeceras_no_disponibles", { causa: error });
     }
     let respuesta;
+    let respuestaConsumida = false;
     try {
       const opcionesFetch = {
         method: metodo,
@@ -375,13 +376,14 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
           causa: error,
         });
       }
+      respuestaConsumida = true;
       return validada;
     } catch (error) {
       throw efecto
         ? clasificarResultadoEfecto(error, rechazoDeterminado)
         : error;
     } finally {
-      await cancelarRespuesta(respuesta);
+      if (!respuestaConsumida) await cancelarRespuesta(respuesta);
     }
   }
 

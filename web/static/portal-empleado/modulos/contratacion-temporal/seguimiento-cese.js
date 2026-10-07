@@ -36,7 +36,7 @@ export function rutaSeguimientoCeseNoMontada(error) {
 
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
-  confirmarOperacion = () => false, alConfirmar = () => {},
+  confirmarOperacion = () => false, alConfirmar = () => {}, alConsultar = () => {},
   generarClave = () => globalThis.crypto?.randomUUID?.(), avisoInicial = null,
 } = {}) {
   if (!contenedor || typeof cliente?.consultarSeguimientoCese !== "function" || !contexto) throw new TypeError("panel de seguimiento no disponible");
@@ -182,6 +182,7 @@ export function montarPanelSeguimientoCese({
       if (controlador.signal.aborted) return;
       datos = rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
     }
+    if (!controlador.signal.aborted && !datos?.ausente && !datos?.error) alConsultar(datos);
     pintar();
   }
 
