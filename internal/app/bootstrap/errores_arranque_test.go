@@ -1,9 +1,11 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -99,5 +101,57 @@ func TestFuentesConfiguradasDistinguenOrganizacionYRPTSinPublicarRutas(t *testin
 				t.Fatal("la ruta configurada aparece en el diagnostico")
 			}
 		})
+	}
+}
+
+func TestFuenteOrganizacionConCentroNoAdmitidoPorCTConservaDiagnosticoDeFuente(t *testing.T) {
+	contenido, err := os.ReadFile(rutaEstructuraRepositorioPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paquete map[string]any
+	if err := json.Unmarshal(contenido, &paquete); err != nil {
+		t.Fatal(err)
+	}
+	catalogo, ok := paquete["catalogo"].(map[string]any)
+	if !ok {
+		t.Fatal("fixture sin catalogo")
+	}
+	entradas, ok := catalogo["entradas"].([]any)
+	if !ok {
+		t.Fatal("fixture sin entradas")
+	}
+	cambiado := false
+	for _, valor := range entradas {
+		entrada, ok := valor.(map[string]any)
+		if !ok {
+			t.Fatal("entrada de fixture invalida")
+		}
+		atributos, ok := entrada["atributos"].(map[string]any)
+		if ok && atributos["tipo"] == "centro" {
+			entrada["clave"] = "ab" // Válida para Personal; demasiado corta para la referencia CT.
+			cambiado = true
+			break
+		}
+	}
+	if !cambiado {
+		t.Fatal("fixture sin centro")
+	}
+	contenido, err = json.Marshal(paquete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(t.TempDir(), "organizacion-sintetica.json")
+	if err := os.WriteFile(ruta, contenido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = nuevoCatalogoDesarrollo(ruta, rutaRPTRepositorioPrueba)
+	if !errors.Is(err, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles) ||
+		ComponenteFalloArranque(err) != "fuente_organizacion" ||
+		telemetria.ClaseErrorArranque(err) != "configuracion" ||
+		telemetria.MensajeErrorArranque(err) != mensajeFuenteConfiguracionArranque ||
+		strings.Contains(err.Error(), ruta) {
+		t.Fatalf("diagnostico de fuente no conservado: componente=%s clase=%s mensaje=%s",
+			ComponenteFalloArranque(err), telemetria.ClaseErrorArranque(err), telemetria.MensajeErrorArranque(err))
 	}
 }

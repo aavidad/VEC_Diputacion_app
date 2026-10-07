@@ -273,7 +273,7 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
 			if !domain.ReferenciaOpacaValida(u.Clave) {
-				return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+				return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles)
 			}
 			centrosOrganizacion = append(centrosOrganizacion, u.Clave)
 			cod := u.CodigoFuente
