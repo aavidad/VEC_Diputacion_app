@@ -3,34 +3,43 @@ export let MENSAJES_PERSONAL;
 let CLAVES;
 let localizacionPersonal;
 let preparacion = 0;
+let preparacionActual;
 
 // El shell importa este módulo antes de abrir Personal. La lectura del catálogo
 // comienza al preparar la vista, sin bloquear el grafo estático del portal.
-export async function prepararTextosPersonal(opciones = {}) {
+export function prepararTextosPersonal(opciones = {}) {
   const turno = ++preparacion;
   MENSAJES_PERSONAL = undefined;
   CLAVES = undefined;
   localizacionPersonal = undefined;
-  const { cargarTextos } = await import("../../../comun/textos.js");
-  const textos = await cargarTextos("personal", opciones);
-  const mensajes = textos.seccion("general");
-  const claves = mensajes && typeof mensajes === "object" && !Array.isArray(mensajes)
-    ? Object.keys(mensajes) : [];
-  if (claves.length === 0 || claves.some((clave) =>
-    typeof mensajes[clave] !== "string" || mensajes[clave].trim() === "")) {
-    throw new Error("catálogo i18n de Personal incompleto");
-  }
-  if (turno === preparacion) {
-    MENSAJES_PERSONAL = Object.freeze({ ...mensajes });
-    CLAVES = Object.freeze(claves);
-    localizacionPersonal = textos.localizacion;
-  }
-  return Object.freeze({
-    idioma: textos.idioma,
-    localizacion: textos.localizacion,
-    incidenciaCatalogo: textos.incidenciaCatalogo,
-    incidenciaIndice: textos.incidenciaIndice,
-  });
+  const carga = (async () => {
+    try {
+      const { cargarTextos } = await import("../../../comun/textos.js");
+      const textos = await cargarTextos("personal", opciones);
+      const mensajes = textos.seccion("general");
+      const claves = mensajes && typeof mensajes === "object" && !Array.isArray(mensajes)
+        ? Object.keys(mensajes) : [];
+      if (claves.length === 0 || claves.some((clave) =>
+        typeof mensajes[clave] !== "string" || mensajes[clave].trim() === "")) {
+        throw new Error("catálogo i18n de Personal incompleto");
+      }
+      if (turno !== preparacion) return preparacionActual;
+      MENSAJES_PERSONAL = Object.freeze({ ...mensajes });
+      CLAVES = Object.freeze(claves);
+      localizacionPersonal = textos.localizacion;
+      return Object.freeze({
+        idioma: textos.idioma,
+        localizacion: textos.localizacion,
+        incidenciaCatalogo: textos.incidenciaCatalogo,
+        incidenciaIndice: textos.incidenciaIndice,
+      });
+    } catch (error) {
+      if (turno !== preparacion) return preparacionActual;
+      throw error;
+    }
+  })();
+  preparacionActual = carga;
+  return carga;
 }
 
 function catalogoPreparado() {
