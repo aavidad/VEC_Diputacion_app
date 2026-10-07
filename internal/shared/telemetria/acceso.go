@@ -169,6 +169,9 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 				slog.Int64("vec.bd.consultas", consultas),
 				slog.Float64("vec.bd.duracion", segundos(time.Duration(bd.bd.Load()))),
 			}
+			if fases := bd.resumenFases(); len(fases) > 0 {
+				atributos = append(atributos, slog.Any("vec.fases", fases))
+			}
 			if espera := time.Duration(bd.espera.Load()); espera > 0 {
 				atributos = append(atributos, slog.Float64("vec.bd.espera_conexion", segundos(espera)))
 			}

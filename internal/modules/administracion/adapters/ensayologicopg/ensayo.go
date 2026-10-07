@@ -35,11 +35,14 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 	}
 	nombre := filepath.Base(raiz)
 	nombres := []string{nombre, nombre + "-postgres", nombre + "-psql", nombre + "-restore", nombre + "-toc"}
+	limpiarContenedores := false
 	defer func() {
 		limpio := true
-		for _, n := range nombres {
-			if !eliminarContenedor(n) {
-				limpio = false
+		if limpiarContenedores {
+			for _, n := range nombres {
+				if !eliminarContenedor(n) {
+					limpio = false
+				}
 			}
 		}
 		if os.RemoveAll(raiz) != nil { // #nosec G703 -- raíz generada por MkdirTemp, nunca aportada por entrada o configuración.
@@ -62,9 +65,6 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 		fallo(&resultado, "entrada", "archivos", "huellas_y_formatos_admitidos", "no_admitidos")
 		return
 	}
-	if !e.comprobarVersiones(ctx, nombre, entrada, &resultado) {
-		return
-	}
 	var componentes []puertos.Componente
 	var montajes []string
 	if e.Observador != nil {
@@ -73,6 +73,12 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 			fallo(&resultado, "entrada", "archivados", "verificados", "no_comprobable")
 			return
 		}
+	}
+	// Las sondas de versiones ya pueden crear contenedores. Armar la limpieza
+	// antes de intentarlas cubre también una creación parcial o cancelada.
+	limpiarContenedores = true
+	if !e.comprobarVersiones(ctx, nombre, entrada, &resultado) {
+		return
 	}
 	cmd := append(e.opcionesAisladas(nombre), "-d", "-v", filepath.Join(raiz, "pgdata")+":/data:rw",
 		"-v", entrada+":/entrada:ro", "-e", "PGDATA=/data", "-e", "POSTGRES_USER="+e.Configuracion.UsuarioBootstrap,

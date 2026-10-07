@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -30,6 +31,33 @@ func lineas(t *testing.T, b *bytes.Buffer) []map[string]any {
 
 func opciones(b *bytes.Buffer) Opciones {
 	return Opciones{Destino: b, Servicio: "vec-server", Superficie: "interno", Entorno: "desarrollo", Lenta: time.Hour}
+}
+
+func TestAccesoConservaFasesDeExitoYFalloSinErroresNiDatos(t *testing.T) {
+	var b bytes.Buffer
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		RegistrarFase(r.Context(), FaseIdentidad, 2*time.Millisecond, nil)
+		RegistrarFase(r.Context(), FaseSesion, 3*time.Millisecond, errors.New("persona privada 12345678Z"))
+		RegistrarFase(r.Context(), FaseContexto, 4*time.Millisecond, context.Canceled)
+		RegistrarFase(r.Context(), Fase("persona privada"), time.Second, errors.New("dato privado"))
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/vec/usuarios/mis-preferencias", nil))
+	l := lineas(t, &b)[0]
+	fases, ok := l["vec.fases"].([]any)
+	if !ok || len(fases) != 3 {
+		t.Fatalf("fases registradas = %v", l["vec.fases"])
+	}
+	for i, nombre := range []string{"identidad", "sesion", "contexto"} {
+		fase := fases[i].(map[string]any)
+		if fase["nombre"] != nombre || fase["n"] != float64(1) || fase["total"].(float64) <= 0 {
+			t.Fatalf("fase %d = %v", i, fase)
+		}
+	}
+	if fases[1].(map[string]any)["errores"] != float64(1) || fases[2].(map[string]any)["canceladas"] != float64(1) ||
+		strings.Contains(b.String(), "privada") || strings.Contains(b.String(), "12345678Z") {
+		t.Fatalf("fases o privacidad incorrectas: %s", b.String())
+	}
 }
 
 func TestAccesoEscribeRutaEstadoYDuracionSinValores(t *testing.T) {

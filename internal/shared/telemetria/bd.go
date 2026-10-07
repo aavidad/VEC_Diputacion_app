@@ -32,11 +32,88 @@ type medida struct {
 	maxima      time.Duration
 	opMaxima    string
 	operaciones map[string]*resumenConsulta
+	fases       map[Fase]*resumenFase
 	// ultimoErr es la clase del último error con la base de datos. Una
 	// consulta de datos correcta posterior lo vacía, así que un error ya
 	// manejado no se atribuye a un fallo posterior; las órdenes de control
 	// (ROLLBACK, COMMIT…) y los préstamos correctos no lo tocan.
 	ultimoErr string
+}
+
+// Fase es un nombre cerrado: los llamadores no pueden introducir identidades,
+// recursos ni textos de error en el registro técnico.
+type Fase string
+
+const (
+	FaseIdentidad Fase = "identidad"
+	FaseSesion    Fase = "sesion"
+	FaseContexto  Fase = "contexto"
+	FaseV3        Fase = "v3"
+	FaseLectura   Fase = "lectura_con_auditoria"
+	FaseAuditoria Fase = "auditoria_denegacion"
+)
+
+type resumenFase struct {
+	n          int64
+	total      time.Duration
+	errores    int64
+	canceladas int64
+}
+
+type faseMedida struct {
+	Nombre     string  `json:"nombre"`
+	N          int64   `json:"n"`
+	Total      float64 `json:"total"`
+	Errores    int64   `json:"errores,omitempty"`
+	Canceladas int64   `json:"canceladas,omitempty"`
+}
+
+// RegistrarFase agrega tiempos reales a la misma línea de acceso que cuenta
+// SQL. Nunca conserva el error original. Sin middleware es inocuo.
+func RegistrarFase(ctx context.Context, fase Fase, duracion time.Duration, err error) {
+	if ctx == nil || duracion < 0 {
+		return
+	}
+	switch fase {
+	case FaseIdentidad, FaseSesion, FaseContexto, FaseV3, FaseLectura, FaseAuditoria:
+	default:
+		return
+	}
+	m := medidaDe(ctx)
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	if m.fases == nil {
+		m.fases = make(map[Fase]*resumenFase, 6)
+	}
+	r := m.fases[fase]
+	if r == nil {
+		r = &resumenFase{}
+		m.fases[fase] = r
+	}
+	r.n++
+	r.total += duracion
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+		r.canceladas++
+	} else if err != nil {
+		r.errores++
+	}
+	m.mu.Unlock()
+}
+
+func (m *medida) resumenFases() []faseMedida {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	orden := [...]Fase{FaseIdentidad, FaseSesion, FaseContexto, FaseV3, FaseLectura, FaseAuditoria}
+	salida := make([]faseMedida, 0, len(m.fases))
+	for _, fase := range orden {
+		if r := m.fases[fase]; r != nil {
+			salida = append(salida, faseMedida{Nombre: string(fase), N: r.n,
+				Total: segundos(r.total), Errores: r.errores, Canceladas: r.canceladas})
+		}
+	}
+	return salida
 }
 
 const maxOperacionesPeticion = 16
@@ -355,6 +432,19 @@ var verbosOperacion = map[string]struct{}{
 	"begin": {}, "commit": {}, "rollback": {}, "set": {}, "copy": {},
 	"create": {}, "alter": {}, "drop": {}, "grant": {}, "revoke": {},
 	"do": {}, "explain": {}, "values": {},
+}
+
+// NombreOperacionRegistrada comparte con el lector técnico el vocabulario
+// positivo que este emisor puede escribir. No valida SQL ni acepta texto libre.
+func NombreOperacionRegistrada(nombre string) bool {
+	if nombre == "sql" || nombre == "otras" {
+		return true
+	}
+	if _, ok := aliasesOperacion[nombre]; ok {
+		return true
+	}
+	_, ok := verbosOperacion[nombre]
+	return ok
 }
 
 // clasificarOperacion limita el análisis a 2048 bytes, elimina literales y

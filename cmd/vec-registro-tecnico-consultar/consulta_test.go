@@ -43,6 +43,78 @@ func accesoPrueba(t *testing.T) []byte {
 	})
 }
 
+func TestConsultaAceptaFasesCerradasYRegistroAnterior(t *testing.T) {
+	var acceso map[string]any
+	if err := json.Unmarshal(bytes.TrimSuffix(accesoPrueba(t), []byte{'\n'}), &acceso); err != nil {
+		t.Fatal(err)
+	}
+	acceso["vec.fases"] = []any{
+		map[string]any{"nombre": "identidad", "n": 1, "total": 0.002},
+		map[string]any{"nombre": "sesion", "n": 2, "total": 0.01},
+		map[string]any{"nombre": "lectura_con_auditoria", "n": 1, "total": 0.2},
+	}
+	contenido := append(accesoPrueba(t), codificarLinea(t, acceso)...)
+	codigo, resumen, salida, diagnostico := ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, contenido))
+	if codigo != 0 || resumen.Validas != 2 || resumen.Rechazadas != 0 || resumen.Peticiones.Total != 2 || diagnostico != "" || strings.Contains(salida, "lectura_con_auditoria") {
+		t.Fatalf("compatibilidad de acceso anterior y con fases: código=%d resumen=%+v salida=%q diagnóstico=%q", codigo, resumen, salida, diagnostico)
+	}
+	for _, mal := range []any{
+		[]any{map[string]any{"nombre": "persona privada", "n": 1, "total": 0.1}},
+		[]any{map[string]any{"nombre": "identidad", "n": 1, "total": 0.1, "dato": "persona privada"}},
+		[]any{map[string]any{"nombre": "identidad", "n": 1, "total": 0.1, "errores": 1, "canceladas": 1}},
+		[]any{map[string]any{"nombre": "identidad", "n": 1, "total": 0.1}, map[string]any{"nombre": "identidad", "n": 1, "total": 0.1}},
+	} {
+		acceso["vec.fases"] = mal
+		codigo, resumen, salida, diagnostico = ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, codificarLinea(t, acceso)))
+		if codigo != 3 || resumen.Rechazadas != 1 || resumen.Validas != 0 || strings.Contains(salida+diagnostico, "persona privada") {
+			t.Fatalf("fase libre aceptada o filtrada: código=%d resumen=%+v salida=%q diagnóstico=%q", codigo, resumen, salida, diagnostico)
+		}
+	}
+}
+
+func TestConsultaAceptaCamposSQLYLotesEmitidosEnPeticionFallida(t *testing.T) {
+	var acceso map[string]any
+	if err := json.Unmarshal(bytes.TrimSuffix(accesoPrueba(t), []byte{'\n'}), &acceso); err != nil {
+		t.Fatal(err)
+	}
+	acceso["level"] = "ERROR"
+	acceso["http.response.status_code"] = 503
+	acceso["error.type"] = "bd_57014"
+	acceso["vec.bd.error"] = "bd_57014"
+	acceso["vec.bd.lotes"] = 1
+	acceso["vec.bd.lote.resultados_observados"] = 2
+	acceso["vec.bd.lote.errores"] = 1
+	acceso["vec.bd.lote.duracion_hasta_cierre"] = 0.03
+	acceso["vec.bd.operaciones_desconocidas"] = 1
+	acceso["vec.bd.operaciones"] = []any{map[string]any{
+		"nombre": "vec_usuarios.consultar_preferencias_propias_v1", "n": 1,
+		"total": 0.2, "maxima": 0.2, "errores": map[string]any{"bd_57014": 1},
+	}}
+	acceso["vec.fases"] = []any{map[string]any{"nombre": "lectura_con_auditoria", "n": 1, "total": 0.25, "errores": 1}}
+	codigo, resumen, _, diagnostico := ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, codificarLinea(t, acceso)))
+	if codigo != 0 || resumen.Validas != 1 || resumen.Rechazadas != 0 || resumen.Peticiones.Errores5xx != 1 || diagnostico != "" {
+		t.Fatalf("campos emitidos no consultables: código=%d resumen=%+v diagnóstico=%q", codigo, resumen, diagnostico)
+	}
+	for _, nombre := range []string{"select", "sql", "otras"} {
+		acceso["vec.bd.operaciones"] = []any{map[string]any{"nombre": nombre, "n": 1, "total": 0.1, "maxima": 0.1}}
+		codigo, resumen, _, _ = ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, codificarLinea(t, acceso)))
+		if codigo != 0 || resumen.Validas != 1 {
+			t.Fatalf("nombre emitido %q rechazado: código=%d resumen=%+v", nombre, codigo, resumen)
+		}
+	}
+	acceso["vec.bd.operaciones"] = []any{map[string]any{"nombre": "persona_privada", "n": 1, "total": 0.1, "maxima": 0.1}}
+	codigo, resumen, salida, diagnostico := ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, codificarLinea(t, acceso)))
+	if codigo != 3 || resumen.Rechazadas != 1 || strings.Contains(salida+diagnostico, "persona_privada") {
+		t.Fatalf("operación SQL libre aceptada o copiada: código=%d resumen=%+v salida=%q diagnóstico=%q", codigo, resumen, salida, diagnostico)
+	}
+	acceso["vec.bd.operaciones"] = []any{map[string]any{"nombre": "vec_usuarios.consultar_preferencias_propias_v1", "n": 1,
+		"total": 0.2, "maxima": 0.2, "errores": map[string]any{"persona privada": 1}}}
+	codigo, resumen, salida, diagnostico = ejecutarPrueba(t, "--desde", "2026-10-07T11:00:00Z", "--hasta", "2026-10-07T13:00:00Z", "--archivo", archivoPrueba(t, codificarLinea(t, acceso)))
+	if codigo != 3 || resumen.Rechazadas != 1 || strings.Contains(salida+diagnostico, "persona privada") {
+		t.Fatalf("clase SQL libre aceptada o copiada: código=%d resumen=%+v salida=%q diagnóstico=%q", codigo, resumen, salida, diagnostico)
+	}
+}
+
 func arranquePrueba(t *testing.T) []byte {
 	t.Helper()
 	return codificarLinea(t, map[string]any{

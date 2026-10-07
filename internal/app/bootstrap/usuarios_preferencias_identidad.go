@@ -6,9 +6,39 @@ import (
 	"net/http"
 	"time"
 
+	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type revalidadorPreferenciasMedido struct {
+	core.RevalidadorAutenticacionActorV1
+	medir bool
+}
+
+func (m revalidadorPreferenciasMedido) RevalidarAutenticacionActorV1(ctx context.Context, s core.SolicitudRevalidacionAutenticacionActorV1) (core.AutenticacionRevalidadaV1, error) {
+	inicio := time.Now()
+	r, err := m.RevalidadorAutenticacionActorV1.RevalidarAutenticacionActorV1(ctx, s)
+	if m.medir {
+		telemetria.RegistrarFase(ctx, telemetria.FaseSesion, time.Since(inicio), err)
+	}
+	return r, err
+}
+
+type resolutorPreferenciasMedido struct {
+	core.ResolutorContextoActorRegistradoV2
+	medir bool
+}
+
+func (m resolutorPreferenciasMedido) ResolverContextoActorRegistradoV2(ctx context.Context, s core.SolicitudContextoActor) (core.ResultadoContextoActorRegistradoV2, error) {
+	inicio := time.Now()
+	r, err := m.ResolutorContextoActorRegistradoV2.ResolverContextoActorRegistradoV2(ctx, s)
+	if m.medir {
+		telemetria.RegistrarFase(ctx, telemetria.FaseContexto, time.Since(inicio), err)
+	}
+	return r, err
+}
 
 func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request, cuenta cuentaUsuariosPreferenciasDesarrollo, ahora time.Time) (core.VinculoAutenticacionActorV2, core.ResultadoContextoActorRegistradoV2, error) {
 	vacio := core.VinculoAutenticacionActorV2{}
@@ -17,6 +47,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 		(a.superficie != core.SuperficieAutenticacionExternaPersonalV1 && a.superficie != core.SuperficieAutenticacionInternaCorporativaV1) {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
 	}
+	medir := a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal
 	asercion, err := nonceRutasDietas()
 	if err != nil {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
@@ -40,14 +71,18 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 		PoliticaGarantiaHuellaSHA256: huellaRutasDietas(politica),
 		AutenticacionHuellaSHA256:    huellaRutasDietas(a.base.instancia + "|" + asercion + "|" + sesion + "|" + cuenta.CertificadoSHA256 + "|" + cuenta.CuentaRef + "|" + cuenta.PerfilRef + "|" + r.URL.Path + "|" + r.Method + "|" + string(a.superficie) + "|" + ahora.Format(time.RFC3339Nano)),
 	}
+	inicioSesion := time.Now()
 	confirmacion, err := a.base.registro.ConsumirAsercionYRegistrar(r.Context(), alta)
+	if medir {
+		telemetria.RegistrarFase(r.Context(), telemetria.FaseSesion, time.Since(inicioSesion), err)
+	}
 	if err != nil || confirmacion.ValidarPara(alta) != nil || confirmacion.CuentaRef != cuenta.CuentaRef {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
 	}
 	revalidador := revalidadorSesionConsultaRRHHDesarrollo{delegado: a.base.revalidador, alta: alta, confirmacion: confirmacion, reloj: a.reloj, superficie: superficie}
-	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(r.Context(), revalidador,
+	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(r.Context(), revalidadorPreferenciasMedido{revalidador, medir},
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef},
-		a.base.contextos, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
+		resolutorPreferenciasMedido{a.base.contextos, medir}, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
 	if err != nil {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
 	}
