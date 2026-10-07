@@ -4,6 +4,9 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+python3 -m unittest scripts.tests.test_verificar_search_path_definer
+python3 scripts/verificar_search_path_definer.py
+
 archivos_sin_formato="$(gofmt -l cmd config internal tools/vecsilencio)"
 if [[ -n "${archivos_sin_formato}" ]]; then
   printf 'Hay archivos Go sin formato:\n%s\n' "${archivos_sin_formato}" >&2
