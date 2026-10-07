@@ -203,6 +203,9 @@ func (p *ProveedorAutorizacionRPTPublicaV3) AutorizarConsultaRPTPublicaV2(ctx co
 	if err != nil || decision.ValidarPara(solicitud) != nil || interfazNula(exportador) {
 		return vacio, ErrRPTPublicaV3NoDisponible
 	}
+	if decision.ExigirProyeccionPara(solicitud, personal.CamposRespuestaRPTPublicaV2(), nil) != nil {
+		return vacio, personal.ErrRPTPublicaV2Denegada
+	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !vecports.MaterialAtestadoLigadoV3(solicitud, decision, confirmacion, base.Resultado, p.motivo, material, personal.AudienciaConsultaRPTPublicaV2) || ctx.Err() != nil {
 		return vacio, ErrRPTPublicaV3NoDisponible

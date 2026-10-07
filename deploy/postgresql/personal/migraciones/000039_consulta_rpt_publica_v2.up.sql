@@ -1,9 +1,11 @@
 \set ON_ERROR_STOP on
 -- Personal39: lectura de la instantánea RPT publicada desde un fichero fijado
--- por huella. El fichero se valida en Go y sólo se entrega tras consumir AD214
--- y conservar este recibo con auditoría común en la misma transacción.
+-- por huella. El fichero se valida en Go y sólo se entrega tras consumir la
+-- fachada nominal RPT V3 propia, pendiente de una migración AD posterior.
+-- Consumo, auditoría común y recibo se confirman en la misma transacción.
 -- No publica categorías para CT/Bolsa ni acredita vigencia administrativa.
--- Orden causal: AD214 -> Personal39. No aplicar sin la postimagen exacta AD214.
+-- Orden causal: consumidor AD RPT futuro -> Personal39. No aplicar sin su
+-- postimagen exacta. El número de esa migración AD aún no está fijado aquí.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -13,23 +15,42 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000039:rpt
 SET LOCAL ROLE vec_personal_propietario;
 
 DO $pre$
-DECLARE consumidor oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_rpt_publica_v2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+DECLARE
+ consumidor oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_rpt_publica_v2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ guardia oid:=to_regprocedure('vec_personal.rechazar_mutacion_registro_empleado_v1()');
+ rol_valido boolean;
 BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
- OR current_user<>'vec_personal_propietario'
- OR consumidor IS NULL
- OR to_regprocedure('vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- OR to_regclass('vec_personal.recibo_consulta_rpt_publica_v2') IS NOT NULL
- OR to_regprocedure('vec_personal.rechazar_mutacion_registro_empleado_v1()') IS NULL
- OR NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
- OR NOT has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE')
- OR (SELECT proowner FROM pg_proc WHERE oid=consumidor) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
- OR (SELECT prosecdef FROM pg_proc WHERE oid=consumidor) IS NOT TRUE
- THEN RAISE EXCEPTION 'Personal39: preimagen AD214/Personal incompatible' USING ERRCODE='55000'; END IF;
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_ejecutor'
+ OR current_user<>'vec_personal_propietario' THEN
+  RAISE EXCEPTION 'PARO clave=P39.entorno, esperado=PG18/vec_personal_propietario, obtenido=%/%',
+   current_setting('server_version_num'),current_user USING ERRCODE='55000'; END IF;
+ IF consumidor IS NULL THEN
+  RAISE EXCEPTION 'PARO clave=P39.fachada_rpt, esperado=presente, obtenido=ausente' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=consumidor) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
+ OR (SELECT prosecdef FROM pg_proc WHERE oid=consumidor) IS NOT TRUE THEN
+  RAISE EXCEPTION 'PARO clave=P39.fachada_owner_definer, esperado=AD_propietario/true, obtenido=%/%',
+   (SELECT proowner::regrole::text FROM pg_proc WHERE oid=consumidor),
+   (SELECT prosecdef FROM pg_proc WHERE oid=consumidor) USING ERRCODE='55000'; END IF;
+ IF NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
+ OR NOT has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE') THEN
+  RAISE EXCEPTION 'PARO clave=P39.fachada_acl, esperado=USAGE/EXECUTE, obtenido=%/%',
+   has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE'),
+   has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE') USING ERRCODE='55000'; END IF;
+ IF guardia IS NULL OR (SELECT proowner FROM pg_proc WHERE oid=guardia) IS DISTINCT FROM 'vec_personal_propietario'::regrole
+ OR (SELECT prorettype FROM pg_proc WHERE oid=guardia) IS DISTINCT FROM 'trigger'::regtype THEN
+  RAISE EXCEPTION 'PARO clave=P39.historia_inmutable, esperado=guardia Personal propietaria/trigger, obtenido=%/%',
+   guardia IS NOT NULL,(SELECT prorettype::regtype::text FROM pg_proc WHERE oid=guardia) USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ OR to_regclass('vec_personal.recibo_consulta_rpt_publica_v2') IS NOT NULL THEN
+  RAISE EXCEPTION 'PARO clave=P39.historia_preexistente, esperado=funcion_ausente/tabla_ausente, obtenido=%/%',
+   to_regprocedure('vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+   to_regclass('vec_personal.recibo_consulta_rpt_publica_v2') IS NOT NULL USING ERRCODE='55000'; END IF;
+ SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_ejecutor'
    AND NOT(rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
- OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole) THEN
-  RAISE EXCEPTION 'Personal39: rol de ejecución incompatible' USING ERRCODE='55000'; END IF;
+   AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=to_regrole('vec_personal_ejecutor'))
+ INTO rol_valido;
+ IF NOT rol_valido THEN
+  RAISE EXCEPTION 'PARO clave=P39.rol_ejecutor, esperado=NOLOGIN_sin_herencia, obtenido=%',rol_valido USING ERRCODE='55000'; END IF;
 END $pre$;
 
 CREATE TABLE vec_personal.recibo_consulta_rpt_publica_v2 (
@@ -64,7 +85,7 @@ DECLARE
  m jsonb; f jsonb; d jsonb; c jsonb; x jsonb; consumo record;
  pub text; corte date; fuente_sha text; q text; material_sha text;
  contexto_canon text; contexto_sha text; recibo text; ahora timestamptz(6);
- campos constant jsonb:='["publicacion","corte","huella"]';
+ campos constant jsonb:='["categorias_pendientes_grupo","corte","esquema","estado","evidencia","fuente","huella_sha256","items","limit","offset","publicacion_ref","resumen","total","vista"]';
 BEGIN
  IF current_user<>'vec_personal_propietario' OR session_user=current_user
  OR current_setting('transaction_isolation')<>'serializable'
@@ -138,8 +159,9 @@ BEGIN
   RAISE EXCEPTION 'Personal39: actor o corte divergente' USING ERRCODE='42501'; END IF;
  pub:=m->>'publicacion_ref'; fuente_sha:=m->>'huella_sha256'; q:=f->>'q';
  material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
- -- JSON de map[string]string del recurso Go: claves alfabéticas y ambitos {}.
- contexto_canon:='{"ambitos":{},"atributos":{"categoria_clave":'||to_jsonb(CASE WHEN f->>'categoria_clave'='' THEN 'sin_filtro' ELSE f->>'categoria_clave' END)::text||
+ -- JSON de map[string]string del recurso Go: claves alfabéticas y ámbito
+ -- de publicación obtenido del servidor, nunca de una ruta o cabecera libre.
+ contexto_canon:='{"ambitos":{"publicacion_ref":'||to_jsonb(pub)::text||'},"atributos":{"categoria_clave":'||to_jsonb(CASE WHEN f->>'categoria_clave'='' THEN 'sin_filtro' ELSE f->>'categoria_clave' END)::text||
   ',"centro_codigo":'||to_jsonb(CASE WHEN f->>'centro_codigo'='' THEN 'sin_filtro' ELSE f->>'centro_codigo' END)::text||
   ',"corte":'||to_jsonb(m->>'corte')::text||
   ',"huella_sha256":'||to_jsonb(fuente_sha)::text||',"limite":'||to_jsonb(f->>'limite')::text||

@@ -1,4 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
+import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { ErrorClienteRPTPublicaV2 } from "./cliente-http-rpt-publica-v2.js";
 
 const textos = await cargarTextos("personal-rpt-v2");
@@ -39,17 +40,21 @@ function estadoFuente(documento, pagina, recargar) {
   const cuerpo = n(documento, "div"); cuerpo.className = "cuerpo-panel";
   const etiqueta = n(documento, "strong", t("estado")); etiqueta.className = "estado-avisado";
   cuerpo.append(etiqueta); panel.append(cuerpo);
-  const resumen = n(documento, "div"); resumen.className = "rejilla-kpi";
-  for (const [clave, valor, vista] of [
-    ["filas", pagina.resumen.puestos, "puestos"], ["dotaciones", pagina.resumen.dotacion, "puestos"],
-    ["categorias_resumen", pagina.resumen.categorias, "categorias"],
+  const resumen = n(documento, "div"); resumen.className = "rejilla-kpi rejilla-kpi--compacta";
+  for (const [clave, valor, vista, marca] of [
+    ["filas", pagina.resumen.puestos, "puestos", "documento"],
+    ["dotaciones", pagina.resumen.dotacion, "puestos", "grafico"],
+    ["categorias_resumen", pagina.resumen.categorias, "categorias", "reglas"],
   ]) {
-    const tarjeta = n(documento, "section"); tarjeta.className = "tarjeta-kpi";
-    const abrir = n(documento, "button"); abrir.type = "button"; abrir.dataset.personalRptV2Resumen = clave;
-    abrir.append(n(documento, "strong", numero(valor)), n(documento, "span", t(clave)));
+    const abrir = n(documento, "button"); abrir.type = "button"; abrir.className = "tarjeta-kpi"; abrir.dataset.personalRptV2Resumen = clave;
+    const pictograma = n(documento, "span"); pictograma.className = "icono-kpi"; pictograma.setAttribute("aria-hidden", "true");
+    pictograma.innerHTML = icono(marca);
+    const cifras = n(documento, "span");
+    const valorVisible = n(documento, "strong", numero(valor)); valorVisible.className = "valor-kpi";
+    const etiquetaVisible = n(documento, "span", t(clave)); etiquetaVisible.className = "etiqueta-kpi";
+    cifras.append(valorVisible, etiquetaVisible); abrir.append(pictograma, cifras);
     abrir.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }));
-    tarjeta.append(abrir);
-    resumen.append(tarjeta);
+    resumen.append(abrir);
   }
   return [panel, resumen];
 }
