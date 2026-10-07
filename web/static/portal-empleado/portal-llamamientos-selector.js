@@ -1,4 +1,4 @@
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 /** La lectura autorizada de Bolsa ofrece las bolsas vigentes; emitir se autoriza al confirmar. */
 export function bolsasVigentesParaLlamamiento(estadoBolsas) {

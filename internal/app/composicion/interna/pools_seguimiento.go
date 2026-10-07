@@ -17,6 +17,7 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // MaterialPoolSeguimiento se entrega desde el inventario privado del arranque.
@@ -161,7 +162,7 @@ func AbrirPoolsSeguimiento(ctx context.Context, material MaterialPoolsSeguimient
 	}
 	pools := make([]*pgxpool.Pool, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
-		pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+		pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 		if err != nil {
 			cerrarPoolsSeguimiento(pools)
 			return salida, ErrPoolsSeguimientoNoDisponibles

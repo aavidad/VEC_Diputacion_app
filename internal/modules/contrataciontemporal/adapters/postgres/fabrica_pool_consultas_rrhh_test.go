@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -15,19 +17,18 @@ func TestFabricaPoolConsultasRRHHLigaLoginNominalExclusivo(t *testing.T) {
 		"?host=/tmp/vec-ct46-socket-inexistente" +
 		"&port=5432&user=" + login + "&sslmode=disable"
 
+	configuracion, err := pgxpool.ParseConfig(cadena)
+	if err != nil || configuracion.ConnConfig.User != login || !loginNominalConsultaRRHHValido(login) {
+		t.Fatalf("configuración no ligada al LOGIN nominal: %v", err)
+	}
 	pool, err := nuevoPoolConsultasRRHHPostgreSQL(
 		context.Background(),
 		cadena,
 		login,
 		modoTLSAcreditacionPoolO405SocketUnixPrueba,
 	)
-	if err != nil {
-		t.Fatalf("crear pool nominal de prueba: %v", err)
-	}
-	defer pool.Cerrar()
-	if pool.iniciador == nil || pool.iniciador.loginNominal != login ||
-		pool.pool.Config().ConnConfig.User != login {
-		t.Fatal("el pool no quedó ligado al LOGIN nominal")
+	if pool != nil || !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("pool nominal sin conexión aceptado: pool=%v err=%v", pool, err)
 	}
 
 	if _, err := nuevoPoolConsultasRRHHPostgreSQL(
