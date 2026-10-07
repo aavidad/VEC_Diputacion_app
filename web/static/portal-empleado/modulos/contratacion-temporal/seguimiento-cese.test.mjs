@@ -5,7 +5,6 @@ import {
   validarConsultaSeguimientoCese, validarReciboSeguimiento, validarSolicitudCese, validarSolicitudCierre, validarSolicitudModificacion,
 } from "./cliente-http-seguimiento-cese.js";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese, rutaSeguimientoCeseNoMontada } from "./seguimiento-cese.js";
-import { crearConsultaSeguimientoCompartida } from "./vista-expedientes.js";
 
 const EXP = "expediente:cese:001";
 const cese = Object.freeze({ expediente_ref: EXP, version_esperada: 7, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174000",
@@ -84,27 +83,28 @@ function contenedorFalso() {
 const esperar = () => new Promise((r) => setImmediate(r));
 const contexto = Object.freeze({ expediente_ref: EXP, version: 7, fase_clave: "nombramiento", estado_clave: "en_curso" });
 
-test("panel y reincorporación comparten un solo POST de lectura por ficha", async () => {
+test("el panel comunica cada lectura correcta, incluso tras reintentar un fallo", async () => {
   let lecturas = 0;
-  let signalLeida;
+  const comunicadas = [];
   const cliente = { consultarSeguimientoCese: async (ref, { signal }) => {
     assert.equal(ref, EXP);
-    signalLeida = signal;
+    assert.ok(signal instanceof AbortSignal);
     lecturas++;
-    if (lecturas > 1) throw Object.assign(new Error("lectura duplicada"), { estado: 403 });
+    if (lecturas === 1) throw Object.assign(new Error("temporal"), { estado: 503 });
     return validarConsultaSeguimientoCese(consulta(), EXP);
   } };
-  const compartida = crearConsultaSeguimientoCompartida(cliente, EXP);
   const contenedor = contenedorFalso();
   const desmontar = montarPanelSeguimientoCese({ contenedor, cliente, contexto,
-    consultaInicial: () => compartida.consultar() });
-  const paraReincorporacion = await compartida.consultar();
+    alConsultar: (datos) => comunicadas.push(datos) });
   await esperar();
   assert.equal(lecturas, 1);
-  assert.equal(paraReincorporacion.estado.expediente_ref, EXP);
-  assert.match(contenedor.innerHTML, /data-ct-seg-form="cese"/u);
-  compartida.cancelar();
-  assert.equal(signalLeida.aborted, true);
+  assert.equal(comunicadas.length, 0);
+  assert.match(contenedor.innerHTML, /data-ct-seg-reintentar/u);
+  contenedor.eventos.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+  await esperar();
+  assert.equal(lecturas, 2);
+  assert.equal(comunicadas.length, 1);
+  assert.equal(comunicadas[0].estado.expediente_ref, EXP);
   desmontar();
 });
 

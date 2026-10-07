@@ -36,15 +36,14 @@ export function rutaSeguimientoCeseNoMontada(error) {
 
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
-  confirmarOperacion = () => false, alConfirmar = () => {},
-  generarClave = () => globalThis.crypto?.randomUUID?.(), avisoInicial = null, consultaInicial = null,
+  confirmarOperacion = () => false, alConfirmar = () => {}, alConsultar = () => {},
+  generarClave = () => globalThis.crypto?.randomUUID?.(), avisoInicial = null,
 } = {}) {
   if (!contenedor || typeof cliente?.consultarSeguimientoCese !== "function" || !contexto) throw new TypeError("panel de seguimiento no disponible");
   const t = crearTraductorSeguimientoCese(mensajes);
   const controlador = new AbortController();
   const claves = new Map();
   let datos = null;
-  let consultaInicialPendiente = consultaInicial;
   let ocupado = false;
   let ayudaAbierta = false;
   // Al volver a montar el panel tras un registro, el recibo sigue a la vista.
@@ -178,14 +177,12 @@ export function montarPanelSeguimientoCese({
     datos = null;
     pintar();
     try {
-      const consultar = consultaInicialPendiente;
-      consultaInicialPendiente = null;
-      datos = await (typeof consultar === "function" ? consultar()
-        : cliente.consultarSeguimientoCese(contexto.expediente_ref, { signal: controlador.signal }));
+      datos = await cliente.consultarSeguimientoCese(contexto.expediente_ref, { signal: controlador.signal });
     } catch (error) {
       if (controlador.signal.aborted) return;
       datos = rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
     }
+    if (!controlador.signal.aborted && !datos?.ausente && !datos?.error) alConsultar(datos);
     pintar();
   }
 

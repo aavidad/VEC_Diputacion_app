@@ -119,20 +119,6 @@ export function contextoPlantillasPublicadasDesdeEstado(estado) {
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
-// Una ficha comparte la lectura inicial de seguimiento entre el panel de cese
-// y la comprobación condicional de reincorporación. Cada repintado crea otra.
-export function crearConsultaSeguimientoCompartida(cliente, expedienteRef) {
-  const controlador = new AbortController();
-  let lectura = null;
-  return Object.freeze({
-    consultar() {
-      if (!lectura) lectura = cliente.consultarSeguimientoCese(expedienteRef, { signal: controlador.signal });
-      return lectura;
-    },
-    cancelar() { controlador.abort(); },
-  });
-}
-
 export async function montarModuloContratacionTemporal({
   raiz,
   presentador,
@@ -225,7 +211,6 @@ export async function montarModuloContratacionTemporal({
   let desmontarBorradoresPublicados = null;
   let zonaAuditoriaComun = null;
   let controladorCapacidadReincorporacion = null;
-  let consultaSeguimientoCompartida = null;
   let avisoSeguimientoCese = null;
   let secuenciaInterfaz = 0;
   const clienteSeguimientoCese = typeof clienteLlamamiento?.seguimientoCese?.consultarSeguimientoCese === "function"
@@ -318,44 +303,46 @@ export async function montarModuloContratacionTemporal({
 
   // La ficha y el cese proceden de consultas CT autorizadas. El GET de
   // capacidad decide aparte si esta identidad puede registrar el efecto.
-  function montarReincorporacionSiProcede(estado, consultarSeguimiento) {
+  function montarReincorporacionSiProcede(estado, seguimiento) {
+    retirarReincorporacion();
     const contexto = contextoSeguimientoCeseDesdeEstado(estado);
-    if (!clienteReincorporacion || typeof consultarSeguimiento !== "function" || !contexto) return;
+    if (!clienteReincorporacion || !contexto
+      || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
+      || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!zona) return;
     const controlador = new AbortController();
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
-    void consultarSeguimiento()
-      .then(async (seguimiento) => {
-        if (seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
-          || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion"
-          || controlador.signal.aborted) return null;
-        const puedeRegistrar = await clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
-        return { puedeRegistrar, seguimiento };
-      }).then((decision) => {
-        if (!decision) return;
-        const { puedeRegistrar, seguimiento } = decision;
+    if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "consultando";
+    void Promise.resolve().then(() => {
+      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador) return null;
+      return clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
+    })
+      .then((puedeRegistrar) => {
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
-          || puedeRegistrar !== true || !zona.isConnected
-          || seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
-          || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+          || !zona.isConnected) return;
         const actual = presentador.obtenerEstado();
         if (actual.carga !== "listo" || actual.vista !== "expediente"
           || actual.expediente?.expediente_ref !== expediente.expediente_ref
           || actual.expediente?.version !== expediente.version_esperada) return;
+        if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = puedeRegistrar === true ? "permitida" : "denegada";
+        if (puedeRegistrar !== true) return;
         const contenedor = raiz.ownerDocument.createElement("div");
         contenedor.dataset.ctExpReincorporacionTitular = "";
         zona.append(contenedor);
         desmontarReincorporacion = montarFormularioReincorporacionRRHH({ raiz: contenedor,
           cliente: clienteReincorporacion, expediente, puedeRegistrar: true,
           confirmarOperacion, locale, zonaHoraria });
-      }).catch(() => { /* Sin decisión positiva no se ofrece la escritura. */ });
+      }).catch((error) => {
+        if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+          || !zona.isConnected) return;
+        if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
+        console.warn({ origen: "ct.capacidad_reincorporacion", estado: Number.isInteger(error?.estado) ? error.estado : null });
+      });
   }
 
   function retirarSeguimientoCese() {
-    consultaSeguimientoCompartida?.cancelar();
-    consultaSeguimientoCompartida = null;
     desmontarSeguimientoCese?.();
     desmontarSeguimientoCese = null;
     gestorCancelacion.retirar();
@@ -363,7 +350,7 @@ export async function montarModuloContratacionTemporal({
 
   // Cese, cierre y modificación tras el nombramiento: panel propio que se
   // añade al detalle; tras un registro vuelve a cargar el expediente.
-  function montarSeguimientoCeseSiProcede(estado, consultarSeguimiento) {
+  function montarSeguimientoCeseSiProcede(estado) {
     const contexto = clienteSeguimientoCese ? contextoSeguimientoCeseDesdeEstado(estado) : null;
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona) return;
@@ -376,7 +363,7 @@ export async function montarModuloContratacionTemporal({
     try {
       desmontarSeguimientoCese = montarPanelSeguimientoCese({
         contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion, avisoInicial,
-        consultaInicial: consultarSeguimiento,
+        alConsultar: (seguimiento) => montarReincorporacionSiProcede(estado, seguimiento),
         alConfirmar: async (_recibo, aviso) => {
           avisoSeguimientoCese = aviso ? { expediente_ref: contexto.expediente_ref, aviso } : null;
           try {
@@ -625,13 +612,7 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarFiscalizacionDesdeExpedienteActual();
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
       gestorInformeTrasSubsanacion.montarSiProcede();
-      const contextoSeguimiento = clienteSeguimientoCese ? contextoSeguimientoCeseDesdeEstado(estado) : null;
-      const lecturaCompartida = contextoSeguimiento
-        ? crearConsultaSeguimientoCompartida(clienteSeguimientoCese, contextoSeguimiento.expediente_ref) : null;
-      consultaSeguimientoCompartida = lecturaCompartida;
-      const consultaSeguimiento = lecturaCompartida ? () => lecturaCompartida.consultar() : null;
-      montarSeguimientoCeseSiProcede(estado, consultaSeguimiento);
-      montarReincorporacionSiProcede(estado, consultaSeguimiento);
+      montarSeguimientoCeseSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
