@@ -19,8 +19,16 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "escribir", "")
 		return
 	}
-	// Con sólo la autoridad del lote montada, cualquier otra escritura no existe.
-	if h.lotes != nil && h.actos == nil && p != PrefijoV1+"/lotes-ordinarios" {
+	if p == RutaGobiernoPlanFirma {
+		h.postGobiernoPlanFirma(w, r, s)
+		return
+	}
+	if e, ok := h.efectos[p]; ok {
+		h.postEfectoNominal(w, r, s, e)
+		return
+	}
+	// Sin actos singulares montados sólo existe el lote (si está compuesto).
+	if h.actos == nil && (h.lotes == nil || p != PrefijoV1+"/lotes-ordinarios") {
 		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 		return
 	}

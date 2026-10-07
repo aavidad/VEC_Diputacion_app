@@ -130,6 +130,12 @@ func ObtenerInstantaneaAnalisisDurableO3(
 		expediente,
 		solicitud,
 	)
+	if errors.Is(err, domain.ErrSinCreditoParaOferta) {
+		// No es un fallo de confianza: el expediente es íntegro pero no
+		// tiene crédito para ofrecer. El motivo llega hasta la pantalla.
+		return InstantaneaAnalisisDurableO3{},
+			errors.Join(ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura, err)
+	}
 	if err != nil {
 		return InstantaneaAnalisisDurableO3{},
 			ErrInstantaneaAnalisisDurableNoConfiable
@@ -143,6 +149,9 @@ func nuevaInstantaneaAnalisisDurableO3(
 ) (InstantaneaAnalisisDurableO3, error) {
 	analisisRef, analisisHuella, err :=
 		identidadAnalisisDurableO3(expediente, solicitud)
+	if errors.Is(err, domain.ErrSinCreditoParaOferta) {
+		return InstantaneaAnalisisDurableO3{}, err
+	}
 	if err != nil {
 		return InstantaneaAnalisisDurableO3{},
 			ErrInstantaneaAnalisisDurableNoConfiable
@@ -167,7 +176,6 @@ func identidadAnalisisDurableO3(
 		expediente.Referencia != expedienteRef ||
 		expediente.Version != versionEsperada ||
 		expediente.Analisis == nil ||
-		!expediente.Analisis.HabilitaAvance() ||
 		expediente.Analisis.ActuacionRegistro == nil {
 		return "", "", ErrInstantaneaAnalisisDurableNoConfiable
 	}
@@ -182,6 +190,11 @@ func identidadAnalisisDurableO3(
 	if err != nil || !domain.ReferenciaOpacaValida(vinculo.ReciboRef) ||
 		!huellaSHA256OperacionDecisionCoberturaValida(huella) {
 		return "", "", ErrInstantaneaAnalisisDurableNoConfiable
+	}
+	// El crédito se mira tras comprobar la integridad: un agregado adulterado
+	// sigue siendo «no confiable», nunca «sin crédito».
+	if errCredito := expediente.ErrorSinCreditoParaOferta(); errCredito != nil {
+		return "", "", errCredito
 	}
 	return vinculo.ReciboRef, huella, nil
 }

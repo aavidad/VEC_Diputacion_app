@@ -95,6 +95,13 @@ func TestFirmaVerificacionExigeDocumentosYConfiguracionPrivada(t *testing.T) {
 	if err != nil || verificador == nil || !reflect.DeepEqual(antes, manifiestosShellVEC(cfg)) {
 		t.Fatalf("composicion válida sin rutas propias: verificador=%v error=%v", verificador != nil, err)
 	}
+	// El mismo cliente sirve como verificador acumulado de las vías R5.
+	if verificadorFirmasR5(verificador) == nil {
+		t.Fatal("el cliente GrxFirma no se conserva como verificador de firmas múltiples")
+	}
+	if verificadorFirmasR5(nil) != nil {
+		t.Fatal("sin verificación no hay verificador R5")
+	}
 }
 
 func TestFirmaVerificacionRechazaCredencialesLegiblesYParIncompleto(t *testing.T) {

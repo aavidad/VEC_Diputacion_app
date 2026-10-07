@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -59,7 +60,7 @@ func (c *ConsultaAjustesReglasPostgreSQL) AjustesVigentesEn(ctx context.Context,
 	if err := ctx.Err(); err != nil {
 		return vacio, false, err
 	}
-	consultaCtx, cancelar := context.WithTimeout(ctx, limiteConsultaAjustesCT)
+	consultaCtx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(limiteConsultaAjustesCT))
 	defer cancelar()
 
 	var version int64

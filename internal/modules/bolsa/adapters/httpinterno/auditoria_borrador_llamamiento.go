@@ -10,6 +10,7 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -79,7 +80,7 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 	if respuesta.excedida {
 		estado = http.StatusServiceUnavailable
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), tiempoMaximoAuditoriaBorradorLlamamiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), plazoarranque.Ampliar(tiempoMaximoAuditoriaBorradorLlamamiento))
 	defer cancelar()
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctxAuditoria, a.generador)
 	if err != nil {

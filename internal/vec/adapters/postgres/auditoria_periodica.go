@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -164,7 +165,7 @@ func (f *FuenteCheckpointPeriodicoPostgreSQL) RegistrarFalloCheckpoint(ctx conte
 	if ctx == nil || !ok || f == nil || valorNuloPostgreSQL(f.pool) {
 		return ErrCheckpointPeriodicoPostgreSQL
 	}
-	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(10*time.Second))
 	defer cancel()
 	var a acusePeriodicoSQL
 	return f.transaccion(c, `SELECT vec_autorizacion_atestada_v3.registrar_intento_periodico_v1($1::text,$2::text,$3::text)`, &a, accion, resultado, "correlacion_"+corr)
@@ -176,7 +177,7 @@ func (f *FuenteCheckpointPeriodicoPostgreSQL) transaccion(ctx context.Context, c
 		return err
 	}
 	rollback := func() error {
-		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(3*time.Second))
 		defer cancel()
 		return tx.Rollback(c)
 	}

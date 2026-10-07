@@ -17,6 +17,8 @@ import (
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var errAuditoriaIntentosDesarrollo = errors.New("auditoria.intentos.configuracion_no_disponible")
@@ -132,6 +134,7 @@ func abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx context.Context,
 		}
 		return nil
 	}
+	telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
 		return nil, "", nil, errAuditoriaIntentosDesarrollo

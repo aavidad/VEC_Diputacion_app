@@ -17,6 +17,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
 	control "vec-diputacion-granada/internal/modules/administracion/ports/capturafisica"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var (
@@ -65,7 +66,7 @@ func (c *Capturador) Capturar(ctx context.Context, inv copias.Inventario) (artef
 		if !recuperar {
 			return
 		}
-		recuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(c.Config.TiempoRecuperacionSegundos)*time.Second)
+		recuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(time.Duration(c.Config.TiempoRecuperacionSegundos)*time.Second))
 		defer cancelar()
 		if c.Control.ReanudarPostgreSQL(recuperacion) != nil {
 			err = errors.Join(err, ErrControl)

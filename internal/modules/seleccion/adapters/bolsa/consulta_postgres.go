@@ -13,6 +13,7 @@ import (
 	bolsadomain "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/seleccion/application"
 	"vec-diputacion-granada/internal/modules/seleccion/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresql "vec-diputacion-granada/internal/shared/postgresql"
 )
 
@@ -86,7 +87,7 @@ func (r *RepositorioVersiones) consultar(ctx context.Context, o ports.OrdenConsu
 		return cero, ports.ErrConvocatoriaNoDisponible
 	}
 	defer func() {
-		fin, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		fin, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(fin)
 	}()

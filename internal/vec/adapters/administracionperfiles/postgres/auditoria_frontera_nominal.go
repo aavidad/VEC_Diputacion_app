@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -176,7 +177,7 @@ func (a *AuditorFronteraNominal) RegistrarDenegacionADMIN(ctx context.Context, d
 	if err != nil {
 		return falloFronteraNominal(err)
 	}
-	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.config.Plazo)
+	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(a.config.Plazo))
 	defer cancel()
 	acuse, err := a.registrador.AppendIntentoAuditoria(registroCtx, orden)
 	if errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) {

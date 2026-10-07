@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -30,7 +31,10 @@ func (s *ServicioConsultaComunicacionesExpediente) ConsultarComunicacionesExpedi
 	}
 	p, err := s.lector.ConsultarComunicacionesExpediente(ctx, c)
 	if e := ctx.Err(); e != nil {
-		return vacia, e
+		var auditado ports.FalloLecturaAuditado
+		if !errors.As(err, &auditado) {
+			return vacia, e
+		}
 	}
 	if err != nil {
 		if p.ExpedienteRef != "" || p.Comunicaciones != nil || p.SiguienteCursor != "" {

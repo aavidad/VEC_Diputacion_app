@@ -182,3 +182,22 @@ func TestCheckpointPeriodicoNoDevuelveConfirmadoAnteFallo(t *testing.T) {
 		})
 	}
 }
+
+// Desde AD207 la captura cubre la cabeza sellada, por debajo de su asiento.
+func TestCheckpointPeriodicoAdmiteCabezaSelladaAD207(t *testing.T) {
+	c := capturaPeriodicaPrueba()
+	c.Acuse.Secuencia = 5
+	c.Acuse.HuellaSHA256 = strings.Repeat("9", 64)
+	f := &fuentePeriodicaPrueba{captura: c}
+	p := &proveedorPeriodicoPrueba{}
+	if _, err := CapturarCheckpointPeriodico(context.Background(), f, 10); err != nil {
+		t.Fatalf("cabeza sellada rechazada: %v", err)
+	}
+	if r, err := SellarConfirmarCheckpointPeriodico(context.Background(), f, c, p, p, 10); err != nil || r.Estado != "confirmado" {
+		t.Fatalf("confirmación de cabeza sellada: %v", err)
+	}
+	c.Checkpoint.Cobertura.UltimaSecuencia, c.Checkpoint.Cobertura.Registros = 6, 6
+	if _, err := CapturarCheckpointPeriodico(context.Background(), &fuentePeriodicaPrueba{captura: c}, 10); err == nil {
+		t.Fatal("cobertura por encima del asiento de la captura aceptada")
+	}
+}

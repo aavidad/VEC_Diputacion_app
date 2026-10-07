@@ -35,6 +35,8 @@ type DependenciasPerfiles struct {
 	AudienciaSelector     string
 	SoloUsuariosMetadatos bool
 	Lote                  *LoteADMIN
+	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
+	Efectos               []EfectoNominalMontado
 }
 
 type handlerPerfilesADMIN struct {
@@ -107,6 +109,18 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 	handler, err := constructor(host.origen(), deps.Sesiones, deps.Lecturas, deps.Auditor)
 	if err != nil {
 		return nil, ErrConfiguracion
+	}
+	if !dependenciaComposicionNula(deps.GobiernoPlan) {
+		// El gobierno del plan sólo se monta junto a las lecturas de usuarios.
+		if !deps.SoloUsuariosMetadatos || handler.ConGobiernoPlanFirma(deps.GobiernoPlan) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	for _, e := range deps.Efectos {
+		// Los efectos nominales sólo se montan junto a las lecturas de usuarios.
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(e.Servicio) || handler.ConEfectoNominal(e.Ruta, e.Maximo, e.Servicio) != nil {
+			return nil, ErrConfiguracion
+		}
 	}
 	montaje, err := montarActivosPerfiles(handler, deps, host)
 	if err != nil {

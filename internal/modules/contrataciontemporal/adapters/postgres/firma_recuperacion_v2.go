@@ -11,10 +11,12 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+// CT186: como la consulta, la v3 usa AD210 y CC10.
+const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type recuperacionFirmaSQL175 struct {
 	FirmaRef           string `json:"FirmaRef"`
@@ -63,7 +65,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) RecuperarFirmasAutorizadasV2(ctx c
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de recuperación de firmas V2 no confirmado")

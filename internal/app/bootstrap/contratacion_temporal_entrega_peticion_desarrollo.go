@@ -17,6 +17,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -46,7 +47,7 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 		alta.soporte.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodPost) == nil {
 		return vacia, ports.ErrPeticionCentroNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	desde, _, _ := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{motivoEntregaPeticionDesarrollo()}, desde); err != nil {
@@ -202,7 +203,7 @@ func (p *proveedorEntregaPeticionDesarrollo) registrarDenegacionPreV3(ctx contex
 	if ctx != nil {
 		base = context.WithoutCancel(ctx)
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(base, 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(base, plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if err := p.auditor.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		slog.Warn("denegación previa a V3 no registrada", "ruta", rutaEntregaPeticionCentro)

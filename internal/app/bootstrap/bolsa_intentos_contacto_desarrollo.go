@@ -9,6 +9,7 @@ import (
 	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglas"
 	calendariosdomain "vec-diputacion-granada/internal/modules/calendarios/domain"
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -27,7 +28,7 @@ func componerIntentosContactoBolsaDesarrollo(resolutor *reglas.Resolutor, calend
 	}
 	// Un catálogo con las reglas de intentos incompletas impide arrancar,
 	// igual que un paquete de reglas ilegible.
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if _, _, _, err := politica.PoliticaIntentosTelefonicos(ctx); err != nil {
 		return errors.Join(errReglasEjemploNoValidas, err)

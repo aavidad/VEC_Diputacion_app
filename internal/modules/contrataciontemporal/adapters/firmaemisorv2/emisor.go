@@ -42,6 +42,9 @@ type Emisor struct {
 	emisor EmisorComunV3
 	motivo vd.ReferenciaEntradaCatalogo
 	reloj  vd.RelojVinculoAutenticacionActorV2
+	// autorizacion lee la asignación vigente del perfil activo. Sin ella el
+	// emisor no autoriza firmas: sólo consultas y recuperaciones.
+	autorizacion vp.FuenteAutorizacion
 }
 
 // NuevoEmisor recibe el motivo gobernado y el reloj común en composición.
@@ -51,6 +54,20 @@ func NuevoEmisor(f FuenteContextoActorFirmaV2, e EmisorComunV3, motivo vd.Refere
 		return nil, ports.ErrCompetenciaFirmanteNoDisponible
 	}
 	return &Emisor{fuente: f, emisor: e, motivo: motivo, reloj: reloj}, nil
+}
+
+// NuevoEmisorConAmbitos compone además la fuente común de autorización, de la
+// que salen los ámbitos del recurso de firma (los de la asignación vigente).
+func NuevoEmisorConAmbitos(f FuenteContextoActorFirmaV2, e EmisorComunV3, motivo vd.ReferenciaEntradaCatalogo, reloj vd.RelojVinculoAutenticacionActorV2, autorizacion vp.FuenteAutorizacion) (*Emisor, error) {
+	if nulo(autorizacion) {
+		return nil, ports.ErrCompetenciaFirmanteNoDisponible
+	}
+	x, err := NuevoEmisor(f, e, motivo, reloj)
+	if err != nil {
+		return nil, err
+	}
+	x.autorizacion = autorizacion
+	return x, nil
 }
 
 func (e *Emisor) contexto(ctx context.Context) (ContextoActorFirmaV2, error) {
@@ -88,6 +105,56 @@ func (e *Emisor) ObtenerPerfilActivoOperadorFirmaV2(ctx context.Context) (string
 	return base.Resultado.Contexto.PerfilActivoRef, nil
 }
 
+// ObtenerAmbitosOperadorFirmaV2 devuelve los ámbitos de la asignación vigente
+// del perfil activo revalidado.
+func (e *Emisor) ObtenerAmbitosOperadorFirmaV2(ctx context.Context) (ports.AmbitosOperadorFirmaV2, error) {
+	base, err := e.contexto(ctx)
+	if err != nil {
+		return ports.AmbitosOperadorFirmaV2{}, err
+	}
+	return e.ambitosAsignacion(ctx, base)
+}
+
+// ambitosAsignacion sólo admite organización y, como mucho, unidad, cada una
+// con un único valor: cualquier otra forma no puede ser un recurso de firma.
+func (e *Emisor) ambitosAsignacion(ctx context.Context, base ContextoActorFirmaV2) (ports.AmbitosOperadorFirmaV2, error) {
+	var cero ports.AmbitosOperadorFirmaV2
+	if nulo(e.autorizacion) {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	d, err := base.Vinculo.Datos()
+	if err != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	s, err := e.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, d.PerfilActivoRef)
+	if err != nil || ctx.Err() != nil {
+		return cero, opaco(ctx, err)
+	}
+	a := s.AsignacionPerfil
+	if s.Validar() != nil || a.PrincipalID != d.PrincipalID || a.PerfilActivoRef != d.PerfilActivoRef || !a.VigenteEn(e.reloj.Ahora()) ||
+		len(a.Ambitos) < 1 || len(a.Ambitos) > 2 {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	var r ports.AmbitosOperadorFirmaV2
+	for _, ambito := range a.Ambitos {
+		if len(ambito.Valores) != 1 {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		switch ambito.Clave {
+		case "organizacion_ref":
+			r.OrganizacionRef = ambito.Valores[0]
+		case "unidad_ref":
+			r.UnidadRef = ambito.Valores[0]
+		default:
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+	}
+	if r.OrganizacionRef == "" || (len(a.Ambitos) == 2 && r.UnidadRef == "") {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	return r, nil
+}
+
 func (e *Emisor) AutorizarMaterialFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	return e.autorizarMaterial(ctx, m, r, "descriptor_firma_sha256")
 }
@@ -118,6 +185,15 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	}
 	d, err := base.Vinculo.Datos()
 	if err != nil || d.PerfilActivoRef != m.PerfilActivoOperadorRef {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	// Las dos decisiones, interior y exterior del plan, llevan los ámbitos de
+	// la asignación vigente (AD206 y AD209 los releen en el consumo).
+	esperados, err := e.ambitosAsignacion(ctx, base)
+	if err != nil {
+		return cero, err
+	}
+	if !maps.Equal(r.Ambitos, esperados.Mapa()) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	accion, audiencia := ports.AccionRegistrarFirmaExterna, ports.AudienciaFirmaExternaV2
@@ -177,7 +253,8 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 }
 
 // El descriptor ya fue congelado por AutorizadorNominalFirmaV2. Este puerto
-// recibe su SHA256 y exige la preimagen exacta de RecursoFirmaVerificadaV2.
+// recibe su SHA256 y exige la preimagen exacta de RecursoFirmaVerificadaV2;
+// los ámbitos se cotejan después con la asignación vigente.
 func recursoExacto(m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) bool {
 	return recursoExactoConHuella(m, r, "descriptor_firma_sha256")
 }
@@ -189,7 +266,7 @@ func recursoExactoConHuella(m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutor
 		tipo = ports.TipoRecursoFirmaVec
 	}
 	return (claveHuella == "descriptor_firma_sha256" || claveHuella == "plan_firma_sha256") && err == nil && r.Validar() == nil && r.Referencia == m.RecursoRef() && r.ModuloID == ports.ModuloContratacion && r.Tipo == tipo &&
-		maps.Equal(r.Ambitos, map[string]string{"organizacion_ref": m.OrganizacionRef}) && len(r.Atributos) == 2 &&
+		r.Ambitos["organizacion_ref"] == m.OrganizacionRef && len(r.Atributos) == 2 &&
 		r.Atributos["material_sha256"] == h && ctdomain.HuellaSHA256FirmaValida(r.Atributos[claveHuella])
 }
 

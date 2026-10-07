@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -37,7 +38,7 @@ func (f *Fuente) registrarFallo(ctx context.Context, evidencia domain.EvidenciaS
 		return ports.ErrLecturaUsuariosAdministrablesNoDisponible
 	}
 	base := context.WithoutCancel(ctx)
-	registroCtx, cancel := context.WithTimeout(base, 2*time.Second)
+	registroCtx, cancel := context.WithTimeout(base, plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	acuse, err := f.intentos.AppendIntentoAuditoria(registroCtx, orden)
 	if errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) {

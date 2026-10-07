@@ -28,6 +28,7 @@ import (
 	pa "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
 	pl "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -409,7 +410,7 @@ func consultaLecturaGobiernoV3(pool *pgxpool.Pool, sql string) consultaGobiernoV
 		if pool == nil || ctx == nil {
 			return nil, errGobiernoV3
 		}
-		sonda, cancelar := context.WithTimeout(ctx, limiteConsultaGobiernoV3)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(limiteConsultaGobiernoV3))
 		defer cancelar()
 		var respuesta []byte
 		if err := pool.QueryRow(sonda, sql, material).Scan(&respuesta); err != nil {
@@ -424,7 +425,7 @@ func comprobacionMaterialGobiernoV3(pool *pgxpool.Pool, sql string) comprobacion
 		if pool == nil || ctx == nil {
 			return false, errGobiernoV3
 		}
-		sonda, cancelar := context.WithTimeout(ctx, limiteConsultaGobiernoV3)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(limiteConsultaGobiernoV3))
 		defer cancelar()
 		var vigente bool
 		if err := pool.QueryRow(sonda, sql, material).Scan(&vigente); err != nil {
@@ -651,7 +652,7 @@ func abrirPool(ctx context.Context, m PoolMaterial, p perfilPool) (*pgxpool.Pool
 	if err != nil {
 		return nil, ErrProveedoresCTNoDisponibles
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if pool.Ping(sonda) != nil {
 		pool.Close()

@@ -16,6 +16,7 @@ import (
 
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	ctadapter "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -318,7 +319,7 @@ func borrarPiezasAlta(piezas [][]byte) {
 }
 func revertirTransaccionAlta(tx pgx.Tx) {
 	if tx != nil {
-		ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(ctx)
 	}

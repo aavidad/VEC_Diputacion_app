@@ -35,7 +35,7 @@ func newHandlerIntegradoConHashTeselasOSM(cfg config.Config, api http.Handler, c
 	cfg = cfg.Normalize()
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
-	estaticos := staticHandler(false)
+	estaticos := staticHandler()
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
 	registrarDirectorioAplicacion(mux, estaticos, "bolsa")

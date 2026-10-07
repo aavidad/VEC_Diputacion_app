@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -54,7 +55,7 @@ func (a *AuditorFronteraCompuesto) RegistrarDenegacionADMIN(ctx context.Context,
 		return ports.ErrFronteraAdminTecnicaNoDisponible
 	}
 	e := ports.EventoFronteraAdminTecnica{TipoRegistro: "frontera_admin_tecnica", EventoRef: evento, OperadorLogin: a.tecnico.login, Accion: "controlar_frontera_admin_v1", RecursoRef: recurso, Resultado: resultado, CodigoRef: d.Codigo, Proceso: a.tecnico.config.Proceso, Canal: a.tecnico.config.Canal, FinalidadRef: "control_frontera_admin", CorrelacionRef: ref}
-	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.tecnico.config.Plazo)
+	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(a.tecnico.config.Plazo))
 	defer cancel()
 	acuse, err := a.tecnico.AppendFronteraAdminTecnica(registroCtx, e)
 	if errors.Is(err, ports.ErrFronteraAdminTecnicaCommitIncierto) {

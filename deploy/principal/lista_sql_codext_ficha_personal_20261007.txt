@@ -1,0 +1,6 @@
+# Reanclaje de la ficha propia. AD74 histórica no se aplica ni se modifica.
+# Ejecutar sólo tras medir la preimagen final de núcleo y CHECK en PostgreSQL 18,
+# revisar AD211 y obtener ENSAYO-OK sobre copia aislada de la principal.
+# Personal22 consume la fachada nominal de AD211; ambas se aplican una sola vez.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000211_consumidor_ficha_propia_reanclado.up.sql
+deploy/postgresql/personal/migraciones/000022_ficha_propia_empleado.up.sql

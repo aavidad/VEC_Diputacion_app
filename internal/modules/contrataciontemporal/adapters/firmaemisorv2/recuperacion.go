@@ -35,6 +35,9 @@ func (e *Emisor) AutorizarRecuperacionFirmasV2(ctx context.Context, m ports.Mate
 	if err != nil {
 		return cero, err
 	}
+	if err := e.cotejarAmbitosConsulta(ctx, base, recurso); err != nil {
+		return cero, err
+	}
 	correlacion, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada

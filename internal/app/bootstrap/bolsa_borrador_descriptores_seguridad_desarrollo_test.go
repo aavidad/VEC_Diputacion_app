@@ -205,6 +205,18 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarDatosContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
 		t.Fatal("registro B4 no conservó la política Bolsa completa")
 	}
+	// GET datos-contacto: solo la acción propia de consulta, nunca la de registro.
+	if p, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarDatosContactoParticipacion, claveFronteraConsultarDatosContactoBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadConsultarDatosContactoBolsa); !ok || !p.valida() {
+		t.Fatal("la consulta B4 no tiene su política Bolsa")
+	}
+	for _, capacidad := range []string{claveCapacidadConsultarDatosContactoBolsa, claveCapacidadSituacionParticipacionBolsa} {
+		if _, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarDatosContactoParticipacion, claveFronteraConsultarDatosContactoBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, capacidad); ok {
+			t.Fatal("GET datos-contacto admite la acción de registro")
+		}
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarDatosContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); ok {
+		t.Fatal("POST de situación admite la consulta de datos de contacto")
+	}
 	for _, caso := range []struct{ accion, frontera, capacidad string }{
 		{puertosbolsa.AccionCrearBorradorLlamamientoInterno, claveFronteraConsultarBorradorLlamamientoBolsa, claveCapacidadConsultarBorradorLlamamientoBolsa},
 		{puertosbolsa.AccionConsultarBorradorLlamamientoInterno, claveFronteraCrearBorradorLlamamientoBolsa, claveCapacidadCrearBorradorLlamamientoBolsa},
@@ -255,8 +267,8 @@ func TestReincorporacionTitularTieneFronteraYAccionDeLecturaPropias(t *testing.T
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := append(descriptoresMaterialBorradorLlamamientoBolsaDesarrollo(), descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
-	if len(descriptores) != 10 {
-		t.Fatalf("materiales = %d, se esperan 10", len(descriptores))
+	if len(descriptores) != 11 {
+		t.Fatalf("materiales = %d, se esperan 11", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {

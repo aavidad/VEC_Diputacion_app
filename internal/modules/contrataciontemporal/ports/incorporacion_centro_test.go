@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -83,5 +84,49 @@ func TestReciboYEstadoDeLaIncorporacionAcreditada(t *testing.T) {
 	e.GINPIX.ConfirmadaEn = "2027-02-28"
 	if !e.Valido() {
 		t.Fatal("estado válido rechazado")
+	}
+}
+
+// Una sustitución sin fecha de fin guarda en la petición causa_fin y
+// politica_fin. La bandeja del centro las recibía como claves desconocidas,
+// el adaptador estricto rechazaba la fila y la consulta respondía 503.
+func TestBandejaCentroAdmitePeriodoSinFechaDeFin(t *testing.T) {
+	fila := func(periodo string) []byte {
+		return []byte(`{"peticion_ref":"peticion:centro:1","expediente_ref":"expediente:ct:1","numero_visible":"2026/91101",` +
+			`"version":1,"fase":"solicitud","estado":"en_curso","modalidad_clave":null,"categoria_ref":"categoria:desarrollo:c2",` +
+			`"periodo":` + periodo + `,"confirmacion":null}`)
+	}
+	decodificar := func(b []byte) (ExpedienteIncorporacionCentro, error) {
+		var e ExpedienteIncorporacionCentro
+		d := json.NewDecoder(bytes.NewReader(b))
+		d.DisallowUnknownFields()
+		return e, d.Decode(&e)
+	}
+	sinFin := `{"inicio":"2026-11-02T00:00:00Z","causa_fin":"reincorporacion_titular","politica_fin":{"causa_fin":"reincorporacion_titular",` +
+		`"fecha_fin":"no_aplica","regla_ref":"vec.contratacion_temporal.reglas:3:c12.modalidad.sustitucion","catalogo_version":3,` +
+		`"catalogo_huella_sha256":"99fe337dbb923df313480a3f6712a134eb3cadffc9bcdd0a673129ca748f2d39"}}`
+	e, err := decodificar(fila(sinFin))
+	if err != nil || !e.Valido() || e.Periodo == nil || e.Periodo.CausaFin != "reincorporacion_titular" || e.Periodo.Fin != "" {
+		t.Fatalf("periodo sin fecha de fin rechazado: %+v %v", e.Periodo, err)
+	}
+	salida, err := json.Marshal(e.Periodo)
+	if err != nil || string(salida) != `{"inicio":"2026-11-02T00:00:00Z","causa_fin":"reincorporacion_titular"}` {
+		t.Fatalf("el centro no debe recibir la política del periodo: %s %v", salida, err)
+	}
+	e, err = decodificar(fila(`{"inicio":"2026-11-01T00:00:00Z","fin":"2026-12-31T00:00:00Z"}`))
+	if err != nil || !e.Valido() || e.Periodo.Fin != "2026-12-31T00:00:00Z" || e.Periodo.CausaFin != "" {
+		t.Fatalf("periodo con fecha de fin rechazado: %+v %v", e.Periodo, err)
+	}
+	for nombre, periodo := range map[string]string{
+		"clave desconocida":        `{"inicio":"2026-11-02T00:00:00Z","fin":"2026-12-31T00:00:00Z","otra":1}`,
+		"política incompleta":      `{"inicio":"2026-11-02T00:00:00Z","causa_fin":"reincorporacion_titular","politica_fin":{"fecha_fin":"no_aplica"}}`,
+		"política con clave ajena": `{"inicio":"2026-11-02T00:00:00Z","causa_fin":"x1","politica_fin":{"otra":1}}`,
+	} {
+		if _, err := decodificar(fila(periodo)); err == nil {
+			t.Fatalf("%s aceptada", nombre)
+		}
+	}
+	if e, err := decodificar(fila(`{"inicio":"2026-11-02T00:00:00Z","causa_fin":"Causa Libre"}`)); err != nil || e.Valido() {
+		t.Fatalf("causa de fin con forma inválida aceptada: %v", err)
 	}
 }

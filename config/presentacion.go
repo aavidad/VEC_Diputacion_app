@@ -1,8 +1,9 @@
 package config
 
-// Este perfil nunca se selecciona por omision y no comparte la composicion de
-// desarrollo. Su unico fin es servir el artefacto desechable para la revision
-// funcional de RRHH con datos sinteticos.
+// Perfil residual de la presentación RRHH de julio. Su binario y su artefacto se
+// retiraron el 06/10/2026; solo lo usan las pruebas de la API heredada de
+// demostración (nuevaAPIDemo), que no tiene otro perfil no productivo. Se
+// retirará junto con esa API. Nunca se selecciona por omision.
 const (
 	ExecutionProfileRRHHPresentation = "presentacion_rrhh"
 

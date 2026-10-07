@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/meritos/application"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -73,7 +74,7 @@ func (r *Registro) EjecutarOperacion(ctx context.Context, orden ports.OrdenOpera
 }
 
 func revertir(tx pgx.Tx) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	_ = tx.Rollback(ctx)
 }

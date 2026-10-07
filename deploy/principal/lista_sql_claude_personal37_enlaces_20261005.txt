@@ -1,0 +1,4 @@
+# Personal37: corrige las dos CHECK de enlace_cargo_competencial_historia (Personal28) que usaban la
+# repetición {2,511}, que PostgreSQL no admite: ningún enlace de cargo se podía insertar. Requiere
+# Personal28. No toca la fachada. Una sola vez; sin DOWN.
+deploy/postgresql/personal/migraciones/000037_restricciones_enlace_cargo.up.sql

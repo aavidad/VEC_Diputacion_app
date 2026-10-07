@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ import (
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosmodule "vec-diputacion-granada/internal/modules/usuarios"
 	"vec-diputacion-granada/internal/shared/i18n"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
@@ -85,6 +87,9 @@ func NuevoServidorHTTPSupervisado(cfg config.Config, emisor vecports.EmisorIncid
 
 func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	// Diagnóstico sin efectos: avisa de dependencias de entorno ausentes de
+	// Bolsa y CT antes de cualquier validación que pueda detener el arranque.
+	avisarDependenciasSelectoresBolsaCT(slog.Default(), os.Getenv)
 	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
@@ -493,7 +498,7 @@ func nuevasDependenciasCategoriasProfesionales(
 	if err != nil {
 		return nil, nil, err
 	}
-	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelarValidacion()
 	if _, err := servicio.ListarVigentes(ctxValidacion); err != nil {
 		return nil, nil, errors.Join(errors.New("bootstrap: catalogo profesional gobernado incompatible"), err)

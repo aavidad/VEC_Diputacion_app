@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -782,7 +783,9 @@ func (c calculadorCosteModificacionDesarrollo) CalcularCosteModificacion(ctx con
 // nuevasRutasSeguimientoCeseDesarrollo compone las cuatro rutas cuando se han
 // declarado los catálogos, y la confirmación de GINPIX si la incorporación
 // acreditada está encendida. Sin ellos, no hay rutas: la conducta es la de hoy.
-func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *dependenciasAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
+// finPersonal, opcional, termina en Personal B2 la relación del expediente
+// después de cada cese confirmado; nil conserva el cese solo de CT.
+func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *dependenciasAltaContratacionTemporalDesarrollo, finPersonal *finCesePersonalB2Desarrollo) ([]vechttp.RutaExacta, error) {
 	if dependencias == nil || !seguimientoCeseSolicitado(dependencias.cfg) {
 		return nil, nil
 	}
@@ -817,7 +820,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("resolutor", err)
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var preparador *aplicacionvec.ServicioPreparacionSolicitudLigadaV3
 	if reincorporacion {
@@ -917,7 +920,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("servicio", err)
 	}
-	manejadores, err := httpinterno.NuevosManejadoresSeguimiento(autoridad, autoridad, servicio)
+	manejadores, err := httpinterno.NuevosManejadoresSeguimiento(autoridad, autoridad, finPersonal.envolver(servicio, repositorio))
 	if err != nil {
 		return fallar("http", err)
 	}
