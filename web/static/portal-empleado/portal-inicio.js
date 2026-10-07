@@ -222,6 +222,12 @@ export function crearVistaInicioPortal({
       ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
       : accesoCT?.estado === "cargando"
         ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_comprobando_accesos")}</p>`
+        : accesoCT?.estado === "no_disponible" && obtenerCatalogo().some((modulo) => modulo.clave === "contratacion_temporal")
+          ? `<section class="panel" role="status" aria-labelledby="inicio-ct-no-disponible">
+              <div class="cabecera-panel"><h3 id="inicio-ct-no-disponible">${t("contratacion_temporal_titulo")}</h3></div>
+              <div class="cuerpo-panel"><p>${t("contratacion_temporal_aviso_no_disponible")}</p>
+                <div class="acciones-vista"><button type="button" class="boton-secundario" data-accion="recargar-fuente">${t("txt_reintentar")}</button></div>
+              </div></section>`
         : (disponibleCT && !resumen ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>` : "");
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "Europe/Madrid" }).format(ahora());
     const indicadores = [

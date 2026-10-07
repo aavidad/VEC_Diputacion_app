@@ -35,7 +35,7 @@ func NuevoRepositorioTarifasProvisionales(pool *pgxpool.Pool) (*RepositorioTarif
 }
 
 const consultaTarifaComisionProvisional = `
-SELECT v.version_ref,v.rotulo,d.pais_iso2,d.grupo,
+SELECT v.version_ref,v.rotulo,v.referencia_dietas,v.referencia_km,d.pais_iso2,d.grupo,
        v.vigente_desde::text,coalesce(v.vigente_hasta::text,''),
        (d.manutencion_eur*100)::bigint,(d.alojamiento_eur*100)::bigint,
        k.eur_por_km::text
@@ -83,13 +83,15 @@ func (r *RepositorioTarifasProvisionales) Consultar(ctx context.Context, version
 	var tarifa TarifaComisionProvisional
 	var grupoLeido int
 	err := r.consulta.QueryRow(ctx, consultaTarifaComisionProvisional, version, grupo, vehiculo, fecha.Format("2006-01-02")).Scan(
-		&tarifa.Dieta.VersionRef, &tarifa.Dieta.Rotulo, &tarifa.Dieta.PaisISO2, &grupoLeido,
+		&tarifa.Dieta.VersionRef, &tarifa.Dieta.Rotulo, &tarifa.ReferenciaDietas, &tarifa.ReferenciaKilometraje,
+		&tarifa.Dieta.PaisISO2, &grupoLeido,
 		&tarifa.Dieta.VigenteDesde, &tarifa.Dieta.VigenteHasta,
 		&tarifa.Dieta.ManutencionCentimos, &tarifa.Dieta.AlojamientoTopeCentimos, &tarifa.EURPorKM,
 	)
 	if err != nil || ctx.Err() != nil || grupoLeido != grupo || tarifa.Dieta.VersionRef != version ||
 		tarifa.Dieta.Rotulo != domain.RotuloTarifaProvisional || tarifa.Dieta.PaisISO2 != "ES" ||
-		tarifa.Dieta.ManutencionCentimos < 1 || tarifa.Dieta.AlojamientoTopeCentimos < 1 {
+		tarifa.Dieta.ManutencionCentimos < 1 || tarifa.Dieta.AlojamientoTopeCentimos < 1 ||
+		!tarifa.ReferenciasNormativasValidas() {
 		return vacia, ErrTarifaProvisionalNoDisponible
 	}
 	tarifa.Dieta.Grupo = grupoLeido

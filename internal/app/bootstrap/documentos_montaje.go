@@ -564,7 +564,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return incidencias
 	})
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("firma_verificacion", err)
 	}
 	if !activo {
 		return nil, nil

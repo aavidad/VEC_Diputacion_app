@@ -93,9 +93,15 @@ func (p *PreparadorComision) Preparar(ctx context.Context, s ports.SolicitudCrea
 		calculo.TramosRuta = append(calculo.TramosRuta, domain.TramoRutaComision{OrigenCodigo: s.CodigosRuta[i], DestinoCodigo: s.CodigosRuta[i+1], Kilometros: decimal4Comision(decimas)})
 	}
 	calculo.Kilometros = decimal4Comision(total)
+	var fuenteDietas, fuenteKilometraje string
 	for grupo := 1; grupo <= 3; grupo++ {
 		tarifa, e := p.tarifas.Consultar(ctx, regla.VersionTarifaRef, grupo, "automovil", fechaTarifa)
-		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa {
+		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa || !tarifa.ReferenciasNormativasValidas() {
+			return s, domain.ErrTramosProvisionalesNoDisponibles
+		}
+		if grupo == 1 {
+			fuenteDietas, fuenteKilometraje = tarifa.ReferenciaDietas, tarifa.ReferenciaKilometraje
+		} else if tarifa.ReferenciaDietas != fuenteDietas || tarifa.ReferenciaKilometraje != fuenteKilometraje {
 			return s, domain.ErrTramosProvisionalesNoDisponibles
 		}
 		t, e := domain.CalcularTramosNacionalesProvisionales(inicio, fin, zona, tarifa.Dieta, regla)
