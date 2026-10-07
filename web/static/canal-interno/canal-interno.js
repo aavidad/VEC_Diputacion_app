@@ -25,6 +25,7 @@ const porId = (id) => document.getElementById(id);
 let textos;
 
 function ponerTextos() {
+  porId("ayuda-boton").hidden = false;
   document.documentElement.lang = textos.idioma;
   document.title = textos.traducir("documento");
   document.querySelectorAll("[data-t]").forEach((elemento) => {
@@ -39,6 +40,12 @@ function mostrarError() {
   const estado = porId("estado");
   estado.replaceChildren();
   if (!textos) return;
+  for (const clave of ["saltar", "marca", "idioma", "pie"]) {
+    document.querySelector(`[data-t="${clave}"]`).textContent = textos.traducir(clave);
+  }
+  porId("ayuda-boton").hidden = true;
+  porId("ayuda").hidden = true;
+  porId("ayuda-boton").setAttribute("aria-expanded", "false");
   const mensaje = document.createElement("p");
   mensaje.textContent = textos.traducir("error");
   const reintentar = document.createElement("button");
