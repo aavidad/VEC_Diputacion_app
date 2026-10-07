@@ -53,12 +53,14 @@ DO $body$ BEGIN RAISE NOTICE 'CREATE FUNCTION falsa5() SECURITY DEFINER'; END $b
         for clause in (
             "SET search_path TO 'pg_catalog', 'pg_temp'",
             'SET search_path = "pg_catalog", "pg_temp"',
+            "SET search_path TO 'pg_catalog', 'pg_temp' SET lock_timeout='2s' AS $body$ SELECT 1 $body$",
         ):
             with self.subTest(clause=clause):
-                create = f"CREATE FUNCTION a() RETURNS int SECURITY DEFINER {clause} AS $$ SELECT 1 $$;"
-                alter = f"ALTER ROUTINE a() {clause};"
+                suffix = "" if " AS $body$" in clause else " AS $$ SELECT 1 $$"
+                create = f"CREATE FUNCTION a() RETURNS int SECURITY DEFINER {clause}{suffix};"
                 self.assertEqual(inspect_sql(create, {1}), [])
-                self.assertEqual(inspect_sql(alter, {1}), [])
+                if suffix:
+                    self.assertEqual(inspect_sql(f"ALTER ROUTINE a() {clause};", {1}), [])
         for clause in (
             "SET search_path TO 'pg_temp', 'pg_catalog'",
             "SET search_path TO 'pg_catalog', 'pg_temp', 'public'",
@@ -66,6 +68,10 @@ DO $body$ BEGIN RAISE NOTICE 'CREATE FUNCTION falsa5() SECURITY DEFINER'; END $b
             "SET search_path TO 'pg_catalog', valor_variable",
             "SET search_path TO 'PG_CATALOG', 'pg_temp'",
             'SET search_path TO "pg_catalog", "pg_temp", "public"',
+            "SET search_path TO 'pg_catalog'\n '_extra', 'pg_temp'",
+            "SET search_path TO 'pg_catalog', 'pg_temp'\n ',public'",
+            "SET search_path TO 'pg_catalog', 'pg_temp' || valor_variable",
+            "SET search_path TO 'pg_catalog', 'pg_temp',",
         ):
             with self.subTest(clause=clause):
                 create = f"CREATE FUNCTION a() RETURNS int SECURITY DEFINER {clause} AS $$ SELECT 1 $$;"

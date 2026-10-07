@@ -144,13 +144,22 @@ def is_alter_routine(stmt: list[Token]) -> bool:
 
 def search_path_values(stmt: list[Token]) -> list[list[str]]:
     values: list[list[str]] = []
+    following_options = {
+        "AS", "LANGUAGE", "SECURITY", "PARALLEL", "IMMUTABLE", "STABLE",
+        "VOLATILE", "STRICT", "CALLED", "RETURNS", "LEAKPROOF", "COST",
+        "ROWS", "SUPPORT", "WINDOW", "EXTERNAL", "NOT", "TRANSFORM", "SET",
+    }
     for i in range(len(stmt) - 2):
         if stmt[i].upper != "SET" or stmt[i + 1].upper != "SEARCH_PATH":
             continue
         j = i + 2
         if stmt[j].value == "=" or stmt[j].upper == "TO":
             j += 1
+        else:
+            values.append(["opcion_opaca"])
+            continue
         names: list[str] = []
+        trailing_comma = False
         while j < len(stmt):
             token = stmt[j]
             if token.kind not in ("word", "identifier", "string"):
@@ -159,8 +168,15 @@ def search_path_values(stmt: list[Token]) -> list[list[str]]:
             j += 1
             if j < len(stmt) and stmt[j].value == ",":
                 j += 1
+                trailing_comma = True
                 continue
+            trailing_comma = False
             break
+        # Dos literales separados por salto de línea se unen en PostgreSQL.
+        # Una vez leídos los dos nombres, sólo puede seguir otra opción de la
+        # función o el final de la sentencia; cualquier resto es opaco.
+        if trailing_comma or (j < len(stmt) and stmt[j].upper not in following_options):
+            names.append("opcion_opaca")
         values.append(names)
     return values
 
