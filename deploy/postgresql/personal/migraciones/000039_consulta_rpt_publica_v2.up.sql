@@ -1,11 +1,12 @@
 \set ON_ERROR_STOP on
 -- Personal39: lectura de la instantánea RPT publicada desde un fichero fijado
 -- por huella. El fichero se valida en Go y sólo se entrega tras consumir la
--- fachada nominal RPT V3 propia, pendiente de una migración AD posterior.
+-- fachada nominal RPT V3 propia de AD217, sobre la postimagen AD216.
 -- Consumo, auditoría común y recibo se confirman en la misma transacción.
 -- No publica categorías para CT/Bolsa ni acredita vigencia administrativa.
--- Orden causal: consumidor AD RPT futuro -> Personal39. No aplicar sin su
--- postimagen exacta. El número de esa migración AD aún no está fijado aquí.
+-- Orden causal: AD217 -> Personal39. No aplicar sin su postimagen exacta.
+-- DBA prepara fuera de Git el LOGIN vec_personal_rpt_v2_app y el grupo
+-- vec_personal_rpt_v2_lector; Personal39 no crea identidades ni credenciales.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -18,7 +19,7 @@ DO $pre$
 DECLARE
  consumidor oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_rpt_publica_v2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  guardia oid:=to_regprocedure('vec_personal.rechazar_mutacion_registro_empleado_v1()');
- rol_valido boolean;
+ grupo_valido boolean; login_valido boolean;
 BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR current_user<>'vec_personal_propietario' THEN
@@ -36,6 +37,16 @@ BEGIN
   RAISE EXCEPTION 'PARO clave=P39.fachada_acl, esperado=USAGE/EXECUTE, obtenido=%/%',
    has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE'),
    has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE') USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_proc p,
+   LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=consumidor AND a.privilege_type='EXECUTE'
+     AND (a.grantee NOT IN (p.proowner,'vec_personal_propietario'::regrole)
+       OR (a.grantee='vec_personal_propietario'::regrole AND a.is_grantable))) THEN
+  RAISE EXCEPTION 'PARO clave=P39.fachada_acl_exclusiva, esperado=EXECUTE_solo_AD_owner_y_Personal_owner_sin_grant_option, obtenido=otra_acl' USING ERRCODE='55000'; END IF;
+ IF (SELECT nspowner FROM pg_namespace WHERE nspname='vec_personal')
+    IS DISTINCT FROM 'vec_personal_propietario'::regrole THEN
+  RAISE EXCEPTION 'PARO clave=P39.esquema_owner, esperado=vec_personal_propietario, obtenido=%',
+   (SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname='vec_personal') USING ERRCODE='55000'; END IF;
  IF guardia IS NULL OR (SELECT proowner FROM pg_proc WHERE oid=guardia) IS DISTINCT FROM 'vec_personal_propietario'::regrole
  OR (SELECT prorettype FROM pg_proc WHERE oid=guardia) IS DISTINCT FROM 'trigger'::regtype THEN
   RAISE EXCEPTION 'PARO clave=P39.historia_inmutable, esperado=guardia Personal propietaria/trigger, obtenido=%/%',
@@ -45,13 +56,32 @@ BEGIN
   RAISE EXCEPTION 'PARO clave=P39.historia_preexistente, esperado=funcion_ausente/tabla_ausente, obtenido=%/%',
    to_regprocedure('vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
    to_regclass('vec_personal.recibo_consulta_rpt_publica_v2') IS NOT NULL USING ERRCODE='55000'; END IF;
- SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_ejecutor'
+ SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_rpt_v2_lector'
    AND NOT(rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
-   AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=to_regrole('vec_personal_ejecutor'))
- INTO rol_valido;
- IF NOT rol_valido THEN
-  RAISE EXCEPTION 'PARO clave=P39.rol_ejecutor, esperado=NOLOGIN_sin_herencia, obtenido=%',rol_valido USING ERRCODE='55000'; END IF;
+   AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=to_regrole('vec_personal_rpt_v2_lector'))
+ INTO grupo_valido;
+ IF NOT grupo_valido THEN
+  RAISE EXCEPTION 'PARO clave=P39.grupo_rpt, esperado=NOLOGIN_no_privilegiado_sin_membresias, obtenido=%',grupo_valido USING ERRCODE='55000'; END IF;
+ IF to_regrole('vec_personal_rpt_v2_app') IS NULL THEN
+  RAISE EXCEPTION 'PARO clave=P39.login_rpt, esperado=LOGIN_presente, obtenido=ausente' USING ERRCODE='55000'; END IF;
+ SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_rpt_v2_app'
+   AND rolcanlogin AND rolinherit
+   AND NOT(rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+   AND EXISTS(SELECT 1 FROM pg_auth_members WHERE member=to_regrole('vec_personal_rpt_v2_app')
+     AND roleid=to_regrole('vec_personal_rpt_v2_lector')
+     AND inherit_option AND NOT set_option AND NOT admin_option)
+   AND (SELECT count(*) FROM pg_auth_members WHERE member=to_regrole('vec_personal_rpt_v2_app'))=1
+   AND (SELECT count(*) FROM pg_auth_members WHERE roleid=to_regrole('vec_personal_rpt_v2_lector'))=1
+   AND NOT has_database_privilege('vec_personal_rpt_v2_app',current_database(),'TEMPORARY')
+   AND NOT has_schema_privilege('vec_personal_rpt_v2_app','vec_personal','CREATE')
+ INTO login_valido;
+ IF NOT login_valido THEN
+  RAISE EXCEPTION 'PARO clave=P39.login_rpt, esperado=LOGIN_INHERIT_una_membresia_RPT_sin_TEMP_CREATE, obtenido=%',login_valido USING ERRCODE='55000'; END IF;
 END $pre$;
+
+REVOKE ALL ON SCHEMA vec_personal FROM vec_personal_rpt_v2_lector,vec_personal_rpt_v2_app;
+GRANT USAGE ON SCHEMA vec_personal TO vec_personal_rpt_v2_lector;
+REVOKE GRANT OPTION FOR USAGE ON SCHEMA vec_personal FROM vec_personal_rpt_v2_lector;
 
 CREATE TABLE vec_personal.recibo_consulta_rpt_publica_v2 (
  recibo_ref text PRIMARY KEY CHECK(recibo_ref ~ '^rptpublica:[0-9a-f-]{36}$'),
@@ -72,8 +102,8 @@ ALTER TABLE vec_personal.recibo_consulta_rpt_publica_v2 ENABLE ROW LEVEL SECURIT
 ALTER TABLE vec_personal.recibo_consulta_rpt_publica_v2 FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_interno ON vec_personal.recibo_consulta_rpt_publica_v2
  FOR ALL TO vec_personal_propietario USING(true) WITH CHECK(true);
-REVOKE ALL ON TABLE vec_personal.recibo_consulta_rpt_publica_v2 FROM PUBLIC,vec_personal_ejecutor;
-REVOKE ALL ON TYPE vec_personal.recibo_consulta_rpt_publica_v2 FROM PUBLIC,vec_personal_ejecutor;
+REVOKE ALL ON TABLE vec_personal.recibo_consulta_rpt_publica_v2 FROM PUBLIC,vec_personal_ejecutor,vec_personal_rpt_v2_lector,vec_personal_rpt_v2_app;
+REVOKE ALL ON TYPE vec_personal.recibo_consulta_rpt_publica_v2 FROM PUBLIC,vec_personal_ejecutor,vec_personal_rpt_v2_lector,vec_personal_rpt_v2_app;
 
 CREATE FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -88,14 +118,15 @@ DECLARE
  campos constant jsonb:='["categorias_pendientes_grupo","corte","esquema","estado","evidencia","fuente","huella_sha256","items","limit","offset","publicacion_ref","resumen","total","vista"]';
 BEGIN
  IF current_user<>'vec_personal_propietario' OR session_user=current_user
+ OR session_user<>'vec_personal_rpt_v2_app'
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolcanlogin
    AND NOT(rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
  OR NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=session_user::regrole
-   AND roleid='vec_personal_ejecutor'::regrole AND inherit_option AND NOT set_option AND NOT admin_option)
+   AND roleid='vec_personal_rpt_v2_lector'::regrole AND inherit_option AND NOT set_option AND NOT admin_option)
  OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
- OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole)
+ OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_rpt_v2_lector'::regrole)
  OR has_schema_privilege(session_user,'vec_personal','CREATE')
  OR has_database_privilege(session_user,current_database(),'TEMPORARY')
  OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 4096
@@ -199,7 +230,34 @@ BEGIN
   'consumo_huella_sha256',consumo.consumo_huella_sha256,'auditoria_ref',consumo.auditoria_ref,
   'consultada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
 END $f$;
-REVOKE ALL ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_personal_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_ejecutor;
-REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_personal_ejecutor;
+REVOKE ALL ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_personal_ejecutor,vec_personal_rpt_v2_lector,vec_personal_rpt_v2_app;
+GRANT EXECUTE ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_rpt_v2_lector;
+REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_personal_rpt_v2_lector;
+DO $acl$
+DECLARE
+ funcion oid:='vec_personal.consumir_consulta_rpt_publica_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ grupo oid:='vec_personal_rpt_v2_lector'::regrole;
+BEGIN
+ IF NOT has_schema_privilege('vec_personal_rpt_v2_app','vec_personal','USAGE')
+ OR NOT has_function_privilege('vec_personal_rpt_v2_app',funcion,'EXECUTE')
+ OR has_function_privilege('vec_personal_ejecutor',funcion,'EXECUTE')
+ OR EXISTS(SELECT 1 FROM pg_proc p,
+   LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=funcion AND a.privilege_type='EXECUTE'
+     AND (a.grantee NOT IN (p.proowner,grupo)
+       OR (a.grantee=grupo AND a.is_grantable)))
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p,
+   LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=funcion AND a.grantee=grupo AND a.privilege_type='EXECUTE') THEN
+  RAISE EXCEPTION 'PARO clave=P39.acl_funcion, esperado=EXECUTE_solo_propietario_y_grupo_RPT, obtenido=divergente' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_class t,
+   LATERAL aclexplode(coalesce(t.relacl,acldefault('r',t.relowner))) a
+   WHERE t.oid='vec_personal.recibo_consulta_rpt_publica_v2'::regclass
+     AND a.grantee IN (0,grupo,'vec_personal_rpt_v2_app'::regrole))
+ OR EXISTS(SELECT 1 FROM pg_type t,
+   LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+   WHERE t.oid='vec_personal.recibo_consulta_rpt_publica_v2'::regtype
+     AND a.grantee IN (0,grupo,'vec_personal_rpt_v2_app'::regrole)) THEN
+  RAISE EXCEPTION 'PARO clave=P39.acl_recibo, esperado=sin_acceso_PUBLIC_grupo_RPT_LOGIN, obtenido=otra_acl' USING ERRCODE='55000'; END IF;
+END $acl$;
 COMMIT;
