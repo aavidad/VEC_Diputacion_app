@@ -1,0 +1,9 @@
+{
+  "esquema": "1",
+  "ayuda": "Provide --desde and --hasta as RFC3339 timestamps, and one to eight --archivo paths to technical JSONL files. You may filter by an incident --codigo or an exact --ruta. The command only reads local files and returns counts and timings.",
+  "terminada": "Query complete.",
+  "parcial": "The query found invalid lines. Check the rejected count and the source files.",
+  "parametros": "The query could not start. Check the UTC interval, filters, and file paths.",
+  "archivo": "A file could not be read completely. Check that it is regular, readable, and within the size limits.",
+  "salida": "The query result could not be written."
+}
