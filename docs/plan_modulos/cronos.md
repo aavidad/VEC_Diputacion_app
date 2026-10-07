@@ -104,7 +104,7 @@ prueba focal final y la revisión independiente de seguridad han pasado.
 En local, con 10.000 marcajes y 365 días, la mediana de tres ejecuciones del
 benchmark de agrupación baja de 219,09 ms a 1,47 ms. El constructor completo
 tarda 2,30 ms; estas cifras miden cálculo en memoria, sin base de datos ni
-petición HTTP. La puerta completa de la candidata está pendiente. La medición
+petición HTTP. La PR #831 pasó la puerta completa y quedó integrada en `main`. La medición
 de petición y pintado útil sigue abierta; C3p no acredita activar Cronos ni
 cerrar la recuperación nominal C5a.
 
@@ -129,3 +129,22 @@ con datos sintéticos, denegaciones, reinicio de aplicación/PostgreSQL y recibo
 idéntico. Solo Dirección integra y publica. La salida a producción con datos
 reales requiere las autorizaciones formales y el enclave interno descritos en
 [seguridad y despliegue](../estudio_requisitos/seguridad_y_despliegue_cronos.md).
+
+## Vigencia del vínculo y auditoría del rechazo
+
+La solicitud de olvido de #851 comprueba que el vínculo del empleado siga
+vigente al actuar. Este corte extiende esa comprobación a las consultas y
+solicitudes que comparten el mismo helper, y conecta sus rechazos con la
+auditoría nominal común. Conserva la identidad histórica acreditada por el
+servidor; no toma el actor ni el perfil del cuerpo de la petición.
+
+El rechazo solo responde 403 cuando el registrador confirma el acuse. Si la
+auditoría falta o falla, responde 503 sin datos ni efectos en el repositorio de
+negocio. El reintento interno conserva la misma orden. Una operación válida
+no añade decisiones ni registros por fila.
+
+Cronos activo requiere el registrador común de AD169 y un motivo de rechazo
+publicado, vigente y distinto de los motivos positivos, configurado en
+`auditoria_intentos.motivo_denegado`. El LOGIN, proceso y canal proceden del
+material privado y pasan el preflight común. Este cambio no crea sus permisos,
+no instala SQL ni acredita C5a, C5b o un recorrido nominal en PostgreSQL.

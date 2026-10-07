@@ -430,10 +430,18 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     contenedor.removeEventListener("input", alEditar); contenedor.removeEventListener("change", alEditar); contenedor.remove?.();
   };
   const abrirFormularioOlvido = () => {
-    if (!activa) return;
+    if (!activa) return false;
+    if (estado !== "listo") {
+      const estadoVisible = contenedor.querySelector?.("[data-cronos-movimientos-estado]");
+      estadoVisible?.scrollIntoView?.({ block: "center" }); estadoVisible?.focus?.();
+      const clave = ["cargando", "denegado", "sin_empleado", "error", "no_disponible"].includes(estado) ? estado : "error";
+      anunciar(t(clave));
+      return false;
+    }
     if (!formulario) { formulario = { abierto: true, clave: claveNueva(), movimiento: "entrada", fecha: hoy }; dibujar(); }
     const campo = contenedor.querySelector?.("[name=fecha_civil]");
     campo?.scrollIntoView?.({ block: "center" }); campo?.focus?.();
+    return true;
   };
   registrarDesmontar?.(desmontar);
   return Object.freeze({ desmontar, recargar: cargar, actualizar: cargar, abrirOlvido: abrirFormularioOlvido });

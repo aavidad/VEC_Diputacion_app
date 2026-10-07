@@ -98,7 +98,7 @@ func (s *ServicioNotificacionesPropias) contexto(ctx context.Context, orden port
 	if err != nil {
 		return vecdomain.ContextoActor{}, "", err
 	}
-	empleado, _, err := empleadoVigente(actor, s.reloj)
+	empleado, _, err := empleadoVigente(ctx, actor, s.reloj)
 	return actor, empleado, err
 }
 
@@ -185,7 +185,7 @@ func (s *ServicioBandejaNotificaciones) contexto(ctx context.Context, orden port
 	if err != nil {
 		return vecdomain.ContextoActor{}, "", err
 	}
-	empleado, _, err := empleadoVigente(actor, s.reloj)
+	empleado, _, err := empleadoVigente(ctx, actor, s.reloj)
 	return actor, empleado, err
 }
 
