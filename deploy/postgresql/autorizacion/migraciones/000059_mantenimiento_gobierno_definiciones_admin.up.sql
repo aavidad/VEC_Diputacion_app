@@ -68,7 +68,7 @@ CREATE ROLE vec_admin_mantenimiento_gobierno_definiciones_ejecutor NOLOGIN NOINH
 DO $conexion$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_admin_mantenimiento_gobierno_definiciones_ejecutor',current_database()); END $conexion$;
 SET LOCAL ROLE vec_autorizacion_propietario;
 CREATE FUNCTION vec_autorizacion.exigir_operador_mantenimiento_gobierno_definiciones_admin_v1()
-RETURNS vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+RETURNS vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE l record;g record;cfg vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1;ns oid;db oid;f oid;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC' OR current_setting('role')<>'none' THEN RAISE EXCEPTION 'AUT59: PARO clave=transaccion actual=divergente esperado=SERIALIZABLE_RW_UTC_sin_SETROLE' USING ERRCODE='25000'; END IF;
@@ -101,7 +101,7 @@ $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.documento_asignacion_destino_gobierno_definiciones_v1(jsonb,jsonb,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.preimagen_mantenimiento_gobierno_definiciones_admin_v1(p jsonb)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
 DECLARE r record;c record;meta record;gob record;a record;ptr record;t jsonb;asigs jsonb:='[]';cat jsonb;amb jsonb;ca_viva boolean;efectivos jsonb;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'AUT59: PARO clave=transaccion actual=divergente esperado=SERIALIZABLE_RW' USING ERRCODE='25000'; END IF;
@@ -170,7 +170,7 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_mantenimiento_gobierno_definiciones_admin_v1(jsonb) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.aplicar_mantenimiento_gobierno_definiciones_admin_v1(plan_canonico text,sha_aprobado text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
 DECLARE cfg vec_autorizacion.config_mantenimiento_gobierno_definiciones_admin_v1;p jsonb;sha text;pre jsonb;pre_sha text;r7 record;r8 record;target jsonb;target_sha text;control jsonb;control_sha text;c jsonb;gob record;t jsonb;old_a record;new_a record;doc jsonb;ref text;aud record;e jsonb;corr text;recibo jsonb;replay boolean:=false;instante timestamptz;origenes jsonb:='[]';destinos jsonb:='[]';sello record;previo record;ct record;
 BEGIN
  cfg:=vec_autorizacion.exigir_operador_mantenimiento_gobierno_definiciones_admin_v1();
@@ -263,7 +263,7 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_mantenimiento_gobierno_definiciones_admin_v1(text,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.mantener_version_perfil_fijo_gobierno_definiciones_admin_v1(plan_canonico text,sha_aprobado text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
 DECLARE respuesta jsonb;estado text:='permitido';codigo text;motivo text;aud record;sol text;evento text;corr text;solsha text;
 BEGIN
  sol:='solicitud_mantenimiento:'||replace(gen_random_uuid()::text,'-','');evento:='evento_'||replace(gen_random_uuid()::text,'-','');corr:='correlacion_'||replace(gen_random_uuid()::text,'-','');solsha:=encode(pg_catalog.sha256(convert_to(jsonb_build_object('plan',plan_canonico,'sha_aprobado',sha_aprobado)::text,'UTF8')),'hex');
@@ -303,7 +303,7 @@ BEGIN
   'vec_autorizacion.mantener_version_perfil_fijo_gobierno_definiciones_admin_v1(text,text)'
  ] LOOP
   f:=to_regprocedure(firma);
-  IF f IS NULL OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND (p.proowner<>'vec_autorizacion_propietario'::regrole OR NOT 'search_path=pg_catalog'=ANY(p.proconfig)))
+  IF f IS NULL OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND (p.proowner<>'vec_autorizacion_propietario'::regrole OR NOT (CASE WHEN p.prosecdef THEN 'search_path=pg_catalog, pg_temp' ELSE 'search_path=pg_catalog' END)=ANY(p.proconfig)))
   OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f AND a.grantee<>p.proowner
    AND NOT(f=to_regprocedure('vec_autorizacion.mantener_version_perfil_fijo_gobierno_definiciones_admin_v1(text,text)') AND a.grantee=g AND a.privilege_type='EXECUTE' AND NOT a.is_grantable))
   THEN RAISE EXCEPTION 'AUT59: PARO clave=ACL_funcion actual=divergente esperado=propietario_y_fachada_exclusiva' USING ERRCODE='55000'; END IF;
