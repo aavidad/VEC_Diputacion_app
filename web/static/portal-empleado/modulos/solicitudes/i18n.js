@@ -27,6 +27,6 @@ export function formatearFechaSolicitudes(valor, localizacion = LOCALIZACION_ACT
   if (!Number.isFinite(dia.getTime()) || dia.toISOString().slice(0, 10) !== valor.slice(0, 10)) return sinDato;
   const instante = valor.length === 10 ? dia : new Date(valor);
   return Number.isFinite(instante.getTime())
-    ? crearTextos({ modulo: "solicitudes", localizacion, respaldo: {} }).fecha(instante, OPCIONES_FECHA)
+    ? new Intl.DateTimeFormat(localizacion, OPCIONES_FECHA).format(instante)
     : sinDato;
 }
