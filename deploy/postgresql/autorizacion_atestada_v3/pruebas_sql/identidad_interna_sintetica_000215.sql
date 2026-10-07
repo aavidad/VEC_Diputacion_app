@@ -22,7 +22,7 @@ GRANT vec_identidad_interna_sintetica_ejecutor TO ad215_prueba_operador WITH INH
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO ad215_prueba_operador;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3._probar_ad215_v1()
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $prueba$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $prueba$
 DECLARE
  e jsonb;i jsonb;x record;y record;a record;v record;k text;material bytea;huella text;
  corte jsonb;historia jsonb;familia text;dominio text;orden text[];n integer:=0;
