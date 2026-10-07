@@ -104,8 +104,8 @@ mismo efecto. La lectura y el rechazo dejan auditoría sin revelar motivos de
 salud o actividad sindical a la jefatura. Ningún consumidor hace una consulta
 ni una decisión V3 por fila: filtros y permisos se resuelven en lote, con
 índices y paginación. Medir `EXPLAIN ANALYZE` y ruta con volumen realista:
-objetivos de **base <100 ms**, **lectura servidor p95 <300 ms** y
-**pantalla útil p95 <300 ms en local**. Son criterios de aceptación pendientes de
+objetivos de **base <100 ms** y **petición y pintado útil p95 <300 ms
+en local**. Son criterios de aceptación pendientes de
 medición, no resultados obtenidos por este plan.
 
 Pruebas focales Go, Node y SQL real desechable; revisión independiente de
