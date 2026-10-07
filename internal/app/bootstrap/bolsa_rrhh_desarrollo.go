@@ -651,7 +651,7 @@ func mapaEstadosVacio() map[string]int {
 	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0, "en_revision": 0}
 }
 func estadoBolsaCanonico(origen string) string { return origen }
-func estadoBolsaVisible(estado string) bool    { _, ok := mapaEstadosVacio()[estado]; return ok }
+func estadoBolsaVisible(estado string) bool    { return puertosbolsa.EstadoPaginaRRHHValido(estado) }
 func instanteBolsasRRHH(valor string) string {
 	if _, err := time.Parse(time.RFC3339, valor); err == nil {
 		return valor
