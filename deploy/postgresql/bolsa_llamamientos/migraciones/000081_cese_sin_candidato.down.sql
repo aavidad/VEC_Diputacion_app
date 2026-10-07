@@ -8,6 +8,11 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000081',0));
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+-- La prueba de ausencia de historia debe quedar estable hasta el DROP.
+-- Mismo orden que el registro B81 y la constitución ordinaria.
+LOCK TABLE vec_bolsa_llamamientos.bolsa_constituida,
+           vec_bolsa_llamamientos.constitucion_entrada IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa IN ACCESS EXCLUSIVE MODE;
 DO $pre$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
@@ -46,5 +51,8 @@ BEGIN
  END IF;
 END $post$;
 DROP FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint);
+DROP TRIGGER cese_sin_candidato_impedir_bolsa ON vec_bolsa_llamamientos.bolsa_constituida;
+DROP TRIGGER cese_sin_candidato_impedir_participacion ON vec_bolsa_llamamientos.constitucion_entrada;
+DROP FUNCTION vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1();
 DROP TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
 COMMIT;

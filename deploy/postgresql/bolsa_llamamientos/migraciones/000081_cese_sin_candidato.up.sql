@@ -33,7 +33,8 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1()') IS NOT NULL THEN
   RAISE EXCEPTION 'Bolsa 000081: preimagen incompatible o ya instalada' USING ERRCODE='55000';
  END IF;
  -- El cursor se sustituye solo si es exactamente el de Bolsa 000045.
@@ -77,6 +78,30 @@ CREATE TRIGGER cese_sin_candidato_bolsa_inmutable BEFORE UPDATE OR DELETE ON vec
 COMMENT ON TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa IS
  'Cese CT verificado cuya participación no pertenece a ninguna bolsa constituida: sin candidato, sin restricción; solo adición.';
 
+-- Una constitución posterior convertiría un cese confirmado en un falso
+-- «sin candidato». Los prefijos del puente sintético nunca se constituyen.
+-- La guarda es independiente de la visibilidad de la tabla B81: constituir
+-- usa aislamiento SERIALIZABLE y puede conservar un snapshot anterior.
+CREATE FUNCTION vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1()
+RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+BEGIN
+ IF TG_TABLE_NAME='bolsa_constituida' THEN
+  IF NEW.bolsa_ref ~ '^bolsa-sintetica:[a-z]{16,128}$' THEN
+   RAISE EXCEPTION 'el puente sintético no constituye bolsas' USING ERRCODE='23503';
+  END IF;
+ ELSIF TG_TABLE_NAME='constitucion_entrada' THEN
+  IF NEW.participacion_ref ~ '^participacion-sintetica-[1-9][0-9]{0,2}:[a-z]{16,128}$' THEN
+   RAISE EXCEPTION 'el puente sintético no constituye participaciones' USING ERRCODE='23503';
+  END IF;
+ END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1() FROM PUBLIC;
+CREATE TRIGGER cese_sin_candidato_impedir_bolsa BEFORE INSERT ON vec_bolsa_llamamientos.bolsa_constituida
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1();
+CREATE TRIGGER cese_sin_candidato_impedir_participacion BEFORE INSERT ON vec_bolsa_llamamientos.constitucion_entrada
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1();
+
 -- Mismas guardas de sesión que registrar/confirmar de 000045. Solo admite el
 -- cese cuando B13 ya lo tiene, con participación, sin cuarentena, coherente
 -- con la propuesta del llamamiento de integración, y cuando ni la
@@ -109,14 +134,16 @@ BEGIN
  v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex');
  -- Mismo cerrojo que B13 y B45 para el evento: nada cambia hasta COMMIT.
  PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:'||v_evento_ref,0));
- SELECT c.participacion_ref,c.bolsa_ref,c.llamamiento_ref INTO v_b13
+ SELECT c.participacion_ref,c.bolsa_ref,c.llamamiento_ref,c.organizacion_ref,c.expediente_ref INTO v_b13
  FROM vec_bolsa_llamamientos.contrato_participacion c
  WHERE c.evento_ref=v_evento_ref AND c.origen_ref=p_origen_ref
    AND c.huella_sha256=p_huella_sha256 AND c.origen_posicion=p_posicion AND c.tipo='cese'
    AND c.participacion_ref IS NOT NULL AND c.bolsa_ref IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
                     WHERE q.evento_ref=c.evento_ref);
- IF NOT FOUND OR v_b13.llamamiento_ref IS DISTINCT FROM v_ct.llamamiento_ref THEN
+ IF NOT FOUND OR v_b13.llamamiento_ref IS DISTINCT FROM v_ct.llamamiento_ref
+    OR v_b13.organizacion_ref IS DISTINCT FROM v_ct.organizacion_ref
+    OR v_b13.expediente_ref IS DISTINCT FROM v_ct.expediente_ref THEN
   RAISE EXCEPTION 'cese B13 pendiente o divergente' USING ERRCODE='23503';
  END IF;
  SELECT l.bolsa_ref,convert_from(i.registro_canonico,'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}' AS participacion
@@ -136,6 +163,10 @@ BEGIN
     OR v_b13.participacion_ref !~ '^participacion-sintetica-[1-9][0-9]{0,2}:[a-z]{16,128}$' THEN
   RAISE EXCEPTION 'cese sin candidato fuera del puente sintético' USING ERRCODE='23503';
  END IF;
+ -- SHARE serializa esta decisión con la inserción de una constitución. Los
+ -- triggers anteriores impiden que se constituya tras confirmar el cese.
+ LOCK TABLE vec_bolsa_llamamientos.bolsa_constituida,
+            vec_bolsa_llamamientos.constitucion_entrada IN SHARE MODE;
  -- Una participación o bolsa constituida puede recibir su vínculo más tarde:
  -- ese cese no es «sin candidato» y sigue pendiente.
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion_entrada e WHERE e.participacion_ref=v_b13.participacion_ref)
@@ -208,6 +239,15 @@ BEGIN
       IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_relevo_cese']
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=c) IS NOT TRUE
+    OR (SELECT proowner='vec_bolsa_llamamientos_propietario'::regrole AND prosecdef
+            AND proconfig=ARRAY['search_path=pg_catalog'] FROM pg_proc
+          WHERE oid='vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1()'::regprocedure) IS NOT TRUE
+    OR has_function_privilege('public','vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1()','EXECUTE')
+    OR (SELECT count(*) FROM pg_trigger t WHERE t.tgfoid=
+          'vec_bolsa_llamamientos.cese_sin_candidato_impedir_constitucion_v1()'::regprocedure
+          AND NOT t.tgisinternal AND t.tgenabled='O' AND (
+           (t.tgrelid='vec_bolsa_llamamientos.bolsa_constituida'::regclass AND t.tgname='cese_sin_candidato_impedir_bolsa') OR
+           (t.tgrelid='vec_bolsa_llamamientos.constitucion_entrada'::regclass AND t.tgname='cese_sin_candidato_impedir_participacion')))<>2
     OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE') THEN
   RAISE EXCEPTION 'Bolsa 000081: postimagen incompatible' USING ERRCODE='55000';

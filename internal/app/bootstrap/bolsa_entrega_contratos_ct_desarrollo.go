@@ -163,6 +163,47 @@ type entregaCesesCTBolsa struct {
 	lote   int
 }
 
+// consultaCeseBolsa permite verificar la secuencia de decisiones sin una base
+// compartida; en producción la ejecuta el pool exclusivo del relevo.
+type consultaCeseBolsa func(context.Context, string, ...any) pgx.Row
+
+func registrarCeseCTBolsa(ctx context.Context, consulta consultaCeseBolsa, evento puertosct.EventoContratoBolsaPublicado) (reutilizada, sinCandidato bool, err error) {
+	var recibo, candidato string
+	var disponible time.Time
+	var politica int64
+	err = consulta(ctx, `SELECT reutilizada,recibo_ref,candidato_ref,disponible_desde,politica_version
+		FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1($1,$2,$3)`, evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).
+		Scan(&reutilizada, &recibo, &candidato, &disponible, &politica)
+	if err == nil {
+		if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
+			return false, false, puertosbolsa.ErrContratosParticipacionNoDisponible
+		}
+		return reutilizada, false, nil
+	}
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != "23503" {
+		return false, false, err
+	}
+	// Un cese sin llamamiento Bolsa también queda acreditado. Si el
+	// llamamiento existe pero falta su vínculo, SQL deniega y reintenta.
+	err = consulta(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
+		evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada)
+	if err == nil {
+		return reutilizada, false, nil
+	}
+	if !errors.As(err, &pg) || pg.Code != "23503" {
+		return false, false, err
+	}
+	// B81 verifica que la participación sintética no pertenece a ninguna
+	// bolsa constituida. Una bolsa constituida conserva el error y el cursor.
+	err = consulta(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1($1,$2,$3)`,
+		evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada)
+	if err != nil {
+		return false, false, err
+	}
+	return reutilizada, true, nil
+}
+
 // El worker compartido escribe el error recibido en slog. Nunca se le
 // entrega el texto de pgconn: puede contener host, usuario o DSN privado.
 func falloRelevoCeseBolsaDesarrollo(err error) error {
@@ -195,38 +236,9 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 				contenido.Tipo != "cese" || contenido.OrigenRef != evento.OrigenRef || evento.HuellaSHA256 == "" || evento.OrigenPosicion < 0 {
 				return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
 			}
-			var reutilizada, sinCandidato bool
-			var recibo, candidato string
-			var disponible time.Time
-			var politica int64
-			err := e.pool.QueryRow(ctx, `SELECT reutilizada,recibo_ref,candidato_ref,disponible_desde,politica_version
-				FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1($1,$2,$3)`, evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).
-				Scan(&reutilizada, &recibo, &candidato, &disponible, &politica)
+			reutilizada, sinCandidato, err := registrarCeseCTBolsa(ctx, e.pool.QueryRow, evento)
 			if err != nil {
-				var pg *pgconn.PgError
-				if !errors.As(err, &pg) || pg.Code != "23503" {
-					return resultado, falloRelevoCeseBolsaDesarrollo(err)
-				}
-				// Un cese sin llamamiento Bolsa también queda acreditado. Si el
-				// llamamiento existe pero falta su vínculo, SQL deniega y reintenta.
-				err = e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
-					evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada)
-				if err != nil {
-					if !errors.As(err, &pg) || pg.Code != "23503" {
-						return resultado, falloRelevoCeseBolsaDesarrollo(err)
-					}
-					// B81: la participación elegida no pertenece a ninguna bolsa
-					// constituida y nunca tendrá candidato. Queda auditado y el
-					// cursor avanza; con bolsa constituida SQL vuelve a negar con
-					// 23503 y el cese sigue pendiente.
-					if err := e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1($1,$2,$3)`,
-						evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
-						return resultado, falloRelevoCeseBolsaDesarrollo(err)
-					}
-					sinCandidato = true
-				}
-			} else if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				return resultado, falloRelevoCeseBolsaDesarrollo(err)
 			}
 			switch {
 			case reutilizada:
