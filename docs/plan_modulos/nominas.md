@@ -3,8 +3,9 @@
 La persona consultará sus recibos originales por entidad, relación y periodo, con
 lectura y descarga autorizadas por separado. Podrá pedir revisión de una discrepancia.
 El cálculo, cierre, cotización, fiscalidad y pago mantienen sus autoridades y quedan
-para una ampliación posterior. Este encargo entrega documentación, sin código, SQL
-ni instalación.
+para una ampliación posterior. El plan documental del 4 de octubre no añadió código, SQL
+ni instalación. El corte N00 del 7 de octubre adapta los textos de la vista
+existente; la conexión nominal de recibos sigue pendiente.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Nóminas](../estudio_requisitos/ficha_nominas_2026-10-04.md),
