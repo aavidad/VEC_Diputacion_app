@@ -31,7 +31,14 @@ const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion"]);
 // debe quedar congelado en el módulo ni retrasar el arranque del portal.
 const cargarFasesCircuitoPredeterminado = async (idioma) =>
   (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases");
-const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
+const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]), estadoRPT: "ausente" });
+function estadoSondaRPT(resultado) {
+  if (resultado?.ok === true) return "disponible";
+  if (resultado?.codigo === "montaje_ausente") return "ausente";
+  if (resultado?.codigo === "estado_no_valido" && resultado.estado === 404) return "ausente";
+  if (resultado?.codigo === "estado_no_valido" && [401, 403].includes(resultado.estado)) return "denegado";
+  return "incidencia";
+}
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
 // «documentos» es también una sección de Bolsa; la vista del servicio común
@@ -650,9 +657,41 @@ export function crearCoordinadorModulosPortal({
       throw new TypeError("vista de Personal no disponible");
     }
     const catalogos = publicos.status === "fulfilled" ? publicos.value : SIN_CATALOGOS_PUBLICOS;
+    const estadoRPT = { estado: catalogos.estadoRPT };
+    let reintentoRPTEnCurso = null;
+    const reintentarRPT = ({ signal } = {}) => {
+      if (estadoRPT.estado !== "incidencia" || signal?.aborted) return Promise.resolve(estadoRPT.estado);
+      try { exigirVigente(); } catch { return Promise.resolve(estadoRPT.estado); }
+      if (reintentoRPTEnCurso && !reintentoRPTEnCurso.signal?.aborted)
+        return reintentoRPTEnCurso.promesa;
+      const vuelo = (async () => {
+        const crearCliente = catalogos.recursos?.clienteRPT?.crearClienteHTTPRPTPublica;
+        const fetchImpl = fetchDelEntorno();
+        if (typeof crearCliente !== "function" || !fetchImpl) return "ausente";
+        let resultado;
+        try {
+          const cliente = crearCliente({ fetchImpl });
+          await cliente.listar({ vista: "categorias", q: "", limit: 1, offset: 0 }, { signal });
+          resultado = { ok: true };
+        } catch (error) {
+          resultado = { codigo: error?.codigo, estado: error?.estado };
+        }
+        try { exigirVigente(); } catch { return estadoRPT.estado; }
+        if (signal?.aborted) return estadoRPT.estado;
+        estadoRPT.estado = estadoSondaRPT(resultado);
+        return estadoRPT.estado;
+      })();
+      const intento = { signal, promesa: null };
+      intento.promesa = vuelo.finally(() => {
+        if (reintentoRPTEnCurso === intento) reintentoRPTEnCurso = null;
+      });
+      reintentoRPTEnCurso = intento;
+      return intento.promesa;
+    };
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
       ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
+        estadoRPT, reintentarRPT,
         // Abrir un destino diferido no exige haberlo visitado antes. Esto
         // sólo ofrece navegación propia; su lectura se autoriza al entrar.
         // Sólo se ofrecen destinos del catálogo; un módulo oculto no aparece.
@@ -671,10 +710,9 @@ export function crearCoordinadorModulosPortal({
     return { personal, personalRegistro: componerRegistroPersonal(recursos, entorno) };
   }
 
-  // Carga los catálogos públicos de Personal y sondea las dos consultas a la
-  // vez. Solo se ofrecen las que responden con una página válida; el resto se
-  // omite sin error. Las consultas pertenecen a la carga en curso: se cancelan
-  // con ella.
+  // Los catálogos opcionales se sondean en paralelo. El estado de RPT conserva
+  // una incidencia temporal para ofrecer un reintento expreso desde la ficha;
+  // una ausencia de montaje o una denegación no se presentan como indisponibilidad.
   async function cargarCatalogosPublicosPersonal({ consultar }) {
     let recursos;
     try {
@@ -694,13 +732,22 @@ export function crearCoordinadorModulosPortal({
       ["estructura", () => recursos?.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl }),
         (cliente, opciones) => cliente.obtener(opciones)],
     ];
-    const resultados = await Promise.allSettled(sondeos.map(([, crear, sondear]) => {
-      const cliente = crear();
-      return consultar((opciones) => sondear(cliente, opciones), "consultar catálogos de Personal");
+    const resultados = await Promise.allSettled(sondeos.map(async ([, crear, sondear]) => {
+      let cliente;
+      try { cliente = crear(); } catch { return { ok: false, codigo: "montaje_ausente" }; }
+      if (!cliente || typeof cliente !== "object") return { ok: false, codigo: "montaje_ausente" };
+      // consultarConLimite normaliza los rechazos; devolver solo código y
+      // estado HTTP controlados permite distinguir 404/403 de 503 sin exponer
+      // el cuerpo ni los detalles internos de la excepción.
+      return consultar(async (opciones) => {
+        try { await sondear(cliente, opciones); return { ok: true }; }
+        catch (error) { return { ok: false, codigo: error?.codigo, estado: error?.estado }; }
+      }, "consultar catálogos de Personal");
     }));
-    const disponibles = sondeos.filter((_, indice) => resultados[indice].status === "fulfilled")
+    const disponibles = sondeos.filter((_, indice) => resultados[indice].status === "fulfilled" && resultados[indice].value.ok)
       .map(([clave]) => clave);
-    return Object.freeze({ recursos, disponibles: Object.freeze(disponibles) });
+    const estadoRPT = resultados[0].status === "fulfilled" ? estadoSondaRPT(resultados[0].value) : "incidencia";
+    return Object.freeze({ recursos, disponibles: Object.freeze(disponibles), estadoRPT });
   }
 
   async function cargarDietas({ exigirVigente }) {

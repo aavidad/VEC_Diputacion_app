@@ -669,6 +669,64 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
   }
 });
 
+test("RPT distingue 503 de ausencia y denegación; reintenta una sonda sin montar lista antes de 200", async () => {
+  for (const [estadoHTTP, esperado] of [[503, "incidencia"], [404, "ausente"], [403, "denegado"]]) {
+    let estadoActual = estadoHTTP;
+    let sondas = 0;
+    let montajesRPT = 0;
+    let ficha;
+    const moduloPersonal = {
+      contrato: { CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" },
+      cliente: { crearClienteHTTPCategoriasPersonal: () => ({}) },
+      vista: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+      clienteCategorias: { crearClienteHTTPCategoriasPersonal: () => ({}) },
+      vistaCategorias: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+      ficha: { montarVistaFichaIntegralPersonal(entrada) { ficha = entrada; return { desmontar() {} }; } },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { fetch: async () => { throw new Error("sin consultas reales en la prueba"); } },
+      cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("CT fuera del caso"); },
+        personal: async () => moduloPersonal,
+        personal_catalogos_publicos: async () => ({
+          clienteRPT: { crearClienteHTTPRPTPublica: () => ({ async listar() {
+            sondas += 1;
+            if (estadoActual !== 200) throw Object.assign(new Error("sonda rechazada"),
+              { codigo: "estado_no_valido", estado: estadoActual });
+            return {};
+          } }) },
+          vistaRPT: { montarModuloRPTPublica: async () => { montajesRPT += 1; return { desmontar() {} }; } },
+        }),
+      },
+    });
+    await coordinador.cargarInterno();
+    await coordinador.prepararVista("personal");
+    assert.equal(await coordinador.montarVista("personal", raizDietasFalsa()), true);
+    assert.equal(sondas, 1, "una sola sonda inicial");
+    assert.equal(ficha.rptDisponible, false);
+    assert.equal(ficha.rptIncidencia, esperado === "incidencia");
+    await ficha.montarCatalogos({ raiz: {}, anunciar() {} });
+    assert.equal(montajesRPT, 0, "la lista no se monta con sonda fallida");
+    if (esperado === "incidencia") {
+      const fichaRetirada = ficha;
+      coordinador.retirarVistaMontada();
+      assert.equal(await fichaRetirada.reintentarRPT(), "incidencia");
+      assert.equal(sondas, 1, "el botón de una ficha retirada no inicia otra consulta");
+      assert.equal(await coordinador.montarVista("personal", raizDietasFalsa()), true);
+    }
+    estadoActual = 200;
+    const reintentos = await Promise.all([ficha.reintentarRPT(), ficha.reintentarRPT()]);
+    assert.deepEqual(reintentos, [esperado === "incidencia" ? "disponible" : esperado,
+      esperado === "incidencia" ? "disponible" : esperado]);
+    assert.equal(sondas, esperado === "incidencia" ? 2 : 1, "solo la incidencia admite reintento explícito");
+    await ficha.montarCatalogos({ raiz: {}, anunciar() {} });
+    assert.equal(montajesRPT, esperado === "incidencia" ? 1 : 0);
+    coordinador.desmontarVistaActual();
+  }
+});
+
 test("las sondas de los catálogos públicos van en paralelo y se cancelan con la carga", async () => {
   const señales = [];
   const iniciadas = [];

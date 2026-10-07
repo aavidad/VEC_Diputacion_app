@@ -191,6 +191,7 @@ export function componerDietasInternas(recursos, entorno) {
 
 export function componerPersonalVisible(recursos, entorno, {
   catalogosPublicos = true, ocultarSinFuente = false, destinosDisponibles = () => ({}),
+  estadoRPT, reintentarRPT,
 } = {}) {
   // `catalogosPublicos` admite todos (true), ninguno (false) o la lista de los
   // que el servidor ha servido de verdad («rpt», «estructura»).
@@ -198,13 +199,16 @@ export function componerPersonalVisible(recursos, entorno, {
     : Array.isArray(catalogosPublicos) ? catalogosPublicos : [];
   if (publicos.some((clave) => !["rpt", "estructura"].includes(clave))
     || typeof ocultarSinFuente !== "boolean" || typeof destinosDisponibles !== "function") return undefined;
-  const catalogos = [
+  if ((estadoRPT !== undefined && (!["disponible", "ausente", "denegado", "incidencia"].includes(estadoRPT?.estado)
+    || typeof reintentarRPT !== "function")) || (estadoRPT === undefined && reintentarRPT !== undefined)) return undefined;
+  const catalogosDisponibles = () => [
     [recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal, recursos.vistaCategorias?.montarModuloPersonal],
-    ...(publicos.includes("rpt") ? [[recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica]] : []),
+    ...((estadoRPT ? estadoRPT.estado === "disponible" : publicos.includes("rpt"))
+      ? [[recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica]] : []),
     ...(publicos.includes("estructura") ? [[recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica,
       recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica]] : []),
   ];
-  if (catalogos.some(([cliente, vista]) => typeof cliente !== "function" || typeof vista !== "function")) return undefined;
+  if (catalogosDisponibles().some(([cliente, vista]) => typeof cliente !== "function" || typeof vista !== "function")) return undefined;
   const montarCatalogos = async ({ raiz, anunciar, registrarDesmontar }) => {
     const fetchImpl = typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
     const limpiezas = new Set();
@@ -228,6 +232,9 @@ export function componerPersonalVisible(recursos, entorno, {
     };
     registrarDesmontar?.(desmontar);
     try {
+      const catalogos = catalogosDisponibles();
+      if (catalogos.some(([cliente, vista]) => typeof cliente !== "function" || typeof vista !== "function"))
+        throw new TypeError("catálogo de Personal no disponible");
       await Promise.all(catalogos.map(async ([crearCliente, montar]) => {
         const vista = await montar({ raiz, anunciar, registrarDesmontar: registrar, cliente: crearCliente({ fetchImpl }) });
         // Los consumidores actuales registran antes de esperar. El Set evita
@@ -240,24 +247,30 @@ export function componerPersonalVisible(recursos, entorno, {
     }
     return Object.freeze({ desmontar });
   };
-  const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
-    raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
-    rptDisponible: publicos.includes("rpt"),
-    montarContacto: typeof recursos.contacto?.montarVistaContactoPropio === "function" && typeof entorno.fetch === "function"
-      ? (entrada) => recursos.contacto.montarVistaContactoPropio({ ...entrada, fetchImpl: entorno.fetch.bind(entorno) }) : undefined,
-    // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.
-    abrirCorreos: entorno.location ? () => {
-      entorno.location.hash = "#mis-preferencias";
-      entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
-    } : undefined,
-    destinosDisponibles: destinosDisponibles(),
-    navegarModulo: (modulo) => {
-      if (["dietas", "cronos"].includes(modulo) && entorno.location) {
-        entorno.location.hash = `#${modulo}`;
+  const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => {
+    const ciclo = new AbortController();
+    const vista = recursos.ficha.montarVistaFichaIntegralPersonal({
+      raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+      rptDisponible: estadoRPT ? estadoRPT.estado === "disponible" : publicos.includes("rpt"),
+      rptIncidencia: estadoRPT?.estado === "incidencia",
+      reintentarRPT: reintentarRPT ? () => reintentarRPT({ signal: ciclo.signal }) : undefined,
+      montarContacto: typeof recursos.contacto?.montarVistaContactoPropio === "function" && typeof entorno.fetch === "function"
+        ? (entrada) => recursos.contacto.montarVistaContactoPropio({ ...entrada, fetchImpl: entorno.fetch.bind(entorno) }) : undefined,
+      // Abre la vista existente de Usuarios; Personal no consulta ni copia contacto.
+      abrirCorreos: entorno.location ? () => {
+        entorno.location.hash = "#mis-preferencias";
         entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
-      }
-    },
-  });
+      } : undefined,
+      destinosDisponibles: destinosDisponibles(),
+      navegarModulo: (modulo) => {
+        if (["dietas", "cronos"].includes(modulo) && entorno.location) {
+          entorno.location.hash = `#${modulo}`;
+          entorno.document?.getElementById("contenido-principal")?.focus({ preventScroll: true });
+        }
+      },
+    });
+    return Object.freeze({ ...vista, desmontar() { ciclo.abort(); vista.desmontar(); } });
+  };
   // Ficha propia servida por Personal: una consulta al entrar decide qué
   // apartados tienen fuente para esta persona; sin ella no se ofrecen. La
   // cancela la señal del coordinador al salir de la vista antes de responder.
