@@ -1,6 +1,5 @@
-import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, localizacionDe, prepararIdiomas } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
-import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 /**
  * Textos del shell del portal: viven en `textos/<idioma>/portal.json`
@@ -22,16 +21,30 @@ function aplanar(seccion, prefijo = "", salida = {}) {
 }
 
 /** Catálogo común del shell en `idioma` (por defecto, el de la interfaz). */
-export async function cargarMensajesPortal(idioma = IDIOMA_ACTUAL) {
-  const [portal, ayuda, preferencias, bolsa] = await Promise.all(["portal", "portal-ayuda", "preferencias", "bolsa"]
-    .map((modulo) => cargarTextos(modulo, { idioma })));
+let idiomaInicialDelShell;
+export async function cargarMensajesPortal(idioma) {
+  // El índice es asíncrono: elegir el idioma antes de prepararlo usaría
+  // provisionalmente el atributo lang del documento.
+  await prepararIdiomas().catch(() => null);
+  let elegido = idioma ?? IDIOMA_ACTUAL;
+  const modulos = ["portal", "portal-ayuda", "preferencias", "bolsa"];
+  let [portal, ayuda, preferencias, bolsa] = await Promise.all(modulos
+    .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
+  if ([portal, ayuda, preferencias, bolsa].some((catalogo) => catalogo.idioma !== elegido)) {
+    elegido = IDIOMA_POR_DEFECTO;
+    [portal, ayuda, preferencias, bolsa] = await Promise.all(modulos
+      .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
+  }
+  idiomaInicialDelShell ??= portal.idioma;
+  const fases = Object.fromEntries(Object.entries(portal.seccion("fases_rrhh"))
+    .map(([clave, texto]) => [`tramite_${clave}`, texto]));
   return Object.freeze({
     ...ayuda.seccion("ayuda"),
     ...portal.seccion("panel_interno"),
     ...portal.seccion("textos"),
     ...bolsa.seccion("plazos"),
     ...bolsa.seccion("politica_cese"),
-    ...mensajesTramitePortal(idioma),
+    ...fases,
     ...portal.seccion("general"),
     ...aplanar(preferencias.seccion("portal")),
   });
@@ -63,7 +76,7 @@ export function textoPortal(clave, variables = {}) {
 }
 
 /** Textos comunes de las vistas internas de Bolsa (sección `bolsa_interna` de `portal.json`). */
-export const MENSAJES_BOLSA_INTERNA = (await cargarTextos("portal")).seccion("bolsa_interna");
+export const MENSAJES_BOLSA_INTERNA = (await cargarTextos("portal", { idioma: idiomaInicialDelShell })).seccion("bolsa_interna");
 
 const CLAVES_BOLSA_INTERNA = Object.freeze(Object.keys(MENSAJES_BOLSA_INTERNA));
 export function crearTraductorBolsaInterna(catalogo = MENSAJES_BOLSA_INTERNA) {
@@ -77,7 +90,7 @@ export function crearTraductorBolsaInterna(catalogo = MENSAJES_BOLSA_INTERNA) {
 }
 export const traducirBolsaInterna = crearTraductorBolsaInterna();
 /** Localización y zona horaria del portal: autoridad común para formatear fechas, horas, importes y cifras. */
-export const LOCALIZACION_PORTAL = LOCALIZACION_ACTUAL;
+export const LOCALIZACION_PORTAL = localizacionDe(idiomaInicialDelShell);
 export const ZONA_HORARIA_PORTAL = "Europe/Madrid";
 export function formatearNumeroPortal(valor, opciones = {}) {
   const numero = Number(valor);
