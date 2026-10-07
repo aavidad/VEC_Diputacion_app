@@ -28,6 +28,8 @@ type tarifasComisionPrueba struct {
 	referenciaKM     string
 	alterarFuentes   bool
 	grupoDiferente   int
+	tarifaKM         string
+	alterarTarifa    bool
 }
 
 func (tarifasComisionPrueba) ConsultarRegla(_ context.Context, version string, fecha time.Time) (domain.ReglaDevengoProvisional, error) {
@@ -48,7 +50,37 @@ func (f tarifasComisionPrueba) Consultar(_ context.Context, version string, grup
 	if grupo == f.grupoDiferente {
 		dietas = "BOE-A-2002-10337 / RD 462/2002"
 	}
-	return domain.TarifaComisionProvisional{Dieta: domain.TarifaNacionalProvisional{VersionRef: version, Rotulo: domain.RotuloTarifaProvisional, PaisISO2: "ES", Grupo: grupo, VigenteDesde: "2026-09-23", ManutencionCentimos: 5000, AlojamientoTopeCentimos: 6000}, EURPorKM: "0.2600", ReferenciaDietas: dietas, ReferenciaKilometraje: km}, nil
+	tarifaKM := "0.2600"
+	if f.alterarTarifa {
+		tarifaKM = f.tarifaKM
+	}
+	return domain.TarifaComisionProvisional{Dieta: domain.TarifaNacionalProvisional{VersionRef: version, Rotulo: domain.RotuloTarifaProvisional, PaisISO2: "ES", Grupo: grupo, VigenteDesde: "2026-09-23", ManutencionCentimos: 5000, AlojamientoTopeCentimos: 6000}, EURPorKM: tarifaKM, ReferenciaDietas: dietas, ReferenciaKilometraje: km}, nil
+}
+
+func TestPreparadorComisionRechazaTarifaKilometrajeMalformada(t *testing.T) {
+	for _, tarifa := range []string{"", "0", "0.26", "0.26xx", "1.2600"} {
+		t.Run("tarifa="+tarifa, func(t *testing.T) {
+			p, err := NuevoPreparadorComision(
+				map[string]ports.CoordenadaRuta{
+					"18087": {Nombre: "Granada", Latitud: 37.17, Longitud: -3.59},
+					"18003": {Nombre: "Albolote", Latitud: 37.23, Longitud: -3.65},
+				},
+				&motorComisionPrueba{}, tarifasComisionPrueba{tarifaKM: tarifa, alterarTarifa: true},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			alta := ports.SolicitudCrearBorradorPropio{
+				ClaveIdempotencia: "clave_0123456789abcdef", FechaInicio: "2026-09-23", FechaFin: "2026-09-23",
+				HoraInicio: "08:00", HoraFin: "18:00", Motivo: "Visita técnica", CodigosRuta: []string{"18087", "18003"},
+			}
+			preparada, err := p.Preparar(context.Background(), alta)
+			if !errors.Is(err, domain.ErrTramosProvisionalesNoDisponibles) || preparada.Calculo != nil ||
+				preparada.ClaveIdempotencia != alta.ClaveIdempotencia {
+				t.Fatalf("tarifa %q: cálculo=%+v clave=%q error=%v", tarifa, preparada.Calculo, preparada.ClaveIdempotencia, err)
+			}
+		})
+	}
 }
 
 func TestPreparadorComisionRechazaFuenteAusenteOIncongruente(t *testing.T) {
