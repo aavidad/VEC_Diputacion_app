@@ -130,11 +130,11 @@ try {
   try {
     const error = await cargarTextos('formacion-error');
     document.documentElement.lang = error.idioma; document.title = error.traducir('titulo'); fijarIdiomaEnURL(error.idioma);
-    document.querySelector('h1').textContent = error.traducir('titulo');
+    document.querySelector('.selector-idioma').remove(); document.querySelector('.acciones-cabecera details').remove();
+    document.querySelectorAll('[data-texto]').forEach(n => { n.textContent = error.traducir(n.dataset.texto); });
     const p = document.createElement('p'); p.setAttribute('role', 'alert'); p.textContent = error.traducir('mensaje');
     const boton = document.createElement('button'); boton.type = 'button'; boton.className = 'boton-secundario';
     boton.textContent = error.traducir('reintentar'); boton.addEventListener('click', () => location.reload());
     raiz.replaceChildren(p, boton);
-    document.querySelector('.selector-idioma').remove(); document.querySelector('.acciones-cabecera details').remove();
   } catch { raiz.setAttribute('role', 'alert'); }
 }

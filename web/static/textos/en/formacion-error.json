@@ -1,6 +1,9 @@
 {
   "idioma": "en",
+  "saltar": "Skip to content",
+  "portal": "Human Resources",
+  "organizacion": "Provincial Council of Granada",
   "titulo": "Training plan",
-  "mensaje": "The page text could not be loaded. Try again. If the problem continues, contact IT.",
-  "reintentar": "Retry loading"
+  "mensaje": "The training draft cannot be shown right now. Try again. If it still fails, contact IT.",
+  "reintentar": "Reload the draft"
 }

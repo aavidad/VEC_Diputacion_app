@@ -1,6 +1,9 @@
 {
   "idioma": "es",
+  "saltar": "Saltar al contenido",
+  "portal": "Recursos Humanos",
+  "organizacion": "Diputación de Granada",
   "titulo": "Plan de formación",
-  "mensaje": "No se han podido cargar los textos de esta pantalla. Vuelva a intentarlo. Si el problema continúa, avise a Informática.",
-  "reintentar": "Reintentar carga"
+  "mensaje": "No se puede mostrar el borrador de formación ahora. Vuelva a intentarlo. Si vuelve a fallar, avise a Informática.",
+  "reintentar": "Volver a cargar el borrador"
 }
