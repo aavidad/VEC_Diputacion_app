@@ -50,11 +50,24 @@ type ContenidoGobiernoCategoriaRPT struct {
 	FuenteRef               string                                          `json:"fuente_ref"`
 }
 
+// TamanoBorradorValido aplica los límites del catálogo antes de copiar
+// preimágenes o calcular la huella de un documento aportado.
+func (c ContenidoGobiernoCategoriaRPT) TamanoBorradorValido() bool {
+	if len(c.PreimagenesControl) > maximoEntradasCatalogo {
+		return false
+	}
+	if c.DocumentoCanonico != nil {
+		n := len(*c.DocumentoCanonico)
+		return n >= 2 && n <= maximoBytesCatalogo
+	}
+	return true
+}
+
 // PrepararBorradorParaEditor calcula únicamente la huella de los bytes del
 // documento, que no depende de JSONB. La huella de preimagenes y la de toda
 // la propuesta se completan en PostgreSQL antes de solicitar V3.
 func (c ContenidoGobiernoCategoriaRPT) PrepararBorradorParaEditor(editor string) (ContenidoGobiernoCategoriaRPT, error) {
-	if c.PreimagenesHuellaSHA256 != "" || c.DocumentoHuellaSHA256 != nil {
+	if !c.TamanoBorradorValido() || c.PreimagenesHuellaSHA256 != "" || c.DocumentoHuellaSHA256 != nil {
 		return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
 	}
 	if c.Accion == AccionGobiernoCategoriaRPTPublicar || c.Accion == AccionGobiernoCategoriaRPTDeshabilitar {
@@ -78,7 +91,7 @@ func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 		!identificadorGobiernoRPT.MatchString(c.ModuloID) ||
 		c.Version < 1 || c.Version > 1<<31-1 ||
 		!huellaGobiernoRPTValida(c.PreimagenesHuellaSHA256) ||
-		c.PreimagenesControl == nil || len(c.PreimagenesControl) > maximoEntradasCatalogo ||
+		c.PreimagenesControl == nil || !c.TamanoBorradorValido() ||
 		len(c.FuenteRef) < 3 || len(c.FuenteRef) > 320 ||
 		len(c.MotivoRef) < 3 || len(c.MotivoRef) > 320 ||
 		strings.TrimSpace(c.FuenteRef) != c.FuenteRef ||
@@ -93,7 +106,6 @@ func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 		}
 	}
 	if c.DocumentoCanonico == nil || c.DocumentoHuellaSHA256 == nil ||
-		len(*c.DocumentoCanonico) < 2 || len(*c.DocumentoCanonico) > maximoBytesCatalogo ||
 		!huellaGobiernoRPTValida(*c.DocumentoHuellaSHA256) {
 		return ErrGobiernoCategoriaRPTInvalido
 	}

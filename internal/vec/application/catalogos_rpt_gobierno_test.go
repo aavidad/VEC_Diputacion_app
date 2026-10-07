@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -233,6 +235,30 @@ func TestServicioGobiernoRPTFallaAntesDeV3ConCASInvalidoYDependenciaCaida(t *tes
 	}
 }
 
+func TestServicioGobiernoRPTPrevalidaCancelacionYCardinalidadAntesDeCopiar(t *testing.T) {
+	_, _, cred, _ := entornoEmisionGobiernoRPT(t)
+	b := borradorPublicarGobiernoRPTAplicacionPrueba(t, cred)
+	for i := range 20_000 {
+		b.Contenido.PreimagenesControl["categoria."+strconv.Itoa(i)] = domain.PreimagenControlGobiernoCategoriaRPT{}
+	}
+	preparador := &preparadorGobiernoRPTPrueba{}
+	s := &ServicioGobiernoCategoriaRPT{preparador: preparador}
+	for _, cancelado := range []bool{true, false} {
+		ctx, cancelar := context.WithCancel(t.Context())
+		if cancelado {
+			cancelar()
+		}
+		o := OrdenProponerGobiernoCategoriaRPT{Credenciales: cred, Borrador: b}
+		if _, err := s.Proponer(ctx, o); !errors.Is(err, ErrOrdenGobiernoCategoriaRPTInvalida) || preparador.llamadas != 0 {
+			t.Fatalf("borrador excesivo o cancelado alcanzó preparación: cancelado=%v err=%v llamadas=%d", cancelado, err, preparador.llamadas)
+		}
+		if asignaciones := testing.AllocsPerRun(3, func() { _, _ = s.Proponer(ctx, o) }); asignaciones != 0 {
+			t.Fatalf("borrador excesivo o cancelado se copió antes del rechazo: cancelado=%v asignaciones=%v", cancelado, asignaciones)
+		}
+		cancelar()
+	}
+}
+
 func TestServicioGobiernoRPTRechazaMaterialPreparadoConContenidoAjeno(t *testing.T) {
 	e, _, cred, _ := entornoEmisionGobiernoRPT(t)
 	_ = e
@@ -318,6 +344,73 @@ func TestGobiernoRPTDeniegaReasignacionDeRolEntreFronteraYV3(t *testing.T) {
 type gestorGobiernoRPTPrueba struct {
 	llamadas          int
 	principal, perfil string
+}
+
+type gestorGobiernoRPTFalloPrueba struct {
+	*gestorGobiernoRPTPrueba
+	err      error
+	cancelar context.CancelFunc
+	llamadas int
+}
+
+func (g *gestorGobiernoRPTFalloPrueba) fallar() (ports.ResultadoGobiernoCategoriaRPT, error) {
+	g.llamadas++
+	if g.cancelar != nil {
+		g.cancelar()
+	}
+	return ports.ResultadoGobiernoCategoriaRPT{}, g.err
+}
+
+func (g *gestorGobiernoRPTFalloPrueba) AprobarGobiernoCategoriaRPT(context.Context, ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	return g.fallar()
+}
+
+func (g *gestorGobiernoRPTFalloPrueba) ConfirmarGobiernoCategoriaRPT(context.Context, ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	return g.fallar()
+}
+
+func TestServicioGobiernoRPTSaneaErroresDelGestorAlAprobarYConfirmar(t *testing.T) {
+	for _, accion := range []string{ports.AccionAprobarGobiernoCategoriaRPT, ports.AccionConfirmarGobiernoCategoriaRPT} {
+		for _, caso := range []struct {
+			nombre   string
+			causa    error
+			esperado error
+			cancelar bool
+		}{
+			{"tecnico", errors.New("dni privado y traza interna"), ports.ErrGobiernoCategoriaRPTNoDisponible, false},
+			{"nominal envuelto", fmt.Errorf("dato privado: %w", ports.ErrGobiernoCategoriaRPTConflicto), ports.ErrGobiernoCategoriaRPTConflicto, false},
+			{"cancelacion devuelta", context.Canceled, ports.ErrGobiernoCategoriaRPTNoDisponible, false},
+			{"contexto cancelado", errors.New("dato privado tras cancelar"), context.Canceled, true},
+		} {
+			t.Run(accion+"/"+caso.nombre, func(t *testing.T) {
+				e, emisor, cred, preparacion := entornoEmisionGobiernoRPT(t)
+				e.fuente.instantanea.VersionRol.Concesiones[0].Accion = accion
+				preparacion.Accion = accion
+				ctx, cancelar := context.WithCancel(t.Context())
+				defer cancelar()
+				gestor := &gestorGobiernoRPTFalloPrueba{gestorGobiernoRPTPrueba: &gestorGobiernoRPTPrueba{}, err: caso.causa}
+				if caso.cancelar {
+					gestor.cancelar = cancelar
+				}
+				s, err := NuevoServicioGobiernoCategoriaRPT(&preparadorGobiernoRPTPrueba{avance: preparacion},
+					emisor, gestor, &relojAutorizacionServicioPrueba{ahora: e.ahora}, e.fuente.instantanea.VersionRol.Referencia())
+				if err != nil {
+					t.Fatal(err)
+				}
+				m := materialAvanceGobiernoRPTPrueba()
+				if accion == ports.AccionConfirmarGobiernoCategoriaRPT {
+					m.RevisionEsperada = 2
+					_, err = s.Confirmar(ctx, OrdenAvanzarGobiernoCategoriaRPT{Credenciales: cred, Material: m})
+				} else {
+					_, err = s.Aprobar(ctx, OrdenAvanzarGobiernoCategoriaRPT{Credenciales: cred, Material: m})
+				}
+				if !errors.Is(err, caso.esperado) || err == caso.causa ||
+					strings.Contains(err.Error(), "privado") || gestor.llamadas != 1 {
+					t.Fatalf("error del gestor expuesto: accion=%s err=%v llamadas=%d", accion, err, gestor.llamadas)
+				}
+			})
+		}
+	}
 }
 
 func (g *gestorGobiernoRPTPrueba) resultado(s domain.SolicitudAutorizacionLigadaV3, a ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, propuesta, huella, recibo string, revision int64, estado string) (ports.ResultadoGobiernoCategoriaRPT, error) {

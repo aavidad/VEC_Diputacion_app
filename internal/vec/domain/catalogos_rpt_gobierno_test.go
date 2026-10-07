@@ -61,6 +61,23 @@ func TestContenidoGobiernoCategoriaRPTExigeEditorSeparadoYDocumentoIntacto(t *te
 	}
 }
 
+func TestGobiernoCategoriaRPTRechazaDocumentoExcesivoAntesDeCalcularHuella(t *testing.T) {
+	c := contenidoPublicarRPTPrueba(t)
+	documento := strings.Repeat("x", maximoBytesCatalogo+1)
+	c.DocumentoCanonico = &documento
+	c.DocumentoHuellaSHA256 = nil
+	c.PreimagenesHuellaSHA256 = ""
+	if _, err := c.PrepararBorradorParaEditor("tecnico-configuracion-1"); !errors.Is(err, ErrGobiernoCategoriaRPTInvalido) ||
+		c.DocumentoHuellaSHA256 != nil || *c.DocumentoCanonico != documento {
+		t.Fatalf("documento excesivo alteró el borrador: %v", err)
+	}
+	if asignaciones := testing.AllocsPerRun(3, func() {
+		_, _ = c.PrepararBorradorParaEditor("tecnico-configuracion-1")
+	}); asignaciones != 0 {
+		t.Fatalf("documento excesivo provocó asignaciones antes del rechazo: %v", asignaciones)
+	}
+}
+
 func TestContenidoGobiernoCategoriaRPTDeshabilitarExigePreimagenExacta(t *testing.T) {
 	c := contenidoDeshabilitarRPTPrueba(t)
 	id, rev := *c.CategoriaID, *c.RevisionEsperada

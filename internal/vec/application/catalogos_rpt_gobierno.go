@@ -83,13 +83,14 @@ func NuevoServicioGobiernoCategoriaRPT(
 func (s *ServicioGobiernoCategoriaRPT) Proponer(ctx context.Context, o OrdenProponerGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
 	var cero ports.ResultadoGobiernoCategoriaRPT
 	b := o.Borrador
-	b.Contenido = clonarContenidoGobiernoCategoriaRPT(b.Contenido)
 	if s == nil || ctx == nil || ctx.Err() != nil ||
+		!b.Contenido.TamanoBorradorValido() ||
 		!referenciaGobiernoCategoriaRPTValida(b.PropuestaRef) ||
 		!referenciaGobiernoCategoriaRPTValida(b.ReciboRef) ||
 		b.Contenido.MotivoRef != o.Credenciales.Motivo.Referencia() {
 		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 	}
+	b.Contenido = clonarContenidoGobiernoCategoriaRPT(b.Contenido)
 	contenido, err := b.Contenido.PrepararBorradorParaEditor(o.Credenciales.Actor.Principal.ID)
 	if err != nil {
 		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
@@ -179,7 +180,7 @@ func (s *ServicioGobiernoCategoriaRPT) avanzar(ctx context.Context, o OrdenAvanz
 		r, err = s.gestor.ConfirmarGobiernoCategoriaRPT(ctx, orden)
 	}
 	if err != nil {
-		return cero, err
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
 	}
 	if !resultadoGobiernoCategoriaRPTValido(r, m.PropuestaRef, m.HuellaSHA256, m.ReciboRef,
 		esperado, estado, material.ResumenCapacidad()) {
