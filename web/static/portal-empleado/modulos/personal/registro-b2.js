@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20261007-t-personal-p5-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
 import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261002-b-base-401-acumulada-v3";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
