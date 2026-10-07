@@ -130,6 +130,32 @@ test("dos reintentos simultáneos comparten carga y montan una sola vista", asyn
   assert.equal(raiz.children.length, 0);
 });
 
+test("fallo inicial y primer reintento permiten recuperar con el mismo control", async () => {
+  const base = await cargarTextos("nominas");
+  const { raiz } = crearDOM();
+  let cargas = 0;
+  let resolver;
+  const fallo = await montarVistaNominas({ raiz, cargarCatalogo: () => {
+    cargas++;
+    if (cargas < 3) return Promise.reject(new Error("catálogo temporalmente inaccesible"));
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const segundoFallo = await fallo.reintentar();
+  assert.equal(segundoFallo.estado, "error_catalogo");
+  assert.equal(segundoFallo.reintentar(), null);
+  assert.equal(raiz.children.length, 0);
+  const primero = fallo.reintentar();
+  const segundo = fallo.reintentar();
+  assert.equal(primero, segundo);
+  assert.equal(cargas, 3);
+  resolver(base);
+  const montada = await primero;
+  assert.equal(raiz.children.length, 1);
+  fallo.desmontar();
+  assert.equal(raiz.children.length, 0);
+  assert.equal(montada.desmontar(), undefined);
+});
+
 test("desmontar durante el reintento impide pintar el catálogo tardío", async () => {
   const base = await cargarTextos("nominas");
   const { raiz } = crearDOM();

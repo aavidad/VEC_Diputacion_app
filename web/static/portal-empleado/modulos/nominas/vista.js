@@ -93,8 +93,17 @@ export async function montarVistaNominas({ raiz, anunciar = () => {}, registrarD
     let reintento;
     return Object.freeze({ estado: "error_catalogo", desmontar: cancelarCarga, reintentar: () => {
       if (!cargaVigente) return null;
-      reintento ??= montarVistaNominas({ raiz, anunciar, fuente, cargarCatalogo, mensajeErrorCatalogo,
-        registrarDesmontar: (desmontar) => { desmontarReintento = desmontar; if (!cargaVigente) desmontar(); } });
+      if (!reintento) {
+        const actual = montarVistaNominas({ raiz, anunciar, fuente, cargarCatalogo, mensajeErrorCatalogo,
+          registrarDesmontar: (desmontar) => { desmontarReintento = desmontar; if (!cargaVigente) desmontar(); } });
+        reintento = actual.then((resultado) => {
+          if (resultado.estado === "error_catalogo") {
+            resultado.desmontar();
+            reintento = null;
+          }
+          return resultado;
+        }, (error) => { reintento = null; throw error; });
+      }
       return reintento;
     } });
   }
