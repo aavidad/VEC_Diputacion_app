@@ -1,7 +1,8 @@
 /** Alta y edición RRHH de tipos de borrador; la publicación usa otra autorización. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
-import { crearClientePlantillasRRHH } from "./rrhh-plantillas-cliente.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN } from "./rrhh-plantillas-i18n.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { crearClientePlantillasRRHH } from "./rrhh-plantillas-cliente.js?v=20261007-pantallas-textos-final-v1";
 
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
@@ -74,7 +75,10 @@ export function montarRRHHPlantillas({
     || typeof cliente.publicar !== "function") {
     throw new TypeError("vista de plantillas RRHH no disponible");
   }
-  const t = crearTraductorContratacionTemporal({ ...MENSAJES_RRHH_PLANTILLAS_ES, ...mensajes });
+  const t = crearTraductorContratacionTemporal({
+    ...(IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO ? MENSAJES_RRHH_PLANTILLAS_ES : MENSAJES_RRHH_PLANTILLAS_EN),
+    ...mensajes,
+  });
   const controlador = new AbortController();
   let consulta = null;
   let error = null;

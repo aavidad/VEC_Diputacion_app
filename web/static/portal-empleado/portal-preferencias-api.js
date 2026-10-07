@@ -1,3 +1,6 @@
+import { consultarJSON, ErrorConsultaJSON } from "../comun/http.js?v=20261007-p7-http-v1";
+import { iniciarRegistroErrores } from "../comun/registro-errores.js?v=20261007-p7-http-v1";
+
 const RUTA = "/api/vec/usuarios/mis-preferencias";
 const MAX_BYTES = 65536;
 const LIMITE_MS = 10000;
@@ -66,7 +69,20 @@ async function contenidoJSON(respuesta) {
 
 export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
+  const detenerRegistroErrores = iniciarRegistroErrores();
   async function solicitar(metodo, cuerpo, signal) {
+    if (metodo === "GET") {
+      try {
+        return await consultarJSON(RUTA, { fetchImpl, signal, limiteBytes: MAX_BYTES, plazoMs: LIMITE_MS });
+      } catch (fallo) {
+        if (signal?.aborted) throw fallo;
+        if (fallo instanceof ErrorConsultaJSON) {
+          const codigos = { 401: "no_autenticado", 403: "prohibido", 409: "conflicto", 422: "peticion_invalida", 503: "no_disponible" };
+          throw new ErrorPreferencias(fallo.estado, codigos[fallo.estado] ?? "");
+        }
+        throw new ErrorPreferencias(0);
+      }
+    }
     const controlador = new AbortController();
     const abortar = () => controlador.abort();
     if (signal?.aborted) abortar();
@@ -100,6 +116,7 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
     }
   }
   return Object.freeze({
+    detenerRegistroErrores,
     async consultar({ signal } = {}) {
       const cuerpo = await solicitar("GET", null, signal);
       const datos = cuerpo?.data;

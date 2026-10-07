@@ -1,4 +1,4 @@
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 
 /**
  * Pantalla de cada fase del expediente. Al pulsar una fase del raíl se muestra

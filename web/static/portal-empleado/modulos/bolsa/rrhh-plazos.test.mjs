@@ -4,9 +4,9 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, crearLectorReglasCompartido } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
 import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
-  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261006-reglas-una-lectura-v1";
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 

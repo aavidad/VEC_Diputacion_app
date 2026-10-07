@@ -27,32 +27,88 @@ const LIMITE_BYTES = 2 * 1024 * 1024;
 
 async function leerFicheroLocal(url) {
   const { readFile } = await import("node:fs/promises");
-  return readFile(url, "utf8");
+  const bytes = await readFile(url);
+  if (bytes.byteLength > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+  return new TextDecoder().decode(bytes);
 }
 
-async function leerPorRed(url, fetchImpl) {
-  const respuesta = await fetchImpl(url.href, {
+function esperarReintento(signal) {
+  return new Promise((resolve, reject) => {
+    const cancelar = () => { clearTimeout(temporizador); reject(signal.reason ?? new DOMException("Aborted", "AbortError")); };
+    const temporizador = setTimeout(() => { signal?.removeEventListener("abort", cancelar); resolve(); }, 150);
+    if (signal?.aborted) cancelar();
+    else signal?.addEventListener("abort", cancelar, { once: true });
+  });
+}
+
+async function leerRespuestaAcotada(respuesta) {
+  const lector = respuesta.body?.getReader?.();
+  if (!lector) {
+    const texto = await respuesta.text();
+    if (new TextEncoder().encode(texto).byteLength > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+    return texto;
+  }
+  const decodificador = new TextDecoder();
+  let bytes = 0;
+  let texto = "";
+  try {
+    while (true) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+      texto += decodificador.decode(value, { stream: true });
+    }
+    return texto + decodificador.decode();
+  } catch (error) {
+    try { await lector.cancel(); }
+    catch (secundario) { throw new AggregateError([error, secundario], `${error.message}; error al cancelar la lectura`); }
+    throw error;
+  } finally {
+    lector.releaseLock();
+  }
+}
+
+export async function leerPorRed(url, fetchImpl, signal) {
+  const origen = new URL(import.meta.url);
+  if (url.protocol !== origen.protocol || url.host !== origen.host) throw new Error("recurso JSON fuera del propio origen");
+  const opciones = {
     method: "GET",
+    cache: "no-store",
     credentials: "same-origin",
     redirect: "error",
     referrerPolicy: "no-referrer",
     headers: { Accept: "application/json" },
-  });
-  if (!respuesta?.ok) throw new Error(`recurso JSON no disponible (${respuesta?.status ?? "sin respuesta"})`);
-  const declarado = Number(respuesta.headers?.get?.("Content-Length"));
-  if (Number.isFinite(declarado) && declarado > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
-  return respuesta.text();
+    signal,
+  };
+  for (let intento = 0; intento < 2; intento++) {
+    if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+    let respuesta;
+    try { respuesta = await fetchImpl(url.href, opciones); }
+    catch (error) {
+      if (signal?.aborted || intento > 0) throw error;
+      await esperarReintento(signal);
+      continue;
+    }
+    if (!respuesta?.ok) {
+      if (intento === 0 && [502, 503].includes(respuesta?.status)) { await esperarReintento(signal); continue; }
+      throw new Error(`recurso JSON no disponible (${respuesta?.status ?? "sin respuesta"})`);
+    }
+    const declarado = Number(respuesta.headers?.get?.("Content-Length"));
+    if (Number.isFinite(declarado) && declarado > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+    return leerRespuestaAcotada(respuesta);
+  }
 }
 
 /** Devuelve el JSON de `url` (absoluta y del mismo origen que este módulo). */
-export async function leerRecursoJSON(url, { fetchImpl = globalThis.fetch } = {}) {
+export async function leerRecursoJSON(url, { fetchImpl = globalThis.fetch, signal } = {}) {
   const destino = new URL(url);
   const propio = new URL(import.meta.url);
   if (destino.protocol !== propio.protocol || destino.host !== propio.host) {
     throw new Error("recurso JSON fuera del propio origen");
   }
-  const texto = destino.protocol === "file:" ? await leerFicheroLocal(destino) : await leerPorRed(destino, fetchImpl);
-  if (texto.length > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  const texto = destino.protocol === "file:" ? await leerFicheroLocal(destino) : await leerPorRed(destino, fetchImpl, signal);
   return JSON.parse(texto);
 }
 
@@ -110,14 +166,38 @@ function indiceDelDocumento() {
   });
 }
 
-async function cargarIndice() {
-  try { return normalizarIndiceIdiomas(await leerRecursoJSON(URL_INDICE_IDIOMAS)); }
-  catch { return indiceDelDocumento(); }
+export let INDICE_IDIOMAS = indiceDelDocumento();
+export let IDIOMAS_DISPONIBLES = INDICE_IDIOMAS.idiomas;
+export let IDIOMA_POR_DEFECTO = INDICE_IDIOMAS.porDefecto;
+export let ERROR_INDICE_IDIOMAS = null;
+let cargaIndice;
+
+/** La importación nunca espera a la red. Una lectura fallida permite otro intento. */
+export function prepararIdiomas({ leer = leerRecursoJSON } = {}) {
+  if (leer !== leerRecursoJSON) return leer(URL_INDICE_IDIOMAS).then(normalizarIndiceIdiomas);
+  if (!cargaIndice) {
+    cargaIndice = leer(URL_INDICE_IDIOMAS).then(normalizarIndiceIdiomas).then((indice) => {
+      INDICE_IDIOMAS = indice;
+      IDIOMAS_DISPONIBLES = indice.idiomas;
+      IDIOMA_POR_DEFECTO = indice.porDefecto;
+      ERROR_INDICE_IDIOMAS = null;
+      IDIOMA_ACTUAL = resolverIdiomaNavegacion();
+      LOCALIZACION_ACTUAL = localizacionDe(IDIOMA_ACTUAL);
+      return indice;
+    }).catch((error) => {
+      ERROR_INDICE_IDIOMAS = error;
+      throw error;
+    });
+  }
+  return cargaIndice;
 }
 
-export const INDICE_IDIOMAS = await cargarIndice();
-export const IDIOMAS_DISPONIBLES = INDICE_IDIOMAS.idiomas;
-export const IDIOMA_POR_DEFECTO = INDICE_IDIOMAS.porDefecto;
+/** Nuevo intento explícito tras una incidencia de índice. */
+export function reintentarIdiomas() {
+  if (!ERROR_INDICE_IDIOMAS) return prepararIdiomas();
+  cargaIndice = null;
+  return prepararIdiomas();
+}
 
 function admitido(codigo, indice) {
   return indice.idiomas.some((idioma) => idioma.codigo === codigo);
@@ -165,8 +245,8 @@ export function resolverIdiomaNavegacion({
 }
 
 const ubicacionActual = globalThis.location;
-export const IDIOMA_ACTUAL = resolverIdiomaNavegacion({ ubicacion: ubicacionActual });
-export const LOCALIZACION_ACTUAL = localizacionDe(IDIOMA_ACTUAL);
+export let IDIOMA_ACTUAL = resolverIdiomaNavegacion({ ubicacion: ubicacionActual });
+export let LOCALIZACION_ACTUAL = localizacionDe(IDIOMA_ACTUAL);
 
 /** Conserva ruta, parámetros ajenos y ancla al cambiar el idioma. */
 export function cambiarIdioma(idioma, ubicacion = globalThis.location, indice = INDICE_IDIOMAS) {

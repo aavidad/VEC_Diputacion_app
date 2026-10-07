@@ -3,7 +3,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20260925-personal-e10-v1";
+} from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);
@@ -192,21 +192,25 @@ function listado(documento, estructura, t, vigente) {
   return salida;
 }
 
-function pintar(raiz, contenedor, estado, t) {
+function pintar(raiz, contenedor, estado, t, reintentar) {
   if (!sigue(raiz, contenedor)) return;
   const documento = contenedor.ownerDocument;
   const botonAnterior = contenedor.querySelector("[data-personal-estructura-ayuda]");
   const contenidoAnterior = contenedor.querySelector("[data-personal-estructura-ayuda-contenido]");
+  const reintentoAnterior = contenedor.querySelector("[data-personal-estructura-reintentar]");
+  const cargaAnterior = contenedor.querySelector("[data-personal-estructura-cargando]");
   const ayudaAbierta = contenidoAnterior ? !contenidoAnterior.hidden : false;
   const focoAyuda = documento.activeElement === botonAnterior;
+  const focoRecuperacion = documento.activeElement === reintentoAnterior || documento.activeElement === cargaAnterior;
   contenedor.replaceChildren();
   const cabecera = nodo(documento, "header");
   cabecera.className = "cabecera-vista";
+  const titulo = nodo(documento, "h2", t("estructura_titulo"));
   const contextual = ayuda(documento, estado.estructura?.fuente, t);
   contextual.contenido.hidden = !ayudaAbierta;
   contextual.boton.setAttribute("aria-expanded", String(ayudaAbierta));
   cabecera.append(
-    nodo(documento, "h2", t("estructura_titulo")),
+    titulo,
     contextual.boton,
   );
   contenedor.append(cabecera, contextual.contenido);
@@ -218,17 +222,26 @@ function pintar(raiz, contenedor, estado, t) {
   };
   if (estado.tipo === "cargando") {
     const carga = nodo(documento, "p", t("estructura_cargando"));
+    carga.dataset.personalEstructuraCargando = "";
     carga.setAttribute("role", "status");
     carga.setAttribute("aria-live", "polite");
+    carga.setAttribute("tabindex", "-1");
     contenedor.append(carga);
     restaurarFoco();
+    if (focoRecuperacion) carga.focus?.();
     return;
   }
   if (estado.tipo === "error") {
     const error = nodo(documento, "p", t("estructura_error"));
     error.setAttribute("role", "alert");
-    contenedor.append(error);
+    const boton = nodo(documento, "button", t("ficha_reintentar"));
+    boton.type = "button";
+    boton.className = "boton-secundario";
+    boton.dataset.personalEstructuraReintentar = "";
+    boton.addEventListener("click", reintentar);
+    contenedor.append(error, boton);
     restaurarFoco();
+    if (focoRecuperacion) boton.focus?.();
     return;
   }
   const estructura = estado.estructura;
@@ -241,6 +254,10 @@ function pintar(raiz, contenedor, estado, t) {
   contenedor.append(aviso, nodo(documento, "p", formatearRecuentoEstructura(estructura.unidades.length)),
     listado(documento, estructura, t, () => sigue(raiz, contenedor)));
   restaurarFoco();
+  if (focoRecuperacion) {
+    titulo.setAttribute("tabindex", "-1");
+    titulo.focus?.();
+  }
 }
 export async function montarModuloEstructuraOrganizativaPublica({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.append || !cliente?.obtener || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
@@ -255,28 +272,38 @@ export async function montarModuloEstructuraOrganizativaPublica({ raiz, cliente,
   raiz.append(contenedor);
   let activa = true;
   let estado = { tipo: "cargando" };
-  const repintar = () => pintar(raiz, contenedor, estado, t);
-  const controlador = new AbortController();
+  let controlador;
+  let consulta = 0;
+  const repintar = () => pintar(raiz, contenedor, estado, t, consultar);
+  const consultar = async () => {
+    if (!activa || !sigue(raiz, contenedor) || (controlador && estado.tipo === "cargando")) return;
+    const turno = ++consulta;
+    controlador?.abort();
+    const solicitud = new AbortController();
+    controlador = solicitud;
+    estado = { tipo: "cargando" };
+    repintar();
+    try {
+      const estructura = await cliente.obtener({ signal: solicitud.signal });
+      if (activa && turno === consulta && sigue(raiz, contenedor) && !solicitud.signal.aborted) {
+        estado = { tipo: "disponible", estructura };
+        repintar();
+      }
+    } catch {
+      if (activa && turno === consulta && sigue(raiz, contenedor) && !solicitud.signal.aborted) {
+        anunciar(t("estructura_error"), "error");
+        estado = { tipo: "error" };
+        repintar();
+      }
+    }
+  };
   const desmontar = () => {
     if (!activa) return;
     activa = false;
-    controlador.abort();
+    controlador?.abort();
     contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);
-  repintar();
-  try {
-    const estructura = await cliente.obtener({ signal: controlador.signal });
-    if (activa && sigue(raiz, contenedor) && !controlador.signal.aborted) {
-      estado = { tipo: "disponible", estructura };
-      repintar();
-    }
-  } catch {
-    if (activa && sigue(raiz, contenedor) && !controlador.signal.aborted) {
-      anunciar(t("estructura_error"), "error");
-      estado = { tipo: "error" };
-      repintar();
-    }
-  }
+  await consultar();
   return Object.freeze({ desmontar });
 }

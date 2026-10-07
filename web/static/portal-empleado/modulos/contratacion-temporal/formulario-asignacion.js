@@ -4,7 +4,7 @@ import {
   validarReciboAsignacion,
   validarSolicitudAsignacion,
 } from "./contrato-asignacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([

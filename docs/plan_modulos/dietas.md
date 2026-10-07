@@ -162,6 +162,7 @@ recuperarse, sin errores JS ni desbordamiento. El visor de ese ensayo es un
 doble de prueba: no acredita backend nominal, PostgreSQL o cálculo liquidable.
 La integración requiere renovar la arista del coordinador común con la versión
 `20261007-u-dietas-catalogo-v1`; ese archivo conserva el escritor de la raíz.
+
 ## Rechazo de una tarifa de kilometraje incoherente
 
 El preparador del alta comprueba el formato decimal de cada tarifa antes de
