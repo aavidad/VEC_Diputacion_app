@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { cambiarIdioma, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES, leerPorRed, leerRecursoJSON, localizacionDe, montarSelectorIdioma,
   normalizarIndiceIdiomas, prepararIdiomas, seleccionarIdioma } from "./idioma.js";
-import { cargarTextos, crearTextos, esMensajePlural, reintentarTextos, urlCatalogo } from "./textos.js";
+import { cargarTextos, crearTextos, esCatalogoValido, esMensajePlural, reintentarTextos, urlCatalogo } from "./textos.js";
 
 // Índice propio de la prueba: los idiomas son datos, también un tercero inventado.
 const INDICE = normalizarIndiceIdiomas({
@@ -169,6 +169,12 @@ test("la lectura de red limita bytes UTF-8 y cancela el flujo demasiado grande",
     body: { getReader: () => ({ read: async () => ({ done: false, value: new Uint8Array(2_097_153) }),
       cancel: async () => { cancelado = true; }, releaseLock: () => {} }) } })), /demasiado grande/u);
   assert.equal(cancelado, true);
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    body: { getReader: () => ({ read: async () => ({ done: false, value: new Uint8Array(2_097_153) }),
+      cancel: async () => { throw new Error("cancelación fallida"); }, releaseLock: () => {} }) } })),
+  (error) => error instanceof AggregateError && error.errors.length === 2
+    && /demasiado grande/u.test(error.errors[0].message)
+    && /cancelación fallida/u.test(error.errors[1].message));
 });
 
 test("JSON roto en el elegido recupera el catálogo por defecto y registra la causa", async () => {
@@ -183,6 +189,38 @@ test("JSON roto en el elegido recupera el catálogo por defecto y registra la ca
   assert.equal(textos.idioma, "es");
   assert.equal(textos.incidenciaCatalogo.causa.name, "SyntaxError");
   assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "es"]);
+});
+
+test("catálogo 200 inválido se reintenta y luego usa respaldo válido", async () => {
+  for (const malo of [{}, { general: {} }, { general: { saludo: "" } },
+    { general: { dias: { one: "día" } } }, { general: { saludo: 3 } }]) {
+    assert.equal(esCatalogoValido(malo), false);
+    const leidos = [];
+    const textos = await cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+      leer: async (url) => { leidos.push(url.pathname); return url.pathname.includes("/en/") ? malo : RESPALDO; },
+      raiz: new URL("https://vec.example/textos/"), avisar: () => {} });
+    assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en", "es"]);
+    assert.equal(textos.idioma, "es");
+    assert.equal(textos.incidenciaCatalogo.causa.name, "TypeError");
+  }
+});
+
+test("catálogo elegido inválido puede recuperarse en su reintento sin pedir respaldo", async () => {
+  const leidos = [];
+  const textos = await cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+    leer: async (url) => { leidos.push(url.pathname); return leidos.length === 1 ? {} : RESPALDO; },
+    raiz: new URL("https://vec.example/textos/"), avisar: () => {} });
+  assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en"]);
+  assert.equal(textos.idioma, "en");
+  assert.equal(textos.incidenciaCatalogo, null);
+});
+
+test("catálogo por defecto inválido también rechaza tras un único reintento", async () => {
+  const leidos = [];
+  await assert.rejects(cargarTextos("prueba", { idioma: "en", porDefecto: "es",
+    leer: async (url) => { leidos.push(url.pathname); return {}; },
+    raiz: new URL("https://vec.example/textos/"), avisar: () => {} }), /no válido/u);
+  assert.deepEqual(leidos.map((ruta) => ruta.match(/\/(es|en)\/prueba/u)[1]), ["en", "en", "es", "es"]);
 });
 
 test("los catálogos reales es y en se cargan sin incidencia", async () => {
