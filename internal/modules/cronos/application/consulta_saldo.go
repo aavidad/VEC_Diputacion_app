@@ -107,6 +107,7 @@ func construirConsultaSaldo(tipo ports.PeriodoSaldo, desde, hasta time.Time, fue
 		jornadas[j.Fecha] = j
 	}
 	hechos := make([]domain.HechoSaldo, 0, len(fuente.Marcajes))
+	marcajesPorDia := make(map[string][]ports.MarcajeDia)
 	for _, m := range fuente.Marcajes {
 		if m.MarcajeRef == "" || m.OrigenRef == "" || m.Canal.CanalRef == "" || m.Canal.OrigenRef != m.OrigenRef || m.Canal.PoliticaVersionRef == "" || m.Canal.CalidadRef == "" || m.InstanteUTC.Location() != time.UTC {
 			return ports.ConsultaSaldo{}, ports.ErrDependenciaNoDisponible
@@ -115,6 +116,8 @@ func construirConsultaSaldo(tipo ports.PeriodoSaldo, desde, hasta time.Time, fue
 			return ports.ConsultaSaldo{}, ports.ErrDependenciaNoDisponible
 		}
 		hechos = append(hechos, domain.HechoSaldo{Movimiento: m.Movimiento, InstanteUTC: m.InstanteUTC})
+		clave := m.InstanteUTC.In(zona).Format("2006-01-02")
+		marcajesPorDia[clave] = append(marcajesPorDia[clave], ports.MarcajeDia{InstanteUTC: m.InstanteUTC, Movimiento: m.Movimiento, Origen: m.TipoOrigen})
 	}
 	type asientosDia struct {
 		trabajado, previsto int64
@@ -191,10 +194,8 @@ func construirConsultaSaldo(tipo ports.PeriodoSaldo, desde, hasta time.Time, fue
 			dia.SaldoMinutos = &saldo
 			totalSaldo += saldo
 		}
-		for _, m := range fuente.Marcajes {
-			if m.InstanteUTC.In(zona).Format("2006-01-02") == clave {
-				dia.Marcajes = append(dia.Marcajes, ports.MarcajeDia{InstanteUTC: m.InstanteUTC, Movimiento: m.Movimiento, Origen: m.TipoOrigen})
-			}
+		if marcajes := marcajesPorDia[clave]; len(marcajes) != 0 {
+			dia.Marcajes = marcajes
 		}
 		resultado.Detalle = append(resultado.Detalle, dia)
 		totalTrabajado += trabajado

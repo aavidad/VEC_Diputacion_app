@@ -264,3 +264,57 @@ func TestConsultaSaldoRechazaOrdenVaciaAntesDeLeer(t *testing.T) {
 		t.Fatal(err, r.llamadas)
 	}
 }
+
+func TestConsultaSaldoAgrupaMarcajesPorFechaLocalConDSTYOrdenDeFuente(t *testing.T) {
+	zona, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	desde, err := fechaCivilSaldo("2026-10-24", zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasta, err := fechaCivilSaldo("2026-10-26", zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marcaje := func(ref string, movimiento domain.PunchKind, instante time.Time) ports.MarcajeSaldo {
+		return ports.MarcajeSaldo{MarcajeRef: ref, Movimiento: movimiento, InstanteUTC: instante, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"}
+	}
+	// La secuencia de cálculo se ordena por instante; el detalle conserva el orden de la fuente.
+	fuente := ports.FuenteSaldo{Completo: true, Marcajes: []ports.MarcajeSaldo{
+		marcaje("s25", domain.PunchExit, time.Date(2026, 10, 25, 2, 30, 0, 0, time.UTC)),
+		marcaje("e24", domain.PunchEntry, time.Date(2026, 10, 24, 8, 0, 0, 0, time.UTC)),
+		marcaje("e25", domain.PunchEntry, time.Date(2026, 10, 24, 22, 30, 0, 0, time.UTC)),
+		marcaje("s24", domain.PunchExit, time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)),
+	}}
+	for i, previsto := range []int64{60, 240, 0} {
+		clave := desde.AddDate(0, 0, i).Format("2006-01-02")
+		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})
+		fuente.MovimientosSaldo = append(fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: clave, Tipo: "previsto", DeltaMicrosegundos: -previsto * 60 * 1000000, Fuentes: []string{"turno"}})
+		if previsto > 0 {
+			fuente.MovimientosSaldo = append(fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: clave, Tipo: "trabajado", DeltaMicrosegundos: previsto * 60 * 1000000, Fuentes: []string{"e", "s"}})
+		}
+	}
+	got, err := construirConsultaSaldo(ports.PeriodoSaldoRango, desde, hasta, fuente, zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Detalle) != 3 || got.Resumen.Estado != ports.EstadoSaldoDisponible || got.Resumen.SaldoMinutos == nil || *got.Resumen.SaldoMinutos != 0 || got.Resumen.TrabajadosMinutos != 300 {
+		t.Fatalf("resumen: %+v", got)
+	}
+	for i, dia := range got.Detalle {
+		if dia.SaldoMinutos == nil || *dia.SaldoMinutos != 0 || dia.TrabajadosMinutos != []int64{60, 240, 0}[i] || dia.Marcajes == nil {
+			t.Fatalf("día %d: %+v", i, dia)
+		}
+	}
+	if len(got.Detalle[0].Marcajes) != 2 || got.Detalle[0].Marcajes[0].Movimiento != domain.PunchEntry || got.Detalle[0].Marcajes[1].Movimiento != domain.PunchExit {
+		t.Fatalf("día anterior: %+v", got.Detalle[0].Marcajes)
+	}
+	if len(got.Detalle[1].Marcajes) != 2 || got.Detalle[1].Marcajes[0].Movimiento != domain.PunchExit || got.Detalle[1].Marcajes[1].Movimiento != domain.PunchEntry {
+		t.Fatalf("orden de la fuente en cambio horario: %+v", got.Detalle[1].Marcajes)
+	}
+	if len(got.Detalle[2].Marcajes) != 0 {
+		t.Fatalf("día vacío: %+v", got.Detalle[2].Marcajes)
+	}
+}
