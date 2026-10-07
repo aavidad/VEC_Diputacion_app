@@ -69,6 +69,7 @@ export async function montarCuadroContratacionLigero({
   let filtroRuta = filtroLista;
   let filtroServidorActual = null;
   let temporizadorBusqueda = null;
+  let filtroConsultado = null;
 
   function filtroServidor() {
     if (filtroServidorActual) return filtroServidorActual;
@@ -161,6 +162,7 @@ export async function montarCuadroContratacionLigero({
       if (!vigente || signal?.aborted || actual.signal.aborted) return;
       const solicitud = { filtros: filtroServidor(),
         paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] } };
+      filtroConsultado = JSON.stringify(filtro);
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
@@ -230,17 +232,27 @@ export async function montarCuadroContratacionLigero({
       const selector = formulario.elements?.namedItem?.("mostrar");
       if (selector) selector.value = "todas";
     }
-    filtro = filtroListaValido(datos);
-    filtroRuta = { ...datos };
-    filtroServidorActual = null;
-    paginaIndice = 0;
-    cursores.length = 1;
-    controlador?.abort();
+    const nuevoFiltro = filtroListaValido(datos);
+    const claveNueva = JSON.stringify(nuevoFiltro);
+    if (claveNueva === filtroConsultado && temporizadorBusqueda === null) return;
+    if (claveNueva !== JSON.stringify(filtro)) {
+      filtro = nuevoFiltro;
+      filtroRuta = { ...datos };
+      filtroServidorActual = null;
+      filtroConsultado = null;
+      controlador?.abort();
+    }
     if (temporizadorBusqueda !== null) clearTimeout(temporizadorBusqueda);
-    if (evento.type === "input" && evento.target?.name === "texto") {
-      temporizadorBusqueda = setTimeout(() => { temporizadorBusqueda = null; void cargar({ soloResultados: true }); }, 250);
-    } else {
+    const consultarFiltro = () => {
+      temporizadorBusqueda = null;
+      paginaIndice = 0;
+      cursores.length = 1;
       void cargar({ soloResultados: true });
+    };
+    if (evento.type === "input" && evento.target?.name === "texto") {
+      temporizadorBusqueda = setTimeout(consultarFiltro, 250);
+    } else {
+      consultarFiltro();
     }
   }
 
