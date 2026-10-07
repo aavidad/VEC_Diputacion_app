@@ -4,7 +4,8 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261007-ct-menu-recuperacion-v1";
+const versionCoordinador = "20261007-bolsa-llamamientos-unico-v1";
+const versionCircuito = "20261006-resumen-inicio-v2";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
