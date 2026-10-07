@@ -193,8 +193,6 @@ function pintar(raiz, contenedor, estado, recargar, t) {
   cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente)));
   const generada = fechaGeneracionRPT(pagina.fuente.generado_en);
   if (generada) cuerpoAyuda.append(nodo(documento, "p", t("generacion", { valor: generada })));
-  const huella = nodo(documento, "p", t("huella", { importacion: pagina.fuente.importacion, huella: pagina.fuente.huella_sha256 }));
-  huella.className = "rpt-huella"; cuerpoAyuda.append(huella);
   contenedor.append(resumenEnlazado(documento, pagina, recargar, t), pestañas(documento, estado.consulta, recargar, t), filtros.elemento, tablaRPT(documento, pagina, t, recargar));
   const navegacion = nodo(documento, "nav"); navegacion.setAttribute("aria-label", t("paginacion"));
   const anterior = nodo(documento, "button", t("anterior")); anterior.type = "button"; anterior.dataset.personalRptPublicaAnterior = ""; anterior.disabled = pagina.offset === 0;
