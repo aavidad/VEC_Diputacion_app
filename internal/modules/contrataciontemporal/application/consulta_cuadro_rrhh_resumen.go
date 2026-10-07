@@ -53,22 +53,21 @@ func resumirCuadroRRHH(
 			// La fase no tiene plazo: no cuenta en ningún recuento de plazos.
 			continue
 		}
-		switch plazo.Estado {
-		case ports.PlazoFaseNoCalculado:
-			resumen.SinCalcular += grupo.Numero
-			continue
-		case ports.PlazoFaseVencido:
-			resumen.Vencidos += grupo.Numero
-		case ports.PlazoFaseVenceHoy:
-			resumen.VencenHoy += grupo.Numero
-		}
-		// Como la portada: por el último día del plazo, de hoy a seis días.
-		dias, err := diasEntreDiasCiviles(hoy, plazo.UltimoDia)
+		clase, err := clasificarPlazoCuadroRRHH(plazo, hoy)
 		if err != nil {
-			// Un último día ilegible: el resumen no se publica a medias.
 			return nil, err
 		}
-		if dias >= 0 && dias <= diasSemanaPortada {
+		if clase.sinCalcular {
+			resumen.SinCalcular += grupo.Numero
+			continue
+		}
+		if clase.vencido {
+			resumen.Vencidos += grupo.Numero
+		}
+		if clase.venceHoy {
+			resumen.VencenHoy += grupo.Numero
+		}
+		if clase.venceSemana {
 			resumen.VencenSemana += grupo.Numero
 		}
 	}
