@@ -18,8 +18,116 @@ import (
 
 	"vec-diputacion-granada/config"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestComposicionLecturasRRHHBolsaAislaAccionesEnPDPComun(t *testing.T) {
+	const perfil = "prf_bolsa_bback"
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fronteras, err = sustituirFronteraCandidatosB5PorNominalBolsa(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nominales, err := descriptoresFronterasRRHHNominalBolsaDesarrollo(perfil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fronteras = append(fronteras, nominales...)
+	for i := range fronteras {
+		for j := 0; j < i; j++ {
+			if colisionanFronterasComunDesarrollo(fronteras[i], fronteras[j]) {
+				t.Fatalf("fronteras colisionan: %s y %s", fronteras[i].Clave, fronteras[j].Clave)
+			}
+		}
+	}
+	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	politica := politicaDescriptoresBolsaPrueba(t)
+	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizaciones, err = sustituirAutorizacionCandidatosB5PorNominalBolsa(autorizaciones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizacionesNominales, err := descriptoresAutorizacionRRHHNominalBolsaDesarrollo(politica)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizaciones = append(autorizaciones, autorizacionesNominales...)
+	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, autorizaciones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct{ accion, frontera, capacidad string }{
+		{puertosbolsa.AccionRRHHBolsasConsultar, claveFronteraRRHHBolsasBolsa, claveCapacidadRRHHBolsasBolsa},
+		{puertosbolsa.AccionRRHHEstadisticasConsultar, claveFronteraRRHHEstadisticasBolsa, claveCapacidadRRHHEstadisticasBolsa},
+		{puertosbolsa.AccionRRHHCandidatosConsultar, claveFronteraRRHHCandidatosBolsa, claveCapacidadRRHHCandidatosBolsa},
+	} {
+		if _, ok := catalogo.politicaPara(caso.accion, caso.frontera, clavePoliticaRRHHNominalBolsa, caso.capacidad); !ok {
+			t.Fatalf("acción nominal sin política propia: %s", caso.accion)
+		}
+		if _, ok := catalogo.politicaPara(caso.accion, claveFronteraCrearBorradorLlamamientoBolsa,
+			clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadCrearBorradorLlamamientoBolsa); ok {
+			t.Fatalf("acción nominal reutilizó frontera de escritura: %s", caso.accion)
+		}
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionCrearBorradorLlamamientoInterno,
+		claveFronteraCrearBorradorLlamamientoBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		claveCapacidadCrearBorradorLlamamientoBolsa); !ok {
+		t.Fatal("el catálogo común perdió la acción de borrador existente")
+	}
+	rutaCandidatos := rutaBolsasRRHHDesarrollo + "/bolsa:01/candidatos"
+	frontera, ok := catalogoFronteras.resolver(http.MethodGet, rutaCandidatos)
+	if !ok || frontera.Clave != claveFronteraRRHHCandidatosBolsa ||
+		frontera.ClaveCapacidad != claveCapacidadRRHHCandidatosBolsa {
+		t.Fatalf("la ruta de candidatos conserva una autoridad indebida: %+v", frontera)
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarContactoParticipacion,
+		claveFronteraConsultarContactosB5Bolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		claveCapacidadConsultarContactosBolsa); ok {
+		t.Fatal("el permiso histórico B5 sigue acreditando la lista nominal")
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarContactoParticipacion,
+		claveFronteraConsultarContactosBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		claveCapacidadConsultarContactosBolsa); !ok {
+		t.Fatal("la lectura específica de contactos perdió su acción")
+	}
+}
+
+func TestPrepararHuellasProvisionRRHHBolsaSoloLeeAsignacionPublicada(t *testing.T) {
+	politica, autoridad, _ := politicaProvisionBolsaPrueba(t, 6)
+	composicion := &ComposicionSeguridadDesarrollo{politicaRRHHNominalBolsa: politica}
+	huellas, err := composicion.PrepararHuellasProvisionLecturasRRHHBolsa(context.Background())
+	if err != nil || huellas.PreimagenSHA256 == "" || huellas.ObjetivoSHA256 == "" ||
+		huellas.PreimagenSHA256 == huellas.ObjetivoSHA256 {
+		t.Fatalf("preparación de huellas inválida: %+v, %v", huellas, err)
+	}
+	if autoridad.publicadas != 0 || autoridad.leida.instantanea.VersionRol.Version != 6 {
+		t.Fatal("preparar huellas alteró la asignación o publicó un permiso")
+	}
+	for _, concesion := range autoridad.leida.instantanea.VersionRol.Concesiones {
+		for _, nominal := range []string{
+			puertosbolsa.AccionRRHHBolsasConsultar,
+			puertosbolsa.AccionRRHHEstadisticasConsultar,
+			puertosbolsa.AccionRRHHCandidatosConsultar,
+		} {
+			if concesion.Accion == nominal {
+				t.Fatalf("la versión base ya concedía la acción nominal: %s", nominal)
+			}
+		}
+	}
+	if _, err := (&ComposicionSeguridadDesarrollo{}).PrepararHuellasProvisionLecturasRRHHBolsa(context.Background()); !errors.Is(err, ErrComposicionDesarrolloIncompleta) {
+		t.Fatalf("preparación sin política nominal = %v", err)
+	}
+}
 
 func directorioTemporalFueraDeGitPrueba(t *testing.T) string {
 	t.Helper()

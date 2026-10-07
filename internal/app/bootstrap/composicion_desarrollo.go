@@ -55,7 +55,8 @@ type ComposicionSeguridadDesarrollo struct {
 	derivadorIdempotencia *derivadorIdentidadOperacionDesarrollo
 	// seudonimosAlmacen guarda solo la clave derivada para seudonimizar
 	// operaciones de almacén de Documentos; la maestra se borra al componer.
-	seudonimosAlmacen *seudonimizadorAlmacenDesarrollo
+	seudonimosAlmacen        *seudonimizadorAlmacenDesarrollo
+	politicaRRHHNominalBolsa *politicaBorradorLlamamientoBolsaDesarrollo
 }
 
 func NuevaComposicionSeguridadDesarrollo(
@@ -305,6 +306,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if cfg.BolsaBorradoresEnabled {
+		if autoridadContratacion == nil || autoridadContratacion.politicaRRHHNominalBolsa == nil {
+			cerrarContratacion()
+			return nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+		composicion.politicaRRHHNominalBolsa = autoridadContratacion.politicaRRHHNominalBolsa
+	}
 	completa := false
 	defer func() {
 		if !completa {
@@ -317,6 +325,15 @@ func nuevoServidorDesarrollo(
 	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
+	if cfg.BolsaBorradoresEnabled {
+		if err := ConfigurarLecturasNominalesRRHHBolsaDesarrollo(ctxBolsas, fuenteConstituida,
+			autoridadContratacion.manejadorSituacionParticipacion,
+			autoridadContratacion.gobiernoRRHHNominalBolsa,
+			autoridadContratacion.emisoresRRHHNominalBolsa); err != nil {
+			cancelarBolsas()
+			return nil, nil, err
+		}
+	}
 	// Avisos y marcas de Bolsa con los parámetros del catálogo (000041).
 	if err = componerParametrosAvisosBolsaDesarrollo(ctxBolsas, reglasEjemplo.bolsa, fuenteConstituida); err != nil {
 		cancelarBolsas()

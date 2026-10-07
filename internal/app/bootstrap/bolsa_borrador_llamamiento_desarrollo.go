@@ -298,6 +298,8 @@ type emisorBorradorLlamamientoDesarrollo struct {
 type manejadorParticipacionBolsaDesarrollo struct {
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
+	emisoresRRHHNominales                                                                                             map[string]*emisorMaterialRenovableCTDesarrollo
+	politicaRRHHNominalBolsa                                                                                          *politicaBorradorLlamamientoBolsaDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
@@ -305,6 +307,40 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
 	emision *aplicacionbolsa.ServicioEmisionLlamamiento
 	fuente  *fuenteCorreoParticipacionB7
+}
+
+func sustituirAutorizacionCandidatosB5PorNominalBolsa(
+	descriptores []descriptorAutorizacionComunDesarrollo,
+) ([]descriptorAutorizacionComunDesarrollo, error) {
+	resultado := make([]descriptorAutorizacionComunDesarrollo, len(descriptores))
+	copy(resultado, descriptores)
+	retiradas := 0
+	for i := range resultado {
+		d := &resultado[i]
+		if d.Accion != puertosbolsa.AccionConsultarContactoParticipacion {
+			continue
+		}
+		if d.ClavePolitica != clavePoliticaBorradorLlamamientoBolsaDesarrollo ||
+			d.ClaveCapacidad != claveCapacidadConsultarContactosBolsa {
+			return nil, errBorradorNoDisponibleEn()
+		}
+		fronteras := make([]string, 0, len(d.Fronteras))
+		for _, clave := range d.Fronteras {
+			if clave == claveFronteraConsultarContactosB5Bolsa {
+				retiradas++
+				continue
+			}
+			fronteras = append(fronteras, clave)
+		}
+		if len(fronteras) == 0 {
+			return nil, errBorradorNoDisponibleEn()
+		}
+		d.Fronteras = fronteras
+	}
+	if retiradas != 1 {
+		return nil, errBorradorNoDisponibleEn()
+	}
+	return resultado, nil
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -425,6 +461,9 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
 	if ctx == nil || personalizacion == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialConsultaSolicitudesDocumentales == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialConsultaDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	if len(alta.postgresql.proveedoresMaterialRRHHNominalBolsa) != 3 {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
@@ -557,10 +596,19 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	descriptoresBolsa, err = sustituirAutorizacionCandidatosB5PorNominalBolsa(descriptoresBolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),
 		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil), descriptoresBolsa...)
 	descriptoresAutorizacion = append(descriptoresAutorizacion, autorizacionesAdicionales...)
+	autorizacionesNominales, err := descriptoresAutorizacionRRHHNominalBolsaDesarrollo(politicaB)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	descriptoresAutorizacion = append(descriptoresAutorizacion, autorizacionesNominales...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -572,6 +620,22 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	wrapper, ok := alta.autorizador.(*autorizadorAnalisisContratacionTemporalDesarrollo)
 	if !ok || wrapper.instalarDelegadoComun(pdp) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	emisoresRRHHNominales := make(map[string]*emisorMaterialRenovableCTDesarrollo, 3)
+	for _, accion := range []string{
+		puertosbolsa.AccionRRHHBolsasConsultar,
+		puertosbolsa.AccionRRHHEstadisticasConsultar,
+		puertosbolsa.AccionRRHHCandidatosConsultar,
+	} {
+		proveedor := alta.postgresql.proveedoresMaterialRRHHNominalBolsa[accion]
+		if proveedor == nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		emisor, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, proveedor)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		emisoresRRHHNominales[accion] = emisor
 	}
 	emisorCrear, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialBorradorCrear)
 	if err != nil {
@@ -797,7 +861,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, emisoresRRHHNominales: emisoresRRHHNominales, politicaRRHHNominalBolsa: politicaBolsa, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

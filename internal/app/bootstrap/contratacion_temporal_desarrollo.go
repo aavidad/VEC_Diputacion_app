@@ -69,6 +69,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	consultasRRHHCompuestas                          bool
 	subsanacionCompuesta                             bool
 	fronterasSeguridadComun                          catalogoFronterasComunDesarrollo
+	gobiernoRRHHNominalBolsa                         *pgxpool.Pool
+	emisoresRRHHNominalBolsa                         map[string]*emisorMaterialRenovableCTDesarrollo
+	politicaRRHHNominalBolsa                         *politicaBorradorLlamamientoBolsaDesarrollo
 	envolverBorradorLlamamiento                      func(http.Handler) http.Handler
 	manejadorSituacionParticipacion                  http.Handler
 	coleccionesAdicionales                           []vechttp.RutaColeccion
@@ -97,6 +100,37 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	personalizacionB7 *fuentePersonalizacionB7
 	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
 	firmaDocumento *firmaDocumentoCTDesarrollo
+}
+
+// Al pasar la lista de candidatos a la lectura nominal, la ruta GET conserva
+// una sola autoridad. La lectura B5 de contactos sigue en sus otras rutas.
+// Se exige la preimagen exacta para que un cambio posterior falle cerrado.
+func sustituirFronteraCandidatosB5PorNominalBolsa(
+	fronteras []descriptorFronteraComunDesarrollo,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	if len(fronteras) == 0 {
+		return nil, ErrSeguridadComunDesarrolloDenegada
+	}
+	resultado := make([]descriptorFronteraComunDesarrollo, 0, len(fronteras)-1)
+	retiradas := 0
+	for _, frontera := range fronteras {
+		if frontera.Clave != claveFronteraConsultarContactosB5Bolsa {
+			resultado = append(resultado, frontera)
+			continue
+		}
+		if frontera.Superficie != superficieInternaSeguridadComunDesarrollo ||
+			frontera.Metodo != http.MethodGet || frontera.Ruta != rutaBolsasRRHHDesarrollo ||
+			frontera.ClavePolitica != clavePoliticaBorradorLlamamientoBolsaDesarrollo ||
+			frontera.ClaveCapacidad != claveCapacidadConsultarContactosBolsa ||
+			!reflect.DeepEqual(frontera.PlantillaDetalle, []string{"*", "candidatos"}) {
+			return nil, ErrSeguridadComunDesarrolloDenegada
+		}
+		retiradas++
+	}
+	if retiradas != 1 {
+		return nil, ErrSeguridadComunDesarrolloDenegada
+	}
+	return resultado, nil
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -730,7 +764,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if e != nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
+		bolsaFronteras, e = sustituirFronteraCandidatosB5PorNominalBolsa(bolsaFronteras)
+		if e != nil {
+			return nil, nil, nil, errBorradorNoDisponibleEn()
+		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+		fronterasNominales, e := descriptoresFronterasRRHHNominalBolsaDesarrollo(perfilBolsa)
+		if e != nil {
+			return nil, nil, nil, errBorradorNoDisponibleEn()
+		}
+		declaracionesFrontera = append(declaracionesFrontera, fronterasNominales...)
 	}
 	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
 	if auditoriaActiva {
@@ -1183,6 +1226,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		consultasRRHHCompuestas:                          consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
 		subsanacionCompuesta:                             subsanacionReal.servicio != nil,
 		fronterasSeguridadComun:                          seguridadBorrador,
+		gobiernoRRHHNominalBolsa:                         alta.postgresql.gobierno,
 		envolverBorradorLlamamiento:                      envolverBorrador,
 		manejadorSituacionParticipacion:                  manejadorSituacion,
 		plazosOfertasBolsa:                               dependencias.plazosOfertasBolsa,
@@ -1206,6 +1250,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
 		presentadorCobertura:                             coberturaReal.presentador,
 		firmaDocumento:                                   firmaDocumento,
+	}
+	if cfg.BolsaBorradoresEnabled {
+		mutadorBolsa, ok := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
+		if !ok || mutadorBolsa == nil || len(mutadorBolsa.emisoresRRHHNominales) != 3 ||
+			mutadorBolsa.politicaRRHHNominalBolsa == nil {
+			return nil, nil, nil, errBorradorNoDisponibleEn()
+		}
+		autoridad.emisoresRRHHNominalBolsa = mutadorBolsa.emisoresRRHHNominales
+		autoridad.politicaRRHHNominalBolsa = mutadorBolsa.politicaRRHHNominalBolsa
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)

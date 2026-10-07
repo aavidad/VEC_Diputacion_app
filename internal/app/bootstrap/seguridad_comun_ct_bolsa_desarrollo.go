@@ -136,33 +136,33 @@ func colisionanFronterasComunDesarrollo(a, b descriptorFronteraComunDesarrollo) 
 	if a.Superficie != b.Superficie || a.Metodo != b.Metodo {
 		return false
 	}
-	if a.DetalleColeccion == b.DetalleColeccion && a.Ruta == b.Ruta {
-		if !a.DetalleColeccion && len(a.PlantillaDetalle) != 0 && len(b.PlantillaDetalle) != 0 {
-			return plantillasFronteraComunColisionan(a.PlantillaDetalle, b.PlantillaDetalle)
-		}
-		return true
-	}
-	if a.DetalleColeccion && !b.DetalleColeccion && rutaEsDetalleCatalogoComun(a.Ruta, b.Ruta) {
-		return true
-	}
-	return b.DetalleColeccion && !a.DetalleColeccion && rutaEsDetalleCatalogoComun(b.Ruta, a.Ruta)
-}
-
-func plantillasFronteraComunColisionan(a, b []string) bool {
-	if len(a) != len(b) {
+	segmentosA, variablesA := patronFronteraComunDesarrollo(a)
+	segmentosB, variablesB := patronFronteraComunDesarrollo(b)
+	if len(segmentosA) != len(segmentosB) {
 		return false
 	}
-	for i := range a {
-		if a[i] != "*" && b[i] != "*" && a[i] != b[i] {
+	for i := range segmentosA {
+		if !variablesA[i] && !variablesB[i] && segmentosA[i] != segmentosB[i] {
 			return false
 		}
 	}
 	return true
 }
 
-func rutaEsDetalleCatalogoComun(coleccion, ruta string) bool {
-	detalle, ok := strings.CutPrefix(ruta, coleccion+"/")
-	return ok && detalle != "" && !strings.Contains(detalle, "/")
+// Ruta conserva segmentos literales; solo '*' en PlantillaDetalle y el
+// segmento de DetalleColeccion aceptan cualquier valor no vacío. El catálogo
+// ya validó rutas y plantillas antes de comparar sus intersecciones.
+func patronFronteraComunDesarrollo(d descriptorFronteraComunDesarrollo) ([]string, []bool) {
+	segmentos := strings.Split(strings.TrimPrefix(d.Ruta, "/"), "/")
+	variables := make([]bool, len(segmentos))
+	if d.DetalleColeccion {
+		return append(segmentos, "*"), append(variables, true)
+	}
+	for _, segmento := range d.PlantillaDetalle {
+		segmentos = append(segmentos, segmento)
+		variables = append(variables, segmento == "*")
+	}
+	return segmentos, variables
 }
 
 func (d descriptorFronteraComunDesarrollo) coincide(metodo, ruta string) bool {

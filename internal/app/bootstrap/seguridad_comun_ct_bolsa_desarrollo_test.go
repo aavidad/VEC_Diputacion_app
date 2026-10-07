@@ -72,6 +72,54 @@ func TestCatalogoFronterasComunPermitePlantillasDisjuntasMismaBase(t *testing.T)
 	}
 }
 
+func TestCatalogoFronterasComunSoloRechazaSolapesDeURLReal(t *testing.T) {
+	base := fronteraComunPrueba("bolsas", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	operaciones := fronteraComunPrueba("operaciones", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	operaciones.PlantillaDetalle = []string{"*", "candidatos", "*", "operaciones"}
+	candidato := fronteraComunPrueba("candidatos", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	candidato.PlantillaDetalle = []string{"*", "candidatos"}
+	b5 := candidato
+	b5.Clave = "b5"
+	literal := fronteraComunPrueba("literal", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	literal.PlantillaDetalle = []string{"bolsa:01", "candidatos"}
+	otroLiteral := fronteraComunPrueba("otro-literal", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	otroLiteral.PlantillaDetalle = []string{"bolsa:02", "candidatos"}
+	detalle := fronteraComunPrueba("detalle", http.MethodGet, rutaBolsasRRHHDesarrollo, true)
+	hija := fronteraComunPrueba("hija", http.MethodGet, rutaBolsasRRHHDesarrollo, false)
+	hija.PlantillaDetalle = []string{"*"}
+	exactoHijo := fronteraComunPrueba("hijo", http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:01", false)
+	otroMetodo := fronteraComunPrueba("head", http.MethodHead, rutaBolsasRRHHDesarrollo, false)
+	for _, caso := range []struct {
+		nombre string
+		a, b   descriptorFronteraComunDesarrollo
+		solapa bool
+	}{
+		{"B84 base exacta y B8 hija", base, operaciones, false},
+		{"base exacta duplicada", base, fronteraComunPrueba("igual", http.MethodGet, rutaBolsasRRHHDesarrollo, false), true},
+		{"B84 candidato y B5 misma plantilla", candidato, b5, true},
+		{"variable y literal intersectan", candidato, literal, true},
+		{"literales disjuntos", literal, otroLiteral, false},
+		{"detalle y exacto hijo", detalle, exactoHijo, true},
+		{"detalle y plantilla hija", detalle, hija, true},
+		{"detalle y nieta", detalle, candidato, false},
+		{"metodo distinto", base, otroMetodo, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			_, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{caso.a, caso.b})
+			if (err != nil) != caso.solapa {
+				t.Fatalf("colisión=%t, esperada=%t, error=%v", err != nil, caso.solapa, err)
+			}
+		})
+	}
+	for _, ruta := range []string{rutaBolsasRRHHDesarrollo + "/", rutaBolsasRRHHDesarrollo + "//candidatos"} {
+		if _, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{
+			fronteraComunPrueba("ruta-malformada", http.MethodGet, ruta, false),
+		}); err == nil {
+			t.Fatalf("ruta malformada admitida: %q", ruta)
+		}
+	}
+}
+
 func TestCatalogoFronterasComunCopiaDescriptoresYAceptaModuloSintetico(t *testing.T) {
 	d := fronteraComunPrueba("cronos", http.MethodPost, "/api/vec/cronos/partes", false)
 	c, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{d})

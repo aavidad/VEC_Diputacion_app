@@ -103,6 +103,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
 	proveedoresMaterialPortal                        map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedoresMaterialRRHHNominalBolsa              map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -440,6 +441,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	if seleccion.borradoresBolsa {
+		// Las tres audiencias de lectura son propias de Bolsa. El catálogo
+		// previo conserva sus descriptores y huellas sin modificación.
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialRRHHNominalBolsaDesarrollo()...)
+	}
 	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return vacias, err
@@ -746,6 +752,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			etapa = "material_rrhh_nominal_bolsa"
+			dependencias.proveedoresMaterialRRHHNominalBolsa = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 3)
+			for _, par := range [][2]string{
+				{puertosbolsa.AccionRRHHBolsasConsultar, puertosbolsa.AudienciaRRHHBolsasConsultar},
+				{puertosbolsa.AccionRRHHEstadisticasConsultar, puertosbolsa.AudienciaRRHHEstadisticasConsultar},
+				{puertosbolsa.AccionRRHHCandidatosConsultar, puertosbolsa.AudienciaRRHHCandidatosConsultar},
+			} {
+				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedoresMaterialRRHHNominalBolsa[par[0]] = proveedor
+			}
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
 				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
