@@ -249,8 +249,8 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 
 // resultadoGenericoCoberturaDesarrolloConCatalogo responde por cualquier categoría del
 // catálogo de desarrollo y cualquier periodo cuando no hay registro explícito:
-// afirmativa, salvo la categoría sintética «sin cobertura», que es negativa; una
-// categoría fuera del catálogo no tiene respuesta. La
+// sin una lectura nominal de Bolsa vinculada a esta comprobación, no consta
+// existencia ni ausencia de bolsa. Una categoría fuera del catálogo no tiene respuesta. La
 // tupla vía/comprobación/procedencia sigue teniendo que ser una de las
 // plantillas de las vías vigentes; un cruce no existe. Es la fuente sintética de las demostraciones,
 // no la bolsa real.
@@ -276,10 +276,7 @@ func resultadoGenericoCoberturaDesarrolloConCatalogo(
 	if !valida {
 		return "", false
 	}
-	if categoriaRef == categoriaSinCoberturaDesarrollo {
-		return domain.ComprobacionNegativa, true
-	}
-	return domain.ComprobacionAfirmativa, true
+	return domain.ComprobacionNoConsta, true
 }
 
 func grupoDeCategoriaCoberturaDesarrollo(catalogo *catalogosAltaContratacionTemporalDesarrollo, referencia string) string {
@@ -631,11 +628,11 @@ func registrosCoberturaSinteticosDesarrollo(vias []viaCoberturaCT) []registroCob
 		periodo   domain.PeriodoPrevisto
 		resultado domain.ResultadoComprobacion
 	}{
-		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
-		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNoConsta},
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNoConsta},
 		// Período del expediente sintético de análisis b50fa, consultado por RRHH.
-		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
-		{categoriaSinCoberturaDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNoConsta},
+		{categoriaSinCoberturaDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNoConsta},
 	}
 	plantillas := plantillasViasCoberturaCT(vias)
 	registros := make([]registroCoberturaSinteticaDesarrollo, 0, len(periodos)*len(plantillas))
