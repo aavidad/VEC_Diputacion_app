@@ -175,3 +175,21 @@ test("la pantalla traduce los fallos de preparación y ofrece las dos vías", as
     assert.notEqual(textos.traducir(clave), clave, clave);
   }
 });
+
+test("retirar desde la ficha sólo abre directamente un perfil presente en la preparación autorizada", async () => {
+  const textos = await cargarTextos("admin-usuarios");
+  let lecturas = 0;
+  const base = { textos, cripto, persona: PERSONA, nombre: "Antonio Reyes Álvarez", unidadRef: UNIDAD,
+    ahora: () => AHORA, alVolver() {}, cliente: { preparar: async () => { lecturas++; return preparacion(); }, aplicarLote: async () => ({}) } };
+  const permitido = new Contenedor();
+  await montarCambioPerfiles(permitido, { ...base, preparacionInicial: Promise.resolve(preparacion()),
+    retirarPerfilRef: preparacion().preparacion.bajas[0].perfil_ref }).listo;
+  assert.equal(lecturas, 0);
+  assert.match(permitido.panel, /data-cambio="eleccion"/u);
+  assert.match(permitido.panel, /name="c-baja"/u);
+  assert.doesNotMatch(permitido.panel, /data-cambio="via-asignar"/u);
+  const fijo = new Contenedor();
+  await montarCambioPerfiles(fijo, { ...base, retirarPerfilRef: `prf_${"f".repeat(32)}` }).listo;
+  assert.match(fijo.panel, /data-cambio="via-asignar"/u);
+  assert.match(fijo.panel, /data-cambio="via-retirar"/u);
+});

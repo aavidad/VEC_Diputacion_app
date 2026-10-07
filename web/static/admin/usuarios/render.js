@@ -73,7 +73,7 @@ export function crearRender({ root, id, textos, metadatos = false }) {
       el("detalle").innerHTML = `<div class="cabecera-panel"><div><h3>${escapar(nombre(datos))}</h3><p>${tx("metadatos.unidad_no_consultada")}</p></div><div class="acciones-ficha">${puedeCambiar ? boton("cambiar-perfiles", "lote.cambiar", "", "boton-primario") : ""}${boton("volver", "general.volver")}</div></div><div class="cuerpo-panel">
         <p class="texto-secundario">${tx("metadatos.alcance")}</p><h4>${tx("detalle.perfiles")}</h4>
         ${datos.perfiles.length ? `<ul class="usuarios-perfiles">${datos.perfiles.map((p, i) => `<li><div class="usuarios-fila-perfil"><strong>${tx("metadatos.perfil_en_lista", { numero: textos.numero(i + 1) })}</strong>${estado(p.estado)}</div>
-          <dl class="resumen-expediente">${campo("detalle.desde", fecha(p.vigente_desde))}${campo("detalle.hasta", fecha(p.vigente_hasta))}</dl>${tecnico(p.perfil_ref)}</li>`).join("")}</ul>` : `<p>${tx("detalle.sin_perfiles")}</p>`}
+          <dl class="resumen-expediente">${campo("detalle.desde", fecha(p.vigente_desde))}${campo("detalle.hasta", fecha(p.vigente_hasta))}</dl>${tecnico(p.perfil_ref)}${puedeCambiar ? `<div class="usuarios-accion-perfil" data-retirada-ref="${escapar(p.perfil_ref)}"></div>` : ""}</li>`).join("")}</ul>` : `<p>${tx("detalle.sin_perfiles")}</p>`}
         ${puedeCambiar ? "" : `<p>${tx("metadatos.actos_no_consultados")}</p>`}
         <p>${tx("metadatos.historia_no_consultada")}</p>${tecnico(datos.persona_ref)}</div>`;
       return;

@@ -4,13 +4,14 @@
 import { escapar } from "./render.js?v=20261005-admin-lote-pantalla-v1";
 import { validarPreparacion, fechasAlta, hastaPropuesto, construirLote, validarReciboLote, diaMadrid } from "./cambio-contratos.js?v=20261005-admin-lote-pantalla-v1";
 
-export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThis.crypto, persona, nombre, unidadRef, ahora = () => Date.now(), alVolver } = {}) {
+export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThis.crypto, persona, nombre, unidadRef, retirarPerfilRef = "", preparacionInicial, ahora = () => Date.now(), alVolver } = {}) {
   if (!cont || typeof textos?.traducir !== "function" || typeof cliente?.preparar !== "function" || typeof cliente?.aplicarLote !== "function"
     || typeof persona !== "string" || typeof unidadRef !== "string" || typeof alVolver !== "function") throw new TypeError("montaje_invalido");
   const t = textos.traducir;
   const tx = (clave, variables) => escapar(t(clave, variables));
   const fecha = (valor, larga = false) => textos.fecha(new Date(valor), larga ? { dateStyle: "long", timeZone: "Europe/Madrid" } : { dateStyle: "medium", timeZone: "Europe/Madrid" });
   let vivo = true, prep = null, cambio = null, cuerpo = null, enviando = false, incierto = false, control = null;
+  let inicial = preparacionInicial;
   // Lo que la persona ha escrito en cada vía: volver atrás o corregir no lo borra.
   let borradores = { asignar: null, retirar: null };
   const id = (c) => `${cont.id || "cambio"}-${c}`;
@@ -51,10 +52,14 @@ export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThi
     pintar(cabecera("lote.titulo")); avisar("lote.cargando");
     const c = new AbortController(); control = c;
     try {
-      const datos = await cliente.preparar(persona, unidadRef, c.signal);
+      const fuenteInicial = inicial; inicial = undefined;
+      const datos = fuenteInicial === undefined ? await cliente.preparar(persona, unidadRef, c.signal) : await fuenteInicial;
       if (!vivo || control !== c) return;
       prep = validarPreparacion(datos, persona, unidadRef);
-      avisar(""); pintarEleccion();
+      avisar("");
+      if (retirarPerfilRef && prep.bajas.some((b) => b.perfil_ref === retirarPerfilRef)) {
+        cambio = { via: "retirar" }; borradores.retirar = { perfil: retirarPerfilRef }; pintarRetirar();
+      } else pintarEleccion();
     } catch (e) { if (vivo && control === c && e?.name !== "AbortError") { avisar(""); pintarError(mensajeError(e)); } }
   }
 

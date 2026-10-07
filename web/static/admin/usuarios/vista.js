@@ -2,6 +2,7 @@ import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, val
 import { crearRender } from "./render.js?v=20261005-admin-lote-pantalla-v1";
 import { montarPropuestas } from "./propuestas.js?v=20261005-admin-lote-pantalla-v1";
 import { montarCambioPerfiles } from "./cambio-perfiles.js?v=20261005-admin-lote-pantalla-v1";
+import { validarPreparacion } from "./cambio-contratos.js?v=20261005-admin-lote-pantalla-v1";
 import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
@@ -80,20 +81,48 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   }
   // El cambio de perfiles sólo se ofrece si el servidor monta el lote.
   const puedeCambiar = () => metadatos && typeof cliente.preparar === "function" && typeof cliente.aplicarLote === "function";
-  let cambio = null;
+  let cambio = null, preparacionFicha = null, promesaPreparacion = null;
   function cerrarCambio() { cambio?.desmontar(); cambio = null; }
-  function abrirCambio() {
+  function abrirCambio(retirarPerfilRef = "") {
     if (!detalle || !puedeCambiar() || bloqueado || enviando) return;
     cerrarCambio();
     const ref = detalle.persona_ref;
     etapa("revision");
     cambio = montarCambioPerfiles(el("revision"), { textos, cliente, cripto, persona: ref, nombre: etiquetaNombreMetadatos(detalle, t),
-      unidadRef: detalle.unidad_ref, alVolver: () => { cerrarCambio(); void cargarPersona(ref); } });
+      unidadRef: detalle.unidad_ref, retirarPerfilRef, preparacionInicial: preparacionFicha || promesaPreparacion || undefined,
+      alVolver: () => { cerrarCambio(); void cargarPersona(ref); } });
   }
-  function pintarFicha() { cerrarCambio(); ficha(detalle, roles, disponibles("otorgar"), puedeCambiar()); etapa("detalle"); }
+  async function prepararRetiradas() {
+    if (!puedeCambiar() || !detalle || detalle.proyeccion !== "metadatos_v1" || detalle.perfiles.length === 0) return;
+    preparacionFicha = null; promesaPreparacion = null;
+    const actualDetalle = detalle, control = iniciar("retiradas");
+    try {
+      promesaPreparacion = cliente.preparar(actualDetalle.persona_ref, actualDetalle.unidad_ref, control.signal);
+      const datos = await promesaPreparacion;
+      if (!actual("retiradas", control) || detalle !== actualDetalle) return;
+      const autorizadas = new Set(validarPreparacion(datos, actualDetalle.persona_ref, actualDetalle.unidad_ref).bajas.map((b) => b.perfil_ref));
+      preparacionFicha = datos;
+      promesaPreparacion = null;
+      for (const sitio of el("detalle").querySelectorAll("[data-retirada-ref]")) {
+        if (!autorizadas.has(sitio.dataset.retiradaRef) || cambio) continue;
+        const boton = root.ownerDocument.createElement("button");
+        boton.type = "button"; boton.className = "boton-secundario"; boton.dataset.accion = "retirar-perfil";
+        boton.dataset.ref = sitio.dataset.retiradaRef; boton.textContent = t("lote.retirar_este");
+        sitio.replaceChildren(boton);
+      }
+    } catch (e) {
+      if (!actual("retiradas", control) || detalle !== actualDetalle || e?.name === "AbortError") return;
+      promesaPreparacion = null;
+      if (e?.estado === 401) { fallarLectura(e); return; }
+      if (e?.estado === 403 || e?.estado === 404) el("detalle").querySelector('[data-accion="cambiar-perfiles"]')?.remove();
+      el("estado").textContent = t(e?.estado === 403 ? "lote.errores.denegado" : e?.estado === 404 ? "lote.errores.no_disponible" : "lote.retiradas_no_disponibles");
+    }
+  }
+  function pintarFicha() { cerrarCambio(); ficha(detalle, roles, disponibles("otorgar"), puedeCambiar()); etapa("detalle"); void prepararRetiradas(); }
   async function buscar(anadir = false) {
     if (!vivo || bloqueado || enviando || !puedeLeer() || typeof cliente.buscar !== "function") return;
     peticiones.get("persona")?.abort();
+    peticiones.get("retiradas")?.abort(); preparacionFicha = null; promesaPreparacion = null;
     detalle = null; decision = null; el("detalle").replaceChildren(); el("revision").replaceChildren(); etapa("listado");
     const control = iniciar("buscar");
     if (!anadir) { personas = []; siguiente = ""; el("resultados").replaceChildren(); }
@@ -115,6 +144,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   async function cargarPersona(ref) {
     if (!vivo || enviando || bloqueado || !puedeLeer() || typeof cliente.persona !== "function") return;
     cerrarCambio();
+    peticiones.get("retiradas")?.abort(); preparacionFicha = null; promesaPreparacion = null;
     const control = iniciar("persona");
     detalle = null; decision = null; conflicto = false; el("detalle").replaceChildren(); el("revision").replaceChildren();
     el("estado").textContent = t("detalle.cargando"); etapa("detalle");
@@ -202,6 +232,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     const accion = boton.dataset.accion;
     if (bloqueado && accion !== "recargar" || enviando || incierto && accion !== "confirmar") return;
     if (accion === "cambiar-perfiles") { abrirCambio(); return; }
+    if (accion === "retirar-perfil") { abrirCambio(boton.dataset.ref); return; }
     if (["usuarios", "perfiles", "propuestas"].includes(accion)) pestaña(accion);
     else if (accion === "recargar") void cargar();
     else if (accion === "persona") void cargarPersona(boton.dataset.ref);
@@ -212,7 +243,8 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       else { decision = null; pintarFicha(); }
     } else if (accion === "volver") {
       const ref = detalle?.persona_ref;
-      peticiones.get("persona")?.abort(); detalle = null; decision = null; etapa("listado");
+      peticiones.get("persona")?.abort(); peticiones.get("retiradas")?.abort(); preparacionFicha = null; promesaPreparacion = null;
+      detalle = null; decision = null; etapa("listado");
       [...el("resultados").querySelectorAll('[data-accion="persona"]')].find((n) => n.dataset.ref === ref)?.focus();
     }
     else if (accion === "limpiar" || accion === "quitar-filtro") {

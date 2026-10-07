@@ -25,6 +25,7 @@
 .usuarios .enlace-fila { min-height: 32px; padding: 4px 0; border: 0; background: transparent; color: var(--portal-azul-700); font-weight: 600; text-align: start; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .usuarios-perfiles { display: grid; gap: 16px; margin: 12px 0 24px; padding: 0; list-style: none; }
 .usuarios-perfiles > li { padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.usuarios-accion-perfil:not(:empty) { display: flex; justify-content: flex-end; margin-top: 12px; }
 .usuarios-acceso { margin-top: 24px; }
 .usuarios-fila-perfil { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .usuarios-seleccion { display: grid; gap: 16px; margin: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
