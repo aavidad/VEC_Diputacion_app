@@ -73,7 +73,7 @@ func TestFirmaVecDesarrolloSinPoliticaVigenteNoLlegaAlEmisorV3(t *testing.T) {
 	}
 }
 
-func TestFirmaVecDesarrolloAdmiteAntesDeV3PeroNuncaEntregaSinDecision(t *testing.T) {
+func TestFirmaVecDesarrolloAdmiteSinEmitirV3HastaCapturaFresca(t *testing.T) {
 	base, fuente, emisorBase, material, _, ctx := escenario(t, ports.ViaFirmaCertificadoVEC)
 	ahora := base.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	retirada := ahora.Add(10 * time.Minute)
@@ -123,11 +123,35 @@ func TestFirmaVecDesarrolloAdmiteAntesDeV3PeroNuncaEntregaSinDecision(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 1 {
+	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 0 {
 		t.Fatalf("admisión previa o rechazo de emisor V3: err=%v llamadas=%d", err, emisor.llamadas)
 	}
 	emisorBase.reloj.ahora = retirada
-	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 1 {
+	if _, err := dev.AutorizarMaterialFirmaVerificadaV2(ctx, material, recurso); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.llamadas != 0 {
 		t.Fatalf("política retirada alcanzó V3: err=%v llamadas=%d", err, emisor.llamadas)
+	}
+}
+
+func TestFirmaVecDesarrolloNoExtiendeExcepcionAConsultaNiRecuperacion(t *testing.T) {
+	a, fuente, emisor, consulta, ctx := escenarioConsulta(t, ports.ViaFirmaCertificadoVEC)
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(a.reloj.Ahora(),
+		fuente.base.Resultado.Contexto.PersonaRef, fuente.base.Resultado.Contexto.PerfilActivoRef,
+		vd.AuthMethodCertificate, vd.AuthAssuranceSubstantial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente.base.Resultado, fuente.base.Vinculo = resultado, vinculo
+	a.admision = &vecapp.AdmisionGarantiaFirmaVecDesarrollo{}
+	if _, err := a.ObtenerPerfilActivoOperadorFirmaV2(ctx); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("getter de perfil DEV sin acto: %v", err)
+	}
+	if _, err := a.ObtenerAmbitosOperadorFirmaV2(ctx); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("getter de ámbitos DEV sin acto: %v", err)
+	}
+	if _, err := a.AutorizarConsultaFirmasR5V2(ctx, consulta); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.base.llamadas != 0 {
+		t.Fatalf("consulta con excepción DEV alcanzó V3: err=%v llamadas=%d", err, emisor.base.llamadas)
+	}
+	if _, err := a.AutorizarRecuperacionFirmasV2(ctx, consulta); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || emisor.base.llamadas != 0 {
+		t.Fatalf("recuperación con excepción DEV alcanzó V3: err=%v llamadas=%d", err, emisor.base.llamadas)
 	}
 }

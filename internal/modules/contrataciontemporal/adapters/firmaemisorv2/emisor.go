@@ -92,6 +92,12 @@ func NuevoEmisorFirmaVecDesarrollo(f FuenteContextoActorFirmaV2, e EmisorComunV3
 }
 
 func (e *Emisor) contexto(ctx context.Context) (ContextoActorFirmaV2, error) {
+	return e.contextoParaActo(ctx, false)
+}
+
+// Sólo el registro VEC de desarrollo puede intentar la garantía temporal.
+// Consulta, recuperación y lecturas previas conservan la frontera corporativa.
+func (e *Emisor) contextoParaActo(ctx context.Context, firmaVecDesarrollo bool) (ContextoActorFirmaV2, error) {
 	var cero ContextoActorFirmaV2
 	if e == nil || ctx == nil || nulo(e.fuente) || nulo(e.emisor) || nulo(e.reloj) || !vd.ReferenciaMotivoAutorizacionV2Valida(e.motivo) {
 		return cero, ports.ErrFirmaDocumentoDenegada
@@ -111,7 +117,7 @@ func (e *Emisor) contexto(ctx context.Context) (ContextoActorFirmaV2, error) {
 	if err != nil || d.Superficie != vd.SuperficieAutenticacionInternaCorporativaV1 || d.CuentaPrivilegiada ||
 		d.MetodoObservado != vd.AuthMethodCertificate ||
 		(e.admision == nil && d.GarantiaObservada != vd.AuthAssuranceHigh) ||
-		(e.admision != nil && d.GarantiaObservada != vd.AuthAssuranceSubstantial) {
+		(e.admision != nil && (!firmaVecDesarrollo || d.GarantiaObservada != vd.AuthAssuranceSubstantial)) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	if ctx.Err() != nil {
@@ -210,7 +216,16 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	if m.Validar() != nil || !recursoExactoConHuella(m, r, claveHuella) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	base, err := e.contexto(ctx)
+	var base ContextoActorFirmaV2
+	var err error
+	if e.admision != nil {
+		if m.Via != ports.ViaFirmaCertificadoVEC {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		base, err = e.contextoParaActo(ctx, true)
+	} else {
+		base, err = e.contexto(ctx)
+	}
 	if err != nil {
 		return cero, err
 	}
@@ -238,7 +253,6 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 		// CT172 separa explícitamente al operador RRHH del firmante externo.
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	var evidenciaAdmision vecapp.EvidenciaAdmisionGarantiaActo
 	if e.admision != nil {
 		if m.Via != ports.ViaFirmaCertificadoVEC || accion != ports.AccionRegistrarFirmaVec ||
 			audiencia != ports.AudienciaFirmaVecV2 {
@@ -253,10 +267,19 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 			TipoRecurso: r.Tipo, Finalidad: ports.FinalidadFirmaDocumento,
 			RecursoRef: r.Referencia, MaterialHuellaSHA256: huellaMaterial,
 		}
-		evidenciaAdmision, err = e.admision.Admitir(ctx, base.Vinculo, base.Resultado, instantanea, descriptor)
+		evidenciaAdmision, err := e.admision.Admitir(ctx, base.Vinculo, base.Resultado, instantanea, descriptor)
 		if err != nil || ctx.Err() != nil {
 			return cero, opaco(ctx, err)
 		}
+		resumen, err := evidenciaAdmision.Resumen()
+		if err != nil || resumen.GarantiaReal != vd.AuthAssuranceSubstantial ||
+			!e.reloj.Ahora().Before(resumen.VigenteHasta) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		// ValidarEvidencia requiere la captura usada por el PDP y la ventana
+		// de su decisión real. Hasta que esa captura exista en el contrato
+		// común, no emitir siquiera una concesión candidata V3.
+		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	correlacion, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
@@ -279,16 +302,6 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 		return cero, opaco(ctx, err)
 	}
 	if decision.ValidarPara(solicitud) != nil || nulo(exportador) {
-		return cero, ports.ErrFirmaDocumentoDenegada
-	}
-	if e.admision != nil {
-		emitidaEn, validaHasta, err := decision.VentanaValidez()
-		if err != nil || evidenciaAdmision.ExigirVentanaDecisionV3(emitidaEn, validaHasta) != nil {
-			return cero, ports.ErrFirmaDocumentoDenegada
-		}
-		// ValidarEvidencia exige la captura usada por el PDP al emitir esta
-		// decisión. Ese contrato aún no se expone: jamás entregar material con
-		// la instantánea previa como si fuera una revalidación fresca.
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
