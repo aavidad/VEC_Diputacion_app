@@ -276,6 +276,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "reglas/i18n.js", "reglas/reglas.js",
   ]) versionesEspeciales.set(ruta, "20261007-pantallas-textos-final-v1");
 
+  // La corrección de Cronos exige una URL nueva tras ROOT#847.
+  versionesEspeciales.set("modulos/cronos/vista-movimientos-propios.js", "20261007-u-dietas-catalogo-v1");
+
   // Dietas renueva su cadena; el traductor común conserva la URL de ROOT#847.
   for (const ruta of [
     "modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-borradores-propios.js",

@@ -78,7 +78,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
       import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-u-dietas-catalogo-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20261007-pantallas-textos-final-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
