@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -24,6 +25,134 @@ var camposAcceso = map[string]bool{
 	"vec.bd.duracion": true, "vec.bd.espera_conexion": true, "vec.bd.error": true,
 	"error.type": true, "vec.lenta": true, "vec.bd.consulta_mas_lenta": true,
 	"vec.bd.consulta_mas_lenta.duracion": true, "vec.interrumpida": true, "vec.cancelada": true,
+	"vec.fases": true, "vec.bd.lotes": true, "vec.bd.lote.resultados_observados": true,
+	"vec.bd.lote.errores": true, "vec.bd.lote.duracion_hasta_cierre": true,
+	"vec.bd.operaciones_desconocidas": true, "vec.bd.operaciones": true,
+}
+
+var camposOperacionAcceso = map[string]bool{
+	"nombre": true, "n": true, "total": true, "maxima": true, "errores": true,
+}
+
+func validarOperacionesAcceso(valor json.RawMessage) bool {
+	var operaciones []json.RawMessage
+	if json.Unmarshal(valor, &operaciones) != nil || len(operaciones) == 0 || len(operaciones) > 17 {
+		return false
+	}
+	vistas := make(map[string]bool, len(operaciones))
+	for _, operacion := range operaciones {
+		campos, err := objetoPlano(operacion)
+		if err != nil || !soloCampos(campos, camposOperacionAcceso) {
+			return false
+		}
+		nombre, ok := cadena(campos, "nombre")
+		n, okN := entero(campos, "n", 1_000_000)
+		total, okTotal := segundos(campos, "total")
+		maxima, okMaxima := segundos(campos, "maxima")
+		if !ok || !telemetria.NombreOperacionRegistrada(nombre) || vistas[nombre] || !okN || n == 0 || !okTotal || !okMaxima || maxima > total+0.0001 {
+			return false
+		}
+		vistas[nombre] = true
+		if bruto, presente := campos["errores"]; presente {
+			errores, err := objetoPlano(bruto)
+			if err != nil || len(errores) == 0 || len(errores) > 5 {
+				return false
+			}
+			var totalErrores int64
+			for clase, cantidad := range errores {
+				if clase != "otras" {
+					if _, valida := claseErrorCerrada(clase); !valida {
+						return false
+					}
+				}
+				valor, valido := entero(map[string]json.RawMessage{"valor": cantidad}, "valor", n)
+				if !valido || valor == 0 {
+					return false
+				}
+				totalErrores += valor
+			}
+			if totalErrores > n {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validarMedidasSQLAcceso(objeto map[string]json.RawMessage, consultas int64, lenta bool, estado int) bool {
+	lotes, conLotes := objeto["vec.bd.lotes"]
+	_, conResultados := objeto["vec.bd.lote.resultados_observados"]
+	_, conErrores := objeto["vec.bd.lote.errores"]
+	_, conDuracion := objeto["vec.bd.lote.duracion_hasta_cierre"]
+	if conLotes != conResultados || conLotes != conErrores || conLotes != conDuracion {
+		return false
+	}
+	if conLotes {
+		n, ok := entero(map[string]json.RawMessage{"lotes": lotes}, "lotes", 1_000_000)
+		observados, okObservados := entero(objeto, "vec.bd.lote.resultados_observados", 1_000_000)
+		errores, okErrores := entero(objeto, "vec.bd.lote.errores", 1_000_000)
+		_, okDuracion := segundos(objeto, "vec.bd.lote.duracion_hasta_cierre")
+		if !ok || n == 0 || !okObservados || !okErrores || !okDuracion || errores > observados+n {
+			return false
+		}
+	}
+	if _, existe := objeto["vec.bd.operaciones_desconocidas"]; existe {
+		n, ok := entero(objeto, "vec.bd.operaciones_desconocidas", consultas)
+		if !ok || n == 0 || !(lenta || estado >= 400) {
+			return false
+		}
+	}
+	if operaciones, existe := objeto["vec.bd.operaciones"]; existe && (!(lenta || estado >= 400) || !validarOperacionesAcceso(operaciones)) {
+		return false
+	}
+	return true
+}
+
+var nombresFaseAcceso = map[string]bool{
+	"identidad": true, "sesion": true, "contexto": true, "v3": true,
+	"lectura_con_auditoria": true, "auditoria_denegacion": true,
+}
+
+var camposFaseAcceso = map[string]bool{
+	"nombre": true, "n": true, "total": true, "errores": true, "canceladas": true,
+}
+
+func validarFasesAcceso(valor json.RawMessage) bool {
+	var fases []json.RawMessage
+	if json.Unmarshal(valor, &fases) != nil || len(fases) == 0 || len(fases) > len(nombresFaseAcceso) {
+		return false
+	}
+	vistas := make(map[string]bool, len(fases))
+	for _, fase := range fases {
+		campos, err := objetoPlano(fase)
+		if err != nil || !soloCampos(campos, camposFaseAcceso) {
+			return false
+		}
+		nombre, ok := cadena(campos, "nombre")
+		n, okN := entero(campos, "n", 1_000_000)
+		_, okTotal := segundos(campos, "total")
+		if !ok || !nombresFaseAcceso[nombre] || vistas[nombre] || !okN || n == 0 || !okTotal {
+			return false
+		}
+		vistas[nombre] = true
+		var fallos, canceladas int64
+		if _, presente := campos["errores"]; presente {
+			fallos, ok = entero(campos, "errores", n)
+			if !ok || fallos == 0 {
+				return false
+			}
+		}
+		if _, presente := campos["canceladas"]; presente {
+			canceladas, ok = entero(campos, "canceladas", n)
+			if !ok || canceladas == 0 {
+				return false
+			}
+		}
+		if fallos+canceladas > n {
+			return false
+		}
+	}
+	return true
 }
 
 var camposArranque = map[string]bool{
@@ -204,6 +333,9 @@ func validarAcceso(objeto map[string]json.RawMessage) (registroConsulta, error) 
 	if !soloCampos(objeto, camposAcceso) {
 		return registroConsulta{}, os.ErrInvalid
 	}
+	if fases, presente := objeto["vec.fases"]; presente && !validarFasesAcceso(fases) {
+		return registroConsulta{}, os.ErrInvalid
+	}
 	instante, nivel, errCabecera := cabeceraTecnica(objeto)
 	if errCabecera != nil {
 		return registroConsulta{}, errCabecera
@@ -225,6 +357,9 @@ func validarAcceso(objeto map[string]json.RawMessage) (registroConsulta, error) 
 		(estado >= 400 && estado < 500 && ruta != "{oculto}") ||
 		(estado < 400 || estado >= 500) && !rutaFija(ruta) ||
 		(correlacion != "" && !domain.EsCorrelacionTecnicaValida(correlacion)) {
+		return registroConsulta{}, os.ErrInvalid
+	}
+	if !validarMedidasSQLAcceso(objeto, consultas, lenta, int(estado)) {
 		return registroConsulta{}, os.ErrInvalid
 	}
 	if estado >= 500 && nivel != "ERROR" || estado < 500 && lenta && nivel != "WARN" ||

@@ -3,12 +3,15 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -56,10 +59,20 @@ func TestAuditoriaUsuariosWrapperTempranoUnaFilaSinCT(t *testing.T) {
 		t.Fatalf("401 sin fila propia: %d %+v", rec.Code, r.ordenes)
 	}
 	r.err = errors.New("auditoria no disponible")
+	var acceso bytes.Buffer
+	h = telemetria.Middleware(telemetria.Opciones{Destino: &acceso, Servicio: "vec-server", Superficie: "interno", Entorno: "desarrollo"}, h)
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, usuarioshttp.RutaMisPreferencias, nil))
 	if rec.Code != 503 || pasos != 0 || len(r.ordenes) != 2 {
 		t.Fatalf("caída registrador no cierra: %d %+v", rec.Code, r.ordenes)
+	}
+	var linea map[string]any
+	if json.Unmarshal(acceso.Bytes(), &linea) != nil || linea["http.response.status_code"] != float64(503) {
+		t.Fatalf("registro de acceso fallido: %s", acceso.String())
+	}
+	fases, ok := linea["vec.fases"].([]any)
+	if !ok || len(fases) != 1 || fases[0].(map[string]any)["nombre"] != "auditoria_denegacion" || fases[0].(map[string]any)["errores"] != float64(1) || strings.Contains(acceso.String(), "auditoria no disponible") {
+		t.Fatalf("fase de fallo o saneamiento: %s", acceso.String())
 	}
 }
 
