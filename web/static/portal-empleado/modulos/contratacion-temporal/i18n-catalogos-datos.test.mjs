@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import test from "node:test";
 import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
-import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
+import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { mensajesTramite, mensajesTramitePortal, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
@@ -94,8 +94,6 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
   test(`${archivo}: conserva la preimagen de las exportaciones y los rótulos`, async () => {
     const modulo = await import(new URL(archivo, import.meta.url));
     for (const [nombre, anterior] of Object.entries(exportaciones)) {
-      if (archivo === "i18n-fases-rrhh.js" && nombre.startsWith("rotulos_")
-        && nombre.slice("rotulos_".length) !== IDIOMA_ACTUAL) continue;
       const valor = nombre.startsWith("rotulos_")
         ? Object.fromEntries(Object.entries(mensajesTramitePortal(nombre.slice("rotulos_".length)))
           .map(([clave, texto]) => [clave.slice("tramite_".length), texto]))
@@ -143,13 +141,11 @@ test("los catálogos y los traductores conservan marcadores, sobrescrituras y cl
       assert.throws(() => crear({ titulo: "" }));
       assert.throws(() => crear(null));
     }
-    if (codigo === IDIOMA_ACTUAL) {
-      const fases = (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh");
-      for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
-      const tramite = mensajesTramite(codigo);
-      assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
-      assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
-    }
+    const fases = (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh");
+    for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
+    const tramite = mensajesTramite(codigo);
+    assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
+    assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
   }
   const traducir = crearTraductorCancelacion({ "cancelacion.titulo": "{uno} {dos}" });
   assert.equal(traducir("titulo", { uno: 0 }), "0 {dos}");

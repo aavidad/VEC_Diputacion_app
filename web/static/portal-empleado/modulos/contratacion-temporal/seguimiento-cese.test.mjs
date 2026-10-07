@@ -5,6 +5,7 @@ import {
   validarConsultaSeguimientoCese, validarReciboSeguimiento, validarSolicitudCese, validarSolicitudCierre, validarSolicitudModificacion,
 } from "./cliente-http-seguimiento-cese.js";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese, rutaSeguimientoCeseNoMontada } from "./seguimiento-cese.js";
+import { crearConsultaSeguimientoCompartida } from "./vista-expedientes.js";
 
 const EXP = "expediente:cese:001";
 const cese = Object.freeze({ expediente_ref: EXP, version_esperada: 7, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174000",
@@ -83,6 +84,30 @@ function contenedorFalso() {
 const esperar = () => new Promise((r) => setImmediate(r));
 const contexto = Object.freeze({ expediente_ref: EXP, version: 7, fase_clave: "nombramiento", estado_clave: "en_curso" });
 
+test("panel y reincorporación comparten un solo POST de lectura por ficha", async () => {
+  let lecturas = 0;
+  let signalLeida;
+  const cliente = { consultarSeguimientoCese: async (ref, { signal }) => {
+    assert.equal(ref, EXP);
+    signalLeida = signal;
+    lecturas++;
+    if (lecturas > 1) throw Object.assign(new Error("lectura duplicada"), { estado: 403 });
+    return validarConsultaSeguimientoCese(consulta(), EXP);
+  } };
+  const compartida = crearConsultaSeguimientoCompartida(cliente, EXP);
+  const contenedor = contenedorFalso();
+  const desmontar = montarPanelSeguimientoCese({ contenedor, cliente, contexto,
+    consultaInicial: () => compartida.consultar() });
+  const paraReincorporacion = await compartida.consultar();
+  await esperar();
+  assert.equal(lecturas, 1);
+  assert.equal(paraReincorporacion.estado.expediente_ref, EXP);
+  assert.match(contenedor.innerHTML, /data-ct-seg-form="cese"/u);
+  compartida.cancelar();
+  assert.equal(signalLeida.aborted, true);
+  desmontar();
+});
+
 test("el panel muestra cese y modificación antes del cese, y solo el cierre después", async () => {
   const c = contenedorFalso();
   let respuesta = validarConsultaSeguimientoCese(consulta(), EXP);
@@ -156,9 +181,7 @@ test("si el servidor no compone el seguimiento (404 de ruta) el panel no se mont
 
 test("tras registrar, el panel pinta el recibo y lo conserva al volver a montarse", async () => {
   const c = contenedorFalso();
-  let envios = 0;
-  const cliente = { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP),
-    registrarCese: async () => { envios++; return { ...recibo }; } };
+  const cliente = { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP), registrarCese: async () => ({ ...recibo }) };
   let recibido = null;
   const FormDataOriginal = globalThis.FormData;
   globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
@@ -174,24 +197,12 @@ test("tras registrar, el panel pinta el recibo y lo conserva al volver a montars
     assert.match(c.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
     assert.equal(recibido?.r.recibo_ref, "recibo:cese:1");
     assert.equal(recibido?.aviso.tono, "exito");
-    c.eventos.get("submit")({ target: { closest: () => formulario }, preventDefault() {} });
-    await esperar();
-    assert.equal(envios, 1, "el recibo confirmado bloquea otro POST con la misma versión");
-    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
     desmontar();
     const otro = contenedorFalso();
     const otroDesmontar = montarPanelSeguimientoCese({ contenedor: otro, cliente, contexto, avisoInicial: recibido.aviso });
     await esperar();
     assert.match(otro.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
-    assert.doesNotMatch(otro.innerHTML, /data-ct-seg-form=/u);
     otroDesmontar();
-    const siguiente = contenedorFalso();
-    const siguienteDesmontar = montarPanelSeguimientoCese({ contenedor: siguiente, cliente,
-      contexto: { ...contexto, version: 8 }, avisoInicial: { ...recibido.aviso, version_esperada: 7 } });
-    await esperar();
-    assert.match(siguiente.innerHTML, /data-ct-seg-form="cese"/u,
-      "una versión nueva permite continuar el trámite sin borrar el recibo");
-    siguienteDesmontar();
   } finally {
     globalThis.FormData = FormDataOriginal;
   }

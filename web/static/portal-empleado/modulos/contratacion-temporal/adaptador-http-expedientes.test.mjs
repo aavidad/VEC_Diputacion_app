@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
@@ -189,7 +188,7 @@ test("la proyección autorizada localiza cabeceras, fase, estado y período sin 
   for (const [locale, mensajes, fase, estado, cabecera] of [
     ["es-ES", {}, "Obtención del candidato", "En trámite", "Período solicitado"],
     ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate selection", "In progress", "Requested period"],
-  ].filter(([locale]) => locale.startsWith(IDIOMA_ACTUAL))) {
+  ]) {
     const llamadas = [];
     const cliente = clienteFalso(llamadas);
     const consultarCuadro = cliente.consultarCuadroRRHH;
