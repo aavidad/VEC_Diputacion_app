@@ -234,3 +234,34 @@ Fuentes de continuidad:
 [plan Personal](personal.md), [plan Organización/RPT](organizacion_rpt.md) y
 [plan Carrera, Formación y RUM](carrera_formacion.md).
 No se retiran las ramas de ensayo ni se cambian sus recibos por este documento.
+
+## Baremo del concurso 2026: cálculo configurable — 8 de octubre de 2026
+
+El CLI existente `vec-baremador --modo concursos` incorpora una configuración
+versionada del concurso 2026/PPT_01/000026 y una entrada de ejemplo. El comando
+y las huellas de ambos archivos están en `cmd/vec-provision-bases/README.md`.
+
+La experiencia agrupa meses reconocidos por nivel antes de aplicar las
+fracciones y usa su ventana propia de diez años. Esa ventana no recorta la
+antigüedad ni la permanencia. La permanencia provisional aplica el corrector
+configurado y lo informa separado de la jornada. El comparador de versiones
+incluye cobertura, ventanas y correctores. No convierte días en meses cuando
+la entrada no permite acreditar esa unidad.
+
+El ejemplo calcula experiencia, grado, antigüedad, permanencia definitiva y
+formación. Titulaciones queda pendiente por la diferencia entre las bases
+6E.4 y 6E.6.d sobre másteres. Cuando, tras detraer el resto, quedan meses
+computables definitivos y provisionales, el reparto queda pendiente. Mientras
+falte cualquiera de esas partidas, el resultado conserva el desglose y
+`total: null`; no presenta una suma parcial como puntuación completa.
+
+La pregunta 150 de `dudas.md` recoge ambas decisiones para RRHH. Los valores
+están en el catálogo de ejemplo y pueden cambiar sin recompilar el motor.
+Este corte no admite solicitudes, adjudica puestos ni sustituye la revisión
+del órgano competente; siguen pendientes fuentes nominales, registro y el
+circuito institucional de concurso y libre designación.
+
+Medición del CLI compilado: 200 ejecuciones de la misma entrada, p95 de
+2,79 ms y media de 2,58 ms, con resultado idéntico. Incluye arranque del
+proceso, lectura y comprobación SHA de los dos archivos, cálculo y salida
+JSON. No mide HTTP, PostgreSQL ni una carga institucional de empleados.

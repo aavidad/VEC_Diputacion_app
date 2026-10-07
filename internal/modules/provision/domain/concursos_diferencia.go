@@ -238,6 +238,7 @@ func proyectarConfiguracion(c Configuracion) map[claveConfiguracion]elementoConf
 	out := map[claveConfiguracion]elementoConfiguracion{}
 	out[claveConfiguracion{ambito: "configuracion"}] = elementoConfiguracion{campos: []campoConfiguracion{
 		{"bases_ref", textoConfiguracion(c.BasesRef)},
+		{"cobertura_requerida", textoConfiguracion(c.CoberturaRequerida)},
 		{"fecha_corte", fechaConfiguracion(c.FechaCorte)},
 		{"ventana_desde", fechaConfiguracion(c.VentanaDesde)},
 		{"maximo_total", puntosConfiguracion(c.MaximoTotal)},
@@ -249,6 +250,7 @@ func proyectarConfiguracion(c Configuracion) map[claveConfiguracion]elementoConf
 			campos: []campoConfiguracion{
 				{"familia", textoConfiguracion(string(r.Familia))},
 				{"referencia_base", textoConfiguracion(r.ReferenciaBase)},
+				{"ventana_desde", textoConfiguracion(r.VentanaDesde)},
 				{"coeficiente", puntosConfiguracion(r.Coeficiente)},
 				{"maximo", puntosConfiguracion(r.Maximo)},
 				{"redondeo", textoConfiguracion(string(r.Redondeo))},
@@ -264,6 +266,10 @@ func proyectarConfiguracion(c Configuracion) map[claveConfiguracion]elementoConf
 				{"excluir_requisito", booleanoConfiguracion(r.ExcluirRequisito)},
 				{"seleccion_elementos", textoConfiguracion(r.SeleccionElementos)},
 				{"maximo_elementos", enteroConfiguracion(int64(r.MaximoElementos))},
+				{"permanencia_politica", textoConfiguracion(r.PermanenciaPolitica)},
+				{"tipo_provisional", textoConfiguracion(r.TipoProvisional)},
+				{"factor_provisional_numerador", enteroConfiguracion(r.FactorProvisionalNumerador)},
+				{"factor_provisional_denominador", enteroConfiguracion(r.FactorProvisionalDenominador)},
 			},
 		}
 		for _, t := range r.Tramos {

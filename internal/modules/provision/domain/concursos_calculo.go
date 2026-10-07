@@ -43,6 +43,13 @@ func Calcular(c Configuracion, e Entrada) (Resultado, error) {
 				desglose.Detalles, desglose.Bruto, err = calcularTitulos(c, r, e)
 			}
 			if err != nil {
+				if nominal, ok := err.(*Error); ok && nominal.Codigo == "politica_pendiente" && r.Familia == Permanencia {
+					desglose.Estado = "pendiente_politica"
+					salida.Completo = false
+					salida.Incidencias = append(salida.Incidencias, "politica_no_admitida:"+r.ID)
+					salida.Desglose = append(salida.Desglose, desglose)
+					continue
+				}
 				return Resultado{}, err
 			}
 			desglose.Resultado = tope(desglose.Bruto, r.Maximo)
@@ -52,6 +59,22 @@ func Calcular(c Configuracion, e Entrada) (Resultado, error) {
 			}
 		}
 		salida.Desglose = append(salida.Desglose, desglose)
+	}
+	if c.CoberturaRequerida == "seis_familias_concurso_v1" {
+		for _, familia := range []Familia{ValoracionTrabajo, Grado, Antiguedad, Permanencia, Titulaciones, Cursos} {
+			presente := false
+			for _, regla := range c.Reglas {
+				if regla.Familia == familia {
+					presente = true
+					break
+				}
+			}
+			if !presente {
+				salida.Completo = false
+				salida.Incidencias = append(salida.Incidencias, "regla_no_configurada:"+string(familia))
+				salida.Desglose = append(salida.Desglose, Desglose{Familia: familia, Estado: "pendiente_regla", Detalles: []Detalle{}})
+			}
+		}
 	}
 	if salida.Completo {
 		total := tope(salida.Bruto, c.MaximoTotal)

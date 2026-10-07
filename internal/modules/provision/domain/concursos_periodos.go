@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"sort"
 	b "vec-diputacion-granada/internal/shared/baremacion"
 )
@@ -12,13 +13,16 @@ type grupoTemporal struct {
 }
 
 func calcularPeriodos(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos, error) {
+	if r.PermanenciaPolitica == "resto_provisional_primero_v1" {
+		return calcularPermanenciaMixta(c, r, e)
+	}
 	detalles := []Detalle{}
 	grupos := map[string]grupoTemporal{}
 	for _, p := range e.Periodos {
 		if !contiene(p.Familias, r.Familia) || !acepta(p.Tipo, r.Tipos) {
 			continue
 		}
-		desde, hasta, ok := recortar(c, p)
+		desde, hasta, ok := recortarRegla(c, r, p)
 		diasBrutos := int64(0)
 		finOriginal := c.FechaCorte
 		if p.Hasta != nil {
@@ -39,6 +43,9 @@ func calcularPeriodos(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos,
 		detalle.DiasElegibles, _ = desde.DiasHasta(hasta)
 		unidades := entero(detalle.DiasElegibles)
 		if r.Conversion.Metodo == "meses_completos" || r.Conversion.Metodo == "anos_desde_meses" {
+			if r.Agrupacion == "por_nivel" && desde.Dia() != hasta.Dia() {
+				return nil, b.Puntos{}, fallo("meses_no_acreditados", "periodos")
+			}
 			unidades = entero(mesesCompletos(desde, hasta))
 		}
 		factor := entero(1)
@@ -65,6 +72,10 @@ func calcularPeriodos(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos,
 		clave := id
 		if r.Agrupacion == "por_periodo" {
 			clave = p.ID + ":" + id
+		} else if r.Agrupacion == "por_nivel" {
+			// El tramo superior agrupa varios niveles; las fracciones sólo se
+			// pueden sumar entre puestos con el mismo nivel de origen.
+			clave = fmt.Sprintf("nivel:%d:%s", p.Nivel, id)
 		}
 		g, existe := grupos[clave]
 		if !existe {
@@ -120,6 +131,84 @@ func calcularPeriodos(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos,
 	return detalles, bruto, nil
 }
 
+// La política de ensayo detrae los meses no computables de la modalidad
+// provisional y aplica su factor a la proporción de tiempo computable. Sólo
+// acepta periodos de meses civiles completos: no convierte días sueltos en
+// meses mediante un divisor supuesto.
+func calcularPermanenciaMixta(c Configuracion, r Regla, e Entrada) ([]Detalle, b.Puntos, error) {
+	detalles := []Detalle{}
+	var definitivos, provisionales int64
+	factor, _ := b.NuevoRacional(r.FactorProvisionalNumerador, r.FactorProvisionalDenominador)
+	for _, p := range e.Periodos {
+		if !contiene(p.Familias, Permanencia) || !acepta(p.Tipo, r.Tipos) {
+			continue
+		}
+		desde, hasta, ok := recortarRegla(c, r, p)
+		if !ok {
+			detalles = append(detalles, Detalle{HechoID: p.ID, EvidenciaRef: p.EvidenciaRef, Motivo: "fuera_ventana", Unidades: entero(0), FactorJornada: entero(1), Coeficiente: r.Coeficiente})
+			continue
+		}
+		if desde.Dia() != hasta.Dia() {
+			return nil, b.Puntos{}, fallo("meses_no_acreditados", "periodos")
+		}
+		meses := mesesCompletos(desde, hasta)
+		dias, _ := desde.DiasHasta(hasta)
+		if p.Tipo == r.TipoProvisional {
+			provisionales += meses
+		} else {
+			definitivos += meses
+		}
+		detalles = append(detalles, Detalle{HechoID: p.ID, EvidenciaRef: p.EvidenciaRef, Motivo: "meses_civiles_completos", DiasElegibles: dias, Unidades: entero(meses), FactorJornada: entero(1), Coeficiente: r.Coeficiente})
+	}
+	total := definitivos + provisionales
+	if total == 0 {
+		return detalles, b.Puntos{}, nil
+	}
+	divisor := r.Conversion.Divisor
+	completos, resto := total/divisor, total%divisor
+	if resto > r.Conversion.UmbralResto {
+		completos++
+	} else {
+		descontarProvisional := min(resto, provisionales)
+		provisionales -= descontarProvisional
+		definitivos -= resto - descontarProvisional
+	}
+	computables := definitivos + provisionales
+	if computables == 0 || completos == 0 {
+		return detalles, b.Puntos{}, nil
+	}
+	if definitivos > 0 && provisionales > 0 {
+		detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: "reparto_mixto_pendiente", Unidades: entero(computables), FactorJornada: entero(1), Coeficiente: r.Coeficiente})
+		return detalles, b.Puntos{}, fallo("politica_pendiente", "permanencia")
+	}
+	ponderados, err := entero(provisionales).Multiplicar(factor)
+	if err != nil {
+		return nil, b.Puntos{}, err
+	}
+	ponderados, err = ponderados.Sumar(entero(definitivos))
+	if err != nil {
+		return nil, b.Puntos{}, err
+	}
+	unidades, err := ponderados.Multiplicar(entero(completos))
+	if err != nil {
+		return nil, b.Puntos{}, err
+	}
+	unidades, err = unidades.Dividir(entero(computables))
+	if err != nil {
+		return nil, b.Puntos{}, err
+	}
+	puntos, err := r.Coeficiente.MultiplicarRedondeado(unidades, r.Redondeo)
+	if err != nil {
+		return nil, b.Puntos{}, err
+	}
+	motivo, corrector := "resto_sin_corrector", ""
+	if provisionales > 0 {
+		motivo, corrector = "corrector_provisional_y_resto", factor.String()
+	}
+	detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: motivo, Unidades: unidades, FactorJornada: entero(1), CorrectorProvisional: corrector, Coeficiente: r.Coeficiente, Bruto: puntos, Maximo: r.Maximo, Resultado: tope(puntos, r.Maximo)})
+	return detalles, puntos, nil
+}
+
 func recortar(c Configuracion, p Periodo) (b.FechaCivil, b.FechaCivil, bool) {
 	desde, hasta := p.Desde, c.FechaCorte
 	if p.Hasta != nil {
@@ -134,6 +223,19 @@ func recortar(c Configuracion, p Periodo) (b.FechaCivil, b.FechaCivil, bool) {
 	}
 	cmp, _ = desde.Comparar(hasta)
 	return desde, hasta, cmp < 0
+}
+
+func recortarRegla(c Configuracion, r Regla, p Periodo) (b.FechaCivil, b.FechaCivil, bool) {
+	desde, hasta, ok := recortar(c, p)
+	if r.VentanaDesde == "" {
+		return desde, hasta, ok
+	}
+	ventana, _ := fechaVentanaRegla(r.VentanaDesde) // validada al abrir el cálculo
+	if anterior, _ := desde.Comparar(ventana); anterior < 0 {
+		desde = ventana
+	}
+	orden, _ := desde.Comparar(hasta)
+	return desde, hasta, orden < 0
 }
 func mesesCompletos(desde, hasta b.FechaCivil) int64 {
 	meses := int64((hasta.Anio()-desde.Anio())*12 + hasta.Mes() - desde.Mes())
