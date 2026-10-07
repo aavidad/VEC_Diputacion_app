@@ -18,12 +18,12 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261007-carga-pantalla-v1";
+} from "./vista-expedientes-render.js?v=20261008-ct-alta-vista-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261007-carga-pantalla-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261007-carga-pantalla-v1";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261007-carga-pantalla-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261007-carga-pantalla-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261007-carga-pantalla-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-ct-alta-vista-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261007-carga-pantalla-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
@@ -43,7 +43,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261007-carga-pantalla-v1";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-ct-alta-vista-v1";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261007-carga-pantalla-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261007-carga-pantalla-v1";
 

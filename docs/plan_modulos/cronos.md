@@ -156,6 +156,40 @@ publicado, vigente y distinto de los motivos positivos, configurado en
 material privado y pasan el preflight común. Este cambio no crea sus permisos,
 no instala SQL ni acredita C5a, C5b o un recorrido nominal en PostgreSQL.
 
+## C3p: lectura SQL acotada del libro de saldo
+
+CRN15 conserva la firma y el JSON de Cronos4. Acota las parejas de trabajo al
+intervalo solicitado y conserva dos antecedentes y el primer sucesor para
+detectar secuencias abiertas, también antiguas. Usa el índice ya existente;
+no añade tablas, permisos, decisiones ni auditorías por fila. Cronos7 conserva
+el consumo V3 y su registro de acceso en la misma transacción.
+
+En PostgreSQL 18.4 aislado, sobre los mismos 234.800 marcajes sintéticos y
+9.138 jornadas, 100 muestras por período dieron estos p95 del libro interno:
+
+| Período | Original, ms | CRN15, ms |
+| --- | ---: | ---: |
+| Día | 107,925 | 0,373 |
+| Mes | 103,852 | 1,714 |
+| Año | 115,692 | 14,896 |
+
+El ensayo comparó 47 JSON exactos, incluidos noches, cambios de hora de Madrid
+y Canarias, entrada antigua abierta, pausas inválidas, instantes iguales y
+programación ambigua. La campaña de volumen comparó otros 23 resultados. El
+runtime sigue sin permiso directo sobre la función interna y una referencia
+ajena se rechaza. Las dos revisiones independientes de SQL y seguridad dieron
+GO al código; estas comprobaciones no miden V3, HTTP ni pantalla.
+
+La lista de despliegue contiene solo CRN15, sobre Cronos4 ya instalado; no se
+reaplican migraciones históricas. El ensayo en una copia
+privada de principal pasó: restauración postHX, ACL y las 14 SQL de HZ, después
+CRN15 una sola vez. Conservó OID, ACL, RLS y el cuerpo del consumidor Cronos7;
+no consultó filas personales ni acredita HTTP. Fuente y archivos privados
+permanecieron intactos; el contenedor y sus datos se retiraron. Por orden de
+Dirección, CRN15 no se instala en cidonia esta noche. Cronos empleado conserva
+la configuración nueva de #861 y espera el catálogo gobernado del motivo de
+rechazo; C5a y las demás dependencias nominales siguen abiertas.
+
 ## Respuesta visible al abrir una corrección
 
 Si el calendario carga, deniega la consulta o falla, «Solicitar corrección»
