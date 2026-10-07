@@ -7,7 +7,7 @@ import {
 } from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
   revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261007-pc-i18n-v1";
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
   traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
@@ -453,7 +453,8 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
   return { recargar: cargar };
 }
 
-export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente = pedir } = {}) {
+export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente = pedir,
+  prepararAnalisis = prepararAnalisisPeticionesCentro } = {}) {
   if (new URLSearchParams(globalThis.location?.search || "").get("vista") === "rrhh") {
     return iniciarPeticionesCentroRRHH({ raiz, cliente });
   }
@@ -471,7 +472,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   });
   let estado = null; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let motivo = ""; let confirmado = false;
+  let generacionContexto = 0; let preparandoAnalisis = false;
   const retirarDatos = (error) => {
+    generacionContexto += 1; preparandoAnalisis = false;
     const confirmada = Boolean(recibo);
     resultadoIncierto = resultadoIncierto || Boolean(operacionPendiente);
     operacionPendiente = null;
@@ -488,7 +491,8 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     raiz.setAttribute("aria-busy", String(ocupado));
     if (ocupado) {
       raiz.querySelectorAll("button, input, select, textarea").forEach((control) => { control.disabled = true; });
-      raiz.insertAdjacentHTML("afterbegin", `<p class="pc-aviso" role="status">${esc(TEXTO.enviando)}</p>`);
+      raiz.insertAdjacentHTML("afterbegin", `<p class="pc-aviso" role="status">${esc(preparandoAnalisis
+        ? TEXTO.preparandoFormulario : TEXTO.enviando)}</p>`);
     }
   };
   const cargarBandeja = async () => {
@@ -498,12 +502,13 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         || !["pendiente_ratificacion", "ratificada"].includes(p.estado))) throw new Error(TEXTO.error);
     peticiones = bandeja.peticiones;
     if (peticiones.some((item) => item.solicitud?.periodo?.causa_fin)) {
-      await prepararAnalisisPeticionesCentro();
+      await prepararAnalisis();
     }
     peticion = peticiones.find((p) => p.referencia === (recibo?.peticion_ref || peticion?.referencia)) || null;
   };
   const cargar = async () => {
-    if (ocupado || operacionPendiente) return;
+    if ((ocupado && !preparandoAnalisis) || operacionPendiente) return;
+    generacionContexto += 1; preparandoAnalisis = false;
     ocupado = true; mensaje = "";
     try {
       const nuevo = await cliente(RUTAS.contexto);
@@ -564,12 +569,31 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const accion = control.dataset.accion || ({ volver: "editar", confirmar: "confirmar-presentar" })[control.dataset.ctAccion];
     try {
     if (control.dataset.seleccionar) { peticion = peticiones.find((p) => p.referencia === control.dataset.seleccionar) || null; dibujar(); return; }
-    if (accion === "nueva" && contexto?.actor.puede_presentar) {
-      if (contexto.catalogos.motivos.some((motivo) => motivo.causa_fin)) {
-        await prepararAnalisisPeticionesCentro();
+    if (accion === "nueva" && modo === "bandeja" && contexto?.actor.puede_presentar) {
+      const contextoInicial = contexto;
+      const actorInicial = contextoInicial.actor.referencia;
+      const generacionInicial = generacionContexto;
+      if (contextoInicial.catalogos.motivos.some((motivo) => motivo.causa_fin)) {
+        preparandoAnalisis = true; ocupado = true; mensaje = ""; dibujar();
+        try {
+          await prepararAnalisis();
+        } catch {
+          if (generacionInicial === generacionContexto && preparandoAnalisis && raiz.isConnected !== false) {
+            mensaje = TEXTO.analisisNoDisponible;
+          }
+          return;
+        } finally {
+          if (generacionInicial === generacionContexto && preparandoAnalisis) {
+            preparandoAnalisis = false; ocupado = false;
+            if (raiz.isConnected !== false) dibujar();
+          }
+        }
       }
+      if (generacionInicial !== generacionContexto || contexto !== contextoInicial
+        || contexto?.actor?.referencia !== actorInicial || contexto.actor.puede_presentar !== true
+        || modo !== "bandeja" || raiz.isConnected === false) return;
       modo = "formulario"; recibo = null;
-      estado = estadoBase(contexto.catalogos, { ...crearBorradorAlta(), centro_ref: contexto.catalogos.centros[0]?.referencia || "" });
+      estado = estadoBase(contextoInicial.catalogos, { ...crearBorradorAlta(), centro_ref: contextoInicial.catalogos.centros[0]?.referencia || "" });
       mensaje = ""; dibujar(); return;
     }
     if (accion === "recargar") { await cargar(); return; }
@@ -627,7 +651,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
  * petición y su ratificación quedan registradas, pero el circuito de firma
  * electrónica sigue pendiente del procedimiento corporativo.
  */
-export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = IDIOMA_EFECTIVO_PETICIONES_CENTRO === IDIOMA_POR_DEFECTO
   ? MENSAJES_AYUDA_PETICIONES_CENTRO : undefined;
 
 /** Traduce una clave de la ayuda; una clave desconocida nunca muestra texto inventado. */

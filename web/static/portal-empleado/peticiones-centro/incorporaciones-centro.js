@@ -10,7 +10,7 @@
 import { instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../portal-huella-archivo.js";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
   MENSAJES_INCORPORACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
 
@@ -25,7 +25,7 @@ const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
 
-export const MENSAJES_INCORPORACIONES_CENTRO_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+export const MENSAJES_INCORPORACIONES_CENTRO_ES = IDIOMA_EFECTIVO_PETICIONES_CENTRO === IDIOMA_POR_DEFECTO
   ? MENSAJES_INCORPORACIONES_CENTRO : undefined;
 
 export function crearTraductorIncorporacionesCentro(mensajes = MENSAJES_INCORPORACIONES_CENTRO) {
