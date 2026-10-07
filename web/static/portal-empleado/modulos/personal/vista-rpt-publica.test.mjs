@@ -152,7 +152,7 @@ test("URL de RPT conserva idioma y restaura filtros exactos", async () => {
   } finally { globalThis.window = anterior; }
 });
 
-test("doble pulsación conserva la última lista y enfoca el resultado o el error", async () => {
+test("doble pulsación del mismo filtro comparte GET y enfoca el error", async () => {
   const r = raiz(), pendientes = [];
   const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
     puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
@@ -162,13 +162,29 @@ test("doble pulsación conserva la última lista y enfoca el resultado o el erro
   } } });
   const boton = nodosCon(r, "personalRptPublicaEnlace")[0];
   boton.listeners.get("click")(); boton.listeners.get("click")();
-  assert.equal(pendientes.length, 2); assert.equal(pendientes[0].signal.aborted, true);
+  assert.equal(pendientes.length, 1); assert.equal(pendientes[0].signal.aborted, false);
   assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-publica-estado]"));
-  pendientes[0].resolve(pagina({ vista: "puestos", total: 0, items: [] })); await esperarRespuesta();
-  assert.equal(r.querySelector("[data-personal-rpt-publica-tabla]"), null);
-  pendientes[1].reject(new Error("fuente no disponible")); await esperarRespuesta();
+  pendientes[0].reject(new Error("fuente no disponible")); await esperarRespuesta();
   const error = r.querySelector("[data-personal-rpt-publica-estado]");
   assert.equal(error.atributos.get("role"), "alert"); assert.equal(r.ownerDocument.activeElement, error);
+});
+
+test("cambiar de agrupación cancela el GET anterior y pinta solo la última", async () => {
+  const r = raiz(), pendientes = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta, { signal }) {
+    if (consulta.vista === "categorias") return Promise.resolve(pagina({ items: [categoria] }));
+    return new Promise((resolve) => pendientes.push({ resolve, signal, vista: consulta.vista }));
+  } } });
+  nodosCon(r, "personalRptPublicaEnlace")[0].listeners.get("click")();
+  nodosCon(r, "personalRptPublicaVista").find((b) => b.dataset.personalRptPublicaVista === "centros").listeners.get("click")();
+  assert.deepEqual(pendientes.map((p) => p.vista), ["puestos", "centros"]);
+  assert.equal(pendientes[0].signal.aborted, true);
+  pendientes[0].resolve(pagina({ vista: "puestos", total: 0, items: [] })); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica-tabla]"), null);
+  pendientes[1].resolve(pagina({ vista: "centros", total: 0, items: [] })); await esperarRespuesta();
+  assert.match(textoNodo(r.querySelector("[data-personal-rpt-publica-tabla]")), /Tabla de centros RPT/u);
 });
 
 test("enlace con centro inválido limpia el filtro y permite volver a buscar", async () => {

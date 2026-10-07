@@ -226,7 +226,7 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
   const t = crearTraductorRPTPuestos(), contenedor = nodo(documento, "section");
   contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = ""; raiz.append(contenedor);
   const enlace = consultaDesdeURL();
-  let activa = true, controlador = null, consulta = enlace.consulta, avisoEnlace = enlace.invalida;
+  let activa = true, controlador = null, claveVuelo = null, consulta = enlace.consulta, avisoEnlace = enlace.invalida;
   const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); };
   registrarDesmontar?.(desmontar);
   const recargar = async (cambios = {}, { enfocarResultado = false } = {}) => {
@@ -234,8 +234,14 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
     let siguienteConsulta;
     try { siguienteConsulta = validarConsultaRPTPublica({ ...consulta, ...cambios }); }
     catch { pintar(raiz, contenedor, { tipo: "error", mensaje: t("error_filtro"), consulta, avisoEnlace }, recargar, t); return; }
+    const claveSiguiente = JSON.stringify(siguienteConsulta);
+    if (controlador && !controlador.signal.aborted && claveVuelo === claveSiguiente) {
+      if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
+      return;
+    }
     if (Object.keys(cambios).length > 0) avisoEnlace = false;
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
+    claveVuelo = claveSiguiente;
     consulta = siguienteConsulta; conservarConsultaURL(consulta);
     pintar(raiz, contenedor, { tipo: "cargando", consulta, avisoEnlace }, recargar, t);
     if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
@@ -251,7 +257,7 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
         pintar(raiz, contenedor, { tipo: "error", mensaje, consulta, avisoEnlace }, recargar, t);
         if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
       }
-    } finally { if (controlador === vuelo) controlador = null; }
+    } finally { if (controlador === vuelo) { controlador = null; claveVuelo = null; } }
   };
   await recargar(); return Object.freeze({ desmontar });
 }
