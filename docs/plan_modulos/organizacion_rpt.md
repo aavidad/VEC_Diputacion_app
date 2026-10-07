@@ -301,3 +301,34 @@ con `--preparar`, se extrajo y se volvió a leer con el mismo comando: conservó
 la huella `900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6`.
 Semgrep con cuatro reglas locales y gosec focal no comunicaron hallazgos.
 La revisión independiente y la integración corresponden a Dirección.
+
+## Corrección candidata del PDF público, 7 de octubre de 2026
+
+El importador local separa las continuaciones por su columna en el texto de
+`pdftotext -layout`. En el PDF público con SHA-256
+`67cfc02f025c2697d6a3dc6e7a22ad7fe23b4e7c941a7f343e95beda377edb4a`,
+conserva 842 filas, 1.714 dotaciones y las 842 claves publicadas. Completa 57
+denominaciones de puesto que habían quedado cortadas; entre ellas, los puestos
+422, 412 y 296 ya no trasladan sus continuaciones a la categoría. En el 217,
+«ESPECÍFICA» sí continúa la celda de categoría. Las alternativas numeradas
+del puesto 407 son «ENFERMERO/A» y «MÉDICO/A»; el grupo compuesto A1/A2 se
+conserva en el puesto sin asignar un subgrupo a cada alternativa. El 748 tiene
+tres alternativas numeradas de ingeniería.
+
+El catálogo generado para comparación queda fuera de Git. Tiene 842 puestos,
+1.714 dotaciones, 41 centros y 131 categorías frente a las 145 del v1 publicado.
+La comparación conserva claves de puesto, dotación, centro, delegación, nivel,
+complemento, tipo y provisión. El generador permite `--in`, `--out` y
+`--generated-on` para reproducir el candidato sin activar el fichero de
+consulta. Las alternativas cuyo grupo individual no consta quedan anotadas en
+`categorias_pendientes_grupo`; el catálogo candidato no debe alimentar altas
+hasta que se acuerde el contrato de publicación y se revisen esas diferencias.
+
+`data/catalogos/rpt/v1.rpt-2026.json` y su huella siguen intactos. El lector
+de altas de desarrollo ofrece todas sus categorías, incluidas las referencias
+que podrían estar en expedientes existentes; no reconoce una marca de baja.
+Una versión posterior necesita conservar v1 para consultas históricas y definir
+cómo excluir opciones erróneas de nuevas altas sin perder referencias. La
+denominación «BASE B SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
+puesto 217. Su tratamiento de gobierno sigue pendiente: no se elimina por
+deducción del importador.

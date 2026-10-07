@@ -10,11 +10,11 @@ páginas ni texto en bruto.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
 import unicodedata
-from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
@@ -30,16 +30,7 @@ def clave(texto: str) -> str:
     return plano[:60]
 
 
-# Trozos de la columna de categoría que el PDF parte por el salto de línea y que no
-# son categorías por sí mismos (revisados a mano sobre la RPT 2026).
-EXCLUIDAS = {
-    "ACC.COMUN.", "BOLSAS", "CALAH.", "CIBERSEGURIDAD", "CONTROL CONTABLE", "FINANCIACIÓN AFECTADA",
-    "ILLORA", "NO PLANIFICABLE/PERMANENTE", "PLANIFICABLE", "PROFESIONAL", "PROVINCIALES", "PUBLIC.",
-    "PUBLICACIONES", "PUBLICAS", "SOCIAL Y PENSIONES", "SOPORTE A TESORERÍA", "SUMINISTROS", "TEMPLE",
-    "TEMPORAL", "TERRITITORIALES", "TOPOGRAFÍA", "TRIBUNAL CONTRAT. PUB.", "VIVIENDA",
-}
-
-CONTINUACION = re.compile(r"^(Y|DE|DEL|E|EN|LA|LAS|LOS|A|AL|PARA|CON|SIN)\s")
+CODIGO_CATEGORIA = re.compile(r"(?<!\S)(\d{1,3})\s+(?=[A-ZÁÉÍÓÚÜÑ])")
 
 
 def limpiar_denominacion(texto: str) -> str:
@@ -53,12 +44,20 @@ def limpiar_denominacion(texto: str) -> str:
     return n.strip()
 
 
-def es_fragmento(nombre: str, nombres_completos: set[str]) -> bool:
-    """Un trozo de denominación partida por el salto de línea del PDF: pocas letras,
-    empieza por preposición o conjunción, o es el final de otra denominación."""
-    if len(re.sub(r"[^A-ZÁÉÍÓÚÜÑ]", "", nombre)) < 4 or CONTINUACION.match(nombre):
-        return True
-    return any(otro != nombre and otro.endswith(" " + nombre) for otro in nombres_completos)
+def denominaciones_categoria(valor: str) -> list[str]:
+    """Separa las alternativas numeradas de una misma celda de categoría."""
+    texto = (valor or "").strip().upper()
+    codigos = list(CODIGO_CATEGORIA.finditer(texto))
+    if len(codigos) < 2:
+        nombre = limpiar_denominacion(texto)
+        return [nombre] if nombre else []
+    nombres = []
+    for indice, codigo in enumerate(codigos):
+        fin = codigos[indice + 1].start() if indice + 1 < len(codigos) else None
+        nombre = limpiar_denominacion(texto[codigo.start():fin])
+        if nombre:
+            nombres.append(nombre)
+    return nombres
 
 
 def grupos_de(valor: str) -> list[str]:
@@ -67,37 +66,37 @@ def grupos_de(valor: str) -> list[str]:
 
 
 def main() -> int:
-    if not ENTRADA.exists():
-        print(f"falta la importación local {ENTRADA.relative_to(RAIZ)}", file=sys.stderr)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--in", dest="entrada", type=Path, default=ENTRADA)
+    parser.add_argument("--out", type=Path, default=SALIDA)
+    parser.add_argument("--generated-on", type=date.fromisoformat, default=date.today())
+    args = parser.parse_args()
+    if not args.entrada.exists():
+        print("falta la importación local indicada", file=sys.stderr)
         return 2
-    datos = json.loads(ENTRADA.read_text(encoding="utf-8"))
+    datos = json.loads(args.entrada.read_text(encoding="utf-8"))
     puestos_salida: list[dict] = []
     categorias: dict[str, dict] = {}
-    nombres_completos = {limpiar_denominacion(p["name"]) for p in datos["positions"]}
-    nombres_completos |= {limpiar_denominacion(p.get("category_code") or "") for p in datos["positions"]}
-    frecuencia_categoria: dict[str, int] = defaultdict(int)
+    # Un grupo compuesto no identifica el subgrupo de cada alternativa numerada.
+    grupos_acreditados: dict[str, set[str]] = {}
     for p in datos["positions"]:
-        frecuencia_categoria[limpiar_denominacion(p.get("category_code") or "")] += 1
+        nombres = denominaciones_categoria(p.get("category_code") or "")
+        grupos = grupos_de(p.get("group", ""))
+        if len(nombres) == 1 and len(grupos) == 1:
+            grupos_acreditados.setdefault(nombres[0], set()).add(grupos[0])
+    pendientes: set[str] = set()
     for p in datos["positions"]:
         grupos = grupos_de(p.get("group", ""))
         # Categoría: la columna de categoría de la RPT; si falta, la denominación del
         # puesto solo cuando es un puesto base (tipo N), nunca uno singularizado.
         origen = "categoria"
-        denominacion = limpiar_denominacion(p.get("category_code") or "")
-        if not denominacion and (p.get("type") or "") == "N":
-            denominacion = limpiar_denominacion(p.get("name") or "")
+        denominaciones = denominaciones_categoria(p.get("category_code") or "")
+        if not denominaciones and (p.get("type") or "") == "N":
+            denominaciones = [limpiar_denominacion(p.get("name") or "")]
             origen = "denominacion"
-        # Una categoría muy repetida se acepta aunque sea el final de otra denominación
-        # («ADMINISTRATIVO» y «AUXILIAR ADMINISTRATIVO» coexisten); las raras que son
-        # final de otra son trozos partidos por el salto de línea del PDF.
-        if denominacion and (
-            denominacion in EXCLUIDAS
-            or CONTINUACION.match(denominacion)
-            or len(re.sub(r"[^A-ZÁÉÍÓÚÜÑ]", "", denominacion)) < 4
-            or (frecuencia_categoria.get(denominacion, 0) < 10 and es_fragmento(denominacion, nombres_completos))
-        ):
-            denominacion = ""
-        categoria_clave = clave(denominacion) if denominacion else ""
+        denominaciones = [nombre for nombre in denominaciones if nombre]
+        claves = [clave(nombre) for nombre in denominaciones]
+        categoria_clave = claves[0] if len(claves) == 1 else ""
         puestos_salida.append({
             "codigo": p["code"],
             "denominacion": p["name"].strip(),
@@ -107,30 +106,37 @@ def main() -> int:
             "grupos": grupos,
             "escala": (p.get("scale") or "").strip() if (p.get("scale") or "") in ("AE", "AG", "AGAE", "HN") else "",
             "categoria_clave": categoria_clave,
+            "categorias_claves": claves,
             "nivel_destino": int(p.get("destination_level") or 0),
             "complemento_especifico_anual_centimos": int(p.get("annual_amount_cents") or 0),
             "dotacion": int(p.get("dot") or 0),
             "tipo": p.get("type", ""),
             "provision": p.get("provision", ""),
         })
-        if categoria_clave and grupos:
-            c = categorias.setdefault(categoria_clave, {
-                "clave": categoria_clave, "denominacion": denominacion, "origen": origen, "grupos": [],
+        for denominacion, clave_categoria in zip(denominaciones, claves):
+            grupos_categoria = grupos if len(denominaciones) == 1 else sorted(grupos_acreditados.get(denominacion, set()), key=GRUPOS_VALIDOS.index)
+            if not grupos_categoria:
+                pendientes.add(denominacion)
+                continue
+            c = categorias.setdefault(clave_categoria, {
+                "clave": clave_categoria, "denominacion": denominacion, "origen": origen, "grupos": [],
                 "escalas": [], "dotacion": 0, "puestos": 0, "niveles_destino": [],
                 "complementos_especificos_anuales_centimos": [],
             })
-            for g in grupos:
+            for g in grupos_categoria:
                 if g not in c["grupos"]:
                     c["grupos"].append(g)
             esc = puestos_salida[-1]["escala"]
             if esc and esc not in c["escalas"]:
                 c["escalas"].append(esc)
-            c["dotacion"] += puestos_salida[-1]["dotacion"]
-            c["puestos"] += 1
-            if puestos_salida[-1]["nivel_destino"]:
-                c["niveles_destino"].append(puestos_salida[-1]["nivel_destino"])
-            if puestos_salida[-1]["complemento_especifico_anual_centimos"]:
-                c["complementos_especificos_anuales_centimos"].append(puestos_salida[-1]["complemento_especifico_anual_centimos"])
+            # La RPT no distribuye la dotación entre alternativas.
+            if len(denominaciones) == 1:
+                c["dotacion"] += puestos_salida[-1]["dotacion"]
+                c["puestos"] += 1
+                if puestos_salida[-1]["nivel_destino"]:
+                    c["niveles_destino"].append(puestos_salida[-1]["nivel_destino"])
+                if puestos_salida[-1]["complemento_especifico_anual_centimos"]:
+                    c["complementos_especificos_anuales_centimos"].append(puestos_salida[-1]["complemento_especifico_anual_centimos"])
 
     def mediana(valores: list[int]) -> int:
         if not valores:
@@ -152,7 +158,7 @@ def main() -> int:
         "fuente": {
             "documento": "Relación de Puestos de Trabajo de la Diputación de Granada 2026 (publicada), revisión 2026-05-07",
             "importacion": datos.get("version", ""),
-            "generado_en": date.today().isoformat(),
+            "generado_en": args.generated_on.isoformat(),
             "aviso": "Datos públicos de puestos; no contiene ocupantes ni datos personales. No acredita vigencia administrativa.",
         },
         "resumen": {
@@ -163,10 +169,11 @@ def main() -> int:
         },
         "categorias": lista_categorias,
         "puestos": puestos_salida,
+        "categorias_pendientes_grupo": sorted(pendientes),
     }
-    SALIDA.parent.mkdir(parents=True, exist_ok=True)
-    SALIDA.write_text(json.dumps(salida, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    print(f"{SALIDA.relative_to(RAIZ)}: {salida['resumen']}")
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(salida, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"{args.out}: {salida['resumen']}")
     return 0
 
 
