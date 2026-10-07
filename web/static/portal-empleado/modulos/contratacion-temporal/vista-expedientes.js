@@ -356,9 +356,11 @@ export async function montarModuloContratacionTemporal({
     if (!clienteReincorporacion || !contexto
       || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
       || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
-    if (!disponibilidadDe("reincorporacion_titular", {
+    const contextoDisponibilidad = {
       expediente_ref: contexto.expediente_ref, version_observada: contexto.version,
-    })) return;
+    };
+    const disponibleAhora = () => Boolean(disponibilidadDe("reincorporacion_titular", contextoDisponibilidad));
+    if (!disponibleAhora()) return;
     const actualAntes = presentador.obtenerEstado();
     if (actualAntes.carga !== "listo" || actualAntes.vista !== "expediente"
       || actualAntes.expediente?.expediente_ref !== contexto.expediente_ref
@@ -368,6 +370,7 @@ export async function montarModuloContratacionTemporal({
     const controlador = new AbortController();
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
+    let consultaEnviada = false;
     if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "consultando";
     let comprobando = null;
     if (enfocarEstado) {
@@ -379,17 +382,26 @@ export async function montarModuloContratacionTemporal({
       avisoCapacidadReincorporacion = comprobando;
       comprobando.focus();
     }
+    const disponibilidadRetirada = () => {
+      if (disponibleAhora()) return false;
+      if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "no_disponible";
+      if (comprobando) comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_no_habilitada");
+      return true;
+    };
     void Promise.resolve().then(() => {
-      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador) return null;
+      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+        || !zona.isConnected || disponibilidadRetirada()) return null;
+      consultaEnviada = true;
       return clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
     })
       .then((puedeRegistrar) => {
-        if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+        if (!consultaEnviada || !montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
         const actual = presentador.obtenerEstado();
         if (actual.carga !== "listo" || actual.vista !== "expediente"
           || actual.expediente?.expediente_ref !== expediente.expediente_ref
           || actual.expediente?.version !== expediente.version_esperada) return;
+        if (disponibilidadRetirada()) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = puedeRegistrar === true ? "permitida" : "denegada";
         const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
         if (puedeRegistrar !== true) {
@@ -412,6 +424,7 @@ export async function montarModuloContratacionTemporal({
       }).catch((error) => {
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
+        if (disponibilidadRetirada()) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
         const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
         const destino = mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
