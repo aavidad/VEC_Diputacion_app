@@ -112,7 +112,7 @@ func TestListaActivosIncluyeGrafoUsuariosSelectorYExcluyePruebas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range []string{"/admin/usuarios/metadatos.js", "/admin/usuarios/propuestas.js", "/admin/usuarios/propuestas-contratos.js", "/favicon.svg", "/administracion-perfiles/", adminselector.RutaPropios, adminselector.RutaSeleccion} {
+	for _, r := range []string{"/admin/usuarios/metadatos.js", "/admin/usuarios/cambio-perfiles.js", "/admin/usuarios/cambio-contratos.js", "/admin/usuarios/propuestas.js", "/admin/usuarios/propuestas-contratos.js", "/favicon.svg", "/administracion-perfiles/", adminselector.RutaPropios, adminselector.RutaSeleccion} {
 		if !h.atiende(r) {
 			t.Fatalf("ruta propia ausente %s", r)
 		}
@@ -138,7 +138,7 @@ func TestFuentesAusentesNoFabricanLecturaNiSeleccion(t *testing.T) {
 
 func activosMapaPrueba() fstest.MapFS {
 	activos := fstest.MapFS{}
-	rutas := []string{"admin/usuarios/index.html", "admin/usuarios/entry.js", "admin/usuarios/vista.js", "admin/usuarios/render.js", "admin/usuarios/contratos.js", "admin/usuarios/metadatos.js", "admin/usuarios/cliente.js", "admin/usuarios/lecturas-http.js", "admin/usuarios/propuestas.js", "admin/usuarios/propuestas-contratos.js", "admin/usuarios/usuarios.css", "administracion-perfiles/selector-perfil.js", "administracion-perfiles/selector-perfil.css", "favicon.svg", "comun/idioma.js", "comun/textos.js", "comun/tema-vec.css", "portal-empleado/portal.css", "portal-empleado/portal-componentes.css", "portal-empleado/portal-flujos.css", "portal-empleado/portal-patrones.css", "textos/es/admin-usuarios.json", "textos/es/admin-selector.json"}
+	rutas := []string{"admin/usuarios/index.html", "admin/usuarios/entry.js", "admin/usuarios/vista.js", "admin/usuarios/render.js", "admin/usuarios/contratos.js", "admin/usuarios/metadatos.js", "admin/usuarios/cliente.js", "admin/usuarios/cambio-perfiles.js", "admin/usuarios/cambio-contratos.js", "admin/usuarios/lecturas-http.js", "admin/usuarios/propuestas.js", "admin/usuarios/propuestas-contratos.js", "admin/usuarios/usuarios.css", "administracion-perfiles/selector-perfil.js", "administracion-perfiles/selector-perfil.css", "favicon.svg", "comun/idioma.js", "comun/textos.js", "comun/tema-vec.css", "portal-empleado/portal.css", "portal-empleado/portal-componentes.css", "portal-empleado/portal-flujos.css", "portal-empleado/portal-patrones.css", "textos/es/admin-usuarios.json", "textos/es/admin-selector.json"}
 	for _, r := range rutas {
 		activos[r] = &fstest.MapFile{Data: []byte("material publico sintetico")}
 	}

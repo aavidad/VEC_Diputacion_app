@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
-import { iniciarPreparacionLocal, iniciarPestanasOrganizacion, MONTAJE_ORGANIZACION_HISTORICA,
-  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js";
-import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
+
+await prepararTextosPersonal();
+const { iniciarPreparacionLocal, iniciarPestanasOrganizacion, MONTAJE_ORGANIZACION_HISTORICA,
+  PREPARACION_LOCAL_ORGANIZACION } = await import("./historico.js");
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 const traducir = (clave, variables) => crearTraductorPersonal()(`organizacion_${clave}`, variables);

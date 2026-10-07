@@ -3,8 +3,8 @@ import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, valid
 import { crearTraductorIncidenciasCronos } from "./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v5";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
-export { hoyCivilCronos } from "./fecha-civil.js";
-import { hoyCivilCronos } from "./fecha-civil.js";
+export { hoyCivilCronos } from "./fecha-civil.js?v=20261007-pantallas-textos-final-v1";
+import { hoyCivilCronos } from "./fecha-civil.js?v=20261007-pantallas-textos-final-v1";
 
 const MOVIMIENTOS = ["entrada", "salida", "inicio_pausa", "fin_pausa"];
 const ESTADOS_CORRECCION = ["pendiente_responsable", "pendiente_rrhh", "denegada_responsable", "denegada_rrhh", "pendiente_aplicacion", "aplicada"];

@@ -1,6 +1,6 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { montarUsuarios } from "./vista.js?v=20261004-admin-usuarios-metadata-v1";
-import { crearClienteLecturasUsuarios } from "./lecturas-http.js?v=20261004-admin-usuarios-metadata-v1";
+import { montarUsuarios } from "./vista.js?v=20261005-admin-lote-pantalla-v1";
+import { crearClienteLecturasUsuarios, crearClienteActosUsuarios } from "./lecturas-http.js?v=20261005-admin-lote-pantalla-v1";
 import { cargarTextosSelectorPerfil, crearClienteSelectorPerfil, montarSelectorPerfil } from "/administracion-perfiles/selector-perfil.js?v=20261005-admin-selector-auditoria-v3";
 const root = document.getElementById("usuarios-contenido");
 const panelSelector = document.getElementById("usuarios-selector-panel");
@@ -14,12 +14,16 @@ try {
   document.getElementById("usuarios-selector-resumen").textContent = textosSelector.traducir("general.titulo");
   selector = montarSelectorPerfil({ contenedor: document.getElementById("usuarios-selector"), textos: textosSelector,
     cliente: crearClienteSelectorPerfil(), limpiarEstado() {
+      if (montaje?.incierto()) throw new Error("lote_sin_confirmacion");
       montaje?.desmontar(); montaje = null; root.hidden = true; root.replaceChildren(); panelSelector.open = true;
     }, async cargarContexto({ signal }) {
       if (signal.aborted) return;
       root.hidden = false;
-      const actual = montarUsuarios(root, { textos, cliente: crearClienteLecturasUsuarios({ proyeccion: "metadatos_v1" }) }); montaje = actual;
-      signal.addEventListener("abort", () => actual.desmontar(), { once: true });
+      // Lecturas de usuarios y, si el servidor monta el lote, preparar y aplicar.
+      const lecturas = crearClienteLecturasUsuarios({ proyeccion: "metadatos_v1" });
+      const cliente = Object.freeze({ ...lecturas, aplicarLote: crearClienteActosUsuarios().aplicarLote });
+      const actual = montarUsuarios(root, { textos, cliente, alEstadoLote: (pendiente) => { panelSelector.inert = pendiente; } }); montaje = actual;
+      signal.addEventListener("abort", () => { if (!actual.incierto()) actual.desmontar(); }, { once: true });
       await actual.listo;
       if (!signal.aborted && montaje === actual) { panelSelector.open = false; root.focus(); }
     } });

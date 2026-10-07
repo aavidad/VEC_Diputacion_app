@@ -1,29 +1,29 @@
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
-import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
-export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   ...MENSAJES_MOAD_ES,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -471,9 +471,9 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 });
 
 /** British English messages for the temporary staff requests module. */
-export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   ...MENSAJES_MOAD_EN,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
   justificante_copiado: "Reference copied",
@@ -909,13 +909,18 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ...MENSAJES_FIRMA_INCORPORACION.portal.EN,
 });
 
+export const MENSAJES_CONTRATACION_TEMPORAL_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : undefined;
+export const MENSAJES_CONTRATACION_TEMPORAL_EN = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? undefined : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
   if (sobrescrituras === null || typeof sobrescrituras !== "object"
     || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes de contratación temporal no válidos");
   }
-  const base = IDIOMA_ACTUAL === "en"
-    ? MENSAJES_CONTRATACION_TEMPORAL_EN : MENSAJES_CONTRATACION_TEMPORAL_ES;
+  const base = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES : MENSAJES_CONTRATACION_TEMPORAL_EN;
   const mensajes = { ...base, ...sobrescrituras };
   for (const [clave, valor] of Object.entries(mensajes)) {
     if (typeof valor !== "string" || valor.trim() === "") {
@@ -929,4 +934,35 @@ export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
       mensajes[clave],
     );
   };
+}
+
+/** Prepara otro idioma solo cuando un consumidor lo solicita expresamente. */
+export async function cargarMensajesContratacionTemporalEnIdioma(idioma) {
+  const catalogos = await Promise.all([
+    cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-moad", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-llamamiento", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-subsanacion-reparos", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-avisos-via-cobertura", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-textos-vistas", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-borradores-publicados", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-firma-incorporacion-portal", idioma),
+  ]);
+  if (catalogos.some((catalogo) => catalogo.idioma !== idioma)) {
+    if (idioma === IDIOMA_POR_DEFECTO) throw new Error("catálogo de contratación no disponible");
+    return cargarMensajesContratacionTemporalEnIdioma(IDIOMA_POR_DEFECTO);
+  }
+  const base = idioma === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+  const mensajes = { ...base };
+  for (const catalogo of catalogos.slice(1)) {
+    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+      if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
+    }
+  }
+  for (const fase of FASES_RRHH) {
+    mensajes[`contratacion_temporal.fase.${fase}`] = catalogos[0].actual[`fase_${fase}`];
+  }
+  return Object.freeze(mensajes);
 }

@@ -38,7 +38,7 @@ func (s *ServicioJustificacion) preparar(ctx context.Context, o ports.OrdenJusti
 	if e != nil {
 		return a, ports.PreparacionJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
-	if _, _, e = empleadoVigente(a, s.reloj); e != nil {
+	if _, _, e = empleadoVigente(ctx, a, s.reloj); e != nil {
 		return a, ports.PreparacionJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
 	if !domain.SolicitudPermisoRefValida(ref) {

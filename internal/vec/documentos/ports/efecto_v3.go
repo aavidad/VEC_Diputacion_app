@@ -61,7 +61,9 @@ func TipoRecursoV3(accion string) (string, bool) {
 // huella_efecto_sha256 y la que recalcula la fachada SQL (Documentos-4).
 func RecursoV3(accion, recursoRef string, preimagen []byte) (vecdomain.RecursoAutorizable, error) {
 	tipo, ok := TipoRecursoV3(accion)
-	if !ok || !domain.ReferenciaOpacaValida(recursoRef) || len(preimagen) == 0 || len(preimagen) > longitudMaximaEfectoV3 {
+	if !ok || !((accion == AccionListar && domain.ReferenciaExpedienteValida(recursoRef)) ||
+		(accion != AccionListar && domain.ReferenciaOpacaValida(recursoRef))) ||
+		len(preimagen) == 0 || len(preimagen) > longitudMaximaEfectoV3 {
 		return vecdomain.RecursoAutorizable{}, ErrEfectoV3NoValido
 	}
 	suma := sha256.Sum256(preimagen)

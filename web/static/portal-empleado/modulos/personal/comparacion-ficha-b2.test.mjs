@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { prepararTextosPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+
+test.before(async () => { await prepararTextosPersonal(); });
 import { compararFichasB2, montarComparacionFichaB2, instanteDesdeMadrid, fechaHoraMadrid } from "./comparacion-ficha-b2.js";
 import { montarRegistroB2 } from "./registro-b2.js";
 

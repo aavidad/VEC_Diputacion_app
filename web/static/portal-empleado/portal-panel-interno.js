@@ -7,26 +7,26 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
+import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261001-ct-a-i18n-v1";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
-import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261002-r-rrhh18-v2";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261001-ct-a-i18n-v1";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
-import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
-import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261001-ct-a-i18n-v1";
+import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
@@ -118,16 +118,22 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!estadoEstadisticas || estadoEstadisticas.carga === "cargando") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true"><p><strong>${textoPortal("txt_cargando_estadisticas_de_bolsa")}</strong></p></div></section>`;
     if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? traducirPortal("txt_acceso_denegado") : traducirPortal("txt_no_se_pudieron_cargar_las_estadisticas")}</strong></p><p>${escaparHTML(estadoEstadisticas.error || traducirPortal("txt_la_sesion_no_puede_consultar_esta_informacion"))}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">' + textoPortal("txt_reintentar") + '</button>' : ""}</div></section>`;
     const datos = estadoEstadisticas.datos;
-    const tarjetas = [["bolsas", datos.bolsas.total, traducirPortal("txt_bolsas")], ["correcto", datos.bolsas.vigentes, traducirPortal("txt_vigentes")], ["en_curso", datos.bolsas.sustituidas, traducirPortal("txt_sustituidas")], ["personas", datos.personas.total, traducirPortal("txt_personas")], ["llamamiento", datos.llamamientos.total, traducirPortal("txt_llamamientos")]];
+    const lecturaBolsas = typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
+    const conteosCurso = lecturaBolsas?.carga === "listo" && Array.isArray(lecturaBolsas.datos?.bolsas)
+      ? lecturaBolsas.datos.bolsas.map((bolsa) => bolsa.llamamientos_en_curso) : null;
+    const totalEnCurso = conteosCurso?.every((total) => Number.isSafeInteger(total) && total >= 0)
+      ? conteosCurso.reduce((suma, total) => suma + total, 0) : null;
+    const enCurso = Number.isSafeInteger(totalEnCurso) ? numero(totalEnCurso) : traducirPortal("txt_no_disponible");
+    const tarjetas = [["bolsas", numero(datos.bolsas.total), traducirPortal("txt_bolsas")], ["correcto", numero(datos.bolsas.vigentes), traducirPortal("txt_vigentes")], ["en_curso", numero(datos.bolsas.sustituidas), traducirPortal("txt_sustituidas")], ["personas", numero(datos.personas.total), traducirPortal("txt_personas")], ["llamamiento", enCurso, traducirPortal("txt_llamamientos_en_curso")]];
     const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
-    const resumenCanales = Object.entries(datos.llamamientos.por_canal).map(([canal, total]) => `<span class="estado-chip info"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(canal))}</span>`).join("") || '<span class="estado-chip neutro">' + textoPortal("txt_sin_desglose_por_canal") + '</span>';
-    const resumenResultados = Object.entries(datos.llamamientos.por_resultado).map(([resultado, total]) => `<span class="estado-chip neutro"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(resultado))}</span>`).join("") || '<span class="estado-chip neutro">' + textoPortal("txt_sin_desglose_por_resultado") + '</span>';
+    // El contrato v1 no declara si cargó el histórico: su cero no acredita ausencia.
+    const historico = `<div><h4>${textoPortal("txt_historico_de_llamamientos")}</h4><p class="estado-chip neutro" role="status">${textoPortal("txt_no_disponible")}</p></div>`;
     const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? traducirPortal("txt_vigente") : traducirPortal("txt_sustituida")}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_abrir_personas_estado", { total: numero(bolsa.por_estado[estado]), estado: etiquetaEstadoEstadistica(estado).toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
-    return `${cabecera}<div class="rejilla-kpi" aria-label="${textoPortal("txt_totales_de_bolsa")}">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta, sigla === "bolsas" ? {
+    return `${cabecera}<div class="rejilla-kpi" aria-label="${textoPortal("txt_totales_de_bolsa")}">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, valor, etiqueta, sigla === "bolsas" ? {
       atributos: 'data-vista="resumen"',
-      aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: numero(valor) }),
+      aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: valor }),
       enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
-    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>${textoPortal("txt_canal_de_llamamiento")}</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>${textoPortal("txt_resultado_de_llamamiento")}</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="11" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
+    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div>${historico}</div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="11" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return traducirPortal("txt_sin_fecha_limite");

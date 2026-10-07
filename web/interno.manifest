@@ -5,6 +5,8 @@ static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
+static/comun/http.js
+static/comun/registro-errores.js
 static/comun/correos-propios.js
 static/comun/correos-propios.css
 static/comun/imagen-propia.js
@@ -53,6 +55,7 @@ static/portal-empleado/reglas/reglas.js
 static/portal-empleado/reglas/reglas.css
 static/portal-empleado/reglas/i18n.js
 static/portal-empleado/reglas/enlace.js
+static/portal-empleado/peticiones-centro/arranque-peticiones-centro.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/incorporaciones-centro.js
@@ -178,6 +181,8 @@ static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/textos/es/portal.json
 static/textos/en/portal.json
+static/textos/es/portal-arranque.json
+static/textos/en/portal-arranque.json
 static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
@@ -375,6 +380,7 @@ static/portal-empleado/portal-llamamientos-contrato.js
 static/portal-empleado/portal-llamamientos-flujo.js
 static/portal-empleado/portal-llamamientos-operaciones-api.js
 static/portal-empleado/portal-menu-bolsa.css
+static/portal-empleado/portal-llamamientos-selector.js
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
 static/portal-empleado/portal-modulos-carga.js
@@ -385,6 +391,7 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal-pagina-larga.css
+static/portal-empleado/portal-arranque-aviso.js
 static/portal-empleado/portal.js
 static/textos/es/bolsa.json
 static/textos/en/bolsa.json
@@ -609,3 +616,11 @@ static/portal-empleado/modulos/personal/vista-historia-relaciones-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-relaciones-propia.js
 static/textos/es/personal-historia-relaciones.json
 static/textos/en/personal-historia-relaciones.json
+static/portal-empleado/modulos/contratacion-temporal/fases-rrhh-datos.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-vistas.js
+static/portal-empleado/modulos/contratacion-temporal/vista-cuadro-ligera.js
+static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
+static/portal-empleado/peticiones-centro/i18n-peticiones-centro.js
+static/textos/es/peticiones-centro.json
+static/textos/en/peticiones-centro.json
+static/portal-empleado/organizacion/arranque.js

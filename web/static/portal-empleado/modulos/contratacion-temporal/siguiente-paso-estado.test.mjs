@@ -3,8 +3,9 @@ import test from "node:test";
 import { renderizarSiguientePasoFicha } from "./vista-expedientes-ficha.js";
 import {
   crearTraductorExpedientesContratacion,
-  MENSAJES_EXPEDIENTES_CONTRATACION_EN,
+  cargarMensajesExpedientesContratacionEnIdioma,
 } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+const MENSAJES_EXPEDIENTES_CONTRATACION_EN = await cargarMensajesExpedientesContratacionEnIdioma("en");
 
 const expediente = Object.freeze({
   expediente_ref: "expediente:sintetico:001",

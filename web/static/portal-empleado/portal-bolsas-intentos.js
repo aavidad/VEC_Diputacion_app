@@ -3,7 +3,7 @@
 // servidor con el catálogo; aquí solo se muestran y se registran intentos.
 // La baja se propone con la operación de exclusión existente (B8).
 import { traducirIntentos as t } from "./portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";

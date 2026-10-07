@@ -7,6 +7,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 var (
@@ -24,7 +26,8 @@ var (
 )
 
 // SolicitudPoliticaConservacionDocumental inmoviliza la publicacion exacta
-// esperada. Sus referencias son opacas y no admiten texto humano ni selectores.
+// esperada. Solo expedienteRef admite una referencia tipada del catalogo;
+// las otras cinco referencias siguen siendo opacas.
 type SolicitudPoliticaConservacionDocumental struct {
 	procedimientoRef   string
 	serieDocumentalRef string
@@ -65,14 +68,21 @@ func NuevaSolicitudPoliticaConservacionDocumental(
 func (s SolicitudPoliticaConservacionDocumental) Validar() error {
 	referencias := []string{
 		s.procedimientoRef, s.serieDocumentalRef, s.tipoDocumentalRef,
-		s.expedienteRef, s.politicaRef, s.baseJuridicaRef,
+		s.politicaRef, s.baseJuridicaRef,
 	}
 	if !referenciasPoliticaConservacionDocumentalValidas(referencias...) ||
+		!(referenciaPoliticaConservacionDocumentalValida(s.expedienteRef) ||
+			vecdomain.ModuloReferenciaExpedienteV1(s.expedienteRef) != "") ||
 		s.versionPolitica == 0 || huellaPoliticaConservacionDocumentalNula(s.huellaPolitica) ||
 		!instantePoliticaConservacionDocumentalValido(s.vigenteDesde) ||
 		!instantePoliticaConservacionDocumentalValido(s.vigenteHasta) ||
 		!s.vigenteDesde.Before(s.vigenteHasta) {
 		return ErrSolicitudPoliticaConservacionDocumentalInvalida
+	}
+	for _, referencia := range referencias {
+		if s.expedienteRef == referencia {
+			return ErrSolicitudPoliticaConservacionDocumentalInvalida
+		}
 	}
 	return nil
 }
