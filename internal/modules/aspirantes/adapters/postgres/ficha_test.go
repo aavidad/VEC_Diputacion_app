@@ -12,6 +12,73 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+type filaAcreditacionPrueba struct{ valido bool }
+
+func (f filaAcreditacionPrueba) Scan(destinos ...any) error {
+	*destinos[0].(*bool) = f.valido
+	return nil
+}
+
+type transaccionAjustesPrueba struct {
+	llamadas []string
+	fallar   bool
+	denegar  bool
+}
+
+func (tx *transaccionAjustesPrueba) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
+	tx.llamadas = append(tx.llamadas, "ajustes")
+	if sql != ajustesTransaccionSQL || tx.fallar {
+		return pgconn.CommandTag{}, errors.New("fallo al ajustar la transacción")
+	}
+	return pgconn.CommandTag{}, nil
+}
+
+func (tx *transaccionAjustesPrueba) QueryRow(_ context.Context, sql string, args ...any) fila {
+	tx.llamadas = append(tx.llamadas, "acreditacion")
+	return filaAcreditacionPrueba{valido: !tx.denegar && sql == acreditarEjecutorSQL && len(args) == 1 && args[0] == RolEjecutor}
+}
+
+func (tx *transaccionAjustesPrueba) Commit(context.Context) error {
+	tx.llamadas = append(tx.llamadas, "commit")
+	return nil
+}
+
+func (tx *transaccionAjustesPrueba) Rollback(context.Context) error {
+	tx.llamadas = append(tx.llamadas, "rollback")
+	return nil
+}
+
+func TestAbrirAgrupaAjustesAntesDeAcreditar(t *testing.T) {
+	tx := &transaccionAjustesPrueba{}
+	r := &RegistroFichasPostgreSQL{iniciar: func(context.Context) (transaccion, error) { return tx, nil }}
+	obtenida, err := r.abrir(context.Background())
+	if err != nil || obtenida != tx || len(tx.llamadas) != 2 || tx.llamadas[0] != "ajustes" || tx.llamadas[1] != "acreditacion" {
+		t.Fatalf("apertura: tx=%v err=%v llamadas=%v", obtenida, err, tx.llamadas)
+	}
+}
+
+func TestAbrirFalloAjustesRevierteSinAcreditarNiLeer(t *testing.T) {
+	tx := &transaccionAjustesPrueba{fallar: true}
+	r := &RegistroFichasPostgreSQL{iniciar: func(context.Context) (transaccion, error) { return tx, nil }}
+	if obtenida, err := r.abrir(context.Background()); obtenida != nil || !errors.Is(err, ports.ErrNoDisponible) {
+		t.Fatalf("apertura tras fallo: tx=%v err=%v", obtenida, err)
+	}
+	if len(tx.llamadas) != 2 || tx.llamadas[0] != "ajustes" || tx.llamadas[1] != "rollback" {
+		t.Fatalf("fallo antes de datos: %v", tx.llamadas)
+	}
+}
+
+func TestAbrirAcreditacionDenegadaRevierteSinLeer(t *testing.T) {
+	tx := &transaccionAjustesPrueba{denegar: true}
+	r := &RegistroFichasPostgreSQL{iniciar: func(context.Context) (transaccion, error) { return tx, nil }}
+	if obtenida, err := r.abrir(context.Background()); obtenida != nil || !errors.Is(err, ports.ErrNoDisponible) {
+		t.Fatalf("acreditación denegada: tx=%v err=%v", obtenida, err)
+	}
+	if got := tx.llamadas; len(got) != 3 || got[0] != "ajustes" || got[1] != "acreditacion" || got[2] != "rollback" {
+		t.Fatalf("denegación sin lectura ni commit: %v", got)
+	}
+}
+
 func TestErroresSQLNominales(t *testing.T) {
 	casos := map[string]error{"42501": ports.ErrProhibido, "P1409": ports.ErrConflicto, "P1411": ports.ErrFichaExistente,
 		"P1404": ports.ErrSinFicha, "22023": ports.ErrInvalida, "40001": ports.ErrNoDisponible, "23514": ports.ErrNoDisponible}

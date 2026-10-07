@@ -27,6 +27,24 @@ var ErrRepositorioNoDisponible = fmt.Errorf("%w: repositorio PostgreSQL", ports.
 // vec_documentos_ejecutor; las funciones SQL verifican esto de nuevo.
 type Repositorio struct{ db *pgxpool.Pool }
 
+// Los tres ajustes conservan valor y alcance de SET LOCAL antes de la fachada.
+const ajustesTransaccionSQL = `SELECT pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('statement_timeout','10s',true),
+ pg_catalog.set_config('lock_timeout','2s',true)`
+
+type filaTransaccion interface{ Scan(...any) error }
+type transaccionRepositorio interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...any) filaTransaccion
+	Commit(context.Context) error
+	Rollback(context.Context) error
+}
+type transaccionPGX struct{ pgx.Tx }
+
+func (tx transaccionPGX) QueryRow(ctx context.Context, sql string, args ...any) filaTransaccion {
+	return tx.Tx.QueryRow(ctx, sql, args...)
+}
+
 func NuevoRepositorio(db *pgxpool.Pool) (*Repositorio, error) {
 	if db == nil {
 		return nil, ErrRepositorioNoDisponible
@@ -79,17 +97,19 @@ func (r *Repositorio) transaccion(ctx context.Context, funcion string, args ...a
 	if err != nil {
 		return nil, ErrRepositorioNoDisponible
 	}
+	return ejecutarTransaccion(ctx, transaccionPGX{tx}, funcion, args...)
+}
+
+func ejecutarTransaccion(ctx context.Context, tx transaccionRepositorio, funcion string, args ...any) ([]byte, error) {
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	for _, ajuste := range []string{"SET LOCAL timezone='UTC'", "SET LOCAL statement_timeout='10s'", "SET LOCAL lock_timeout='2s'"} {
-		if _, err = tx.Exec(ctx, ajuste); err != nil {
-			return nil, ErrRepositorioNoDisponible
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionSQL); err != nil {
+		return nil, ErrRepositorioNoDisponible
 	}
 	var resultado []byte
-	if err = tx.QueryRow(ctx, funcion, args...).Scan(&resultado); err != nil {
+	if err := tx.QueryRow(ctx, funcion, args...).Scan(&resultado); err != nil {
 		return nil, clasificarErrorSQL(err)
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return nil, clasificarErrorSQL(err)
 	}
 	return resultado, nil
