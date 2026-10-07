@@ -1,5 +1,18 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
+## Cotejo local del tribunal al preparar un acta — 7 de octubre de 2026
+
+`vec-selectivos-preparar-acta -tribunal-salida` comprueba la salida exacta del
+preparador de tribunal: identidad, versión, fase y SHA256 de los bytes recibidos.
+Rechaza un material alterado o una huella distinta. El modo sin ese argumento
+conserva su comportamiento.
+
+Los mensajes en castellano e inglés distinguen el cotejo local de las
+comprobaciones pendientes de procedencia, vigencia, designación, habilitación
+y firma. Las pruebas focales y la revisión independiente de `9a3e0db13ec9`
+pasaron. El siguiente corte S5 necesita fuente y autoridad institucionales;
+esta preparación no constituye un acta firmada.
+
 ## Selector de idioma común — 7 de octubre de 2026
 
 La entrada de Selección usa `montarSelectorIdioma`, de la interfaz común,
