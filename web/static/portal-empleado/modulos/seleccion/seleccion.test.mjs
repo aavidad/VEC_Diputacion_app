@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { crearTextos } from '../../../comun/textos.js';
-import { INDICE_IDIOMAS, localizacionDe } from '../../../comun/idioma.js';
+import { INDICE_IDIOMAS, localizacionDe, prepararIdiomas } from '../../../comun/idioma.js';
 import { crearClienteSeleccion } from './cliente.js';
 import { aMicropuntos, validarConfiguracion, validarEjemplos, validarResultado, validarNotasPropuestas, validarNotasEjemplo } from './configuracion.js';
 import { crearEstadoEnsayo } from './estado.js';
@@ -18,6 +18,7 @@ const resultado = (datos = ejemplo()) => ({ version: datos.configuracion.version
   solicitudes: [{ referencia: 'sol_1', nombre: '<img src=x onerror=alert(1)>', acceso: 'cumple', acceso_detalle: [{ referencia: 'titulacion_acceso', estado: 'cumple' }], estado: 'apta', propuesta: 'propuesta_provisional', total_micropuntos: 5000000, orden: 1, causas: [],
     fases: datos.configuracion.fases.map(f => ({ ...f, puntos_micropuntos: 2000000, estado: 'superada', origen: f.tipo === 'meritos' ? 'motor_bolsa' : 'prueba_embebida', reglas: f.tipo === 'meritos' ? [{ referencia: 'curso', puntos_micropuntos: 1000000 }] : [] })) }] });
 
+await prepararIdiomas();
 const catalogos = await Promise.all(INDICE_IDIOMAS.idiomas.map(async ({ codigo }) => ({ codigo,
   fuente: await readFile(new URL(`../../../textos/${codigo}/seleccion.json`, import.meta.url), 'utf8') })));
 const respaldo = JSON.parse(catalogos.find(c => c.codigo === INDICE_IDIOMAS.por_defecto)?.fuente ?? catalogos[0].fuente);
