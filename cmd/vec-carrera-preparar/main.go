@@ -85,6 +85,9 @@ func runAntecedentes(in io.Reader, out, errOut io.Writer) int {
 }
 
 func runArgs(args []string, in io.Reader, out, errOut io.Writer) int {
+	if len(args) == 3 && args[0] == "--expediente-sintetico" {
+		return runExpediente(args[1], args[2], in, out, errOut)
+	}
 	if len(args) == 0 {
 		return run(in, out, errOut)
 	}
