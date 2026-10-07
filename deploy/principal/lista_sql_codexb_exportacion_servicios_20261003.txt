@@ -1,0 +1,5 @@
+# Exportación de servicios propios: AD175 después de AD211/Personal22 instaladas.
+# Núcleo y CHECK medidos en PG18 post211. Ensayar sobre clon aislado y revisar
+# este contenido exacto antes de instalar. Una sola aplicación; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000175_consumidor_exportacion_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000032_exportacion_servicios_propios.up.sql
