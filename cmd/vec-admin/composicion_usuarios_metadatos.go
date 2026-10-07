@@ -38,6 +38,12 @@ func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configur
 // autoridad PostgreSQL y el servicio de aplicación del lote. Sin overlay, el
 // proceso es exactamente el de las lecturas de usuarios.
 func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado) (*http.Server, func(), error) {
+	return componerProcesoUsuariosMetadatosADMINConGobierno(cfg, base, u, runtime, lote, plan, efectos, nil)
+}
+
+// Sólo el archivo privado explícito habilita esta composición. Sin él, las
+// rutas Gov no se registran y el arranque conserva el montaje anterior.
+func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
@@ -52,6 +58,14 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 	}
 	if plan != nil && validarConfiguracionPlanFirmaPrivada(*plan, lote, base, u, runtime) != nil {
 		return fallo("plan_firma_configuracion")
+	}
+	if gobierno != nil && validarConfiguracionGobiernoRolesPrivada(*gobierno, base, u, runtime, lote, plan, efectos) != nil {
+		return fallo("gobierno_roles_configuracion")
+	}
+	if gobierno != nil {
+		// Hasta recibir la fuente AUT58 y el consumidor Gov con ACL exacta,
+		// una configuración presente no puede arrancar ignorada ni montar 503.
+		return fallo("gobierno_roles_fuente")
 	}
 	for i, e := range efectos {
 		otros := make([]configuracionEfectoPrivada, 0, len(efectos)-1)

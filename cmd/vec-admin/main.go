@@ -104,9 +104,18 @@ func main() {
 			}
 			efectos = append(efectos, efectoConfigurado{efectoADMIN: e, cfg: c})
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan, efectos)
+		var gobierno *configuracionGobiernoRolesPrivada
+		if rutaGobierno := os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE"); rutaGobierno != "" {
+			c, errorGobierno := cargarConfiguracionGobiernoRolesPrivada(rutaGobierno, privada, usuarios, runtime, lote, plan, efectos)
+			if errorGobierno != nil {
+				fallarConfiguracion("gobierno_roles_config", errorGobierno)
+			}
+			gobierno = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" {
+		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
+		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" {
 		fallarConfiguracion("lote_sin_usuarios", nil)
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
@@ -168,7 +177,7 @@ func etapaComposicionADMIN(err error) string {
 // de 0 a 14 porque esa es la capacidad máxima del montaje actual.
 func etapaComposicionADMINPermitida(etapa string) bool {
 	switch etapa {
-	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion",
+	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion", "gobierno_roles_config", "gobierno_roles_configuracion", "gobierno_roles_fuente",
 		"firmante_publica", "firmante", "confianza_metadatos", "confianza_material", "confianza_cadena",
 		"emisor_usuarios", "auditoria_intentos", "auditoria_nominal", "frontera_tecnica", "auditor_compuesto",
 		"lector_usuarios", "lecturas_usuarios", "selector", "seudonimos", "identificadores", "servidor",
