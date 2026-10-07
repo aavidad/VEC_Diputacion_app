@@ -1,0 +1,3 @@
+# B86 requiere B17, B82 y B85 ya instaladas. Instalar B86 una sola vez.
+# No repetir B85: tiene historia en HZ4. No ejecutar DOWN.
+deploy/postgresql/bolsa_llamamientos/migraciones/000086_completitud_correo_b85.up.sql
