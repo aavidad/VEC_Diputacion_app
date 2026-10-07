@@ -6,6 +6,7 @@ import {
   VISTA_CANDIDATOS_BOLSA,
   VISTAS_INTERNAS_BOLSA,
   alternarGrupoBolsa,
+  aplicarDisponibilidadMenuBolsa,
   categoriaDeVistaBolsa,
   instalarMenuBolsa,
   resumenAccesosModulos,
@@ -416,10 +417,24 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
 
 test("el llamamiento con bolsa elegida no pinta el aviso del panel interno", () => {
   const inicio = codigoPortal.indexOf("function montarVistaBolsa(");
-  const fin = codigoPortal.indexOf("function renderizarLlamamientoSinBolsa(", inicio);
+  const fin = codigoPortal.indexOf("function actualizarVistaBolsa(", inicio);
   const montaje = codigoPortal.slice(inicio, fin);
   assert.ok(inicio > 0 && fin > inicio);
   assert.doesNotMatch(montaje, /renderizarFuenteNoDisponible\(\)\}\$\{superficieBorradorLlamamiento/u);
-  assert.match(montaje, /encabezadoVista\("", tituloDeVista\(vista\)\[1\], ""\)\}\$\{superficieBorradorLlamamiento\.renderizar\(\)\}/u);
+  assert.match(montaje, /renderizarPantallaLlamamientos\(\{ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno \}\)/u);
+  assert.doesNotMatch(montaje, /superficieBorradorLlamamiento\.renderizar/u);
   assert.match(codigoPortal, /if \(moduloDeVistaPortal\(vista\) === "bolsa"\) return vistaBolsaNavegable\(vista, capacidadesBolsa\(\)\)/u);
+});
+
+
+test("los controles de rutas sin consumidor se retiran del DOM y se conserva la auditoría de la ficha", () => {
+  const retirados = [];
+  const raiz = { querySelectorAll(selector) {
+    if (selector !== "[data-vista]") return [];
+    return ["documentos", "contratos", "importacion", "auditoria"].map((vista) => ({
+      getAttribute: () => vista, dataset: {}, remove: () => retirados.push(vista),
+    }));
+  } };
+  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
+  assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
 });

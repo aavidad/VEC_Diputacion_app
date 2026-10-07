@@ -8,13 +8,14 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i1
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261006-borradores-no-disponible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261006-resumen-inicio-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261007-bolsa-llamamientos-unico-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261006-resumen-inicio-v2";
 import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-bolsa-llamamientos-unico-v1";
+import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261007-bolsa-llamamientos-unico-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
@@ -151,6 +152,7 @@ const estado = {
   errorFuente: "",
   plantillasAutorizadas: false,
   pasoLlamamiento: 1,
+  llamamientoDesdeMenu: false,
   necesidadSeleccionada: "",
   elaboracionSeleccionada: "",
   propuestaLlamamiento: null,
@@ -313,6 +315,7 @@ function capacidadesBolsa() {
   const borradores = superficieBorradores.obtenerAcceso();
   return {
     panelInterno: estado.fuenteLista === true,
+    bolsasConsultables: estado.datosBolsas?.carga === "listo",
     borradores: borradores?.disponible === true ? true
       : (borradores?.estado === "denegado" || borradores?.estado === "error" ? false : null),
     contratacionTemporal: coordinadorModulos.vistaDisponible("contratacion-temporal"),
@@ -684,6 +687,15 @@ function navegar(vista, opciones = {}) {
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
   if (vista !== "reglas") destinoPoliticaCeseInicial = false;
   if (sondearCapacidadAlAbrir(vista)) return;
+  if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
+    const hash = rutaDeVista(vista);
+    if (window.location.hash !== hash) history.pushState(null, "", hash);
+    estado.vista = vista;
+    renderizar();
+    cerrarMenuMovil();
+    if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
+    return;
+  }
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
@@ -694,6 +706,9 @@ function navegar(vista, opciones = {}) {
     if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
     anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
     return;
+  }
+  if (vista === "llamamientos" && estado.vista !== vista) {
+    estado.llamamientoDesdeMenu = false;
   }
   const hash = rutaDeVista(vista);
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
@@ -708,6 +723,10 @@ function navegar(vista, opciones = {}) {
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
+  if (vistaBolsaPendienteNoCompuesta(vista)) {
+    contenedor.innerHTML = renderizarFuenteNoDisponible();
+    return;
+  }
   if (vista === "reglas") {
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
@@ -733,8 +752,8 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     contenedor.innerHTML = vistasOperaciones.renderizarContratos({ contratos_fuente: { estado: "no_configurado" } });
     return;
   }
-  if (vista === "llamamientos" && !estado.bolsaSeleccionada) {
-    contenedor.innerHTML = renderizarLlamamientoSinBolsa();
+  if (vista === "llamamientos") {
+    contenedor.innerHTML = renderizarPantallaLlamamientos({ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno });
     return;
   }
   if (vista === "elaboracion") {
@@ -762,13 +781,6 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (!estado.fuenteLista) {
-    // Con una bolsa elegida, el llamamiento usa su propia API de borradores:
-    // no depende del panel interno agregado ni muestra su aviso.
-    if (vista === "llamamientos") { superficieBorradorLlamamiento.activar();
-      contenedor.innerHTML = `${encabezadoVista("", tituloDeVista(vista)[1], "")}${superficieBorradorLlamamiento.renderizar()}${superficieOfertasBolsa.renderizar()}${superficieRRHHPlazos.renderizar()}`;
-      superficieOfertasBolsa.activar(estado.bolsaSeleccionada);
-      superficieRRHHPlazos.instalar(document);
-      superficieRRHHPlazos.activar(estado.bolsaSeleccionada); return; }
     contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
   }
   if (vistaBolsas && presentadorPanelInterno.esActivo()) {
@@ -777,13 +789,6 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
   contenedor.innerHTML = renderizarFuenteNoDisponible();
 }
 
-function renderizarLlamamientoSinBolsa() {
-  return `${encabezadoVista("", traducirPortal("txt_nuevo_llamamiento"), "")}
-    <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
-      <p><strong>${textoPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento")}</strong></p>
-      <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">${textoPortal("txt_ir_al_cuadro_de_bolsas")}</a></div>
-    </div></section>`;
-}
 function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
   const contenedor = porId("espacio-trabajo");
   if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
@@ -1176,6 +1181,7 @@ async function inicializar() {
   controlador.instalar();
   integracionPreferencias.instalarMenu();
   controladorBolsas.instalar();
+  instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas, actualizarVistaBolsa, porId });
   instalarEventosAvisosBolsa();
   instalarEventosAuditoriaBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));

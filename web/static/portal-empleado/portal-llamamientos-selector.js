@@ -60,11 +60,14 @@ export function instalarSelectorLlamamientos({ documento, estado, controladorBol
   function cargarEIniciar(bolsaRef) {
     estado.llamamientoDesdeMenu = true;
     estado.filtrosBolsa = { estado: "", texto: "" };
-    void controladorBolsas.cargarCandidatosBolsa(bolsaRef).then(() => {
+    const carga = controladorBolsas.cargarCandidatosBolsa(bolsaRef);
+    porId("contenido-principal")?.focus?.({ preventScroll: true });
+    void carga.then(() => {
       if (estado.vista !== "llamamientos" || !estado.llamamientoDesdeMenu
         || estado.bolsaSeleccionada !== bolsaRef || estado.datosCandidatos?.carga !== "listo") return;
       // La acción existente prepara plazo, correo y confirmación B7. No se emite nada aquí.
       porId("espacio-trabajo")?.querySelector('[data-bolsa-accion="iniciar-b7"]')?.click();
+      porId("espacio-trabajo")?.querySelector('[aria-current="step"]')?.focus?.({ preventScroll: true });
     });
   }
   documento.addEventListener("click", (evento) => {
@@ -74,6 +77,7 @@ export function instalarSelectorLlamamientos({ documento, estado, controladorBol
       estado.llamamientoDesdeMenu = false;
       estado.bolsaSeleccionada = "";
       actualizarVistaBolsa();
+      porId("espacio-trabajo")?.querySelector("[data-elegir-bolsa-llamamiento]")?.focus?.({ preventScroll: true });
       return;
     }
     if (evento.target.closest?.("[data-reintentar-bolsa-llamamiento]")) {

@@ -16,7 +16,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261005-b-contacto-v3";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-bolsa-llamamientos-unico-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
   CLAVES_CARGA_MODULAR,

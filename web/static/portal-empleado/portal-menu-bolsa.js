@@ -130,6 +130,11 @@ function vistaDeControl(control) {
  */
 export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
   if (!raiz?.querySelectorAll) return [];
+  // Estas rutas carecen de consumidor: se retiran del DOM, no dependen de
+  // un sondeo fallido ni de una capacidad pendiente de resolver.
+  raiz.querySelectorAll("[data-vista]").forEach((control) => {
+    if (vistaBolsaPendienteNoCompuesta(vistaDeControl(control))) control.remove?.();
+  });
   raiz.querySelectorAll(".submenu-bolsa [data-vista]").forEach((control) => {
     control.hidden = !vistaBolsaOfrecida(control.getAttribute?.("data-vista"), capacidades);
   });
