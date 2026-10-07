@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -171,7 +172,7 @@ func revertirTransaccionResolucionMotivosRRHH(
 	defer func() { _ = recover() }()
 	if !dependenciaNula(transaccion) {
 		ctxLimpieza, cancelar := context.WithTimeout(
-			context.Background(), 2*time.Second,
+			context.Background(), plazoarranque.Ampliar(2*time.Second),
 		)
 		defer cancelar()
 		_ = transaccion.Rollback(ctxLimpieza)

@@ -66,6 +66,18 @@ type ContratoPlanNominalB2 struct {
 	RegistradoEn             time.Time                          `json:"registrado_en"`
 }
 
+// PrefijoReciboOrigenIncorporacionPersonalB2 es el prefijo con el que CT155/
+// CT160 emiten el recibo del origen B2 y con el que su disparador distingue,
+// en cese y GINPIX, una incorporación personal_b2_v1 de una ejercicio_v2.
+const PrefijoReciboOrigenIncorporacionPersonalB2 = "recibo:incorporacion-personal-b2:"
+
+// ReciboOrigenIncorporacionPersonalB2 dice si la incorporación que CT asocia
+// al expediente es un origen B2, con la misma regla que aplica su SQL.
+func ReciboOrigenIncorporacionPersonalB2(ref string) bool {
+	return len(ref) > len(PrefijoReciboOrigenIncorporacionPersonalB2) && domain.ReferenciaOpacaValida(ref) &&
+		ref[:len(PrefijoReciboOrigenIncorporacionPersonalB2)] == PrefijoReciboOrigenIncorporacionPersonalB2
+}
+
 // HechosPersonalIncorporacionB2 es una proyección del propietario, releída con
 // permiso actual. No admite las referencias de recibos como prueba por sí solas.
 type HechosPersonalIncorporacionB2 struct {

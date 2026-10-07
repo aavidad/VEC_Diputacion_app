@@ -174,11 +174,11 @@ func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(s.contexto, organizacionAltaContratacionTemporalDesarrollo, clase, ambitoRef, instante); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	nueva := func(rol, nombre, accion, finalidad, tipo string) (dominiovec.InstantaneaAutorizacion, error) {
+	nueva := func(rol, nombre, accion, finalidad, tipo string, adicionales ...dominiovec.ConcesionRol) (dominiovec.InstantaneaAutorizacion, error) {
 		return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 			vinculo.PrincipalID, vinculo.PerfilActivoRef, instante, rol, nombre, rol,
-			[]dominiovec.ConcesionRol{{Accion: accion, ModuloID: ports.ModuloContratacion,
-				TipoRecurso: tipo, Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
+			append([]dominiovec.ConcesionRol{{Accion: accion, ModuloID: ports.ModuloContratacion,
+				TipoRecurso: tipo, Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh}}, adicionales...),
 			[]dominiovec.AmbitoPerfil{
 				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
 				{Clave: "clase_ambito", Valores: []string{string(clase)}},
@@ -190,8 +190,13 @@ func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 	if err != nil {
 		return nil, err
 	}
+	// La descarga de borradores es una acción propia de la misma ruta: el rol
+	// del expediente la concede junto a la consulta.
 	detalle, err := nueva("consulta_detalle_rrhh_desarrollo", "Consulta de expediente de desarrollo",
-		ports.AccionConsultarDetalleRRHH, ports.FinalidadConsultarDetalleRRHH, ports.TipoRecursoExpediente)
+		ports.AccionConsultarDetalleRRHH, ports.FinalidadConsultarDetalleRRHH, ports.TipoRecursoExpediente,
+		dominiovec.ConcesionRol{Accion: ports.AccionDescargarBorradorRRHH, ModuloID: ports.ModuloContratacion,
+			TipoRecurso: ports.TipoRecursoExpediente, Finalidades: []string{ports.FinalidadDescargarBorradorRRHH},
+			GarantiaMinima: dominiovec.AuthAssuranceHigh})
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +345,7 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == a.ambitoRef &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
-		return !a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
-			r.Tipo == ports.TipoRecursoExpediente && domain.ReferenciaOpacaValida(r.Referencia) &&
-			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
+		return !a.documentalCT133 && solicitudDetalleODescargaRRHHValida(datos)
 	case plantillashttp.RutaBorradoresDisponibles, plantillashttp.RutaBorradores:
 		return a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH &&
 			datos.Finalidad == ports.FinalidadConsultarDetalleRRHH && r.Tipo == ports.TipoRecursoExpediente &&
@@ -376,9 +379,27 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsult
 			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == ambito &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
-		return datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
-			r.Tipo == ports.TipoRecursoExpediente && domain.ReferenciaOpacaValida(r.Referencia) &&
+		return solicitudDetalleODescargaRRHHValida(datos)
+	default:
+		return false
+	}
+}
+
+// solicitudDetalleODescargaRRHHValida admite en la ruta de detalle sus dos
+// acciones exactas: la consulta del expediente y la descarga de un borrador,
+// cada una con su dominio de huella. Ninguna otra acción cabe en esta ruta.
+func solicitudDetalleODescargaRRHHValida(datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+	r := datos.Recurso
+	if r.Tipo != ports.TipoRecursoExpediente || !domain.ReferenciaOpacaValida(r.Referencia) {
+		return false
+	}
+	switch datos.Accion {
+	case ports.AccionConsultarDetalleRRHH:
+		return datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
+	case ports.AccionDescargarBorradorRRHH:
+		return datos.Finalidad == ports.FinalidadDescargarBorradorRRHH &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaDescargaBorradorRRHH
 	default:
 		return false
 	}

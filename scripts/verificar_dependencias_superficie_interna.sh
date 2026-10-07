@@ -25,6 +25,9 @@ LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objeti
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
 
 prohibidas=()
+# internal/shared/plazoarranque: solo biblioteca estándar. vec-interno nunca llama a
+# Fijar, así que Ampliar devuelve el plazo declarado; lo importan adaptadores que
+# comparte con vec-server, donde amplía las comprobaciones de arranque (#822).
 while IFS= read -r paquete; do
 	case "${paquete}" in
 		github.com/fxamacker/cbor/v2 | \
@@ -99,6 +102,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/personal/ports" | \
 			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/shared/limiteshttp" | \
+			"${modulo}/internal/shared/plazoarranque" | \
 			"${modulo}/internal/shared/postgresql" | \
 			"${modulo}/internal/vec/adapters/contextoactor/postgres" | \
 			"${modulo}/internal/vec/adapters/httpapi" | \

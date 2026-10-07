@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // Ejecutar confirms one bounded serializable transaction. There are no
@@ -33,7 +34,7 @@ func Ejecutar(ctx context.Context, pool *pgxpool.Pool, operacion string, s Solic
 		return Resultado{}, ErrRechazada
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

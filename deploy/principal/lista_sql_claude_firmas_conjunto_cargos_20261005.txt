@@ -1,0 +1,6 @@
+# AD204: conjunto 3 de capacidades ADMIN (AD198) con la audiencia de publicación de cargos competenciales
+# de Personal (AD166, Personal28). Requiere AD198, AD202 (lista_sql_claude_firmas_conjunto_plan_20261005.txt)
+# y AD166. Sólo añade una fila al catálogo cerrado de conjuntos. Después, vec-gobierno-usuarios-admin con
+# "conjunto_capacidades": 3 y un LOGIN del grupo vec_gobierno_capacidades_admin_operador cuya configuración
+# aprobada lleve conjunto_version 3. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000204_conjunto_capacidades_cargos_competenciales.up.sql

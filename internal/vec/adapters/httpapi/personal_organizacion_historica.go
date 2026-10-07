@@ -13,6 +13,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -167,7 +168,7 @@ func (h *handlerOrganizacionHistorica) denegar(w http.ResponseWriter, ctx contex
 		CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo,
 		Ruta: RutaOrganizacionHistoricaPersonal, ActorRef: actor,
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta))
 	defer cancelar()
 	if err := h.auditoria.RegistrarDenegacionOrganizacionHistorica(ctxAuditoria, orden); err != nil {
 		responderOrganizacionHistorica(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)

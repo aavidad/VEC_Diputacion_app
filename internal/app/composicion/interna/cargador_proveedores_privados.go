@@ -19,6 +19,7 @@ import (
 
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
 )
 
@@ -337,7 +338,7 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
 		abiertos = append(abiertos, pool)
-		sonda, cancelar := context.WithTimeout(ctx, plazoSondaPoolSeguimiento)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
 		err = pool.Ping(sonda)
 		cancelar()
 		if err != nil {
@@ -368,7 +369,7 @@ func configurarPoolIdentidadInterna(material entradaPoolSeguimiento, rol, funcio
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	c.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		sonda, cancelar := context.WithTimeout(ctx, plazoSondaPoolSeguimiento)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
 		defer cancelar()
 		var usuario, efectivo string
 		var loginValido, aclValida bool

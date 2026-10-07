@@ -15,6 +15,7 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // RegistroFirmasVerificadasPostgreSQL consume las fachadas V2 con el LOGIN CT.
@@ -30,7 +31,9 @@ func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool) (*RegistroFirm
 	return &RegistroFirmasVerificadasPostgreSQL{pool: pool}, nil
 }
 
-const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+// CT186: la v3 calcula la huella con los ámbitos de la asignación de quien
+// consulta (AD210) y liga UnidadRef al paso del plan publicado (CC10).
+const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type firmaRevisionPDFSQL172 struct {
 	firmaExternaSQL170
@@ -88,7 +91,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de lectura de firmas V2 no confirmado")

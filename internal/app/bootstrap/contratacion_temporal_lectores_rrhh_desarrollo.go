@@ -15,10 +15,11 @@ type multiplexoresLectoresRRHHDesarrollo struct {
 	originalesPropuesta map[string]httpinterno.ConsultorDetalleRRHH
 	sello               *selloConsultasContratacionTemporalDesarrollo
 	soportes            map[string]*soporteAltaContratacionTemporalDesarrollo
+	descargas           map[string]ports.RegistradorDescargaBorradorRRHH
 }
 
 func nuevoMultiplexoresLectoresRRHHDesarrollo(sello *selloConsultasContratacionTemporalDesarrollo) *multiplexoresLectoresRRHHDesarrollo {
-	return &multiplexoresLectoresRRHHDesarrollo{cuadros: make(map[string]httpinterno.ConsultorCuadroRRHH), detalles: make(map[string]httpinterno.ConsultorDetalleRRHH), originalesPropuesta: make(map[string]httpinterno.ConsultorDetalleRRHH), soportes: make(map[string]*soporteAltaContratacionTemporalDesarrollo), sello: sello}
+	return &multiplexoresLectoresRRHHDesarrollo{cuadros: make(map[string]httpinterno.ConsultorCuadroRRHH), detalles: make(map[string]httpinterno.ConsultorDetalleRRHH), originalesPropuesta: make(map[string]httpinterno.ConsultorDetalleRRHH), soportes: make(map[string]*soporteAltaContratacionTemporalDesarrollo), descargas: make(map[string]ports.RegistradorDescargaBorradorRRHH), sello: sello}
 }
 
 func (m *multiplexoresLectoresRRHHDesarrollo) registrar(principal string, soporte *soporteAltaContratacionTemporalDesarrollo, cuadro httpinterno.ConsultorCuadroRRHH, detalle httpinterno.ConsultorDetalleRRHH, originalesPropuesta ...httpinterno.ConsultorDetalleRRHH) bool {

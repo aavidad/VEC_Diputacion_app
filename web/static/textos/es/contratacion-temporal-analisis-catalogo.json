@@ -19,6 +19,19 @@
     "analisis_urgencia_marcar": "Declarar urgente este expediente",
     "analisis_urgencia_motivo": "Motivo de la urgencia",
     "analisis_urgencia_declarada": "Urgente",
-    "analisis_error_urgencia_motivo": "Indique el motivo de la urgencia (hasta 1.000 caracteres, sin caracteres no admitidos)."
+    "analisis_error_urgencia_motivo": "Indique el motivo de la urgencia (hasta 1.000 caracteres, sin caracteres no admitidos).",
+    "analisis_estado_enviando": "Guardando el análisis. Espere un momento.",
+    "analisis_estado_confirmado": "Análisis guardado.",
+    "analisis_estado_indeterminado": "No sabemos si el análisis se ha guardado. No lo repita.",
+    "analisis_estado_acceso_denegado": "No tiene permiso para guardar este análisis.",
+    "analisis_estado_conflicto": "Otra persona ha cambiado este expediente. Vuelva a abrirlo antes de seguir.",
+    "analisis_estado_rechazado": "No se ha guardado el análisis. Revise los datos y vuelva a intentarlo.",
+    "analisis_estado_error": "No se ha podido guardar el análisis. Vuelva a intentarlo; si sigue igual, avise a Informática.",
+    "analisis_indeterminado_titulo": "No sabemos si se ha guardado",
+    "analisis_indeterminado_descripcion": "No repita el análisis. Vuelva a abrir el expediente dentro de unos minutos; si sigue igual, avise a Informática.",
+    "analisis_recibo_sobrelinea": "Hecho",
+    "analisis_recibo_titulo": "Análisis guardado",
+    "analisis_recibo_rectificacion_titulo": "Rectificación guardada",
+    "analisis_campos_obligatorios": "Los campos con * son obligatorios."
   }
 }

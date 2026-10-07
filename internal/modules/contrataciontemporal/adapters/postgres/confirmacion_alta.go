@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
@@ -265,7 +266,7 @@ func (t *TransaccionAltasPostgreSQLCandidata) reconciliarConfirmacion(
 	evidencia ports.EvidenciaOrdenConfirmarAltaCandidata,
 	entradas entradasConfirmarAlta,
 ) (ports.ReciboAlta, error) {
-	ctx, cancelar := context.WithTimeout(context.Background(), limiteReconciliacionAlta)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(limiteReconciliacionAlta))
 	defer cancelar()
 	recibo, err := t.confirmarEnTransaccion(ctx, evidencia, entradas)
 	if err == nil {

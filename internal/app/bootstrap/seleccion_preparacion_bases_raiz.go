@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -30,7 +31,7 @@ func (m *MontajePreparacionBasesV3) autorizacionesPostgreSQL(fuente, registro, m
 	if err != nil {
 		return nil, errMontajePreparacionBasesV3
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	for _, motivo := range []core.ReferenciaEntradaCatalogo{m.configuracion.MotivoIntentoDenegado, m.configuracion.MotivoIntentoError} {
 		if v.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, m.reloj.Ahora()) != nil {

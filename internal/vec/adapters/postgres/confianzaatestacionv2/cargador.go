@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -459,7 +460,7 @@ func (f filaConfianza) construirRaiz() (
 }
 
 func cancelarTransaccion(tx pgx.Tx) {
-	ctx, cancelar := context.WithTimeout(context.Background(), tiempoMaximoRollback)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(tiempoMaximoRollback))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

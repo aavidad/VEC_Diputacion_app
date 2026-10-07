@@ -16,6 +16,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -81,7 +82,7 @@ func (r *RepositorioOrganizacionHistoricaPostgreSQL) ConsultarOrganizacionHistor
 	confirmada := false
 	defer func() {
 		if !confirmada {
-			ctxCierre, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			ctxCierre, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(ctxCierre); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				// pgxpool libera también ante error de Rollback. El servicio

@@ -1,0 +1,43 @@
+package postgrespublico
+
+// Fichero del laboratorio de carga (scripts/carga). El guion lo copia de
+// forma temporal al paquete, calcula la huella del manifiesto publicado en
+// la base del laboratorio y lo borra. No forma parte del producto.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestLaboratorioCargaHuellaManifiesto(t *testing.T) {
+	dsn := os.Getenv("VEC_CARGA_DSN_LECTOR")
+	if dsn == "" {
+		t.Skip("solo laboratorio de carga")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelar()
+	f, err := Abrir(ctx, dsn, "categorias-profesionales", 2, strings.Repeat("b", 64),
+		"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593", strings.Repeat("c", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Cerrar()
+	tx, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	manifiesto, _, err := f.leerManifiestoPublico(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, err := manifiesto.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("HUELLA_MANIFIESTO=" + huella)
+}

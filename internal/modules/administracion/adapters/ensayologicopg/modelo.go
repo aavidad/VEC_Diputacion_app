@@ -10,6 +10,7 @@ import (
 	fisica "vec-diputacion-granada/internal/modules/administracion/adapters/ensayofisicopg"
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
 	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type Configuracion struct {
@@ -81,7 +82,7 @@ func (e Ensayador) Ensayar(ctx context.Context, s Solicitud) (r Resultado) {
 		fallo(&r, "entrada", "entrada", "configuracion_y_muestra_sintetica", "no_admitida")
 		return r
 	}
-	ctx, cancelar := context.WithTimeout(ctx, e.Configuracion.TiempoLimite)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(e.Configuracion.TiempoLimite))
 	defer cancelar()
 	if ctx.Err() != nil {
 		fallo(&r, "entrada", "plazo_ensayo", "vigente", "cancelado")

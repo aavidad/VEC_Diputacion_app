@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type iniciadorMarcaje interface {
@@ -24,14 +25,14 @@ func (r *RepositorioMarcajes) ejecutarTransaccionMarcaje(ctx context.Context, ev
 	terminada := false
 	defer func() {
 		if !terminada {
-			rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 			defer cancel()
 			_ = tx.Rollback(rollbackCtx)
 		}
 	}()
 	recibo, err := aplicar(tx)
 	if err != nil {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		rollbackErr := tx.Rollback(rollbackCtx)
 		terminada = true
 		cancel()
@@ -68,7 +69,7 @@ var errReciboMarcajeInvalido = errors.New("cronos recibo transaccional invalido"
 func (r *RepositorioMarcajes) auditarFallo(ctx context.Context, evento ports.ResultadoEjecucionMarcaje, resultado, causa string, original error) error {
 	evento.Resultado, evento.Causa = resultado, causa
 	evento.ObservadaEn = time.Now().UTC().Truncate(time.Microsecond)
-	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(3*time.Second))
 	defer cancel()
 	if r.auditoria == nil || r.auditoria.RegistrarResultadoEjecucionMarcaje(auditCtx, evento) != nil {
 		if resultado == "resultado_indeterminado" {

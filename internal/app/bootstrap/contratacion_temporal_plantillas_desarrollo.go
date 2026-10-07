@@ -16,6 +16,7 @@ import (
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 
 	"vec-diputacion-granada/config"
@@ -78,7 +79,7 @@ func CargarCatalogoPlantillasCT(ruta string) (vecdomain.CatalogoConfigurable, er
 	if err != nil {
 		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	versiones, err := consulta.ListarVersionesCatalogo(ctx, informejuridico.CatalogoPlantillasBorradorID)
 	if err != nil {

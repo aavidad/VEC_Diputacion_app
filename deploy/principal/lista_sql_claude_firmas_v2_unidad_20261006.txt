@@ -1,0 +1,9 @@
+# AD206 + CT181: la decisión interior de firma V2 (vía VEC) lleva los ámbitos de la asignación de quien firma:
+# organización y, si la tiene, unidad, que debe ser la del paso del plan (UnidadFirmanteRef). Sin unidad, la huella
+# es la de siempre. Sucesores v3 con sustituciones medidas sobre AD170 (ddc3f92e…), CT172 (bad0e556…) y CT176
+# (73756b89…); el ejecutor CT pasa de las v2 a las v3. Requiere AD170, CT172, CT176; medida sobre main con AD207/AD208
+# (no toca la cadena ni el núcleo). Desplegar a la vez el binario que llama a las v3 (antes no hay firma V2 en uso).
+# El plan exterior (AD177) sigue sólo con organización: un firmante con unidad necesita además el corte del plan
+# exterior para completar la firma. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000206_firma_interior_ambitos_asignacion.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000181_firma_interior_ambitos_asignacion.up.sql

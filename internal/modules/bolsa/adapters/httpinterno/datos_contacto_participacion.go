@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -17,9 +18,12 @@ import (
 
 // B4: subrecurso `datos-contacto` de un candidato de la bolsa. POST registra una
 // versión nueva (correo y hasta dos teléfonos) y GET devuelve la vigente. La
-// respuesta trae siempre la forma enmascarada; el claro solo se incluye cuando
-// el llamador lo pide expresamente con `?ver=completo`, que el caso de uso
-// autoriza igual que la escritura.
+// respuesta trae siempre la forma enmascarada y el origen. El claro solo se
+// incluye cuando el llamador lo pide con `?ver=completo`: esa consulta tiene
+// acción, finalidad y motivo propios (bolsa.datos_contacto_participacion.consultar),
+// distintos de los de registro, y el caso de uso consume su decisión V3 en la
+// misma transacción que la lectura, con asiento en la auditoría común. Sus
+// denegaciones y errores quedan como intentos AD169.
 type EntradaRegistrarDatosContactoParticipacion struct {
 	BolsaRef, ParticipacionRef, Motivo, ClaveIdempotencia string
 	Datos                                                 dominiobolsa.DatosContactoParticipacion
@@ -29,7 +33,8 @@ type EntradaRegistrarDatosContactoParticipacion struct {
 
 type PreparadorDatosContactoParticipacion interface {
 	PrepararSolicitudRegistrarDatosContacto(context.Context, EntradaRegistrarDatosContactoParticipacion) (puertosbolsa.SolicitudRegistrarDatosContactoParticipacion, error)
-	PrepararSolicitudConsultarDatosContacto(context.Context, string, string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error)
+	// El último argumento indica la consulta completa (`?ver=completo`).
+	PrepararSolicitudConsultarDatosContacto(context.Context, string, string, bool) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error)
 }
 
 type OperadorDatosContactoParticipacion interface {
@@ -71,14 +76,23 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 		responderSituacion(w, http.StatusBadRequest, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	solicitud, err := h.preparador.PrepararSolicitudConsultarDatosContacto(r.Context(), bolsa, participacion)
+	solicitud, err := h.preparador.PrepararSolicitudConsultarDatosContacto(r.Context(), bolsa, participacion, completo)
 	if err != nil {
 		responderErrorDatosContacto(w, err)
 		return
 	}
 	leidos, err := h.operador.Consultar(r.Context(), solicitud)
 	if err != nil {
+		if acuse, confirmado := application.AcuseConsultaDatosContactoFallida(err); confirmado {
+			w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+			w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
+		}
 		responderErrorDatosContacto(w, err)
+		return
+	}
+	// El claro nunca sale sin el asiento del consumo de su decisión propia.
+	if completo && (leidos.AuditoriaRef == "" || leidos.Datos.Correo == "" && leidos.Datos.Telefono1 == "" && leidos.Datos.Telefono2 == "") {
+		responderErrorDatosContacto(w, errors.New("bolsa http interno: consulta completa sin acuse"))
 		return
 	}
 	datos := map[string]any{
@@ -89,6 +103,10 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 		"origen":            origenDatosContactoRespuesta(leidos.Origen, leidos.EstadoOrigen),
 	}
 	if completo {
+		w.Header().Set("X-Audit-Ref", leidos.AuditoriaRef)
+		if correlacion, errCorrelacion := solicitud.Correlacion.ValorCanonico(); errCorrelacion == nil {
+			w.Header().Set("X-Correlation-Ref", correlacion)
+		}
 		datos["correo"] = leidos.Datos.Correo
 		datos["telefono_1"] = leidos.Datos.Telefono1
 		datos["telefono_2"] = leidos.Datos.Telefono2

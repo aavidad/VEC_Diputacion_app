@@ -1,0 +1,5 @@
+# AUT53: publicación gobernada de las versiones de rol de los cargos del plan
+# nominal de firma y su registro como perfiles asignables. Requiere AUT24, AUT49
+# y AD196 instaladas. Instalar la estructura NO publica ningún rol: lo hace
+# después vec-publicar-cargos-firma con un plan aprobado. Una sola vez, sin DOWN.
+deploy/postgresql/autorizacion/migraciones/000053_cargos_firma_roles_asignables.up.sql

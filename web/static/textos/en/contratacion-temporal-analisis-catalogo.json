@@ -19,6 +19,19 @@
     "analisis_urgencia_marcar": "Mark this case for urgent processing",
     "analisis_urgencia_motivo": "Reason for urgency",
     "analisis_urgencia_declarada": "Urgent",
-    "analisis_error_urgencia_motivo": "Enter the reason for urgency (up to 1,000 characters, without unsupported characters)."
+    "analisis_error_urgencia_motivo": "Enter the reason for urgency (up to 1,000 characters, without unsupported characters).",
+    "analisis_estado_enviando": "Saving the assessment. Please wait.",
+    "analisis_estado_confirmado": "Assessment saved.",
+    "analisis_estado_indeterminado": "We do not know whether the assessment was saved. Do not repeat it.",
+    "analisis_estado_acceso_denegado": "You do not have permission to save this assessment.",
+    "analisis_estado_conflicto": "Someone else has changed this case file. Open it again before continuing.",
+    "analisis_estado_rechazado": "The assessment was not saved. Check the details and try again.",
+    "analisis_estado_error": "The assessment could not be saved. Try again; if it keeps failing, contact IT support.",
+    "analisis_indeterminado_titulo": "We do not know whether it was saved",
+    "analisis_indeterminado_descripcion": "Do not repeat the assessment. Open the case file again in a few minutes; if nothing has changed, contact IT support.",
+    "analisis_recibo_sobrelinea": "Done",
+    "analisis_recibo_titulo": "Assessment saved",
+    "analisis_recibo_rectificacion_titulo": "Correction saved",
+    "analisis_campos_obligatorios": "Fields marked * are required."
   }
 }

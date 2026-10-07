@@ -14,6 +14,7 @@ import (
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -127,7 +128,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacionRectificacion(c
 	if _, err := rand.Read(aleatorio[:]); err != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	return a.registradorRectificacion.RegistrarAuditoriaFronteraRectificacionDietas(ctxAuditoria, personalports.OrdenAuditoriaFronteraRectificacionDietas{CorrelacionRef: "corr_" + hex.EncodeToString(aleatorio[:]), Motivo: motivo, Ruta: personalports.RutaSolicitudesRectificacionDietas, Accion: accion, ActorRef: actor, EstadoHTTP: estado})
 }

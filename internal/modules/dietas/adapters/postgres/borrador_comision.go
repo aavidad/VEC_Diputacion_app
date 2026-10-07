@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/dietas/application"
 	"vec-diputacion-granada/internal/modules/dietas/domain"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_comision_catalogada_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
@@ -182,7 +183,7 @@ func (r *RepositorioBorradorComisionPostgreSQL) ejecutarBrutoConModo(ctx context
 		return errorNoDisponible(ctx, err, escritura)
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

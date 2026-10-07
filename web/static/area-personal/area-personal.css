@@ -322,20 +322,6 @@ fieldset { min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--
 .dato-lista dt, .dato-lista dd { margin: 0; padding: 9px 0; border-bottom: 1px solid var(--ap-borde); }
 .dato-lista dt { color: var(--ap-muted); font-size: .8125rem; font-weight: 600; }
 .dato-lista dd { overflow-wrap: anywhere; }
-.pasos { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0 0 14px; padding: 0; list-style: none; }
-.pasos li { min-height: 54px; padding: 8px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-muted); font-size: .8125rem; font-weight: 600; }
-.pasos li span { display: block; font-size: .75rem; font-weight: 400; }
-.pasos li.activo { border-color: var(--ap-azul-700); background: var(--ap-azul-100); color: var(--ap-azul-900); }
-.pasos li.completo { border-color: var(--ap-verde); background: var(--ap-verde-suave); color: var(--ap-verde); }
-.barra-progreso { width: 100%; height: 9px; overflow: hidden; border: 0; border-radius: 999px; background: var(--ap-neutro-suave); appearance: none; }
-.barra-progreso::-webkit-progress-bar { border-radius: inherit; background: var(--ap-neutro-suave); }
-.barra-progreso::-webkit-progress-value { border-radius: inherit; background: var(--ap-violeta); }
-.barra-progreso::-moz-progress-bar { border-radius: inherit; background: var(--ap-violeta); }
-.desglose-baremo { display: grid; gap: 9px; }
-.criterio-baremo { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(120px, .7fr) 80px; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); }
-.criterio-baremo strong, .criterio-baremo small { display: block; }
-.criterio-baremo small { color: var(--ap-muted); }
-.criterio-baremo output { font-size: 1.05rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .linea-tiempo { position: relative; margin: 0; padding: 0 0 0 24px; list-style: none; }
 .linea-tiempo::before { position: absolute; top: 5px; bottom: 5px; left: 7px; width: 2px; background: var(--ap-borde); content: ""; }
 .linea-tiempo li { position: relative; padding: 0 0 18px 10px; }
@@ -351,16 +337,13 @@ fieldset { min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--
 .tarjeta-convocatoria h3 { margin: 2px 0 4px; font-size: 1rem; font-weight: 600; }
 .tarjeta-convocatoria p { margin: 4px 0; color: var(--ap-muted); font-size: .875rem; }
 .metadatos { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 8px 0; color: var(--ap-muted); font-size: .8125rem; }
-.puntuacion-total { padding: 16px; border-radius: var(--portal-radio); background: var(--ap-violeta-suave); text-align: center; }
-.puntuacion-total output { display: block; color: var(--ap-violeta); font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.puntuacion-total span { font-size: .8125rem; font-weight: 600; }
 details { border-bottom: 1px solid var(--ap-borde); }
 details:last-child { border-bottom: 0; }
 summary { min-height: 44px; padding: 10px 2px; cursor: pointer; font-weight: 600; }
 details p { margin: 0 0 12px; color: var(--ap-muted); }
 .reproductor-ayuda { width: 100%; margin: 8px 0; }
 .resultado-busqueda { background: var(--ap-ambar-suave); color: var(--ap-tinta); }
-.resultado-ayuda, .separacion-superior { margin-top: 14px; }
+.resultado-ayuda { margin-top: 14px; }
 .estado-vacio { padding: 28px 18px; color: var(--ap-muted); text-align: center; }
 .estado-vacio strong { display: block; margin-bottom: 4px; color: var(--ap-tinta); }
 .estado-error { max-width: 760px; margin: 32px auto; padding: 24px; border: 1px solid var(--ap-borde); border-left: 3px solid var(--ap-rojo); border-radius: var(--ap-radio); background: var(--ap-superficie); box-shadow: var(--ap-sombra); color: var(--ap-tinta); }
@@ -374,8 +357,6 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
 .dialogo h2, .dialogo header p { margin: 0; }
 .dialogo header p { color: var(--ap-muted); font-size: .8125rem; }
 .contenido-dialogo { max-height: 62dvh; overflow-y: auto; padding: 20px; }
-.marca-paso { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; border-radius: 50%; background: var(--ap-ambar-suave); color: var(--ap-ambar); font-weight: 600; }
-.marca-paso.marca-exito { background: var(--ap-verde-suave); color: var(--ap-verde); }
 .notificaciones { position: fixed; z-index: 100; right: 18px; bottom: 18px; display: grid; width: min(90vw, 380px); gap: 8px; }
 .notificacion { padding: 12px 16px; border: 1px solid var(--ap-borde); border-left: 3px solid var(--ap-verde); border-radius: var(--portal-radio); background: var(--ap-superficie); box-shadow: var(--portal-sombra); color: var(--ap-tinta); font-size: .875rem; }
 .velo-menu { position: fixed; z-index: 35; inset: 0; background: color-mix(in srgb, var(--ap-azul-950) 54%, transparent); }
@@ -430,10 +411,6 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .resumen-cifras, .rejilla-dos, .formulario-rejilla { grid-template-columns: 1fr; }
   .formulario-rejilla .ancho-completo { grid-column: auto; }
   .filtros { grid-template-columns: 1fr; }
-  .pasos { grid-template-columns: 1fr 1fr; }
-  .pasos li { min-height: 48px; }
-  .criterio-baremo { grid-template-columns: 1fr 70px; }
-  .criterio-baremo .barra-progreso { grid-column: 1 / -1; grid-row: 2; }
   .tarjeta-convocatoria { grid-template-columns: 1fr; }
   .dato-lista { grid-template-columns: 1fr; }
   .dato-lista dt { padding-bottom: 2px; border-bottom: 0; }

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
@@ -66,7 +67,7 @@ func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAut
 	defer func() {
 		// El contexto HTTP puede quedar cancelado durante Scan; liberar la
 		// transacción no depende de que el cliente siga conectado.
-		cancelCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		cancelCtx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(3*time.Second))
 		defer cancel()
 		_ = tx.Rollback(cancelCtx)
 	}()

@@ -2,12 +2,14 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -19,13 +21,17 @@ type relojConfianzaCTDesarrollo interface{ Ahora() time.Time }
 // los firmantes y emisores nominales siguen perteneciendo a sus proveedores.
 // Cada servicio publicado es inmutable y una operación toma un único snapshot.
 type fuenteConfianzaRenovableCTDesarrollo struct {
-	mu       sync.Mutex
-	reloj    relojConfianzaCTDesarrollo
-	material materialAtestacionContratacionTemporalDesarrollo
-	actual   *confianza.ServicioConfianzaAtestacionAutorizacionV3
-	lector   *gobiernov3lector.Lector
-	leer     func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
-	renovar  func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	// mu protege material y actual y solo se toma para copiarlos o
+	// actualizarlos, nunca durante una consulta a PostgreSQL. renovacion
+	// serializa la publicación diaria (rara) para que se haga una sola vez.
+	mu         sync.Mutex
+	renovacion sync.Mutex
+	reloj      relojConfianzaCTDesarrollo
+	material   materialAtestacionContratacionTemporalDesarrollo
+	actual     *confianza.ServicioConfianzaAtestacionAutorizacionV3
+	lector     *gobiernov3lector.Lector
+	leer       func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	renovar    func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 	// plazoIntento acota cada renovación programada; cero usa el valor
 	// predeterminado. Sólo las pruebas lo reducen.
 	plazoIntento time.Duration
@@ -50,11 +56,16 @@ func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAte
 	f := &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
 		leer: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 			var actual materialAtestacionContratacionTemporalDesarrollo
-			err := ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+			err := ejecutarLecturaGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
 				var e error
-				actual, e = leerConfiguracionRenovableCTDesarrollo(ctx, tx, anterior, ahora)
+				actual, e = leerConfiguracionVigenteCTDesarrollo(ctx, tx, anterior, ahora)
 				return e
 			})
+			if err != nil && ctx.Err() == nil {
+				// Una confianza no confirmada deja sin servicio las operaciones
+				// CT: el registro dice qué comprobación falló y con qué código.
+				registrarFalloPostgreSQLContratacionTemporalDesarrollo("lectura_confianza", causaLecturaConfianzaCTDesarrollo(err))
+			}
 			return actual, err
 		},
 		renovar: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
@@ -78,7 +89,9 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) nuevoLector() (*gobiernov3lector.
 			if f.leer == nil {
 				return gobiernov3lector.Publicacion{}, falloPostgreSQLCTDesarrollo(nil)
 			}
+			f.mu.Lock()
 			anterior := f.material
+			f.mu.Unlock()
 			anterior.configuracionRef, anterior.configuracionOrden = previa.Revision, previa.Secuencia
 			anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn = previa.HuellaSHA256, previa.PublicadaEn, previa.ExpiraEn
 			actual, err := f.leer(ctx, anterior, f.reloj.Ahora().UTC())
@@ -97,22 +110,34 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.reloj == nil || f.lector == nil || f.leer == nil || f.renovar == nil {
 		return nil, fallo
 	}
-	ahora := f.reloj.Ahora().UTC()
-	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
+	ahora, vencida, ok := f.estadoVigencia()
+	if !ok {
 		return nil, fallo
 	}
-	if !ahora.Before(f.material.expiraEn) {
-		// Único publicador: vec-server. La lectura posterior es separada y no
-		// adopta una publicación que no pueda volver a leer del gobierno.
-		if _, err := f.renovar(ctx, f.material, ahora); err != nil {
-			return nil, err
+	if vencida {
+		// Único publicador: vec-server. Una sola renovación a la vez; quien
+		// llega después ve la publicación ya adoptada y no vuelve a publicar.
+		// La lectura posterior es separada y no adopta una publicación que no
+		// pueda volver a leer del gobierno.
+		f.renovacion.Lock()
+		defer f.renovacion.Unlock()
+		if ahora, vencida, ok = f.estadoVigencia(); !ok {
+			return nil, fallo
+		}
+		if vencida {
+			f.mu.Lock()
+			material := f.material
+			f.mu.Unlock()
+			if _, err := f.renovar(ctx, material, ahora); err != nil {
+				return nil, err
+			}
 		}
 	}
+	// Cada operación relee el gobierno (una revocación surte efecto en la
+	// siguiente); la lectura se hace sin cerrojo del proceso.
 	servicio, publicada, err := f.lector.Leer(ctx)
 	if err != nil {
 		return nil, fallo
@@ -124,11 +149,27 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
-	f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
-	f.material.configuracion = config
-	f.actual = servicio
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if publicada.Secuencia >= f.material.configuracionOrden {
+		f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
+		f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
+		f.material.configuracion = config
+		f.actual = servicio
+	}
 	return servicio, nil
+}
+
+// estadoVigencia devuelve el instante actual y si la publicación adoptada ha
+// vencido; ok es falso si el reloj o la raíz quedan fuera de su vigencia.
+func (f *fuenteConfianzaRenovableCTDesarrollo) estadoVigencia() (time.Time, bool, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ahora := f.reloj.Ahora().UTC()
+	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
+		return ahora, false, false
+	}
+	return ahora, !ahora.Before(f.material.expiraEn), true
 }
 
 // Renovación programada. La configuración vence a medianoche UTC y el
@@ -141,10 +182,11 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 // uso, que se conserva. Así la continuidad no depende de tráfico CT (ni del
 // lector de vec-interno, que no publica).
 //
-// Cada intento tiene plazo propio: `instantanea` retiene f.mu durante toda la
-// transacción de gobierno y el contexto del temporizador sólo se cancela al
-// cerrar, así que sin plazo un corte de red o un cerrojo consultivo ajeno
-// bloquearía también cada petición CT. La espera se acota a unos minutos y se
+// Cada intento tiene plazo propio: con la publicación caducada, `instantanea`
+// retiene el cerrojo `renovacion` durante toda la transacción de publicación
+// y el contexto del temporizador sólo se cancela al cerrar, así que sin plazo
+// un corte de red o un cerrojo consultivo ajeno bloquearía también cada
+// petición CT que necesite renovar. La espera se acota a unos minutos y se
 // recalcula (los temporizadores de Go no avanzan con el equipo suspendido) y
 // los reintentos crecen hasta un tope, registrando el primer fallo y después
 // uno por reintento ya en el tope (cada 15 min), no una línea por minuto. El
@@ -203,7 +245,7 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx 
 		if plazo <= 0 {
 			plazo = plazoIntentoRenovacionProgramadaCTDesarrollo
 		}
-		intento, cancelarIntento := context.WithTimeout(ctx, plazo)
+		intento, cancelarIntento := context.WithTimeout(ctx, plazoarranque.Ampliar(plazo))
 		_, err := f.instantanea(intento)
 		cancelarIntento()
 		if ctx.Err() != nil {
@@ -308,16 +350,40 @@ func renovarConfiguracionConfianzaCTEnTxDesarrollo(ctx context.Context, tx pgx.T
 // No basta encontrar una raíz propia: el conjunto tiene que ser exactamente
 // la raíz fijada, tanto en la revisión anterior como en la que se adopta.
 func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+	return leerConfiguracionGobiernoCTDesarrollo(ctx, tx, anterior, ahora, true)
+}
+
+// leerConfiguracionVigenteCTDesarrollo es la misma lectura y las mismas
+// comprobaciones para una transacción de solo lectura: sin bloquear la fila
+// del checkpoint, que solo hace falta al publicar (renovación).
+func leerConfiguracionVigenteCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+	return leerConfiguracionGobiernoCTDesarrollo(ctx, tx, anterior, ahora, false)
+}
+
+func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time, bloquear bool) (materialAtestacionContratacionTemporalDesarrollo, error) {
 	vacia := materialAtestacionContratacionTemporalDesarrollo{}
-	fallo := errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	// Cada rechazo conserva el centinela de incoherencia (errors.Is) y nombra
+	// su comprobación; si hubo error de PostgreSQL lo envuelve, para que el
+	// registro dé su código (causaFalloPostgreSQLCTDesarrollo) y no un
+	// «incoherente» sin más. Ningún texto lleva valores del gobierno.
+	fallo := func(comprobacion string, causa error) error {
+		return &rechazoLecturaConfianzaCTDesarrollo{comprobacion: comprobacion, causa: causa}
+	}
 	propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(ctx, tx)
-	if err != nil || !propio {
-		return vacia, fallo
+	if err != nil {
+		return vacia, fallo("gobierno_propio", err)
+	}
+	if !propio {
+		return vacia, fallo("gobierno_ajeno", nil)
 	}
 	var minima, raizMinima int64
-	if err := tx.QueryRow(ctx, `SELECT configuracion_secuencia_minima,raiz_version_minima
- FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id FOR UPDATE`).Scan(&minima, &raizMinima); err != nil {
-		return vacia, fallo
+	consultaCheckpoint := `SELECT configuracion_secuencia_minima,raiz_version_minima
+ FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id`
+	if bloquear {
+		consultaCheckpoint += ` FOR UPDATE`
+	}
+	if err := tx.QueryRow(ctx, consultaCheckpoint).Scan(&minima, &raizMinima); err != nil {
+		return vacia, fallo("checkpoint", err)
 	}
 	actual := anterior
 	var secuencia int64
@@ -347,23 +413,30 @@ func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, ante
 		confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, audienciaAtestacionContratacionTemporalDesarrollo,
 		anterior.configuracionRef, anterior.configuracionOrden, anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn,
 	).Scan(&actual.configuracionRef, &secuencia, &actual.configuracionHuella, &actual.publicadaEn, &actual.expiraEn)
-	if err != nil || secuencia < 1 || secuencia > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo || uint64(secuencia) < anterior.configuracionOrden || secuencia < minima || raizMinima < 0 || uint64(raizMinima) > anterior.claveVersion || ahora.Before(actual.publicadaEn) || ahora.Before(anterior.validaDesde) || !ahora.Before(anterior.validaHasta) {
-		return vacia, fallo
+	if err != nil {
+		// Sin filas: puntero, raíz, revocación o conjunto de raíces no casan.
+		return vacia, fallo("configuracion_vigente", err)
+	}
+	if secuencia < 1 || secuencia > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo || uint64(secuencia) < anterior.configuracionOrden || secuencia < minima || raizMinima < 0 || uint64(raizMinima) > anterior.claveVersion || ahora.Before(actual.publicadaEn) || ahora.Before(anterior.validaDesde) || !ahora.Before(anterior.validaHasta) {
+		return vacia, fallo("secuencia_o_vigencia", nil)
 	}
 	actual.publicadaEn = actual.publicadaEn.UTC()
 	actual.expiraEn = actual.expiraEn.UTC()
 	dia := time.Date(actual.publicadaEn.Year(), actual.publicadaEn.Month(), actual.publicadaEn.Day(), 0, 0, 0, 0, time.UTC)
 	if !actual.publicadaEn.Equal(dia) || !actual.expiraEn.Equal(dia.Add(24*time.Hour)) {
-		return vacia, fallo
+		return vacia, fallo("dia_de_publicacion", nil)
 	}
 	actual.configuracionOrden = uint64(secuencia)
 	actual.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(actual.configuracionRef, actual.configuracionOrden, actual.publicadaEn, actual.expiraEn, actual.raiz)
 	if err != nil {
-		return vacia, fallo
+		return vacia, fallo("configuracion_no_valida", err)
 	}
 	huella, err := actual.configuracion.HuellaSHA256ParaGobierno()
-	if err != nil || huella != actual.configuracionHuella {
-		return vacia, fallo
+	if err != nil {
+		return vacia, fallo("huella_no_calculable", err)
+	}
+	if huella != actual.configuracionHuella {
+		return vacia, fallo("huella_distinta", nil)
 	}
 	return actual, nil
 }
@@ -419,4 +492,37 @@ func (e *emisorMaterialRenovableCTDesarrollo) EmitirMaterialAutorizacionAtestada
 		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, err
 	}
 	return emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, s, c)
+}
+
+// rechazoLecturaConfianzaCTDesarrollo es un rechazo de la lectura de
+// confianza: conserva el centinela de incoherencia (errors.Is), nombra la
+// comprobación (texto fijo) y envuelve el error de PostgreSQL si lo hubo.
+type rechazoLecturaConfianzaCTDesarrollo struct {
+	comprobacion string
+	causa        error
+}
+
+func (r *rechazoLecturaConfianzaCTDesarrollo) Error() string {
+	return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente.Error() + ": " + r.comprobacion
+}
+
+func (r *rechazoLecturaConfianzaCTDesarrollo) Unwrap() []error {
+	if r.causa == nil {
+		return []error{errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente}
+	}
+	return []error{errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente, r.causa}
+}
+
+// causaLecturaConfianzaCTDesarrollo resume el rechazo para el registro: la
+// comprobación que falló y el código de la causa (SQLSTATE, sin filas,
+// plazo...). Nunca el texto de un error de la base.
+func causaLecturaConfianzaCTDesarrollo(err error) string {
+	var rechazo *rechazoLecturaConfianzaCTDesarrollo
+	if !errors.As(err, &rechazo) {
+		return causaFalloPostgreSQLCTDesarrollo(err)
+	}
+	if rechazo.causa == nil {
+		return rechazo.comprobacion
+	}
+	return rechazo.comprobacion + ":" + causaFalloPostgreSQLCTDesarrollo(rechazo.causa)
 }

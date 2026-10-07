@@ -306,10 +306,10 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
       paso: 5,
       titulo: traducirPortal("ayuda_contenido_255"),
       frases: Object.freeze([
-        traducirPortal("ayuda_contenido_290"),
-        traducirPortal("ayuda_contenido_291"),
-        traducirPortal("ayuda_contenido_292"),
-        traducirPortal("ayuda_ct_limite_llamamiento"),
+        traducirPortal("ayuda_ct_llamamiento_para_que"),
+        traducirPortal("ayuda_ct_llamamiento_pasos"),
+        traducirPortal("ayuda_ct_llamamiento_eml"),
+        traducirPortal("ayuda_ct_llamamiento_limites"),
       ]),
     }),
     nombramiento: Object.freeze({
