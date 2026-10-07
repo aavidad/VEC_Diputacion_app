@@ -8,10 +8,9 @@
 -- externo). El recurso es el acta (acta:importacion-convoca:<sha256>) y la huella
 -- del efecto es la del contexto del recurso. No concede permisos: la concesión
 -- llega con el rol RRHH de Bolsa y el origen del consumo con la fila AD172.
--- Preimágenes medidas en la copia fría H10-30 con las listas de main del 05/10
--- (hasta AD190, CA35/AUT44, AUT50 y AD198): núcleo 05e6753a…/1a5c3e67… y CHECK de
--- audiencias 018e8a44…. AD197, AD199 y AD200 miden lo mismo: la que entre
--- después se detiene con PARO sin tocar nada y hay que medirla de nuevo.
+-- Preimágenes medidas en PG18 desechable desde H10-30 tras AD193, AD195,
+-- AD196, AD178, AD177, AD190, AD197, AD199, AD200, AD207 y AD208:
+-- núcleo 092367a3…/559555ec… y CHECK de audiencias 8496cf66….
 -- Una sola vez; sin DOWN. Orden: (listas de main) -> AD203 -> B79.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -32,7 +31,7 @@ BEGIN
    AND attname='transaccion_origen' AND NOT attisdropped)
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_propietario' AND NOT rolcanlogin AND NOT rolsuper)
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_ejecutor' AND NOT rolcanlogin AND NOT rolsuper)
- THEN RAISE EXCEPTION 'AD203: PARO clave=preimagen esperado=PG18_AD193_sin_AD203 actual=incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD203: PARO clave=preimagen esperado=PG18_postAD208_sin_AD203 actual=incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 DO $nucleo$
@@ -67,11 +66,11 @@ BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'AD203: PARO clave=nucleo esperado=presente actual=ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  h:=encode(sha256(convert_to(original,'UTF8')),'hex');
- IF h IS DISTINCT FROM '05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323'
- THEN RAISE EXCEPTION 'AD203: PARO clave=nucleo_def_SHA actual=% esperado=05e6753a55805eb763817202c8ca5bd8612c904fae8c2cc6c5f4baa517935323',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '092367a3c6be54e163eceb26d58a86442f83addc044e0cae2e85e572c7e56faf'
+ THEN RAISE EXCEPTION 'AD203: PARO clave=nucleo_def_SHA actual=% esperado=092367a3c6be54e163eceb26d58a86442f83addc044e0cae2e85e572c7e56faf',h USING ERRCODE='55000'; END IF;
  h:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF h IS DISTINCT FROM '1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087'
- THEN RAISE EXCEPTION 'AD203: PARO clave=nucleo_src_SHA actual=% esperado=1a5c3e67332c6865c42cc7d6f26450958304090137f995f5376ba6ca11a5b087',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '559555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986'
+ THEN RAISE EXCEPTION 'AD203: PARO clave=nucleo_src_SHA actual=% esperado=559555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986',h USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
@@ -113,11 +112,11 @@ BEGIN
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  h:=encode(sha256(convert_to(anterior,'UTF8')),'hex');
- -- Preimagen medida tras AD190 (AD198 no toca este CHECK).
- IF h IS DISTINCT FROM '018e8a442f674aff0e72c6e01416b88737e94e72db2fb46527331d94e2b7ab51'
+ -- Preimagen medida tras AD199; AD200, AD207 y AD208 no tocan este CHECK.
+ IF h IS DISTINCT FROM '8496cf66ff2f32b4afb6954708dab3a0e720f53a12aad564ed717828eb4284d4'
  OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
  OR strpos(anterior,'vec_bolsa_llamamientos.carga_convoca.confirmar.v1')<>0
- THEN RAISE EXCEPTION 'AD203: PARO clave=CHECK_audiencias_SHA actual=% esperado=018e8a442f674aff0e72c6e01416b88737e94e72db2fb46527331d94e2b7ab51',h USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD203: PARO clave=CHECK_audiencias_SHA actual=% esperado=8496cf66ff2f32b4afb6954708dab3a0e720f53a12aad564ed717828eb4284d4',h USING ERRCODE='55000'; END IF;
  nueva:='CHECK (('||substr(anterior,8,length(anterior)-8)||') OR audiencia_consumo = ''vec_bolsa_llamamientos.carga_convoca.confirmar.v1'')';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
