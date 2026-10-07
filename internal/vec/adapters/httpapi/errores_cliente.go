@@ -46,31 +46,55 @@ type errorClienteCerrado struct {
 	Correlacion string
 }
 
-func leerErrorCliente(r *http.Request) (errorClienteCerrado, int) {
+type falloValidacionTelemetria string
+
+const (
+	falloLecturaTelemetria falloValidacionTelemetria = "lectura"
+	falloJSONTelemetria    falloValidacionTelemetria = "json"
+	falloOrigenTelemetria  falloValidacionTelemetria = "origen"
+)
+
+func claseFalloTelemetria(err error, clase falloValidacionTelemetria) falloValidacionTelemetria {
+	if err == nil {
+		return ""
+	}
+	return clase
+}
+
+func leerErrorCliente(r *http.Request) (errorClienteCerrado, int, falloValidacionTelemetria) {
 	if r.Body == nil || r.ContentLength > limiteCuerpoErrorCliente {
-		return errorClienteCerrado{}, http.StatusRequestEntityTooLarge
+		return errorClienteCerrado{}, http.StatusRequestEntityTooLarge, ""
 	}
 	bruto, err := io.ReadAll(io.LimitReader(r.Body, limiteCuerpoErrorCliente+1))
-	if err != nil || len(bruto) > limiteCuerpoErrorCliente {
-		return errorClienteCerrado{}, http.StatusRequestEntityTooLarge
+	if err != nil {
+		return errorClienteCerrado{}, http.StatusRequestEntityTooLarge, claseFalloTelemetria(err, falloLecturaTelemetria)
+	}
+	if len(bruto) > limiteCuerpoErrorCliente {
+		return errorClienteCerrado{}, http.StatusRequestEntityTooLarge, ""
 	}
 	lector := json.NewDecoder(bytes.NewReader(bruto))
 	inicio, err := lector.Token()
-	if err != nil || inicio != json.Delim('{') {
-		return errorClienteCerrado{}, http.StatusBadRequest
+	if err != nil {
+		return errorClienteCerrado{}, http.StatusBadRequest, claseFalloTelemetria(err, falloJSONTelemetria)
+	}
+	if inicio != json.Delim('{') {
+		return errorClienteCerrado{}, http.StatusBadRequest, ""
 	}
 	var dato errorClienteCerrado
 	vistas := map[string]bool{}
 	for lector.More() {
 		clave, err := lector.Token()
 		nombre, ok := clave.(string)
-		if err != nil || !ok || vistas[nombre] {
-			return errorClienteCerrado{}, http.StatusBadRequest
+		if err != nil {
+			return errorClienteCerrado{}, http.StatusBadRequest, claseFalloTelemetria(err, falloJSONTelemetria)
+		}
+		if !ok || vistas[nombre] {
+			return errorClienteCerrado{}, http.StatusBadRequest, ""
 		}
 		vistas[nombre] = true
 		var valor string
 		if err := lector.Decode(&valor); err != nil {
-			return errorClienteCerrado{}, http.StatusBadRequest
+			return errorClienteCerrado{}, http.StatusBadRequest, claseFalloTelemetria(err, falloJSONTelemetria)
 		}
 		switch nombre {
 		case "pantalla":
@@ -80,38 +104,54 @@ func leerErrorCliente(r *http.Request) (errorClienteCerrado, int) {
 		case "correlacion":
 			dato.Correlacion = valor
 		default:
-			return errorClienteCerrado{}, http.StatusBadRequest
+			return errorClienteCerrado{}, http.StatusBadRequest, ""
 		}
 	}
 	fin, err := lector.Token()
-	if err != nil || fin != json.Delim('}') || len(vistas) != 3 {
-		return errorClienteCerrado{}, http.StatusBadRequest
+	if err != nil {
+		return errorClienteCerrado{}, http.StatusBadRequest, claseFalloTelemetria(err, falloJSONTelemetria)
+	}
+	if fin != json.Delim('}') || len(vistas) != 3 {
+		return errorClienteCerrado{}, http.StatusBadRequest, ""
 	}
 	if _, err := lector.Token(); err != io.EOF {
-		return errorClienteCerrado{}, http.StatusBadRequest
+		return errorClienteCerrado{}, http.StatusBadRequest, claseFalloTelemetria(err, falloJSONTelemetria)
 	}
 	if dato.Pantalla != "portal_empleado" || !domain.EsCorrelacionTecnicaValida(dato.Correlacion) ||
 		(dato.Codigo != domain.IncidenciaClienteFalloNoClasificado && dato.Codigo != domain.IncidenciaModuloWebNoCargado) {
-		return errorClienteCerrado{}, http.StatusBadRequest
+		return errorClienteCerrado{}, http.StatusBadRequest, ""
 	}
-	return dato, 0
+	return dato, 0, ""
 }
 
-func origenMismoCanal(r *http.Request) bool {
+func origenMismoCanal(r *http.Request) (bool, falloValidacionTelemetria) {
 	origen := r.Header.Get("Origin")
 	if origen == "" || len(r.Header.Values("Origin")) != 1 ||
 		(r.Header.Get("Sec-Fetch-Site") != "" && r.Header.Get("Sec-Fetch-Site") != "same-origin") {
-		return false
+		return false, ""
 	}
 	u, err := url.Parse(origen)
-	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.String() != origen {
-		return false
+	if err != nil {
+		return false, claseFalloTelemetria(err, falloOrigenTelemetria)
+	}
+	if u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.String() != origen {
+		return false, ""
 	}
 	esquema := "http"
 	if r.TLS != nil {
 		esquema = "https"
 	}
-	return u.Scheme == esquema && strings.EqualFold(u.Host, r.Host)
+	return u.Scheme == esquema && strings.EqualFold(u.Host, r.Host), ""
+}
+
+func (h *Handler) registrarFalloValidacionTelemetria(r *http.Request, fallo falloValidacionTelemetria) {
+	switch fallo {
+	case falloLecturaTelemetria, falloJSONTelemetria, falloOrigenTelemetria:
+		ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), h.emisorIncidencias, domain.SolicitudIncidenciaTecnica{
+			Codigo: domain.IncidenciaRecoleccionDegradada, Componente: domain.ComponenteIncidenciaSupervision,
+			Etapa: domain.EtapaIncidenciaValidacion,
+		})
+	}
 }
 
 func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -126,7 +166,13 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !principal.HasPermission("vec.session.read") || !origenMismoCanal(r) {
+	if !principal.HasPermission("vec.session.read") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	origenValido, falloOrigen := origenMismoCanal(r)
+	if !origenValido {
+		h.registrarFalloValidacionTelemetria(r, falloOrigen)
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -140,8 +186,9 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
-	dato, estado := leerErrorCliente(r)
+	dato, estado, falloLectura := leerErrorCliente(r)
 	if estado != 0 {
+		h.registrarFalloValidacionTelemetria(r, falloLectura)
 		w.WriteHeader(estado)
 		return
 	}
