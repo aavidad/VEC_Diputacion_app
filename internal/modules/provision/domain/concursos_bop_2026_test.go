@@ -96,6 +96,16 @@ func TestBOP2026ExperienciaAgrupaFraccionesSoloMismoNivel(t *testing.T) {
 }
 
 func TestBOP2026PermanenciaCorrectorYMezclaPendiente(t *testing.T) {
+	grupo := func(t *testing.T, r d.Resultado) d.Detalle {
+		t.Helper()
+		for _, detalle := range concDesglose(t, r, d.Permanencia).Detalles {
+			if detalle.HechoID == "grupo:permanencia" {
+				return detalle
+			}
+		}
+		t.Fatal("falta grupo de permanencia")
+		return d.Detalle{}
+	}
 	c, e := ejemploBOP2026(t)
 	c.Reglas = []d.Regla{reglaBOP2026(t, c, d.Permanencia)}
 	c.CoberturaRequerida = ""
@@ -104,18 +114,29 @@ func TestBOP2026PermanenciaCorrectorYMezclaPendiente(t *testing.T) {
 	e.Cursos, e.Titulaciones = []d.Curso{}, []d.Titulo{}
 	e.Periodos = []d.Periodo{concPeriodo(t, "provisional", "2023-01-01", "2023-09-01", d.Permanencia)}
 	e.Periodos[0].Tipo = "provisional"
-	concTotal(t, concCalcular(t, c, e), 1_250_000)
+	r := concCalcular(t, c, e)
+	concTotal(t, r, 1_250_000)
+	if detalle := grupo(t, r); detalle.FactorJornada.String() != "1/1" || detalle.CorrectorProvisional != "1/2" || detalle.Motivo != "corrector_provisional_y_resto" {
+		t.Fatal("corrector provisional atribuido a jornada", detalle)
+	}
 	e.Periodos = []d.Periodo{concPeriodo(t, "definitivo", "2023-01-01", "2024-03-01", d.Permanencia)}
 	e.Periodos[0].Tipo = "definitivo"
-	concTotal(t, concCalcular(t, c, e), 2_500_000) // Dos meses no computables.
+	r = concCalcular(t, c, e)
+	concTotal(t, r, 2_500_000) // Dos meses no computables.
+	if detalle := grupo(t, r); detalle.FactorJornada.String() != "1/1" || detalle.CorrectorProvisional != "" || detalle.Motivo != "resto_sin_corrector" {
+		t.Fatal("se informó un corrector no aplicado", detalle)
+	}
 	e.Periodos = []d.Periodo{
 		concPeriodo(t, "definitivo", "2023-01-01", "2023-07-01", d.Permanencia),
 		concPeriodo(t, "provisional", "2023-07-01", "2024-03-01", d.Permanencia),
 	}
 	e.Periodos[0].Tipo, e.Periodos[1].Tipo = "definitivo", "provisional"
-	r := concCalcular(t, c, e)
+	r = concCalcular(t, c, e)
 	if r.Completo || r.Total != nil || len(r.Incidencias) != 1 || !strings.HasPrefix(r.Incidencias[0], "politica_no_admitida:") || concDesglose(t, r, d.Permanencia).Estado != "pendiente_politica" {
 		t.Fatal("mezcla produjo puntuación aceptada", r)
+	}
+	if detalle := grupo(t, r); detalle.FactorJornada.String() != "1/1" || detalle.CorrectorProvisional != "" || detalle.Resultado.Micropuntos() != 0 {
+		t.Fatal("la mezcla pendiente aparentó aplicar el corrector", detalle)
 	}
 	completa, entrada := ejemploBOP2026(t)
 	entrada.Periodos = e.Periodos

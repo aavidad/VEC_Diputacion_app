@@ -153,14 +153,12 @@ func calcularPermanenciaMixta(c Configuracion, r Regla, e Entrada) ([]Detalle, b
 		}
 		meses := mesesCompletos(desde, hasta)
 		dias, _ := desde.DiasHasta(hasta)
-		aplicado := entero(1)
 		if p.Tipo == r.TipoProvisional {
 			provisionales += meses
-			aplicado = factor
 		} else {
 			definitivos += meses
 		}
-		detalles = append(detalles, Detalle{HechoID: p.ID, EvidenciaRef: p.EvidenciaRef, Motivo: "meses_civiles_completos", DiasElegibles: dias, Unidades: entero(meses), FactorJornada: aplicado, Coeficiente: r.Coeficiente})
+		detalles = append(detalles, Detalle{HechoID: p.ID, EvidenciaRef: p.EvidenciaRef, Motivo: "meses_civiles_completos", DiasElegibles: dias, Unidades: entero(meses), FactorJornada: entero(1), Coeficiente: r.Coeficiente})
 	}
 	total := definitivos + provisionales
 	if total == 0 {
@@ -180,7 +178,7 @@ func calcularPermanenciaMixta(c Configuracion, r Regla, e Entrada) ([]Detalle, b
 		return detalles, b.Puntos{}, nil
 	}
 	if definitivos > 0 && provisionales > 0 {
-		detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: "reparto_mixto_pendiente", Unidades: entero(computables), FactorJornada: factor, Coeficiente: r.Coeficiente})
+		detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: "reparto_mixto_pendiente", Unidades: entero(computables), FactorJornada: entero(1), Coeficiente: r.Coeficiente})
 		return detalles, b.Puntos{}, fallo("politica_pendiente", "permanencia")
 	}
 	ponderados, err := entero(provisionales).Multiplicar(factor)
@@ -203,7 +201,11 @@ func calcularPermanenciaMixta(c Configuracion, r Regla, e Entrada) ([]Detalle, b
 	if err != nil {
 		return nil, b.Puntos{}, err
 	}
-	detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: "corrector_y_resto", Unidades: unidades, FactorJornada: factor, Coeficiente: r.Coeficiente, Bruto: puntos, Maximo: r.Maximo, Resultado: tope(puntos, r.Maximo)})
+	motivo, corrector := "resto_sin_corrector", ""
+	if provisionales > 0 {
+		motivo, corrector = "corrector_provisional_y_resto", factor.String()
+	}
+	detalles = append(detalles, Detalle{HechoID: "grupo:permanencia", Motivo: motivo, Unidades: unidades, FactorJornada: entero(1), CorrectorProvisional: corrector, Coeficiente: r.Coeficiente, Bruto: puntos, Maximo: r.Maximo, Resultado: tope(puntos, r.Maximo)})
 	return detalles, puntos, nil
 }
 

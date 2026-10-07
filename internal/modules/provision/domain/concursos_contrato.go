@@ -129,10 +129,12 @@ type Detalle struct {
 	DiasElegibles int64      `json:"dias_elegibles,omitempty"`
 	Unidades      b.Racional `json:"unidades"`
 	FactorJornada b.Racional `json:"factor_jornada"`
-	Coeficiente   b.Puntos   `json:"coeficiente"`
-	Bruto         b.Puntos   `json:"bruto"`
-	Maximo        b.Puntos   `json:"maximo"`
-	Resultado     b.Puntos   `json:"resultado"`
+	// Se informa sólo si el corrector se aplicó al resultado de la fila.
+	CorrectorProvisional string   `json:"corrector_provisional,omitempty"`
+	Coeficiente          b.Puntos `json:"coeficiente"`
+	Bruto                b.Puntos `json:"bruto"`
+	Maximo               b.Puntos `json:"maximo"`
+	Resultado            b.Puntos `json:"resultado"`
 }
 
 type Desglose struct {
