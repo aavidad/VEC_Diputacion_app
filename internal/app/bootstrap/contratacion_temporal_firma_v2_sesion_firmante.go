@@ -14,6 +14,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -25,24 +26,26 @@ var errSesionFirmanteV2Denegada = errors.New("contratacion temporal: sesion del 
 // Este consumidor sólo admite el certificado del canal TLS verificado y coteja
 // su resultado con la selección AUT56 y la persona del certificado CA25.
 type autoridadSesionFirmanteV2 struct {
-	fuente       ports.FuenteSesionFirmanteV2
-	reloj        vp.Reloj
-	preacreditar func(*http.Request) error
-	garantia     core.AuthAssurance
+	fuente         ports.FuenteSesionFirmanteV2
+	reloj          vp.Reloj
+	preacreditar   func(*http.Request) error
+	garantia       core.AuthAssurance
+	exigirCanalTLS bool
 }
 
 type capsulaSesionFirmanteV2 struct {
-	autoridad    *autoridadSesionFirmanteV2
-	peticion     *http.Request
-	seleccion    ports.SeleccionFirmanteV2
-	personaCA25  string
-	huellaAUT56  string
-	verificadoEn time.Time
-	validoHasta  time.Time
-	consumida    atomic.Bool
-	mu           sync.Mutex
-	sesion       ports.SesionFirmanteV2
-	fallida      bool
+	autoridad               *autoridadSesionFirmanteV2
+	peticion                *http.Request
+	seleccion               ports.SeleccionFirmanteV2
+	personaCA25             string
+	huellaAUT56             string
+	canalTLSVinculadoSHA256 string
+	verificadoEn            time.Time
+	validoHasta             time.Time
+	consumida               atomic.Bool
+	mu                      sync.Mutex
+	sesion                  ports.SesionFirmanteV2
+	fallida                 bool
 }
 
 func nuevaAutoridadSesionFirmanteV2ConFuente(fuente ports.FuenteSesionFirmanteV2, reloj vp.Reloj,
@@ -81,8 +84,29 @@ func (a *autoridadSesionFirmanteV2) acreditar(r *http.Request, seleccion ports.S
 		!huellaSHA256ValidaContratacionTemporalDesarrollo(seleccion.VinculoCertificado.HuellaSHA256) {
 		return nil, errSesionFirmanteV2Denegada
 	}
+	var canalSHA256 string
+	if a.exigirCanalTLS {
+		var valido bool
+		canalSHA256, valido = canalSesionFirmanteV2(r)
+		if !valido {
+			return nil, errSesionFirmanteV2Denegada
+		}
+	}
 	return &capsulaSesionFirmanteV2{autoridad: a, peticion: r, seleccion: seleccion,
-		personaCA25: personaCA25, huellaAUT56: huella, verificadoEn: ahora, validoHasta: hasta}, nil
+		personaCA25: personaCA25, huellaAUT56: huella, canalTLSVinculadoSHA256: canalSHA256,
+		verificadoEn: ahora, validoHasta: hasta}, nil
+}
+
+func canalSesionFirmanteV2(r *http.Request) (string, bool) {
+	if r == nil || r.TLS == nil {
+		return "", false
+	}
+	referencia, err := httpseguridad.ReferenciaCanalAsercionPasarela(*r.TLS, httpseguridad.SuperficieInternaCorporativa)
+	if err != nil || referencia == "" {
+		return "", false
+	}
+	suma := sha256.Sum256([]byte(referencia))
+	return hex.EncodeToString(suma[:]), true
 }
 
 // certificadoSesionFirmanteV2 exige una única cadena comprobada por TLS y la
@@ -117,17 +141,24 @@ func (a *autoridadSesionFirmanteV2) abrirConContexto(ctx context.Context, r *htt
 ) {
 	var vacio core.VinculoAutenticacionActorV2
 	var sinContexto core.ResultadoContextoActorRegistradoV2
-	if a == nil || ctx == nil || ctx.Err() != nil || c == nil || c.autoridad != a || c.peticion != r ||
+	if ctx != nil && ctx.Err() != nil {
+		return vacio, sinContexto, falloSesionFirmanteV2(ctx.Err())
+	}
+	if a == nil || ctx == nil || c == nil || c.autoridad != a || c.peticion != r ||
 		!c.consumida.CompareAndSwap(false, true) || !a.peticionVigente(r, c) {
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
 	solicitud := ports.SolicitudSesionFirmanteV2{CertificadoCanalSHA256: c.huellaAUT56,
-		PersonaEsperadaRef: c.personaCA25, CuentaEsperadaRef: c.seleccion.CuentaRef,
+		CanalTLSVinculadoSHA256: c.canalTLSVinculadoSHA256,
+		PersonaEsperadaRef:      c.personaCA25, CuentaEsperadaRef: c.seleccion.CuentaRef,
 		PerfilEsperadoRef: c.seleccion.PerfilActivoRef, RolEsperadoID: c.seleccion.RolID,
 		CertificadoVerificadoEn:   c.verificadoEn,
 		CertificadoTLSValidoHasta: c.validoHasta}
 	sesion, err := a.fuente.AbrirSesionFirmanteV2(ctx, solicitud)
-	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(sesion) {
+	if err != nil {
+		return vacio, sinContexto, falloSesionFirmanteV2(err)
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(sesion) {
 		return vacio, sinContexto, errSesionFirmanteV2NoDisponible
 	}
 	c.mu.Lock()
@@ -152,7 +183,10 @@ func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r 
 ) {
 	var vacio core.VinculoAutenticacionActorV2
 	var sinContexto core.ResultadoContextoActorRegistradoV2
-	if a == nil || ctx == nil || ctx.Err() != nil || c == nil || c.autoridad != a || c.peticion != r || !c.consumida.Load() || !a.peticionVigente(r, c) {
+	if ctx != nil && ctx.Err() != nil {
+		return vacio, sinContexto, falloSesionFirmanteV2(ctx.Err())
+	}
+	if a == nil || ctx == nil || c == nil || c.autoridad != a || c.peticion != r || !c.consumida.Load() || !a.peticionVigente(r, c) {
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
 	c.mu.Lock()
@@ -163,7 +197,7 @@ func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r 
 	e, err := c.sesion.RevalidarSesionFirmanteV2(ctx)
 	if err != nil {
 		c.fallida = true
-		return vacio, sinContexto, errSesionFirmanteV2Denegada
+		return vacio, sinContexto, falloSesionFirmanteV2(err)
 	}
 	ahora := a.reloj.Ahora()
 	datos, err := e.Vinculo.Datos()
@@ -190,5 +224,12 @@ func (a *autoridadSesionFirmanteV2) peticionVigente(r *http.Request, c *capsulaS
 		return false
 	}
 	_, huella, ok := certificadoSesionFirmanteV2(r, a.reloj.Ahora())
-	return ok && huella == c.huellaAUT56
+	if !ok || huella != c.huellaAUT56 {
+		return false
+	}
+	if !a.exigirCanalTLS {
+		return true
+	}
+	canal, valido := canalSesionFirmanteV2(r)
+	return valido && canal == c.canalTLSVinculadoSHA256
 }

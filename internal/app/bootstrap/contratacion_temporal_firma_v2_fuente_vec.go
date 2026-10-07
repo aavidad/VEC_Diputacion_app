@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -17,6 +18,25 @@ import (
 // El contenedor pertenece a una sola petición. No se serializa ni admite
 // material del cliente como selección de persona, cuenta o perfil.
 type claveCompetenciaFirmaVecV2 struct{}
+
+type errorFirmaVecV2Opaco struct{ causa error }
+
+func (e *errorFirmaVecV2Opaco) Error() string    { return ports.ErrFirmaDocumentoDenegada.Error() }
+func (e *errorFirmaVecV2Opaco) String() string   { return e.Error() }
+func (e *errorFirmaVecV2Opaco) GoString() string { return e.Error() }
+func (e *errorFirmaVecV2Opaco) Format(estado fmt.State, _ rune) {
+	_, _ = estado.Write([]byte(e.Error()))
+}
+func (e *errorFirmaVecV2Opaco) Unwrap() []error {
+	return []error{ports.ErrFirmaDocumentoDenegada, e.causa}
+}
+
+func falloFirmaVecV2(causa error) error {
+	if causa == nil {
+		return ports.ErrFirmaDocumentoDenegada
+	}
+	return &errorFirmaVecV2Opaco{causa: causa}
+}
 
 type contenedorCompetenciaFirmaVecV2 struct {
 	peticion  *http.Request
@@ -80,7 +100,10 @@ func (c *contenedorCompetenciaFirmaVecV2) leer() (ports.EvidenciaCompetenciaFirm
 
 func (c *contenedorCompetenciaFirmaVecV2) resolver(ctx context.Context, a *autoridadSesionFirmanteV2) (firmaemisorv2.ContextoActorFirmaV2, error) {
 	var cero firmaemisorv2.ContextoActorFirmaV2
-	if c == nil || a == nil || ctx == nil || ctx.Err() != nil {
+	if ctx != nil && ctx.Err() != nil {
+		return cero, falloFirmaVecV2(ctx.Err())
+	}
+	if c == nil || a == nil || ctx == nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	c.mu.Lock()
@@ -106,7 +129,7 @@ func (c *contenedorCompetenciaFirmaVecV2) resolver(ctx context.Context, a *autor
 	}
 	if err != nil {
 		c.fallida = true
-		return cero, ports.ErrFirmaDocumentoDenegada
+		return cero, falloFirmaVecV2(err)
 	}
 	return firmaemisorv2.ContextoActorFirmaV2{Vinculo: vinculo, Resultado: resultado,
 		CertificadoCanalSHA256: c.evidencia.Solicitud.CertificadoHuella}, nil
@@ -123,6 +146,9 @@ var _ consultafirmasv2.FuenteContexto = (*fuenteNominalFirmaVecV2)(nil)
 
 func (f *fuenteNominalFirmaVecV2) RevalidarContextoActorFirmaV2(ctx context.Context) (firmaemisorv2.ContextoActorFirmaV2, error) {
 	var cero firmaemisorv2.ContextoActorFirmaV2
+	if ctx != nil && ctx.Err() != nil {
+		return cero, falloFirmaVecV2(ctx.Err())
+	}
 	if f == nil || f.autoridad == nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}

@@ -32,6 +32,7 @@ func nuevaAutoridadSesionFirmanteV2Certificado(
 		return nil, err
 	}
 	a.garantia = core.AuthAssuranceSubstantial
+	a.exigirCanalTLS = true
 	return a, nil
 }
 
@@ -55,8 +56,7 @@ func (f *fuenteCertificadoFirmaVecV2) AbrirSesionFirmanteV2(ctx context.Context,
 	if err != nil {
 		return nil, errSesionFirmanteV2Denegada
 	}
-	s := &sesionCertificadoFirmaVecV2{fuente: f, solicitud: q, esperados: esperados,
-		canalInicial: registrada.CanalSHA256()}
+	s := &sesionCertificadoFirmaVecV2{fuente: f, solicitud: q, esperados: esperados}
 	if _, err := s.cotejar(registrada, f.reloj.Ahora()); err != nil {
 		return nil, err
 	}
@@ -64,10 +64,9 @@ func (f *fuenteCertificadoFirmaVecV2) AbrirSesionFirmanteV2(ctx context.Context,
 }
 
 type sesionCertificadoFirmaVecV2 struct {
-	fuente       *fuenteCertificadoFirmaVecV2
-	solicitud    ports.SolicitudSesionFirmanteV2
-	esperados    identidadordinaria.EsperadosSesion
-	canalInicial string
+	fuente    *fuenteCertificadoFirmaVecV2
+	solicitud ports.SolicitudSesionFirmanteV2
+	esperados identidadordinaria.EsperadosSesion
 }
 
 func (s *sesionCertificadoFirmaVecV2) RevalidarSesionFirmanteV2(ctx context.Context) (ports.EvidenciaSesionFirmanteV2, error) {
@@ -94,7 +93,7 @@ func (s *sesionCertificadoFirmaVecV2) cotejar(registrada identidadordinaria.Sesi
 	var cero ports.EvidenciaSesionFirmanteV2
 	if s == nil || s.fuente == nil || !solicitudCertificadoFirmaVecV2Valida(s.solicitud, ahora) ||
 		registrada.CanalSHA256() == "" ||
-		subtle.ConstantTimeCompare([]byte(registrada.CanalSHA256()), []byte(s.canalInicial)) != 1 ||
+		subtle.ConstantTimeCompare([]byte(registrada.CanalSHA256()), []byte(s.solicitud.CanalTLSVinculadoSHA256)) != 1 ||
 		registrada.EmpleadoRef() == "" || !ahora.Before(registrada.VigenteHasta()) {
 		return cero, errSesionFirmanteV2Denegada
 	}
@@ -132,6 +131,7 @@ func (s *sesionCertificadoFirmaVecV2) cotejar(registrada identidadordinaria.Sesi
 
 func solicitudCertificadoFirmaVecV2Valida(q ports.SolicitudSesionFirmanteV2, ahora time.Time) bool {
 	return huellaSHA256ValidaContratacionTemporalDesarrollo(q.CertificadoCanalSHA256) &&
+		huellaSHA256ValidaContratacionTemporalDesarrollo(q.CanalTLSVinculadoSHA256) &&
 		q.PersonaEsperadaRef != "" && q.CuentaEsperadaRef != "" &&
 		q.PerfilEsperadoRef != "" && q.RolEsperadoID != "" &&
 		!q.CertificadoVerificadoEn.IsZero() && !q.CertificadoVerificadoEn.After(ahora) &&
