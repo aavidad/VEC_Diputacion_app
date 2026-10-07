@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ type respuestaAdmision struct {
 
 // La fachada devuelve un intento auditado en cualquier estado. El efecto se
 // confirma únicamente después de cotejar el recibo con el plan enviado.
-func aplicarPlanEnTransaccion(ctx context.Context, tx transaccionAdmision, plan []byte, huella string, esperado planMinimo) (respuestaAdmision, error) {
+func aplicarPlanEnTransaccion(ctx context.Context, tx transaccionAdmision, plan []byte, huella string, esperado planAdmision) (respuestaAdmision, error) {
 	defer func() {
 		limite, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelar()
@@ -55,7 +56,7 @@ func aplicarPlanEnTransaccion(ctx context.Context, tx transaccionAdmision, plan 
 	return r, nil
 }
 
-func validarRespuestaAdmision(b []byte, plan planMinimo, planSHA string) (respuestaAdmision, error) {
+func validarRespuestaAdmision(b []byte, plan planAdmision, planSHA string) (respuestaAdmision, error) {
 	ahora := time.Now().UTC()
 	m, err := objetoExacto(b, "estado", "codigo", "recibo", "replay", "auditoria_intento")
 	if err != nil {
@@ -90,7 +91,7 @@ func validarRespuestaAdmision(b []byte, plan planMinimo, planSHA string) (respue
 	return respuestaAdmision{Estado: estado}, nil
 }
 
-func validarReciboAdmision(b []byte, p planMinimo, planSHA string, ahora time.Time) error {
+func validarReciboAdmision(b []byte, p planAdmision, planSHA string, ahora time.Time) error {
 	m, err := objetoExacto(b, "esquema", "operacion_ref", "plan_sha256", "catalogo_ref",
 		"catalogo_version", "catalogo_sha256", "paquete_ref", "paquete_version", "paquete_sha256",
 		"censo_sha256", "aprobacion_ref", "aprobacion_sha256", "aprobador_ref",
@@ -152,8 +153,29 @@ func validarAuditoriaIntento(b []byte, ahora time.Time) error {
 }
 
 func objetoExacto(b []byte, claves ...string) (map[string]json.RawMessage, error) {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(b, &m) != nil || len(m) != len(claves) {
+	lector := json.NewDecoder(bytes.NewReader(b))
+	inicio, err := lector.Token()
+	if err != nil || inicio != json.Delim('{') {
+		return nil, errRespuestaAdmision
+	}
+	m := make(map[string]json.RawMessage, len(claves))
+	for lector.More() {
+		clave, err := lector.Token()
+		nombre, ok := clave.(string)
+		if err != nil || !ok {
+			return nil, errRespuestaAdmision
+		}
+		if _, repetida := m[nombre]; repetida {
+			return nil, errRespuestaAdmision
+		}
+		var valor json.RawMessage
+		if lector.Decode(&valor) != nil {
+			return nil, errRespuestaAdmision
+		}
+		m[nombre] = valor
+	}
+	fin, err := lector.Token()
+	if err != nil || fin != json.Delim('}') || !errors.Is(lector.Decode(new(any)), io.EOF) || len(m) != len(claves) {
 		return nil, errRespuestaAdmision
 	}
 	for _, clave := range claves {
