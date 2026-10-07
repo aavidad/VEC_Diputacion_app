@@ -1,0 +1,15 @@
+# AD217, sólo RPT pública v2. Aplicar una vez sobre copia POST216 con sus
+# preimágenes exactas; no reaplicar AD214/AD216 ni ejecutar DOWN.
+# Causal anterior: AD211→Personal22→AD175→Personal32→AD180→Personal34→AD214→AD216.
+# Núcleo PRE217 (POST216) instalado: def 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3;
+# prosrc 03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd.
+# Núcleo POST217 previsto: def e314eb6242dd0681dbd8cf5618e4287140831f56ab9faa8fe2222f89f0196773;
+# prosrc 1a8271745e5c0cb028ad91d105e69f31a13dd7e046aa31385405d54e5518c9f7.
+# CHECK preimagen SHA256 8dae0267b85ad237770d0ccdb7fbf9862afe6d7d022c0c93f4385c182bcbc68e.
+# Requiere antes la preparación DBA privada del LOGIN/grupo exclusivos, sin
+# secretos en Git. Personal39 del productor T va DESPUÉS de esta migración.
+# B1/AD203 antiguo, vínculo Personal y Nóminas están fuera de este corte.
+# HZ AD216 histórico: su cotejo posterior del CHECK no reitera c.convalidated.
+# AD217 exige c.convalidated en la preimagen y después de añadir su audiencia;
+# se conserva intacto el fichero/huella de AD216 ya fusionado, sin reaplicarlo.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000217_consulta_rpt_publica_v2.up.sql

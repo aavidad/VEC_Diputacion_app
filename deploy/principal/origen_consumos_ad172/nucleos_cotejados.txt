@@ -14,3 +14,6 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD216: sólo bolsa_ref de candidatos acotada; definición del núcleo
 # 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3.
 03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd
+# Post AD217: sólo RPT pública v2, origen y grupo lector propios; definición
+# e314eb6242dd0681dbd8cf5618e4287140831f56ab9faa8fe2222f89f0196773.
+1a8271745e5c0cb028ad91d105e69f31a13dd7e046aa31385405d54e5518c9f7
