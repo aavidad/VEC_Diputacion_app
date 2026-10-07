@@ -44,8 +44,8 @@ BEGIN
   ] LOOP
     SELECT proowner,prosecdef,proconfig,proacl INTO p FROM pg_proc WHERE oid=to_regprocedure(f);
     IF NOT FOUND OR p.proowner IS DISTINCT FROM 'vec_autorizacion_propietario'::regrole
-      OR p.proconfig IS NULL OR NOT p.proconfig @> ARRAY['search_path=pg_catalog']
-      OR (f LIKE '%preimagen%' OR f LIKE '%aplicar%' OR f LIKE '%mantener%') AND p.prosecdef IS NOT TRUE
+      OR p.proconfig IS NULL OR NOT p.proconfig @> ARRAY[CASE WHEN p.prosecdef THEN 'search_path=pg_catalog, pg_temp' ELSE 'search_path=pg_catalog' END]
+      OR (f LIKE '%exigir_operador%' OR f LIKE '%preimagen%' OR f LIKE '%aplicar%' OR f LIKE '%mantener%') AND p.prosecdef IS NOT TRUE
     THEN RAISE EXCEPTION 'AUT59: owner, SECURITY DEFINER o search_path de %',f; END IF;
     IF EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
       WHERE x.grantee<>p.proowner AND
