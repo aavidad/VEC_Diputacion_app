@@ -1,4 +1,4 @@
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, localizacionDe, prepararIdiomas } from "../comun/idioma.js";
+import { IDIOMA_POR_DEFECTO, localizacionDe } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
 
 /**
@@ -23,16 +23,15 @@ function aplanar(seccion, prefijo = "", salida = {}) {
 /** Catálogo común del shell en `idioma` (por defecto, el de la interfaz). */
 let idiomaInicialDelShell;
 export async function cargarMensajesPortal(idioma) {
-  // El índice es asíncrono: elegir el idioma antes de prepararlo usaría
-  // provisionalmente el atributo lang del documento.
-  await prepararIdiomas().catch(() => null);
-  let elegido = idioma ?? IDIOMA_ACTUAL;
-  const modulos = ["portal", "portal-ayuda", "preferencias", "bolsa"];
-  let [portal, ayuda, preferencias, bolsa] = await Promise.all(modulos
+  // La primera carga prepara el índice y devuelve el idioma realmente visible.
+  let portal = await cargarTextos("portal", { idioma });
+  let elegido = portal.idioma;
+  const modulos = ["portal-ayuda", "preferencias", "bolsa"];
+  let [ayuda, preferencias, bolsa] = await Promise.all(modulos
     .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
   if ([portal, ayuda, preferencias, bolsa].some((catalogo) => catalogo.idioma !== elegido)) {
     elegido = IDIOMA_POR_DEFECTO;
-    [portal, ayuda, preferencias, bolsa] = await Promise.all(modulos
+    [portal, ayuda, preferencias, bolsa] = await Promise.all(["portal", ...modulos]
       .map((modulo) => cargarTextos(modulo, { idioma: elegido })));
   }
   idiomaInicialDelShell ??= portal.idioma;
