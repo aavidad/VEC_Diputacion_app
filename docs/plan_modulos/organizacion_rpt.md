@@ -302,6 +302,47 @@ la huella `900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6`.
 Semgrep con cuatro reglas locales y gosec focal no comunicaron hallazgos.
 La revisión independiente y la integración corresponden a Dirección.
 
+## Corrección candidata del PDF público, 7 de octubre de 2026
+
+El importador local separa las continuaciones por su columna en el texto de
+`pdftotext -layout`. En el PDF público con SHA-256
+`67cfc02f025c2697d6a3dc6e7a22ad7fe23b4e7c941a7f343e95beda377edb4a`,
+conserva 842 filas, 1.714 dotaciones y las 842 claves publicadas. Completa 57
+denominaciones de puesto que habían quedado cortadas; entre ellas, los puestos
+422, 412 y 296 ya no trasladan sus continuaciones a la categoría. En el 217,
+«ESPECÍFICA» sí continúa la celda de categoría. Las alternativas numeradas
+del puesto 407 son «ENFERMERO/A» y «MÉDICO/A»; el grupo compuesto A1/A2 se
+conserva en el puesto sin asignar un subgrupo a cada alternativa. El 748 tiene
+tres alternativas numeradas de ingeniería.
+
+El candidato generado para comparación queda fuera de Git. Tiene 842 puestos,
+1.714 dotaciones, 41 centros y 131 categorías frente a las 145 del v1 publicado.
+La comparación conserva claves de puesto, dotación, centro, delegación, nivel,
+complemento, tipo y provisión. El generador exige `--out`, impide escribir sobre
+el v1 publicado y emite `vec.catalogo.rpt.candidato.v1` con estado
+`preparacion_no_autoritativa`; los lectores del esquema v1 no lo aceptan. El
+ensayo local usó este comando tras extraer la importación del PDF acreditado:
+
+```bash
+python3 scripts/generar_catalogo_rpt.py --in /var/tmp/codext-rpt-import-20261007.json --out /var/tmp/codext-rpt-candidato-20261007.json --generated-on 2026-09-17
+```
+
+Las denominaciones sin grupo acreditado quedan anotadas en
+`categorias_pendientes_grupo` y, con su origen, junto a cada puesto afectado.
+Son 11 puestos en el ensayo. Todas las referencias de categoría de los puestos
+apuntan a una categoría presente en el candidato; una celda de varias opciones
+conserva vacía la referencia singular aunque una alternativa esté resuelta.
+El catálogo candidato no debe alimentar altas hasta que se acuerde el contrato
+de publicación y se revisen esas diferencias.
+
+`data/catalogos/rpt/v1.rpt-2026.json` y su huella siguen intactos. El lector
+de altas de desarrollo ofrece todas sus categorías, incluidas las referencias
+que podrían estar en expedientes existentes; no reconoce una marca de baja.
+Una versión posterior necesita conservar v1 para consultas históricas y definir
+cómo excluir opciones erróneas de nuevas altas sin perder referencias. La
+denominación «BASE B SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
+puesto 217. Su tratamiento de gobierno sigue pendiente: no se elimina por
+deducción del importador.
 
 ## Contratos de gobierno para la fuente común — 7 de octubre de 2026
 
