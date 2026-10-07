@@ -10,7 +10,11 @@ func TestModuloReferenciaExpedienteV1(t *testing.T) {
 	if got := ModuloReferenciaExpedienteV1("expediente:ct:" + id); got != "contratacion_temporal" {
 		t.Fatalf("módulo CT = %q", got)
 	}
+	if got := ModuloReferenciaExpedienteV1("expediente:ct:" + strings.Repeat("0", 63) + "1"); got != "contratacion_temporal" {
+		t.Fatalf("ID CT no cero con prefijo cero = %q", got)
+	}
 	for _, referencia := range []string{
+		"expediente:ct:" + strings.Repeat("0", 64),
 		"ref:" + id,
 		"expediente:bolsa:" + id,
 		"expediente:CT:" + id,
