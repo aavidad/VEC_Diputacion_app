@@ -43,6 +43,7 @@ const recursosCT = new Map([
 
 export function validarRespuesta(etiqueta, solicitado, respuesta, origen) {
   const fallos = [];
+  if (!codigos.has(solicitado)) fallos.push(`${etiqueta}: locale ${solicitado} ausente del índice`);
   if (!respuesta || respuesta.idioma !== solicitado || respuesta.incidenciaCatalogo || respuesta.incidenciaIndice) {
     fallos.push(`${etiqueta}: el idioma solicitado ${solicitado} no se cargó íntegro`);
   }
