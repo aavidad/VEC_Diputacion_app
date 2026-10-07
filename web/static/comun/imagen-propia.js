@@ -90,18 +90,58 @@ async function contenidoJSON(respuesta) {
 /**
  * Envuelve `fetch` para que las peticiones a las rutas de Usuarios salgan de
  * una en una: la identidad de desarrollo no admite dos altas de sesión
- * simultáneas de la misma cuenta. Cada respuesta se lee entera antes de dar
- * paso a la siguiente.
+ * simultáneas de la misma cuenta. Lee el cuerpo con el límite de su ruta antes
+ * de dar paso a la siguiente; tampoco retiene una respuesta sin longitud.
  */
 export function peticionesEnSerie(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("fetch no disponible");
+  const limites = new Map([
+    ["/api/vec/usuarios/mi-imagen", MAX_RESPUESTA],
+    ["/api/vec/usuarios/area-personal/mi-imagen", MAX_RESPUESTA],
+    ["/api/vec/usuarios/mis-preferencias", 65536],
+    ["/api/vec/usuarios/mis-correos", 65536],
+    ["/api/vec/usuarios/area-personal/mis-correos", 65536],
+  ]);
   let cola = Promise.resolve();
   return function fetchEnSerie(recurso, opciones) {
     const turno = cola.then(async () => {
       const respuesta = await fetchImpl(recurso, opciones);
-      const cuerpo = await respuesta.arrayBuffer();
       const sinCuerpo = [101, 204, 205, 304].includes(respuesta.status);
-      return new Response(sinCuerpo ? null : cuerpo, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
+      if (sinCuerpo) return new Response(null, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
+      const limite = limites.get(recurso) ?? 65536;
+      const longitud = respuesta.headers?.get?.("content-length");
+      if (longitud != null && (!/^\d+$/u.test(longitud) || Number(longitud) > limite)) {
+        try { await respuesta.body?.cancel?.(); } catch { /* La respuesta no se usará. */ }
+        throw new TypeError("respuesta_serie_demasiado_grande");
+      }
+      if (!respuesta.body?.getReader) throw new TypeError("respuesta_serie_sin_flujo");
+      const lector = respuesta.body.getReader();
+      const partes = [];
+      let total = 0;
+      let abortar;
+      const cancelada = new Promise((_resolve, reject) => {
+        abortar = () => reject(new TypeError("respuesta_serie_cancelada"));
+        opciones?.signal?.addEventListener?.("abort", abortar, { once: true });
+      });
+      const temporizador = setTimeout(abortar, LIMITE_MS);
+      try {
+        if (opciones?.signal?.aborted) throw new TypeError("respuesta_serie_cancelada");
+        for (;;) {
+          const { done, value } = await Promise.race([lector.read(), cancelada]);
+          if (done) break;
+          total += value.byteLength;
+          if (total > limite) throw new TypeError("respuesta_serie_demasiado_grande");
+          partes.push(value);
+        }
+      } finally {
+        clearTimeout(temporizador);
+        opciones?.signal?.removeEventListener?.("abort", abortar);
+        try { await lector.cancel(); } catch { /* La cola debe liberarse tras el descarte. */ }
+      }
+      const cuerpo = new Uint8Array(total);
+      let posicion = 0;
+      for (const parte of partes) { cuerpo.set(parte, posicion); posicion += parte.byteLength; }
+      return new Response(cuerpo, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
     });
     cola = turno.then(() => undefined, () => undefined);
     return turno;
