@@ -103,6 +103,13 @@ func TestMovimientosYPermisosPropiosParametrosYFalloCerrado(t *testing.T) {
 		w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("vínculo caducado no se deniega sin datos", w.Code, w.Body.String())
 	}
+	caso.err = ports.ErrDependenciaNoDisponible
+	w = httptest.NewRecorder()
+	mov.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultarMovimientosPropios+"?periodo=hoy", nil))
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), `"error":"no_disponible"`) ||
+		strings.Contains(w.Body.String(), "calendario") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("auditoría caída expuso movimientos", w.Code, w.Body.String())
+	}
 }
 
 func TestSolicitudesPropiasCuerpoEstrictoYErroresNominales(t *testing.T) {

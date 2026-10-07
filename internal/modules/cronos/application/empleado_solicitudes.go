@@ -11,7 +11,7 @@ import (
 
 // empleadoVigente exige el único empleado canónico del contexto registrado
 // y que la instantánea siga vigente en el reloj del servidor.
-func empleadoVigente(actor vecdomain.ContextoActor, reloj ports.Reloj) (string, time.Time, error) {
+func empleadoVigente(ctx context.Context, actor vecdomain.ContextoActor, reloj ports.Reloj) (string, time.Time, error) {
 	empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
 	if err != nil || len(empleados) != 1 {
 		return "", time.Time{}, ports.ErrDependenciaNoDisponible
@@ -21,6 +21,9 @@ func empleadoVigente(actor vecdomain.ContextoActor, reloj ports.Reloj) (string, 
 		return "", time.Time{}, ports.ErrDependenciaNoDisponible
 	}
 	if !vinculoEmpleadoCRN11Vigente(actor, empleados[0], ahora) {
+		if err := registrarDenegacionVinculo(ctx, actor); err != nil {
+			return "", time.Time{}, err
+		}
 		return "", time.Time{}, ports.ErrEmpleadoNoAcreditado
 	}
 	return empleados[0], ahora, nil
@@ -49,7 +52,7 @@ func (s *ServicioConsultaMovimientos) ConsultarMovimientos(ctx context.Context, 
 	if err != nil {
 		return ports.ConsultaMovimientos{}, err
 	}
-	empleado, ahora, err := empleadoVigente(actor, s.reloj)
+	empleado, ahora, err := empleadoVigente(ctx, actor, s.reloj)
 	if err != nil {
 		return ports.ConsultaMovimientos{}, err
 	}
@@ -122,7 +125,7 @@ func (s *ServicioPermisosPropios) contexto(ctx context.Context, orden ports.Orde
 	if err != nil {
 		return vecdomain.ContextoActor{}, "", time.Time{}, err
 	}
-	empleado, ahora, err := empleadoVigente(actor, s.reloj)
+	empleado, ahora, err := empleadoVigente(ctx, actor, s.reloj)
 	return actor, empleado, ahora, err
 }
 
