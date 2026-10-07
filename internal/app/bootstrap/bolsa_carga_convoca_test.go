@@ -16,7 +16,7 @@ import (
 
 func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	perfil := "prf_bolsa_bback"
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 		t.Fatal(err)
 	}
 	politica := politicaDescriptoresBolsaPrueba(t)
-	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica)
+	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,6 +57,31 @@ func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	}
 }
 
+func TestCargaConvocaNoSeDeclaraEnCatalogoActivoSinPlantilla(t *testing.T) {
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ruta := range []string{bolsahttp.RutaVistaPreviaCargaConvoca, bolsahttp.RutaConfirmarCargaConvoca} {
+		if _, ok := catalogo.resolver(http.MethodPost, ruta); ok {
+			t.Fatalf("B1 expuesta sin plantilla: %s", ruta)
+		}
+	}
+	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaDescriptoresBolsaPrueba(t), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, descriptor := range autorizaciones {
+		if descriptor.Accion == puertosbolsa.AccionConfirmarCargaConvoca {
+			t.Fatal("B1 autoriza sin plantilla")
+		}
+	}
+}
+
 func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 	e := nuevaSesionConsultaPrueba(t)
 	directorio := t.TempDir()
@@ -69,7 +94,7 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.resolutor.base = bolsa.soporteCanal.contexto.Resultado
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(bolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(bolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -60,7 +60,7 @@ func politicaDescriptoresBolsaPrueba(t *testing.T) politicaAutorizacionSolicitud
 }
 
 func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", true)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", true, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
