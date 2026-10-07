@@ -105,7 +105,7 @@ BEGIN
  THEN RAISE EXCEPTION 'AD220: marcas o ACL del núcleo divergentes' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
  INTO compartidas FROM pg_shdepend d WHERE d.classid='pg_proc'::regclass AND d.objid=f
  AND d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database());
  nueva:=replace(replace(replace(original,runtime_marca,runtime_nueva||runtime_marca),excl_marca,excl_nueva),tupla_marca,tupla_nueva||tupla_marca);
