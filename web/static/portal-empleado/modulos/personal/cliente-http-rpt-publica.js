@@ -5,14 +5,91 @@ function error(codigo, estado) { return new ErrorClienteRPTPublica(codigo, estad
 function registro(v) { return v !== null && typeof v === "object" && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype; }
 function texto(v, maximo, vacio = false) { return typeof v === "string" && v === v.trim() && (vacio || v.length > 0) && v.length <= maximo && !/[\x00-\x1F\x7F-\x9F]/u.test(v); }
 function entero(v, minimo = 0) { return Number.isSafeInteger(v) && v >= minimo; }
-function validarConsulta(consulta) { if (!registro(consulta) || Object.keys(consulta).length !== 4 || !["categorias", "puestos"].includes(consulta.vista) || typeof consulta.q !== "string" || consulta.q !== consulta.q.trim() || consulta.q.length > 100 || !entero(consulta.limit, 1) || consulta.limit > 100 || !entero(consulta.offset)) throw new TypeError("consulta RPT pública no válida"); return Object.freeze({ ...consulta }); }
+function validarConsulta(consulta) {
+  const claves = ["vista", "q", "limit", "offset", "categoria_clave", "centro_codigo"];
+  if (!registro(consulta) || Object.keys(consulta).some((clave) => !claves.includes(clave))
+    || !["categorias", "puestos", "centros"].includes(consulta.vista)
+    || typeof consulta.q !== "string" || consulta.q !== consulta.q.trim() || consulta.q.length > 100
+    || !entero(consulta.limit, 1) || consulta.limit > 100 || !entero(consulta.offset))
+    throw new TypeError("consulta RPT pública no válida");
+  const categoria_clave = consulta.categoria_clave ?? "", centro_codigo = consulta.centro_codigo ?? "";
+  if ((categoria_clave !== "" && (categoria_clave.length > 64 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(categoria_clave)))
+    || (centro_codigo !== "" && (!texto(centro_codigo, 64) || /[\x00-\x1F\x7F-\x9F]/u.test(centro_codigo)))
+    || (consulta.vista !== "puestos" && (categoria_clave !== "" || centro_codigo !== "")))
+    throw new TypeError("consulta RPT pública no válida");
+  return Object.freeze({ vista: consulta.vista, q: consulta.q, limit: consulta.limit, offset: consulta.offset, categoria_clave, centro_codigo });
+}
 function validarSignal(signal) { if (signal === undefined) return undefined; if (!signal || typeof signal !== "object" || typeof signal.aborted !== "boolean" || typeof signal.addEventListener !== "function" || typeof signal.removeEventListener !== "function") throw error("signal_no_valida"); if (signal.aborted) throw error("operacion_abortada"); return signal; }
 async function cancelar(respuesta) { try { await respuesta?.body?.cancel?.("respuesta descartada"); } catch {} }
 async function leerJSON(respuesta, signal) { const declarada = respuesta.headers?.get?.("content-length"); if (declarada !== null && declarada !== undefined && (!/^(?:0|[1-9][0-9]*)$/u.test(declarada) || Number(declarada) > MAXIMO_BYTES)) { await cancelar(respuesta); throw error("respuesta_excesiva", respuesta.status); } if (!respuesta.body || typeof respuesta.body.getReader !== "function") { await cancelar(respuesta); throw error("respuesta_no_incremental", respuesta.status); } const lector = respuesta.body.getReader(); const trozos = []; let total = 0; const abortar = () => { Promise.resolve(lector.cancel("consulta cancelada")).catch(() => {}); }; signal.addEventListener("abort", abortar, { once: true }); try { while (true) { if (signal.aborted) throw error("operacion_abortada"); const lectura = await lector.read(); if (!lectura || typeof lectura.done !== "boolean" || (!lectura.done && (!(lectura.value instanceof Uint8Array) || lectura.value.byteLength === 0))) throw error("respuesta_incompatible", respuesta.status); if (lectura.done) break; total += lectura.value.byteLength; if (total > MAXIMO_BYTES || trozos.length >= MAXIMO_FRAGMENTOS) throw error("respuesta_excesiva", respuesta.status); trozos.push(lectura.value); } } catch (causa) { await Promise.resolve(lector.cancel("respuesta descartada")).catch(() => {}); throw causa; } finally { signal.removeEventListener("abort", abortar); try { lector.releaseLock?.(); } catch {} } const bytes = new Uint8Array(total); let posicion = 0; trozos.forEach((trozo) => { bytes.set(trozo, posicion); posicion += trozo.byteLength; }); try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw error("json_no_valido", respuesta.status); } }
 function validarFuente(f) { return registro(f) && Object.keys(f).length === 5 && texto(f.documento, 1024) && texto(f.importacion, 256) && texto(f.generado_en, 64) && texto(f.aviso, 4096) && /^[a-f0-9]{64}$/u.test(f.huella_sha256); }
 function validarResumen(r) { return registro(r) && Object.keys(r).length === 4 && entero(r.puestos) && entero(r.dotacion) && entero(r.categorias) && entero(r.centros); }
-function validarCategoria(item) { return registro(item) && Object.keys(item).length === 6 && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(item.clave) && texto(item.denominacion, 512) && Array.isArray(item.grupos) && item.grupos.length > 0 && Array.isArray(item.escalas) && item.grupos.every((v) => texto(v, 64)) && item.escalas.every((v) => texto(v, 64)) && entero(item.puestos) && entero(item.dotacion); }
+function validarCategoria(item) {
+  return registro(item) && Object.keys(item).length === 9
+    && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(item.clave) && texto(item.denominacion, 512)
+    && Array.isArray(item.grupos) && item.grupos.length > 0 && Array.isArray(item.escalas)
+    && item.grupos.every((v) => texto(v, 64)) && item.escalas.every((v) => texto(v, 64))
+    && entero(item.puestos) && entero(item.dotacion) && entero(item.puestos_vinculados)
+    && entero(item.dotacion_vinculada) && typeof item.recuento_coincide === "boolean"
+    && item.recuento_coincide === (item.puestos === item.puestos_vinculados && item.dotacion === item.dotacion_vinculada);
+}
+function validarCentro(item) {
+  return registro(item) && Object.keys(item).length === 4 && texto(item.codigo, 64)
+    && texto(item.denominacion, 512) && entero(item.puestos, 1) && entero(item.dotacion);
+}
 function validarPuesto(item) { return registro(item) && Object.keys(item).length === 13 && /^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(item.codigo) && texto(item.denominacion, 512) && texto(item.centro_codigo, 64) && texto(item.centro, 512) && texto(item.delegacion, 512) && Array.isArray(item.grupos) && item.grupos.every((v) => texto(v, 64)) && texto(item.escala, 64, true) && (item.categoria_clave === "" || /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(item.categoria_clave)) && entero(item.nivel_destino) && entero(item.complemento_especifico_anual_centimos) && entero(item.dotacion) && texto(item.tipo, 64) && texto(item.provision, 128); }
-function validarPagina(valor, consulta) { const rpt = valor?.data?.rpt; if (!registro(valor) || Object.keys(valor).length !== 1 || !registro(valor.data) || Object.keys(valor.data).length !== 1 || !registro(rpt) || Object.keys(rpt).length !== 8 || !Array.isArray(rpt.items) || !entero(rpt.total) || rpt.limit !== consulta.limit || rpt.offset !== consulta.offset || rpt.vista !== consulta.vista || rpt.esquema !== "vec.catalogo.rpt.v1" || !validarFuente(rpt.fuente) || !validarResumen(rpt.resumen) || rpt.items.length !== Math.min(rpt.limit, Math.max(0, rpt.total - rpt.offset))) throw new TypeError("respuesta RPT pública incompatible"); const vistos = new Set(); const validar = consulta.vista === "puestos" ? validarPuesto : validarCategoria; const clave = consulta.vista === "puestos" ? "codigo" : "clave"; const items = rpt.items.map((item) => { if (!validar(item) || vistos.has(item[clave])) throw new TypeError("fila RPT pública incompatible"); vistos.add(item[clave]); return Object.freeze({ ...item, grupos: Object.freeze([...item.grupos]), ...(consulta.vista === "categorias" ? { escalas: Object.freeze([...item.escalas]) } : {}) }); }); return Object.freeze({ items: Object.freeze(items), total: rpt.total, limit: rpt.limit, offset: rpt.offset, vista: rpt.vista, esquema: rpt.esquema, fuente: Object.freeze({ ...rpt.fuente }), resumen: Object.freeze({ ...rpt.resumen }) }); }
+function validarPagina(valor, consulta) {
+  const rpt = valor?.data?.rpt;
+  if (!registro(valor) || Object.keys(valor).length !== 1 || !registro(valor.data) || Object.keys(valor.data).length !== 1
+    || !registro(rpt) || Object.keys(rpt).length !== 9 || rpt.enlaces !== true || !Array.isArray(rpt.items)
+    || !entero(rpt.total) || rpt.limit !== consulta.limit || rpt.offset !== consulta.offset
+    || rpt.vista !== consulta.vista || rpt.esquema !== "vec.catalogo.rpt.v1"
+    || !validarFuente(rpt.fuente) || !validarResumen(rpt.resumen)
+    || rpt.items.length !== Math.min(rpt.limit, Math.max(0, rpt.total - rpt.offset)))
+    throw new TypeError("respuesta RPT pública incompatible");
+  const validar = consulta.vista === "puestos" ? validarPuesto : consulta.vista === "centros" ? validarCentro : validarCategoria;
+  const clave = consulta.vista === "puestos" ? "codigo" : consulta.vista === "centros" ? "codigo" : "clave";
+  const vistos = new Set();
+  const items = rpt.items.map((item) => {
+    if (!validar(item) || vistos.has(item[clave])
+      || consulta.vista === "puestos" && ((consulta.categoria_clave && item.categoria_clave !== consulta.categoria_clave)
+      || (consulta.centro_codigo && item.centro_codigo !== consulta.centro_codigo)))
+      throw new TypeError("fila RPT pública incompatible");
+    vistos.add(item[clave]);
+    return Object.freeze({ ...item,
+      ...(consulta.vista === "centros" ? {} : { grupos: Object.freeze([...item.grupos]) }),
+      ...(consulta.vista === "categorias" ? { escalas: Object.freeze([...item.escalas]) } : {}) });
+  });
+  return Object.freeze({ items: Object.freeze(items), total: rpt.total, limit: rpt.limit, offset: rpt.offset,
+    vista: rpt.vista, esquema: rpt.esquema, fuente: Object.freeze({ ...rpt.fuente }), resumen: Object.freeze({ ...rpt.resumen }) });
+}
 async function ejecutarConPlazo(ejecutor, externo, plazoMs) { const controlador = new AbortController(); let temporizador; let resolverPendiente; let motivo = ""; const abortar = () => { motivo = "abortada"; controlador.abort(); resolverPendiente?.(error("operacion_abortada")); }; externo?.addEventListener("abort", abortar, { once: true }); try { return await new Promise((resolver, rechazar) => { let cerrada = false; const terminar = (fn, valor) => { if (cerrada) return; cerrada = true; clearTimeout(temporizador); externo?.removeEventListener("abort", abortar); fn(valor); }; resolverPendiente = (valor) => terminar(rechazar, valor); temporizador = setTimeout(() => { motivo = "plazo"; controlador.abort(); resolverPendiente(error("plazo_agotado")); }, plazoMs); Promise.resolve().then(() => ejecutor(controlador.signal)).then((valor) => terminar(resolver, valor), (causa) => terminar(rechazar, motivo === "abortada" ? error("operacion_abortada") : motivo === "plazo" ? error("plazo_agotado") : causa instanceof ErrorClienteRPTPublica ? causa : error("red_no_disponible"))); }); } finally { clearTimeout(temporizador); externo?.removeEventListener("abort", abortar); } }
-export function crearClienteHTTPRPTPublica({ fetchImpl = globalThis.fetch, plazoMs = 10_000 } = {}) { if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000) throw new TypeError("cliente RPT pública no disponible"); return Object.freeze({ async listar(entrada, opciones = {}) { const consulta = validarConsulta(entrada); if (!registro(opciones) || Object.keys(opciones).some((clave) => clave !== "signal")) throw error("opciones_no_validas"); const externo = validarSignal(opciones.signal); const parametros = new URLSearchParams({ q: consulta.q, limit: String(consulta.limit), offset: String(consulta.offset) }); if (consulta.vista !== "categorias") parametros.set("vista", consulta.vista); const respuesta = await ejecutarConPlazo(async (signal) => { let resultado; try { resultado = await fetchImpl(`${RUTA_RPT_PUBLICA}?${parametros}`, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw error("red_no_disponible"); } if (!resultado || resultado.redirected || resultado.status !== 200 || resultado.ok !== true) { await cancelar(resultado); throw error("estado_no_valido", resultado?.status || 0); } if (resultado.headers?.get?.("content-type") !== "application/json; charset=utf-8") { await cancelar(resultado); throw error("tipo_respuesta_no_valido", resultado.status); } return leerJSON(resultado, signal); }, externo, plazoMs); try { return validarPagina(respuesta, consulta); } catch (causa) { if (causa instanceof ErrorClienteRPTPublica) throw causa; throw error("sobre_no_valido", 200); } } }); }
+export function crearClienteHTTPRPTPublica({ fetchImpl = globalThis.fetch, plazoMs = 10_000 } = {}) {
+  if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000)
+    throw new TypeError("cliente RPT pública no disponible");
+  return Object.freeze({ async listar(entrada, opciones = {}) {
+    const consulta = validarConsulta(entrada);
+    if (!registro(opciones) || Object.keys(opciones).some((clave) => clave !== "signal")) throw error("opciones_no_validas");
+    const externo = validarSignal(opciones.signal);
+    const parametros = new URLSearchParams({ q: consulta.q, limit: String(consulta.limit), offset: String(consulta.offset), enlaces: "1" });
+    if (consulta.vista !== "categorias") parametros.set("vista", consulta.vista);
+    if (consulta.categoria_clave) parametros.set("categoria_clave", consulta.categoria_clave);
+    if (consulta.centro_codigo) parametros.set("centro_codigo", consulta.centro_codigo);
+    const respuesta = await ejecutarConPlazo(async (signal) => {
+      let resultado;
+      try {
+        resultado = await fetchImpl(`${RUTA_RPT_PUBLICA}?${parametros}`, { method: "GET", credentials: "same-origin",
+          mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal });
+      } catch { throw error("red_no_disponible"); }
+      if (!resultado || resultado.redirected || resultado.status !== 200 || resultado.ok !== true) {
+        await cancelar(resultado); throw error("estado_no_valido", resultado?.status || 0);
+      }
+      if (resultado.headers?.get?.("content-type") !== "application/json; charset=utf-8") {
+        await cancelar(resultado); throw error("tipo_respuesta_no_valido", resultado.status);
+      }
+      return leerJSON(resultado, signal);
+    }, externo, plazoMs);
+    try { return validarPagina(respuesta, consulta); }
+    catch (causa) { if (causa instanceof ErrorClienteRPTPublica) throw causa; throw error("sobre_no_valido", 200); }
+  } });
+}

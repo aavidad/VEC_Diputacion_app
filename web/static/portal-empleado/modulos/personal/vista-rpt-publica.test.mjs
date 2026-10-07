@@ -52,11 +52,11 @@ test("búsqueda aplicada distingue texto sin enviar y quitar vuelve a la primera
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]").textContent, "Búsqueda aplicada: administrativo");
   r.querySelector("[data-personal-rpt-publica-busqueda]").value = "sin enviar";
   r.querySelector("[data-personal-rpt-publica-siguiente]").listeners.get("click")(); await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", limit: 25, offset: 25 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", categoria_clave: "", centro_codigo: "", limit: 25, offset: 25 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "sin enviar");
   const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"); quitar.focus(); quitar.listeners.get("click")();
   await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", limit: 25, offset: 0 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", categoria_clave: "", centro_codigo: "", limit: 25, offset: 0 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "");
@@ -111,4 +111,43 @@ test("una búsqueda tardía no reaparece al quitarla y desmontar cancela la cons
   assert.equal(pendientes[1].signal.aborted, true);
   pendientes[1].resolve(pagina()); await esperarRespuesta();
   assert.equal(r.querySelector("[data-personal-rpt-publica]"), null);
+});
+
+test("categoría ambigua abre sólo sus puestos vinculados y conserva aviso", async () => {
+  const r = raiz(), llamadas = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158,
+    puestos_vinculados: 62, dotacion_vinculada: 163, recuento_coincide: false };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: consulta.vista === "categorias" ? 1 : 0, items: consulta.vista === "categorias" ? [categoria] : [] }); } } });
+  assert.match(textoNodo(r), /62/u); assert.match(textoNodo(r), /cifra de la fuente difiere/u);
+  const botones = nodosCon(r, "personalRptPublicaEnlace");
+  assert.ok(botones.some((b) => b.textContent === "62"));
+  botones.find((b) => b.textContent === "62").listeners.get("click")(); await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "puestos"); assert.equal(llamadas.at(-1).categoria_clave, "administrativo");
+  assert.equal(llamadas.at(-1).q, "");
+  assert.ok(r.querySelector("[data-personal-rpt-publica-quitar-filtro]"));
+});
+
+test("resumen de centros abre agrupación paginada y el centro abre sus puestos", async () => {
+  const r = raiz(), llamadas = [];
+  const centro = { codigo: "101", denominacion: "CENTRO 101", puestos: 2, dotacion: 5 };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: consulta.vista === "centros" ? 1 : 0, items: consulta.vista === "centros" ? [centro] : [] }); } } });
+  nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")();
+  await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "centros");
+  nodosCon(r, "personalRptPublicaEnlace").find((b) => b.textContent === "2").listeners.get("click")();
+  await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "puestos"); assert.equal(llamadas.at(-1).centro_codigo, "101");
+});
+
+test("URL de RPT conserva idioma y restaura filtros exactos", async () => {
+  const anterior = globalThis.window, llamadas = [];
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&rpt_vista=puestos&rpt_categoria=administrativo&rpt_offset=25", hash: "#personal" };
+  globalThis.window = { location, history: { replaceState(_a, _b, ruta) { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; } } };
+  try {
+    const r = raiz();
+    const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 0, offset: consulta.offset, items: [] }); } } });
+    assert.equal(llamadas[0].categoria_clave, "administrativo"); assert.equal(llamadas[0].offset, 25);
+    assert.match(location.search, /lang=es/u); assert.match(location.search, /rpt_categoria=administrativo/u);
+    modulo.desmontar();
+  } finally { globalThis.window = anterior; }
 });
