@@ -10,7 +10,7 @@
     <title data-i18n-portal="txt_portal_del_empleado_recursos_humanos">Portal del Empleado · Recursos Humanos</title>
     <link rel="stylesheet" href="/portal-empleado/vendor/leaflet-1.9.4/leaflet.css?v=1.9.4" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
     <link rel="stylesheet" href="/styles.css?v=20260717-portal-rrhh">
-    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261007-ct-menu-recuperacion-v1">
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1">
@@ -61,7 +61,7 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261007-raiz-conjunta-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261007-raiz-main-v1">
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2">
@@ -73,9 +73,9 @@
     <link rel="modulepreload" href="/comun/textos.js">
     <link rel="modulepreload" href="/portal-empleado/ayuda-contenido.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/ayudante-tramites.js?v=20261001-ct-a-i18n-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2">
+    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3">
-    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/vista.js?v=20261007-auditoria-disponibilidad-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-api.js?v=20261006-reglas-una-lectura-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261006-reglas-una-lectura-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1">
@@ -113,7 +113,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui-soporte.js?v=20261006-borradores-no-disponible-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui.js?v=20261006-borradores-no-disponible-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-vista.js?v=20261006-borradores-no-disponible-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261007-ct-menu-recuperacion-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261005-b-contacto-v3">
     <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1">
@@ -125,7 +125,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-i18n.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-idioma.js?v=20261001-ct-a-i18n-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20261006-resumen-inicio-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20261007-ct-menu-recuperacion-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-justificante.js">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
@@ -144,7 +144,8 @@
     <link rel="modulepreload" href="/portal-empleado/reglas/enlace.js?v=20261001-ct-a-i18n-v1">
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20261007-raiz-conjunta-v2"></script>
+    <script type="module" src="/portal-empleado/portal-arranque-aviso.js?v=20261007-ct-arranque-autonomo-v1"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261007-raiz-main-v1"></script>
     <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
   </head>
   <body class="portal-empleado-app">

@@ -161,6 +161,8 @@ transportes_mtls_revisados=(
 	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
 	static/comun/http.js
 	static/comun/registro-errores.js
+	# Aviso de arranque autónomo: solo índice y catálogo mínimo de origen fijo.
+	static/portal-empleado/portal-arranque-aviso.js
 	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
 	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
 	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js

@@ -6,6 +6,47 @@ import (
 	"time"
 )
 
+func TestReferenciaExpedienteTipadaSoloEnCampoExpediente(t *testing.T) {
+	id := strings.Repeat("a", 64)
+	legacy := "ref:" + id
+	tipada := "expediente:ct:" + id
+	if !ReferenciaExpedienteValida(tipada) || !ReferenciaExpedienteModuloValida("contratacion_temporal", tipada) {
+		t.Fatal("rechazo expediente CT del catálogo")
+	}
+	if !ReferenciaExpedienteValida(legacy) || !ReferenciaExpedienteModuloValida("dietas", legacy) {
+		t.Fatal("rechazo referencia histórica")
+	}
+	if ReferenciaOpacaValida(tipada) {
+		t.Fatal("el identificador opaco se ensanchó")
+	}
+	if ReferenciaExpedienteModuloValida("bolsa", tipada) {
+		t.Fatal("aceptó módulo productor distinto")
+	}
+	for _, s := range []string{
+		"expediente:bolsa:" + id,
+		"expediente:CT:" + id,
+		"Expediente:ct:" + id,
+		"expediente:ct:" + strings.ToUpper(id),
+		"expediente:ct:" + id[:63],
+		"expediente:ct:" + id + "0",
+		"expediente:ct:" + id + ":otro",
+		"expediente:ct:../" + id,
+	} {
+		if ReferenciaExpedienteValida(s) {
+			t.Errorf("aceptó referencia fuera del contrato %q", s)
+		}
+	}
+}
+
+func BenchmarkReferenciaExpedienteValida(b *testing.B) {
+	s := "expediente:ct:" + strings.Repeat("a", 64)
+	for i := 0; i < b.N; i++ {
+		if !ReferenciaExpedienteValida(s) {
+			b.Fatal("referencia válida rechazada")
+		}
+	}
+}
+
 func TestDocumentoSoloAceptaReferenciasOpacasYFirmaPendiente(t *testing.T) {
 	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
 	d := Documento{

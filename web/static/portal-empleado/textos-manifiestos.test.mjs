@@ -193,6 +193,13 @@ async function recursosDeTexto() {
       // La plantilla idioma/modulo de textos.js se resuelve con las llamadas
       // reales anteriores, no con una lista de módulos escrita en la prueba.
       if (referencia.includes("${")) {
+        if (path.basename(archivo) === "portal-arranque-aviso.js"
+          && referencia === "/textos/${candidato}/portal-arranque.json") {
+          // El aviso de arranque debe funcionar aunque no se importe textos.js.
+          // Sólo se admite su catálogo mínimo, que también lleva cada idioma.
+          for (const idioma of idiomas) requeridos.add(`static/textos/${idioma}/portal-arranque.json`);
+          continue;
+        }
         assert.equal(path.basename(archivo), "textos.js", `JSON dinámico sin origen comprobado: ${archivo}`);
         continue;
       }

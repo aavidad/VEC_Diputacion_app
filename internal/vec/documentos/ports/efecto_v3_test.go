@@ -35,6 +35,18 @@ func TestHuellaEfectoV3CoincideConRecursoYVectorSQL(t *testing.T) {
 	}
 }
 
+func TestRecursoV3TipadoSoloParaListarExpediente(t *testing.T) {
+	ref := "expediente:ct:" + strings.Repeat("a", 64)
+	if _, err := RecursoV3(AccionListar, ref, []byte("lista")); err != nil {
+		t.Fatalf("listado CT tipado rechazado: %v", err)
+	}
+	for _, accion := range []string{AccionAlta, AccionDescargar, AccionRegistrarExterno, AccionPrepararNotificacion} {
+		if _, err := RecursoV3(accion, ref, []byte("alta")); err == nil {
+			t.Errorf("%s aceptó referencia tipada como ID", accion)
+		}
+	}
+}
+
 // Vectores fijos compartidos con pruebas_sql/frontera_000004.sql, que los
 // recalcula con vec_documentos.huella_efecto_v1: una preimagen de lista real y
 // otra con texto no ASCII (UTF-8 de varios bytes).

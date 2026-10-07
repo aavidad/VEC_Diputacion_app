@@ -8,7 +8,7 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-catalogo-modulos.js?v=20261007-ct-menu-recuperacion-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import {
   componerCronosInterno,
@@ -26,9 +26,11 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
-const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
-  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
-])).then(Object.fromEntries).catch(() => null);
+const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion"]);
+// El circuito se consulta al cargar CT. Un fallo transitorio de un catálogo no
+// debe quedar congelado en el módulo ni retrasar el arranque del portal.
+const cargarFasesCircuitoPredeterminado = async (idioma) =>
+  (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases");
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -109,8 +111,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const cargarVista = async () => {
       const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261006-resumen-inicio-v2");
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
-        import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
-        import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
+        import("./modulos/auditoria/vista.js?v=20261007-auditoria-disponibilidad-v1"),
+        import("./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1"),
       ]);
       return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
     };
@@ -252,6 +254,7 @@ export function crearCoordinadorModulosPortal({
     return { fuente, vista };
   },
   consultarSesion = null,
+  cargarFasesCircuito = cargarFasesCircuitoPredeterminado,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
   // Módulos que no se cargan al arrancar sino al pedir una de sus vistas.
@@ -261,6 +264,7 @@ export function crearCoordinadorModulosPortal({
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || (cargarCatalogoInterno !== null && typeof cargarCatalogoInterno !== "function")
     || (consultarSesion !== null && typeof consultarSesion !== "function")
+    || typeof cargarFasesCircuito !== "function"
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function" || typeof cargarTramitesPropios !== "function"
@@ -280,6 +284,7 @@ export function crearCoordinadorModulosPortal({
   let referenciaElaboracionMontada = "";
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
+  let ctRecuperableEnMenu = false;
   // Hay una carga en curso (catálogo o módulos) que aún no ha terminado. Nace
   // en verdadero: hasta la primera carga el shell tampoco sabe nada del perfil.
   let cargaEnCurso = true;
@@ -344,7 +349,7 @@ export function crearCoordinadorModulosPortal({
       CLAVE_CONTRATACION_TEMPORAL,
       limiteCargaModularMs,
       temporizadores,
-    );
+    ).catch(() => { throw Object.assign(new Error("recursos CT no disponibles"), { codigo: "carga_recursos_ct" }); });
     exigirVigente();
     // Vista y auditoría: ya incluidas (cargadores de prueba) o, en el portal,
     // pedidas con `cargarVista` al abrir CT.
@@ -358,8 +363,20 @@ export function crearCoordinadorModulosPortal({
       return promesaVista;
     };
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
-    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
-    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
+    let fasesCircuito;
+    try {
+      fasesCircuito = await cargarModuloConLimite(() => cargarFasesCircuito(idiomaCircuito),
+        "contratacion_temporal.circuito", limiteCargaModularMs, temporizadores);
+    } catch {
+      throw Object.assign(new Error("catálogo del circuito no disponible"), {
+        codigo: "catalogo_circuito_no_disponible",
+      });
+    }
+    if (!fasesCircuito || typeof fasesCircuito !== "object") {
+      throw Object.assign(new Error("catálogo del circuito no válido"), {
+        codigo: "catalogo_circuito_no_valido",
+      });
+    }
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
     const mensajesExpedientesIdioma = idiomaCircuito === "en"
@@ -686,6 +703,7 @@ export function crearCoordinadorModulosPortal({
     recursosTramites = null; cargaTramites = null; estadoTramites = ESTADO_DIFERIDO;
     catalogo = Object.freeze([]);
     catalogoOfrecido = catalogo;
+    ctRecuperableEnMenu = false;
     cargaEnCurso = true;
     const vigente = () => carga === secuenciaCarga;
     const exigirVigente = () => {
@@ -746,10 +764,36 @@ export function crearCoordinadorModulosPortal({
     };
     const cargarModulo = async (clave) => {
       let resultado;
-      try {
-        resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente, notificar: () => notificar(clave) });
-      } catch {
-        resultado = undefined;
+      const intentos = clave === CLAVE_CONTRATACION_TEMPORAL ? 2 : 1;
+      for (let intento = 0; intento < intentos && vigente(); intento += 1) {
+        try {
+          resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente, notificar: () => notificar(clave) });
+          break;
+        } catch (error) {
+          if (clave !== CLAVE_CONTRATACION_TEMPORAL || !vigente()) break;
+          // Solo códigos controlados: la excepción puede contener URL, datos de
+          // respuesta o detalles de identidad que no deben ir a la consola.
+          const codigo = ["catalogo_circuito_no_disponible", "catalogo_circuito_no_valido", "carga_recursos_ct"]
+            .includes(error?.codigo) ? error.codigo : "carga_ct_no_disponible";
+          const causa = codigo === "carga_recursos_ct" ? "importacion"
+            : codigo.startsWith("catalogo_") ? "catalogo" : "consulta_o_permiso";
+          entorno.console?.error?.("portal.modulo.carga_fallida", {
+            modulo: CLAVE_CONTRATACION_TEMPORAL, codigo, causa, intento: intento + 1,
+          });
+          // La importación y los rótulos no han iniciado consultas de CT.
+          // Una respuesta fallida tras consultar puede haber auditado la lectura;
+          // se recupera solo mediante la acción expresa de la persona.
+          if (codigo === "carga_ct_no_disponible") break;
+        }
+      }
+      if (!vigente()) return;
+      if (clave === CLAVE_CONTRATACION_TEMPORAL && !resultado && consultarSesion !== null) {
+        try {
+          const sesion = await consultarSesion();
+          if (!vigente()) return;
+          ctRecuperableEnMenu = Array.isArray(sesion?.roles) && sesion.roles.length === 1
+            && PERFILES_CT_MENU.has(sesion.roles[0]);
+        } catch { ctRecuperableEnMenu = false; }
       }
       if (!vigente()) return;
       if (resultado) Object.assign(partes, resultado);
@@ -924,6 +968,7 @@ export function crearCoordinadorModulosPortal({
         vista: "",
         estado: "no_disponible",
         textoEstado: traducir("estado_modulo_no_disponible_titulo"),
+        recuperable: ctRecuperableEnMenu,
       });
     }
     if (CLAVES_CARGA_MODULAR.includes(clave)) {
