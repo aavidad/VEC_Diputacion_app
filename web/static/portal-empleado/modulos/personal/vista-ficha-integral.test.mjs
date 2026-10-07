@@ -13,20 +13,30 @@ test("la ficha carga el catálogo i18n del corte F2 con versión de caché", () 
   exigirVersiones(codigo, "./i18n.js", posterior("20260924-f2-web2"));
 });
 
-function raizFalsa() {
+function raizFalsa({ geometriaPestanas = false } = {}) {
   class Nodo {
-    constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.disabled = false; }
+    constructor(documento, etiqueta = "div") {
+      this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {};
+      this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.disabled = false;
+      this.scrollLeft = 0; this.clientLeft = 0;
+      if (documento.geometriaPestanas) this.getBoundingClientRect = () => {
+        if (this.className === "personal-ficha-pestanas") return { left: 24, right: 366 };
+        const origen = { ficha: [28, 94], servicios: [170, 266], catalogos: [439, 531] }[this.dataset.personalFichaTab];
+        return origen ? { left: origen[0] - this.parent.scrollLeft, right: origen[1] - this.parent.scrollLeft }
+          : { left: 0, right: 0 };
+      };
+    }
     append(...hijos) { this.children.push(...hijos); hijos.forEach((hijo) => { hijo.parent = this; }); }
     replaceChildren(...hijos) { this.children = []; this.append(...hijos); }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((hijo) => hijo !== this); }
     addEventListener(tipo, fn) { this.listeners.set(tipo, fn); }
     setAttribute(clave, valor) { this.atributos.set(clave, valor); }
     click() { this.listeners.get("click")?.(); }
-    focus() { this.enfocado = true; this.ownerDocument.activeElement = this; }
+    focus(opciones) { this.enfocado = true; this.opcionesFoco = opciones; this.ownerDocument.activeElement = this; }
     matches(selector) { const coincide = selector.match(/^\[data-([a-z-]+)(?:="([a-z_-]+)")?\]$/u); if (!coincide) return false; const clave = coincide[1].replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return this.dataset[clave] !== undefined && (coincide[2] === undefined || this.dataset[clave] === coincide[2]); }
     querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
   }
-  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta), activeElement: null, tieneFoco: true, hasFocus() { return this.tieneFoco; } };
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta), activeElement: null, tieneFoco: true, geometriaPestanas, hasFocus() { return this.tieneFoco; } };
   return new Nodo(documento, "root");
 }
 function nodos(n) { return [n, ...n.children.flatMap(nodos)]; }
@@ -639,5 +649,32 @@ test("enlace RPT inválido llega al visor, que canoniza el filtro y muestra avis
     assert.equal(consultas[0].vista, "categorias"); assert.equal(consultas[0].centro_codigo, "");
     assert.equal(location.search, "?lang=es");
     assert.match(texto(ficha), /enlace tenía un filtro no válido/u);
+  } finally { globalThis.window = anterior; }
+});
+
+test("la pestaña RPT activa queda visible en móvil sin desplazar página ni mover foco", () => {
+  const anterior = globalThis.window;
+  globalThis.window = { location: { search: "?rpt_vista=puestos&rpt_categoria=administrativo", hash: "#personal" }, scrollY: 420,
+    scrollTo() { throw new Error("la página no debe desplazarse"); } };
+  try {
+    const raiz = raizFalsa({ geometriaPestanas: true });
+    montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, rptDisponible: true,
+      montarCatalogos: () => ({ desmontar() {} }), fuentes: {
+        servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) },
+      } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+    const barra = nodos(ficha).find((n) => n.className === "personal-ficha-pestanas");
+    const catalogos = tab(ficha, "catalogos");
+    assert.equal(catalogos.atributos.get("aria-selected"), "true");
+    assert.ok(barra.scrollLeft >= 165, "solo la barra alcanza la pestaña fuera de 24..366");
+    assert.ok(catalogos.getBoundingClientRect().right <= 366);
+    assert.equal(raiz.ownerDocument.activeElement, null, "la apertura no mueve el foco");
+    assert.equal(globalThis.window.scrollY, 420);
+    tab(ficha, "ficha").click();
+    assert.ok(barra.scrollLeft <= 4); assert.ok(tab(ficha, "ficha").getBoundingClientRect().left >= 24);
+    tab(ficha, "ficha").listeners.get("keydown")({ key: "End", preventDefault() {} });
+    assert.ok(catalogos.getBoundingClientRect().right <= 366);
+    assert.equal(catalogos.opcionesFoco?.preventScroll, true);
+    assert.equal(globalThis.window.scrollY, 420);
   } finally { globalThis.window = anterior; }
 });

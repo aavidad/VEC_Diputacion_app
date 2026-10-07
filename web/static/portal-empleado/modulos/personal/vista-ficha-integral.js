@@ -184,6 +184,16 @@ function enlaceCatalogoRPT() {
   return typeof consulta === "string" && [...new URLSearchParams(consulta).keys()].some((clave) => clave.startsWith("rpt_"));
 }
 
+function revelarPestana(barra, pestana) {
+  if (typeof barra?.getBoundingClientRect !== "function" || typeof pestana?.getBoundingClientRect !== "function") return;
+  const region = barra.getBoundingClientRect(), seleccionada = pestana.getBoundingClientRect();
+  const borde = Number.isFinite(barra.clientLeft) ? barra.clientLeft : 0;
+  if (![region.left, region.right, seleccionada.left, seleccionada.right].every(Number.isFinite)) return;
+  const izquierda = region.left + borde, derecha = region.right - borde;
+  if (seleccionada.left < izquierda) barra.scrollLeft += seleccionada.left - izquierda;
+  else if (seleccionada.right > derecha) barra.scrollLeft += seleccionada.right - derecha;
+}
+
 /**
  * Vista de consulta propia. `fuentes[clave].consultarPropios({signal})` debe ser un
  * cliente de servidor que resuelva la identidad y autorice los campos; la vista
@@ -240,6 +250,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       const tab = tabs.querySelector?.(`[data-personal-ficha-tab="${valor}"]`);
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
+    revelarPestana(tabs, tabs.querySelector?.(`[data-personal-ficha-tab="${clave}"]`));
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
     if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente, abrirCorreos)); return; }
     if (clave === "catalogos" || clave === "contacto") {
@@ -360,7 +371,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       const salto = { ArrowRight: 1, ArrowLeft: -1, Home: -indice, End: pestanas.length - 1 - indice }[evento.key];
       if (salto === undefined) return; evento.preventDefault();
       const destino = (indice + salto + pestanas.length) % pestanas.length;
-      pintar(pestanas[destino][0]); tabs.querySelector?.(`[data-personal-ficha-tab="${pestanas[destino][0]}"]`)?.focus?.();
+      pintar(pestanas[destino][0]); tabs.querySelector?.(`[data-personal-ficha-tab="${pestanas[destino][0]}"]`)?.focus?.({ preventScroll: true });
     }); tabs.append(tab);
   });
   contenedor.append(cabecera, tabs, principal); pintar(actual); return Object.freeze({ desmontar });
