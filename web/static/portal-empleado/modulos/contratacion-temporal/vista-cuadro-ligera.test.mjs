@@ -295,6 +295,46 @@ test("v2 no convierte una fase visual sin claves administrativas en filtro vací
   montaje.desmontar();
 });
 
+test("v2 ignora el resumen tardío de una búsqueda cancelada antes de elegir fase", async () => {
+  const raiz = raizFalsa(), solicitudes = [], errores = [];
+  let resolverAntigua;
+  const pagina = (fase, total) => ({ generada_en: "2026-10-01T09:00:00Z",
+    expedientes: [fila], hay_mas: false, totales: { total },
+    resumen: { por_fase: { [fase]: total } } });
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.campos = formulario.campos; }
+    entries() { return Object.entries(this.campos); } };
+  try {
+    const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es", contratoFiltros: "v2",
+      abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => errores.push(datos),
+      cliente: { consultarCuadroRRHH: () => { throw new Error("v1 no debe consultarse"); },
+        consultarCuadroRRHHV2: async (solicitud) => {
+          solicitudes.push(solicitud);
+          if (solicitud.filtros.texto === "antigua") {
+            return new Promise((resolver) => { resolverAntigua = resolver; });
+          }
+          return solicitud.filtros.texto === "nueva" ? pagina("analisis", 2) : pagina("solicitud", 1);
+        } },
+    });
+    const formulario = { campos: { texto: "antigua", fase: "", centro: "", categoria: "", mostrar: "en_tramite" } };
+    const campo = { name: "texto", closest: () => formulario };
+    raiz.eventos.get("change")({ type: "change", target: campo });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    assert.equal(typeof resolverAntigua, "function");
+    formulario.campos.texto = "nueva";
+    raiz.eventos.get("change")({ type: "change", target: campo });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    resolverAntigua(pagina("solicitud", 9));
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    formulario.campos.fase = "analisis_rrhh";
+    raiz.eventos.get("change")({ type: "change", target: { name: "fase", closest: () => formulario } });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    assert.deepEqual(solicitudes.at(-1).filtros.fases_clave, ["analisis"]);
+    assert.equal(errores.length, 0, errores[0]?.error?.stack);
+    montaje.desmontar();
+  } finally { globalThis.FormData = previo; }
+});
+
 test("v2 rechaza un plazo sin SQL autorizado antes de consultar el cuadro", async () => {
   const errores = [];
   let consultas = 0;

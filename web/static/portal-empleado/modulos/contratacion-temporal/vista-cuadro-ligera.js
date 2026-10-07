@@ -188,6 +188,7 @@ export async function montarCuadroContratacionLigero({
         pagina = await cliente.consultarCuadroRRHHV2({ filtros: seleccion.filtros,
           paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] },
           resumen: true }, { signal: actual.signal });
+        if (!vigente || signal?.aborted || actual !== controlador || actual.signal.aborted) return false;
         if (!filtro.fase) fasesAdministrativas = pagina.resumen.por_fase;
         totalServidor = pagina.totales.total;
       } else {
