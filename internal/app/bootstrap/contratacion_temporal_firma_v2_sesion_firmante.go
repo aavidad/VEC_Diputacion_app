@@ -4,27 +4,16 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	"vec-diputacion-granada/internal/shared/plazoarranque"
-	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
-	"vec-diputacion-granada/internal/vec/adapters/httpapi"
-	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
-	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
-	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -32,274 +21,171 @@ import (
 var errSesionFirmanteV2NoDisponible = errors.New("contratacion temporal: sesion del firmante no disponible")
 var errSesionFirmanteV2Denegada = errors.New("contratacion temporal: sesion del firmante denegada")
 
-const politicaSesionFirmanteV2 = "dev-certificado-mtls-v1;solo-sintetico;canal-privado-validado;garantia-alta-desarrollo;vigencia-120s;sin-kerberos;no-corporativa;retirada-firma-vec"
-
-// El fichero privado habilita únicamente la identidad sintética de registro-vec.
-// La cuenta y el perfil se seleccionan en AUT56, nunca en este fichero.
-type configuracionSesionFirmanteV2 struct {
-	Version                  int    `json:"version"`
-	Autoridad                string `json:"autoridad"`
-	DSNRegistroIdentidad     string `json:"dsn_registro_identidad"`
-	DSNRevalidacionIdentidad string `json:"dsn_revalidacion_identidad"`
-	DSNContexto              string `json:"dsn_contexto"`
-	RetiradaEn               string `json:"retirada_en"`
-}
-
-func (configuracionSesionFirmanteV2) String() string   { return "[CONFIGURACION PRIVADA FIRMA VEC]" }
-func (configuracionSesionFirmanteV2) GoString() string { return "[CONFIGURACION PRIVADA FIRMA VEC]" }
-
-func decodificarConfiguracionSesionFirmanteV2(contenido []byte) (configuracionSesionFirmanteV2, time.Time, error) {
-	var c configuracionSesionFirmanteV2
-	if validarClavesJSONUnicas(contenido) != nil {
-		return c, time.Time{}, errSesionFirmanteV2NoDisponible
-	}
-	dec := json.NewDecoder(bytes.NewReader(contenido))
-	dec.DisallowUnknownFields()
-	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		c.DSNRegistroIdentidad == "" || c.DSNRevalidacionIdentidad == "" || c.DSNContexto == "" {
-		return configuracionSesionFirmanteV2{}, time.Time{}, errSesionFirmanteV2NoDisponible
-	}
-	retirada, err := time.Parse(time.RFC3339, c.RetiradaEn)
-	if err != nil || retirada.Location() != time.UTC || retirada.Format(time.RFC3339) != c.RetiradaEn {
-		return configuracionSesionFirmanteV2{}, time.Time{}, errSesionFirmanteV2NoDisponible
-	}
-	return c, retirada, nil
-}
-
+// La fuente común decide cómo autenticar, registrar y revalidar la sesión.
+// Este consumidor sólo admite el certificado del canal TLS verificado y coteja
+// su resultado con la selección AUT56 y la persona del certificado CA25.
 type autoridadSesionFirmanteV2 struct {
-	resolvedor  *resolvedorIdentidadDesarrollo
-	registro    httpseguridad.RegistroSesiones
-	revalidador core.RevalidadorAutenticacionActorV1
-	contextos   core.ResolutorContextoActorRegistradoV2
-	reloj       vp.Reloj
-	retirada    time.Time
-	instancia   string
+	fuente       ports.FuenteSesionFirmanteV2
+	reloj        vp.Reloj
+	preacreditar func(*http.Request) error
 }
 
-// La cápsula sólo existe dentro del proceso y queda ligada al objeto Request.
-// Su selección llega de AUT56 en 3b; ni el cuerpo ni una cabecera la rellenan.
 type capsulaSesionFirmanteV2 struct {
-	autoridad   *autoridadSesionFirmanteV2
-	peticion    *http.Request
-	seleccion   ports.SeleccionFirmanteV2
-	personaCA25 string
-	huellaAUT56 string
-	principal   core.Principal
-	instante    time.Time
-	consumida   atomic.Bool
+	autoridad    *autoridadSesionFirmanteV2
+	peticion     *http.Request
+	seleccion    ports.SeleccionFirmanteV2
+	personaCA25  string
+	huellaAUT56  string
+	verificadoEn time.Time
+	validoHasta  time.Time
+	consumida    atomic.Bool
+	mu           sync.Mutex
+	sesion       ports.SesionFirmanteV2
+	fallida      bool
 }
 
-func nuevaAutoridadSesionFirmanteV2ConPuertos(resolvedor *resolvedorIdentidadDesarrollo,
-	registro httpseguridad.RegistroSesiones, revalidador core.RevalidadorAutenticacionActorV1,
-	contextos core.ResolutorContextoActorRegistradoV2, reloj vp.Reloj, retirada time.Time, instancia string,
+func nuevaAutoridadSesionFirmanteV2ConFuente(fuente ports.FuenteSesionFirmanteV2, reloj vp.Reloj,
+	preacreditar func(*http.Request) error,
 ) (*autoridadSesionFirmanteV2, error) {
-	if resolvedor == nil || dependenciaEsNulaContratacionTemporalDesarrollo(registro) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(revalidador) || dependenciaEsNulaContratacionTemporalDesarrollo(contextos) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) || retirada.IsZero() || !retirada.After(reloj.Ahora()) ||
-		!huellaSHA256ValidaContratacionTemporalDesarrollo(instancia) {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(fuente) || dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
 		return nil, errSesionFirmanteV2NoDisponible
 	}
-	return &autoridadSesionFirmanteV2{resolvedor: resolvedor, registro: registro, revalidador: revalidador,
-		contextos: contextos, reloj: reloj, retirada: retirada, instancia: instancia}, nil
+	return &autoridadSesionFirmanteV2{fuente: fuente, reloj: reloj, preacreditar: preacreditar}, nil
 }
 
-// La ausencia deja la ruta sin componer; un manifiesto presente pero inválido
-// impide arrancar. La raíz 4c-8 decide si publica registro-vec.
-func nuevaAutoridadSesionFirmanteV2(cfg config.Config, resolvedor httpapi.DemoIdentityResolver,
-	derivador *derivadorIdentidadOperacionDesarrollo,
-) (*autoridadSesionFirmanteV2, func(), error) {
-	vacio := func() {}
-	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "firma-vec.json")
-	if _, err := os.Lstat(ruta); errors.Is(err, os.ErrNotExist) {
-		return nil, vacio, nil
-	} else if err != nil || !cfg.DevelopmentEnabledByDoubleKey() || derivador == nil || !derivador.valido() {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
+// acreditar no acepta identidad ambiental. La selección y la referencia CA25
+// proceden del contenedor privado que construye la fuente competencial 3b.
+func (a *autoridadSesionFirmanteV2) acreditar(r *http.Request, seleccion ports.SeleccionFirmanteV2,
+	personaCA25, huellaAUT56 string,
+) (*capsulaSesionFirmanteV2, error) {
+	if a == nil || r == nil || r.URL == nil || r.Context().Err() != nil ||
+		r.URL.Path != httpinterno.RutaRegistroFirmaVec || r.URL.RawPath != "" || r.URL.RawQuery != "" ||
+		r.URL.ForceQuery || r.URL.EscapedPath() != r.URL.Path || r.URL.Scheme != "" || r.URL.Host != "" ||
+		r.URL.User != nil || r.URL.Opaque != "" || r.URL.Fragment != "" || r.URL.RawFragment != "" ||
+		r.Method != http.MethodPost ||
+		len(r.Header.Values("Cookie")) != 0 || len(r.Header.Values("Authorization")) != 0 ||
+		cabeceraIdentidadAmbientalPresente(r.Header) || a.reloj == nil || a.fuente == nil {
+		return nil, errSesionFirmanteV2Denegada
 	}
-	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	contenido, err := leerFicheroMaterialSeguro(ruta, 16<<10)
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	defer borrarBytes(contenido)
-	c, retirada, err := decodificarConfiguracionSesionFirmanteV2(contenido)
-	if err != nil || !retirada.After(time.Now().UTC()) {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
-	defer cancelar()
-	entradas := []struct{ dsn, rol string }{
-		{c.DSNRegistroIdentidad, rolRegistroIdentidadConsultasDesarrollo},
-		{c.DSNRevalidacionIdentidad, rolRevalidacionIdentidadConsultasDesarrollo},
-		{c.DSNContexto, rolContextoActorConsultasDesarrollo},
-	}
-	var pools []*pgxpool.Pool
-	var unaVez sync.Once
-	cerrar := func() {
-		unaVez.Do(func() {
-			for _, p := range pools {
-				p.Close()
-			}
-		})
-	}
-	completa := false
-	defer func() {
-		if !completa {
-			cerrar()
-		}
-	}()
-	usuarios := map[string]bool{}
-	for _, entrada := range entradas {
-		pool, usuario, e := abrirPoolRutasDietas(ctx, entrada.dsn, entrada.rol)
-		if e != nil || usuarios[usuario] {
-			if pool != nil {
-				pool.Close()
-			}
-			return nil, vacio, errSesionFirmanteV2NoDisponible
-		}
-		usuarios[usuario] = true
-		pools = append(pools, pool)
-	}
-	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1],
-		&seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, pools[1])
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pools[2])
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	reloj := relojRutasDietas{}
-	servicio, err := servicioContextoActorDietas(resolutor, reloj)
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	contextos, err := vecapp.NuevaAutoridadContextoActorRegistradoV2(servicio)
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	instancia, err := nonceRutasDietas()
-	if err != nil {
-		return nil, vacio, errSesionFirmanteV2NoDisponible
-	}
-	autoridad, err := nuevaAutoridadSesionFirmanteV2ConPuertos(identidad, registro, revalidador, contextos, reloj, retirada, instancia)
-	if err != nil {
-		return nil, vacio, err
-	}
-	completa = true
-	return autoridad, cerrar, nil
-}
-
-// Acreditar es llamada sólo tras la selección central AUT56 del paso. El
-// certificado verificado debe ser el de esa selección; la persona CA25 debe
-// coincidir con la selección y después con el contexto central registrado.
-func (a *autoridadSesionFirmanteV2) acreditar(r *http.Request, seleccion ports.SeleccionFirmanteV2, personaCA25, huellaAUT56 string) (*capsulaSesionFirmanteV2, error) {
-	if a == nil || r == nil || r.URL == nil || r.Context().Err() != nil || r.URL.Path != httpinterno.RutaRegistroFirmaVec ||
-		r.URL.RawPath != "" || r.Method != http.MethodPost || a.resolvedor == nil || a.reloj == nil ||
-		r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
+	if a.preacreditar != nil && a.preacreditar(r) != nil {
 		return nil, errSesionFirmanteV2Denegada
 	}
 	ahora := a.reloj.Ahora()
-	if !ahora.Before(a.retirada) {
-		return nil, errSesionFirmanteV2Denegada
-	}
-	principal, err := a.resolvedor.ResolveDemoIdentity(r.Context(), r)
-	if err != nil || !principalSinteticoContratacionTemporalDesarrolloValido(principal) || r.TLS == nil ||
-		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) < 2 {
-		return nil, errSesionFirmanteV2Denegada
-	}
-	cert := r.TLS.VerifiedChains[0][0]
-	if cert == nil || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
-		return nil, errSesionFirmanteV2Denegada
-	}
-	huella := sha256.Sum256(cert.Raw)
-	if principal.Attributes["certificate_sha256"] != hex.EncodeToString(huella[:]) || huellaAUT56 != hex.EncodeToString(huella[:]) ||
-		seleccion.PersonaRef == "" || seleccion.PersonaRef != personaCA25 || seleccion.CuentaRef == "" ||
-		seleccion.PerfilActivoRef == "" || seleccion.RolID == "" || seleccion.RolID == rolFirmaExternaRegistroCTDesarrollo ||
-		seleccion.VinculoCertificado.Referencia == "" ||
-		seleccion.VinculoCertificado.Version == 0 || !huellaSHA256ValidaContratacionTemporalDesarrollo(seleccion.VinculoCertificado.HuellaSHA256) {
+	hasta, huella, ok := certificadoSesionFirmanteV2(r, ahora)
+	if !ok || huella != huellaAUT56 || seleccion.PersonaRef == "" ||
+		seleccion.PersonaRef != personaCA25 || seleccion.CuentaRef == "" || seleccion.PerfilActivoRef == "" ||
+		seleccion.RolID == "" ||
+		seleccion.VinculoCertificado.Referencia == "" || seleccion.VinculoCertificado.Version == 0 ||
+		!huellaSHA256ValidaContratacionTemporalDesarrollo(seleccion.VinculoCertificado.HuellaSHA256) {
 		return nil, errSesionFirmanteV2Denegada
 	}
 	return &capsulaSesionFirmanteV2{autoridad: a, peticion: r, seleccion: seleccion,
-		personaCA25: personaCA25, huellaAUT56: huellaAUT56, principal: principal, instante: ahora}, nil
+		personaCA25: personaCA25, huellaAUT56: huella, verificadoEn: ahora, validoHasta: hasta}, nil
 }
 
-func (a *autoridadSesionFirmanteV2) abrir(r *http.Request, capsula *capsulaSesionFirmanteV2) (core.VinculoAutenticacionActorV2, core.ResultadoContextoActorRegistradoV2, error) {
+// certificadoSesionFirmanteV2 exige una única cadena comprobada por TLS y la
+// hoja exacta presentada en el canal. La fuente común debe confirmar además
+// revocación, política de garantía y cuenta; mTLS aislado no concede sesión.
+func certificadoSesionFirmanteV2(r *http.Request, ahora time.Time) (time.Time, string, bool) {
+	// La hoja se devuelve sólo como huella y fecha: no hay clave transportable.
+	if r == nil || r.TLS == nil || !r.TLS.HandshakeComplete || r.TLS.Version != tls.VersionTLS13 ||
+		len(r.TLS.PeerCertificates) != 1 || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) < 2 {
+		return time.Time{}, "", false
+	}
+	hoja, verificada := r.TLS.PeerCertificates[0], r.TLS.VerifiedChains[0][0]
+	if hoja == nil || verificada == nil || !bytes.Equal(hoja.Raw, verificada.Raw) ||
+		ahora.Before(verificada.NotBefore) || !ahora.Before(verificada.NotAfter) {
+		return time.Time{}, "", false
+	}
+	huella := sha256.Sum256(verificada.Raw)
+	return verificada.NotAfter.UTC().Truncate(time.Microsecond), hex.EncodeToString(huella[:]), true
+}
+
+func (a *autoridadSesionFirmanteV2) abrir(r *http.Request, c *capsulaSesionFirmanteV2) (core.VinculoAutenticacionActorV2,
+	core.ResultadoContextoActorRegistradoV2, error,
+) {
+	if r == nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, errSesionFirmanteV2Denegada
+	}
+	return a.abrirConContexto(r.Context(), r, c)
+}
+
+func (a *autoridadSesionFirmanteV2) abrirConContexto(ctx context.Context, r *http.Request, c *capsulaSesionFirmanteV2) (core.VinculoAutenticacionActorV2,
+	core.ResultadoContextoActorRegistradoV2, error,
+) {
 	var vacio core.VinculoAutenticacionActorV2
 	var sinContexto core.ResultadoContextoActorRegistradoV2
-	if a == nil || r == nil || capsula == nil || capsula.autoridad != a || capsula.peticion != r ||
-		!capsula.consumida.CompareAndSwap(false, true) || r.Context().Err() != nil ||
-		!a.reloj.Ahora().Before(a.retirada) {
+	if a == nil || ctx == nil || ctx.Err() != nil || c == nil || c.autoridad != a || c.peticion != r ||
+		!c.consumida.CompareAndSwap(false, true) || !a.peticionVigente(r, c) {
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
-	if r.TLS == nil || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) < 2 ||
-		r.TLS.VerifiedChains[0][0] == nil || r.URL == nil || r.URL.Path != httpinterno.RutaRegistroFirmaVec ||
-		r.Method != http.MethodPost || capsula.principal.Attributes["certificate_sha256"] != capsula.huellaAUT56 {
-		return vacio, sinContexto, errSesionFirmanteV2Denegada
-	}
-	huellaActual := sha256.Sum256(r.TLS.VerifiedChains[0][0].Raw)
-	if hex.EncodeToString(huellaActual[:]) != capsula.huellaAUT56 {
-		return vacio, sinContexto, errSesionFirmanteV2Denegada
-	}
-	seleccion := capsula.seleccion
-	asercion, err := nonceRutasDietas()
-	if err != nil {
+	solicitud := ports.SolicitudSesionFirmanteV2{CertificadoCanalSHA256: c.huellaAUT56,
+		PersonaEsperadaRef: c.personaCA25, CuentaEsperadaRef: c.seleccion.CuentaRef,
+		PerfilEsperadoRef: c.seleccion.PerfilActivoRef, CertificadoVerificadoEn: c.verificadoEn,
+		CertificadoTLSValidoHasta: c.validoHasta}
+	sesion, err := a.fuente.AbrirSesionFirmanteV2(ctx, solicitud)
+	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(sesion) {
 		return vacio, sinContexto, errSesionFirmanteV2NoDisponible
 	}
-	sesion, err := nonceRutasDietas()
-	if err != nil {
-		return vacio, sinContexto, errSesionFirmanteV2NoDisponible
+	c.mu.Lock()
+	c.sesion = sesion
+	c.mu.Unlock()
+	return a.revalidarConContexto(ctx, r, c)
+}
+
+// revalidar consulta el registro común en cada invocación del emisor, sin
+// consumir otra cápsula ni crear una segunda sesión para la petición.
+func (a *autoridadSesionFirmanteV2) revalidar(r *http.Request, c *capsulaSesionFirmanteV2) (core.VinculoAutenticacionActorV2,
+	core.ResultadoContextoActorRegistradoV2, error,
+) {
+	if r == nil {
+		return core.VinculoAutenticacionActorV2{}, core.ResultadoContextoActorRegistradoV2{}, errSesionFirmanteV2Denegada
 	}
-	hasta := capsula.instante.Add(2 * time.Minute)
-	if certificado := r.TLS.VerifiedChains[0][0].NotAfter.UTC().Truncate(time.Microsecond); certificado.Before(hasta) {
-		hasta = certificado
-	}
-	if a.retirada.Before(hasta) {
-		hasta = a.retirada
-	}
-	if !hasta.After(capsula.instante) {
+	return a.revalidarConContexto(r.Context(), r, c)
+}
+
+func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r *http.Request, c *capsulaSesionFirmanteV2) (core.VinculoAutenticacionActorV2,
+	core.ResultadoContextoActorRegistradoV2, error,
+) {
+	var vacio core.VinculoAutenticacionActorV2
+	var sinContexto core.ResultadoContextoActorRegistradoV2
+	if a == nil || ctx == nil || ctx.Err() != nil || c == nil || c.autoridad != a || c.peticion != r || !c.consumida.Load() || !a.peticionVigente(r, c) {
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
-	huellaCanal := capsula.principal.Attributes["certificate_sha256"]
-	alta := httpseguridad.AltaSesionAtomica{AsercionID: asercion, SesionID: sesion,
-		SujetoID: capsula.principal.ID, CuentaID: "desarrollo:" + seleccion.CuentaRef,
-		Superficie: httpseguridad.SuperficieInternaCorporativa, EspacioIdentidad: espacioIdentidadSesionDesarrollo,
-		MetodoObservado: core.AuthMethodCertificate, GarantiaObservada: core.AuthAssuranceHigh,
-		AutenticacionVerificadaEn: capsula.instante, SesionEmitidaEn: capsula.instante, AsercionExpiraEn: hasta,
-		PoliticaGarantiaRef:          referenciaAltaContratacionTemporalDesarrollo("pga_", "dev-certificado-mtls-v1"),
-		PoliticaGarantiaHuellaSHA256: huellaRutasDietas(politicaSesionFirmanteV2),
-		AutenticacionHuellaSHA256: huellaRutasDietas(a.instancia + "|" + asercion + "|" + sesion + "|" + huellaCanal + "|" +
-			seleccion.CuentaRef + "|" + seleccion.PerfilActivoRef + "|" + capsula.personaCA25 + "|" + r.URL.Path + "|" + r.Method),
-	}
-	confirmacion, err := a.registro.ConsumirAsercionYRegistrar(r.Context(), alta)
-	if err != nil || confirmacion.ValidarPara(alta) != nil || confirmacion.CuentaRef != seleccion.CuentaRef {
-		return vacio, sinContexto, errSesionFirmanteV2NoDisponible
-	}
-	revalidador := revalidadorSesionConsultaRRHHDesarrollo{delegado: a.revalidador, alta: alta,
-		confirmacion: confirmacion, reloj: a.reloj, superficie: httpseguridad.SuperficieInternaCorporativa}
-	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(r.Context(), revalidador,
-		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef},
-		a.contextos, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{
-			CuentaRef: seleccion.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh},
-			PerfilActivoRef: seleccion.PerfilActivoRef}, a.reloj)
-	if err != nil {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.fallida || dependenciaEsNulaContratacionTemporalDesarrollo(c.sesion) {
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
-	datos, err := vinculo.Datos()
-	if err != nil || datos.CuentaRef != seleccion.CuentaRef || datos.PerfilActivoRef != seleccion.PerfilActivoRef ||
-		datos.PrincipalID != seleccion.PersonaRef || datos.CuentaPrivilegiada ||
+	e, err := c.sesion.RevalidarSesionFirmanteV2(ctx)
+	if err != nil {
+		c.fallida = true
+		return vacio, sinContexto, errSesionFirmanteV2Denegada
+	}
+	ahora := a.reloj.Ahora()
+	datos, err := e.Vinculo.Datos()
+	if err != nil || e.Resultado.Validar() != nil || e.Vinculo.ValidarPara(e.Resultado) != nil ||
+		!e.Vinculo.VigenteEn(ahora, e.Resultado) || e.CertificadoCanalSHA256 != c.huellaAUT56 ||
+		e.CertificadoValidoHasta.IsZero() || ahora.Before(e.Resultado.Contexto.ResueltoEn) ||
+		!ahora.Before(e.CertificadoValidoHasta) || e.CertificadoValidoHasta.After(c.validoHasta) ||
+		datos.CuentaRef != c.seleccion.CuentaRef || datos.PerfilActivoRef != c.seleccion.PerfilActivoRef ||
+		datos.PrincipalID != c.personaCA25 || datos.CuentaPrivilegiada ||
+		datos.MetodoObservado != core.AuthMethodCertificate || datos.GarantiaObservada != core.AuthAssuranceHigh ||
 		datos.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 ||
-		resultado.Contexto.PersonaRef != capsula.personaCA25 ||
-		!resultado.Contexto.AlcanceProyecciones().IncluyeEmpleado() || !vinculo.VigenteEn(a.reloj.Ahora(), resultado) ||
-		!a.reloj.Ahora().Before(a.retirada) {
+		e.Resultado.Contexto.PersonaRef != c.personaCA25 ||
+		!e.Resultado.Contexto.AlcanceProyecciones().IncluyeEmpleado() || !a.peticionVigente(r, c) {
+		c.fallida = true
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
-	return vinculo, resultado, nil
+	return e.Vinculo, e.Resultado, nil
+}
+
+func (a *autoridadSesionFirmanteV2) peticionVigente(r *http.Request, c *capsulaSesionFirmanteV2) bool {
+	if a == nil || r == nil || c == nil || r.Context().Err() != nil || r.URL == nil ||
+		r.URL.Path != httpinterno.RutaRegistroFirmaVec || r.Method != http.MethodPost || a.reloj == nil ||
+		a.fuente == nil || !a.reloj.Ahora().Before(c.validoHasta) {
+		return false
+	}
+	_, huella, ok := certificadoSesionFirmanteV2(r, a.reloj.Ahora())
+	return ok && huella == c.huellaAUT56
 }

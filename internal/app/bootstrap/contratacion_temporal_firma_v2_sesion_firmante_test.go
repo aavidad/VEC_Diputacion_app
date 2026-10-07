@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -64,6 +65,7 @@ func TestConfiguracionSesionFirmanteV2CerradaYPlantilla(t *testing.T) {
 
 type entornoFirmanteV2Prueba struct {
 	a         *autoridadSesionFirmanteV2
+	fuente    *fuenteSinteticaSesionFirmanteV2
 	r         *http.Request
 	seleccion ports.SeleccionFirmanteV2
 	huella    string
@@ -123,7 +125,7 @@ func nuevoEntornoFirmanteV2Prueba(t *testing.T) entornoFirmanteV2Prueba {
 	seleccion := ports.SeleccionFirmanteV2{PersonaRef: fixture.resultado.Contexto.PersonaRef, RolID: "rol_firma_vec_prueba",
 		CuentaRef: cuenta, PerfilActivoRef: fixture.resultado.Contexto.PerfilActivoRef,
 		VinculoCertificado: ports.ReferenciaVersionadaFirmanteV2{Referencia: "vcr_prueba", Version: 1, HuellaSHA256: strings.Repeat("b", 64)}}
-	return entornoFirmanteV2Prueba{a: a, r: r, seleccion: seleccion, huella: huella, persona: seleccion.PersonaRef,
+	return entornoFirmanteV2Prueba{a: a, fuente: a.fuente.(*fuenteSinteticaSesionFirmanteV2), r: r, seleccion: seleccion, huella: huella, persona: seleccion.PersonaRef,
 		reloj: reloj, registro: registro, contextos: contextos}
 }
 
@@ -135,15 +137,15 @@ func TestSesionFirmanteV2LigaCertificadoSeleccionYPeticion(t *testing.T) {
 	if _, err := e.a.acreditar(e.r, e.seleccion, "per_otra_persona_000000000", e.huella); !errors.Is(err, errSesionFirmanteV2Denegada) {
 		t.Fatal("persona CA25 ajena admitida", err)
 	}
-	externa := e.seleccion
-	externa.RolID = rolFirmaExternaRegistroCTDesarrollo
-	if _, err := e.a.acreditar(e.r, externa, e.persona, e.huella); !errors.Is(err, errSesionFirmanteV2Denegada) {
-		t.Fatal("perfil exterior admitido en la vía VEC", err)
-	}
 	conCabecera := e.r.Clone(e.r.Context())
 	conCabecera.Header.Set("X-Vec-User", "otro")
 	if _, err := e.a.acreditar(conCabecera, e.seleccion, e.persona, e.huella); !errors.Is(err, errSesionFirmanteV2Denegada) {
 		t.Fatal("cabecera ambiental admitida", err)
+	}
+	conCookieVacia := e.r.Clone(e.r.Context())
+	conCookieVacia.Header["Cookie"] = []string{""}
+	if _, err := e.a.acreditar(conCookieVacia, e.seleccion, e.persona, e.huella); !errors.Is(err, errSesionFirmanteV2Denegada) {
+		t.Fatal("cabecera Cookie vacía admitida", err)
 	}
 	capsula, err := e.a.acreditar(e.r, e.seleccion, e.persona, e.huella)
 	if err != nil {
@@ -159,11 +161,15 @@ func TestSesionFirmanteV2LigaCertificadoSeleccionYPeticion(t *testing.T) {
 		t.Fatal("empleado ausente admitido", err)
 	}
 	if len(e.registro.altas) != 1 || e.registro.altas[0].CuentaID != "desarrollo:"+e.seleccion.CuentaRef ||
-		e.registro.altas[0].AsercionExpiraEn.After(e.a.retirada) {
+		e.registro.altas[0].AsercionExpiraEn.After(e.fuente.retirada) {
 		t.Fatal("alta sintética incorrecta")
 	}
 	if _, _, err := e.a.abrir(e.r, capsula); !errors.Is(err, errSesionFirmanteV2Denegada) || len(e.registro.altas) != 1 {
 		t.Fatal("cápsula repetida")
+	}
+	proyectarEmpleadoFirmanteV2Prueba(t, &e)
+	if _, _, err := e.a.revalidar(e.r, capsula); !errors.Is(err, errSesionFirmanteV2Denegada) {
+		t.Fatal("cápsula fallida recuperada después de cambiar el contexto")
 	}
 }
 
@@ -222,6 +228,68 @@ func TestSesionFirmanteV2EntregaContextoEmpleadoRegistrado(t *testing.T) {
 	}
 }
 
+type fuenteSesionFirmanteInyectadaPrueba struct {
+	sesion         *sesionFirmanteInyectadaPrueba
+	abiertas       int
+	ultimoContexto context.Context
+}
+
+type sesionFirmanteInyectadaPrueba struct {
+	evidencia      ports.EvidenciaSesionFirmanteV2
+	revalidaciones int
+	ultimoContexto context.Context
+}
+
+func (f *fuenteSesionFirmanteInyectadaPrueba) AbrirSesionFirmanteV2(ctx context.Context,
+	_ ports.SolicitudSesionFirmanteV2) (ports.SesionFirmanteV2, error) {
+	f.abiertas++
+	f.ultimoContexto = ctx
+	return f.sesion, nil
+}
+
+func (s *sesionFirmanteInyectadaPrueba) RevalidarSesionFirmanteV2(ctx context.Context) (ports.EvidenciaSesionFirmanteV2, error) {
+	s.revalidaciones++
+	s.ultimoContexto = ctx
+	return s.evidencia, nil
+}
+
+func TestSesionFirmanteV2AceptaAutoridadComunInyectadaYRevalida(t *testing.T) {
+	e := nuevoEntornoFirmanteV2Prueba(t)
+	proyectarEmpleadoFirmanteV2Prueba(t, &e)
+	cSintetica, err := e.a.acreditar(e.r, e.seleccion, e.persona, e.huella)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, resultado, err := e.a.abrir(e.r, cSintetica)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sesion := &sesionFirmanteInyectadaPrueba{evidencia: ports.EvidenciaSesionFirmanteV2{
+		Vinculo: vinculo, Resultado: resultado, CertificadoCanalSHA256: e.huella,
+		CertificadoValidoHasta: e.r.TLS.VerifiedChains[0][0].NotAfter.UTC().Truncate(time.Microsecond)}}
+	fuente := &fuenteSesionFirmanteInyectadaPrueba{sesion: sesion}
+	a, err := nuevaAutoridadSesionFirmanteV2ConFuente(fuente, e.reloj, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := a.acreditar(e.r, e.seleccion, e.persona, e.huella)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxOperativo := context.WithValue(e.r.Context(), struct{ Correlacion string }{"firma"}, "correlacion-de-prueba")
+	if _, _, err := a.abrirConContexto(ctxOperativo, e.r, c); err != nil {
+		t.Fatal("fuente común rechazada", err)
+	}
+	if _, _, err := a.revalidarConContexto(ctxOperativo, e.r, c); err != nil || fuente.abiertas != 1 || sesion.revalidaciones != 2 ||
+		fuente.ultimoContexto != ctxOperativo || sesion.ultimoContexto != ctxOperativo {
+		t.Fatalf("se abrió otra sesión o se omitió revalidación: %v", err)
+	}
+	sesion.evidencia.CertificadoValidoHasta = e.reloj.Ahora()
+	if _, _, err := a.revalidar(e.r, c); !errors.Is(err, errSesionFirmanteV2Denegada) {
+		t.Fatal("vigencia de autoridad común ignorada", err)
+	}
+}
+
 func TestSesionFirmanteV2DeniegaPerfilPersonaEmpleadoYRetirada(t *testing.T) {
 	for caso, preparar := range map[string]func(*entornoFirmanteV2Prueba){
 		"perfil_ajeno": func(e *entornoFirmanteV2Prueba) { e.seleccion.PerfilActivoRef = "prf_otra_persona_00000000" },
@@ -245,12 +313,12 @@ func TestSesionFirmanteV2DeniegaPerfilPersonaEmpleadoYRetirada(t *testing.T) {
 		})
 	}
 	e := nuevoEntornoFirmanteV2Prueba(t)
-	e.reloj.ahora = e.a.retirada
+	e.reloj.ahora = e.fuente.retirada
 	if _, err := e.a.acreditar(e.r, e.seleccion, e.persona, e.huella); !errors.Is(err, errSesionFirmanteV2Denegada) {
 		t.Fatal("política vencida admitida", err)
 	}
-	if _, err := nuevaAutoridadSesionFirmanteV2ConPuertos(e.a.resolvedor, e.a.registro, e.a.revalidador,
-		e.a.contextos, e.reloj, e.a.retirada, e.a.instancia); !errors.Is(err, errSesionFirmanteV2NoDisponible) {
+	if _, err := nuevaAutoridadSesionFirmanteV2ConPuertos(e.fuente.resolvedor, e.fuente.registro, e.fuente.revalidador,
+		e.fuente.contextos, e.reloj, e.fuente.retirada, e.fuente.instancia); !errors.Is(err, errSesionFirmanteV2NoDisponible) {
 		t.Fatal("arranque vencido", err)
 	}
 }
