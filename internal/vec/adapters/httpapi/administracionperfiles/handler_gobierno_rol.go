@@ -108,11 +108,12 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 			EntradaHuellaSHA256: dto.EntradaHuellaSHA256}}}
 	intencion := domain.SolicitudPlanGobiernoPerfil{Operacion: domain.OperacionCrearPerfilGobernado,
 		Publicacion: &publicacion, Motivo: dto.Motivo, ReferenciaActo: dto.ReferenciaActo}
-	plan, err := domain.PrepararPlanGobiernoPerfil(catalogo, intencion, ahora)
+	plan, instantePlan, err := domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(catalogo, intencion, ahora, sesion.Actor.PersonaRef)
 	if err != nil || plan.Base != nil || plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != 1 {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return
 	}
+	publicacion.RolPropuesto.PublicadaEn = instantePlan
 	huellaPlan, err := plan.HuellaSHA256()
 	if err != nil {
 		h.denegarActor(w, r, sesion, http.StatusServiceUnavailable, "servicio_no_disponible", accion, "")

@@ -107,7 +107,8 @@ func (a *AutoridadGobiernoRolNuevo) ResolverCatalogoGobiernoPerfil(ctx context.C
 	if err != nil {
 		return vacio, err
 	}
-	plan, err := domain.PrepararPlanGobiernoPerfil(c, s.Intencion, a.reloj.Ahora())
+	plan, _, err := domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(c, s.Intencion,
+		a.reloj.Ahora(), s.Actor.PersonaRef)
 	if err != nil || plan.Operacion != domain.OperacionCrearPerfilGobernado || plan.Base != nil ||
 		plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != 1 {
 		return vacio, domain.ErrPlanGobiernoPerfilInvalido

@@ -49,7 +49,14 @@ func (s *ServicioAdministracionPerfiles) proponerGobiernoPerfilConEstado(ctx con
 	if err != nil {
 		return vacio, err
 	}
-	plan, err := domain.PrepararPlanGobiernoPerfil(catalogo, solicitud.Intencion, s.reloj.Ahora())
+	var plan domain.PlanGobiernoPerfil
+	if _, recuperable := autoridad.(ports.AutoridadPropuestaGobiernoRolNuevoRecuperable); recuperable &&
+		solicitud.Intencion.Operacion == domain.OperacionCrearPerfilGobernado {
+		plan, _, err = domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(catalogo, solicitud.Intencion,
+			s.reloj.Ahora(), solicitud.Actor.PersonaRef)
+	} else {
+		plan, err = domain.PrepararPlanGobiernoPerfil(catalogo, solicitud.Intencion, s.reloj.Ahora())
+	}
 	if err != nil {
 		return vacio, err
 	}

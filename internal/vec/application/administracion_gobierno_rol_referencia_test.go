@@ -52,6 +52,45 @@ func TestGobiernoRolDistinguePropuestaNuevaDeReplayHistorico(t *testing.T) {
 	}
 }
 
+func TestGobiernoRolRecuperaPropuestaConCatalogoHistoricoExacto(t *testing.T) {
+	servicio, s, anterior, _ := gobiernoPerfilAplicacionPrueba(t)
+	// La fuente AUT58 conserva la instantánea original, ya fuera de vigencia.
+	// La fecha de preparación sale de esa entrada, nunca del body.
+	anterior.catalogo.VigenteHasta = anterior.ahora.Add(-time.Minute)
+	anterior.catalogo.Entradas[0].VigenteHasta = anterior.catalogo.VigenteHasta
+	he, err := anterior.catalogo.Entradas[0].HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hc, err := anterior.catalogo.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Intencion.Publicacion.CatalogoHuellaSHA256 = hc
+	s.Intencion.Publicacion.Selecciones[0].EntradaHuellaSHA256 = he
+	plan, instante, err := domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(anterior.catalogo,
+		s.Intencion, anterior.ahora, s.Actor.PersonaRef)
+	if err != nil || !instante.Equal(anterior.catalogo.Entradas[0].VigenteDesde) {
+		t.Fatalf("instante histórico fuente: %v", err)
+	}
+	s.HuellaPlanEsperada, err = plan.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadPropuestaRolRecuperablePrueba{autoridadGobiernoPerfilPrueba: anterior,
+		replay: true, caduca: anterior.ahora.Add(-time.Minute)}
+	servicio.actos = autoridad
+	r, err := servicio.ProponerGobiernoRolNuevo(context.Background(), s)
+	if err != nil || !r.Replay || r.Propuesta.HuellaSHA256 == "" {
+		t.Fatalf("replay histórico exacto inaccesible: %+v %v", r, err)
+	}
+	// La misma fuente caducada no convierte un primer efecto en permitido.
+	autoridad.replay = false
+	if r, err := servicio.ProponerGobiernoRolNuevo(context.Background(), s); err == nil || r.Propuesta.HuellaSHA256 != "" {
+		t.Fatal("primera propuesta caducada aceptada")
+	}
+}
+
 func (a *autoridadGobiernoPerfilPrueba) CerrarGobiernoRolPorReferencia(
 	_ context.Context, _ domain.SolicitudCierreGobiernoRolPorReferencia,
 ) (domain.CierreGobiernoPerfil, error) {
