@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/pruebas"
@@ -72,18 +73,35 @@ func (t *txIntentoAuditoriaPrueba) Rollback(context.Context) error {
 
 type poolIntentoAuditoriaPrueba struct {
 	tx                  *txIntentoAuditoriaPrueba
+	txs                 []*txIntentoAuditoriaPrueba
+	beginErr            error
 	opciones            pgx.TxOptions
 	inicios             int
+	deadlines           []time.Time
+	contextosErr        []error
 	preflight           bool
 	consultaPreflight   string
 	argumentosPreflight []any
 }
 
-func (p *poolIntentoAuditoriaPrueba) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
+func (p *poolIntentoAuditoriaPrueba) BeginTx(ctx context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
 	p.inicios++
 	p.opciones = opciones
-	p.tx.eventos = append(p.tx.eventos, "begin")
-	return p.tx, nil
+	fecha, _ := ctx.Deadline()
+	p.deadlines = append(p.deadlines, fecha)
+	p.contextosErr = append(p.contextosErr, ctx.Err())
+	if p.beginErr != nil {
+		return nil, p.beginErr
+	}
+	tx := p.tx
+	if len(p.txs) > 0 {
+		tx, p.txs = p.txs[0], p.txs[1:]
+	}
+	if tx == nil {
+		return nil, ports.ErrIntentoAuditoriaNoDisponible
+	}
+	tx.eventos = append(tx.eventos, "begin")
+	return tx, nil
 }
 func (p *poolIntentoAuditoriaPrueba) QueryRow(_ context.Context, consulta string, argumentos ...any) pgx.Row {
 	p.consultaPreflight = consulta
@@ -219,6 +237,101 @@ func TestIntentoAuditoriaPreflightCotejaProcesoCanalYRol(t *testing.T) {
 	pool.preflight = false
 	if err := r.PreflightIntentoAuditoria(context.Background()); !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) {
 		t.Fatalf("preflight falso aceptado: %v", err)
+	}
+}
+
+func registradorPlazoIntentoPrueba(t *testing.T, limite time.Duration) (*RegistradorIntentosAuditoriaPostgreSQL, *poolIntentoAuditoriaPrueba) {
+	t.Helper()
+	pool := &poolIntentoAuditoriaPrueba{beginErr: errors.New("fallo sintético de inicio")}
+	r, err := nuevoRegistradorIntentosAuditoriaPostgreSQL(pool, "vec-server", "interna_corporativa", limite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r, pool
+}
+
+func TestIntentoAuditoriaUsaMinimoDeDeadlineConsumidorYPropio(t *testing.T) {
+	orden := ordenIntentoAuditoriaPrueba(t)
+	r, pool := registradorPlazoIntentoPrueba(t, 30*time.Second)
+	fechaConsumidor := time.Now().Add(2 * time.Second)
+	ctx, cancelar := context.WithDeadline(context.Background(), fechaConsumidor)
+	defer cancelar()
+	if _, err := r.AppendIntentoAuditoria(ctx, orden); !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) ||
+		len(pool.deadlines) != 1 || !pool.deadlines[0].Equal(fechaConsumidor) {
+		t.Fatalf("deadline de consumidor perdido: err=%v deadlines=%v", err, pool.deadlines)
+	}
+
+	for _, caso := range []struct {
+		nombre      string
+		conDeadline bool
+	}{
+		{"consumidor_mas_largo", true},
+		{"sin_deadline_consumidor", false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			const limite = time.Second
+			r, pool := registradorPlazoIntentoPrueba(t, limite)
+			base := context.Background()
+			if caso.conDeadline {
+				var cancelar context.CancelFunc
+				base, cancelar = context.WithDeadline(base, time.Now().Add(10*time.Second))
+				defer cancelar()
+			}
+			antes := time.Now()
+			_, err := r.AppendIntentoAuditoria(base, orden)
+			despues := time.Now()
+			efectivo := plazoarranque.Ampliar(limite)
+			if !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) || len(pool.deadlines) != 1 ||
+				pool.deadlines[0].Before(antes.Add(efectivo)) || pool.deadlines[0].After(despues.Add(efectivo)) {
+				t.Fatalf("plazo propio no aplicado: err=%v deadlines=%v", err, pool.deadlines)
+			}
+		})
+	}
+}
+
+func TestIntentoAuditoriaDesacoplaCancelacionPeroNoDeadlineVencido(t *testing.T) {
+	orden := ordenIntentoAuditoriaPrueba(t)
+	r, pool := registradorPlazoIntentoPrueba(t, 30*time.Second)
+	fecha := time.Now().Add(2 * time.Second)
+	ctx, cancelar := context.WithDeadline(context.Background(), fecha)
+	cancelar() // La conexión HTTP terminó antes del plazo permitido.
+	if _, err := r.AppendIntentoAuditoria(ctx, orden); !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) ||
+		pool.inicios != 1 || pool.contextosErr[0] != nil || !pool.deadlines[0].Equal(fecha) {
+		t.Fatalf("cancelación HTTP contaminó auditoría: err=%v inicios=%d contexto=%v deadlines=%v",
+			err, pool.inicios, pool.contextosErr, pool.deadlines)
+	}
+
+	r, pool = registradorPlazoIntentoPrueba(t, 30*time.Second)
+	ctx, cancelar = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelar()
+	if _, err := r.AppendIntentoAuditoria(ctx, orden); !errors.Is(err, ports.ErrIntentoAuditoriaNoDisponible) || pool.inicios != 0 {
+		t.Fatalf("deadline vencido abrió transacción: err=%v inicios=%d", err, pool.inicios)
+	}
+}
+
+func TestIntentoAuditoriaReintentoComparteDeadlineAbsoluto(t *testing.T) {
+	orden := ordenIntentoAuditoriaPrueba(t)
+	acuse := ports.AcuseIntentoAuditoria{
+		AuditoriaRef: "aud_v3_intento_11111111111111111111111111111111", Secuencia: 7,
+		HuellaSHA256:   strings.Repeat("b", 64),
+		CorrelacionRef: "correlacion_11111111111111111111111111111111",
+		RegistradaEn:   time.Date(2026, 10, 3, 10, 1, 0, 0, time.UTC),
+	}
+	pool := &poolIntentoAuditoriaPrueba{txs: []*txIntentoAuditoriaPrueba{
+		{fila: filaIntentoAuditoriaPrueba{acuse: acuse}, commitErr: &pgconn.PgError{Code: "40001"}},
+		{fila: filaIntentoAuditoriaPrueba{acuse: acuse}},
+	}}
+	r, err := nuevoRegistradorIntentosAuditoriaPostgreSQL(pool, "vec-server", "interna_corporativa", 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fecha := time.Now().Add(2 * time.Second)
+	ctx, cancelar := context.WithDeadline(context.Background(), fecha)
+	defer cancelar()
+	recibido, err := r.AppendIntentoAuditoria(ctx, orden)
+	if err != nil || recibido.AuditoriaRef != acuse.AuditoriaRef || pool.inicios != 2 ||
+		len(pool.deadlines) != 2 || !pool.deadlines[0].Equal(fecha) || !pool.deadlines[1].Equal(fecha) {
+		t.Fatalf("reintento renovó presupuesto o perdió acuse: err=%v inicios=%d deadlines=%v", err, pool.inicios, pool.deadlines)
 	}
 }
 

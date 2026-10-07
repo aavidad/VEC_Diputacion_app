@@ -50,7 +50,13 @@ func (s *ServicioCorrecciones) SolicitarOlvido(ctx context.Context, orden ports.
 		return ports.ReciboCorreccion{}, err
 	}
 	empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
-	if err != nil || len(empleados) != 1 || !vinculoEmpleadoCRN11Vigente(actor, empleados[0], instante) {
+	if err != nil || len(empleados) != 1 {
+		return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
+	}
+	if !vinculoEmpleadoCRN11Vigente(actor, empleados[0], instante) {
+		if err := registrarDenegacionVinculo(ctx, actor); err != nil {
+			return ports.ReciboCorreccion{}, err
+		}
 		return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
 	}
 	solicitud := domain.SolicitudCorreccion{
