@@ -14,6 +14,11 @@ DECLARE original jsonb;actual jsonb;grupo oid:=to_regrole('vec_admin_gobierno_ro
   'vec_autorizacion.resolver_rol_administrable_v1(text)'::regprocedure::oid];
 BEGIN
  IF grupo IS NULL THEN RAISE EXCEPTION 'AUT60 sonda: grupo ausente';END IF;
+ IF EXISTS(SELECT 1 FROM pg_roles r WHERE r.oid=grupo
+  AND (r.rolcanlogin OR r.rolinherit OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole
+   OR r.rolreplication OR r.rolbypassrls OR r.rolconfig IS NOT NULL))
+ OR EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=grupo)
+ THEN RAISE EXCEPTION 'AUT60 sonda: grupo no aislado';END IF;
  original:=jsonb_build_object('esquema','administracion_gobierno_rol_nuevo_propuesta_v1',
   'material_canon','{}','material_sha256',repeat('a',64),'plan_sha256',repeat('b',64),
   'correlacion_ref','correlacion_'||repeat('1',32));
