@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261007-ct-ficha-main-v1";
+const versionCoordinador = "20261007-ct-ficha-b7-v1";
 const versionCircuito = "20261007-ct-ficha-final-v1";
 const raiz = new URL("./", import.meta.url);
 

@@ -376,6 +376,7 @@ static/portal-empleado/portal-llamamientos-contrato.js
 static/portal-empleado/portal-llamamientos-flujo.js
 static/portal-empleado/portal-llamamientos-operaciones-api.js
 static/portal-empleado/portal-menu-bolsa.css
+static/portal-empleado/portal-llamamientos-selector.js
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
 static/portal-empleado/portal-modulos-carga.js
