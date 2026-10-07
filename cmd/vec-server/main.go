@@ -108,12 +108,12 @@ func main() {
 	if err != nil {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
 		registrarArranque("configuracion", "fallida", "configuracion")
-		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s", envArranquePlazoPreflight)
+		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s error=%s", envArranquePlazoPreflight, telemetria.MensajeErrorArranque(err))
 	}
 	if err := plazoarranque.Fijar(plazo); err != nil {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
 		registrarArranque("configuracion", "fallida", "configuracion")
-		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s", envArranquePlazoPreflight)
+		log.Fatalf("bootstrap server: etapa=configuracion causa=configuracion variable=%s error=%s", envArranquePlazoPreflight, telemetria.MensajeErrorArranque(err))
 	}
 	if plazo > 0 {
 		log.Printf("arranque: plazo mínimo de las comprobaciones previas %s", plazo)
@@ -126,8 +126,9 @@ func main() {
 		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		causa := telemetria.ClaseErrorArranque(err)
+		componente := bootstrap.ComponenteFalloArranque(err)
 		registrarArranque("composicion", "fallida", causa)
-		log.Fatalf("bootstrap server: etapa=composicion causa=%s", causa)
+		log.Fatalf("bootstrap server: etapa=composicion componente=%s causa=%s error=%s", componente, causa, telemetria.MensajeErrorArranque(err))
 	}
 	// Registro de acceso técnico: una línea JSON por petición en stderr. Va
 	// dentro de la supervisión, que aporta la correlación.
@@ -160,7 +161,7 @@ func main() {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
 		causa := telemetria.ClaseErrorArranque(err)
 		registrarArranque("escucha", "fallida", causa)
-		log.Fatalf("serve: etapa=escucha causa=%s", causa)
+		log.Fatalf("serve: etapa=escucha causa=%s error=%s", causa, telemetria.MensajeErrorArranque(err))
 	}
 }
 

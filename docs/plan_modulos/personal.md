@@ -207,3 +207,48 @@ los manifiestos corresponden a Dirección antes de integrar.
 El valor recibido aparece junto al valor propuesto, antes del motivo y la evidencia.
 La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
 La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.
+
+
+## Ficha propia: reanclaje de autorización — 7 de octubre de 2026
+
+AD211 recupera el consumidor nominal de AD74 para la ficha propia ya
+implementada. Es una migración nueva: AD74 permanece intacta. La lista
+`deploy/principal/lista_sql_codext_ficha_personal_20261007.txt` ordena
+AD211 y Personal22 para una base donde ambas capacidades estén ausentes.
+Si Personal22 o el consumidor ya están instalados, no se ejecuta esa lista.
+
+Ensayo en clon propio PostgreSQL 18.4, en disco y con límite de 2 GB:
+UP únicos correctos, ACL y negativa de material nulo correctas. El núcleo
+conserva sus metadatos y la inversión textual de la extensión reproduce la preimagen;
+los 6.240 consumos, registros de auditoría y cabeza anteriores permanecen idénticos.
+Dos revisiones independientes favorables del código `e8e767e84`.
+
+La preimagen incluye AD195/AD196 y después AD178/AD177, AD190, AD197,
+AD198, AD200, AD199, AD208 y AD207, con sus dependencias de las listas de main.
+Otra extensión del núcleo o del CHECK obliga a medir de nuevo antes de instalar.
+No se ha instalado en la principal ni demostrado acceso nominal desde navegador:
+faltan identidad, perfil y origen V3 propios para esa comprobación.
+Tampoco se ha medido el rendimiento de esta lectura autorizada.
+La siguiente dependencia es reanclar AD175/Personal32 (#555) y después
+AD180/Personal34 (#577), conservando sus consumidores y recibos existentes.
+
+
+## Exportación propia: retoma de #555 — 7 de octubre de 2026
+
+AD175 se reancla sobre AD211 con su permiso de exportación separado del de
+consulta. Personal32 conserva el corte en los recibos nuevos y rechaza los
+antiguos sin corte; no rellena ni modifica sus datos históricos. Se acotan
+todos los argumentos antes del primer parseo de JSON.
+
+En un clon PostgreSQL 18.4 se aplica AD175 y la prueba de preservación instala
+Personal32 una sola vez. Un recibo ficticio, insertado directamente para esta
+prueba, mantiene su contenido y los dos cortes NULL; su modificación falla.
+Metadatos de la consulta e inversión textual del parche correctos. ACL y
+tres negativas reales de tamaños inválidos correctas con un LOGIN técnico
+exclusivo. Dos revisiones favorables del código `7c9e7ecb2`.
+
+El recibo de prueba no procede de una lectura nominal: falta ensayar una
+exportación con identidad, permiso, origen y material firmados propios,
+recuperarla tras reinicio y medir su latencia. Orden: AD211/Personal22,
+después la lista de AD175/Personal32, y finalmente AD180/Personal34.
+No se instala nada en la principal por esta retoma.

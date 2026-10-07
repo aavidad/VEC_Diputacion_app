@@ -24,13 +24,16 @@ func main() {
 			Fase:    fase, Resultado: resultado, Causa: causa, Duracion: time.Since(inicioFase),
 		})
 	}
-	fallarConfiguracion := func(etapa string) {
+	fallarConfiguracion := func(etapa string, causa error) {
 		registrarArranque("configuracion", "fallida", "configuracion")
-		log.Fatal(errorArranque(etapa))
+		if causa == nil {
+			log.Fatal(errorArranque(etapa))
+		}
+		log.Fatalf("%s: %s", errorArranque(etapa), telemetria.MensajeErrorArranque(causa))
 	}
 	retirada, err := time.Parse(time.RFC3339, os.Getenv("VEC_ADMIN_RETIRADA_EN"))
 	if err != nil {
-		fallarConfiguracion("retirada")
+		fallarConfiguracion("retirada", err)
 	}
 	configServidor := administracion.Configuracion{
 		Entorno:             os.Getenv("VEC_ADMIN_ENTORNO"),
@@ -47,11 +50,11 @@ func main() {
 	}
 	privada, err := cargarConfiguracionPerfilesPrivada(os.Getenv("VEC_ADMIN_PERFILES_CONFIG_FILE"))
 	if err != nil {
-		fallarConfiguracion("perfiles_config")
+		fallarConfiguracion("perfiles_config", err)
 	}
 	runtime, err := cargarConfiguracionRuntimeADMIN(os.Getenv("VEC_ADMIN_RUNTIME_CONFIG_FILE"), privada)
 	if err != nil {
-		fallarConfiguracion("runtime_config")
+		fallarConfiguracion("runtime_config", err)
 	}
 	var servidor *http.Server
 	var cerrar func()
@@ -60,7 +63,7 @@ func main() {
 		// nunca cae al arranque heredado de perfiles.
 		usuarios, errorConfig := cargarConfiguracionUsuariosMetadatosPrivada(rutaUsuarios, privada)
 		if errorConfig != nil {
-			fallarConfiguracion("usuarios_config")
+			fallarConfiguracion("usuarios_config", errorConfig)
 		}
 		// El lote sólo existe junto a las lecturas de usuarios y con su propio
 		// archivo privado; sin él, el proceso no abre ninguna escritura.
@@ -68,7 +71,7 @@ func main() {
 		if rutaLote := os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE"); rutaLote != "" {
 			c, errorLote := cargarConfiguracionLotePrivada(rutaLote, privada, usuarios, runtime)
 			if errorLote != nil {
-				fallarConfiguracion("lote_config")
+				fallarConfiguracion("lote_config", errorLote)
 			}
 			lote = &c
 		}
@@ -78,7 +81,7 @@ func main() {
 		if rutaPlan := os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE"); rutaPlan != "" {
 			c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, lote, privada, usuarios, runtime)
 			if errorPlan != nil {
-				fallarConfiguracion("plan_firma_config")
+				fallarConfiguracion("plan_firma_config", errorPlan)
 			}
 			plan = &c
 		}
@@ -97,14 +100,14 @@ func main() {
 			}
 			c, errorEfecto := cargarConfiguracionEfectoPrivada(ruta, e.audiencia, otros, lote, plan, privada, usuarios, runtime)
 			if errorEfecto != nil {
-				fallarConfiguracion(e.nombre + "_config")
+				fallarConfiguracion(e.nombre+"_config", errorEfecto)
 			}
 			efectos = append(efectos, efectoConfigurado{efectoADMIN: e, cfg: c})
 		}
 		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConLote(configServidor, privada, usuarios, runtime, lote, plan, efectos)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" {
-		fallarConfiguracion("lote_sin_usuarios")
+		fallarConfiguracion("lote_sin_usuarios", nil)
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
 	}
@@ -117,7 +120,7 @@ func main() {
 			causa = "configuracion"
 		}
 		registrarArranque("composicion", "fallida", causa)
-		log.Fatal(errorArranque(etapaComposicionADMIN(err)))
+		log.Fatalf("%s: %s", errorArranque(etapaComposicionADMIN(err)), telemetria.MensajeErrorArranque(err))
 	}
 	defer cerrar()
 	telemetria.Montar(servidor, telemetria.Opciones{
@@ -130,7 +133,7 @@ func main() {
 	if err := servidor.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		cerrar()
 		registrarArranque("escucha", "fallida", telemetria.ClaseErrorArranque(err))
-		log.Fatal(errorArranque("escucha"))
+		log.Fatalf("%s: %s", errorArranque("escucha"), telemetria.MensajeErrorArranque(err))
 	}
 }
 
