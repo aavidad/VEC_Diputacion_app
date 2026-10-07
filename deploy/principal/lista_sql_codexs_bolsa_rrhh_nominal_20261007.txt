@@ -1,0 +1,17 @@
+# Cadena única HX → Bolsa RRHH nominal. Cotejar el diario de la base antes de
+# cada UP: omitir la que ya conste instalada, nunca reaplicar ni ejecutar DOWN.
+# AD214 procede de la rama revisada de la autoridad común; esta lista sólo se
+# ejecuta tras integrarla y obtener sus dos GO sobre el hash exacto.
+deploy/postgresql/bolsa_importacion_convoca/migraciones/000006_recuperacion_filas_selectiva.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000211_consumidor_ficha_propia_reanclado.up.sql
+deploy/postgresql/personal/migraciones/000022_ficha_propia_empleado.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000175_consumidor_exportacion_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000032_exportacion_servicios_propios.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000180_consumidor_historia_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000034_historia_servicios_propios.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000214_consultas_bolsa_rrhh.up.sql
+# Antes del primer consumo nuevo, configurar sólo las tres ternas nominales
+# Bolsa mediante la operación gobernada de origen AD172 y su fuente canónica.
+# No añadir INSERT propio ni crear personas, perfiles o concesiones.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000213_consumos_consulta_bolsa_rrhh.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000084_lecturas_rrhh_nominales.up.sql

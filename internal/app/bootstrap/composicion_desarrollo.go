@@ -75,11 +75,11 @@ func NuevaComposicionSeguridadDesarrollo(
 ) (*ComposicionSeguridadDesarrollo, error) {
 	cfg = cfg.Normalize()
 	if err := validarRedLocalDesarrollo(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("red_local", err)
 	}
 	material, err := cargarMaterialSeguridadDesarrollo(cfg)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("material_seguridad", err)
 	}
 	defer borrarBytes(material.firmaAtestacionKMS)
 	defer borrarBytes(material.firmaRevalidacionKMS)
@@ -88,7 +88,7 @@ func NuevaComposicionSeguridadDesarrollo(
 	defer material.idempotencia.borrar()
 	derivadorIdempotencia, err := nuevoDerivadorIdentidadOperacionDesarrollo(&material.idempotencia)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("derivador_idempotencia", err)
 	}
 	derivadorEntregado := false
 	defer func() {
@@ -104,7 +104,7 @@ func NuevaComposicionSeguridadDesarrollo(
 		material.huellaPublicaRevalidacionKMS,
 	)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("proveedores_kms", err)
 	}
 	selladorTSA := nuevoSelladorTiempoDesarrollo(material.claveTSA)
 	proveedores, err := descriptoresProveedoresDesarrollo(
@@ -112,11 +112,11 @@ func NuevaComposicionSeguridadDesarrollo(
 		selladorTSA, derivadorIdempotencia, material.configuracionTLS,
 	)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("descriptores_seguridad", err)
 	}
 	metadatos, err := PrepararPerfilEjecucion(cfg, proveedores, registro)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("perfil_ejecucion", err)
 	}
 	procedencia, err := gobiernoconvocatorias.NuevaProcedenciaActoBorrador(
 		config.ExecutionProfileDevelopment,
@@ -125,7 +125,7 @@ func NuevaComposicionSeguridadDesarrollo(
 		false,
 	)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("procedencia_acto", err)
 	}
 	resultado := &ComposicionSeguridadDesarrollo{
 		metadatos:             metadatos,
@@ -248,46 +248,46 @@ func nuevoServidorDesarrollo(
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
 	if len(incorporacion) > 1 {
-		return nil, nil, ErrComposicionDesarrolloIncompleta
+		return nil, nil, marcarFalloComponenteArranque("configuracion_incorporacion", ErrComposicionDesarrolloIncompleta)
 	}
 	cfg = cfg.Normalize()
 	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("selectores_bolsa_ct", err)
 	}
 	// Antes de leer material o abrir conexiones: un proceso separado no
 	// arranca con credenciales ni claves del otro portal.
 	portal, err := comprobarSeparacionPortalConEntorno(cfg, entornoProcesoActual)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("separacion_portal", err)
 	}
 	if portal == separacionportales.PortalExterno {
 		// El proceso externo tiene su propia composición: no pasa por la
 		// seguridad ni por las conexiones de RRHH.
 		if len(incorporacion) != 0 || strings.TrimSpace(cfg.IncorporacionV2File) != "" {
-			return nil, nil, ErrActivacionDesarrolloInvalida
+			return nil, nil, marcarFalloComponenteArranque("portal_externo", ErrActivacionDesarrolloInvalida)
 		}
 		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro, emisor)
-		return servidor, nil, err
+		return servidor, nil, marcarFalloComponenteArranque("portal_externo", err)
 	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("seguridad", err)
 	}
 	resolvedor, err := composicion.ResolvedorIdentidad()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("resolvedor_identidad", err)
 	}
 	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("identidades_preferencias", err)
 	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	rutasCalendarios, consultaCalendarios, cerrarCalendarios, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("calendarios", err)
 	}
 	calendariosCompletos := false
 	defer func() {
@@ -303,18 +303,18 @@ func nuevoServidorDesarrollo(
 	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("reglas_ejemplo", err)
 	}
 	reglasEjemplo.calendarios = consultaCalendarios
 	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("documentacion_formalizacion", err)
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("contratacion_temporal", err)
 	}
 	if cfg.BolsaBorradoresEnabled {
 		if autoridadContratacion == nil || autoridadContratacion.politicaRRHHNominalBolsa == nil {
@@ -338,12 +338,12 @@ func nuevoServidorDesarrollo(
 	// Avisos y marcas de Bolsa con los parámetros del catálogo (000041).
 	if err = componerParametrosAvisosBolsaDesarrollo(ctxBolsas, reglasEjemplo.bolsa, fuenteConstituida); err != nil {
 		cancelarBolsas()
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("parametros_avisos_bolsa", err)
 	}
 	// Revisión de no incorporaciones en los mismos avisos (Bolsa 000042).
 	if err = componerAvisosNoIncorporacionBolsaDesarrollo(ctxBolsas, cfg, fuenteConstituida); err != nil {
 		cancelarBolsas()
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("avisos_no_incorporacion_bolsa", err)
 	}
 	if cfg.BolsaBorradoresEnabled {
 		if err := configurarLecturasNominalesPreparadasRRHHBolsa(fuenteConstituida,
@@ -362,42 +362,42 @@ func nuevoServidorDesarrollo(
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("bolsas_rrhh", err)
 	}
 	if err = componerContactoOrigenBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("contacto_origen_bolsa", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	rutaPlazoRespuesta, err := nuevaRutaPlazoRespuestaBolsaDesarrollo(reglasEjemplo.bolsa, relojCalendariosDesarrollo{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("plazo_respuesta_bolsa", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutaPlazoRespuesta)
 	rutaReglasSituacionBolsa, err := componerReglasSituacionBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("reglas_situacion_bolsa", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutaReglasSituacionBolsa)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	if err = componerIntentosContactoBolsaDesarrollo(reglasEjemplo.bolsa, consultaCalendarios, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("intentos_contacto_bolsa", err)
 	}
 	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT, portafirmasapagado.Conector{}))
 	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
 	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("reglas_vigentes", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutaReglas)
 	rutasFirma, err := autoridadContratacion.firmaDocumento.rutas(cfg, reglasEjemplo.circuitoFirmaCT)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("firma_documento", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutasFirma...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("dietas_rutas", err)
 	}
 	defer func() {
 		if !completa {
@@ -406,7 +406,7 @@ func nuevoServidorDesarrollo(
 	}()
 	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDietas)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("dietas_comisiones", err)
 	}
 	if comisionesDietas != nil {
 		defer func() {
@@ -419,7 +419,7 @@ func nuevoServidorDesarrollo(
 	}
 	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("cronos_empleado", err)
 	}
 	if cronosEmpleado != nil {
 		defer func() {
@@ -430,7 +430,7 @@ func nuevoServidorDesarrollo(
 	}
 	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro, composicion.seudonimosAlmacen)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("documentos", err)
 	}
 	if documentos != nil {
 		vincularResultadosFirmaCT(autoridadContratacion.firmaDocumento, documentos)
@@ -443,12 +443,12 @@ func nuevoServidorDesarrollo(
 		// Con Documentos compuesto, la firma de CT custodia allí el PDF
 		// firmado de los documentos que declare su material.
 		if err := autoridadContratacion.firmaDocumento.componerCustodia(documentos); err != nil {
-			return nil, nil, err
+			return nil, nil, marcarFalloComponenteArranque("custodia_documentos_firma", err)
 		}
 	}
 	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios, autoridadContratacion.materialPersonalHistoriaRelaciones)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("personal_empleado", err)
 	}
 	if personalEmpleado != nil {
 		defer func() {
@@ -459,21 +459,21 @@ func nuevoServidorDesarrollo(
 	}
 	usuariosCorreos, err := nuevasDependenciasCorreosUsuariosDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialUsuariosCorreos)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("usuarios_correos", err)
 	}
 	usuariosImagen, err := nuevasDependenciasImagenUsuariosDesarrollo(cfg, autoridadContratacion.materialUsuariosImagen)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("usuarios_imagen", err)
 	}
 	aspirantes, err := nuevasDependenciasAspirantesDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialAspirantes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("aspirantes", err)
 	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen, aspirantes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("usuarios_preferencias", err)
 	}
 	if usuariosPreferencias != nil {
 		defer func() {
@@ -505,14 +505,14 @@ func nuevoServidorDesarrollo(
 		registradorFrontera = frontera
 	}
 	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("cobertura_rutas_ct", err)
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
 		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
@@ -528,19 +528,19 @@ func nuevoServidorDesarrollo(
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("bolsa_publica_api", err)
 	}
 	bolsasPublicas, err := nuevoManejadorBolsasPublicasDesarrollo(fuenteConstituida)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
 	servidor.TLSConfig, err = composicion.ConfiguracionTLS()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
 	servidor.RegisterOnShutdown(cerrarDietas)
@@ -562,7 +562,7 @@ func nuevoServidorDesarrollo(
 	}
 	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, marcarFalloComponenteArranque("sellado_auditoria", err)
 	}
 	servidor.RegisterOnShutdown(detenerSellado)
 	completa = true
