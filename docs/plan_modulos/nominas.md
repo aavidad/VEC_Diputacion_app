@@ -114,7 +114,9 @@ El filtro de entidad pagadora puede quedar vacío porque Personal B no lo aporta
 cada descriptor debe traer la entidad desde la fuente. La respuesta conserva el
 filtro indicado y declara versión de fuente, cobertura, total y continuación.
 Cada descriptor identifica origen, recibo, versión y custodio mediante las
-referencias recibidas. La validación rechaza cruces de persona, relación,
+referencias recibidas. La identidad del original combina entidad pagadora,
+origen, recibo y versión; un mismo identificador local puede existir en dos
+pagadores. La validación rechaza cruces de persona, relación,
 entidad filtrada o periodo, referencias obligatorias vacías, duplicados y páginas
 que superan el límite de 100. Ese límite no restringe el total de recibos.
 

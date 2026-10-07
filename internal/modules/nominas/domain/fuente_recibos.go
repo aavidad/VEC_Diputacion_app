@@ -28,8 +28,10 @@ type ConsultaFuenteRecibos struct {
 	Limite             int
 }
 
-// DescriptorRecibo identifica el documento original sin transportar contenido
-// económico, localización de descarga ni una afirmación de firma o custodia.
+// DescriptorRecibo identifica el original por entidad pagadora, origen,
+// referencia de recibo y versión. Los identificadores locales pueden repetirse
+// entre pagadores. No transporta contenido económico, enlace de descarga ni
+// una afirmación de firma o custodia.
 type DescriptorRecibo struct {
 	PersonaRef         string
 	RelacionRef        string
@@ -91,9 +93,9 @@ func ValidarPaginaFuenteRecibos(c ConsultaFuenteRecibos, p PaginaFuenteRecibos) 
 			!referenciaFuenteValida(r.VersionRecibo, false) || !referenciaFuenteValida(r.CustodioRef, false) {
 			return ErrFuenteRecibosInvalida
 		}
-		// Una versión sustituida es otra entrada histórica. Un mismo original y
-		// versión no puede aparecer dos veces en la página.
-		clave := r.OrigenRef + "\x00" + r.ReciboRef + "\x00" + r.VersionRecibo
+		// Una versión sustituida es otra entrada histórica. La identidad del
+		// original incluye el pagador; la fuente puede reutilizar IDs locales.
+		clave := r.EntidadPagadoraRef + "\x00" + r.OrigenRef + "\x00" + r.ReciboRef + "\x00" + r.VersionRecibo
 		if _, existe := vistos[clave]; existe {
 			return ErrFuenteRecibosInvalida
 		}

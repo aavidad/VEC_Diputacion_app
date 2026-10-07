@@ -115,6 +115,23 @@ func TestFuenteRecibosPrimeraPaginaSinFiltroPagador(t *testing.T) {
 	}
 }
 
+func TestFuenteRecibosIdentidadOriginalIncluyePagador(t *testing.T) {
+	c := consultaRecibosValida()
+	c.EntidadPagadoraRef = ""
+	p := paginaRecibosValida(c)
+	p.Total = 2
+	otro := p.Recibos[0]
+	otro.EntidadPagadoraRef = "entidad:segunda"
+	p.Recibos = append(p.Recibos, otro)
+	if err := ValidarPaginaFuenteRecibos(c, p); err != nil {
+		t.Fatalf("dos originales de pagadores distintos: %v", err)
+	}
+	p.Recibos[1].EntidadPagadoraRef = p.Recibos[0].EntidadPagadoraRef
+	if err := ValidarPaginaFuenteRecibos(c, p); !errors.Is(err, ErrFuenteRecibosInvalida) {
+		t.Fatalf("duplicado del mismo pagador no rechazado: %v", err)
+	}
+}
+
 func TestFuenteRecibosPaginaSiguienteConVistaFijada(t *testing.T) {
 	c := consultaRecibosValida()
 	p := paginaRecibosValida(c)
