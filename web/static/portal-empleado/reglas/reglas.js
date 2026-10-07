@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-reglas-recuperacion-v2";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20261007-plazos-ct-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -40,8 +40,10 @@ export function validarReglas(payload) {
       exigir(CLAVE.test(r?.clave) && texto(r?.etiqueta, 400) && opcional(r?.descripcion) && CLAVE.test(r?.unidad)
         && ORIGENES.has(r?.origen) && texto(r?.norma) && texto(r?.duda) && Number.isInteger(r?.version) && r.version >= 1
         && texto(r?.referencia, 400) && typeof r?.paquete_ejemplo === "boolean"
+        && (r.ajuste_no_aplicable === undefined || typeof r.ajuste_no_aplicable === "boolean")
         && (r.cantidad === undefined || (Number.isInteger(r.cantidad) && r.cantidad > 0))
         && opcional(r.valor) && opcional(r.articulo, 200) && opcional(r.ejemplo_parcial) && opcional(r.computo, 40) && opcional(r.inicio, 200));
+      exigir(!r.ajuste_no_aplicable || (r.cantidad === undefined && r.valor === undefined));
       exigir(r.origen === "reglamento" ? texto(r.articulo, 200) : r.articulo === undefined);
     }
   }
@@ -85,6 +87,7 @@ const etiquetaUnidad = (u) => (existeClaveReglas(`unidad_${u}`) ? t(`unidad_${u}
 
 /** Valor legible: cantidad, franja o lista; «No aplica» si la unidad no lleva valor. */
 export function valorRegla(r) {
+  if (r.ajuste_no_aplicable) return t("ajusteRevision");
   if (r.cantidad !== undefined) return formatearNumero(r.cantidad);
   if (r.unidad === "franja_horaria" && r.valor) return r.valor.replace("-", "–");
   if (r.valor) return r.valor.split(",").map((v) => v.trim()).join(", ");
@@ -100,7 +103,7 @@ export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta =
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.clave, r.norma, ...["descripcion", "duda", "ejemplo_parcial"]
+      && (!q || [r.etiqueta, r.clave, r.norma, r.ajuste_no_aplicable ? t("ajusteRevision") : "", ...["descripcion", "duda", "ejemplo_parcial"]
         .map((campo) => textoPresentacionRegla(c.modulo, r, campo).texto)].some((v) => minusculas(v).includes(q)))),
   }));
 }
@@ -138,7 +141,7 @@ function filaRegla(r, modulo, abiertas) {
   const pastilla = r.origen === "reglamento" ? "rg-pastilla--reglamento" : "rg-pastilla--ejemplo";
   const id = idRegla(modulo, r.clave);
   const abierta = abiertas.has(id);
-  return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}" data-regla="${id}">
+  return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}${r.ajuste_no_aplicable ? " rg-fila--revision" : ""}" data-regla="${id}">
     <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${LANG_DATOS}>${esc(r.etiqueta)}</span></button></th>
     <td class="rg-numero">${r.valor ? datos(valorRegla(r)) : esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
@@ -153,6 +156,7 @@ function filaRegla(r, modulo, abiertas) {
 export function detalleRegla(r, modulo = "") {
   const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
   const partes = [
+    ...(r.ajuste_no_aplicable ? [bloque("detalleEstado", `<strong class="rg-revision">${esc(t("ajusteRevisionDetalle"))}</strong>`)] : []),
     bloque("detalleQue", r.descripcion ? textoRegla(modulo, r, "descripcion") : esc(t("detalleSinDescripcion"))),
     bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r, modulo)}` : "")),
     bloque("detalleNorma", datos(r.norma)),
@@ -196,7 +200,7 @@ function traducirDocumento(doc) {
   doc.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
 }
 
-export async function iniciar(doc, cliente) {
+export async function iniciar(doc, cliente, montarAjustes = null) {
   if (!t) {
     doc.documentElement.lang = IDIOMA_REGLAS;
     const aviso = doc.getElementById("rg-estado");
@@ -221,6 +225,7 @@ export async function iniciar(doc, cliente) {
   }
   traducirDocumento(doc);
   const $ = (id) => doc.getElementById(id);
+  let ajustesIniciados = false;
   const ayuda = $("rg-ayuda");
   $("rg-ayuda-abrir").addEventListener("click", () => ayuda.showModal?.());
   $("rg-ayuda-cerrar").addEventListener("click", () => ayuda.close?.());
@@ -292,6 +297,11 @@ export async function iniciar(doc, cliente) {
     const devolverFoco = conservarFoco && doc.activeElement === aviso;
     avisar("");
     $("rg-resultado").hidden = false;
+    if (montarAjustes && !ajustesIniciados) {
+      ajustesIniciados = true;
+      try { await montarAjustes(doc); }
+      catch { $("rg-ajustes").textContent = t("ajustesNoDisponible"); }
+    }
     if (devolverFoco) $("rg-modulo").focus({ preventScroll: true });
     if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
   };
@@ -299,5 +309,8 @@ export async function iniciar(doc, cliente) {
 }
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {
-  iniciar(document, crearCliente());
+  iniciar(document, crearCliente(), async (doc) => {
+    const { iniciarAjustes } = await import("./ajustes.js?v=20261007-plazos-ct-v1");
+    iniciarAjustes(doc);
+  });
 }

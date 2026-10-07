@@ -8,6 +8,7 @@ import {
   renderizarResumen, validarReglas, valorRegla,
 } from "./reglas.js";
 import { MENSAJES_REGLAS, crearTraductorReglas } from "./i18n.js";
+import { iniciarAjustes } from "./ajustes.js";
 
 const leer = (nombre) => readFileSync(new URL(nombre, import.meta.url), "utf8");
 
@@ -43,8 +44,11 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
 test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
+  const ajustes = leer("./ajustes.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20260930-reglas-recuperacion-v2");
+  assert.equal(version, "20261007-plazos-ct-v1");
+  assert.equal(exigirRenovado([reglas], "ajustes.js", "20260930-reglas-detalle-v3"), version);
+  assert.equal(exigirRenovado([ajustes], "i18n.js", "20260930-reglas-detalle-v3"), version);
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
   assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
@@ -102,6 +106,21 @@ test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () 
   const resumen = renderizarResumen(d.catalogos);
   assert.match(resumen, /Reglas vigentes<\/span><strong>2</u);
   assert.match(resumen, /Del Reglamento<\/span><strong>1</u);
+});
+
+test("un ajuste fuera de uso no presenta el valor base como vigente", () => {
+  const catalogos = respuesta();
+  catalogos.data.catalogos[0].reglas[0].ajuste_no_aplicable = true;
+  delete catalogos.data.catalogos[0].reglas[0].cantidad;
+  const r = validarReglas(catalogos).catalogos[0];
+  assert.equal(valorRegla(r.reglas[0]), MENSAJES_REGLAS.ajusteRevision);
+  const html = renderizarCatalogo(r);
+  assert.match(html, /rg-fila--revision/u);
+  assert.match(html, /RRHH debe revisarlo/u);
+  assert.match(html, /<td class="rg-numero">Ajuste pendiente de revisión<\/td>/u);
+  assert.equal(filtrar([r], { texto: "pendiente de revisión" })[0].reglas.length, 1);
+  catalogos.data.catalogos[0].reglas[0].cantidad = 5;
+  assert.throws(() => validarReglas(catalogos), ErrorReglas);
 });
 
 test("filtra por módulo, origen y texto", () => {
@@ -204,6 +223,7 @@ function documentoFalso(hash = "") {
     const nodo = { id, hidden: id === "rg-resultado", value: "", innerHTML: "", classList: { toggle() {} },
       hijos: [], atributos: {},
       addEventListener: (tipo, f) => { oyentes[tipo] = f; }, oyentes,
+      querySelector: () => null,
       setAttribute: (clave, valor) => { nodo.atributos[clave] = valor; },
       append: (...hijos) => nodo.hijos.push(...hijos),
       focus: () => { doc.activeElement = nodo; },
@@ -338,6 +358,39 @@ test("Reintentar recupera las reglas y continúa el teclado en el primer filtro"
   assert.match(nodos.get("rg-catalogos").innerHTML, /Plazo de respuesta/u);
   assert.equal(llamadas, 2);
   assert.equal(estado.recargas, 0);
+});
+
+test("un fallo inicial monta ajustes una sola vez al recuperar las reglas", async () => {
+  const { doc, nodos } = documentoFalso();
+  let consultasReglas = 0;
+  let consultasAjustes = 0;
+  let montajes = 0;
+  const cliente = { reglas: async () => {
+    if (++consultasReglas === 1) throw new ErrorReglas("error_servicio_no_disponible");
+    return validarReglas(respuesta());
+  } };
+  const montar = async () => {
+    montajes++;
+    iniciarAjustes(doc, { leer: async () => {
+      consultasAjustes++;
+      return { version_esperada: 0, puede_ajustar: false, activacion: { estado: "sin_publicar" },
+        motivos: [], reglas: [], historial: [], hay_mas: false };
+    } });
+    await new Promise((resolver) => setImmediate(resolver));
+  };
+  await iniciar(doc, cliente, montar);
+  assert.equal(nodos.get("rg-resultado").hidden, true);
+  assert.equal(consultasAjustes, 0);
+  const reintentar = nodos.get("rg-estado").hijos.at(-1);
+  await reintentar.oyentes.click();
+  assert.equal(nodos.get("rg-resultado").hidden, false);
+  assert.match(nodos.get("rg-ajustes").innerHTML, /Plazos de Contratación temporal/u);
+  assert.equal(consultasAjustes, 1);
+  assert.equal(montajes, 1);
+  // Un manejador viejo no vuelve a crear el panel ni a consultar sus ajustes.
+  await reintentar.oyentes.click();
+  assert.equal(montajes, 1);
+  assert.equal(consultasAjustes, 1);
 });
 
 test("el reintento respeta el foco si la persona cambia de control durante la espera", async () => {

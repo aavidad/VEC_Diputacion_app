@@ -104,6 +104,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	sesionOperativa                   proveedorSesionOperativaCTDesarrollo
 	flujo                             ports.ConfiguracionAltaFlujo
 	motivo                            dominiovec.ReferenciaEntradaCatalogo
+	motivoConsultaAjustesReglas       dominiovec.ReferenciaEntradaCatalogo
 	instantanea                       dominiovec.InstantaneaAutorizacion
 	instantaneaAnalisis               dominiovec.InstantaneaAutorizacion
 	motivoRegistroAnalisis            dominiovec.ReferenciaEntradaCatalogo

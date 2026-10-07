@@ -29,8 +29,11 @@ SELECT contenido_canonico,
        en_llamamiento::bigint,
        fase_desde_expedientes,
        fase_desde_instantes,
-       urgente_expedientes
-  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v4(
+       urgente_expedientes,
+       to_jsonb(instantaneas_regla),
+       bases_regla,
+       ajustes_regla
+  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v6(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::text, $6::text, $7::smallint, $8::text)::
@@ -44,7 +47,8 @@ SELECT contenido_canonico,
        $15::bytea,
        $16::bytea,
        $17::bytea,
-       $18::bytea
+       $18::bytea,
+       $19::boolean
   )`
 
 	// CT-000184: la misma consulta atestada con los agregados de la portada.
@@ -83,8 +87,14 @@ SELECT contenido_canonico,
        plazo_fases,
        plazo_desde,
        plazo_urgentes,
-       plazo_numeros::bigint[]
-  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
+       plazo_numeros::bigint[],
+       to_jsonb(instantaneas_regla),
+       bases_regla,
+       ajustes_regla,
+       to_jsonb(plazo_contextos),
+       plazo_bases,
+       plazo_ajustes
+  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v6(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::text, $6::text, $7::smallint, $8::text)::
@@ -98,7 +108,8 @@ SELECT contenido_canonico,
        $15::bytea,
        $16::bytea,
        $17::bytea,
-       $18::bytea
+       $18::bytea,
+       $19::boolean
   )`
 
 	consultaDetalleRRHHPostgreSQL = `

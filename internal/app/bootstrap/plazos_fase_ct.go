@@ -3,21 +3,11 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"strings"
-	"time"
 
 	calendariosdomain "vec-diputacion-granada/internal/modules/calendarios/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
-
-// atributoFasesReglaCT es el atributo del catálogo de reglas de Contratación
-// temporal que lista, separadas por comas, las fases del expediente a las que
-// la regla da plazo. Qué fases tienen plazo, y con qué regla, se cambia en el
-// catálogo; aquí no hay ningún mapa fijo.
-const atributoFasesReglaCT = "fases"
-
-var errPlazoFaseAmbiguo = errors.New("bootstrap: dos reglas vigentes dan plazo a la misma fase")
 
 // calculadoraPlazoFaseCT traduce el puerto de Contratación temporal al
 // resolutor común de reglas. Un resolutor nulo significa «sin catálogo».
@@ -41,79 +31,18 @@ func (c calculadoraPlazoFaseCT) CalcularPlazoFase(
 	if ctx == nil || !solicitud.Fase.Valida() || solicitud.Desde.IsZero() || solicitud.Ahora.IsZero() {
 		return ports.PlazoFaseRRHH{}, false, reglas.ErrCalculoNoDisponible
 	}
-	vigentes, err := c.reglas.Reglas(ctx)
-	if errors.Is(err, reglas.ErrReglasNoConfiguradas) {
+	if solicitud.Instantanea == nil || solicitud.Instantanea.Fase != string(solicitud.Fase) ||
+		!solicitud.Instantanea.FaseDesde.Equal(solicitud.Desde) {
+		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
+	}
+	// La versión base y los ajustes son los que guardó CT190 al abrir este
+	// tramo. El resolutor actual solo aporta Calendarios y el municipio sede.
+	regla, vencimiento, err := c.reglas.CalcularConInstantaneaPersistida(
+		ctx, *solicitud.Instantanea, reglas.MunicipioSedeDiputacion, solicitud.Urgente,
+	)
+	if errors.Is(err, reglas.ErrReglaNoEncontrada) {
 		return ports.PlazoFaseRRHH{}, false, nil
 	}
-	if err != nil {
-		return ports.PlazoFaseRRHH{}, false, err
-	}
-	// Un expediente urgente usa la cantidad urgente de la regla (c03:
-	// cinco días en lugar de diez); sin ella, la ordinaria.
-	calcular := c.reglas.Vencimiento
-	if solicitud.Urgente {
-		calcular = c.reglas.VencimientoUrgente
-	}
-	return plazoFaseCT(ctx, solicitud, vigentes, calcular)
-}
-
-// PrepararPlazosFase lee las reglas una sola vez para todos los plazos de una
-// consulta: con un catálogo leído por cada fila, leerlo, clonarlo y resumirlo
-// dos veces por fila era casi todo el coste del cuadro. Los plazos son los
-// mismos que con CalcularPlazoFase; un fallo al leer deja que la aplicación
-// calcule fila a fila como antes.
-func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
-	if ctx == nil {
-		return nil, reglas.ErrCalculoNoDisponible
-	}
-	lectura, err := c.reglas.LeerReglas(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return calculadoraPlazoFaseCTLeida{lectura: lectura, vigentes: lectura.Reglas()}, nil
-}
-
-// calculadoraPlazoFaseCTLeida calcula con una lectura de reglas ya hecha.
-type calculadoraPlazoFaseCTLeida struct {
-	lectura  reglas.ReglasLeidas
-	vigentes []reglas.Regla
-}
-
-func (c calculadoraPlazoFaseCTLeida) CalcularPlazoFase(
-	ctx context.Context,
-	solicitud ports.SolicitudPlazoFaseRRHH,
-) (ports.PlazoFaseRRHH, bool, error) {
-	if ctx == nil || !solicitud.Fase.Valida() || solicitud.Desde.IsZero() || solicitud.Ahora.IsZero() {
-		return ports.PlazoFaseRRHH{}, false, reglas.ErrCalculoNoDisponible
-	}
-	calcular := func(ctx context.Context, clave string, inicio time.Time, sede string) (reglas.Regla, reglas.Vencimiento, error) {
-		return c.lectura.Vencimiento(ctx, clave, inicio, sede, solicitud.Urgente)
-	}
-	return plazoFaseCT(ctx, solicitud, c.vigentes, calcular)
-}
-
-// plazoFaseCT elige la única regla que da plazo a la fase y calcula su
-// vencimiento y estado respecto a solicitud.Ahora.
-func plazoFaseCT(
-	ctx context.Context,
-	solicitud ports.SolicitudPlazoFaseRRHH,
-	vigentes []reglas.Regla,
-	calcular func(context.Context, string, time.Time, string) (reglas.Regla, reglas.Vencimiento, error),
-) (ports.PlazoFaseRRHH, bool, error) {
-	clave := ""
-	for _, regla := range vigentes {
-		if !reglaCubreFaseCT(regla, string(solicitud.Fase)) {
-			continue
-		}
-		if clave != "" {
-			return ports.PlazoFaseRRHH{}, false, errPlazoFaseAmbiguo
-		}
-		clave = regla.Clave
-	}
-	if clave == "" {
-		return ports.PlazoFaseRRHH{}, false, nil
-	}
-	regla, vencimiento, err := calcular(ctx, clave, solicitud.Desde, "")
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, err
 	}
@@ -135,14 +64,14 @@ func plazoFaseCT(
 	}, true, nil
 }
 
-func reglaCubreFaseCT(regla reglas.Regla, fase string) bool {
-	if !regla.Unidad.EsPlazo() || regla.Computo == "" {
-		return false
+// Los contextos están en cada fila del resultado atestado. Preparar la
+// calculadora no vuelve a consultar la cabeza vigente ni altera una captura.
+func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
+	if ctx == nil {
+		return nil, reglas.ErrCalculoNoDisponible
 	}
-	for _, candidata := range strings.Split(regla.Atributos[atributoFasesReglaCT], ",") {
-		if strings.TrimSpace(candidata) == fase {
-			return true
-		}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	return false
+	return c, nil
 }

@@ -67,6 +67,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadSubsanacionVigente(
 
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+		rutaConsultaAjustesReglasCT(ruta) ||
 		rutaPlantillasCatalogoCTDesarrollo(ruta) ||
 		rutaPlantillasDocumentalCTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
@@ -536,6 +537,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoEntregaPeticionDesarrollo(), true
 	case rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 		return motivoOrganizacionDesarrollo(), true
+	case rutaAjustesReglasCT:
+		return s.motivoConsultaAjustesReglas, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoConsultaAjustesReglas)
 	case httpinterno.RutaConsultaCuadroRRHH:
 		return s.motivoCuadroRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoCuadroRRHH)
 	case httpinterno.RutaConsultaDetalleRRHH:

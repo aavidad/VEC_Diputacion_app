@@ -26,6 +26,23 @@ const CLAVES = Object.freeze(`
   unidad_intentos unidad_procesos unidad_franja_horaria unidad_lista unidad_ninguna error_solicitud_invalida
   error_servicio_no_disponible error_autenticacion_requerida error_acceso_denegado error_respuesta ayudaDetalle
   ayudaResolver detalleQue detalleNorma detalleOrigen detalleDuda detalleSinDescripcion
+  ajusteRevision ajusteRevisionDetalle detalleEstado
+  ajustesTitulo ajustesCargando ajustesNoDisponible ajustesRespuestaInvalida ajustesSinPermiso
+  ajustesConflicto ajustesValorInvalido ajustesSinReglas ajustesBaseSinPublicar ajustesBaseInactiva
+  ajustesVersion ajustesCambiar
+  ajustesSinMotivos ajustesPersonaGenerica ajustesHistorial ajustesSinHistoria ajustesMotivoNoIdentificado
+  ajustesGuardado ajustesMasHistoria ajustesCampo_cantidad ajustesCampo_cantidad_urgente
+  ajustesCampo_unidad ajustesCampo_computo ajustesMotivo ajustesElegirMotivo
+  ajustesMotivo_respuesta_rrhh_duda ajustesMotivo_acuerdo_instruccion
+  ajustesMotivo_cambio_normativo ajustesMotivo_correccion_error
+  ajustesReferencia ajustesNota ajustesSinDatosPersonales ajustesRevisar ajustesEfecto
+  ajustesCancelar ajustesGuardar ajustesGuardando ajustesSinCambios ajustesMotivoRequerido
+  ajustesReferenciaHistoria ajustesAuditoria
+  ajustesReglaHistorica
+  ajustesCorregir
+  ajustesSoloLectura
+  ajustesConflictoSinLectura
+  resultado
 `.trim().split(/\s+/u));
 
 const catalogoCompleto = (catalogo) => catalogo && typeof catalogo === "object"

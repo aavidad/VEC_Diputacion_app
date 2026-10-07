@@ -182,12 +182,19 @@ func TestArgumentosSQLConsultaRRHHTienenValorYOrdenExactos(t *testing.T) {
 		[]byte("material-16"),
 		[]byte("material-17"),
 		[]byte("material-18"),
+		false,
 	}
 	cuadroActual := argumentosSQLCuadroConsultaRRHH(
 		"organizacion-01", "clase-02", "ambito-03", cuadro, material,
 	)
 	if !reflect.DeepEqual(cuadroActual, cuadroEsperado) {
 		t.Fatalf("argumentos de cuadro fuera de contrato:\n%#v", cuadroActual)
+	}
+	resumenConSelector := argumentosSQLCuadroConsultaRRHH(
+		"organizacion-01", "clase-02", "ambito-03", cuadro.ConResumen(), material,
+	)
+	if len(resumenConSelector) != len(cuadroEsperado) || resumenConSelector[len(resumenConSelector)-1] != true {
+		t.Fatalf("resumen sin selector SQL propio: %#v", resumenConSelector)
 	}
 
 	detalleEsperado := []any{

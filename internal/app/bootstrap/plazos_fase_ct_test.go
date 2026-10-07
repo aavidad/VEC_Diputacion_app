@@ -12,8 +12,42 @@ import (
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+func instantaneaPlazoFasePrueba(t testing.TB, ruta, fase string, desde time.Time) *reglas.InstantaneaPersistidaRegla {
+	t.Helper()
+	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := consulta.ObtenerCatalogo(t.Context(), reglas.CatalogoContratacionTemporal, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonico, huella, err := reglas.CanonicoCatalogoBaseReglas(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ajustes := map[string]map[string]string{}
+	canonicoAjustes, err := reglas.CanonicoAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaAjustes, err := reglas.HuellaAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &reglas.InstantaneaPersistidaRegla{
+		CatalogoBaseID: base.ID, CatalogoBaseVersion: base.Version,
+		CatalogoBaseHuella: huella, CatalogoBaseCanonico: canonico,
+		CatalogoAjustesID: reglas.CatalogoAjustesDe(base.ID),
+		HuellaAjustes:     huellaAjustes, CanonicoAjustes: canonicoAjustes,
+		PreparadaEn: relojPresentacionReglasEjemplo.ahora,
+		Fase:        fase, FaseDesde: desde,
+	}
+}
 
 func calendariosPlazoFasePrueba(t testing.TB) *consultaCalendariosReglasPrueba {
 	t.Helper()
@@ -53,7 +87,8 @@ func TestPlazoFaseCTSaleDelAtributoFasesDelCatalogo(t *testing.T) {
 		"subsanacion_unidad": reglas.CTPlazoSubsanacion,
 	}
 	for fase, clave := range casos {
-		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: fase, Desde: desde, Ahora: ahora})
+		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: fase, Desde: desde, Ahora: ahora,
+			Instantanea: instantaneaPlazoFasePrueba(t, rutaReglasCTEjemploPrueba, string(fase), desde)})
 		if err != nil || !aplicable || !plazo.Valido() || plazo.UltimoDia != "2026-09-29" ||
 			plazo.Estado != ports.PlazoFaseEnPlazo || !plazo.ReglaEjemplo ||
 			!strings.HasSuffix(plazo.ReglaRef, ":"+clave) {
@@ -65,7 +100,8 @@ func TestPlazoFaseCTSaleDelAtributoFasesDelCatalogo(t *testing.T) {
 		}
 	}
 	for _, fase := range []domain.ClaveFase{"solicitud", "nombramiento", "llamamiento"} {
-		if plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: fase, Desde: desde, Ahora: ahora}); err != nil || aplicable {
+		if plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: fase, Desde: desde, Ahora: ahora,
+			Instantanea: instantaneaPlazoFasePrueba(t, rutaReglasCTEjemploPrueba, string(fase), desde)}); err != nil || aplicable {
 			t.Fatalf("la fase %s no tiene regla en el catálogo: %+v %v %v", fase, plazo, aplicable, err)
 		}
 	}
@@ -85,7 +121,8 @@ func TestPlazoFaseCTDistingueEnPlazoVenceHoyYVencido(t *testing.T) {
 		{time.Date(2026, 9, 29, 22, 0, 0, 0, time.UTC), ports.PlazoFaseVencido},
 	}
 	for _, caso := range casos {
-		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: "fiscalizacion", Desde: desde, Ahora: caso.ahora})
+		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: "fiscalizacion", Desde: desde, Ahora: caso.ahora,
+			Instantanea: instantaneaPlazoFasePrueba(t, rutaReglasCTEjemploPrueba, "fiscalizacion", desde)})
 		if err != nil || !aplicable || plazo.Estado != caso.estado {
 			t.Fatalf("%s: %+v %v", caso.ahora, plazo, err)
 		}
@@ -110,12 +147,14 @@ func TestPlazoFaseCTSinCatalogoOAmbiguoNoSuponePlazo(t *testing.T) {
 		t.Fatal(err)
 	}
 	calculadora := calculadoraPlazoFaseCTPrueba(t, ruta, calendariosPlazoFasePrueba(t))
-	solicitud := ports.SolicitudPlazoFaseRRHH{Fase: "fiscalizacion", Desde: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC), Ahora: relojPresentacionReglasEjemplo.ahora}
-	if _, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), solicitud); !errors.Is(err, errPlazoFaseAmbiguo) || aplicable {
+	solicitud := ports.SolicitudPlazoFaseRRHH{Fase: "fiscalizacion", Desde: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC), Ahora: relojPresentacionReglasEjemplo.ahora,
+		Instantanea: instantaneaPlazoFasePrueba(t, ruta, "fiscalizacion", time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC))}
+	if _, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), solicitud); !errors.Is(err, reglas.ErrReglaInvalida) || aplicable {
 		t.Fatalf("regla ambigua aceptada: %v %v", aplicable, err)
 	}
 	// Sin Calendarios el cómputo administrativo no se supone.
 	sinCalendarios := calculadoraPlazoFaseCTPrueba(t, rutaReglasCTEjemploPrueba, nil)
+	solicitud.Instantanea = instantaneaPlazoFasePrueba(t, rutaReglasCTEjemploPrueba, "fiscalizacion", solicitud.Desde)
 	if _, aplicable, err := sinCalendarios.CalcularPlazoFase(t.Context(), solicitud); !errors.Is(err, reglas.ErrCalculoNoDisponible) || aplicable {
 		t.Fatalf("plazo hábil sin calendario: %v %v", aplicable, err)
 	}
@@ -131,6 +170,7 @@ func TestPlazoFaseCTUrgenteUsaLaCantidadUrgente(t *testing.T) {
 	for fase, cantidad := range map[domain.ClaveFase]int{"fiscalizacion": 5, "subsanacion_unidad": 10} {
 		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{
 			Fase: fase, Desde: desde, Ahora: ahora, Urgente: true,
+			Instantanea: instantaneaPlazoFasePrueba(t, rutaReglasCTEjemploPrueba, string(fase), desde),
 		})
 		if err != nil || !aplicable || !plazo.Valido() || calendarios.recibida.Cantidad != cantidad {
 			t.Fatalf("fase %s urgente: %+v %v %v, cantidad %d", fase, plazo, aplicable, err, calendarios.recibida.Cantidad)

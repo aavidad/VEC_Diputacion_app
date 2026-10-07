@@ -104,6 +104,12 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 	var salida salidaCuadroConsultaRRHH
 	defer func() {
 		clear(salida.contenidoCanonico)
+		clear(salida.instantaneasRegla)
+		clear(salida.basesRegla)
+		clear(salida.ajustesRegla)
+		clear(salida.plazoContextos)
+		clear(salida.plazoBases)
+		clear(salida.plazoAjustes)
 		salida.cursorSiguiente = ""
 	}()
 	argumentosSQL := argumentosSQLCuadroConsultaRRHH(
@@ -157,6 +163,10 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
 			if pagina.Urgentes, err = salida.urgentesAlineados(pagina.Expedientes); err != nil {
+				return ports.PaginaCuadroRRHH{},
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
+			if pagina.InstantaneasPlazo, err = salida.instantaneasAlineadas(pagina.Expedientes, pagina.FasesDesde); err != nil {
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
@@ -435,6 +445,7 @@ func argumentosSQLCuadroConsultaRRHH(
 		material.sobreCOSESign1,
 		material.evidenciaVerificacion,
 		material.raizPublicaSPKI,
+		solicitud.Resumen(),
 	}
 }
 
@@ -510,14 +521,19 @@ func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 		append(destinosCierreConsultaRRHH(&s.cierre),
 			&s.totalFiltrado, &s.enTramitacion,
 			&s.conIncidencia, &s.enLlamamiento,
-			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes)...,
+			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes,
+			&s.instantaneasRegla, &s.basesRegla, &s.ajustesRegla)...,
 	)
 }
 
 func destinosCuadroResumenConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
-	return append(destinosCuadroConsultaRRHH(s),
+	base := destinosCuadroConsultaRRHH(s)
+	base = base[:len(base)-3]
+	return append(base,
 		&s.recuentoEstados, &s.recuentoFases, &s.recuentoNumeros,
-		&s.plazoFases, &s.plazoDesde, &s.plazoUrgentes, &s.plazoNumeros)
+		&s.plazoFases, &s.plazoDesde, &s.plazoUrgentes, &s.plazoNumeros,
+		&s.instantaneasRegla, &s.basesRegla, &s.ajustesRegla,
+		&s.plazoContextos, &s.plazoBases, &s.plazoAjustes)
 }
 
 func destinosDetalleConsultaRRHH(s *salidaDetalleConsultaRRHH) []any {

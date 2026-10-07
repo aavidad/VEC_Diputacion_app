@@ -119,6 +119,9 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialAuditoriaBolsa                  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPlantillasCatalogo              *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPlantillasDocumental            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaAjustesReglas           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	motivoConsultaAjustesReglas                      motivoAutorizacionAjustesCT
+	consultaAjustesReglasActiva                      bool
 	proveedorMaterialDespachoCorreo                  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialFirmaDocumento                  *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -418,6 +421,18 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	motivoAjustes, consultaAjustesActiva, err := cargarMotivoAutorizacionAjustesCT(cfg)
+	if err != nil || consultaAjustesActiva && !configuracion.ConsultasRRHHConfiguradas() {
+		return vacias, errMotivoAutorizacionAjustes
+	}
+	if consultaAjustesActiva {
+		etapa = "preflight_sql_consulta_ajustes_reglas"
+		if err := preflightConsultaAjustesCT(ctx, ejecucion); err != nil {
+			return vacias, err
+		}
+		dependencias.motivoConsultaAjustesReglas = motivoAjustes
+		dependencias.consultaAjustesReglasActiva = true
+	}
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
@@ -440,6 +455,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	if consultaAjustesActiva {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialConsultaAjustesCT())
+	}
 	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return vacias, err
@@ -535,6 +553,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		etapa = "material_plantillas_catalogo"
 		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 			ctx, gobierno, material, reloj, catalogoMaterial, audienciaCatalogoPlantillasCT)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if consultaAjustesActiva {
+		etapa = "material_consulta_ajustes_reglas"
+		dependencias.proveedorMaterialConsultaAjustesReglas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaAjustesCT)
 		if err != nil {
 			return vacias, err
 		}

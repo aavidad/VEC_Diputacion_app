@@ -162,7 +162,7 @@ func TestNormalizarErrorTransaccionConsultaRRHHNoExponeDetalles(t *testing.T) {
 func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 	t.Parallel()
 	comprobarSecuenciaLigadurasConsultaRRHH(
-		t, consultaCuadroRRHHPostgreSQL, 18,
+		t, consultaCuadroRRHHPostgreSQL, 19,
 	)
 	comprobarSecuenciaLigadurasConsultaRRHH(
 		t, consultaDetalleRRHHPostgreSQL, 15,
@@ -177,7 +177,8 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 			append(destinosCierreEsperadosConsultaRRHH(&cuadro.cierre),
 				&cuadro.totalFiltrado, &cuadro.enTramitacion,
 				&cuadro.conIncidencia, &cuadro.enLlamamiento,
-				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes, &cuadro.urgentes)...,
+				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes, &cuadro.urgentes,
+				&cuadro.instantaneasRegla, &cuadro.basesRegla, &cuadro.ajustesRegla)...,
 		),
 	)
 	comprobarIdentidadDestinosConsultaRRHH(
@@ -345,6 +346,8 @@ func TestSalidaCuadroConsultaRRHHConstruyeAgregadosSeguros(t *testing.T) {
 	valida := salidaCuadroConsultaRRHH{
 		recuentoEstados: []string{"en_curso"}, recuentoFases: []string{"solicitud"}, recuentoNumeros: []int64{2},
 		plazoFases: []string{"solicitud"}, plazoDesde: []time.Time{desde}, plazoUrgentes: []bool{false}, plazoNumeros: []int64{2},
+		plazoContextos: []byte(`[{"estado":"legado_sin_instantanea","fase":"solicitud","fase_desde":"2026-09-20T07:00:00Z"}]`),
+		plazoBases:     []byte(`[]`), plazoAjustes: []byte(`[]`),
 	}
 	agregados, err := valida.agregados()
 	if err != nil || len(agregados.Recuentos) != 1 || agregados.Recuentos[0].Numero != 2 ||

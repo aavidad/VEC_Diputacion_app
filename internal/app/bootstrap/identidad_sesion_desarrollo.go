@@ -197,7 +197,8 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 // sin alterar la clasificación de las demás rutas.
 func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
 	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutaFirmaDocumentoCTDesarrollo(ruta) ||
-		rutaFirmasR5V2CTDesarrollo(ruta) || rutaFirmaExternaV2CTDesarrollo(ruta)
+		rutaFirmasR5V2CTDesarrollo(ruta) || rutaFirmaExternaV2CTDesarrollo(ruta) ||
+		rutaConsultaAjustesReglasCT(ruta)
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {

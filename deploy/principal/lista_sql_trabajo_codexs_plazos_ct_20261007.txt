@@ -1,0 +1,4 @@
+# Después de CT184 y CT187; comprobar H6 y CT148/AD3-114 en el clon.
+# Publicar y activar una base aprobada mediante el canal de despliegue antes de admitir tramos nuevos.
+deploy/postgresql/contratacion_temporal/migraciones/000190_instantanea_plazo_fase.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000191_activacion_ajustes_reglas.up.sql

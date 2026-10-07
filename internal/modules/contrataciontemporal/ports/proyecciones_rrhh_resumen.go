@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 // MaximoGruposPlazoCuadroRRHH acota los grupos de plazo que se aceptan de
@@ -32,6 +33,8 @@ type GrupoPlazoCuadroRRHH struct {
 	Desde     time.Time
 	Urgente   bool
 	Numero    uint64
+	// La captura puede ser nil en un tramo anterior a CT190.
+	Instantanea *reglas.InstantaneaPersistidaRegla
 }
 
 // AgregadosCuadroRRHH son los agregados de todo el corte filtrado que la
@@ -93,6 +96,11 @@ func (a AgregadosCuadroRRHH) validarPara(
 		if !grupo.FaseClave.Valida() || grupo.Numero == 0 || grupo.Desde.IsZero() ||
 			grupo.Desde.After(generadaEn) ||
 			(solicitud.faseClave != "" && grupo.FaseClave != solicitud.faseClave) {
+			return false
+		}
+		if grupo.Instantanea != nil && (grupo.Instantanea.Fase != string(grupo.FaseClave) ||
+			!grupo.Instantanea.FaseDesde.Equal(grupo.Desde) ||
+			grupo.Instantanea.PreparadaEn.After(generadaEn)) {
 			return false
 		}
 		enGrupos += grupo.Numero

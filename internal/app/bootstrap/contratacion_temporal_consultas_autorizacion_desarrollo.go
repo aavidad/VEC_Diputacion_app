@@ -120,6 +120,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo ||
 			capacidad.ruta == bolsahttp.RutaPlazoRespuestaLlamamiento ||
+			rutaConsultaAjustesReglasCT(capacidad.ruta) ||
 			capacidad.ruta == rutaReglasSituacionBolsaDesarrollo ||
 			rutaCalendariosDesarrollo(capacidad.ruta) || rutaDocumentacionFormalizacionDesarrollo(capacidad.ruta) ||
 			rutaReglasVigentesDesarrollo(capacidad.ruta) {

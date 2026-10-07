@@ -48,7 +48,7 @@ func resumirCuadroRRHH(
 		}
 		plazo := calcularPlazoFase(ctx, calculadora, clavePlazoFaseCuadro{
 			fase: grupo.FaseClave, desde: grupo.Desde, urgente: grupo.Urgente,
-		}, ahora)
+		}, clonarInstantaneaPlazo(grupo.Instantanea), ahora)
 		if plazo == nil {
 			// La fase no tiene plazo: no cuenta en ningún recuento de plazos.
 			continue

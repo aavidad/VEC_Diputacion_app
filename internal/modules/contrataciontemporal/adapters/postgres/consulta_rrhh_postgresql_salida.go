@@ -49,6 +49,10 @@ type salidaCuadroConsultaRRHH struct {
 	faseDesdeInstantes   []time.Time
 	// CT-000125: si cada expediente consta como urgente, en el mismo orden.
 	urgentes []bool
+	// CT190: contextos capturados al entrar en fase, alineados con el canon.
+	instantaneasRegla []byte
+	basesRegla        []byte
+	ajustesRegla      []byte
 	// CT-000184 (solo con resumen): agregados de todo el corte filtrado.
 	recuentoEstados []string
 	recuentoFases   []string
@@ -57,6 +61,9 @@ type salidaCuadroConsultaRRHH struct {
 	plazoDesde      []time.Time
 	plazoUrgentes   []bool
 	plazoNumeros    []int64
+	plazoContextos  []byte
+	plazoBases      []byte
+	plazoAjustes    []byte
 }
 
 // agregados construye los agregados de la portada; cualquier desajuste de
@@ -93,6 +100,13 @@ func (s salidaCuadroConsultaRRHH) agregados() (*ports.AgregadosCuadroRRHH, error
 			Urgente:   s.plazoUrgentes[i],
 			Numero:    uint64(s.plazoNumeros[i]),
 		}
+	}
+	contextos, err := s.instantaneasGrupos()
+	if err != nil || len(contextos) != m {
+		return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	for i := range contextos {
+		agregados.GruposPlazo[i].Instantanea = contextos[i]
 	}
 	return agregados, nil
 }

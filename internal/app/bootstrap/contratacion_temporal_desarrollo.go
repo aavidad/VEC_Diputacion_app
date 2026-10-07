@@ -383,6 +383,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
+	perfilConsultaAjustes, perfilEditorAjustes, err := prepararPerfilesAjustesCT(cfg, &alta, reglasEjemplo.contratacionTemporal, reloj)
+	if err != nil {
+		alta.cerrar()
+		return nil, nil, nil, err
+	}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
@@ -756,6 +761,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	declaracionesFrontera = append(declaracionesFrontera, fronterasBaremo...)
+	declaracionesFrontera = agregarFronterasAjustesCT(declaracionesFrontera, perfilConsultaAjustes, perfilEditorAjustes)
 	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, errBorradorNoDisponibleEn()
@@ -887,26 +893,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
-	if consultaCircuitoRRHH != nil {
-		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
-			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
-		}
-		consultaCircuitoRRHH = auditorConsultaCircuitoRRHHDenegada{
-			siguiente: consultaCircuitoRRHH, registrador: alta.postgresql.registradorAuditoriaFrontera,
-			soporte: alta.soporte, reloj: reloj,
-		}
-		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
+	rutasAjustes, err := nuevasRutasAjustesCT(&alta, perfilConsultaAjustes, perfilEditorAjustes, reglasEjemplo.contratacionTemporal, reloj)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	if firmasR5V2 != nil {
-		rutas = append(rutas, firmasR5V2.rutas...)
-	}
-	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
-		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rutas = append(rutas, rutasB2...)
-	}
+	rutas = append(rutas, rutasAjustes...)
 	if incorporacionV2 != nil {
 		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
 		if err != nil {

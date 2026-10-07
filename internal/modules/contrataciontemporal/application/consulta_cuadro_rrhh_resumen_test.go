@@ -7,12 +7,45 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 // calculadoraResumenPrueba da el plazo según la fase del grupo.
 type calculadoraResumenPrueba struct {
 	plazos   map[domain.ClaveFase]*ports.PlazoFaseRRHH
 	llamadas int
+}
+
+type calculadoraVersionResumenPrueba struct{}
+
+func (calculadoraVersionResumenPrueba) CalcularPlazoFase(_ context.Context, solicitud ports.SolicitudPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	if solicitud.Instantanea == nil {
+		return ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}, true, nil
+	}
+	if solicitud.Instantanea.VersionAjustes == 1 {
+		return *plazoResumenPrueba(ports.PlazoFaseVencido, "2026-10-05"), true, nil
+	}
+	return *plazoResumenPrueba(ports.PlazoFaseEnPlazo, "2026-10-13"), true, nil
+}
+
+func TestResumenCuadroRRHHDistingueReglasCapturadasEnLaMismaFase(t *testing.T) {
+	t.Parallel()
+	ahora := time.Date(2026, 10, 6, 8, 0, 0, 0, time.UTC)
+	desde := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
+	captura := func(version int) *reglas.InstantaneaPersistidaRegla {
+		return &reglas.InstantaneaPersistidaRegla{VersionAjustes: version, Fase: "fiscalizacion", FaseDesde: desde, PreparadaEn: desde}
+	}
+	agregados := ports.AgregadosCuadroRRHH{
+		Recuentos: []ports.RecuentoCuadroRRHH{{EstadoClave: domain.EstadoEnCurso, FaseClave: "fiscalizacion", Numero: 2}},
+		GruposPlazo: []ports.GrupoPlazoCuadroRRHH{
+			{FaseClave: "fiscalizacion", Desde: desde, Numero: 1, Instantanea: captura(1)},
+			{FaseClave: "fiscalizacion", Desde: desde, Numero: 1, Instantanea: captura(2)},
+		},
+	}
+	resumen, err := resumirCuadroRRHH(t.Context(), calculadoraVersionResumenPrueba{}, agregados, ahora)
+	if err != nil || resumen.Vencidos != 1 || resumen.VencenSemana != 0 || resumen.EnTramite != 2 {
+		t.Fatalf("se mezclaron instantáneas en el resumen: %+v, %v", resumen, err)
+	}
 }
 
 func (c *calculadoraResumenPrueba) CalcularPlazoFase(_ context.Context, solicitud ports.SolicitudPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {

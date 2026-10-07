@@ -7,9 +7,9 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title data-i18n="documentTitle"></title>
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1" />
-    <link rel="stylesheet" href="./reglas.css?v=20260930-reglas-recuperacion-v2" />
-    <link rel="modulepreload" href="./i18n.js?v=20260930-reglas-recuperacion-v2" />
-    <script type="module" src="./reglas.js?v=20260930-reglas-recuperacion-v2"></script>
+    <link rel="stylesheet" href="./reglas.css?v=20261007-plazos-ct-v1" />
+    <link rel="modulepreload" href="./i18n.js?v=20261007-plazos-ct-v1" />
+    <script type="module" src="./reglas.js?v=20261007-plazos-ct-v1"></script>
   </head>
   <body class="rg-app">
     <main class="rg-shell" id="reglas" tabindex="-1">
@@ -26,7 +26,7 @@
 
       <p id="rg-estado" class="rg-aviso" tabindex="-1" role="status" aria-live="polite" hidden></p>
 
-      <div id="rg-resultado" hidden>
+      <div id="rg-resultado" tabindex="0" role="region" data-i18n-label="resultado" hidden>
         <section class="rg-kpis" id="rg-kpis" aria-live="polite"></section>
 
         <form class="rg-panel rg-filtros" id="rg-filtros" data-i18n-label="filtros">
@@ -35,6 +35,7 @@
           <label class="rg-filtro-texto"><span data-i18n="filtroTexto"></span><input id="rg-texto" type="search" maxlength="80" autocomplete="off" /></label>
         </form>
 
+        <div id="rg-ajustes" aria-live="polite"></div>
         <div id="rg-catalogos"></div>
       </div>
 

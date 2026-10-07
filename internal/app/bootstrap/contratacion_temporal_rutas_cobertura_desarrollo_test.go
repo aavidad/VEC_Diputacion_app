@@ -69,6 +69,7 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
+	descriptores = append(descriptores, descriptorFronteraConsultaAjustesCT(perfil))
 	descriptores = append(descriptores, fronteraContratacionTemporalDesarrollo(
 		"ct-circuito-rrhh-consultar", postgresct.AccionConsultaCircuitoRRHH,
 		httpinterno.RutaConsultaCircuitoRRHH, []string{perfil}))

@@ -3,7 +3,7 @@
  * (entradas «c17.via_cobertura.<clave>», duda 7). Una vía nueva del catálogo
  * se nombra con su etiqueta; sin catálogo se usan los textos de siempre.
  */
-import { crearCliente } from "../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2";
+import { crearCliente } from "../../reglas/reglas.js?v=20261007-plazos-ct-v1";
 
 export const PREFIJO_VIA_COBERTURA = "c17.via_cobertura.";
 const CATALOGO_REGLAS_CT = "vec.contratacion_temporal.reglas";
