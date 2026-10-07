@@ -16,7 +16,7 @@ import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261007-carga-pantalla-v1";
+} from "./vista-expedientes-render.js?v=20261008-ct-alta-vista-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261007-pantallas-textos-final-v1";
 
 function enfocarElemento(raiz, selector) {
