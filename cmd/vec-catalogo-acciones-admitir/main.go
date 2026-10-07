@@ -36,17 +36,24 @@ type configuracion struct {
 	TiempoSegundos int    `json:"tiempo_segundos"`
 }
 
-type planMinimo struct {
+type planAdmision struct {
+	Esquema          string `json:"esquema"`
 	OperacionRef     string `json:"operacion_ref"`
+	AprobacionRef    string `json:"aprobacion_ref"`
+	AprobacionSHA256 string `json:"aprobacion_sha256"`
+	PaqueteCanon     string `json:"paquete_canon"`
+	PaqueteRef       string `json:"paquete_ref"`
+	PaqueteVersion   string `json:"paquete_version"`
+	PaqueteSHA256    string `json:"paquete_sha256"`
 	CatalogoCanon    string `json:"catalogo_canon"`
 	CatalogoRef      string `json:"catalogo_ref"`
 	CatalogoVersion  string `json:"catalogo_version"`
 	CatalogoSHA256   string `json:"catalogo_sha256"`
-	PaqueteRef       string `json:"paquete_ref"`
-	PaqueteVersion   string `json:"paquete_version"`
-	PaqueteSHA256    string `json:"paquete_sha256"`
-	AprobacionRef    string `json:"aprobacion_ref"`
-	AprobacionSHA256 string `json:"aprobacion_sha256"`
+	EsperadoVersion  string `json:"esperado_version"`
+	EsperadoSHA256   string `json:"esperado_sha256"`
+	PreparadoEn      string `json:"preparado_en"`
+	CaducaEn         string `json:"caduca_en"`
+	Entorno          string `json:"entorno"`
 }
 
 type salida struct {
@@ -137,11 +144,8 @@ func ejecutar(args []string, stdout, stderr io.Writer) int {
 		return fallo("plan_inseguro")
 	}
 	defer clear(plan)
-	if err := validarPlanAntesDeEnviar(plan, shaPlan); err != nil {
-		return fallo("plan_invalido")
-	}
-	var aprobado planMinimo
-	if json.Unmarshal(plan, &aprobado) != nil {
+	aprobado, err := validarPlanAntesDeEnviar(plan, shaPlan)
+	if err != nil {
 		return fallo("plan_invalido")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
@@ -217,31 +221,56 @@ func leerPrivado(ruta string, maximo int64) ([]byte, error) {
 	return b, nil
 }
 
-func validarPlanAntesDeEnviar(plan []byte, aprobada string) error {
+func validarPlanAntesDeEnviar(plan []byte, aprobada string) (planAdmision, error) {
+	var vacio planAdmision
+	if len(plan) == 0 || len(plan) > maximoPlan {
+		return vacio, os.ErrInvalid
+	}
 	suma := sha256.Sum256(plan)
 	if hex.EncodeToString(suma[:]) != aprobada {
-		return os.ErrPermission
+		return vacio, os.ErrPermission
 	}
-	var p planMinimo
-	if json.Unmarshal(plan, &p) != nil || p.CatalogoCanon == "" || !huellaValida(p.CatalogoSHA256) ||
+	campos, err := objetoExacto(plan, "esquema", "operacion_ref", "aprobacion_ref", "aprobacion_sha256",
+		"paquete_canon", "paquete_ref", "paquete_version", "paquete_sha256", "catalogo_canon",
+		"catalogo_ref", "catalogo_version", "catalogo_sha256", "esperado_version", "esperado_sha256",
+		"preparado_en", "caduca_en", "entorno")
+	if err != nil {
+		return vacio, os.ErrInvalid
+	}
+	for _, valor := range campos {
+		s, ok := cadenaJSON(valor)
+		if !ok || s == "" {
+			return vacio, os.ErrInvalid
+		}
+	}
+	var p planAdmision
+	if json.Unmarshal(plan, &p) != nil || p.Esquema != "vec.admin.catalogo-acciones.plan.v1" ||
+		p.CatalogoCanon == "" || p.PaqueteCanon == "" || !huellaValida(p.CatalogoSHA256) ||
 		!huellaValida(p.PaqueteSHA256) || !huellaValida(p.AprobacionSHA256) ||
 		p.AprobacionRef == "" || p.PaqueteRef == "" || p.CatalogoRef == "" ||
 		!strings.HasPrefix(p.OperacionRef, "caa_") || len(p.OperacionRef) < 26 {
-		return os.ErrInvalid
+		return vacio, os.ErrInvalid
+	}
+	if _, err := objetoExacto([]byte(p.CatalogoCanon), "referencia", "version", "fuente_ref",
+		"fuente_version", "fuente_huella_sha256", "vigente_desde", "vigente_hasta",
+		"entradas", "perfiles"); err != nil {
+		return vacio, os.ErrInvalid
 	}
 	var c domain.CatalogoAccionesAdministracionV1
-	if json.Unmarshal([]byte(p.CatalogoCanon), &c) != nil || len(c.Perfiles) == 0 || c.Validar() != nil {
-		return os.ErrInvalid
+	dec := json.NewDecoder(strings.NewReader(p.CatalogoCanon))
+	dec.DisallowUnknownFields()
+	if dec.Decode(&c) != nil || dec.Decode(new(any)) != io.EOF || len(c.Perfiles) == 0 || c.Validar() != nil {
+		return vacio, os.ErrInvalid
 	}
 	canon, err := json.Marshal(c)
 	if err != nil || !bytes.Equal(canon, []byte(p.CatalogoCanon)) {
-		return os.ErrInvalid
+		return vacio, os.ErrInvalid
 	}
 	h, err := c.HuellaSHA256()
 	if err != nil || h != p.CatalogoSHA256 || p.CatalogoRef != c.Referencia ||
 		p.CatalogoVersion != strconv.Itoa(c.Version) || p.PaqueteRef != c.FuenteRef ||
 		p.PaqueteVersion != strconv.Itoa(c.FuenteVersion) || p.PaqueteSHA256 != c.FuenteHuellaSHA256 {
-		return os.ErrInvalid
+		return vacio, os.ErrInvalid
 	}
-	return nil
+	return p, nil
 }

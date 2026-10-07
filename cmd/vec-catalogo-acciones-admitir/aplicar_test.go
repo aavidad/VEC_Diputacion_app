@@ -48,9 +48,9 @@ func (t *txAdmisionPrueba) Rollback(context.Context) error {
 	return nil
 }
 
-func respuestaAdmisionPrueba(t *testing.T) (planMinimo, string, map[string]any) {
+func respuestaAdmisionPrueba(t *testing.T) (planAdmision, string, map[string]any) {
 	t.Helper()
-	p := planMinimo{OperacionRef: "caa_" + strings.Repeat("a", 22), CatalogoRef: "catalogo:sintetico",
+	p := planAdmision{OperacionRef: "caa_" + strings.Repeat("a", 22), CatalogoRef: "catalogo:sintetico",
 		CatalogoVersion: "1", CatalogoSHA256: strings.Repeat("a", 64), PaqueteRef: "paquete:sintetico",
 		PaqueteVersion: "1", PaqueteSHA256: strings.Repeat("b", 64), AprobacionRef: "aprobacion:sintetica",
 		AprobacionSHA256: strings.Repeat("c", 64)}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -40,11 +41,15 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := func(huella string, contenido []byte) ([]byte, string) {
-		b, err := json.Marshal(planMinimo{OperacionRef: "caa_" + strings.Repeat("a", 22),
+		b, err := json.Marshal(planAdmision{Esquema: "vec.admin.catalogo-acciones.plan.v1",
+			OperacionRef:  "caa_" + strings.Repeat("a", 22),
+			PaqueteCanon:  `{}`,
 			CatalogoCanon: string(contenido), CatalogoRef: c.Referencia, CatalogoVersion: "1",
 			CatalogoSHA256: huella, PaqueteRef: c.FuenteRef, PaqueteVersion: "1",
 			PaqueteSHA256: c.FuenteHuellaSHA256, AprobacionRef: "aprobacion:sintetica",
-			AprobacionSHA256: strings.Repeat("c", 64)})
+			AprobacionSHA256: strings.Repeat("c", 64), EsperadoVersion: "0",
+			EsperadoSHA256: strings.Repeat("0", 64), PreparadoEn: "2026-10-07T00:00:00Z",
+			CaducaEn: "2026-10-09T00:00:00Z", Entorno: "desarrollo"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,22 +57,54 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 		return b, hex.EncodeToString(s[:])
 	}
 	p, hp := plan(h, canon)
-	if err := validarPlanAntesDeEnviar(p, hp); err != nil {
+	if _, err := validarPlanAntesDeEnviar(p, hp); err != nil {
 		t.Fatal(err)
 	}
-	if err := validarPlanAntesDeEnviar(p, strings.Repeat("f", 64)); err == nil {
+	if _, err := validarPlanAntesDeEnviar(p, strings.Repeat("f", 64)); err == nil {
 		t.Fatal("plan sin la huella aprobada")
 	}
 	alterado, ha := plan(strings.Repeat("e", 64), canon)
-	if err := validarPlanAntesDeEnviar(alterado, ha); err == nil {
+	if _, err := validarPlanAntesDeEnviar(alterado, ha); err == nil {
 		t.Fatal("catálogo alterado bajo un plan rehuellado")
 	}
 	c.Perfiles = nil
 	sinCenso, _ := json.Marshal(c)
 	alterado, ha = plan(h, sinCenso)
-	if err := validarPlanAntesDeEnviar(alterado, ha); err == nil {
+	if _, err := validarPlanAntesDeEnviar(alterado, ha); err == nil {
 		t.Fatal("censo omitido")
 	}
+	rechazarAunqueRehuellado := func(nombre string, documento []byte) {
+		t.Run(nombre, func(t *testing.T) {
+			s := sha256.Sum256(documento)
+			if _, err := validarPlanAntesDeEnviar(documento, hex.EncodeToString(s[:])); err == nil {
+				t.Fatal("JSON no cerrado aceptado con SHA del propio documento")
+			}
+		})
+	}
+	rechazarAunqueRehuellado("raiz extra", append(append([]byte{}, p[:len(p)-1]...), []byte(`,"extra":"ajeno"}`)...))
+	rechazarAunqueRehuellado("raiz duplicada", append([]byte(`{"esquema":"ajeno",`), p[1:]...))
+	rechazarAunqueRehuellado("raiz nula", bytes.Replace(p, []byte(`"entorno":"desarrollo"`), []byte(`"entorno":null`), 1))
+	rechazarAunqueRehuellado("raiz incompleta", bytes.Replace(p, []byte(`,"entorno":"desarrollo"`), nil, 1))
+	catalogoExtra := append(append([]byte{}, canon[:len(canon)-1]...), []byte(`,"extra":"ajeno"}`)...)
+	catalogoDuplicado := append([]byte(`{"referencia":"catalogo:otro",`), canon[1:]...)
+	for nombre, contenido := range map[string][]byte{
+		"catalogo extra":     catalogoExtra,
+		"catalogo duplicado": catalogoDuplicado,
+		"catalogo nulo":      bytes.Replace(canon, []byte(`"vigente_desde":"2026-10-08T00:00:00Z"`), []byte(`"vigente_desde":null`), 1),
+	} {
+		s := sha256.Sum256(contenido)
+		mutado, _ := plan(hex.EncodeToString(s[:]), contenido)
+		rechazarAunqueRehuellado(nombre, mutado)
+	}
+	var incompleto map[string]json.RawMessage
+	if err := json.Unmarshal(canon, &incompleto); err != nil {
+		t.Fatal(err)
+	}
+	delete(incompleto, "perfiles")
+	catalogoIncompleto, _ := json.Marshal(incompleto)
+	s := sha256.Sum256(catalogoIncompleto)
+	mutado, _ := plan(hex.EncodeToString(s[:]), catalogoIncompleto)
+	rechazarAunqueRehuellado("catalogo incompleto", mutado)
 }
 
 func TestArchivoPrivadoNiegaPermisosAmpliosYEnlaces(t *testing.T) {
