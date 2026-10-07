@@ -118,3 +118,49 @@ test("un JSON válido con general vacío no publica textos y se recupera al rein
   assert.ok(Object.isFrozen(aislado.MENSAJES_PERSONAL));
   assert.equal(aislado.crearTraductorPersonal()("catalogo_recuento_uno", { total: "1" }), "1 categoría");
 });
+
+function diferida() {
+  let resolver;
+  let rechazar;
+  const promesa = new Promise((resolve, reject) => { resolver = resolve; rechazar = reject; });
+  return { promesa, resolver, rechazar };
+}
+
+test("dos preparaciones simultáneas resuelven con el último idioma ya disponible", async () => {
+  const aislado = await import("./i18n.js?preparaciones-simultaneas");
+  const datosES = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
+  const datosEN = JSON.parse(await readFile(new URL("../../../textos/en/personal.json", import.meta.url), "utf8"));
+  const primeraLectura = diferida();
+  const ultimaLectura = diferida();
+  const primera = aislado.prepararTextosPersonal({ idioma: "es", porDefecto: "es", leer: () => primeraLectura.promesa });
+  const ultima = aislado.prepararTextosPersonal({ idioma: "en", porDefecto: "es", leer: () => ultimaLectura.promesa });
+  let primeraTerminada = false;
+  primera.then(() => { primeraTerminada = true; });
+  primeraLectura.resolver(datosES);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(primeraTerminada, false);
+  assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
+  ultimaLectura.resolver(datosEN);
+  const [resultadoPrimero, resultadoUltimo] = await Promise.all([primera, ultima]);
+  assert.equal(resultadoPrimero.idioma, "en");
+  assert.equal(resultadoUltimo.idioma, "en");
+  assert.equal(aislado.formatearRecuentoCategorias(1_000), "1,000 categories");
+});
+
+test("si la última preparación falla, ninguna llamada anterior confirma textos obsoletos", async () => {
+  const aislado = await import("./i18n.js?ultima-preparacion-fallida");
+  const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
+  const primeraLectura = diferida();
+  const ultimaLectura = diferida();
+  const primera = aislado.prepararTextosPersonal({ idioma: "es", porDefecto: "es", leer: () => primeraLectura.promesa });
+  const ultima = aislado.prepararTextosPersonal({ idioma: "es", porDefecto: "es", leer: () => ultimaLectura.promesa });
+  primeraLectura.resolver(datos);
+  await new Promise((resolver) => setImmediate(resolver));
+  ultimaLectura.rechazar(new Error("último catálogo inaccesible"));
+  const resultados = await Promise.allSettled([primera, ultima]);
+  assert.deepEqual(resultados.map(({ status }) => status), ["rejected", "rejected"]);
+  assert.match(resultados[0].reason.message, /último catálogo inaccesible/);
+  assert.match(resultados[1].reason.message, /último catálogo inaccesible/);
+  assert.equal(aislado.MENSAJES_PERSONAL, undefined);
+  assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
+});
