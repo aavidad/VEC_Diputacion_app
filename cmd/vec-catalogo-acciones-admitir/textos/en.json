@@ -7,9 +7,9 @@
   "catalogo_consultado": "Published snapshot retrieved.",
   "plan_inseguro": "The approved plan cannot be opened safely.",
   "plan_invalido": "The plan does not match the supplied hash or contains an invalid catalog.",
-  "admision_no_confirmada": "Admission could not be confirmed. Check its status before trying again.",
-  "commit_indeterminado": "The result is unknown. Look up the snapshot using the plan's reference, version and hash before retrying the same plan.",
+  "admision_no_confirmada": "Admission could not be confirmed. Look up the snapshot using catalogo_ref, catalogo_version and catalogo_sha256 before retrying the same plan.",
+  "commit_indeterminado": "The result is unknown. Look up the snapshot using catalogo_ref, catalogo_version and catalogo_sha256 before retrying the same plan.",
   "admision_rechazada": "The authority rejected the catalog admission.",
-  "admision_no_disponible": "The authority could not process admission. Check its status before trying again.",
+  "admision_no_disponible": "The authority could not process admission. Look up the snapshot using catalogo_ref, catalogo_version and catalogo_sha256 before retrying the same plan.",
   "catalogo_admitido": "The catalog was admitted with a durable receipt."
 }

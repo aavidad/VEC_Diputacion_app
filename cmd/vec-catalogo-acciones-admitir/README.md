@@ -52,8 +52,9 @@ vec-catalogo-acciones-admitir --fase consultar --config /ruta/privada/config.jso
 
 La salida JSON contiene un código y un mensaje del catálogo `es` o `en`. Una
 admisión confirmada entrega el recibo. Si el resultado es incierto, consulte
-la instantánea por referencia, versión y huella del plan antes de repetir ese
-mismo plan y su `operacion_ref`. El
+la instantánea con `catalogo_ref`, `catalogo_version` y `catalogo_sha256` del
+JSON del plan. Para reintentar, use el mismo archivo de plan, su `--sha` y
+su `operacion_ref`. El
 catálogo no asigna perfiles. Los descriptores nominales de B1 y FirmaDEV y su
 aprobación externa siguen siendo dependencias: una prueba sintética del clon
 no los publica ni reduce la garantía HIGH de producción.
