@@ -249,6 +249,20 @@ RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp
 $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.solicitud_replay_gobierno_rol_nuevo_v1(bytea,text) FROM PUBLIC;
 
+-- El recibo almacenado conserva el primer acceso; la respuesta acredita el
+-- consumo V3 de esta consulta sin reescribir la historia de la propuesta.
+CREATE FUNCTION vec_autorizacion.resultado_propuesta_acceso_gobierno_rol_nuevo_v1(
+ p_original jsonb,p_auditoria_actual text)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $f$
+BEGIN
+ IF jsonb_typeof(p_original) IS DISTINCT FROM 'object'
+ OR (p_original->>'auditoria_acceso_ref' ~ '^aud_v3_[0-9a-f]{32}$') IS NOT TRUE
+ OR (p_auditoria_actual ~ '^aud_v3_[0-9a-f]{32}$') IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT60: auditoria de propuesta invalida' USING ERRCODE='42501';END IF;
+ RETURN p_original||jsonb_build_object('auditoria_acceso_ref',p_auditoria_actual);
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.resultado_propuesta_acceso_gobierno_rol_nuevo_v1(jsonb,text) FROM PUBLIC;
+
 CREATE FUNCTION vec_autorizacion.aplicar_gobierno_rol_nuevo_v1(
  p_cierre boolean,p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
@@ -394,14 +408,15 @@ BEGIN
     PERFORM vec_autorizacion.comprobar_postimagen_rol_nuevo_v1(op);
    ELSIF EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id=plan#>>'{definicion_nueva,rol_id}') THEN
     RAISE EXCEPTION 'AUT60: RolID ocupado' USING ERRCODE='40001';END IF;
-   resultado:=prop.resultado;
+   resultado:=vec_autorizacion.resultado_propuesta_acceso_gobierno_rol_nuevo_v1(prop.resultado,x.auditoria_ref);
   ELSE
    IF EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id=plan#>>'{definicion_nueva,rol_id}')
    THEN RAISE EXCEPTION 'AUT60: RolID debe ser nuevo' USING ERRCODE='40001';END IF;
    ahora:=clock_timestamp();
    caduca:=LEAST(ahora+interval '1 day',(a.documento->>'vigente_hasta')::timestamptz,
     NULLIF(entrada->>'vigente_hasta','0001-01-01T00:00:00Z')::timestamptz);
-   resultado:=jsonb_build_object('material_canon',m->>'material_canon','huella_sha256',m->>'material_sha256','caduca_en',caduca);
+   resultado:=jsonb_build_object('material_canon',m->>'material_canon','huella_sha256',m->>'material_sha256',
+    'caduca_en',caduca,'auditoria_acceso_ref',x.auditoria_ref);
    INSERT INTO vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 VALUES(op,convert_to(m->>'material_canon','UTF8'),m->>'material_sha256',convert_to(p_material,'UTF8'),
     persona,perfil,asignacion,plan->>'catalogo_ref',(plan->>'catalogo_version')::integer,plan->>'catalogo_huella_sha256',recurso,ahora,caduca,x.auditoria_ref,resultado);
    INSERT INTO vec_autorizacion.outbox_gobierno_rol_nuevo_v1 VALUES(op,'definicion_propuesta',x.auditoria_ref,ahora);

@@ -7,7 +7,8 @@ SET LOCAL timezone='UTC';
 SET LOCAL statement_timeout='15s';
 
 DO $sonda$
-DECLARE original jsonb;actual jsonb;grupo oid:=to_regrole('vec_admin_gobierno_roles_ejecutor');
+DECLARE original jsonb;actual jsonb;historico jsonb;respuesta jsonb;
+ grupo oid:=to_regrole('vec_admin_gobierno_roles_ejecutor');
  permitidas oid[]:=ARRAY[
   'vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure::oid,
   'vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure::oid,
@@ -19,6 +20,14 @@ BEGIN
    OR r.rolreplication OR r.rolbypassrls OR r.rolconfig IS NOT NULL))
  OR EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=grupo)
  THEN RAISE EXCEPTION 'AUT60 sonda: grupo no aislado';END IF;
+ historico:=jsonb_build_object('material_canon','{}','huella_sha256',repeat('a',64),
+  'caduca_en','2026-01-01T00:00:00Z','auditoria_acceso_ref','aud_v3_'||repeat('1',32));
+ respuesta:=vec_autorizacion.resultado_propuesta_acceso_gobierno_rol_nuevo_v1(
+  historico,'aud_v3_'||repeat('2',32));
+ IF respuesta->>'auditoria_acceso_ref' IS DISTINCT FROM 'aud_v3_'||repeat('2',32)
+ OR historico->>'auditoria_acceso_ref' IS DISTINCT FROM 'aud_v3_'||repeat('1',32)
+ OR (respuesta-'auditoria_acceso_ref') IS DISTINCT FROM (historico-'auditoria_acceso_ref')
+ THEN RAISE EXCEPTION 'AUT60 sonda: auditoria actual reescribe historia';END IF;
  original:=jsonb_build_object('esquema','administracion_gobierno_rol_nuevo_propuesta_v1',
   'material_canon','{}','material_sha256',repeat('a',64),'plan_sha256',repeat('b',64),
   'correlacion_ref','correlacion_'||repeat('1',32));
