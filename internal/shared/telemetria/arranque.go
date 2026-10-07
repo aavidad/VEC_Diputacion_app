@@ -2,10 +2,19 @@ package telemetria
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"net/url"
+	"os"
+	"reflect"
 	"strings"
+	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // EventoArranque describe un hito técnico del proceso. Preparada significa
@@ -63,6 +72,169 @@ func ClaseErrorArranque(err error) string {
 		return "otro"
 	}
 	return claseError(err)
+}
+
+// MensajeErrorArranque conserva las causas técnicas que se pueden construir
+// sin datos de la petición. Un Error() libre no tiene procedencia fiable: puede
+// contener nombres, rutas o secretos, y solo se muestra si coincide con un
+// diagnóstico interno conocido. Los errores de sistema se descomponen sin
+// imprimir los campos que contienen datos variables.
+func MensajeErrorArranque(err error) string {
+	return limitarMensajeArranque(mensajeErrorArranque(err, 0))
+}
+
+const maximoMensajeArranque = 240
+
+func mensajeErrorArranque(err error, profundidad int) string {
+	if err == nil {
+		return "causa no disponible"
+	}
+	if profundidad >= 8 {
+		return "cadena de errores demasiado profunda"
+	}
+	switch e := err.(type) {
+	case *pgconn.PgError:
+		if e == nil {
+			return "PostgreSQL bd_codigo_no_disponible"
+		}
+		codigo := causaArranque("bd_" + e.Code)
+		if codigo == "otro" {
+			codigo = "bd_codigo_no_disponible"
+		}
+		mensaje := "PostgreSQL " + codigo
+		if e.Routine != "" {
+			mensaje += " rutina=presente"
+		}
+		if e.ConstraintName != "" {
+			mensaje += " restriccion=presente"
+		}
+		return mensaje
+	case *os.PathError:
+		if e == nil {
+			return "archivo: causa no disponible"
+		}
+		return "archivo " + operacionArranque(e.Op) + ": " + mensajeErrorArranque(e.Err, profundidad+1)
+	case *url.Error:
+		if e == nil {
+			return "URL: causa no disponible"
+		}
+		return "URL " + operacionArranque(e.Op) + ": " + mensajeErrorArranque(e.Err, profundidad+1)
+	case *net.OpError:
+		if e == nil {
+			return "red: causa no disponible"
+		}
+		return "red " + operacionArranque(e.Op) + ": " + mensajeErrorArranque(e.Err, profundidad+1)
+	case *net.DNSError:
+		if e == nil {
+			return "DNS: causa no disponible"
+		}
+		if e.IsTimeout {
+			return "DNS: plazo vencido"
+		}
+		if e.IsNotFound {
+			return "DNS: nombre no encontrado"
+		}
+		return "DNS: consulta fallida"
+	case *os.SyscallError:
+		if e == nil {
+			return "sistema: causa no disponible"
+		}
+		return "sistema " + operacionArranque(e.Syscall) + ": " + mensajeErrorArranque(e.Err, profundidad+1)
+	case syscall.Errno:
+		return fmt.Sprintf("sistema errno=%d (%s)", e, e.Error())
+	case *time.ParseError:
+		return "formato de fecha no valido"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "operacion cancelada"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "plazo vencido"
+	}
+	if permitido := mensajeInternoArranque(err.Error()); permitido != "" {
+		return permitido
+	}
+	if varios, ok := err.(interface{ Unwrap() []error }); ok {
+		partes := make([]string, 0, 3)
+		for _, causa := range varios.Unwrap() {
+			if len(partes) == 3 {
+				break
+			}
+			partes = append(partes, mensajeErrorArranque(causa, profundidad+1))
+		}
+		if len(partes) > 0 {
+			return strings.Join(partes, "; ")
+		}
+	}
+	if causa := errors.Unwrap(err); causa != nil {
+		mensaje := mensajeErrorArranque(causa, profundidad+1)
+		if prefijo := prefijoArranqueConocido(err.Error(), causa.Error()); prefijo != "" {
+			return prefijo + " " + mensaje
+		}
+		return mensaje
+	}
+	return "error interno no catalogado tipo=" + tipoErrorArranque(err)
+}
+
+func prefijoArranqueConocido(texto, causa string) string {
+	if !strings.HasSuffix(texto, causa) {
+		return ""
+	}
+	prefijo := strings.TrimSpace(strings.TrimSuffix(texto, causa))
+	switch prefijo {
+	case "bootstrap:", "bootstrap server:", "composicion:", "serve:",
+		"vec-admin:", "auditoria-intentos:", "auditoria_intentos:":
+		return prefijo
+	}
+	return ""
+}
+
+func mensajeInternoArranque(valor string) string {
+	switch valor {
+	case "bootstrap: material criptografico de desarrollo invalido",
+		"bootstrap: material criptografico de desarrollo invalido: ruta enlazada o no canonica",
+		"bootstrap: material criptografico de desarrollo invalido: el directorio pertenece al repositorio",
+		"bootstrap: material criptografico de desarrollo invalido: TLS no corresponde al material del perfil",
+		"auditoria.intentos.configuracion_no_disponible",
+		"administracion: configuracion no valida":
+		return valor
+	}
+	return ""
+}
+
+func tipoErrorArranque(err error) string {
+	valor := reflect.TypeOf(err).String()
+	if len(valor) == 0 || len(valor) > 80 {
+		return "desconocido"
+	}
+	for _, c := range valor {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
+			c == '_' || c == '*' || c == '.' || c == '/' || c == '[' || c == ']' || c == '-' {
+			continue
+		}
+		return "desconocido"
+	}
+	return valor
+}
+
+func operacionArranque(valor string) string {
+	switch strings.ToLower(valor) {
+	case "open", "read", "write", "stat", "lstat", "remove", "dial", "listen", "accept", "get", "post", "put", "head", "connect", "bind", "send", "recv":
+		return strings.ToLower(valor)
+	}
+	return "operacion"
+}
+
+func limitarMensajeArranque(valor string) string {
+	if len(valor) > maximoMensajeArranque {
+		valor = valor[:maximoMensajeArranque]
+	}
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, valor)
 }
 
 func causaArranque(causa string) string {

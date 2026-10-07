@@ -58,9 +58,14 @@ configuración, la composición o la escucha, se escribe `fallida`, con la fase
 y una clase cerrada en `error.type`. El fallo de `vec-server` conserva además
 su incidencia técnica común `ARRANQUE_FALLIDO`.
 
-El registro de arranque contiene servicio, versión, entorno y superficie.
-Nunca incluye el texto del error, rutas de archivos, credenciales ni DSN. Para
-encontrar los fallos y sus tiempos:
+El registro JSON de arranque contiene servicio, versión, entorno y superficie.
+No incluye el texto del error, rutas de archivos, credenciales ni DSN. La línea
+fatal posterior indica la etapa y un diagnóstico saneado. Conserva los mensajes
+internos conocidos, como «material criptografico de desarrollo invalido» o
+«auditoria.intentos.configuracion_no_disponible». Para PostgreSQL muestra el
+SQLSTATE, sin el mensaje de la base; para ficheros y red omite rutas, direcciones
+y usuarios. Si el error es texto libre no catalogado, muestra su tipo técnico,
+sin copiar el texto. Para encontrar los fallos y sus tiempos:
 
 ```sh
 podman logs --since 1h <contenedor> 2>&1 | grep '"msg":"vec.process.startup"' \
