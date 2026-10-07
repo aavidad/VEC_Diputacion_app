@@ -1,7 +1,7 @@
 /** Entrada de solo lectura a la lista CT. El detalle conserva su montaje propio. */
 import { localizacionDe } from "../../../comun/idioma.js";
 import { FASE_RRHH_DE_ORIGEN } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
+import { FILTRO_LISTA_INICIAL, filtroListaValido, filtrosCuadroRRHHV2 } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorCuadroCT, prepararTextosContratacionVista } from "./i18n-vistas.js?v=20261007-pantallas-textos-final-v1";
 
@@ -48,11 +48,16 @@ function proyectarPagina(pagina, fases, locale) {
 export async function montarCuadroContratacionLigero({
   raiz, cliente, idioma, abrirDetalle, abrirAlta = null, mostrarError,
   filtroLista = null, signal = null,
+  contratoFiltros = "v1", fasesClaveInicial = null, alCambiarFiltroLista = null,
   nombreCentro = (referencia) => referencia, nombreCategoria = (referencia) => referencia,
 } = {}) {
   if (!raiz?.addEventListener || !raiz?.querySelector
     || typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof abrirDetalle !== "function" || typeof mostrarError !== "function"
+    || !["v1", "v2"].includes(contratoFiltros)
+    || (contratoFiltros === "v2" && typeof cliente.consultarCuadroRRHHV2 !== "function")
+    || (fasesClaveInicial !== null && !Array.isArray(fasesClaveInicial))
+    || (alCambiarFiltroLista !== null && typeof alCambiarFiltroLista !== "function")
     || (signal !== null && (typeof signal?.addEventListener !== "function"
       || typeof signal.aborted !== "boolean"))) {
     throw new TypeError("dependencias de cuadro CT incompletas");
@@ -70,6 +75,10 @@ export async function montarCuadroContratacionLigero({
   let filtroServidorActual = null;
   let temporizadorBusqueda = null;
   let filtroConsultado = null;
+  let fasesAdministrativas = null;
+  let fasesClaveActual = fasesClaveInicial;
+  let filtroRutaV2Preparado = false;
+  let totalServidor = null;
 
   function filtroServidor() {
     if (filtroServidorActual) return filtroServidorActual;
@@ -122,7 +131,8 @@ export async function montarCuadroContratacionLigero({
       ? `<p class="ct-exp-aviso-textos" role="status">${escapar(t("lista_textos_respaldo"))}</p>` : ""}`
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
-        actualizarDisponible: true, filtroResultados: filtroResultados() });
+        actualizarDisponible: true, filtroResultados: filtroResultados(),
+        sinFiltradoLocal: contratoFiltros === "v2", totalServidor });
   }
 
   function pintarConFocoDeFiltro() {
@@ -160,15 +170,38 @@ export async function montarCuadroContratacionLigero({
     try {
       preparado = await prepararTextosContratacionVista("cuadro", { idioma, reintentar });
       if (!vigente || signal?.aborted || actual.signal.aborted) return;
-      const solicitud = { filtros: filtroServidor(),
-        paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] } };
-      filtroConsultado = JSON.stringify(filtro);
-      const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
+      let pagina;
+      if (contratoFiltros === "v2") {
+        if (!filtroRutaV2Preparado && filtroRuta !== null) {
+          const candidato = { ...FILTRO_LISTA_INICIAL, ...filtroRuta };
+          filtrosCuadroRRHHV2(candidato, {}, fasesClaveActual);
+          filtro = filtroListaValido(candidato);
+          filtroRutaV2Preparado = true;
+        }
+        const seleccion = filtrosCuadroRRHHV2(filtro, fasesAdministrativas ?? {}, fasesClaveActual);
+        if (seleccion.sinCoincidenciasDeFase) {
+          throw Object.assign(new Error("fase CT sin lista administrativa exacta"),
+            { codigo: "filtro_servidor_no_disponible" });
+        }
+        fasesClaveActual = seleccion.filtros.fases_clave;
+        filtroConsultado = JSON.stringify(filtro);
+        pagina = await cliente.consultarCuadroRRHHV2({ filtros: seleccion.filtros,
+          paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] },
+          resumen: true }, { signal: actual.signal });
+        if (!filtro.fase) fasesAdministrativas = pagina.resumen.por_fase;
+        totalServidor = pagina.totales.total;
+      } else {
+        const solicitud = { filtros: filtroServidor(),
+          paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] } };
+        filtroConsultado = JSON.stringify(filtro);
+        pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
+      }
       if (!vigente || actual !== controlador) return;
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
       if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
       restaurarFoco(foco);
+      return true;
     } catch (error) {
       if (vigente && actual === controlador && !actual.signal.aborted) {
         const filtroNoDisponible = error?.codigo === "filtro_servidor_no_disponible";
@@ -184,6 +217,7 @@ export async function montarCuadroContratacionLigero({
           return cargar({ reintentar: true });
         } });
       }
+      return false;
     }
   }
 
@@ -213,13 +247,21 @@ export async function montarCuadroContratacionLigero({
       paginaIndice--;
       await cargar({ foco: '[data-ct-pagina="anterior"]' });
     } else if (boton.dataset.ctExpQuitarFiltro) {
+      const anterior = filtro;
       filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LISTA_INICIAL
         : filtroListaValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]: "" });
-      filtroRuta = { ...filtro, mostrar: filtro.mostrar === "en_tramite" ? "todas" : filtro.mostrar };
+      filtroRuta = { ...filtro, mostrar: contratoFiltros === "v1" && filtro.mostrar === "en_tramite"
+        ? "todas" : filtro.mostrar };
       filtroServidorActual = null;
+      if (contratoFiltros === "v2") {
+        filtroRutaV2Preparado = true;
+        if (filtro.fase !== anterior.fase) fasesClaveActual = null;
+      }
       paginaIndice = 0;
       cursores.length = 1;
-      await cargar({ foco: "#ct-exp-lista-titulo-panel" });
+      const cargado = await cargar({ foco: "#ct-exp-lista-titulo-panel" });
+      if (contratoFiltros === "v2" && cargado) alCambiarFiltroLista?.(filtro,
+        { reemplazar: false, fasesClave: fasesClaveActual ?? [] });
     }
   }
 
@@ -227,7 +269,7 @@ export async function montarCuadroContratacionLigero({
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
     if (!formulario || !cuadro || !vigente || signal?.aborted) return;
     const datos = Object.fromEntries(new FormData(formulario).entries());
-    if (evento.type === "input" && evento.target?.name === "texto" && datos.mostrar === "en_tramite") {
+    if (contratoFiltros === "v1" && evento.type === "input" && evento.target?.name === "texto" && datos.mostrar === "en_tramite") {
       datos.mostrar = "todas";
       const selector = formulario.elements?.namedItem?.("mostrar");
       if (selector) selector.value = "todas";
@@ -236,18 +278,25 @@ export async function montarCuadroContratacionLigero({
     const claveNueva = JSON.stringify(nuevoFiltro);
     if (claveNueva === filtroConsultado && temporizadorBusqueda === null) return;
     if (claveNueva !== JSON.stringify(filtro)) {
+      const anterior = filtro;
       filtro = nuevoFiltro;
       filtroRuta = { ...datos };
       filtroServidorActual = null;
       filtroConsultado = null;
       controlador?.abort();
+      if (contratoFiltros === "v2" && filtro.fase !== anterior.fase) fasesClaveActual = null;
     }
     if (temporizadorBusqueda !== null) clearTimeout(temporizadorBusqueda);
     const consultarFiltro = () => {
       temporizadorBusqueda = null;
       paginaIndice = 0;
       cursores.length = 1;
-      void cargar({ soloResultados: true });
+      void cargar({ soloResultados: true }).then((cargado) => {
+        if (contratoFiltros === "v2" && cargado && vigente && !signal?.aborted) {
+          alCambiarFiltroLista?.(filtro, { reemplazar: evento.target?.name === "texto",
+            fasesClave: fasesClaveActual ?? [] });
+        }
+      });
     };
     if (evento.type === "input" && evento.target?.name === "texto") {
       temporizadorBusqueda = setTimeout(consultarFiltro, 250);

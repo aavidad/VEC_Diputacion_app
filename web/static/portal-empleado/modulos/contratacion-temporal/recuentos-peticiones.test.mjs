@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diaConsulta, filtrarPeticiones, filtroListaValido, resumirPeticiones } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
+import { diaConsulta, filtrarPeticiones, filtroListaValido, filtrosCuadroRRHHV2,
+  leerFiltroListaV2DesdeURL, escribirFiltroListaV2EnURL, resumirPeticiones } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
 
 const e = (numero, fase_clave, estado_clave, extra = {}) => ({
   expediente_ref: `expediente:ct:${numero}`, numero_visible: `2026/CT-${numero}`, centro: "Servicio de Deportes",
@@ -42,4 +43,51 @@ test("los filtros de la lista se combinan, ignoran tildes y ordenan por plazo", 
   assert.equal(f({ mostrar: "vencidos" }).length, resumirPeticiones({ expedientes: lista }).vencidos);
   assert.deepEqual(filtroListaValido({ fase: "inventada", mostrar: "x", ajeno: "y" }),
     { texto: "", fase: "", centro: "", categoria: "", mostrar: "en_tramite" });
+});
+
+test("filtro v2 usa referencias, estados y solo fases administrativas acreditadas en el resumen", () => {
+  const filtro = { texto: "auxiliar", centro: "centro:001", categoria: "categoria:auxiliar",
+    fase: "solicitud", mostrar: "en_tramite" };
+  const seleccion = filtrosCuadroRRHHV2(filtro,
+    { solicitud_registrada: 2, solicitud: 1, analisis: 3, desconocida: 1 });
+  assert.deepEqual(seleccion.filtros, {
+    texto: "auxiliar", centro_ref: "centro:001", categoria_ref: "categoria:auxiliar",
+    estados_clave: ["pendiente", "en_curso", "espera_externa", "incidencia"],
+    fases_clave: ["solicitud", "solicitud_registrada"],
+  });
+  assert.equal(seleccion.sinCoincidenciasDeFase, false);
+  assert.deepEqual(filtrosCuadroRRHHV2(filtro, {}, ["solicitud_registrada", "solicitud"])
+    .filtros.fases_clave, ["solicitud", "solicitud_registrada"]);
+  assert.throws(() => filtrosCuadroRRHHV2(filtro, {}, ["analisis"]));
+  assert.equal(filtrosCuadroRRHHV2({ fase: "seguimiento" }, { solicitud: 1 }).sinCoincidenciasDeFase, true);
+  assert.deepEqual(filtrosCuadroRRHHV2({ mostrar: "terminadas" }).filtros.estados_clave,
+    ["completado", "cancelado"]);
+  assert.deepEqual(filtrosCuadroRRHHV2({ mostrar: "espera" }).filtros.estados_clave, ["espera_externa"]);
+  for (const mostrar of ["vencidos", "vence_hoy", "sin_plazo", "atencion", "vencen_semana"]) {
+    assert.throws(() => filtrosCuadroRRHHV2({ mostrar }),
+      (error) => error.codigo === "filtro_servidor_no_disponible");
+  }
+  for (const mostrar of ["terminadas", "todas"]) {
+    assert.throws(() => filtrosCuadroRRHHV2({ mostrar, fase: "solicitud" }),
+      (error) => error.codigo === "filtro_servidor_no_disponible");
+  }
+});
+
+test("URL CT v2 conserva otros parámetros, canoniza filtros y rechaza duplicados", () => {
+  const entrada = new URLSearchParams("lang=en&expediente=expediente%3Act%3A001&ct_centro=centro%3A001&ct_mostrar=incidencia");
+  const leido = leerFiltroListaV2DesdeURL(entrada);
+  assert.deepEqual(leido, { filtro: { texto: "", fase: "", centro: "centro:001", categoria: "", mostrar: "incidencia" },
+    fasesClave: [] });
+  const salida = escribirFiltroListaV2EnURL(entrada, { ...leido.filtro, texto: "auxiliar", fase: "solicitud" },
+    ["solicitud_registrada", "solicitud"]);
+  assert.equal(salida.get("lang"), "en");
+  assert.equal(salida.get("expediente"), "expediente:ct:001");
+  assert.deepEqual(leerFiltroListaV2DesdeURL(salida), { filtro: { ...leido.filtro, texto: "auxiliar", fase: "solicitud" },
+    fasesClave: ["solicitud", "solicitud_registrada"] });
+  assert.equal(escribirFiltroListaV2EnURL(salida, filtroListaValido({})).has("ct_mostrar"), false);
+  for (const parametros of ["ct_texto=a&ct_texto=b", "ct_mostrar=vencido", "ct_desconocido=x",
+    "ct_centro=%3Cscript%3E", "ct_fase=solicitud", "ct_fases=solicitud",
+    "ct_fase=solicitud&ct_fases=analisis", "ct_fase=solicitud&ct_fases=solicitud&ct_fases=solicitud"]) {
+    assert.throws(() => leerFiltroListaV2DesdeURL(new URLSearchParams(parametros)));
+  }
 });

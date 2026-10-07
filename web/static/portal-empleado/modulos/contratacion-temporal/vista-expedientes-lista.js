@@ -98,19 +98,20 @@ function busquedaParcial(cuadro, filtro) {
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
-export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada) {
+export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada,
+  { sinFiltradoLocal = false, totalServidor = null, filtroServidorActivo = false } = {}) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
-  const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
+  const filas = sinFiltradoLocal ? cuadro.expedientes : filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
     ayudas.numeroVisible(expediente.numero_visible),
     ayudas.centroVisible(expediente.centro).etiqueta,
   ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
-    <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
-    ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
+    <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: totalServidor ?? cuadro.expedientes.length }))}</p>
+    ${!sinFiltradoLocal && busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
-    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
+    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0 && !filtroServidorActivo
       ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`
     : `<div class="ct-exp-tabla-lista"><table class="tabla-datos tabla-apilable ct-exp-tabla-peticiones">
       <caption class="solo-lectura">${escapar(t("tabla_expedientes"))}</caption>
@@ -128,14 +129,15 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
 
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
 export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
-  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro } = {}) {
+  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro,
+    sinFiltradoLocal = false, totalServidor = null } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
-  const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
+  const titulo = sinFiltradoLocal ? t("tabla_expedientes") : resumen.enTramite === 0 ? t("lista_titulo_ninguna")
     : (resumen.enTramite === 1 ? t("lista_titulo_uno") : t("lista_titulo_varias", { total: resumen.enTramite }));
   const parcial = Boolean(cuadro.paginacion?.cursor_siguiente);
   // Sin ninguna petición ni filtro del servidor, sobran buscador y filtros.
-  const sinPeticiones = cuadro.expedientes.length === 0 && !parcial
+  const sinPeticiones = !sinFiltradoLocal && cuadro.expedientes.length === 0 && !parcial
     && !Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
   const centros = distintos(cuadro.expedientes, "centro");
   const categorias = distintos(cuadro.expedientes, "categoria");
@@ -168,7 +170,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       </form>`}
       ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
     ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
-    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados)}
+    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados,
+      { sinFiltradoLocal, totalServidor, filtroServidorActivo: sinFiltradoLocal && Object.values(filtro).some(Boolean) })}
       ${paginacion}
     </section>`;
 }

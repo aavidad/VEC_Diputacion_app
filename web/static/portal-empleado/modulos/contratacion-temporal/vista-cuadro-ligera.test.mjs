@@ -234,3 +234,77 @@ test("pasar de página usa su cursor y devuelve el foco al título cuando desapa
   assert.equal(tabindex, "-1");
   montaje.desmontar();
 });
+
+test("v2 usa la lista administrativa exacta del enlace y conserva el cursor sin refiltrar filas", async () => {
+  const solicitudes = [], errores = [], enlaces = [], raiz = raizFalsa();
+  const montaje = await montarCuadroContratacionLigero({
+    raiz, idioma: "es", contratoFiltros: "v2",
+    filtroLista: { texto: "objetivo", fase: "solicitud", centro: "centro:rpt:600",
+      categoria: "categoria:auxiliar", mostrar: "incidencia" },
+    fasesClaveInicial: ["solicitud_registrada", "solicitud"],
+    alCambiarFiltroLista: (filtro, opciones) => enlaces.push({ filtro, opciones }),
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => errores.push(datos),
+    cliente: {
+      consultarCuadroRRHH: () => { throw new Error("v1 no debe consultarse"); },
+      consultarCuadroRRHHV2: async (solicitud) => {
+        solicitudes.push(solicitud);
+        const esSiguiente = Boolean(solicitud.paginacion.cursor);
+        return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila],
+          hay_mas: !esSiguiente,
+          ...(!esSiguiente ? { cursor_siguiente: "cursor_filtrado" } : {}),
+          totales: { total: 2 },
+          resumen: { por_fase: { solicitud: 1, solicitud_registrada: 1 } },
+        };
+      },
+    },
+  });
+  assert.equal(errores.length, 0, errores[0]?.error?.stack);
+  assert.equal(solicitudes.length, 1, "el enlace directo hace una sola lectura de la página filtrada");
+  assert.deepEqual(solicitudes[0].filtros, { texto: "objetivo", centro_ref: "centro:rpt:600",
+    categoria_ref: "categoria:auxiliar", estados_clave: ["incidencia"],
+    fases_clave: ["solicitud", "solicitud_registrada"] });
+  assert.match(raiz.innerHTML, /1 de 2 peticiones/u);
+  assert.match(raiz.innerHTML, /2026\/CT-0001/u,
+    "una coincidencia del servidor no se oculta por el texto ausente de la fila visible");
+  assert.match(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+  assert.equal(solicitudes.length, 2);
+  assert.equal(solicitudes[1].paginacion.cursor, "cursor_filtrado");
+  assert.deepEqual(solicitudes[1].filtros.fases_clave, solicitudes[0].filtros.fases_clave);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpQuitarFiltro: "texto" } }) } });
+  assert.equal(solicitudes.length, 3, "quitar texto con fase conserva la lista exacta y hace una lectura");
+  assert.equal(solicitudes.at(-1).paginacion.cursor, "");
+  assert.deepEqual(enlaces, [{ filtro: { texto: "", fase: "solicitud", centro: "centro:rpt:600",
+    categoria: "categoria:auxiliar", mostrar: "incidencia" },
+    opciones: { reemplazar: false, fasesClave: ["solicitud", "solicitud_registrada"] } }]);
+  montaje.desmontar();
+});
+
+test("v2 no convierte una fase visual sin claves administrativas en filtro vacío", async () => {
+  let consultas = 0;
+  const errores = [];
+  const montaje = await montarCuadroContratacionLigero({ raiz: raizFalsa(), idioma: "es",
+    contratoFiltros: "v2", filtroLista: { fase: "solicitud" },
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => errores.push(datos),
+    cliente: { consultarCuadroRRHH: () => { throw new Error("v1 no debe consultarse"); },
+      consultarCuadroRRHHV2: async () => { consultas++; } },
+  });
+  assert.equal(consultas, 0);
+  assert.equal(errores[0].error.codigo, "filtro_servidor_no_disponible");
+  montaje.desmontar();
+});
+
+test("v2 rechaza un plazo sin SQL autorizado antes de consultar el cuadro", async () => {
+  const errores = [];
+  let consultas = 0;
+  const montaje = await montarCuadroContratacionLigero({ raiz: raizFalsa(), idioma: "en",
+    contratoFiltros: "v2", filtroLista: { mostrar: "vence_hoy" },
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => errores.push(datos),
+    cliente: { consultarCuadroRRHH: () => { throw new Error("v1 no debe consultarse"); },
+      consultarCuadroRRHHV2: async () => { consultas++; } },
+  });
+  assert.equal(consultas, 0);
+  assert.equal(errores[0].error.codigo, "filtro_servidor_no_disponible");
+  montaje.desmontar();
+});

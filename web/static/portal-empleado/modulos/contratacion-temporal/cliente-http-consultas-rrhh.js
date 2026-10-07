@@ -99,6 +99,28 @@ function validarSolicitudCuadro(entrada) {
   return structuredClone(entrada);
 }
 
+function validarSolicitudCuadroV2(entrada) {
+  const filtros = entrada?.filtros;
+  const estados = filtros?.estados_clave;
+  const fases = filtros?.fases_clave;
+  if (!camposCerrados(entrada, ["filtros", "paginacion"], ["resumen"])
+    || (Object.hasOwn(entrada, "resumen") && entrada.resumen !== true)
+    || !camposCerrados(filtros, ["texto", "centro_ref", "categoria_ref", "estados_clave", "fases_clave"])
+    || !camposCerrados(entrada.paginacion, ["limite", "cursor"])
+    || !cadena(filtros.texto, { vacia: true, maximo: 80, patron: PATRON_TEXTO_CUADRO })
+    || !referencia(filtros.centro_ref, true) || !referencia(filtros.categoria_ref, true)
+    || !Array.isArray(estados) || estados.length > 6
+    || !estados.every((estado) => estadoOperativo(estado))
+    || new Set(estados).size !== estados.length
+    || !Array.isArray(fases) || fases.length > 32
+    || !fases.every((fase) => clave(fase)) || new Set(fases).size !== fases.length
+    || !entero(entrada.paginacion.limite, 1) || entrada.paginacion.limite > MAXIMO_EXPEDIENTES
+    || !cursor(entrada.paginacion.cursor, true)) {
+    throw new TypeError("solicitud de cuadro RRHH v2 no válida");
+  }
+  return structuredClone(entrada);
+}
+
 function validarSolicitudDetalle(entrada) {
   if (!camposCerrados(entrada, ["expediente_ref", "version_observada"])
     || !referencia(entrada.expediente_ref)
@@ -190,6 +212,16 @@ function validarPagina(entrada) {
     throw new TypeError("página de cuadro RRHH incoherente");
   }
   return Object.freeze({ ...structuredClone(entrada), expedientes });
+}
+
+function validarPaginaV2(entrada, requiereResumen) {
+  const pagina = validarPagina(entrada);
+  if (!Object.hasOwn(pagina, "totales") || pagina.totales.total < pagina.expedientes.length
+    || (requiereResumen && !Object.hasOwn(pagina, "resumen"))
+    || (pagina.resumen && pagina.resumen.en_tramite > pagina.totales.total)) {
+    throw new TypeError("recuentos de cuadro RRHH v2 ausentes");
+  }
+  return pagina;
 }
 
 function validarSolicitudProyectada(entrada) {
@@ -343,6 +375,17 @@ export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}
         validarRespuesta: validarPagina,
         efecto: false,
         tipoContenido: "application/json",
+      });
+    },
+    consultarCuadroRRHHV2(solicitud, opciones) {
+      const { signal } = validarOpciones(opciones);
+      const entrada = validarSolicitudCuadroV2(solicitud);
+      return ejecutar({
+        ruta: RUTA_CUADRO, entrada, signal,
+        estadoEsperado: 200, maximoSolicitud: MAXIMO_SOLICITUD,
+        maximoRespuesta: MAXIMO_RESPUESTA,
+        validarRespuesta: (pagina) => validarPaginaV2(pagina, entrada.resumen === true),
+        efecto: false, tipoContenido: "application/json",
       });
     },
     consultarDetalleRRHH(solicitud, opciones) {

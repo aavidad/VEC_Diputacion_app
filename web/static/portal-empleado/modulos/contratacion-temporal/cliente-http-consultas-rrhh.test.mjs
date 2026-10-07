@@ -313,3 +313,33 @@ test("el resumen de la portada se pide con un indicador cerrado y se valida", as
     await assert.rejects(async () => cliente(malo).consultarCuadroRRHH(solicitud), undefined, JSON.stringify(malo));
   }
 });
+
+test("v2 envía filtros cerrados sin mezclar campos viejos y exige recuentos del mismo corte", async () => {
+  const cuerpos = [];
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (_ruta, opciones) => {
+    cuerpos.push(JSON.parse(opciones.body));
+    return respuesta({ data: { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+      generada_en: "2026-09-03T08:05:00Z", expedientes: [resumen], hay_mas: false,
+      totales: { total: 1, en_tramitacion: 1, con_incidencia: 0, en_llamamiento: 0 },
+      resumen: { en_tramite: 1, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+        vencen_semana: 0, sin_calcular: 0, por_fase: { solicitud: 1 } },
+    } });
+  } });
+  const solicitud = { filtros: { texto: "", centro_ref: "centro:001", categoria_ref: "categoria:auxiliar",
+    estados_clave: ["pendiente", "en_curso"], fases_clave: ["solicitud", "solicitud_registrada"] },
+  paginacion: { limite: 50, cursor: "" }, resumen: true };
+  const pagina = await cliente.consultarCuadroRRHHV2(solicitud);
+  assert.equal(pagina.totales.total, 1);
+  assert.deepEqual(cuerpos, [solicitud]);
+  for (const filtros of [
+    { ...solicitud.filtros, estado_clave: "pendiente" },
+    { ...solicitud.filtros, estados_clave: ["pendiente", "pendiente"] },
+    { ...solicitud.filtros, fases_clave: ["solicitud", "solicitud"] },
+    { ...solicitud.filtros, centro_ref: "<script>" },
+    { ...solicitud.filtros, estados_clave: Array(7).fill("pendiente") },
+  ]) {
+    await assert.rejects(async () => cliente.consultarCuadroRRHHV2({ ...solicitud, filtros }));
+  }
+  assert.equal(cuerpos.length, 1, "un filtro inválido se rechaza antes de POST");
+  await assert.rejects(async () => cliente.consultarCuadroRRHH(solicitud), "v1 no acepta filtros v2");
+});

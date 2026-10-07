@@ -7,7 +7,7 @@
  * deduce responsables ni tareas: un expediente «pendiente» es el que tiene el
  * plazo de su fase vencido o que vence hoy, o una incidencia abierta.
  */
-import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { FASES_RRHH, FASE_RRHH_DE_ORIGEN, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 
 const TERMINADOS = new Set(["completado", "cancelado"]);
 const PATRON_DIA = /^\d{4}-\d{2}-\d{2}$/u;
@@ -101,11 +101,110 @@ export function filtroListaValido(entrada = {}) {
   const filtro = { ...FILTRO_LISTA_INICIAL };
   for (const clave of Object.keys(filtro)) {
     const valor = entrada?.[clave];
-    if (typeof valor === "string" && valor.length <= 120) filtro[clave] = valor.trim();
+    const maximo = clave === "texto" ? 80 : (["centro", "categoria"].includes(clave) ? 160 : 120);
+    if (typeof valor === "string" && valor.length <= maximo) filtro[clave] = valor.trim();
   }
   if (filtro.fase && !FASES_RRHH.includes(filtro.fase)) filtro.fase = "";
   if (!OPCIONES_MOSTRAR.includes(filtro.mostrar)) filtro.mostrar = FILTRO_LISTA_INICIAL.mostrar;
   return Object.freeze(filtro);
+}
+
+const CAMPOS_URL_CT = Object.freeze({
+  texto: "ct_texto", fase: "ct_fase", centro: "ct_centro",
+  categoria: "ct_categoria", mostrar: "ct_mostrar",
+});
+const ESTADOS_VIVOS = Object.freeze(["pendiente", "en_curso", "espera_externa", "incidencia"]);
+const PATRON_REFERENCIA_FILTRO = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+const PATRON_TEXTO_FILTRO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
+const PATRON_FASE_ADMINISTRATIVA = /^[a-z][a-z0-9._-]{1,79}$/u;
+
+function fasesExactasV2(faseVisual, fases) {
+  if (!Array.isArray(fases) || fases.length > 32 || new Set(fases).size !== fases.length
+    || fases.some((clave) => typeof clave !== "string" || !PATRON_FASE_ADMINISTRATIVA.test(clave)
+      || FASE_RRHH_DE_ORIGEN[clave] !== faseVisual)
+    || Boolean(faseVisual) !== Boolean(fases.length)) {
+    throw new TypeError("fases administrativas CT no válidas");
+  }
+  return Object.freeze([...fases].sort());
+}
+
+function filtroV2Estricto(entrada) {
+  if (!entrada || typeof entrada !== "object" || Array.isArray(entrada)
+    || Object.keys(entrada).some((clave) => !Object.hasOwn(FILTRO_LISTA_INICIAL, clave))) {
+    throw new TypeError("filtro de lista CT no válido");
+  }
+  const validado = filtroListaValido(entrada);
+  if (Object.entries(entrada).some(([clave, valor]) => typeof valor !== "string"
+    || valor !== validado[clave]) || !PATRON_TEXTO_FILTRO.test(validado.texto)
+    || (validado.centro && !PATRON_REFERENCIA_FILTRO.test(validado.centro))
+    || (validado.categoria && !PATRON_REFERENCIA_FILTRO.test(validado.categoria))) {
+    throw new TypeError("filtro de lista CT no válido");
+  }
+  return validado;
+}
+
+/** Solo parámetros de la lista; conserva los del portal y rechaza duplicados. */
+export function leerFiltroListaV2DesdeURL(parametros) {
+  if (!(parametros instanceof URLSearchParams)) throw new TypeError("URL de lista CT no válida");
+  if ([...parametros.keys()].some((clave) => clave.startsWith("ct_")
+    && !Object.values(CAMPOS_URL_CT).includes(clave) && clave !== "ct_fases")) {
+    throw new TypeError("URL de lista CT no válida");
+  }
+  const entrada = {};
+  for (const [campo, clave] of Object.entries(CAMPOS_URL_CT)) {
+    const valores = parametros.getAll(clave);
+    if (valores.length > 1) throw new TypeError("URL de lista CT duplicada");
+    if (valores.length === 1) entrada[campo] = valores[0];
+  }
+  const fasesClave = parametros.getAll("ct_fases");
+  if (!Object.keys(entrada).length && !fasesClave.length) return null;
+  const filtro = filtroV2Estricto(entrada);
+  return Object.freeze({ filtro, fasesClave: fasesExactasV2(filtro.fase, fasesClave) });
+}
+
+/** Produce la URL canónica que el shell puede guardar en history. */
+export function escribirFiltroListaV2EnURL(parametros, entrada, fasesClave = []) {
+  if (!(parametros instanceof URLSearchParams)) throw new TypeError("URL de lista CT no válida");
+  const filtro = filtroV2Estricto(entrada);
+  const fases = fasesExactasV2(filtro.fase, fasesClave);
+  const salida = new URLSearchParams(parametros);
+  for (const clave of Object.values(CAMPOS_URL_CT)) salida.delete(clave);
+  salida.delete("ct_fases");
+  for (const [campo, clave] of Object.entries(CAMPOS_URL_CT)) {
+    if (filtro[campo] !== FILTRO_LISTA_INICIAL[campo]) salida.set(clave, filtro[campo]);
+  }
+  for (const fase of fases) salida.append("ct_fases", fase);
+  return salida;
+}
+
+/** Traduce los controles visibles al contrato de consulta v2, sin filtrar una página. */
+export function filtrosCuadroRRHHV2(entrada, porFaseAdministrativa = {}, fasesClave = null) {
+  const filtro = filtroV2Estricto(entrada);
+  if (!porFaseAdministrativa || typeof porFaseAdministrativa !== "object"
+    || Array.isArray(porFaseAdministrativa)) throw new TypeError("fases CT no disponibles");
+  const estados = {
+    en_tramite: ESTADOS_VIVOS, incidencia: ["incidencia"], espera: ["espera_externa"],
+    terminadas: ["completado", "cancelado"], todas: [],
+  }[filtro.mostrar];
+  if (!estados) {
+    throw Object.assign(new Error("filtro CT sin fuente completa"),
+      { codigo: "filtro_servidor_no_disponible" });
+  }
+  if (filtro.fase && ["terminadas", "todas"].includes(filtro.mostrar)) {
+    throw Object.assign(new Error("fase sin definición completa para todos los estados"),
+      { codigo: "filtro_servidor_no_disponible" });
+  }
+  const fases = fasesClave !== null ? fasesExactasV2(filtro.fase, fasesClave) : filtro.fase
+    ? Object.keys(porFaseAdministrativa).filter((clave) => Number.isSafeInteger(porFaseAdministrativa[clave])
+      && porFaseAdministrativa[clave] > 0 && FASE_RRHH_DE_ORIGEN[clave] === filtro.fase).sort()
+    : [];
+  if (fases.length > 32) throw new TypeError("demasiadas fases CT para la consulta");
+  return Object.freeze({
+    sinCoincidenciasDeFase: Boolean(filtro.fase && fases.length === 0),
+    filtros: Object.freeze({ texto: filtro.texto, centro_ref: filtro.centro,
+      categoria_ref: filtro.categoria, estados_clave: Object.freeze([...estados]),
+      fases_clave: Object.freeze(fases) }),
+  });
 }
 
 function normalizar(texto) {
