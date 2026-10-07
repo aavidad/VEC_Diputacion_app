@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 var ErrDocumentoInvalido = errors.New("documentos: documento invalido")
@@ -143,17 +145,13 @@ func ReferenciaOpacaValida(s string) bool {
 	return referenciaHash.MatchString(s) && s != "ref:"+strings.Repeat("0", 64) || referenciaUUID.MatchString(s)
 }
 
-// El catálogo de referencias de expediente tiene hoy una única entrada:
-// versión 1, código ct, módulo contratacion_temporal, identificador hex de 64.
-// Las referencias opacas previas conservan su validez sin conversión.
-var expedienteCT = regexp.MustCompile(`^expediente:ct:[0-9a-f]{64}$`)
-
 func ReferenciaExpedienteValida(s string) bool {
-	return ReferenciaOpacaValida(s) || expedienteCT.MatchString(s)
+	return ReferenciaOpacaValida(s) || vecdomain.ModuloReferenciaExpedienteV1(s) != ""
 }
 
 func ReferenciaExpedienteModuloValida(modulo, s string) bool {
-	return ReferenciaOpacaValida(s) || modulo == "contratacion_temporal" && expedienteCT.MatchString(s)
+	moduloTipado := vecdomain.ModuloReferenciaExpedienteV1(s)
+	return ReferenciaOpacaValida(s) || moduloTipado != "" && moduloTipado == modulo
 }
 
 func IdentificadorTecnicoValido(s string) bool { return identificadorTecnico.MatchString(s) }
