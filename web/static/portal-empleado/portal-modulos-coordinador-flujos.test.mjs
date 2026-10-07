@@ -150,11 +150,23 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
   );
   const señales = [];
+  const pendientes = new Map();
+  let siguienteTemporizador = 0;
+  const temporizadores = {
+    setTimeout(callback) {
+      const id = ++siguienteTemporizador;
+      pendientes.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) { pendientes.delete(id); },
+  };
+  let avisarConsulta = () => {};
   let resolver = false;
   const fuente = {
     capacidades: ["contratacion_temporal.cuadro.consultar"],
     resumenInicio({ signal } = {}) {
       señales.push(signal);
+      avisarConsulta();
       if (resolver) return Promise.resolve({ expedientes: [] });
       return new Promise((_resolver, rechazar) => {
         signal.addEventListener("abort", () => {
@@ -171,6 +183,7 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
     escaparHTML: String,
     cargarCatalogoInterno: async () => catalogo,
     limiteCargaModularMs: 20,
+    temporizadores,
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
@@ -183,13 +196,29 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
     },
   });
   const esperarConsulta = async (total) => {
-    for (let intento = 0; intento < 50 && señales.length < total; intento += 1) {
-      await new Promise((continuar) => setImmediate(continuar));
+    if (señales.length < total) {
+      let limite;
+      try {
+        await Promise.race([
+          new Promise((continuar) => { avisarConsulta = () => {
+            if (señales.length >= total) continuar();
+          }; }),
+          new Promise((_continuar, rechazar) => {
+            limite = setTimeout(() => rechazar(new Error("no comenzó la consulta")), 2_000);
+          }),
+        ]);
+      } finally {
+        clearTimeout(limite);
+        avisarConsulta = () => {};
+      }
     }
     assert.equal(señales.length, total);
   };
 
-  await coordinador.cargarInterno();
+  const cargaConTimeout = coordinador.cargarInterno();
+  await esperarConsulta(1);
+  for (const callback of [...pendientes.values()]) callback();
+  await cargaConTimeout;
   assert.equal(señales[0].aborted, true);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
 
