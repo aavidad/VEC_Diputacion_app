@@ -366,8 +366,11 @@ export function crearCoordinadorModulosPortal({
       let perfilIntervencion = false;
       if (consultarSesion !== null) {
         const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión CT");
-        if (!Array.isArray(sesion?.roles)) throw new TypeError("perfil CT no acreditado");
-        perfilIntervencion = sesion.roles.includes(ROL_INTERVENCION);
+        if (!Array.isArray(sesion?.roles) || sesion.roles.length !== 1
+          || !PERFILES_CT_MENU.has(sesion.roles[0])) {
+          throw new TypeError("perfil CT no acreditado");
+        }
+        perfilIntervencion = sesion.roles[0] === ROL_INTERVENCION;
       }
       let promesaCuadro = null;
       let promesaCompleto = null;

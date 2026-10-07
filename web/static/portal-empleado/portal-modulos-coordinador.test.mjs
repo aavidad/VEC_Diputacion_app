@@ -99,6 +99,24 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   coordinador.desmontarVistaActual();
 });
 
+test("el cargador CT ligero exige un único perfil CT atestado", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  for (const roles of [["personal_interno"], [], ["tecnico_rrhh", "intervencion"]]) {
+    let consultas = 0;
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles }),
+      entorno: { Headers, fetch: async () => { consultas += 1; throw new Error("consulta CT inesperada"); } },
+    });
+    await coordinador.cargarInterno();
+    assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+    assert.equal(coordinador.esPerfilRRHH(), false);
+    assert.equal(consultas, 0);
+  }
+});
+
 function raizDietasFalsa() {
   const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
   class Nodo {
