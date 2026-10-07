@@ -1,7 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
+import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { resolve, relative, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 const raiz = resolve(import.meta.dirname, "../web/static");
 const cobertura = JSON.parse(await readFile(resolve(import.meta.dirname, "i18n_cobertura.json"), "utf8")).catalogos;
@@ -15,6 +17,25 @@ if (!codigos.has(codigoES) || !codigos.has(codigoEN) || codigoES === codigoEN) {
 }
 const marcador = /\{[a-z_]+\}/giu;
 const DIR_CT = "portal-empleado/modulos/contratacion-temporal/";
+const ejecutar = promisify(execFile);
+
+// Contrato público de cada módulo CT lazy. Una exportación inactiva existe,
+// pero vale undefined; la activa contiene exactamente el idioma solicitado.
+const exportacionesCT = new Map([
+  ["i18n-analisis-catalogo.js", "MENSAJES_ANALISIS_CATALOGO"],
+  ["i18n-avisos-via-cobertura.js", "MENSAJES_AVISOS_VIA_COBERTURA"],
+  ["i18n-borradores-publicados.js", "MENSAJES_BORRADORES_PUBLICADOS"],
+  ["i18n-cambios-expediente.js", "MENSAJES_CAMBIOS_EXPEDIENTE"],
+  ["i18n-circuito-firma.js", "MENSAJES_CIRCUITO_FIRMA"],
+  ["i18n-expedientes.js", "MENSAJES_EXPEDIENTES_CONTRATACION"],
+  ["i18n-ficha-lista.js", "MENSAJES_FICHA_LISTA"],
+  ["i18n-firma-remision.js", "MENSAJES_FIRMA_REMISION"],
+  ["i18n-informe-tras-subsanacion.js", "MENSAJES_INFORME_TRAS_SUBSANACION"],
+  ["i18n-llamamiento.js", "MENSAJES_LLAMAMIENTO"],
+  ["i18n-subsanacion-reparos.js", "MENSAJES_SUBSANACION_REPAROS"],
+  ["i18n-textos-vistas.js", "MENSAJES_TEXTOS_VISTAS"],
+  ["i18n.js", "MENSAJES_CONTRATACION_TEMPORAL"],
+]);
 
 // Cada fuente lazy se solicita expresamente en el idioma que se comprueba.
 // El catálogo del idioma inactivo nunca se exige durante el arranque del módulo.
@@ -40,11 +61,16 @@ const recursosCT = new Map([
     ["contratacion-temporal-textos-vistas", "general"], ["contratacion-temporal-borradores-publicados", "general"],
     ["contratacion-temporal-firma-incorporacion-portal", "general"]]],
 ]);
+const esperadosCT = new Map();
+if (!isDeepStrictEqual([...recursosCT.keys()].sort(), [...exportacionesCT.keys()].sort())) {
+  errores.push("CT: contrato de fuentes y exportaciones desalineado");
+}
 
 export function validarRespuesta(etiqueta, solicitado, respuesta, origen) {
   const fallos = [];
   if (!codigos.has(solicitado)) fallos.push(`${etiqueta}: locale ${solicitado} ausente del índice`);
-  if (!respuesta || respuesta.idioma !== solicitado || respuesta.incidenciaCatalogo || respuesta.incidenciaIndice) {
+  if (!respuesta || respuesta.idioma !== solicitado
+    || respuesta.incidenciaCatalogo !== null || respuesta.incidenciaIndice !== null) {
     fallos.push(`${etiqueta}: el idioma solicitado ${solicitado} no se cargó íntegro`);
   }
   if (!respuesta?.actual || typeof respuesta.actual !== "object" || Array.isArray(respuesta.actual)) {
@@ -79,6 +105,49 @@ export function validarPar(etiqueta, es, en) {
     }
   }
   if (clavesES.length && diferencias === 0) fallos.push(`${etiqueta}: EN repite íntegramente el catálogo ES`);
+  return fallos;
+}
+
+const lectorAislado = `
+  const [idioma, codigoES, rutaIdioma, especificaciones] = process.argv.slice(1);
+  globalThis.location = { href: 'https://example.invalid/portal-empleado/?lang=' + encodeURIComponent(idioma) };
+  const idiomas = await import(rutaIdioma);
+  await idiomas.prepararIdiomas();
+  if (idiomas.IDIOMA_ACTUAL !== idioma) throw new Error('idioma activo distinto del solicitado');
+  const salida = {};
+  for (const [clave, url, prefijo] of JSON.parse(especificaciones)) {
+    const modulo = await import(url);
+    const nombreActivo = prefijo + (idioma === codigoES ? '_ES' : '_EN');
+    const nombreInactivo = prefijo + (idioma === codigoES ? '_EN' : '_ES');
+    salida[clave] = {
+      tieneActivo: Object.hasOwn(modulo, nombreActivo),
+      activo: modulo[nombreActivo] ?? null,
+      tieneInactivo: Object.hasOwn(modulo, nombreInactivo),
+      inactivo: modulo[nombreInactivo] ?? null,
+    };
+  }
+  process.stdout.write(JSON.stringify(salida));
+`;
+
+/** Ejecuta los módulos reales tras seleccionar un solo idioma por proceso. */
+export async function leerExportacionesEnProceso(idioma, especificaciones) {
+  const rutaIdioma = pathToFileURL(join(raiz, "comun/idioma.js")).href;
+  const { stdout } = await ejecutar(process.execPath, ["--input-type=module", "-e", lectorAislado,
+    idioma, codigoES, rutaIdioma, JSON.stringify(especificaciones)], { maxBuffer: 8 * 1024 * 1024 });
+  return JSON.parse(stdout);
+}
+
+export function validarExportacionCT(etiqueta, resultado, esperado) {
+  const fallos = [];
+  if (!resultado?.tieneActivo || !resultado.activo || typeof resultado.activo !== "object"
+    || Array.isArray(resultado.activo)) {
+    fallos.push(`${etiqueta}: exportación activa ausente o indefinida`);
+  } else if (!isDeepStrictEqual(resultado.activo, esperado)) {
+    fallos.push(`${etiqueta}: exportación activa enlazada a otro catálogo`);
+  }
+  if (!resultado?.tieneInactivo || resultado.inactivo !== null) {
+    fallos.push(`${etiqueta}: exportación inactiva ausente o precargada`);
+  }
   return fallos;
 }
 
@@ -137,11 +206,7 @@ async function verificarCT(ruta, archivo, modulo) {
     [en] = catalogos[codigoEN];
   }
   errores.push(...validarPar(ruta, es, en));
-  // El nombre legacy debe representar solo el idioma cargado al importar.
-  const exportES = [...Object.keys(modulo)].find((nombre) => nombre.startsWith("MENSAJES_") && nombre.endsWith("_ES"));
-  if (exportES && modulo[exportES] && !isDeepStrictEqual(modulo[exportES], es)) {
-    errores.push(`${ruta}: la exportación ${exportES} no coincide con su idioma`);
-  }
+  esperadosCT.set(archivo, { [codigoES]: es, [codigoEN]: en });
   return true;
 }
 
@@ -161,6 +226,29 @@ for await (const ruta of ficheros(raiz)) {
     const par = nombre.slice(0, -3) + "_EN";
     errores.push(...validarPar(`${relativa}:${nombre}/${par}`, modulo[nombre], modulo[par]));
   }
+}
+
+for (const archivo of exportacionesCT.keys()) {
+  if (!esperadosCT.has(archivo)) errores.push(`${DIR_CT}${archivo}: módulo CT fuera del barrido de catálogos`);
+}
+try {
+  const especificaciones = [...exportacionesCT].map(([archivo, prefijo]) => [
+    archivo, pathToFileURL(join(raiz, DIR_CT, archivo)).href, prefijo,
+  ]);
+  const [exportES, exportEN] = await Promise.all([
+    leerExportacionesEnProceso(codigoES, especificaciones),
+    leerExportacionesEnProceso(codigoEN, especificaciones),
+  ]);
+  for (const archivo of exportacionesCT.keys()) {
+    const esperado = esperadosCT.get(archivo);
+    if (!esperado) continue;
+    errores.push(...validarExportacionCT(`${DIR_CT}${archivo}:${codigoES}`,
+      exportES[archivo], esperado[codigoES]));
+    errores.push(...validarExportacionCT(`${DIR_CT}${archivo}:${codigoEN}`,
+      exportEN[archivo], esperado[codigoEN]));
+  }
+} catch (error) {
+  errores.push(`CT: no se pudieron verificar exportaciones en procesos aislados: ${error.message}`);
 }
 
 if (errores.length) {
