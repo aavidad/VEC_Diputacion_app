@@ -69,6 +69,42 @@ func (s *ServicioAutorizacionSolicitudLigadaV3) ExigirSolicitudLigadaV3(
 	ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
 	error,
 ) {
+	return s.exigirSolicitudLigadaV3(ctx, solicitud, resultadoContexto, nil)
+}
+
+// ExigirSolicitudLigadaV3ConCaptura entrega la instantanea evaluada por este
+// mismo PDP solo despues de confirmar durablemente su concesion candidata.
+func (s *ServicioAutorizacionSolicitudLigadaV3) ExigirSolicitudLigadaV3ConCaptura(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	ports.CapturaEvaluacionSolicitudLigadaV3,
+	error,
+) {
+	var captura CapturaEvaluacionSolicitudLigadaV3
+	decision, confirmacion, err := s.exigirSolicitudLigadaV3(ctx, solicitud, resultadoContexto, &captura)
+	if err != nil || captura.datos == nil {
+		if err == nil {
+			err = nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, ErrCapturaEvaluacionSolicitudLigadaV3Invalida)
+		}
+		return decision, confirmacion, nil, err
+	}
+	return decision, confirmacion, captura, nil
+}
+
+func (s *ServicioAutorizacionSolicitudLigadaV3) exigirSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	destino *CapturaEvaluacionSolicitudLigadaV3,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	error,
+) {
 	vacia := ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}
 	if s == nil || ctx == nil || dependenciaAutorizacionNula(s.fuente) ||
 		dependenciaAutorizacionNula(s.registroConcesiones) ||
@@ -79,7 +115,14 @@ func (s *ServicioAutorizacionSolicitudLigadaV3) ExigirSolicitudLigadaV3(
 			domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
 		)
 	}
-	decision, orden, err := s.PrepararSolicitudLigadaV3(ctx, solicitud, resultadoContexto)
+	decision, orden, err := prepararSolicitudLigadaV3ConCaptura(
+		ctx, solicitud, resultadoContexto,
+		dependenciasPreparacionSolicitudLigadaV3{
+			fuente: s.fuente, registroDenegaciones: s.registroDenegaciones,
+			validadorMotivos: s.validadorMotivos, reloj: s.reloj,
+			generador: s.generador, vigenciaDecision: s.vigenciaDecision,
+		}, destino,
+	)
 	if err != nil {
 		return decision, vacia, err
 	}

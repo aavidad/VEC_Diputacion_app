@@ -172,6 +172,149 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 	return decision, confirmacion, material, nil
 }
 
+// EmitirMaterialAutorizacionAtestadaV3ConCaptura devuelve la captura exacta de la unica evaluacion PDP,
+// cerrada sobre la exportacion material emitida.
+func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestadaV3ConCaptura(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultado domain.ResultadoContextoActorRegistradoV2,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	ports.ExportadorMaterialConsumoAutorizacionAtestadaV3,
+	ports.CapturaEvaluacionSolicitudLigadaV3,
+	error,
+) {
+	decisionVacia := domain.DecisionAutorizacionLigadaV3{}
+	confirmacionVacia := ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}
+	if ctx == nil || e == nil ||
+		dependenciaConfianzaAtestacionNula(e.autorizador) ||
+		dependenciaConfianzaAtestacionNula(e.atestador) ||
+		dependenciaConfianzaAtestacionNula(e.confianza) ||
+		dependenciaConfianzaAtestacionNula(e.emisor) {
+		return decisionVacia, confirmacionVacia, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(nil)
+	}
+	if err := ctx.Err(); err != nil {
+		return decisionVacia, confirmacionVacia, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	datosSolicitud, errSolicitud := solicitud.Datos()
+	resultadoExacto, errResultado := resultado.Clonar()
+	if errSolicitud != nil || errResultado != nil ||
+		resultadoExacto.Validar() != nil ||
+		datosSolicitud.VinculoAutenticacionActor.
+			ValidarPara(resultadoExacto) != nil {
+		return decisionVacia, confirmacionVacia, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(nil)
+	}
+	motivo := datosSolicitud.ReferenciaMotivo
+	autorizador, ok := e.autorizador.(interface {
+		ExigirSolicitudLigadaV3ConCaptura(context.Context, domain.SolicitudAutorizacionLigadaV3, domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, ports.CapturaEvaluacionSolicitudLigadaV3, error)
+	})
+	if !ok {
+		return decisionVacia, confirmacionVacia, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(nil)
+	}
+	decision, confirmacion, captura, err := autorizador.ExigirSolicitudLigadaV3ConCaptura(
+		ctx,
+		solicitud,
+		resultadoExacto,
+	)
+	if errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+		if ctx.Err() == nil &&
+			!errors.Is(err, context.Canceled) &&
+			!errors.Is(err, context.DeadlineExceeded) &&
+			!errors.Is(err, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) &&
+			errors.Is(err, domain.ErrAutorizacionDenegada) &&
+			validarDenegacionEmisionMaterialV3(
+				solicitud, decision, confirmacion, motivo, resultadoExacto,
+			) == nil {
+			return decisionVacia, confirmacionVacia, nil, nil, errors.Join(
+				errEmisionMaterialAutorizacionAtestadaV3NoDisponible,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+			)
+		}
+		return decisionVacia, confirmacionVacia, nil, nil,
+			nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if validarConcesionEmisionMaterialV3(
+		solicitud,
+		decision,
+		confirmacion,
+		motivo,
+		resultadoExacto,
+	) != nil {
+		return decisionVacia, confirmacionVacia, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if dependenciaConfianzaAtestacionNula(captura) {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(nil)
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	atestacion, err := e.atestador.Atestar(
+		ctx,
+		decision,
+		motivo,
+		resultadoExacto,
+	)
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	prueba, err := e.confianza.Verificar(
+		ctx, solicitud, decision, motivo, resultadoExacto, atestacion,
+	)
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	capacidad, err := e.emisor.Emitir(
+		ctx, solicitud, decision, motivo, resultadoExacto, atestacion, prueba,
+	)
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	raiz, err := e.confianza.raizPublicaParaPruebaV3(prueba)
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	material, err := NuevoMaterialConsumoAutorizacionAtestadaV3(
+		solicitud, decision, motivo, resultadoExacto,
+		atestacion, prueba, capacidad, raiz,
+	)
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	exportacion, err := material.ExportarMaterialParaConsumidor()
+	if err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	capturaLigada, err := captura.LigarMaterial(
+		solicitud, resultadoExacto, decision, confirmacion, exportacion, e.emisor.clave.audienciaConsumo,
+	)
+	if err != nil || dependenciaConfianzaAtestacionNula(capturaLigada) {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return decision, confirmacion, nil, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
+	}
+	return decision, confirmacion, material, capturaLigada, nil
+}
+
 func validarDenegacionEmisionMaterialV3(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
