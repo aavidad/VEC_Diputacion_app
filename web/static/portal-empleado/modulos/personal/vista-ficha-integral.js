@@ -179,6 +179,11 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
   principal.replaceChildren(panel(d, t(definicion.titulo), piezas, "personal-ficha-panel-ancho"));
 }
 
+function enlaceCatalogoRPT() {
+  const consulta = globalThis.window?.location?.search ?? globalThis.location?.search;
+  return typeof consulta === "string" && [...new URLSearchParams(consulta).keys()].some((clave) => clave.startsWith("rpt_"));
+}
+
 /**
  * Vista de consulta propia. `fuentes[clave].consultarPropios({signal})` debe ser un
  * cliente de servidor que resuelva la identidad y autorice los campos; la vista
@@ -187,13 +192,13 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
  * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
  * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, montarContacto, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, montarContacto, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false, rptDisponible = false } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
       (montarContacto !== undefined && typeof montarContacto !== "function") ||
       (abrirCorreos !== undefined && typeof abrirCorreos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
-      !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
+      !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean" || typeof rptDisponible !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
   const t = crearTraductorPersonal(); const contenedor = nodo(d, "section"); contenedor.className = "modulo-personal";
   contenedor.dataset.personalFichaIntegral = ""; raiz.append(contenedor);
@@ -202,7 +207,9 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       ? (fuentes[clave].estadoInicial === "error" ? "error" : "sin_consulta") : "no_configurado"]));
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
   const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "contacto" && montarContacto) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
-  let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
+  const abrirCatalogos = Boolean(montarCatalogos &&
+    (rptDisponible && enlaceCatalogoRPT() || ocultarSinFuente && visibles.length === 0));
+  let activa = true; let actual = abrirCatalogos ? "catalogos" : "ficha";
   let vuelo; let vueloExportacion; let limpiarHistoria; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
   const limpiar = () => { limpiarHistoria?.(); limpiarHistoria = undefined; const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); limpiar(); contenedor.remove?.(); };

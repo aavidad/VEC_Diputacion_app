@@ -597,3 +597,47 @@ test("401 de historia retira también la ficha padre y mantiene sesión invalida
  assert.equal(nodos(ficha).some(n=>n.tagName==="table"),false);assert.deepEqual(metodos,["GET","POST"]);
  await assert.rejects(fuentes.servicios.clienteHistoria.consultar({efectosDesde:"2020-01-01",efectosHasta:"2027-01-01"}),{codigo:"sesion_caducada",estado:401});
 });
+
+test("enlace RPT abre Catálogos aunque existan fuentes propias, sólo si la sonda lo ofrece", async () => {
+  const anterior = globalThis.window;
+  globalThis.window = { location: { search: "?lang=es&rpt_vista=puestos&rpt_categoria=administrativo", hash: "#personal" } };
+  try {
+    const fuentes = { servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) } };
+    const raiz = raizFalsa(); let montajes = 0;
+    montarVistaFichaIntegralPersonal({ raiz, fuentes, ocultarSinFuente: true, rptDisponible: true,
+      montarCatalogos: () => { montajes += 1; return { desmontar() {} }; } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+    assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true");
+    await completar(); assert.equal(montajes, 1);
+    const noDisponible = raizFalsa(); let montajesSinSonda = 0;
+    montarVistaFichaIntegralPersonal({ raiz: noDisponible, fuentes, ocultarSinFuente: true, rptDisponible: false,
+      montarCatalogos: () => { montajesSinSonda += 1; return { desmontar() {} }; } });
+    assert.equal(tab(noDisponible.querySelector("[data-personal-ficha-integral]"), "ficha").atributos.get("aria-selected"), "true");
+    await completar(); assert.equal(montajesSinSonda, 0);
+    assert.throws(() => montarVistaFichaIntegralPersonal({ raiz: raizFalsa(), rptDisponible: "sí" }), /no disponible/);
+  } finally { globalThis.window = anterior; }
+});
+
+test("enlace RPT inválido llega al visor, que canoniza el filtro y muestra aviso", async () => {
+  const { montarModuloRPTPublica } = await import("./vista-rpt-publica.js");
+  const anterior = globalThis.window;
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&rpt_vista=puestos&rpt_centro=%20", hash: "#personal" };
+  globalThis.window = { location, history: { replaceState(_a, _b, ruta) { const url = new URL(ruta, "http://vec.local"); location.search = url.search; location.hash = url.hash; } } };
+  try {
+    const raiz = raizFalsa(), consultas = [];
+    montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, rptDisponible: true,
+      fuentes: { servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) } },
+      montarCatalogos: (entrada) => montarModuloRPTPublica({ ...entrada, cliente: { async listar(consulta) { consultas.push(consulta); return {
+        items: [], total: 0, limit: consulta.limit, offset: consulta.offset, vista: consulta.vista,
+        fuente: { documento: "RPT publicada", importacion: "rpt-v1", generado_en: "2026-09-17", aviso: "Sin ocupantes", huella_sha256: "a".repeat(64) },
+        resumen: { puestos: 842, dotacion: 1714, categorias: 145, centros: 41 },
+      }; } } }),
+    });
+    await completar(); await completar();
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+    assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true");
+    assert.equal(consultas[0].vista, "categorias"); assert.equal(consultas[0].centro_codigo, "");
+    assert.equal(location.search, "?lang=es");
+    assert.match(texto(ficha), /enlace tenía un filtro no válido/u);
+  } finally { globalThis.window = anterior; }
+});
