@@ -421,17 +421,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	motivoAjustes, consultaAjustesActiva, err := cargarMotivoAutorizacionAjustesCT(cfg)
-	if err != nil || consultaAjustesActiva && !configuracion.ConsultasRRHHConfiguradas() {
-		return vacias, errMotivoAutorizacionAjustes
-	}
-	if consultaAjustesActiva {
-		etapa = "preflight_sql_consulta_ajustes_reglas"
-		if err := preflightConsultaAjustesCT(ctx, ejecucion); err != nil {
-			return vacias, err
-		}
-		dependencias.motivoConsultaAjustesReglas = motivoAjustes
-		dependencias.consultaAjustesReglasActiva = true
+	etapa = "preflight_sql_consulta_ajustes_reglas"
+	consultaAjustesActiva, err := prepararConsultaAjustesPostgreSQLCT(ctx, cfg, ejecucion, &dependencias)
+	if err != nil {
+		return vacias, err
 	}
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
@@ -455,9 +448,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
-	if consultaAjustesActiva {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialConsultaAjustesCT())
-	}
+	descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialAjustesCT(consultaAjustesActiva)...)
 	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return vacias, err
@@ -559,8 +550,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if consultaAjustesActiva {
 		etapa = "material_consulta_ajustes_reglas"
-		dependencias.proveedorMaterialConsultaAjustesReglas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, audienciaAjustesCT)
+		dependencias.proveedorMaterialConsultaAjustesReglas, err = proveedorMaterialConsultaAjustesCT(ctx, gobierno, material, reloj, catalogoMaterial)
 		if err != nil {
 			return vacias, err
 		}
