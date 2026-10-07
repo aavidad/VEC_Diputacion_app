@@ -52,6 +52,47 @@ function raizFalsa() {
   };
 }
 
+test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una vez al abrirla", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const consultas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async (ruta, opciones) => {
+      if (ruta !== "/api/vec/contratacion-temporal/cuadro/consultas") {
+        throw new Error(`ruta CT inesperada: ${ruta}`);
+      }
+      const solicitud = JSON.parse(opciones.body);
+      consultas.push(solicitud);
+      return respuestaJSON({ data: {
+        esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+        generada_en: "2026-10-01T09:00:00Z", expedientes: [], hay_mas: false,
+        ...(solicitud.resumen ? { resumen: { en_tramite: 0, con_incidencia: 0,
+          vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} } } : {}),
+      } });
+    } },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(consultas.length, 0, "la carga modular no hace POST CT");
+  assert.equal(coordinador.obtenerCuadroInicio(), null);
+  const resumen = await coordinador.prepararResumenInicio();
+  assert.deepEqual(resumen.resumen.por_fase, {});
+  await coordinador.prepararResumenInicio();
+  assert.equal(consultas.length, 1);
+  assert.equal(consultas[0].resumen, true);
+  assert.equal(consultas[0].paginacion.limite, 1);
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  assert.equal(consultas.length, 2, "la lista hace su propia consulta paginada, sin repetir resumen");
+  assert.equal(consultas[1].paginacion.limite, 100);
+  assert.equal(Object.hasOwn(consultas[1], "resumen"), false);
+  assert.match(raiz.innerHTML, /No hay peticiones en trámite/u);
+  coordinador.desmontarVistaActual();
+});
+
 function raizDietasFalsa() {
   const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
   class Nodo {
