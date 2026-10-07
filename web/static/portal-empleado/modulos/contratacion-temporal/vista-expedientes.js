@@ -230,6 +230,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   function mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento) {
+    avisoCapacidadReincorporacion?.remove();
     const denegada = error?.estado === 401 || error?.estado === 403;
     const reintentable = !denegada && (error?.estado === 404 || error?.estado === 503
       || !Number.isInteger(error?.estado));
@@ -241,6 +242,7 @@ export async function montarModuloContratacionTemporal({
     texto.textContent = traducirExpedientes(denegada
       ? "reincorporacion_capacidad_denegada" : "reincorporacion_capacidad_no_disponible");
     aviso.append(texto);
+    let destino = aviso;
     if (reintentable) {
       const boton = raiz.ownerDocument.createElement("button");
       boton.type = "button";
@@ -248,12 +250,15 @@ export async function montarModuloContratacionTemporal({
       boton.textContent = traducirExpedientes("reincorporacion_capacidad_reintentar");
       boton.addEventListener("click", () => {
         if (!montada || !aviso.isConnected || avisoCapacidadReincorporacion !== aviso) return;
-        montarReincorporacionSiProcede(estado, seguimiento);
+        const enfocarEstado = raiz.ownerDocument?.activeElement === boton;
+        montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado);
       });
       aviso.append(boton);
+      destino = boton;
     }
     zona.append(aviso);
     avisoCapacidadReincorporacion = aviso;
+    return destino;
   }
 
   function retirarAuditoriaComun() {
@@ -331,9 +336,9 @@ export async function montarModuloContratacionTemporal({
       fuenteContexto: "ct", anunciar }).desmontar;
   }
 
-  // La ficha y el cese proceden de consultas CT autorizadas. El GET de
-  // capacidad decide aparte si esta identidad puede registrar el efecto.
-  function montarReincorporacionSiProcede(estado, seguimiento) {
+  // La ficha y el cese proceden de consultas CT autorizadas. El POST de
+  // capacidad es una lectura que decide si se puede ofrecer el efecto.
+  function montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado = false) {
     retirarReincorporacion();
     const contexto = contextoSeguimientoCeseDesdeEstado(estado);
     if (!clienteReincorporacion || !contexto
@@ -349,6 +354,16 @@ export async function montarModuloContratacionTemporal({
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
     if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "consultando";
+    let comprobando = null;
+    if (enfocarEstado) {
+      comprobando = raiz.ownerDocument.createElement("p");
+      comprobando.setAttribute("role", "status");
+      comprobando.setAttribute("tabindex", "-1");
+      comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_comprobando");
+      zona.append(comprobando);
+      avisoCapacidadReincorporacion = comprobando;
+      comprobando.focus();
+    }
     void Promise.resolve().then(() => {
       if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador) return null;
       return clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
@@ -361,18 +376,34 @@ export async function montarModuloContratacionTemporal({
           || actual.expediente?.expediente_ref !== expediente.expediente_ref
           || actual.expediente?.version !== expediente.version_esperada) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = puedeRegistrar === true ? "permitida" : "denegada";
-        if (puedeRegistrar !== true) return;
+        const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
+        if (puedeRegistrar !== true) {
+          if (comprobando) comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_no_habilitada");
+          return;
+        }
+        comprobando?.remove();
+        if (avisoCapacidadReincorporacion === comprobando) avisoCapacidadReincorporacion = null;
         const contenedor = raiz.ownerDocument.createElement("div");
         contenedor.dataset.ctExpReincorporacionTitular = "";
         zona.append(contenedor);
         desmontarReincorporacion = montarFormularioReincorporacionRRHH({ raiz: contenedor,
           cliente: clienteReincorporacion, expediente, puedeRegistrar: true,
           confirmarOperacion, locale, zonaHoraria });
+        if (conservarFoco) {
+          const destino = contenedor.querySelector("h3") ?? contenedor;
+          destino.setAttribute("tabindex", "-1");
+          destino.focus();
+        }
       }).catch((error) => {
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
-        mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
+        const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
+        const destino = mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
+        if (conservarFoco) {
+          destino.setAttribute("tabindex", "-1");
+          destino.focus();
+        }
         console.warn({ origen: "ct.capacidad_reincorporacion", estado: Number.isInteger(error?.estado) ? error.estado : null });
       });
   }

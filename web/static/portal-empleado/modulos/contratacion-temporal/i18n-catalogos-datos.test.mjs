@@ -89,7 +89,8 @@ const CLAVES_FIN_MODALIDAD = Object.freeze({
 });
 const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_denegada", "reincorporacion_capacidad_no_disponible",
-  "reincorporacion_capacidad_reintentar",
+  "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
+  "reincorporacion_capacidad_no_habilitada",
 ]);
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");

@@ -18,6 +18,8 @@
     "reincorporacion_capacidad_denegada": "No tiene permiso para consultar la reincorporación de este expediente.",
     "reincorporacion_capacidad_no_disponible": "No se pudo comprobar si puede registrar la reincorporación. Vuelva a intentarlo; el expediente sigue sin cambios.",
     "reincorporacion_capacidad_reintentar": "Reintentar comprobación de reincorporación",
+    "reincorporacion_capacidad_comprobando": "Comprobando si puede registrar la reincorporación.",
+    "reincorporacion_capacidad_no_habilitada": "No puede registrar la reincorporación en este expediente.",
     "ficha_documentos_recuento": "{total} documentos",
     "ficha_documento_esta": "Está",
     "ficha_documento_falta": "Falta",

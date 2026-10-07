@@ -25,10 +25,13 @@ const esperar = () => new Promise((resolver) => setImmediate(resolver));
 function crearDOM() {
   const eventos = new Map();
   let zona = null;
+  const documento = { activeElement: null, createElement: () => nodo() };
   const nodo = () => {
     const escuchas = new Map();
     return { innerHTML: "", dataset: {}, hijos: [], isConnected: true, hidden: false,
-      setAttribute() {}, remove() { this.isConnected = false; },
+      ownerDocument: documento, setAttribute() {},
+      focus() { documento.activeElement = this; },
+      remove() { this.isConnected = false; if (documento.activeElement === this) documento.activeElement = null; },
       addEventListener: (tipo, fn) => escuchas.set(tipo, fn),
       removeEventListener: (tipo) => escuchas.delete(tipo),
       replaceChildren() { this.innerHTML = ""; this.hijos = []; },
@@ -37,7 +40,7 @@ function crearDOM() {
     };
   };
   const raiz = {
-    ownerDocument: { createElement: nodo },
+    ownerDocument: documento,
     set innerHTML(valor) {
       if (zona) zona.isConnected = false;
       zona = valor.includes("ct-exp-contenido") ? nodo() : null;
@@ -48,7 +51,7 @@ function crearDOM() {
     addEventListener: (tipo, fn) => eventos.set(tipo, fn),
     removeEventListener: (tipo) => eventos.delete(tipo),
   };
-  return { raiz, zona: () => zona };
+  return { raiz, zona: () => zona, documento };
 }
 
 async function escenario(capacidad) {
@@ -103,6 +106,29 @@ test("tras 503, Reintentar recupera seguimiento y monta reincorporación con una
     assert.equal(caso.capacidades(), 1);
     assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "permitida");
     assert.ok(caso.dom.zona().hijos.some((h) => h.innerHTML.includes("data-ct-rrhh-reincorporacion")));
+    assert.equal(caso.dom.documento.activeElement, null, "la consulta de fondo no mueve el foco");
+  } finally { caso.modulo.desmontar(); }
+});
+
+test("si el reintento responde sin capacidad, el estado visible conserva el foco", async () => {
+  let intento = 0;
+  const caso = await escenario(() => {
+    intento++;
+    if (intento === 1) throw Object.assign(new Error("temporal"), { estado: 503 });
+    return false;
+  });
+  try {
+    const panel = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+    panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar(); await esperar();
+    const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    caso.dom.documento.activeElement = aviso.hijos[1];
+    aviso.hijos[1].escuchas.get("click")();
+    await esperar(); await esperar();
+    const resultado = caso.dom.zona().hijos.find((h) => h.isConnected
+      && h.textContent === "No puede registrar la reincorporación en este expediente.");
+    assert.equal(caso.dom.documento.activeElement, resultado);
+    assert.equal(caso.lecturas(), 2);
   } finally { caso.modulo.desmontar(); }
 });
 
@@ -133,6 +159,12 @@ test("un fallo de capacidad conserva un estado controlado sin ofrecer escritura"
     const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
     assert.match(aviso.hijos[0].textContent, /No se pudo comprobar si puede registrar la reincorporación/u);
     assert.equal(aviso.hijos[1].textContent, "Reintentar comprobación de reincorporación");
+    caso.dom.documento.activeElement = aviso.hijos[1];
+    aviso.hijos[1].escuchas.get("click")();
+    await esperar(); await esperar();
+    const repetido = caso.dom.zona().hijos.find((h) => h.isConnected && h.className === "ct-exp-mensaje ct-tono-peligro");
+    assert.equal(caso.dom.documento.activeElement, repetido.hijos[1]);
+    assert.equal(caso.lecturas(), 2);
   } finally { caso.modulo.desmontar(); }
 });
 
@@ -149,24 +181,64 @@ test("reintentar capacidad tras 503 reutiliza el seguimiento leído y llega al p
     await esperar(); await esperar();
     const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
     assert.ok(aviso);
+    caso.dom.documento.activeElement = aviso.hijos[1];
     aviso.hijos[1].escuchas.get("click")();
+    const comprobando = caso.dom.zona().hijos.find((h) => h.isConnected
+      && h.textContent === "Comprobando si puede registrar la reincorporación.");
+    assert.equal(caso.dom.documento.activeElement, comprobando);
     await esperar(); await esperar();
     assert.equal(caso.lecturas(), 2, "el botón de capacidad no repite el POST de seguimiento");
     assert.equal(caso.capacidades(), 2);
     assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "permitida");
-    assert.ok(caso.dom.zona().hijos.some((h) => h.innerHTML.includes("data-ct-rrhh-reincorporacion")));
+    const formulario = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-rrhh-reincorporacion"));
+    assert.ok(formulario);
+    assert.equal(caso.dom.documento.activeElement, formulario);
   } finally { caso.modulo.desmontar(); }
 });
 
-test("un 403 de capacidad explica la denegación y no ofrece reintentar", async () => {
-  const caso = await escenario(() => Promise.reject(Object.assign(new Error("denegado"), { estado: 403 })));
+test("si el foco se mueve durante el reintento, la respuesta no lo recupera", async () => {
+  let intento = 0, resolver;
+  const caso = await escenario(() => {
+    intento++;
+    if (intento === 1) throw Object.assign(new Error("temporal"), { estado: 503 });
+    return new Promise((resolve) => { resolver = resolve; });
+  });
   try {
     const panel = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
     panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
     await esperar(); await esperar();
     const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    caso.dom.documento.activeElement = aviso.hijos[1];
+    aviso.hijos[1].escuchas.get("click")();
+    await esperar();
+    const otro = caso.dom.raiz.ownerDocument.createElement("button");
+    otro.focus();
+    resolver(true);
+    await esperar();
+    assert.equal(caso.dom.documento.activeElement, otro);
+    assert.equal(caso.lecturas(), 2);
+  } finally { caso.modulo.desmontar(); }
+});
+
+test("un 403 de capacidad explica la denegación y no ofrece reintentar", async () => {
+  let intento = 0;
+  const caso = await escenario(() => {
+    intento++;
+    return Promise.reject(Object.assign(new Error("denegado"), { estado: intento === 1 ? 503 : 403 }));
+  });
+  try {
+    const panel = caso.dom.zona().hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+    panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar(); await esperar();
+    const primero = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    caso.dom.documento.activeElement = primero.hijos[1];
+    primero.hijos[1].escuchas.get("click")();
+    await esperar(); await esperar();
+    const aviso = caso.dom.zona().hijos.find((h) => h.isConnected && h.className === "ct-exp-mensaje ct-tono-peligro");
     assert.match(aviso.hijos[0].textContent, /No tiene permiso para consultar la reincorporación/u);
     assert.equal(aviso.hijos.length, 1);
-    assert.equal(caso.capacidades(), 1);
+    assert.equal(caso.dom.documento.activeElement, aviso);
+    assert.equal(caso.capacidades(), 2);
+    assert.equal(caso.lecturas(), 2);
   } finally { caso.modulo.desmontar(); }
 });

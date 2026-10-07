@@ -18,6 +18,8 @@
     "reincorporacion_capacidad_denegada": "You do not have permission to check reinstatement for this case file.",
     "reincorporacion_capacidad_no_disponible": "We could not check whether you can record reinstatement. Try again; the case file has not changed.",
     "reincorporacion_capacidad_reintentar": "Retry reinstatement check",
+    "reincorporacion_capacidad_comprobando": "Checking whether you can record reinstatement.",
+    "reincorporacion_capacidad_no_habilitada": "You cannot record reinstatement for this case file.",
     "ficha_documentos_recuento": "{total} documents",
     "ficha_documento_esta": "Available",
     "ficha_documento_falta": "Missing",
