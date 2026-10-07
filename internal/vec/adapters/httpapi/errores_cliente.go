@@ -21,6 +21,10 @@ const limiteCuerpoErrorCliente = 512
 // contenido y se reinicia al minuto; el navegador aplica otro límite local.
 var cupoErroresCliente = &limiteErroresCliente{}
 
+// Los fallos de validación usan otro cupo para que un origen o JSON hostil no
+// agote la capacidad reservada a los eventos válidos del navegador.
+var cupoFallosValidacionCliente = &limiteErroresCliente{}
+
 type limiteErroresCliente struct {
 	mu        sync.Mutex
 	inicio    time.Time
@@ -144,9 +148,12 @@ func origenMismoCanal(r *http.Request) (bool, falloValidacionTelemetria) {
 	return u.Scheme == esquema && strings.EqualFold(u.Host, r.Host), ""
 }
 
-func (h *Handler) registrarFalloValidacionTelemetria(r *http.Request, fallo falloValidacionTelemetria) {
+func (h *Handler) registrarFalloValidacionTelemetria(r *http.Request, fallo falloValidacionTelemetria, cupo *limiteErroresCliente) {
 	switch fallo {
 	case falloLecturaTelemetria, falloJSONTelemetria, falloOrigenTelemetria:
+		if cupo == nil || !cupo.permitir(time.Now()) {
+			return
+		}
 		ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), h.emisorIncidencias, domain.SolicitudIncidenciaTecnica{
 			Codigo: domain.IncidenciaRecoleccionDegradada, Componente: domain.ComponenteIncidenciaSupervision,
 			Etapa: domain.EtapaIncidenciaValidacion,
@@ -155,6 +162,10 @@ func (h *Handler) registrarFalloValidacionTelemetria(r *http.Request, fallo fall
 }
 
 func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
+	h.atenderErroresClienteConCupos(w, r, principal, cupoErroresCliente, cupoFallosValidacionCliente)
+}
+
+func (h *Handler) atenderErroresClienteConCupos(w http.ResponseWriter, r *http.Request, principal domain.Principal, cupoAceptados, cupoFallos *limiteErroresCliente) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if r.Method != http.MethodPost {
@@ -172,7 +183,7 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 	}
 	origenValido, falloOrigen := origenMismoCanal(r)
 	if !origenValido {
-		h.registrarFalloValidacionTelemetria(r, falloOrigen)
+		h.registrarFalloValidacionTelemetria(r, falloOrigen, cupoFallos)
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -188,11 +199,11 @@ func (h *Handler) atenderErroresCliente(w http.ResponseWriter, r *http.Request, 
 	}
 	dato, estado, falloLectura := leerErrorCliente(r)
 	if estado != 0 {
-		h.registrarFalloValidacionTelemetria(r, falloLectura)
+		h.registrarFalloValidacionTelemetria(r, falloLectura, cupoFallos)
 		w.WriteHeader(estado)
 		return
 	}
-	if !cupoErroresCliente.permitir(time.Now()) {
+	if cupoAceptados == nil || !cupoAceptados.permitir(time.Now()) {
 		w.WriteHeader(http.StatusTooManyRequests)
 		return
 	}
