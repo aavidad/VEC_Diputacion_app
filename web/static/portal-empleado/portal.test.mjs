@@ -132,10 +132,12 @@ test("Bolsa se ofrece mientras se lee su cuadro o tras un fallo y deja de ofrece
     estado: estadoBolsa,
     accesoBolsaEfectivo,
     traducirPortal: (clave) => clave,
+    coordinadorModulos: { obtenerCatalogo: () => [{ clave: "bolsa" }] },
     superficieBorradores: { obtenerAcceso: () => ({ disponible: false, vista: "", estado: "cargando" }) },
   });
-  assert.equal(disponibilidad().estado, "no_disponible");
-  // La lectura lenta del cuadro no deja la tarjeta «Comprobando»: se ofrece ya.
+  assert.equal(disponibilidad().estado, "cargando");
+  assert.equal(disponibilidad().vista, "resumen", "Bolsa se puede abrir para comprobarla sin afirmar disponibilidad");
+  // La lectura lenta del cuadro mantiene la entrada navegable.
   estadoBolsa.datosBolsas = { carga: "cargando" };
   assert.equal(disponibilidad().disponible, true);
   assert.equal(disponibilidad().vista, "resumen");
@@ -169,7 +171,9 @@ test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servi
   assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\)\) pedirCuadroBolsas\(\)/);
   // Una lectura del cuadro ya en curso (p. ej. la pedida al montar la vista
   // tras F5) no se repite ni se aborta.
-  assert.match(cargaInicial, /if \(estado\.datosBolsas\?\.carga !== "cargando"\s+&& \(requiereLecturaBolsas/u);
+  assert.match(cargaInicial, /if \(vistaNecesitaBolsa\(\) && estado\.datosBolsas\?\.carga !== "cargando"\s+&& \(requiereLecturaBolsas/u);
+  assert.match(cargaInicial, /controladorBolsas\?\.cancelarPeticiones\(\);\s+estado\.datosBolsas = null/u,
+    "una nueva carga invalida la lectura de una identidad anterior");
   assert.doesNotMatch(cargaInicial, /await controladorBolsas/);
   const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.match(vistasSinLectura, /"contratos"/);
@@ -226,7 +230,7 @@ test("el arranque desconocido normaliza a portal sin sondear Bolsa directamente"
 
 test("solo Elaboración compone el destructor de borradores con el de B5 y B12", () => {
   assert.match(javascript, /if \(vista === "elaboracion"\) superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
-  assert.match(javascript, /controladorBolsas\.cancelarPeticiones\(\)/);
+  assert.match(javascript, /controladorBolsas\?\.cancelarPeticiones\(\)/);
   assert.match(javascript, /estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\)/);
   assert.doesNotMatch(javascript, /estado\.vista === "elaboracion"\) renderizar\(\)/);
 });

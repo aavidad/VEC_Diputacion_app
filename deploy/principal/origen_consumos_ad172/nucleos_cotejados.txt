@@ -14,3 +14,6 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD216: sólo bolsa_ref de candidatos acotada; definición del núcleo
 # 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3.
 03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd
+# Post AD218: acto B1 de carga desde CONVOCA; definición del núcleo
+# c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714.
+79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5

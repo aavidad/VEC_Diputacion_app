@@ -65,6 +65,7 @@
     "lista_filtro_texto": "Text: {valor}",
     "lista_filtro_servidor_estado": "Status: {valor}",
     "lista_resultados": "{total} of {de} requests",
+    "lista_resultados_pagina": "Requests shown: {total}",
     "lista_sin_resultados": "No request matches these filters.",
     "lista_col_expediente": "Case",
     "lista_col_centro_categoria": "Unit and category",

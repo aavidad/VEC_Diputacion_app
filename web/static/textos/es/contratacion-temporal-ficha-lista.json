@@ -65,6 +65,7 @@
     "lista_filtro_texto": "Texto: {valor}",
     "lista_filtro_servidor_estado": "Estado: {valor}",
     "lista_resultados": "{total} de {de} peticiones",
+    "lista_resultados_pagina": "Peticiones mostradas: {total}",
     "lista_sin_resultados": "Ninguna petición cumple estos filtros.",
     "lista_col_expediente": "Expediente",
     "lista_col_centro_categoria": "Centro y categoría",

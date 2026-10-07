@@ -576,7 +576,7 @@ test("F5 en el cuadro de Bolsa: se pide el cuadro al montar y la carga no lo rep
   const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
   const montaje = portal.slice(portal.indexOf("function montarVistaBolsa("), portal.indexOf("function renderizarLlamamientoSinBolsa("));
   // Sin lectura del cuadro, la vista la pide (en vez de pintar «no disponible»).
-  assert.match(montaje, /if \(vistaBolsas && estado\.datosBolsas === null\) \{\s+(?:\/\/[^\n]*\s+)*void controladorBolsas\.cargarBolsas\(\);\s+return;/u);
+  assert.match(montaje, /if \(vistaBolsas && estado\.datosBolsas === null\) \{\s+(?:\/\/[^\n]*\s+)*pedirCuadroBolsas\(\);\s+return;/u);
   assert.ok(montaje.indexOf("estado.datosBolsas === null") < montaje.indexOf("if (!estado.fuenteLista)"));
   const carga = portal.slice(portal.indexOf("async function cargarFuenteDatos()"), portal.indexOf("function necesidadLlamamientoSeleccionada()"));
   // Una vista de Bolsa montada se conserva y no se vuelve a montar.
@@ -643,4 +643,27 @@ test("index.html precarga exactamente el grafo estático de portal.js", async ()
   assert.match(precargas[0], /^\/portal-empleado\/portal-modulos-coordinador\.js\?v=/);
   const entrada = html.indexOf('<script type="module" src="/portal-empleado/portal.js?v=');
   assert.ok(entrada > html.lastIndexOf('rel="modulepreload"'), "las precargas preceden a la entrada");
+});
+
+test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras pantallas", async () => {
+  const html = await readFile(new URL("index.html", import.meta.url), "utf8");
+  const estatico = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: false });
+  for (const modulo of [
+    "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
+    "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
+    "/portal-empleado/portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-panel-interno.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
+  ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
+  const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
+  assert.deepEqual(grupos.map(([, grupo]) => grupo), ["cronos", "dietas", "personal"]);
+  const inicial = html.replaceAll(/<template data-estilos-vista="[^"]+">[\s\S]*?<\/template>/g, "");
+  for (const [, grupo, estilos] of grupos) {
+    assert.match(estilos, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`));
+    assert.doesNotMatch(inicial, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`), `${grupo} no bloquea Inicio ni CT`);
+  }
 });
