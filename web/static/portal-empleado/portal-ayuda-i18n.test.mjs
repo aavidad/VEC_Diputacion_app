@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("ayuda");
+const { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORTAL } =
+  await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+const { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } =
+  await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const MENSAJES_AYUDA_PORTAL = JSON.parse(await readFile(new URL("../textos/es/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
@@ -35,7 +38,7 @@ test("el botón ? abre la ayuda contextual sin cargar una grabación obsoleta", 
   const [html, portal, ayuda, ayudante, i18n] = await Promise.all([
     "index.html", "portal.js", "ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js",
   ].map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(html, /data-accion="ayuda"[^>]+data-i18n-portal-aria-label="ayuda_abrir_inicial"[^>]+aria-haspopup="dialog"/u);
+  assert.match(html, /data-accion="ayuda"[^>]+data-i18n-portal-aria-label="txt_ayuda_pantalla"[^>]+aria-haspopup="dialog"/u);
   assert.doesNotMatch(html, /data-accion="ayuda"[^>]*>[\s\S]*?<span>Ayuda<\/span>/u);
   assert.match(portal, /ayuda_abrir_contextual/u);
   assert.match(portal, /const enfocarAyuda = \(\{ contenedor \}\)/u);
@@ -54,8 +57,9 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   // cambiado pide una URL nueva, única entre todos sus importadores.
   const anterior = "20260924-rescate-web-v4";
   exigirRenovado(html, "/portal-empleado/portal.js", anterior);
-  exigirRenovado(portal, "./ayudante-tramites.js", anterior);
-  exigirRenovado([portal, ayudante], "./ayuda-contenido.js", anterior);
+  assert.match(portal, /import\("\.\/ayudante-tramites\.js\?v=/u);
+  assert.match(portal, /import\("\.\/ayuda-contenido\.js\?v=/u);
+  exigirRenovado(ayudante, "./ayuda-contenido.js", anterior);
   exigirRenovado([portal, ayuda, ayudante], "./portal-i18n.js", anterior);
   // Los textos de la ayuda son datos (`textos/<idioma>/portal-ayuda.json`,
   // servidos sin caché); el aviso del panel sigue siendo un módulo versionado.

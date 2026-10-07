@@ -1,8 +1,12 @@
 import test from "node:test";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 import assert from "node:assert/strict";
 
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 
 const BOLSA = Object.freeze({
   bolsa_ref: "bolsa:sintetica:1", categoria_clave: "administrativo", categoria: "ADMINISTRATIVO",

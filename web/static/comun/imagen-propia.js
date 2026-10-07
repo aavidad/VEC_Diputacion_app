@@ -90,18 +90,88 @@ async function contenidoJSON(respuesta) {
 /**
  * Envuelve `fetch` para que las peticiones a las rutas de Usuarios salgan de
  * una en una: la identidad de desarrollo no admite dos altas de sesión
- * simultáneas de la misma cuenta. Cada respuesta se lee entera antes de dar
- * paso a la siguiente.
+ * simultáneas de la misma cuenta. Lee el cuerpo con el límite de su ruta antes
+ * de dar paso a la siguiente; tampoco retiene una respuesta sin longitud.
  */
 export function peticionesEnSerie(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("fetch no disponible");
+  const limites = new Map([
+    ["/api/vec/usuarios/mi-imagen", MAX_RESPUESTA],
+    ["/api/vec/usuarios/area-personal/mi-imagen", MAX_RESPUESTA],
+    ["/api/vec/usuarios/mis-preferencias", 65536],
+    ["/api/vec/usuarios/mis-correos", 65536],
+    ["/api/vec/usuarios/area-personal/mis-correos", 65536],
+  ]);
+  async function cancelarConPlazo(cancelar) {
+    let temporizador;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(cancelar).then(() => null, () => "cancelacion_fallida"),
+        new Promise((resolve) => { temporizador = setTimeout(() => resolve("cancelacion_sin_acuse"), 100); }),
+      ]);
+    } finally { clearTimeout(temporizador); }
+  }
+  function errorDeCuerpo(fallo, secundaria) {
+    const seguro = fallo instanceof TypeError && /^respuesta_serie_/u.test(fallo.message)
+      ? fallo : new TypeError("respuesta_serie_error");
+    if (secundaria) seguro.causa_limpieza = Object.freeze({ codigo: secundaria });
+    return seguro;
+  }
   let cola = Promise.resolve();
   return function fetchEnSerie(recurso, opciones) {
     const turno = cola.then(async () => {
-      const respuesta = await fetchImpl(recurso, opciones);
-      const cuerpo = await respuesta.arrayBuffer();
-      const sinCuerpo = [101, 204, 205, 304].includes(respuesta.status);
-      return new Response(sinCuerpo ? null : cuerpo, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
+      const controlador = new AbortController();
+      const abortarExterior = () => controlador.abort();
+      if (opciones?.signal?.aborted) controlador.abort();
+      else opciones?.signal?.addEventListener?.("abort", abortarExterior, { once: true });
+      let rechazarAbortada;
+      const abortada = new Promise((_resolve, reject) => { rechazarAbortada = reject; });
+      const alAbortar = () => rechazarAbortada(new TypeError("respuesta_serie_cancelada"));
+      controlador.signal.addEventListener("abort", alAbortar, { once: true });
+      if (controlador.signal.aborted) alAbortar();
+      const temporizador = setTimeout(() => controlador.abort(), LIMITE_MS);
+      try {
+        const respuesta = await Promise.race([
+          Promise.resolve().then(() => {
+            if (controlador.signal.aborted) throw new TypeError("respuesta_serie_cancelada");
+            return fetchImpl(recurso, { ...opciones, signal: controlador.signal });
+          }), abortada,
+        ]);
+        async function descartar(cuerpo, fallo) {
+          controlador.abort();
+          const secundaria = cuerpo?.cancel ? await cancelarConPlazo(() => cuerpo.cancel()) : null;
+          throw errorDeCuerpo(fallo, secundaria);
+        }
+        if (controlador.signal.aborted) return descartar(respuesta.body, new TypeError("respuesta_serie_cancelada"));
+        const sinCuerpo = [101, 204, 205, 304].includes(respuesta.status);
+        if (sinCuerpo) return new Response(null, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
+        const limite = limites.get(recurso) ?? 65536;
+        const longitud = respuesta.headers?.get?.("content-length");
+        if (longitud != null && (!/^\d+$/u.test(longitud) || Number(longitud) > limite)) {
+          return descartar(respuesta.body, new TypeError("respuesta_serie_demasiado_grande"));
+        }
+        if (!respuesta.body?.getReader) return descartar(respuesta.body, new TypeError("respuesta_serie_sin_flujo"));
+        const lector = respuesta.body.getReader();
+        const partes = [];
+        let total = 0;
+        try {
+          for (;;) {
+            const { done, value } = await Promise.race([lector.read(), abortada]);
+            if (done) break;
+            total += value.byteLength;
+            if (total > limite) throw new TypeError("respuesta_serie_demasiado_grande");
+            partes.push(value);
+          }
+        } catch (fallo) { return descartar(lector, fallo); }
+        const cuerpo = new Uint8Array(total);
+        let posicion = 0;
+        for (const parte of partes) { cuerpo.set(parte, posicion); posicion += parte.byteLength; }
+        return new Response(cuerpo, { status: respuesta.status, statusText: respuesta.statusText, headers: respuesta.headers });
+      } finally {
+        clearTimeout(temporizador);
+        opciones?.signal?.removeEventListener?.("abort", abortarExterior);
+        controlador.signal.removeEventListener("abort", alAbortar);
+      }
     });
     cola = turno.then(() => undefined, () => undefined);
     return turno;

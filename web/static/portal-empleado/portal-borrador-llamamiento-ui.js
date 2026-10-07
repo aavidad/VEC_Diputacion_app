@@ -1,4 +1,4 @@
-import { ErrorAPIBorradorLlamamiento, crearClienteBorradorLlamamiento } from "./portal-borrador-llamamiento-api.js?v=20261001-ct-a-i18n-v1";
+import { ErrorAPIBorradorLlamamiento, crearClienteBorradorLlamamiento } from "./portal-borrador-llamamiento-api.js?v=20261007-pantallas-textos-final-v1";
 
 export const MENSAJES_BORRADOR_LLAMAMIENTO_ES = Object.freeze({
   titulo: "Preparar borrador interno", descripcion: "Registre un resumen para continuar su revisión. No selecciona personas ni realiza contactos.",
