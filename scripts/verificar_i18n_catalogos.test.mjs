@@ -52,6 +52,7 @@ test("exportaciones JS ausente, mal enlazada e indefinida fallan en procesos ais
       ["mal_enlazado", "en", 'export const MENSAJES_PRUEBA_ES = { titulo: "Español" }; export const MENSAJES_PRUEBA_EN = MENSAJES_PRUEBA_ES;', /otro catálogo/u],
       ["indefinido", "en", 'export const MENSAJES_PRUEBA_ES = { titulo: "Español" }; export const MENSAJES_PRUEBA_EN = undefined;', /activa ausente/u],
       ["es_indefinido", "es", 'export const MENSAJES_PRUEBA_ES = undefined; export const MENSAJES_PRUEBA_EN = { titulo: "English" };', /activa ausente/u],
+      ["en_nulo", "es", 'export const MENSAJES_PRUEBA_ES = { titulo: "Español" }; export const MENSAJES_PRUEBA_EN = null;', /inactiva ausente o precargada/u],
     ];
     for (const [nombre, idioma, fuente, esperado] of casos) {
       const ruta = join(temporal, `${nombre}.mjs`);

@@ -123,7 +123,7 @@ const lectorAislado = `
       tieneActivo: Object.hasOwn(modulo, nombreActivo),
       activo: modulo[nombreActivo] ?? null,
       tieneInactivo: Object.hasOwn(modulo, nombreInactivo),
-      inactivo: modulo[nombreInactivo] ?? null,
+      inactivoEsUndefined: modulo[nombreInactivo] === undefined,
     };
   }
   process.stdout.write(JSON.stringify(salida));
@@ -145,7 +145,7 @@ export function validarExportacionCT(etiqueta, resultado, esperado) {
   } else if (!isDeepStrictEqual(resultado.activo, esperado)) {
     fallos.push(`${etiqueta}: exportación activa enlazada a otro catálogo`);
   }
-  if (!resultado?.tieneInactivo || resultado.inactivo !== null) {
+  if (!resultado?.tieneInactivo || resultado.inactivoEsUndefined !== true) {
     fallos.push(`${etiqueta}: exportación inactiva ausente o precargada`);
   }
   return fallos;
