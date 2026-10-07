@@ -73,9 +73,20 @@ $body$;'''
             "DO $$ BEGIN EXECUTE 'CREATE ' || 'FUNCTION a() RETURNS int SECURITY DEFINER AS $f$ SELECT 1 $f$'; END $$;",
             "DO $$ DECLARE ddl text; BEGIN ddl := 'CREATE FUNCTION a() RETURNS int SECURITY ' || 'DEFINER AS $f$ SELECT 1 $f$'; EXECUTE ddl; END $$;",
             "DO $$ BEGIN EXECUTE format('CREATE %s a() RETURNS int SECURITY DEFINER AS $f$ SELECT 1 $f$', 'FUNCTION'); END $$;",
+            "DO $$ BEGIN EXECUTE 'ALTER ' || 'FUNCTION a() RESET search_path'; END $$;",
+            "DO $$ BEGIN EXECUTE format('ALTER %s a() RESET ALL', 'ROUTINE'); END $$;",
+            "DO $$ BEGIN EXECUTE format('ALTER FUNCTION %I() %s', 'a', 'RESET ALL'); END $$;",
+            "DO $$ BEGIN EXECUTE format('ALTER FUNCTION %I() RESET %I', 'a', 'search_path'); END $$;",
+            "DO $$ DECLARE ddl text; BEGIN ddl := 'ALTER PROCEDURE a() RESET ALL'; EXECUTE ddl; END $$;",
+            "DO $outer$ BEGIN EXECUTE 'ALTER ' || $ddl$ROUTINE a() RESET ALL$ddl$; END $outer$;",
         ):
             with self.subTest(sql=sql):
                 self.assertTrue(any("no verificable" in reason for _, reason in inspect_sql(sql, {1})))
+        dollar_quoted = "DO $outer$ BEGIN EXECUTE $ddl$ALTER ROUTINE a() RESET ALL$ddl$; END $outer$;"
+        self.assertTrue(inspect_sql(dollar_quoted, {1}))
+        alter_ok = "DO $$ BEGIN EXECUTE format('ALTER ROUTINE %I() SET search_path=pg_catalog,pg_temp', 'a'); END $$;"
+        self.assertEqual(inspect_sql(alter_ok, {1}), [])
+        self.assertEqual(inspect_sql("DO $$ BEGIN EXECUTE 'DROP FUNCTION a()'; END $$;", {1}), [])
 
     def test_hunks_solo_lineas_añadidas(self):
         diff = "@@ -2,0 +3,2 @@\n+a\n+b\n@@ -8 +10 @@\n-x\n+y\n@@ -12 +13,0 @@\n-SET search_path=pg_catalog,pg_temp\n"

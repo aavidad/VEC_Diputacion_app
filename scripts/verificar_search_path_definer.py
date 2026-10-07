@@ -135,7 +135,7 @@ def keyword_pair(stream: list[Token], first: str, second: str) -> bool:
 def is_create_routine(stmt: list[Token]) -> bool:
     words = [token.upper for token in stmt[:5] if token.kind == "word"]
     return bool(words and words[0] == "CREATE" and any(
-        word in ("FUNCTION", "PROCEDURE") for word in words[1:5]))
+        word in ("FUNCTION", "PROCEDURE", "ROUTINE") for word in words[1:5]))
 
 
 def is_alter_routine(stmt: list[Token]) -> bool:
@@ -213,30 +213,38 @@ def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
                 ):
                     failures.append((body.line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
                 if any(t.upper == "EXECUTE" for t in body_tokens):
-                    literals = [t for t in body_tokens if t.kind == "string"]
-                    create = r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\b"
+                    literals = [t for t in body_tokens if t.kind in ("string", "body")]
+                    routine_ddl = (r"\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE|ROUTINE)"
+                                   r"|ALTER\s+(?:FUNCTION|PROCEDURE|ROUTINE))\b")
                     joined = "".join(t.value for t in literals)
-                    has_create = re.search(r"\bCREATE\b", joined, re.I)
-                    has_routine = any(re.search(r"\b(?:FUNCTION|PROCEDURE)\b", t.value, re.I)
-                                      for t in literals)
-                    if re.search(create, joined, re.I) or (has_create and has_routine):
+                    has_ddl_verb = re.search(r"\b(?:CREATE|ALTER)\b", joined, re.I) or any(
+                        re.search(r"\b(?:CREATE|ALTER)\b", t.value, re.I) for t in literals)
+                    has_routine = re.search(r"\b(?:FUNCTION|PROCEDURE|ROUTINE)\b", joined, re.I) or any(
+                        re.search(r"\b(?:FUNCTION|PROCEDURE|ROUTINE)\b", t.value, re.I) for t in literals)
+                    if re.search(routine_ddl, joined, re.I) or (has_ddl_verb and has_routine):
                         for inner in statements(body_tokens):
                             for i, token in enumerate(inner):
                                 if token.upper != "EXECUTE":
                                     continue
                                 expression = inner[i + 1:]
-                                direct = bool(expression and (expression[0].kind == "string" or
-                                    (expression[0].upper == "FORMAT" and any(t.kind == "string" for t in expression[1:]))))
+                                direct = bool(expression and (expression[0].kind in ("string", "body") or
+                                    (expression[0].upper == "FORMAT" and any(t.kind in ("string", "body") for t in expression[1:]))))
                                 concatenated = any(a.value == "|" and b.value == "|"
                                                    for a, b in zip(expression, expression[1:]))
-                                if not direct or concatenated:
-                                    failures.append((token.line, "DDL dinámico de función concatenado u opaco: definición final no verificable"))
-                        # Si CREATE/FUNCTION están repartidos entre literales,
+                                format_literal = next((t.value for t in expression if t.kind in ("string", "body")), "")
+                                variable_format = expression and expression[0].upper == "FORMAT" and re.search(
+                                    r"%(?:\d+\$)?[sL]", format_literal)
+                                config_tail = re.search(r"\b(?:SET|RESET)\b(.*)", format_literal, re.I | re.S)
+                                variable_config = bool(config_tail and re.search(
+                                    r"%(?:\d+\$)?I", config_tail.group(1)))
+                                if not direct or concatenated or variable_format or variable_config:
+                                    failures.append((token.line, "DDL dinámico de rutina concatenado u opaco: definición final no verificable"))
+                        # Si el verbo y el tipo están repartidos entre literales,
                         # ninguna cadena aislada demuestra las opciones finales.
-                        if not any(re.search(create, t.value, re.I) for t in literals):
-                            failures.append((body.line, "DDL dinámico de función fragmentado: definición final no verificable"))
+                        if not any(re.search(routine_ddl, t.value, re.I) for t in literals):
+                            failures.append((body.line, "DDL dinámico de rutina fragmentado: definición final no verificable"))
                     for literal in literals:
-                        if re.search(create, literal.value, re.I):
+                        if re.search(routine_ddl, literal.value, re.I):
                             inspect(literal.value, literal.line, depth + 1)
             if stmt[0].upper == "DO":
                 for body in (t for t in stmt if t.kind == "body"):
@@ -244,7 +252,7 @@ def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
             if any(t.upper == "PG_GET_FUNCTIONDEF" for t in stmt) and any(t.upper == "EXECUTE" for t in stmt):
                 failures.append((stmt[0].line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
             for i, token in enumerate(stmt):
-                if token.upper == "EXECUTE" and i + 1 < len(stmt) and stmt[i + 1].kind == "string":
+                if token.upper == "EXECUTE" and i + 1 < len(stmt) and stmt[i + 1].kind in ("string", "body"):
                     inspect(stmt[i + 1].value, stmt[i + 1].line, depth + 1)
 
     inspect(sql, 1)
