@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal/firmavec"
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -95,6 +96,21 @@ func nuevoPuenteRegistroFirmaVecGobernado(d dependenciasRegistroFirmaVecGobernad
 		return nil, nil, errRegistroFirmaVecGobernadoNoDisponible
 	}
 	return puente, entorno.FuenteSesionFirmanteV2(), nil
+}
+
+// anteponerRegistroFirmaVecGobernado reserva sólo la ruta propia de firma.
+// Se instala delante del puente GET sin ampliar su lista ni su límite de 1 MiB.
+func anteponerRegistroFirmaVecGobernado(base, firma http.Handler) (http.Handler, error) {
+	if manejadorNulo(base) || manejadorNulo(firma) {
+		return nil, errRegistroFirmaVecGobernadoNoDisponible
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil && r.URL.Path == httpinterno.RutaRegistroFirmaVec {
+			firma.ServeHTTP(w, r)
+			return
+		}
+		base.ServeHTTP(w, r)
+	}), nil
 }
 
 type acreditadorRegistroCertificadoFirmaVec struct {

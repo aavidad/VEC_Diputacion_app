@@ -5,11 +5,45 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 )
+
+func TestAnteponerRegistroFirmaVecGobernadoNoAbreOtrasRutas(t *testing.T) {
+	var base, firma int
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { base++; w.WriteHeader(http.StatusNoContent) })
+	firmaHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { firma++; w.WriteHeader(http.StatusAccepted) })
+	puente, err := anteponerRegistroFirmaVecGobernado(baseHandler, firmaHandler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		ruta   string
+		estado int
+	}{
+		{httpinterno.RutaRegistroFirmaVec, http.StatusAccepted},
+		{httpinterno.RutaRegistroFirmaExterna, http.StatusNoContent},
+		{httpinterno.RutaConsultaFirmasR5V2, http.StatusNoContent},
+	} {
+		w := httptest.NewRecorder()
+		puente.ServeHTTP(w, httptest.NewRequest(http.MethodPost, caso.ruta, nil))
+		if w.Code != caso.estado {
+			t.Fatalf("ruta %q: %d", caso.ruta, w.Code)
+		}
+	}
+	if firma != 1 || base != 2 {
+		t.Fatalf("desvío de rutas: firma=%d base=%d", firma, base)
+	}
+	if _, err := anteponerRegistroFirmaVecGobernado(baseHandler, nil); err == nil {
+		t.Fatal("desvío sin handler de firma")
+	}
+}
 
 func TestOrigenRegistroFirmaVecGobernadoExigeNombreTLSYURLPrivada(t *testing.T) {
 	directorio := t.TempDir()
