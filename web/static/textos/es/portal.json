@@ -37,6 +37,8 @@
     "ofertas_sae_estado_texto": "Todavía no se registran en esta aplicación las ofertas enviadas al Servicio Andaluz de Empleo (SAE). RRHH tiene que decidir qué datos se guardan de cada oferta. Mientras tanto, siga gestionándolas como hasta ahora.",
     "ofertas_sae_volver": "Volver a Inicio",
     "txt_ayuda_pantalla": "Ayuda de esta pantalla",
+    "preferencias_titulo_base": "Mis preferencias",
+    "preferencias_textos_error": "No se han podido cargar los textos de Mis preferencias. Compruebe la conexión y pulse Reintentar.",
     "inicio_rrhh_pestana_expedientes": "Expedientes en trámite",
     "inicio_rrhh_pestana_bolsas": "Bolsas de trabajo",
     "inicio_rrhh_pestana_sae": "Ofertas al SAE",

@@ -37,6 +37,8 @@
     "ofertas_sae_estado_texto": "Job offers sent to the Andalusian Employment Service (SAE) are not recorded in this application yet. HR has to decide which details are kept for each offer. In the meantime, keep handling them as you do now.",
     "ofertas_sae_volver": "Back to Home",
     "txt_ayuda_pantalla": "Help for this screen",
+    "preferencias_titulo_base": "My preferences",
+    "preferencias_textos_error": "The text for My preferences could not be loaded. Check your connection and select Retry.",
     "inicio_rrhh_pestana_expedientes": "Cases in progress",
     "inicio_rrhh_pestana_bolsas": "Job pools",
     "inicio_rrhh_pestana_sae": "SAE job offers",

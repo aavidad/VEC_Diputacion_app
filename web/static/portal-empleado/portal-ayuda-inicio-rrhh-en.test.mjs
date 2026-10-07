@@ -7,7 +7,8 @@ const idiomaPreparado = await import("../comun/idioma.js");
 await idiomaPreparado.prepararIdiomas();
 const { IDIOMA_ACTUAL } = idiomaPreparado;
 const MENSAJES_AYUDA_EN = JSON.parse(await readFile(new URL("../textos/en/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
-const { traducirPortal } = await import("./portal-i18n.js");
+const { traducirPortal, prepararTextosPortal } = await import("./portal-i18n.js?v=20261001-ct-a-i18n-v1");
+await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
 
 test("?lang=en presenta toda la ayuda contextual RRHH en inglés con el traductor común", () => {
