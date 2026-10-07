@@ -192,7 +192,7 @@ func crearOrigenPoolResolucionMotivosRRHHPostgreSQL(
 	ctx context.Context,
 	configuracion *pgxpool.Config,
 ) (origenPoolResolucionMotivosRRHH, error) {
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil || pool == nil {
 		return nil, err
 	}

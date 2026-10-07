@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
@@ -146,7 +147,7 @@ func crearPoolPostgreSQLBorradores(
 	configuracion *pgxpool.Config,
 ) (poolOperativoPostgreSQLBorradores, error) {
 	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, ErrConexionPostgreSQLBorradoresNoDisponible
 	}

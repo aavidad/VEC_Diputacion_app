@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
@@ -49,7 +49,7 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}

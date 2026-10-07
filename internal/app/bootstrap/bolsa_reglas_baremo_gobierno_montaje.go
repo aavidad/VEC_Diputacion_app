@@ -14,6 +14,7 @@ import (
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -301,7 +302,7 @@ func abrirPoolRuntimeGobiernoReglasBaremoHTTPV3(ctx context.Context, dsn string)
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	p, err := pgxpool.NewWithConfig(ctx, c)
+	p, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, app.ErrGobiernoV3NoDisponible
 	}

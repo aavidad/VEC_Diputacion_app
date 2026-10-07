@@ -90,7 +90,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	aplicarParametrosSesionPostgreSQLContratacionTemporalDesarrollo(configuracion.ConnConfig.RuntimeParams, aplicacion)
 	configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configuracion, rolEsperado)
 	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, "", falloPostgreSQLCTDesarrollo(err)
 	}
@@ -357,7 +357,7 @@ func abrirPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, dsn string) (*p
 		return comprobarPoolConsultaAuditoriaCTDesarrollo(ctx, conn, login)
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, auditoria.ErrNoDisponible
 	}
@@ -435,7 +435,7 @@ func abrirPoolAutoridadAuditoriaDesarrollo(ctx context.Context, dsn, rol, aplica
 		return nil
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, auditoria.ErrNoDisponible
 	}
