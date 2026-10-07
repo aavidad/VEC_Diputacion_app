@@ -191,7 +191,7 @@ function pintar(raiz, contenedor, estado, recargar, t) {
     filtros.restaurarFoco(); return;
   }
   const { pagina } = estado;
-  cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente)));
+  cuerpoAyuda.append(nodo(documento, "p", t("fuente", { documento: pagina.fuente.documento, aviso: "" })));
   const generada = fechaGeneracionRPT(pagina.fuente.generado_en);
   if (generada) cuerpoAyuda.append(nodo(documento, "p", t("generacion", { valor: generada })));
   contenedor.append(resumenEnlazado(documento, pagina, recargar, t), pestañas(documento, estado.consulta, recargar, t), filtros.elemento, tablaRPT(documento, pagina, t, recargar));
