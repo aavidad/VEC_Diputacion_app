@@ -85,6 +85,10 @@ test("con más páginas y un filtro puesto, avisa de que la búsqueda solo mira 
   const conMas = { cuadro: { ...estado.cuadro, paginacion: { pagina: 1, cursor_siguiente: "c2" } } };
   const conFiltro = renderizarResultadosLista(conMas, t, filtroListaValido({ texto: "área" }), a);
   assert.match(conFiltro, /El filtro solo revisa las peticiones cargadas en esta página/u);
+  const filtroServidor = renderizarResultadosLista(conMas, t,
+    filtroListaValido({ texto: "área" }), a, filtroListaValido({ mostrar: "todas" }));
+  assert.doesNotMatch(filtroServidor, /data-ct-exp-busqueda-parcial/u,
+    "la búsqueda hecha por el servidor puede continuar con su cursor");
   const sinFiltro = renderizarResultadosLista(conMas, t, filtroListaValido({}), a);
   assert.doesNotMatch(sinFiltro, /data-ct-exp-busqueda-parcial/u);
   // Las cifras de la portada llevan a «Mostrar»: también avisa.
