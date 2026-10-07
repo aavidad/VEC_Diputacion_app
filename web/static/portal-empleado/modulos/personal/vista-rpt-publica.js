@@ -1,4 +1,4 @@
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS, RESPALDO_RPT_PUESTOS } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearEnlaceAgrupacionRPT, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS, RESPALDO_RPT_PUESTOS } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
 import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261007-t-rpt-enlaces-v1";
 import { cambiarIdioma } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
@@ -111,10 +111,9 @@ function tablaRPT(documento, pagina, t, recargar) {
           if (campo === "denominacion" || cifra) {
             const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
             boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaEnlace = campo;
-            const numero = new Intl.NumberFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { useGrouping: "always" });
-            boton.setAttribute("aria-label", t(pagina.vista === "centros" ? "ver_puestos_centro_recuento" : "ver_puestos_categoria_recuento",
-              { valor: item.denominacion, puestos: numero.format(pagina.vista === "centros" ? item.puestos : item.puestos_vinculados),
-                dotacion: numero.format(pagina.vista === "centros" ? item.dotacion : item.dotacion_vinculada) }));
+            boton.setAttribute("aria-label", formatearEnlaceAgrupacionRPT(pagina.vista, item.denominacion,
+              pagina.vista === "centros" ? item.puestos : item.puestos_vinculados,
+              pagina.vista === "centros" ? item.dotacion : item.dotacion_vinculada));
             if (cifra) boton.setAttribute("tabindex", "-1");
             boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
             celda.append(boton);

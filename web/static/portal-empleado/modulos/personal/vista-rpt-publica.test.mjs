@@ -8,7 +8,7 @@ function raiz() { class Nodo { constructor(documento, etiqueta = "div") { this.o
 function textoNodo(nodo) { return `${nodo.textContent} ${nodo.children.map(textoNodo).join(" ")}`; }
 function nodosCon(nodo, clave, salida = []) { if (nodo.dataset[clave] !== undefined) salida.push(nodo); nodo.children.forEach((hijo) => nodosCon(hijo, clave, salida)); return salida; }
 function propagarTecla(origen, key) { const evento = { key, cancelado: false, preventDefault() { this.cancelado = true; } }; for (let actual = origen; actual; actual = actual.parent) actual.listeners.get("keydown")?.(evento); return evento; }
-function pagina({ vista = "categorias", total = 1, offset = 0, generadoEn = "2026-09-17", items = [{ clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158 }] } = {}) { return Object.freeze({ items: Object.freeze(items), total, limit: 25, offset, vista, esquema: "vec.catalogo.rpt.v1", fuente: Object.freeze({ documento: "RPT publicada", importacion: "rpt-v1", generado_en: generadoEn, aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }), resumen: Object.freeze({ puestos: 842, dotacion: 1714, categorias: 145, centros: 41 }) }); }
+function pagina({ vista = "categorias", total = 1, offset = 0, generadoEn = "2026-09-17", items = [{ clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158, puestos_vinculados: 57, dotacion_vinculada: 158, recuento_coincide: true }] } = {}) { return Object.freeze({ items: Object.freeze(items), total, limit: 25, offset, vista, esquema: "vec.catalogo.rpt.v1", fuente: Object.freeze({ documento: "RPT publicada", importacion: "rpt-v1", generado_en: generadoEn, aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }), resumen: Object.freeze({ puestos: 842, dotacion: 1714, categorias: 145, centros: 41 }) }); }
 test("catálogos ES/EN rotulan centro y generación sin atribuir vigencia", () => {
   const catalogo = (idioma) => JSON.parse(readFileSync(new URL(`../../../textos/${idioma}/personal.json`, import.meta.url), "utf8")).rpt_puestos;
   const es = catalogo("es"), en = catalogo("en");
@@ -282,4 +282,13 @@ test("Atrás restaura filtros y página sin crear entradas nuevas", async () => 
     assert.match(location.search, /lang=es/u);
     modulo.desmontar(); assert.equal(oyentes.has("popstate"), false);
   } finally { globalThis.window = anterior; }
+});
+
+test("fila de una plaza anuncia un puesto y una dotación", async () => {
+  const r = raiz();
+  const categoria = { clave: "auxiliar", denominacion: "AUXILIAR", grupos: ["C2"], escalas: [], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar() { return pagina({ items: [categoria] }); } } });
+  const principal = nodosCon(r, "personalRptPublicaEnlace").find((b) => b.textContent === "AUXILIAR");
+  assert.match(principal.atributos.get("aria-label"), /1 puesto y 1 dotación/u);
 });

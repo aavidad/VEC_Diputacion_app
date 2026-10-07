@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearResumenRPTPuestos, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS } from "./i18n-rpt-puestos.js";
+import { readFileSync } from "node:fs";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearResumenRPTPuestos, formatearEnlaceAgrupacionRPT, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS } from "./i18n-rpt-puestos.js";
 import { cargarTextos } from "../../../comun/textos.js";
 import { localizacionDe } from "../../../comun/idioma.js";
 
@@ -21,4 +22,23 @@ test("RPT toma idioma y localización del catálogo realmente cargado", async ()
   const textos = await cargarTextos("personal");
   assert.equal(IDIOMA_EFECTIVO_RPT_PUESTOS, textos.idioma);
   assert.equal(LOCALIZACION_EFECTIVA_RPT_PUESTOS, textos.localizacion);
+});
+
+test("etiqueta de agrupación pluraliza puestos y dotaciones en ES y EN", () => {
+  for (const [idioma, localizacion, palabraPuesto, palabraPuestos, palabraDotacion, palabraDotaciones] of [
+    ["es", "es-ES", "puesto", "puestos", "dotación", "dotaciones"],
+    ["en", "en-GB", "post", "posts", "allocation", "allocations"],
+  ]) {
+    const catalogo = JSON.parse(readFileSync(new URL(`../../../textos/${idioma}/personal.json`, import.meta.url), "utf8")).rpt_puestos;
+    for (const [puestos, dotacion, esperadoPuestos, esperadoDotacion] of [
+      [1, 1, palabraPuesto, palabraDotacion], [1, 2, palabraPuesto, palabraDotaciones],
+      [2, 1, palabraPuestos, palabraDotacion], [0, 0, palabraPuestos, palabraDotaciones],
+    ]) {
+      for (const vista of ["categorias", "centros"]) {
+        const etiqueta = formatearEnlaceAgrupacionRPT(vista, "GABINETE", puestos, dotacion, localizacion, catalogo);
+        assert.match(etiqueta, new RegExp(`${puestos} ${esperadoPuestos}.*${dotacion} ${esperadoDotacion}`, "u"));
+        assert.doesNotMatch(etiqueta, /\{(?:puestos|dotacion)\}/u);
+      }
+    }
+  }
 });
