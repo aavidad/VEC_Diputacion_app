@@ -135,9 +135,10 @@ test("los catálogos del alta admiten la relación por vía y la validan cerrada
   assert.throws(() => validarCatalogosAlta(catalogosAlta({ extra: true })), /contrato cerrado/u);
 });
 
-test("la nueva petición reserva la zona de la relación antes del formulario", () => {
+test("la nueva petición no antepone la relación de ejemplo de cobertura al formulario", () => {
   const alta = renderizarAlta(t, true, false, false, false, false, false);
-  assert.ok(alta.indexOf("data-ct-exp-preparacion") < alta.indexOf("data-ct-exp-alta"));
+  assert.doesNotMatch(alta, /data-ct-exp-preparacion/u);
+  assert.match(alta, /data-ct-exp-alta/u);
 });
 
 test("el catálogo de ejemplo de reglas tiene texto en castellano e inglés para cada elemento", async () => {
