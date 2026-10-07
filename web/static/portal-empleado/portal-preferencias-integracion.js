@@ -1,5 +1,5 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
-import { crearClientePreferencias } from "./portal-preferencias-api.js?v=20260930-codexf-temas-v2";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261007-p7-http-v1";
+import { crearClientePreferencias } from "./portal-preferencias-api.js?v=20261007-p7-http-v1";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
@@ -56,8 +56,9 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
   let iniciales = "";
   const imagen = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
     textos: textosCorreos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales });
+  const clientePreferencias = crearClientePreferencias({ fetchImpl: enSerie });
   const superficie = crearSuperficiePreferenciasPortal({
-    cliente: crearClientePreferencias({ fetchImpl: enSerie }),
+    cliente: clientePreferencias,
     correos, imagen,
     actualizar: () => { if (estado.vista === "mis-preferencias") renderizar(); },
     alCargar: ({ estado: actual }) => {
@@ -114,5 +115,6 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     anunciar(aviso.textContent);
   }
   function fijarIniciales(texto) { iniciales = String(texto ?? ""); avatar.fijarIniciales(iniciales); }
-  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales });
+  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales,
+    detenerRegistroErrores: clientePreferencias.detenerRegistroErrores });
 }
