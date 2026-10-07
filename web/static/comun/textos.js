@@ -14,10 +14,10 @@
  *   { "general": { "saludo": "Hola, {nombre}",
  *                  "dias": { "one": "{n} día", "other": "{n} días" } } }
  *
- * Si al catálogo del idioma actual le falta una clave, se usa la del idioma por
- * defecto y se registra en `faltantes` (y, en pruebas Node, se avisa).
+ * `crearTextos` puede mezclar catálogos ya leídos y registrar claves ausentes.
+ * La carga normal usa sólo el catálogo elegido; si falla, carga el de defecto.
  */
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, leerRecursoJSON, localizacionDe } from "./idioma.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, INDICE_IDIOMAS, leerRecursoJSON, localizacionDe, prepararIdiomas } from "./idioma.js";
 
 export const URL_RAIZ_TEXTOS = new URL("../textos/", import.meta.url);
 
@@ -71,7 +71,8 @@ function interpolar(plantilla, variables) {
 }
 
 /** Construye el objeto de textos a partir de catálogos ya leídos. */
-export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = null, avisar } = {}) {
+export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = null, avisar,
+  incidenciaCatalogo = null, incidenciaIndice = null } = {}) {
   if (!esObjeto(respaldo)) throw new TypeError(`catálogo de textos de ${modulo} no válido`);
   const faltantes = [];
   const mensajes = combinar(respaldo, propio ?? respaldo, "", faltantes);
@@ -118,7 +119,7 @@ export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = n
   }
 
   return Object.freeze({
-    modulo, idioma, localizacion, mensajes, faltantes: Object.freeze(faltantes),
+    modulo, idioma, localizacion, mensajes, faltantes: Object.freeze(faltantes), incidenciaCatalogo, incidenciaIndice,
     seccion, traducir, plural, numero, fecha,
   });
 }
@@ -127,16 +128,23 @@ function avisoEnPruebas(mensaje) {
   if (EN_PRUEBAS) globalThis.console?.warn?.(mensaje);
 }
 
-async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar) {
-  const lecturaRespaldo = leer(urlCatalogo(porDefecto, modulo, raiz));
-  const lecturaPropia = idioma === porDefecto ? Promise.resolve(null)
-    : leer(urlCatalogo(idioma, modulo, raiz)).catch(() => undefined);
-  const [respaldo, propio] = await Promise.all([lecturaRespaldo, lecturaPropia]);
-  const efectivo = propio === undefined ? porDefecto : idioma;
-  if (propio === undefined) avisar?.(`textos de ${modulo} (${idioma}): catálogo no disponible; se usa ${porDefecto}`);
+async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar, incidenciaIndice = null) {
+  let catalogo;
+  let incidenciaCatalogo = null;
+  try {
+    catalogo = await leer(urlCatalogo(idioma, modulo, raiz));
+    if (!esObjeto(catalogo)) throw new TypeError(`catálogo de textos de ${modulo} no válido`);
+  }
+  catch (error) {
+    if (idioma === porDefecto) throw error;
+    incidenciaCatalogo = Object.freeze({ codigo: "catalogo_no_disponible", idioma, respaldo: porDefecto, causa: error });
+    avisar?.(`textos de ${modulo} (${idioma}): catálogo no disponible; se usa ${porDefecto}: ${error}`);
+    catalogo = await leer(urlCatalogo(porDefecto, modulo, raiz));
+  }
+  const efectivo = incidenciaCatalogo ? porDefecto : idioma;
   return crearTextos({
-    modulo, idioma: efectivo, localizacion: localizacionDe(efectivo), respaldo,
-    propio: propio ?? null, avisar,
+    modulo, idioma: efectivo, localizacion: localizacionDe(efectivo), respaldo: catalogo,
+    avisar, incidenciaCatalogo, incidenciaIndice,
   });
 }
 
@@ -149,6 +157,18 @@ const CARGAS = new Map();
  * olvida para que se pueda reintentar.
  */
 const LECTURAS = new Map();
+const INDICES_AVISADOS = new Set();
+
+async function incidenciaAlPrepararIndice(avisar) {
+  try { await prepararIdiomas(); return null; }
+  catch (causa) {
+    if (!INDICES_AVISADOS.has(causa)) {
+      INDICES_AVISADOS.add(causa);
+      (avisar ?? avisoEnPruebas)(`índice de idiomas no disponible; se usa el idioma del documento: ${causa}`);
+    }
+    return Object.freeze({ codigo: "indice_no_disponible", idioma: IDIOMA_ACTUAL, causa });
+  }
+}
 export function leerCatalogoUnaVez(url) {
   const clave = url.href;
   if (!LECTURAS.has(clave)) {
@@ -160,21 +180,41 @@ export function leerCatalogoUnaVez(url) {
 }
 
 /**
- * Carga los textos de `modulo` en el idioma de la interfaz, con respaldo en el
- * idioma por defecto. Si falla el catálogo del idioma actual se usa el de
- * respaldo completo; si falla el de respaldo, la carga falla (y no se memoriza).
+ * Carga sólo el catálogo elegido. Si falla, usa el idioma por defecto completo.
+ * Si también falla el de defecto, propaga el error para que la pantalla muestre
+ * su estado de recuperación.
  */
 export function cargarTextos(modulo, {
-  idioma = IDIOMA_ACTUAL, porDefecto = IDIOMA_POR_DEFECTO, leer, raiz = URL_RAIZ_TEXTOS, avisar,
+  idioma, porDefecto, leer, raiz = URL_RAIZ_TEXTOS, avisar, incidenciaIndice = null,
 } = {}) {
+  if (idioma === undefined || porDefecto === undefined) {
+    return incidenciaAlPrepararIndice(avisar).then((incidencia) => {
+      const elegido = INDICE_IDIOMAS.idiomas.some(({ codigo }) => codigo === idioma) ? idioma : IDIOMA_ACTUAL;
+      return cargarTextos(modulo, {
+        idioma: elegido, porDefecto: porDefecto ?? IDIOMA_POR_DEFECTO, leer, raiz, avisar,
+        incidenciaIndice: incidencia ?? incidenciaIndice,
+      });
+    });
+  }
   if (leer !== undefined || avisar !== undefined) {
-    return leerYCrear(modulo, idioma, porDefecto, leer ?? leerRecursoJSON, raiz, avisar ?? avisoEnPruebas);
+    return leerYCrear(modulo, idioma, porDefecto, leer ?? leerRecursoJSON, raiz, avisar ?? avisoEnPruebas, incidenciaIndice);
   }
   const clave = `${raiz.href}|${porDefecto}|${idioma}|${modulo}`;
   if (!CARGAS.has(clave)) {
-    const carga = leerYCrear(modulo, idioma, porDefecto, leerCatalogoUnaVez, raiz, avisoEnPruebas);
+    const carga = leerYCrear(modulo, idioma, porDefecto, leerCatalogoUnaVez, raiz, avisoEnPruebas, incidenciaIndice);
     CARGAS.set(clave, carga);
     carga.catch(() => CARGAS.delete(clave));
   }
   return CARGAS.get(clave);
+}
+
+/** Relee un catálogo tras una incidencia, sin conservar el respaldo anterior. */
+export async function reintentarTextos(modulo, { idioma, porDefecto, raiz = URL_RAIZ_TEXTOS } = {}) {
+  const incidenciaIndice = await incidenciaAlPrepararIndice();
+  const elegido = idioma ?? IDIOMA_ACTUAL;
+  const respaldo = porDefecto ?? IDIOMA_POR_DEFECTO;
+  CARGAS.delete(`${raiz.href}|${respaldo}|${elegido}|${modulo}`);
+  LECTURAS.delete(urlCatalogo(elegido, modulo, raiz).href);
+  LECTURAS.delete(urlCatalogo(respaldo, modulo, raiz).href);
+  return cargarTextos(modulo, { idioma: elegido, porDefecto: respaldo, raiz, incidenciaIndice });
 }
