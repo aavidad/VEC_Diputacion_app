@@ -79,6 +79,22 @@ test("solo monta OSM tras un cálculo OSRM válido y bloquea guardar antes", asy
   assert.equal(r.querySelector("[data-dietas-mapa-comision]"), null);
 });
 
+test("acepta el catálogo validado de su consumidor sin volver a consultarlo", async () => {
+  const r = raiz(); let lecturas = 0;
+  const vista = await montarVistaMapaComisionDietas({ raiz: r, catalogoInicial: catalogo(),
+    codigos: ["18087", "18140"],
+    calculador: { async obtenerCatalogo() { lecturas++; throw new Error("lectura duplicada"); },
+      async calcular() { return calculo(); } },
+    visorRuta: { montar() { return { desmontar() {} }; } },
+  });
+  assert.equal(lecturas, 0);
+  await vista.calcular();
+  assert.equal(vista.obtenerCalculoParaGuardar(["18087", "18140"]).motor, "osrm_interno");
+  vista.desmontar();
+  await assert.rejects(montarVistaMapaComisionDietas({ raiz: raiz(), catalogoInicial: { ...catalogo(), demostracion: true },
+    calculador: { obtenerCatalogo() {}, calcular() {} }, visorRuta: { montar() {} } }), /catalogo provincial/u);
+});
+
 test("cancela el cálculo pendiente cuando cambia la ruta o se desmonta", async () => {
   const r = raiz(); let señal;
   const vista = await montarVistaMapaComisionDietas({
