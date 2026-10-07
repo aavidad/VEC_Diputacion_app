@@ -1,11 +1,16 @@
-package bootstrap
+package firmavec
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +21,57 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
+
+func estadoTLSRealFirmanteV2Prueba(t *testing.T) tls.ConnectionState {
+	t.Helper()
+	ahora := time.Now()
+	_, claveCA, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CA test"},
+		NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), IsCA: true,
+		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature}
+	derCA, err := x509.CreateCertificate(rand.Reader, ca, ca, claveCA.Public(), claveCA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certCA, err := x509.ParseCertificate(derCA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crear := func(serial int64, nombre string, uso x509.ExtKeyUsage) tls.Certificate {
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plantilla := &x509.Certificate{SerialNumber: big.NewInt(serial), Subject: pkix.Name{CommonName: nombre}, DNSNames: []string{nombre},
+			NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{uso}}
+		der, err := x509.CreateCertificate(rand.Reader, plantilla, certCA, pub, claveCA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tls.Certificate{Certificate: [][]byte{der, derCA}, PrivateKey: priv}
+	}
+	raices := x509.NewCertPool()
+	raices.AddCert(certCA)
+	ladoServidor, ladoCliente := net.Pipe()
+	servidor := tls.Server(ladoServidor, &tls.Config{Certificates: []tls.Certificate{crear(2, "server.test", x509.ExtKeyUsageServerAuth)},
+		ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: raices, MinVersion: tls.VersionTLS13})
+	cliente := tls.Client(ladoCliente, &tls.Config{Certificates: []tls.Certificate{crear(3, "proxy.test", x509.ExtKeyUsageClientAuth)},
+		RootCAs: raices, ServerName: "server.test", MinVersion: tls.VersionTLS13})
+	defer servidor.Close()
+	defer cliente.Close()
+	errores := make(chan error, 2)
+	go func() { errores <- servidor.Handshake() }()
+	go func() { errores <- cliente.Handshake() }()
+	for i := 0; i < 2; i++ {
+		if err := <-errores; err != nil {
+			t.Fatal(err)
+		}
+	}
+	return servidor.ConnectionState()
+}
 
 type relojCertificadoFirmaVecPOSTPrueba struct{ ahora time.Time }
 
@@ -39,15 +95,14 @@ func (a *acreditadorCertificadoFirmaVecPOSTPrueba) AcreditarCertificadoFirmaVecV
 
 type emisorCertificadoFirmaVecPOSTPrueba struct {
 	identidad httpseguridad.AsercionProxyIdentidad
-	vinculo   httpseguridad.VinculoPeticionPasarela
 	llamadas  int
 }
 
-func (e *emisorCertificadoFirmaVecPOSTPrueba) Emitir(_ context.Context,
-	a httpseguridad.AsercionProxyIdentidad, v httpseguridad.VinculoPeticionPasarela,
+func (e *emisorCertificadoFirmaVecPOSTPrueba) EmitirRegistroFirmaVecPreparada(_ context.Context,
+	a httpseguridad.AsercionProxyIdentidad,
 ) ([]byte, error) {
 	e.llamadas++
-	e.identidad, e.vinculo = a, v
+	e.identidad = a
 	return []byte("asercion-protegida-de-prueba"), nil
 }
 
@@ -61,16 +116,17 @@ func TestExtractorCertificadoFirmaVecPOSTUsaCanalYCuerpoPreparado(t *testing.T) 
 		emisorID: "https://idp.example.invalid", audiencia: "vec-interna",
 		retirada: ahora.Add(time.Hour), reloj: reloj}
 	cuerpo := []byte(`{"firmado_base64":"JVBERi0xLjcKJSVFT0Y="}`)
-	r := httptest.NewRequest(http.MethodPost, httpinterno.RutaRegistroFirmaVec, strings.NewReader(string(cuerpo)))
+	original := httptest.NewRequest(http.MethodPost, httpinterno.RutaRegistroFirmaVec, strings.NewReader(string(cuerpo)))
 	estado := estadoTLSRealFirmanteV2Prueba(t)
-	r.TLS = &estado
-	vinculo, err := httpseguridad.NuevoVinculoPeticionPasarela(r.Method, r.URL.RequestURI(), cuerpo)
+	original.TLS = &estado
+	r, err := httpseguridad.PrepararPeticionAsercionPasarela(original, httpseguridad.LimiteCuerpoRegistroFirmaVecPasarela)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resultado, err := e.extraer(r, vinculo)
+	defer r.Body.Close()
+	resultado, err := e.Extraer(r)
 	if err != nil || string(resultado) != "asercion-protegida-de-prueba" ||
-		acreditador.llamadas != 1 || emisor.llamadas != 1 || emisor.vinculo != vinculo {
+		acreditador.llamadas != 1 || emisor.llamadas != 1 {
 		t.Fatalf("extracción POST: %v", err)
 	}
 	if emisor.identidad.SujetoID != acreditador.respuesta.PersonaRef ||
@@ -85,14 +141,14 @@ func TestExtractorCertificadoFirmaVecPOSTUsaCanalYCuerpoPreparado(t *testing.T) 
 		t.Fatal("el extractor modificó el cuerpo firmado", err)
 	}
 	r.Header.Set("Authorization", "Bearer inyectado")
-	if _, err := e.extraer(r, vinculo); !errors.Is(err, errIdentidadCertificadoFirmaVecNoDisponible) ||
+	if _, err := e.Extraer(r); !errors.Is(err, errIdentidadCertificadoFirmaVecNoDisponible) ||
 		acreditador.llamadas != 1 || emisor.llamadas != 1 {
 		t.Fatal("cabecera ambiental llegó a autoridades", err)
 	}
 	r.Header.Del("Authorization")
 	r.TLS = &tls.ConnectionState{HandshakeComplete: true, Version: tls.VersionTLS13,
 		PeerCertificates: estado.PeerCertificates, VerifiedChains: estado.VerifiedChains}
-	if _, err := e.extraer(r, vinculo); !errors.Is(err, errIdentidadCertificadoFirmaVecNoDisponible) ||
+	if _, err := e.Extraer(r); !errors.Is(err, errIdentidadCertificadoFirmaVecNoDisponible) ||
 		acreditador.llamadas != 2 || emisor.llamadas != 1 {
 		t.Fatal("certificado sin canal exportable produjo aserción", err)
 	}

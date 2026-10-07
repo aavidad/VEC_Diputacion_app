@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/app/composicion/identidadordinaria"
+	"vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal/firmavec"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -116,12 +117,12 @@ func TestSesionFirmanteCertificadoExigeFuenteComunYCotejosAUT56(t *testing.T) {
 		t.Run(nombre, func(t *testing.T) {
 			mala := q
 			cambiar(&mala)
-			if _, err := f.AbrirSesionFirmanteV2(context.Background(), mala); !errors.Is(err, errSesionFirmanteV2Denegada) {
+			if _, err := f.AbrirSesionFirmanteV2(context.Background(), mala); !errors.Is(err, firmavec.ErrSesionCertificadoDenegada) {
 				t.Fatalf("cotejo ausente admitido: %v", err)
 			}
 		})
 	}
-	if _, err := f.AbrirSesionFirmanteV2(context.Background(), q); !errors.Is(err, errSesionFirmanteV2Denegada) {
+	if _, err := f.AbrirSesionFirmanteV2(context.Background(), q); !errors.Is(err, firmavec.ErrSesionCertificadoDenegada) {
 		t.Fatalf("sin cápsula vinculada abrió sesión: %v", err)
 	}
 }
@@ -140,7 +141,7 @@ func TestSesionFirmanteCertificadoConservaCancelacionSinFiltrarCausa(t *testing.
 		PerfilEsperadoRef: e.seleccion.PerfilActivoRef, RolEsperadoID: e.seleccion.RolID,
 		CertificadoVerificadoEn: e.reloj.Ahora(), CertificadoTLSValidoHasta: e.reloj.Ahora().Add(time.Minute)}
 	_, err = a.fuente.AbrirSesionFirmanteV2(ctx, q)
-	if !errors.Is(err, errSesionFirmanteV2Denegada) || !errors.Is(err, context.Canceled) {
+	if !errors.Is(err, firmavec.ErrSesionCertificadoDenegada) || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelación previa inesperada: %v", err)
 	}
 	opaco := falloSesionFirmanteV2(errors.New("material privado de la autoridad"))
