@@ -229,8 +229,8 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const solicitudesReintentables = !estado.solicitudesNoDisponible && ![401, 403].includes(estado.solicitudesStatus);
   const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesCargando
     ? `<p role="status" aria-busy="true">${textoPortal("txt_comprobando_acceso")}</p>`
-    : estado.solicitudesError ? `<p class="${estado.solicitudesNoDisponible ? "vacio-controlado" : "mensaje-error"}" role="${estado.solicitudesNoDisponible ? "status" : "alert"}">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
-      ? `<button type="button" class="boton-secundario" data-b8-accion="reintentar-solicitudes">${textoPortal("txt_reintentar_historial")}</button>` : ""}` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
+    : estado.solicitudesError ? `<p class="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "vacio-controlado" : "mensaje-error"}" role="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "status" : "alert"}">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
+      ? `<button type="button" class="boton-secundario" data-b8-accion="reintentar-solicitudes">${textoPortal(estado.solicitudesMetaIndisponibles ? "txt_reintentar" : "txt_reintentar_historial")}</button>` : ""}` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
@@ -297,14 +297,25 @@ function renderizarPaso(estado, escaparHTML, candidato) {
 }
 
 export function crearControladorOperacionesSituacion({ estado, renderizar, recargar,
-  resolverDisponibilidadOpcional = () => null, consultarReglas = consultarReglasSituacion,
+  resolverDisponibilidadOpcional = () => null, reintentarDisponibilidadOpcional = async () => {},
+  consultarReglas = consultarReglasSituacion,
   consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
   const disponibilidadDe = (clave, modal) => {
+    if (!modal?.candidato?.participacion_ref) return null;
     const contexto = { bolsa_ref: estado.bolsaSeleccionada, participacion_ref: modal.candidato.participacion_ref };
     const registro = resolverDisponibilidadOpcional(clave, contexto);
-    return registro?.disponible === true && registro.bolsa_ref === contexto.bolsa_ref
+    return ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(registro?.estado)
+      && registro.bolsa_ref === contexto.bolsa_ref
       && registro.participacion_ref === contexto.participacion_ref ? registro : null;
   };
+  const sinDisponibilidad = (registro) => registro?.estado === "indisponible"
+    ? { ok: false, status: null, metaIndisponibles: true,
+      mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") }
+    : registro?.estado === "no_autorizado"
+      ? { ok: false, status: null, noDisponible: true, denegada: true,
+        mensaje: traducirPortal("txt_acceso_denegado") }
+    : { ok: false, status: null, noDisponible: true,
+      mensaje: traducirPortal("txt_operacion_no_disponible_todavia") };
   async function cargar(modalFicha, { incluirSecciones = true } = {}) {
     // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
     if (incluirSecciones) {
@@ -323,9 +334,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
     const solicitudesPrevias = modalFicha.operacionesB8;
     const disponibilidadDocumental = disponibilidadDe("solicitudes_documentales", modalFicha);
-    const consultaDocumental = !disponibilidadDocumental
-      ? Promise.resolve({ ok: false, status: null, noDisponible: true,
-        mensaje: traducirPortal("txt_operacion_no_disponible_todavia") })
+    const consultaDocumental = disponibilidadDocumental?.estado !== "disponible"
+      ? Promise.resolve(sinDisponibilidad(disponibilidadDocumental))
       : !incluirSecciones && [401, 403].includes(solicitudesPrevias?.solicitudesStatus)
       ? Promise.resolve({ ok: false, status: solicitudesPrevias.solicitudesStatus,
         mensaje: solicitudesPrevias.solicitudesError })
@@ -336,9 +346,9 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       consultaDocumental,
     ]);
     if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
-    const solicitudes = disponibilidadDe("solicitudes_documentales", modalFicha)
-      ? solicitudesLeidas : { ok: false, status: null, noDisponible: true,
-        mensaje: traducirPortal("txt_operacion_no_disponible_todavia") };
+    const disponibilidadAlPublicar = disponibilidadDe("solicitudes_documentales", modalFicha);
+    const solicitudes = disponibilidadAlPublicar?.estado === "disponible"
+      ? solicitudesLeidas : sinDisponibilidad(disponibilidadAlPublicar);
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     if (res.ok) modalFicha.candidato = { ...modalFicha.candidato,
       estado_clave: res.situacionVigente?.situacion ?? modalFicha.candidato.estado_clave,
@@ -349,12 +359,16 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: !res.situacionVigente, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones,
         solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
         solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status,
-        solicitudesNoDisponible: solicitudes.noDisponible === true, solicitudesCargando: false }
+        solicitudesNoDisponible: solicitudes.noDisponible === true,
+        solicitudesDenegada: solicitudes.denegada === true,
+        solicitudesMetaIndisponibles: solicitudes.metaIndisponibles === true, solicitudesCargando: false }
       : { ...modalFicha.operacionesB8, carga: "error", noDisponible: true, error: res.mensaje,
         errorStatus: res.status, items: [], cambios: [], causasBaja: causas, transiciones,
         solicitudesDocumentales: [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
         solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status,
-        solicitudesNoDisponible: solicitudes.noDisponible === true, solicitudesCargando: false };
+        solicitudesNoDisponible: solicitudes.noDisponible === true,
+        solicitudesDenegada: solicitudes.denegada === true,
+        solicitudesMetaIndisponibles: solicitudes.metaIndisponibles === true, solicitudesCargando: false };
     renderizar();
   }
 
@@ -362,24 +376,53 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const flujo = modal.operacionesB8;
     const controlador = modal.controladorOperaciones;
     if (!flujo || flujo.solicitudesCargando || !controlador || controlador.signal.aborted
-      || !disponibilidadDe("solicitudes_documentales", modal)
       || [401, 403].includes(flujo.solicitudesStatus)) return;
     flujo.solicitudesCargando = true;
     renderizar();
+    const bolsaRef = estado.bolsaSeleccionada;
+    const participacionRef = modal.candidato.participacion_ref;
+    let disponibilidad = disponibilidadDe("solicitudes_documentales", modal);
+    if (disponibilidad?.estado === "indisponible") {
+      try {
+        await reintentarDisponibilidadOpcional("solicitudes_documentales", {
+          bolsa_ref: bolsaRef, participacion_ref: participacionRef,
+        });
+      } catch {
+        console.warn({ origen: "bolsa.solicitudes_documentales.metadatos", codigo: "no_disponible" });
+      }
+    }
+    if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo
+      || estado.bolsaSeleccionada !== bolsaRef || modal.candidato?.participacion_ref !== participacionRef) return;
+    disponibilidad = disponibilidadDe("solicitudes_documentales", modal);
+    if (disponibilidad?.estado !== "disponible") {
+      const resultado = sinDisponibilidad(disponibilidad);
+      flujo.solicitudesCargando = false;
+      flujo.solicitudesDocumentales = [];
+      flujo.solicitudesError = resultado.mensaje;
+      flujo.solicitudesStatus = null;
+      flujo.solicitudesNoDisponible = resultado.noDisponible === true;
+      flujo.solicitudesDenegada = resultado.denegada === true;
+      flujo.solicitudesMetaIndisponibles = resultado.metaIndisponibles === true;
+      renderizar();
+      return;
+    }
     let respuesta;
     try {
-      respuesta = await consultarDocumentales(estado.bolsaSeleccionada, modal.candidato.participacion_ref,
+      respuesta = await consultarDocumentales(bolsaRef, participacionRef,
         { signal: controlador.signal });
     } catch {
       respuesta = { ok: false, status: 0, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
     }
     if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo) return;
-    if (!disponibilidadDe("solicitudes_documentales", modal)) {
+    if (disponibilidadDe("solicitudes_documentales", modal)?.estado !== "disponible") {
+      const resultado = sinDisponibilidad(disponibilidadDe("solicitudes_documentales", modal));
       flujo.solicitudesCargando = false;
       flujo.solicitudesDocumentales = [];
-      flujo.solicitudesError = traducirPortal("txt_operacion_no_disponible_todavia");
+      flujo.solicitudesError = resultado.mensaje;
       flujo.solicitudesStatus = null;
-      flujo.solicitudesNoDisponible = true;
+      flujo.solicitudesNoDisponible = resultado.noDisponible === true;
+      flujo.solicitudesDenegada = resultado.denegada === true;
+      flujo.solicitudesMetaIndisponibles = resultado.metaIndisponibles === true;
       renderizar();
       return;
     }
@@ -388,6 +431,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     flujo.solicitudesError = respuesta.ok ? "" : respuesta.mensaje;
     flujo.solicitudesStatus = respuesta.ok ? 200 : respuesta.status;
     flujo.solicitudesNoDisponible = false;
+    flujo.solicitudesDenegada = false;
+    flujo.solicitudesMetaIndisponibles = false;
     renderizar();
   }
 
@@ -537,7 +582,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   function instalar(documento = globalThis.document) {
     instalarHuellaArchivo(documento);
     documento.addEventListener("click", (evento) => {
-      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar, resolverDisponibilidadOpcional })) return;
+      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar,
+        resolverDisponibilidadOpcional, reintentarDisponibilidadOpcional })) return;
       if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
     });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });

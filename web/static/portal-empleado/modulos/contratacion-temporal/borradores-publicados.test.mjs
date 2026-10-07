@@ -129,7 +129,7 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
   const entornoDescarga = { URL: { createObjectURL: () => "blob:prueba", revokeObjectURL: (url) => revocadas.push(url) },
     document: { body: { append() {} }, createElement: () => ({ hidden: false, click() { clics.push(this.download); }, remove() {} }) } };
   const panel = montarBorradoresPublicados({ raiz, contexto,
-    disponibilidad: { disponible: true, ...contexto }, cliente, entornoDescarga });
+    disponibilidad: { estado: "disponible", ...contexto }, cliente, entornoDescarga });
   await new Promise((resolver) => setImmediate(resolver));
   assert.match(raiz.innerHTML, /Acta ampliada/u);
   const boton = { dataset: { bpDescargar: "acta_ampliada", bpFormato: "pdf" },
@@ -151,17 +151,62 @@ test("sin disponibilidad exacta no consulta; con disponibilidad, un 404 conserva
   let lecturas = 0;
   const cliente = { async consultarDisponibles() { lecturas++; throw Object.assign(new Error("ruta"), { estado: 404 }); },
     async descargar() { assert.fail("sin catálogo no se descarga"); } };
-  for (const disponibilidad of [null, { disponible: true, expediente_ref: "otro", version_observada: 8 },
-    { disponible: true, ...contexto, version_observada: 7 }]) {
+  for (const disponibilidad of [null, { estado: "disponible", expediente_ref: "otro", version_observada: 8 },
+    { estado: "disponible", ...contexto, version_observada: 7 },
+    { estado: "no_autorizado", ...contexto }, { estado: "sin_montaje", ...contexto }]) {
     montarBorradoresPublicados({ raiz, contexto, disponibilidad, cliente });
     assert.equal(lecturas, 0);
     assert.equal(raiz.hidden, true);
   }
   const panel = montarBorradoresPublicados({ raiz, contexto,
-    disponibilidad: { disponible: true, ...contexto }, cliente });
+    disponibilidad: { estado: "disponible", ...contexto }, cliente });
   await new Promise((resolver) => setImmediate(resolver));
   assert.equal(lecturas, 1);
   assert.match(raiz.innerHTML, /data-bp-reintentar/u);
   assert.equal(raiz.hidden, false);
   panel.desmontar();
+});
+
+test("metadatos indisponibles no consultan borradores y un reintento habilita una lectura", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", hidden: false, contains: () => true,
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
+    replaceChildren() { this.innerHTML = ""; } };
+  let estadoCap = "indisponible", lecturas = 0, refrescos = 0, resolver;
+  const cliente = { consultarDisponibles: async () => { lecturas++; return validarBorradoresDisponibles(catalogo); },
+    descargar: async () => assert.fail("sin petición de descarga") };
+  const panel = montarBorradoresPublicados({ raiz, contexto,
+    obtenerDisponibilidad: () => ({ estado: estadoCap, ...contexto }),
+    reintentarMetadatos: () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); }, cliente });
+  assert.equal(lecturas, 0);
+  assert.match(raiz.innerHTML, /No se pudo comprobar la disponibilidad de los documentos/u);
+  eventos.get("click")({ target: { closest: () => ({ hasAttribute: (clave) => clave === "data-bp-reintentar" }) } });
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(refrescos, 1);
+  assert.equal(lecturas, 0, "el reintento pendiente solo consulta metadatos");
+  estadoCap = "disponible";
+  resolver();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(lecturas, 1);
+  panel.desmontar();
+});
+
+test("un refresco de metadatos tardío no consulta documentos tras desmontar", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", hidden: false, contains: () => true,
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
+    replaceChildren() { this.innerHTML = ""; } };
+  let estadoCap = "indisponible", lecturas = 0, resolver;
+  const panel = montarBorradoresPublicados({ raiz, contexto,
+    obtenerDisponibilidad: () => ({ estado: estadoCap, ...contexto }),
+    reintentarMetadatos: () => new Promise((terminar) => { resolver = terminar; }),
+    cliente: { consultarDisponibles: async () => { lecturas++; return validarBorradoresDisponibles(catalogo); },
+      descargar: async () => assert.fail("sin descarga") } });
+  eventos.get("click")({ target: { closest: () => ({ hasAttribute: (clave) => clave === "data-bp-reintentar" }) } });
+  await new Promise((terminar) => setImmediate(terminar));
+  panel.desmontar();
+  estadoCap = "disponible";
+  resolver();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(lecturas, 0);
 });

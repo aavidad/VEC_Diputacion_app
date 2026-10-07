@@ -337,7 +337,8 @@ export function propuestaPlazoRespuesta(datos) {
 }
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null,
-  resolverDisponibilidadOpcional = () => null, documento = globalThis.document }) {
+  resolverDisponibilidadOpcional = () => null, reintentarDisponibilidadOpcional = async () => {},
+  documento = globalThis.document }) {
   const controladoresLectura = new Map();
   let controladorSeleccionMasiva = null;
   let revisionSeleccionMasiva = 0;
@@ -455,6 +456,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado,
     renderizar,
     resolverDisponibilidadOpcional,
+    reintentarDisponibilidadOpcional,
     recargar: async (participacionRef) => {
       const bolsaRef = estado.bolsaSeleccionada;
       const modal = estado.modalFicha;

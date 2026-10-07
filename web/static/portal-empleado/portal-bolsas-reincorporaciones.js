@@ -162,11 +162,17 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
   modal.controladorReincorporaciones?.abort();
   const disponible = () => {
     const actual = obtenerDisponibilidad();
-    return actual?.disponible === true && actual.bolsa_ref === estado.bolsaSeleccionada
-      && actual.participacion_ref === modal.candidato.participacion_ref;
+    return actual && actual.bolsa_ref === estado.bolsaSeleccionada
+      && actual.participacion_ref === modal.candidato?.participacion_ref
+      && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(actual.estado)
+      ? actual.estado : null;
   };
-  if (!disponible()) {
-    modal.reincorporacionesTitular = { carga: "no_disponible", items: [], pagina: 0 };
+  if (disponible() !== "disponible") {
+    const estadoCap = disponible();
+    modal.reincorporacionesTitular = { carga: estadoCap === "indisponible" ? "metadatos"
+      : estadoCap === "no_autorizado" ? "denegado" : "no_disponible",
+    error: estadoCap === "no_autorizado" ? traducirPortal("reincorporacion_error_403") : "",
+    items: [], pagina: 0 };
     if (renderizarAlIniciar) renderizar();
     return;
   }
@@ -176,8 +182,12 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
   if (renderizarAlIniciar) renderizar();
   const respuesta = await consultar(estado.bolsaSeleccionada, modal.candidato.participacion_ref, { signal: controlador.signal });
   if (controlador.signal.aborted || estado.modalFicha !== modal) return;
-  if (!disponible()) {
-    modal.reincorporacionesTitular = { carga: "no_disponible", items: [], pagina: 0 };
+  if (disponible() !== "disponible") {
+    const estadoCap = disponible();
+    modal.reincorporacionesTitular = { carga: estadoCap === "indisponible" ? "metadatos"
+      : estadoCap === "no_autorizado" ? "denegado" : "no_disponible",
+    error: estadoCap === "no_autorizado" ? traducirPortal("reincorporacion_error_403") : "",
+    items: [], pagina: 0 };
     renderizar();
     return;
   }
@@ -201,6 +211,8 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
   let contenido;
   if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
   else if (carga === "no_disponible") contenido = `<p class="vacio-controlado" role="status">${traducirPortal("reincorporacion_error_404")}</p>`;
+  else if (carga === "metadatos") contenido = `<p class="${estado.metadatosCargando ? "vacio-controlado" : "mensaje-error"}" role="${estado.metadatosCargando ? "status" : "alert"}">${traducirPortal(estado.metadatosCargando ? "txt_comprobando_acceso" : "reincorporacion_error_503")}</p>
+    <button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar" ${estado.metadatosCargando ? "disabled" : ""}>${t("reintentar")}</button>`;
   else if (carga === "denegado") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_403"))}</p>`;
   else if (carga === "pendiente" || carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_red"))}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar">${t("reintentar")}</button>`;
   else if (!estado.items?.length) contenido = `<p class="vacio-controlado" role="status">${t("vacio")}</p>`;
@@ -222,7 +234,7 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
 }
 
 export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar,
-  resolverDisponibilidadOpcional = () => null } = {}) {
+  resolverDisponibilidadOpcional = () => null, reintentarDisponibilidadOpcional = async () => {} } = {}) {
   const control = evento.target?.closest?.("[data-reincorporacion-accion]");
   if (!control || !estado?.modalFicha) return false;
   evento.preventDefault();
@@ -231,6 +243,25 @@ export function manejarClickReincorporacionesTitular(evento, { estado, renderiza
     const modal = estado.modalFicha;
     const contexto = { bolsa_ref: estado.bolsaSeleccionada, participacion_ref: modal.candidato.participacion_ref };
     const obtenerDisponibilidad = () => resolverDisponibilidadOpcional("reincorporaciones_titular", contexto);
+    if (modal.reincorporacionesTitular?.carga === "metadatos") {
+      if (modal.reincorporacionesTitular.metadatosCargando) return true;
+      if (obtenerDisponibilidad()?.estado !== "indisponible") {
+        void cargarReincorporacionesTitularFicha(modal, { estado, renderizar, obtenerDisponibilidad,
+          ...(consultar ? { consultar } : {}) });
+        return true;
+      }
+      modal.reincorporacionesTitular.metadatosCargando = true;
+      renderizar();
+      void Promise.resolve().then(() => reintentarDisponibilidadOpcional("reincorporaciones_titular", contexto))
+        .catch(() => { console.warn({ origen: "bolsa.reincorporaciones.metadatos", codigo: "no_disponible" }); })
+        .then(() => {
+          if (estado.modalFicha !== modal || estado.bolsaSeleccionada !== contexto.bolsa_ref
+            || modal.candidato?.participacion_ref !== contexto.participacion_ref) return;
+          void cargarReincorporacionesTitularFicha(modal, { estado, renderizar, obtenerDisponibilidad,
+            ...(consultar ? { consultar } : {}) });
+        });
+      return true;
+    }
     void cargarReincorporacionesTitularFicha(modal, { estado, renderizar, obtenerDisponibilidad,
       ...(consultar ? { consultar } : {}) });
   } else if (control.dataset.reincorporacionAccion === "pagina" && estado.modalFicha.reincorporacionesTitular) {

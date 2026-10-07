@@ -12,11 +12,11 @@ import {
 } from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
 
 const cargarReincorporacionesTitularFicha = (modal, opciones) => cargarReincorporacionesTitularFichaReal(modal, {
-  disponibilidad: { disponible: true, bolsa_ref: opciones.estado.bolsaSeleccionada,
+  disponibilidad: { estado: "disponible", bolsa_ref: opciones.estado.bolsaSeleccionada,
     participacion_ref: modal.candidato.participacion_ref }, ...opciones,
 });
 const manejarClickReincorporacionesTitular = (evento, opciones) => manejarClickReincorporacionesTitularReal(evento, {
-  resolverDisponibilidadOpcional: (_clave, contexto) => ({ disponible: true, ...contexto }), ...opciones,
+  resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), ...opciones,
 });
 
 test("origen desconocido u otra participación no consulta; 404 autorizado conserva reintento", async () => {
@@ -27,13 +27,19 @@ test("origen desconocido u otra participación no consulta; 404 autorizado conse
     mensaje: "Consulta temporalmente no disponible" }; };
   await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar });
   await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
-    disponibilidad: { disponible: true, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:otra" } });
+    disponibilidad: { estado: "disponible", bolsa_ref: "bolsa:uno", participacion_ref: "participacion:otra" } });
+  for (const estadoCap of ["no_autorizado", "sin_montaje"]) {
+    await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
+      disponibilidad: { estado: estadoCap, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" } });
+    assert.equal(modal.reincorporacionesTitular.carga,
+      estadoCap === "no_autorizado" ? "denegado" : "no_disponible");
+  }
   assert.equal(llamadas, 0);
   assert.equal(modal.reincorporacionesTitular.carga, "no_disponible");
   assert.doesNotMatch(renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular, escaparHTML }),
     /data-reincorporacion-accion="reintentar"/u);
   await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
-    disponibilidad: { disponible: true, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" } });
+    disponibilidad: { estado: "disponible", bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" } });
   assert.equal(llamadas, 1);
   assert.equal(modal.reincorporacionesTitular.carga, "error");
   assert.match(renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular, escaparHTML }),
@@ -45,7 +51,7 @@ test("una disponibilidad revocada durante la lectura no publica el historial tar
   const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
   let resolver;
   let vigente = true;
-  const registro = { disponible: true, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" };
+  const registro = { estado: "disponible", bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" };
   const pendiente = cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {},
     obtenerDisponibilidad: () => vigente ? registro : null,
     consultar: () => new Promise((completar) => { resolver = completar; }) });
@@ -54,6 +60,32 @@ test("una disponibilidad revocada durante la lectura no publica el historial tar
   await pendiente;
   assert.deepEqual(modal.reincorporacionesTitular.items, []);
   assert.equal(modal.reincorporacionesTitular.carga, "no_disponible");
+});
+
+test("metadatos indisponibles muestran reintento sin leer la ficha hasta recuperar capacidad", async () => {
+  const modal = { candidato: { participacion_ref: "participacion:uno" } };
+  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+  let estadoCap = "indisponible", consultas = 0, refrescos = 0, resolver;
+  const registro = () => ({ estado: estadoCap, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" });
+  const consultar = async () => { consultas++; return { ok: true, datos: [] }; };
+  await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
+    obtenerDisponibilidad: registro });
+  assert.equal(consultas, 0);
+  assert.equal(modal.reincorporacionesTitular.carga, "metadatos");
+  assert.match(renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular, escaparHTML }),
+    /data-reincorporacion-accion="reintentar"/u);
+  manejarClickReincorporacionesTitularReal({ target: { closest: () => ({ dataset: { reincorporacionAccion: "reintentar" } }) },
+    preventDefault() {} }, { estado, renderizar() {}, consultar,
+    resolverDisponibilidadOpcional: registro,
+    reintentarDisponibilidadOpcional: () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); } });
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(refrescos, 1);
+  assert.equal(consultas, 0);
+  estadoCap = "disponible";
+  resolver();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(consultas, 1);
+  assert.equal(modal.reincorporacionesTitular.carga, "listo");
 });
 
 const escaparHTML = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");

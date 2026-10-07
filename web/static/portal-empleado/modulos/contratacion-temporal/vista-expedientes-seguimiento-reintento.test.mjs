@@ -54,7 +54,7 @@ function crearDOM() {
   return { raiz, zona: () => zona, documento };
 }
 
-async function escenario(capacidad, disponibilidad = true) {
+async function escenario(capacidad, disponibilidad = true, reintentarDisponibilidadOpcional = async () => {}) {
   const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: {
     async consultarCuadroRRHH() { return { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
       generada_en: "2026-09-03T09:05:00Z", expedientes: [resumen], hay_mas: false }; },
@@ -74,7 +74,8 @@ async function escenario(capacidad, disponibilidad = true) {
   const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador,
     resolverDisponibilidadOpcional: (clave, contexto) => clave === "reincorporacion_titular" && disponibilidad
       ? (typeof disponibilidad === "function" ? disponibilidad(contexto)
-        : typeof disponibilidad === "object" ? disponibilidad : { disponible: true, ...contexto }) : null,
+        : typeof disponibilidad === "object" ? disponibilidad : { estado: "disponible", ...contexto }) : null,
+    reintentarDisponibilidadOpcional,
     llamamiento: { cliente: {
       seguimientoCese: { async consultarSeguimientoCese() {
         lecturas++;
@@ -97,7 +98,7 @@ async function escenario(capacidad, disponibilidad = true) {
 }
 
 test("la lectura de cese no consulta capacidad de otro expediente ni de origen desconocido", async () => {
-  for (const disponibilidad of [false, { disponible: true, expediente_ref: "otro", version_observada: 8 }]) {
+  for (const disponibilidad of [false, { estado: "disponible", expediente_ref: "otro", version_observada: 8 }]) {
     const caso = await escenario(() => assert.fail("capacidad no consultable"), disponibilidad);
     try {
       const panel = caso.dom.zona()?.hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
@@ -112,7 +113,7 @@ test("la lectura de cese no consulta capacidad de otro expediente ni de origen d
 test("si se revoca la disponibilidad mientras responde capacidad no aparece el formulario", async () => {
   let resolver, vigente = true;
   const caso = await escenario(() => new Promise((completar) => { resolver = completar; }),
-    (contexto) => vigente ? { disponible: true, ...contexto } : null);
+    (contexto) => vigente ? { estado: "disponible", ...contexto } : null);
   try {
     const panel = caso.dom.zona()?.hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
     panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
@@ -130,7 +131,7 @@ test("si se revoca la disponibilidad mientras responde capacidad no aparece el f
 test("la disponibilidad revocada entre programar y enviar capacidad evita el POST de lectura", async () => {
   let consultas = 0;
   const caso = await escenario(() => assert.fail("no se envía la consulta de capacidad"),
-    (contexto) => ++consultas === 1 ? { disponible: true, ...contexto } : null);
+    (contexto) => ++consultas === 1 ? { estado: "disponible", ...contexto } : null);
   try {
     const panel = caso.dom.zona()?.hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
     panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
@@ -139,6 +140,29 @@ test("la disponibilidad revocada entre programar y enviar capacidad evita el POS
     assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "no_disponible");
     assert.equal(caso.dom.zona().hijos.some((h) => h.isConnected
       && h.innerHTML.includes("data-ct-rrhh-reincorporacion")), false);
+  } finally { caso.modulo.desmontar(); }
+});
+
+test("metadatos de reincorporación indisponibles solo se refrescan antes del POST de lectura", async () => {
+  let estadoCap = "indisponible", refrescos = 0, resolver;
+  const caso = await escenario(() => true, (contexto) => ({ estado: estadoCap, ...contexto }),
+    () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); });
+  try {
+    const panel = caso.dom.zona()?.hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+    panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar(); await esperar();
+    assert.equal(caso.capacidades(), 0);
+    const aviso = caso.dom.zona().hijos.find((h) => h.className === "ct-exp-mensaje ct-tono-peligro");
+    assert.ok(aviso);
+    aviso.hijos[1].escuchas.get("click")();
+    await esperar();
+    assert.equal(refrescos, 1);
+    assert.equal(caso.capacidades(), 0);
+    estadoCap = "disponible";
+    resolver();
+    await esperar(); await esperar();
+    assert.equal(caso.capacidades(), 1);
+    assert.equal(caso.dom.zona().dataset.ctCapacidadReincorporacion, "permitida");
   } finally { caso.modulo.desmontar(); }
 });
 
