@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -97,6 +98,65 @@ func TestErroresClienteRechazaFronterasYJSONNoCerrado(t *testing.T) {
 			h.atenderErroresCliente(w, r, principalConPermisosExpresosPrueba("vec.session.read"))
 			if w.Code != tc.estado || len(emisor.solicitudes) != 0 {
 				t.Fatalf("status=%d incidencias=%d; esperado %d, 0", w.Code, len(emisor.solicitudes), tc.estado)
+			}
+		})
+	}
+}
+
+type lectorTelemetriaFallidoPrueba struct{}
+
+func (lectorTelemetriaFallidoPrueba) Read([]byte) (int, error) {
+	return 0, errors.New("TOKEN_PRIVADO_SINTETICO")
+}
+
+func TestErroresClienteRegistraClaseCerradaSinTextoDeFallos(t *testing.T) {
+	const secreto = "TOKEN_PRIVADO_SINTETICO"
+	casos := []struct {
+		nombre string
+		crear  func() *http.Request
+		estado int
+		clase  falloValidacionTelemetria
+	}{
+		{"origen malformado", func() *http.Request {
+			r := peticionErrorClientePrueba(cuerpoErrorClientePrueba)
+			r.Header.Set("Origin", "http://%"+secreto)
+			return r
+		}, 403, falloOrigenTelemetria},
+		{"JSON malformado", func() *http.Request {
+			return peticionErrorClientePrueba(`{"pantalla":"` + secreto + `"`)
+		}, 400, falloJSONTelemetria},
+		{"lectura fallida", func() *http.Request {
+			r := peticionErrorClientePrueba(cuerpoErrorClientePrueba)
+			r.Body = io.NopCloser(lectorTelemetriaFallidoPrueba{})
+			return r
+		}, 413, falloLecturaTelemetria},
+	}
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			r := tc.crear()
+			if tc.clase == falloOrigenTelemetria {
+				if valido, clase := origenMismoCanal(r); valido || clase != tc.clase {
+					t.Fatalf("origen = (%v, %q); esperado rechazo %q", valido, clase, tc.clase)
+				}
+			} else {
+				consulta := tc.crear()
+				if _, _, clase := leerErrorCliente(consulta); clase != tc.clase {
+					t.Fatalf("clase = %q; esperada %q", clase, tc.clase)
+				}
+			}
+			emisor := &emisorErroresClientePrueba{}
+			h := &Handler{emisorIncidencias: emisor}
+			w := httptest.NewRecorder()
+			h.atenderErroresCliente(w, r, principalConPermisosExpresosPrueba("vec.session.read"))
+			if w.Code != tc.estado || len(emisor.solicitudes) != 1 {
+				t.Fatalf("status=%d incidencias=%d; esperado %d, 1", w.Code, len(emisor.solicitudes), tc.estado)
+			}
+			s := emisor.solicitudes[0]
+			if s.Codigo != domain.IncidenciaRecoleccionDegradada || s.Componente != domain.ComponenteIncidenciaSupervision || s.Etapa != domain.EtapaIncidenciaValidacion {
+				t.Fatalf("incidencia no cerrada: %#v", s)
+			}
+			if strings.Contains(w.Body.String(), secreto) || strings.Contains(string(s.Codigo)+string(s.Componente)+string(s.Etapa), secreto) {
+				t.Fatal("se expuso material de entrada")
 			}
 		})
 	}
