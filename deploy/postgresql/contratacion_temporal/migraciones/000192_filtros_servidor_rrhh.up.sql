@@ -12,6 +12,20 @@ BEGIN
  OR pg_catalog.to_regtype('vec_contratacion_temporal.consulta_cuadro_rrhh_v2') IS NOT NULL
  OR pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR pg_catalog.to_regclass('vec_contratacion_temporal.control_causal_familia_cursor_rrhh') IS NULL
+ -- CT192 mantiene el protocolo textual vivo. CT89 alteraría estas dos
+ -- fuentes y requiere una evolución coordinada de fachada/recibo/Go aparte.
+ OR (SELECT p.proowner='vec_contratacion_temporal_propietario'::pg_catalog.regrole
+     AND p.prosecdef AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
+     AND p.proconfig::text='{search_path=pg_catalog,row_security=on,TimeZone=UTC,lock_timeout=1s,statement_timeout=4s,idle_in_transaction_session_timeout=6s}'
+     AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')='9dad01ea5f09085dcb808a29d9e3df370b953603f6ae73851a85c07044503725'
+     FROM pg_catalog.pg_proc p
+     WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.preparar_salida_cursor_cuadro_rrhh_v1(vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1,vec_contratacion_temporal.materializacion_cuadro_rrhh_v1)')) IS DISTINCT FROM true
+ OR (SELECT p.proowner='vec_contratacion_temporal_propietario'::pg_catalog.regrole
+     AND p.prosecdef AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
+     AND p.proconfig::text='{search_path=pg_catalog,row_security=on,TimeZone=UTC,lock_timeout=1s,statement_timeout=4s,idle_in_transaction_session_timeout=6s}'
+     AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')='7f949e4d036b6ecfff72130b80bd29bbc823f8619aaef1f3227fe28aef349660'
+     FROM pg_catalog.pg_proc p
+     WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.aplicar_efectos_cursor_cuadro_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1,vec_contratacion_temporal.salida_cursor_cuadro_rrhh_v1,vec_contratacion_temporal.evidencia_consumo_nuevo_rrhh_v3,bytea,vec_contratacion_temporal.resultado_cierre_prueba_rrhh_v2)')) IS DISTINCT FROM true
  OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc p
      WHERE p.oid=pg_catalog.to_regprocedure('vec_contratacion_temporal.materializar_cuadro_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,vec_contratacion_temporal.estado_cursor_entrada_cuadro_rrhh_v1)'))
     IS DISTINCT FROM '174ee9497abf84536e59d96b8c1331dea84eeb9efde1d3e5777ca314dc975d76'
