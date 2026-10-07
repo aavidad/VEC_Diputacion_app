@@ -34,6 +34,9 @@ test("un locale inválido y un respaldo disfrazado de inglés fallan la guarda",
     leer("es"), leer("en"), cargarCatalogosContratacionEnIdioma(modulo, "zz"),
   ]);
   assert.match(validarRespuesta(modulo, "zz", invalido, en.general).join(" "), /idioma solicitado/u);
+  assert.match(validarRespuesta(modulo, "zz", {
+    idioma: "zz", incidenciaCatalogo: null, incidenciaIndice: null, actual: en.general,
+  }, en.general).join(" "), /locale zz ausente/u);
   const falso = { idioma: "en", incidenciaCatalogo: null, incidenciaIndice: null, actual: es.general };
   assert.match(validarRespuesta(modulo, "en", falso, en.general).join(" "), /no coincide/u);
 });
