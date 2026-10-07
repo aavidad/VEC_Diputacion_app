@@ -5,6 +5,8 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, crearLectorReglasCompartido } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
 import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261006-reglas-una-lectura-v1";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
@@ -448,6 +450,13 @@ test("el lector compartido hace una sola lectura para peticiones simultáneas y 
 test("abrir el llamamiento pide las reglas vigentes una sola vez", async () => {
   const original = globalThis.fetch;
   let lecturas = 0;
+  let avisarLecturasTerminadas;
+  const lecturasTerminadas = new Promise((resolver) => { avisarLecturasTerminadas = resolver; });
+  let consumidoresTerminados = 0;
+  const esperarConsumidor = (cargar) => async () => {
+    try { return await cargar(); }
+    finally { if (++consumidoresTerminados === 3) avisarLecturasTerminadas(); }
+  };
   globalThis.fetch = async (ruta, opciones) => {
     if (ruta !== "/api/vec/reglas/vigentes") return original(ruta, opciones);
     lecturas++;
@@ -458,9 +467,19 @@ test("abrir el llamamiento pide las reglas vigentes una sola vez", async () => {
   try {
     const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1").data }),
       consultarCapacidad: async () => ({ ok: true, puede_publicar: false }) };
-    const superficie = crearSuperficieRRHHPlazosReal({ cliente, traducir: crearTraductorRRHHPlazos() });
+    const superficie = crearSuperficieRRHHPlazosReal({ cliente, traducir: crearTraductorRRHHPlazos(),
+      cargarEjemplo: esperarConsumidor(cargarEjemploPlazasSuperficie),
+      cargarPlazo: esperarConsumidor(cargarPlazoCatalogo),
+      cargarConfirmacion: esperarConsumidor(cargarConfirmacionSuperficie) });
     superficie.activar("bolsa:1");
-    for (let i = 0; i < 20; i++) await turno();
+    let limite;
+    try {
+      await Promise.race([lecturasTerminadas, new Promise((_resolver, rechazar) => {
+        limite = setTimeout(() => rechazar(new Error("no terminaron las lecturas de reglas")), 2_000);
+      })]);
+    } finally {
+      clearTimeout(limite);
+    }
     assert.equal(lecturas, 1);
   } finally {
     globalThis.fetch = original;
