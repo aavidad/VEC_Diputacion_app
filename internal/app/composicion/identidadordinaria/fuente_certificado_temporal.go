@@ -82,16 +82,45 @@ type ConfiguracionFuenteCertificadoTemporal struct {
 	Politica     PoliticaCertificadoTemporal
 }
 
+// PerfilNominalAsignacionVigente selecciona sólo el perfil de una cuenta
+// privada. La versión de rol procede de la asignación V3 actual de esa persona
+// y perfil, consultada después de resolver F1 en la misma petición.
+type PerfilNominalAsignacionVigente struct {
+	PerfilActivoRef string
+}
+
+// ConfiguracionFuenteCertificadoTemporalConAsignacionVigente abre de forma
+// explícita la lectura de la asignación actual. No interpreta una versión de
+// rol vacía del constructor con versión fijada como selección dinámica.
+type ConfiguracionFuenteCertificadoTemporalConAsignacionVigente struct {
+	Identidad    *httpseguridad.ServicioIdentidad
+	Revalidador  core.RevalidadorAutenticacionActorV1
+	Resolutor    core.ResolutorContextoActorRegistradoV2
+	Autorizacion ports.FuenteAutorizacion
+	Reloj        core.RelojVinculoAutenticacionActorV2
+	PorCuenta    map[string]PerfilNominalAsignacionVigente
+	Politica     PoliticaCertificadoTemporal
+}
+
+type modoVersionRolCertificadoTemporal uint8
+
+const (
+	modoVersionRolFijada modoVersionRolCertificadoTemporal = iota + 1
+	modoAsignacionVigente
+)
+
 // FuenteCertificadoTemporal comparte las autoridades de identidad y V3 con
 // otros consumidores. No conserva sesiones, actores ni decisiones entre usos.
 type FuenteCertificadoTemporal struct {
-	identidad    *httpseguridad.ServicioIdentidad
-	revalidador  core.RevalidadorAutenticacionActorV1
-	resolutor    core.ResolutorContextoActorRegistradoV2
-	autorizacion ports.FuenteAutorizacion
-	reloj        core.RelojVinculoAutenticacionActorV2
-	porCuenta    map[string]PerfilNominal
-	politica     PoliticaCertificadoTemporal
+	identidad        *httpseguridad.ServicioIdentidad
+	revalidador      core.RevalidadorAutenticacionActorV1
+	resolutor        core.ResolutorContextoActorRegistradoV2
+	autorizacion     ports.FuenteAutorizacion
+	reloj            core.RelojVinculoAutenticacionActorV2
+	porCuenta        map[string]PerfilNominal
+	porCuentaVigente map[string]PerfilNominalAsignacionVigente
+	modoRol          modoVersionRolCertificadoTemporal
+	politica         PoliticaCertificadoTemporal
 }
 
 func NuevaFuenteCertificadoTemporal(c ConfiguracionFuenteCertificadoTemporal) (*FuenteCertificadoTemporal, error) {
@@ -110,7 +139,33 @@ func NuevaFuenteCertificadoTemporal(c ConfiguracionFuenteCertificadoTemporal) (*
 		}
 		porCuenta[cuenta] = nominal
 	}
-	return &FuenteCertificadoTemporal{c.Identidad, c.Revalidador, c.Resolutor, c.Autorizacion, c.Reloj, porCuenta, c.Politica}, nil
+	return &FuenteCertificadoTemporal{
+		identidad: c.Identidad, revalidador: c.Revalidador, resolutor: c.Resolutor,
+		autorizacion: c.Autorizacion, reloj: c.Reloj, porCuenta: porCuenta,
+		modoRol: modoVersionRolFijada, politica: c.Politica,
+	}, nil
+}
+
+func NuevaFuenteCertificadoTemporalConAsignacionVigente(c ConfiguracionFuenteCertificadoTemporalConAsignacionVigente) (*FuenteCertificadoTemporal, error) {
+	if c.Identidad == nil || dependenciaNula(c.Revalidador) || dependenciaNula(c.Resolutor) ||
+		dependenciaNula(c.Autorizacion) || dependenciaNula(c.Reloj) ||
+		len(c.PorCuenta) == 0 || len(c.PorCuenta) > 512 || !c.Politica.valida(c.Reloj.Ahora()) {
+		return nil, ErrCertificadoTemporalNoDisponible
+	}
+	porCuenta := make(map[string]PerfilNominalAsignacionVigente, len(c.PorCuenta))
+	for cuenta, nominal := range c.PorCuenta {
+		if (core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{
+			CuentaRef: cuenta, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceSubstantial,
+		}, PerfilActivoRef: nominal.PerfilActivoRef}).Validar() != nil {
+			return nil, ErrCertificadoTemporalNoDisponible
+		}
+		porCuenta[cuenta] = nominal
+	}
+	return &FuenteCertificadoTemporal{
+		identidad: c.Identidad, revalidador: c.Revalidador, resolutor: c.Resolutor,
+		autorizacion: c.Autorizacion, reloj: c.Reloj, porCuentaVigente: porCuenta,
+		modoRol: modoAsignacionVigente, politica: c.Politica,
+	}, nil
 }
 
 // SesionRegistrada procede de la cápsula ya vinculada por la fachada interna.
@@ -252,13 +307,13 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		!factorCertificadoTemporalValido(auditoria) || auditoria.CanalVinculadoRef() == "" {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
-	nominal, ok := f.porCuenta[cuenta.CuentaRef]
+	perfilRef, versionRolFijada, ok := f.perfilNominal(cuenta.CuentaRef)
 	if !ok {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
 	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, f.revalidador,
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},
-		f.resolutor, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: nominal.PerfilActivoRef}, f.reloj)
+		f.resolutor, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: perfilRef}, f.reloj)
 	if err != nil {
 		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
@@ -270,7 +325,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		d.CuentaPrivilegiada || d.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 ||
 		d.MetodoObservado != core.AuthMethodCertificate || d.GarantiaObservada != core.AuthAssuranceSubstantial ||
 		d.AutenticacionRef != auditoria.AutenticacionRef() || d.SesionRef != auditoria.SesionRef() ||
-		d.PerfilActivoRef != nominal.PerfilActivoRef || d.PoliticaGarantiaRef != f.politica.Referencia ||
+		d.PerfilActivoRef != perfilRef || d.PoliticaGarantiaRef != f.politica.Referencia ||
 		d.PoliticaGarantiaHuellaSHA256 != f.politica.HuellaSHA256 || !vinculo.VigenteEn(ahora, resultado) {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
@@ -281,7 +336,7 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 	if !ok {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
-	snapshot, err := f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, nominal.PerfilActivoRef)
+	snapshot, err := f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, perfilRef)
 	if err != nil {
 		return vacia, falloCertificadoTemporalAutoridad(ctx, err)
 	}
@@ -291,13 +346,19 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 	if snapshot.Validar() != nil {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
+	versionRolEsperada := versionRolFijada
+	if f.modoRol == modoAsignacionVigente {
+		versionRolEsperada = snapshot.AsignacionPerfil.VersionRolRef
+	}
 	ahora = f.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if !f.politica.valida(ahora) || !vinculo.VigenteEn(ahora, resultado) ||
 		!resultado.Contexto.Instantanea.VigenteEn(ahora) || !empleadoVigente(resultado, empleadoRef, ahora) ||
+		!versionRolRefValida(versionRolEsperada) ||
 		snapshot.AsignacionPerfil.PrincipalID != d.PrincipalID ||
-		snapshot.AsignacionPerfil.PerfilActivoRef != nominal.PerfilActivoRef ||
-		snapshot.AsignacionPerfil.VersionRolRef != nominal.VersionRolRef ||
-		snapshot.VersionRol.Referencia() != nominal.VersionRolRef ||
+		snapshot.AsignacionPerfil.PerfilActivoRef != perfilRef ||
+		snapshot.AsignacionPerfil.VersionRolRef != versionRolEsperada ||
+		snapshot.VersionRol.Referencia() != versionRolEsperada ||
+		snapshot.ControlVigenciaVersionRol.VersionRolRef != versionRolEsperada ||
 		snapshot.VersionRol.Estado != core.EstadoVersionRolPublicada ||
 		snapshot.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
 		!snapshot.AsignacionPerfil.VigenteEn(ahora) ||
@@ -320,6 +381,19 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		vigenteHasta: minimoTiempo(d.SesionValidaHasta, resultado.Contexto.Instantanea.VigenteHasta,
 			empleadoHasta, snapshot.AsignacionPerfil.VigenteHasta, f.politica.RetiradaEn),
 	}, nil
+}
+
+func (f *FuenteCertificadoTemporal) perfilNominal(cuentaRef string) (perfilRef, versionRolFijada string, ok bool) {
+	switch f.modoRol {
+	case modoVersionRolFijada:
+		nominal, existe := f.porCuenta[cuentaRef]
+		return nominal.PerfilActivoRef, nominal.VersionRolRef, existe
+	case modoAsignacionVigente:
+		nominal, existe := f.porCuentaVigente[cuentaRef]
+		return nominal.PerfilActivoRef, "", existe
+	default:
+		return "", "", false
+	}
 }
 
 func (f *FuenteCertificadoTemporal) Revalidar(ctx context.Context, esperado EsperadosSesion) (SesionRegistrada, error) {

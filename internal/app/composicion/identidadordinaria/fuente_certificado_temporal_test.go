@@ -460,3 +460,110 @@ func TestCertificadoTemporalConservaCancelacionDuranteAmbosCotejosDeSujeto(t *te
 		})
 	}
 }
+
+func nuevaFuenteAsignacionVigentePrueba(t *testing.T, e *entornoPrueba, politica PoliticaCertificadoTemporal, perfil string) *FuenteCertificadoTemporal {
+	t.Helper()
+	f, err := NuevaFuenteCertificadoTemporalConAsignacionVigente(ConfiguracionFuenteCertificadoTemporalConAsignacionVigente{
+		Identidad: e.servicio, Revalidador: e.revalidador, Resolutor: e.resolutor,
+		Autorizacion: e.autorizacion, Reloj: e.reloj,
+		PorCuenta: map[string]PerfilNominalAsignacionVigente{
+			cuentaPrueba: {PerfilActivoRef: perfil},
+		},
+		Politica: politica,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+func TestCertificadoTemporalAsignacionVigenteUsaUnaInstantaneaYRevalidaVersionActual(t *testing.T) {
+	e, fijada, _ := nuevoEntornoCertificadoTemporalPrueba(t)
+	vigente := nuevaFuenteAsignacionVigentePrueba(t, e, fijada.politica, perfilPrueba)
+	primera, err := vigente.Abrir(e.ctx)
+	if err != nil || e.autorizacion.llamadas != 1 || e.resolutor.llamadas != 1 || e.revalidador.llamadas != 1 {
+		t.Fatalf("la versión vigente no consultó una sola instantánea: %v", err)
+	}
+	_, _, snapshot, err := primera.Contexto()
+	if err != nil || snapshot.AsignacionPerfil.VersionRolRef != "rol:tecnico_rpt:v2" {
+		t.Fatalf("versión inicial ajena a la asignación: %v", err)
+	}
+	esperados, err := primera.Esperados()
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.autorizacion.snapshot.VersionRol.Version = 3
+	versionNueva := e.autorizacion.snapshot.VersionRol.Referencia()
+	e.autorizacion.snapshot.AsignacionPerfil.VersionRolRef = versionNueva
+	e.autorizacion.snapshot.ControlVigenciaVersionRol.VersionRolRef = versionNueva
+	if e.autorizacion.snapshot.Validar() != nil {
+		t.Fatal("la asignación administrativa nueva no es válida")
+	}
+	segunda, err := vigente.Revalidar(e.ctx, esperados)
+	if err != nil || e.autorizacion.llamadas != 2 || e.resolutor.llamadas != 2 || e.revalidador.llamadas != 2 {
+		t.Fatalf("revalidación sin una nueva instantánea: %v", err)
+	}
+	_, _, snapshot, err = segunda.Contexto()
+	if err != nil || snapshot.AsignacionPerfil.VersionRolRef != versionNueva ||
+		snapshot.VersionRol.Referencia() != versionNueva ||
+		snapshot.ControlVigenciaVersionRol.VersionRolRef != versionNueva {
+		t.Fatalf("la versión revalidada no procede de la asignación actual: %v", err)
+	}
+	if _, err := fijada.Abrir(e.ctx); !errors.Is(err, ErrCertificadoTemporalNoDisponible) {
+		t.Fatalf("el constructor con versión fijada admitió otra versión: %v", err)
+	}
+}
+
+func TestCertificadoTemporalAsignacionVigenteDeniegaPostimagenesIncoherentes(t *testing.T) {
+	perfilAjeno := "prf_ajeno0123456789abcdefghijkl"
+	for _, caso := range []struct {
+		nombre string
+		perfil string
+		mutar  func(*entornoPrueba)
+	}{
+		{"rol distinto de asignación", perfilPrueba, func(e *entornoPrueba) {
+			e.autorizacion.snapshot.AsignacionPerfil.VersionRolRef = "rol:tecnico_rpt:v3"
+		}},
+		{"control de otro rol", perfilPrueba, func(e *entornoPrueba) {
+			e.autorizacion.snapshot.ControlVigenciaVersionRol.VersionRolRef = "rol:tecnico_rpt:v3"
+		}},
+		{"asignación revocada", perfilPrueba, func(e *entornoPrueba) {
+			a := &e.autorizacion.snapshot.AsignacionPerfil
+			a.Estado = core.EstadoAsignacionPerfilRevocada
+			a.RevocadaPor, a.RevocacionRef, a.RevocadaEn = "seguridad", "acto:baja", instantePrueba
+		}},
+		{"asignación vencida", perfilPrueba, func(e *entornoPrueba) {
+			e.autorizacion.snapshot.AsignacionPerfil.VigenteHasta = instantePrueba
+		}},
+		{"control retirado", perfilPrueba, func(e *entornoPrueba) {
+			c := &e.autorizacion.snapshot.ControlVigenciaVersionRol
+			c.Estado, c.ActoRef, c.MotivoCodigo = core.EstadoControlVigenciaVersionRolRetirada, "acto:baja", "baja"
+		}},
+		{"perfil ajeno", perfilAjeno, func(*entornoPrueba) {}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e, anterior, _ := nuevoEntornoCertificadoTemporalPrueba(t)
+			caso.mutar(e)
+			f := nuevaFuenteAsignacionVigentePrueba(t, e, anterior.politica, caso.perfil)
+			if _, err := f.Abrir(e.ctx); !errors.Is(err, ErrCertificadoTemporalNoDisponible) {
+				t.Fatalf("la fuente admitió una asignación incoherente: %v", err)
+			}
+		})
+	}
+}
+
+func TestCertificadoTemporalAsignacionVigenteNoEsVersionVaciaImplicita(t *testing.T) {
+	e, anterior, _ := nuevoEntornoCertificadoTemporalPrueba(t)
+	_, err := NuevaFuenteCertificadoTemporal(ConfiguracionFuenteCertificadoTemporal{
+		Identidad: e.servicio, Revalidador: e.revalidador, Resolutor: e.resolutor,
+		Autorizacion: e.autorizacion, Reloj: e.reloj,
+		PorCuenta: map[string]PerfilNominal{cuentaPrueba: {PerfilActivoRef: perfilPrueba}},
+		Politica:  anterior.politica,
+	})
+	if !errors.Is(err, ErrCertificadoTemporalNoDisponible) {
+		t.Fatalf("el constructor con rol fijado aceptó versión vacía: %v", err)
+	}
+	if _, err := nuevaFuenteAsignacionVigentePrueba(t, e, anterior.politica, perfilPrueba).Abrir(e.ctx); err != nil {
+		t.Fatalf("el constructor explícito no consumió la asignación actual: %v", err)
+	}
+}
