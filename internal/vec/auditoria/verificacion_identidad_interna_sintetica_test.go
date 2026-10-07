@@ -89,3 +89,21 @@ func TestIdentidadInternaVectorIndependienteYMutaciones(t *testing.T) {
 		t.Fatal("un esquema previo aceptó AD215")
 	}
 }
+
+func TestIdentidadInternaFechaIlegibleDaMotivoCerrado(t *testing.T) {
+	for _, indice := range []int{0, 1} {
+		d := vectorIdentidadInterna(t)
+		const fechaPrivada = "fecha_privada_no_valida"
+		if indice == 0 {
+			d.Registros[indice].ProvisionIdentidadInterna.RegistradaEn = fechaPrivada
+		} else {
+			d.Registros[indice].IntentoIdentidadInterna.RegistradaEn = fechaPrivada
+		}
+		informe := VerificarCadenaIdentidadInternaSinteticaV1(d, d.Manifiesto, 2)
+		if informe.Estado != "rechazada" || informe.Fallo == nil ||
+			informe.Fallo.Codigo != MotivoInstanteAD171Invalido || informe.Fallo.Clave != "registrada_en" ||
+			strings.Contains(informe.Fallo.Esperado, fechaPrivada) || strings.Contains(informe.Fallo.Obtenido, fechaPrivada) {
+			t.Fatalf("asiento %d: parseo de fecha no clasificado de forma cerrada: %+v", indice, informe.Fallo)
+		}
+	}
+}

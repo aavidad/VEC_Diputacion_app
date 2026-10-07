@@ -102,7 +102,10 @@ func cotejarIdentidadInternaSinteticaV1(r RegistroMixtoV2, secuencia uint64) (Re
 		return evento, "registro_invalido", "coordenadas"
 	}
 	instante, err := time.Parse(time.RFC3339Nano, base.RegistradaEn)
-	if err != nil || instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != base.RegistradaEn {
+	if err != nil {
+		return evento, motivoErrorInstanteAuditoria(err), "registrada_en"
+	}
+	if instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != base.RegistradaEn {
 		return evento, "instante_invalido", "registrada_en"
 	}
 	for _, campo := range material {
