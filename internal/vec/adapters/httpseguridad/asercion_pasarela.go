@@ -35,6 +35,12 @@ var ErrAsercionPasarela = errors.New("asercion de pasarela no valida")
 
 type claveContextoPeticionPasarela struct{}
 
+type claveContextoRegistroFirmaVecPreparada struct{}
+
+type vinculoRegistroFirmaVecPreparada struct {
+	peticion VinculoPeticionPasarela
+}
+
 // VinculoPeticionPasarela representa los bytes que vera el servidor despues
 // del proxy. La huella corresponde al cuerpo transferido al caso de uso.
 type VinculoPeticionPasarela struct {
@@ -86,7 +92,11 @@ func PrepararPeticionAsercionPasarela(r *http.Request, limiteCuerpo int64) (*htt
 		clear(cuerpo)
 		return nil, err
 	}
-	preparada := r.Clone(context.WithValue(r.Context(), claveContextoPeticionPasarela{}, vinculo))
+	ctx := context.WithValue(r.Context(), claveContextoPeticionPasarela{}, vinculo)
+	if limiteCuerpoPasarelaParaPeticion(r, ruta) == LimiteCuerpoRegistroFirmaVecPasarela {
+		ctx = context.WithValue(ctx, claveContextoRegistroFirmaVecPreparada{}, &vinculoRegistroFirmaVecPreparada{peticion: vinculo})
+	}
+	preparada := r.Clone(ctx)
 	if len(cuerpo) == 0 {
 		preparada.Body = http.NoBody
 	} else {
@@ -304,6 +314,23 @@ func NuevoEmisorAsercionPasarela(c ConfiguracionSuperficie, claveID string, firm
 func clavePublicaEd25519(clave crypto.PublicKey) ed25519.PublicKey {
 	valor, _ := clave.(ed25519.PublicKey)
 	return valor
+}
+
+// EmitirRegistroFirmaVecPreparada usa exclusivamente el vinculo privado que
+// PrepararPeticionAsercionPasarela fijo al leer el cuerpo. No vuelve a leerlo
+// ni acepta un vinculo construido por el consumidor de este metodo.
+func (e *EmisorAsercionPasarela) EmitirRegistroFirmaVecPreparada(
+	ctx context.Context, identidad AsercionProxyIdentidad,
+) ([]byte, error) {
+	if interfazNulaPasarela(ctx) || ctx.Err() != nil {
+		return nil, ErrAsercionPasarela
+	}
+	preparada, ok := ctx.Value(claveContextoRegistroFirmaVecPreparada{}).(*vinculoRegistroFirmaVecPreparada)
+	if !ok || preparada == nil || preparada.peticion.Metodo != http.MethodPost ||
+		preparada.peticion.Ruta != rutaRegistroFirmaVecPasarela {
+		return nil, ErrAsercionPasarela
+	}
+	return e.Emitir(ctx, identidad, preparada.peticion)
 }
 
 // Emitir crea un ID aleatorio por peticion. El ID se consume en el registro
