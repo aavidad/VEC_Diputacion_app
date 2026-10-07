@@ -29,10 +29,11 @@ pérdida de derechos ni otra consecuencia del retraso.
 | Pieza | Situación al planificar |
 | --- | --- |
 | `internal/modules/dietas/{domain,ports,application,adapters}` y `internal/app/bootstrap/dietas_*.go` | Hay comisiones, borradores, cálculo provisional, rutas, circuito, autorización V3 y composición. La fuente de competencia usa perfiles fijos centrales; la escritura de asignación D7 sigue cerrada sin catálogo competente. |
+| `application/preparar_comision.go` y `adapters/postgres/tarifas_provisionales.go` | `PreparadorComision` es el consumidor real, montado en `bootstrap/dietas_comisiones.go`. Ya selecciona una regla vigente y tarifas por versión, grupo, vehículo y fecha; el dominio rechaza comisiones que atraviesan el fin de vigencia. El lector aún descarta las referencias normativas guardadas en `version_tarifa_provisional`. |
 | `deploy/postgresql/dietas_borradores/migraciones/000001`–`000011` | Hay definiciones y ensayos. La ficha de septiembre solo acredita 000001–000008 instaladas entonces en cidonia. Revalidar historia antes de cualquier instalación posterior; no reaplicar ni ejecutar DOWN sobre una base con historia. |
 | `deploy/postgresql/dietas_borradores/borradores/000012_liquidacion_economica.md` | Es diseño sin SQL ejecutable. Enumera postimagen y dependencias; no registra una liquidación. |
 | `web/static/portal-empleado/modulos/dietas/` | Existen borrador propio, circuito, mapa OSRM y vistas de catálogo e informes. `INTEGRACION.md` separa lo compuesto de clientes de rectificación aún no inyectados. Las vistas de catálogo e informes usan paquetes de ejemplo; sus CSV/PDF no son exportaciones nominales autorizadas. |
-| `application/preparacionliquidacion`, `simulaciondevengo` e `informeperiodo` | Preparan instantáneas sintéticas sin efectos. El informe trabaja con registros importados, no con lectura nominal de PostgreSQL. Una propuesta no equivale a acto de liquidación. |
+| `application/preparacionliquidacion`, `simulaciondevengo` e `informeperiodo` | Preparan instantáneas sintéticas sin efectos; los dos primeros tienen consumidor CLI, no montaje productivo. El informe trabaja con registros importados, no con lectura nominal de PostgreSQL. Una propuesta no equivale a acto de liquidación. |
 | `application/custodia_justificantes_comision.go` | Registra referencias y huellas de custodia externa; no recibe los bytes del justificante ni acredita que el fichero se haya conservado. |
 
 El último recuento documentado, del 25 de septiembre, es **0/9 formal,
@@ -107,7 +108,7 @@ miles de comisiones y gastos sintéticos. Se mantienen autorización y auditorí
 
 | Orden | Entrega comprobable | Dependencia |
 | --- | --- | --- |
-| DIE-01 | Contrato de admisión y lectura de catálogo económico con procedencia, acto aprobatorio, alcance, vigencia, versión y huella; conserva el estado «ejemplo» de los datos actuales. Entrega una instantánea al preparador ya existente, sin otro motor de cálculo. | Puede ensayarse con datos sintéticos. RRHH validará fuente y acto antes de publicar tarifas liquidables. Primer corte del dueño Dietas, sin SQL ni rutas nuevas. |
+| DIE-01 | El lector PostgreSQL existente devuelve las referencias normativas de la versión provisional y `PreparadorComision` las coteja antes de calcular. Conserva explícitos el estado de ejemplo y la ausencia de acto aprobatorio; versión, vigencia y cálculo actuales se reutilizan. | Datos sintéticos. Cambio de lectura SQL en adaptador propio, sin migración ni ruta nueva; ensayo PostgreSQL 18 y revisión SQL antes de integrar. La publicación de un catálogo aprobado queda para otro corte con autoridad y acto de RRHH. |
 | DIE-02 | Envío propio conserva comisión y justificantes referenciados, versiones y recibo recuperable; los bytes pasan por adaptador de Documentos con límites y antivirus. | Contrato del custodio de Documentos y política de tipos, conservación y subida; dudas 49/50/60. |
 | DIE-03 | Bandeja y decisión por perfil fijo, etapa y unidad exactas, con devolución y reenvío histórico. | Competencias centrales publicadas y contrato de acto de autorización; dudas 25/40/46/51/105/122. |
 | DIE-04 | Liquidación económica durable y rectificación enlazada; PDF de la instantánea exacta. | Catálogo admitido, DIE-02/03, postimagen de `000012` y orden SQL acordado. Reserva de migración fuera de Git, ensayo en clon y dos revisiones independientes. |
@@ -120,10 +121,9 @@ autónomo. Los cambios de SQL, HTTP, identidad o datos personales reciben revisi
 focal con `security-audit` y Semgrep local; SQL necesita además ensayo en el
 clon y revisión SQL independiente. No se sube código a un auditor externo.
 
-**Primer encargo ejecutable:** DIE-01. Añadir el contrato de admisión y el lector
-de una versión de catálogo a los puertos y adaptadores de Dietas. El lector
-entrega su instantánea a `simulaciondevengo` y `preparacionliquidacion`, que ya
-calculan propuestas. Cierre: dos versiones y una fecha frontera seleccionan
-la instantánea correcta; fuente ausente, vigencia incompatible o estado de
-ejemplo presentado como aprobado se rechazan. Ninguna prueba sintética publica
-una tarifa o marca una comisión como liquidada o pagada.
+**Primer encargo ejecutable:** DIE-01. Extender el lector ya inyectado en
+`PreparadorComision` para cotejar las referencias normativas de dieta y
+kilometraje de `version_tarifa_provisional`. Cierre: una fuente ausente o
+incongruente impide preparar el cálculo; la versión vigente válida conserva
+el importe y el rótulo provisional. El catálogo actual no contiene un acto
+aprobatorio: añadir metadatos no aprueba tarifas ni liquida una comisión.
