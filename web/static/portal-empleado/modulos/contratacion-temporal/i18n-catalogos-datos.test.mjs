@@ -7,11 +7,11 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
-import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
+import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
-import { mensajesTramite, mensajesTramitePortal, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
@@ -90,14 +90,29 @@ const CLAVES_FIN_MODALIDAD = Object.freeze({
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
 
+async function preimagenEnIdioma(archivo, nombre) {
+  const codigo = nombre.endsWith("_EN") || nombre === "rotulos_en" ? codigos.EN : codigos.ES;
+  if (nombre.startsWith("rotulos_")) {
+    const { actual } = await cargarCatalogosContratacionEnIdioma("portal", codigo, "fases_rrhh");
+    return actual;
+  }
+  const base = archivo.replace(/^i18n-/u, "contratacion-temporal-").replace(/\.js$/u, "");
+  if (archivo === "i18n-ficha-lista.js") {
+    const [ficha, plazos] = await Promise.all([
+      cargarCatalogosContratacionEnIdioma(base, codigo),
+      cargarCatalogosContratacionEnIdioma("contratacion-temporal-lista-plazos", codigo, "lista"),
+    ]);
+    return Object.freeze({ ...plazos.actual, ...ficha.actual });
+  }
+  return (await cargarCatalogosContratacionEnIdioma(base, codigo)).actual;
+}
+
 for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
   test(`${archivo}: conserva la preimagen de las exportaciones y los rótulos`, async () => {
     const modulo = await import(new URL(archivo, import.meta.url));
     for (const [nombre, anterior] of Object.entries(exportaciones)) {
-      const valor = nombre.startsWith("rotulos_")
-        ? Object.fromEntries(Object.entries(mensajesTramitePortal(nombre.slice("rotulos_".length)))
-          .map(([clave, texto]) => [clave.slice("tramite_".length), texto]))
-        : modulo[nombre];
+      const valor = nombre === "FASES_RRHH" || nombre === "FASE_RRHH_DE_ORIGEN"
+        ? modulo[nombre] : await preimagenEnIdioma(archivo, nombre);
       let preimagen = valor;
 	  if (CLAVES_FIN_MODALIDAD[archivo]) {
 	    for (const clave of CLAVES_FIN_MODALIDAD[archivo]) {
@@ -116,7 +131,7 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
-      assert.ok(Object.isFrozen(valor) || nombre.startsWith("rotulos_"), nombre);
+      assert.ok(Object.isFrozen(valor), nombre);
     }
   });
 }
@@ -141,11 +156,18 @@ test("los catálogos y los traductores conservan marcadores, sobrescrituras y cl
       assert.throws(() => crear({ titulo: "" }));
       assert.throws(() => crear(null));
     }
-    const fases = (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh");
-    for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
-    const tramite = mensajesTramite(codigo);
-    assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
-    assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
+    const fases = (await cargarCatalogosContratacionEnIdioma("portal", codigo, "fases_rrhh")).actual;
+    const mensajesPortal = await cargarMensajesTramitePortalEnIdioma(codigo);
+    for (const [clave, texto] of Object.entries(fases)) assert.equal(mensajesPortal[`tramite_${clave}`], texto);
+    if (codigo === IDIOMA_ACTUAL) {
+      for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
+      const tramite = mensajesTramite(codigo);
+      assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
+      assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
+    } else {
+      assert.throws(() => rotuloTramite("fase_incorporacion", {}, codigo), /idioma solicitado/u);
+      assert.throws(() => mensajesTramite(codigo), /idioma solicitado/u);
+    }
   }
   const traducir = crearTraductorCancelacion({ "cancelacion.titulo": "{uno} {dos}" });
   assert.equal(traducir("titulo", { uno: 0 }), "0 {dos}");
@@ -175,11 +197,11 @@ test("las exportaciones no cambian al reordenar el índice ni al cambiar el idio
     indice.por_defecto = codigos.EN;
     await writeFile(join(temporal, "textos/idiomas.json"), JSON.stringify(indice));
     const modulo = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js")));
-    const original = await import("./i18n-analisis-catalogo.js");
-    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_ES, original.MENSAJES_ANALISIS_CATALOGO_ES);
-    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, original.MENSAJES_ANALISIS_CATALOGO_EN);
+    const esperado = (await cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", codigos.EN)).actual;
+    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_ES, esperado);
+    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, esperado);
     const helper = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js")));
-    assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, original.MENSAJES_ANALISIS_CATALOGO_EN);
+    assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, esperado);
   } finally {
     await rm(temporal, { recursive: true, force: true });
   }
