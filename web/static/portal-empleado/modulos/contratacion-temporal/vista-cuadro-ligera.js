@@ -14,7 +14,13 @@ const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu,
 
 function proyectarPagina(pagina, fases, locale) {
   if (!Array.isArray(pagina?.expedientes) || typeof pagina.generada_en !== "string"
-    || typeof pagina.hay_mas !== "boolean") throw new TypeError("cuadro CT no válido");
+    || typeof pagina.hay_mas !== "boolean"
+    || (pagina.totales && !pagina.resumen)
+    || (pagina.resumen && pagina.totales
+      && (pagina.resumen.en_tramite > pagina.totales.total
+        || pagina.resumen.en_tramite < pagina.totales.en_tramitacion))) {
+    throw new TypeError("cuadro CT no válido");
+  }
   const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: "Europe/Madrid" });
   const expedientes = pagina.expedientes.map((entrada) => {
     const fase = FASE_RRHH_DE_ORIGEN[entrada.fase_clave];
@@ -39,7 +45,7 @@ function proyectarPagina(pagina, fases, locale) {
   });
   return Object.freeze({ generado_en: pagina.generada_en, expedientes: Object.freeze(expedientes),
     paginacion: Object.freeze({ cursor_siguiente: pagina.hay_mas ? pagina.cursor_siguiente : "" }),
-    totales: pagina.totales ?? null });
+    totales: pagina.totales ?? null, resumen: pagina.resumen ?? null });
 }
 
 /**
@@ -124,8 +130,9 @@ export async function montarCuadroContratacionLigero({
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
         actualizarDisponible: true, filtroResultados: filtroResultados(),
-        totalConjunto: cuadro.totales?.[filtro.mostrar === "en_tramite" ? "en_tramitacion" : "total"] ?? null,
-        enTramiteConjunto: cuadro.totales?.en_tramitacion ?? null,
+        totalConjunto: filtro.mostrar === "en_tramite"
+          ? cuadro.resumen?.en_tramite ?? null : cuadro.totales?.total ?? null,
+        enTramiteConjunto: cuadro.resumen?.en_tramite ?? null,
         paginaAnterior: paginaIndice > 0 });
   }
 
@@ -165,7 +172,8 @@ export async function montarCuadroContratacionLigero({
       preparado = await prepararTextosContratacionVista("cuadro", { idioma, reintentar });
       if (!vigente || signal?.aborted || actual.signal.aborted) return;
       const solicitud = { filtros: filtroServidor(),
-        paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] } };
+        paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] },
+        resumen: true };
       filtroConsultado = JSON.stringify(filtro);
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
