@@ -19,6 +19,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -110,7 +111,9 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDatosContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialEmision                         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialCargaConvoca                    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaCT                     *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -201,7 +204,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
@@ -489,6 +492,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
 	}
+	if seleccion.borradoresBolsa {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialCargaConvocaBolsaDesarrollo())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -744,6 +750,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialCargaConvoca, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca)
+			if err != nil {
+				return vacias, err
+			}
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
 				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
@@ -791,6 +802,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialDatosContacto = proveedorDatosContacto
+			if dependencias.proveedorMaterialConsultaDatosContacto, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarDatosContactoParticipacion); err != nil {
+				return vacias, err
+			}
 			proveedorEmision, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaEmitirLlamamiento)
 			if err != nil {
 				return vacias, err

@@ -19,6 +19,7 @@ import (
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -219,6 +220,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		// Descarga de borradores de la consulta de detalle (AD199/CT177).
+		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		// CT133: sólo al activar lectura documental con perfil propio.
@@ -275,11 +278,14 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaRecuperacionFirmasR5V2,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
+		puertosbolsa.AudienciaConfirmarCargaConvoca,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
 		puertosbolsa.AudienciaConsultarReincorporacionTitular,
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
+		// Consulta completa de datos de contacto (AD197/B78).
+		puertosbolsa.AudienciaConsultarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
@@ -658,6 +664,36 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 	})
 }
 
+// ejecutarLecturaGobiernoCTDesarrollo lee el gobierno de atestación en una
+// transacción REPEATABLE READ de solo lectura: instantánea coherente y
+// confirmada, sin el cerrojo consultivo global ni bloqueos de fila de la
+// publicación. Así cada operación CT relee el gobierno sin esperar en fila a
+// las demás ni a las consultas que tienen el checkpoint bloqueado.
+func ejecutarLecturaGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, leer func(pgx.Tx) error) error {
+	if ctx == nil || pool == nil || leer == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	defer func() {
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
+		defer cancelar()
+		_ = tx.Rollback(ctxRollback)
+	}()
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	if err := leer(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	return nil
+}
+
 func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
 	conexion, err := pool.Acquire(ctx)
 	if err != nil {
@@ -670,7 +706,7 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer func() {
-		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		var liberado bool
 		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
@@ -686,10 +722,10 @@ func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pg
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
+	// Plazo propio también para ROLLBACK: se ejecuta con el cerrojo `renovacion` tomado por la
 	// renovación y no debe esperar indefinidamente a una red cortada.
 	defer func() {
-		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(ctxRollback)
 	}()
