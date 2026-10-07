@@ -44,6 +44,26 @@ test("reintenta GET 502, 503 y red; nunca reintenta POST", async () => {
   assert.equal(intentos, 1);
 });
 
+test("envía exactamente los bytes validados aunque cambie el objeto antes de fetch", async () => {
+  let serializaciones = 0;
+  let enviado;
+  const cuerpo = { valor: "antes", toJSON() { serializaciones++; return { valor: this.valor }; } };
+  const consulta = consultarJSON("/api/vec/operacion", { metodo: "POST", cuerpo,
+    fetchImpl: async (_ruta, opciones) => { enviado = opciones.body; return respuesta({ aceptado: true }); } });
+  cuerpo.valor = "despues";
+  assert.deepEqual(await consulta, { aceptado: true });
+  assert.equal(serializaciones, 1);
+  assert.equal(enviado, '{"valor":"antes"}');
+
+  let intentos = 0;
+  let llamadas = 0;
+  const cambiante = { toJSON() { intentos++; return intentos === 1 ? "x".repeat(256 * 1024 + 1) : "pequeño"; } };
+  assert.throws(() => consultarJSON("/api/vec/operacion", { metodo: "POST", cuerpo: cambiante,
+    fetchImpl: async () => { llamadas++; return respuesta({}); } }), TypeError);
+  assert.equal(intentos, 1);
+  assert.equal(llamadas, 0);
+});
+
 test("si todos los lectores cancelan se aborta GET compartido y se libera la clave", async () => {
   let llamadas = 0;
   let señalInterna;
