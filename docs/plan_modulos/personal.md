@@ -219,7 +219,7 @@ Si Personal22 o el consumidor ya están instalados, no se ejecuta esa lista.
 
 Ensayo en clon propio PostgreSQL 18.4, en disco y con límite de 2 GB:
 UP únicos correctos, ACL y negativa de material nulo correctas. El núcleo
-conserva sus metadatos y se revierte exactamente al retirar la extensión;
+conserva sus metadatos y la inversión textual de la extensión reproduce la preimagen;
 los 6.240 consumos, registros de auditoría y cabeza anteriores permanecen idénticos.
 Dos revisiones independientes favorables del código `e8e767e84`.
 
@@ -228,5 +228,6 @@ AD198, AD200, AD199, AD208 y AD207, con sus dependencias de las listas de main.
 Otra extensión del núcleo o del CHECK obliga a medir de nuevo antes de instalar.
 No se ha instalado en la principal ni demostrado acceso nominal desde navegador:
 faltan identidad, perfil y origen V3 propios para esa comprobación.
+Tampoco se ha medido el rendimiento de esta lectura autorizada.
 La siguiente dependencia es reanclar AD175/Personal32 (#555) y después
 AD180/Personal34 (#577), conservando sus consumidores y recibos existentes.
