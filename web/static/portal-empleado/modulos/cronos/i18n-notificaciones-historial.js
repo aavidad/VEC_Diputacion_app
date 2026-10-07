@@ -1,8 +1,9 @@
-import { cargarTextos } from "../../../comun/textos.js";
 
-export const MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS = (await cargarTextos("cronos-notificaciones-historial")).seccion("historial");
+export let MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS;
+export function instalarMENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS(mensajes) { MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS = mensajes; }
 
 export function crearTraductorNotificacionesHistorialCronos(mensajes = MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS) {
+  if (!MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS) throw new TypeError("catálogo de historial de notificaciones Cronos sin preparar");
   const claves = Object.keys(MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS);
   if (!mensajes || claves.some((clave) => typeof mensajes[clave] !== "string" || !mensajes[clave])) {
     throw new TypeError("catálogo de historial de notificaciones Cronos incompleto");

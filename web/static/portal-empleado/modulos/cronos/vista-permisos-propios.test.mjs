@@ -1,3 +1,4 @@
+import "./test-preparar-textos.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -269,7 +270,7 @@ test("cancelar devuelve el foco a Solicitar del permiso que abrió el formulario
 });
 
 test("los catálogos del historial contienen los mismos mensajes y variables y la página está acotada", async () => {
-  const { crearTraductorHistorialCronos } = await import("./i18n-historial.js");
+  const { crearTraductorHistorialCronos } = await import("./i18n-historial.js?v=20261001-cronos-historial-v1");
   const { cargarTextos } = await import("../../../comun/textos.js");
   const raiz = new URL("../../../textos/", import.meta.url);
   const indice = JSON.parse(await readFile(new URL("idiomas.json", raiz), "utf8")); let claves;
@@ -363,7 +364,7 @@ test("la denegación elimina los pendientes anteriores y no permite navegar a el
 
 test("los textos de justificación se cargan y traducen en los idiomas del portal", async () => {
   const { cargarTextos } = await import("../../../comun/textos.js");
-  const { crearTraductorJustificacionCronos } = await import("./i18n-permisos.js");
+  const { crearTraductorJustificacionCronos } = await import("./i18n-permisos.js?v=20261001-cronos-grafo-bandeja-v5");
   let claves;
   for (const [idioma, esperado] of [["es", "Ver pendientes de justificar"], ["en", "View leave awaiting evidence"]]) {
     const catalogo = await cargarTextos("cronos-permisos", { idioma, avisar: (aviso) => assert.fail(aviso) });
@@ -506,7 +507,7 @@ test("Actualizar y Reintentar conservan el recibo confirmado sin repetir la escr
 
 test("la acción de consulta traduce y escapa sus mensajes en ambos idiomas", async () => {
   const { cargarTextos } = await import("../../../comun/textos.js");
-  const { crearTraductorConsultaPermisosCronos } = await import("./i18n-permisos-consulta.js");
+  const { crearTraductorConsultaPermisosCronos } = await import("./i18n-permisos-consulta.js?v=20261001-cronos-c7-consulta-v2");
   let claves;
   for (const [idioma, actualizar, reintentar] of [["es", "Actualizar", "Reintentar"], ["en", "Refresh", "Retry"]]) {
     const textos = await cargarTextos("cronos-permisos-consulta", { idioma, avisar: (aviso) => assert.fail(aviso) });

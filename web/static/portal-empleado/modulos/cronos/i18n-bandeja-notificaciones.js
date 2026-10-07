@@ -1,10 +1,11 @@
-import { cargarTextos } from "../../../comun/textos.js";
 import { crearTraductorNotificacionesCronos } from "./i18n-notificaciones.js";
 
-export const MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS = (await cargarTextos("cronos-bandeja-notificaciones")).seccion("bandeja");
+export let MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS;
+export function instalarMENSAJES_BANDEJA_NOTIFICACIONES_CRONOS(mensajes) { MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS = mensajes; }
 
 /** Aporta los textos de recuperación a la autoridad i18n ya existente. */
 export function crearTraductorBandejaNotificacionesCronos(mensajes) {
+  if (!MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS) throw new TypeError("catálogo de bandeja Cronos sin preparar");
   const base = crearTraductorNotificacionesCronos(mensajes);
   const catalogo = { ...MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS, ...mensajes };
   const claves = Object.keys(MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS);

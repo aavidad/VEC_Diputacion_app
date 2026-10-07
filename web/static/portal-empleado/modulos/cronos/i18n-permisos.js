@@ -1,12 +1,14 @@
-import { cargarTextos } from "../../../comun/textos.js";
 
 /** Textos del recorrido sin fuente de permisos. No habilita operaciones. */
-export const MENSAJES_CRONOS_PERMISOS = (await cargarTextos("cronos")).seccion("permisos");
+export let MENSAJES_CRONOS_PERMISOS;
+export function instalarMENSAJES_CRONOS_PERMISOS(mensajes) { MENSAJES_CRONOS_PERMISOS = mensajes; }
 
 /** Consulta de pendientes; este catálogo no habilita el registro documental. */
-export const MENSAJES_JUSTIFICACION_CRONOS = (await cargarTextos("cronos-permisos")).seccion("justificacion");
+export let MENSAJES_JUSTIFICACION_CRONOS;
+export function instalarMENSAJES_JUSTIFICACION_CRONOS(mensajes) { MENSAJES_JUSTIFICACION_CRONOS = mensajes; }
 
 export function crearTraductorJustificacionCronos(mensajes = MENSAJES_JUSTIFICACION_CRONOS) {
+  if (!MENSAJES_JUSTIFICACION_CRONOS) throw new TypeError("catálogo de justificación Cronos sin preparar");
   const claves = Object.keys(MENSAJES_JUSTIFICACION_CRONOS);
   if (!mensajes || claves.some((clave) => typeof mensajes[clave] !== "string" || !mensajes[clave])) {
     throw new TypeError("catálogo de justificación Cronos incompleto");

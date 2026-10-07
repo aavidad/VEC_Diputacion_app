@@ -1,15 +1,15 @@
 import { MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
-import { cargarTextos } from "../../../comun/textos.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 /** Textos de las notificaciones de la persona a RRHH y de la bandeja de RRHH. */
-export const MENSAJES_CRONOS_NOTIFICACIONES = (await cargarTextos("cronos")).seccion("notificaciones");
-
-const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_NOTIFICACIONES });
-const CLAVES = Object.freeze(Object.keys(CATALOGO));
+export let MENSAJES_CRONOS_NOTIFICACIONES;
+export function instalarMENSAJES_CRONOS_NOTIFICACIONES(mensajes) { MENSAJES_CRONOS_NOTIFICACIONES = mensajes; }
 
 /** Traductor estricto: una clave desconocida o un catálogo incompleto fallan. */
-export function crearTraductorNotificacionesCronos(mensajes = CATALOGO) {
+export function crearTraductorNotificacionesCronos(mensajes) {
+  const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES, ...MENSAJES_CRONOS_NOTIFICACIONES });
+  const CLAVES = Object.keys(CATALOGO);
+  if (!MENSAJES_CRONOS_NOTIFICACIONES || !MENSAJES_CRONOS_SOLICITUDES) throw new Error("catálogo de notificaciones Cronos sin preparar");
   const catalogo = { ...CATALOGO, ...mensajes };
   if (CLAVES.some((c) => typeof catalogo[c] !== "string" || catalogo[c] === "")) throw new Error("catálogo i18n de notificaciones de Cronos incompleto");
   return (clave, variables = {}) => {
