@@ -230,6 +230,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261007-ct-menu-recuperacion-v1");
   }
   versionesEspeciales.set("portal-arranque-aviso.js", "20261007-ct-arranque-autonomo-v1");
+  for (const ruta of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"])
+    versionesEspeciales.set(ruta, "20261007-auditoria-disponibilidad-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

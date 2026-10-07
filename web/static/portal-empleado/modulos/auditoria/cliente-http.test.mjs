@@ -72,3 +72,9 @@ test("403 deniega sin leer cuerpo ni propagar contenido del servidor", async () 
   const fuente = crearFuenteAuditoriaHTTP({ fetchImpl: async () => new Response("dato protegido", { status: 403 }) });
   await assert.rejects(fuente.consultar(consulta), { codigo: "denegado", estado: 403 });
 });
+
+test("404 indica capacidad no disponible sin leer el cuerpo ni convertirlo en denegación", async () => {
+  const fuente = crearFuenteAuditoriaHTTP({ fetchImpl: async () => new Response("dato protegido", { status: 404 }) });
+  await assert.rejects(fuente.obtenerOpciones(), { codigo: "no_disponible", estado: 404 });
+  await assert.rejects(fuente.consultar(consulta), { codigo: "no_disponible", estado: 404 });
+});
