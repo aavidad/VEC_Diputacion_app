@@ -59,14 +59,17 @@ def load(path):
     if not re.fullmatch(r"[1-9][0-9]*", env["VEC_BOLSA_CATEGORIES_CATALOG_VERSION"]):
         raise ValueError("catalog version")
     dsn = urllib.parse.urlsplit(env["VEC_BOLSA_PUBLICA_DATABASE_URL"])
-    options = urllib.parse.parse_qs(dsn.query, strict_parsing=True)
+    # parse_qs omite por defecto los valores vacíos: una segunda opción vacía
+    # podría pasar esta lista positiva y llegar de otra forma al cliente SQL.
+    query = urllib.parse.parse_qsl(dsn.query, keep_blank_values=True, strict_parsing=True)
+    options = dict(query)
     if (dsn.scheme not in ("postgres", "postgresql") or dsn.username != LOGIN
             or not dsn.hostname or not dsn.password or dsn.fragment
             or not re.fullmatch(r"/vec_bolsa_publica[a-z0-9_]*", dsn.path)
+            or len(query) != 2 or len(options) != 2 or any(not value for _, value in query)
             or set(options) != {"sslmode", "sslrootcert"}
-            or options["sslmode"] != ["verify-full"]
-            or len(options["sslrootcert"]) != 1
-            or not Path(options["sslrootcert"][0]).is_absolute()):
+            or options["sslmode"] != "verify-full"
+            or not Path(options["sslrootcert"]).is_absolute()):
         raise ValueError("database TLS")
     private_file(env["VEC_TLS_KEY_FILE"])
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

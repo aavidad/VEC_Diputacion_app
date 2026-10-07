@@ -204,15 +204,18 @@ no coincide con la restauración privada disponible. Esta última se rechazó en
 una copia interna compatible y revisada para completar esa prueba. Este paquete
 no declara H7 operativo ni sustituye las comprobaciones de H6.
 
-Chrome ha detectado otra dependencia de la base fuente de este corte: la página
-de convocatorias carga `contrato-v1.js`, que exige esquemas de lista y detalle V1,
-mientras `cmd/vec-publico` devuelve V2. Las consultas HTTP dan `200`, pero la
-página rechaza el listado y muestra el error de carga. Este paquete conserva
-los recursos web existentes; la corrección de ese contrato necesita su propio
-corte. No se ha sustituido la respuesta por un fixture del navegador.
+El recorrido Chrome original detectó que la página cargaba `contrato-v1.js`
+frente a respuestas V2. Tras incorporar `main@7bebfc9a`, el manifiesto público
+incluye `contrato-v2.js` y los recursos que utiliza la página actual. El
+empaquetador coteja esos archivos con el commit web indicado. Este cambio de
+fuentes no acredita por sí solo un nuevo recorrido Chrome de convocatorias.
 
-La lista B10 y su detalle sí se recorrieron en Chrome a 1440 y 390 px después del
-reinicio: sus dos consultas devolvieron `200`, sin errores JavaScript, cookies,
-almacenamiento web ni desbordamiento global. El detalle móvil conserva el
-desplazamiento dentro de la tabla. Esta evidencia corresponde a B10; el recorrido
-completo de convocatorias continúa fallando por el contrato indicado arriba.
+El runtime admite en la conexión del lector únicamente `sslmode=verify-full`
+y un `sslrootcert` absoluto, cada opción una sola vez y con valor. Rechaza
+parámetros vacíos o repetidos antes de entregar el DSN a PostgreSQL.
+
+En el recorrido Chrome anterior, la lista B10 y su detalle respondieron `200`
+tras el reinicio a 1440 y 390 px, sin errores JavaScript, cookies,
+almacenamiento web ni desbordamiento global. El detalle móvil conservó el
+desplazamiento dentro de la tabla. Esa evidencia sólo cubre B10 con los
+recursos de aquel corte; las convocatorias V2 actuales necesitan otro recorrido.
