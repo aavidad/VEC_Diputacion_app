@@ -20,6 +20,9 @@ func empleadoVigente(actor vecdomain.ContextoActor, reloj ports.Reloj) (string, 
 	if ahora.IsZero() || !actor.Instantanea.VigenteEn(ahora) {
 		return "", time.Time{}, ports.ErrDependenciaNoDisponible
 	}
+	if !vinculoEmpleadoCRN11Vigente(actor, empleados[0], ahora) {
+		return "", time.Time{}, ports.ErrEmpleadoNoAcreditado
+	}
 	return empleados[0], ahora, nil
 }
 

@@ -25,14 +25,63 @@ func (proveedorSolicitudesPrueba) ProveerMaterialSolicitudPermisoPropio(context.
 
 type repoMovimientosPrueba struct {
 	empleado, desde, hasta string
+	llamadas               int
 	r                      ports.ConsultaMovimientos
 }
 
 func (r *repoMovimientosPrueba) ConsultarMovimientos(_ context.Context, _ ports.OrdenConsultaMovimientos, empleado, desde, hasta, _ string) (ports.ConsultaMovimientos, error) {
+	r.llamadas++
 	r.empleado, r.desde, r.hasta = empleado, desde, hasta
 	res := r.r
 	res.Periodo = ports.PeriodoConsultaSaldo{Desde: desde, Hasta: hasta}
 	return res, nil
+}
+
+func TestMovimientosYPermisosDenieganVinculoCaducadoAntesDelRepositorio(t *testing.T) {
+	zona, _ := time.LoadLocation("Europe/Madrid")
+	actor, err := contexto(t).OrdenConsumo.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor.Instantanea.Vinculos[0].VigenteHasta = actor.ResueltoEn.Add(15 * time.Second)
+	ordenMovimientos, err := ports.NuevaOrdenConsultaMovimientos(actor, proveedorSolicitudesPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordenPermisos, err := ports.NuevaOrdenPermisosPropios(actor, proveedorSolicitudesPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoMovimientos := &repoMovimientosPrueba{}
+	vigente, err := NuevoServicioConsultaMovimientos(repoMovimientos, relojMarcajePrueba{actor.ResueltoEn.Add(10 * time.Second)}, zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := vigente.ConsultarMovimientos(context.Background(), ordenMovimientos, ports.PeriodoSaldoHoy, "", ""); err != nil || repoMovimientos.llamadas != 1 {
+		t.Fatal("vínculo vigente no conservó la consulta", err, repoMovimientos.llamadas)
+	}
+	caducado, err := NuevoServicioConsultaMovimientos(repoMovimientos, relojMarcajePrueba{actor.ResueltoEn.Add(30 * time.Second)}, zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado, err := caducado.ConsultarMovimientos(context.Background(), ordenMovimientos, ports.PeriodoSaldoHoy, "", "")
+	if !errors.Is(err, ports.ErrEmpleadoNoAcreditado) || repoMovimientos.llamadas != 1 || resultado.Periodo.Tipo != "" ||
+		len(resultado.Calendario.Dias) != 0 || len(resultado.Correcciones) != 0 {
+		t.Fatal("lectura de movimientos con vínculo caducado", resultado, err, repoMovimientos.llamadas)
+	}
+	repoPermisos := &repoPermisosPrueba{}
+	servicioPermisos, err := NuevoServicioPermisosPropios(repoPermisos, relojMarcajePrueba{actor.ResueltoEn.Add(30 * time.Second)}, zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	permisos, err := servicioPermisos.ConsultarPermisosPropios(context.Background(), ordenPermisos, 2026)
+	if !errors.Is(err, ports.ErrEmpleadoNoAcreditado) || repoPermisos.consultas != 0 || len(permisos.Permisos) != 0 {
+		t.Fatal("lectura de permisos con vínculo caducado", permisos, err, repoPermisos.consultas)
+	}
+	_, err = servicioPermisos.SolicitarPermisoPropio(context.Background(), ordenPermisos, ports.PeticionPermisoPropio{})
+	if !errors.Is(err, ports.ErrEmpleadoNoAcreditado) || repoPermisos.solicitudes != 0 {
+		t.Fatal("solicitud de permiso con vínculo caducado alcanzó el repositorio", err, repoPermisos.solicitudes)
+	}
 }
 
 func TestMovimientosDelAnioDerivaEmpleadoYRechazaHechosFueraDelPeriodo(t *testing.T) {
@@ -64,18 +113,22 @@ func TestMovimientosDelAnioDerivaEmpleadoYRechazaHechosFueraDelPeriodo(t *testin
 }
 
 type repoPermisosPrueba struct {
-	fuente   ports.FuentePermisosPropios
-	material domain.MaterialSolicitudPermisoPropio
-	recibo   ports.ReciboPermisoPropio
+	fuente      ports.FuentePermisosPropios
+	material    domain.MaterialSolicitudPermisoPropio
+	recibo      ports.ReciboPermisoPropio
+	consultas   int
+	solicitudes int
 }
 
 func (r *repoPermisosPrueba) ConsultarPermisosPropios(_ context.Context, _ ports.OrdenPermisosPropios, empleado string, anio int, _ string) (ports.FuentePermisosPropios, error) {
+	r.consultas++
 	f := r.fuente
 	f.EmpleadoRef, f.Anio = empleado, anio
 	return f, nil
 }
 
 func (r *repoPermisosPrueba) SolicitarPermisoPropio(_ context.Context, _ ports.OrdenPermisosPropios, m domain.MaterialSolicitudPermisoPropio) (ports.ReciboPermisoPropio, error) {
+	r.solicitudes++
 	r.material = m
 	return r.recibo, nil
 }
