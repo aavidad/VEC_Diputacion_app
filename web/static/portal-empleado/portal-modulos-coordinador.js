@@ -362,10 +362,12 @@ export function crearCoordinadorModulosPortal({
     if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    const mensajesExpedientesIdioma = idiomaCircuito === "en"
+      ? await (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1"))
+        .cargarMensajesExpedientesContratacionEnIdioma(idiomaCircuito)
+      : {};
     const mensajesExpedientes = {
-      ...(idiomaCircuito === "en"
-        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-        : {}),
+      ...mensajesExpedientesIdioma,
       ...rotulosCircuito("contratacion_temporal.fase."),
       ...rotulosCircuito("etiqueta_fase_"),
     };

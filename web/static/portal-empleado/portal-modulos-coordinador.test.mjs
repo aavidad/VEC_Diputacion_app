@@ -19,7 +19,7 @@ import {
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
 import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -900,6 +900,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
   );
 
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
   for (const [idioma, texto, navegacion, cabecera] of [
     ["es-ES", "Expediente cargado.", "Lista de peticiones", "Fecha de registro"],
     ["en-GB", "Case file loaded.", "Request list", "Date recorded"],
@@ -928,7 +929,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
           mensajesAdaptador = opciones.mensajes;
           assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
           assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
-          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, mensajesEN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (

@@ -2,7 +2,7 @@ import { escaparHTML } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { traducir } from "./i18n.js";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
-import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
+import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
 
 // i18n.js ya carga el idioma activo y prepara el índice antes de este módulo.
 const P = (clave, variables = {}) => traducir(`areaPersonal.preferencias.${clave}`, variables);
