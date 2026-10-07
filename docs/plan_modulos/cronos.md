@@ -15,7 +15,7 @@ constata cadenas SQL sin instalar y Cronos oculto por la orden entonces vigente.
 
 | Pieza | Reutilización concreta | Límite actual |
 | --- | --- | --- |
-| Fichaje y corrección C2/C5 | `internal/modules/cronos/{domain,application,ports,adapters}`, marcaje remoto, solicitud de olvido, historia y recibos; SQL `cronos_v1` 000001–000008. | Terminales sin integración acreditada; CRN11 y su consumidor AD149 precisan reanclaje a H9, composición y prueba nominal. La aprobación y aplicación de la corrección no están cerradas. |
+| Fichaje y corrección C2/C5 | `internal/modules/cronos/{domain,application,ports,adapters}`, marcaje remoto, solicitud de olvido, historia y recibos; SQL `cronos_v1` 000001–000008. | Terminales sin integración acreditada; CRN11 y su consumidor AD149 histórico precisan compatibilidad con el núcleo común vigente, composición y prueba nominal. La aprobación y aplicación de la corrección no están cerradas. |
 | Jornada y saldo C3/C4 | `consulta_saldo`, libro de tiempo, ensayos de calendario histórico y vistas de saldo/calendario. | Jornada teórica y cuantías provisionales; falta adoptar fuente/versiones de Calendarios, adscripción histórica y efecto aprobado de permisos. |
 | Permisos y comunicaciones C6–C9 | Catálogo de ejemplo, solicitudes, resolución jefatura→RRHH, avisos, notificaciones y pantallas registradas en `web/static/portal-empleado/modulos/cronos/`. | La cadena AD57→Cronos9→AD58→Cronos10 no está acreditada como instalada en la principal. Justificación C8 carece de enlace documental operativo. |
 | Equipo e informes C10–C12 | Bandejas y ensayos de presencia, incidencias, agregados y CSV/PDF sintéticos. | Falta alcance nominal del equipo, política de exportación por campos, auditoría común y recorrido conectado. |
@@ -29,9 +29,10 @@ recuperación tras reiniciar aplicación y PostgreSQL.
 
 La PR **#578 / AD181** se trata como borrador de lectura histórica para C5:
 faltan huellas y comprobación de su estado final. No cierra C5 ni C7, y no se
-incluye como dependencia instalada. El módulo Personal y su proyección de
-adscripción pertenecen al equipo T; Cronos recibirá solo un contrato opaco
-autorizado y no editará sus tablas ni sus archivos.
+incluye como dependencia instalada. El equipo V es dueño de AD181, del núcleo
+de autorización y de la auditoría común; T entrega la fuente Personal26 y
+la proyección de adscripción. U conserva los consumidores y el montaje de
+Cronos. El módulo no editará tablas ni archivos de Personal.
 
 ## Fuentes y reglas que gobiernan el diseño
 
@@ -71,26 +72,28 @@ jefatura y RRHH.
 ## Minitareas en orden de dependencia
 
 Cada fila es un corte con una responsabilidad observable y criterio de cierre.
-Se subdivide si excede el presupuesto de una minitarea de `AGENTS.md`. Los
-archivos de autorización común, Calendarios, Personal, Documentos y auditoría
+Los archivos de autorización común, Calendarios, Personal, Documentos y auditoría
 pertenecen a sus equipos; la composición compartida se reserva antes de editar.
 
 | Orden | Corte y propietario | Resultado comprobable; dependencia |
 | --- | --- | --- |
-| 1 | **C5a, Cronos + autoridad V3:** reanclar CRN11/AD149 a la preimagen H9, sin reaplicar migraciones; L/K conserva el consumidor compartido. | Consulta propia y recuperación de un olvido con recibo único, denegación ajena y error cerrado. Primero cotejar #578/AD181 y acordar el contrato histórico con T; ensayo PostgreSQL 18 en clon y dos revisiones SQL/identidad. |
-| 2 | **C5b, Cronos:** decisión de jefatura, validación RRHH y aplicación de corrección como asientos nuevos. | Marcaje original intacto; motivo, versión, actores y recibos consultables tras reinicio. No concede por ausencia de responsable ni por perfil propio. |
-| 3 | **C4/C3a, Calendarios → Cronos:** consumir versión oficial y cuadrante publicado junto a adscripción histórica de T. | Una fecha y un turno que cruza medianoche se explican con fuente y versión; falta de fuente da `no determinable`. El ensayo `ensayo_calendario_historico` sirve de vector, no de autoridad. |
-| 4 | **C6/C7, Cronos + K/L:** provisionar perfiles fijos nominales, ámbito de jefatura y RRHH, y reconciliar AD57→Cronos9→AD58→Cronos10 con H9. | Solicitud, doble resolución y aviso con recibos recuperables; revocación, conflicto de funciones y falta de jefatura deniegan o dejan pendiente. Catálogo aprobado antes de aplicar derechos. |
-| 5 | **C8, Documentos → Cronos:** enlazar original custodiado, huella y versión de justificante; revisar y registrar resultado. | Documento ajeno o huella distinta rechazada; aportar referencia no equivale a justificar. CRN14 espera Documentos12/AD148 y AD146 compatibles. |
-| 6 | **C3b, Cronos:** adoptar catálogo de efectos y calcular saldo con jornada, asientos y permisos resueltos. | Día/semana/mes/periodo reproducibles con versión histórica; corrección posterior genera nuevo resumen, sin reescribir el anterior. CAT5/AD147, CRN13 y AD146 preceden a CRN12; reanclar a H9. |
-| 7 | **C10/C11, Cronos:** consultas de incidencias, presencia y agregados por equipo vigente. | Jefatura ve solo datos mínimos de su equipo; ausencia de fichaje no se llama absentismo probado. Consultas paginadas y en lote. |
-| 8 | **C12 y cierre mensual, Cronos + Documentos/L:** bloquear periodo con versión y recibo, permitir rectificación trazada, emitir informe autorizado. | Mes cerrado reproducible tras reinicio; ninguna exportación por permiso de mera lectura. Campos y tipos esperan la respuesta 118 y autorización nominal específica. |
+| 1 | **C3p, U:** optimizar la consulta de saldo propio existente y preparar su contrato de datos. | Consulta acotada por periodo, paginada donde corresponda, con número fijo de consultas y decisiones V3; `EXPLAIN ANALYZE` y tiempo de ruta en clon local. No cambia reglas ni derechos. |
+| 2 | **C5a, V/T → U, bloqueado:** V mide la preimagen exacta del núcleo común en el clon de `main` vigente, incluidos AD207/AD208, y entrega AD181 y auditoría nominal; T entrega Personal26. U adapta consumidor CRN11 y montaje a esos contratos. | Consulta propia y recuperación de un olvido con recibo único, denegación ajena y error cerrado. Ensayo PostgreSQL 18 en clon y dos revisiones SQL/identidad; ninguna migración histórica se reaplica. |
+| 3 | **C5b, U:** decisión de jefatura, validación RRHH y aplicación de corrección como asientos nuevos. | Marcaje original intacto; motivo, versión, actores y recibos consultables tras reinicio. No concede por ausencia de responsable ni por perfil propio. |
+| 4 | **C4/C3a, Calendarios → U:** consumir versión oficial y cuadrante publicado junto a adscripción histórica de T. | Una fecha y un turno que cruza medianoche se explican con fuente y versión; falta de fuente da `no determinable`. El ensayo `ensayo_calendario_historico` sirve de vector, no de autoridad. |
+| 5 | **C6/C7, V → U:** V provisiona perfiles fijos nominales, ámbito de jefatura y RRHH, y reconcilia los consumidores históricos AD57→Cronos9→AD58→Cronos10 con el núcleo común vigente. U monta los casos de uso. | Solicitud, doble resolución y aviso con recibos recuperables; revocación, conflicto de funciones y falta de jefatura deniegan o dejan pendiente. Catálogo aprobado antes de aplicar derechos. |
+| 6 | **C8, Documentos/V → U:** enlazar original custodiado, huella y versión de justificante; revisar y registrar resultado. | Documento ajeno o huella distinta rechazada; aportar referencia no equivale a justificar. CRN14 espera Documentos12/AD148 y AD146 compatibles con `main`. |
+| 7 | **C3b, V/Calendarios/T → U:** adoptar catálogo de efectos y calcular saldo con jornada, asientos y permisos resueltos. | Día/semana/mes/periodo reproducibles con versión histórica; corrección posterior genera nuevo resumen, sin reescribir el anterior. CAT5/AD147, CRN13 y AD146 preceden a CRN12; medir compatibilidad sobre la cadena común vigente. |
+| 8 | **C10/C11, U:** consultas de incidencias, presencia y agregados por equipo vigente. | Jefatura ve solo datos mínimos de su equipo; ausencia de fichaje no se llama absentismo probado. Consultas paginadas y en lote. |
+| 9 | **C12 y cierre mensual, Documentos/V → U:** bloquear periodo con versión y recibo, permitir rectificación trazada, emitir informe autorizado. | Mes cerrado reproducible tras reinicio; ninguna exportación por permiso de mera lectura. Campos y tipos esperan la respuesta 118 y autorización nominal específica. |
 
-El **primer corte ejecutable es C5a**. Su entrega es una cadena CRN11 compatible
-con H9, consumo V3 exacto, lectura propia y replay del mismo recibo en el clon.
-Se detiene antes de aplicación de correcciones y antes de activar Cronos. Si
-AD181 sigue en borrador, T entrega primero el contrato histórico mínimo; el
-equipo Cronos puede preparar el cotejo de preimagen sin escribir en Personal.
+El **primer corte independiente de U es C3p**: medir la lectura de saldo
+propio con datos sintéticos realistas, fijar el número de consultas y corregir
+la ruta si supera el presupuesto. C5a sigue bloqueado mientras V no entregue
+AD181 y la cadena común medida en el clon exacto, y T no entregue Personal26.
+H9 queda como antecedente de diagnóstico; ninguna huella suya sirve para
+instalar sobre el núcleo actual. U puede preparar los DTO y pruebas de
+contrato de CRN11 mientras espera, sin escribir en Personal ni en autorización.
 
 ## Puerta de cada corte
 
@@ -101,7 +104,9 @@ mismo efecto. La lectura y el rechazo dejan auditoría sin revelar motivos de
 salud o actividad sindical a la jefatura. Ningún consumidor hace una consulta
 ni una decisión V3 por fila: filtros y permisos se resuelven en lote, con
 índices y paginación. Medir `EXPLAIN ANALYZE` y ruta con volumen realista:
-**base <100 ms**, **lectura servidor p95 <300 ms** y pantalla útil <1 s.
+objetivos de **base <100 ms**, **lectura servidor p95 <300 ms** y
+**pantalla útil p95 <300 ms en local**. Son criterios de aceptación pendientes de
+medición, no resultados obtenidos por este plan.
 
 Pruebas focales Go, Node y SQL real desechable; revisión independiente de
 usabilidad si cambia una pantalla, y dos revisiones independientes de SQL,
