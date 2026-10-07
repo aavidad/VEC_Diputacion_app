@@ -188,14 +188,23 @@ test("buscar vuelve a mostrar Siguiente si la respuesta filtrada tiene otra pág
     assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
     buscador().value = "objetivo";
     buscador().focus();
-    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" },
-      elements: { namedItem: () => ({ value: "" }) } };
-    raiz.eventos.get("input")({ type: "input", target: { name: "texto", closest: () => formulario } });
+    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" } };
+    formulario.elements = { namedItem: () => ({
+      set value(valor) { formulario.campos.mostrar = valor; },
+      get value() { return formulario.campos.mostrar; },
+    }) };
+    const buscadorEvento = { name: "texto", closest: () => formulario };
+    raiz.eventos.get("input")({ type: "input", target: buscadorEvento });
+    raiz.eventos.get("change")({ type: "change", target: buscadorEvento });
     await new Promise((resolver) => setTimeout(resolver, 310));
+    assert.equal(solicitudes.length, 2, "input y change del mismo texto hacen una sola lectura");
     assert.match(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
     assert.match(raiz.innerHTML, /lista-parcial/u);
     assert.equal(documento.activeElement, buscador());
+    raiz.eventos.get("change")({ type: "change", target: buscadorEvento });
+    assert.equal(solicitudes.length, 2, "salir del buscador no repite la lectura ya completada");
     await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+    assert.equal(solicitudes.length, 3, "pasar de página hace solo su propia lectura");
     assert.equal(solicitudes[2].paginacion.cursor, "cursor_filtrado");
     assert.equal(solicitudes[2].filtros.texto, "objetivo");
     assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
