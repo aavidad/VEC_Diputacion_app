@@ -68,6 +68,11 @@ test("prepara el mismo i18n antes de importar Organización y HTML apunta a la e
 
 test("fallo de preparación no importa consumidor; el botón reintenta desde la misma entrada", async () => {
   const { documento, raiz } = documentoFalso();
+  const controlOriginal = documento.createElement("button");
+  controlOriginal.hidden = false;
+  const panelOcultoOriginal = documento.createElement("section");
+  panelOcultoOriginal.hidden = true;
+  raiz.append(controlOriginal, panelOcultoOriginal);
   let preparaciones = 0;
   let importaciones = 0;
   let resolver;
@@ -78,12 +83,18 @@ test("fallo de preparación no importa consumidor; el botón reintenta desde la 
       if (preparaciones === 1) throw new Error("catálogo no disponible");
       return new Promise((resolve) => { resolver = resolve; });
     },
-    importar: async () => { importaciones++; },
+    importar: async () => {
+      assert.equal(controlOriginal.hidden, false);
+      assert.equal(panelOcultoOriginal.hidden, true);
+      importaciones++;
+    },
     cargarAviso: async () => catalogoAviso(),
     registrarError: (error) => fallos.push(error),
   });
   assert.equal(await arranque.iniciar(), false);
   assert.equal(importaciones, 0);
+  assert.equal(controlOriginal.hidden, true);
+  assert.equal(panelOcultoOriginal.hidden, true);
   assert.equal(fallos[0].cause.message, "catálogo no disponible");
   const aviso = raiz.children[0];
   const boton = aviso.querySelector("button");
@@ -100,10 +111,13 @@ test("fallo de preparación no importa consumidor; el botón reintenta desde la 
   assert.equal(importaciones, 1);
   assert.equal(raiz.children.includes(aviso), false);
   assert.equal(raiz.atributos.get("aria-busy"), "false");
+  assert.equal(documento.activeElement, raiz);
 });
 
 test("si falla la importación, Reintentar recarga el contexto de módulos", async () => {
   const { documento, raiz } = documentoFalso();
+  const controlOriginal = documento.createElement("button");
+  raiz.append(controlOriginal);
   let recargas = 0;
   let importaciones = 0;
   const arranque = crearArranqueOrganizacion({ documento,
@@ -114,6 +128,7 @@ test("si falla la importación, Reintentar recarga el contexto de módulos", asy
     recargar: () => { recargas++; },
   });
   assert.equal(await arranque.iniciar(), false);
+  assert.equal(controlOriginal.hidden, true);
   raiz.querySelector("button").listeners.get("click")();
   assert.equal(recargas, 1);
   assert.equal(importaciones, 1);
