@@ -248,7 +248,10 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, f.revalidador,
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},
 		f.resolutor, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: nominal.PerfilActivoRef}, f.reloj)
-	if err != nil || ctx.Err() != nil {
+	if err != nil {
+		return vacia, falloCertificadoTemporal(err)
+	}
+	if err := ctx.Err(); err != nil {
 		return vacia, falloCertificadoTemporal(err)
 	}
 	d, err := vinculo.Datos()
@@ -268,8 +271,14 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
 	snapshot, err := f.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, nominal.PerfilActivoRef)
-	if err != nil || ctx.Err() != nil || snapshot.Validar() != nil {
+	if err != nil {
 		return vacia, falloCertificadoTemporal(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacia, falloCertificadoTemporal(err)
+	}
+	if snapshot.Validar() != nil {
+		return vacia, ErrCertificadoTemporalNoDisponible
 	}
 	ahora = f.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if !f.politica.valida(ahora) || !vinculo.VigenteEn(ahora, resultado) ||
@@ -281,11 +290,16 @@ func (f *FuenteCertificadoTemporal) Abrir(ctx context.Context) (SesionRegistrada
 		snapshot.VersionRol.Estado != core.EstadoVersionRolPublicada ||
 		snapshot.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
 		!snapshot.AsignacionPerfil.VigenteEn(ahora) ||
-		ahora.Before(snapshot.VersionRol.PublicadaEn) || ahora.Before(snapshot.ControlVigenciaVersionRol.ActualizadoEn) ||
-		ctx.Err() != nil {
+		ahora.Before(snapshot.VersionRol.PublicadaEn) || ahora.Before(snapshot.ControlVigenciaVersionRol.ActualizadoEn) {
 		return vacia, ErrCertificadoTemporalNoDisponible
 	}
+	if err := ctx.Err(); err != nil {
+		return vacia, falloCertificadoTemporal(err)
+	}
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, d.PrincipalID); err != nil {
+		return vacia, falloCertificadoTemporal(err)
+	}
+	if err := ctx.Err(); err != nil {
 		return vacia, falloCertificadoTemporal(err)
 	}
 	canal := sha256.Sum256([]byte(auditoria.CanalVinculadoRef()))
@@ -312,6 +326,9 @@ func (f *FuenteCertificadoTemporal) Revalidar(ctx context.Context, esperado Espe
 		actual.sesionRef != esperado.sesionRef || actual.empleadoRef != esperado.empleadoRef ||
 		subtle.ConstantTimeCompare([]byte(actual.canalSHA256), []byte(esperado.canalSHA256)) != 1 {
 		return SesionRegistrada{}, ErrCertificadoTemporalNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return SesionRegistrada{}, falloCertificadoTemporal(err)
 	}
 	return sesion, nil
 }
