@@ -63,6 +63,7 @@ type RegistroMixtoV2 struct {
 	IntentoPerfilesAsignables *RegistroIntentoPerfilesAsignablesV1          `json:"intento_perfiles_asignables,omitempty"`
 	CatalogoAcciones          *RegistroCatalogoAccionesV1                   `json:"catalogo_acciones,omitempty"`
 	IntentoCatalogoAcciones   *RegistroIntentoCatalogoAccionesV1            `json:"intento_catalogo_acciones,omitempty"`
+	PresentacionCertificado   *RegistroPresentacionCertificadoV1            `json:"presentacion_certificado,omitempty"`
 	ContextoAdminPreV2        *RegistroContextoAdminPreV2                   `json:"contexto_admin_pre_v2,omitempty"`
 	FronteraAdminTecnica      *RegistroFronteraAdminTecnicaV1               `json:"frontera_admin_tecnica,omitempty"`
 	GobiernoUsuarios          *RegistroGobiernoUsuariosV1                   `json:"gobierno_usuarios,omitempty"`
@@ -240,6 +241,9 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 		if (r.CatalogoAcciones != nil || r.IntentoCatalogoAcciones != nil) && r.TipoRegistro != "catalogo_acciones_admin" && r.TipoRegistro != "intento_catalogo_acciones_admin" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
 		}
+		if r.PresentacionCertificado != nil && r.TipoRegistro != "presentacion_certificado_v1" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
 		if r.FronteraAdminTecnica != nil && r.TipoRegistro != "frontera_admin_tecnica" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
 		}
@@ -369,7 +373,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if (!esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+			if (!esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
@@ -382,7 +386,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
@@ -398,7 +402,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "unidad_inicial_personal", "intento_unidad_inicial_personal":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroUnidadInicialV1(r, secuencia)
@@ -414,7 +418,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "intento_bootstrap_central_admin":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarIntentoBootstrapCentralV1(r, secuencia)
@@ -427,7 +431,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "contexto_admin_pre_v2":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			e, codigo, clave := cotejarContextoAdminPreV2(r, secuencia)
@@ -440,7 +444,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[e.EventoRef] = true
 			referencia, previo, huella = e.AuditoriaRef, e.AnteriorSHA256, e.HuellaSHA256
 		case "frontera_admin_tecnica":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 || r.FronteraAdminTecnica == nil || r.GobiernoUsuarios != nil || r.IntentoGobiernoUsuarios != nil || r.Preservacion != nil || r.Periodica != nil || r.MantenimientoFijo != nil || r.IntentoMantenimientoFijo != nil || r.IntentoBootstrapCentral != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil || r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.Consumo != nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 || r.FronteraAdminTecnica == nil || r.GobiernoUsuarios != nil || r.IntentoGobiernoUsuarios != nil || r.Preservacion != nil || r.Periodica != nil || r.MantenimientoFijo != nil || r.IntentoMantenimientoFijo != nil || r.IntentoBootstrapCentral != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil || r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.Consumo != nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "frontera_exclusiva", "invalido", secuencia)
 			}
 			evento, codigo, clave := CotejarRegistroFronteraAdminTecnicaV1(*r.FronteraAdminTecnica, secuencia)
@@ -453,7 +457,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "perfiles_asignables_admin", "intento_perfiles_asignables_admin":
-			if esquema != EsquemaVerificacionPerfilesAsignables && esquema != EsquemaVerificacionIdentidadInternaSintetica && esquema != EsquemaVerificacionCatalogoAcciones {
+			if esquema != EsquemaVerificacionPerfilesAsignables && esquema != EsquemaVerificacionIdentidadInternaSintetica && esquema != EsquemaVerificacionCatalogoAcciones && esquema != EsquemaVerificacionPresentacionCertificado {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarPerfilesAsignablesV1(r, secuencia)
@@ -466,7 +470,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "provision_identidad_interna_sintetica", "intento_identidad_interna_sintetica":
-			if esquema != EsquemaVerificacionIdentidadInternaSintetica && esquema != EsquemaVerificacionCatalogoAcciones {
+			if esquema != EsquemaVerificacionIdentidadInternaSintetica && esquema != EsquemaVerificacionCatalogoAcciones && esquema != EsquemaVerificacionPresentacionCertificado {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarIdentidadInternaSinteticaV1(r, secuencia)
@@ -479,7 +483,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "catalogo_acciones_admin", "intento_catalogo_acciones_admin":
-			if esquema != EsquemaVerificacionCatalogoAcciones {
+			if esquema != EsquemaVerificacionCatalogoAcciones && esquema != EsquemaVerificacionPresentacionCertificado {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			if r.Eslabon == nil {
@@ -494,8 +498,24 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "presentacion_certificado_v1":
+			if esquema != EsquemaVerificacionPresentacionCertificado {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			if r.Eslabon == nil {
+				return fallar("eslabon_ausente", "eslabon", "obligatorio_ad221", "ausente", secuencia)
+			}
+			evento, codigo, clave := cotejarPresentacionCertificadoV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad221_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "gobierno_usuarios_admin", "intento_gobierno_usuarios_admin":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarGobiernoUsuariosV1(r, secuencia)
@@ -508,7 +528,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "mantenimiento_perfil_fijo_admin", "intento_mantenimiento_perfil_fijo_admin":
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarMantenimientoFijoV1(r, secuencia)
@@ -521,7 +541,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case TipoOperacionPreservacionAuditoria:
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarPreservacionAuditoriaV1(r, secuencia)
@@ -534,7 +554,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case TipoOperacionPeriodica:
-			if !esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
+			if !esquemaAdmiteFamiliasPreviasOPresentacion(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarOperacionPeriodicaV1(r, secuencia)
