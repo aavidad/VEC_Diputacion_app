@@ -173,7 +173,8 @@ function tabla(documento, pagina, recargar) {
 
 function paginacion(documento, pagina, recargar) {
   const nav = n(documento, "nav"); nav.setAttribute("aria-label", t("paginacion"));
-  const desde = pagina.total ? pagina.offset + 1 : 0, hasta = pagina.offset + pagina.items.length;
+  const desde = pagina.offset < pagina.total ? pagina.offset + 1 : 0;
+  const hasta = pagina.items.length ? pagina.offset + pagina.items.length : 0;
   nav.append(n(documento, "span", t("mostrando", { desde: numero(desde), hasta: numero(hasta), total: numero(pagina.total) })));
   const anterior = n(documento, "button", t("anterior")); anterior.type = "button"; anterior.disabled = pagina.offset === 0;
   anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) }));

@@ -138,7 +138,7 @@ func leerFiltroRPTPublicaV2(raw string) (personaldomain.FiltroRPTPublicaV2, erro
 	if f.Vista == "" {
 		f.Vista = "categorias"
 	}
-	f.Q = strings.TrimSpace(q.Get("q"))
+	f.Q = q.Get("q")
 	f.CategoriaClave = q.Get("categoria_clave")
 	f.CentroCodigo = q.Get("centro_codigo")
 	f.Limite, err = enteroRPTPublica(q.Get("limit"))

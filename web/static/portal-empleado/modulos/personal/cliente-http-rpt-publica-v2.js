@@ -63,7 +63,8 @@ function validarPagina(sobre, consulta) {
       !exacto(rpt, ["items", "total", "limit", "offset", "vista", "esquema", "estado", "publicacion_ref", "corte", "huella_sha256", "fuente", "resumen", "categorias_pendientes_grupo", "evidencia"]) ||
       rpt.esquema !== "vec.catalogo.rpt.candidato.v1" || rpt.estado !== "preparacion_no_autoritativa" ||
       !/^rpt-publicada:[a-z0-9][a-z0-9:-]{2,127}$/u.test(rpt.publicacion_ref) ||
-      !/^\d{4}-\d{2}-\d{2}$/u.test(rpt.corte) || !SHA256.test(rpt.huella_sha256) ||
+      !/^\d{4}-\d{2}-\d{2}$/u.test(rpt.corte) || !Number.isFinite(Date.parse(`${rpt.corte}T12:00:00Z`)) ||
+      new Date(`${rpt.corte}T12:00:00Z`).toISOString().slice(0, 10) !== rpt.corte || !SHA256.test(rpt.huella_sha256) ||
       !validarFuente(rpt.fuente) || !validarResumen(rpt.resumen) || !validarEvidencia(rpt.evidencia) ||
       rpt.evidencia.efecto_ref !== rpt.publicacion_ref || !listaTextos(rpt.categorias_pendientes_grupo, 1000) ||
       rpt.limit !== consulta.limit || rpt.offset !== consulta.offset || rpt.vista !== consulta.vista || !entero(rpt.total) ||
