@@ -124,7 +124,8 @@ BEGIN
  OR m->>'contexto_actor_ref' !~ '^vca_[A-Za-z0-9_-]{22,128}$'
  OR m->>'perfil_ref' !~ '^prf_[A-Za-z0-9_-]{22,128}$'
  OR f->>'vista' NOT IN ('categorias','puestos')
- OR (f->>'categoria_clave'<>'' AND f->>'categoria_clave' !~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$')
+ OR (f->>'categoria_clave'<>'' AND (char_length(f->>'categoria_clave')>60
+   OR f->>'categoria_clave' !~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'))
  OR (f->>'centro_codigo'<>'' AND f->>'centro_codigo' !~ '^[A-Za-z0-9-]{1,64}$')
  OR (f->>'vista'<>'puestos' AND (f->>'categoria_clave'<>'' OR f->>'centro_codigo'<>''))
  OR f->>'limite' !~ '^([1-9]|[1-9][0-9]|100)$'
