@@ -49,6 +49,8 @@
     "mapa_nota_osm_interno": "OpenStreetMap cargado desde teselas servidas en la red interna. Fuente cartográfica histórica; aún no se ha acreditado la cobertura completa de la provincia y su franja de 15 km.",
     "mapa_zoom_acercar": "Acercar el mapa",
     "mapa_zoom_alejar": "Alejar el mapa",
+    "mapa_parada": "Parada {numero}: {nombre}",
+    "mapa_atribucion_interna": "© Colaboradores de OpenStreetMap · © OpenMapTiles · servido en la red interna",
     "borradores_propios_titulo": "Mis borradores de comisión",
     "borradores_propios_nuevo": "Nuevo borrador",
     "borradores_propios_fecha_inicio": "Fecha de inicio",

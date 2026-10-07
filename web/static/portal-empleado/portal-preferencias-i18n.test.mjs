@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { renderizarPreferencias } from "../area-personal/preferencias.js";
+import { iniciarI18nAreaPersonal } from "../area-personal/i18n.js";
 
 const catalogo = async (idioma) => JSON.parse(await readFile(
   new URL(`../textos/${idioma}/preferencias.json`, import.meta.url), "utf8"));
@@ -29,12 +30,15 @@ test("RRHH consume los textos ES y EN exactos de los JSON comunes", async () => 
   }
 });
 
-test("Área personal cambia los textos de preferencias con el idioma del documento", async () => {
+test("Área personal cambia los textos de preferencias al inicializar el idioma", async () => {
   const [es, en] = await Promise.all([catalogo("es"), catalogo("en")]);
   const anterior = globalThis.document;
   try {
     for (const [idioma, mensajes] of [["es", es.areaPersonal], ["en", en.areaPersonal]]) {
-      globalThis.document = { documentElement: { lang: idioma } };
+      globalThis.document = { documentElement: { lang: idioma }, querySelectorAll: () => [] };
+      await iniciarI18nAreaPersonal(globalThis.document, {
+        ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
+      });
       const html = renderizarPreferencias({ error: { codigo: "servicio" } });
       assert.ok(html.includes(mensajes.preferencias.sinDatos));
       assert.ok(html.includes(mensajes.preferencias.error.servicio));

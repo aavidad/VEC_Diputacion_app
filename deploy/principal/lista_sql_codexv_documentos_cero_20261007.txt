@@ -1,0 +1,3 @@
+# D15 requiere D14 instalada. Cotejar diario antes de ejecutar; no reaplicar D14.
+# En el ensayo efímero se instala D14 una sola vez si falta, luego D15 una vez.
+deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct_cero.up.sql

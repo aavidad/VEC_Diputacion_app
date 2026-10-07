@@ -10,7 +10,11 @@ func TestModuloReferenciaExpedienteV1(t *testing.T) {
 	if got := ModuloReferenciaExpedienteV1("expediente:ct:" + id); got != "contratacion_temporal" {
 		t.Fatalf("módulo CT = %q", got)
 	}
+	if got := ModuloReferenciaExpedienteV1("expediente:ct:" + strings.Repeat("0", 63) + "1"); got != "contratacion_temporal" {
+		t.Fatalf("ID CT no cero con prefijo cero = %q", got)
+	}
 	for _, referencia := range []string{
+		"expediente:ct:" + strings.Repeat("0", 64),
 		"ref:" + id,
 		"expediente:bolsa:" + id,
 		"expediente:CT:" + id,
@@ -23,5 +27,24 @@ func TestModuloReferenciaExpedienteV1(t *testing.T) {
 		if got := ModuloReferenciaExpedienteV1(referencia); got != "" {
 			t.Errorf("referencia %q resolvió módulo %q", referencia, got)
 		}
+	}
+}
+
+var moduloReferenciaExpedienteMedida string
+
+func BenchmarkModuloReferenciaExpedienteV1(b *testing.B) {
+	for nombre, referencia := range map[string]string{
+		"ct_valida": "expediente:ct:" + strings.Repeat("a", 64),
+		"ct_cero":   "expediente:ct:" + strings.Repeat("0", 64),
+		"opaca":     "ref:" + strings.Repeat("b", 64),
+	} {
+		b.Run(nombre, func(b *testing.B) {
+			b.ReportAllocs()
+			var modulo string
+			for b.Loop() {
+				modulo = ModuloReferenciaExpedienteV1(referencia)
+			}
+			moduloReferenciaExpedienteMedida = modulo
+		})
 	}
 }

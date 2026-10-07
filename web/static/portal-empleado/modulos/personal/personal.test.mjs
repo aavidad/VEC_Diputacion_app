@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { prepararTextosPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+
+test.before(async () => { await prepararTextosPersonal(); });
 import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
 import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";

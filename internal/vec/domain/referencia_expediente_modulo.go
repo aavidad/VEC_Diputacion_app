@@ -10,11 +10,18 @@ func ModuloReferenciaExpedienteV1(referencia string) string {
 	if len(referencia) != len(prefijo)+64 || !strings.HasPrefix(referencia, prefijo) {
 		return ""
 	}
+	todoCero := true
 	for i := len(prefijo); i < len(referencia); i++ {
 		c := referencia[i]
 		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return ""
 		}
+		if c != '0' {
+			todoCero = false
+		}
+	}
+	if todoCero {
+		return ""
 	}
 	return "contratacion_temporal"
 }

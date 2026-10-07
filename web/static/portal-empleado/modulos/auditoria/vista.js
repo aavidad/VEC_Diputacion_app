@@ -1,8 +1,8 @@
 import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 // Fases y estados de las peticiones: un solo catálogo para todas las pantallas.
-import { nombreEstado, nombreFaseRRHH } from "../contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { nombreEstado, nombreFaseRRHH } from "../contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
