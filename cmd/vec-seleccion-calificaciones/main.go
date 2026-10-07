@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -70,7 +71,7 @@ func clavesUnicas(d *json.Decoder, nivel int) error {
 		if inicio == '{' {
 			k, err := d.Token()
 			clave, ok := k.(string)
-			if err != nil || !ok || vistas[clave] {
+			if err != nil || !ok || clave == "" || strings.Trim(clave, "abcdefghijklmnopqrstuvwxyz_0123456789") != "" || vistas[clave] {
 				return domain.ErrCalificacionesEjercicio
 			}
 			vistas[clave] = true

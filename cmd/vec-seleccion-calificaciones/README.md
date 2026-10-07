@@ -17,7 +17,7 @@ La primera revisión lleva `revision: 1` sin antecedente. Las siguientes requier
 
 Para usar este contrato en el circuito institucional faltan el cotejo de las bases y de su versión, la admisión y el anonimato que corresponda, la fuente de las correcciones y el acta del tribunal. También faltan autoría autorizada, decisión competente, reclamaciones y publicación. Una revisión debe conservar y enlazar la anterior; no debe reemplazarla. La salida declara `aprobada: false` y `publicada: false`.
 
-La entrada está limitada a 1 MiB, 128 notas y 16 fases configuradas; se rechazan claves JSON repetidas y campos desconocidos. Estos límites son técnicos. El proceso no abre rutas ni servicios. Para verificar el corte:
+La entrada está limitada a 1 MiB, 128 notas y 16 fases configuradas; se rechazan claves JSON repetidas, campos desconocidos y variantes de claves en mayúsculas. Estos límites son técnicos. El proceso no abre rutas ni servicios. Para verificar el corte:
 
 ```sh
 GOCACHE="$HOME/.cache/go-build" go test -p 6 ./internal/modules/seleccion/domain ./internal/modules/seleccion/application ./cmd/vec-seleccion-calificaciones
