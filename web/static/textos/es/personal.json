@@ -572,6 +572,7 @@
     "quitar_filtro": "Quitar filtro",
     "categoria_aplicada": "Categoría: {valor}",
     "centro_aplicado": "Centro: {valor}",
+    "puesto_aplicado": "Puesto: {valor}",
     "cargando": "Cargando RPT publicada…",
     "error": "No se pudo consultar la RPT publicada. No se muestran datos anteriores.",
     "error_filtro": "El filtro no es válido. Revíselo y vuelva a buscar.",

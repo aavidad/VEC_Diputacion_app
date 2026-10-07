@@ -53,11 +53,11 @@ test("búsqueda aplicada distingue texto sin enviar y quitar vuelve a la primera
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]").textContent, "Búsqueda aplicada: administrativo");
   r.querySelector("[data-personal-rpt-publica-busqueda]").value = "sin enviar";
   r.querySelector("[data-personal-rpt-publica-siguiente]").listeners.get("click")(); await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", categoria_clave: "", centro_codigo: "", limit: 25, offset: 25 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", categoria_clave: "", centro_codigo: "", codigo_puesto: "", limit: 25, offset: 25 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "sin enviar");
   const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"); quitar.focus(); quitar.listeners.get("click")();
   await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", categoria_clave: "", centro_codigo: "", limit: 25, offset: 0 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", categoria_clave: "", centro_codigo: "", codigo_puesto: "", limit: 25, offset: 0 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "");
@@ -197,7 +197,7 @@ test("enlace con centro inválido limpia el filtro y permite volver a buscar", a
     try {
       const r = raiz(), llamadas = [];
       const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 0, items: [] }); } } });
-      assert.deepEqual(llamadas[0], { vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "" });
+      assert.deepEqual(llamadas[0], { vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "", codigo_puesto: "" });
       assert.equal(location.search, "?lang=es");
       assert.match(textoNodo(r), /enlace tenía un filtro no válido/u);
       nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")();
@@ -291,4 +291,54 @@ test("fila de una plaza anuncia un puesto y una dotación", async () => {
   await montarModuloRPTPublica({ raiz: r, cliente: { async listar() { return pagina({ items: [categoria] }); } } });
   const principal = nodosCon(r, "personalRptPublicaEnlace").find((b) => b.textContent === "AUXILIAR");
   assert.match(principal.atributos.get("aria-label"), /1 puesto y 1 dotación/u);
+});
+
+test("enlace por código conserva filtros exactos y permite quitar sólo ese código", async () => {
+  const anterior = globalThis.window, llamadas = [];
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&rpt_vista=puestos&rpt_q=admin&rpt_categoria=administrativo&rpt_centro=101&rpt_codigo=217", hash: "#personal" };
+  const aplicar = (ruta) => { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; };
+  globalThis.window = { location, history: { replaceState(_a, _b, ruta) { aplicar(ruta); }, pushState(_a, _b, ruta) { aplicar(ruta); } } };
+  try {
+    const r = raiz();
+    const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(q) { llamadas.push(q); return pagina({ vista: q.vista, total: 0, items: [] }); } } });
+    assert.equal(llamadas[0].codigo_puesto, "217");
+    assert.equal(llamadas[0].categoria_clave, "administrativo"); assert.equal(llamadas[0].centro_codigo, "101"); assert.equal(llamadas[0].q, "admin");
+    assert.match(textoNodo(r), /Puesto: 217/u);
+    const quitar = nodosCon(r, "personalRptPublicaQuitarFiltro").find((n) => n.dataset.personalRptPublicaQuitarFiltro === "codigo_puesto");
+    quitar.listeners.get("click")(); await esperarRespuesta();
+    assert.equal(llamadas.at(-1).codigo_puesto, ""); assert.equal(llamadas.at(-1).categoria_clave, "administrativo");
+    assert.equal(llamadas.at(-1).centro_codigo, "101"); assert.equal(llamadas.at(-1).q, "admin");
+    assert.doesNotMatch(location.search, /rpt_codigo/u); assert.match(location.search, /rpt_categoria=administrativo/u);
+    assert.match(location.search, /lang=es/u); assert.equal(location.hash, "#personal");
+    modulo.desmontar();
+  } finally { globalThis.window = anterior; }
+});
+
+test("código no pasa a otra vista o tarjeta y un enlace inválido vuelve al catálogo", async () => {
+  const anterior = globalThis.window;
+  for (const accion of ["pestana", "tarjeta"]) {
+    const llamadas = [], location = { pathname: "/portal-empleado/", search: "?lang=es&rpt_vista=puestos&rpt_codigo=217", hash: "#personal" };
+    globalThis.window = { location, history: { replaceState(_a, _b, ruta) { location.search = new URL(ruta, "http://vec.local").search; }, pushState(_a, _b, ruta) { location.search = new URL(ruta, "http://vec.local").search; } } };
+    try {
+      const r = raiz();
+      const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(q) { llamadas.push(q); return pagina({ vista: q.vista, total: 0, items: [] }); } } });
+      const boton = accion === "pestana" ? nodosCon(r, "personalRptPublicaVista").find((n) => n.dataset.personalRptPublicaVista === "centros")
+        : nodosCon(r, "personalRptPublicaResumenEnlace").find((n) => n.dataset.personalRptPublicaResumenEnlace === "categorias");
+      boton.listeners.get("click")(); await esperarRespuesta();
+      assert.equal(llamadas.at(-1).codigo_puesto, ""); assert.doesNotMatch(location.search, /rpt_codigo/u);
+      modulo.desmontar();
+    } finally { globalThis.window = anterior; }
+  }
+  for (const codigo of ["217a", "217&rpt_codigo=1217", ""]) {
+    const location = { pathname: "/portal-empleado/", search: `?lang=es&rpt_vista=puestos&rpt_codigo=${codigo}`, hash: "#personal" };
+    globalThis.window = { location, history: { replaceState(_a, _b, ruta) { location.search = new URL(ruta, "http://vec.local").search; } } };
+    try {
+      const r = raiz(), llamadas = [];
+      const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(q) { llamadas.push(q); return pagina({ vista: q.vista, total: 0, items: [] }); } } });
+      assert.equal(llamadas[0].vista, "categorias"); assert.equal(llamadas[0].codigo_puesto, "");
+      assert.match(textoNodo(r), /enlace tenía un filtro no válido/u);
+      assert.doesNotMatch(location.search, /rpt_codigo/u);
+      modulo.desmontar();
+    } finally { globalThis.window = anterior; }
+  }
 });

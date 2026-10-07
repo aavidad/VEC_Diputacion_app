@@ -572,6 +572,7 @@
     "quitar_filtro": "Clear filter",
     "categoria_aplicada": "Category: {valor}",
     "centro_aplicado": "Centre: {valor}",
+    "puesto_aplicado": "Post: {valor}",
     "cargando": "Loading published post structure…",
     "error": "The published post structure could not be checked. No previous data is shown.",
     "error_filtro": "The filter is invalid. Check it and search again.",

@@ -56,7 +56,9 @@ func BenchmarkRPTPublicaEnlaces(b *testing.B) {
 	for _, caso := range []struct {
 		nombre   string
 		ampliado bool
-	}{{"fuente_842", false}, {"sintetico_10000", true}} {
+		codigo   string
+		total    int
+	}{{"fuente_842", false, "", 842}, {"fuente_842_codigo_217", false, "217", 1}, {"sintetico_10000", true, "", 10_000}} {
 		b.Run(caso.nombre, func(b *testing.B) {
 			catalogo := catalogoRPTBenchmark(b, caso.ampliado)
 			h, err := NewHandlerRPTPublica(consultaRPTPublicaPrueba{catalogo})
@@ -64,6 +66,25 @@ func BenchmarkRPTPublicaEnlaces(b *testing.B) {
 				b.Fatal(err)
 			}
 			url := RutaRPTPublicaPersonal + "?vista=puestos&q=&limit=100&offset=0&enlaces=1"
+			if caso.codigo != "" {
+				url += "&codigo_puesto=" + caso.codigo
+			}
+			previa := httptest.NewRecorder()
+			h.ServeHTTP(previa, httptest.NewRequest(http.MethodGet, url, nil))
+			var pagina struct {
+				Data struct {
+					RPT struct {
+						Total int `json:"total"`
+						Items []struct {
+							Codigo string `json:"codigo"`
+						} `json:"items"`
+					} `json:"rpt"`
+				} `json:"data"`
+			}
+			if previa.Code != 200 || json.Unmarshal(previa.Body.Bytes(), &pagina) != nil || pagina.Data.RPT.Total != caso.total ||
+				caso.codigo != "" && (len(pagina.Data.RPT.Items) != 1 || pagina.Data.RPT.Items[0].Codigo != caso.codigo) {
+				b.Fatalf("respuesta previa incompatible: HTTP %d", previa.Code)
+			}
 			muestras := make([]int64, 0, 2048)
 			b.ReportAllocs()
 			b.ResetTimer()

@@ -24,6 +24,7 @@ type ConsultaRPTPublica interface {
 type vistaRPTPublica string
 
 var patronClaveCategoriaRPTFiltro = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
+var patronCodigoPuestoRPTFiltro = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{0,63}$`)
 
 const (
 	vistaRPTCategorias vistaRPTPublica = "categorias"
@@ -32,11 +33,11 @@ const (
 )
 
 type filtroRPTPublica struct {
-	vista                        vistaRPTPublica
-	q                            string
-	categoriaClave, centroCodigo string
-	enlaces                      bool
-	limit, offset                int
+	vista                                      vistaRPTPublica
+	q                                          string
+	categoriaClave, centroCodigo, codigoPuesto string
+	enlaces                                    bool
+	limit, offset                              int
 }
 
 func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
@@ -45,7 +46,7 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 		return filtroRPTPublica{}, err
 	}
 	for clave, valoresClave := range valores {
-		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset" && clave != "enlaces" && clave != "categoria_clave" && clave != "centro_codigo") || len(valoresClave) != 1 {
+		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset" && clave != "enlaces" && clave != "categoria_clave" && clave != "centro_codigo" && clave != "codigo_puesto") || len(valoresClave) != 1 {
 			return filtroRPTPublica{}, errors.New("filtro")
 		}
 	}
@@ -69,13 +70,14 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 	if err != nil || offset < 0 {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
-	categoriaClave, centroCodigo := valores.Get("categoria_clave"), valores.Get("centro_codigo")
+	categoriaClave, centroCodigo, codigoPuesto := valores.Get("categoria_clave"), valores.Get("centro_codigo"), valores.Get("codigo_puesto")
 	if (valores.Has("categoria_clave") || valores.Has("centro_codigo")) && (!enlaces || vista != vistaRPTPuestos) ||
+		valores.Has("codigo_puesto") && (!enlaces || vista != vistaRPTPuestos || !patronCodigoPuestoRPTFiltro.MatchString(codigoPuesto)) ||
 		categoriaClave != "" && (len(categoriaClave) > 64 || !patronClaveCategoriaRPTFiltro.MatchString(categoriaClave)) ||
 		centroCodigo != "" && (len(centroCodigo) > 64 || !utf8.ValidString(centroCodigo) || strings.TrimSpace(centroCodigo) != centroCodigo || strings.ContainsFunc(centroCodigo, unicode.IsControl)) {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
-	return filtroRPTPublica{vista: vista, q: q, limit: limit, offset: offset, categoriaClave: categoriaClave, centroCodigo: centroCodigo, enlaces: enlaces}, nil
+	return filtroRPTPublica{vista: vista, q: q, limit: limit, offset: offset, categoriaClave: categoriaClave, centroCodigo: centroCodigo, codigoPuesto: codigoPuesto, enlaces: enlaces}, nil
 }
 func enteroRPTPublica(valor string) (int, error) {
 	if valor == "" || strings.TrimSpace(valor) != valor || (len(valor) > 1 && valor[0] == '0') {
@@ -127,7 +129,7 @@ func servirRPTPublica(w http.ResponseWriter, r *http.Request, consulta ConsultaR
 	case vistaRPTPuestos:
 		filtrados := make([]personaldomain.PuestoRPTPublico, 0, len(catalogo.Puestos))
 		for _, puesto := range catalogo.Puestos {
-			if filtro.categoriaClave != "" && puesto.CategoriaClave != filtro.categoriaClave || filtro.centroCodigo != "" && puesto.CentroCodigo != filtro.centroCodigo {
+			if filtro.categoriaClave != "" && puesto.CategoriaClave != filtro.categoriaClave || filtro.centroCodigo != "" && puesto.CentroCodigo != filtro.centroCodigo || filtro.codigoPuesto != "" && puesto.Codigo != filtro.codigoPuesto {
 				continue
 			}
 			if q == "" || coincidePuestoRPT(puesto, q) {
