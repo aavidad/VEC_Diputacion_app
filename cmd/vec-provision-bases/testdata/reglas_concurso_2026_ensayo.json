@@ -1,0 +1,237 @@
+{
+  "schema_version": "provision.v1",
+  "convocatoria_ref": "2026/PPT_01/000026",
+  "version": "BOP-GRA-2026-060006:ensayo-v1",
+  "bases_ref": "BOP-GRA-2026-060006",
+  "fecha_corte": "2026-05-05",
+  "ventana_desde": "1900-01-01",
+  "maximo_total": "100000000",
+  "reglas": [
+    {
+      "id": "experiencia-2026",
+      "familia": "valoracion_trabajo",
+      "referencia_base": "BOP-GRA-2026-060006#base:6:A",
+      "coeficiente": "0",
+      "maximo": "22000000",
+      "redondeo": "exacto",
+      "excluir_requisito": false,
+      "ventana_desde": "2016-05-05",
+      "diferencia": "puesto_menos_hecho",
+      "min_diferencia": -1000,
+      "max_diferencia": 1000,
+      "agrupacion": "por_nivel",
+      "conversion": {
+        "metodo": "anos_desde_meses",
+        "divisor": 12,
+        "umbral_resto": 6
+      },
+      "jornada": "integra",
+      "solapes": "rechazar",
+      "tramos": [
+        {
+          "id": "superior",
+          "min_diferencia": -1000,
+          "max_diferencia": -1,
+          "coeficiente": "2200000",
+          "maximo": "22000000"
+        },
+        {
+          "id": "igual",
+          "min_diferencia": 0,
+          "max_diferencia": 0,
+          "coeficiente": "2050000",
+          "maximo": "20500000"
+        },
+        {
+          "id": "inferior-1",
+          "min_diferencia": 1,
+          "max_diferencia": 1,
+          "coeficiente": "1900000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-2",
+          "min_diferencia": 2,
+          "max_diferencia": 2,
+          "coeficiente": "1750000",
+          "maximo": "17500000"
+        },
+        {
+          "id": "inferior-3",
+          "min_diferencia": 3,
+          "max_diferencia": 3,
+          "coeficiente": "1600000",
+          "maximo": "16000000"
+        },
+        {
+          "id": "inferior-4",
+          "min_diferencia": 4,
+          "max_diferencia": 4,
+          "coeficiente": "1450000",
+          "maximo": "14500000"
+        },
+        {
+          "id": "inferior-5",
+          "min_diferencia": 5,
+          "max_diferencia": 5,
+          "coeficiente": "1300000",
+          "maximo": "13000000"
+        },
+        {
+          "id": "inferior-6",
+          "min_diferencia": 6,
+          "max_diferencia": 6,
+          "coeficiente": "1150000",
+          "maximo": "11500000"
+        },
+        {
+          "id": "inferior-7-o-mas",
+          "min_diferencia": 7,
+          "max_diferencia": 1000,
+          "coeficiente": "1000000",
+          "maximo": "11000000"
+        }
+      ]
+    },
+    {
+      "id": "grado-2026",
+      "familia": "grado",
+      "referencia_base": "BOP-GRA-2026-060006#base:6:B",
+      "coeficiente": "0",
+      "maximo": "19000000",
+      "redondeo": "exacto",
+      "excluir_requisito": false,
+      "diferencia": "puesto_menos_hecho",
+      "min_diferencia": -1000,
+      "max_diferencia": 8,
+      "tramos": [
+        {
+          "id": "superior",
+          "min_diferencia": -1000,
+          "max_diferencia": -1,
+          "coeficiente": "19000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "igual",
+          "min_diferencia": 0,
+          "max_diferencia": 0,
+          "coeficiente": "17000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-1",
+          "min_diferencia": 1,
+          "max_diferencia": 1,
+          "coeficiente": "15000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-2",
+          "min_diferencia": 2,
+          "max_diferencia": 2,
+          "coeficiente": "13000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-3",
+          "min_diferencia": 3,
+          "max_diferencia": 3,
+          "coeficiente": "11000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-4",
+          "min_diferencia": 4,
+          "max_diferencia": 4,
+          "coeficiente": "9000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-5",
+          "min_diferencia": 5,
+          "max_diferencia": 5,
+          "coeficiente": "7000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-6",
+          "min_diferencia": 6,
+          "max_diferencia": 6,
+          "coeficiente": "5000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-7",
+          "min_diferencia": 7,
+          "max_diferencia": 7,
+          "coeficiente": "3000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior-8",
+          "min_diferencia": 8,
+          "max_diferencia": 8,
+          "coeficiente": "1000000",
+          "maximo": "19000000"
+        }
+      ]
+    },
+    {
+      "id": "antiguedad-2026",
+      "familia": "antiguedad",
+      "referencia_base": "BOP-GRA-2026-060006#base:6:C",
+      "coeficiente": "85000",
+      "maximo": "18000000",
+      "redondeo": "exacto",
+      "excluir_requisito": false,
+      "agrupacion": "por_periodo",
+      "conversion": {
+        "metodo": "meses_completos",
+        "divisor": 1,
+        "umbral_resto": 0
+      },
+      "jornada": "integra",
+      "solapes": "rechazar"
+    },
+    {
+      "id": "permanencia-2026",
+      "familia": "permanencia",
+      "referencia_base": "BOP-GRA-2026-060006#base:6:D",
+      "coeficiente": "2500000",
+      "maximo": "20000000",
+      "redondeo": "exacto",
+      "excluir_requisito": false,
+      "agrupacion": "por_periodo",
+      "conversion": {
+        "metodo": "anos_desde_meses",
+        "divisor": 12,
+        "umbral_resto": 6
+      },
+      "jornada": "integra",
+      "solapes": "rechazar",
+      "tipos": [
+        "definitivo",
+        "provisional"
+      ],
+      "permanencia_politica": "resto_provisional_primero_v1",
+      "tipo_provisional": "provisional",
+      "factor_provisional_numerador": 1,
+      "factor_provisional_denominador": 2
+    },
+    {
+      "id": "formacion-2026",
+      "familia": "cursos",
+      "referencia_base": "BOP-GRA-2026-060006#base:6:F",
+      "coeficiente": "12000",
+      "maximo": "9000000",
+      "redondeo": "exacto",
+      "excluir_requisito": false,
+      "horas_minimas": "20/1",
+      "tipos": [
+        "formacion_admitida"
+      ]
+    }
+  ],
+  "cobertura_requerida": "seis_familias_concurso_v1"
+}

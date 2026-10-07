@@ -37,6 +37,7 @@ type Regla struct {
 	ID                 string         `json:"id"`
 	Familia            Familia        `json:"familia"`
 	ReferenciaBase     string         `json:"referencia_base"`
+	VentanaDesde       string         `json:"ventana_desde,omitempty"` // fecha civil ISO, adicional a la global
 	Coeficiente        b.Puntos       `json:"coeficiente"`
 	Maximo             b.Puntos       `json:"maximo"`
 	Redondeo           b.ModoRedondeo `json:"redondeo"`
@@ -53,17 +54,26 @@ type Regla struct {
 	ExcluirRequisito   bool           `json:"excluir_requisito"`
 	SeleccionElementos string         `json:"seleccion_elementos,omitempty"`
 	MaximoElementos    int            `json:"maximo_elementos,omitempty"`
+	// Una política de permanencia distingue los meses provisionales sin
+	// fijar en código el corrector ni la regla temporal de una convocatoria.
+	PermanenciaPolitica          string `json:"permanencia_politica,omitempty"`
+	TipoProvisional              string `json:"tipo_provisional,omitempty"`
+	FactorProvisionalNumerador   int64  `json:"factor_provisional_numerador,omitempty"`
+	FactorProvisionalDenominador int64  `json:"factor_provisional_denominador,omitempty"`
 }
 
 type Configuracion struct {
-	SchemaVersion   string       `json:"schema_version"`
-	ConvocatoriaRef string       `json:"convocatoria_ref"`
-	Version         string       `json:"version"`
-	BasesRef        string       `json:"bases_ref"`
-	FechaCorte      b.FechaCivil `json:"fecha_corte"` // extremo exclusivo explícito
-	VentanaDesde    b.FechaCivil `json:"ventana_desde"`
-	MaximoTotal     b.Puntos     `json:"maximo_total"`
-	Reglas          []Regla      `json:"reglas"`
+	SchemaVersion   string `json:"schema_version"`
+	ConvocatoriaRef string `json:"convocatoria_ref"`
+	Version         string `json:"version"`
+	BasesRef        string `json:"bases_ref"`
+	// CoberturaRequerida obliga a declarar las seis familias aun cuando una
+	// regla siga pendiente. Vacio conserva el contrato de ensayos anterior.
+	CoberturaRequerida string       `json:"cobertura_requerida,omitempty"`
+	FechaCorte         b.FechaCivil `json:"fecha_corte"` // extremo exclusivo explícito
+	VentanaDesde       b.FechaCivil `json:"ventana_desde"`
+	MaximoTotal        b.Puntos     `json:"maximo_total"`
+	Reglas             []Regla      `json:"reglas"`
 }
 
 type Periodo struct {

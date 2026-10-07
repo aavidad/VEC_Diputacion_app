@@ -1,0 +1,42 @@
+{
+  "instantanea_ref": "instantanea:sintetica:concursos:uno",
+  "puesto_ref": "puesto:sintetico:24",
+  "nivel_puesto": 24,
+  "grado_personal": 23,
+  "grado_evidencia_ref": "evidencia:sintetica:grado",
+  "disponibles": [
+    "valoracion_trabajo",
+    "grado",
+    "antiguedad",
+    "permanencia",
+    "cursos"
+  ],
+  "periodos": [
+    {
+      "id": "periodo:sintetico:uno",
+      "evidencia_ref": "evidencia:sintetica:servicio",
+      "desde": "2017-01-01",
+      "hasta": "2018-01-01",
+      "nivel": 24,
+      "tipo": "definitivo",
+      "familias": [
+        "valoracion_trabajo",
+        "antiguedad",
+        "permanencia"
+      ],
+      "jornada": "1/1"
+    }
+  ],
+  "cursos": [
+    {
+      "id": "curso:sintetico:uno",
+      "evidencia_ref": "evidencia:sintetica:curso",
+      "tipo": "formacion_admitida",
+      "horas": "40/1",
+      "fecha": "2020-05-01",
+      "relacionado": true,
+      "acreditado": true
+    }
+  ],
+  "titulaciones": []
+}
