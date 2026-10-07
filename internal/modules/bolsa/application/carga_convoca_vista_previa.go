@@ -159,7 +159,10 @@ func (p *PrevisualizadorCargaConvoca) Previsualizar(ctx context.Context, nombre 
 		vista.Bloqueo = BloqueoSinFilasAceptadas
 	}
 	var derivable bool
-	vista.Filas, derivable = filasVistaPrevia(staging)
+	vista.Filas, derivable, err = filasVistaPrevia(staging)
+	if err != nil {
+		return VistaPreviaCargaConvoca{}, errors.Join(ErrFicheroCargaConvocaInvalido, err)
+	}
 	if vista.Bloqueo == "" && !derivable {
 		vista.Bloqueo = BloqueoIdentidadNoDerivable
 	}
@@ -173,10 +176,13 @@ func (p *PrevisualizadorCargaConvoca) Previsualizar(ctx context.Context, nombre 
 
 // filasVistaPrevia devuelve primero las aceptadas en el orden de la bolsa y
 // después las rechazadas por número de fila.
-func filasVistaPrevia(staging importacion.ResultadoStaging) ([]FilaVistaPreviaCargaConvoca, bool) {
+func filasVistaPrevia(staging importacion.ResultadoStaging) ([]FilaVistaPreviaCargaConvoca, bool, error) {
 	aceptadas := append([]importacion.FilaAceptada(nil), staging.Aceptadas...)
 	constitucion.OrdenarFilasConstitucion(aceptadas)
-	ambiguas, derivable := filasIdentidadAmbigua(aceptadas)
+	ambiguas, derivable, err := filasIdentidadAmbigua(aceptadas)
+	if err != nil {
+		return nil, false, err
+	}
 	filas := make([]FilaVistaPreviaCargaConvoca, 0, len(aceptadas)+staging.Rechazadas)
 	for i, a := range aceptadas {
 		fila := FilaVistaPreviaCargaConvoca{
@@ -202,18 +208,21 @@ func filasVistaPrevia(staging importacion.ResultadoStaging) ([]FilaVistaPreviaCa
 		}
 		filas[indice].Errores = append(filas[indice].Errores, IncidenciaCargaConvoca{Campo: inc.Campo, Codigo: inc.Codigo})
 	}
-	return filas, derivable
+	return filas, derivable, nil
 }
 
 // filasIdentidadAmbigua marca las filas que la constitución dejará pendientes
 // de revisión: comparten documento enmascarado y nombre con otra fila. El
 // booleano es falso si alguna fila no permite derivar la identidad.
-func filasIdentidadAmbigua(filas []importacion.FilaAceptada) (map[int]bool, bool) {
+func filasIdentidadAmbigua(filas []importacion.FilaAceptada) (map[int]bool, bool, error) {
 	porClave := map[string][]int{}
 	derivable := true
 	for _, fila := range filas {
 		clave, err := constitucion.ClaveIdentidadCandidato(fila.Identidad)
 		if err != nil {
+			if !errors.Is(err, constitucion.ErrIdentidadCandidatoInvalida) {
+				return nil, false, err
+			}
 			derivable = false
 			continue
 		}
@@ -227,5 +236,5 @@ func filasIdentidadAmbigua(filas []importacion.FilaAceptada) (map[int]bool, bool
 			}
 		}
 	}
-	return ambiguas, derivable
+	return ambiguas, derivable, nil
 }
