@@ -128,6 +128,25 @@ test("sin expediente recibido por navegación no hay campo ni consulta", async (
   assert.equal(fuente.seleccionados.length, 0);
 });
 
+test("la referencia CT real llega intacta a la consulta; otras formas siguen cerradas", async () => {
+  const expediente = `expediente:ct:${"a".repeat(64)}`;
+  const llamadas = [];
+  const fuente = crearFuenteDocumentosHTTP({ fetchImpl: async (_ruta, opciones) => {
+    llamadas.push(JSON.parse(opciones.body));
+    return new Response(JSON.stringify({ data: { estado: "vacio", documentos: [] } }),
+      { status: 200, headers: { "Content-Type": "application/json" } });
+  } });
+  const doc = crearDocumentoFalso();
+  montarVistaDocumentos({ raiz: doc.body, fuente, expedienteRef: expediente });
+  await esperar();
+  assert.equal(llamadas.length, 1);
+  assert.equal(llamadas[0].expediente_ref, expediente);
+  for (const invalida of [`expediente:ct:${"0".repeat(64)}`, `expediente:ct:${"g".repeat(64)}`, "expediente:ct:../ajeno"]) {
+    assert.throws(() => fuente.seleccionarExpediente(invalida));
+  }
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ ref: expediente })] }));
+});
+
 test("solo se pinta la descarga de lo descargable y la huella externa queda visible", async () => {
   const doc = crearDocumentoFalso();
   const expediente = "ref:" + "3".repeat(64);
