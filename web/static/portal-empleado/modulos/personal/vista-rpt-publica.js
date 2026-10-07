@@ -24,7 +24,7 @@ function formulario(documento, consulta, recargar, t) {
     const quitar = nodo(documento, "button", t(clave === "q" ? "quitar_busqueda" : "quitar_filtro"));
     quitar.type = "button"; quitar.className = "boton-secundario";
     quitar.dataset[clave === "q" ? "personalRptPublicaQuitarBusqueda" : "personalRptPublicaQuitarFiltro"] = clave;
-    quitar.addEventListener("click", () => recargar(borrar));
+    quitar.addEventListener("click", () => recargar(borrar, { enfocarResultado: clave !== "q" }));
     activos.append(aplicada, quitar);
   };
   filtro("q", consulta.q, "busqueda_aplicada", { q: "", offset: 0 });
@@ -47,7 +47,7 @@ function pestañas(documento, consulta, recargar, t) {
     const boton = nodo(documento, "button", t(clave)); boton.type = "button";
     boton.dataset.personalRptPublicaVista = vista;
     boton.setAttribute("aria-pressed", String(consulta.vista === vista)); boton.disabled = consulta.vista === vista;
-    boton.addEventListener("click", () => recargar({ vista, categoria_clave: "", centro_codigo: "", offset: 0 })); salida.append(boton);
+    boton.addEventListener("click", () => recargar({ vista, categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true })); salida.append(boton);
   });
   return salida;
 }
@@ -109,7 +109,7 @@ function tablaRPT(documento, pagina, t, recargar) {
           const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
           boton.className = "boton-enlace"; boton.dataset.personalRptPublicaEnlace = campo;
           boton.setAttribute("aria-label", t(pagina.vista === "centros" ? "ver_puestos_centro" : "ver_puestos_categoria", { valor: item.denominacion }));
-          boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }));
+          boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
           celda.append(boton);
           if (pagina.vista === "categorias" && campo === "denominacion" && !item.recuento_coincide) {
             const aviso = nodo(documento, "small", t("aviso_recuento_categoria")); aviso.className = "rpt-huella"; celda.append(aviso);
@@ -133,7 +133,7 @@ function tablaRPT(documento, pagina, t, recargar) {
   } else pintarFilas();
   tabla.append(cuerpo);
   const contenedor = nodo(documento, "div"); contenedor.className = "tabla-contenedor";
-  contenedor.setAttribute("tabindex", "0"); contenedor.setAttribute("role", "region");
+  contenedor.setAttribute("tabindex", "0"); contenedor.setAttribute("role", "region"); contenedor.dataset.personalRptPublicaTabla = "";
   contenedor.setAttribute("aria-label", t(pagina.vista === "puestos" ? "tabla_puestos" : pagina.vista === "centros" ? "tabla_centros" : "tabla_categorias"));
   contenedor.append(tabla); return contenedor;
 }
@@ -144,7 +144,7 @@ function resumenEnlazado(documento, pagina, recargar, t) {
   [["puestos", "puestos", "puestos"], ["dotacion", "dotacion", "puestos"], ["categorias", "categorias", "categorias"], ["centros", "centros", "centros"]].forEach(([campo, clave, vista]) => {
     const boton = nodo(documento, "button", t(`resumen_${clave}`, { total: numero.format(pagina.resumen[campo]) }));
     boton.type = "button"; boton.className = "boton-enlace"; boton.dataset.personalRptPublicaResumenEnlace = campo;
-    boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }));
+    boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true }));
     cuerpo.append(boton);
   });
   resumen.append(cuerpo); return resumen;
@@ -166,6 +166,7 @@ function pintar(raiz, contenedor, estado, recargar, t) {
     const aviso = nodo(documento, "p", estado.tipo === "cargando" ? t("cargando") : estado.mensaje);
     aviso.setAttribute("role", estado.tipo === "cargando" ? "status" : "alert");
     if (estado.tipo === "cargando") aviso.setAttribute("aria-live", "polite");
+    aviso.dataset.personalRptPublicaEstado = ""; aviso.setAttribute("tabindex", "-1");
     contenedor.append(aviso, pestañas(documento, estado.consulta, recargar, t), filtros.elemento); filtros.restaurarFoco(); return;
   }
   const { pagina } = estado;
@@ -179,8 +180,8 @@ function pintar(raiz, contenedor, estado, recargar, t) {
   const anterior = nodo(documento, "button", t("anterior")); anterior.type = "button"; anterior.dataset.personalRptPublicaAnterior = ""; anterior.disabled = pagina.offset === 0;
   const siguiente = nodo(documento, "button", t("siguiente")); siguiente.type = "button"; siguiente.dataset.personalRptPublicaSiguiente = ""; siguiente.disabled = pagina.offset + pagina.items.length >= pagina.total;
   navegacion.append(nodo(documento, "span", formatearRecuentoRPTPuestos(pagina.total, pagina.vista)), anterior, siguiente);
-  anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) }));
-  siguiente.addEventListener("click", () => recargar({ offset: pagina.offset + pagina.limit }));
+  anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) }, { enfocarResultado: true }));
+  siguiente.addEventListener("click", () => recargar({ offset: pagina.offset + pagina.limit }, { enfocarResultado: true }));
   contenedor.append(navegacion); filtros.restaurarFoco();
 }
 function consultaDesdeURL() {
@@ -217,7 +218,7 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
   let activa = true, controlador = null, consulta = consultaDesdeURL();
   const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); };
   registrarDesmontar?.(desmontar);
-  const recargar = async (cambios = {}) => {
+  const recargar = async (cambios = {}, { enfocarResultado = false } = {}) => {
     if (!activa || !sigueMontada(raiz, contenedor)) return;
     const siguienteConsulta = { ...consulta, ...cambios };
     if (!["categorias", "puestos", "centros"].includes(siguienteConsulta.vista) || typeof siguienteConsulta.q !== "string"
@@ -232,14 +233,18 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
     consulta = Object.freeze(siguienteConsulta); conservarConsultaURL(consulta);
     pintar(raiz, contenedor, { tipo: "cargando", consulta }, recargar, t);
+    if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
     try {
       const pagina = await cliente.listar(consulta, { signal: vuelo.signal });
-      if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted)
+      if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
         pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta }, recargar, t);
+        if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-tabla]")?.focus?.();
+      }
     } catch {
       if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
         const mensaje = t("error"); anunciar(mensaje, "error");
         pintar(raiz, contenedor, { tipo: "error", mensaje, consulta }, recargar, t);
+        if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
       }
     } finally { if (controlador === vuelo) controlador = null; }
   };

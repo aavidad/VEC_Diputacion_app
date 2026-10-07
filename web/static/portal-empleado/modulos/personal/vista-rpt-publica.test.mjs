@@ -151,3 +151,22 @@ test("URL de RPT conserva idioma y restaura filtros exactos", async () => {
     modulo.desmontar();
   } finally { globalThis.window = anterior; }
 });
+
+test("doble pulsación conserva la última lista y enfoca el resultado o el error", async () => {
+  const r = raiz(), pendientes = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta, { signal }) {
+    if (consulta.vista === "categorias") return Promise.resolve(pagina({ items: [categoria] }));
+    return new Promise((resolve, reject) => pendientes.push({ resolve, reject, signal }));
+  } } });
+  const boton = nodosCon(r, "personalRptPublicaEnlace")[0];
+  boton.listeners.get("click")(); boton.listeners.get("click")();
+  assert.equal(pendientes.length, 2); assert.equal(pendientes[0].signal.aborted, true);
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-publica-estado]"));
+  pendientes[0].resolve(pagina({ vista: "puestos", total: 0, items: [] })); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica-tabla]"), null);
+  pendientes[1].reject(new Error("fuente no disponible")); await esperarRespuesta();
+  const error = r.querySelector("[data-personal-rpt-publica-estado]");
+  assert.equal(error.atributos.get("role"), "alert"); assert.equal(r.ownerDocument.activeElement, error);
+});
