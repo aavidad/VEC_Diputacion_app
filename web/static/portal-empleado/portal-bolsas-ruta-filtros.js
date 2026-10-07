@@ -26,6 +26,7 @@ export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "") {
   const parametros = parametrosDe(search);
   parametros.delete(CLAVE_BOLSA);
   parametros.delete(CLAVE_ESTADO);
+  parametros.delete("cursor");
   parametros.set(CLAVE_BOLSA, bolsaRef);
   if (estado) parametros.set(CLAVE_ESTADO, estado);
   return `?${parametros}${HASH_CANDIDATOS}`;
@@ -35,6 +36,7 @@ export function rutaResumenBolsasCompartible(search) {
   const parametros = parametrosDe(search);
   parametros.delete(CLAVE_BOLSA);
   parametros.delete(CLAVE_ESTADO);
+  parametros.delete("cursor");
   return `${parametros.size ? `?${parametros}` : ""}${HASH_RESUMEN}`;
 }
 
@@ -43,7 +45,8 @@ export function leerCandidatosBolsaCompartible(search, bolsasAutorizadas) {
   const parametros = parametrosDe(search);
   const referencias = parametros.getAll(CLAVE_BOLSA);
   const estados = parametros.getAll(CLAVE_ESTADO);
-  if (referencias.length > 1 || estados.length > 1 || (estados.length && !referencias.length)) {
+  if (referencias.length > 1 || estados.length > 1 || parametros.has("cursor")
+    || (estados.length && !referencias.length)) {
     throw new TypeError("filtro de Bolsa duplicado o incompleto");
   }
   if (!referencias.length) return null;
