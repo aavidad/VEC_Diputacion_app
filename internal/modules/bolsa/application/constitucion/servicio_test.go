@@ -114,6 +114,39 @@ func TestConstituirOrdenaPorTotalYPersisteCanonicos(t *testing.T) {
 	}
 }
 
+func TestConstituirDosActasDeLaMismaCategoriaElMismoDiaConservaReferenciasDistintas(t *testing.T) {
+	primera := loteSintetico(filaIdentidad(2, "***4821**", "Moreno", "Castillo", "Lucía", "3"))
+	segunda := primera
+	segunda.Acta.HuellaFicheroSHA256 = strings.Repeat("cd", 32)
+	contexto := importacion.ReferenciaContexto(segunda.Acta.HuellaFicheroSHA256, segunda.Acta.CategoriaRef)
+	segunda.Acta.ActaRef = "acta:importacion-convoca:" + contexto
+	segunda.Acta.ImportacionRef = "importacion:convoca:" + contexto
+	instante := time.Date(2026, 10, 7, 10, 0, 0, 0, time.UTC)
+	constituir := func(lote importacion.LoteValidado) string {
+		t.Helper()
+		if err := lote.Validar(); err != nil {
+			t.Fatal(err)
+		}
+		repo := &repositorioPrueba{}
+		servicio, err := NuevoServicio(recuperadorPrueba{lote}, repo, derivadorPrueba(t), func() time.Time { return instante })
+		if err != nil {
+			t.Fatal(err)
+		}
+		recibo, err := servicio.Constituir(context.Background(), Solicitud{
+			HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef,
+			ActorRef: "actor:rrhh:pruebas",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return recibo.BolsaRef
+	}
+	refPrimera, refSegunda := constituir(primera), constituir(segunda)
+	if refPrimera == refSegunda || refPrimera == "" || refSegunda == "" || constituir(primera) != refPrimera {
+		t.Fatalf("dos actas el mismo día deben conservar referencias distintas y reusables: %q, %q", refPrimera, refSegunda)
+	}
+}
+
 func TestDerivadorCandidatoNormalizaIdentidad(t *testing.T) {
 	d := derivadorPrueba(t)
 	desdeLista, err := d.CandidatoRef(importacion.IdentidadEnmascarada{Documento: "***0071**", PrimerApellido: "LOZANO", SegundoApellido: "HIDALGO", Nombre: "YAGO"})

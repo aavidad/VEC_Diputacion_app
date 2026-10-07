@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 22 {
-		t.Fatalf("fronteras = %d, se esperan 22 con consulta documental RRHH e historial de ofrecimientos", len(fronteras))
+	if len(fronteras) != 24 {
+		t.Fatalf("fronteras = %d, se esperan 24 con las dos rutas de carga CONVOCA", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -78,6 +78,14 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBorradoresLlamamiento); !ok {
 		t.Fatal("POST crear no quedó declarado")
+	}
+	for _, ruta := range []string{bolsahttp.RutaVistaPreviaCargaConvoca, bolsahttp.RutaConfirmarCargaConvoca} {
+		if descriptor, ok := catalogo.resolver(http.MethodPost, ruta); !ok || descriptor.ClaveCapacidad != claveCapacidadCargaConvocaBolsa {
+			t.Fatalf("POST %s sin capacidad B1 propia: %+v", ruta, descriptor)
+		}
+		if _, ok := catalogo.resolver(http.MethodGet, ruta); ok {
+			t.Fatalf("GET %s adquirió capacidad B1", ruta)
+		}
 	}
 	if descriptor, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaPoliticaOfertas+"/capacidad"); !ok || descriptor.Clave != claveFronteraCapacidadPoliticaOfertasBolsa || descriptor.ClaveCapacidad != claveCapacidadPoliticaOfertasBolsa {
 		t.Fatal("preflight de publicación sin frontera nominal")

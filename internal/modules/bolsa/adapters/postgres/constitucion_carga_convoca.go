@@ -78,7 +78,8 @@ func (r *RepositorioConstitucionPostgreSQL) ConstituirCargaConvocaAutorizada(ctx
 }
 
 // errorConstitucionCargaConvoca separa la denegación (42501 de AD203/B79) del
-// resto de fallos de la constitución.
+// resto de fallos de la constitución. VA172 significa origen técnico ausente
+// tras AD208: es indisponibilidad, nunca denegación del perfil de RRHH.
 func errorConstitucionCargaConvoca(ctx context.Context, err error) error {
 	var errorPG *pgconn.PgError
 	if (ctx == nil || ctx.Err() == nil) && errors.As(err, &errorPG) && errorPG.Code == "42501" {
