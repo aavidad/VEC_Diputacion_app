@@ -45,6 +45,8 @@ export function montarPanelSeguimientoCese({
   const claves = new Map();
   let datos = null;
   let ocupado = false;
+  let operacionConfirmada = avisoInicial?.tono === "exito"
+    && (avisoInicial.version_esperada === undefined || avisoInicial.version_esperada === contexto.version);
   let ayudaAbierta = false;
   // Al volver a montar el panel tras un registro, el recibo sigue a la vista.
   let aviso = avisoInicial?.tono === "exito" && typeof avisoInicial.texto === "string"
@@ -151,13 +153,13 @@ export function montarPanelSeguimientoCese({
     const { opciones, estado } = datos;
     const vigente = contexto.estado_clave === "en_curso";
     const formularios = [];
-    if (vigente && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
-    if (vigente && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
-    if (vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
-    if (vigente && ofrecerPropuestaNoIncorporacion(estado, opciones)) {
+    if (vigente && !operacionConfirmada && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
+    if (vigente && !operacionConfirmada && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
+    if (vigente && !operacionConfirmada && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
+    if (vigente && !operacionConfirmada && ofrecerPropuestaNoIncorporacion(estado, opciones)) {
       formularios.push(formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado: deshabilitado(), fecha: (valor) => fechaVisible(valor, locale) }));
     }
-    if (vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
+    if (vigente && !operacionConfirmada && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese aria-labelledby="ct-seg-cese-titulo" ${ocupado ? 'aria-busy="true"' : ""}>
       ${cabecera(estado)}${resumen(estado, opciones)}
       ${aviso ? `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="${aviso.tono === "peligro" ? "alert" : "status"}" data-ct-seg-aviso tabindex="-1">${escapar(aviso.texto)}</p>` : ""}
@@ -214,20 +216,21 @@ export function montarPanelSeguimientoCese({
   }
 
   async function enviar(formulario) {
-    if (ocupado) return;
+    if (ocupado || operacionConfirmada || controlador.signal.aborted) return;
     const tipo = formulario.dataset.ctSegForm;
     const [metodo, solicitud] = solicitudPara(tipo, leerFormulario(formulario));
+    ocupado = true;
     let confirmada = false;
     const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo",
       no_incorporacion: datos?.opciones?.no_incorporacion?.segunda_persona ? "no_incorporacion_titulo_proponer" : "no_incorporacion_titulo",
       no_incorporacion_confirmar: "no_incorporacion_confirmar_titulo", no_incorporacion_rechazar: "no_incorporacion_rechazar_titulo" };
     try { confirmada = confirmarOperacion({ titulo: t(titulos[tipo]), advertencia: t("confirmar"), referencia: contexto.expediente_ref }) === true; } catch {}
-    if (!confirmada) return;
-    ocupado = true;
+    if (!confirmada) { ocupado = false; return; }
     aviso = { tono: "info", texto: t("enviando") };
     pintar();
     try {
       const recibo = await cliente[metodo](solicitud, { signal: controlador.signal });
+      operacionConfirmada = true;
       claves.delete(`${tipo}:${contexto.version}`);
       let texto = t("recibo", { recibo: recibo.recibo_ref, version: recibo.version_resultante });
       if (recibo.coste_centimos) {

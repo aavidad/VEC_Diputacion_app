@@ -156,7 +156,9 @@ test("si el servidor no compone el seguimiento (404 de ruta) el panel no se mont
 
 test("tras registrar, el panel pinta el recibo y lo conserva al volver a montarse", async () => {
   const c = contenedorFalso();
-  const cliente = { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP), registrarCese: async () => ({ ...recibo }) };
+  let envios = 0;
+  const cliente = { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP),
+    registrarCese: async () => { envios++; return { ...recibo }; } };
   let recibido = null;
   const FormDataOriginal = globalThis.FormData;
   globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
@@ -172,12 +174,24 @@ test("tras registrar, el panel pinta el recibo y lo conserva al volver a montars
     assert.match(c.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
     assert.equal(recibido?.r.recibo_ref, "recibo:cese:1");
     assert.equal(recibido?.aviso.tono, "exito");
+    c.eventos.get("submit")({ target: { closest: () => formulario }, preventDefault() {} });
+    await esperar();
+    assert.equal(envios, 1, "el recibo confirmado bloquea otro POST con la misma versión");
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
     desmontar();
     const otro = contenedorFalso();
     const otroDesmontar = montarPanelSeguimientoCese({ contenedor: otro, cliente, contexto, avisoInicial: recibido.aviso });
     await esperar();
     assert.match(otro.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
+    assert.doesNotMatch(otro.innerHTML, /data-ct-seg-form=/u);
     otroDesmontar();
+    const siguiente = contenedorFalso();
+    const siguienteDesmontar = montarPanelSeguimientoCese({ contenedor: siguiente, cliente,
+      contexto: { ...contexto, version: 8 }, avisoInicial: { ...recibido.aviso, version_esperada: 7 } });
+    await esperar();
+    assert.match(siguiente.innerHTML, /data-ct-seg-form="cese"/u,
+      "una versión nueva permite continuar el trámite sin borrar el recibo");
+    siguienteDesmontar();
   } finally {
     globalThis.FormData = FormDataOriginal;
   }

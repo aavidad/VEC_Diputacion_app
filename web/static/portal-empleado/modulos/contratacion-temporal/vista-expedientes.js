@@ -297,6 +297,7 @@ export async function montarModuloContratacionTemporal({
     zonaAuditoriaComun = contenedor;
     desmontarAuditoriaComun = auditoriaComun.montar({ raiz: contenedor,
       fuente: auditoriaComun.fuente, expedienteRef: estado.expediente_ref,
+      numeroVisible: estado.expediente.numero_visible,
       fuenteContexto: "ct", anunciar }).desmontar;
   }
 
@@ -310,10 +311,16 @@ export async function montarModuloContratacionTemporal({
     const controlador = new AbortController();
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
-    void Promise.all([
-      clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal }),
-      clienteSeguimientoCese.consultarSeguimientoCese(expediente.expediente_ref, { signal: controlador.signal }),
-    ]).then(([puedeRegistrar, seguimiento]) => {
+    void clienteSeguimientoCese.consultarSeguimientoCese(expediente.expediente_ref, { signal: controlador.signal })
+      .then(async (seguimiento) => {
+        if (seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
+          || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion"
+          || controlador.signal.aborted) return null;
+        const puedeRegistrar = await clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
+        return { puedeRegistrar, seguimiento };
+      }).then((decision) => {
+        if (!decision) return;
+        const { puedeRegistrar, seguimiento } = decision;
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || puedeRegistrar !== true || !zona.isConnected
           || seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
@@ -347,13 +354,14 @@ export async function montarModuloContratacionTemporal({
     contenedor.setAttribute("data-ct-exp-seguimiento-cese", "");
     zona.append(contenedor);
     // El recibo del último registro sobrevive a la recarga del detalle.
-    const avisoInicial = avisoSeguimientoCese?.expediente_ref === contexto.expediente_ref ? avisoSeguimientoCese.aviso : null;
+    const avisoInicial = avisoSeguimientoCese?.expediente_ref === contexto.expediente_ref
+      ? { ...avisoSeguimientoCese.aviso, version_esperada: avisoSeguimientoCese.version } : null;
     avisoSeguimientoCese = null;
     try {
       desmontarSeguimientoCese = montarPanelSeguimientoCese({
         contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion, avisoInicial,
         alConfirmar: async (_recibo, aviso) => {
-          avisoSeguimientoCese = aviso ? { expediente_ref: contexto.expediente_ref, aviso } : null;
+          avisoSeguimientoCese = aviso ? { expediente_ref: contexto.expediente_ref, version: contexto.version, aviso } : null;
           try {
             await presentador.cargar();
             if (!montada) return;
@@ -662,6 +670,7 @@ export async function montarModuloContratacionTemporal({
         zonaAuditoriaComun.hidden = false;
         desmontarAuditoriaComun = auditoriaComun.montar({ raiz: zonaAuditoriaComun,
           fuente: auditoriaComun.fuente, expedienteRef: estadoActual.expediente_ref,
+          numeroVisible: estadoActual.expediente.numero_visible,
           fuenteContexto: "ct", anunciar }).desmontar;
         consultarAuditoria.setAttribute("aria-expanded", "true");
       }
