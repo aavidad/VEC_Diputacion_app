@@ -1,8 +1,25 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { IDIOMA_DATOS_REGLAS, textoPresentacionRegla } from "./i18n.js";
 import { cargarTextos } from "../../comun/textos.js";
+import { INDICE_IDIOMAS } from "../../comun/idioma.js";
+
+test("el idioma de los datos se fija tras preparar el índice en cada navegación", () => {
+  for (const { codigo } of INDICE_IDIOMAS.idiomas) {
+    const salida = execFileSync(process.execPath, ["--input-type=module", "-e", `
+      globalThis.location = { href: ${JSON.stringify(`https://vec.example/portal-empleado/reglas/?lang=${codigo}`)} };
+      const modulo = await import(${JSON.stringify(new URL("./i18n.js", import.meta.url).href)});
+      const { INDICE_IDIOMAS } = await import(${JSON.stringify(new URL("../../comun/idioma.js", import.meta.url).href)});
+      console.log(JSON.stringify({ interfaz: modulo.IDIOMA_REGLAS, datos: modulo.IDIOMA_DATOS_REGLAS,
+        defecto: INDICE_IDIOMAS.porDefecto, error: modulo.ERROR_TEXTOS_REGLAS?.message ?? null }));
+    `], { encoding: "utf8" });
+    const resultado = JSON.parse(salida);
+    assert.deepEqual(resultado, { interfaz: codigo, datos: INDICE_IDIOMAS.porDefecto,
+      defecto: INDICE_IDIOMAS.porDefecto, error: null });
+  }
+});
 
 const catalogo = async (idioma) => JSON.parse(await readFile(
   new URL(`../../textos/${idioma}/reglas.json`, import.meta.url), "utf8",

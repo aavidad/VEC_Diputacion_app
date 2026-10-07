@@ -174,7 +174,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.doesNotMatch(html, /data-vista="cronos-permisos"/u);
 });
 
-test("coordinador y vistas piden i18n.js y vista-movimientos-propios.js por la misma URL: un solo módulo", async () => {
+test("coordinador y vistas comparten i18n; permisos usa la fecha civil sin cargar calendario", async () => {
   const leer = (ruta) => readFile(new URL(ruta, import.meta.url), "utf8");
   const coordinador = await leer("portal-modulos-coordinador.js");
   const cronosInterno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
@@ -183,9 +183,10 @@ test("coordinador y vistas piden i18n.js y vista-movimientos-propios.js por la m
     "vista-recorridos.js", "vista.js", "i18n-c4.js"].map((f) => leer(`modulos/cronos/${f}`)));
   const permisos = await leer("modulos/cronos/vista-permisos-propios.js");
   for (const fuente of [cronosInterno, ...importadoresI18n]) assert.doesNotMatch(fuente, /\/i18n\.js["']/u, "sin importación sin versión");
-  assert.doesNotMatch(permisos, /vista-movimientos-propios\.js["']/u);
+  assert.doesNotMatch(permisos, /vista-movimientos-propios\.js/u);
+  assert.match(permisos, /from "\.\/fecha-civil\.js\?v=20261007-pantallas-textos-final-v1"/u);
   exigirRenovado([cronosInterno, ...importadoresI18n], "i18n.js", ["20260925-tanda-v1"]);
-  exigirRenovado([cronosInterno, permisos], "vista-movimientos-propios.js", ["20260925-cronos-pantallas-v1"]);
+  exigirRenovado(cronosInterno, "vista-movimientos-propios.js", ["20260925-cronos-pantallas-v1"]);
   // Los clientes siguen sin ?v= en todos los importadores (misma clase de error para instanceof).
   for (const fuente of [cronosInterno, permisos, ...importadoresI18n]) assert.doesNotMatch(fuente, /cliente-[a-z-]+-http\.js\?v=/u);
 });

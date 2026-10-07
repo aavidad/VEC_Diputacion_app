@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-// El selector común fija el idioma al cargar el módulo, como en el navegador.
+// El índice asíncrono debe estar listo antes de tomar una instantánea del idioma.
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=en" };
-const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = await import("../comun/idioma.js");
+const idiomaPreparado = await import("../comun/idioma.js");
+await idiomaPreparado.prepararIdiomas();
+const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = idiomaPreparado;
 const { cambiarIdioma, montarSelectorIdioma } = await import("../comun/idioma.js");
 const { cargarMensajesPortal, crearTraductorPortal, traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
 const MENSAJES_PORTAL_CASTELLANO = await cargarMensajesPortal("es");

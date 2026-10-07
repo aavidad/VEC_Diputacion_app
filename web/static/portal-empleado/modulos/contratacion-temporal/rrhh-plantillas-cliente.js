@@ -1,6 +1,7 @@
 /** Transporte de la configuración RRHH. La identidad y V3 se resuelven en el servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN } from "./rrhh-plantillas-i18n.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 export const RUTA_RRHH_PLANTILLAS = "/api/vec/contratacion-temporal/plantillas";
 export const RUTA_RRHH_PLANTILLAS_ENTRADAS = `${RUTA_RRHH_PLANTILLAS}/entradas`;
@@ -12,7 +13,8 @@ const RECIBO = /^recibo:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
-const t = crearTraductorContratacionTemporal(MENSAJES_RRHH_PLANTILLAS_ES);
+const t = crearTraductorContratacionTemporal(IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_RRHH_PLANTILLAS_ES : MENSAJES_RRHH_PLANTILLAS_EN);
 
 export class ErrorPlantillasRRHH extends Error {
   constructor(codigo, estado = 0, resultadoIndeterminado = false) {
