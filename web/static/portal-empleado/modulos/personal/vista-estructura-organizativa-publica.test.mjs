@@ -190,6 +190,68 @@ test("error y desmontaje abortan sin pintar respuesta tardía", async () => {
   assert.equal(otraRaiz.querySelector("[data-personal-estructura-organizativa-publica]"), null);
 });
 
+test("un error permite reintentar en la misma vista y recupera tabla y foco sin duplicar consultas", async () => {
+  const r = raiz();
+  const avisos = [];
+  let resolverReintento;
+  let consultas = 0;
+  const modulo = await montarModuloEstructuraOrganizativaPublica({
+    raiz: r,
+    anunciar: (...aviso) => avisos.push(aviso),
+    cliente: { obtener() {
+      consultas++;
+      if (consultas === 1) return Promise.reject(new Error("503"));
+      return new Promise((resolve) => { resolverReintento = resolve; });
+    } },
+  });
+  const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
+  const boton = vista.querySelector("[data-personal-estructura-reintentar]");
+  assert.equal(boton.tagName, "button");
+  assert.equal(boton.textContent, "Reintentar consulta");
+  assert.equal(vista.querySelector("[data-personal-estructura-tabla]"), null);
+  boton.focus();
+  boton.listeners.click();
+  boton.listeners.click();
+  assert.equal(consultas, 2);
+  const carga = vista.querySelector("[data-personal-estructura-cargando]");
+  assert.match(textoVisible(carga), /Cargando estructura organizativa/u);
+  assert.equal(r.ownerDocument.activeElement, carga);
+  resolverReintento(estructura());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(r.querySelector("[data-personal-estructura-organizativa-publica]"), vista);
+  assert.equal(vista.querySelector("[data-personal-estructura-reintentar]"), null);
+  assert.equal(vista.querySelector("[data-personal-estructura-tabla]").querySelector("tbody").children.length, 10);
+  assert.equal(r.ownerDocument.activeElement.tagName, "h2");
+  assert.equal(avisos.length, 1);
+  modulo.desmontar();
+});
+
+test("desmontar durante el reintento aborta y descarta una respuesta tardía", async () => {
+  const r = raiz();
+  let resolverReintento;
+  let signalReintento;
+  let consultas = 0;
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: {
+    obtener({ signal }) {
+      consultas++;
+      if (consultas === 1) return Promise.reject(new Error("503"));
+      signalReintento = signal;
+      return new Promise((resolve) => { resolverReintento = resolve; });
+    },
+  } });
+  const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
+  vista.querySelector("[data-personal-estructura-reintentar]").listeners.click();
+  const carga = vista.querySelector("[data-personal-estructura-cargando]");
+  modulo.desmontar();
+  assert.equal(signalReintento.aborted, true);
+  resolverReintento(estructura());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(consultas, 2);
+  assert.equal(r.querySelector("[data-personal-estructura-organizativa-publica]"), null);
+  assert.equal(vista.querySelector("[data-personal-estructura-cargando]"), carga);
+  assert.equal(vista.querySelector("[data-personal-estructura-tabla]"), null);
+});
+
 function buscar(r, texto) {
   const entrada = r.querySelector("[data-personal-estructura-buscar]");
   entrada.value = texto;
