@@ -187,3 +187,23 @@ sistema. Efectos nuevos requieren PostgreSQL real, recibo y recuperación tras r
 No repetir puertas verdes de piezas integradas; probar el delta y las dependencias
 que hayan cambiado. Las dudas pendientes no detienen los contratos o documentos
 independientes, pero tampoco autorizan a simular una fuente o una competencia real.
+
+## Recuperar el idioma del visor — 8 de octubre de 2026
+
+El visor local del plan conserva el borrador, el filtro, el detalle y los
+bytes de descarga al cambiar de idioma. Si falla el idioma elegido y se
+muestra castellano, el selector y la URL reflejan ese idioma y ofrecen
+reintentar el solicitado. Si fallan ambos durante el cambio, mantiene la
+vista abierta y permite recuperar los textos sin volver a cargar el borrador.
+
+El fallo inicial usa el catálogo de error del idioma efectivo y conserva
+marca, título, enlaces con nombre y una acción para volver a cargar. Chrome
+comprobó castellano e inglés, 1440 y 390 px, Tab/Enter para saltar al contenido
+y recuperación con filtro y ancla conservados. La descarga mantuvo los 5.113
+bytes del ejemplo y su misma SHA256. La apertura normal pidió únicamente el
+catálogo elegido. Ocho pruebas focales y la revisión independiente del código
+`3f582f3d46bc46069e177d960a102b354ceba730` son favorables.
+
+La ruta sigue siendo el visor local del JSON de preparación. Este corte no
+conecta catálogo, inscripción, selección ni certificados corporativos;
+continúan pendientes los contratos de la plataforma de Formación.
