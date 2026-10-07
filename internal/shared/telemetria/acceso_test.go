@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -56,6 +58,37 @@ func TestAccesoEscribeRutaEstadoYDuracionSinValores(t *testing.T) {
 		if strings.Contains(b.String(), prohibido) {
 			t.Errorf("el registro contiene %q", prohibido)
 		}
+	}
+}
+
+func TestAccesoNoEmiteResumenDeConsultasEnPeticionRapidaCorrecta(t *testing.T) {
+	var b bytes.Buffer
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr := trazador{}
+		q := tr.TraceQueryStart(r.Context(), nil, pgx.TraceQueryStartData{SQL: "SELECT vec_prueba.consultar($1)", Args: []any{"dato privado"}})
+		tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{})
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
+	l := lineas(t, &b)[0]
+	if l["vec.bd.consultas"] != float64(1) || l["vec.bd.operaciones"] != nil || strings.Contains(b.String(), "dato privado") {
+		t.Errorf("petición rápida = %v", l)
+	}
+}
+
+func TestAccesoEmiteResumenEnErrorCuatrocientos(t *testing.T) {
+	var b bytes.Buffer
+	h := Middleware(opciones(&b), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr := trazador{}
+		q := tr.TraceQueryStart(r.Context(), nil, pgx.TraceQueryStartData{SQL: "SELECT vec_persona_juan.perez($1)"})
+		tr.TraceQueryEnd(q, nil, pgx.TraceQueryEndData{})
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x/identidad-opaca", nil))
+	l := lineas(t, &b)[0]
+	resumen, ok := l["vec.bd.operaciones"].([]any)
+	if !ok || len(resumen) != 1 || l["url.path"] != "{oculto}" || l["vec.lenta"] != nil ||
+		l["vec.bd.operaciones_desconocidas"] != float64(1) || strings.Contains(b.String(), "juan") {
+		t.Errorf("error cuatrocientos = %v", l)
 	}
 }
 
