@@ -2,7 +2,7 @@
 # AD180/P34 que mide AD214. Cada UP se instala una sola vez, en este orden,
 # únicamente tras integrar y revisar el hash exacto de la autoridad común.
 deploy/postgresql/bolsa_importacion_convoca/migraciones/000006_recuperacion_filas_selectiva.up.sql
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000214_consultas_coordinadas.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000214_consultas_bolsa_rrhh.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000213_consumos_consulta_bolsa_rrhh.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000084_lecturas_rrhh_nominales.up.sql
 # Antes del primer consumo nuevo, configurar las tres ternas Bolsa con la

@@ -25,16 +25,17 @@ END $pre$;
 DO $post214$
 DECLARE
  nucleo text;
+ fuente text;
  audiencias text;
  f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  propietario oid;
  definidora boolean;
  configuracion text[];
 BEGIN
- SELECT pg_catalog.pg_get_functiondef(f),p.proowner,p.prosecdef,p.proconfig
- INTO STRICT nucleo,propietario,definidora,configuracion
+ SELECT pg_catalog.pg_get_functiondef(f),p.prosrc,p.proowner,p.prosecdef,p.proconfig
+ INTO STRICT nucleo,fuente,propietario,definidora,configuracion
  FROM pg_catalog.pg_proc p WHERE p.oid=f;
- SELECT pg_catalog.pg_get_constraintdef(c.oid,true) INTO STRICT audiencias
+ SELECT pg_catalog.pg_get_constraintdef(c.oid,false) INTO STRICT audiencias
  FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check'
@@ -42,6 +43,12 @@ BEGIN
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole
     OR NOT definidora
     OR configuracion IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(nucleo,'UTF8')),'hex')
+       IS DISTINCT FROM '63afb3d4e6f33d4ee8efce1e54d7e8f92ac9f8cec58506c2af146e88dca4552e'
+    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex')
+       IS DISTINCT FROM '78137d8750422597c0da56797fd3ddff797cd54f18d98b0c1c8f4b7f742079dd'
+    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(audiencias,'UTF8')),'hex')
+       IS DISTINCT FROM '8dae0267b85ad237770d0ccdb7fbf9862afe6d7d022c0c93f4385c182bcbc68e'
     OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
        CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
