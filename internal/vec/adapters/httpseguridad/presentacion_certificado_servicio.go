@@ -161,6 +161,9 @@ func falloPresentacionCertificado(ctx context.Context, causa error) error {
 
 // IniciarYConsumirPresentacion deja a UNA transaccion durable decidir si
 // abre, reanuda o renueva. Revocada nunca se convierte en otra alta.
+// Si el COMMIT queda incierto, la peticion falla: una peticion posterior debe
+// aportar otra asercion y nonce. Puede reanudar la sesion original, pero recibe
+// un asiento nuevo y no recupera el recibo de la peticion perdida.
 func (s *ServicioPresentacionCertificado) IniciarYConsumirPresentacion(ctx context.Context, credencial CredencialProxy, prueba PruebaCertificadoActual) (CapsulaPresentacionCertificado, error) {
 	return s.consumirPresentacion(ctx, credencial, prueba, true)
 }

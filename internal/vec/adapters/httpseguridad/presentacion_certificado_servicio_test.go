@@ -146,7 +146,9 @@ type registroPresentacionPrueba struct {
 	modo                   string
 	inicios, reanudaciones int
 	err                    error
+	commitAmbiguo          bool
 	original               domain.AutenticacionRevalidadaV1
+	primeraConfirmacion    ResultadoRegistroPresentacionCertificado
 }
 
 func (r *registroPresentacionPrueba) IniciarYConsumirPresentacion(
@@ -157,7 +159,15 @@ func (r *registroPresentacionPrueba) IniciarYConsumirPresentacion(
 	if err != nil || r.err != nil {
 		return ResultadoRegistroPresentacionCertificado{}, errors.Join(err, r.err)
 	}
-	return r.responder(datos, alta), nil
+	respuesta := r.responder(datos, alta)
+	if r.commitAmbiguo {
+		r.primeraConfirmacion = respuesta
+		r.original = respuesta.SesionOriginal
+		r.modo = "reanudada"
+		r.commitAmbiguo = false
+		return ResultadoRegistroPresentacionCertificado{}, errors.New("commit incierto sintetico")
+	}
+	return respuesta, nil
 }
 
 func (r *registroPresentacionPrueba) ReanudarYConsumirPresentacion(
@@ -256,7 +266,8 @@ func TestPresentacionCertificadoInicioUnaOperacionYCapsulaActual(t *testing.T) {
 	cuenta, auditoria, err := s.identidad.ExtraerCapsulaIdentidadPeticion(vinculado)
 	if err != nil || cuenta.CuentaRef != "cta_0123456789abcdefghijkl" ||
 		auditoria.SesionRef() != "ses_0123456789abcdefghijkl" ||
-		auditoria.CanalVinculadoRef() != credencial.canal.ReferenciaVinculacion() {
+		auditoria.CanalVinculadoRef() != credencial.canal.ReferenciaVinculacion() ||
+		len(auditoria.Factores()) != 0 || len(auditoria.FactoresPresentacionActual()) != 1 {
 		t.Fatalf("capsula no conservo identidad original y canal actual: %v", err)
 	}
 	if err := s.identidad.ExigirSujetoPersonaCertificadoTemporal(vinculado, prueba.datos.sujetoID); err != nil {
@@ -284,6 +295,29 @@ func TestPresentacionCertificadoReanudacionNoAbreTrasDenegacion(t *testing.T) {
 	}
 	if _, err := s.IniciarYConsumirPresentacion(ctx, credencial, prueba); err == nil || registro.inicios != 0 {
 		t.Fatalf("prueba ya consumida permitió alta: %v", err)
+	}
+}
+
+func TestPresentacionCertificadoCommitInciertoRecuperaConNuevaPresentacion(t *testing.T) {
+	s, v, _, registro, _, estado := entornoPresentacionCertificadoPrueba(t)
+	registro.commitAmbiguo = true
+	ctxInicial, credencialInicial, pruebaInicial := credencialPresentacionCertificadoPrueba(t, s, v, estado)
+	if _, err := s.IniciarYConsumirPresentacion(ctxInicial, credencialInicial, pruebaInicial); err == nil ||
+		registro.original.Validar() != nil || registro.inicios != 1 {
+		t.Fatalf("no se reprodujo commit incierto con sesion original: %v", err)
+	}
+	ctxNuevo, credencialNueva, pruebaNueva := credencialPresentacionCertificadoPrueba(t, s, v, estado)
+	asercionNueva := v.asercion
+	asercionNueva.ID = "asercion-nueva-tras-commit"
+	v.fijarAsercion(asercionNueva)
+	credencialNueva = debeCredencial(t, []byte("asercion-nueva-tras-commit-protegida"), credencialNueva.canal)
+	recuperada, err := s.IniciarYConsumirPresentacion(ctxNuevo, credencialNueva, pruebaNueva)
+	if err != nil || recuperada.datos == nil || registro.inicios != 2 || registro.reanudaciones != 0 ||
+		recuperada.datos.resultado.SesionOriginal.SesionRef != registro.original.SesionRef ||
+		recuperada.datos.resultado.Recibo.OperacionRef == registro.primeraConfirmacion.Recibo.OperacionRef ||
+		registro.primeraConfirmacion.Recibo.ModoInicio != "abierta" ||
+		recuperada.datos.resultado.Recibo.ModoInicio != "reanudada" {
+		t.Fatalf("inicio con nueva asercion no recupero sesion durable: %v", err)
 	}
 }
 

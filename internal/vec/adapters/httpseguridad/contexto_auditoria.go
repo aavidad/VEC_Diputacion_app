@@ -65,6 +65,7 @@ type ContextoAuditoriaAutenticada struct {
 	presentacionCanalHuellaSHA256    string
 	presentacionEmitidaEn            time.Time
 	presentacionValidaHasta          time.Time
+	presentacionFactores             []ResumenFactorAuditoria
 }
 
 func (c ContextoAuditoriaAutenticada) AutenticacionRef() string   { return c.autenticacionRef }
@@ -142,6 +143,9 @@ func (c ContextoAuditoriaAutenticada) PresentacionEmitidaEn() time.Time {
 }
 func (c ContextoAuditoriaAutenticada) PresentacionValidaHasta() time.Time {
 	return c.presentacionValidaHasta
+}
+func (c ContextoAuditoriaAutenticada) FactoresPresentacionActual() []ResumenFactorAuditoria {
+	return append([]ResumenFactorAuditoria(nil), c.presentacionFactores...)
 }
 
 func (ContextoAuditoriaAutenticada) String() string   { return contextoAuditoriaRedactado }
