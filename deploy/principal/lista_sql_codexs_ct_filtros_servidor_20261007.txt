@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000192_filtros_servidor_rrhh.up.sql
