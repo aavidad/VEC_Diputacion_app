@@ -291,6 +291,16 @@ func TestFirmasR5V2EmisorSoloAtiendeAccionesR5(t *testing.T) {
 	if _, _, _, err := emisor.EmitirMaterialAutorizacionAtestadaV3(context.Background(), dominiovec.SolicitudAutorizacionLigadaV3{}, dominiovec.ResultadoContextoActorRegistradoV2{}); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
 		t.Fatal("emisión sin solicitud válida")
 	}
+	// Aunque la consulta R5 tenga emisor, la variante DEV con captura sólo
+	// pertenece al acto de registro VEC y no puede emitirle material.
+	emisor.porAccion = map[string]*emisorMaterialRenovableCTDesarrollo{
+		ports.AccionConsultarFirmasR5V2: {},
+	}
+	if _, _, material, captura, err := emisor.EmitirMaterialAutorizacionAtestadaV3ConCaptura(
+		context.Background(), solicitud(ports.AccionConsultarFirmasR5V2), e.perfil.contexto.Resultado,
+	); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || material != nil || captura != nil {
+		t.Fatal("consulta R5 alcanzó la emisión con captura DEV", err)
+	}
 }
 
 // El caso nuevo del PDP del soporte: con la solicitud exacta en el contexto

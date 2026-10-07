@@ -2,12 +2,39 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+// La entrada con captura usa una sola lectura de confianza y no retorna
+// material si el PDP compuesto no ofrece la captura V49.
+func TestEmisorRenovableCTCapturaDeniegaSinPDPConCaptura(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.publicadaEn.Add(time.Hour))
+	f := fuenteRenovableCTPrueba(t, m, r)
+	lecturas := 0
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		lecturas++
+		return m, nil
+	}
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		t.Fatal("renovación inesperada")
+		return materialAtestacionContratacionTemporalDesarrollo{}, nil
+	}
+	e := &emisorMaterialRenovableCTDesarrollo{proveedor: &proveedorMaterialAltaContratacionTemporalDesarrollo{
+		confianza: f.actual, fuenteConfianza: f,
+	}}
+	_, _, material, captura, err := e.EmitirMaterialAutorizacionAtestadaV3ConCaptura(context.Background(),
+		core.SolicitudAutorizacionLigadaV3{}, core.ResultadoContextoActorRegistradoV2{})
+	if err == nil || material != nil || captura != nil || lecturas != 1 || errors.Is(err, context.Canceled) {
+		t.Fatalf("captura no falló cerrada con una lectura: err=%v lecturas=%d", err, lecturas)
+	}
+}
 
 // El lector sintético mantiene la primera lectura abierta. La segunda debe
 // entrar antes de que se libere la primera: la emisión no comparte su cerrojo.

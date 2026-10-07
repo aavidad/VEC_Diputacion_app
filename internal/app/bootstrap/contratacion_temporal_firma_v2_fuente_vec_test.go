@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal/firmavec"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -59,7 +60,7 @@ func TestFuenteCompetenciaFirmaVecV2SellaSeleccionAUT56DeCA25(t *testing.T) {
 		t.Fatalf("selección central: %v", err)
 	}
 	c, ok := competenciaFirmaVecV2DesdeContexto(ctx)
-	guardada, peticion, presente := c.leer()
+	guardada, peticion, presente := c.Leer()
 	if !ok || !presente || peticion != r || guardada != e {
 		t.Fatal("selección AUT56 no quedó sellada en la petición")
 	}
@@ -70,7 +71,7 @@ func TestFuenteCompetenciaFirmaVecV2SellaSeleccionAUT56DeCA25(t *testing.T) {
 	if _, err := f.AcreditarCompetenciaFirmante(ctx, q); !errors.Is(err, ports.ErrCompetenciaFirmanteNoDisponible) {
 		t.Fatal("segunda selección distinta admitida", err)
 	}
-	if _, _, presente := c.leer(); presente {
+	if _, _, presente := c.Leer(); presente {
 		t.Fatal("contenedor ambiguo todavía legible")
 	}
 }
@@ -103,7 +104,7 @@ func TestFuenteCompetenciaFirmaVecV2DeniegaCrucesYConservaViaExterna(t *testing.
 				t.Fatal("cruce admitido", err)
 			}
 			c, _ := competenciaFirmaVecV2DesdeContexto(r.Context())
-			if _, _, presente := c.leer(); presente {
+			if _, _, presente := c.Leer(); presente {
 				t.Fatal("cruce guardado")
 			}
 		})
@@ -137,7 +138,10 @@ func TestFuenteNominalFirmaVecV2AbreUnaSesionYRevalidaEnCadaUso(t *testing.T) {
 	if _, err := competencia.AcreditarCompetenciaFirmante(r.Context(), q); err != nil {
 		t.Fatal(err)
 	}
-	f := &fuenteNominalFirmaVecV2{autoridad: e.a}
+	f, err := firmavec.NuevaFuenteNominalFirmaVecV2(e.a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	uno, err := f.RevalidarContextoActorFirmaV2(r.Context())
 	if err != nil || uno.Resultado.Contexto.PersonaRef != e.persona || uno.CertificadoCanalSHA256 != e.huella {
 		t.Fatalf("sesión inicial: %v", err)

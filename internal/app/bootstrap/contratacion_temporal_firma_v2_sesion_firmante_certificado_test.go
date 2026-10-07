@@ -168,7 +168,10 @@ func TestSesionFirmanteCertificadoConservaCancelacionSinFiltrarCausa(t *testing.
 	if err != nil || r.URL.Path != httpinterno.RutaRegistroFirmaVec {
 		t.Fatal(err)
 	}
-	f := &fuenteNominalFirmaVecV2{autoridad: e.a}
+	f, err := firmavec.NuevaFuenteNominalFirmaVecV2(e.a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctxPeticion, cancelarPeticion := context.WithCancel(r.Context())
 	cancelarPeticion()
 	if _, err := f.RevalidarContextoActorFirmaV2(ctxPeticion); !errors.Is(err, context.Canceled) ||

@@ -493,6 +493,27 @@ func (e *emisorMaterialRenovableCTDesarrollo) EmitirMaterialAutorizacionAtestada
 	return emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, s, c)
 }
 
+// La vía DEV consume la captura de la misma evaluación del PDP. La lectura
+// renovable y las cuatro dependencias son las mismas que en la emisión V3.
+func (e *emisorMaterialRenovableCTDesarrollo) EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx context.Context,
+	s core.SolicitudAutorizacionLigadaV3, c core.ResultadoContextoActorRegistradoV2,
+) (core.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error) {
+	fallo := errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	if e == nil || e.proveedor == nil || ctx == nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil, fallo
+	}
+	snapshot, err := e.proveedor.instantaneaConfianza(ctx)
+	if err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil, err
+	}
+	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(e.autoridad, e.proveedor.atestador, snapshot, e.proveedor.emisor)
+	if err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil, err
+	}
+	return emisor.EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx, s, c)
+}
+
 // rechazoLecturaConfianzaCTDesarrollo es un rechazo de la lectura de
 // confianza: conserva el centinela de incoherencia (errors.Is), nombra la
 // comprobación (texto fijo) y envuelve el error de PostgreSQL si lo hubo.

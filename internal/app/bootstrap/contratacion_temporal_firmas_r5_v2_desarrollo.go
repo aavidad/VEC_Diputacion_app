@@ -278,6 +278,8 @@ type emisorFirmasR5V2CTDesarrollo struct {
 	porAccion map[string]*emisorMaterialRenovableCTDesarrollo
 }
 
+var _ firmaemisorv2.EmisorComunV3ConCaptura = (*emisorFirmasR5V2CTDesarrollo)(nil)
+
 func (e *emisorFirmasR5V2CTDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, s dominiovec.SolicitudAutorizacionLigadaV3,
 	c dominiovec.ResultadoContextoActorRegistradoV2,
 ) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -291,6 +293,24 @@ func (e *emisorFirmasR5V2CTDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx 
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
 	return emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, s, c)
+}
+
+// La captura V49 sólo se usa para el registro VEC. La solicitud exacta se
+// sella en el mismo contexto que lee el proveedor nominal CT existente.
+func (e *emisorFirmasR5V2CTDesarrollo) EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx context.Context,
+	s dominiovec.SolicitudAutorizacionLigadaV3, c dominiovec.ResultadoContextoActorRegistradoV2,
+) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, puertosvec.CapturaEvaluacionSolicitudLigadaV3, error) {
+	datos, err := s.Datos()
+	var emisor *emisorMaterialRenovableCTDesarrollo
+	if e != nil && err == nil && ctx != nil && ctx.Err() == nil && datos.Accion == ports.AccionRegistrarFirmaVec {
+		emisor = e.porAccion[datos.Accion]
+	}
+	if emisor == nil {
+		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil, ports.ErrFirmaDocumentoDenegada
+	}
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	return emisor.EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx, s, c)
 }
 
 // rutasFirmasR5V2CTDesarrollo agrupa lo que la raíz registra y cierra.
