@@ -1,5 +1,8 @@
 {
   "general": {
+    "filtros": "Filtros del cuadro",
+    "tabla_expedientes": "Expedientes de peticiones de personal temporal",
+    "marca_urgente": "Urgente",
     "ficha_titulo_modulo": "Expediente {numero}",
     "ficha_volver_lista": "Volver a la lista",
     "ficha_expediente_numero": "Expediente {numero}",
@@ -31,6 +34,7 @@
     "lista_titulo_varias": "{total} peticiones en trámite",
     "lista_titulo_ninguna": "No hay peticiones en trámite",
     "lista_nueva_peticion": "Nueva petición de personal",
+    "lista_actualizar": "Actualizar lista",
     "lista_buscar": "Buscar",
     "lista_buscar_pista": "Número, centro o categoría",
     "lista_fase": "Fase",
@@ -69,6 +73,8 @@
     "abre_otra_pestana": "(se abre en otra pestaña)",
     "lista_busqueda_parcial": "El filtro solo revisa las peticiones cargadas en esta página. Pulse «Página siguiente» para ver el resto.",
     "lista_vacia_crear": "Todavía no hay ninguna petición. Cree una con «Nueva petición de personal».",
+    "lista_vacia_sin_alta": "No hay peticiones para este perfil. Actualice la lista si esperaba ver alguna.",
+    "lista_textos_respaldo": "No se pudieron cargar todos los textos. Pulse «Actualizar lista» para volver a intentarlo.",
     "cabecera_resultado_rc": "Retención de crédito",
     "cabecera_decision_gobernada": "Vía de cobertura decidida",
     "estado_inicial": "Preparado para cargar las peticiones.",

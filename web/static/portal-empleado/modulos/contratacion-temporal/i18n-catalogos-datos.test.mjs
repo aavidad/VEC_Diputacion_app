@@ -79,6 +79,10 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_corte_publicado",
   "ct_txt_contexto_no_comunicado",
 ]);
+const CLAVES_CUADRO_LIGERO = Object.freeze([
+  "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
+  "lista_textos_respaldo",
+]);
 
 const CLAVES_FIN_MODALIDAD = Object.freeze({
   "i18n-analisis-catalogo.js": [
@@ -129,6 +133,13 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         }
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
+      }
+      if (archivo === "i18n-ficha-lista.js") {
+        for (const clave of CLAVES_CUADRO_LIGERO) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(preimagen)
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);
