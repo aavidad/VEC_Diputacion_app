@@ -384,6 +384,7 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal-pagina-larga.css
+static/portal-empleado/portal-arranque-aviso.js
 static/portal-empleado/portal.js
 static/textos/es/bolsa.json
 static/textos/en/bolsa.json

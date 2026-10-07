@@ -343,6 +343,52 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
   assert.equal(cargasContratacion, 1);
 });
 
+test("CT reintenta el catálogo del circuito y registra un fallo sin volcar la excepción", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const idiomas = [];
+  const avisos = [];
+  const consultas = [];
+  let fallar = true;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargarFasesCircuito: async (idioma) => {
+      idiomas.push(idioma);
+      if (fallar) throw new Error("dato-personal-que-no-debe-salir");
+      return { solicitud: "Firma de la petición" };
+    },
+    entorno: { console: { error: (...argumentos) => avisos.push(argumentos) } },
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => ({
+        async obtenerCatalogosAlta() { consultas.push("alta"); throw new Error("sin alta"); },
+        async obtenerConfiguracionAnalisis() { consultas.push("analisis"); throw new Error("sin análisis"); },
+      }) },
+      adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({
+        capacidades: [],
+        async resumenInicio() { consultas.push("resumen"); return { expedientes: [] }; },
+      }) },
+      presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+      vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
+    }) },
+  });
+  assert.deepEqual(idiomas, [], "el catálogo no se pide al importar o construir el portal");
+  await coordinador.cargarInterno();
+  assert.deepEqual(consultas, [], "un catálogo fallido no inicia consultas CT");
+  assert.deepEqual(avisos, [["portal.modulo.carga_fallida", {
+    modulo: "contratacion_temporal", codigo: "catalogo_circuito_no_disponible",
+  }]]);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+
+  fallar = false;
+  await coordinador.cargarInterno();
+  assert.deepEqual(idiomas, ["es", "es"], "solo se pide el idioma activo y se reintenta");
+  assert.deepEqual(consultas.sort(), ["alta", "analisis", "resumen"]);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(avisos.length, 1);
+});
+
 
 function respuestaPersonalJSON(datos) {
   return new Response(JSON.stringify(datos), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
