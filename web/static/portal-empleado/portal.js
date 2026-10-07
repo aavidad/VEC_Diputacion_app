@@ -10,8 +10,6 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261007-carga-pantalla-v1";
-import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
 import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -103,11 +101,20 @@ const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const recursosVistas = new Map();
 const cargasRecursosVistas = new Map();
 const erroresRecursosVistas = new Set();
-const grupoRecursosVista = (vista) => vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
+const grupoRecursosVista = (vista) => vista === "portal" ? "inicio"
+  : vista === "mis-tramites" ? "accesos"
+    : vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
   : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas" : null;
 function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
-  const carga = grupo === "documentos"
+  const carga = grupo === "inicio"
+    ? Promise.all([
+      import("./portal-inicio.js?v=20261007-carga-pantalla-v1"),
+      import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
+    ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
+    : grupo === "accesos"
+      ? import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2")
+      : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
@@ -118,6 +125,10 @@ function cargarRecursosVista(grupo) {
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
     if (cargasRecursosVistas.get(grupo) !== carga) return;
+    if (grupo === "inicio") {
+      renderizarPortal = crearRenderizadorInicio(recursos.crearVistaInicioPortal);
+      recursosVistas.set("accesos", recursos.accesos);
+    }
     recursosVistas.set(grupo, recursos);
     if (grupoRecursosVista(estado.vista) === grupo && vistaPermitida(estado.vista)) renderizar();
   }).catch(() => {
@@ -130,7 +141,10 @@ function cargarRecursosVista(grupo) {
 }
 const TITULOS = Object.freeze({
   portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
-  "mis-tramites": [traducirPortal("txt_portal_del_empleado"), traducirAccesosEmpleado("mis_tramites")],
+  get "mis-tramites"() {
+    const traducir = recursosVistas.get("accesos")?.traducirAccesosEmpleado;
+    return [traducirPortal("txt_portal_del_empleado"), traducir ? traducir("mis_tramites") : traducirPortal("txt_accesos_directos")];
+  },
   "ofertas-sae": [traducirPortal("ofertas_sae_miga"), traducirPortal("ofertas_sae_titulo")],
   resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_bolsas_de_trabajo")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
@@ -394,7 +408,8 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
-const renderizarPortal = crearVistaInicioPortal({
+let renderizarPortal = null;
+function crearRenderizadorInicio(crearVistaInicioPortal) { return crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
   numero,
@@ -407,7 +422,7 @@ const renderizarPortal = crearVistaInicioPortal({
   locale: LOCALIZACION_PORTAL,
   catalogoFallido: () => estado.errorFuente !== "",
   inicioPendiente: () => coordinadorModulos.inicioPendiente?.() === true,
-});
+}); }
 function renderizarAyudaPreparada(contexto = null, ayudaContenido, ayudanteTramites) {
   const { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal,
     obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal,
@@ -876,10 +891,12 @@ function actualizarNavegacionModulos() {
       estado: boton.getAttribute("aria-busy") === "true" ? "cargando" : "",
     }));
     if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
-    fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
-      false, crearTraductorResumenAccesosEmpleado({
-        accesos: coordinadorModulos.obtenerAccesosEmpleado(), traducir: traducirPortal,
-      }));
+    const accesosPropios = coordinadorModulos.obtenerAccesosEmpleado();
+    const crearResumen = recursosVistas.get("accesos")?.crearTraductorResumenAccesosEmpleado;
+    fase.textContent = estado.errorFuente || (crearResumen
+      ? resumenAccesosModulos(accesos, false, crearResumen({ accesos: accesosPropios, traducir: traducirPortal }))
+      : Object.keys(accesosPropios).length > 0 && !accesos.some((acceso) => acceso.disponible === true)
+        ? traducirPortal("txt_accesos_directos") : resumenAccesosModulos(accesos, false));
   }
 }
 
@@ -1020,6 +1037,8 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
+  if (estado.vista === "portal" && !recursosVistas.has("inicio")
+    && !cargasRecursosVistas.has("inicio") && !erroresRecursosVistas.has("inicio")) cargarRecursosVista("inicio");
   if (estado.vista === "portal" && esPerfilRRHH()
     && ["cargando", "error"].includes(estadoResumenInicio)) {
     const fallo = estadoResumenInicio === "error";
@@ -1064,7 +1083,7 @@ function renderizar() {
   }
   const grupoRecursos = grupoRecursosVista(estado.vista);
   const recursosVistaNecesarios = grupoRecursos
-    && (grupoRecursos !== "documentos" || coordinadorModulos.vistaDisponible(estado.vista));
+    && (!["documentos", "accesos"].includes(grupoRecursos) || coordinadorModulos.vistaDisponible(estado.vista));
   if (recursosVistaNecesarios && !recursosVistas.has(grupoRecursos)) {
     const error = erroresRecursosVistas.has(grupoRecursos);
     const vistaPendiente = estado.vista;

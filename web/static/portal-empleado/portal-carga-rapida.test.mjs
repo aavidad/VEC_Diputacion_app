@@ -645,7 +645,7 @@ test("index.html precarga exactamente el grafo estático de portal.js", async ()
   assert.ok(entrada > html.lastIndexOf('rel="modulepreload"'), "las precargas preceden a la entrada");
 });
 
-test("Inicio y CT no solicitan los catálogos y estilos exclusivos de otras pantallas", async () => {
+test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras pantallas", async () => {
   const html = await readFile(new URL("index.html", import.meta.url), "utf8");
   const estatico = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: false });
   for (const modulo of [
@@ -654,6 +654,7 @@ test("Inicio y CT no solicitan los catálogos y estilos exclusivos de otras pant
     "/portal-empleado/portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
   assert.deepEqual(grupos.map(([, grupo]) => grupo), ["cronos", "dietas", "personal"]);
