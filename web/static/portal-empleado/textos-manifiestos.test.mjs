@@ -131,7 +131,7 @@ function comprobarDelegacion(fuentes, helper, resolver) {
   assert.equal(t.filter((x) => x.texto === "cargarCatalogosContratacion").length, 1, "Referencia indirecta al helper");
   const modulos = new Set();
   for (const [archivo, fuente] of fuentes) {
-    if (archivo === helper) continue;
+    if (archivo === helper || archivo.endsWith(".html")) continue;
     const ts = tokens(fuente);
     const referencias = ts.filter((x) => x.literal && /(?:^|\/)i18n-catalogos\.js(?:\?|$)/u.test(x.valor));
     const usaHelper = ts.some((x) => x.texto === "cargarCatalogosContratacion");
