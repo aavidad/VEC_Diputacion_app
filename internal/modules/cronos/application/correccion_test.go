@@ -136,12 +136,20 @@ func TestCorreccionNoSolicitaConVinculoEmpleadoCaducado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recibo, err := servicio.SolicitarOlvido(context.Background(), orden, ports.SolicitudOlvidoMarcaje{
+	auditoria := &registroVinculoPrueba{}
+	ctx := ConRegistroDenegacionVinculo(context.Background(), auditoria)
+	peticion := ports.SolicitudOlvidoMarcaje{
 		ClaveOperacion: "olvido_0001", HuecoDeclarado: true, Movimiento: domain.PunchEntry,
 		FechaCivil: "2026-09-24", HoraPretendida: "08:15",
-	})
-	if !errors.Is(err, ports.ErrCorreccionNoAutorizada) || recibo != (ports.ReciboCorreccion{}) || repo.solicitudes != 0 {
+	}
+	recibo, err := servicio.SolicitarOlvido(ctx, orden, peticion)
+	if !errors.Is(err, ports.ErrCorreccionNoAutorizada) || recibo != (ports.ReciboCorreccion{}) || repo.solicitudes != 0 || auditoria.llamadas != 1 {
 		t.Fatal("vínculo empleado caducado alcanzó el repositorio", recibo, err)
+	}
+	auditoria.err = errors.New("auditoría caída")
+	_, err = servicio.SolicitarOlvido(ctx, orden, peticion)
+	if !errors.Is(err, ports.ErrDependenciaNoDisponible) || !errors.Is(err, auditoria.err) || repo.solicitudes != 0 || auditoria.llamadas != 2 {
+		t.Fatal("fallo de auditoría permitió solicitar el olvido", err)
 	}
 }
 
