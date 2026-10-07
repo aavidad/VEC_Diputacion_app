@@ -36,6 +36,13 @@ pérdida de derechos ni otra consecuencia del retraso.
 | `application/preparacionliquidacion`, `simulaciondevengo` e `informeperiodo` | Preparan instantáneas sintéticas sin efectos; los dos primeros tienen consumidor CLI, no montaje productivo. El informe trabaja con registros importados, no con lectura nominal de PostgreSQL. Una propuesta no equivale a acto de liquidación. |
 | `application/custodia_justificantes_comision.go` | Registra referencias y huellas de custodia externa; no recibe los bytes del justificante ni acredita que el fichero se haya conservado. |
 
+El corte de diseño del 7 de octubre retira del árbol servido las páginas de
+muestra de catálogo e informes. Sus cuatro archivos se conservan únicamente
+en el guion local de previsualización, con rutas exactas en su servidor de
+ensayo. Las vistas inyectables esperan su fuente nominal; no se activa una
+exportación económica. Las paradas del mapa y su atribución alternativa usan
+el catálogo del idioma elegido.
+
 El último recuento documentado, del 25 de septiembre, es **0/9 formal,
 3/9 técnico y 0/9 de uso real**. Ese recuento es histórico: las piezas posteriores
 se inventarían arriba sin asignarles cierre o uso nuevo. Dirección actualizará
