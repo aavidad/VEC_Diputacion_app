@@ -98,7 +98,8 @@ function busquedaParcial(cuadro, filtro) {
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
-export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada) {
+export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada,
+  totalConjunto = null) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
   const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
@@ -107,7 +108,7 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
   ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
-    <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
+    <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: totalConjunto ?? cuadro.expedientes.length }))}</p>
     ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
     ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
@@ -128,12 +129,15 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
 
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
 export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
-  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro } = {}) {
+  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro,
+    totalConjunto = null, enTramiteConjunto = null, paginaAnterior = false } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
-  const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
-    : (resumen.enTramite === 1 ? t("lista_titulo_uno") : t("lista_titulo_varias", { total: resumen.enTramite }));
   const parcial = Boolean(cuadro.paginacion?.cursor_siguiente);
+  const enTramite = enTramiteConjunto ?? (parcial || paginaAnterior ? null : resumen.enTramite);
+  const titulo = enTramite === null ? t("tabla_expedientes")
+    : enTramite === 0 ? t("lista_titulo_ninguna")
+      : (enTramite === 1 ? t("lista_titulo_uno") : t("lista_titulo_varias", { total: enTramite }));
   // Sin ninguna petición ni filtro del servidor, sobran buscador y filtros.
   const sinPeticiones = cuadro.expedientes.length === 0 && !parcial
     && !Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
@@ -168,7 +172,7 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       </form>`}
       ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
     ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
-    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados)}
+    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados, totalConjunto)}
       ${paginacion}
     </section>`;
 }
