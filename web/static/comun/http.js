@@ -85,7 +85,7 @@ async function leerJSON(respuesta, limiteBytes, signal) {
   catch { throw error("respuesta_no_valida", respuesta.status); }
 }
 
-async function ejecutar(ruta, metodo, cuerpo, fetchImpl, limiteBytes, plazoMs, reintentos, signal) {
+async function ejecutar(ruta, metodo, cuerpoSerializado, fetchImpl, limiteBytes, plazoMs, reintentos, signal) {
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), plazoMs);
   const abortar = () => controlador.abort();
@@ -99,8 +99,8 @@ async function ejecutar(ruta, metodo, cuerpo, fetchImpl, limiteBytes, plazoMs, r
         respuesta = await conCancelacion(Promise.resolve().then(() => fetchImpl(ruta, {
           method: metodo, mode: "same-origin", credentials: "same-origin", cache: "no-store",
           redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal,
-          headers: { Accept: "application/json", ...(cuerpo === undefined ? {} : { "Content-Type": "application/json" }) },
-          ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
+          headers: { Accept: "application/json", ...(cuerpoSerializado === undefined ? {} : { "Content-Type": "application/json" }) },
+          ...(cuerpoSerializado === undefined ? {} : { body: cuerpoSerializado }),
         })), controlador.signal);
       } catch {
         if (controlador.signal.aborted) throw error(signal?.aborted ? "cancelado" : "red");
@@ -155,8 +155,9 @@ export function consultarJSON(ruta, { metodo = "GET", cuerpo, signal, fetchImpl 
     || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > MAXIMO_MS
     || !Number.isSafeInteger(reintentos) || reintentos < 0 || reintentos > 2) throw new TypeError("opciones_http_invalidas");
   if (signal?.aborted) return Promise.reject(error("cancelado"));
-  const cuerpoSerializado = cuerpo === undefined ? "" : JSON.stringify(cuerpo);
-  if (cuerpoSerializado && new TextEncoder().encode(cuerpoSerializado).byteLength > MAXIMO_BYTES) throw new TypeError("cuerpo_http_demasiado_grande");
+  const cuerpoSerializado = cuerpo === undefined ? undefined : JSON.stringify(cuerpo);
+  if (cuerpo !== undefined && typeof cuerpoSerializado !== "string") throw new TypeError("cuerpo_http_invalido");
+  if (cuerpoSerializado !== undefined && new TextEncoder().encode(cuerpoSerializado).byteLength > MAXIMO_BYTES) throw new TypeError("cuerpo_http_demasiado_grande");
   if (metodo !== "GET") reintentos = 0;
   const clave = JSON.stringify([ruta, metodo, limiteBytes, plazoMs, reintentos]);
   let mapa = EN_VUELO.get(fetchImpl);
@@ -164,7 +165,7 @@ export function consultarJSON(ruta, { metodo = "GET", cuerpo, signal, fetchImpl 
   if (metodo === "GET" && mapa.has(clave)) return suscribir(mapa.get(clave), signal, () => mapa.delete(clave));
   const controlador = new AbortController();
   const entrada = { controlador, permanente: false, activos: 0, promesa: null };
-  entrada.promesa = ejecutar(ruta, metodo, cuerpo, fetchImpl, limiteBytes, plazoMs, reintentos, controlador.signal)
+  entrada.promesa = ejecutar(ruta, metodo, cuerpoSerializado, fetchImpl, limiteBytes, plazoMs, reintentos, controlador.signal)
     .catch((fallo) => {
       if (fallo instanceof ErrorConsultaJSON && !["cancelado", "sin_permiso", "no_encontrado", "conflicto"].includes(fallo.codigo)) registrarErrorCliente();
       throw fallo;
