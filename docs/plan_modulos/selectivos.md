@@ -1,5 +1,22 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
+## Selector de idioma común — 7 de octubre de 2026
+
+La entrada de Selección usa `montarSelectorIdioma`, de la interfaz común,
+en lugar de construir sus opciones y navegación por separado. Conserva filtros
+y ancla al cambiar de idioma. Cada opción declara su idioma y el selector muestra
+el catálogo que se ha cargado, incluido el respaldo cuando falla una traducción.
+
+Pruebas focales de Selección e idioma: 16 correctas. La revisión en Chrome con
+una respuesta de ensayo sintética comprueba escritorio, móvil, teclado, cambio
+de idioma y un catálogo inglés no disponible. No acredita acceso nominal a la
+API ni modifica el cierre de S2–S8.
+
+Sigue pendiente adaptar los visores que cambian idioma sin perder el archivo
+abierto. Requieren un contrato común que permita repintar sin navegar. La carga
+del idioma activo y el reintento de catálogos corresponden al lector común de V;
+Personal adaptará después su carga para evitar esperas al importar el portal.
+
 ## Cierre del 2 de octubre de 2026: estado vigente
 
 Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
