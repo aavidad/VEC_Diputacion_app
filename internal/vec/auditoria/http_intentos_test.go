@@ -1,9 +1,11 @@
 package auditoria
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,22 +17,28 @@ import (
 )
 
 type opcionesIntentosPrueba struct {
-	valor Opciones
-	err   error
+	valor  Opciones
+	err    error
+	alLeer func()
 }
 
 func (o *opcionesIntentosPrueba) Actuales(context.Context) (Opciones, error) {
+	if o.alLeer != nil {
+		o.alLeer()
+	}
 	return o.valor, o.err
 }
 
 type registradorIntentosConsultaPrueba struct {
 	ordenes             []ports.OrdenIntentoAuditoria
+	contextosCancelados []bool
 	err                 error
 	primeroNoDisponible bool
 }
 
-func (r *registradorIntentosConsultaPrueba) AppendIntentoAuditoria(_ context.Context, orden ports.OrdenIntentoAuditoria) (ports.AcuseIntentoAuditoria, error) {
+func (r *registradorIntentosConsultaPrueba) AppendIntentoAuditoria(ctx context.Context, orden ports.OrdenIntentoAuditoria) (ports.AcuseIntentoAuditoria, error) {
 	r.ordenes = append(r.ordenes, orden)
+	r.contextosCancelados = append(r.contextosCancelados, ctx.Err() != nil)
 	if r.primeroNoDisponible && len(r.ordenes) == 1 {
 		return ports.AcuseIntentoAuditoria{}, ports.ErrIntentoAuditoriaNoDisponible
 	}
@@ -104,8 +112,8 @@ func TestIntentosConsultaAuditoriaConservanIdentidadYResultado(t *testing.T) {
 		resultado domain.ResultadoIntentoAuditoria
 		recurso   string
 	}{{domain.ResultadoIntentoAuditoriaError, "auditoria:consulta_invalida"},
-		{domain.ResultadoIntentoAuditoriaDenegado, p.Filtro.ExpedienteRef},
-		{domain.ResultadoIntentoAuditoriaError, p.Filtro.ExpedienteRef},
+		{domain.ResultadoIntentoAuditoriaDenegado, "auditoria:consulta_ct"},
+		{domain.ResultadoIntentoAuditoriaError, "auditoria:consulta_ct"},
 		{domain.ResultadoIntentoAuditoriaError, "auditoria:opciones_rrhh"}} {
 		datos, err := registrador.ordenes[i].Datos()
 		if err != nil || datos.Datos.Resultado != esperado.resultado || datos.Datos.RecursoRef != esperado.recurso ||
@@ -132,19 +140,105 @@ func TestIntentosConsultaAuditoriaConservanIdentidadYResultado(t *testing.T) {
 	if err1 != nil || err2 != nil || primero.IntentoRef != segundo.IntentoRef {
 		t.Fatal("un COMMIT ambiguo recibió otra clave de intento")
 	}
+	const identificadorPersonal = "dni:12345678z"
+	registrador.ordenes, registrador.primeroNoDisponible = nil, false
+	p.Filtro.ExpedienteRef = identificadorPersonal
+	w = consultar(p.Filtro.Desde.Format(time.RFC3339Nano))
+	if w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), identificadorPersonal) ||
+		len(registrador.ordenes) != 1 {
+		t.Fatalf("identificador personal en respuesta o sin intento: %d %q", w.Code, w.Body.String())
+	}
+	datosPersonales, err := registrador.ordenes[0].Datos()
+	if err != nil || datosPersonales.Datos.RecursoRef != "auditoria:consulta_ct" ||
+		strings.Contains(datosPersonales.Datos.RecursoRef, identificadorPersonal) {
+		t.Fatalf("identificador personal en AD169: %+v %v", datosPersonales.Datos, err)
+	}
+	if _, err := s.registrarIntento(t.Context(), identidad, identificadorPersonal,
+		domain.ResultadoIntentoAuditoriaDenegado, &opciones.valor); !errors.Is(err, ErrNoDisponible) ||
+		len(registrador.ordenes) != 1 {
+		t.Fatal("el servicio aceptó un recurso HTTP bruto para AD169")
+	}
+	registrador.err = errors.New("registrador caído")
+	var registro bytes.Buffer
+	previo := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	defer slog.SetDefault(previo)
+	w = consultar(p.Filtro.Desde.Format(time.RFC3339Nano))
+	if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), identificadorPersonal) ||
+		strings.Contains(registro.String(), identificadorPersonal) {
+		t.Fatalf("identificador personal en fallo AD169: respuesta=%q registro=%q", w.Body.String(), registro.String())
+	}
+	registrador.err = nil
+	anteriores := len(registrador.ordenes)
 	h.identidad = identidadAuditoriaHTTPPrueba{}
 	w = consultar(p.Filtro.Desde.Format(time.RFC3339Nano))
-	if w.Code != http.StatusForbidden || len(registrador.ordenes) != 2 {
+	if w.Code != http.StatusForbidden || len(registrador.ordenes) != anteriores {
 		t.Fatal("identidad ausente produjo intento nominal")
 	}
 }
 
 func TestRecursoIntentoConsultaNoPersisteTextoPersonal(t *testing.T) {
 	p := peticionAuditoriaIdentidadPrueba(t, time.Now().UTC().Truncate(time.Microsecond))
-	for _, ref := range []string{"persona@example.invalid", "http:privado", "expediente:ñ", strings.Repeat("a", 201)} {
+	for _, ref := range []string{"persona@example.invalid", "http:privado", "expediente:ñ", "dni:12345678z", strings.Repeat("a", 201)} {
 		p.Filtro.ExpedienteRef = ref
-		if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_invalida" {
+		if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_ct" {
 			t.Fatalf("referencia no minimizada: %q", ref)
 		}
+	}
+	p.Filtro.Fuente = "bolsa"
+	if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_bolsa" {
+		t.Fatal("fuente Bolsa sin recurso fijo")
+	}
+	p.Filtro.ExpedienteRef = "*"
+	if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_invalida" {
+		t.Fatal("filtro inválido recibió recurso de consulta")
+	}
+}
+
+func TestCancelacionTrasOpcionesRegistraErrorSinFalsaDenegacion(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	p := peticionAuditoriaIdentidadPrueba(t, ahora)
+	identidad := IdentidadResuelta{Vinculo: p.Contexto.Vinculo, Resultado: p.Contexto.Resultado,
+		Correlacion: p.Contexto.Correlacion}
+	registrador := &registradorIntentosConsultaPrueba{primeroNoDisponible: true}
+	emisor := &emisorAuditoriaIdentidadPrueba{}
+	s, err := NuevoServicio(emisor, fuenteAuditoriaIdentidadPrueba{}, fuenteAuditoriaIdentidadPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfigurarIntentos(ConfiguracionIntentos{Registrador: registrador,
+		Proceso: "vec_server_ensayo", Canal: string(domain.SuperficieAutenticacionInternaCorporativaV1),
+		Finalidad: p.Filtro.FinalidadRef, Motivo: p.Contexto.Motivo}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancelar := context.WithCancel(t.Context())
+	defer cancelar()
+	opciones := &opcionesIntentosPrueba{valor: Opciones{FinalidadRef: p.Filtro.FinalidadRef,
+		MotivoRef: p.Filtro.MotivoRef, Motivo: p.Contexto.Motivo, PermisoRequerido: AccionConsultar},
+		alLeer: cancelar}
+	h, err := NuevoManejador(s, opciones, identidadAuditoriaHTTPPrueba{identidad})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo, _ := json.Marshal(map[string]any{"fuente": "ct", "expediente_ref": p.Filtro.ExpedienteRef,
+		"desde": p.Filtro.Desde.Format(time.RFC3339Nano), "hasta": p.Filtro.Hasta.Format(time.RFC3339Nano),
+		"limite": 5, "finalidad_ref": p.Filtro.FinalidadRef, "motivo_ref": p.Filtro.MotivoRef})
+	r := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(string(cuerpo))).WithContext(ctx)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("X-Audit-Ref") != "auditoria_sintetica" ||
+		emisor.llamadas != 0 || len(registrador.ordenes) != 2 ||
+		len(registrador.contextosCancelados) != 2 || !registrador.contextosCancelados[0] || !registrador.contextosCancelados[1] {
+		t.Fatalf("cancelación mal clasificada: HTTP %d acuse=%q emisor=%d intentos=%d",
+			w.Code, w.Header().Get("X-Audit-Ref"), emisor.llamadas, len(registrador.ordenes))
+	}
+	primero, e1 := registrador.ordenes[0].Datos()
+	segundo, e2 := registrador.ordenes[1].Datos()
+	if e1 != nil || e2 != nil || primero.IntentoRef != segundo.IntentoRef ||
+		primero.Datos.Resultado != domain.ResultadoIntentoAuditoriaError ||
+		segundo.Datos.Resultado != domain.ResultadoIntentoAuditoriaError ||
+		primero.Datos.RecursoRef != "auditoria:consulta_ct" {
+		t.Fatalf("cancelación sin orden idempotente de error: %+v %+v", primero.Datos, segundo.Datos)
 	}
 }

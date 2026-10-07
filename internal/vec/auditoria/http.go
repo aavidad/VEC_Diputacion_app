@@ -125,7 +125,11 @@ func (h *Manejador) servirOpciones(w http.ResponseWriter, r *http.Request) {
 	}
 	opciones, err := h.opciones.Actuales(r.Context())
 	if err != nil {
-		h.responderIntento(w, r, identidad, "auditoria:opciones_rrhh", http.StatusServiceUnavailable, nil)
+		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, http.StatusServiceUnavailable, nil)
+		return
+	}
+	if r.Context().Err() != nil {
+		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, http.StatusServiceUnavailable, &opciones)
 		return
 	}
 	responderJSON(w, http.StatusOK, opciones)
@@ -240,14 +244,14 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 	desde, errDesde := parsearInstante(cuerpo.Desde)
 	hasta, errHasta := parsearInstante(cuerpo.Hasta)
 	if errDesde != nil || errHasta != nil {
-		h.responderIntento(w, r, identidad, "auditoria:consulta_invalida", http.StatusBadRequest, nil)
+		h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusBadRequest, nil)
 		return
 	}
 	f := Filtro{Fuente: string(fuente), ExpedienteRef: cuerpo.ExpedienteRef, ActorRef: cuerpo.ActorRef,
 		Desde: desde, Hasta: hasta, Limite: cuerpo.Limite,
 		FinalidadRef: cuerpo.FinalidadRef, MotivoRef: cuerpo.MotivoRef}
 	if f.Validar() != nil {
-		h.responderIntento(w, r, identidad, "auditoria:consulta_invalida", http.StatusForbidden, nil)
+		h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusForbidden, nil)
 		return
 	}
 	opciones, err := h.opciones.Actuales(r.Context())
@@ -275,26 +279,22 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 }
 
 func recursoIntentoFiltro(f Filtro) string {
-	ref := f.ExpedienteRef
-	if f.Validar() != nil || len(ref) > 200 ||
-		!(ref[0] >= 'a' && ref[0] <= 'z' || ref[0] >= '0' && ref[0] <= '9') ||
-		strings.Contains(ref, "..") ||
-		strings.HasPrefix(ref, "http") || !strings.ContainsAny(ref, ":_") {
-		return "auditoria:consulta_invalida"
+	if f.Validar() != nil {
+		return recursoIntentoConsultaInvalida
 	}
-	for _, c := range ref {
-		if c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-' || c == '.' || c == ':' {
-			continue
-		}
-		return "auditoria:consulta_invalida"
+	if f.Fuente == "ct" {
+		return recursoIntentoConsultaCT
 	}
-	return ref
+	return recursoIntentoConsultaBolsa
 }
 
 // El acuse procede de AD169, después del cierre de la lectura fallida. Una
 // auditoría no confirmada se muestra como indisponibilidad y nunca como éxito.
 func (h *Manejador) responderIntento(w http.ResponseWriter, r *http.Request,
 	identidad IdentidadResuelta, recurso string, codigo int, opciones *Opciones) {
+	if r.Context().Err() != nil {
+		codigo = http.StatusServiceUnavailable
+	}
 	if h.servicio.intentos != nil {
 		resultado := vecdomain.ResultadoIntentoAuditoriaError
 		if codigo == http.StatusForbidden || codigo == http.StatusUnauthorized {
@@ -302,8 +302,8 @@ func (h *Manejador) responderIntento(w http.ResponseWriter, r *http.Request,
 		}
 		acuse, err := h.servicio.registrarIntento(r.Context(), identidad, recurso, resultado, opciones)
 		if err != nil {
-			slog.Error("auditoria: intento nominal no confirmado", "ruta", r.URL.Path,
-				"estado_original", codigo, "causa", "registro_comun_no_disponible")
+			slog.Error("auditoria: intento nominal no confirmado", "estado_original", codigo,
+				"causa", "registro_comun_no_disponible")
 			responderError(w, http.StatusServiceUnavailable)
 			return
 		}
