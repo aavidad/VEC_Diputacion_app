@@ -11,6 +11,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"syscall"
 
 	"vec-diputacion-granada/internal/modules/provision/adapters/simulacion"
 	"vec-diputacion-granada/internal/modules/provision/domain"
@@ -60,9 +61,11 @@ type diferencia struct {
 }
 
 type contraste struct {
-	Estado      string       `json:"estado"`
-	Diferencias []diferencia `json:"diferencias"`
-	Pendientes  []string     `json:"pendientes"`
+	Estado         string       `json:"estado"`
+	CoberturaDatos string       `json:"cobertura_datos"`
+	OfertaEstado   string       `json:"oferta_estado"`
+	Diferencias    []diferencia `json:"diferencias"`
+	Pendientes     []string     `json:"pendientes"`
 }
 
 type respuesta struct {
@@ -178,7 +181,8 @@ func huellaArchivo(ruta string) (string, error) {
 }
 
 func abrirRegular(ruta string, maximo int64) (*os.File, error) {
-	f, err := os.Open(ruta)
+	// O_NONBLOCK evita quedar esperando a un emisor FIFO antes de comprobar fstat.
+	f, err := os.OpenFile(ruta, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, errors.New("archivo_invalido")
 	}
@@ -191,7 +195,8 @@ func abrirRegular(ruta string, maximo int64) (*os.File, error) {
 }
 
 func contrastar(c procesoPublico, p domain.ProcesoProvision) *contraste {
-	r := &contraste{Estado: "cotejo_parcial", Diferencias: []diferencia{}, Pendientes: []string{
+	r := &contraste{Estado: "cotejo_parcial", CoberturaDatos: "parcial", OfertaEstado: "no_cotejada", Diferencias: []diferencia{}, Pendientes: []string{
+		"codigos_del_anexo_no_cotejados",
 		"version_de_bases_y_rectificaciones_por_rrhh",
 		"correspondencia_de_puestos_con_rpt_y_dotacion",
 		"formulas_y_excepciones_de_cada_apartado",

@@ -16,7 +16,7 @@ jq '.proceso' cmd/vec-simular-provision/testdata/proceso.sintetico.json > /tmp/p
 go run ./cmd/vec-provision-bases -expediente 2026/PPT_01/000026 -proceso /tmp/provision-proceso.json
 ```
 
-El ejemplo sintético muestra diferencias reales frente a la publicación: convocatoria, referencia de bases, fecha de corte y vínculos de las reglas. El cotejo de máximos detecta una regla ausente, varias reglas de una familia o un valor distinto. Conserva como pendientes las fórmulas completas, excepciones, fuentes de méritos, correspondencia con RPT y desempates. El campo `estado` del contraste permanece `cotejo_parcial`, incluso si no aparecen diferencias en los campos cotejados.
+El ejemplo sintético muestra diferencias frente a la publicación en los campos que se pueden cotejar: referencia de convocatoria, referencia de bases, fecha de corte, máximo total, y máximo y referencia de base de cada una de las seis familias. Una familia con cero o varias reglas queda señalada para revisión. El resultado lleva `cobertura_datos: parcial` y `oferta_estado: no_cotejada` aunque `diferencias` esté vacío. `PuestoOfertado` solo contiene referencias opacas de Provisión y RPT; no contiene el código del anexo BOP. Por eso el comando no puede comprobar que los puestos del borrador estén entre los nueve publicados ni que excluya los dos retirados. El pendiente `codigos_del_anexo_no_cotejados` lo indica de forma expresa. También quedan por cotejar las fórmulas completas, excepciones, fuentes de méritos, RPT y desempates.
 
 Puede comprobar los bytes de un PDF descargado frente al sello del catálogo, sin enviarlo a ningún servicio:
 
