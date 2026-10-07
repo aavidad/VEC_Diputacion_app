@@ -95,6 +95,13 @@ H9 queda como antecedente de diagnóstico; ninguna huella suya sirve para
 instalar sobre el núcleo actual. U puede preparar los DTO y pruebas de
 contrato de CRN11 mientras espera, sin escribir en Personal ni en autorización.
 
+En la espera de C5a, Permisos dejó de importar la vista de calendario solo
+para calcular la fecha civil. Su grafo de importaciones ya no evalúa el catálogo
+de incidencias al abrir Permisos; la fecha se comprueba en los dos cambios de
+hora de Madrid. Este ajuste no cambia concesiones ni monta recuperación de
+recibos. El cargador común todavía solicita juntas las vistas opcionales de
+Cronos y queda fuera de este corte.
+
 ## Corte C3p preparado: consulta anual de saldo
 
 La construcción del saldo agrupa una vez los marcajes por fecha local. Conserva
