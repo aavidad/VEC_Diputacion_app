@@ -250,8 +250,8 @@ la entrada no permite acreditar esa unidad.
 
 El ejemplo calcula experiencia, grado, antigüedad, permanencia definitiva y
 formación. Titulaciones queda pendiente por la diferencia entre las bases
-6E.4 y 6E.6.d sobre másteres. La permanencia que mezcla periodos definitivos y
-provisionales queda pendiente de confirmar el reparto del redondeo. Mientras
+6E.4 y 6E.6.d sobre másteres. Cuando, tras detraer el resto, quedan meses
+computables definitivos y provisionales, el reparto queda pendiente. Mientras
 falte cualquiera de esas partidas, el resultado conserva el desglose y
 `total: null`; no presenta una suma parcial como puntuación completa.
 
