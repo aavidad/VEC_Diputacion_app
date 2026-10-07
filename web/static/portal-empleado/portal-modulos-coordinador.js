@@ -26,9 +26,10 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
-const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
-  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
-])).then(Object.fromEntries).catch(() => null);
+// El circuito se consulta al cargar CT. Un fallo transitorio de un catálogo no
+// debe quedar congelado en el módulo ni retrasar el arranque del portal.
+const cargarFasesCircuitoPredeterminado = async (idioma) =>
+  (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases");
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -249,6 +250,7 @@ export function crearCoordinadorModulosPortal({
     return { fuente, vista };
   },
   consultarSesion = null,
+  cargarFasesCircuito = cargarFasesCircuitoPredeterminado,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
   // Módulos que no se cargan al arrancar sino al pedir una de sus vistas.
@@ -258,6 +260,7 @@ export function crearCoordinadorModulosPortal({
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || (cargarCatalogoInterno !== null && typeof cargarCatalogoInterno !== "function")
     || (consultarSesion !== null && typeof consultarSesion !== "function")
+    || typeof cargarFasesCircuito !== "function"
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function" || typeof cargarTramitesPropios !== "function"
@@ -355,8 +358,20 @@ export function crearCoordinadorModulosPortal({
       return promesaVista;
     };
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
-    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
-    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
+    let fasesCircuito;
+    try {
+      fasesCircuito = await cargarModuloConLimite(() => cargarFasesCircuito(idiomaCircuito),
+        "contratacion_temporal.circuito", limiteCargaModularMs, temporizadores);
+    } catch {
+      throw Object.assign(new Error("catálogo del circuito no disponible"), {
+        codigo: "catalogo_circuito_no_disponible",
+      });
+    }
+    if (!fasesCircuito || typeof fasesCircuito !== "object") {
+      throw Object.assign(new Error("catálogo del circuito no válido"), {
+        codigo: "catalogo_circuito_no_valido",
+      });
+    }
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
     const mensajesExpedientes = {
@@ -743,7 +758,16 @@ export function crearCoordinadorModulosPortal({
       let resultado;
       try {
         resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente, notificar: () => notificar(clave) });
-      } catch {
+      } catch (error) {
+        if (clave === CLAVE_CONTRATACION_TEMPORAL && vigente()) {
+          // Solo códigos controlados: la excepción puede contener URL, datos de
+          // respuesta o detalles de identidad que no deben ir a la consola.
+          const codigo = ["catalogo_circuito_no_disponible", "catalogo_circuito_no_valido"]
+            .includes(error?.codigo) ? error.codigo : "carga_ct_no_disponible";
+          entorno.console?.error?.("portal.modulo.carga_fallida", {
+            modulo: CLAVE_CONTRATACION_TEMPORAL, codigo,
+          });
+        }
         resultado = undefined;
       }
       if (!vigente()) return;

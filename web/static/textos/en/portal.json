@@ -132,6 +132,7 @@
     "sesion_etiqueta": "Session",
     "titulo_error_catalogo_modulos": "Modules could not be checked",
     "error_catalogo_modulos": "The internal module catalogue is unavailable. Try again.",
+    "portal_arranque_error": "The portal could not open. Check your connection and select Try again. If it still fails, contact IT.",
     "personal_catalogo_profesional": "Personnel professional catalogue",
     "cronos_miga": "Employee Portal → Cronos",
     "cronos_jornada_titulo": "Cronos · working hours and clock-ins",

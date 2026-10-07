@@ -132,6 +132,7 @@
     "sesion_etiqueta": "Sesión",
     "titulo_error_catalogo_modulos": "No se pudieron comprobar los módulos",
     "error_catalogo_modulos": "El catálogo interno de módulos no está disponible. Reintente la comprobación.",
+    "portal_arranque_error": "No se ha podido abrir el portal. Compruebe la conexión y pulse Reintentar. Si sigue igual, avise a Informática.",
     "personal_catalogo_profesional": "Catálogo profesional de Personal",
     "cronos_miga": "Portal del Empleado → Cronos",
     "cronos_jornada_titulo": "Cronos · jornada y fichajes",

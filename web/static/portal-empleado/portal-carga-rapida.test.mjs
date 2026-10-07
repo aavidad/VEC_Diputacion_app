@@ -199,6 +199,7 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargarFasesCircuito: async () => ({ solicitud: "Firma de la petición" }),
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
