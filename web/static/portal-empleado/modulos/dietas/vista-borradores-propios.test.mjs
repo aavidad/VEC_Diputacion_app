@@ -209,14 +209,50 @@ test("dos clics en Reintentar comparten la lectura y conservan el foco", async (
     await Promise.resolve(); await Promise.resolve();
     assert.equal(lecturas, 2);
     assert.equal(señal.aborted, false);
+    assert.equal(boton.attrs["aria-busy"], "true");
     completar(catalogoRuta());
     await Promise.all([primero, segundo]);
     assert.equal(lecturas, 2);
     assert.equal(señal.aborted, false);
     assert.ok(contenedor.querySelector("[data-dietas-mapa-comision]"));
     assert.notEqual(boton.textContent, "Reintentar");
+    assert.equal(boton.attrs["aria-busy"], undefined);
     assert.equal(contenedor.ownerDocument.activeElement, boton);
     assert.equal(avisos.filter((mensaje) => mensaje.includes("No se ha podido calcular la ruta")).length, erroresIniciales);
+    assert.equal(avisos.filter((mensaje) => mensaje.includes("localidades distintas")).length, 1);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("dos clics con ruta válida solo inician un cálculo mientras sigue pendiente", async () => {
+  const contenedor = raiz(); let calculos = 0; let rechazar;
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: async () => catalogoRuta(), obtenerCatalogoOtrosGastos: async () => null,
+      calcular: () => { calculos++; return new Promise((_resolver, rechazarPromesa) => { rechazar = rechazarPromesa; }); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) },
+  });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.querySelector('[name="origen_codigo"]').value = "18087";
+    form.querySelector('[name="destino_codigo"]').value = "18003";
+    const boton = form.querySelector("[data-dietas-calcular-ruta]");
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const primero = panel.listeners.click({ target: boton });
+    const segundo = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(calculos, 1);
+    assert.equal(boton.attrs["aria-busy"], "true");
+    rechazar(new Error("servicio temporalmente no disponible"));
+    await Promise.all([primero, segundo]);
+    assert.equal(boton.attrs["aria-busy"], undefined);
+    const nuevoIntento = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(calculos, 2);
+    rechazar(new Error("servicio temporalmente no disponible"));
+    await nuevoIntento;
   } finally { globalThis.FormData = original; vista.desmontar(); }
 });
 

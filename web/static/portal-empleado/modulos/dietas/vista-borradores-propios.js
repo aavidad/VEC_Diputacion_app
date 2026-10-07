@@ -251,6 +251,7 @@ export function montarVistaBorradoresPropios(
   let mapaVista = null;
   let montajeMapa = null;
   let reintentoCatalogo = null;
+  let accionRutaEnCurso = false;
   let controladorCatalogo = null;
   let falloCatalogoRuta = false;
   let calculoCabeceraFirma = null;
@@ -1779,8 +1780,10 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const calcularRutaVehiculo = evento.target?.closest?.("[data-dietas-ruta-calcular]");
-    if (calcularRutaVehiculo && edicion && calculadorRuta && !controlador) {
+    if (calcularRutaVehiculo && edicion && calculadorRuta && !controlador && !accionRutaEnCurso) {
       const fila = calcularRutaVehiculo.closest("[data-dietas-ruta-linea]");
+      accionRutaEnCurso = true;
+      calcularRutaVehiculo.setAttribute("aria-busy", "true");
       try {
         const mapa = await mapaParaCalcular();
         if (!activaAhora()) return;
@@ -1794,11 +1797,14 @@ export function montarVistaBorradoresPropios(
           fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_calculada");
         }
       } catch { if (activaAhora()) { mensaje("ruta_error_servicio", "error"); pintar(); } }
+      finally { accionRutaEnCurso = false; calcularRutaVehiculo.removeAttribute("aria-busy"); }
       return;
     }
     const calcular = evento.target?.closest?.("[data-dietas-calcular-ruta]");
-    if (calcular && !calcular.disabled && calculadorRuta && !controlador && activaAhora()) {
+    if (calcular && !calcular.disabled && calculadorRuta && !controlador && activaAhora() && !accionRutaEnCurso) {
       const form = calcular.closest("[data-dietas-borrador-form]");
+      accionRutaEnCurso = true;
+      calcular.setAttribute("aria-busy", "true");
       try {
         const mapa = await mapaParaCalcular();
         if (!activaAhora()) return;
@@ -1809,6 +1815,7 @@ export function montarVistaBorradoresPropios(
         const calculo = await mapa.calcular();
         if (calculo) calculoCabeceraFirma = JSON.stringify(codigos);
       } catch { if (activaAhora()) { mensaje("ruta_error_servicio", "error"); pintar(); } }
+      finally { accionRutaEnCurso = false; calcular.removeAttribute("aria-busy"); }
       return;
     }
     const anadirOtro = evento.target?.closest?.("[data-dietas-otro-anadir]");
