@@ -162,6 +162,58 @@ func TestErroresClienteRegistraClaseCerradaSinTextoDeFallos(t *testing.T) {
 	}
 }
 
+func TestFallosValidacionTienenCupoSinCambiarRechazos(t *testing.T) {
+	for _, tc := range []struct {
+		nombre string
+		crear  func() *http.Request
+		estado int
+	}{
+		{"origen malformado", func() *http.Request {
+			r := peticionErrorClientePrueba(cuerpoErrorClientePrueba)
+			r.Header.Set("Origin", "http://%TOKEN_PRIVADO_SINTETICO")
+			return r
+		}, http.StatusForbidden},
+		{"JSON truncado", func() *http.Request {
+			return peticionErrorClientePrueba(`{"pantalla":"TOKEN_PRIVADO_SINTETICO"`)
+		}, http.StatusBadRequest},
+	} {
+		t.Run(tc.nombre, func(t *testing.T) {
+			emisor := &emisorErroresClientePrueba{}
+			h := &Handler{emisorIncidencias: emisor}
+			aceptados, fallos := &limiteErroresCliente{}, &limiteErroresCliente{}
+			principal := principalConPermisosExpresosPrueba("vec.session.read")
+			for i := 0; i < 125; i++ {
+				w := httptest.NewRecorder()
+				h.atenderErroresClienteConCupos(w, tc.crear(), principal, aceptados, fallos)
+				if w.Code != tc.estado {
+					t.Fatalf("rechazo %d: status=%d; esperado %d", i, w.Code, tc.estado)
+				}
+			}
+			if len(emisor.solicitudes) != 120 || fallos.recibidos != 120 || aceptados.recibidos != 0 {
+				t.Fatalf("tras ráfaga: incidencias=%d, cupo fallos=%d, aceptados=%d", len(emisor.solicitudes), fallos.recibidos, aceptados.recibidos)
+			}
+			w := httptest.NewRecorder()
+			h.atenderErroresClienteConCupos(w, peticionErrorClientePrueba(cuerpoErrorClientePrueba), principal, aceptados, fallos)
+			if w.Code != http.StatusAccepted || len(emisor.solicitudes) != 121 || aceptados.recibidos != 1 {
+				t.Fatalf("válido tras ráfaga: status=%d incidencias=%d aceptados=%d", w.Code, len(emisor.solicitudes), aceptados.recibidos)
+			}
+			fallos.mu.Lock()
+			fallos.inicio = time.Now().Add(-time.Minute)
+			fallos.mu.Unlock()
+			w = httptest.NewRecorder()
+			h.atenderErroresClienteConCupos(w, tc.crear(), principal, aceptados, fallos)
+			if w.Code != tc.estado || len(emisor.solicitudes) != 122 || fallos.recibidos != 1 {
+				t.Fatalf("nueva ventana: status=%d incidencias=%d cupo=%d", w.Code, len(emisor.solicitudes), fallos.recibidos)
+			}
+			for _, s := range emisor.solicitudes[:120] {
+				if s.Codigo != domain.IncidenciaRecoleccionDegradada || s.Componente != domain.ComponenteIncidenciaSupervision || s.Etapa != domain.EtapaIncidenciaValidacion {
+					t.Fatalf("incidencia no cerrada: %#v", s)
+				}
+			}
+		})
+	}
+}
+
 func TestErroresClienteNoPuedeSombrearseConRutaExacta(t *testing.T) {
 	const ruta = "/api/vec/observabilidad/errores-cliente"
 	if !rutaColisionaConShellVEC(ruta) {
