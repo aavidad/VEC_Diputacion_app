@@ -12,12 +12,80 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type filaDocumentosPrueba struct{ denegar bool }
+
+func (f filaDocumentosPrueba) Scan(destinos ...any) error {
+	if f.denegar {
+		return &pgconn.PgError{Code: "42501"}
+	}
+	*destinos[0].(*[]byte) = []byte(`{"ok":true}`)
+	return nil
+}
+
+type transaccionDocumentosPrueba struct {
+	llamadas   []string
+	consulta   string
+	argumentos []any
+	fallar     bool
+	denegar    bool
+}
+
+func (tx *transaccionDocumentosPrueba) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
+	tx.llamadas = append(tx.llamadas, "ajustes")
+	if sql != ajustesTransaccionSQL || tx.fallar {
+		return pgconn.CommandTag{}, errors.New("fallo al ajustar la transacción")
+	}
+	return pgconn.CommandTag{}, nil
+}
+
+func (tx *transaccionDocumentosPrueba) QueryRow(_ context.Context, sql string, args ...any) filaTransaccion {
+	tx.llamadas = append(tx.llamadas, "datos")
+	tx.consulta, tx.argumentos = sql, append([]any(nil), args...)
+	return filaDocumentosPrueba{denegar: tx.denegar}
+}
+
+func (tx *transaccionDocumentosPrueba) Commit(context.Context) error {
+	tx.llamadas = append(tx.llamadas, "commit")
+	return nil
+}
+
+func (tx *transaccionDocumentosPrueba) Rollback(context.Context) error {
+	tx.llamadas = append(tx.llamadas, "rollback")
+	return nil
+}
+
+func TestTransaccionAgrupaAjustesYConsultaDespues(t *testing.T) {
+	tx := &transaccionDocumentosPrueba{}
+	resultado, err := ejecutarTransaccion(context.Background(), tx, "SELECT datos($1)", 7)
+	if err != nil || string(resultado) != `{"ok":true}` || strings.Join(tx.llamadas, ",") != "ajustes,datos,commit,rollback" ||
+		tx.consulta != "SELECT datos($1)" || len(tx.argumentos) != 1 || tx.argumentos[0] != 7 {
+		t.Fatalf("resultado=%s err=%v llamadas=%v", resultado, err, tx.llamadas)
+	}
+}
+
+func TestTransaccionFalloAjustesRevierteSinDatos(t *testing.T) {
+	tx := &transaccionDocumentosPrueba{fallar: true}
+	resultado, err := ejecutarTransaccion(context.Background(), tx, "SELECT datos()")
+	if resultado != nil || !errors.Is(err, ErrRepositorioNoDisponible) || strings.Join(tx.llamadas, ",") != "ajustes,rollback" {
+		t.Fatalf("resultado=%s err=%v llamadas=%v", resultado, err, tx.llamadas)
+	}
+}
+
+func TestTransaccionDenegadaNoConfirmaNiEntregaDatos(t *testing.T) {
+	tx := &transaccionDocumentosPrueba{denegar: true}
+	resultado, err := ejecutarTransaccion(context.Background(), tx, "SELECT datos()")
+	if resultado != nil || !errors.Is(err, ports.ErrAccesoDenegado) || strings.Join(tx.llamadas, ",") != "ajustes,datos,rollback" {
+		t.Fatalf("denegación: resultado=%s err=%v llamadas=%v", resultado, err, tx.llamadas)
+	}
+}
 
 // Estas pruebas cotejan el contrato Go↔SQL (preimagen, proyección, cursor)
 // contra la base desechable de probar_integracion_pg18.sh, cuyas fachadas AD3
