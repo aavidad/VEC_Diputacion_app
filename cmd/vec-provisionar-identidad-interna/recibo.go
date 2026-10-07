@@ -22,6 +22,7 @@ type auditoriaIntento struct {
 	RegistradaEn   string `json:"registrada_en"`
 }
 type reciboIdentidad struct {
+	Esquema               string   `json:"esquema"`
 	ReciboRef             string   `json:"recibo_ref"`
 	OperacionRef          string   `json:"operacion_ref"`
 	PlanSHA256            string   `json:"plan_sha256"`
@@ -51,7 +52,7 @@ func validarEnvoltura(b []byte, p domain.PlanIdentidadInternaSinteticaV1, sha st
 	switch e.Estado {
 	case "permitido":
 		r := e.Recibo
-		if e.Codigo != nil || r == nil || r.ReciboRef == "" || r.OperacionRef != p.OperacionRef || r.PlanSHA256 != sha || r.PreimagenSHA256 != cfg.PreimagenSHA256 || r.ConfiguracionSHA256 != cfg.ConfiguracionSHA256 || r.OperadorLogin != cfg.LoginEsperado || r.AprobacionRef != cfg.AprobacionRef || r.AuditoriaRef == "" || r.AuditoriaSecuencia == 0 || r.AuditoriaSecuencia > 1<<53-1 || !hashValido(r.AuditoriaHuellaSHA256) || !fechaRecibo(r.RegistradaEn) || modo == "reconcile" && !e.Replay || !r.IS.valido(p, sha, cfg) || !r.CA.valido(p, sha, cfg) || r.IS.Datos.CuentaOrdinariaRef != r.CA.Datos.CuentaOrdinariaRef {
+		if e.Codigo != nil || r == nil || r.Esquema != "vec.aut.fuentes-identidad-interna-sintetica.v1" || r.ReciboRef == "" || r.OperacionRef != p.OperacionRef || r.PlanSHA256 != sha || r.PreimagenSHA256 != cfg.PreimagenSHA256 || r.ConfiguracionSHA256 != cfg.ConfiguracionSHA256 || r.OperadorLogin != cfg.LoginEsperado || r.AprobacionRef != cfg.AprobacionRef || r.AuditoriaRef == "" || r.AuditoriaSecuencia == 0 || r.AuditoriaSecuencia > 1<<53-1 || !hashValido(r.AuditoriaHuellaSHA256) || !fechaRecibo(r.RegistradaEn) || modo == "reconcile" && !e.Replay || !r.IS.valido(p, sha, cfg) || !r.CA.valido(p, sha, cfg) || r.IS.Datos.CuentaOrdinariaRef != r.CA.Datos.CuentaOrdinariaRef {
 			return e, errEnvoltura
 		}
 	case "denegado", "error":

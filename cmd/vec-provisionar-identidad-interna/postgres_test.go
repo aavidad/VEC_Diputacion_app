@@ -1,14 +1,47 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestEnvelopeLiteralAUT57LlegaACommit(t *testing.T) {
+	b, err := os.ReadFile("testdata/recibo_aut57_permitido.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := strings.Repeat("a", 64)
+	p := documento{HuellaPlanSHA256: h, Plan: domain.PlanIdentidadInternaSinteticaV1{
+		OperacionRef: "piis_" + strings.Repeat("a", 22), AlcanceFuente: "sintetico_declarado",
+		Persona:      domain.PersonaIdentidadInternaSintetica{PersonaRef: "per_" + strings.Repeat("b", 22)},
+		Organizacion: domain.OrganizacionIdentidadInternaSintetica{OrganizacionRef: "org_" + strings.Repeat("c", 16), VersionEsperada: 2},
+	}}
+	cfg := conexionPrivada{LoginEsperado: "vec_ensayo_identidad", PreimagenSHA256: h, ConfiguracionSHA256: h, AprobacionRef: "aprobacion_ensayo"}
+	for nombre, payload := range map[string][]byte{
+		"literal_sql":   b,
+		"sin_esquema":   bytes.Replace(b, []byte("\"esquema\": \"vec.aut.fuentes-identidad-interna-sintetica.v1\","), nil, 1),
+		"esquema_ajeno": bytes.Replace(b, []byte("vec.aut.fuentes-identidad-interna-sintetica.v1"), []byte("vec.aut.fuentes-admin.v1"), 1),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			tx := &txDoble{salida: payload}
+			abrir := func(context.Context, conexionPrivada, time.Duration) (transaccion, error) { return tx, nil }
+			_, _, err := ejecutarOperacion(context.Background(), cfg, time.Second, nil, h, p, "apply", abrir)
+			if nombre == "literal_sql" && (err != nil || tx.commits != 1) {
+				t.Fatalf("recibo literal rechazado antes de confirmar: %v", err)
+			}
+			if nombre != "literal_sql" && (err == nil || tx.commits != 0) {
+				t.Fatal("esquema ausente o ajeno aceptado")
+			}
+		})
+	}
+}
 
 type txDoble struct {
 	commitErr error
@@ -91,7 +124,7 @@ func TestReciboPermitidoCotejaDestinoYVersionOrganizacion(t *testing.T) {
 	cuenta := "cta_" + strings.Repeat("a", 22)
 	p := domain.PlanIdentidadInternaSinteticaV1{OperacionRef: "operation", AlcanceFuente: "sintetico_declarado", Persona: domain.PersonaIdentidadInternaSintetica{PersonaRef: "persona"}, Organizacion: domain.OrganizacionIdentidadInternaSintetica{OrganizacionRef: "organizacion", VersionEsperada: 2, ProcedenciaHuellaSHA256: h}}
 	cfg := conexionPrivada{LoginEsperado: "nominal", PreimagenSHA256: h, ConfiguracionSHA256: h, AprobacionRef: "approval"}
-	r := reciboIdentidad{ReciboRef: "receipt", OperacionRef: p.OperacionRef, PlanSHA256: h, PreimagenSHA256: h, ConfiguracionSHA256: h, OperadorLogin: cfg.LoginEsperado, AprobacionRef: cfg.AprobacionRef, AuditoriaRef: "audit", AuditoriaSecuencia: 1, AuditoriaHuellaSHA256: h, RegistradaEn: fecha}
+	r := reciboIdentidad{Esquema: "vec.aut.fuentes-identidad-interna-sintetica.v1", ReciboRef: "receipt", OperacionRef: p.OperacionRef, PlanSHA256: h, PreimagenSHA256: h, ConfiguracionSHA256: h, OperadorLogin: cfg.LoginEsperado, AprobacionRef: cfg.AprobacionRef, AuditoriaRef: "audit", AuditoriaSecuencia: 1, AuditoriaHuellaSHA256: h, RegistradaEn: fecha}
 	r.IS = reciboIS{Esquema: "vec.is.identidad-interna-sintetica.v1", Version: 1, ReciboRef: "is", OperacionRef: p.OperacionRef, PlanSHA256: h, AprobacionRef: cfg.AprobacionRef, AlcanceFuente: p.AlcanceFuente, RegistradaEn: fecha, HuellaSHA256: h, Datos: datosIS{PersonaRef: p.Persona.PersonaRef, CuentaOrdinariaRef: cuenta, VersionTitularidad: 1}}
 	r.CA = reciboCA{Esquema: "vec.ca.identidad-interna-sintetica.v1", Version: 1, ReciboRef: "ca", OperacionRef: p.OperacionRef, PlanSHA256: h, AprobacionRef: cfg.AprobacionRef, AlcanceFuente: p.AlcanceFuente, RegistradaEn: fecha, HuellaSHA256: h, Datos: datosCA{OrganizacionRef: p.Organizacion.OrganizacionRef, OrganizacionVersion: 2, PersonaRef: p.Persona.PersonaRef, PersonaVersion: 1, CuentaOrdinariaRef: cuenta, ProyeccionCuentaVersion: 1}}
 	e := envoltura{Estado: "permitido", Recibo: &r, Replay: true, AuditoriaIntento: auditoriaIntento{AuditoriaRef: "audit", Secuencia: 1, HuellaSHA256: h, CorrelacionRef: "cor", RegistradaEn: fecha}}

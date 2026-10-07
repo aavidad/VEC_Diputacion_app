@@ -222,6 +222,11 @@ BEGIN
  OR (p#>>'{persona,operacion_cuenta_ordinaria_ref}') !~ '^opr_[A-Za-z0-9_-]{22,124}$'
  THEN RAISE EXCEPTION 'AUT57: referencias o fuentes inválidas' USING ERRCODE='22023'; END IF;
  cfg_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((pg_catalog.to_jsonb(cfg)-'material_hmac_canonico')::text,'UTF8')),'hex');
+ -- La preimagen DBA de CA37 toma estos cerrojos en este orden. Mantenerlo
+ -- evita un ciclo cuando otra conexión prepara la misma operación.
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:identidad-interna-sintetica:v1',0));
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:identidad-interna-sintetica:v1:'||(p->>'operacion_ref'),0));
  SELECT * INTO previo FROM vec_autorizacion.identidad_interna_sintetica_v1 WHERE operacion_ref=p->>'operacion_ref';
  IF FOUND THEN
