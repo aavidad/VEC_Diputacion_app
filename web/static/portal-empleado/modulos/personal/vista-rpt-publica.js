@@ -1,6 +1,6 @@
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS, RESPALDO_RPT_PUESTOS } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
 import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261007-t-rpt-enlaces-v1";
-import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { cambiarIdioma } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-rpt-publica]") === contenedor; }
 function retirar(raiz, contenedor) { if (!sigueMontada(raiz, contenedor)) return; if (typeof contenedor.remove === "function") contenedor.remove(); else raiz.removeChild?.(contenedor); }
@@ -70,12 +70,12 @@ function fechaGeneracionRPT(valor) {
   if (/^\d{4}-\d{2}-\d{2}$/u.test(valor)) {
     const fecha = new Date(`${valor}T12:00:00Z`);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor)
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeZone: "Europe/Madrid" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { dateStyle: "long", timeZone: "Europe/Madrid" }).format(fecha);
   }
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u.test(valor)) {
     const fecha = new Date(valor);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 19) === valor.slice(0, 19))
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha);
   }
   return valor;
 }
@@ -107,11 +107,18 @@ function tablaRPT(documento, pagina, t, recargar) {
           boton.addEventListener("keydown", (evento) => { if (evento.key === " ") { evento.preventDefault(); alternar(); } });
           celda.append(boton);
         } else if (pagina.vista !== "puestos") {
-          const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
-          boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaEnlace = campo;
-          boton.setAttribute("aria-label", t(pagina.vista === "centros" ? "ver_puestos_centro" : "ver_puestos_categoria", { valor: item.denominacion }));
-          boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
-          celda.append(boton);
+          const cifra = campo === "puestos_vinculados" || campo === "dotacion_vinculada" || campo === "puestos" || campo === "dotacion";
+          if (campo === "denominacion" || cifra) {
+            const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
+            boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaEnlace = campo;
+            const numero = new Intl.NumberFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { useGrouping: "always" });
+            boton.setAttribute("aria-label", t(pagina.vista === "centros" ? "ver_puestos_centro_recuento" : "ver_puestos_categoria_recuento",
+              { valor: item.denominacion, puestos: numero.format(pagina.vista === "centros" ? item.puestos : item.puestos_vinculados),
+                dotacion: numero.format(pagina.vista === "centros" ? item.dotacion : item.dotacion_vinculada) }));
+            if (cifra) boton.setAttribute("tabindex", "-1");
+            boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
+            celda.append(boton);
+          } else celda.textContent = valor(item, campo, t);
           if (pagina.vista === "categorias" && campo === "denominacion" && !item.recuento_coincide) {
             const aviso = nodo(documento, "small", t("aviso_recuento_categoria")); aviso.className = "rpt-huella"; celda.append(aviso);
           }
@@ -141,7 +148,7 @@ function tablaRPT(documento, pagina, t, recargar) {
 function resumenEnlazado(documento, pagina, recargar, t) {
   const resumen = nodo(documento, "div"); resumen.className = "panel"; resumen.dataset.personalRptPublicaResumen = "";
   const cuerpo = nodo(documento, "div"); cuerpo.className = "cuerpo-panel";
-  const numero = new Intl.NumberFormat(LOCALIZACION_ACTUAL, { useGrouping: "always" });
+  const numero = new Intl.NumberFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { useGrouping: "always" });
   [["puestos", "puestos", "puestos"], ["dotacion", "dotacion", "puestos"], ["categorias", "categorias", "categorias"], ["centros", "centros", "centros"]].forEach(([campo, clave, vista]) => {
     const boton = nodo(documento, "button", t(`resumen_${clave}`, { total: numero.format(pagina.resumen[campo]) }));
     boton.type = "button"; boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaResumenEnlace = campo;
@@ -173,7 +180,15 @@ function pintar(raiz, contenedor, estado, recargar, t) {
     aviso.setAttribute("role", estado.tipo === "cargando" ? "status" : "alert");
     if (estado.tipo === "cargando") aviso.setAttribute("aria-live", "polite");
     aviso.dataset.personalRptPublicaEstado = ""; aviso.setAttribute("tabindex", "-1");
-    contenedor.append(aviso, pestañas(documento, estado.consulta, recargar, t), filtros.elemento); filtros.restaurarFoco(); return;
+    contenedor.append(aviso, pestañas(documento, estado.consulta, recargar, t), filtros.elemento);
+    if (estado.tipo === "error") {
+      const reintentar = nodo(documento, "button", t("reintentar"));
+      reintentar.type = "button"; reintentar.className = "boton-secundario";
+      reintentar.dataset.personalRptPublicaReintentar = "";
+      reintentar.addEventListener("click", () => recargar({}, { historia: "none", enfocarResultado: true }));
+      contenedor.append(reintentar);
+    }
+    filtros.restaurarFoco(); return;
   }
   const { pagina } = estado;
   cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente)));
@@ -206,7 +221,8 @@ function consultaDesdeURL() {
     }), invalida: false };
   } catch { return { consulta: base, invalida: presentes.length > 0 }; }
 }
-function conservarConsultaURL(consulta) {
+function conservarConsultaURL(consulta, historia = "push") {
+  if (historia === "none") return;
   const ventana = globalThis.window;
   if (!ventana?.location?.pathname || !ventana.history?.replaceState) return;
   const parametros = new URLSearchParams(ventana.location.search || "");
@@ -217,19 +233,36 @@ function conservarConsultaURL(consulta) {
   if (consulta.centro_codigo) parametros.set("rpt_centro", consulta.centro_codigo);
   if (consulta.offset) parametros.set("rpt_offset", String(consulta.offset));
   const query = parametros.toString();
-  ventana.history.replaceState(null, "", `${ventana.location.pathname}${query ? `?${query}` : ""}${ventana.location.hash || ""}`);
+  const ruta = `${ventana.location.pathname}${query ? `?${query}` : ""}${ventana.location.hash || ""}`;
+  if (ruta === `${ventana.location.pathname}${ventana.location.search || ""}${ventana.location.hash || ""}`) return;
+  const escribir = historia === "push" && typeof ventana.history.pushState === "function"
+    ? ventana.history.pushState : ventana.history.replaceState;
+  escribir.call(ventana.history, null, "", ruta);
 }
 export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.append || !cliente?.listar || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function"))
     throw new TypeError("módulo RPT pública no disponible");
   const documento = raiz.ownerDocument; if (!documento?.createElement) throw new TypeError("documento RPT pública no disponible");
   const t = crearTraductorRPTPuestos(), contenedor = nodo(documento, "section");
-  contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = ""; raiz.append(contenedor);
+  contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = "";
+  contenedor.lang = IDIOMA_EFECTIVO_RPT_PUESTOS; raiz.append(contenedor);
+  if (RESPALDO_RPT_PUESTOS) cambiarIdioma(IDIOMA_EFECTIVO_RPT_PUESTOS, globalThis.window?.location ?? globalThis.location);
   const enlace = consultaDesdeURL();
   let activa = true, controlador = null, claveVuelo = null, consulta = enlace.consulta, avisoEnlace = enlace.invalida;
-  const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); };
+  const ventana = globalThis.window, hashMontado = ventana?.location?.hash;
+  const restaurarHistoria = () => {
+    if (!activa || ventana?.location?.hash !== hashMontado) return;
+    const enlaceAnterior = consultaDesdeURL(); avisoEnlace = enlaceAnterior.invalida;
+    void recargar(enlaceAnterior.consulta, { enfocarResultado: true,
+      historia: enlaceAnterior.invalida ? "replace" : "none", conservarAviso: true });
+  };
+  const desmontar = () => {
+    if (!activa) return; activa = false; controlador?.abort();
+    ventana?.removeEventListener?.("popstate", restaurarHistoria); retirar(raiz, contenedor);
+  };
+  ventana?.addEventListener?.("popstate", restaurarHistoria);
   registrarDesmontar?.(desmontar);
-  const recargar = async (cambios = {}, { enfocarResultado = false } = {}) => {
+  const recargar = async (cambios = {}, { enfocarResultado = false, historia = "push", conservarAviso = false } = {}) => {
     if (!activa || !sigueMontada(raiz, contenedor)) return;
     let siguienteConsulta;
     try { siguienteConsulta = validarConsultaRPTPublica({ ...consulta, ...cambios }); }
@@ -239,10 +272,10 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
       if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
       return;
     }
-    if (Object.keys(cambios).length > 0) avisoEnlace = false;
+    if (Object.keys(cambios).length > 0 && !conservarAviso) avisoEnlace = false;
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
     claveVuelo = claveSiguiente;
-    consulta = siguienteConsulta; conservarConsultaURL(consulta);
+    consulta = siguienteConsulta; conservarConsultaURL(consulta, historia);
     pintar(raiz, contenedor, { tipo: "cargando", consulta, avisoEnlace }, recargar, t);
     if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
     try {
@@ -255,9 +288,9 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
       if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
         const mensaje = t("error"); anunciar(mensaje, "error");
         pintar(raiz, contenedor, { tipo: "error", mensaje, consulta, avisoEnlace }, recargar, t);
-        if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
+        contenedor.querySelector("[data-personal-rpt-publica-reintentar]")?.focus?.();
       }
     } finally { if (controlador === vuelo) { controlador = null; claveVuelo = null; } }
   };
-  await recargar(); return Object.freeze({ desmontar });
+  await recargar({}, { historia: "replace", conservarAviso: true }); return Object.freeze({ desmontar });
 }
