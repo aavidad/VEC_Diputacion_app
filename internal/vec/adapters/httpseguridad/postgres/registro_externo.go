@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
@@ -146,7 +147,7 @@ func (r *RegistroSesionesExternoPostgreSQL) ejecutarAlta(
 		return respuesta, nil
 	}
 	// Un COMMIT incierto se coteja por su operación original, nunca se reenvía.
-	ctxRecuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxRecuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	txRecuperacion, err := r.base.registro.BeginTx(ctxRecuperacion, opcionesTransaccion())
 	if err != nil {

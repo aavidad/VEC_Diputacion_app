@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -64,7 +65,7 @@ func nuevaIncorporacionCentroDesarrollo(cfg config.Config, reloj relojContrataci
 	if err != nil {
 		return nil, errors.Join(errIncorporacionCentroDesarrollo, err)
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	regla, err := resolutor.Regla(ctx, reglas.CTAcreditacionIncorporacion)
 	if err != nil {
@@ -108,7 +109,7 @@ func (i *incorporacionCentroDesarrollo) rutas(p *proveedorPeticionCentroDesarrol
 	if p == nil || p.alta == nil {
 		return nil, errIncorporacionCentroDesarrollo
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	if err := comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx, p.alta.postgresql.ejecucion); err != nil {
 		return nil, err

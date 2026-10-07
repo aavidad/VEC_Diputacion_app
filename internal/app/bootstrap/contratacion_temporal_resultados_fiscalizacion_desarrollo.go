@@ -8,6 +8,7 @@ import (
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -58,7 +59,7 @@ func gobernarResultadosFiscalizacionDesarrollo(servicio *ctapplication.ServicioF
 	if resolutor == nil {
 		return nil
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	vigentes, err := resolutor.Reglas(ctx)
 	if err != nil {

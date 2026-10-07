@@ -62,8 +62,20 @@ type FuenteBolsasPublicas interface {
 	ListaPublica(context.Context, string) (BolsaPublica, []PosicionPublica, time.Time, error)
 }
 
+// FuentePaginaBolsasPublicas es opcional: entrega solo el tramo pedido de la
+// lista (como mucho cantidad posiciones desde la indicada), ya cotejado con la
+// lista completa por la fuente. Evita leer miles de posiciones para servir
+// cincuenta. La búsqueda por documento sigue usando ListaPublica.
+type FuentePaginaBolsasPublicas interface {
+	PaginaListaPublica(ctx context.Context, bolsaRef string, desde, cantidad int) (BolsaPublica, []PosicionPublica, time.Time, error)
+}
+
 type manejadorBolsasPublicas struct {
-	fuente   FuenteBolsasPublicas
+	fuente FuenteBolsasPublicas
+	// cupos, si la composición fija un tope, limita las lecturas simultáneas
+	// de la fuente; lleno, responde 429. Sin tope (nil) no se limita: es el
+	// caso de las fuentes que leen una publicación ya preparada.
+	cupos    chan struct{}
 	catalogo *i18n.Catalog
 	idiomas  []string
 	selector language.Matcher
@@ -79,6 +91,22 @@ func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, er
 	}
 	manejador.fuente = fuente
 	return manejador, nil
+}
+
+// NuevoManejadorBolsasPublicasConTope limita a tope las lecturas
+// simultáneas de la fuente. Lo usa la composición cuya fuente calcula cada
+// consulta en vivo y comparte conexiones con RRHH.
+func NuevoManejadorBolsasPublicasConTope(fuente FuenteBolsasPublicas, tope int) (http.Handler, error) {
+	if tope < 1 {
+		return nil, ErrFuenteBolsasPublicasRequerida
+	}
+	manejador, err := NuevoManejadorBolsasPublicas(fuente)
+	if err != nil {
+		return nil, err
+	}
+	m := manejador.(*manejadorBolsasPublicas)
+	m.cupos = make(chan struct{}, tope)
+	return m, nil
 }
 
 func nuevoManejadorBolsasPublicasI18n() (*manejadorBolsasPublicas, error) {
@@ -165,6 +193,16 @@ func (h *manejadorBolsasPublicas) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	if r.URL.RawPath != "" || strings.Contains(r.URL.EscapedPath(), "%") || r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
 		h.responderError(w, r, http.StatusBadRequest, "ruta_invalida")
 		return
+	}
+	if h.cupos != nil {
+		select {
+		case h.cupos <- struct{}{}:
+			defer func() { <-h.cupos }()
+		default:
+			w.Header().Set("Retry-After", "1")
+			h.responderError(w, r, http.StatusTooManyRequests, "capacidad_temporal_agotada")
+			return
+		}
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), duracionMaximaOperacionPublica)
 	defer cancelar()
@@ -262,7 +300,17 @@ func (h *manejadorBolsasPublicas) listarBolsas(ctx context.Context, w http.Respo
 }
 
 func (h *manejadorBolsasPublicas) listarPosiciones(ctx context.Context, w http.ResponseWriter, r *http.Request, bolsaRef string, consulta consultaListaPublica) {
-	bolsa, posiciones, generadoEn, err := h.fuente.ListaPublica(ctx, bolsaRef)
+	var (
+		bolsa      BolsaPublica
+		posiciones []PosicionPublica
+		generadoEn time.Time
+		err        error
+	)
+	if paginada, ok := h.fuente.(FuentePaginaBolsasPublicas); ok && consulta.documento == "" {
+		bolsa, posiciones, generadoEn, err = paginada.PaginaListaPublica(ctx, bolsaRef, consulta.desde, consulta.limite+1)
+	} else {
+		bolsa, posiciones, generadoEn, err = h.fuente.ListaPublica(ctx, bolsaRef)
+	}
 	if err != nil {
 		h.responderErrorFuente(w, r, err)
 		return

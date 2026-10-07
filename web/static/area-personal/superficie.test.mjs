@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirParametrosConocidos } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
-import { renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud } from "./vistas/perfil-meritos-solicitud.js";
+import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
 import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
@@ -21,7 +21,7 @@ function datosPrueba() {
     meta: { esquema: "vec.bolsa.area-personal.v1", presentacion: false, origen: "API interna autenticada", generado_en: "2026-07-18T09:00:00Z" },
     sesion: { persona_ref: "persona:prueba:0001", nombre_visible: "Persona de prueba", iniciales: "PP", metodo: "Certificado electrónico" },
     resumen: { acciones_pendientes: 2, convocatorias_abiertas: 1, solicitudes_activas: 2, mensajes_no_leidos: 1, puntuacion_provisional: 14.75 },
-    capacidades: Object.fromEntries(["actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo", "iniciar_pago", "firmar_solicitud", "registrar_solicitud", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga"].map((clave) => [clave, true])),
+    capacidades: Object.fromEntries(["incorporar_merito", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga"].map((clave) => [clave, true])),
     perfil: { referencia: "perfil:prueba:0001", nombre_visible: "Persona de prueba", identificador_visible: "ID-PRUEBA", correo: "persona@prueba.test", telefono: "600 000 000", domicilio: "Calle de prueba 1", estado_verificacion: "Identidad verificada", provincia: "Granada", idioma: "Castellano", canales: ["Correo", "Aviso interno"] },
     preferencias_notificacion: { correo: true, telegram: false, interno: true, convocatorias: true, plazos: true, llamamientos: true, noticias: false },
     plazos: [{ id: "PLAZO-001", dia: "23", mes: "JUL", titulo: "Responder subsanación", detalle: "Expediente SOL-0027 · 14:00", estado: "Acción requerida", ruta: "subsanaciones" }],
@@ -95,12 +95,14 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   const fuentes = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).map((ruta) => readFile(ruta, "utf8")))).join("\n");
   for (const texto of [
     "Convocatorias", "Perfil y contacto", "Méritos y documentos",
-    "Nueva solicitud", "Autobaremación", "Mis expedientes", "Mi bolsa",
+    "Mis expedientes", "Mi bolsa",
     "Subsanaciones", "Alegaciones", "Mensajes y noticias", "Certificados y descargas",
     "Ayuda y accesibilidad",
   ]) assert.match(`${html}\n${fuentes}`, new RegExp(texto, "u"), texto);
   assert.match(html, /<span data-i18n="areaPersonal\.rutas\.inicio">Inicio<\/span>/u);
   assert.doesNotMatch(html, /Inicio y plazos/u);
+  // El asistente antiguo de solicitud y la autobaremación no tienen servicio: no se ofrecen.
+  assert.doesNotMatch(html, /data-ruta="(?:solicitud|autobaremacion)"|id="dialogo-(?:confirmacion|recibo)"/u);
   for (const etiqueta of ["header", "nav", "main", "footer", "dialog", "form", "table", "fieldset", "label"]) {
     assert.match(`${html}\n${fuentes}`, new RegExp(`<${etiqueta}\\b`, "u"), etiqueta);
   }
@@ -148,15 +150,12 @@ test("ninguna vista ofrece rótulos de demostración o simulación", () => {
   const estado = {
     filtros: { termino: "", estado: "Todas", categoria: "Todas" },
     convocatoriaSeleccionada: datos.convocatorias[0].id,
-    convocatoriaSolicitud: datos.convocatorias[0].id,
     expedienteSeleccionado: datos.solicitudes[0].id,
-    pasoSolicitud: 5,
-    operacionesSolicitud: {},
     consultaAyuda: "",
   };
   const superficies = [
     renderizarInicio(datos), renderizarConvocatorias(datos, estado), renderizarDetalleConvocatoria(datos, estado),
-    renderizarPerfil(datos), renderizarMeritos(datos), renderizarSolicitud(datos, estado), renderizarAutobaremacion(datos),
+    renderizarPerfil(datos), renderizarMeritos(datos),
     renderizarSeguimiento(datos, estado), renderizarLlamamientos(datos), renderizarSubsanaciones(datos),
     renderizarAlegaciones(datos), renderizarMensajes(datos), renderizarCertificados(datos), renderizarAyuda(datos, estado),
   ];
@@ -208,7 +207,7 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
 
 test("el menú móvil gestiona foco, Escape y contención de teclado", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(aplicacion, /\.ap-navegacion a\[href\]["']\)\?\.focus/);
+  assert.match(aplicacion, /\.ap-navegacion a\[href\]:not\(\[hidden\]\)["']\)\?\.focus/);
   assert.match(aplicacion, /function mantenerFocoEnMenu\(evento\)/);
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenuIdentidad\(\{ restaurarFoco: true \}\)/);
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenu\(\{ restaurarFoco: true \}\)/);
@@ -229,27 +228,15 @@ test("la lectura de expedientes remite a la guía textual sin sintetizar datos p
   assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
 });
 
-test("el registro final exige declaración y una referencia exacta de solicitud", () => {
-  const html = renderizarSolicitud(datosPrueba(), {
-    pasoSolicitud: 5,
-    convocatoriaSolicitud: "CONV-001",
-    solicitudEdicionId: "SOL-BORRADOR-0001",
-    progresoSolicitud: {},
-    errorPasoSolicitud: "",
-  });
-  assert.match(html, /data-operacion="registrar_solicitud" data-id="SOL-BORRADOR-0001"/u);
-  assert.match(html, /name="declaracion_final" value="true" required/u);
-  assert.match(html, />Registrar solicitud<\/button>/u);
-});
-
 test("la composición limita enlaces al área y bloquea capacidades antes del diálogo", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /function actualizarEnlacesNavegacion\(estado\)[\s\S]*setAttribute\("href", crearURL\(estado/u);
   assert.doesNotMatch(aplicacion, /\/presentacion\/|presentacionSolicitada/u);
   assert.match(aplicacion, /inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
   assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
-  assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*areaPersonal\.capacidad\.operacionNoDisponible/u);
-  assert.match(aplicacion, /\[t\("recibo\.objetivo"\), escaparHTML\(recibo\.objetivo\)\]/u);
+  // Ninguna operación tiene servicio: el control solo avisa y no llama a la red.
+  assert.match(aplicacion, /function avisarOperacionNoDisponible[\s\S]*areaPersonal\.capacidad\.operacionNoDisponible/u);
+  assert.doesNotMatch(aplicacion, /\.ejecutar\(|flujo-solicitud|dialogo-confirmacion|dialogo-recibo/u);
 });
 
 test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", () => {

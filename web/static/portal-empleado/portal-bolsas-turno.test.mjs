@@ -53,8 +53,8 @@ test("la lectura v2 conserva el turno servido y lo sitúa antes de filtros y tab
   assert.ok(html.indexOf("Turno de la bolsa") < html.indexOf("tabla-datos--candidatos"));
   assert.match(html, /Último intento de llamamiento registrado[\s\S]*Lucía &lt;Prueba&gt;/);
   assert.match(html, /Primero disponible según el orden vigente[\s\S]*María &amp; Prueba/);
-  assert.match(html, /Regla provisional · versión 3/);
-  assert.match(html, /Puntuación descendente; desempate estable por nº del acta · Lista rotatoria · Reposición: Misma posición/);
+  assert.match(html, /Orden pendiente de aprobar/);
+  assert.match(html, /Por puntuación; si hay empate, por orden del acta · Lista rotatoria · Reposición: Misma posición/);
   assert.match(html, /Correo · Enviado/);
   assert.match(html, /La selección para un puesto requiere comprobar las condiciones del llamamiento/);
   assert.doesNotMatch(html, /Lucía <Prueba>|María & Prueba|politica:sintetica/);

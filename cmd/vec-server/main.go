@@ -12,6 +12,8 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -91,13 +93,36 @@ func main() {
 		return
 	}
 	cfg := config.Load()
+	// Paciencia de las comprobaciones de arranque con CPU escasa: solo amplía
+	// plazos mientras se compone el servidor; un valor no válido no arranca.
+	plazo, err := plazoarranque.Analizar(os.Getenv(envArranquePlazoPreflight))
+	if err != nil {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
+		log.Fatalf("bootstrap server: %s: %v", envArranquePlazoPreflight, err)
+	}
+	if err := plazoarranque.Fijar(plazo); err != nil {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaConfiguracion)
+		log.Fatalf("bootstrap server: %s: %v", envArranquePlazoPreflight, err)
+	}
+	if plazo > 0 {
+		log.Printf("arranque: plazo mínimo de las comprobaciones previas %s", plazo)
+	}
 	emisor, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
 	srv, err := bootstrap.NuevoServidorHTTPSupervisado(cfg, emisor)
+	// Compuesto (o fallido) el servidor, los plazos vuelven a ser los declarados.
+	plazoarranque.Terminar()
 	if err != nil {
 		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
+	// Registro de acceso técnico: una línea JSON por petición en stderr. Va
+	// dentro de la supervisión, que aporta la correlación.
+	telemetria.Montar(srv, telemetria.Opciones{
+		Destino: os.Stderr, Servicio: "vec-server", Superficie: superficieServidor(cfg),
+		Entorno: entornoSupervision(), Lenta: telemetria.UmbralLenta(os.Getenv),
+		Consultas: telemetria.UmbralConsultas(os.Getenv), Diagnostico: os.Getenv("VEC_DIAGNOSTICO_ESCUCHA"),
+	})
 	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
@@ -117,4 +142,17 @@ func main() {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
 		log.Fatalf("serve: %v", err)
 	}
+}
+
+// envArranquePlazoPreflight fija, en segundos (1-600), el plazo mínimo de las
+// comprobaciones previas del arranque. Vacía: los plazos declarados.
+const envArranquePlazoPreflight = "VEC_ARRANQUE_PLAZO_PREFLIGHT"
+
+// superficieServidor nombra el portal que atiende el proceso en el registro
+// de acceso: "interno", "externo" o "integrada" si sirve ambos.
+func superficieServidor(cfg config.Config) string {
+	if cfg.PortalProceso == config.ValorPortalProcesoInterno || cfg.PortalProceso == config.ValorPortalProcesoExterno {
+		return cfg.PortalProceso
+	}
+	return "integrada"
 }

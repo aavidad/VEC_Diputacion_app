@@ -17,6 +17,7 @@ import (
 	"vec-diputacion-granada/internal/modules/calendarios/application"
 	"vec-diputacion-granada/internal/modules/calendarios/domain"
 	"vec-diputacion-granada/internal/modules/calendarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const (
@@ -66,7 +67,7 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
 		return
 	}
-	ctx, cancelar := context.WithTimeout(r.Context(), plazoConsulta)
+	ctx, cancelar := context.WithTimeout(r.Context(), plazoarranque.Ampliar(plazoConsulta))
 	defer cancelar()
 	var (
 		datos any

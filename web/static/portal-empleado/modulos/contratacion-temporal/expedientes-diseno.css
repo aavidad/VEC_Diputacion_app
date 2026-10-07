@@ -26,6 +26,12 @@
 .ct-exp-ficha-rejilla .ct-exp-cambios { margin: 0; }
 .ct-exp-ficha-documentos .cuerpo-panel { display: grid; gap: 12px; justify-items: start; }
 .ct-exp-ficha-documentos .cuerpo-panel p { margin: 0; color: var(--portal-muted); }
+/* Lista común de documentos dentro de la ficha: el panel ya tiene título. */
+.ct-exp-ficha-documentos .cuerpo-panel > div { width: 100%; min-width: 0; }
+.ct-exp-ficha-documentos .documentos-cabecera { display: none; }
+.ct-exp-ficha-documentos .modulo-documentos { gap: 0; }
+.ct-exp-ficha-documentos .documentos-panel { padding: 0; border: 0; box-shadow: none; background: transparent; }
+.ct-exp-ficha-documentos .documentos-estado-consulta { margin: 0 0 8px; }
 .ct-exp-ficha-historial .historial-frases { max-height: 420px; overflow-y: auto; }
 .ct-exp-ficha-datos .datos-clave dd .enlace-tabla { padding: 0; text-align: left; }
 .ct-exp-tramite:focus { outline: none; }

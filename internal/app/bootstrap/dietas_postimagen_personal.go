@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -186,7 +187,7 @@ func acreditarPostimagenPersonalDietas(ctx context.Context, consultor consultorP
 	if err != nil {
 		return errPostimagenPersonalDietasNoAcreditada
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 10*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(10*time.Second))
 	defer cancelar()
 	var fallos []string
 	if err := consultor.QueryRow(sonda, consultaPostimagenPersonalDietas, especificacion,

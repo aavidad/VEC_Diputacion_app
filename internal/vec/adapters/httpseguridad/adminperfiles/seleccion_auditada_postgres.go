@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -140,7 +141,7 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 	// respuesta ya validada: su COMMIT puede haberse aplicado.
 	// vec-admin no acota el contexto de la petición: el plazo propio limita
 	// los reintentos muy por debajo de los 45 s de lectura y escritura HTTP.
-	ctx, cancelar := context.WithTimeout(ctx, plazoSelectorAuditado)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSelectorAuditado))
 	defer cancelar()
 	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
 		salida, ref, denegada, resultadoValidado = resultadoSelectorAuditado{}, "", nil, false

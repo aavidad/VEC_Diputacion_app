@@ -297,6 +297,8 @@ func (s *ServicioConfirmacionDecisionCobertura) errorDependencia(
 	ctx context.Context,
 	_ error,
 ) error {
+	// La decisión no revela el motivo de crédito: aquí aún no se ha autorizado
+	// el expediente. Quien decide ya lo vio en la propuesta, que sí lo está.
 	if err := ctx.Err(); err != nil {
 		return err
 	}

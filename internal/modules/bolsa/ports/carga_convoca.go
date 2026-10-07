@@ -35,7 +35,8 @@ type SolicitudConfirmarCargaConvoca struct {
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
 	// CategoriaRef es la referencia RPT ya validada contra el catálogo
-	// (categoria:rpt:<clave>); BolsaRef, la de la bolsa que se constituye.
+	// (categoria:rpt:<clave>). BolsaRef vacío hace que la constitución derive
+	// una referencia estable del acta, incluso si se cargan dos bolsas el mismo día.
 	CategoriaRef  string
 	BolsaRef      string
 	NombreFichero string
@@ -47,7 +48,7 @@ func (s SolicitudConfirmarCargaConvoca) Validar() error {
 	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
 		s.ResultadoContexto.Contexto.PersonaRef == "" || s.Correlacion.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) ||
-		s.CategoriaRef == "" || s.BolsaRef == "" || s.NombreFichero == "" || len(s.Contenido) == 0 {
+		s.CategoriaRef == "" || s.NombreFichero == "" || len(s.Contenido) == 0 {
 		return ErrCargaConvocaInvalida
 	}
 	return nil

@@ -17,6 +17,7 @@ import (
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -341,7 +342,7 @@ func reciboImportacionHTTPValido(r personalports.ReciboImportacionOrganizacion, 
 
 func (h *handlerImportacionOrganizacion) denegar(w http.ResponseWriter, ctx context.Context, estado int, codigo, ruta, actor string) {
 	orden := DenegacionImportacionOrganizacion{CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo, Ruta: ruta, ActorRef: actor}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoMaximoAuditoriaFronteraRutaExacta)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoMaximoAuditoriaFronteraRutaExacta))
 	defer cancelar()
 	if err := h.auditoria.RegistrarDenegacionImportacionOrganizacion(ctxAuditoria, orden); err != nil {
 		responderImportacionOrganizacion(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)

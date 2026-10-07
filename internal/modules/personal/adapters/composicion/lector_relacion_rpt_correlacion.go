@@ -8,6 +8,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -74,7 +75,7 @@ func (l lectorRelacionSeleccionadaCorrelacion) ConsultarSeleccionada(ctx context
 	}
 	// La identidad histórica se captura antes de validar o abrir la lectura.
 	// Una cancelación posterior no sustituye persona, perfil ni vínculo originales.
-	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), l.limiteIdentidad)
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(l.limiteIdentidad))
 	defer cancelar()
 	identidad, err := l.identidad.ResolverIdentidadLectorRelacionRPT(auditCtx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {

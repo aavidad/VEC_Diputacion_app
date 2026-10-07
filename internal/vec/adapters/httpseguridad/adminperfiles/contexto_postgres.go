@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	ca "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -115,7 +116,7 @@ func (r *resolutorContexto) ResolverYRegistrarContextoActorV2(ctx context.Contex
 	}
 	// La respuesta previa conserva el evento15 original sólo durante esta
 	// llamada. Recuperar nunca añade otro evento ni devuelve un V2 ausente.
-	recCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	recCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancel()
 	argsRecuperar := append(append([]any(nil), args...), string(respuesta.Evento))
 	argsRecuperar[12] = respuesta.EventoDTO.EventoRef
@@ -144,7 +145,7 @@ func (r *resolutorContexto) ejecutar(ctx context.Context, consulta string, args 
 		return respuesta, resultado, false, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	defer func() {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(c)
 	}()

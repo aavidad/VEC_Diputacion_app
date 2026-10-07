@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // Herramienta procede exclusivamente de configuración local protegida, nunca
@@ -101,7 +102,7 @@ func (c ControlComandos) ejecutar(ctx context.Context, alias string, esperado in
 	if e != nil || !s.Mode().IsRegular() || s.Mode().Perm()&0022 != 0 || s.Mode().Perm()&0111 == 0 {
 		return "", ErrConfiguracion
 	}
-	limitado, cancel := context.WithTimeout(ctx, time.Duration(cfg.TiempoSegundos)*time.Second)
+	limitado, cancel := context.WithTimeout(ctx, plazoarranque.Ampliar(time.Duration(cfg.TiempoSegundos)*time.Second))
 	defer cancel()
 	// El alias usa exclusivamente configuración local protegida y no interpreta shell.
 	cmd := exec.CommandContext(limitado, h.Ejecutable, h.Argumentos...) // #nosec G204 -- configured local platform authority, fixed aliases and no shell

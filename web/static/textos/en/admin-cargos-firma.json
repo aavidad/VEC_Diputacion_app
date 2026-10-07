@@ -1,0 +1,20 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "catalogo_no_disponible": "The message catalogue cannot be read.",
+    "uso_invalido": "Give the command (preparar or aplicar) and all its files as absolute paths.",
+    "entrada_insegura": "A private file cannot be read.",
+    "entrada_invalida": "The private documents do not meet the contract.",
+    "cargos_invalidos": "The positions file does not meet the rules for signing positions.",
+    "plan_no_guardado": "The plan cannot be saved to a new private file.",
+    "plan_preparado": "Plan prepared. Send its hash for approval.",
+    "aprobacion_divergente": "The approval does not match the plan bytes.",
+    "acuse_inseguro": "A new private receipt file cannot be reserved.",
+    "commit_no_confirmado": "COMMIT was not confirmed; keep the plan and do not repeat it without checking.",
+    "operacion_no_confirmada": "The operation did not confirm its result.",
+    "acuse_no_guardado": "The database confirmed the operation, but the receipt could not be saved.",
+    "cargos_confirmados": "Positions published and registered as assignable profiles, with common audit.",
+    "cargos_rechazados": "Position publication denied and audited.",
+    "cargos_no_disponibles": "Position publication recorded an error and its audit."
+  }
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -53,7 +54,7 @@ func (a *AuditorFrontera) RegistrarDenegacionADMIN(ctx context.Context, d api.De
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	defer func() {
-		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(c)
 	}()

@@ -21,3 +21,10 @@ type EstadoCese struct {
 type ConsultaEstadoCese interface {
 	ConsultarEstadoCese(context.Context, string, time.Time) (EstadoCese, bool, error)
 }
+
+// ConsultaEstadosCese consulta el estado de cese de varias participaciones en
+// una sola ida y vuelta, con la misma fachada y guardas que ConsultarEstadoCese.
+// El mapa solo contiene las participaciones con estado presente.
+type ConsultaEstadosCese interface {
+	ConsultarEstadosCese(context.Context, []string, time.Time) (map[string]EstadoCese, error)
+}

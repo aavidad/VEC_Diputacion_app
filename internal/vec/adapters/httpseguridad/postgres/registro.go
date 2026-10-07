@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
@@ -243,7 +244,7 @@ func (r *RegistroSesionesPostgreSQL) reconciliarAlta(
 ) (respuestaAlta, error) {
 	// Un COMMIT incierto no se reintenta. Se consulta exclusivamente la
 	// operacion CSPRNG de esta invocacion y se cotejan todos sus campos.
-	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	txReconciliacion, errReconciliacion := r.registro.BeginTx(
 		ctxReconciliacion, opcionesTransaccion(),
@@ -381,7 +382,7 @@ func revertir(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

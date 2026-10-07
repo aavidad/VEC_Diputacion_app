@@ -9,6 +9,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type LectorExpedienteSeleccionLlamamientoPostgreSQL struct {
@@ -35,7 +36,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 		!domain.ReferenciaOpacaValida(referencia) || (version < 6 || version > ports.MaximoEnteroSeguroIntegracionBolsa) {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
-	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
@@ -81,7 +82,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 		!domain.ReferenciaOpacaValida(llamamiento) {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
-	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
@@ -118,7 +119,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerNumeroVisibleVigent
 		!domain.ReferenciaOpacaValida(llamamiento) {
 		return "", ports.ErrPeticionIntegracionBolsaInvalida
 	}
-	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {

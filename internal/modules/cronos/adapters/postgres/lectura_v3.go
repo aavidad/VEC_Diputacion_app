@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -66,7 +67,7 @@ func ejecutarFuncionV3(ctx context.Context, db iniciadorMarcaje, consulta string
 		return nil, errorSeguro(ctx, err)
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

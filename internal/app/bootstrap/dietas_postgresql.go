@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 const (
@@ -63,11 +66,12 @@ func abrirPoolPersonalAsignacionDietas(ctx context.Context, dsn string, perfil p
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, err
 	}
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if pool.Ping(sonda) != nil {
 		pool.Close()
@@ -138,7 +142,7 @@ func nuevosPoolsPostgreSQLDietasDesarrolloConFabrica(ctx context.Context, cfg co
 			resultado.Cerrar()
 			return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
 		}
-		sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+		sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 		err = pool.Ping(sonda)
 		cancelar()
 		if err != nil {
@@ -166,6 +170,7 @@ func nuevosPoolsPostgreSQLDietasDesarrolloConFabrica(ctx context.Context, cfg co
 }
 
 func crearPoolPostgreSQLDietasDesarrollo(ctx context.Context, cfg *pgxpool.Config) (poolOperativoPostgreSQLDietasDesarrollo, error) {
+	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
@@ -183,11 +188,12 @@ func abrirPoolAuditoriaFronteraDietasDesarrollo(ctx context.Context, dsn string)
 	if err != nil {
 		return nil, "", err
 	}
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if pool.Ping(sonda) != nil {
 		pool.Close()
@@ -265,7 +271,7 @@ func acreditarPoolPostgreSQLDietasDesarrollo(ctx context.Context, consulta inter
 	if ctx == nil || consulta == nil || !rolPoolPostgreSQLDietasDesarrolloValido(rol) {
 		return "", topologiaPostgreSQLDietasDesarrollo{}, errIdentidadPostgreSQLDietasDesarrolloInvalida
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	var usuario, efectivo string
 	var topologia topologiaPostgreSQLDietasDesarrollo

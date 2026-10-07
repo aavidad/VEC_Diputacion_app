@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,7 +43,7 @@ func AplicarGobiernoUsuariosAdmin(ctx context.Context, pool *pgxpool.Pool, planC
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	defer func() {
-		c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(c)
 	}()

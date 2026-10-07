@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -162,7 +163,7 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 		}
 		configuraciones = append(configuraciones, cExterna)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 	defer cancel()
 	topologiaGobierno, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, gobierno)
 	if err != nil {

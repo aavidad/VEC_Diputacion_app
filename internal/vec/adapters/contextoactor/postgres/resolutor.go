@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -274,7 +275,7 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) reconciliar(
 	consulta string,
 	argumentos []any,
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor) {
-	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tx, err := r.pool.BeginTx(ctxReconciliacion, pgx.TxOptions{
 		// READ COMMITTED permite renovar snapshot despues de esperar el mismo
@@ -388,7 +389,7 @@ func revertirContextoActorPostgreSQL(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	_ = tx.Rollback(ctx)
 }

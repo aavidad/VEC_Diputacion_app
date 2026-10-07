@@ -151,7 +151,7 @@ func nuevoEscenarioCargaConvoca(t *testing.T) *escenarioCargaConvoca {
 		t.Fatal(err)
 	}
 	e.solicitud = puertosbolsa.SolicitudConfirmarCargaConvoca{Vinculo: vinculo, ResultadoContexto: resultado, Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba(),
-		CategoriaRef: categoriaCargaPrueba, BolsaRef: "bolsa:auxiliar_administrativo:2026-10-05", NombreFichero: "carga_convoca_ejemplo.xlsx", Contenido: ejemploCargaConvoca(t)}
+		CategoriaRef: categoriaCargaPrueba, NombreFichero: "carga_convoca_ejemplo.xlsx", Contenido: ejemploCargaConvoca(t)}
 	return e
 }
 
@@ -246,7 +246,6 @@ func TestConfirmarCargaConvocaRechazaSolicitudIncompleta(t *testing.T) {
 	e := nuevoEscenarioCargaConvoca(t)
 	for _, mutar := range []func(*puertosbolsa.SolicitudConfirmarCargaConvoca){
 		func(s *puertosbolsa.SolicitudConfirmarCargaConvoca) { s.CategoriaRef = "" },
-		func(s *puertosbolsa.SolicitudConfirmarCargaConvoca) { s.BolsaRef = "" },
 		func(s *puertosbolsa.SolicitudConfirmarCargaConvoca) { s.Contenido = nil },
 		func(s *puertosbolsa.SolicitudConfirmarCargaConvoca) {
 			s.MotivoAutorizacion = dominiovec.ReferenciaEntradaCatalogo{}
