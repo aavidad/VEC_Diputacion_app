@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -166,6 +168,15 @@ func (r *RegistroPreferenciasPostgreSQL) CatalogoVigente(ctx context.Context, or
 }
 
 func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
+	inicio := time.Now()
+	estado, existe, err := r.consultarPropias(ctx, orden, material, v3)
+	// La función SQL consume V3, lee y confirma el apunte nominal en la misma
+	// transacción. No existe un tiempo de auditoría positiva separable aquí.
+	telemetria.RegistrarFase(ctx, telemetria.FaseLectura, time.Since(inicio), err)
+	return estado, existe, err
+}
+
+func (r *RegistroPreferenciasPostgreSQL) consultarPropias(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
 	var vacio ports.EstadoPreferencias
 	if err := r.validarMaterial(orden, material, v3, ports.AccionConsultarPreferencias); err != nil {
 		return vacio, false, err
