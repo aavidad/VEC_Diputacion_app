@@ -11,7 +11,7 @@ import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
+import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
   MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
 
@@ -22,7 +22,7 @@ export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
 const MAXIMO_RESPUESTA = 32 * 1024;
 const TIEMPO_MAXIMO_MS = 15_000;
 
-export const MENSAJES_CANCELACIONES_CENTRO_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+export const MENSAJES_CANCELACIONES_CENTRO_ES = IDIOMA_EFECTIVO_PETICIONES_CENTRO === IDIOMA_POR_DEFECTO
   ? MENSAJES_CANCELACIONES_CENTRO : undefined;
 
 export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIONES_CENTRO) {
