@@ -11,10 +11,12 @@ const (
 	VersionHuellaFiltrosCuadroRRHH uint16 = 1
 	VersionHuellaAlcanceRRHH       uint16 = 1
 
-	DominioHuellaConsultaCuadroRRHH  = "vec.contratacion_temporal.consulta_rrhh.cuadro.v1"
-	DominioHuellaConsultaDetalleRRHH = "vec.contratacion_temporal.consulta_rrhh.detalle.v1"
-	DominioHuellaFiltrosCuadroRRHH   = "vec.contratacion_temporal.filtros_rrhh.cuadro.v1"
-	DominioHuellaAlcanceRRHH         = "vec.contratacion_temporal.alcance_rrhh.v1"
+	DominioHuellaConsultaCuadroRRHH   = "vec.contratacion_temporal.consulta_rrhh.cuadro.v1"
+	DominioHuellaConsultaCuadroRRHHV2 = "vec.contratacion_temporal.consulta_rrhh.cuadro.v2"
+	DominioHuellaConsultaDetalleRRHH  = "vec.contratacion_temporal.consulta_rrhh.detalle.v1"
+	DominioHuellaFiltrosCuadroRRHH    = "vec.contratacion_temporal.filtros_rrhh.cuadro.v1"
+	DominioHuellaFiltrosCuadroRRHHV2  = "vec.contratacion_temporal.filtros_rrhh.cuadro.v2"
+	DominioHuellaAlcanceRRHH          = "vec.contratacion_temporal.alcance_rrhh.v1"
 
 	AudienciaConsumoConsultaCuadroRRHHV3  = "vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1"
 	AudienciaConsumoConsultaDetalleRRHHV3 = "vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1"
@@ -34,6 +36,52 @@ type canonConsultaCuadroRRHH struct {
 	FaseClave   string `json:"fase_clave"`
 	Limite      uint16 `json:"limite"`
 	Cursor      string `json:"cursor"`
+}
+
+type canonConsultaCuadroRRHHV2 struct {
+	Dominio      string   `json:"dominio"`
+	Version      uint16   `json:"version"`
+	Texto        string   `json:"texto"`
+	CentroRef    string   `json:"centro_ref"`
+	CategoriaRef string   `json:"categoria_ref"`
+	EstadosClave []string `json:"estados_clave"`
+	FasesClave   []string `json:"fases_clave"`
+	Limite       uint16   `json:"limite"`
+	Cursor       string   `json:"cursor"`
+}
+
+type canonFiltrosCuadroRRHHV2 struct {
+	Dominio      string   `json:"dominio"`
+	Version      uint16   `json:"version"`
+	Texto        string   `json:"texto"`
+	CentroRef    string   `json:"centro_ref"`
+	CategoriaRef string   `json:"categoria_ref"`
+	EstadosClave []string `json:"estados_clave"`
+	FasesClave   []string `json:"fases_clave"`
+	Limite       uint16   `json:"limite"`
+}
+
+func (s SolicitudCuadroRRHH) dominioConsulta() string {
+	if s.version == 2 {
+		return DominioHuellaConsultaCuadroRRHHV2
+	}
+	return DominioHuellaConsultaCuadroRRHH
+}
+
+func (s SolicitudCuadroRRHH) estadosCanonicos() []string {
+	valores := make([]string, s.numEstados)
+	for i, valor := range s.estadosClave[:s.numEstados] {
+		valores[i] = string(valor)
+	}
+	return valores
+}
+
+func (s SolicitudCuadroRRHH) fasesCanonicas() []string {
+	valores := make([]string, s.numFases)
+	for i, valor := range s.fasesClave[:s.numFases] {
+		valores[i] = string(valor)
+	}
+	return valores
 }
 
 type canonConsultaDetalleRRHH struct {
@@ -77,6 +125,13 @@ func canonSolicitudCuadroRRHH(
 	if solicitud.validar() != nil {
 		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
+	if solicitud.version == 2 {
+		return nuevaExportacionCanonicaRRHH(DominioHuellaConsultaCuadroRRHHV2, 2,
+			canonConsultaCuadroRRHHV2{Dominio: DominioHuellaConsultaCuadroRRHHV2, Version: 2,
+				Texto: solicitud.texto, CentroRef: solicitud.centroRef,
+				CategoriaRef: solicitud.categoriaRef, EstadosClave: solicitud.estadosCanonicos(),
+				FasesClave: solicitud.fasesCanonicas(), Limite: solicitud.limite, Cursor: solicitud.cursor})
+	}
 	return nuevaExportacionCanonicaRRHH(
 		DominioHuellaConsultaCuadroRRHH,
 		VersionHuellaConsultaRRHH,
@@ -102,6 +157,13 @@ func canonFiltrosSolicitudCuadroRRHH(
 ) (exportacionCanonicaRRHH, error) {
 	if solicitud.validar() != nil {
 		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	if solicitud.version == 2 {
+		return nuevaExportacionCanonicaRRHH(DominioHuellaFiltrosCuadroRRHHV2, 2,
+			canonFiltrosCuadroRRHHV2{Dominio: DominioHuellaFiltrosCuadroRRHHV2, Version: 2,
+				Texto: solicitud.texto, CentroRef: solicitud.centroRef,
+				CategoriaRef: solicitud.categoriaRef, EstadosClave: solicitud.estadosCanonicos(),
+				FasesClave: solicitud.fasesCanonicas(), Limite: solicitud.limite})
 	}
 	return nuevaExportacionCanonicaRRHH(
 		DominioHuellaFiltrosCuadroRRHH,

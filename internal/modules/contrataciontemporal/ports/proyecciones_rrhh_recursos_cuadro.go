@@ -32,7 +32,7 @@ func NuevosRecursosConsultaCuadroRRHH(
 				ambitoReferenciaRecursoRRHH:   contexto.ambitoRef,
 			},
 			Atributos: map[string]string{
-				atributoDominioConsultaRRHH: DominioHuellaConsultaCuadroRRHH,
+				atributoDominioConsultaRRHH: solicitud.dominioConsulta(),
 				atributoHuellaConsultaRRHH:  huella,
 			},
 		},
@@ -58,7 +58,7 @@ func (r RecursosConsultaRRHH) validarParaCuadro(
 	clase, ambitoRef, err := validarRecursoCapacidadConsultaRRHH(
 		r.recurso,
 		contexto,
-		DominioHuellaConsultaCuadroRRHH,
+		solicitud.dominioConsulta(),
 		huella,
 		AccionConsultarCuadroRRHH,
 		"",

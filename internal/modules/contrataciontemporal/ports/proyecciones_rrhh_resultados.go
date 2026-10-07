@@ -286,10 +286,10 @@ func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
 			resumen.ActualizadoEn.After(p.GeneradaEn) ||
 			(solicitud.texto != "" &&
 				!strings.HasPrefix(resumen.NumeroVisible, solicitud.texto)) ||
-			(solicitud.estadoClave != "" &&
-				resumen.EstadoClave != solicitud.estadoClave) ||
-			(solicitud.faseClave != "" &&
-				resumen.FaseClave != solicitud.faseClave) {
+			!solicitud.admiteEstado(resumen.EstadoClave) ||
+			!solicitud.admiteFase(resumen.FaseClave) ||
+			(solicitud.centroRef != "" && resumen.CentroRef != solicitud.centroRef) ||
+			(solicitud.categoriaRef != "" && resumen.CategoriaRef != solicitud.categoriaRef) {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 		if _, repetida := vistas[resumen.ExpedienteRef]; repetida {
@@ -313,7 +313,7 @@ func (p PaginaCuadroRRHH) ValidarPara(orden OrdenConsultaCuadroRRHH) error {
 	solicitud := orden.solicitud
 	if p.ValidarContenidoPublicablePara(solicitud) != nil ||
 		orden.capacidad.validaPara(
-			orden.contexto, DominioHuellaConsultaCuadroRRHH,
+			orden.contexto, solicitud.dominioConsulta(),
 			orden.consultaHuella, AccionConsultarCuadroRRHH,
 			FinalidadConsultarCuadroRRHH, "", orden.instante,
 		) != nil ||

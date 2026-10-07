@@ -117,6 +117,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 	if solicitud.Resumen() {
 		consulta, destinos = consultaCuadroResumenRRHHPostgreSQL, destinosCuadroResumenConsultaRRHH(&salida)
 	}
+	if solicitud.Version() == 2 {
+		consulta = consultaCuadroFiltradoRRHHPostgreSQL
+		destinos = destinosCuadroResumenConsultaRRHH(&salida)
+		argumentosSQL = argumentosSQLCuadroFiltradoRRHH(
+			contexto.OrganizacionRef(), string(capacidad.ClaseAmbito()),
+			capacidad.AmbitoRef(), solicitud, argumentos)
+	}
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
@@ -328,7 +335,7 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 			var vacio T
 			return vacio, ctx.Err()
 		}
-		if consulta != consultaCuadroRRHHPostgreSQL || !carrera ||
+		if (consulta != consultaCuadroRRHHPostgreSQL && consulta != consultaCuadroFiltradoRRHHPostgreSQL) || !carrera ||
 			intento >= postgresqlcomun.IntentosMaximosCarreraSerializable {
 			return resultado, err
 		}
@@ -435,6 +442,31 @@ func argumentosSQLCuadroConsultaRRHH(
 		material.sobreCOSESign1,
 		material.evidenciaVerificacion,
 		material.raizPublicaSPKI,
+	}
+}
+
+func argumentosSQLCuadroFiltradoRRHH(
+	organizacionRef, claseAmbito, ambitoRef string,
+	solicitud ports.SolicitudCuadroRRHH,
+	material argumentosMaterialConsultaRRHH,
+) []any {
+	estados := make([]string, len(solicitud.EstadosClave()))
+	for i, estado := range solicitud.EstadosClave() {
+		estados[i] = string(estado)
+	}
+	fases := make([]string, len(solicitud.FasesClave()))
+	for i, fase := range solicitud.FasesClave() {
+		fases[i] = string(fase)
+	}
+	return []any{
+		organizacionRef, claseAmbito, ambitoRef,
+		solicitud.Texto(), solicitud.CentroRef(), solicitud.CategoriaRef(),
+		estados, fases, int16(solicitud.Limite()), solicitud.Cursor(), solicitud.Resumen(),
+		material.capacidadCanonica, material.decisionCanonica,
+		material.motivoCanonico, material.contextoActorCanonico,
+		material.personaVersion, material.perfilVersion,
+		material.payloadVECAD3, material.sobreCOSESign1,
+		material.evidenciaVerificacion, material.raizPublicaSPKI,
 	}
 }
 

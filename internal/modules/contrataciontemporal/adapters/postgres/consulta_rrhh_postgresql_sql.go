@@ -1,6 +1,29 @@
 package postgres
 
 const (
+	consultaCuadroFiltradoRRHHPostgreSQL = `
+SELECT contenido_canonico, cursor_siguiente, esquema, acceso_ref,
+       secuencia::bigint, anterior_sha256, huella_sha256,
+       vinculo_identidad_huella_sha256, alcance_huella_sha256,
+       registrada_en, auditoria_vec_ref, auditoria_vec_huella_sha256,
+       consumo_vec_huella_sha256, contenido_huella_sha256,
+       resultado_huella_sha256, cursor_huella_sha256, generada_en,
+       expediente_ref, version_expediente::bigint, total,
+       recibo_sello_sha256, total_filtrado::bigint,
+       en_tramitacion::bigint, con_incidencia::bigint,
+       en_llamamiento::bigint, fase_desde_expedientes,
+       fase_desde_instantes, urgente_expedientes,
+       recuento_estados, recuento_fases, recuento_numeros::bigint[],
+       plazo_fases, plazo_desde, plazo_urgentes, plazo_numeros::bigint[]
+  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v6(
+       ROW($1::text, $2::text, $3::text)::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::text, $6::text, $7::text[], $8::text[],
+           $9::smallint, $10::text)::vec_contratacion_temporal.consulta_cuadro_rrhh_v2,
+       $11::boolean, $12::bytea, $13::bytea, $14::bytea, $15::bytea,
+       $16::numeric, $17::numeric, $18::bytea, $19::bytea,
+       $20::bytea, $21::bytea
+  )`
+
 	consultaCuadroRRHHPostgreSQL = `
 SELECT contenido_canonico,
        cursor_siguiente,

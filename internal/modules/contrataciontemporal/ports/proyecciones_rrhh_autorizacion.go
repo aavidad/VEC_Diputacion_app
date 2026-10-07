@@ -49,7 +49,7 @@ func NuevaCapacidadConsultaCuadroRRHH(
 		return CapacidadConsultaRRHH{}, ErrCapacidadConsultaRRHHInvalida
 	}
 	return nuevaCapacidadConsultaRRHH(
-		contexto, material, DominioHuellaConsultaCuadroRRHH, huella,
+		contexto, material, solicitud.dominioConsulta(), huella,
 		AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH, "", instante,
 	)
 }
@@ -148,7 +148,8 @@ func validarRecursoCapacidadConsultaRRHH(
 func (c CapacidadConsultaRRHH) validarEstructura() error {
 	esCuadro := c.accion == AccionConsultarCuadroRRHH &&
 		c.finalidad == FinalidadConsultarCuadroRRHH && c.expedienteRef == "" &&
-		c.consultaDominio == DominioHuellaConsultaCuadroRRHH
+		(c.consultaDominio == DominioHuellaConsultaCuadroRRHH ||
+			c.consultaDominio == DominioHuellaConsultaCuadroRRHHV2)
 	esDetalle := c.accion == AccionConsultarDetalleRRHH &&
 		c.finalidad == FinalidadConsultarDetalleRRHH &&
 		domain.ReferenciaOpacaValida(c.expedienteRef) &&

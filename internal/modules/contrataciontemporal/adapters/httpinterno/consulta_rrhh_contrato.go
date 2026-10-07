@@ -57,9 +57,14 @@ var (
 )
 
 type filtrosCuadroRRHHJSON struct {
-	Texto       string `json:"texto"`
-	EstadoClave string `json:"estado_clave"`
-	FaseClave   string `json:"fase_clave"`
+	Texto        string   `json:"texto"`
+	EstadoClave  string   `json:"estado_clave"`
+	FaseClave    string   `json:"fase_clave"`
+	CentroRef    string   `json:"centro_ref"`
+	CategoriaRef string   `json:"categoria_ref"`
+	EstadosClave []string `json:"estados_clave"`
+	FasesClave   []string `json:"fases_clave"`
+	PlazoEstado  string   `json:"plazo_estado"`
 }
 
 type paginacionCuadroRRHHJSON struct {
@@ -203,13 +208,37 @@ func solicitudCuadroRRHHDesdePeticion(
 		entrada.Paginacion.Limite == nil {
 		return ports.SolicitudCuadroRRHH{}, errContenidoConsultaRRHHNoValido
 	}
-	solicitud, err := ports.NuevaSolicitudCuadroRRHH(
-		entrada.Filtros.Texto,
-		domain.EstadoOperativo(entrada.Filtros.EstadoClave),
-		domain.ClaveFase(entrada.Filtros.FaseClave),
-		*entrada.Paginacion.Limite,
-		entrada.Paginacion.Cursor,
-	)
+	if entrada.Filtros.PlazoEstado != "" {
+		return ports.SolicitudCuadroRRHH{}, errContenidoConsultaRRHHNoValido
+	}
+	filtrada := entrada.Filtros.CentroRef != "" || entrada.Filtros.CategoriaRef != "" ||
+		len(entrada.Filtros.EstadosClave) != 0 || len(entrada.Filtros.FasesClave) != 0
+	var solicitud ports.SolicitudCuadroRRHH
+	var err error
+	if filtrada {
+		if entrada.Filtros.EstadoClave != "" || entrada.Filtros.FaseClave != "" {
+			return ports.SolicitudCuadroRRHH{}, errContenidoConsultaRRHHNoValido
+		}
+		estados := make([]domain.EstadoOperativo, len(entrada.Filtros.EstadosClave))
+		for i, estado := range entrada.Filtros.EstadosClave {
+			estados[i] = domain.EstadoOperativo(estado)
+		}
+		fases := make([]domain.ClaveFase, len(entrada.Filtros.FasesClave))
+		for i, fase := range entrada.Filtros.FasesClave {
+			fases[i] = domain.ClaveFase(fase)
+		}
+		solicitud, err = ports.NuevaSolicitudCuadroRRHHFiltrada(entrada.Filtros.Texto,
+			entrada.Filtros.CentroRef, entrada.Filtros.CategoriaRef,
+			estados, fases, *entrada.Paginacion.Limite, entrada.Paginacion.Cursor)
+	} else {
+		solicitud, err = ports.NuevaSolicitudCuadroRRHH(
+			entrada.Filtros.Texto,
+			domain.EstadoOperativo(entrada.Filtros.EstadoClave),
+			domain.ClaveFase(entrada.Filtros.FaseClave),
+			*entrada.Paginacion.Limite,
+			entrada.Paginacion.Cursor,
+		)
+	}
 	if err != nil {
 		return ports.SolicitudCuadroRRHH{}, errContenidoConsultaRRHHNoValido
 	}

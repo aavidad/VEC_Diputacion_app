@@ -74,8 +74,8 @@ func (a AgregadosCuadroRRHH) validarPara(
 	vistos := make(map[RecuentoCuadroRRHH]struct{}, len(a.Recuentos))
 	for _, recuento := range a.Recuentos {
 		if !recuento.EstadoClave.Valido() || !recuento.FaseClave.Valida() || recuento.Numero == 0 ||
-			(solicitud.estadoClave != "" && recuento.EstadoClave != solicitud.estadoClave) ||
-			(solicitud.faseClave != "" && recuento.FaseClave != solicitud.faseClave) {
+			!solicitud.admiteEstado(recuento.EstadoClave) ||
+			!solicitud.admiteFase(recuento.FaseClave) {
 			return false
 		}
 		clave := RecuentoCuadroRRHH{EstadoClave: recuento.EstadoClave, FaseClave: recuento.FaseClave}
@@ -92,7 +92,7 @@ func (a AgregadosCuadroRRHH) validarPara(
 	for _, grupo := range a.GruposPlazo {
 		if !grupo.FaseClave.Valida() || grupo.Numero == 0 || grupo.Desde.IsZero() ||
 			grupo.Desde.After(generadaEn) ||
-			(solicitud.faseClave != "" && grupo.FaseClave != solicitud.faseClave) {
+			!solicitud.admiteFase(grupo.FaseClave) {
 			return false
 		}
 		enGrupos += grupo.Numero

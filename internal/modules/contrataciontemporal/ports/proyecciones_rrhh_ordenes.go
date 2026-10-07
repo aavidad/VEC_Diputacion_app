@@ -25,7 +25,7 @@ func NuevaOrdenConsultaCuadroRRHH(
 	huella, err := huellaSolicitudCuadroRRHH(solicitud)
 	filtrosHuella, errFiltros := huellaFiltrosCuadroRRHH(solicitud)
 	if err != nil || errFiltros != nil || capacidad.validaPara(
-		contexto, DominioHuellaConsultaCuadroRRHH, huella,
+		contexto, solicitud.dominioConsulta(), huella,
 		AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH, "", instante,
 	) != nil {
 		return OrdenConsultaCuadroRRHH{}, ErrOrdenConsultaRRHHInvalida
@@ -65,7 +65,7 @@ func (o OrdenConsultaCuadroRRHH) canonesParaExportacionSQL() (
 		consulta.huellaSHA256 != o.consultaHuella ||
 		familia.huellaSHA256 != o.filtrosHuella ||
 		o.capacidad.validaPara(
-			o.contexto, DominioHuellaConsultaCuadroRRHH,
+			o.contexto, o.solicitud.dominioConsulta(),
 			consulta.huellaSHA256,
 			AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH,
 			"", o.instante,

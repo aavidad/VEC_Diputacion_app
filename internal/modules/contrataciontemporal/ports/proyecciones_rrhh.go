@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -292,15 +293,46 @@ func (c ContextoConsultaRRHH) ResueltoEn() time.Time   { return c.resueltoEn }
 func (c ContextoConsultaRRHH) ValidoHasta() time.Time  { return c.validoHasta }
 
 type SolicitudCuadroRRHH struct {
-	texto       string
-	estadoClave domain.EstadoOperativo
-	faseClave   domain.ClaveFase
-	limite      uint16
-	cursor      string
+	texto        string
+	estadoClave  domain.EstadoOperativo
+	faseClave    domain.ClaveFase
+	version      uint16
+	centroRef    string
+	categoriaRef string
+	estadosClave [6]domain.EstadoOperativo
+	numEstados   uint8
+	fasesClave   [32]domain.ClaveFase
+	numFases     uint8
+	limite       uint16
+	cursor       string
 	// resumen pide además los agregados de todo el corte filtrado para la
 	// portada (CT-000184). No amplía el alcance: agrega lo mismo que la
 	// capacidad deja listar. No forma parte de la huella de la consulta.
 	resumen bool
+}
+
+// NuevaSolicitudCuadroRRHHFiltrada selecciona el contrato v2. Las fases
+// proceden de la definición de flujo publicada; una lista vacía no filtra.
+// La normalización hace que el orden de selección no cambie la familia del cursor.
+func NuevaSolicitudCuadroRRHHFiltrada(
+	texto, centroRef, categoriaRef string,
+	estados []domain.EstadoOperativo, fases []domain.ClaveFase,
+	limite uint16, cursor string,
+) (SolicitudCuadroRRHH, error) {
+	if len(estados) > 6 || len(fases) > 32 {
+		return SolicitudCuadroRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	s := SolicitudCuadroRRHH{texto: texto, version: 2, centroRef: centroRef,
+		categoriaRef: categoriaRef, limite: limite, cursor: cursor,
+		numEstados: uint8(len(estados)), numFases: uint8(len(fases))}
+	copy(s.estadosClave[:], estados)
+	copy(s.fasesClave[:], fases)
+	sort.Slice(s.estadosClave[:s.numEstados], func(i, j int) bool { return s.estadosClave[i] < s.estadosClave[j] })
+	sort.Slice(s.fasesClave[:s.numFases], func(i, j int) bool { return s.fasesClave[i] < s.fasesClave[j] })
+	if s.validar() != nil {
+		return SolicitudCuadroRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	return s, nil
 }
 
 func NuevaSolicitudCuadroRRHH(
@@ -333,6 +365,28 @@ func (s SolicitudCuadroRRHH) validar() error {
 		(s.cursor != "" && !cursorRRHHValido(s.cursor)) {
 		return ErrSolicitudConsultaRRHHInvalida
 	}
+	if s.version == 0 {
+		if s.centroRef != "" || s.categoriaRef != "" || s.numEstados != 0 || s.numFases != 0 {
+			return ErrSolicitudConsultaRRHHInvalida
+		}
+		return nil
+	}
+	if s.version != 2 || s.estadoClave != "" || s.faseClave != "" ||
+		(s.centroRef != "" && !domain.ReferenciaOpacaValida(s.centroRef)) ||
+		(s.categoriaRef != "" && !domain.ReferenciaOpacaValida(s.categoriaRef)) ||
+		s.numEstados > 6 || s.numFases > 32 {
+		return ErrSolicitudConsultaRRHHInvalida
+	}
+	for i, estado := range s.estadosClave[:s.numEstados] {
+		if !estado.Valido() || (i > 0 && s.estadosClave[i-1] >= estado) {
+			return ErrSolicitudConsultaRRHHInvalida
+		}
+	}
+	for i, fase := range s.fasesClave[:s.numFases] {
+		if !fase.Valida() || (i > 0 && s.fasesClave[i-1] >= fase) {
+			return ErrSolicitudConsultaRRHHInvalida
+		}
+	}
 	return nil
 }
 
@@ -352,6 +406,40 @@ func (s SolicitudCuadroRRHH) EstadoClave() domain.EstadoOperativo { return s.est
 func (s SolicitudCuadroRRHH) FaseClave() domain.ClaveFase         { return s.faseClave }
 func (s SolicitudCuadroRRHH) Limite() uint16                      { return s.limite }
 func (s SolicitudCuadroRRHH) Cursor() string                      { return s.cursor }
+func (s SolicitudCuadroRRHH) Version() uint16 {
+	if s.version == 2 {
+		return 2
+	}
+	return 1
+}
+func (s SolicitudCuadroRRHH) CentroRef() string    { return s.centroRef }
+func (s SolicitudCuadroRRHH) CategoriaRef() string { return s.categoriaRef }
+func (s SolicitudCuadroRRHH) EstadosClave() []domain.EstadoOperativo {
+	return append([]domain.EstadoOperativo(nil), s.estadosClave[:s.numEstados]...)
+}
+func (s SolicitudCuadroRRHH) FasesClave() []domain.ClaveFase {
+	return append([]domain.ClaveFase(nil), s.fasesClave[:s.numFases]...)
+}
+func (s SolicitudCuadroRRHH) admiteEstado(estado domain.EstadoOperativo) bool {
+	if s.version != 2 {
+		return s.estadoClave == "" || s.estadoClave == estado
+	}
+	if s.numEstados == 0 {
+		return true
+	}
+	i := sort.Search(int(s.numEstados), func(i int) bool { return s.estadosClave[i] >= estado })
+	return i < int(s.numEstados) && s.estadosClave[i] == estado
+}
+func (s SolicitudCuadroRRHH) admiteFase(fase domain.ClaveFase) bool {
+	if s.version != 2 {
+		return s.faseClave == "" || s.faseClave == fase
+	}
+	if s.numFases == 0 {
+		return true
+	}
+	i := sort.Search(int(s.numFases), func(i int) bool { return s.fasesClave[i] >= fase })
+	return i < int(s.numFases) && s.fasesClave[i] == fase
+}
 
 // ConResumen devuelve la misma solicitud pidiendo además el resumen de la
 // portada; Resumen indica si se pidió.

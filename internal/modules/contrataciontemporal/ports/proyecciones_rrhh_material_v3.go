@@ -225,7 +225,10 @@ func validarParejaNominalMaterialConsultaRRHH(
 	dominio, finalidad, expedienteRef := "", "", ""
 	switch solicitud.Accion {
 	case AccionConsultarCuadroRRHH:
-		dominio = DominioHuellaConsultaCuadroRRHH
+		dominio = solicitud.Recurso.Atributos[atributoDominioConsultaRRHH]
+		if dominio != DominioHuellaConsultaCuadroRRHH && dominio != DominioHuellaConsultaCuadroRRHHV2 {
+			return ErrCapacidadConsultaRRHHInvalida
+		}
 		finalidad = FinalidadConsultarCuadroRRHH
 	case AccionConsultarDetalleRRHH:
 		dominio = DominioHuellaConsultaDetalleRRHH
