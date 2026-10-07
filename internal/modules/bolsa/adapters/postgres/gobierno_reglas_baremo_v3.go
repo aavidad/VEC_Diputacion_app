@@ -18,6 +18,7 @@ import (
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 	ports "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -134,7 +135,7 @@ func (r *RepositorioGobiernoReglasBaremoV3PostgreSQL) abrirGobiernoReglasV3(ctx 
 	return tx, nil
 }
 func revertirGobiernoReglasV3(tx transaccionGobiernoReglasV3) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	_ = tx.Rollback(ctx)
 }

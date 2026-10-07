@@ -466,8 +466,9 @@ func exigirServicioPresentacionSinPuertosMutantes(t *testing.T) {
 	t.Helper()
 	tipo := reflect.TypeOf(ServicioPresentacionPropuestaCobertura{})
 	// El noveno campo (avisosVia) es el evaluador de solo lectura de las
-	// comprobaciones de la vía; no escribe ni consume nada.
-	if tipo.NumField() != 9 {
+	// comprobaciones de la vía; el décimo (politicaCredito) lee la regla de
+	// crédito del catálogo. Ninguno escribe ni consume nada.
+	if tipo.NumField() != 10 {
 		t.Fatalf("aparecieron dependencias no revisadas: %d", tipo.NumField())
 	}
 	for indice := 0; indice < tipo.NumField(); indice++ {

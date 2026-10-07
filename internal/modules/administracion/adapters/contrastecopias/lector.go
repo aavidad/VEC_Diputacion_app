@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	domain "vec-diputacion-granada/internal/modules/administracion/domain/contrastecopias"
 	ports "vec-diputacion-granada/internal/modules/administracion/ports/contrastecopias"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type Configuracion struct {
@@ -90,7 +91,7 @@ type captura struct {
 }
 
 func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
-	ctx, cancel := context.WithTimeout(ctx, l.limites.TiempoMaximo)
+	ctx, cancel := context.WithTimeout(ctx, plazoarranque.Ampliar(l.limites.TiempoMaximo))
 	defer cancel()
 	if len(l.limites.BasesInventariadas) != 0 {
 		return domain.Snapshot{}, errors.New("captura_multibase_requiere_ejecutor")
@@ -103,7 +104,7 @@ func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
 		return domain.Snapshot{}, errCaptura
 	}
 	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+		cleanup, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(time.Second))
 		defer cancel()
 		_ = conn.Close(cleanup)
 	}()
@@ -112,7 +113,7 @@ func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
 		return domain.Snapshot{}, errCaptura
 	}
 	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+		cleanup, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(time.Second))
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()

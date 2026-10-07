@@ -1,5 +1,10 @@
 # Captura y revisión de la presentación web
 
+> **Documento histórico.** La presentación y su revisor visual en Docker se
+> retiraron el 6 de octubre de 2026; `scripts/capturar_presentacion_web.py` y
+> los servicios de Compose que cita ya no existen. Las revisiones visuales se
+> hacen sobre el portal real con Playwright y el Chrome del sistema.
+
 `scripts/capturar_presentacion_web.py` recorre por defecto el lanzador, el
 portal público, las 14 vistas del área aspirante, las 20 vistas internas de
 RRHH y 25 estados de interacción. Incluye los selectores abiertos desde el

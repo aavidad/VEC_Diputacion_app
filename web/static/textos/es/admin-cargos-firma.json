@@ -1,0 +1,20 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "catalogo_no_disponible": "No se puede leer el catálogo de mensajes.",
+    "uso_invalido": "Indique la orden (preparar o aplicar) y todos sus archivos con rutas absolutas.",
+    "entrada_insegura": "No se puede leer un archivo privado.",
+    "entrada_invalida": "Los documentos privados no cumplen el contrato.",
+    "cargos_invalidos": "El fichero de cargos no cumple las reglas de los cargos de firma.",
+    "plan_no_guardado": "No se puede guardar el plan en un archivo privado nuevo.",
+    "plan_preparado": "Plan preparado. Envíe su huella para aprobarla.",
+    "aprobacion_divergente": "La aprobación no coincide con los bytes del plan.",
+    "acuse_inseguro": "No se puede reservar un acuse privado nuevo.",
+    "commit_no_confirmado": "No se ha confirmado el COMMIT; conserve el plan y no lo repita sin comprobarlo.",
+    "operacion_no_confirmada": "La operación no ha confirmado su resultado.",
+    "acuse_no_guardado": "La base confirmó la operación, pero no se pudo guardar el acuse.",
+    "cargos_confirmados": "Cargos publicados y registrados como perfiles asignables, con auditoría común.",
+    "cargos_rechazados": "Publicación de cargos denegada y auditada.",
+    "cargos_no_disponibles": "La publicación de cargos registró un error y su auditoría."
+  }
+}

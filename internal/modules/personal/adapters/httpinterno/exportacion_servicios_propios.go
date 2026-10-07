@@ -17,6 +17,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const RutaExportacionServiciosPropios = "/api/interna/personal/mi-ficha/servicios/exportaciones"
@@ -124,7 +125,7 @@ func (m *ManejadorExportacionServiciosPropios) ServeHTTP(w http.ResponseWriter, 
 	_, _ = w.Write(resultado.ContenidoCSV)
 }
 func (m *ManejadorExportacionServiciosPropios) rechazar(w http.ResponseWriter, r *http.Request, estado int, codigo, motivo string) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	if m.registro.RegistrarIntentoExportacionServiciosPropios(ctx, ports.IntentoFichaPropia{Motivo: motivo}) != nil {
 		estado, codigo = http.StatusServiceUnavailable, "no_disponible"

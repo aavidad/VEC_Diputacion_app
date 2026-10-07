@@ -261,32 +261,6 @@ export function validarDatosAreaPersonal(entrada) {
   return congelarProfundo(datos);
 }
 
-export function validarRecibo(entrada) {
-  const recibo = structuredClone(exigirObjeto(entrada, "recibo"));
-  if (exigirCadena(recibo.esquema, "recibo.esquema", 80) !== ESQUEMA_RECIBO) {
-    throw new TypeError("El esquema del recibo no es compatible.");
-  }
-  if (exigirBooleano(recibo.presentacion, "recibo.presentacion") !== false) {
-    throw new TypeError("El recibo no corresponde al modo activo.");
-  }
-  exigirReferencia(recibo.referencia, "recibo.referencia");
-  exigirCadena(recibo.accion, "recibo.accion", 80);
-  exigirReferencia(recibo.objetivo, "recibo.objetivo");
-  exigirCadena(recibo.resultado, "recibo.resultado", 80);
-  exigirCadena(recibo.actor, "recibo.actor", 100);
-  exigirInstante(recibo.fecha, "recibo.fecha");
-  exigirCadena(recibo.advertencia, "recibo.advertencia", 300);
-  if (recibo.estado_clave !== undefined && recibo.estado_clave !== null) {
-    if (!SITUACIONES_PARTICIPACION_BOLSA.includes(recibo.estado_clave)) {
-      throw new TypeError(`recibo.estado_clave no reconocido en el catálogo: ${recibo.estado_clave}`);
-    }
-  }
-  if (recibo.disponible_desde !== undefined && recibo.disponible_desde !== null) {
-    exigirFechaOInstante(recibo.disponible_desde, "recibo.disponible_desde");
-  }
-  return congelarProfundo(recibo);
-}
-
 export function validarPayloadCambiarDisponibilidad(payload) {
   const obj = exigirObjeto(payload, "payload de cambio de disponibilidad");
   const disponible = exigirBooleano(obj.disponible, "disponible");

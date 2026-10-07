@@ -12,6 +12,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
@@ -44,6 +45,32 @@ type repositorioDatosContactoPrueba struct {
 	registros []puertosbolsa.RegistroDatosContactoParticipacion
 	llamadas  int
 	ultimo    puertosbolsa.ComandoRegistrarDatosContactoParticipacion
+	// Consulta completa: material recibido, actor y fallo forzado.
+	consultas       int
+	materialLectura puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	actorLectura    string
+	errLectura      error
+	// confirmadas/revertidas modelan el COMMIT o ROLLBACK del consumo.
+	confirmadas, revertidas int
+}
+
+func (r *repositorioDatosContactoPrueba) ConsultarDatosContactoAutorizados(ctx context.Context, bolsa, ref, actor string, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, entregar func(puertosbolsa.LecturaDatosContactoAutorizada) error) (puertosbolsa.LecturaDatosContactoAutorizada, error) {
+	r.consultas++
+	r.materialLectura, r.actorLectura = m, actor
+	if r.errLectura != nil {
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, r.errLectura
+	}
+	vigente, err := r.DatosContactoVigentes(ctx, ref)
+	if err != nil {
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, err
+	}
+	lectura := puertosbolsa.LecturaDatosContactoAutorizada{Registro: vigente, DecisionRef: "decision:borrador:prueba", AuditoriaRef: "aud_v3_0123456789abcdef0123456789abcdef", ConsumidaEn: vigente.RegistradaEn}
+	if err := entregar(lectura); err != nil {
+		r.revertidas++
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, err
+	}
+	r.confirmadas++
+	return lectura, nil
 }
 
 func (r *repositorioDatosContactoPrueba) DatosContactoVigentes(_ context.Context, ref string) (puertosbolsa.RegistroDatosContactoParticipacion, error) {
@@ -123,8 +150,70 @@ func TestServicioContactoRegistraCifradoYConsultaDescifrado(t *testing.T) {
 		t.Fatalf("comando: %+v", repo.ultimo)
 	}
 	leidos, err := servicio.Consultar(context.Background(), puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: dominiovec.ContextoActor{PersonaRef: "per_0123456789abcdefghijkl"}, BolsaRef: "bolsa:b4", ParticipacionRef: "participacion:b4"})
+	if err != nil || leidos.Version != 1 || leidos.Datos.Correo != "" || leidos.Datos.Telefono1 != "" || leidos.Enmascarados.Telefono1 != "***3456" || leidos.AuditoriaRef != "" || repo.consultas != 0 || autorizador.llamadas != 1 {
+		t.Fatalf("la lectura enmascarada no puede llevar el claro ni consumir: lectura=%+v err=%v", leidos, err)
+	}
+	completa := consultaCompletaDatosContactoPrueba(t, ahora)
+	leidos, err = servicio.Consultar(context.Background(), completa)
 	if err != nil || leidos.Version != 1 || leidos.Datos.Correo != "Candidata@dipgra.es" || leidos.Datos.Telefono1 != "600123456" || leidos.Datos.Telefono2 != "958247000" || leidos.Enmascarados.Telefono1 != "***3456" {
-		t.Fatalf("lectura=%+v err=%v", leidos, err)
+		t.Fatalf("lectura completa=%+v err=%v", leidos, err)
+	}
+	if autorizador.llamadas != 2 || repo.consultas != 1 || repo.actorLectura != "per_0123456789abcdefghijkl" || repo.materialLectura.ValidarEstructura() != nil ||
+		leidos.AuditoriaRef != "aud_v3_0123456789abcdef0123456789abcdef" || leidos.DecisionRef == "" {
+		t.Fatalf("la consulta completa no consumió su propia decisión: auth=%d consultas=%d actor=%q leidos=%+v", autorizador.llamadas, repo.consultas, repo.actorLectura, leidos)
+	}
+}
+
+// consultaCompletaDatosContactoPrueba es la consulta con `?ver=completo`.
+func consultaCompletaDatosContactoPrueba(t *testing.T, ahora time.Time) puertosbolsa.SolicitudConsultarDatosContactoParticipacion {
+	t.Helper()
+	base := solicitudDatosContactoPrueba(t, ahora, "sin-uso", datosDatosContactoPrueba())
+	return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: base.ResultadoContexto.Contexto, Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto,
+		BolsaRef: "bolsa:b4", ParticipacionRef: "participacion:b4", Completo: true, Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion}
+}
+
+func TestServicioContactoConsultaCompletaExigeSuDecisionYNoDescifraSinElla(t *testing.T) {
+	ahora := time.Date(2026, 9, 22, 1, 0, 0, 0, time.UTC)
+	repo := &repositorioDatosContactoPrueba{}
+	cifrador := &cifradorDatosContactoPrueba{}
+	servicio, autorizador := servicioDatosContactoPrueba(t, ahora, repo, cifrador, contextoSituacionPrueba{}, true)
+	if _, err := servicio.Registrar(context.Background(), solicitudDatosContactoPrueba(t, ahora, "b4-alta-0001", datosDatosContactoPrueba())); err != nil {
+		t.Fatal(err)
+	}
+	descifradosAntes := cifrador.descifrados
+	// Denegación nominal del PDP: no hay lectura ni descifrado.
+	autorizador.err = puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3
+	if _, err := servicio.Consultar(context.Background(), consultaCompletaDatosContactoPrueba(t, ahora)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.consultas != 0 || cifrador.descifrados != descifradosAntes {
+		t.Fatalf("denegación: err=%v consultas=%d descifrados=%d", err, repo.consultas, cifrador.descifrados)
+	}
+	// Fallo técnico del emisor: indisponible, nunca denegación ni lectura.
+	autorizador.err = errors.New("emisor caído")
+	if _, err := servicio.Consultar(context.Background(), consultaCompletaDatosContactoPrueba(t, ahora)); !errors.Is(err, ErrRegistroDatosContactoParticipacionNoDisponible) || repo.consultas != 0 {
+		t.Fatalf("fallo técnico: err=%v consultas=%d", err, repo.consultas)
+	}
+	autorizador.err = nil
+	// La base rechaza el consumo (42501): la denegación sube sin claro.
+	repo.errLectura = dominiovec.ErrAutorizacionDenegada
+	if leidos, err := servicio.Consultar(context.Background(), consultaCompletaDatosContactoPrueba(t, ahora)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || leidos.Datos.Correo != "" || cifrador.descifrados != descifradosAntes {
+		t.Fatalf("consumo rechazado: err=%v leidos=%+v", err, leidos)
+	}
+	repo.errLectura = nil
+	// Sin vínculo nominal no se intenta la consulta completa.
+	incompleta := consultaCompletaDatosContactoPrueba(t, ahora)
+	incompleta.Vinculo = dominiovec.VinculoAutenticacionActorV2{}
+	llamadas := autorizador.llamadas
+	if _, err := servicio.Consultar(context.Background(), incompleta); !errors.Is(err, ErrRegistroDatosContactoParticipacionNoDisponible) || autorizador.llamadas != llamadas {
+		t.Fatalf("consulta completa sin vínculo: err=%v", err)
+	}
+	// Sobre que no se puede descifrar: la lectura revierte el consumo.
+	repo.registros[len(repo.registros)-1].Sobre.Nonce = []byte("otra-participacion")
+	if leidos, err := servicio.Consultar(context.Background(), consultaCompletaDatosContactoPrueba(t, ahora)); !errors.Is(err, ErrRegistroDatosContactoParticipacionNoDisponible) || leidos.Datos.Correo != "" || repo.revertidas != 1 || repo.confirmadas != 0 {
+		t.Fatalf("descifrado fallido confirmó el consumo: err=%v revertidas=%d confirmadas=%d", err, repo.revertidas, repo.confirmadas)
+	}
+	// Participación ajena: denegada antes de pedir la decisión.
+	servicio, autorizador = servicioDatosContactoPrueba(t, ahora, repo, cifrador, contextoSituacionPrueba{}, false)
+	if _, err := servicio.Consultar(context.Background(), consultaCompletaDatosContactoPrueba(t, ahora)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || autorizador.llamadas != 0 {
+		t.Fatalf("participación ajena: err=%v auth=%d", err, autorizador.llamadas)
 	}
 }
 

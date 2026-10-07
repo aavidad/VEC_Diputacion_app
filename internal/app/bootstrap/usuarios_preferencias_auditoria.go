@@ -9,6 +9,7 @@ import (
 	"time"
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -98,7 +99,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	if estado == http.StatusForbidden {
 		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
 	}
-	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	correlacion, err := nuevaCorrelacionDenegacionPreferenciasUsuarios()
 	if err != nil {

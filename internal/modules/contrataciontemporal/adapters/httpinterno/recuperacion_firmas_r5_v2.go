@@ -11,6 +11,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmasv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -75,7 +76,7 @@ func (h *manejadorRecuperacionFirmasR5V2) auditarFallo(r *http.Request, recurso 
 	if errors.Is(causa, ctports.ErrFirmaDocumentoDenegada) || errors.Is(causa, ctports.ErrAutorizacionDenegada) || problema.estado == http.StatusForbidden {
 		resultado = vecdomain.ResultadoIntentoAuditoriaDenegado
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	orden, err := h.fabrica.CrearOrdenIntentoFirma(ctx, intento, ctports.AccionRecuperarFirmasR5V2, recurso, resultado)
 	if err != nil {

@@ -1,4 +1,4 @@
-import { validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { validarDatosPeticionAnalisis, validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
 /**
  * Proyecciones cerradas del cuadro y el expediente de contratación temporal.
@@ -519,6 +519,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 export function validarExpedienteContratacionTemporal(entrada) {
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
+  const tieneDatosPeticion = esRegistro(entrada) && Object.hasOwn(entrada, "datos_peticion");
   const tieneHistorial = esRegistro(entrada) && Object.hasOwn(entrada, "historial");
   const tieneFiscalizacion = esRegistro(entrada) && Object.hasOwn(entrada, "fiscalizacion");
   exigirCamposExactos(entrada, [
@@ -527,6 +528,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(tieneHistorial ? ["historial"] : []),
     ...(tieneFiscalizacion ? ["fiscalizacion"] : []),
     ...(tieneAnalisisPrevio ? ["analisis_previo"] : []),
+    ...(tieneDatosPeticion ? ["datos_peticion"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
@@ -586,6 +588,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     fases,
     ...(tieneHistorial ? { historial } : {}),
     ...(tieneAnalisisPrevio ? { analisis_previo: validarDatosPreviosAnalisis(entrada.analisis_previo) } : {}),
+    ...(tieneDatosPeticion ? { datos_peticion: validarDatosPeticionAnalisis(entrada.datos_peticion) } : {}),
     ...(tieneFiscalizacion ? { fiscalizacion: validarFiscalizacionExpediente(entrada.fiscalizacion) } : {}),
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),

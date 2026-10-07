@@ -132,6 +132,11 @@ func registrarFirmaMultipleR5(ctx context.Context, base *ServicioFirmaDocumento,
 		return cero, err
 	}
 	consulta := ports.MaterialConsultaFirmasR5V2{Via: s.via, MaterialConsultaFirmasR5: ports.MaterialConsultaFirmasR5{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, VersionExpediente: s.VersionExpediente, Documento: s.Documento, FirmantePrincipalCandidatoRef: evidencia.FirmantePrincipalRef, ClaveIdempotencia: s.ClaveIdempotencia, PasoOrden: s.PasoOrden, CatalogoHuella: circuito.HuellaCatalogo}}
+	// En la vía VEC consulta quien firma, con la asignación de la competencia
+	// acreditada: la unidad del paso va en UnidadRef (CT186 la liga al plan).
+	if s.via == ports.ViaFirmaCertificadoVEC {
+		consulta.UnidadRef = evidencia.UnidadFirmanteRef
+	}
 	if _, err := consulta.Canonico(); err != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}

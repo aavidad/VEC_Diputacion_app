@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -82,7 +83,7 @@ func (p *Publicador) PublicarDenominacionPersona(ctx context.Context, orden port
 	}
 	// La operación durable ya retornó y cerró su transacción. El intento usa un
 	// plazo propio, conserva valores del contexto y nunca reinicia la publicación.
-	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), p.configuracion.PlazoAuditoria)
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(p.configuracion.PlazoAuditoria))
 	defer cancelar()
 	acuse, fallo := p.intentos.AppendIntentoAuditoria(auditCtx, intento)
 	if errors.Is(fallo, ports.ErrIntentoAuditoriaNoDisponible) {

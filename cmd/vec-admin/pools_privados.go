@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // limitesSesionADMIN son los límites que exige el núcleo VEC-AD-3 al consumir
@@ -19,6 +21,7 @@ func configurarPoolADMIN(dsn string) (*pgxpool.Config, error) {
 	if err != nil || pc == nil || pc.ConnConfig == nil {
 		return nil, errConfiguracionPrivadaPerfiles
 	}
+	postgresqlcompartido.FijarTamanoPool(pc, dsn, 4)
 	if pc.ConnConfig.RuntimeParams == nil {
 		pc.ConnConfig.RuntimeParams = map[string]string{}
 	}
@@ -26,6 +29,30 @@ func configurarPoolADMIN(dsn string) (*pgxpool.Config, error) {
 		pc.ConnConfig.RuntimeParams[clave] = valor
 	}
 	return pc, nil
+}
+
+// zonaHorariaCargos la exige Personal28 a la sesión que publica cargos
+// (current_setting('TimeZone')='UTC'); el DSN privado no puede aportarla.
+const zonaHorariaCargos = "UTC"
+
+// configurarPoolCargosADMIN es configurarPoolADMIN más la zona horaria UTC.
+func configurarPoolCargosADMIN(dsn string) (*pgxpool.Config, error) {
+	pc, err := configurarPoolADMIN(dsn)
+	if err != nil {
+		return nil, err
+	}
+	pc.ConnConfig.RuntimeParams["timezone"] = zonaHorariaCargos
+	return pc, nil
+}
+
+// acreditarZonaHorariaUTC comprueba al arrancar que la sesión del pool queda
+// en UTC; si no, la publicación de cargos se denegaría en cada petición.
+func acreditarZonaHorariaUTC(ctx context.Context, pool *pgxpool.Pool) error {
+	var zona string
+	if pool == nil || pool.QueryRow(ctx, `SELECT pg_catalog.current_setting('TimeZone')`).Scan(&zona) != nil || zona != zonaHorariaCargos {
+		return errConfiguracionPrivadaPerfiles
+	}
+	return nil
 }
 
 // acreditarPoolCentral acota los cuatro pools cuyos adaptadores reciben

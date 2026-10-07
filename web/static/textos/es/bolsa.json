@@ -60,6 +60,8 @@
     "rrhh_plazos_confirmacion": "La resolución requiere confirmación de RRHH"
   },
   "politica_cese": {
+    "politica_cese_no_disponible_titulo": "Esta pantalla no está disponible",
+    "politica_cese_no_disponible_texto": "La política de cese de Bolsa no está activada en esta instalación. Si la necesita, avise a Informática.",
     "politica_cese_titulo": "Política de cese de Bolsa",
     "politica_cese_subtitulo": "Regla efectiva para la disponibilidad tras un cese",
     "politica_cese_ejemplo": "Ejemplo sintético · sin aprobación",

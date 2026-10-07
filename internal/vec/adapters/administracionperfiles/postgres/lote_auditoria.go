@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -125,7 +126,7 @@ func (a *AutoridadLoteOrdinario) registrarFalloConsumo(ctx context.Context, acci
 	if err != nil {
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
-	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.auditoria.Plazo)
+	registroCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(a.auditoria.Plazo))
 	defer cancel()
 	acuse, err := a.registrador.AppendIntentoAuditoria(registroCtx, orden)
 	if err != nil || acuse.ValidarPara(orden) != nil {

@@ -142,6 +142,22 @@ async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar) {
 
 /** Cargas con el lector predeterminado: cada catálogo se pide una sola vez por página. */
 const CARGAS = new Map();
+/**
+ * Lecturas de cada fichero con el lector predeterminado. El catálogo del idioma
+ * por defecto es el respaldo de todos los demás: sin esto, pedir los textos de
+ * un módulo en dos idiomas lo descargaba dos veces. Una lectura fallida se
+ * olvida para que se pueda reintentar.
+ */
+const LECTURAS = new Map();
+export function leerCatalogoUnaVez(url) {
+  const clave = url.href;
+  if (!LECTURAS.has(clave)) {
+    const lectura = leerRecursoJSON(url);
+    LECTURAS.set(clave, lectura);
+    lectura.catch(() => LECTURAS.delete(clave));
+  }
+  return LECTURAS.get(clave);
+}
 
 /**
  * Carga los textos de `modulo` en el idioma de la interfaz, con respaldo en el
@@ -156,7 +172,7 @@ export function cargarTextos(modulo, {
   }
   const clave = `${raiz.href}|${porDefecto}|${idioma}|${modulo}`;
   if (!CARGAS.has(clave)) {
-    const carga = leerYCrear(modulo, idioma, porDefecto, leerRecursoJSON, raiz, avisoEnPruebas);
+    const carga = leerYCrear(modulo, idioma, porDefecto, leerCatalogoUnaVez, raiz, avisoEnPruebas);
     CARGAS.set(clave, carga);
     carga.catch(() => CARGAS.delete(clave));
   }

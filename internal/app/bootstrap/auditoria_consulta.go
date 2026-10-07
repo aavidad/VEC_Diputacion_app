@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/config"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	bolsaauditoria "vec-diputacion-granada/internal/modules/bolsa/adapters/auditoriaconsulta"
 	ctauditoria "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/auditoriaconsulta"
@@ -125,7 +126,7 @@ func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, 
 	if respuesta.codigo == http.StatusUnauthorized {
 		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
 	}
-	ctxRegistro, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+	ctxRegistro, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
 	defer cancelar()
 	if err := m.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxRegistro, vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion, Motivo: motivo,

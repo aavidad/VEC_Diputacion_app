@@ -10,6 +10,7 @@ import (
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -71,7 +72,7 @@ func nuevoManejadorConsultaComunicacionesExpedienteDesarrollo(
 	}
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	proveedorMaterial, err := nuevoProveedorMaterialConsumidorConDescriptorDesarrollo(
 		ctx, alta.postgresql.gobierno, material, alta.soporte, reloj,
@@ -89,7 +90,12 @@ func nuevoManejadorConsultaComunicacionesExpedienteDesarrollo(
 	if err != nil {
 		return nil, err
 	}
-	servicio, err := application.NuevoServicioConsultaComunicacionesExpediente(lector)
+	lectorAuditado, err := nuevoLectorComunicacionesAuditadoCT(lector, alta.soporte, alta.auditoriaLecturasCT,
+		configuracionAuditoriaLecturasCT{Proceso: alta.procesoAuditoriaLecturasCT, Canal: string(dominiovec.SuperficieAutenticacionInternaCorporativaV1)})
+	if err != nil {
+		return nil, err
+	}
+	servicio, err := application.NuevoServicioConsultaComunicacionesExpediente(lectorAuditado)
 	if err != nil {
 		return nil, err
 	}

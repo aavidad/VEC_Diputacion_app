@@ -17,6 +17,8 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/domain"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 type relojADMIN struct{}
@@ -66,6 +68,7 @@ func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv confi
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_config")
 		}
+		telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 		pool, err := pgxpool.NewWithConfig(ctx, pc)
 		if err != nil {
 			return fallo("pool_" + strconv.Itoa(i) + "_abrir")

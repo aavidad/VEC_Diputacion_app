@@ -12,25 +12,11 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
-	"vec-diputacion-granada/config"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 )
 
-const rutaRPTPublicaPresentacion = "/api/vec/personal/rpt-publica"
-
-var ErrConcesionRPTPublicaPresentacionInvalida = errors.New("httpapi: concesion RPT publica de presentacion invalida")
-
 type ConsultaRPTPublica interface {
 	Listar(context.Context) (personaldomain.CatalogoRPTPublica, error)
-}
-
-// NewHandlerRPTPublicaPresentacion es una concesion de lectura exacta: catálogo
-// publicado sin personas, ocupantes ni inferencias de jefatura.
-func NewHandlerRPTPublicaPresentacion(cfg config.Config, consulta ConsultaRPTPublica) (http.Handler, error) {
-	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
-		return nil, ErrConcesionRPTPublicaPresentacionInvalida
-	}
-	return handlerRPTPublica(consulta), nil
 }
 
 type vistaRPTPublica string

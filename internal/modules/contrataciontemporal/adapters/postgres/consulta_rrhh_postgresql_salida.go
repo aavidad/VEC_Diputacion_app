@@ -7,6 +7,7 @@ import (
 	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -48,6 +49,52 @@ type salidaCuadroConsultaRRHH struct {
 	faseDesdeInstantes   []time.Time
 	// CT-000125: si cada expediente consta como urgente, en el mismo orden.
 	urgentes []bool
+	// CT-000184 (solo con resumen): agregados de todo el corte filtrado.
+	recuentoEstados []string
+	recuentoFases   []string
+	recuentoNumeros []int64
+	plazoFases      []string
+	plazoDesde      []time.Time
+	plazoUrgentes   []bool
+	plazoNumeros    []int64
+}
+
+// agregados construye los agregados de la portada; cualquier desajuste de
+// cardinalidad, número no positivo o exceso de grupos es no confiable. Que
+// cuadren con los totales y los filtros lo comprueba la página.
+func (s salidaCuadroConsultaRRHH) agregados() (*ports.AgregadosCuadroRRHH, error) {
+	n, m := len(s.recuentoEstados), len(s.plazoFases)
+	if len(s.recuentoFases) != n || len(s.recuentoNumeros) != n ||
+		len(s.plazoDesde) != m || len(s.plazoUrgentes) != m || len(s.plazoNumeros) != m ||
+		m > ports.MaximoGruposPlazoCuadroRRHH {
+		return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	agregados := &ports.AgregadosCuadroRRHH{
+		Recuentos:   make([]ports.RecuentoCuadroRRHH, n),
+		GruposPlazo: make([]ports.GrupoPlazoCuadroRRHH, m),
+	}
+	for i := range n {
+		if s.recuentoNumeros[i] < 1 {
+			return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+		agregados.Recuentos[i] = ports.RecuentoCuadroRRHH{
+			EstadoClave: domain.EstadoOperativo(s.recuentoEstados[i]),
+			FaseClave:   domain.ClaveFase(s.recuentoFases[i]),
+			Numero:      uint64(s.recuentoNumeros[i]),
+		}
+	}
+	for i := range m {
+		if s.plazoNumeros[i] < 1 {
+			return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+		agregados.GruposPlazo[i] = ports.GrupoPlazoCuadroRRHH{
+			FaseClave: domain.ClaveFase(s.plazoFases[i]),
+			Desde:     s.plazoDesde[i].UTC(),
+			Urgente:   s.plazoUrgentes[i],
+			Numero:    uint64(s.plazoNumeros[i]),
+		}
+	}
+	return agregados, nil
 }
 
 // urgentesAlineados devuelve la urgencia declarada de cada resumen, alineada

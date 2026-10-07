@@ -1,0 +1,4 @@
+# Personal38 (4c-4 corte 1): localizador privado del enlace vigente de un cargo por tipo de recurso del paso y
+# revalidación de Personal28 por tipo cuando el contexto lo trae. Requiere Personal28, Personal29 y Personal37
+# (lista_sql_claude_personal37_enlaces_20261005.txt). Una sola vez; sin DOWN.
+deploy/postgresql/personal/migraciones/000038_localizador_enlace_cargo_ct.up.sql
