@@ -147,3 +147,18 @@ revertida, obtuvo tres búsquedas por índice; ejecución SQL de 0,041 ms y p95
 de 0,105 ms en 190 lecturas. La planificación fue de 0,336 ms. Esta evidencia
 acredita la lectura del catálogo de ensayo; queda pendiente la revisión
 independiente y no acredita un recorrido nominal por HTTP o navegador.
+
+## Una lectura del catálogo de rutas al abrir el formulario
+
+El formulario comparte con el mapa una única lectura validada del catálogo.
+Así ambos conservan la misma versión y desaparece el segundo GET de apertura.
+Ante un fallo, el formulario mantiene el aviso y permite reintentar; un doble
+clic no repite la carga, la validación ni el cálculo. El botón conserva el foco.
+Una respuesta que llega después del desmontaje no modifica la pantalla.
+
+Chrome comprobó la vista y el adaptador HTTP con un catálogo local sintético
+en ambos idiomas, a 1440 y 390 px: un GET de apertura y uno adicional al
+recuperarse, sin errores JS ni desbordamiento. El visor de ese ensayo es un
+doble de prueba: no acredita backend nominal, PostgreSQL o cálculo liquidable.
+La integración requiere renovar la arista del coordinador común con la versión
+`20261007-u-dietas-catalogo-v1`; ese archivo conserva el escritor de la raíz.
