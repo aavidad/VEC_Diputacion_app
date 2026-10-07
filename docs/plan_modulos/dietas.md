@@ -157,6 +157,21 @@ ratificaron el commit `8d7f0472d` y su CI completa terminó en verde. Dirección
 lo integró en `main` mediante `aab120dc2`. No hubo nuevas migraciones ni
 instalación, y no se acredita un recorrido nominal por HTTP o navegador.
 
+## Una lectura del catálogo de rutas al abrir el formulario
+
+El formulario comparte con el mapa una única lectura validada del catálogo.
+Así ambos conservan la misma versión y desaparece el segundo GET de apertura.
+Ante un fallo, el formulario mantiene el aviso y permite reintentar; un doble
+clic no repite la carga, la validación ni el cálculo. El botón conserva el foco.
+Una respuesta que llega después del desmontaje no modifica la pantalla.
+
+Chrome comprobó la vista y el adaptador HTTP con un catálogo local sintético
+en ambos idiomas, a 1440 y 390 px: un GET de apertura y uno adicional al
+recuperarse, sin errores JS ni desbordamiento. El visor de ese ensayo es un
+doble de prueba: no acredita backend nominal, PostgreSQL o cálculo liquidable.
+La arista del coordinador común y sus importadores se han renovado con la
+versión `20261007-u-dietas-catalogo-v1`, entregada por el escritor de la raíz.
+
 ## Rechazo de una tarifa de kilometraje incoherente
 
 El preparador del alta comprueba el formato decimal de cada tarifa antes de

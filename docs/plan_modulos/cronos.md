@@ -155,3 +155,15 @@ publicado, vigente y distinto de los motivos positivos, configurado en
 `auditoria_intentos.motivo_denegado`. El LOGIN, proceso y canal proceden del
 material privado y pasan el preflight común. Este cambio no crea sus permisos,
 no instala SQL ni acredita C5a, C5b o un recorrido nominal en PostgreSQL.
+
+## Respuesta visible al abrir una corrección
+
+Si el calendario carga, deniega la consulta o falla, «Solicitar corrección»
+enfoca y anuncia el estado visible; no crea un formulario oculto ni un POST.
+Después de una consulta válida, abre el formulario y enfoca la fecha.
+
+Las pruebas de la vista y su consumidor han pasado. Chrome comprobó los dos
+componentes y su callback con consultas sintéticas pendientes, 403, 503 y
+recuperación, en castellano e inglés, a 1440 y 390 px. No acredita identidad,
+API nominal ni PostgreSQL. El coordinador común conserva la renovación de la
+URL del recurso; esta corrección no activa Cronos ni cierra C5a/C5b.

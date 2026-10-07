@@ -186,7 +186,8 @@ test("coordinador y vistas comparten i18n; permisos usa la fecha civil sin carga
   assert.doesNotMatch(permisos, /vista-movimientos-propios\.js/u);
   assert.match(permisos, /from "\.\/fecha-civil\.js\?v=20261007-pantallas-textos-final-v1"/u);
   exigirRenovado([cronosInterno, ...importadoresI18n], "i18n.js", ["20260925-tanda-v1"]);
-  exigirRenovado(cronosInterno, "vista-movimientos-propios.js", ["20260925-cronos-pantallas-v1"]);
+  assert.equal(exigirRenovado(cronosInterno, "vista-movimientos-propios.js",
+    ["20260925-cronos-pantallas-v1", "20261007-pantallas-textos-final-v1"]), "20261007-u-dietas-catalogo-v1");
   // Los clientes siguen sin ?v= en todos los importadores (misma clase de error para instanceof).
   for (const fuente of [cronosInterno, permisos, ...importadoresI18n]) assert.doesNotMatch(fuente, /cliente-[a-z-]+-http\.js\?v=/u);
 });
