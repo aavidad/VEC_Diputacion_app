@@ -134,3 +134,4 @@
 1226 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
 810 deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
 1196 scripts/recorridos/propuesta_firma/recorrer.py
+2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql

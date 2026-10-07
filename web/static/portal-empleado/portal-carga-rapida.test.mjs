@@ -675,13 +675,14 @@ test("RPT abre cliente y vista del mismo corte conservando una sola URL hasta la
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const hoja = "20261007-t-rpt-enlaces-v1";
   const ficha = "20261007-t-rpt-ficha-v1";
-  const raiz = "20261007-t-rpt-ficha-root-v1";
+  const composicionVersion = "20261007-t-rpt-ficha-root-v1";
+  const raiz = "20261008-rpt-root-v1";
   assert.equal(versionDe(coordinador, "./modulos/personal/cliente-http-rpt-publica.js"), hoja);
   assert.equal(versionDe(coordinador, "./modulos/personal/vista-rpt-publica.js"), hoja);
   assert.equal(versionDe(vista, "./cliente-http-rpt-publica.js"), hoja);
   assert.equal(versionDe(coordinador, "./modulos/personal/vista-ficha-integral.js"), ficha);
-  assert.equal(versionDe(coordinador, "./portal-composicion-empleado.js"), raiz);
-  assert.equal(versionDe(html, "/portal-empleado/portal-composicion-empleado.js"), raiz);
+  assert.equal(versionDe(coordinador, "./portal-composicion-empleado.js"), composicionVersion);
+  assert.equal(versionDe(html, "/portal-empleado/portal-composicion-empleado.js"), composicionVersion);
   assert.equal(versionDe(html, "/portal-empleado/modulos/personal/ficha-integral.css"), ficha);
   assert.match(composicion, /rptDisponible: publicos\.includes\("rpt"\)/u);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), raiz);
