@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"regexp"
 	"strings"
@@ -46,8 +47,87 @@ type Servicio struct {
 	emisor      EmisorMaterialV3
 	ct          FuenteAuditoria
 	bolsa       FuenteAuditoria
+	intentos    *ConfiguracionIntentos
 	claveCursor [32]byte
 	ahora       func() time.Time
+}
+
+// ConfiguracionIntentos pertenece al servidor. El motivo procede del catálogo
+// publicado y el proceso y canal, de la configuración privada de AD169.
+type ConfiguracionIntentos struct {
+	Registrador vecports.RegistradorIntentosAuditoria
+	Proceso     string
+	Canal       string
+	Finalidad   string
+	Motivo      vecdomain.ReferenciaEntradaCatalogo
+}
+
+const (
+	recursoIntentoConsultaInvalida = "auditoria:consulta_invalida"
+	recursoIntentoConsultaCT       = "auditoria:consulta_ct"
+	recursoIntentoConsultaBolsa    = "auditoria:consulta_bolsa"
+	recursoIntentoOpcionesRRHH     = "auditoria:opciones_rrhh"
+)
+
+func (s *Servicio) ConfigurarIntentos(c ConfiguracionIntentos) error {
+	if s == nil || dependenciaNula(c.Registrador) || c.Proceso == "" ||
+		c.Canal != string(vecdomain.SuperficieAutenticacionInternaCorporativaV1) ||
+		c.Finalidad == "" || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) ||
+		(vecdomain.DatosIntentoAuditoria{Accion: AccionConsultar, ModuloID: ModuloAutorizacion,
+			RecursoRef: recursoIntentoConsultaInvalida, FinalidadRef: c.Finalidad,
+			Resultado: vecdomain.ResultadoIntentoAuditoriaError, Motivo: c.Motivo,
+			Proceso: c.Proceso, Canal: c.Canal,
+			CorrelacionRef: "correlacion_00000000000000000000000000000000"}).Validar() != nil {
+		return ErrNoDisponible
+	}
+	s.intentos = &c
+	return nil
+}
+
+func (s *Servicio) registrarIntento(ctx context.Context, identidad IdentidadResuelta, recurso string,
+	resultado vecdomain.ResultadoIntentoAuditoria, actuales *Opciones) (vecports.AcuseIntentoAuditoria, error) {
+	var vacio vecports.AcuseIntentoAuditoria
+	switch recurso {
+	case recursoIntentoConsultaInvalida, recursoIntentoConsultaCT, recursoIntentoConsultaBolsa, recursoIntentoOpcionesRRHH:
+	default:
+		return vacio, ErrNoDisponible
+	}
+	if s == nil || s.intentos == nil || ctx == nil || identidad.Resultado.Validar() != nil ||
+		identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
+		return vacio, ErrNoDisponible
+	}
+	correlacion, err := identidad.Correlacion.ValorCanonico()
+	if err != nil {
+		return vacio, ErrNoDisponible
+	}
+	ref, err := vecports.NuevaReferenciaIntentoAuditoria()
+	if err != nil {
+		return vacio, ErrNoDisponible
+	}
+	c := s.intentos
+	finalidad, motivo := c.Finalidad, c.Motivo
+	if actuales != nil {
+		if actuales.PermisoRequerido != AccionConsultar || actuales.MotivoRef != actuales.Motivo.Referencia() ||
+			!vecdomain.ReferenciaMotivoAutorizacionV2Valida(actuales.Motivo) {
+			return vacio, ErrNoDisponible
+		}
+		finalidad, motivo = actuales.FinalidadRef, actuales.Motivo
+	}
+	orden, err := vecports.NuevaOrdenIntentoAuditoria(ref, identidad.Resultado, identidad.Vinculo,
+		vecdomain.DatosIntentoAuditoria{Accion: AccionConsultar, ModuloID: ModuloAutorizacion,
+			RecursoRef: recurso, FinalidadRef: finalidad, Resultado: resultado,
+			Motivo: motivo, Proceso: c.Proceso, Canal: c.Canal, CorrelacionRef: correlacion})
+	if err != nil {
+		return vacio, ErrNoDisponible
+	}
+	acuse, err := c.Registrador.AppendIntentoAuditoria(ctx, orden)
+	if errors.Is(err, vecports.ErrIntentoAuditoriaNoDisponible) {
+		acuse, err = c.Registrador.AppendIntentoAuditoria(ctx, orden)
+	}
+	if err != nil || acuse.ValidarPara(orden) != nil {
+		return vacio, ErrNoDisponible
+	}
+	return acuse, nil
 }
 
 func dependenciaNula(x any) bool {
@@ -73,21 +153,34 @@ func NuevoServicio(emisor EmisorMaterialV3, ct, bolsa FuenteAuditoria) (*Servici
 	return s, nil
 }
 
+func errorValidacionConsulta(ctx context.Context) error {
+	if ctx == nil || ctx.Err() != nil {
+		return ErrNoDisponible
+	}
+	return ErrDenegada
+}
+
 func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
-	if s == nil || ctx == nil || ctx.Err() != nil || p.Filtro.Validar() != nil ||
+	if s == nil || ctx == nil || ctx.Err() != nil ||
 		dependenciaNula(s.emisor) || dependenciaNula(s.ct) || dependenciaNula(s.bolsa) {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, ErrNoDisponible
+	}
+	if p.Filtro.Validar() != nil {
+		return Pagina{}, errorValidacionConsulta(ctx)
 	}
 	f := p.Filtro
 	if !f.Antes.vacia() {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, errorValidacionConsulta(ctx)
 	} // solo el cursor firmado fija la pagina
 	if p.Cursor != "" {
 		pos, err := s.decodificarCursor(p.Cursor, f)
 		if err != nil || pos.Fuente != f.Fuente {
-			return Pagina{}, ErrDenegada
+			return Pagina{}, errorValidacionConsulta(ctx)
 		}
 		f.Antes = pos
+	}
+	if ctx.Err() != nil {
+		return Pagina{}, ErrNoDisponible
 	}
 	if p.Contexto.Motivo.Validar() != nil ||
 		p.Contexto.Motivo.Referencia() != f.MotivoRef ||
@@ -95,11 +188,11 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 		p.Contexto.Vinculo.ValidarPara(p.Contexto.Resultado) != nil ||
 		!p.Contexto.Vinculo.VigenteEn(s.ahora().UTC().Truncate(time.Microsecond), p.Contexto.Resultado) ||
 		p.Contexto.Correlacion.Validar() != nil {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, errorValidacionConsulta(ctx)
 	}
 	recurso, err := RecursoFiltro(f)
 	if err != nil {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, errorValidacionConsulta(ctx)
 	}
 	solicitud, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(vecdomain.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: p.Contexto.Vinculo,
@@ -107,26 +200,42 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 		Recurso: recurso, Finalidad: f.FinalidadRef, Correlacion: p.Contexto.Correlacion,
 	})
 	if err != nil {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, errorValidacionConsulta(ctx)
+	}
+	if ctx.Err() != nil {
+		return Pagina{}, ErrNoDisponible
 	}
 	lector := s.ct
 	if f.Fuente == "bolsa" {
 		lector = s.bolsa
 	}
 	decision, confirmacion, exportador, e := s.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, p.Contexto.Resultado)
-	if e != nil || dependenciaNula(exportador) || ctx.Err() != nil {
-		return Pagina{}, ErrDenegada
+	if e != nil {
+		if ctx.Err() == nil && (errors.Is(e, ErrDenegada) ||
+			errors.Is(e, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3)) {
+			return Pagina{}, ErrDenegada
+		}
+		return Pagina{}, ErrNoDisponible
+	}
+	if dependenciaNula(exportador) || ctx.Err() != nil {
+		return Pagina{}, ErrNoDisponible
 	}
 	material, e := exportador.ExportarMaterialParaConsumidor()
 	if e != nil {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, ErrNoDisponible
 	}
 	q := ConsultaAutorizada{Filtro: f, Material: material, Solicitud: solicitud, Decision: decision, Confirmacion: confirmacion, ResultadoContexto: p.Contexto.Resultado}
 	if ValidarConsultaAutorizadaEn(q, s.ahora().UTC().Truncate(time.Microsecond)) != nil {
-		return Pagina{}, ErrDenegada
+		return Pagina{}, ErrNoDisponible
 	}
 	pagina, e := lector.ConsultarAuditoria(ctx, q)
 	if e != nil {
+		if ctx.Err() == nil && errors.Is(e, ErrDenegada) {
+			return Pagina{}, ErrDenegada
+		}
+		return Pagina{}, ErrNoDisponible
+	}
+	if ctx.Err() != nil {
 		return Pagina{}, ErrNoDisponible
 	}
 	if len(pagina.Registros) > int(f.Limite)+1 {

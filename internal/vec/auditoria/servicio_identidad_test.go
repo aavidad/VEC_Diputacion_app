@@ -11,13 +11,19 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-type emisorAuditoriaIdentidadPrueba struct{ llamadas int }
+type emisorAuditoriaIdentidadPrueba struct {
+	llamadas int
+	fallo    error
+}
 
 func (e *emisorAuditoriaIdentidadPrueba) EmitirMaterialAutorizacionAtestadaV3(
 	context.Context, domain.SolicitudAutorizacionLigadaV3, domain.ResultadoContextoActorRegistradoV2,
 ) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, ports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	e.llamadas++
-	return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errors.New("fin de prueba antes de emitir material")
+	if e.fallo != nil {
+		return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.fallo
+	}
+	return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, ErrDenegada
 }
 
 type fuenteAuditoriaIdentidadPrueba struct{}
