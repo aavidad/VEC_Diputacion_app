@@ -19,7 +19,12 @@ export function crearTraductorResolucionCronos(mensajes) {
   const CLAVES = Object.keys(CATALOGO);
   const catalogo = { ...CATALOGO, ...mensajes };
   if (CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo i18n de resolución de Cronos incompleto");
+  const solicitudesVigentes = MENSAJES_CRONOS_SOLICITUDES;
+  const resolucionVigente = MENSAJES_CRONOS_RESOLUCION;
+  const bandejaVigente = MENSAJES_BANDEJA;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS_SOLICITUDES !== solicitudesVigentes || MENSAJES_CRONOS_RESOLUCION !== resolucionVigente
+      || MENSAJES_BANDEJA !== bandejaVigente) throw new Error("catálogo de resolución Cronos sustituido");
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_c, variable) => String(variables[variable] ?? ""));
   };

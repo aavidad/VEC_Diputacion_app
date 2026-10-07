@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as lectorReal from "../../../comun/textos.js";
 import { prepararTextosCronos } from "./preparar-textos.js";
@@ -30,23 +31,42 @@ test("Jornada y Permisos cargan solo sus catálogos y conservan el idioma activo
   assert.match(renderizarPermisosPropiosCronos({ estado: "cargando", anio: 2026 }), /Leave and permits/);
 });
 
-test("un catálogo de Permisos fallido no borra los textos de Jornada y el lector común lo recupera", async () => {
+test("un catálogo de Permisos fallido invalida textos capturados y el lector común lo recupera", async () => {
   await prepararTextosCronos({ pantalla: "jornada", lector: {
     cargarTextos: (fuente) => cargarTextos(fuente, { idioma: "es", porDefecto: "es" }),
   } });
+  await prepararTextosCronos({ pantalla: "permisos", lector: {
+    cargarTextos: (fuente) => cargarTextos(fuente, { idioma: "es", porDefecto: "es" }),
+  } });
   const t = crearTraductorCronos();
+  const tc = crearTraductorConsultaPermisosCronos();
   const anterior = t("jornada_titulo");
   await assert.rejects(prepararTextosCronos({ pantalla: "permisos", lector: {
     cargarTextos: (fuente) => fuente === "cronos-permisos" ? Promise.reject(new Error("red"))
       : cargarTextos(fuente, { idioma: "es", porDefecto: "es" }),
   } }), /red/);
-  assert.equal(crearTraductorCronos()("jornada_titulo"), anterior);
+  assert.throws(() => t("jornada_titulo"), /sustituido/);
+  assert.throws(() => tc("actualizar"), /sustituido/);
+  assert.throws(() => crearTraductorCronos(), /sin preparar/);
   const recuperadas = [];
   await prepararTextosCronos({ pantalla: "permisos", reintentar: true, lector: {
     reintentarTextos: (fuente) => { recuperadas.push(fuente); return cargarTextos(fuente, { idioma: "es", porDefecto: "es" }); },
   } });
   assert.equal(recuperadas.length, 4);
   assert.equal(crearTraductorCronos()("jornada_titulo"), anterior);
+});
+
+test("una recarga de Jornada fallida no deja utilizable su traductor anterior", async () => {
+  await prepararTextosCronos({ pantalla: "jornada", lector: {
+    cargarTextos: (fuente) => cargarTextos(fuente, { idioma: "en", porDefecto: "en" }),
+  } });
+  const anterior = crearTraductorCronos();
+  assert.equal(anterior("jornada_titulo"), "My working hours");
+  await assert.rejects(prepararTextosCronos({ pantalla: "jornada", reintentar: true, lector: {
+    reintentarTextos: () => Promise.reject(new Error("catálogo inaccesible")),
+  } }), /inaccesible/);
+  assert.throws(() => anterior("jornada_titulo"), /sustituido/);
+  assert.throws(() => crearTraductorCronos(), /sin preparar/);
 });
 
 test("un intento antiguo no publica textos después de un reintento más reciente", async () => {
@@ -63,10 +83,73 @@ test("un intento antiguo no publica textos después de un reintento más recient
   assert.equal(crearTraductorConsultaPermisosCronos()("actualizar"), "Refresh");
 });
 
+test("dos preparaciones normales simultáneas del mismo grupo conservan el resultado", async () => {
+  const pendientes = new Map();
+  const lenta = prepararTextosCronos({ pantalla: "jornada", lector: {
+    cargarTextos: (fuente) => new Promise((resolver) => pendientes.set(fuente, resolver)),
+  } });
+  const rapida = prepararTextosCronos({ pantalla: "jornada", lector: {
+    cargarTextos: (fuente) => cargarTextos(fuente, { idioma: "en", porDefecto: "en" }),
+  } });
+  assert.equal((await rapida).idioma, "en");
+  const t = crearTraductorCronos();
+  for (const [fuente, resolver] of pendientes) resolver(await cargarTextos(fuente, { idioma: "en", porDefecto: "en" }));
+  assert.equal((await lenta).idioma, "en");
+  assert.equal(t("jornada_titulo"), "My working hours");
+});
+
+test("el respaldo válido se aplica a todo el grupo sin mezclar idiomas", async () => {
+  const lecturas = [];
+  const lector = { cargarTextos: async (fuente, opciones) => {
+    lecturas.push([fuente, opciones?.idioma ?? "activo"]);
+    if (!opciones && fuente === "cronos-historial") {
+      const texto = await cargarTextos(fuente, { idioma: "es", porDefecto: "es" });
+      return { ...texto, incidenciaCatalogo: { idioma: "en", respaldo: "es" } };
+    }
+    return cargarTextos(fuente, opciones ?? { idioma: "en", porDefecto: "en" });
+  } };
+  const resultado = await prepararTextosCronos({ pantalla: "permisos", lector });
+  assert.equal(resultado.idioma, "es");
+  assert.deepEqual(lecturas.slice(4), [
+    ["cronos", "es"], ["cronos-historial", "es"], ["cronos-permisos", "es"], ["cronos-permisos-consulta", "es"],
+  ]);
+  assert.equal(crearTraductorConsultaPermisosCronos()("actualizar"), "Actualizar");
+});
+
+test("Jornada lenta de otro idioma no sustituye Permisos más reciente", async () => {
+  const pendientes = new Map();
+  const jornadaLenta = prepararTextosCronos({ pantalla: "jornada", lector: {
+    cargarTextos: (fuente) => new Promise((resolver) => pendientes.set(fuente, resolver)),
+  } });
+  const permisos = await prepararTextosCronos({ pantalla: "permisos", lector: {
+    cargarTextos: (fuente) => cargarTextos(fuente, { idioma: "en", porDefecto: "en" }),
+  } });
+  assert.equal(permisos.idioma, "en");
+  const t = crearTraductorCronos();
+  for (const [fuente, resolver] of pendientes) resolver(await cargarTextos(fuente, { idioma: "es", porDefecto: "es" }));
+  await assert.rejects(jornadaLenta, /superada/);
+  assert.equal(t("jornada_titulo"), "My working hours");
+});
+
 test("el reintento usa la operación real del lector V", {
   skip: typeof lectorReal.reintentarTextos !== "function" && "la base aún no incluye V 9ec23fd1b",
 }, async () => {
   const resultado = await prepararTextosCronos({ pantalla: "jornada", reintentar: true });
   assert.equal(resultado.pantalla, "jornada");
   assert.ok(resultado.idioma);
+});
+
+test("el respaldo real de V mantiene Permisos disponible en un solo idioma", {
+  skip: typeof lectorReal.reintentarTextos !== "function" && "la base aún no incluye V 9ec23fd1b",
+}, async () => {
+  const leer = async (url) => {
+    if (url.pathname.includes("/en/")) throw new Error("idioma activo no disponible");
+    return JSON.parse(await readFile(url, "utf8"));
+  };
+  const lector = { cargarTextos: (fuente, opciones = {}) => lectorReal.cargarTextos(fuente, {
+    idioma: opciones.idioma ?? "en", porDefecto: opciones.porDefecto ?? "es", leer,
+  }) };
+  const resultado = await prepararTextosCronos({ pantalla: "permisos", lector });
+  assert.equal(resultado.idioma, "es");
+  assert.equal(crearTraductorConsultaPermisosCronos()("actualizar"), "Actualizar");
 });

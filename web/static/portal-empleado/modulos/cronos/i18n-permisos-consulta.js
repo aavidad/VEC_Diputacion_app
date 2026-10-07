@@ -8,7 +8,9 @@ export function crearTraductorConsultaPermisosCronos(mensajes = MENSAJES_CONSULT
   if (!mensajes || claves.some((clave) => typeof mensajes[clave] !== "string" || !mensajes[clave])) {
     throw new TypeError("catálogo de consulta de permisos Cronos incompleto");
   }
+  const vigente = MENSAJES_CONSULTA_PERMISOS_CRONOS;
   return (clave) => {
+    if (MENSAJES_CONSULTA_PERMISOS_CRONOS !== vigente) throw new TypeError("catálogo de consulta de permisos Cronos sustituido");
     if (!claves.includes(clave)) throw new TypeError("clave de consulta de permisos Cronos desconocida");
     return mensajes[clave];
   };

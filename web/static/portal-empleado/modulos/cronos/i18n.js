@@ -14,7 +14,9 @@ export function crearTraductorCronos(catalogo = MENSAJES_CRONOS) {
     || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
     throw new Error("catálogo i18n de Cronos incompleto");
   }
+  const vigente = MENSAJES_CRONOS;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS !== vigente) throw new Error("catálogo i18n de Cronos sustituido");
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? ""));
   };

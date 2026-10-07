@@ -10,7 +10,9 @@ export function crearTraductorSolicitudesCronos(mensajes = MENSAJES_CRONOS_SOLIC
   const CLAVES = Object.keys(MENSAJES_CRONOS_SOLICITUDES);
   const catalogo = { ...MENSAJES_CRONOS_SOLICITUDES, ...mensajes };
   if (CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo i18n de solicitudes de Cronos incompleto");
+  const vigente = MENSAJES_CRONOS_SOLICITUDES;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS_SOLICITUDES !== vigente) throw new Error("catálogo de solicitudes Cronos sustituido");
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_c, variable) => String(variables[variable] ?? ""));
   };

@@ -13,7 +13,9 @@ export function crearTraductorJustificacionCronos(mensajes = MENSAJES_JUSTIFICAC
   if (!mensajes || claves.some((clave) => typeof mensajes[clave] !== "string" || !mensajes[clave])) {
     throw new TypeError("catálogo de justificación Cronos incompleto");
   }
+  const vigente = MENSAJES_JUSTIFICACION_CRONOS;
   return (clave) => {
+    if (MENSAJES_JUSTIFICACION_CRONOS !== vigente) throw new TypeError("catálogo de justificación Cronos sustituido");
     if (!claves.includes(clave)) throw new TypeError("clave de justificación Cronos desconocida");
     return mensajes[clave];
   };

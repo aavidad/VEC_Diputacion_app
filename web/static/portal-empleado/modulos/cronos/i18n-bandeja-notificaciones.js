@@ -10,7 +10,11 @@ export function crearTraductorBandejaNotificacionesCronos(mensajes) {
   const catalogo = { ...MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS, ...mensajes };
   const claves = Object.keys(MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS);
   if (claves.some((clave) => typeof catalogo[clave] !== "string" || !catalogo[clave])) throw new TypeError("catálogo de bandeja Cronos incompleto");
-  return (clave, variables = {}) => claves.includes(clave)
-    ? catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_texto, nombre) => String(variables[nombre] ?? ""))
-    : base(clave, variables);
+  const vigente = MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS;
+  return (clave, variables = {}) => {
+    if (MENSAJES_BANDEJA_NOTIFICACIONES_CRONOS !== vigente) throw new TypeError("catálogo de bandeja Cronos sustituido");
+    return claves.includes(clave)
+      ? catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_texto, nombre) => String(variables[nombre] ?? ""))
+      : base(clave, variables);
+  };
 }

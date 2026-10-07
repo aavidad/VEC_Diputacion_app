@@ -26,6 +26,8 @@ const SECCIONES_BASE = Object.freeze({
 });
 
 const generaciones = new Map();
+let siguienteIntento = 0;
+let ultimoEstado = { orden: 0, idioma: null, valido: false };
 
 function seccion(textos, nombre) {
   const mensajes = textos.seccion(nombre);
@@ -37,10 +39,24 @@ function seccion(textos, nombre) {
 }
 
 function validarCatalogo(textos) {
-  if (textos.incidenciaIndice || textos.incidenciaCatalogo || textos.faltantes?.length) {
+  if (textos.incidenciaIndice || textos.faltantes?.length
+    || (textos.incidenciaCatalogo && textos.incidenciaCatalogo.respaldo !== textos.idioma)) {
     throw new Error("textos de Cronos pendientes de recuperación");
   }
   return textos;
+}
+
+function invalidarTodo() {
+  for (const instalar of [
+    instalarMENSAJES_CRONOS, instalarMENSAJES_CRONOS_SOLICITUDES,
+    instalarMENSAJES_CRONOS_PERMISOS, instalarMENSAJES_JUSTIFICACION_CRONOS,
+    instalarMENSAJES_CRONOS_RESOLUCION, instalarMENSAJES_BANDEJA,
+    instalarMENSAJES_CRONOS_NOTIFICACIONES, instalarMENSAJES_CONSULTA_CRONOS,
+    instalarMENSAJES_FICHAJE_CRONOS, instalarMENSAJES_CRONOS_INCIDENCIAS,
+    instalarMENSAJES_HISTORIAL_CRONOS, instalarMENSAJES_CONSULTA_PERMISOS_CRONOS,
+    instalarMENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS,
+    instalarMENSAJES_BANDEJA_NOTIFICACIONES_CRONOS,
+  ]) instalar(undefined);
 }
 
 function publicar(pantalla, catalogos) {
@@ -67,14 +83,26 @@ function publicar(pantalla, catalogos) {
 export function prepararTextosCronos({ pantalla = "jornada", reintentar = false, lector = lectorComun } = {}) {
   const fuentes = FUENTES[pantalla];
   if (!fuentes) throw new TypeError("pantalla de Cronos desconocida");
-  const generacion = (generaciones.get(pantalla) ?? 0) + 1;
+  const orden = ++siguienteIntento;
+  const generacion = (generaciones.get(pantalla) ?? 0) + (reintentar ? 1 : 0);
   generaciones.set(pantalla, generacion);
   const cargar = reintentar ? lector.reintentarTextos : lector.cargarTextos;
   if (typeof cargar !== "function") throw new TypeError("lector común de textos no disponible");
   const intento = Promise.all(fuentes.map(async (fuente) => [fuente, validarCatalogo(await cargar(fuente))]))
-    .then((pares) => {
+    .then(async (pares) => {
       if (generaciones.get(pantalla) !== generacion) throw new Error("preparación de Cronos superada");
+      // Si una fuente usa el respaldo, toda la pantalla usa ese mismo idioma.
+      const respaldo = pares.find(([, textos]) => textos.incidenciaCatalogo)?.[1].idioma;
+      if (respaldo) {
+        pares = await Promise.all(fuentes.map(async (fuente) => [fuente, validarCatalogo(await lector.cargarTextos(
+          fuente, { idioma: respaldo, porDefecto: respaldo },
+        ))]));
+      }
       const catalogos = Object.fromEntries(pares);
+      const idioma = catalogos.cronos.idioma;
+      if (pares.some(([, textos]) => textos.idioma !== idioma || textos.incidenciaCatalogo)) {
+        throw new Error("idiomas de Cronos incompatibles");
+      }
       // Validar todas las secciones antes de publicar cualquiera de ellas.
       for (const [fuente, textos] of pares) {
         const nombres = {
@@ -86,8 +114,20 @@ export function prepararTextosCronos({ pantalla = "jornada", reintentar = false,
         }[fuente];
         for (const nombre of nombres) seccion(textos, nombre);
       }
+      if (generaciones.get(pantalla) !== generacion
+        || (ultimoEstado.orden > orden && (!ultimoEstado.valido || ultimoEstado.idioma !== idioma))) {
+        throw new Error("preparación de Cronos superada");
+      }
+      if (ultimoEstado.valido && ultimoEstado.idioma !== idioma) invalidarTodo();
       publicar(pantalla, catalogos);
-      return Object.freeze({ pantalla, idioma: catalogos.cronos.idioma, localizacion: catalogos.cronos.localizacion });
+      if (orden >= ultimoEstado.orden) ultimoEstado = { orden, idioma, valido: true };
+      return Object.freeze({ pantalla, idioma, localizacion: catalogos.cronos.localizacion });
+    }).catch((error) => {
+      if (generaciones.get(pantalla) === generacion && orden >= ultimoEstado.orden) {
+        invalidarTodo();
+        ultimoEstado = { orden, idioma: null, valido: false };
+      }
+      throw error;
     });
   return intento;
 }

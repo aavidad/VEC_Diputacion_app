@@ -8,7 +8,9 @@ export function crearTraductorNotificacionesHistorialCronos(mensajes = MENSAJES_
   if (!mensajes || claves.some((clave) => typeof mensajes[clave] !== "string" || !mensajes[clave])) {
     throw new TypeError("catálogo de historial de notificaciones Cronos incompleto");
   }
+  const vigente = MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS;
   return (clave, variables = {}) => {
+    if (MENSAJES_NOTIFICACIONES_HISTORIAL_CRONOS !== vigente) throw new TypeError("catálogo de historial de notificaciones Cronos sustituido");
     if (!claves.includes(clave)) throw new TypeError("clave de historial de notificaciones Cronos desconocida");
     return mensajes[clave].replace(/\{([a-z_]+)\}/gu, (_texto, nombre) => String(variables[nombre] ?? ""));
   };

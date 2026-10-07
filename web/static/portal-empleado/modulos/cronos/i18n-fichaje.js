@@ -7,7 +7,9 @@ export function crearTraductorFichajeCronos(catalogo = MENSAJES_FICHAJE_CRONOS) 
   if (!catalogo || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || !catalogo[clave])) {
     throw new TypeError("catálogo de fichaje incompleto");
   }
+  const vigente = MENSAJES_FICHAJE_CRONOS;
   return (clave) => {
+    if (MENSAJES_FICHAJE_CRONOS !== vigente) throw new TypeError("catálogo de fichaje sustituido");
     if (!CLAVES.includes(clave)) throw new TypeError("clave de fichaje desconocida");
     return catalogo[clave];
   };

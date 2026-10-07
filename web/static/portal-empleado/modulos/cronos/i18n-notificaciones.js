@@ -12,7 +12,12 @@ export function crearTraductorNotificacionesCronos(mensajes) {
   if (!MENSAJES_CRONOS_NOTIFICACIONES || !MENSAJES_CRONOS_SOLICITUDES) throw new Error("catálogo de notificaciones Cronos sin preparar");
   const catalogo = { ...CATALOGO, ...mensajes };
   if (CLAVES.some((c) => typeof catalogo[c] !== "string" || catalogo[c] === "")) throw new Error("catálogo i18n de notificaciones de Cronos incompleto");
+  const solicitudesVigentes = MENSAJES_CRONOS_SOLICITUDES;
+  const notificacionesVigentes = MENSAJES_CRONOS_NOTIFICACIONES;
   return (clave, variables = {}) => {
+    if (MENSAJES_CRONOS_SOLICITUDES !== solicitudesVigentes || MENSAJES_CRONOS_NOTIFICACIONES !== notificacionesVigentes) {
+      throw new Error("catálogo de notificaciones Cronos sustituido");
+    }
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Cronos desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/gu, (_c, variable) => String(variables[variable] ?? ""));
   };
