@@ -1,0 +1,17 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "Synthetic exercise. Does not assign employment, profiles or portal access.",
+    "uso_invalido": "Check the subcommand and file arguments.",
+    "entrada_insegura": "The private file does not meet path or permission requirements.",
+    "entrada_invalida": "The plan, approval or connection do not match.",
+    "acuse_inseguro": "Could not prepare the private output file.",
+    "operacion_no_confirmada": "The SQL authority did not confirm the operation.",
+    "commit_no_confirmado": "COMMIT could not be confirmed. Use reconcile with the same plan; preserve the operation.",
+    "acuse_no_guardado": "The operation committed, but the receipt was not saved. Use reconcile.",
+    "fuentes_confirmadas": "Synthetic ordinary identity confirmed.",
+    "fuentes_rechazadas": "The SQL authority denied the operation.",
+    "fuentes_no_disponibles": "The SQL authority is unavailable.",
+    "plan_preparado": "Plan prepared. Private approval and SQL authority application are required."
+  }
+}
