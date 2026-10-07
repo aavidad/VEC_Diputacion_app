@@ -19,110 +19,44 @@ BEGIN
  THEN RAISE EXCEPTION 'AD213: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
-DO $nucleo$
+-- AD214, dueño del núcleo y del CHECK de audiencias, debe preceder a AD213.
+-- Esta migración sólo añade la fachada nominal y su ACL; no modifica el
+-- material V3, la historia ni la autoridad común.
+DO $post214$
 DECLARE
- f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
- -- Preimagen del clon sintético S, PostgreSQL 18.4, posterior a AD207/208.
- esperada text:='536ea653143147e0cfb2d3277948530acb8d4d1643e44f4786462fe5ad1379fe';
- marca text:=$m$       )
-       OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$m$;
- excl text:=$e$               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_politica_cese_bolsa'
-$e$;
- excl_nuevo text:=$en$               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_politica_cese_bolsa'
-               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa'
-$en$;
- runtime text:=$r$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_politica_cese_bolsa'
-$r$;
- runtime_nuevo text:=$rn$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_politica_cese_bolsa'
-               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_rrhh_bolsa'
-$rn$;
- extension text:=$x$           OR (
- p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_rrhh_bolsa'
- AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
- AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
- AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
- AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
- AND (
-   (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.rrhh.bolsas.consultar'
-    AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1'
-    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'coleccion_bolsas_rrhh'
-    AND d->>'recurso_ref' IS NOT DISTINCT FROM 'coleccion:bolsa:rrhh:bolsas'
-    AND d->>'finalidad' IS NOT DISTINCT FROM 'consulta_rrhh_bolsas'
-    AND d->'campos_permitidos' IS NOT DISTINCT FROM '["bolsas","conteos"]'::jsonb)
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.rrhh.estadisticas.consultar'
-    AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1'
-    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'estadisticas_bolsas_rrhh'
-    AND d->>'recurso_ref' IS NOT DISTINCT FROM 'coleccion:bolsa:rrhh:estadisticas'
-    AND d->>'finalidad' IS NOT DISTINCT FROM 'consulta_rrhh_estadisticas'
-    AND d->'campos_permitidos' IS NOT DISTINCT FROM '["estadisticas"]'::jsonb)
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.rrhh.candidatos.consultar'
-    AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1'
-    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'consulta_candidatos_bolsa'
-    AND d->>'recurso_ref' ~ '^bolsa:[A-Za-z0-9:_-]+:filtro:[a-f0-9]{64}$'
-    AND d->>'finalidad' IS NOT DISTINCT FROM 'consulta_rrhh_candidatos'
-    AND d->'campos_permitidos' IS NOT DISTINCT FROM '["candidatos","contactos","turno"]'::jsonb)))
-$x$;
+ nucleo text;
+ audiencias text;
+ f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ propietario oid;
+ definidora boolean;
+ configuracion text[];
 BEGIN
- SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
- INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_catalog.pg_proc p WHERE p.oid=f;
- SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
- INTO deps FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
- IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada
-    OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
-    OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,excl,''))<>pg_catalog.length(excl)
-    OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,runtime,''))<>pg_catalog.length(runtime)
-    OR pg_catalog.strpos(original,'consulta_rrhh_bolsa')<>0
- THEN RAISE EXCEPTION 'AD213: núcleo incompatible' USING ERRCODE='55000'; END IF;
- nuevo:=pg_catalog.replace(original,excl,excl_nuevo);
- nuevo:=pg_catalog.replace(nuevo,runtime,runtime_nuevo);
- nuevo:=pg_catalog.replace(nuevo,marca,extension||marca);
- EXECUTE nuevo;
- SELECT pg_catalog.pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo
-    OR pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(actual,extension||marca,marca),runtime_nuevo,runtime),excl_nuevo,excl) IS DISTINCT FROM original
-    OR (SELECT pg_catalog.to_jsonb(p)-'prosrc' FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-    OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM config
-    OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM definidora
-    OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-        FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
- THEN RAISE EXCEPTION 'AD213: núcleo alterado fuera del contrato' USING ERRCODE='55000'; END IF;
-END $nucleo$;
-
-LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
-DO $audiencias$
-DECLARE d text; a text;
-BEGIN
- SELECT pg_catalog.pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_catalog.pg_constraint c
+ SELECT pg_catalog.pg_get_functiondef(f),p.proowner,p.prosecdef,p.proconfig
+ INTO STRICT nucleo,propietario,definidora,configuracion
+ FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ SELECT pg_catalog.pg_get_constraintdef(c.oid,true) INTO STRICT audiencias
+ FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
-   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(d,'UTF8')),'hex')
-      IS DISTINCT FROM 'af58417e64bd6a982745ae540d7836cbb560bce982fe1d4f5a035a15a835802e'
-    OR pg_catalog.left(d,7)<>'CHECK (' OR pg_catalog.right(d,1)<>')'
-    OR pg_catalog.strpos(d,'audiencia_consumo')=0
- THEN RAISE EXCEPTION 'AD213: audiencias incompatibles' USING ERRCODE='55000'; END IF;
- FOREACH a IN ARRAY ARRAY[
-  'vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1',
-  'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1',
-  'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1'] LOOP
-   IF pg_catalog.strpos(d,pg_catalog.quote_literal(a))<>0 THEN
-     RAISE EXCEPTION 'AD213: audiencia ya presente' USING ERRCODE='55000';
-   END IF;
- END LOOP;
- ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '
-  ||pg_catalog.format('CHECK (%s OR audiencia_consumo = ANY (ARRAY[%L::text,%L::text,%L::text]))',
-     pg_catalog.substr(d,8,pg_catalog.length(d)-8),
-     'vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1',
-     'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1',
-     'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1');
-END $audiencias$;
+   AND c.conname='clave_capacidad_version_audiencia_consumo_check'
+   AND c.contype='c' AND c.convalidated;
+ IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole
+    OR NOT definidora
+    OR configuracion IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+       CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+       WHERE p.oid=f AND a.grantee=0)
+    OR pg_catalog.pg_get_function_result(f) IS DISTINCT FROM
+       'TABLE(decision_ref text, efecto_ref text, huella_efecto_sha256 text, consumo_huella_sha256 text, auditoria_ref text, consumida_en timestamp with time zone, consumo_nuevo boolean)'
+    OR pg_catalog.strpos(nucleo,'consulta_rrhh_bolsa')=0
+    OR pg_catalog.strpos(nucleo,'bolsa.rrhh.bolsas.consultar')=0
+    OR pg_catalog.strpos(nucleo,'bolsa.rrhh.estadisticas.consultar')=0
+    OR pg_catalog.strpos(nucleo,'bolsa.rrhh.candidatos.consultar')=0
+    OR pg_catalog.strpos(audiencias,'vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1')=0
+    OR pg_catalog.strpos(audiencias,'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1')=0
+    OR pg_catalog.strpos(audiencias,'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1')=0
+ THEN RAISE EXCEPTION 'AD213: exige AD214 con tres acciones y audiencias Bolsa' USING ERRCODE='55000'; END IF;
+END $post214$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_consulta_rrhh_bolsa_v3_atestada(
  p_accion text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
