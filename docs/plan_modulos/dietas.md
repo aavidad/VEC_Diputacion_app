@@ -107,7 +107,7 @@ miles de comisiones y gastos sintéticos. Se mantienen autorización y auditorí
 
 | Orden | Entrega comprobable | Dependencia |
 | --- | --- | --- |
-| DIE-01 | Contrato de admisión y lectura de catálogo económico con procedencia, acto aprobatorio, alcance, vigencia, versión y huella; conserva el estado «ejemplo» de los datos actuales. Entrega una instantánea al preparador ya existente, sin otro motor de cálculo. | Puede ensayarse con datos sintéticos. RRHH validará fuente y acto antes de publicar tarifas liquidables. Primer PR del dueño Dietas, sin SQL ni rutas nuevas. |
+| DIE-01 | Contrato de admisión y lectura de catálogo económico con procedencia, acto aprobatorio, alcance, vigencia, versión y huella; conserva el estado «ejemplo» de los datos actuales. Entrega una instantánea al preparador ya existente, sin otro motor de cálculo. | Puede ensayarse con datos sintéticos. RRHH validará fuente y acto antes de publicar tarifas liquidables. Primer corte del dueño Dietas, sin SQL ni rutas nuevas. |
 | DIE-02 | Envío propio conserva comisión y justificantes referenciados, versiones y recibo recuperable; los bytes pasan por adaptador de Documentos con límites y antivirus. | Contrato del custodio de Documentos y política de tipos, conservación y subida; dudas 49/50/60. |
 | DIE-03 | Bandeja y decisión por perfil fijo, etapa y unidad exactas, con devolución y reenvío histórico. | Competencias centrales publicadas y contrato de acto de autorización; dudas 25/40/46/51/105/122. |
 | DIE-04 | Liquidación económica durable y rectificación enlazada; PDF de la instantánea exacta. | Catálogo admitido, DIE-02/03, postimagen de `000012` y orden SQL acordado. Reserva de migración fuera de Git, ensayo en clon y dos revisiones independientes. |
