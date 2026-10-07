@@ -318,6 +318,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/dietas/vista-mapa-comision.js", "modulos/dietas/mapa-ruta.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261007-u-dietas-catalogo-v1");
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-ct-alta-vista-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -455,7 +462,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-u-dietas-catalogo-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-alta-vista-v1");
 
 });
 
@@ -465,10 +472,11 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
+  const versionRaiz = "20261008-ct-alta-vista-v1";
   const comun = "20261007-pantallas-textos-final-v1";
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), version);
-  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), version);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), version);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
+  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionRaiz);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionRaiz);
   assert.equal(versionDe(coordinador, "./modulos/dietas/vista-recorridos.js"), version);
   assert.equal(versionDe(coordinador, "./modulos/dietas/mapa-ruta.js"), version);
   assert.equal(versionDe(recorridos, "./vista-borradores-propios.js"), version);
