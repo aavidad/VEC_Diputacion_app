@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261007-pantallas-textos-final-v1";
+import { peticionesEnSerie } from "../comun/imagen-propia.js";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("preferencias");
 
 const valores = Object.freeze({ idioma: "es", tamano_texto: "normal", alto_contraste: false,
   tema: "sistema", inicio: "cuadro", filas: 20, aviso_correo_tareas: false, aviso_correo_plazos: false });
@@ -26,6 +29,39 @@ test("GET conserva la versión cero y el catálogo servidor sin crear ni escribi
   assert.equal(peticiones[0].opciones.method, "GET");
   assert.equal(peticiones[0].opciones.credentials, "same-origin");
   assert.equal(peticiones[0].opciones.body, undefined);
+});
+
+test("dos vistas comparten GET en vuelo y una cancelación no corta la otra", async () => {
+  let resolver;
+  let llamadas = 0;
+  const cliente = crearClientePreferencias({ fetchImpl: () => {
+    llamadas++;
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const una = new AbortController();
+  const otra = new AbortController();
+  const primera = cliente.consultar({ signal: una.signal });
+  const segunda = cliente.consultar({ signal: otra.signal });
+  await Promise.resolve();
+  assert.equal(llamadas, 1);
+  una.abort();
+  await assert.rejects(primera);
+  resolver(respuesta(get));
+  assert.equal((await segunda).estado.version, 0);
+  assert.equal(llamadas, 1);
+});
+
+test("GET recupera después de una respuesta 503 grande sin romper la cola de Usuarios", async () => {
+  let llamadas = 0;
+  const enSerie = peticionesEnSerie(async () => {
+    llamadas++;
+    return llamadas === 1
+      ? new Response("x".repeat(70 * 1024), { status: 503, headers: { "Content-Type": "application/json" } })
+      : respuesta(get);
+  });
+  const cliente = crearClientePreferencias({ fetchImpl: enSerie });
+  assert.equal((await cliente.consultar()).estado.version, 0);
+  assert.equal(llamadas, 2);
 });
 
 test("v2 permite los seis temas; v1 rechaza un tema adelantado", async () => {

@@ -49,6 +49,8 @@
     "mapa_nota_osm_interno": "OpenStreetMap loaded from tiles served on the internal network. Historical map source; full coverage of the province and its 15 km strip has not yet been confirmed.",
     "mapa_zoom_acercar": "Zoom in on the map",
     "mapa_zoom_alejar": "Zoom out of the map",
+    "mapa_parada": "Stop {numero}: {nombre}",
+    "mapa_atribucion_interna": "© OpenStreetMap contributors · © OpenMapTiles · served on the internal network",
     "borradores_propios_titulo": "My trip drafts",
     "borradores_propios_nuevo": "New draft",
     "borradores_propios_fecha_inicio": "Start date",

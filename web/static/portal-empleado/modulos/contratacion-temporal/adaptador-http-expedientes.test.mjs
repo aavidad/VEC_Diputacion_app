@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
@@ -185,9 +185,10 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
 });
 
 test("la proyección autorizada localiza cabeceras, fase, estado y período sin alterar datos de servidor", async () => {
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
   for (const [locale, mensajes, fase, estado, cabecera] of [
     ["es-ES", {}, "Obtención del candidato", "En trámite", "Período solicitado"],
-    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate selection", "In progress", "Requested period"],
+    ["en-GB", mensajesEN, "Candidate selection", "In progress", "Requested period"],
   ]) {
     const llamadas = [];
     const cliente = clienteFalso(llamadas);
