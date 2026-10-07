@@ -99,3 +99,22 @@ test("un catálogo inaccesible no rompe la importación y permite otra preparaci
   assert.equal(recuperado.idioma, "es");
   assert.equal(aislado.crearTraductorPersonal()("catalogo_recuento_uno", { total: "1" }), "1 categoría");
 });
+
+test("un JSON válido con general vacío no publica textos y se recupera al reintentar", async () => {
+  const aislado = await import("./i18n.js?general-vacio");
+  const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
+  let lecturas = 0;
+  await assert.rejects(aislado.prepararTextosPersonal({
+    idioma: "es", porDefecto: "es", avisar: () => {},
+    leer: async () => { lecturas++; return { general: {} }; },
+  }), /no válido|incompleto/);
+  assert.equal(lecturas, 2);
+  assert.equal(aislado.MENSAJES_PERSONAL, undefined);
+  assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
+  const recuperado = await aislado.prepararTextosPersonal({
+    idioma: "es", porDefecto: "es", avisar: () => {}, leer: async () => datos,
+  });
+  assert.equal(recuperado.idioma, "es");
+  assert.ok(Object.isFrozen(aislado.MENSAJES_PERSONAL));
+  assert.equal(aislado.crearTraductorPersonal()("catalogo_recuento_uno", { total: "1" }), "1 categoría");
+});
