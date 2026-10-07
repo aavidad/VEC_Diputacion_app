@@ -11,3 +11,6 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD214 sobre HX→AD211/P22→AD175/P32→AD180/P34. Sólo Bolsa RRHH;
 # definición 63afb3d4e6f33d4ee8efce1e54d7e8f92ac9f8cec58506c2af146e88dca4552e.
 78137d8750422597c0da56797fd3ddff797cd54f18d98b0c1c8f4b7f742079dd
+# Post AD216: sólo bolsa_ref de candidatos acotada; definición del núcleo
+# 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3.
+03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd
