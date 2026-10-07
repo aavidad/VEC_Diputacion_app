@@ -6,7 +6,7 @@ globalThis.location = { href: "https://vec.example/portal-empleado/?lang=es" };
 const idiomaPreparado = await import("../comun/idioma.js");
 await idiomaPreparado.prepararIdiomas();
 const { IDIOMA_ACTUAL } = idiomaPreparado;
-const { crearTraductorPortal, MENSAJES_PORTAL, prepararTextosPortal } = await import("./portal-i18n.js?v=20261001-ct-a-i18n-v1");
+const { crearTraductorPortal, MENSAJES_PORTAL, prepararTextosPortal } = await import("./portal-i18n.js?v=20261007-pantallas-textos-final-v1");
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA, AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
 const ayudaDe = async (idioma) => JSON.parse(await readFile(new URL(`../textos/${idioma}/portal-ayuda.json`, import.meta.url), "utf8")).ayuda;

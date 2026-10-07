@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePoliticaCeseRRHH, RUTA_POLITICA_CESE, validarPoliticaCeseRRHH } from "./rrhh-politica-cese-api.js";
-import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js?v=20261001-ct-a-i18n-v1";
-import { prepararTextosPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("bolsa");
 
 const politica = Object.freeze({

@@ -6,11 +6,11 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("ayuda");
-const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=20261001-ct-a-i18n-v1");
-import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);

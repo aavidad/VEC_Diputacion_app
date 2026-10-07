@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261007-pantallas-textos-final-v1";
 import { peticionesEnSerie } from "../comun/imagen-propia.js";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("preferencias");
 
 const valores = Object.freeze({ idioma: "es", tamano_texto: "normal", alto_contraste: false,

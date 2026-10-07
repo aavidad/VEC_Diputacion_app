@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORTAL } =
-  await import("./ayuda-contenido.js?v=20261001-ct-a-i18n-v1");
+  await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
 const { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } =
-  await import("./ayudante-tramites.js?v=20261001-ct-a-i18n-v1");
+  await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const MENSAJES_AYUDA_PORTAL = JSON.parse(await readFile(new URL("../textos/es/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
