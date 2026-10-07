@@ -76,9 +76,9 @@ BEGIN
  WHEN 'material' THEN campos:=ARRAY['OperacionRef','ProponentePersonaRef','PerfilActivoRef','AsignacionPerfilRef','Plan'];tipos:=ARRAY['string','string','string','string','plan'];
  WHEN 'plan' THEN campos:=ARRAY['operacion','catalogo_ref','catalogo_version','catalogo_huella_sha256','version_rol_objetivo_ref','definicion_nueva','selecciones','motivo','referencia_acto'];tipos:=ARRAY['string','string','int','string','string','definicion','seleccion[]','motivo','string'];opc:=ARRAY['referencia_acto'];
  WHEN 'definicion' THEN campos:=ARRAY['rol_id','version','nombre','concesiones'];tipos:=ARRAY['string','int','nombre','concesion[]'];
- WHEN 'seleccion' THEN campos:=ARRAY['entrada_ref','entrada_version','entrada_huella_sha256'];tipos:=ARRAY['string','int','string'];
+ WHEN 'seleccion' THEN campos:=ARRAY['entrada_ref','entrada_version','entrada_huella_sha256'];tipos:=ARRAY['string','int64','string'];
  WHEN 'motivo' THEN campos:=ARRAY['catalogo_id','catalogo_version','catalogo_huella_sha256','entrada_clave'];tipos:=ARRAY['string','int','string','string'];
- WHEN 'entrada' THEN campos:=ARRAY['referencia','version','fuente_ref','fuente_version','fuente_huella_sha256','concesion','dimensiones_ambito','clase_control','vigente_desde','vigente_hasta'];tipos:=ARRAY['string','int','string','int','string','concesion','strings','string','fecha','fecha'];
+ WHEN 'entrada' THEN campos:=ARRAY['referencia','version','fuente_ref','fuente_version','fuente_huella_sha256','concesion','dimensiones_ambito','clase_control','vigente_desde','vigente_hasta'];tipos:=ARRAY['string','int64','string','int','string','concesion','strings','string','fecha','fecha'];
  ELSE RAISE EXCEPTION 'AUT60: canon desconocido' USING ERRCODE='22023';
  END CASE;
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR octet_length(p::text)>60000
@@ -96,9 +96,10 @@ BEGIN
    THEN RAISE EXCEPTION 'AUT60: cadena canon invalida' USING ERRCODE='22023'; END IF;
    IF tipos[i]='fecha' THEN s:=vec_autorizacion.fecha_canonica_go_admin_v1(v#>>'{}',k='vigente_hasta');ELSE s:=v#>>'{}';END IF;
    s:=vec_autorizacion.json_cadena_canonica_go_admin_v1(s);
-  ELSIF tipos[i]='int' THEN
-   IF jsonb_typeof(v) IS DISTINCT FROM 'number' OR (v#>>'{}') !~ '^[1-9][0-9]{0,9}$'
-   OR (v#>>'{}')::numeric>2147483647 THEN RAISE EXCEPTION 'AUT60: entero canon invalido' USING ERRCODE='22023'; END IF;s:=v#>>'{}';
+  ELSIF tipos[i] IN('int','int64') THEN
+   IF jsonb_typeof(v) IS DISTINCT FROM 'number' OR (v#>>'{}') !~ '^[1-9][0-9]{0,18}$'
+   OR (v#>>'{}')::numeric>(CASE WHEN tipos[i]='int' THEN 2147483647::numeric ELSE 9223372036854775807::numeric END)
+   THEN RAISE EXCEPTION 'AUT60: entero canon invalido' USING ERRCODE='22023'; END IF;s:=v#>>'{}';
   ELSIF tipos[i] IN('seleccion[]','concesion[]') THEN
    IF jsonb_typeof(v) IS DISTINCT FROM 'array' OR jsonb_array_length(v)<>1 THEN RAISE EXCEPTION 'AUT60: se requiere una concesion' USING ERRCODE='22023';END IF;
    IF tipos[i]='concesion[]' THEN s:='['||vec_autorizacion.objeto_canonico_go_admin_v1(v->0,'concesion')||']';
