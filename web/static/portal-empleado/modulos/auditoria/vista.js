@@ -196,7 +196,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cabecera-panel"><h3 id="auditoria-resultados-titulo">${escapar(t("resultados_titulo"))}</h3>
         <span class="estado-chip ${["denegado", "error"].includes(estado) ? "peligro" : estado === "disponible" ? "exito" : "aviso"}">${escapar(mensaje)}</span></div>
       <div class="cuerpo-panel"><p class="auditoria-estado-texto" role="status" aria-live="polite">${escapar(mensaje)}</p>
-      ${estado === "error" && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
+      ${["error", "no_disponible"].includes(estado) && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
         <table><thead><tr>${["fecha", "actor", "accion", "cambio", "motivo", "relacionado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
         <tbody>${registros.map((r) => fila(t, r, ejemplo, { expedienteRef, numeroVisible, fuenteContexto })).join("")}</tbody></table></div>` : ""}

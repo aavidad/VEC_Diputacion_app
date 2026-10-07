@@ -309,3 +309,12 @@ test("Bolsa muestra situación, motivo publicable y datos de contacto protegidos
   assert.match(html, /Cambió la situación en la bolsa<\/td><td>Sin valores visibles<\/td><td>Constitución de la bolsa<\/td>/u);
   assert.doesNotMatch(html, /cifrado|no_disponible|valor:correo/u);
 });
+
+
+test("la auditoría temporalmente no disponible permite reintentar y mantiene los filtros cerrados", () => {
+  const html = renderizarVistaAuditoria({ estado: "no_disponible", expedienteRef: `expediente:ct:${"a".repeat(64)}`,
+    numeroVisible: "CT-000127", fuenteContexto: "ct" });
+  assert.match(html, /data-auditoria-reintentar/u);
+  assert.match(html, /name="desde"[^>]+disabled/u);
+  assert.doesNotMatch(html, /<table|Acceso denegado/u);
+});
