@@ -67,6 +67,7 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	opciones.SetOutput(io.Discard)
 	dir := opciones.String("catalogos-dir", "web/static/textos", "")
 	idioma := opciones.String("idioma", i18n.DefaultLocale, "")
+	salidaTribunal := opciones.String("tribunal-salida", "", "")
 	if opciones.Parse(args) != nil || opciones.NArg() != 0 || salida == nil || errores == nil {
 		return informarError(errores, nil, *idioma, errEntradaJSON.Error())
 	}
@@ -75,13 +76,21 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	if err == nil {
 		err = leerJSON(entrada, &material)
 	}
+	if err == nil && *salidaTribunal != "" {
+		var tribunal domain.PreparacionTribunal
+		var huella string
+		tribunal, huella, err = leerSalidaTribunal(*salidaTribunal)
+		if err == nil {
+			material, err = application.CotejarSalidaTribunal(ctx, tribunal, huella, material)
+		}
+	}
 	var preparacion domain.PreparacionActa
 	if err == nil {
 		preparacion, err = application.PrepararMaterialActa(ctx, material)
 	}
 	if err != nil {
 		clave := errEntradaJSON.Error()
-		if err == domain.ErrMaterialActaInvalido || err == application.ErrPreparacionActaNoDisponible {
+		if err == domain.ErrMaterialActaInvalido || err == application.ErrPreparacionActaNoDisponible || err == application.ErrCotejoTribunalActa {
 			clave = err.Error()
 		}
 		return informarError(errores, catalogo, *idioma, clave)
@@ -104,10 +113,18 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		Preparacion domain.PreparacionActa `json:"preparacion"`
 		Limite      string                 `json:"limite"`
 		Mensajes    []pendienteVisible     `json:"mensajes"`
-	}{titulo, preparacion, limite, mensajes}) != nil {
+		CotejoLocal string                 `json:"cotejo_local,omitempty"`
+	}{titulo, preparacion, limite, mensajes, cotejoLocal(*salidaTribunal)}) != nil {
 		return informarError(errores, catalogo, *idioma, "seleccion.acta_preparacion.salida_no_disponible")
 	}
 	return 0
+}
+
+func cotejoLocal(archivo string) string {
+	if archivo != "" {
+		return "salida_tribunal_sha256"
+	}
+	return ""
 }
 
 func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {
