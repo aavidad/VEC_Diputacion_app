@@ -29,3 +29,22 @@ func TestModuloReferenciaExpedienteV1(t *testing.T) {
 		}
 	}
 }
+
+var moduloReferenciaExpedienteMedida string
+
+func BenchmarkModuloReferenciaExpedienteV1(b *testing.B) {
+	for nombre, referencia := range map[string]string{
+		"ct_valida": "expediente:ct:" + strings.Repeat("a", 64),
+		"ct_cero":   "expediente:ct:" + strings.Repeat("0", 64),
+		"opaca":     "ref:" + strings.Repeat("b", 64),
+	} {
+		b.Run(nombre, func(b *testing.B) {
+			b.ReportAllocs()
+			var modulo string
+			for b.Loop() {
+				modulo = ModuloReferenciaExpedienteV1(referencia)
+			}
+			moduloReferenciaExpedienteMedida = modulo
+		})
+	}
+}
