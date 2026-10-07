@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN } from "./rrhh-plantillas-i18n.js";
 import { MENSAJES_REINCORPORACION_RRHH_ES, MENSAJES_REINCORPORACION_RRHH_EN } from "./rrhh-reincorporacion-i18n.js";
@@ -19,10 +20,14 @@ test("los tres catálogos RRHH C3/B55 conservan claves y marcadores en inglés",
   }
 });
 
-test("la recuperación reutiliza la petición y la publicación muestra su recibo", () => {
+test("la recuperación reutiliza la petición y la publicación muestra su recibo", async () => {
   assert.match(MENSAJES_RRHH_PLANTILLAS_EN.plantillas_rrhh_ayuda, /same request using its original key/u);
   assert.match(MENSAJES_RRHH_PLANTILLAS_EN.plantillas_rrhh_publicacion_indeterminada, /do not start another/u);
   assert.equal(MENSAJES_BORRADORES_PUBLICADOS_ES.bp_publicacion_recibo, "Recibo de publicación: {recibo}");
-  assert.equal(MENSAJES_BORRADORES_PUBLICADOS_EN.bp_publicacion_recibo, "Publication receipt: {recibo}");
+  const ingles = JSON.parse(await readFile(new URL(
+    "../../../textos/en/contratacion-temporal-borradores-publicados.json", import.meta.url), "utf8"));
+  assert.equal(ingles.general.bp_publicacion_recibo, "Publication receipt: {recibo}");
+  assert.equal(MENSAJES_BORRADORES_PUBLICADOS_EN.bp_publicacion_recibo,
+    MENSAJES_BORRADORES_PUBLICADOS_ES.bp_publicacion_recibo);
   assert.match(MENSAJES_REINCORPORACION_RRHH_EN.rrhh_reincorporacion_ayuda, /not to the substantive postholder/u);
 });
