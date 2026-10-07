@@ -9,12 +9,23 @@ DECLARE
  consumidor oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_gobierno_rol_nuevo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  intento oid:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_gobierno_rol_nuevo_v1(jsonb)');
  sesion oid:=to_regprocedure('vec_autorizacion_atestada_v3.login_gobierno_rol_nuevo_valido_v1()');
- cuerpo text;audiencias text;familia text;
+ cuerpo text;audiencias text;familia text;compartidas jsonb;
  f oid;
 BEGIN
  IF nucleo IS NULL OR consumidor IS NULL OR intento IS NULL OR sesion IS NULL
  OR to_regrole('vec_admin_gobierno_roles_ejecutor') IS NULL
  THEN RAISE EXCEPTION 'AD220 prueba: funciones o grupo ausentes'; END IF;
+ -- pg_shdepend no tiene refobjsubid; el inventario pre/post del núcleo
+ -- debe usar el mismo orden de columnas existente en PG18.
+ IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='pg_shdepend'::regclass
+   AND attname='refobjsubid' AND NOT attisdropped)
+ THEN RAISE EXCEPTION 'AD220 prueba: catálogo pg_shdepend inesperado'; END IF;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,
+   d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+ INTO STRICT compartidas FROM pg_shdepend d
+ WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+ AND d.classid='pg_proc'::regclass AND d.objid=nucleo;
+ IF compartidas IS NULL THEN RAISE EXCEPTION 'AD220 prueba: dependencias compartidas nulas'; END IF;
  SELECT pg_get_functiondef(nucleo) INTO STRICT cuerpo;
  IF (length(cuerpo)-length(replace(cuerpo,'p_perfil_mutacion IS NOT DISTINCT FROM ''gobierno_rol_nuevo''','')))/
     length('p_perfil_mutacion IS NOT DISTINCT FROM ''gobierno_rol_nuevo''')<>2
