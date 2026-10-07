@@ -259,3 +259,79 @@ func cierreGobiernoReferenciaPrueba(t *testing.T, ahora, confirmadoEn time.Time)
 	}
 	return solicitud, respuesta
 }
+
+func TestPropuestaGobiernoRolDistingueReplayCaducadoAntesCommit(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	for _, caso := range []struct {
+		nombre           string
+		replay, cruzar   bool
+		commitsEsperados int
+	}{
+		{"primera_caducada", false, false, 0},
+		{"replay_historico", true, false, 1},
+		{"replay_cruzado", true, true, 0},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			base, _, _, _ := contratoV2Prueba(t)
+			base.InstantaneaAutorizacion.AsignacionPerfil.Ambitos = []domain.AmbitoPerfil{
+				{Clave: "organizacion_ref", Valores: []string{"organizacion:prueba"}},
+				{Clave: "unidad_ref", Valores: []string{"unidad:prueba"}},
+			}
+			e, _ := escenarioRecursoGobiernoRol(t)
+			var sobre propuestaGobiernoRolEnvelope
+			if err := json.Unmarshal(e.Material, &sobre); err != nil {
+				t.Fatal(err)
+			}
+			var m domain.MaterialPropuestaGobiernoPerfil
+			if err := json.Unmarshal([]byte(sobre.MaterialCanon), &m); err != nil {
+				t.Fatal(err)
+			}
+			m.ProponentePersonaRef = base.Actor.PersonaRef
+			m.PerfilActivoRef = base.Actor.PerfilActivoRef
+			m.AsignacionPerfilRef = base.InstantaneaAutorizacion.AsignacionPerfil.Referencia()
+			m.OperacionRef = "propuesta_admin:" + strings.Repeat("1", 32)
+			planSHA, err := m.Plan.HuellaSHA256()
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := domain.SolicitudPropuestaGobiernoPerfil{OperacionRef: m.OperacionRef,
+				Actor: base.Actor, Evidencia: base.Evidencia, InstantaneaAutorizacion: base.InstantaneaAutorizacion,
+				Intencion: domain.SolicitudPlanGobiernoPerfil{Operacion: domain.OperacionCrearPerfilGobernado,
+					Motivo: m.Plan.Motivo}, HuellaPlanEsperada: planSHA,
+				CorrelacionRef: "correlacion_" + strings.Repeat("5", 32)}
+			o := domain.OrdenPropuestaGobiernoPerfil{Solicitud: s, Material: m}
+			if err := o.Validar(); err != nil {
+				t.Fatalf("orden de prueba invalida: %v", err)
+			}
+			respuestaMaterial := m
+			if caso.cruzar {
+				respuestaMaterial.Plan.DefinicionNueva = &domain.DefinicionVersionPerfilGobernado{
+					RolID: "otro", Version: 1, Nombre: "Otro", Concesiones: m.Plan.DefinicionNueva.Concesiones}
+			}
+			canon, err := json.Marshal(respuestaMaterial)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := m.HuellaSHA256()
+			if err != nil {
+				t.Fatal(err)
+			}
+			salida, err := json.Marshal(propuestaGobiernoRolRespuesta{Estado: "permitido", Replay: caso.replay,
+				MaterialCanon: string(canon), HuellaSHA256: h, CaducaEn: ahora.Add(-time.Minute),
+				AuditoriaAccesoRef: "aud_v3_" + strings.Repeat("a", 32)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: salida}}
+			pool := &poolGobiernoReferenciaPrueba{tx: tx}
+			a := &AutoridadGobiernoRolNuevo{pool: pool, fuente: fuenteCatalogoGobiernoReferenciaPrueba{},
+				emisor: emisorGobiernoReferenciaPrueba{t: t, ahora: ahora}, reloj: relojFijo(ahora)}
+			r, err := a.ProponerGobiernoRolNuevoRecuperable(context.Background(), o)
+			if (err == nil) != (caso.commitsEsperados == 1) || tx.commits != caso.commitsEsperados ||
+				tx.rollbacks != 1 || (err == nil && (!r.Replay || r.Propuesta.HuellaSHA256 != h)) {
+				t.Fatalf("replay/commit incoherente: r=%+v err=%v commit=%d rollback=%d",
+					r, err, tx.commits, tx.rollbacks)
+			}
+		})
+	}
+}

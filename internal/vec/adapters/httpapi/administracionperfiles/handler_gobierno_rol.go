@@ -32,7 +32,7 @@ type solicitudGobiernoRolProponerDTO struct {
 }
 
 type ServicioGobiernoRolNuevoADMIN interface {
-	ProponerGobiernoPerfil(context.Context, domain.SolicitudPropuestaGobiernoPerfil) (domain.PropuestaGobiernoPerfil, error)
+	ProponerGobiernoRolNuevo(context.Context, domain.SolicitudPropuestaGobiernoPerfil) (ports.ResultadoPropuestaGobiernoRolNuevo, error)
 	CerrarGobiernoRolPorReferencia(context.Context, domain.SolicitudCierreGobiernoRolPorReferencia) (domain.CierreGobiernoPerfil, error)
 }
 
@@ -121,22 +121,30 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 	solicitud := domain.SolicitudPropuestaGobiernoPerfil{OperacionRef: dto.OperacionRef,
 		Actor: sesion.Actor, Evidencia: sesion.Evidencia, InstantaneaAutorizacion: sesion.InstantaneaAutorizacion,
 		Intencion: intencion, HuellaPlanEsperada: huellaPlan, CorrelacionRef: sesion.CorrelacionRef}
-	propuesta, err := h.gobiernoRol.ProponerGobiernoPerfil(r.Context(), solicitud)
+	resultado, err := h.gobiernoRol.ProponerGobiernoRolNuevo(r.Context(), solicitud)
 	if err != nil {
 		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
 		return
 	}
+	propuesta := resultado.Propuesta
 	if propuesta.Material.OperacionRef != dto.OperacionRef || propuesta.Material.Plan.VersionRolObjetivoRef != propuestaRol.Referencia() {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
-	jsonRespuesta(w, http.StatusCreated, struct {
+	estado := http.StatusCreated
+	if resultado.Replay {
+		estado = http.StatusOK
+	}
+	jsonRespuesta(w, estado, struct {
 		PropuestaRef       string    `json:"propuesta_ref"`
 		HuellaSHA256       string    `json:"huella_sha256"`
 		VersionRolObjetivo string    `json:"version_rol_objetivo_ref"`
 		CaducaEn           time.Time `json:"caduca_en"`
+		Replay             bool      `json:"replay"`
+		AuditoriaAccesoRef string    `json:"auditoria_acceso_ref"`
 	}{propuesta.Material.OperacionRef, propuesta.HuellaSHA256,
-		propuesta.Material.Plan.VersionRolObjetivoRef, propuesta.CaducaEn})
+		propuesta.Material.Plan.VersionRolObjetivoRef, propuesta.CaducaEn,
+		resultado.Replay, resultado.AuditoriaAccesoRef})
 }
 
 func (h *Handler) postGobiernoRolCerrar(w http.ResponseWriter, r *http.Request, sesion SesionConfiable) {

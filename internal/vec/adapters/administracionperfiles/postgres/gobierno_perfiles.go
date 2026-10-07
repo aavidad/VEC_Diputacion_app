@@ -121,7 +121,18 @@ func (a *AutoridadGobiernoRolNuevo) ResolverCatalogoGobiernoPerfil(ctx context.C
 
 func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoPerfil(ctx context.Context,
 	o domain.OrdenPropuestaGobiernoPerfil) (domain.PropuestaGobiernoPerfil, error) {
-	var vacia domain.PropuestaGobiernoPerfil
+	r, err := a.ProponerGobiernoRolNuevoRecuperable(ctx, o)
+	if err != nil {
+		return domain.PropuestaGobiernoPerfil{}, err
+	}
+	return r.Propuesta, nil
+}
+
+var _ ports.AutoridadPropuestaGobiernoRolNuevoRecuperable = (*AutoridadGobiernoRolNuevo)(nil)
+
+func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoRolNuevoRecuperable(ctx context.Context,
+	o domain.OrdenPropuestaGobiernoPerfil) (ports.ResultadoPropuestaGobiernoRolNuevo, error) {
+	var vacia ports.ResultadoPropuestaGobiernoRolNuevo
 	if err := a.disponibleGobierno(ctx); err != nil {
 		return vacia, err
 	}
@@ -133,7 +144,7 @@ func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoPerfil(ctx context.Context,
 	err = a.ejecutarGobierno(ctx, o.Solicitud.Actor, o.Solicitud.Evidencia,
 		o.Solicitud.InstantaneaAutorizacion, e, proponerGobiernoRolSQL, func(b []byte) error {
 			if decodificarGobiernoRol(b, &r) != nil || r.Estado != "permitido" ||
-				r.HuellaSHA256 == "" || !r.CaducaEn.After(a.reloj.Ahora()) {
+				r.HuellaSHA256 == "" {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
 			var m domain.MaterialPropuestaGobiernoPerfil
@@ -141,7 +152,8 @@ func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoPerfil(ctx context.Context,
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
 			r.Propuesta = domain.PropuestaGobiernoPerfil{Material: m, HuellaSHA256: r.HuellaSHA256, CaducaEn: r.CaducaEn}
-			if r.Propuesta.ValidarPara(o) != nil {
+			if (ports.ResultadoPropuestaGobiernoRolNuevo{Propuesta: r.Propuesta,
+				Replay: r.Replay, AuditoriaAccesoRef: r.AuditoriaAccesoRef}).ValidarPara(o, a.reloj.Ahora()) != nil {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
 			return nil
@@ -150,7 +162,8 @@ func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoPerfil(ctx context.Context,
 		return vacia, err
 	}
 	r.Propuesta.Material.Plan = r.Propuesta.Material.Plan.Copia()
-	return r.Propuesta, nil
+	return ports.ResultadoPropuestaGobiernoRolNuevo{Propuesta: r.Propuesta,
+		Replay: r.Replay, AuditoriaAccesoRef: r.AuditoriaAccesoRef}, nil
 }
 
 func (a *AutoridadGobiernoRolNuevo) CerrarGobiernoPerfil(ctx context.Context,
@@ -322,12 +335,13 @@ func traducirGobiernoRol(ctx context.Context, _ error) error {
 }
 
 type propuestaGobiernoRolRespuesta struct {
-	Estado        string                         `json:"estado,omitempty"`
-	Replay        bool                           `json:"replay,omitempty"`
-	MaterialCanon string                         `json:"material_canon"`
-	HuellaSHA256  string                         `json:"huella_sha256"`
-	CaducaEn      time.Time                      `json:"caduca_en"`
-	Propuesta     domain.PropuestaGobiernoPerfil `json:"-"`
+	Estado             string                         `json:"estado,omitempty"`
+	Replay             bool                           `json:"replay,omitempty"`
+	MaterialCanon      string                         `json:"material_canon"`
+	HuellaSHA256       string                         `json:"huella_sha256"`
+	CaducaEn           time.Time                      `json:"caduca_en"`
+	AuditoriaAccesoRef string                         `json:"auditoria_acceso_ref"`
+	Propuesta          domain.PropuestaGobiernoPerfil `json:"-"`
 }
 
 type cierreGobiernoRolRespuesta struct {

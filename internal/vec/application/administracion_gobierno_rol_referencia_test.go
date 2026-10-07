@@ -2,10 +2,55 @@ package application
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
+
+type autoridadPropuestaRolRecuperablePrueba struct {
+	*autoridadGobiernoPerfilPrueba
+	replay, cruzar bool
+	caduca         time.Time
+}
+
+func (a *autoridadPropuestaRolRecuperablePrueba) ProponerGobiernoRolNuevoRecuperable(ctx context.Context,
+	o domain.OrdenPropuestaGobiernoPerfil) (ports.ResultadoPropuestaGobiernoRolNuevo, error) {
+	p, err := a.autoridadGobiernoPerfilPrueba.ProponerGobiernoPerfil(ctx, o)
+	if err != nil {
+		return ports.ResultadoPropuestaGobiernoRolNuevo{}, err
+	}
+	p.CaducaEn = a.caduca
+	if a.cruzar {
+		p.Material.Plan.DefinicionNueva.Nombre = "Otro rol"
+	}
+	return ports.ResultadoPropuestaGobiernoRolNuevo{Propuesta: p, Replay: a.replay,
+		AuditoriaAccesoRef: "aud_v3_" + strings.Repeat("a", 32)}, nil
+}
+
+func TestGobiernoRolDistinguePropuestaNuevaDeReplayHistorico(t *testing.T) {
+	for _, caso := range []struct {
+		nombre                   string
+		replay, cruzar, admitida bool
+	}{
+		{"primera_caducada", false, false, false},
+		{"replay_historico_exacto", true, false, true},
+		{"replay_material_cruzado", true, true, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			servicio, s, anterior, _ := gobiernoPerfilAplicacionPrueba(t)
+			autoridad := &autoridadPropuestaRolRecuperablePrueba{autoridadGobiernoPerfilPrueba: anterior,
+				replay: caso.replay, cruzar: caso.cruzar, caduca: anterior.ahora.Add(-time.Minute)}
+			servicio.actos = autoridad
+			r, err := servicio.ProponerGobiernoRolNuevo(context.Background(), s)
+			if (err == nil) != caso.admitida || (err == nil && r.Propuesta.CaducaEn.After(anterior.ahora)) {
+				t.Fatalf("propuesta/replay: %+v %v", r, err)
+			}
+		})
+	}
+}
 
 func (a *autoridadGobiernoPerfilPrueba) CerrarGobiernoRolPorReferencia(
 	_ context.Context, _ domain.SolicitudCierreGobiernoRolPorReferencia,

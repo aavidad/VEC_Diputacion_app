@@ -7,6 +7,20 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+// ProponerGobiernoRolNuevo exige el puerto nominal tipado. La preparación y
+// comprobación ADMIN son las del servicio existente; la autoridad señala
+// replay sólo tras cotejar el material y auditar el acceso actual.
+func (s *ServicioAdministracionPerfiles) ProponerGobiernoRolNuevo(ctx context.Context,
+	solicitud domain.SolicitudPropuestaGobiernoPerfil) (ports.ResultadoPropuestaGobiernoRolNuevo, error) {
+	if s == nil || solicitud.Intencion.Operacion != domain.OperacionCrearPerfilGobernado {
+		return ports.ResultadoPropuestaGobiernoRolNuevo{}, domain.ErrPlanGobiernoPerfilInvalido
+	}
+	if _, ok := s.actos.(ports.AutoridadPropuestaGobiernoRolNuevoRecuperable); !ok {
+		return ports.ResultadoPropuestaGobiernoRolNuevo{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
+	return s.proponerGobiernoPerfilConEstado(ctx, solicitud)
+}
+
 // CerrarGobiernoRolPorReferencia conserva el servicio ADMIN existente. La
 // autoridad durable recupera proponente/objetivo en la transacción V3; el
 // servicio comprueba después el resultado contra ese material original.
