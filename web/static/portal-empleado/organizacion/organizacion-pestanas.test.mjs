@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { MONTAJE_ORGANIZACION_HISTORICA, iniciarHistorico, iniciarImportacion,
-  iniciarPestanasOrganizacion } from "./historico.js";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js";
+
+await prepararTextosPersonal();
+const { MONTAJE_ORGANIZACION_HISTORICA, iniciarHistorico, iniciarImportacion,
+  iniciarPestanasOrganizacion } = await import("./historico.js");
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const etiqueta = (id) => html.match(new RegExp(`<[a-z]+[^>]*\\bid="${id}"[^>]*>`))?.[0] ?? "";
