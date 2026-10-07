@@ -71,13 +71,17 @@ func validarRespuestaAdmision(b []byte, plan planAdmision, planSHA string) (resp
 	if json.Unmarshal(m["replay"], &replay) != nil || replay == nil {
 		return respuestaAdmision{}, errRespuestaAdmision
 	}
-	if validarAuditoriaIntento(m["auditoria_intento"], ahora) != nil {
-		return respuestaAdmision{}, errRespuestaAdmision
+	if err := validarAuditoriaIntento(m["auditoria_intento"], ahora); err != nil {
+		return respuestaAdmision{}, err
 	}
 	if estado == "permitido" {
-		if !esNulo(m["codigo"]) || esNulo(m["recibo"]) ||
-			validarReciboAdmision(m["recibo"], plan, planSHA, ahora) != nil ||
-			!intentoPosteriorAlRecibo(m["recibo"], m["auditoria_intento"]) {
+		if !esNulo(m["codigo"]) || esNulo(m["recibo"]) {
+			return respuestaAdmision{}, errRespuestaAdmision
+		}
+		if err := validarReciboAdmision(m["recibo"], plan, planSHA, ahora); err != nil {
+			return respuestaAdmision{}, err
+		}
+		if !intentoPosteriorAlRecibo(m["recibo"], m["auditoria_intento"]) {
 			return respuestaAdmision{}, errRespuestaAdmision
 		}
 		return respuestaAdmision{Estado: estado, Replay: *replay, Recibo: m["recibo"]}, nil
