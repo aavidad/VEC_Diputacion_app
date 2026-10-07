@@ -18,6 +18,15 @@ function raizFalsa() {
     removeEventListener(tipo) { delete this.eventos[tipo]; }, remove() { this.eliminado = true; }, querySelector() { return null; } };
   return { nodo, raiz: { ownerDocument: { createElement: () => nodo }, append() {} } };
 }
+function observarFocoOlvido(nodo) {
+  const focos = [];
+  nodo.querySelector = (selector) => {
+    const visible = selector === "[data-cronos-movimientos-estado]" && nodo.innerHTML.includes("data-cronos-movimientos-estado") ? "estado"
+      : selector === "[name=fecha_civil]" && nodo.innerHTML.includes('name="fecha_civil"') ? "formulario" : "";
+    return visible ? { focus() { focos.push(visible); }, scrollIntoView() {} } : null;
+  };
+  return focos;
+}
 function datosConsulta(consulta) {
   const d = datos();
   d.periodo.tipo = consulta.periodo;
@@ -25,6 +34,52 @@ function datosConsulta(consulta) {
   return d;
 }
 const esperar = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+
+test("el acceso externo al olvido espera el calendario y enfoca el formulario cuando llega", async () => {
+  const pendiente = diferido(); const { nodo, raiz } = raizFalsa();
+  const focos = observarFocoOlvido(nodo); const avisos = []; let escrituras = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, anunciar: (texto) => avisos.push(texto), cliente: {
+    consultarMovimientos: () => pendiente.promesa,
+    solicitarCorreccion: async () => { escrituras++; return {}; },
+  } });
+  assert.equal(vista.abrirOlvido(), false);
+  assert.doesNotMatch(nodo.innerHTML, /name="fecha_civil"/u);
+  assert.equal(focos.at(-1), "estado");
+  assert.match(avisos.at(-1), /Consultando/u);
+  pendiente.resolver(datosConsulta({ periodo: "anio" })); await esperar();
+  assert.equal(vista.abrirOlvido(), true);
+  assert.match(nodo.innerHTML, /name="fecha_civil"/u);
+  assert.equal(focos.at(-1), "formulario");
+  assert.equal(escrituras, 0);
+  vista.desmontar();
+});
+
+test("el acceso externo al olvido explica denegación o error sin crear un borrador oculto", async () => {
+  for (const [codigo, estadoHTTP, esperado] of [["acceso_denegado", 403, /No tiene permiso/u],
+    ["servicio_no_disponible", 503, /No se pudieron consultar/u]]) {
+    const { nodo, raiz } = raizFalsa(); const focos = observarFocoOlvido(nodo);
+    const avisos = []; let fallar = true; let escrituras = 0;
+    const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, anunciar: (texto) => avisos.push(texto), cliente: {
+      consultarMovimientos: async (consulta) => {
+        if (fallar) throw new ErrorClienteSolicitudesCronos(codigo, estadoHTTP);
+        return datosConsulta(consulta);
+      },
+      solicitarCorreccion: async () => { escrituras++; return {}; },
+    } });
+    await esperar(); const avisosAntes = avisos.length;
+    assert.equal(vista.abrirOlvido(), false);
+    assert.equal(avisos.length, avisosAntes + 1);
+    assert.match(avisos.at(-1), esperado);
+    assert.equal(focos.at(-1), "estado");
+    assert.doesNotMatch(nodo.innerHTML, /name="fecha_civil"/u);
+    fallar = false; await vista.recargar();
+    assert.equal(vista.abrirOlvido(), true);
+    assert.match(nodo.innerHTML, /name="fecha_civil"/u);
+    assert.equal(focos.at(-1), "formulario");
+    assert.equal(escrituras, 0);
+    vista.desmontar();
+  }
+});
 
 test("marca cada día por tipo con los datos recibidos y dice en una línea si falta el calendario", () => {
   const marcas = marcasPorDiaCronos(datos());
