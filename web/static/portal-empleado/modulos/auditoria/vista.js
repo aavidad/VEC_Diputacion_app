@@ -7,6 +7,8 @@ import { nombreEstado, nombreFaseRRHH } from "../contratacion-temporal/i18n-fase
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const texto = (v, n = 512) => typeof v === "string" && v.length <= n && !/[\x00-\x1f\x7f]/u.test(v);
+const numeroHumano = (v) => typeof v === "string" && v.length > 0 && v.length <= 80
+  && !/[\x00-\x1f\x7f]/u.test(v);
 const fecha = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/u.test(v) && Number.isFinite(Date.parse(v));
 const digest = (v) => v == null || v === "" || typeof v === "string" && /^[a-f0-9]{64}$/iu.test(v);
 const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "medium", timeZone: ZONA_HORARIA_PORTAL });
@@ -82,7 +84,8 @@ function presentarRegistroAuditoria(registro, t, ejemplo, contexto = {}) {
   if (ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, registro.expediente_ref)) {
     expediente = `${EXPEDIENTES_EJEMPLO[registro.expediente_ref]} (${t("dato_ficticio")})`;
   } else if (contexto.expedienteRef && registro.expediente_ref === contexto.expedienteRef) {
-    expediente = t(contexto.fuenteContexto === "bolsa" ? "relacion_participacion_actual" : "relacion_expediente_actual");
+    expediente = numeroHumano(contexto.numeroVisible) ? contexto.numeroVisible
+      : t(contexto.fuenteContexto === "bolsa" ? "relacion_participacion_actual" : "relacion_expediente_actual");
   }
   const relacionado = registro.recibo_ref ? t("relacion_con_justificante", { relacion: expediente }) : expediente;
   const resultado = Object.hasOwn(RESULTADOS, registro.resultado) ? RESULTADOS[registro.resultado] : null;
@@ -92,9 +95,10 @@ function presentarRegistroAuditoria(registro, t, ejemplo, contexto = {}) {
     resultado: t(resultado || "resultado_otro"), motivo, cambio: resumenCambio(registro, t) });
 }
 
-function presentarExpedienteAuditoria(ref, t, ejemplo) {
+function presentarExpedienteAuditoria(ref, t, ejemplo, numeroVisible) {
   return ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, ref)
-    ? `${EXPEDIENTES_EJEMPLO[ref]} (${t("dato_ficticio")})` : t("numero_no_disponible");
+    ? `${EXPEDIENTES_EJEMPLO[ref]} (${t("dato_ficticio")})`
+    : numeroHumano(numeroVisible) ? numeroVisible : t("numero_no_disponible");
 }
 
 /** Convierte una hora local de Madrid; prueba ambos lados del cambio horario y rechaza huecos. */
@@ -167,9 +171,9 @@ function fila(t, r, ejemplo, contexto) {
 
 /** Marcado puro para verificar estados y escape sin consultar datos. */
 export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbierta = false, habilitada = false,
-  expedienteRef = "", fuenteContexto = "", ejemplo = false, filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
+  expedienteRef = "", numeroVisible = "", fuenteContexto = "", ejemplo = false, filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
   const t = crearTraductorAuditoria();
-  const mensaje = t(`estado_${["no_configurado", "cargando_opciones", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"].includes(estado) ? estado : "error"}`);
+  const mensaje = t(`estado_${["no_configurado", "cargando_opciones", "esperando", "cargando", "disponible", "vacio", "denegado", "no_disponible", "error", "invalido"].includes(estado) ? estado : "error"}`);
   const bloqueada = !habilitada;
   return `<section class="modulo-auditoria-rrhh" data-auditoria-vista data-estado="${escapar(estado)}">
     <header class="auditoria-cabecera"><h2>${escapar(t("titulo"))}</h2>
@@ -181,7 +185,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
     <section class="panel auditoria-filtro-panel" aria-labelledby="auditoria-filtros-titulo">
       <div class="cabecera-panel"><h3 id="auditoria-filtros-titulo">${escapar(t("filtros_titulo"))}</h3></div>
       <div class="cuerpo-panel">
-        <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef ? presentarExpedienteAuditoria(expedienteRef, t, ejemplo) : t("sin_expediente"))}</p>
+        <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef ? presentarExpedienteAuditoria(expedienteRef, t, ejemplo, numeroVisible) : t("sin_expediente"))}</p>
         ${ejemplo ? `<p class="auditoria-ejemplo">${escapar(t("configuracion_ejemplo"))}</p>` : ""}
         <form data-auditoria-filtros class="auditoria-filtros">
         ${[["desde", "desde"], ["hasta", "hasta"]].map(([name, label]) =>
@@ -195,7 +199,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       ${estado === "error" && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
         <table><thead><tr>${["fecha", "actor", "accion", "cambio", "motivo", "relacionado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
-        <tbody>${registros.map((r) => fila(t, r, ejemplo, { expedienteRef, fuenteContexto })).join("")}</tbody></table></div>` : ""}
+        <tbody>${registros.map((r) => fila(t, r, ejemplo, { expedienteRef, numeroVisible, fuenteContexto })).join("")}</tbody></table></div>` : ""}
       ${["disponible", "vacio"].includes(estado) ? `<nav class="auditoria-paginacion" aria-label="${escapar(t("paginacion"))}">
         <button type="button" class="boton-secundario" data-auditoria-anterior ${puedeAnterior ? "" : "disabled"}>${escapar(t("anterior"))}</button>
         <span>${escapar(t("pagina", { numero: formatoNumero.format(pagina) }))}</span>
@@ -204,7 +208,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
 }
 
 /** Expediente procede de navegación ya autorizada; opciones del GET autenticado. */
-export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteContexto = "", anunciar = () => {}, registrarDesmontar } = {}) {
+export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", numeroVisible = "", fuenteContexto = "", anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.replaceChildren || typeof anunciar !== "function" ||
     (fuente !== undefined && (typeof fuente.consultar !== "function" || typeof fuente.obtenerOpciones !== "function"))
     || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de Auditoría no disponible");
@@ -218,6 +222,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
   let filtros = {}, registros = [], siguienteCursor = "", cursores = [""], controlador, secuencia = 0;
   const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria({
     estado, ayudaAbierta, habilitada, expedienteRef: expedienteValido && fuenteValida ? expedienteRef : "",
+    numeroVisible: expedienteValido && fuenteValida && numeroHumano(numeroVisible) ? numeroVisible : "",
     fuenteContexto: fuenteValida ? fuenteContexto : "",
     ejemplo: opciones?.es_ejemplo === true, filtros, registros, pagina: cursores.length,
     siguienteCursor, puedeAnterior: cursores.length > 1,
@@ -237,7 +242,8 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
       opciones = recibidas; habilitada = true; void consultar();
     } catch (error) {
       if (!activa || signal.aborted || secuencia !== actual) return;
-      opciones = null; habilitada = false; registros = []; estado = error?.codigo === "denegado" ? "denegado" : "error"; pintar();
+      opciones = null; habilitada = false; registros = [];
+      estado = error?.codigo === "denegado" ? "denegado" : error?.codigo === "no_disponible" ? "no_disponible" : "error"; pintar();
     }
   }
   async function consultar() {
@@ -260,7 +266,8 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
       estado = registros.length ? "disponible" : "vacio"; pintar(); anunciar(t(`estado_${estado}`), "info");
     } catch (error) {
       if (!activa || signal.aborted || secuencia !== actual) return;
-      registros = []; siguienteCursor = ""; estado = error?.codigo === "denegado" ? "denegado" : "error";
+      registros = []; siguienteCursor = "";
+      estado = error?.codigo === "denegado" ? "denegado" : error?.codigo === "no_disponible" ? "no_disponible" : "error";
       pintar(); anunciar(t(`estado_${estado}`), "error");
     }
   }
