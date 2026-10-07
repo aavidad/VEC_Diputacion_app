@@ -31,6 +31,8 @@ DECLARE
  propietario oid;
  definidora boolean;
  configuracion text[];
+ acl_actual jsonb;
+ acl_esperada jsonb;
 BEGIN
  SELECT pg_catalog.pg_get_functiondef(f),p.prosrc,p.proowner,p.prosecdef,p.proconfig
  INTO STRICT nucleo,fuente,propietario,definidora,configuracion
@@ -40,6 +42,19 @@ BEGIN
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check'
    AND c.contype='c' AND c.convalidated;
+ SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+   'grantee',a.grantee,'grantor',a.grantor,'privilege_type',a.privilege_type,
+   'is_grantable',a.is_grantable) ORDER BY a.grantee,a.grantor,a.privilege_type), '[]'::jsonb)
+ INTO acl_actual
+ FROM pg_catalog.pg_proc p
+ CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+ WHERE p.oid=f;
+ acl_esperada:=pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+   'grantee',propietario,'grantor',propietario,'privilege_type','EXECUTE',
+   'is_grantable',false));
+ IF acl_actual IS DISTINCT FROM acl_esperada THEN
+   RAISE EXCEPTION 'AD213: clave=ACL_nucleo esperado=% obtenido=%',acl_esperada,acl_actual USING ERRCODE='55000';
+ END IF;
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole
     OR NOT definidora
     OR configuracion IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
@@ -49,10 +64,6 @@ BEGIN
        IS DISTINCT FROM '78137d8750422597c0da56797fd3ddff797cd54f18d98b0c1c8f4b7f742079dd'
     OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(audiencias,'UTF8')),'hex')
        IS DISTINCT FROM '8dae0267b85ad237770d0ccdb7fbf9862afe6d7d022c0c93f4385c182bcbc68e'
-    OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
-    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
-       CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
-       WHERE p.oid=f AND a.grantee=0)
     OR pg_catalog.pg_get_function_result(f) IS DISTINCT FROM
        'TABLE(decision_ref text, efecto_ref text, huella_efecto_sha256 text, consumo_huella_sha256 text, auditoria_ref text, consumida_en timestamp with time zone, consumo_nuevo boolean)'
     OR pg_catalog.strpos(nucleo,'consulta_rrhh_bolsa')=0
