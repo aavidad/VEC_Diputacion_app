@@ -67,6 +67,8 @@ static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
+static/comun/http.js
+static/comun/registro-errores.js
 static/comun/correos-propios.js
 static/comun/correos-propios.css
 static/comun/imagen-propia.js
