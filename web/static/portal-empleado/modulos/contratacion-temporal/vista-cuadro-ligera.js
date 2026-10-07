@@ -38,7 +38,8 @@ function proyectarPagina(pagina, fases, locale) {
     });
   });
   return Object.freeze({ generado_en: pagina.generada_en, expedientes: Object.freeze(expedientes),
-    paginacion: Object.freeze({ cursor_siguiente: pagina.hay_mas ? pagina.cursor_siguiente : "" }) });
+    paginacion: Object.freeze({ cursor_siguiente: pagina.hay_mas ? pagina.cursor_siguiente : "" }),
+    totales: pagina.totales ?? null });
 }
 
 /**
@@ -122,7 +123,10 @@ export async function montarCuadroContratacionLigero({
       ? `<p class="ct-exp-aviso-textos" role="status">${escapar(t("lista_textos_respaldo"))}</p>` : ""}`
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
-        actualizarDisponible: true, filtroResultados: filtroResultados() });
+        actualizarDisponible: true, filtroResultados: filtroResultados(),
+        totalConjunto: cuadro.totales?.[filtro.mostrar === "en_tramite" ? "en_tramitacion" : "total"] ?? null,
+        enTramiteConjunto: cuadro.totales?.en_tramitacion ?? null,
+        paginaAnterior: paginaIndice > 0 });
   }
 
   function pintarConFocoDeFiltro() {

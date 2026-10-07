@@ -234,3 +234,39 @@ test("pasar de página usa su cursor y devuelve el foco al título cuando desapa
   assert.equal(tabindex, "-1");
   montaje.desmontar();
 });
+
+test("el título y resultado de la lista usan el total autorizado, no las filas de la página", async () => {
+  const raiz = raizFalsa(), solicitudes = [];
+  const totales = { total: 5071, en_tramitacion: 5071, con_incidencia: 0, en_llamamiento: 0 };
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async (solicitud) => {
+      solicitudes.push(solicitud);
+      return { generada_en: "2026-10-01T09:00:00Z", totales,
+        expedientes: solicitud.paginacion.cursor ? [fila] : [fila, { ...fila,
+          expediente_ref: "expediente:ct:002", numero_visible: "2026/CT-0002" }],
+        hay_mas: !solicitud.paginacion.cursor,
+        ...(!solicitud.paginacion.cursor ? { cursor_siguiente: "cursor_sintetico_de_pagina" } : {}) };
+    } },
+  });
+  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /2 de 5071 peticiones/u);
+  assert.doesNotMatch(raiz.innerHTML, /2 peticiones en trámite/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+  assert.equal(solicitudes[1].paginacion.cursor, "cursor_sintetico_de_pagina");
+  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /1 de 5071 peticiones/u);
+  montaje.desmontar();
+});
+
+test("sin total del servidor no presenta el tamaño de una página como total del conjunto", async () => {
+  const raiz = raizFalsa();
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async () => ({ generada_en: "2026-10-01T09:00:00Z",
+      expedientes: [fila], hay_mas: true, cursor_siguiente: "cursor_sintetico_de_pagina" }) },
+  });
+  assert.match(raiz.innerHTML, /Expedientes de peticiones de personal temporal/u);
+  assert.doesNotMatch(raiz.innerHTML, /1 petición en trámite/u);
+  montaje.desmontar();
+});
