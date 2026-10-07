@@ -140,3 +140,32 @@ test("catálogo fallido permite reintentar importado igual y montajes tardíos n
   assert.match(texto(b), /B:general.titulo/u); assert.doesNotMatch(texto(b), /A:general.titulo/u);
   listoA.desmontar(); montajeB.desmontar();
 });
+
+test("Reintentar conserva foco en carga y lo lleva al resultado o al nuevo Reintentar", async () => {
+  const r = raiz(); let resolver, llamadas = 0;
+  await montarModuloRPTPublicaV2({ raiz: r, cliente: { listar() {
+    llamadas++;
+    if (llamadas === 1) return Promise.reject(new Error("sin fuente"));
+    return new Promise((resolve) => { resolver = resolve; });
+  } } });
+  assert.equal(r.ownerDocument.activeElement, null);
+  const retry = r.querySelector("[data-personal-rpt-v2-reintentar]"); retry.focus(); retry.listeners.get("click")();
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-v2-carga]"));
+  assert.equal(llamadas, 2);
+  resolver(pagina("categorias")); await esperar();
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-v2-titulo]"));
+  const entrada = r.querySelector("[data-personal-rpt-v2-busqueda]"); entrada.focus(); entrada.value = "administrativo";
+  r.querySelector("[data-personal-rpt-v2-filtros]").listeners.get("submit")({ preventDefault() {} });
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-v2-busqueda]"));
+  resolver(pagina("categorias")); await esperar();
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-v2-busqueda]"));
+  assert.equal(llamadas, 3);
+
+  const r2 = raiz(); let intentos = 0;
+  await montarModuloRPTPublicaV2({ raiz: r2, cliente: { async listar() { intentos++; throw new Error("sin fuente"); } } });
+  const anterior = r2.querySelector("[data-personal-rpt-v2-reintentar]"); anterior.focus(); anterior.listeners.get("click")();
+  assert.equal(r2.ownerDocument.activeElement, r2.querySelector("[data-personal-rpt-v2-carga]"));
+  await esperar();
+  assert.equal(r2.ownerDocument.activeElement, r2.querySelector("[data-personal-rpt-v2-reintentar]"));
+  assert.equal(intentos, 2);
+});

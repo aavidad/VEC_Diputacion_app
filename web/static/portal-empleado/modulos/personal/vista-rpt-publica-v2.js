@@ -60,7 +60,7 @@ const dinero = (centimos) => new Intl.NumberFormat(textos.localizacion, { style:
 
 function cabecera(documento, pagina) {
   const salida = n(documento, "header"); salida.className = "cabecera-vista";
-  const titulo = n(documento, "h2", t("titulo"));
+  const titulo = n(documento, "h2", t("titulo")); titulo.tabIndex = -1; titulo.dataset.personalRptV2Titulo = "";
   const boton = n(documento, "button", "?"); boton.type = "button";
   boton.setAttribute("aria-label", t("ayuda_boton")); boton.setAttribute("aria-controls", "personal-rpt-v2-ayuda"); boton.setAttribute("aria-expanded", "false");
   boton.dataset.personalRptV2AyudaBoton = "";
@@ -259,19 +259,26 @@ async function montarConTextos({ raiz, cliente, anunciar = () => {}, registrarDe
   const pintar = (tipo, pagina = null, fallo = null) => {
     if (!activa || !sigueMontada()) return;
     const entradaAnterior = contenedor.querySelector?.("[data-personal-rpt-v2-busqueda]");
-    const recuperarFoco = documento.activeElement === entradaAnterior;
+    const recuperarFoco = Boolean(entradaAnterior && documento.activeElement === entradaAnterior);
+    const retryAnterior = contenedor.querySelector?.("[data-personal-rpt-v2-reintentar]");
+    const cargaAnterior = contenedor.querySelector?.("[data-personal-rpt-v2-carga]");
+    const recuperarTrasRetry = Boolean(retryAnterior && documento.activeElement === retryAnterior || cargaAnterior && documento.activeElement === cargaAnterior);
     const formularioAnterior = contenedor.querySelector?.("[data-personal-rpt-v2-filtros]");
     const valorEntrada = formularioAnterior?.dataset?.personalRptV2Consulta === consulta.q ? (entradaAnterior?.value ?? consulta.q) : consulta.q;
     contenedor.replaceChildren(...cabecera(documento, pagina));
     if (tipo === "disponible") contenedor.append(...estadoFuente(documento, pagina, recargar));
-    if (tipo === "cargando") { const aviso = n(documento, "p", t("cargando")); aviso.setAttribute("role", "status"); aviso.setAttribute("aria-live", "polite"); contenedor.append(aviso); }
+    if (tipo === "cargando") { const aviso = n(documento, "p", t("cargando")); aviso.setAttribute("role", "status"); aviso.setAttribute("aria-live", "polite"); aviso.tabIndex = -1; aviso.dataset.personalRptV2Carga = ""; contenedor.append(aviso); }
     if (tipo === "error") {
       const aviso = n(documento, "p", mensajeError(fallo)); aviso.setAttribute("role", "alert"); contenedor.append(aviso);
-      const reintentar = n(documento, "button", t("reintentar")); reintentar.type = "button"; reintentar.addEventListener("click", () => recargar()); contenedor.append(reintentar);
+      const reintentar = n(documento, "button", t("reintentar")); reintentar.type = "button"; reintentar.dataset.personalRptV2Reintentar = ""; reintentar.addEventListener("click", () => recargar()); contenedor.append(reintentar);
     }
     contenedor.append(pestanas(documento, consulta, recargar), filtros(documento, consulta, recargar, valorEntrada));
     if (tipo === "disponible") contenedor.append(tabla(documento, pagina, recargar), paginacion(documento, pagina, recargar));
-    if (recuperarFoco) contenedor.querySelector?.("[data-personal-rpt-v2-busqueda]")?.focus?.();
+    if (recuperarTrasRetry) {
+      const destino = tipo === "cargando" ? "[data-personal-rpt-v2-carga]" :
+        tipo === "error" ? "[data-personal-rpt-v2-reintentar]" : "[data-personal-rpt-v2-titulo]";
+      contenedor.querySelector?.(destino)?.focus?.();
+    } else if (recuperarFoco) contenedor.querySelector?.("[data-personal-rpt-v2-busqueda]")?.focus?.();
   };
   const recargar = async (cambios = {}, historial = "push") => {
     if (!activa || !sigueMontada()) return;
