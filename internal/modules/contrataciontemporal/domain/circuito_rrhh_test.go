@@ -18,7 +18,9 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 			{Clave: "autorizacion_rrhh", Tipo: HitoAutorizacionRRHH, Origen: "autorizacion_rrhh",
 				Destino: "credito", RequiereDocumento: true, PerfilClave: "direccion_rrhh",
 				AutorizanteCargoClave: "direccion_rrhh"},
-			{Clave: "oferta_emitida", Tipo: HitoOfertaEmitida, Origen: "credito",
+			{Clave: "credito_comprobado", Tipo: HitoCreditoComprobado, Origen: "credito",
+				Destino: "oferta", RequiereDocumento: true, PerfilClave: "rrhh"},
+			{Clave: "oferta_emitida", Tipo: HitoOfertaEmitida, Origen: "oferta",
 				Destino: "adjudicacion", PerfilClave: "rrhh"},
 		},
 	)
@@ -61,6 +63,11 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 	if conHitos.Version != base.Version || len(conHitos.Circuito.Hitos) != 2 {
 		t.Fatal("adjuntar hitos creó otra versión o perdió la historia")
 	}
+	datosCredito, err := conHitos.DatosCreditoCircuitoRRHH()
+	if err != nil || datosCredito.CreditoRef != conHitos.Analisis.ValidacionRC.ReciboRef ||
+		datosCredito.DocumentoRef != conHitos.Analisis.ValidacionRC.DocumentoRef {
+		t.Fatalf("el crédito no procede del análisis validado: %v", err)
+	}
 	oferta := HitoCircuitoRRHH{
 		Clave: "oferta_emitida", ActuacionClave: act.AccionClave, ActorRef: act.ActorRef,
 		PerfilClave: "rrhh", PerfilRef: "perfil:rrhh:sintetico",
@@ -69,6 +76,39 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 	}
 	if _, err := conHitos.AdjuntarHitosCircuito(definicion, conHitos.Version, []HitoCircuitoRRHH{oferta}); err == nil {
 		t.Fatal("una oferta sin credito avanzó")
+	}
+	conVia, err := conHitos.RegistrarViaCobertura(conHitos.Version, decisionValida(),
+		actuacion("cobertura.decidida", "asignacion_unidad", instanteBase.Add(2*time.Minute)))
+	if err != nil {
+		t.Fatalf("decisión de cobertura: %v", err)
+	}
+	if _, err := conVia.DatosCreditoCircuitoRRHH(); err == nil {
+		t.Fatal("una decisión ya confirmada volvió a pedir hito de crédito")
+	}
+	actCredito := conVia.Actuaciones[len(conVia.Actuaciones)-1]
+	credito := HitoCircuitoRRHH{
+		Clave: "credito_comprobado", ActuacionClave: actCredito.AccionClave,
+		ActorRef: actCredito.ActorRef, PerfilClave: "rrhh", PerfilRef: "perfil:rrhh:sintetico",
+		UnidadRef:             actCredito.UnidadRef,
+		DocumentoRef:          conVia.Analisis.ValidacionRC.DocumentoRef,
+		DocumentoVersion:      1,
+		HuellaDocumentoSHA256: strings.Repeat("c", 64),
+		CreditoRef:            conVia.Analisis.ValidacionRC.ReciboRef,
+		ReciboRef:             actCredito.ReciboRef, RegistradoEn: actCredito.RealizadaEn,
+	}
+	conCredito, err := conVia.AdjuntarHitosCircuito(definicion, conVia.Version, []HitoCircuitoRRHH{credito})
+	if err != nil || conCredito.Validar() != nil || conCredito.Version != conVia.Version ||
+		len(conCredito.Circuito.Hitos) != 3 || conCredito.Circuito.EstadoActual != "oferta" {
+		t.Fatalf("crédito debía ligarse a la decisión v3: %v", err)
+	}
+	credito.DocumentoRef = "documento:otro:sintetico"
+	if _, err := conVia.AdjuntarHitosCircuito(definicion, conVia.Version, []HitoCircuitoRRHH{credito}); err == nil {
+		t.Fatal("un hito con documento ajeno a la RC avanzó")
+	}
+	credito.DocumentoRef = conVia.Analisis.ValidacionRC.DocumentoRef
+	credito.DocumentoVersion = 0
+	if _, err := conVia.AdjuntarHitosCircuito(definicion, conVia.Version, []HitoCircuitoRRHH{credito}); err == nil {
+		t.Fatal("un hito sin versión documental avanzó")
 	}
 	adulterado := conHitos.Clonar()
 	adulterado.Circuito.Definicion.HuellaSHA256 = strings.Repeat("b", 64)

@@ -293,6 +293,10 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutarComoPropietario(
 			ErrConfirmacionDecisionCoberturaEnConflicto
 	}
 	_ = motivoNominalFinal
+	evidenciaCredito, err := s.acreditarCreditoCircuito(ctx, expediente, solicitud.tipo, contexto)
+	if err != nil {
+		return cobertura.ReciboOperacionDecisionCobertura{}, err
+	}
 	preparacionOrden, err :=
 		cobertura.PrepararOrdenOperacionDecisionCobertura(
 			ctx,
@@ -304,6 +308,7 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutarComoPropietario(
 			preparacionC1,
 			propuesta,
 			motivoFinal,
+			evidenciaCredito...,
 		)
 	if err != nil {
 		return cobertura.ReciboOperacionDecisionCobertura{},

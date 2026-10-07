@@ -348,6 +348,7 @@ export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemp
 // el motivo con un código propio. La decisión no lo revela.
 export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
   "sin_credito_analisis_pendiente", "sin_credito_retencion_rechazada", "sin_credito_partidas_sin_coste",
+  "sin_credito_partidas_no_acreditadas",
 ]);
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {

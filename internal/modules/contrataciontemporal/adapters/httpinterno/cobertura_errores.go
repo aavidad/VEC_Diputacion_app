@@ -44,9 +44,10 @@ var (
 	errorInternoCobertura                   = nuevoErrorCobertura(http.StatusInternalServerError, "error_interno")
 	// Sin crédito no se ofrece: un código por motivo para explicarlo en llano.
 	erroresSinCreditoCobertura = map[domain.MotivoSinCredito]errorPublicoCobertura{
-		domain.SinCreditoAnalisisPendiente:  nuevoErrorCobertura(http.StatusConflict, "sin_credito_analisis_pendiente"),
-		domain.SinCreditoRetencionRechazada: nuevoErrorCobertura(http.StatusConflict, "sin_credito_retencion_rechazada"),
-		domain.SinCreditoPartidasSinCoste:   nuevoErrorCobertura(http.StatusConflict, "sin_credito_partidas_sin_coste"),
+		domain.SinCreditoAnalisisPendiente:     nuevoErrorCobertura(http.StatusConflict, "sin_credito_analisis_pendiente"),
+		domain.SinCreditoRetencionRechazada:    nuevoErrorCobertura(http.StatusConflict, "sin_credito_retencion_rechazada"),
+		domain.SinCreditoPartidasSinCoste:      nuevoErrorCobertura(http.StatusConflict, "sin_credito_partidas_sin_coste"),
+		domain.SinCreditoPartidasNoAcreditadas: nuevoErrorCobertura(http.StatusConflict, "sin_credito_partidas_no_acreditadas"),
 	}
 )
 

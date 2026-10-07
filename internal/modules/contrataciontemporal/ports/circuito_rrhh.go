@@ -96,6 +96,16 @@ func (r ResultadoConsultaCircuitoRRHH) ValidarPara(s SolicitudConsultaCircuitoRR
 			!domain.InstanteUTCCanonico(hito.RegistradoEn) {
 			return ErrResultadoCircuitoRRHHNoConfiable
 		}
+		if hito.Tipo == domain.HitoCreditoComprobado &&
+			(hito.DocumentoVersion == 0 || hito.DocumentoVersion > 9007199254740991 ||
+				!domain.ReferenciaOpacaValida(hito.DocumentoRef) ||
+				!domain.HuellaSHA256FirmaValida(hito.HuellaDocumentoSHA256) ||
+				!domain.ReferenciaOpacaValida(hito.CreditoRef)) {
+			return ErrResultadoCircuitoRRHHNoConfiable
+		}
+		if hito.Tipo != domain.HitoCreditoComprobado && hito.DocumentoVersion != 0 {
+			return ErrResultadoCircuitoRRHHNoConfiable
+		}
 		versionAnterior, destinoAnterior = hito.VersionExpedienteEntrada, hito.Destino
 	}
 	if len(r.Circuito.Hitos) != 0 && destinoAnterior != r.Circuito.EstadoActual {

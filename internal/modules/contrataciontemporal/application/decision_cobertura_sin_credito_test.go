@@ -131,3 +131,15 @@ func TestPoliticaCreditoSoloEnLaDecisionInicialYSoloSiImporta(t *testing.T) {
 		t.Fatalf("la regla base no depende del catálogo: %q %v", motivo, err)
 	}
 }
+
+func TestCircuitoNuevoNoPresentaOfertaConPartidasSinAcreditar(t *testing.T) {
+	escenario := escenarioPartidasSinCoste(t)
+	expediente := escenario.analisis.expediente.Clonar()
+	expediente.Analisis.CostePrevisto = &domain.Importe{Centimos: 3_148_025, Moneda: "EUR"}
+	expediente.Analisis.FuenteCosteRef = "tabla:retributiva-sintetica-2026"
+	expediente.Circuito = &domain.CircuitoAdministrativo{}
+	motivo, err := motivoSegunPoliticaCredito(context.Background(), nil, expediente)
+	if err != nil || motivo != domain.SinCreditoPartidasNoAcreditadas {
+		t.Fatalf("el motivo solo no acredita las partidas: %q %v", motivo, err)
+	}
+}

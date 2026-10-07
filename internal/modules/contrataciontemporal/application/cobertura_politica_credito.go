@@ -13,9 +13,9 @@ var ErrPoliticaCreditoCoberturaInvalida = errors.New(
 	"contratacion temporal: politica de credito de cobertura invalida",
 )
 
-// politicaCreditoPredeterminada aplica la decisión de RRHH del 02/10/2026 si
-// no hay catálogo de reglas: sin retención, la constancia de las partidas va
-// con el coste aproximado.
+// politicaCreditoPredeterminada conserva la regla del flujo anterior: sin
+// retención, el motivo sobre las partidas va con el coste aproximado. El
+// circuito nuevo exige además acreditar esa constancia antes de ofrecer.
 var politicaCreditoPredeterminada = domain.PoliticaCreditoOferta{ExigeCosteConPartidas: true}
 
 type politicaCreditoConfigurada struct{ politica ports.PoliticaCreditoOferta }
@@ -67,6 +67,9 @@ func motivoSegunPoliticaCredito(
 	if motivo := expediente.Analisis.MotivoSinCreditoParaOferta(); motivo != "" ||
 		expediente.Analisis.ValidacionRC.Resultado != domain.RCNoRequerida {
 		return motivo, nil
+	}
+	if expediente.Circuito != nil {
+		return domain.SinCreditoPartidasNoAcreditadas, nil
 	}
 	vigente := politicaCreditoPredeterminada
 	if !dependenciaNula(politica) {

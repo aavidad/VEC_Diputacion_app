@@ -167,6 +167,7 @@ type HitoCircuitoRRHH struct {
 	PerfilRef                string               `json:"perfil_ref"`
 	UnidadRef                string               `json:"unidad_ref"`
 	DocumentoRef             string               `json:"documento_ref,omitempty"`
+	DocumentoVersion         uint64               `json:"documento_version,omitempty"`
 	HuellaDocumentoSHA256    string               `json:"huella_documento_sha256,omitempty"`
 	ActoAutorizacionRef      string               `json:"acto_autorizacion_ref,omitempty"`
 	AutorizanteRef           string               `json:"autorizante_ref,omitempty"`
@@ -222,6 +223,9 @@ func (h HitoCircuitoRRHH) validar() error {
 		h.HuellaDocumentoSHA256 != "" && !huellaValida(h.HuellaDocumentoSHA256) {
 		return ErrCircuitoRRHHInvalido
 	}
+	if h.Tipo != HitoCreditoComprobado && h.DocumentoVersion != 0 {
+		return ErrCircuitoRRHHInvalido
+	}
 	cargos := make(map[ClaveCatalogo]struct{}, len(h.Firmas))
 	for _, firma := range h.Firmas {
 		if firma.validar() != nil ||
@@ -240,7 +244,8 @@ func (h HitoCircuitoRRHH) validar() error {
 			return ErrCircuitoRRHHInvalido
 		}
 	case HitoCreditoComprobado:
-		if h.CreditoRef == "" {
+		if h.CreditoRef == "" || h.DocumentoVersion == 0 ||
+			h.DocumentoVersion > 9007199254740991 {
 			return ErrCircuitoRRHHInvalido
 		}
 	case HitoOfertaEmitida:
@@ -346,6 +351,31 @@ func (e Expediente) HabilitaInformeSubsanacionCircuitoRRHH() bool {
 		ultimo.RetornoRef == e.Fiscalizacion.Retorno.RetornoRef
 }
 
+// DatosCreditoCircuitoRRHH conserva el respaldo presupuestario íntegro que
+// puede convertirse en hito. No acredita por sí solo la huella documental.
+type DatosCreditoCircuitoRRHH struct {
+	OrganizacionRef string
+	ExpedienteRef   string
+	VersionEntrada  uint64
+	Flujo           ReferenciaFlujo
+	CreditoRef      string
+	DocumentoRef    string
+}
+
+func (e Expediente) DatosCreditoCircuitoRRHH() (DatosCreditoCircuitoRRHH, error) {
+	if e.Validar() != nil || e.Circuito == nil || e.Analisis == nil ||
+		e.ViaCobertura != nil || !e.Analisis.HabilitaAvance() ||
+		e.Analisis.ValidacionRC.Resultado != RCValidada {
+		return DatosCreditoCircuitoRRHH{}, ErrCircuitoRRHHInvalido
+	}
+	return DatosCreditoCircuitoRRHH{
+		OrganizacionRef: e.OrganizacionRef, ExpedienteRef: e.Referencia,
+		VersionEntrada: e.Version, Flujo: e.Flujo,
+		CreditoRef:   e.Analisis.ValidacionRC.ReciboRef,
+		DocumentoRef: e.Analisis.ValidacionRC.DocumentoRef,
+	}, nil
+}
+
 // AdjuntarHitosCircuito enlaza hitos acreditados a la última actuación real
 // del expediente. No crea otra versión: el adaptador confirma actuación,
 // hitos, auditoría y outbox en la misma transacción y CAS.
@@ -444,10 +474,14 @@ func (e Expediente) permiteHitoCircuito(h HitoCircuitoRRHH) bool {
 			e.ViaCobertura != nil && e.Asignacion == nil &&
 			e.Analisis.HabilitaAvance() &&
 			e.Analisis.ValidacionRC.Resultado == RCValidada &&
-			h.CreditoRef == e.Analisis.ValidacionRC.ReciboRef
+			h.CreditoRef == e.Analisis.ValidacionRC.ReciboRef &&
+			h.DocumentoRef == e.Analisis.ValidacionRC.DocumentoRef
 	case HitoOfertaEmitida:
 		return credito != nil && oferta == nil && e.Asignacion != nil &&
-			e.InformeJuridico == nil
+			e.InformeJuridico == nil && e.Analisis != nil &&
+			e.Analisis.ValidacionRC.Resultado == RCValidada &&
+			credito.CreditoRef == e.Analisis.ValidacionRC.ReciboRef &&
+			credito.DocumentoRef == e.Analisis.ValidacionRC.DocumentoRef
 	case HitoAdjudicacion:
 		return oferta != nil && adjudicacion == nil && e.Asignacion != nil &&
 			e.InformeJuridico == nil && h.OfertaRef == oferta.OfertaRef

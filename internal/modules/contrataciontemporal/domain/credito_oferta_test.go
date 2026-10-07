@@ -100,3 +100,30 @@ func TestPoliticaDeCreditoExigeElCosteConLasPartidas(t *testing.T) {
 		t.Fatalf("la política no relaja la regla base: %q", got)
 	}
 }
+
+func TestCircuitoNuevoNoDaPorAcreditadasLasPartidasSoloPorUnMotivo(t *testing.T) {
+	expediente := expedienteConAnalisisRehidratado(t, RCNoRequerida)
+	definicion, err := NuevaDefinicionCircuitoRRHH(
+		"flujo:ct:rrhh:partidas-prueba", 2, expediente.Actuaciones[0].FaseDestino,
+		[]TransicionCircuitoRRHH{{
+			Clave: "credito_comprobado", Tipo: HitoCreditoComprobado,
+			Origen: expediente.Actuaciones[0].FaseDestino, Destino: "oferta",
+			PerfilClave: "tecnico_rrhh", RequiereDocumento: true,
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := NuevoCircuitoAdministrativo(definicion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente.Flujo, expediente.Circuito = definicion.Flujo, &circuito
+	if err := expediente.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	motivo, ok := MotivoSinCreditoDe(expediente.ErrorSinCreditoParaOferta())
+	if !ok || motivo != SinCreditoPartidasNoAcreditadas {
+		t.Fatalf("la constancia de partidas no acreditada habilitó la oferta: %q", motivo)
+	}
+}

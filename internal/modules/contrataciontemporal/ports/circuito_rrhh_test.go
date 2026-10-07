@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -40,5 +41,22 @@ func TestResultadoConsultaCircuitoRRHHAceptaDosHitosDeUnaActuacion(t *testing.T)
 	r.Circuito.Hitos[1].Origen = "otro_origen"
 	if r.ValidarPara(s) == nil {
 		t.Fatal("aceptó una historia de circuito sin continuidad")
+	}
+	r.Circuito.Hitos[1].Origen = "autorizacion_rrhh"
+	s.VersionObservada, r.VersionExpediente = 3, 3
+	r.Circuito.Hitos = append(r.Circuito.Hitos, domain.HitoCircuitoRRHH{
+		Secuencia: 3, VersionExpedienteEntrada: 2, Clave: "credito_comprobado",
+		Tipo: domain.HitoCreditoComprobado, Origen: "credito", Destino: "oferta",
+		DocumentoRef: "documento:rc:prueba", DocumentoVersion: 1,
+		HuellaDocumentoSHA256: strings.Repeat("a", 64), CreditoRef: "recibo:rc:prueba",
+		ReciboRef: "recibo:cobertura:prueba", RegistradoEn: instante.Add(time.Minute),
+	})
+	r.Circuito.EstadoActual = "oferta"
+	if err := r.ValidarPara(s); err != nil {
+		t.Fatalf("el crédito documentado se rechazó: %v", err)
+	}
+	r.Circuito.Hitos[2].DocumentoVersion = 0
+	if r.ValidarPara(s) == nil {
+		t.Fatal("se aceptó un crédito sin versión documental")
 	}
 }

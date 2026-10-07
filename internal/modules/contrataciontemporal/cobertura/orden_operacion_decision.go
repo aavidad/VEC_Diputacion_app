@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -39,6 +40,7 @@ type datosPreparacionOrdenOperacionDecisionCobertura struct {
 	preparacionC1     PreparacionConjuntosViasCobertura
 	propuesta         domain.PropuestaDecisionCobertura
 	motivo            ResolucionMotivoDecisionCobertura
+	evidenciaCredito  *ports.EvidenciaCreditoCircuitoRRHH
 	recursoVEC        dominiovec.RecursoAutorizable
 	preparadaEn       time.Time
 	validaHasta       time.Time
@@ -132,6 +134,32 @@ func PrepararOrdenOperacionDecisionCobertura(
 	preparacionC1 PreparacionConjuntosViasCobertura,
 	propuesta domain.PropuestaDecisionCobertura,
 	motivo ResolucionMotivoDecisionCobertura,
+	evidencias ...ports.EvidenciaCreditoCircuitoRRHH,
+) (PreparacionOrdenOperacionDecisionCobertura, error) {
+	if len(evidencias) > 1 {
+		return PreparacionOrdenOperacionDecisionCobertura{}, ErrOrdenOperacionDecisionCoberturaInvalida
+	}
+	var credito *ports.EvidenciaCreditoCircuitoRRHH
+	if len(evidencias) == 1 {
+		copia := evidencias[0].Clonar()
+		credito = &copia
+	}
+	return prepararOrdenOperacionDecisionCobertura(ctx, reloj, solicitudReserva,
+		preparacionReserva, solicitudGobierno, gobierno, preparacionC1, propuesta,
+		motivo, credito)
+}
+
+func prepararOrdenOperacionDecisionCobertura(
+	ctx context.Context,
+	reloj RelojGobiernoOperacionCobertura,
+	solicitudReserva SolicitudReservarOperacionDecisionCobertura,
+	preparacionReserva PreparacionOperacionDecisionCobertura,
+	solicitudGobierno SolicitudGobiernoOperacionCobertura,
+	gobierno GobiernoOperacionCobertura,
+	preparacionC1 PreparacionConjuntosViasCobertura,
+	propuesta domain.PropuestaDecisionCobertura,
+	motivo ResolucionMotivoDecisionCobertura,
+	evidenciaCredito *ports.EvidenciaCreditoCircuitoRRHH,
 ) (PreparacionOrdenOperacionDecisionCobertura, error) {
 	if dependenciaGobiernoOperacionCoberturaNula(ctx) ||
 		dependenciaGobiernoOperacionCoberturaNula(reloj) ||
@@ -215,6 +243,7 @@ func PrepararOrdenOperacionDecisionCobertura(
 		propuesta,
 		motivoFuncional,
 		instantePreparacion,
+		evidenciaCredito,
 	)
 	if err != nil {
 		return PreparacionOrdenOperacionDecisionCobertura{},
@@ -246,6 +275,7 @@ func PrepararOrdenOperacionDecisionCobertura(
 		preparacionC1:     preparacionC1,
 		propuesta:         propuesta,
 		motivo:            motivo,
+		evidenciaCredito:  clonarEvidenciaCreditoCircuito(evidenciaCredito),
 		recursoVEC:        clonarRecursoOperacionDecisionCobertura(recurso),
 		preparadaEn:       instantePreparacion,
 		validaHasta:       validaHasta,
@@ -369,6 +399,7 @@ func NuevaOrdenOperacionDecisionCobertura(
 		preparacion.datos.propuesta,
 		motivoFuncional,
 		instanteEfecto,
+		preparacion.datos.evidenciaCredito,
 	)
 	if err != nil {
 		return OrdenOperacionDecisionCobertura{},
@@ -496,6 +527,7 @@ func validarTransicionFinalOperacionDecisionCobertura(
 		datos.preparacion.propuesta,
 		motivo,
 		datos.efectoEn,
+		datos.preparacion.evidenciaCredito,
 	)
 	validaHasta := minimoInstanteOperacionDecisionCobertura(
 		datos.preparacion.validaHasta,

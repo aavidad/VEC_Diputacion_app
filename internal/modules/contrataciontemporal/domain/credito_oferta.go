@@ -2,17 +2,11 @@ package domain
 
 import "errors"
 
-// Sin crédito no se tramita nada (RRHH, 02/10/2026): el expediente no pasa a
-// la oferta ni al llamamiento (vía de cobertura) sin uno de estos respaldos:
-//
-//   - la retención de crédito validada, con su número y su documento
-//     (ValidacionRC.Validar ya exige ambos cuando el resultado es «validada»);
-//   - si la retención no llega, la constancia del estado de las partidas en
-//     SICAL, que la fuente presupuestaria devuelve como «no_requerida» con su
-//     motivo (ValidacionRC.Validar exige el motivo).
-//
-// Validar ya impide guardar una vía de cobertura sin este respaldo; aquí se
-// nombra el motivo para que la pantalla pueda explicarlo.
+// RRHH (02/10/2026) exige crédito antes de ofrecer. Una RC validada conserva
+// número y documento. La alternativa del estado de las partidas necesita una
+// constancia acreditada: el resultado «no_requerida» actual solo conserva un
+// motivo y no la acredita en el circuito nuevo. La regla previa sigue vigente
+// en los expedientes anteriores; los motivos permiten explicarlo en pantalla.
 
 // ErrSinCreditoParaOferta agrupa los motivos por los que el expediente no
 // puede pasar a la oferta. Cada motivo concreto lo envuelve para que la
@@ -33,6 +27,9 @@ const (
 	// exige la política de crédito del catálogo de reglas, que RRHH puede
 	// desactivar; la regla base no lo comprueba.
 	SinCreditoPartidasSinCoste MotivoSinCredito = "partidas_sin_coste"
+	// SinCreditoPartidasNoAcreditadas: el motivo «no requerida» no contiene
+	// una constancia documental del estado de las partidas para este circuito.
+	SinCreditoPartidasNoAcreditadas MotivoSinCredito = "partidas_no_acreditadas"
 )
 
 // PoliticaCreditoOferta son las exigencias de crédito que fija el catálogo de
@@ -98,6 +95,9 @@ func (a *AnalisisRRHH) MotivoSinCreditoParaOferta() MotivoSinCredito {
 func (e Expediente) ErrorSinCreditoParaOferta() error {
 	if motivo := e.Analisis.MotivoSinCreditoParaOferta(); motivo != "" {
 		return NuevoErrorSinCredito(motivo)
+	}
+	if e.Circuito != nil && e.Analisis.ValidacionRC.Resultado == RCNoRequerida {
+		return NuevoErrorSinCredito(SinCreditoPartidasNoAcreditadas)
 	}
 	return nil
 }

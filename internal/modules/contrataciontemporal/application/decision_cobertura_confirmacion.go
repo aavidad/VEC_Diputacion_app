@@ -130,7 +130,8 @@ type ServicioConfirmacionDecisionCobertura struct {
 	reconciliador  cobertura.ReconciliadorResultadoAmbiguoOperacionDecisionCobertura
 	// politicaCredito es opcional: sin ella rige la predeterminada. Se fija
 	// una sola vez, como los avisos de vía.
-	politicaCredito atomic.Pointer[politicaCreditoConfigurada]
+	politicaCredito       atomic.Pointer[politicaCreditoConfigurada]
+	fuenteCreditoCircuito atomic.Pointer[fuenteCreditoCircuitoConfigurada]
 }
 
 func NuevoServicioConfirmacionDecisionCobertura(

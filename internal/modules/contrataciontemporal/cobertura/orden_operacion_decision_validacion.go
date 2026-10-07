@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -136,6 +137,7 @@ func transicionPuraOperacionDecisionCobertura(
 	propuesta domain.PropuestaDecisionCobertura,
 	motivo domain.MotivoGobernadoDecisionCobertura,
 	instante time.Time,
+	evidenciaCredito *ports.EvidenciaCreditoCircuitoRRHH,
 ) (domain.Expediente, error) {
 	if reserva.AgregadoAnterior == nil {
 		return domain.Expediente{}, ErrOrdenOperacionDecisionCoberturaInvalida
@@ -151,7 +153,7 @@ func transicionPuraOperacionDecisionCobertura(
 	}
 	switch identidad.tipo {
 	case domain.DecisionCoberturaInicial:
-		return reserva.AgregadoAnterior.RegistrarDecisionCoberturaGobernada(
+		siguiente, err := reserva.AgregadoAnterior.RegistrarDecisionCoberturaGobernada(
 			identidad.versionExpediente,
 			domain.DatosAdoptarDecisionCobertura{
 				PerfilRef: identidad.perfilRef, ViaElegida: identidad.viaElegida,
@@ -160,7 +162,16 @@ func transicionPuraOperacionDecisionCobertura(
 			propuesta,
 			actuacion,
 		)
+		if err != nil {
+			return domain.Expediente{}, err
+		}
+		return adjuntarCreditoCircuitoDecisionCobertura(
+			*reserva.AgregadoAnterior, siguiente, identidad.perfilRef, evidenciaCredito,
+		)
 	case domain.DecisionCoberturaRectificacion:
+		if evidenciaCredito != nil {
+			return domain.Expediente{}, ErrOrdenOperacionDecisionCoberturaInvalida
+		}
 		return reserva.AgregadoAnterior.RectificarDecisionCoberturaGobernada(
 			identidad.versionExpediente,
 			domain.DatosRectificarDecisionCobertura{
@@ -423,6 +434,7 @@ func clonarDatosPreparacionOrdenOperacionDecisionCobertura(
 		return nil
 	}
 	clon := *origen
+	clon.evidenciaCredito = clonarEvidenciaCreditoCircuito(origen.evidenciaCredito)
 	clon.reserva = clonarReservaPropietariaOperacionDecisionCobertura(origen.reserva)
 	clon.recursoVEC = clonarRecursoOperacionDecisionCobertura(origen.recursoVEC)
 	clon.preparacionC1.conjuntos = make(
