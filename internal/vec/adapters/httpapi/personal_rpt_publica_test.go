@@ -43,3 +43,50 @@ func TestHandlerRPTPublicaLimitaRutaMetodoYProyeccion(t *testing.T) {
 		}
 	}
 }
+
+func TestRPTPublicaEnlacesOptativosConFiltrosExactos(t *testing.T) {
+	puesto := func(codigo, centro, categoria string, dotacion int) domain.PuestoRPTPublico {
+		return domain.PuestoRPTPublico{Codigo: codigo, Denominacion: "ADMINISTRATIVO", CentroCodigo: centro, Centro: "CENTRO " + centro,
+			Delegacion: "PERSONAL", Grupos: []string{"C1"}, CategoriaClave: categoria, NivelDestino: 17,
+			ComplementoEspecificoAnualCentimos: 1000000, Dotacion: dotacion, Tipo: "F", Provision: "C"}
+	}
+	catalogo := domain.CatalogoRPTPublica{Esquema: "vec.catalogo.rpt.v1", Fuente: domain.FuenteRPTPublica{Documento: "RPT publicada", Importacion: "rpt-publica-v1", GeneradoEn: "2026-09-17", Aviso: "Sin ocupantes", HuellaSHA256: strings.Repeat("a", 64)},
+		Resumen:    domain.ResumenRPTPublica{Puestos: 3, Dotacion: 9, Categorias: 1, Centros: 2},
+		Categorias: []domain.CategoriaRPTPublica{{Clave: "administrativo", Denominacion: "ADMINISTRATIVO", Grupos: []string{"C1"}, Escalas: []string{}, Puestos: 1, Dotacion: 2}},
+		Puestos:    []domain.PuestoRPTPublico{puesto("A-1", "101", "administrativo", 2), puesto("A-2", "101", "administrativo", 3), puesto("B-1", "102", "", 4)}}
+	h, err := NewHandlerRPTPublica(consultaRPTPublicaPrueba{catalogo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pedir := func(query string) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRPTPublicaPersonal+"?"+query, nil))
+		return w
+	}
+	legacy := pedir("vista=categorias&q=&limit=25&offset=0")
+	if legacy.Code != 200 || strings.Contains(legacy.Body.String(), "puestos_vinculados") || strings.Contains(legacy.Body.String(), `"enlaces"`) {
+		t.Fatalf("contrato legacy cambió: %s", legacy.Body.String())
+	}
+	categorias := pedir("vista=categorias&q=&limit=25&offset=0&enlaces=1")
+	if categorias.Code != 200 || !strings.Contains(categorias.Body.String(), `"puestos_vinculados":2`) || !strings.Contains(categorias.Body.String(), `"dotacion_vinculada":5`) || !strings.Contains(categorias.Body.String(), `"recuento_coincide":false`) {
+		t.Fatalf("recuento enlazado: %s", categorias.Body.String())
+	}
+	centros := pedir("vista=centros&q=&limit=1&offset=0&enlaces=1")
+	if centros.Code != 200 || !strings.Contains(centros.Body.String(), `"total":2`) || !strings.Contains(centros.Body.String(), `"puestos":2`) {
+		t.Fatalf("centros paginados: %s", centros.Body.String())
+	}
+	filtrados := pedir("vista=puestos&q=&limit=25&offset=0&enlaces=1&categoria_clave=administrativo&centro_codigo=101")
+	if filtrados.Code != 200 || !strings.Contains(filtrados.Body.String(), `"total":2`) || strings.Contains(filtrados.Body.String(), `"B-1"`) {
+		t.Fatalf("filtros exactos: %s", filtrados.Body.String())
+	}
+	for _, query := range []string{
+		"vista=centros&q=&limit=25&offset=0", "vista=categorias&q=&limit=25&offset=0&categoria_clave=administrativo",
+		"vista=puestos&q=&limit=25&offset=0&centro_codigo=101", "vista=puestos&q=&limit=25&offset=0&enlaces=2",
+		"vista=puestos&q=&limit=25&offset=0&enlaces=1&categoria_clave=Administrativo",
+	} {
+		if w := pedir(query); w.Code != 400 {
+			t.Errorf("filtro aceptado %s: %d", query, w.Code)
+		}
+	}
+}

@@ -1,5 +1,6 @@
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearResumenRPTPuestos } from "./i18n-rpt-puestos.js?v=20260929-i18n-personal-v1";
-import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearEnlaceAgrupacionRPT, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS, RESPALDO_RPT_PUESTOS } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
+import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261007-t-rpt-enlaces-v1";
+import { cambiarIdioma } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-rpt-publica]") === contenedor; }
 function retirar(raiz, contenedor) { if (!sigueMontada(raiz, contenedor)) return; if (typeof contenedor.remove === "function") contenedor.remove(); else raiz.removeChild?.(contenedor); }
@@ -7,59 +8,288 @@ function formulario(documento, consulta, recargar, t) {
   const salida = nodo(documento, "form");
   salida.className = "panel filtros-quitables";
   salida.dataset.personalRptPublicaFiltros = "";
-  salida.dataset.personalRptPublicaConsulta = consulta.q;
-  const etiqueta = nodo(documento, "label");
-  const entrada = nodo(documento, "input");
+  salida.dataset.personalRptPublicaConsulta = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}`;
+  const etiqueta = nodo(documento, "label"), entrada = nodo(documento, "input");
   entrada.type = "search"; entrada.name = "q"; entrada.value = consulta.q; entrada.maxLength = 100;
   entrada.dataset.personalRptPublicaBusqueda = "";
   etiqueta.append(nodo(documento, "span", t("buscar")), entrada);
   const boton = nodo(documento, "button", t("accion_buscar"));
   boton.type = "submit"; boton.className = "boton-primario";
   salida.append(etiqueta, boton);
-  if (consulta.q !== "") {
-    const aplicada = nodo(documento, "p", t("busqueda_aplicada", { busqueda: consulta.q }));
+  const activos = nodo(documento, "div"); activos.className = "filtros-activos";
+  const filtro = (clave, valor, mensaje, borrar) => {
+    if (!valor) return;
+    const aplicada = nodo(documento, "p", t(mensaje, { valor, busqueda: valor }));
     aplicada.className = "rpt-huella";
-    aplicada.dataset.personalRptPublicaBusquedaAplicada = "";
-    const quitar = nodo(documento, "button", t("quitar_busqueda"));
+    if (clave === "q") aplicada.dataset.personalRptPublicaBusquedaAplicada = "";
+    const quitar = nodo(documento, "button", t(clave === "q" ? "quitar_busqueda" : "quitar_filtro"));
     quitar.type = "button"; quitar.className = "boton-secundario";
-    quitar.dataset.personalRptPublicaQuitarBusqueda = "";
-    quitar.addEventListener("click", () => recargar({ q: "", offset: 0 }));
-    const activos = nodo(documento, "div"); activos.className = "filtros-activos";
-    activos.append(aplicada, quitar); salida.append(activos);
-  }
-  salida.addEventListener("submit", (evento) => {
-    evento.preventDefault(); recargar({ q: entrada.value.trim(), offset: 0 });
-  });
+    quitar.dataset[clave === "q" ? "personalRptPublicaQuitarBusqueda" : "personalRptPublicaQuitarFiltro"] = clave;
+    quitar.addEventListener("click", () => recargar(borrar, { enfocarResultado: clave !== "q" }));
+    activos.append(aplicada, quitar);
+  };
+  filtro("q", consulta.q, "busqueda_aplicada", { q: "", offset: 0 });
+  filtro("categoria_clave", consulta.categoria_clave, "categoria_aplicada", { categoria_clave: "", offset: 0 });
+  filtro("centro_codigo", consulta.centro_codigo, "centro_aplicado", { centro_codigo: "", offset: 0 });
+  if (activos.children.length > 0) salida.append(activos);
+  salida.addEventListener("submit", (evento) => { evento.preventDefault(); recargar({ q: entrada.value.trim(), offset: 0 }); });
   return salida;
 }
 function conservarFormulario(documento, contenedor, consulta, recargar, t) {
   const anterior = contenedor.querySelector("[data-personal-rpt-publica-filtros]");
   const recuperar = Boolean(anterior?.contains?.(documento.activeElement));
-  const elemento = anterior?.dataset.personalRptPublicaConsulta === consulta.q
-    ? anterior : formulario(documento, consulta, recargar, t);
-  return { elemento, restaurarFoco() {
-    if (recuperar) elemento.querySelector("[data-personal-rpt-publica-busqueda]")?.focus?.();
-  } };
+  const clave = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}`;
+  const elemento = anterior?.dataset.personalRptPublicaConsulta === clave ? anterior : formulario(documento, consulta, recargar, t);
+  return { elemento, restaurarFoco() { if (recuperar) elemento.querySelector("[data-personal-rpt-publica-busqueda]")?.focus?.(); } };
 }
-function pestañas(documento, consulta, recargar, t) { const salida = nodo(documento, "nav"); salida.setAttribute("aria-label", t("titulo")); [ ["categorias", "pestana_categorias"], ["puestos", "pestana_puestos"] ].forEach(([vista, clave]) => { const boton = nodo(documento, "button", t(clave)); boton.type = "button"; boton.dataset.personalRptPublicaVista = vista; boton.setAttribute("aria-pressed", String(consulta.vista === vista)); boton.disabled = consulta.vista === vista; boton.addEventListener("click", () => recargar({ vista, offset: 0 })); salida.append(boton); }); return salida; }
-function columnas(vista) { return vista === "puestos" ? [ ["codigo", "codigo"], ["denominacion", "denominacion"], ["centro", "centro"], ["grupos", "grupos"], ["nivel_destino", "nivel"], ["dotacion", "dotacion"] ] : [ ["clave", "clave"], ["denominacion", "denominacion"], ["grupos", "grupos"], ["escalas", "escalas"], ["puestos", "puestos"], ["dotacion", "dotacion"] ]; }
-const CAMPOS_DETALLE_PUESTO = Object.freeze([ ["centro_codigo", "centro_codigo"], ["delegacion", "delegacion"], ["escala", "escala"], ["categoria_clave", "categoria"], ["complemento_especifico_anual_centimos", "complemento"], ["tipo", "tipo"], ["provision", "provision"] ]);
-function valor(item, campo, t) { if (campo === "grupos" || campo === "escalas") return item[campo].join(", ") || t(campo === "escalas" ? "sin_escalas" : "sin_categoria"); if (campo === "categoria_clave") return item[campo] || t("sin_categoria"); if (campo === "escala") return item[campo] || t("sin_escalas"); if (campo === "complemento_especifico_anual_centimos") return formatearCentimosRPT(item[campo]); return String(item[campo]); }
+function pestañas(documento, consulta, recargar, t) {
+  const salida = nodo(documento, "nav"); salida.setAttribute("aria-label", t("titulo"));
+  [["categorias", "pestana_categorias"], ["puestos", "pestana_puestos"], ["centros", "pestana_centros"]].forEach(([vista, clave]) => {
+    const boton = nodo(documento, "button", t(clave)); boton.type = "button";
+    boton.dataset.personalRptPublicaVista = vista;
+    boton.setAttribute("aria-pressed", String(consulta.vista === vista)); boton.disabled = consulta.vista === vista;
+    boton.addEventListener("click", () => recargar({ vista, categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true })); salida.append(boton);
+  });
+  return salida;
+}
+function columnas(vista) {
+  if (vista === "puestos") return [["codigo", "codigo"], ["denominacion", "denominacion"], ["centro", "centro"], ["grupos", "grupos"], ["nivel_destino", "nivel"], ["dotacion", "dotacion"]];
+  if (vista === "centros") return [["codigo", "centro_codigo"], ["denominacion", "centro"], ["puestos", "puestos"], ["dotacion", "dotacion"]];
+  return [["clave", "clave"], ["denominacion", "denominacion"], ["grupos", "grupos"], ["escalas", "escalas"], ["puestos_vinculados", "puestos"], ["dotacion_vinculada", "dotacion"]];
+}
+const CAMPOS_DETALLE_PUESTO = Object.freeze([["centro_codigo", "centro_codigo"], ["delegacion", "delegacion"], ["escala", "escala"], ["categoria_clave", "categoria"], ["complemento_especifico_anual_centimos", "complemento"], ["tipo", "tipo"], ["provision", "provision"]]);
+function valor(item, campo, t) {
+  if (campo === "grupos" || campo === "escalas") return item[campo].join(", ") || t(campo === "escalas" ? "sin_escalas" : "sin_categoria");
+  if (campo === "categoria_clave") return item[campo] || t("sin_categoria");
+  if (campo === "escala") return item[campo] || t("sin_escalas");
+  if (campo === "complemento_especifico_anual_centimos") return formatearCentimosRPT(item[campo]);
+  return String(item[campo]);
+}
 function fechaGeneracionRPT(valor) {
   if (typeof valor !== "string") return "";
   if (/^\d{4}-\d{2}-\d{2}$/u.test(valor)) {
     const fecha = new Date(`${valor}T12:00:00Z`);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor)
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeZone: "Europe/Madrid" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { dateStyle: "long", timeZone: "Europe/Madrid" }).format(fecha);
   }
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u.test(valor)) {
     const fecha = new Date(valor);
     if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 19) === valor.slice(0, 19))
-      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha);
+      return new Intl.DateTimeFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha);
   }
   return valor;
 }
 function detallePuesto(documento, item, identificador, t, cerrar) { const detalle = nodo(documento, "section"); detalle.id = identificador; detalle.dataset.personalRptPublicaDetalle = ""; detalle.setAttribute("aria-label", t("detalle_puesto", { codigo: valor(item, "codigo", t) })); const titulo = nodo(documento, "h3", t("detalle_puesto", { codigo: valor(item, "codigo", t) })); const boton = nodo(documento, "button", t("cerrar_detalle")); boton.type = "button"; boton.dataset.personalRptPublicaCerrarDetalle = ""; boton.addEventListener("click", cerrar); const lista = nodo(documento, "dl"); CAMPOS_DETALLE_PUESTO.forEach(([campo, clave]) => lista.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", valor(item, campo, t)))); detalle.append(titulo, boton, lista); return detalle; }
-function tablaRPT(documento, pagina, t) { const tabla = nodo(documento, "table"); tabla.className = "tabla-datos"; tabla.append(nodo(documento, "caption", pagina.vista === "puestos" ? t("tabla_puestos") : t("tabla_categorias"))); const cabeza = nodo(documento, "thead"); const filaCabeza = nodo(documento, "tr"); const columnasVista = columnas(pagina.vista); columnasVista.forEach(([, clave]) => { const celda = nodo(documento, "th", t(clave)); celda.setAttribute("scope", "col"); filaCabeza.append(celda); }); cabeza.append(filaCabeza); tabla.append(cabeza); const cuerpo = nodo(documento, "tbody"); let abierto = null; let focoPendiente = null; const cerrar = (devolverFoco = false) => { if (abierto === null) return; if (devolverFoco) focoPendiente = abierto; abierto = null; pintarFilas(); }; cuerpo.addEventListener("keydown", (evento) => { if (evento.key === "Escape") { evento.preventDefault(); cerrar(true); } }); const pintarFilas = () => { cuerpo.replaceChildren(); pagina.items.forEach((item, indice) => { const fila = nodo(documento, "tr"); const identificador = `personal-rpt-puesto-${pagina.offset}-${indice}`; let botonDetalle = null; const alternar = () => { if (abierto === indice) { focoPendiente = indice; abierto = null; } else abierto = indice; pintarFilas(); }; columnasVista.forEach(([campo], indiceCampo) => { const celda = nodo(documento, indiceCampo === 0 ? "th" : "td"); if (indiceCampo === 0) { celda.setAttribute("scope", "row"); if (pagina.vista === "puestos") { const boton = nodo(documento, "button", valor(item, campo, t)); botonDetalle = boton; boton.type = "button"; boton.dataset.personalRptPublicaDetalleBoton = ""; boton.setAttribute("aria-controls", identificador); boton.setAttribute("aria-expanded", String(abierto === indice)); boton.setAttribute("aria-label", abierto === indice ? t("ocultar_detalle", { codigo: valor(item, campo, t) }) : t("ver_detalle", { codigo: valor(item, campo, t) })); boton.addEventListener("click", alternar); boton.addEventListener("keydown", (evento) => { if (evento.key === " ") { evento.preventDefault(); alternar(); } }); celda.append(boton); } else celda.textContent = valor(item, campo, t); } else celda.textContent = valor(item, campo, t); fila.append(celda); }); cuerpo.append(fila); if (focoPendiente === indice) { botonDetalle?.focus?.(); focoPendiente = null; } if (pagina.vista === "puestos" && abierto === indice) { const filaDetalle = nodo(documento, "tr"); filaDetalle.dataset.personalRptPublicaDetalleFila = ""; const celdaDetalle = nodo(documento, "td"); celdaDetalle.colSpan = columnasVista.length; celdaDetalle.append(detallePuesto(documento, item, identificador, t, () => cerrar(true))); filaDetalle.append(celdaDetalle); cuerpo.append(filaDetalle); } }); }; if (pagina.items.length === 0) { const fila = nodo(documento, "tr"); const celda = nodo(documento, "td", t("vacio")); celda.colSpan = columnasVista.length; fila.append(celda); cuerpo.append(fila); } else pintarFilas(); tabla.append(cuerpo); const contenedor = nodo(documento, "div"); contenedor.className = "tabla-contenedor"; contenedor.setAttribute("tabindex", "0"); contenedor.setAttribute("role", "region"); contenedor.setAttribute("aria-label", pagina.vista === "puestos" ? t("tabla_puestos") : t("tabla_categorias")); contenedor.append(tabla); return contenedor; }
-function pintar(raiz, contenedor, estado, recargar, t) { if (!sigueMontada(raiz, contenedor)) return; const documento = contenedor.ownerDocument; const filtros = conservarFormulario(documento, contenedor, estado.consulta, recargar, t); contenedor.replaceChildren(); const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-vista"; const ayuda = nodo(documento, "div"); ayuda.id = "personal-rpt-publica-ayuda"; ayuda.className = "panel ayuda-contextual"; ayuda.dataset.personalRptPublicaAyuda = ""; ayuda.hidden = true; const cuerpoAyuda = nodo(documento, "div"); cuerpoAyuda.className = "cuerpo-panel"; cuerpoAyuda.append(nodo(documento, "p", t("ayuda"))); ayuda.append(cuerpoAyuda); const abrirAyuda = nodo(documento, "button", "?"); abrirAyuda.type = "button"; abrirAyuda.dataset.personalRptPublicaAbrirAyuda = ""; abrirAyuda.setAttribute("aria-label", t("ayuda")); abrirAyuda.setAttribute("aria-controls", ayuda.id); abrirAyuda.setAttribute("aria-expanded", "false"); abrirAyuda.addEventListener("click", () => { ayuda.hidden = !ayuda.hidden; abrirAyuda.setAttribute("aria-expanded", String(!ayuda.hidden)); }); abrirAyuda.addEventListener("keydown", (evento) => { if (evento.key === "Escape") { evento.preventDefault(); ayuda.hidden = true; abrirAyuda.setAttribute("aria-expanded", "false"); abrirAyuda.focus?.(); } }); cabecera.append(nodo(documento, "h2", t("titulo")), abrirAyuda); contenedor.append(cabecera, ayuda); if (estado.tipo === "cargando") { const carga = nodo(documento, "p", t("cargando")); carga.setAttribute("role", "status"); carga.setAttribute("aria-live", "polite"); contenedor.append(carga, pestañas(documento, estado.consulta, recargar, t), filtros.elemento); filtros.restaurarFoco(); return; } if (estado.tipo === "error") { const aviso = nodo(documento, "p", estado.mensaje); aviso.setAttribute("role", "alert"); contenedor.append(aviso, pestañas(documento, estado.consulta, recargar, t), filtros.elemento); filtros.restaurarFoco(); return; } const { pagina } = estado; const resumen = nodo(documento, "div"); resumen.className = "panel"; resumen.dataset.personalRptPublicaResumen = ""; const cuerpoResumen = nodo(documento, "div"); cuerpoResumen.className = "cuerpo-panel"; cuerpoResumen.append(nodo(documento, "p", formatearResumenRPTPuestos(pagina.resumen))); resumen.append(cuerpoResumen); cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente))); const generada = fechaGeneracionRPT(pagina.fuente.generado_en); if (generada) cuerpoAyuda.append(nodo(documento, "p", t("generacion", { valor: generada }))); const huella = nodo(documento, "p", t("huella", { importacion: pagina.fuente.importacion, huella: pagina.fuente.huella_sha256 })); huella.className = "rpt-huella"; cuerpoAyuda.append(huella); contenedor.append(resumen, pestañas(documento, estado.consulta, recargar, t), filtros.elemento, tablaRPT(documento, pagina, t)); const navegacion = nodo(documento, "nav"); navegacion.setAttribute("aria-label", t("paginacion")); const anterior = nodo(documento, "button", t("anterior")); anterior.type = "button"; anterior.dataset.personalRptPublicaAnterior = ""; anterior.disabled = pagina.offset === 0; const siguiente = nodo(documento, "button", t("siguiente")); siguiente.type = "button"; siguiente.dataset.personalRptPublicaSiguiente = ""; siguiente.disabled = pagina.offset + pagina.items.length >= pagina.total; navegacion.append(nodo(documento, "span", formatearRecuentoRPTPuestos(pagina.total, pagina.vista)), anterior, siguiente); anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) })); siguiente.addEventListener("click", () => recargar({ offset: pagina.offset + pagina.limit })); contenedor.append(navegacion); filtros.restaurarFoco(); }
-export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) { if (!raiz?.append || !cliente?.listar || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("módulo RPT pública no disponible"); const documento = raiz.ownerDocument; if (!documento?.createElement) throw new TypeError("documento RPT pública no disponible"); const t = crearTraductorRPTPuestos(); const contenedor = nodo(documento, "section"); contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = ""; raiz.append(contenedor); let activa = true; let controlador = null; let consulta = Object.freeze({ vista: "categorias", q: "", limit: 25, offset: 0 }); const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); }; registrarDesmontar?.(desmontar); const recargar = async (cambios = {}) => { if (!activa || !sigueMontada(raiz, contenedor)) return; const siguienteConsulta = { ...consulta, ...cambios }; if (!["categorias", "puestos"].includes(siguienteConsulta.vista) || typeof siguienteConsulta.q !== "string" || siguienteConsulta.q !== siguienteConsulta.q.trim() || siguienteConsulta.q.length > 100 || !Number.isSafeInteger(siguienteConsulta.limit) || siguienteConsulta.limit < 1 || siguienteConsulta.limit > 100 || !Number.isSafeInteger(siguienteConsulta.offset) || siguienteConsulta.offset < 0) { pintar(raiz, contenedor, { tipo: "error", mensaje: t("error"), consulta }, recargar, t); return; } controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo; consulta = Object.freeze(siguienteConsulta); pintar(raiz, contenedor, { tipo: "cargando", consulta }, recargar, t); try { const pagina = await cliente.listar(consulta, { signal: vuelo.signal }); if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta }, recargar, t); } catch { if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) { const mensaje = t("error"); anunciar(mensaje, "error"); pintar(raiz, contenedor, { tipo: "error", mensaje, consulta }, recargar, t); } } finally { if (controlador === vuelo) controlador = null; } }; await recargar(); return Object.freeze({ desmontar }); }
+function tablaRPT(documento, pagina, t, recargar) {
+  const tabla = nodo(documento, "table"); tabla.className = "tabla-datos";
+  tabla.append(nodo(documento, "caption", t(pagina.vista === "puestos" ? "tabla_puestos" : pagina.vista === "centros" ? "tabla_centros" : "tabla_categorias")));
+  const cabeza = nodo(documento, "thead"), filaCabeza = nodo(documento, "tr"), columnasVista = columnas(pagina.vista);
+  columnasVista.forEach(([, clave]) => { const celda = nodo(documento, "th", t(clave)); celda.setAttribute("scope", "col"); filaCabeza.append(celda); });
+  cabeza.append(filaCabeza); tabla.append(cabeza);
+  const cuerpo = nodo(documento, "tbody"); let abierto = null, focoPendiente = null;
+  const cerrar = (devolverFoco = false) => { if (abierto === null) return; if (devolverFoco) focoPendiente = abierto; abierto = null; pintarFilas(); };
+  cuerpo.addEventListener("keydown", (evento) => { if (evento.key === "Escape") { evento.preventDefault(); cerrar(true); } });
+  const pintarFilas = () => {
+    cuerpo.replaceChildren();
+    pagina.items.forEach((item, indice) => {
+      const fila = nodo(documento, "tr"), identificador = `personal-rpt-puesto-${pagina.offset}-${indice}`;
+      let botonDetalle = null;
+      const alternar = () => { if (abierto === indice) { focoPendiente = indice; abierto = null; } else abierto = indice; pintarFilas(); };
+      columnasVista.forEach(([campo], indiceCampo) => {
+        const celda = nodo(documento, indiceCampo === 0 ? "th" : "td");
+        if (indiceCampo === 0) celda.setAttribute("scope", "row");
+        if (pagina.vista === "puestos" && indiceCampo === 0) {
+          const boton = nodo(documento, "button", valor(item, campo, t)); botonDetalle = boton; boton.type = "button";
+          boton.dataset.personalRptPublicaDetalleBoton = ""; boton.setAttribute("aria-controls", identificador);
+          boton.setAttribute("aria-expanded", String(abierto === indice));
+          boton.setAttribute("aria-label", t(abierto === indice ? "ocultar_detalle" : "ver_detalle", { codigo: valor(item, campo, t) }));
+          boton.addEventListener("click", alternar);
+          boton.addEventListener("keydown", (evento) => { if (evento.key === " ") { evento.preventDefault(); alternar(); } });
+          celda.append(boton);
+        } else if (pagina.vista !== "puestos") {
+          const cifra = campo === "puestos_vinculados" || campo === "dotacion_vinculada" || campo === "puestos" || campo === "dotacion";
+          if (campo === "denominacion" || cifra) {
+            const boton = nodo(documento, "button", valor(item, campo, t)); boton.type = "button";
+            boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaEnlace = campo;
+            boton.setAttribute("aria-label", formatearEnlaceAgrupacionRPT(pagina.vista, item.denominacion,
+              pagina.vista === "centros" ? item.puestos : item.puestos_vinculados,
+              pagina.vista === "centros" ? item.dotacion : item.dotacion_vinculada));
+            if (cifra) boton.setAttribute("tabindex", "-1");
+            boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
+            celda.append(boton);
+          } else celda.textContent = valor(item, campo, t);
+          if (pagina.vista === "categorias" && campo === "denominacion" && !item.recuento_coincide) {
+            const aviso = nodo(documento, "small", t("aviso_recuento_categoria")); aviso.className = "rpt-huella"; celda.append(aviso);
+          }
+        } else celda.textContent = valor(item, campo, t);
+        fila.append(celda);
+      });
+      cuerpo.append(fila);
+      if (focoPendiente === indice) { botonDetalle?.focus?.(); focoPendiente = null; }
+      if (pagina.vista === "puestos" && abierto === indice) {
+        const filaDetalle = nodo(documento, "tr"); filaDetalle.dataset.personalRptPublicaDetalleFila = "";
+        const celdaDetalle = nodo(documento, "td"); celdaDetalle.colSpan = columnasVista.length;
+        celdaDetalle.append(detallePuesto(documento, item, identificador, t, () => cerrar(true)));
+        filaDetalle.append(celdaDetalle); cuerpo.append(filaDetalle);
+      }
+    });
+  };
+  if (pagina.items.length === 0) {
+    const fila = nodo(documento, "tr"), celda = nodo(documento, "td", t("vacio"));
+    celda.colSpan = columnasVista.length; fila.append(celda); cuerpo.append(fila);
+  } else pintarFilas();
+  tabla.append(cuerpo);
+  const contenedor = nodo(documento, "div"); contenedor.className = "tabla-contenedor";
+  contenedor.setAttribute("tabindex", "0"); contenedor.setAttribute("role", "region"); contenedor.dataset.personalRptPublicaTabla = "";
+  contenedor.setAttribute("aria-label", t(pagina.vista === "puestos" ? "tabla_puestos" : pagina.vista === "centros" ? "tabla_centros" : "tabla_categorias"));
+  contenedor.append(tabla); return contenedor;
+}
+function resumenEnlazado(documento, pagina, recargar, t) {
+  const resumen = nodo(documento, "div"); resumen.className = "panel"; resumen.dataset.personalRptPublicaResumen = "";
+  const cuerpo = nodo(documento, "div"); cuerpo.className = "cuerpo-panel";
+  const numero = new Intl.NumberFormat(LOCALIZACION_EFECTIVA_RPT_PUESTOS, { useGrouping: "always" });
+  [["puestos", "puestos", "puestos"], ["dotacion", "dotacion", "puestos"], ["categorias", "categorias", "categorias"], ["centros", "centros", "centros"]].forEach(([campo, clave, vista]) => {
+    const boton = nodo(documento, "button", t(`resumen_${clave}`, { total: numero.format(pagina.resumen[campo]) }));
+    boton.type = "button"; boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaResumenEnlace = campo;
+    boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true }));
+    cuerpo.append(boton);
+  });
+  resumen.append(cuerpo); return resumen;
+}
+function pintar(raiz, contenedor, estado, recargar, t) {
+  if (!sigueMontada(raiz, contenedor)) return;
+  const documento = contenedor.ownerDocument, filtros = conservarFormulario(documento, contenedor, estado.consulta, recargar, t);
+  contenedor.replaceChildren();
+  const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-vista";
+  const ayuda = nodo(documento, "div"); ayuda.id = "personal-rpt-publica-ayuda";
+  ayuda.className = "panel ayuda-contextual"; ayuda.dataset.personalRptPublicaAyuda = ""; ayuda.hidden = true;
+  const cuerpoAyuda = nodo(documento, "div"); cuerpoAyuda.className = "cuerpo-panel"; cuerpoAyuda.append(nodo(documento, "p", t("ayuda"))); ayuda.append(cuerpoAyuda);
+  const abrirAyuda = nodo(documento, "button", "?"); abrirAyuda.type = "button"; abrirAyuda.dataset.personalRptPublicaAbrirAyuda = "";
+  abrirAyuda.setAttribute("aria-label", t("ayuda")); abrirAyuda.setAttribute("aria-controls", ayuda.id); abrirAyuda.setAttribute("aria-expanded", "false");
+  abrirAyuda.addEventListener("click", () => { ayuda.hidden = !ayuda.hidden; abrirAyuda.setAttribute("aria-expanded", String(!ayuda.hidden)); });
+  abrirAyuda.addEventListener("keydown", (evento) => { if (evento.key === "Escape") { evento.preventDefault(); ayuda.hidden = true; abrirAyuda.setAttribute("aria-expanded", "false"); abrirAyuda.focus?.(); } });
+  cabecera.append(nodo(documento, "h2", t("titulo")), abrirAyuda); contenedor.append(cabecera, ayuda);
+  if (estado.avisoEnlace) {
+    const avisoEnlace = nodo(documento, "p", t("enlace_invalido"));
+    avisoEnlace.setAttribute("role", "status"); avisoEnlace.setAttribute("aria-live", "polite");
+    contenedor.append(avisoEnlace);
+  }
+  if (estado.tipo === "cargando" || estado.tipo === "error") {
+    const aviso = nodo(documento, "p", estado.tipo === "cargando" ? t("cargando") : estado.mensaje);
+    aviso.setAttribute("role", estado.tipo === "cargando" ? "status" : "alert");
+    if (estado.tipo === "cargando") aviso.setAttribute("aria-live", "polite");
+    aviso.dataset.personalRptPublicaEstado = ""; aviso.setAttribute("tabindex", "-1");
+    contenedor.append(aviso, pestañas(documento, estado.consulta, recargar, t), filtros.elemento);
+    if (estado.tipo === "error") {
+      const reintentar = nodo(documento, "button", t("reintentar"));
+      reintentar.type = "button"; reintentar.className = "boton-secundario";
+      reintentar.dataset.personalRptPublicaReintentar = "";
+      reintentar.addEventListener("click", () => recargar({}, { historia: "none", enfocarResultado: true }));
+      contenedor.append(reintentar);
+    }
+    filtros.restaurarFoco(); return;
+  }
+  const { pagina } = estado;
+  cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente)));
+  const generada = fechaGeneracionRPT(pagina.fuente.generado_en);
+  if (generada) cuerpoAyuda.append(nodo(documento, "p", t("generacion", { valor: generada })));
+  const huella = nodo(documento, "p", t("huella", { importacion: pagina.fuente.importacion, huella: pagina.fuente.huella_sha256 }));
+  huella.className = "rpt-huella"; cuerpoAyuda.append(huella);
+  contenedor.append(resumenEnlazado(documento, pagina, recargar, t), pestañas(documento, estado.consulta, recargar, t), filtros.elemento, tablaRPT(documento, pagina, t, recargar));
+  const navegacion = nodo(documento, "nav"); navegacion.setAttribute("aria-label", t("paginacion"));
+  const anterior = nodo(documento, "button", t("anterior")); anterior.type = "button"; anterior.dataset.personalRptPublicaAnterior = ""; anterior.disabled = pagina.offset === 0;
+  const siguiente = nodo(documento, "button", t("siguiente")); siguiente.type = "button"; siguiente.dataset.personalRptPublicaSiguiente = ""; siguiente.disabled = pagina.offset + pagina.items.length >= pagina.total;
+  navegacion.append(nodo(documento, "span", formatearRecuentoRPTPuestos(pagina.total, pagina.vista)), anterior, siguiente);
+  anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) }, { enfocarResultado: true }));
+  siguiente.addEventListener("click", () => recargar({ offset: pagina.offset + pagina.limit }, { enfocarResultado: true }));
+  contenedor.append(navegacion); filtros.restaurarFoco();
+}
+function consultaDesdeURL() {
+  const parametros = new URLSearchParams(globalThis.window?.location?.search || "");
+  const base = validarConsultaRPTPublica({ vista: "categorias", q: "", limit: 25, offset: 0 });
+  const claves = ["rpt_vista", "rpt_q", "rpt_categoria", "rpt_centro", "rpt_offset"];
+  const presentes = [...parametros.keys()].filter((clave) => clave.startsWith("rpt_"));
+  const invalida = presentes.some((clave) => !claves.includes(clave) || parametros.getAll(clave).length !== 1);
+  const offsetTexto = parametros.get("rpt_offset") || "0";
+  if (invalida || !/^(?:0|[1-9][0-9]*)$/u.test(offsetTexto)) return { consulta: base, invalida: presentes.length > 0 };
+  try {
+    return { consulta: validarConsultaRPTPublica({
+      vista: parametros.get("rpt_vista") || "categorias", q: parametros.get("rpt_q") || "",
+      categoria_clave: parametros.get("rpt_categoria") || "", centro_codigo: parametros.get("rpt_centro") || "",
+      limit: 25, offset: Number(offsetTexto),
+    }), invalida: false };
+  } catch { return { consulta: base, invalida: presentes.length > 0 }; }
+}
+function conservarConsultaURL(consulta, historia = "push") {
+  if (historia === "none") return;
+  const ventana = globalThis.window;
+  if (!ventana?.location?.pathname || !ventana.history?.replaceState) return;
+  const parametros = new URLSearchParams(ventana.location.search || "");
+  for (const clave of [...parametros.keys()]) if (clave.startsWith("rpt_")) parametros.delete(clave);
+  if (consulta.vista !== "categorias") parametros.set("rpt_vista", consulta.vista);
+  if (consulta.q) parametros.set("rpt_q", consulta.q);
+  if (consulta.categoria_clave) parametros.set("rpt_categoria", consulta.categoria_clave);
+  if (consulta.centro_codigo) parametros.set("rpt_centro", consulta.centro_codigo);
+  if (consulta.offset) parametros.set("rpt_offset", String(consulta.offset));
+  const query = parametros.toString();
+  const ruta = `${ventana.location.pathname}${query ? `?${query}` : ""}${ventana.location.hash || ""}`;
+  if (ruta === `${ventana.location.pathname}${ventana.location.search || ""}${ventana.location.hash || ""}`) return;
+  const escribir = historia === "push" && typeof ventana.history.pushState === "function"
+    ? ventana.history.pushState : ventana.history.replaceState;
+  escribir.call(ventana.history, null, "", ruta);
+}
+export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
+  if (!raiz?.append || !cliente?.listar || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function"))
+    throw new TypeError("módulo RPT pública no disponible");
+  const documento = raiz.ownerDocument; if (!documento?.createElement) throw new TypeError("documento RPT pública no disponible");
+  const t = crearTraductorRPTPuestos(), contenedor = nodo(documento, "section");
+  contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = "";
+  contenedor.lang = IDIOMA_EFECTIVO_RPT_PUESTOS; raiz.append(contenedor);
+  if (RESPALDO_RPT_PUESTOS) cambiarIdioma(IDIOMA_EFECTIVO_RPT_PUESTOS, globalThis.window?.location ?? globalThis.location);
+  const enlace = consultaDesdeURL();
+  let activa = true, controlador = null, claveVuelo = null, consulta = enlace.consulta, avisoEnlace = enlace.invalida;
+  const ventana = globalThis.window, hashMontado = ventana?.location?.hash;
+  const restaurarHistoria = () => {
+    if (!activa || ventana?.location?.hash !== hashMontado) return;
+    const enlaceAnterior = consultaDesdeURL(); avisoEnlace = enlaceAnterior.invalida;
+    void recargar(enlaceAnterior.consulta, { enfocarResultado: true,
+      historia: enlaceAnterior.invalida ? "replace" : "none", conservarAviso: true });
+  };
+  const desmontar = () => {
+    if (!activa) return; activa = false; controlador?.abort();
+    ventana?.removeEventListener?.("popstate", restaurarHistoria); retirar(raiz, contenedor);
+  };
+  ventana?.addEventListener?.("popstate", restaurarHistoria);
+  registrarDesmontar?.(desmontar);
+  const recargar = async (cambios = {}, { enfocarResultado = false, historia = "push", conservarAviso = false } = {}) => {
+    if (!activa || !sigueMontada(raiz, contenedor)) return;
+    let siguienteConsulta;
+    try { siguienteConsulta = validarConsultaRPTPublica({ ...consulta, ...cambios }); }
+    catch { pintar(raiz, contenedor, { tipo: "error", mensaje: t("error_filtro"), consulta, avisoEnlace }, recargar, t); return; }
+    const claveSiguiente = JSON.stringify(siguienteConsulta);
+    if (controlador && !controlador.signal.aborted && claveVuelo === claveSiguiente) {
+      if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
+      return;
+    }
+    if (Object.keys(cambios).length > 0 && !conservarAviso) avisoEnlace = false;
+    controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
+    claveVuelo = claveSiguiente;
+    consulta = siguienteConsulta; conservarConsultaURL(consulta, historia);
+    pintar(raiz, contenedor, { tipo: "cargando", consulta, avisoEnlace }, recargar, t);
+    if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
+    try {
+      const pagina = await cliente.listar(consulta, { signal: vuelo.signal });
+      if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
+        pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta, avisoEnlace }, recargar, t);
+        if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-tabla]")?.focus?.();
+      }
+    } catch {
+      if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
+        const mensaje = t("error"); anunciar(mensaje, "error");
+        pintar(raiz, contenedor, { tipo: "error", mensaje, consulta, avisoEnlace }, recargar, t);
+        contenedor.querySelector("[data-personal-rpt-publica-reintentar]")?.focus?.();
+      }
+    } finally { if (controlador === vuelo) { controlador = null; claveVuelo = null; } }
+  };
+  await recargar({}, { historia: "replace", conservarAviso: true }); return Object.freeze({ desmontar });
+}

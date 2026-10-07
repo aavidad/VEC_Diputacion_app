@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { montarModuloRPTPublica } from "./vista-rpt-publica.js";
+import { IDIOMA_EFECTIVO_RPT_PUESTOS } from "./i18n-rpt-puestos.js";
 
 function raiz() { class Nodo { constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.focused = false; } append(...nodos) { this.children.push(...nodos); nodos.forEach((n) => { n.parent = this; }); } replaceChildren(...nodos) { this.children.forEach((n) => { n.parent = null; }); this.children = []; this.append(...nodos); } removeChild(n) { this.children = this.children.filter((h) => h !== n); n.parent = null; } remove() { this.parent?.removeChild(this); } addEventListener(t, h) { this.listeners.set(t, h); } setAttribute(k, v) { this.atributos.set(k, v); } contains(n) { for (let actual = n; actual; actual = actual.parent) { if (actual === this) return true; } return false; } focus() { let actual = this; while (actual) { if (actual === this.ownerDocument.raiz) { this.focused = true; this.ownerDocument.activeElement = this; return; } actual = actual.parent; } } matches(s) { const k = s.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, l) => l.toUpperCase()); return k ? this.dataset[k] !== undefined : false; } querySelector(s) { if (this.matches(s)) return this; for (const h of this.children) { const e = h.querySelector(s); if (e) return e; } return null; } } const d = { createElement: (e) => new Nodo(d, e) }; const salida = new Nodo(d, "root"); d.raiz = salida; return salida; }
 function textoNodo(nodo) { return `${nodo.textContent} ${nodo.children.map(textoNodo).join(" ")}`; }
 function nodosCon(nodo, clave, salida = []) { if (nodo.dataset[clave] !== undefined) salida.push(nodo); nodo.children.forEach((hijo) => nodosCon(hijo, clave, salida)); return salida; }
 function propagarTecla(origen, key) { const evento = { key, cancelado: false, preventDefault() { this.cancelado = true; } }; for (let actual = origen; actual; actual = actual.parent) actual.listeners.get("keydown")?.(evento); return evento; }
-function pagina({ vista = "categorias", total = 1, offset = 0, generadoEn = "2026-09-17", items = [{ clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158 }] } = {}) { return Object.freeze({ items: Object.freeze(items), total, limit: 25, offset, vista, esquema: "vec.catalogo.rpt.v1", fuente: Object.freeze({ documento: "RPT publicada", importacion: "rpt-v1", generado_en: generadoEn, aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }), resumen: Object.freeze({ puestos: 842, dotacion: 1714, categorias: 145, centros: 41 }) }); }
+function pagina({ vista = "categorias", total = 1, offset = 0, generadoEn = "2026-09-17", items = [{ clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158, puestos_vinculados: 57, dotacion_vinculada: 158, recuento_coincide: true }] } = {}) { return Object.freeze({ items: Object.freeze(items), total, limit: 25, offset, vista, esquema: "vec.catalogo.rpt.v1", fuente: Object.freeze({ documento: "RPT publicada", importacion: "rpt-v1", generado_en: generadoEn, aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }), resumen: Object.freeze({ puestos: 842, dotacion: 1714, categorias: 145, centros: 41 }) }); }
 test("catálogos ES/EN rotulan centro y generación sin atribuir vigencia", () => {
   const catalogo = (idioma) => JSON.parse(readFileSync(new URL(`../../../textos/${idioma}/personal.json`, import.meta.url), "utf8")).rpt_puestos;
   const es = catalogo("es"), en = catalogo("en");
@@ -52,11 +53,11 @@ test("búsqueda aplicada distingue texto sin enviar y quitar vuelve a la primera
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]").textContent, "Búsqueda aplicada: administrativo");
   r.querySelector("[data-personal-rpt-publica-busqueda]").value = "sin enviar";
   r.querySelector("[data-personal-rpt-publica-siguiente]").listeners.get("click")(); await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", limit: 25, offset: 25 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "administrativo", categoria_clave: "", centro_codigo: "", limit: 25, offset: 25 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "sin enviar");
   const quitar = r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"); quitar.focus(); quitar.listeners.get("click")();
   await esperarRespuesta();
-  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", limit: 25, offset: 0 });
+  assert.deepEqual(llamadas.at(-1), { vista: "puestos", q: "", categoria_clave: "", centro_codigo: "", limit: 25, offset: 0 });
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda-aplicada]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-quitar-busqueda]"), null);
   assert.equal(r.querySelector("[data-personal-rpt-publica-busqueda]").value, "");
@@ -111,4 +112,183 @@ test("una búsqueda tardía no reaparece al quitarla y desmontar cancela la cons
   assert.equal(pendientes[1].signal.aborted, true);
   pendientes[1].resolve(pagina()); await esperarRespuesta();
   assert.equal(r.querySelector("[data-personal-rpt-publica]"), null);
+});
+
+test("categoría ambigua abre sólo sus puestos vinculados y conserva aviso", async () => {
+  const r = raiz(), llamadas = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158,
+    puestos_vinculados: 62, dotacion_vinculada: 163, recuento_coincide: false };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: consulta.vista === "categorias" ? 1 : 0, items: consulta.vista === "categorias" ? [categoria] : [] }); } } });
+  assert.match(textoNodo(r), /62/u); assert.match(textoNodo(r), /cifra de la fuente difiere/u);
+  const botones = nodosCon(r, "personalRptPublicaEnlace");
+  assert.ok(botones.some((b) => b.textContent === "62"));
+  botones.find((b) => b.textContent === "62").listeners.get("click")(); await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "puestos"); assert.equal(llamadas.at(-1).categoria_clave, "administrativo");
+  assert.equal(llamadas.at(-1).q, "");
+  assert.ok(r.querySelector("[data-personal-rpt-publica-quitar-filtro]"));
+});
+
+test("resumen de centros abre agrupación paginada y el centro abre sus puestos", async () => {
+  const r = raiz(), llamadas = [];
+  const centro = { codigo: "101", denominacion: "CENTRO 101", puestos: 2, dotacion: 5 };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: consulta.vista === "centros" ? 1 : 0, items: consulta.vista === "centros" ? [centro] : [] }); } } });
+  nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")();
+  await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "centros");
+  nodosCon(r, "personalRptPublicaEnlace").find((b) => b.textContent === "2").listeners.get("click")();
+  await Promise.resolve();
+  assert.equal(llamadas.at(-1).vista, "puestos"); assert.equal(llamadas.at(-1).centro_codigo, "101");
+});
+
+test("URL de RPT conserva idioma y restaura filtros exactos", async () => {
+  const anterior = globalThis.window, llamadas = [];
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&rpt_vista=puestos&rpt_categoria=administrativo&rpt_offset=25", hash: "#personal" };
+  globalThis.window = { location, history: { replaceState(_a, _b, ruta) { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; } } };
+  try {
+    const r = raiz();
+    const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 0, offset: consulta.offset, items: [] }); } } });
+    assert.equal(llamadas[0].categoria_clave, "administrativo"); assert.equal(llamadas[0].offset, 25);
+    assert.match(location.search, /lang=es/u); assert.match(location.search, /rpt_categoria=administrativo/u);
+    modulo.desmontar();
+  } finally { globalThis.window = anterior; }
+});
+
+test("doble pulsación del mismo filtro comparte GET y enfoca el error", async () => {
+  const r = raiz(), pendientes = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta, { signal }) {
+    if (consulta.vista === "categorias") return Promise.resolve(pagina({ items: [categoria] }));
+    return new Promise((resolve, reject) => pendientes.push({ resolve, reject, signal }));
+  } } });
+  const boton = nodosCon(r, "personalRptPublicaEnlace")[0];
+  boton.listeners.get("click")(); boton.listeners.get("click")();
+  assert.equal(pendientes.length, 1); assert.equal(pendientes[0].signal.aborted, false);
+  assert.equal(r.ownerDocument.activeElement, r.querySelector("[data-personal-rpt-publica-estado]"));
+  pendientes[0].reject(new Error("fuente no disponible")); await esperarRespuesta();
+  const error = r.querySelector("[data-personal-rpt-publica-estado]");
+  const reintentar = r.querySelector("[data-personal-rpt-publica-reintentar]");
+  assert.equal(error.atributos.get("role"), "alert"); assert.equal(r.ownerDocument.activeElement, reintentar);
+});
+
+test("cambiar de agrupación cancela el GET anterior y pinta solo la última", async () => {
+  const r = raiz(), pendientes = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { listar(consulta, { signal }) {
+    if (consulta.vista === "categorias") return Promise.resolve(pagina({ items: [categoria] }));
+    return new Promise((resolve) => pendientes.push({ resolve, signal, vista: consulta.vista }));
+  } } });
+  nodosCon(r, "personalRptPublicaEnlace")[0].listeners.get("click")();
+  nodosCon(r, "personalRptPublicaVista").find((b) => b.dataset.personalRptPublicaVista === "centros").listeners.get("click")();
+  assert.deepEqual(pendientes.map((p) => p.vista), ["puestos", "centros"]);
+  assert.equal(pendientes[0].signal.aborted, true);
+  pendientes[0].resolve(pagina({ vista: "puestos", total: 0, items: [] })); await esperarRespuesta();
+  assert.equal(r.querySelector("[data-personal-rpt-publica-tabla]"), null);
+  pendientes[1].resolve(pagina({ vista: "centros", total: 0, items: [] })); await esperarRespuesta();
+  assert.match(textoNodo(r.querySelector("[data-personal-rpt-publica-tabla]")), /Tabla de centros RPT/u);
+});
+
+test("enlace con centro inválido limpia el filtro y permite volver a buscar", async () => {
+  const anterior = globalThis.window;
+  for (const centro of ["%20", "101%0A", "101%01"]) {
+    const location = { pathname: "/portal-empleado/", search: `?lang=es&rpt_vista=puestos&rpt_centro=${centro}`, hash: "#personal" };
+    globalThis.window = { location, history: { replaceState(_a, _b, ruta) { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; } } };
+    try {
+      const r = raiz(), llamadas = [];
+      const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 0, items: [] }); } } });
+      assert.deepEqual(llamadas[0], { vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "" });
+      assert.equal(location.search, "?lang=es");
+      assert.match(textoNodo(r), /enlace tenía un filtro no válido/u);
+      nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")();
+      await esperarRespuesta();
+      assert.equal(llamadas.at(-1).vista, "centros"); assert.equal(llamadas.at(-1).centro_codigo, "");
+      assert.doesNotMatch(textoNodo(r), /enlace tenía un filtro no válido/u);
+      assert.match(location.search, /rpt_vista=centros/u);
+      modulo.desmontar();
+    } finally { globalThis.window = anterior; }
+  }
+});
+
+test("la vista importa sus contratos RPT con la versión propia vigente", () => {
+  const fuente = readFileSync(new URL("./vista-rpt-publica.js", import.meta.url), "utf8");
+  assert.match(fuente, /i18n-rpt-puestos\.js\?v=20261007-t-rpt-enlaces-v1/u);
+  assert.match(fuente, /cliente-http-rpt-publica\.js\?v=20261007-t-rpt-enlaces-v1/u);
+});
+
+test("la región RPT declara el idioma efectivo de sus textos", async () => {
+  const r = raiz();
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar() { return pagina(); } } });
+  assert.equal(r.querySelector("[data-personal-rpt-publica]").lang, IDIOMA_EFECTIVO_RPT_PUESTOS);
+});
+
+test("cada categoría tiene una acción de teclado y dos cifras al mismo destino", async () => {
+  const r = raiz(), llamadas = [];
+  const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158,
+    puestos_vinculados: 62, dotacion_vinculada: 163, recuento_coincide: false };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar(q) { llamadas.push(q); return pagina({ vista: q.vista, total: q.vista === "categorias" ? 1 : 0, items: q.vista === "categorias" ? [categoria] : [] }); } } });
+  const enlaces = nodosCon(r, "personalRptPublicaEnlace");
+  assert.equal(enlaces.length, 3);
+  assert.deepEqual(enlaces.filter((b) => b.atributos.get("tabindex") !== "-1").map((b) => b.textContent), ["ADMINISTRATIVO"]);
+  assert.match(enlaces[0].atributos.get("aria-label"), /ADMINISTRATIVO: 62 puestos y 163 dotaciones/u);
+  assert.deepEqual(enlaces.slice(1).map((b) => b.textContent), ["62", "163"]);
+  enlaces[2].listeners.get("click")(); await esperarRespuesta();
+  assert.equal(llamadas.at(-1).categoria_clave, "administrativo");
+});
+
+test("Reintentar consulta mantiene el filtro y comparte la petición repetida", async () => {
+  const r = raiz(), llamadas = [], pendientes = [];
+  const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { listar(q, { signal }) {
+    llamadas.push(q);
+    if (llamadas.length === 1) return Promise.reject(new Error("503"));
+    return new Promise((resolve) => pendientes.push({ resolve, signal }));
+  } } });
+  const reintentar = r.querySelector("[data-personal-rpt-publica-reintentar]");
+  assert.equal(r.ownerDocument.activeElement, reintentar);
+  reintentar.listeners.get("click")(); reintentar.listeners.get("click")();
+  assert.equal(llamadas.length, 2); assert.equal(pendientes[0].signal.aborted, false);
+  pendientes[0].resolve(pagina({ total: 0, items: [] })); await esperarRespuesta();
+  assert.ok(r.querySelector("[data-personal-rpt-publica-tabla]"));
+  modulo.desmontar();
+});
+
+test("Atrás restaura filtros y página sin crear entradas nuevas", async () => {
+  const anterior = globalThis.window, oyentes = new Map();
+  const location = { pathname: "/portal-empleado/", search: "?lang=es", hash: "#personal" };
+  const rutas = ["/portal-empleado/?lang=es#personal"]; let indice = 0;
+  const aplicar = (ruta) => { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; };
+  globalThis.window = { location,
+    addEventListener(tipo, fn) { oyentes.set(tipo, fn); }, removeEventListener(tipo, fn) { if (oyentes.get(tipo) === fn) oyentes.delete(tipo); },
+    history: {
+      replaceState(_a, _b, ruta) { rutas[indice] = ruta; aplicar(ruta); },
+      pushState(_a, _b, ruta) { rutas.splice(++indice); rutas.push(ruta); aplicar(ruta); },
+    },
+  };
+  try {
+    const r = raiz(), llamadas = [];
+    const categoria = { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 1, dotacion: 1,
+      puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+    const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(q) { llamadas.push(q); return pagina({ vista: q.vista, total: q.vista === "categorias" ? 1 : 0,
+      items: q.vista === "categorias" ? [categoria] : [] }); } } });
+    assert.equal(rutas.length, 1);
+    nodosCon(r, "personalRptPublicaEnlace")[0].listeners.get("click")(); await esperarRespuesta();
+    assert.equal(rutas.length, 2); assert.match(rutas[1], /rpt_categoria=administrativo/u);
+    nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")(); await esperarRespuesta();
+    assert.equal(rutas.length, 3); assert.match(rutas[2], /rpt_vista=centros/u);
+    aplicar(rutas[--indice]); oyentes.get("popstate")(); await esperarRespuesta();
+    assert.equal(rutas.length, 3); assert.equal(llamadas.at(-1).categoria_clave, "administrativo");
+    aplicar(rutas[--indice]); oyentes.get("popstate")(); await esperarRespuesta();
+    assert.equal(rutas.length, 3); assert.equal(llamadas.at(-1).vista, "categorias");
+    assert.match(location.search, /lang=es/u);
+    modulo.desmontar(); assert.equal(oyentes.has("popstate"), false);
+  } finally { globalThis.window = anterior; }
+});
+
+test("fila de una plaza anuncia un puesto y una dotación", async () => {
+  const r = raiz();
+  const categoria = { clave: "auxiliar", denominacion: "AUXILIAR", grupos: ["C2"], escalas: [], puestos: 1, dotacion: 1,
+    puestos_vinculados: 1, dotacion_vinculada: 1, recuento_coincide: true };
+  await montarModuloRPTPublica({ raiz: r, cliente: { async listar() { return pagina({ items: [categoria] }); } } });
+  const principal = nodosCon(r, "personalRptPublicaEnlace").find((b) => b.textContent === "AUXILIAR");
+  assert.match(principal.atributos.get("aria-label"), /1 puesto y 1 dotación/u);
 });
