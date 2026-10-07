@@ -105,14 +105,14 @@
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1470 web/static/portal-empleado/portal-modulos-coordinador.js
 1472 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
-1022 web/static/portal-empleado/portal-componentes.css
-1570 web/static/portal-empleado/portal.js
+1034 web/static/portal-empleado/portal-componentes.css
+1656 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
-923 web/static/portal-empleado/portal-bolsas.test.mjs
+924 web/static/portal-empleado/portal-bolsas.test.mjs
 1028 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 
 820 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
-874 web/static/portal-empleado/portal-panel-interno.js
+879 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 2020 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 813 internal/app/server/server_test.go

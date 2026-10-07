@@ -326,6 +326,13 @@ test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento s
   assert.match(html, /data-metrica="disponibles">[\s\S]*?<strong class="valor-kpi">—<\/strong>/u);
 });
 
+test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales globales", () => {
+  const html = portadaRRHH();
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
+  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 2, "solo las dos bolsas leídas ofrecen enlace");
+});
+
 test("las claves de la portada se traducen con el traductor común", async () => {
   const ingles = await cargarMensajesPortal("en");
   const traducirEN = crearTraductorPortal(ingles);

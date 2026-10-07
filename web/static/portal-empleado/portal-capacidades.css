@@ -244,7 +244,7 @@ button:disabled {
   font-size: 0.8125rem;
 }
 
-.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td > button.estado-chip {
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td > :is(button, a).estado-chip {
   padding-inline: 0;
 }
 

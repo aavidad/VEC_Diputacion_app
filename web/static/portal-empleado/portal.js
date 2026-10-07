@@ -107,7 +107,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261007-carga-pantalla-v1"),
+      import("./portal-inicio.js?v=20261008-bolsa-enlaces-root-v1"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -323,6 +323,10 @@ function esperarTextosDeVista(grupo) {
 }
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
+  espacio?.addEventListener("click", (evento) => {
+    if (!evento.target?.closest?.("[data-bolsa-ruta-reintentar]") || estado.vista !== "bolsa-candidatos") return;
+    void controladorBolsas?.cargarBolsas();
+  });
   espacio?.addEventListener("click", (evento) => {
     if (!evento.target?.closest?.("[data-bolsa-inicio-reintentar]")) return;
     if (errorBolsaBase) window.location.reload();
@@ -969,7 +973,11 @@ function navegar(vista, opciones = {}) {
     cicloLecturaBolsas = 0;
   }
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
-  if (window.location.hash !== hash) history.pushState(null, "", hash);
+  if (vista !== "bolsa-candidatos") rutaCandidatosAplicada = null;
+  if (vista === "resumen" && rutasBolsa) {
+    const ruta = rutasBolsa.rutaResumenBolsasCompartible(window.location.search);
+    if (`${window.location.search}${window.location.hash}` !== ruta) history.pushState(null, "", ruta);
+  } else if (window.location.hash !== hash) history.pushState(null, "", hash);
   estado.vista = vista;
   estado.opcionesVista = opciones;
   if (vista === "portal" && esPerfilRRHH() && estadoResumenInicio !== "listo") {
@@ -986,6 +994,12 @@ function navegar(vista, opciones = {}) {
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
   if (vistaBolsaPendienteNoCompuesta(vista)) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
+    return;
+  }
+  if (vista === "bolsa-candidatos" && estado.datosBolsas?.carga !== "listo") {
+    const carga = estado.datosBolsas?.carga;
+    const error = carga === "error" || carga === "denegado";
+    contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
     return;
   }
   if (vista === "reglas") {
@@ -1051,7 +1065,32 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
   contenedor.innerHTML = renderizarFuenteNoDisponible();
 }
 
+function aplicarRutaCandidatosBolsa() {
+  if (estado.vista !== "bolsa-candidatos" || estado.datosBolsas?.carga !== "listo"
+    || !rutasBolsa || !controladorBolsas) return false;
+  const bolsas = estado.datosBolsas.datos?.bolsas;
+  let filtro;
+  try { filtro = rutasBolsa.leerCandidatosBolsaCompartible(window.location.search, bolsas); }
+  catch { filtro = null; }
+  if (!filtro) {
+    rutaCandidatosAplicada = null;
+    history.replaceState(null, "", rutasBolsa.rutaResumenBolsasCompartible(window.location.search));
+    navegar("resumen", { enfocar: false });
+    anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
+    return true;
+  }
+  const ruta = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (rutaCandidatosAplicada?.ruta === ruta && rutaCandidatosAplicada?.datos === estado.datosBolsas.datos) return true;
+  rutaCandidatosAplicada = { ruta, datos: estado.datosBolsas.datos };
+  estado.bolsaSeleccionada = filtro.bolsaRef;
+  estado.filtrosBolsa = { estado: filtro.estado, texto: "" };
+  estado.datosCandidatos = null;
+  void controladorBolsas.cargarCandidatosBolsa(filtro.bolsaRef, { enfocarDestino: true });
+  return true;
+}
+
 function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
+  if (estado.vista === "bolsa-candidatos" && estado.datosBolsas?.carga === "listo") aplicarRutaCandidatosBolsa();
   const contenedor = porId("espacio-trabajo");
   if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
     if (estado.vista.startsWith("seleccion-")) { renderizar(); return; }
@@ -1407,6 +1446,8 @@ function instalarEventosBorradores() {
 
 let presentadorPanelInterno = null;
 let controladorBolsas = null;
+let rutasBolsa = null;
+let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
@@ -1417,9 +1458,10 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1"),
+    import("./portal-panel-interno.js?v=20261008-bolsa-enlaces-v1"),
     import("./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1"),
-  ]).then(([panel, bolsas]) => {
+    import("./portal-bolsas-ruta-filtros.js"),
+  ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
       return;
@@ -1445,6 +1487,7 @@ function prepararBolsaBase() {
     instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas: controlador, actualizarVistaBolsa, porId });
     presentadorPanelInterno = presentador;
     controladorBolsas = controlador;
+    rutasBolsa = rutas;
     errorBolsaBase = false;
     if (moduloDeVistaPortal(estado.vista) === "bolsa") renderizar();
   }).catch((error) => {
@@ -1503,6 +1546,48 @@ function instalarEventosAvisosBolsa() {
   });
 }
 
+function instalarEnlacesBolsa() {
+  document.addEventListener("click", (evento) => {
+    const control = evento.target?.closest?.('[data-accion="ver-bolsa"][data-bolsa-ref]');
+    if (!control || !porId("espacio-trabajo")?.contains(control)) return;
+    const esEnlace = control.tagName?.toLowerCase() === "a" && control.hasAttribute("href");
+    evento.stopImmediatePropagation();
+    if (esEnlace && (evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) return;
+    evento.preventDefault();
+    if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
+    const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
+    let destino; let filtro;
+    try {
+      if (!rutasBolsa || !Array.isArray(bolsas)) throw new TypeError("Bolsa pendiente");
+      const href = esEnlace ? control.getAttribute("href") : rutasBolsa.rutaCandidatosBolsaCompartible(
+        window.location.search, control.dataset.bolsaRef, control.dataset.estado ?? "");
+      destino = new URL(href, window.location.href);
+      if (destino.origin !== window.location.origin || destino.pathname !== window.location.pathname
+        || destino.hash !== "#bolsa/bolsa-candidatos") throw new TypeError("destino ajeno");
+      filtro = rutasBolsa.leerCandidatosBolsaCompartible(destino.search, bolsas);
+      if (!filtro || filtro.bolsaRef !== control.dataset.bolsaRef
+        || filtro.estado !== (control.dataset.estado ?? "")) throw new TypeError("filtro ajeno");
+    } catch {
+      anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
+      return;
+    }
+    estado.bolsaSeleccionada = filtro.bolsaRef;
+    estado.filtrosBolsa = { estado: filtro.estado, texto: "" };
+    estado.datosCandidatos = null;
+    const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.pushState(null, "", ruta);
+    navegar("bolsa-candidatos", { enfocar: false });
+    aplicarRutaCandidatosBolsa();
+  }, true);
+  window.addEventListener("popstate", () => {
+    if (window.location.hash !== "#bolsa/bolsa-candidatos") return;
+    if (estado.vista !== "bolsa-candidatos") navegar("bolsa-candidatos", { enfocar: false });
+    rutaCandidatosAplicada = null;
+    aplicarRutaCandidatosBolsa();
+  });
+}
+
 function instalarEventosAuditoriaBolsa() {
   document.addEventListener("click", (evento) => {
     const boton = evento.target?.closest?.("[data-bolsa-auditoria]");
@@ -1547,6 +1632,7 @@ async function inicializar() {
   controlador.instalar();
   integracionPreferencias.instalarMenu();
   instalarEventosAvisosBolsa();
+  instalarEnlacesBolsa();
   instalarEventosAuditoriaBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarCopiaJustificantes(document);
