@@ -644,3 +644,21 @@ test("index.html precarga exactamente el grafo estático de portal.js", async ()
   const entrada = html.indexOf('<script type="module" src="/portal-empleado/portal.js?v=');
   assert.ok(entrada > html.lastIndexOf('rel="modulepreload"'), "las precargas preceden a la entrada");
 });
+
+test("Inicio y CT no solicitan los catálogos y estilos exclusivos de otras pantallas", async () => {
+  const html = await readFile(new URL("index.html", import.meta.url), "utf8");
+  const estatico = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: false });
+  for (const modulo of [
+    "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
+    "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
+    "/portal-empleado/portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
+  ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
+  const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
+  assert.deepEqual(grupos.map(([, grupo]) => grupo), ["cronos", "dietas", "personal"]);
+  const inicial = html.replaceAll(/<template data-estilos-vista="[^"]+">[\s\S]*?<\/template>/g, "");
+  for (const [, grupo, estilos] of grupos) {
+    assert.match(estilos, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`));
+    assert.doesNotMatch(inicial, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`), `${grupo} no bloquea Inicio ni CT`);
+  }
+});

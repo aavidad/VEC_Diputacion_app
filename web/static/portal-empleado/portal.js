@@ -6,12 +6,11 @@ import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flu
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261007-pantallas-textos-final-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261007-carga-pantalla-v1";
 
-import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261007-pantallas-textos-final-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261007-carga-pantalla-v1";
 import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
 import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261007-pantallas-textos-final-v1";
@@ -21,11 +20,9 @@ import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
 
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261007-pantallas-textos-final-v1";
@@ -104,6 +101,31 @@ const DATOS_VACIOS = Object.freeze({
 });
 const DATOS_PANEL = DATOS_VACIOS;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
+const recursosVistas = new Map();
+const cargasRecursosVistas = new Map();
+const erroresRecursosVistas = new Set();
+const grupoRecursosVista = (vista) => vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
+  : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas" : null;
+function cargarRecursosVista(grupo) {
+  if (cargasRecursosVistas.has(grupo)) return;
+  const carga = grupo === "documentos"
+    ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
+    : grupo === "auditoria"
+      ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
+      : import("./portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1");
+  cargasRecursosVistas.set(grupo, carga);
+  carga.then((recursos) => {
+    if (cargasRecursosVistas.get(grupo) !== carga) return;
+    recursosVistas.set(grupo, recursos);
+    if (grupoRecursosVista(estado.vista) === grupo && vistaPermitida(estado.vista)) renderizar();
+  }).catch(() => {
+    if (cargasRecursosVistas.get(grupo) !== carga) return;
+    erroresRecursosVistas.add(grupo);
+    if (grupoRecursosVista(estado.vista) === grupo) renderizar();
+  }).finally(() => {
+    if (cargasRecursosVistas.get(grupo) === carga) cargasRecursosVistas.delete(grupo);
+  });
+}
 const TITULOS = Object.freeze({
   portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
   "mis-tramites": [traducirPortal("txt_portal_del_empleado"), traducirAccesosEmpleado("mis_tramites")],
@@ -134,7 +156,11 @@ const TITULOS = Object.freeze({
     const traducir = crearTraductorPersonal();
     return [traducir("registro_b2_miga"), traducir("registro_b2_titulo")];
   },
-  [VISTA_DOCUMENTOS_EXPEDIENTE]: [crearTraductorDocumentos()("miga"), crearTraductorDocumentos()("titulo")],
+  get [VISTA_DOCUMENTOS_EXPEDIENTE]() {
+    const traducir = recursosVistas.get("documentos")?.crearTraductorDocumentos();
+    return traducir ? [traducir("miga"), traducir("titulo")]
+      : [traducirPortal("txt_documentos_y_firma"), traducirPortal("txt_documentos_y_firma")];
+  },
   "bolsa-candidatos": [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_candidatos_de_la_bolsa")],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
@@ -214,6 +240,34 @@ function prepararResumenInicioVisible() {
 const cargasTextosVistas = new Map();
 const erroresTextosVistas = new Set();
 const gruposTextosMontables = new Set();
+const cargasEstilosVistas = new Map();
+const estilosVistasListos = new Set();
+const erroresEstilosVistas = new Set();
+function grupoEstilosDeVista(vista) {
+  const modulo = moduloDeVistaPortal(vista);
+  return ["cronos", "dietas", "personal"].includes(modulo) ? modulo : null;
+}
+function cargarEstilosVista(grupo) {
+  if (cargasEstilosVistas.has(grupo) || estilosVistasListos.has(grupo) || erroresEstilosVistas.has(grupo)) return;
+  const plantilla = document.querySelector(`template[data-estilos-vista="${grupo}"]`);
+  if (!plantilla) { erroresEstilosVistas.add(grupo); return; }
+  const enlaces = [...plantilla.content.querySelectorAll('link[rel="stylesheet"]')]
+    .map((origen) => origen.cloneNode(true));
+  const carga = Promise.all(enlaces.map((enlace) => new Promise((resolver, rechazar) => {
+    enlace.addEventListener("load", resolver, { once: true });
+    enlace.addEventListener("error", rechazar, { once: true });
+    plantilla.before(enlace);
+  })));
+  cargasEstilosVistas.set(grupo, { carga, enlaces });
+  carga.then(() => {
+    estilosVistasListos.add(grupo);
+    if (grupoEstilosDeVista(estado.vista) === grupo && vistaPermitida(estado.vista)) renderizar();
+  }).catch(() => {
+    enlaces.forEach((enlace) => enlace.remove());
+    erroresEstilosVistas.add(grupo);
+    if (grupoEstilosDeVista(estado.vista) === grupo) renderizar();
+  }).finally(() => { cargasEstilosVistas.delete(grupo); });
+}
 function grupoTextosDeVista(vista) {
   if (vista === "mis-preferencias") return "preferencias";
   return moduloDeVistaPortal(vista) === "bolsa" ? "bolsa" : null;
@@ -253,6 +307,18 @@ function esperarTextosDeVista(grupo) {
 }
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
+  espacio?.addEventListener("click", (evento) => {
+    if (!evento.target?.closest?.("[data-recursos-vista-reintentar]")) return;
+    // El navegador puede conservar un import() rechazado para esa URL durante
+    // toda la página. Recargar conserva la ruta y vuelve a pedir el recurso.
+    window.location.reload();
+  });
+  espacio?.addEventListener("click", (evento) => {
+    const boton = evento.target?.closest?.("[data-estilos-vista-reintentar]");
+    if (!boton || !espacio.contains(boton)) return;
+    erroresEstilosVistas.delete(boton.dataset.estilosVistaReintentar);
+    renderizar();
+  });
   espacio?.addEventListener("click", (evento) => {
     const boton = evento.target?.closest?.("[data-textos-vista-reintentar]");
     if (!boton || !espacio.contains(boton)) return;
@@ -320,7 +386,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa.desmontar(); superficieRRHHPlazos.desmontar(); }
+        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos.desmontar(); }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; } } });
     },
@@ -886,7 +952,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       contenedor.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">${textoPortal("auditoria_sin_ficha")}</div></section>`;
       return;
     }
-    vistaAuditoriaBolsa = montarVistaAuditoria({ raiz: contenedor,
+    vistaAuditoriaBolsa = recursosVistas.get("auditoria").montarVistaAuditoria({ raiz: contenedor,
       fuente: crearFuenteAuditoriaHTTP(), expedienteRef: estado.auditoriaReferencia,
       fuenteContexto: "bolsa", anunciar });
     return;
@@ -949,6 +1015,8 @@ function renderizar() {
     estado.vista = "portal";
     history.replaceState(null, "", rutaDeVista("portal"));
   }
+  const grupoEstilos = grupoEstilosDeVista(estado.vista);
+  if (grupoEstilos) cargarEstilosVista(grupoEstilos);
   if (estado.vista === "portal" && esPerfilRRHH()
     && ["cargando", "error"].includes(estadoResumenInicio)) {
     const fallo = estadoResumenInicio === "error";
@@ -976,6 +1044,41 @@ function renderizar() {
       });
     } else esperarTextosDeVista(grupoTextos);
     return;
+  }
+  if (grupoEstilos && !estilosVistasListos.has(grupoEstilos)) {
+    const error = erroresEstilosVistas.has(grupoEstilos);
+    const vistaPendiente = estado.vista;
+    const [migas, titulo] = tituloDeVista(estado.vista);
+    porId("migas-pan").textContent = migas;
+    porId("titulo-vista").textContent = titulo;
+    contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(error ? "descripcion_superficie_no_montada" : "estado_modulo_comprobando")}</p>${error ? `<button type="button" class="boton-secundario" data-estilos-vista-reintentar="${grupoEstilos}">${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+    if (error) requestAnimationFrame(() => {
+      if (estado.vista === vistaPendiente && erroresEstilosVistas.has(grupoEstilos)) {
+        contenedor.querySelector("[data-estilos-vista-reintentar]")?.focus({ preventScroll: true });
+      }
+    });
+    return;
+  }
+  const grupoRecursos = grupoRecursosVista(estado.vista);
+  if (grupoRecursos && !recursosVistas.has(grupoRecursos)) {
+    const error = erroresRecursosVistas.has(grupoRecursos);
+    const vistaPendiente = estado.vista;
+    const [migas, titulo] = tituloDeVista(vistaPendiente);
+    porId("migas-pan").textContent = migas;
+    porId("titulo-vista").textContent = titulo;
+    contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(error ? "descripcion_superficie_no_montada" : "estado_modulo_comprobando")}</p>${error ? `<button type="button" class="boton-secundario" data-recursos-vista-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+    if (error) requestAnimationFrame(() => {
+      if (estado.vista === vistaPendiente && erroresRecursosVistas.has(grupoRecursos)) {
+        contenedor.querySelector("[data-recursos-vista-reintentar]")?.focus({ preventScroll: true });
+      }
+    });
+    if (!error) cargarRecursosVista(grupoRecursos);
+    return;
+  }
+  if (grupoRecursos === "ofertas" && !superficieOfertasBolsa) {
+    superficieOfertasBolsa = recursosVistas.get("ofertas").crearSuperficieOfertasBolsa({ anunciar,
+      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+    superficieOfertasBolsa.instalar(document);
   }
   const [migas, titulo] = tituloDeVista(estado.vista);
   const moduloActivo = moduloActivoDeVista(estado.vista);
@@ -1185,9 +1288,7 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
   confirmar: (mensaje) => window.confirm(mensaje),
 });
 // Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
-const superficieOfertasBolsa = crearSuperficieOfertasBolsa({ anunciar,
-  alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
-superficieOfertasBolsa.instalar(document);
+let superficieOfertasBolsa = null;
 const superficieRRHHPlazos = crearSuperficieRRHHPlazos({ anunciar,
   alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); },
 });
