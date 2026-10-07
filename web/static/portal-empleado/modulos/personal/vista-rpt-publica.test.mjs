@@ -170,3 +170,30 @@ test("doble pulsación conserva la última lista y enfoca el resultado o el erro
   const error = r.querySelector("[data-personal-rpt-publica-estado]");
   assert.equal(error.atributos.get("role"), "alert"); assert.equal(r.ownerDocument.activeElement, error);
 });
+
+test("enlace con centro inválido limpia el filtro y permite volver a buscar", async () => {
+  const anterior = globalThis.window;
+  for (const centro of ["%20", "101%0A", "101%01"]) {
+    const location = { pathname: "/portal-empleado/", search: `?lang=es&rpt_vista=puestos&rpt_centro=${centro}`, hash: "#personal" };
+    globalThis.window = { location, history: { replaceState(_a, _b, ruta) { const u = new URL(ruta, "http://vec.local"); location.search = u.search; location.hash = u.hash; } } };
+    try {
+      const r = raiz(), llamadas = [];
+      const modulo = await montarModuloRPTPublica({ raiz: r, cliente: { async listar(consulta) { llamadas.push(consulta); return pagina({ vista: consulta.vista, total: 0, items: [] }); } } });
+      assert.deepEqual(llamadas[0], { vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "" });
+      assert.equal(location.search, "?lang=es");
+      assert.match(textoNodo(r), /enlace tenía un filtro no válido/u);
+      nodosCon(r, "personalRptPublicaResumenEnlace").find((b) => b.dataset.personalRptPublicaResumenEnlace === "centros").listeners.get("click")();
+      await esperarRespuesta();
+      assert.equal(llamadas.at(-1).vista, "centros"); assert.equal(llamadas.at(-1).centro_codigo, "");
+      assert.doesNotMatch(textoNodo(r), /enlace tenía un filtro no válido/u);
+      assert.match(location.search, /rpt_vista=centros/u);
+      modulo.desmontar();
+    } finally { globalThis.window = anterior; }
+  }
+});
+
+test("la vista importa sus contratos RPT con la versión propia vigente", () => {
+  const fuente = readFileSync(new URL("./vista-rpt-publica.js", import.meta.url), "utf8");
+  assert.match(fuente, /i18n-rpt-puestos\.js\?v=20261007-t-rpt-enlaces-v1/u);
+  assert.match(fuente, /cliente-http-rpt-publica\.js\?v=20261007-t-rpt-enlaces-v1/u);
+});

@@ -574,6 +574,8 @@
     "centro_aplicado": "Centro: {valor}",
     "cargando": "Cargando RPT publicada…",
     "error": "No se pudo consultar la RPT publicada. No se muestran datos anteriores.",
+    "error_filtro": "El filtro no es válido. Revíselo y vuelva a buscar.",
+    "enlace_invalido": "El enlace tenía un filtro no válido. Se muestra la lista completa.",
     "fuente": "Fuente: {documento}. {aviso}",
     "generacion": "Generación de la proyección: {valor}. Esta referencia no acredita la vigencia administrativa de la RPT.",
     "huella": "Importación: {importacion} · Huella SHA-256: {huella}",

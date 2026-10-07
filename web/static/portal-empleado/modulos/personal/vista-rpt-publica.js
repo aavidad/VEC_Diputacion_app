@@ -1,4 +1,5 @@
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos } from "./i18n-rpt-puestos.js?v=20260929-i18n-personal-v1";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
+import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261007-t-rpt-enlaces-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-rpt-publica]") === contenedor; }
@@ -162,6 +163,11 @@ function pintar(raiz, contenedor, estado, recargar, t) {
   abrirAyuda.addEventListener("click", () => { ayuda.hidden = !ayuda.hidden; abrirAyuda.setAttribute("aria-expanded", String(!ayuda.hidden)); });
   abrirAyuda.addEventListener("keydown", (evento) => { if (evento.key === "Escape") { evento.preventDefault(); ayuda.hidden = true; abrirAyuda.setAttribute("aria-expanded", "false"); abrirAyuda.focus?.(); } });
   cabecera.append(nodo(documento, "h2", t("titulo")), abrirAyuda); contenedor.append(cabecera, ayuda);
+  if (estado.avisoEnlace) {
+    const avisoEnlace = nodo(documento, "p", t("enlace_invalido"));
+    avisoEnlace.setAttribute("role", "status"); avisoEnlace.setAttribute("aria-live", "polite");
+    contenedor.append(avisoEnlace);
+  }
   if (estado.tipo === "cargando" || estado.tipo === "error") {
     const aviso = nodo(documento, "p", estado.tipo === "cargando" ? t("cargando") : estado.mensaje);
     aviso.setAttribute("role", estado.tipo === "cargando" ? "status" : "alert");
@@ -186,21 +192,25 @@ function pintar(raiz, contenedor, estado, recargar, t) {
 }
 function consultaDesdeURL() {
   const parametros = new URLSearchParams(globalThis.window?.location?.search || "");
-  const vista = parametros.get("rpt_vista") || "categorias";
-  const q = parametros.get("rpt_q") || "";
-  const categoria_clave = parametros.get("rpt_categoria") || "", centro_codigo = parametros.get("rpt_centro") || "";
-  const offset = Number(parametros.get("rpt_offset") || "0");
-  if (!["categorias", "puestos", "centros"].includes(vista) || q !== q.trim() || q.length > 100
-    || !Number.isSafeInteger(offset) || offset < 0 || categoria_clave && (categoria_clave.length > 64 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(categoria_clave))
-    || centro_codigo.length > 64 || vista !== "puestos" && (categoria_clave || centro_codigo))
-    return Object.freeze({ vista: "categorias", q: "", categoria_clave: "", centro_codigo: "", limit: 25, offset: 0 });
-  return Object.freeze({ vista, q, categoria_clave, centro_codigo, limit: 25, offset });
+  const base = validarConsultaRPTPublica({ vista: "categorias", q: "", limit: 25, offset: 0 });
+  const claves = ["rpt_vista", "rpt_q", "rpt_categoria", "rpt_centro", "rpt_offset"];
+  const presentes = [...parametros.keys()].filter((clave) => clave.startsWith("rpt_"));
+  const invalida = presentes.some((clave) => !claves.includes(clave) || parametros.getAll(clave).length !== 1);
+  const offsetTexto = parametros.get("rpt_offset") || "0";
+  if (invalida || !/^(?:0|[1-9][0-9]*)$/u.test(offsetTexto)) return { consulta: base, invalida: presentes.length > 0 };
+  try {
+    return { consulta: validarConsultaRPTPublica({
+      vista: parametros.get("rpt_vista") || "categorias", q: parametros.get("rpt_q") || "",
+      categoria_clave: parametros.get("rpt_categoria") || "", centro_codigo: parametros.get("rpt_centro") || "",
+      limit: 25, offset: Number(offsetTexto),
+    }), invalida: false };
+  } catch { return { consulta: base, invalida: presentes.length > 0 }; }
 }
 function conservarConsultaURL(consulta) {
   const ventana = globalThis.window;
   if (!ventana?.location?.pathname || !ventana.history?.replaceState) return;
   const parametros = new URLSearchParams(ventana.location.search || "");
-  for (const clave of ["rpt_vista", "rpt_q", "rpt_categoria", "rpt_centro", "rpt_offset"]) parametros.delete(clave);
+  for (const clave of [...parametros.keys()]) if (clave.startsWith("rpt_")) parametros.delete(clave);
   if (consulta.vista !== "categorias") parametros.set("rpt_vista", consulta.vista);
   if (consulta.q) parametros.set("rpt_q", consulta.q);
   if (consulta.categoria_clave) parametros.set("rpt_categoria", consulta.categoria_clave);
@@ -215,35 +225,30 @@ export async function montarModuloRPTPublica({ raiz, cliente, anunciar = () => {
   const documento = raiz.ownerDocument; if (!documento?.createElement) throw new TypeError("documento RPT pública no disponible");
   const t = crearTraductorRPTPuestos(), contenedor = nodo(documento, "section");
   contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublica = ""; raiz.append(contenedor);
-  let activa = true, controlador = null, consulta = consultaDesdeURL();
+  const enlace = consultaDesdeURL();
+  let activa = true, controlador = null, consulta = enlace.consulta, avisoEnlace = enlace.invalida;
   const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); };
   registrarDesmontar?.(desmontar);
   const recargar = async (cambios = {}, { enfocarResultado = false } = {}) => {
     if (!activa || !sigueMontada(raiz, contenedor)) return;
-    const siguienteConsulta = { ...consulta, ...cambios };
-    if (!["categorias", "puestos", "centros"].includes(siguienteConsulta.vista) || typeof siguienteConsulta.q !== "string"
-      || siguienteConsulta.q !== siguienteConsulta.q.trim() || siguienteConsulta.q.length > 100
-      || !Number.isSafeInteger(siguienteConsulta.limit) || siguienteConsulta.limit < 1 || siguienteConsulta.limit > 100
-      || !Number.isSafeInteger(siguienteConsulta.offset) || siguienteConsulta.offset < 0
-      || siguienteConsulta.vista !== "puestos" && (siguienteConsulta.categoria_clave || siguienteConsulta.centro_codigo)
-      || siguienteConsulta.categoria_clave && (siguienteConsulta.categoria_clave.length > 64 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(siguienteConsulta.categoria_clave))
-      || siguienteConsulta.centro_codigo && (typeof siguienteConsulta.centro_codigo !== "string" || siguienteConsulta.centro_codigo.length > 64)) {
-      pintar(raiz, contenedor, { tipo: "error", mensaje: t("error"), consulta }, recargar, t); return;
-    }
+    let siguienteConsulta;
+    try { siguienteConsulta = validarConsultaRPTPublica({ ...consulta, ...cambios }); }
+    catch { pintar(raiz, contenedor, { tipo: "error", mensaje: t("error_filtro"), consulta, avisoEnlace }, recargar, t); return; }
+    if (Object.keys(cambios).length > 0) avisoEnlace = false;
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
-    consulta = Object.freeze(siguienteConsulta); conservarConsultaURL(consulta);
-    pintar(raiz, contenedor, { tipo: "cargando", consulta }, recargar, t);
+    consulta = siguienteConsulta; conservarConsultaURL(consulta);
+    pintar(raiz, contenedor, { tipo: "cargando", consulta, avisoEnlace }, recargar, t);
     if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
     try {
       const pagina = await cliente.listar(consulta, { signal: vuelo.signal });
       if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
-        pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta }, recargar, t);
+        pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta, avisoEnlace }, recargar, t);
         if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-tabla]")?.focus?.();
       }
     } catch {
       if (activa && controlador === vuelo && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) {
         const mensaje = t("error"); anunciar(mensaje, "error");
-        pintar(raiz, contenedor, { tipo: "error", mensaje, consulta }, recargar, t);
+        pintar(raiz, contenedor, { tipo: "error", mensaje, consulta, avisoEnlace }, recargar, t);
         if (enfocarResultado) contenedor.querySelector("[data-personal-rpt-publica-estado]")?.focus?.();
       }
     } finally { if (controlador === vuelo) controlador = null; }

@@ -574,6 +574,8 @@
     "centro_aplicado": "Centre: {valor}",
     "cargando": "Loading published post structure…",
     "error": "The published post structure could not be checked. No previous data is shown.",
+    "error_filtro": "The filter is invalid. Check it and search again.",
+    "enlace_invalido": "The link contained an invalid filter. The full list is shown.",
     "fuente": "Source: {documento}. {aviso}",
     "generacion": "Projection generation: {valor}. This reference does not establish whether the job list is currently in force.",
     "huella": "Import: {importacion} · SHA-256 fingerprint: {huella}",

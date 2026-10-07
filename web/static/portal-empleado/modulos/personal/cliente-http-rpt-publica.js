@@ -5,7 +5,7 @@ function error(codigo, estado) { return new ErrorClienteRPTPublica(codigo, estad
 function registro(v) { return v !== null && typeof v === "object" && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype; }
 function texto(v, maximo, vacio = false) { return typeof v === "string" && v === v.trim() && (vacio || v.length > 0) && v.length <= maximo && !/[\x00-\x1F\x7F-\x9F]/u.test(v); }
 function entero(v, minimo = 0) { return Number.isSafeInteger(v) && v >= minimo; }
-function validarConsulta(consulta) {
+export function validarConsultaRPTPublica(consulta) {
   const claves = ["vista", "q", "limit", "offset", "categoria_clave", "centro_codigo"];
   if (!registro(consulta) || Object.keys(consulta).some((clave) => !claves.includes(clave))
     || !["categorias", "puestos", "centros"].includes(consulta.vista)
@@ -68,7 +68,7 @@ export function crearClienteHTTPRPTPublica({ fetchImpl = globalThis.fetch, plazo
   if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000)
     throw new TypeError("cliente RPT pública no disponible");
   return Object.freeze({ async listar(entrada, opciones = {}) {
-    const consulta = validarConsulta(entrada);
+    const consulta = validarConsultaRPTPublica(entrada);
     if (!registro(opciones) || Object.keys(opciones).some((clave) => clave !== "signal")) throw error("opciones_no_validas");
     const externo = validarSignal(opciones.signal);
     const parametros = new URLSearchParams({ q: consulta.q, limit: String(consulta.limit), offset: String(consulta.offset), enlaces: "1" });
