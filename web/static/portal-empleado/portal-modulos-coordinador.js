@@ -76,8 +76,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
       import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20261001-cronos-calendario-seleccion-v1"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-calendario-seleccion-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-u-cronos-dietas-v1"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20261007-u-cronos-dietas-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
@@ -125,10 +125,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/registro-b2.js?v=20261004-personal-vacantes-filtro-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/i18n.js?v=20261007-t-personal-p5-v1"),
       import("./modulos/personal/cliente-http-ficha-propia.js?v=20261004-personal-relaciones-v1"),
       import("./modulos/personal/vista-contacto-propio.js?v=20261004-b-contacto-retoma-v2"),
     ]);
+    await i18n.prepararTextosPersonal();
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto });
   },
@@ -136,12 +137,14 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // Van en todos los paquetes web (el import nunca da 404); solo se ofrecen si
   // el servidor responde a su consulta con una página válida.
   personal_catalogos_publicos: async () => {
-    const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
+    const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, i18n] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-busqueda-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-servicios-sync-v3"),
+      import("./modulos/personal/i18n.js?v=20261007-t-personal-p5-v1"),
     ]);
+    await i18n.prepararTextosPersonal();
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
   dietas: async () => {
@@ -151,7 +154,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260929-i18n-dietas-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20261007-u-cronos-dietas-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20261001-dietas-decision-v1"),
       import("./modulos/dietas/cliente-rectificacion-http.js?v=20261002-codexe-d7c-web-v1"),
     ]);
