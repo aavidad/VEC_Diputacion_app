@@ -136,6 +136,7 @@ export async function montarModuloContratacionTemporal({
   llamamiento = null,
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
+  resolverDisponibilidadOpcional = () => null,
   clienteCircuitoFirma,
   dependenciasFirma = {},
   entornoDescarga = globalThis,
@@ -153,10 +154,17 @@ export async function montarModuloContratacionTemporal({
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
     || typeof presentador?.cargar !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function"
+    || typeof resolverDisponibilidadOpcional !== "function") {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
+  const disponibilidadDe = (clave, contexto) => {
+    const registro = resolverDisponibilidadOpcional(clave, contexto);
+    return registro?.disponible === true
+      && registro.expediente_ref === contexto.expediente_ref
+      && registro.version_observada === contexto.version_observada ? registro : null;
+  };
   instalarPantallasFase(raiz.ownerDocument ?? globalThis.document, traducirExpedientes);
   // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
   let filtroLista = filtroListaValido(filtroListaInicial ?? {});
@@ -304,11 +312,14 @@ export async function montarModuloContratacionTemporal({
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
+    const disponibilidad = disponibilidadDe("borradores_publicados", contexto);
+    if (!disponibilidad) return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
     desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
-      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+      contexto, disponibilidad, obtenerDisponibilidad: () => disponibilidadDe("borradores_publicados", contexto),
+      ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
       entornoDescarga, anunciar }).desmontar;
   }
 
@@ -345,6 +356,9 @@ export async function montarModuloContratacionTemporal({
     if (!clienteReincorporacion || !contexto
       || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
       || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+    if (!disponibilidadDe("reincorporacion_titular", {
+      expediente_ref: contexto.expediente_ref, version_observada: contexto.version,
+    })) return;
     const actualAntes = presentador.obtenerEstado();
     if (actualAntes.carga !== "listo" || actualAntes.vista !== "expediente"
       || actualAntes.expediente?.expediente_ref !== contexto.expediente_ref
@@ -484,6 +498,7 @@ export async function montarModuloContratacionTemporal({
     resolucionFormalizacionDisponible,
     incorporacionEjercicioDisponible,
     incorporacionPersonalB2,
+    resolverDisponibilidadOpcional,
     confirmarOperacion,
     mensajes,
     locale,

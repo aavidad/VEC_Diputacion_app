@@ -27,11 +27,24 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
     </div></section>`;
 }
 
-export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClienteBorradoresPublicados(),
+export function montarBorradoresPublicados({ raiz, contexto, disponibilidad = null,
+  obtenerDisponibilidad = () => disponibilidad, cliente = crearClienteBorradoresPublicados(),
   entornoDescarga = globalThis, anunciar = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultarDisponibles !== "function" || typeof cliente?.descargar !== "function"
-    || typeof anunciar !== "function") throw new TypeError("montaje de borradores publicados no válido");
+    || typeof anunciar !== "function" || typeof obtenerDisponibilidad !== "function") {
+    throw new TypeError("montaje de borradores publicados no válido");
+  }
+  const disponible = () => {
+    const actual = obtenerDisponibilidad();
+    return actual?.disponible === true && actual.expediente_ref === contexto?.expediente_ref
+      && actual.version_observada === contexto?.version_observada;
+  };
+  if (!disponible()) {
+    raiz.hidden = true;
+    raiz.replaceChildren();
+    return Object.freeze({ desmontar() {} });
+  }
   const t = crearTraductorContratacionTemporal();
   let montado = true;
   let estado = "cargando";
@@ -54,6 +67,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
 
   async function cargar() {
     cancelar();
+    if (!disponible()) { catalogo = null; estado = "ausente"; pintar(); return; }
     const actual = secuencia;
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -61,16 +75,17 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     try {
       const datos = await cliente.consultarDisponibles(contexto, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (!disponible()) { catalogo = null; estado = "ausente"; return; }
       catalogo = datos; estado = "lista";
     } catch (error) {
       if (!montado || signal.aborted || secuencia !== actual) return;
-      estado = error?.estado === 404 ? "ausente" : [401, 403].includes(error?.estado) ? "denegado"
+      estado = [401, 403].includes(error?.estado) ? "denegado"
         : error?.estado === 409 ? "conflicto" : "error";
     } finally { if (montado && secuencia === actual) { controlador = null; pintar(); } }
   }
 
   async function descargar(tipo, formato) {
-    if (!catalogo || estado !== "lista" || ocupado) return;
+    if (!disponible() || !catalogo || estado !== "lista" || ocupado) return;
     const autorizado = catalogo.tipos.some((item) => item.clave === tipo && item.formatos.includes(formato));
     if (!autorizado) return;
     const actual = ++secuencia;
@@ -80,6 +95,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     try {
       const resultado = await cliente.descargar(contexto, catalogo, tipo, formato, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (!disponible()) { catalogo = null; estado = "ausente"; return; }
       if (resultado?.catalogo_ref !== catalogo.catalogo_ref
         || resultado.catalogo_huella_sha256 !== catalogo.catalogo_huella_sha256
         || resultado.procedencia_ref !== catalogo.procedencia_ref) throw new TypeError("procedencia de descarga incompatible");

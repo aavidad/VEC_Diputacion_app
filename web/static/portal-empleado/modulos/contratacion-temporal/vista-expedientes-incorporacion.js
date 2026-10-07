@@ -31,6 +31,7 @@ export function crearGestorIncorporacion({
   resolucionFormalizacionDisponible,
   incorporacionEjercicioDisponible,
   incorporacionPersonalB2 = null,
+  resolverDisponibilidadOpcional = () => null,
   confirmarOperacion,
   mensajes = {},
   locale = "es-ES",
@@ -53,6 +54,12 @@ export function crearGestorIncorporacion({
       || estado?.carga !== "listo" || estado?.vista !== "expediente"
       || estado.expediente?.demostracion !== false || !Number.isSafeInteger(estado.expediente.version)
       || estado.expediente.version < 7) return false;
+    const contexto = { expediente_ref: estado.expediente.expediente_ref,
+      version_observada: estado.expediente.version };
+    const disponibilidad = resolverDisponibilidadOpcional("incorporacion_personal_b2", contexto);
+    if (disponibilidad?.disponible !== true
+      || disponibilidad.expediente_ref !== contexto.expediente_ref
+      || disponibilidad.version_observada !== contexto.version_observada) return false;
     const resumen = estado.cuadro?.expedientes?.find((fila) => fila.expediente_ref === estado.expediente.expediente_ref);
     return resumen?.version === estado.expediente.version
       && ["nombramiento", "seguimiento"].includes(resumen.fase_clave);
@@ -73,7 +80,8 @@ export function crearGestorIncorporacion({
       return esMontada() && consultaPersonalB2 === controlador && !controlador.signal.aborted
         && raiz.contains?.(contenedor) && raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") === contenedor
         && actual?.vista === "expediente" && actual.carga === "listo"
-        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
+        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version
+        && candidatoPersonalB2(actual);
     };
     const t = crearTraductorExpedientesContratacion(mensajes);
     contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;

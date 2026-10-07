@@ -54,7 +54,7 @@ function crearDOM() {
   return { raiz, zona: () => zona, documento };
 }
 
-async function escenario(capacidad) {
+async function escenario(capacidad, disponibilidad = true) {
   const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: {
     async consultarCuadroRRHH() { return { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
       generada_en: "2026-09-03T09:05:00Z", expedientes: [resumen], hay_mas: false }; },
@@ -72,6 +72,8 @@ async function escenario(capacidad) {
   const dom = crearDOM();
   let lecturas = 0, capacidades = 0;
   const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador,
+    resolverDisponibilidadOpcional: (clave, contexto) => clave === "reincorporacion_titular" && disponibilidad
+      ? (typeof disponibilidad === "object" ? disponibilidad : { disponible: true, ...contexto }) : null,
     llamamiento: { cliente: {
       seguimientoCese: { async consultarSeguimientoCese() {
         lecturas++;
@@ -92,6 +94,19 @@ async function escenario(capacidad) {
   await esperar();
   return { modulo, dom, lecturas: () => lecturas, capacidades: () => capacidades };
 }
+
+test("la lectura de cese no consulta capacidad de otro expediente ni de origen desconocido", async () => {
+  for (const disponibilidad of [false, { disponible: true, expediente_ref: "otro", version_observada: 8 }]) {
+    const caso = await escenario(() => assert.fail("capacidad no consultable"), disponibilidad);
+    try {
+      const panel = caso.dom.zona()?.hijos.find((h) => h.innerHTML.includes("data-ct-seg-reintentar"));
+      panel.escuchas.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+      await esperar(); await esperar();
+      assert.equal(caso.lecturas(), 2);
+      assert.equal(caso.capacidades(), 0);
+    } finally { caso.modulo.desmontar(); }
+  }
+});
 
 test("tras 503, Reintentar recupera seguimiento y monta reincorporación con una capacidad", async () => {
   const caso = await escenario(() => true);

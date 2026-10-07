@@ -128,7 +128,8 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
         procedencia_ref: catalogo.procedencia_ref }; } };
   const entornoDescarga = { URL: { createObjectURL: () => "blob:prueba", revokeObjectURL: (url) => revocadas.push(url) },
     document: { body: { append() {} }, createElement: () => ({ hidden: false, click() { clics.push(this.download); }, remove() {} }) } };
-  const panel = montarBorradoresPublicados({ raiz, contexto, cliente, entornoDescarga });
+  const panel = montarBorradoresPublicados({ raiz, contexto,
+    disponibilidad: { disponible: true, ...contexto }, cliente, entornoDescarga });
   await new Promise((resolver) => setImmediate(resolver));
   assert.match(raiz.innerHTML, /Acta ampliada/u);
   const boton = { dataset: { bpDescargar: "acta_ampliada", bpFormato: "pdf" },
@@ -142,4 +143,25 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
   panel.desmontar();
   assert.equal(eventos.size, 0);
   assert.deepEqual(revocadas, ["blob:prueba"]);
+});
+
+test("sin disponibilidad exacta no consulta; con disponibilidad, un 404 conserva error y reintento", async () => {
+  const raiz = { innerHTML: "", hidden: false, contains: () => true,
+    addEventListener() {}, removeEventListener() {}, replaceChildren() { this.innerHTML = ""; } };
+  let lecturas = 0;
+  const cliente = { async consultarDisponibles() { lecturas++; throw Object.assign(new Error("ruta"), { estado: 404 }); },
+    async descargar() { assert.fail("sin catálogo no se descarga"); } };
+  for (const disponibilidad of [null, { disponible: true, expediente_ref: "otro", version_observada: 8 },
+    { disponible: true, ...contexto, version_observada: 7 }]) {
+    montarBorradoresPublicados({ raiz, contexto, disponibilidad, cliente });
+    assert.equal(lecturas, 0);
+    assert.equal(raiz.hidden, true);
+  }
+  const panel = montarBorradoresPublicados({ raiz, contexto,
+    disponibilidad: { disponible: true, ...contexto }, cliente });
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(lecturas, 1);
+  assert.match(raiz.innerHTML, /data-bp-reintentar/u);
+  assert.equal(raiz.hidden, false);
+  panel.desmontar();
 });

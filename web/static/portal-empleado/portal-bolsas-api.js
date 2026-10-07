@@ -336,7 +336,8 @@ export function propuestaPlazoRespuesta(datos) {
   return { texto: traducirPortal("panel_b7_plazo_regla_texto", { fecha, hora }), procedencia, ejemplo: regla.origen === "ejemplo" || regla.ejemplo === true, descripcion: regla.texto, referencia: regla.referencia };
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null,
+  resolverDisponibilidadOpcional = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
   let controladorSeleccionMasiva = null;
   let revisionSeleccionMasiva = 0;
@@ -453,6 +454,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
+    resolverDisponibilidadOpcional,
     recargar: async (participacionRef) => {
       const bolsaRef = estado.bolsaSeleccionada;
       const modal = estado.modalFicha;
