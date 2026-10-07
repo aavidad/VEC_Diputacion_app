@@ -4,13 +4,48 @@ VEC tramitará declaraciones y solicitudes de compatibilidad, informes, decisió
 condiciones y revisiones. La persona declara los hechos y el órgano competente
 decide. La primera entrega propuesta conserva una solicitud sintética y su recibo
 interno; la concesión, el asiento oficial, la firma, la notificación y la publicación
-requieren sus circuitos acreditados. Este encargo entrega documentación, sin código
-ni SQL, y mantiene la cola vigente.
+requieren sus circuitos acreditados. El encargo original del 4 de octubre entregó
+documentación sin código ni SQL y mantuvo la cola vigente.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha de Incompatibilidades integrada](../estudio_requisitos/ficha_incompatibilidades_2026-10-04.md),
 INC1–INC10. Personal B, identidad/autorización K y núcleo/auditoría L conservan
 sus archivos y responsabilidades. No se crean maestros ni autoridades paralelas.
+
+## Candidato de validación estructural — 7 de octubre de 2026
+
+El paquete `internal/modules/incompatibilidades/domain` comprueba la estructura
+de una actividad secundaria declarada: tipo, referencias opacas de actividad,
+funciones, titular, jornada y horario, y relación declarada con asuntos del puesto.
+El comando local `cmd/vec-incompatibilidades` lee un objeto JSON por la entrada
+estándar y devuelve `structurally_complete`, `incomplete` con los nombres de
+campos afectados o `invalid_input`. Los códigos de salida son 0, 1 y 2,
+respectivamente. El CLI admite solo referencias `ensayo:` y no imprime los
+valores recibidos. La categoría
+`exceptuada_declarada` recoge lo dicho por la persona; no acredita una excepción.
+
+Entrada sintética para `go run ./cmd/vec-incompatibilidades`:
+
+```json
+{
+  "tipo": "privada",
+  "actividad_ref": "ensayo:00000000000000000000000000000001",
+  "funciones_ref": "ensayo:00000000000000000000000000000002",
+  "titular_ref": "ensayo:00000000000000000000000000000003",
+  "jornada_ref": "ensayo:00000000000000000000000000000004",
+  "horario_ref": "ensayo:00000000000000000000000000000005",
+  "relacion_con_puesto": "desconocida"
+}
+```
+
+Este corte detecta declaraciones incompletas con referencias sintéticas. No
+comprueba que las referencias existan o pertenezcan a quien solicita. No crea
+expediente ni recibo, no consulta Personal y no está montado en el portal. Para
+conservar la solicitud con un recibo recuperable siguen pendientes el catálogo
+aprobado (I01), el consumidor nominal de autorización y auditoría (I02), la
+consulta de relación y puesto a Personal (I03) y la persistencia reservada,
+ensayada y revisada (I04–I05). La duda 133 mantiene pendiente el circuito
+interno de la decisión.
 
 ## Fuentes y decisiones aplicables
 
