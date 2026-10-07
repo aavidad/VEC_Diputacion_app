@@ -49,6 +49,28 @@ DO $body$ BEGIN RAISE NOTICE 'CREATE FUNCTION falsa5() SECURITY DEFINER'; END $b
                 self.assertEqual(len(inspect_sql(f"ALTER {kind} a() RESET ALL;", {1})), 1)
         self.assertEqual(inspect_sql("ALTER ROUTINE a() RESET lock_timeout;", {1}), [])
 
+    def test_search_path_equivalente_con_literales_o_identificadores_citados(self):
+        for clause in (
+            "SET search_path TO 'pg_catalog', 'pg_temp'",
+            'SET search_path = "pg_catalog", "pg_temp"',
+        ):
+            with self.subTest(clause=clause):
+                create = f"CREATE FUNCTION a() RETURNS int SECURITY DEFINER {clause} AS $$ SELECT 1 $$;"
+                alter = f"ALTER ROUTINE a() {clause};"
+                self.assertEqual(inspect_sql(create, {1}), [])
+                self.assertEqual(inspect_sql(alter, {1}), [])
+        for clause in (
+            "SET search_path TO 'pg_temp', 'pg_catalog'",
+            "SET search_path TO 'pg_catalog', 'pg_temp', 'public'",
+            "SET search_path TO 'pg_catalog, pg_temp'",
+            "SET search_path TO 'pg_catalog', valor_variable",
+            "SET search_path TO 'PG_CATALOG', 'pg_temp'",
+            'SET search_path TO "pg_catalog", "pg_temp", "public"',
+        ):
+            with self.subTest(clause=clause):
+                create = f"CREATE FUNCTION a() RETURNS int SECURITY DEFINER {clause} AS $$ SELECT 1 $$;"
+                self.assertTrue(inspect_sql(create, {1}))
+
     def test_reconstruccion_dinamica(self):
         sql = '''DO $body$
 DECLARE original text;

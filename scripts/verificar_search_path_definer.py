@@ -153,7 +153,7 @@ def search_path_values(stmt: list[Token]) -> list[list[str]]:
         names: list[str] = []
         while j < len(stmt):
             token = stmt[j]
-            if token.kind not in ("word", "identifier"):
+            if token.kind not in ("word", "identifier", "string"):
                 break
             names.append(token.value.lower() if token.kind == "word" else token.value)
             j += 1
