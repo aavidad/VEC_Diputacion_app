@@ -112,8 +112,9 @@ export function peticionesEnSerie(fetchImpl = globalThis.fetch) {
     } finally { clearTimeout(temporizador); }
   }
   function errorDeCuerpo(fallo, secundaria) {
-    const seguro = fallo instanceof TypeError && /^respuesta_serie_/u.test(fallo.message)
-      ? fallo : new TypeError("respuesta_serie_error");
+    const admitidos = new Set(["respuesta_serie_cancelada", "respuesta_serie_demasiado_grande", "respuesta_serie_sin_flujo"]);
+    const codigo = fallo instanceof TypeError && admitidos.has(fallo.message) ? fallo.message : "respuesta_serie_error";
+    const seguro = new TypeError(codigo);
     if (secundaria) seguro.causa_limpieza = Object.freeze({ codigo: secundaria });
     return seguro;
   }

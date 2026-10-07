@@ -182,6 +182,23 @@ test("una señal ya cancelada no inicia fetch ni retiene la cola", async () => {
   assert.equal(llamadas, 1);
 });
 
+test("un error del stream no conserva cause, pila ni propiedades libres", async () => {
+  for (const mensaje of ["respuesta_serie_cancelada", "respuesta_serie_DNI_12345678Z"]) {
+    const ajeno = new TypeError(mensaje, { cause: new Error("DNI 12345678Z") });
+    ajeno.dato = "persona privada";
+    ajeno.stack = "DNI 12345678Z en ruta privada";
+    const serie = peticionesEnSerie(async () => new Response(new ReadableStream({ pull() { throw ajeno; } })));
+    let recibido;
+    await assert.rejects(serie("/api/vec/usuarios/mis-preferencias", {}), (fallo) => { recibido = fallo; return true; });
+    assert.notStrictEqual(recibido, ajeno);
+    assert.equal(recibido.message, mensaje === "respuesta_serie_cancelada" ? mensaje : "respuesta_serie_error");
+    assert.equal(recibido.cause, undefined);
+    assert.equal(recibido.dato, undefined);
+    assert.doesNotMatch(recibido.stack, /12345678Z|persona privada|ruta privada/u);
+    assert.ok([undefined, "cancelacion_fallida"].includes(recibido.causa_limpieza?.codigo));
+  }
+});
+
 /** Elemento mínimo para pintar avatares sin DOM real. */
 function elementoPrueba() {
   const clases = new Set(["avatar"]);
