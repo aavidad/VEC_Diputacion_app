@@ -181,8 +181,23 @@ ajena se rechaza. Las dos revisiones independientes de SQL y seguridad dieron
 GO al código; estas comprobaciones no miden V3, HTTP ni pantalla.
 
 La lista de despliegue contiene solo CRN15, sobre Cronos4 ya instalado; no se
-reaplican migraciones históricas. Dirección ha autorizado restaurar una copia
-fría HX más las 14 SQL de HZ en una base privada para el ensayo del clon, todavía
-pendiente. No se instala CRN15 en cidonia esta noche. Cronos empleado conserva
+reaplican migraciones históricas. El ensayo en una copia
+privada de principal pasó: restauración postHX, ACL y las 14 SQL de HZ, después
+CRN15 una sola vez. Conservó OID, ACL, RLS y el cuerpo del consumidor Cronos7;
+no consultó filas personales ni acredita HTTP. Fuente y archivos privados
+permanecieron intactos; el contenedor y sus datos se retiraron. Por orden de
+Dirección, CRN15 no se instala en cidonia esta noche. Cronos empleado conserva
 la configuración nueva de #861 y espera el catálogo gobernado del motivo de
 rechazo; C5a y las demás dependencias nominales siguen abiertas.
+
+## Respuesta visible al abrir una corrección
+
+Si el calendario carga, deniega la consulta o falla, «Solicitar corrección»
+enfoca y anuncia el estado visible; no crea un formulario oculto ni un POST.
+Después de una consulta válida, abre el formulario y enfoca la fecha.
+
+Las pruebas de la vista y su consumidor han pasado. Chrome comprobó los dos
+componentes y su callback con consultas sintéticas pendientes, 403, 503 y
+recuperación, en castellano e inglés, a 1440 y 390 px. No acredita identidad,
+API nominal ni PostgreSQL. El coordinador común conserva la renovación de la
+URL del recurso; esta corrección no activa Cronos ni cierra C5a/C5b.
