@@ -93,9 +93,16 @@ BEGIN
     OR EXISTS (SELECT 1 FROM pg_auth_members r WHERE r.member='vec_personal_ejecutor'::regrole)
     OR pg_has_role(session_user,'vec_personal_propietario','MEMBER')
     OR pg_has_role(session_user,'vec_personal_migrador','MEMBER')
-    OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 4096 OR p_capacidad IS NULL OR p_decision IS NULL OR p_motivo IS NULL
-    OR p_contexto IS NULL OR p_persona_version IS NULL OR p_perfil_version IS NULL
-    OR p_payload IS NULL OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
+    OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 4096
+    OR p_capacidad IS NULL OR octet_length(p_capacidad) NOT BETWEEN 512 AND 32768
+    OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
+    OR p_motivo IS NULL OR octet_length(p_motivo) NOT BETWEEN 1 AND 65536
+    OR p_contexto IS NULL OR octet_length(p_contexto) NOT BETWEEN 1 AND 262144
+    OR p_persona_version IS NULL OR p_perfil_version IS NULL
+    OR p_payload IS NULL OR octet_length(p_payload) NOT BETWEEN 1 AND 1048576
+    OR p_sobre IS NULL OR octet_length(p_sobre) NOT BETWEEN 1 AND 1048576
+    OR p_evidencia IS NULL OR octet_length(p_evidencia) NOT BETWEEN 1 AND 262144
+    OR p_raiz IS NULL OR octet_length(p_raiz)<>44 THEN
    RAISE EXCEPTION 'exportación de servicios propios denegada' USING ERRCODE='42501';
  END IF;
  BEGIN
