@@ -90,6 +90,11 @@ func resumirSituacionBolsaCobertura(
 			situacion.Existe, situacion.BolsaRef, situacion.ConstituidaEn = true, bolsa.Referencia, desde
 		}
 	}
+	// El dataset de desarrollo no acredita la ausencia de una bolsa para una
+	// categoría sin referencia exacta. La falta de vínculo queda no disponible.
+	if len(bolsas) == 0 {
+		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
+	}
 	for _, candidatura := range datos.Candidaturas {
 		if _, propia := bolsas[candidatura.BolsaRef]; !propia {
 			continue

@@ -39,6 +39,7 @@ func newHandlerIntegradoConHashTeselasOSM(cfg config.Config, api http.Handler, c
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
 	registrarDirectorioAplicacion(mux, estaticos, "bolsa")
+	registrarDirectorioAplicacion(mux, estaticos, "canal-interno")
 	registrarDirectorioAplicacion(mux, estaticos, "area-personal")
 	registrarDirectorioAplicacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioAplicacion(mux, estaticos, "verificar")

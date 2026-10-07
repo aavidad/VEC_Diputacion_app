@@ -40,7 +40,8 @@ func loteADMINPrueba(t *testing.T) (configuracionLotePrivada, configuracionPerfi
 	}
 	c := configuracionLotePrivada{Modo: modoLoteADMIN, PoolLote: filepath.Join(dir, "lote.json"), ConfianzaJSON: b,
 		MotivoLote: motivoLotePrueba(u), Unidades: []unidadLotePrivada{{UnidadRef: u.UnidadRef,
-			FuenteOrganizacion: fuente("prc_fuente_organizacion", "b"), FuenteUnidad: fuente("fuente:unidad:prueba", "c")}}}
+			FuenteOrganizacion: fuente("prc_fuente_organizacion", "b"), FuenteUnidad: fuente("fuente:unidad:prueba", "c")}},
+		MotivosCambio: []motivoCambioPrivado{{Motivo: motivoLotePrueba(u), ClaveI18N: "alta_funciones"}}}
 	return c, base, u, runtime
 }
 
@@ -106,6 +107,13 @@ func TestOverlayLoteFallaCerrado(t *testing.T) {
 		"sin_unidades":         func(x *configuracionLotePrivada) { x.Unidades = nil },
 		"unidad_repetida":      func(x *configuracionLotePrivada) { x.Unidades = append(x.Unidades, x.Unidades[0]) },
 		"fuente_sin_version":   func(x *configuracionLotePrivada) { x.Unidades[0].FuenteUnidad.Version = 0 },
+		"sin_motivos_cambio":   func(x *configuracionLotePrivada) { x.MotivosCambio = nil },
+		"motivo_clave_mala": func(x *configuracionLotePrivada) {
+			x.MotivosCambio = []motivoCambioPrivado{{Motivo: x.MotivosCambio[0].Motivo, ClaveI18N: "Alta"}}
+		},
+		"motivo_repetido": func(x *configuracionLotePrivada) {
+			x.MotivosCambio = []motivoCambioPrivado{x.MotivosCambio[0], {Motivo: x.MotivosCambio[0].Motivo, ClaveI18N: "otra"}}
+		},
 		"otra_audiencia": func(x *configuracionLotePrivada) {
 			x.ConfianzaJSON = otraConfianza(func(m *metadatosConfianzaPerfilesPrivados) {
 				m.EntradasCapacidad[0].Audiencia = administracion.AudienciaUsuariosListarV3

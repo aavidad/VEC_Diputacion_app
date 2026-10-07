@@ -9,7 +9,7 @@ import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261006-resumen-inicio-v2";
-import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261007-ct-ficha-final-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,

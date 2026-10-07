@@ -115,6 +115,14 @@ func TestSolicitudesPropiasCuerpoEstrictoYErroresNominales(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatal("replay no responde 200", w.Code)
 	}
+	caso.err = ports.ErrCorreccionNoAutorizada
+	w = httptest.NewRecorder()
+	cor.ServeHTTP(w, peticionJSON(http.MethodPost, RutaSolicitarCorreccionPropia, correcta))
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"error":"acceso_denegado"`) ||
+		strings.Contains(w.Body.String(), "recibo") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("vínculo empleado caducado no se deniega como acceso", w.Code, w.Body.String())
+	}
+	caso.err = nil
 	llamadas := resolver.llamadas
 	for _, malo := range []string{
 		`{"clave_operacion":"corr-clave-0001","movimiento":"entrada","fecha_civil":"2026-09-24"}`,

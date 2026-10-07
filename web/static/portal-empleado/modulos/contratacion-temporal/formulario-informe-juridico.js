@@ -4,7 +4,7 @@ import {
   validarReciboInformeJuridico,
   validarSolicitudInformeJuridico,
 } from "./contrato-informe-juridico.js";
-import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261006-resumen-inicio-v2";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261007-ct-ficha-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
