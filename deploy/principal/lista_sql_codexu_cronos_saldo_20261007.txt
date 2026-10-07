@@ -1,0 +1,1 @@
+deploy/postgresql/cronos_v1/migraciones/000015_libro_saldo_acotado.up.sql
