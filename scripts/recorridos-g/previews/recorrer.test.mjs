@@ -9,15 +9,20 @@ import { cerrarRecorrido, crearVarianteInforme, evaluarScroll, ejecutar, registr
 const casos = JSON.parse(fs.readFileSync(new URL('casos.json', import.meta.url), 'utf8'));
 const idiomas = JSON.parse(fs.readFileSync(new URL('idiomas.json', import.meta.url), 'utf8'));
 
-test('lista positiva: solo estáticos públicos y tres JSON exactos', () => {
+test('lista positiva: solo cuatro rutas de preview, estáticos públicos y tres JSON exactos', () => {
   assert.equal(ficheroPermitido(casos.paginas.informes), casos.paginas.informes.slice(1));
   assert.equal(ficheroPermitido(casos.datos[0]), casos.datos[0].slice(1));
+  const scriptInforme = casos.paginas.informes.replace('index.html', 'demo.js');
+  assert.equal(ficheroPermitido(scriptInforme), scriptInforme.slice(1));
   for (const ruta of ['/api/vec/dietas', '/.git/config', '/data/demo/dietas/otro.json',
-    '/web/static/../../AGENTS.md', '/web/static/.env', '/web/static/app.js?x=1', '/web/static/cert.pem']) {
+    '/web/static/../../AGENTS.md', '/web/static/.env', '/web/static/app.js?x=1', '/web/static/cert.pem',
+    '/scripts/recorridos-g/previews/servidor.mjs', '/scripts/recorridos-g/previews/paginas/dietas/otro/index.html']) {
     assert.equal(ficheroPermitido(ruta), null, ruta);
   }
   const origen = 'http://127.0.0.1:40123';
   assert.equal(peticionPermitida(`${origen}${casos.paginas.informes}?lang=${idiomas.por_defecto}`, 'GET', origen), true);
+  assert.equal(peticionPermitida(`${origen}${scriptInforme}?v=20261004-a-dietas-situacion-v1`, 'GET', origen), true);
+  assert.equal(peticionPermitida(`${origen}/scripts/recorridos-g/previews/servidor.mjs`, 'GET', origen), false);
   assert.equal(peticionPermitida(`http://127.0.0.1:40124${casos.paginas.informes}`, 'GET', origen), false);
   assert.equal(peticionPermitida(`${origen}${casos.paginas.informes}?lang=desconocido`, 'GET', origen), false);
   assert.equal(peticionPermitida(`${origen}${casos.paginas.informes}?lang=${idiomas.por_defecto}&x=1`, 'GET', origen), false);
@@ -27,7 +32,7 @@ test('lista positiva: solo estáticos públicos y tres JSON exactos', () => {
 test('una preview ausente no da plan verde ni abre Chrome', async () => {
   const fuente = fs.mkdtempSync(path.join(os.tmpdir(), 'vec-preview-ausente-'));
   try {
-    assert.equal(comprobarFuente(fuente, casos).length, 5);
+    assert.equal(comprobarFuente(fuente, casos).length, 7);
     assert.equal(await ejecutar(['--source', fuente, '--modo', 'plan']), 2);
   } finally { fs.rmSync(fuente, { recursive: true, force: true }); }
 });
@@ -35,19 +40,24 @@ test('una preview ausente no da plan verde ni abre Chrome', async () => {
 test('servidor deniega API, escritura, datos extra y enlaces', async () => {
   const fuente = fs.mkdtempSync(path.join(os.tmpdir(), 'vec-preview-servidor-'));
   const pagina = path.join(fuente, casos.paginas.informes.slice(1));
+  const script = path.join(path.dirname(pagina), 'demo.js');
   fs.mkdirSync(path.dirname(pagina), { recursive: true });
   fs.writeFileSync(pagina, '<!doctype html><title>Fixture</title>');
+  fs.writeFileSync(script, 'export {};');
   const enlace = path.join(fuente, 'web/static/enlace.html');
+  fs.mkdirSync(path.dirname(enlace), { recursive: true });
   fs.symlinkSync(pagina, enlace);
   const servidor = crearServidor(fuente);
   try {
     const origen = await servidor.escuchar();
     assert.equal((await fetch(`${origen}${casos.paginas.informes}?lang=${idiomas.por_defecto}`)).status, 200);
+    assert.equal((await fetch(`${origen}${casos.paginas.informes.replace('index.html', 'demo.js')}?v=1`)).status, 200);
+    assert.equal((await fetch(`${origen}/scripts/recorridos-g/previews/servidor.mjs`)).status, 403);
     assert.equal((await fetch(`${origen}/api/vec/dietas`)).status, 403);
     assert.equal((await fetch(`${origen}${casos.paginas.informes}`, { method: 'POST' })).status, 403);
     assert.equal((await fetch(`${origen}/data/demo/dietas/otro.json`)).status, 403);
     assert.equal((await fetch(`${origen}/web/static/enlace.html`)).status, 404);
-    assert.equal(servidor.contadores().peticiones, 1);
+    assert.equal(servidor.contadores().peticiones, 2);
   } finally { if (servidor.servidor.listening) await servidor.cerrar(); fs.rmSync(fuente, { recursive: true, force: true }); }
 });
 

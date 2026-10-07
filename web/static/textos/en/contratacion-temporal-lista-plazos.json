@@ -1,5 +1,9 @@
 {
   "lista": {
+    "plazo_fase_en_plazo": "Within deadline",
+    "plazo_fase_vence_hoy": "Due today",
+    "plazo_fase_vencido": "Overdue",
+    "plazo_fase_sin_calcular": "Not calculated",
     "lista_mostrar_vencidos": "Overdue",
     "lista_plazo_vencio_ayer": "Overdue since yesterday",
     "lista_plazo_vencio_hace": "Overdue by {dias} days",
