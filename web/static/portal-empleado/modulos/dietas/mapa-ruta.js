@@ -390,7 +390,7 @@ export function crearVisorRutaDietas({
           const documento = lienzo.ownerDocument;
           if (documento && typeof documento.createElement === "function") {
             const textoTooltip = documento.createElement("span");
-            textoTooltip.textContent = `${indice + 1}. ${parada.etiqueta}`;
+            textoTooltip.textContent = t("mapa_parada", { numero: indice + 1, nombre: parada.etiqueta });
             marcador.bindTooltip?.(textoTooltip);
           }
         });
@@ -401,7 +401,7 @@ export function crearVisorRutaDietas({
           // La atribución interactiva y enlazada ya la aporta Leaflet dentro
           // del mapa. Se conserva el texto alternativo en el DOM para salida
           // documental, pero oculto en pantalla para no duplicarlo.
-          atribucion.textContent = "© OpenStreetMap contributors · © OpenMapTiles · servido en red interna";
+          atribucion.textContent = t("mapa_atribucion_interna");
           atribucion.hidden = true;
         }
         observador.esperarPrimeraCarga();
