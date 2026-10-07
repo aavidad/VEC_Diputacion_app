@@ -1,8 +1,8 @@
 {
   "version": 1,
   "paginas": {
-    "informes": "/web/static/portal-empleado/modulos/dietas/informes/index.html",
-    "catalogo": "/web/static/portal-empleado/modulos/dietas/catalogo/index.html"
+    "informes": "/scripts/recorridos-g/previews/paginas/dietas/informes/index.html",
+    "catalogo": "/scripts/recorridos-g/previews/paginas/dietas/catalogo/index.html"
   },
   "datos": [
     "/data/demo/dietas/informes.json",

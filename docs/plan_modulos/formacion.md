@@ -1,5 +1,16 @@
 # Plan de Formación — 4 de octubre de 2026
 
+## Corrección del preparador — 7 de octubre de 2026
+
+La CLI `vec-formacion-preparar` rechaza una configuración de fuentes con enlaces
+ausentes, claves repetidas o desconocidas, y URLs que no sean HTTPS o incluyan
+credenciales o fragmentos. Conserva el diagnóstico de configuración; un fallo
+del escritor se informa como fallo de salida y mantiene su causa interna.
+
+Las pruebas focales y la revisión independiente de `78b35f2f06ea` pasaron.
+La consulta corporativa sigue pendiente de H02/F01 y de la fuente admitida;
+esta corrección no modifica los servicios de Certificados.
+
 VEC consultará Formación corporativa y derivará a su trámite vigente. El recorrido
 completo comprende plan, solicitudes, ejecución y certificados; cualquier ampliación
 para gestionar esos trámites exige una decisión interna expresa y un corte posterior.
