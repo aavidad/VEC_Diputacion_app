@@ -120,9 +120,10 @@ function comprobarDelegacion(fuentes, helper, resolver) {
   assert.ok(fuenteHelper.includes('from "../../../comun/textos.js"'), "Helper sin origen común comprobado");
   assert.match(fuenteHelper, /cargarTextos\(modulo, \{ idioma: elegido \}\)/u,
     "Helper sin lector común comprobado");
-  assert.match(fuenteHelper, /await prepararIdiomas\(\)[\s\S]*const elegido = idioma \?\? IDIOMA_ACTUAL/u,
-    "Helper elige idioma antes de preparar el índice");
-  assert.match(fuenteHelper, /\n    cargarTextos\(modulo, \{ idioma: elegido \}\),/u,
+  assert.match(fuenteHelper,
+    /const compatibilidad = await cargarTextos\("contratacion-temporal-compatibilidad", \{ idioma \}\);[\s\S]*const elegido = idioma \?\? compatibilidad\.idioma/u,
+    "Helper debe elegir idioma después de la primera carga común");
+  assert.match(fuenteHelper, /const textos = await cargarTextos\(modulo, \{ idioma: elegido \}\)/u,
     "Helper sin paso del catálogo solicitado comprobado");
   assert.ok(!/modulo\s*=\s*datos\.catalogo/u.test(fuenteHelper), "El parámetro se altera fuera del paso comprobado");
   assert.match(fuenteHelper, /cargarCatalogosContratacionEnIdioma\(modulo, undefined, seccion\)/u,
@@ -277,7 +278,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   assert.throws(() => validar('cargarCatalogosContratacion("catalogo-prueba");'), /origen/u);
   assert.throws(() => validar(correcto.replace("./i18n-catalogos.js?v=20261001-ct-a-i18n-v1", "../otro/i18n-catalogos.js")), /otro origen/u);
   assert.throws(() => validar(correcto.replace("{ cargarCatalogosContratacion }", "* as catalogos")), /importación indirecta/u);
-  assert.throws(() => validar(correcto, fuenteHelper.replace("    cargarTextos(modulo, { idioma: elegido }),", "    cargarTextos(datos.catalogo, { idioma: elegido }),")), /paso|lector común/u);
+  assert.throws(() => validar(correcto, fuenteHelper.replace("const textos = await cargarTextos(modulo, { idioma: elegido });", "const textos = await cargarTextos(datos.catalogo, { idioma: elegido });")), /paso|lector común/u);
   assert.throws(() => validar(correcto, fuenteHelper + "\nmodulo = datos.catalogo;"), /fuera del paso/u);
   assert.throws(() => validar(correcto, fuenteHelper.replace("../../../comun/textos.js", "./otro/textos.js")), /origen común/u);
   assert.throws(() => comprobarDelegacion(new Map([[helper, fuenteHelper]]), helper, resolver), /sin consumidores/u);
