@@ -47,6 +47,36 @@ cobertura O4-05), que por seguridad rechazan cualquier trazador, ni el pool
 público de Bolsa. Las peticiones que usan esos pools salen con
 `vec.bd.consultas: 0` aunque consulten.
 
+## Arranque de los procesos
+
+`vec-server` y `vec-admin` escriben un registro JSON `vec.process.startup`
+en su salida de errores al terminar la composición. `vec.arranque.duracion`
+indica los segundos transcurridos en esa fase. Un
+resultado `preparada` significa que el servidor está construido y va a abrir
+la escucha; todavía no confirma que acepte conexiones. Si falla la
+configuración, la composición o la escucha, se escribe `fallida`, con la fase
+y una clase cerrada en `error.type`. El fallo de `vec-server` conserva además
+su incidencia técnica común `ARRANQUE_FALLIDO`.
+
+El registro JSON de arranque contiene servicio, versión, entorno y superficie.
+No incluye el texto del error, rutas de archivos, credenciales ni DSN. La línea
+fatal posterior indica la etapa, el componente que falló y un diagnóstico
+saneado. Conserva los mensajes internos conocidos, como «material criptografico
+de desarrollo invalido» o
+«auditoria.intentos.configuracion_no_disponible». Para PostgreSQL muestra el
+SQLSTATE, sin el mensaje de la base; para ficheros y red omite rutas, direcciones
+y usuarios. Si el error es texto libre no catalogado, muestra su tipo técnico,
+sin copiar el texto. Para encontrar los fallos y sus tiempos:
+
+```sh
+podman logs --since 1h <contenedor> 2>&1 | grep '"msg":"vec.process.startup"' \
+  | jq -c '{servicio: .["service.name"], fase: .["vec.arranque.fase"], resultado: .["vec.arranque.resultado"], segundos: .["vec.arranque.duracion"], causa: .["error.type"]}'
+```
+
+La línea de `escucha` solo aparece si `ListenAndServe` devuelve un error. Si
+se necesita acreditar disponibilidad, hay que hacer una petición de salud por
+la entrada autorizada y comprobar la respuesta.
+
 Si el portal tarda minutos y acaba en 503, lo primero es buscar esta forma:
 cero consultas, todo el tiempo en `vec.bd.espera_conexion` y
 `conexion_plazo_vencido`. Es un pool agotado.
