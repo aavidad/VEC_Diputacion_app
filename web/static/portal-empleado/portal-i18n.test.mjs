@@ -226,9 +226,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal.js",
     "portal-modulos-coordinador.js",
   ]) versionesEspeciales.set(ruta, "20261006-resumen-inicio-v2");
-  for (const ruta of ["portal-catalogo-modulos.js", "portal-inicio.js", "portal.js", "portal-modulos-coordinador.js", "portal-arranque-aviso.js"]) {
+  for (const ruta of ["portal-catalogo-modulos.js", "portal-inicio.js", "portal.js", "portal-modulos-coordinador.js"]) {
     versionesEspeciales.set(ruta, "20261007-ct-menu-recuperacion-v1");
   }
+  versionesEspeciales.set("portal-arranque-aviso.js", "20261007-ct-arranque-autonomo-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

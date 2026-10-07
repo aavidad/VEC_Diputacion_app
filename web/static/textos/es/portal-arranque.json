@@ -1,0 +1,7 @@
+{
+  "titulo": "Portal del Empleado",
+  "cargando": "Comprobando acceso…",
+  "titulo_error": "Esta pantalla no está disponible",
+  "error": "No se ha podido abrir el portal. Compruebe la conexión y pulse Reintentar. Si sigue igual, avise a Informática.",
+  "reintentar": "Reintentar"
+}

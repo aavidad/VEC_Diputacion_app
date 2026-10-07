@@ -177,6 +177,8 @@ static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/textos/es/portal.json
 static/textos/en/portal.json
+static/textos/es/portal-arranque.json
+static/textos/en/portal-arranque.json
 static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
