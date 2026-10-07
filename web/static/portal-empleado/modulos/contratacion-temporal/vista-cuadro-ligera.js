@@ -47,13 +47,18 @@ function proyectarPagina(pagina, fases, locale) {
  */
 export async function montarCuadroContratacionLigero({
   raiz, cliente, idioma, abrirDetalle, abrirAlta = null, mostrarError,
+  filtroLista = null, signal = null,
   nombreCentro = (referencia) => referencia, nombreCategoria = (referencia) => referencia,
 } = {}) {
   if (!raiz?.addEventListener || !raiz?.querySelector
     || typeof cliente?.consultarCuadroRRHH !== "function"
-    || typeof abrirDetalle !== "function" || typeof mostrarError !== "function") {
+    || typeof abrirDetalle !== "function" || typeof mostrarError !== "function"
+    || (signal !== null && (typeof signal?.addEventListener !== "function"
+      || typeof signal.aborted !== "boolean"))) {
     throw new TypeError("dependencias de cuadro CT incompletas");
   }
+  const montajeAbortado = Object.freeze({ recargar: async () => {}, desmontar() {} });
+  if (signal?.aborted) return montajeAbortado;
   let vigente = true;
   let controlador = null;
   let preparado;
@@ -61,6 +66,32 @@ export async function montarCuadroContratacionLigero({
   let paginaIndice = 0;
   const cursores = [""];
   let filtro = FILTRO_LISTA_INICIAL;
+  let filtroRuta = filtroLista;
+  let filtroServidorActual = null;
+  let temporizadorBusqueda = null;
+
+  function filtroServidor() {
+    if (filtroServidorActual) return filtroServidorActual;
+    if (filtroRuta === null) return SOLICITUD_INICIAL.filtros;
+    if (!filtroRuta || typeof filtroRuta !== "object" || Array.isArray(filtroRuta)) {
+      throw new TypeError("filtro CT de ruta no válido");
+    }
+    const validado = filtroListaValido({ mostrar: "todas", ...filtroRuta });
+    if (Object.keys(filtroRuta).some((clave) => !Object.hasOwn(FILTRO_LISTA_INICIAL, clave))
+      || Object.entries(filtroRuta).some(([clave, valor]) => valor !== undefined && valor !== null
+        && String(valor).trim() !== validado[clave])
+      || validado.fase || validado.centro || validado.categoria
+      || !["incidencia", "espera", "todas"].includes(validado.mostrar)) {
+      throw Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
+        { codigo: "filtro_servidor_no_disponible" });
+    }
+    filtro = validado;
+    filtroServidorActual = Object.freeze({ texto: validado.texto,
+      estado_clave: validado.mostrar === "incidencia" ? "incidencia"
+        : (validado.mostrar === "espera" ? "espera_externa" : ""),
+      fase_clave: "" });
+    return filtroServidorActual;
+  }
   const ayudas = Object.freeze({
     numeroVisible: (numero) => numero,
     centroVisible: (referencia) => Object.freeze({ etiqueta: nombreCentro(referencia), referencia }),
@@ -68,6 +99,11 @@ export async function montarCuadroContratacionLigero({
 
   const cuadroVisible = () => ({ ...cuadro,
     expedientes: cuadro.expedientes.map((entrada) => ({ ...entrada, categoria: nombreCategoria(entrada.categoria) })) });
+
+  const filtroResultados = () => ({ ...filtro,
+    ...(filtroServidorActual?.texto ? { texto: "" } : {}),
+    ...(filtroServidorActual?.estado_clave ? { mostrar: "todas" } : {}),
+  });
 
   function paginacion(t) {
     const anterior = paginaIndice > 0
@@ -84,82 +120,141 @@ export async function montarCuadroContratacionLigero({
     raiz.innerHTML = `${preparado.reintentar
       ? `<p class="ct-exp-aviso-textos" role="status">${escapar(t("lista_textos_respaldo"))}</p>` : ""}`
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
-      t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function", actualizarDisponible: true });
+      t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
+        actualizarDisponible: true, filtroResultados: filtroResultados() });
   }
 
-  async function cargar({ reintentar = false } = {}) {
+  function pintarResultados() {
+    const resultado = raiz.querySelector("[data-ct-exp-resultados]");
+    if (!resultado) { pintar(); return; }
+    resultado.outerHTML = renderizarResultadosLista({ cuadro: cuadroVisible(), filtros: {} },
+      crearTraductorCuadroCT(preparado), filtro, ayudas, filtroResultados());
+  }
+
+  function restaurarFoco(selector) {
+    if (!selector) return;
+    const control = raiz.querySelector(selector) ?? raiz.querySelector("#ct-exp-lista-titulo-panel");
+    if (!control) return;
+    if (!control.matches?.(selector)) control.setAttribute?.("tabindex", "-1");
+    control.focus?.();
+  }
+
+  async function cargar({ reintentar = false, soloResultados = false, foco = "" } = {}) {
+    if (!vigente || signal?.aborted) return;
     controlador?.abort();
     controlador = new AbortController();
     const actual = controlador;
     try {
       preparado = await prepararTextosContratacionVista("cuadro", { idioma, reintentar });
-      const solicitud = { filtros: SOLICITUD_INICIAL.filtros,
+      if (!vigente || signal?.aborted || actual.signal.aborted) return;
+      const solicitud = { filtros: filtroServidor(),
         paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] } };
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
-      pintar();
+      if (soloResultados) pintarResultados();
+      else pintar();
+      restaurarFoco(foco);
     } catch (error) {
       if (vigente && actual === controlador && !actual.signal.aborted) {
-        mostrarError(raiz, { error, reintentar: () => cargar({ reintentar: true }) });
+        const filtroNoDisponible = error?.codigo === "filtro_servidor_no_disponible";
+        const mensaje = filtroNoDisponible ? crearTraductorCuadroCT(preparado)("lista_filtro_no_disponible") : undefined;
+        mostrarError(raiz, { error, mensaje, reintentar: () => {
+          if (filtroNoDisponible) {
+            filtroRuta = null;
+            filtroServidorActual = null;
+            filtro = FILTRO_LISTA_INICIAL;
+            paginaIndice = 0;
+            cursores.length = 1;
+          }
+          return cargar({ reintentar: true });
+        } });
       }
     }
   }
 
   async function alPulsar(evento) {
     const boton = evento.target?.closest?.("[data-ct-exp-abrir], [data-ct-exp-vista], [data-ct-pagina], [data-ct-exp-quitar-filtro], [data-ct-exp-recargar]");
-    if (!boton || !vigente) return;
+    if (!boton || !vigente || signal?.aborted) return;
     if (boton.dataset.ctExpAbrir) {
       const expediente = cuadro?.expedientes.find(({ expediente_ref: ref }) => ref === boton.dataset.ctExpAbrir);
       if (!expediente) return;
       try {
         const textos = await prepararTextosContratacionVista("expediente", { idioma: preparado.idioma });
-        if (vigente) await abrirDetalle({ expedienteRef: expediente.expediente_ref,
+        if (vigente && !signal?.aborted) await abrirDetalle({ expedienteRef: expediente.expediente_ref,
           version: expediente.version, textos, idioma: textos.idioma });
       } catch (error) { if (vigente) mostrarError(raiz, { error, reintentar: () => alPulsar(evento) }); }
     } else if (boton.dataset.ctExpVista === "alta" && typeof abrirAlta === "function") {
       try {
         const textos = await prepararTextosContratacionVista("alta", { idioma: preparado.idioma });
-        if (vigente) await abrirAlta({ textos, idioma: textos.idioma });
+        if (vigente && !signal?.aborted) await abrirAlta({ textos, idioma: textos.idioma });
       } catch (error) { if (vigente) mostrarError(raiz, { error, reintentar: () => alPulsar(evento) }); }
     } else if (boton.hasAttribute?.("data-ct-exp-recargar")) {
-      await cargar({ reintentar: true });
+      await cargar({ reintentar: true, foco: "[data-ct-exp-recargar]" });
     } else if (boton.dataset.ctPagina === "siguiente" && cuadro?.paginacion.cursor_siguiente) {
       cursores.push(cuadro.paginacion.cursor_siguiente);
       paginaIndice++;
-      await cargar();
+      await cargar({ foco: '[data-ct-pagina="siguiente"]' });
     } else if (boton.dataset.ctPagina === "anterior" && paginaIndice > 0) {
       paginaIndice--;
-      await cargar();
+      await cargar({ foco: '[data-ct-pagina="anterior"]' });
     } else if (boton.dataset.ctExpQuitarFiltro) {
       filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LISTA_INICIAL
         : filtroListaValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]: "" });
-      pintar();
+      filtroRuta = { ...filtro, mostrar: filtro.mostrar === "en_tramite" ? "todas" : filtro.mostrar };
+      filtroServidorActual = null;
+      paginaIndice = 0;
+      cursores.length = 1;
+      await cargar({ foco: "#ct-exp-lista-titulo-panel" });
     }
   }
 
   function alFiltrar(evento) {
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
-    if (!formulario || !cuadro) return;
+    if (!formulario || !cuadro || !vigente || signal?.aborted) return;
     const datos = Object.fromEntries(new FormData(formulario).entries());
+    if (evento.type === "input" && evento.target?.name === "texto" && datos.mostrar === "en_tramite") {
+      datos.mostrar = "todas";
+      const selector = formulario.elements?.namedItem?.("mostrar");
+      if (selector) selector.value = "todas";
+    }
     filtro = filtroListaValido(datos);
-    const resultado = raiz.querySelector("[data-ct-exp-resultados]");
-    if (resultado) resultado.outerHTML = renderizarResultadosLista({ cuadro: cuadroVisible(), filtros: {} },
-      crearTraductorCuadroCT(preparado), filtro, ayudas);
+    filtroRuta = { ...datos };
+    filtroServidorActual = null;
+    paginaIndice = 0;
+    cursores.length = 1;
+    controlador?.abort();
+    if (temporizadorBusqueda !== null) clearTimeout(temporizadorBusqueda);
+    if (evento.type === "input" && evento.target?.name === "texto") {
+      temporizadorBusqueda = setTimeout(() => { temporizadorBusqueda = null; void cargar({ soloResultados: true }); }, 250);
+    } else {
+      void cargar({ soloResultados: true });
+    }
+  }
+
+  function alEnviarFiltro(evento) {
+    if (!evento.target?.matches?.("[data-ct-exp-filtros-locales]")) return;
+    evento.preventDefault();
+    alFiltrar({ target: evento.target, type: "change" });
   }
 
   raiz.addEventListener("click", alPulsar);
   raiz.addEventListener("input", alFiltrar);
   raiz.addEventListener("change", alFiltrar);
+  raiz.addEventListener("submit", alEnviarFiltro);
+  const alAbortar = () => desmontar();
+  signal?.addEventListener("abort", alAbortar, { once: true });
+  if (signal?.aborted) desmontar();
   await cargar();
-  return Object.freeze({
-    recargar: () => cargar({ reintentar: true }),
-    desmontar() {
+  function desmontar() {
       vigente = false;
       controlador?.abort();
+      if (temporizadorBusqueda !== null) clearTimeout(temporizadorBusqueda);
+      signal?.removeEventListener?.("abort", alAbortar);
       raiz.removeEventListener?.("click", alPulsar);
       raiz.removeEventListener?.("input", alFiltrar);
       raiz.removeEventListener?.("change", alFiltrar);
-    },
-  });
+      raiz.removeEventListener?.("submit", alEnviarFiltro);
+  }
+  return Object.freeze({ recargar: () => cargar({ reintentar: true }), desmontar });
 }

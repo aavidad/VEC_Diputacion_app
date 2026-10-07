@@ -75,6 +75,7 @@
     "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”.",
     "lista_vacia_sin_alta": "There are no requests for this profile. Refresh the list if you expected to see one.",
     "lista_textos_respaldo": "Some text could not be loaded. Select “Refresh list” to try again.",
+    "lista_filtro_no_disponible": "This filter cannot be applied across all pages. Select “Retry” to open the full list.",
     "cabecera_resultado_rc": "Budget commitment",
     "cabecera_decision_gobernada": "Staffing route decided",
     "estado_inicial": "Ready to load the requests.",

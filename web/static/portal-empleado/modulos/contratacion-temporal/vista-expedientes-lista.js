@@ -98,10 +98,10 @@ function busquedaParcial(cuadro, filtro) {
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
-export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
+export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
-  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en, (expediente) => [
+  const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
     ayudas.numeroVisible(expediente.numero_visible),
     ayudas.centroVisible(expediente.centro).etiqueta,
   ]);
@@ -128,7 +128,7 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
 
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
 export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
-  { altaDisponible = true, actualizarDisponible = false } = {}) {
+  { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
   const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
@@ -168,7 +168,7 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       </form>`}
       ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
     ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
-    : renderizarResultadosLista(estado, t, filtro, ayudas)}
+    : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados)}
       ${paginacion}
     </section>`;
 }
