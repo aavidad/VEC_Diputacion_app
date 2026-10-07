@@ -172,7 +172,8 @@
     "txt_b8_solicitud_documental": "Validated document request",
     "txt_solicitud_documental_rrhh": "Document request",
     "txt_solicitud_documental_rrhh_pendiente": "HR must check the document and decide; the request has not changed the status.",
-    "txt_b8_resolucion_solicitud": "Request resolved:"
+    "txt_b8_resolucion_solicitud": "Request resolved:",
+    "peticiones_centro_arranque_error": "Requests from the centre could not be loaded."
   },
   "textos": {
     "reincorporacion_titulo": "Return of the post holder",

@@ -172,7 +172,8 @@
     "txt_b8_solicitud_documental": "Solicitud documental validada",
     "txt_solicitud_documental_rrhh": "Solicitud documental",
     "txt_solicitud_documental_rrhh_pendiente": "RRHH debe comprobar el justificante y resolver la solicitud; aún no cambia la situación.",
-    "txt_b8_resolucion_solicitud": "Solicitud resuelta:"
+    "txt_b8_resolucion_solicitud": "Solicitud resuelta:",
+    "peticiones_centro_arranque_error": "No se ha podido cargar Peticiones del centro."
   },
   "textos": {
     "reincorporacion_titulo": "Reincorporación de la persona titular",
