@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -10,8 +11,9 @@ var ErrFuenteRecibosInvalida = errors.New("nominas: consulta o pagina de fuente 
 
 const LimitePaginaRecibos = 100
 
-// ConsultaFuenteRecibos recibe referencias ya resueltas por los consumidores de
-// identidad, relación y autorización. Este contrato no acredita esas decisiones.
+// ConsultaFuenteRecibos recibe persona y relación resueltas por sus consumidores.
+// EntidadPagadoraRef es un filtro opcional: la fuente aporta la entidad de cada
+// descriptor. Este contrato no acredita identidad, relación ni autorización.
 // VersionFuente, CoberturaRef y TotalEsperado quedan vacíos solo en la primera
 // consulta; el consumidor los fija con la respuesta para recorrer la misma vista.
 type ConsultaFuenteRecibos struct {
@@ -52,7 +54,7 @@ type PaginaFuenteRecibos struct {
 
 func ValidarConsultaFuenteRecibos(c ConsultaFuenteRecibos) error {
 	if !referenciaFuenteValida(c.PersonaRef, false) || !referenciaFuenteValida(c.RelacionRef, false) ||
-		!referenciaFuenteValida(c.EntidadPagadoraRef, false) || !referenciaFuenteValida(c.PeriodoNomina, false) ||
+		!referenciaFuenteValida(c.EntidadPagadoraRef, true) || !referenciaFuenteValida(c.PeriodoNomina, false) ||
 		!referenciaFuenteValida(c.VersionFuente, true) || !referenciaFuenteValida(c.CoberturaRef, true) ||
 		!referenciaFuenteValida(c.Cursor, true) || c.Limite < 1 || c.Limite > LimitePaginaRecibos ||
 		(c.VersionFuente == "") != (c.CoberturaRef == "") ||
@@ -82,7 +84,9 @@ func ValidarPaginaFuenteRecibos(c ConsultaFuenteRecibos, p PaginaFuenteRecibos) 
 	vistos := make(map[string]struct{}, len(p.Recibos))
 	for _, r := range p.Recibos {
 		if r.PersonaRef != c.PersonaRef || r.RelacionRef != c.RelacionRef ||
-			r.EntidadPagadoraRef != c.EntidadPagadoraRef || r.PeriodoNomina != c.PeriodoNomina ||
+			!referenciaFuenteValida(r.EntidadPagadoraRef, false) ||
+			c.EntidadPagadoraRef != "" && r.EntidadPagadoraRef != c.EntidadPagadoraRef ||
+			r.PeriodoNomina != c.PeriodoNomina ||
 			!referenciaFuenteValida(r.OrigenRef, false) || !referenciaFuenteValida(r.ReciboRef, false) ||
 			!referenciaFuenteValida(r.VersionRecibo, false) || !referenciaFuenteValida(r.CustodioRef, false) {
 			return ErrFuenteRecibosInvalida
@@ -98,8 +102,9 @@ func ValidarPaginaFuenteRecibos(c ConsultaFuenteRecibos, p PaginaFuenteRecibos) 
 	return nil
 }
 
-// Las referencias son opacas: solo se limita longitud y caracteres de control.
-// No se recortan, normalizan ni reinterpretan como URL o identificador VEC.
+// Solo se valida la forma; procedencia y opacidad semántica son obligaciones del
+// adaptador admitido. No se recortan ni normalizan referencias originales.
+// Se excluyen rutas, URL y caracteres de consulta para no transportar enlaces.
 func referenciaFuenteValida(s string, opcional bool) bool {
 	if s == "" {
 		return opcional
@@ -107,8 +112,18 @@ func referenciaFuenteValida(s string, opcional bool) bool {
 	if len(s) > 256 || !utf8.ValidString(s) {
 		return false
 	}
+	minusculas := strings.ToLower(s)
+	for _, esquema := range []string{"http:", "https:", "ftp:", "file:", "data:", "blob:", "javascript:", "mailto:"} {
+		if strings.HasPrefix(minusculas, esquema) {
+			return false
+		}
+	}
 	for _, r := range s {
 		if unicode.IsControl(r) || unicode.IsSpace(r) {
+			return false
+		}
+		switch r {
+		case '/', '\\', '?', '#', '&', '=', '%', '@':
 			return false
 		}
 	}

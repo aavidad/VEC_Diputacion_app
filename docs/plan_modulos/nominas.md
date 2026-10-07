@@ -109,21 +109,24 @@ continuación y permanecen pendientes las lecturas; no se fabrica un recibo sint
 ### Preparación de la fuente N01
 
 `internal/modules/nominas` dispone de un contrato neutral para pedir una página
-de descriptores. La consulta lleva persona, relación, entidad pagadora, periodo,
-límite y cursor. La respuesta conserva esos filtros y declara versión de la fuente,
-cobertura, total y continuación. Cada descriptor identifica origen, recibo,
-versión y custodio mediante las referencias que entregue la fuente. La validación
-rechaza cruces de persona, relación, entidad o periodo, referencias vacías o de
-tamaño excesivo, duplicados y páginas que superan el límite. El máximo técnico
-por página es 100; no fija cuántos recibos puede tener una persona.
+de descriptores. La consulta lleva persona, relación, periodo, límite y cursor.
+El filtro de entidad pagadora puede quedar vacío porque Personal B no lo aporta;
+cada descriptor debe traer la entidad desde la fuente. La respuesta conserva el
+filtro indicado y declara versión de fuente, cobertura, total y continuación.
+Cada descriptor identifica origen, recibo, versión y custodio mediante las
+referencias recibidas. La validación rechaza cruces de persona, relación,
+entidad filtrada o periodo, referencias obligatorias vacías, duplicados y páginas
+que superan el límite de 100. Ese límite no restringe el total de recibos.
 
-El primer resultado fija versión, cobertura y total para las páginas siguientes. El
-adaptador que se acuerde deberá mantenerlos estables para ese mismo
-filtro y resolver la continuidad si cambia la fuente. Personal B aporta relación
-e historia, pero no identifica la entidad pagadora: esa correspondencia y el
-periodo de nómina han de venir de la fuente admitida. Este contrato no decide
-titularidad, permiso, auditoría, custodia de bytes ni firma; sus consumidores
-deberán acreditarlos antes de mostrar o descargar un original. La duda 129 sigue
+El primer resultado fija versión, cobertura y total para las páginas siguientes.
+El adaptador deberá mantenerlos estables para el mismo filtro y resolver la
+continuidad si cambia la fuente. La validación formal excluye rutas y enlaces,
+pero no prueba procedencia ni opacidad semántica: el adaptador admitido debe
+acreditarlas. Una consulta sin filtro de pagador tampoco concede acceso a todas
+las entidades. El futuro consumidor deberá acreditar titularidad, autorización
+y auditoría antes de mostrar un resultado; la referencia de custodio no prueba
+custodia de bytes ni firma. Tipo documental, estado comunicado y eventuales
+certificados fiscales quedan para N04 con la fuente admitida. La duda 129 sigue
 abierta para fuente, cobertura inicial e interfaz. Esta preparación no cierra
 N01–N04 ni constituye una consulta funcional.
 

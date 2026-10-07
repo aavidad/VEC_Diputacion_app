@@ -15,11 +15,15 @@ func consultaRecibosValida() ConsultaFuenteRecibos {
 }
 
 func paginaRecibosValida(c ConsultaFuenteRecibos) PaginaFuenteRecibos {
+	pagador := c.EntidadPagadoraRef
+	if pagador == "" {
+		pagador = "entidad:aportada-por-fuente"
+	}
 	return PaginaFuenteRecibos{
 		Consulta: c, VersionFuente: "fuente:v1", CoberturaRef: "cobertura:1", Total: 1,
 		Recibos: []DescriptorRecibo{{
 			PersonaRef: c.PersonaRef, RelacionRef: c.RelacionRef,
-			EntidadPagadoraRef: c.EntidadPagadoraRef, PeriodoNomina: c.PeriodoNomina,
+			EntidadPagadoraRef: pagador, PeriodoNomina: c.PeriodoNomina,
 			OrigenRef: "origen:recibo", ReciboRef: "original:1", VersionRecibo: "v1", CustodioRef: "custodio:1",
 		}},
 	}
@@ -61,6 +65,9 @@ func TestFuenteRecibosRechazaCrucesYLímites(t *testing.T) {
 		}()},
 		{"referencia con control", c, cambiarRecibo(p, func(r *DescriptorRecibo) { r.ReciboRef = "original:\n1" })},
 		{"referencia excesiva", c, cambiarRecibo(p, func(r *DescriptorRecibo) { r.CustodioRef = strings.Repeat("x", 257) })},
+		{"url en referencia", c, cambiarRecibo(p, func(r *DescriptorRecibo) { r.ReciboRef = "https://origen.invalid/r?id=1" })},
+		{"esquema url sin barras", c, cambiarRecibo(p, func(r *DescriptorRecibo) { r.ReciboRef = "javascript:alert" })},
+		{"ruta en referencia", c, cambiarRecibo(p, func(r *DescriptorRecibo) { r.CustodioRef = "ruta\\privada" })},
 	}
 	for _, tc := range casos {
 		t.Run(tc.nombre, func(t *testing.T) {
@@ -68,6 +75,43 @@ func TestFuenteRecibosRechazaCrucesYLímites(t *testing.T) {
 				t.Fatalf("esperado rechazo, recibido %v", err)
 			}
 		})
+	}
+}
+
+func TestFuenteRecibosPrimeraPaginaSinFiltroPagador(t *testing.T) {
+	c := consultaRecibosValida()
+	c.EntidadPagadoraRef = ""
+	p := paginaRecibosValida(c)
+	if err := ValidarPaginaFuenteRecibos(c, p); err != nil {
+		t.Fatalf("primera pagina sin pagador: %v", err)
+	}
+	p.Recibos[0].EntidadPagadoraRef = ""
+	if err := ValidarPaginaFuenteRecibos(c, p); !errors.Is(err, ErrFuenteRecibosInvalida) {
+		t.Fatalf("pagador ausente no rechazado: %v", err)
+	}
+	p = paginaRecibosValida(c)
+	p.Total = 2
+	p.CursorSiguiente = "cursor:2"
+	if err := ValidarPaginaFuenteRecibos(c, p); err != nil {
+		t.Fatalf("primera pagina con continuacion: %v", err)
+	}
+	c.VersionFuente, c.CoberturaRef, c.TotalEsperado, c.Cursor = p.VersionFuente, p.CoberturaRef, p.Total, p.CursorSiguiente
+	p = paginaRecibosValida(c)
+	p.Total = 2
+	p.Recibos[0].EntidadPagadoraRef = "entidad:segunda"
+	if err := ValidarPaginaFuenteRecibos(c, p); err != nil {
+		t.Fatalf("continuacion sin filtro pagador: %v", err)
+	}
+	p.Consulta.EntidadPagadoraRef = "entidad:segunda"
+	if err := ValidarPaginaFuenteRecibos(c, p); !errors.Is(err, ErrFuenteRecibosInvalida) {
+		t.Fatalf("cambio de filtro al continuar no rechazado: %v", err)
+	}
+	c = consultaRecibosValida()
+	c.EntidadPagadoraRef = "entidad:filtrada"
+	p = paginaRecibosValida(c)
+	p.Recibos[0].EntidadPagadoraRef = "entidad:otra"
+	if err := ValidarPaginaFuenteRecibos(c, p); !errors.Is(err, ErrFuenteRecibosInvalida) {
+		t.Fatalf("pagador distinto del filtro no rechazado: %v", err)
 	}
 }
 
