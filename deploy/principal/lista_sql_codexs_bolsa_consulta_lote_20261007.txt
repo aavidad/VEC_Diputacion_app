@@ -1,0 +1,3 @@
+# B85 agrupa el recuento de llamamientos para el cuadro RRHH de Bolsa.
+# Requiere B17 y B82 instaladas. Una sola UP; no reaplicar ni ejecutar DOWN.
+deploy/postgresql/bolsa_llamamientos/migraciones/000085_resumen_llamamientos_en_curso.up.sql
