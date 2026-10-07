@@ -1,52 +1,33 @@
 /** Catálogos de Contratación temporal para el idioma de esta navegación. */
-import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, localizacionDe } from "../../../comun/idioma.js";
-import { crearTextos, leerCatalogoUnaVez, urlCatalogo } from "../../../comun/textos.js";
-
-async function leerSeccion(modulo, idioma, seccion) {
-  const datos = await leerCatalogoUnaVez(urlCatalogo(idioma, modulo));
-  return crearTextos({
-    modulo, idioma, localizacion: localizacionDe(idioma), respaldo: datos,
-  }).seccion(seccion);
-}
-
-async function leerConReintento(modulo, idioma, seccion) {
-  try {
-    return await leerSeccion(modulo, idioma, seccion);
-  } catch (primeraCausa) {
-    console.warn(`No se pudo cargar el catálogo ${modulo} (${idioma}); se reintenta.`, primeraCausa);
-    return leerSeccion(modulo, idioma, seccion);
-  }
-}
-
-async function leerActivo(modulo, seccion, idioma = IDIOMA_ACTUAL) {
-  try {
-    return await leerConReintento(modulo, idioma, seccion);
-  } catch (causa) {
-    if (idioma === IDIOMA_POR_DEFECTO) throw causa;
-    console.warn(`No se pudo cargar el catálogo ${modulo} (${idioma}); se usa el idioma por defecto.`, causa);
-    return leerConReintento(modulo, IDIOMA_POR_DEFECTO, seccion);
-  }
-}
+import { IDIOMA_ACTUAL, prepararIdiomas } from "../../../comun/idioma.js";
+import { cargarTextos } from "../../../comun/textos.js";
 
 /**
- * Las exportaciones históricas ES/EN se conservan para los importadores de CT.
- * En una navegación solo se resuelve el catálogo activo. Ambas referencias
- * apuntan a ese catálogo hasta que los importadores adopten `actual`.
+ * Las exportaciones históricas ES/EN apuntan al catálogo elegido en esta
+ * navegación. El lector común concentra reintento, respaldo y su incidencia.
  */
 export async function cargarCatalogosContratacionEnIdioma(modulo, idioma, seccion = "general") {
-  const [idiomasExportados, actual] = await Promise.all([
-    leerActivo("contratacion-temporal-compatibilidad", "idiomas_exportados", idioma),
-    leerActivo(modulo, seccion, idioma),
+  // El índice se resuelve antes de elegir el idioma: al importar, el valor de
+  // IDIOMA_ACTUAL todavía puede ser el provisional del documento.
+  await prepararIdiomas().catch(() => null);
+  const elegido = idioma ?? IDIOMA_ACTUAL;
+  const [compatibilidad, textos] = await Promise.all([
+    cargarTextos("contratacion-temporal-compatibilidad", { idioma: elegido }),
+    cargarTextos(modulo, { idioma: elegido }),
   ]);
+  const actual = textos.seccion(seccion);
   const exportaciones = Object.freeze(Object.fromEntries(
-    Object.keys(idiomasExportados).map((nombre) => [nombre, actual]),
+    Object.keys(compatibilidad.seccion("idiomas_exportados"))
+      .map((nombre) => [nombre, actual]),
   ));
   return Object.freeze({
-    porIdioma: Object.freeze({ [idioma]: actual }),
-    exportaciones, actual,
+    porIdioma: Object.freeze({ [textos.idioma]: actual }),
+    exportaciones, actual, idioma: textos.idioma,
+    incidenciaCatalogo: textos.incidenciaCatalogo,
+    incidenciaIndice: textos.incidenciaIndice,
   });
 }
 
 export async function cargarCatalogosContratacion(modulo, seccion = "general") {
-  return cargarCatalogosContratacionEnIdioma(modulo, IDIOMA_ACTUAL, seccion);
+  return cargarCatalogosContratacionEnIdioma(modulo, undefined, seccion);
 }

@@ -112,18 +112,20 @@ function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion
 }
 
 // El helper solo acepta nombres de catálogo literales en sus consumidores.
-// La lectura usa la URL del lector común y el idioma activo de la navegación.
+// La lectura usa el lector común, después de preparar el idioma de navegación.
 function comprobarDelegacion(fuentes, helper, resolver) {
   const opciones = new Map();
   if (!fuentes.has(helper)) return opciones;
   const fuenteHelper = fuentes.get(helper), t = tokens(fuenteHelper);
   assert.ok(fuenteHelper.includes('from "../../../comun/textos.js"'), "Helper sin origen común comprobado");
-  assert.match(fuenteHelper, /leerCatalogoUnaVez\(urlCatalogo\(idioma, modulo\)\)/u,
+  assert.match(fuenteHelper, /cargarTextos\(modulo, \{ idioma: elegido \}\)/u,
     "Helper sin lector común comprobado");
-  assert.match(fuenteHelper, /\n    leerActivo\(modulo, seccion, idioma\),/u,
+  assert.match(fuenteHelper, /await prepararIdiomas\(\)[\s\S]*const elegido = idioma \?\? IDIOMA_ACTUAL/u,
+    "Helper elige idioma antes de preparar el índice");
+  assert.match(fuenteHelper, /\n    cargarTextos\(modulo, \{ idioma: elegido \}\),/u,
     "Helper sin paso del catálogo solicitado comprobado");
   assert.ok(!/modulo\s*=\s*datos\.catalogo/u.test(fuenteHelper), "El parámetro se altera fuera del paso comprobado");
-  assert.match(fuenteHelper, /cargarCatalogosContratacionEnIdioma\(modulo, IDIOMA_ACTUAL, seccion\)/u,
+  assert.match(fuenteHelper, /cargarCatalogosContratacionEnIdioma\(modulo, undefined, seccion\)/u,
     "Helper sin idioma activo comprobado");
   assert.ok(!fuenteHelper.includes("IDIOMAS_DISPONIBLES"), "Helper vuelve a pedir todos los idiomas");
   assert.equal(t.filter((x) => x.texto === "cargarCatalogosContratacion").length, 1, "Referencia indirecta al helper");
@@ -147,8 +149,11 @@ function comprobarDelegacion(fuentes, helper, resolver) {
     opciones.set(archivo, configuracion);
   }
   assert.ok(modulos.size > 0, "Helper sin consumidores de catálogo comprobados");
-  assert.ok(fuenteHelper.includes('leerActivo("contratacion-temporal-compatibilidad"'),
+  assert.ok(fuenteHelper.includes('cargarTextos("contratacion-temporal-compatibilidad"'),
     "Helper sin catálogo de compatibilidad comprobado");
+  const posicion = t.findIndex((x, i) => x.texto === "cargarTextos" && t[i + 1]?.texto === "(" && t[i + 2]?.texto === "modulo");
+  assert.ok(posicion >= 0, "Helper sin llamada comprobada al lector común");
+  opciones.set(helper, { delegacion: { posicion, modulos } });
   return opciones;
 }
 
@@ -272,7 +277,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   assert.throws(() => validar('cargarCatalogosContratacion("catalogo-prueba");'), /origen/u);
   assert.throws(() => validar(correcto.replace("./i18n-catalogos.js?v=20261001-ct-a-i18n-v1", "../otro/i18n-catalogos.js")), /otro origen/u);
   assert.throws(() => validar(correcto.replace("{ cargarCatalogosContratacion }", "* as catalogos")), /importación indirecta/u);
-  assert.throws(() => validar(correcto, fuenteHelper.replace("    leerActivo(modulo, seccion, idioma),", "    leerActivo(datos.catalogo, seccion, idioma),")), /paso/u);
+  assert.throws(() => validar(correcto, fuenteHelper.replace("    cargarTextos(modulo, { idioma: elegido }),", "    cargarTextos(datos.catalogo, { idioma: elegido }),")), /paso|lector común/u);
   assert.throws(() => validar(correcto, fuenteHelper + "\nmodulo = datos.catalogo;"), /fuera del paso/u);
   assert.throws(() => validar(correcto, fuenteHelper.replace("../../../comun/textos.js", "./otro/textos.js")), /origen común/u);
   assert.throws(() => comprobarDelegacion(new Map([[helper, fuenteHelper]]), helper, resolver), /sin consumidores/u);
