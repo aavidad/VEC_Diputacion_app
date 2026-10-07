@@ -15,6 +15,33 @@ function raizFalsa() {
     removeEventListener(tipo) { eventos.delete(tipo); }, querySelector() { return null; } };
 }
 
+function raizConBuscador() {
+  const raiz = raizFalsa();
+  const documento = { activeElement: null };
+  let html = "";
+  let buscador = null;
+  raiz.ownerDocument = documento;
+  raiz.contains = (nodo) => nodo === buscador;
+  Object.defineProperty(raiz, "innerHTML", {
+    get: () => html,
+    set: (contenido) => {
+      html = contenido;
+      buscador = html.includes('name="texto"') ? {
+        name: "texto", value: html.match(/name="texto" value="([^"]*)"/u)?.[1] ?? "",
+        selectionStart: 0, selectionEnd: 0, selectionDirection: "none",
+        closest: (selector) => selector === "[data-ct-exp-filtros-locales]" ? {} : null,
+        focus() { documento.activeElement = this; },
+        setSelectionRange(inicio, fin, direccion) {
+          this.selectionStart = inicio; this.selectionEnd = fin; this.selectionDirection = direccion;
+        },
+      } : null;
+    },
+  });
+  raiz.querySelector = (selector) => selector === '[data-ct-exp-filtros-locales] [name="texto"]'
+    ? buscador : null;
+  return { raiz, documento, buscador: () => buscador };
+}
+
 test("la bandeja ligera usa una consulta autorizada y abre detalle solo tras pulsar su referencia", async () => {
   const raiz = raizFalsa(), consultas = [], abiertos = [], errores = [];
   const montaje = await montarCuadroContratacionLigero({
@@ -104,9 +131,7 @@ test("una señal ya abortada no consulta, modifica DOM ni instala eventos", asyn
 });
 
 test("buscar encuentra una fila fuera de la primera página sin robar foco ni reutilizar cursor", async () => {
-  const raiz = raizFalsa(), solicitudes = [];
-  const resultados = { outerHTML: "" };
-  raiz.querySelector = (selector) => selector === "[data-ct-exp-resultados]" ? resultados : null;
+  const { raiz, documento, buscador } = raizConBuscador(), solicitudes = [];
   const cliente = { consultarCuadroRRHH: async (solicitud) => {
     solicitudes.push(solicitud);
     return solicitud.filtros.texto === "objetivo"
@@ -120,7 +145,10 @@ test("buscar encuentra una fila fuera de la primera página sin robar foco ni re
   try {
     const montaje = await montarCuadroContratacionLigero({ raiz, cliente, idioma: "es",
       abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; } });
-    const htmlInicial = raiz.innerHTML;
+    const controlInicial = buscador();
+    controlInicial.value = "objetivo";
+    controlInicial.focus();
+    controlInicial.setSelectionRange(2, 6, "forward");
     const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" },
       elements: { namedItem: () => ({ value: "" }) } };
     raiz.eventos.get("input")({ type: "input", target: { name: "texto",
@@ -129,8 +157,48 @@ test("buscar encuentra una fila fuera de la primera página sin robar foco ni re
     assert.equal(solicitudes.length, 2);
     assert.deepEqual(solicitudes[1].filtros, { texto: "objetivo", estado_clave: "", fase_clave: "" });
     assert.equal(solicitudes[1].paginacion.cursor, "");
-    assert.match(resultados.outerHTML, /2026\/CT-0001/u);
-    assert.equal(raiz.innerHTML, htmlInicial, "no sustituye el buscador mientras se escribe");
+    assert.match(raiz.innerHTML, /2026\/CT-0001/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-busqueda-parcial/u,
+      "el texto ya filtrado en el servidor no es una búsqueda parcial local");
+    assert.equal(documento.activeElement, buscador());
+    assert.equal(buscador().value, "objetivo");
+    assert.deepEqual([buscador().selectionStart, buscador().selectionEnd,
+      buscador().selectionDirection], [2, 6, "forward"]);
+    montaje.desmontar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("buscar vuelve a mostrar Siguiente si la respuesta filtrada tiene otra página", async () => {
+  const { raiz, documento, buscador } = raizConBuscador(), solicitudes = [];
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.campos = formulario.campos; }
+    entries() { return Object.entries(this.campos); } };
+  try {
+    const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+      abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+      cliente: { consultarCuadroRRHH: async (solicitud) => {
+        solicitudes.push(solicitud);
+        return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila],
+          hay_mas: solicitud.filtros.texto === "objetivo" && !solicitud.paginacion.cursor,
+          ...(solicitud.filtros.texto === "objetivo" && !solicitud.paginacion.cursor
+            ? { cursor_siguiente: "cursor_filtrado" } : {}) };
+      } },
+    });
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
+    buscador().value = "objetivo";
+    buscador().focus();
+    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" },
+      elements: { namedItem: () => ({ value: "" }) } };
+    raiz.eventos.get("input")({ type: "input", target: { name: "texto", closest: () => formulario } });
+    await new Promise((resolver) => setTimeout(resolver, 310));
+    assert.match(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
+    assert.match(raiz.innerHTML, /lista-parcial/u);
+    assert.equal(documento.activeElement, buscador());
+    await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+    assert.equal(solicitudes[2].paginacion.cursor, "cursor_filtrado");
+    assert.equal(solicitudes[2].filtros.texto, "objetivo");
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
     montaje.desmontar();
   } finally { globalThis.FormData = previo; }
 });

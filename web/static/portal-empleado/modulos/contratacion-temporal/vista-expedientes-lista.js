@@ -89,12 +89,12 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
     <button type="button" class="boton-terciario" data-ct-exp-quitar-filtro="todos">${escapar(t("lista_quitar_todos"))}</button></div>`;
 }
 
-// La búsqueda y los filtros de pantalla solo ven la página cargada: si hay
-// más páginas y algún filtro está puesto (también «Mostrar» distinto de «En
-// trámite», al que llevan las cifras de la portada), se avisa.
+// Solo los filtros que realmente se aplican en pantalla se limitan a la página
+// cargada. Un texto o estado ya aplicado por el servidor no lleva este aviso.
 function busquedaParcial(cuadro, filtro) {
   return Boolean(cuadro.paginacion?.cursor_siguiente)
-    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria || filtro.mostrar !== "en_tramite");
+    && Boolean(filtro.texto || filtro.fase || filtro.centro || filtro.categoria
+      || !["en_tramite", "todas"].includes(filtro.mostrar));
 }
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
@@ -108,7 +108,7 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
-    ${busquedaParcial(cuadro, filtroEntrada) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
+    ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
     ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
       ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`

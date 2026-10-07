@@ -2,7 +2,7 @@
 import { localizacionDe } from "../../../comun/idioma.js";
 import { FASE_RRHH_DE_ORIGEN } from "./fases-rrhh-datos.js";
 import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
-import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261006-resumen-inicio-v2";
+import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261006-resumen-inicio-v2";
 import { crearTraductorCuadroCT, prepararTextosContratacionVista } from "./i18n-vistas.js";
 
 const SOLICITUD_INICIAL = Object.freeze({
@@ -124,11 +124,23 @@ export async function montarCuadroContratacionLigero({
         actualizarDisponible: true, filtroResultados: filtroResultados() });
   }
 
-  function pintarResultados() {
-    const resultado = raiz.querySelector("[data-ct-exp-resultados]");
-    if (!resultado) { pintar(); return; }
-    resultado.outerHTML = renderizarResultadosLista({ cuadro: cuadroVisible(), filtros: {} },
-      crearTraductorCuadroCT(preparado), filtro, ayudas, filtroResultados());
+  function pintarConFocoDeFiltro() {
+    const activo = raiz.ownerDocument?.activeElement;
+    const nombre = activo?.name;
+    const conservaFoco = ["texto", "fase", "centro", "categoria", "mostrar"].includes(nombre)
+      && raiz.contains?.(activo) && activo.closest?.("[data-ct-exp-filtros-locales]");
+    const valor = conservaFoco ? activo.value : null;
+    const inicio = nombre === "texto" ? activo.selectionStart : null;
+    const fin = nombre === "texto" ? activo.selectionEnd : null;
+    const direccion = nombre === "texto" ? activo.selectionDirection : null;
+    pintar();
+    if (!conservaFoco) return;
+    const reemplazo = raiz.querySelector(`[data-ct-exp-filtros-locales] [name="${nombre}"]`);
+    if (!reemplazo || reemplazo.value !== valor) return;
+    reemplazo.focus?.({ preventScroll: true });
+    if (nombre === "texto" && Number.isInteger(inicio) && Number.isInteger(fin)) {
+      reemplazo.setSelectionRange?.(inicio, fin, direccion ?? "none");
+    }
   }
 
   function restaurarFoco(selector) {
@@ -152,7 +164,7 @@ export async function montarCuadroContratacionLigero({
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
-      if (soloResultados) pintarResultados();
+      if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
       restaurarFoco(foco);
     } catch (error) {
