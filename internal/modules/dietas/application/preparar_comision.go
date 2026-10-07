@@ -96,7 +96,11 @@ func (p *PreparadorComision) Preparar(ctx context.Context, s ports.SolicitudCrea
 	var fuenteDietas, fuenteKilometraje string
 	for grupo := 1; grupo <= 3; grupo++ {
 		tarifa, e := p.tarifas.Consultar(ctx, regla.VersionTarifaRef, grupo, "automovil", fechaTarifa)
-		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa || !tarifa.ReferenciasNormativasValidas() {
+		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa || !tarifa.ReferenciasNormativasValidas() ||
+			(domain.PoliticaKilometraje{
+				Referencia: "tarifa:km:" + regla.VersionTarifaRef + ":automovil",
+				Version:    regla.VersionTarifaRef, TarifaEURPorKM: tarifa.EURPorKM,
+			}).Validar() != nil || len(tarifa.EURPorKM) != 6 || tarifa.EURPorKM[:2] != "0." {
 			return s, domain.ErrTramosProvisionalesNoDisponibles
 		}
 		if grupo == 1 {
