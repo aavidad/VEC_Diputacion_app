@@ -112,7 +112,7 @@ func main() {
 			}
 			gobierno = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, nil)
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, fuenteCatalogoGobiernoOficial)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" {

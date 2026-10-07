@@ -6,9 +6,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/administracion"
+	pg "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/ports"
 )
+
+func fuenteCatalogoGobiernoOficial(ctx context.Context,
+	pool *pgxpool.Pool) (ports.FuenteCatalogoAccionesAdministracionV1, error) {
+	return pg.NuevaFuenteCatalogoAcciones(ctx, pool)
+}
 
 // componerGobiernoRolesADMIN consume exclusivamente el catálogo AUT58, el
 // LOGIN Gov y las dos capacidades V3 privadas. La fuente la construye el
