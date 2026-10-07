@@ -71,7 +71,8 @@ function interpolar(plantilla, variables) {
 }
 
 /** Construye el objeto de textos a partir de catálogos ya leídos. */
-export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = null, avisar, incidenciaCatalogo = null } = {}) {
+export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = null, avisar,
+  incidenciaCatalogo = null, incidenciaIndice = null } = {}) {
   if (!esObjeto(respaldo)) throw new TypeError(`catálogo de textos de ${modulo} no válido`);
   const faltantes = [];
   const mensajes = combinar(respaldo, propio ?? respaldo, "", faltantes);
@@ -118,7 +119,7 @@ export function crearTextos({ modulo, idioma, localizacion, respaldo, propio = n
   }
 
   return Object.freeze({
-    modulo, idioma, localizacion, mensajes, faltantes: Object.freeze(faltantes), incidenciaCatalogo,
+    modulo, idioma, localizacion, mensajes, faltantes: Object.freeze(faltantes), incidenciaCatalogo, incidenciaIndice,
     seccion, traducir, plural, numero, fecha,
   });
 }
@@ -127,7 +128,7 @@ function avisoEnPruebas(mensaje) {
   if (EN_PRUEBAS) globalThis.console?.warn?.(mensaje);
 }
 
-async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar) {
+async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar, incidenciaIndice = null) {
   let catalogo;
   let incidenciaCatalogo = null;
   try {
@@ -143,7 +144,7 @@ async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar) {
   const efectivo = incidenciaCatalogo ? porDefecto : idioma;
   return crearTextos({
     modulo, idioma: efectivo, localizacion: localizacionDe(efectivo), respaldo: catalogo,
-    avisar, incidenciaCatalogo,
+    avisar, incidenciaCatalogo, incidenciaIndice,
   });
 }
 
@@ -156,6 +157,18 @@ const CARGAS = new Map();
  * olvida para que se pueda reintentar.
  */
 const LECTURAS = new Map();
+const INDICES_AVISADOS = new Set();
+
+async function incidenciaAlPrepararIndice(avisar) {
+  try { await prepararIdiomas(); return null; }
+  catch (causa) {
+    if (!INDICES_AVISADOS.has(causa)) {
+      INDICES_AVISADOS.add(causa);
+      (avisar ?? avisoEnPruebas)(`índice de idiomas no disponible; se usa el idioma del documento: ${causa}`);
+    }
+    return Object.freeze({ codigo: "indice_no_disponible", idioma: IDIOMA_ACTUAL, causa });
+  }
+}
 export function leerCatalogoUnaVez(url) {
   const clave = url.href;
   if (!LECTURAS.has(clave)) {
@@ -172,22 +185,23 @@ export function leerCatalogoUnaVez(url) {
  * su estado de recuperación.
  */
 export function cargarTextos(modulo, {
-  idioma, porDefecto, leer, raiz = URL_RAIZ_TEXTOS, avisar,
+  idioma, porDefecto, leer, raiz = URL_RAIZ_TEXTOS, avisar, incidenciaIndice = null,
 } = {}) {
   if (idioma === undefined || porDefecto === undefined) {
-    return prepararIdiomas().catch(() => null).then(() => {
+    return incidenciaAlPrepararIndice(avisar).then((incidencia) => {
       const elegido = INDICE_IDIOMAS.idiomas.some(({ codigo }) => codigo === idioma) ? idioma : IDIOMA_ACTUAL;
       return cargarTextos(modulo, {
         idioma: elegido, porDefecto: porDefecto ?? IDIOMA_POR_DEFECTO, leer, raiz, avisar,
+        incidenciaIndice: incidencia ?? incidenciaIndice,
       });
     });
   }
   if (leer !== undefined || avisar !== undefined) {
-    return leerYCrear(modulo, idioma, porDefecto, leer ?? leerRecursoJSON, raiz, avisar ?? avisoEnPruebas);
+    return leerYCrear(modulo, idioma, porDefecto, leer ?? leerRecursoJSON, raiz, avisar ?? avisoEnPruebas, incidenciaIndice);
   }
   const clave = `${raiz.href}|${porDefecto}|${idioma}|${modulo}`;
   if (!CARGAS.has(clave)) {
-    const carga = leerYCrear(modulo, idioma, porDefecto, leerCatalogoUnaVez, raiz, avisoEnPruebas);
+    const carga = leerYCrear(modulo, idioma, porDefecto, leerCatalogoUnaVez, raiz, avisoEnPruebas, incidenciaIndice);
     CARGAS.set(clave, carga);
     carga.catch(() => CARGAS.delete(clave));
   }
@@ -196,11 +210,11 @@ export function cargarTextos(modulo, {
 
 /** Relee un catálogo tras una incidencia, sin conservar el respaldo anterior. */
 export async function reintentarTextos(modulo, { idioma, porDefecto, raiz = URL_RAIZ_TEXTOS } = {}) {
-  await prepararIdiomas().catch(() => null);
+  const incidenciaIndice = await incidenciaAlPrepararIndice();
   const elegido = idioma ?? IDIOMA_ACTUAL;
   const respaldo = porDefecto ?? IDIOMA_POR_DEFECTO;
   CARGAS.delete(`${raiz.href}|${respaldo}|${elegido}|${modulo}`);
   LECTURAS.delete(urlCatalogo(elegido, modulo, raiz).href);
   LECTURAS.delete(urlCatalogo(respaldo, modulo, raiz).href);
-  return cargarTextos(modulo, { idioma: elegido, porDefecto: respaldo, raiz });
+  return cargarTextos(modulo, { idioma: elegido, porDefecto: respaldo, raiz, incidenciaIndice });
 }
