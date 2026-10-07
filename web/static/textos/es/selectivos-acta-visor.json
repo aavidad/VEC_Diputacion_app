@@ -17,6 +17,7 @@
   "vacio": "Abra un archivo del preparador para revisar las propuestas.",
   "cargando": "Leyendo el archivo…",
   "cargado": "Borrador abierto. Revise las propuestas y lo que falta por comprobar.",
+  "cargado_cotejo_declarado": "Borrador abierto. El archivo declara un cotejo local del tribunal y la fase. Compruebe su procedencia y vigencia antes de actuar.",
   "descargar": "Descargar original sin verificar",
   "cerrar": "Cerrar archivo",
   "descarga_lista": "Descarga preparada con los bytes originales. El archivo sigue sin verificar y no acredita una sesión ni sus acuerdos.",
@@ -24,6 +25,8 @@
   "error_tamano": "No se puede abrir el archivo: está vacío o supera 4 MiB. Seleccione una salida más pequeña del preparador.",
   "error_formato": "No se puede abrir el archivo: no coincide con la salida del preparador de sesión. Genere de nuevo la salida y selecciónela.",
   "error_catalogo": "No se han podido cargar los textos. Recargue la pantalla antes de abrir un archivo.",
+  "idioma_respaldo": "No se ha podido cargar el idioma elegido. Se muestra el idioma disponible y el archivo sigue abierto.",
+  "idioma_error": "No se ha podido cambiar el idioma. Se conserva el idioma actual y el archivo abierto. Vuelva a intentarlo.",
   "contexto_material": "Contexto de la propuesta",
   "borrador_local": "Borrador local · Pendiente de revisión",
   "sesion_limite": "La agenda y los acuerdos son propuestas. No acreditan convocatoria, celebración, asistencia, deliberación ni votación de una sesión.",
@@ -31,8 +34,10 @@
   "sin_fecha": "Sin fecha propuesta",
   "fase": "Fase del proceso",
   "fase_pendiente": "Propuesta · Pendiente de comprobar su pertenencia",
+  "fase_cotejo_declarado": "El archivo declara cotejo local · Pendiente de confirmar en el proceso vigente",
   "antecedente": "Preparación del tribunal",
   "antecedente_pendiente": "Referencia y huella aportadas · Sin cotejar",
+  "antecedente_cotejo_declarado": "El archivo declara cotejo local · Procedencia y vigencia pendientes",
   "agenda": "Orden del día propuesto",
   "agenda_limite": "Textos preparados para una sesión propuesta. Los números permiten relacionar cada punto con sus propuestas de acuerdo.",
   "agenda_vacio": "No hay puntos propuestos. Complete el orden del día en el material del preparador.",
@@ -46,6 +51,7 @@
   "detalle_archivo": "Datos del archivo",
   "ver_detalle": "Ver referencias, huella aportada y contenido completo",
   "referencias_limite": "Las referencias y la huella proceden de la propuesta. No se consultan ni se cotejan con la preparación original del tribunal.",
+  "referencias_limite_cotejo_declarado": "El archivo declara un cotejo con una salida local del tribunal. Este visor no repite el cotejo ni comprueba la procedencia o vigencia de esa salida.",
   "identidad_material": "Identificador de la propuesta local",
   "version_material": "Versión de la propuesta local",
   "sesion_ref": "Referencia propuesta de sesión",
@@ -53,6 +59,7 @@
   "antecedente_ref": "Referencia aportada de la preparación del tribunal",
   "antecedente_version": "Versión aportada de la preparación del tribunal",
   "antecedente_huella": "Huella aportada · Sin cotejar",
+  "antecedente_huella_cotejo_declarado": "Huella declarada de la salida local · Procedencia sin verificar",
   "sin_dato": "Sin dato aportado",
   "campos": {
     "antecedente_tribunal": "Preparación del tribunal referenciada",
@@ -74,7 +81,9 @@
   },
   "motivos": {
     "antecedente_no_cotejado": "Coteje la referencia y la huella aportadas con la preparación original del tribunal. Este archivo no acredita su composición vigente.",
+    "antecedente_cotejado_local": "El archivo declara que cotejó la preparación local. Compruebe quién la emitió y si sigue vigente.",
     "pertenencia_no_verificada": "Compruebe que la fase pertenece al proceso y al tribunal indicados. La referencia propuesta no lo acredita.",
+    "fase_cotejada_local": "El archivo declara que la fase figura en la preparación local. Confirme su vigencia y la habilitación de los miembros.",
     "circuito_pendiente": "Pendiente de su circuito autorizado y de la evidencia correspondiente. Este borrador no acredita el trámite.",
     "material_ausente": "Complete este dato en el material del preparador y genere de nuevo la salida."
   }
