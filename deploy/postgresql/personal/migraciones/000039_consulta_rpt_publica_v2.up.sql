@@ -176,7 +176,7 @@ BEGIN
   RAISE EXCEPTION 'Personal39: material incompatible' USING ERRCODE='22023'; END IF;
  BEGIN corte:=(m->>'corte')::date;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'Personal39: corte inválido' USING ERRCODE='22023'; END;
- IF corte IS NULL OR NOT isfinite(corte) OR corte::text IS DISTINCT FROM m->>'corte'
+ IF corte IS NULL OR NOT isfinite(corte) OR to_char(corte,'YYYY-MM-DD') IS DISTINCT FROM m->>'corte'
  OR (f->>'offset')::integer>100000
  OR m->>'actor_ref' IS DISTINCT FROM x->>'principal_ref'
  OR m->>'contexto_actor_ref' IS DISTINCT FROM x->>'contexto_actor_ref'
