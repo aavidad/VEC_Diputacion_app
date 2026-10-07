@@ -19,39 +19,70 @@ test("Nóminas usa catálogos completos en los idiomas del portal", async () => 
   assert.match(es.traducir("general.certificados_pendientes"), /No hay una consulta de certificados fiscales conectada/);
 });
 
-test("si falta el catálogo elegido se usa el respaldo común", async () => {
+test("Nóminas reintenta el idioma elegido y solo entonces consulta el respaldo", async () => {
   const respaldo = JSON.parse(await readFile(new URL("../../../textos/es/nominas.json", import.meta.url), "utf8"));
-  const avisos = [];
-  const textos = await cargarTextos("nominas", {
-    idioma: "en", porDefecto: "es", avisar: (aviso) => avisos.push(aviso),
+  const lecturas = [];
+  const textos = await cargarTextosNominas({
+    idioma: "en", porDefecto: "es",
     leer: async (url) => {
+      lecturas.push(url.pathname);
       if (url.pathname.endsWith("/en/nominas.json")) throw new Error("catálogo no disponible");
       return respaldo;
     },
   });
   assert.equal(textos.idioma, "es");
   assert.equal(crearTraductorNominas(textos)("titulo"), "Nóminas y retribuciones");
-  assert.equal(avisos.length, 1);
+  assert.deepEqual(lecturas.map((ruta) => ruta.match(/\/(en|es)\/nominas\.json$/)[1]), ["en", "en", "es"]);
+});
+
+test("un fallo temporal del idioma elegido no carga el respaldo", async () => {
+  const elegido = JSON.parse(await readFile(new URL("../../../textos/en/nominas.json", import.meta.url), "utf8"));
+  const lecturas = [];
+  const textos = await cargarTextosNominas({ idioma: "en", porDefecto: "es", leer: async (url) => {
+    lecturas.push(url.pathname);
+    if (lecturas.length === 1) throw new Error("fallo temporal");
+    return elegido;
+  } });
+  assert.equal(textos.idioma, "en");
+  assert.equal(crearTraductorNominas(textos)("titulo"), "Payslips and pay");
+  assert.deepEqual(lecturas.map((ruta) => ruta.match(/\/(en|es)\/nominas\.json$/)[1]), ["en", "en"]);
 });
 
 test("Nóminas solicita el idioma activo solo al abrir la vista", async () => {
-  const base = await cargarTextos("nominas");
-  const llamadas = [];
-  await cargarTextosNominas((modulo, opciones) => {
-    llamadas.push({ modulo, opciones });
+  const base = JSON.parse(await readFile(new URL("../../../textos/en/nominas.json", import.meta.url), "utf8"));
+  const lecturas = [];
+  const textos = await cargarTextosNominas({ idioma: "en", porDefecto: "es", leer: async (url) => {
+    lecturas.push(url.pathname);
     return base;
-  });
-  assert.deepEqual(llamadas, [{ modulo: "nominas", opciones: { soloIdiomaActivo: true } }]);
+  } });
+  assert.equal(textos.idioma, "en");
+  assert.deepEqual(lecturas.map((ruta) => ruta.match(/\/(en|es)\/nominas\.json$/)[1]), ["en"]);
 
   const { raiz, buscar } = crearDOM();
   let cargas = 0;
   const montada = await montarVistaNominas({ raiz, cargarCatalogo: async () => {
     cargas++;
-    return base;
+    return textos;
   } });
   assert.equal(cargas, 1);
   assert.ok(buscar("nominas-historial"));
   montada.desmontar();
+});
+
+test("un rechazo final permite volver a cargar el catálogo", async () => {
+  const base = JSON.parse(await readFile(new URL("../../../textos/en/nominas.json", import.meta.url), "utf8"));
+  const lecturas = [];
+  let disponible = false;
+  const opciones = { idioma: "en", porDefecto: "es", leer: async (url) => {
+    lecturas.push(url.pathname);
+    if (!disponible) throw new Error("catálogo temporalmente inaccesible");
+    return base;
+  } };
+  await assert.rejects(cargarTextosNominas(opciones));
+  assert.deepEqual(lecturas.map((ruta) => ruta.match(/\/(en|es)\/nominas\.json$/)[1]), ["en", "en", "es"]);
+  disponible = true;
+  assert.equal((await cargarTextosNominas(opciones)).idioma, "en");
+  assert.equal(lecturas.length, 4);
 });
 
 test("un fallo doble de catálogo conserva un reintento sin montar datos", async () => {
