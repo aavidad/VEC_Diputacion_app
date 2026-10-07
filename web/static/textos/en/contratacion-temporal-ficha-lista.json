@@ -1,5 +1,8 @@
 {
   "general": {
+    "filtros": "Dashboard filters",
+    "tabla_expedientes": "Temporary staff requests case files",
+    "marca_urgente": "Urgent",
     "ficha_titulo_modulo": "Case {numero}",
     "ficha_volver_lista": "Back to the list",
     "ficha_expediente_numero": "Case {numero}",
@@ -31,6 +34,7 @@
     "lista_titulo_varias": "{total} requests in progress",
     "lista_titulo_ninguna": "No requests in progress",
     "lista_nueva_peticion": "New staff request",
+    "lista_actualizar": "Refresh list",
     "lista_buscar": "Search",
     "lista_buscar_pista": "Number, unit or category",
     "lista_fase": "Stage",
@@ -69,6 +73,8 @@
     "abre_otra_pestana": "(opens in a new tab)",
     "lista_busqueda_parcial": "The filter only checks the requests loaded on this page. Select “Next page” to see the rest.",
     "lista_vacia_crear": "There are no requests yet. Create one with “New staff request”.",
+    "lista_vacia_sin_alta": "There are no requests for this profile. Refresh the list if you expected to see one.",
+    "lista_textos_respaldo": "Some text could not be loaded. Select “Refresh list” to try again.",
     "cabecera_resultado_rc": "Budget commitment",
     "cabecera_decision_gobernada": "Staffing route decided",
     "estado_inicial": "Ready to load the requests.",

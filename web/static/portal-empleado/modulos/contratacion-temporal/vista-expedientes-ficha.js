@@ -7,7 +7,7 @@
  * HTML puro a partir del detalle ya autorizado: no ejecuta actuaciones ni
  * deduce responsables o plazos que el servidor no haya dado.
  */
-import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { faseRRHH } from "./fases-rrhh-datos.js";
 
 function escapar(valor) {
   return String(valor ?? "")

@@ -9,7 +9,7 @@
  * pidió el servidor (estado o fase de origen) se muestran también como
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
-import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js";
 import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js?v=20261006-resumen-inicio-v2";
 
 function escapar(valor) {
@@ -127,7 +127,8 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
 }
 
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
-export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "") {
+export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
+  { altaDisponible = true, actualizarDisponible = false } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
   const titulo = resumen.enTramite === 0 ? t("lista_titulo_ninguna")
@@ -140,7 +141,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
   const categorias = distintos(cuadro.expedientes, "categoria");
   return `<header class="cabeza-pagina">
       <div><h3 class="ct-exp-lista-titulo">${escapar(titulo)}</h3></div>
-      <button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>
+      ${altaDisponible ? `<button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>` : ""}
+      ${actualizarDisponible ? `<button type="button" class="boton-terciario" data-ct-exp-recargar>${escapar(t("lista_actualizar"))}</button>` : ""}
     </header>
     ${parcial ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
     <section class="panel ct-exp-listado" aria-labelledby="ct-exp-lista-titulo-panel">
@@ -164,7 +166,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
           </div>
         </details>
       </form>`}
-      ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t("lista_vacia_crear"))}</p>`
+      ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
+    ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
     : renderizarResultadosLista(estado, t, filtro, ayudas)}
       ${paginacion}
     </section>`;

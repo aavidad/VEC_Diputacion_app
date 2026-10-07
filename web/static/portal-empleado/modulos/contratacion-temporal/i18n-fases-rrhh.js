@@ -11,23 +11,8 @@
  */
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
-
-export const FASES_RRHH = Object.freeze([
-  "solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion",
-  "obtencion_candidato", "nombramiento", "incorporacion", "seguimiento",
-]);
-
-// Fase administrativa del servidor → fase del procedimiento de RRHH.
-export const FASE_RRHH_DE_ORIGEN = Object.freeze({
-  solicitud: "solicitud", solicitud_registrada: "solicitud",
-  analisis: "analisis_rrhh", analisis_rrhh: "analisis_rrhh",
-  cobertura: "gestion_bolsa", asignacion: "gestion_bolsa", asignacion_unidad: "gestion_bolsa",
-  informe: "gestion_bolsa", informe_juridico: "gestion_bolsa", gestion_bolsa: "gestion_bolsa",
-  fiscalizacion: "fiscalizacion", subsanacion_unidad: "fiscalizacion",
-  llamamiento: "obtencion_candidato", obtencion_candidato: "obtencion_candidato",
-  nombramiento: "nombramiento", incorporacion: "incorporacion",
-  seguimiento: "seguimiento", cierre: "seguimiento",
-});
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js";
+export { FASES_RRHH, FASE_RRHH_DE_ORIGEN, faseRRHH } from "./fases-rrhh-datos.js";
 
 // Estado del servidor o de la vista → estado único visible.
 const ESTADO_UNICO = Object.freeze({
@@ -55,13 +40,6 @@ export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
 /** Rótulos de las ocho fases en la forma de claves i18n de otros catálogos. */
 export function rotulosFasesComoMensajes(prefijo, idioma = IDIOMA_ACTUAL) {
   return Object.fromEntries(FASES_RRHH.map((fase) => [`${prefijo}${fase}`, rotuloTramite(`fase_${fase}`, {}, idioma)]));
-}
-
-/** Fase de RRHH (clave, orden y total) de una fase del servidor; null si no tiene. */
-export function faseRRHH(claveOrigen) {
-  const clave = FASE_RRHH_DE_ORIGEN[claveOrigen];
-  if (!clave) return null;
-  return Object.freeze({ clave, orden: FASES_RRHH.indexOf(clave) + 1, total: FASES_RRHH.length });
 }
 
 export function nombreFaseRRHH(claveOrigen, idioma = IDIOMA_ACTUAL) {
