@@ -3,8 +3,8 @@ import { IDIOMA_ACTUAL, prepararIdiomas } from "../../../comun/idioma.js";
 import { cargarTextos } from "../../../comun/textos.js";
 
 /**
- * Las exportaciones históricas ES/EN apuntan al catálogo elegido en esta
- * navegación. El lector común concentra reintento, respaldo y su incidencia.
+ * Cada exportación histórica existe sólo si ese idioma fue el cargado.
+ * El lector común concentra reintento, respaldo y su incidencia.
  */
 export async function cargarCatalogosContratacionEnIdioma(modulo, idioma, seccion = "general") {
   // El índice se resuelve antes de elegir el idioma: al importar, el valor de
@@ -17,8 +17,9 @@ export async function cargarCatalogosContratacionEnIdioma(modulo, idioma, seccio
   ]);
   const actual = textos.seccion(seccion);
   const exportaciones = Object.freeze(Object.fromEntries(
-    Object.keys(compatibilidad.seccion("idiomas_exportados"))
-      .map((nombre) => [nombre, actual]),
+    Object.entries(compatibilidad.seccion("idiomas_exportados"))
+      .filter(([, codigo]) => codigo === textos.idioma)
+      .map(([nombre]) => [nombre, actual]),
   ));
   return Object.freeze({
     porIdioma: Object.freeze({ [textos.idioma]: actual }),

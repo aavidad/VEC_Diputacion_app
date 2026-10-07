@@ -4,8 +4,10 @@ import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
-export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+const MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE = Object.freeze({
   ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_FICHA_LISTA_ES,
@@ -342,7 +344,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
 });
 
 /** British English texts for the temporary staff requests case-file interface. */
-export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
+const MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE = Object.freeze({
   ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_EN,
   ...MENSAJES_FICHA_LISTA_EN,
@@ -678,6 +680,11 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   comprobacion_resultado_no_consta: "Not recorded",
 });
 
+export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE : undefined;
+export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? undefined : MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE;
+
 export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {
   if (sobrescrituras === null || typeof sobrescrituras !== "object"
     || Array.isArray(sobrescrituras)) {
@@ -698,4 +705,31 @@ export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {
       mensajes[clave],
     );
   };
+}
+
+/** Prepara expresamente los mensajes de otro idioma sin cargarlo al abrir CT. */
+export async function cargarMensajesExpedientesContratacionEnIdioma(idioma) {
+  const catalogos = await Promise.all([
+    cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-ficha-lista", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-lista-plazos", idioma, "lista"),
+    ...["incorporacion", "hito", "continuidad", "firma", "borrador", "firma_pendiente"]
+      .map((seccion) => cargarCatalogosContratacionEnIdioma(
+        "contratacion-temporal-firma-incorporacion-expedientes", idioma, seccion)),
+  ]);
+  if (catalogos.some((catalogo) => catalogo.idioma !== idioma)) {
+    if (idioma === IDIOMA_POR_DEFECTO) throw new Error("catálogo de expedientes no disponible");
+    return cargarMensajesExpedientesContratacionEnIdioma(IDIOMA_POR_DEFECTO);
+  }
+  const base = idioma === IDIOMA_POR_DEFECTO
+    ? MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE : MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE;
+  const mensajes = { ...base };
+  for (const catalogo of catalogos.slice(1)) {
+    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+      if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
+    }
+  }
+  Object.assign(mensajes, await cargarMensajesTramiteEnIdioma(idioma));
+  return Object.freeze(mensajes);
 }

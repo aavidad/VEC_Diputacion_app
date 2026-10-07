@@ -3,7 +3,7 @@ import test from "node:test";
 
 globalThis.location = { href: "https://example.invalid/portal-empleado/?lang=en" };
 
-const { LOCALIZACION_ACTUAL } = await import("../../../comun/idioma.js");
+const idioma = await import("../../../comun/idioma.js");
 const {
   crearTraductorCambiosExpediente,
   renderizarCambiosExpediente,
@@ -11,7 +11,7 @@ const {
 } = await import("./vista-expedientes-cambios.js");
 
 test("Cambios de datos sigue el idioma común sin traducir valores recibidos", () => {
-  assert.equal(LOCALIZACION_ACTUAL, "en-GB");
+  assert.equal(idioma.LOCALIZACION_ACTUAL, "en-GB");
   const t = crearTraductorCambiosExpediente();
   const apartado = renderizarCambiosExpediente({
     demostracion: false, expediente_ref: "expediente:ct:sintetico:001", version: 2,

@@ -1,4 +1,4 @@
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
@@ -19,9 +19,9 @@ import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=202
 import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
-import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
-export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   ...MENSAJES_MOAD_ES,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
@@ -471,7 +471,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 });
 
 /** British English messages for the temporary staff requests module. */
-export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   ...MENSAJES_MOAD_EN,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",
@@ -909,6 +909,11 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ...MENSAJES_FIRMA_INCORPORACION.portal.EN,
 });
 
+export const MENSAJES_CONTRATACION_TEMPORAL_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : undefined;
+export const MENSAJES_CONTRATACION_TEMPORAL_EN = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? undefined : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
   if (sobrescrituras === null || typeof sobrescrituras !== "object"
     || Array.isArray(sobrescrituras)) {
@@ -929,4 +934,35 @@ export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
       mensajes[clave],
     );
   };
+}
+
+/** Prepara otro idioma solo cuando un consumidor lo solicita expresamente. */
+export async function cargarMensajesContratacionTemporalEnIdioma(idioma) {
+  const catalogos = await Promise.all([
+    cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-moad", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-llamamiento", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-subsanacion-reparos", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-avisos-via-cobertura", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-textos-vistas", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-borradores-publicados", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-firma-incorporacion-portal", idioma),
+  ]);
+  if (catalogos.some((catalogo) => catalogo.idioma !== idioma)) {
+    if (idioma === IDIOMA_POR_DEFECTO) throw new Error("catálogo de contratación no disponible");
+    return cargarMensajesContratacionTemporalEnIdioma(IDIOMA_POR_DEFECTO);
+  }
+  const base = idioma === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+  const mensajes = { ...base };
+  for (const catalogo of catalogos.slice(1)) {
+    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+      if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
+    }
+  }
+  for (const fase of FASES_RRHH) {
+    mensajes[`contratacion_temporal.fase.${fase}`] = catalogos[0].actual[`fase_${fase}`];
+  }
+  return Object.freeze(mensajes);
 }

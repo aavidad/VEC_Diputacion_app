@@ -9,7 +9,6 @@ test("los tres catálogos RRHH C3/B55 conservan claves y marcadores en inglés",
   for (const [es, en] of [
     [MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN],
     [MENSAJES_REINCORPORACION_RRHH_ES, MENSAJES_REINCORPORACION_RRHH_EN],
-    [MENSAJES_BORRADORES_PUBLICADOS_ES, MENSAJES_BORRADORES_PUBLICADOS_EN],
   ]) {
     assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
     for (const clave of Object.keys(es)) {
@@ -27,7 +26,6 @@ test("la recuperación reutiliza la petición y la publicación muestra su recib
   const ingles = JSON.parse(await readFile(new URL(
     "../../../textos/en/contratacion-temporal-borradores-publicados.json", import.meta.url), "utf8"));
   assert.equal(ingles.general.bp_publicacion_recibo, "Publication receipt: {recibo}");
-  assert.equal(MENSAJES_BORRADORES_PUBLICADOS_EN.bp_publicacion_recibo,
-    MENSAJES_BORRADORES_PUBLICADOS_ES.bp_publicacion_recibo);
+  assert.equal(MENSAJES_BORRADORES_PUBLICADOS_EN, undefined);
   assert.match(MENSAJES_REINCORPORACION_RRHH_EN.rrhh_reincorporacion_ayuda, /not to the substantive postholder/u);
 });

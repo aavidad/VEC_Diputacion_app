@@ -35,7 +35,8 @@ test("prepara el índice antes de elegir el idioma predeterminado y pide solo es
   assert.deepEqual(leidos.sort(), ["en/contratacion-temporal-compatibilidad", "en/contratacion-temporal-prueba"]);
   assert.equal(catalogos.idioma, "en");
   assert.deepEqual(Object.keys(catalogos.porIdioma), ["en"]);
-  assert.equal(catalogos.exportaciones.ES, catalogos.actual);
+  assert.equal(catalogos.exportaciones.EN, catalogos.actual);
+  assert.equal(catalogos.exportaciones.ES, undefined);
 });
 
 test("el idioma explícito se consulta por separado y el respaldo común informa su idioma real", async () => {
@@ -50,6 +51,8 @@ test("el idioma explícito se consulta por separado y el respaldo común informa
   leidos.length = 0;
   const respaldo = await helper.cargarCatalogosContratacion("contratacion-temporal-prueba");
   assert.equal(respaldo.idioma, "es");
+  assert.equal(respaldo.exportaciones.ES, respaldo.actual);
+  assert.equal(respaldo.exportaciones.EN, undefined);
   assert.deepEqual(Object.keys(respaldo.porIdioma), ["es"]);
   assert.ok(leidos.every((ruta) => ruta.startsWith("en/")));
 });

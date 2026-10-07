@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { filtrarPeticiones, filtroListaValido } from "./recuentos-peticiones.js";
 import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js";
+const MENSAJES_EXPEDIENTES_CONTRATACION_EN = await cargarMensajesExpedientesContratacionEnIdioma("en");
 
 const lista = Object.freeze([
   Object.freeze({ expediente_ref: "expediente:ct:demo:1", numero_visible: "2026/CT-0001", centro: "centro:demo:1",

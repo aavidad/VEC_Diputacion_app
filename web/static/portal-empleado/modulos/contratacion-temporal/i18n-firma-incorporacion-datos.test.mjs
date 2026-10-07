@@ -37,8 +37,10 @@ test("los catálogos conservan claves y variables en ambos idiomas; las exportac
       assert.deepEqual(seccionesES.valores_controlados, seccionesEN.valores_controlados);
     }
     const datosActivos = IDIOMA_ACTUAL === es.codigo ? datosES : datosEN;
-    assert.deepEqual(mensajesES, datosActivos, `${modulo}: compatibilidad ES`);
-    assert.deepEqual(mensajesEN, datosActivos, `${modulo}: compatibilidad EN`);
+    assert.deepEqual(IDIOMA_ACTUAL === es.codigo ? mensajesES : mensajesEN, datosActivos,
+      `${modulo}: catálogo activo`);
+    assert.equal(IDIOMA_ACTUAL === es.codigo ? mensajesEN : mensajesES, undefined,
+      `${modulo}: el idioma inactivo se carga sólo de forma explícita`);
     assert.deepEqual(Object.keys(datosES).sort(), Object.keys(datosEN).sort(), `${modulo}: claves`);
     for (const clave of Object.keys(datosES)) {
       assert.ok(datosES[clave] && datosEN[clave], `${modulo}.${clave}: texto vacío`);
@@ -54,6 +56,7 @@ test("los dos agregadores conservan todos los valores extraídos", () => {
     [MENSAJES_FIRMA_INCORPORACION.expedientes.ES, MENSAJES_EXPEDIENTES_CONTRATACION_ES],
     [MENSAJES_FIRMA_INCORPORACION.expedientes.EN, MENSAJES_EXPEDIENTES_CONTRATACION_EN],
   ]) {
+    if (extraido === undefined) continue;
     for (const [clave, valor] of Object.entries(extraido)) assert.equal(actual[clave], valor, clave);
     assert.deepEqual(Object.keys(extraido), Object.keys(actual).filter((clave) => Object.hasOwn(extraido, clave)));
   }

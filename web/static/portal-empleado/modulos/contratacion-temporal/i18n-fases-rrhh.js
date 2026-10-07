@@ -90,9 +90,18 @@ export function nombreEstado(claveEstado, idioma = IDIOMA_ACTUAL) {
  * las ocho fases (etiqueta_fase_*) y los estados (fase_* y espera externa).
  */
 export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
-  const estado = (clave) => rotuloTramite(`estado_${clave}`, {}, idioma);
+  comprobarIdiomaCargado(idioma);
+  return mensajesTramiteDe(ROTULOS);
+}
+
+function mensajesTramiteDe(catalogo) {
+  const rotulo = (clave) => {
+    if (!Object.hasOwn(catalogo, clave)) throw new Error(`falta el rótulo ${clave}`);
+    return catalogo[clave];
+  };
+  const estado = (clave) => rotulo(`estado_${clave}`);
   return Object.freeze({
-    ...rotulosFasesComoMensajes("etiqueta_fase_", idioma),
+    ...Object.fromEntries(FASES_RRHH.map((fase) => [`etiqueta_fase_${fase}`, rotulo(`fase_${fase}`)])),
     fase_pendiente: estado("pendiente"),
     fase_en_curso: estado("en_curso"),
     fase_espera: estado("espera"),
@@ -100,13 +109,19 @@ export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
     fase_incidencia: estado("incidencia"),
     fase_cancelado: estado("cancelado"),
     etiqueta_estado_espera_externa: estado("espera"),
-    fase_rrhh_orden: rotuloTramite("fase_de", {}, idioma),
-    fase_rrhh_orden_nombre: rotuloTramite("fase_de_nombre", {}, idioma),
-    linea_fase_hecho: rotuloTramite("linea_hecho", {}, idioma),
-    linea_fase_ahora: rotuloTramite("linea_ahora", {}, idioma),
-    linea_fase_falta: rotuloTramite("linea_falta", {}, idioma),
-    linea_fase_incidencia: rotuloTramite("linea_incidencia", {}, idioma),
+    fase_rrhh_orden: rotulo("fase_de"),
+    fase_rrhh_orden_nombre: rotulo("fase_de_nombre"),
+    linea_fase_hecho: rotulo("linea_hecho"),
+    linea_fase_ahora: rotulo("linea_ahora"),
+    linea_fase_falta: rotulo("linea_falta"),
+    linea_fase_incidencia: rotulo("linea_incidencia"),
   });
+}
+
+/** El idioma distinto del activo se solicita de forma explícita y asíncrona. */
+export async function cargarMensajesTramiteEnIdioma(idioma) {
+  const { actual } = await cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh");
+  return mensajesTramiteDe(actual);
 }
 
 /** Las mismas claves para el catálogo del portal (portada), con prefijo propio. */

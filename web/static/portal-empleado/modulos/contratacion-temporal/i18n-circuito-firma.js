@@ -12,12 +12,12 @@ export function crearTraductorCircuitoFirma(sobrescrituras = {}, locale = locali
   }
   const idioma = IDIOMAS_DISPONIBLES.find(({ codigo, localizacion }) =>
     locale === codigo || locale === localizacion || locale.startsWith(`${codigo}-`))?.codigo ?? IDIOMA_ACTUAL;
-  if (idioma !== IDIOMA_ACTUAL && Object.keys(catalogos.actual).some((clave) =>
+  if (idioma !== catalogos.idioma && Object.keys(catalogos.actual).some((clave) =>
     typeof sobrescrituras[clave] !== "string" || sobrescrituras[clave].trim() === "")) {
     throw new RangeError("catálogo del idioma solicitado no cargado");
   }
   const mensajes = { ...catalogos.actual };
-  for (const clave of Object.keys(MENSAJES_CIRCUITO_FIRMA_ES)) {
+  for (const clave of Object.keys(catalogos.actual)) {
     const valor = sobrescrituras[clave];
     if (typeof valor === "string" && valor.trim() !== "") mensajes[clave] = valor;
   }

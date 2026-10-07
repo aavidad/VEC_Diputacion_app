@@ -17,7 +17,9 @@ export const MENSAJES_FIRMA_INCORPORACION = Object.freeze({
   portal: portal.exportaciones,
   grupos,
   expedientes: Object.freeze({
-    ES: Object.freeze(Object.assign({}, ...GRUPOS_EXPEDIENTES.map((grupo) => grupos[grupo].ES))),
-    EN: Object.freeze(Object.assign({}, ...GRUPOS_EXPEDIENTES.map((grupo) => grupos[grupo].EN))),
+    ES: grupos.incorporacion.ES
+      ? Object.freeze(Object.assign({}, ...GRUPOS_EXPEDIENTES.map((grupo) => grupos[grupo].ES))) : undefined,
+    EN: grupos.incorporacion.EN
+      ? Object.freeze(Object.assign({}, ...GRUPOS_EXPEDIENTES.map((grupo) => grupos[grupo].EN))) : undefined,
   }),
 });

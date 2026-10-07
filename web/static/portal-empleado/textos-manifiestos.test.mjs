@@ -141,8 +141,10 @@ function comprobarDelegacion(fuentes, helper, resolver) {
     assert.equal(resolver(archivo, referencia.valor.split("?")[0]), helper, `${archivo}: helper de otro origen`);
     const prefijo = ts.slice(indice - 5, indice).map((x) => x.texto);
     const importacionSimple = ["import", "{", "cargarCatalogosContratacion", "}", "from"];
+    const importacionExplicita = ["import", "{", "cargarCatalogosContratacionEnIdioma", "}", "from"];
     const importacionDoble = ["cargarCatalogosContratacion", ",", "cargarCatalogosContratacionEnIdioma", "}", "from"];
     assert.ok(JSON.stringify(prefijo) === JSON.stringify(importacionSimple)
+      || JSON.stringify(prefijo) === JSON.stringify(importacionExplicita)
       || JSON.stringify(prefijo) === JSON.stringify(importacionDoble), `${archivo}: importación indirecta del helper`);
     const configuracion = { lectorDelegado: true };
     for (const modulo of catalogosCargados(fuente, archivo, configuracion)) modulos.add(modulo);
