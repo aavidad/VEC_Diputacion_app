@@ -83,7 +83,7 @@ func nuevoPoolRecuperacionCoberturaO405PostgreSQL(
 		return nil, errorAcreditacionPoolO405(ctx)
 	}
 	postgresqlcompartido.FijarTamanoPool(configuracion, cadenaConexion, 4)
-	poolCreado, err = pgxpool.NewWithConfig(ctx, configuracion)
+	poolCreado, err = postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil || poolCreado == nil {
 		return nil, errorAcreditacionPoolO405(ctx)
 	}
