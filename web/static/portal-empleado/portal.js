@@ -1,11 +1,9 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261007-pantallas-textos-final-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
 import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261007-carga-pantalla-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
@@ -16,7 +14,6 @@ import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal,
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
 
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
@@ -103,6 +100,7 @@ const cargasRecursosVistas = new Map();
 const erroresRecursosVistas = new Set();
 const grupoRecursosVista = (vista) => vista === "portal" ? "inicio"
   : vista === "mis-tramites" ? "accesos"
+    : vista === "contratos" && !vistaBolsaPendienteNoCompuesta(vista) ? "operaciones"
     : vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
   : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas" : null;
 function cargarRecursosVista(grupo) {
@@ -114,6 +112,8 @@ function cargarRecursosVista(grupo) {
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
       ? import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2")
+      : grupo === "operaciones"
+        ? import("./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1")
       : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
@@ -324,6 +324,14 @@ function esperarTextosDeVista(grupo) {
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
   espacio?.addEventListener("click", (evento) => {
+    if (!evento.target?.closest?.("[data-bolsa-inicio-reintentar]")) return;
+    if (errorBolsaBase) window.location.reload();
+    else pedirCuadroBolsas();
+  });
+  espacio?.addEventListener("click", (evento) => {
+    if (evento.target?.closest?.("[data-bolsa-base-reintentar]")) window.location.reload();
+  });
+  espacio?.addEventListener("click", (evento) => {
     if (!evento.target?.closest?.("[data-recursos-vista-reintentar]")) return;
     // El navegador puede conservar un import() rechazado para esa URL durante
     // toda la página. Recargar conserva la ruta y vuelve a pedir el recurso.
@@ -402,7 +410,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
+        controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; } } });
     },
@@ -505,6 +513,10 @@ function porcentajeSeguro(valor) {
 // ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
 function disponibilidadBolsa() {
   const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  if (estado.datosBolsas === null && acceso?.disponible !== true
+    && coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+    return { disponible: true, vista: "resumen", estado: "cargando", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
+  }
   if (acceso?.disponible !== true && ["cargando", "error"].includes(estado.datosBolsas?.carga) && estado.vista !== "elaboracion") {
     return { disponible: true, vista: "resumen", estado: "disponible", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
   }
@@ -557,7 +569,7 @@ function vistaPermitida(vista) {
 }
 
 function etiquetaFuentePanel() {
-  return presentadorPanelInterno.etiquetaFuente() || traducirPortal("txt_api_interna_autorizada");
+  return presentadorPanelInterno?.etiquetaFuente() || traducirPortal("txt_api_interna_autorizada");
 }
 
 function notaOperacionNoCompuesta() {
@@ -598,16 +610,26 @@ let inicioComprobando = false;
 // Ciclo de carga (secuenciaFuente) en que se pidió el cuadro de bolsas por
 // última vez. Una lectura pedida en el ciclo actual ya revalida el acceso.
 let cicloLecturaBolsas = 0;
+let generacionCuadroBolsas = 0;
 function pedirCuadroBolsas() {
+  const pedido = ++generacionCuadroBolsas;
   cicloLecturaBolsas = secuenciaFuente;
-  void controladorBolsas.cargarBolsas();
+  estado.datosBolsas = { carga: "cargando", datos: null, error: "" };
+  void prepararBolsaBase().then(() => {
+    if (pedido === generacionCuadroBolsas && vistaNecesitaBolsa()
+      && cicloLecturaBolsas === secuenciaFuente) void controladorBolsas.cargarBolsas();
+  }).catch(() => {
+    if (pedido !== generacionCuadroBolsas || !vistaNecesitaBolsa()) return;
+    estado.datosBolsas = { carga: "error", datos: null, error: traducirPortal("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo") };
+    renderizar();
+  });
 }
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
   // del catálogo o de identidad: la API debe revalidar el acceso actual. Si
   // la lectura de este mismo ciclo sigue en curso o ya terminó, no se repite:
   // relanzarla cancelaba la petición y obligaba al servidor a empezar de cero.
-  if (clave === "catalogo"
+  if (clave === "catalogo" && vistaNecesitaBolsa()
     && !(cicloLecturaBolsas === secuenciaFuente && ["cargando", "listo"].includes(estado.datosBolsas?.carga))) {
     pedirCuadroBolsas();
   }
@@ -686,6 +708,10 @@ function renderizarTrasCarga() {
 let secuenciaFuente = 0;
 async function cargarFuenteDatos() {
   const intento = ++secuenciaFuente;
+  generacionCuadroBolsas += 1;
+  controladorBolsas?.cancelarPeticiones();
+  estado.datosBolsas = null;
+  cicloLecturaBolsas = 0;
   estado.errorFuente = "";
   consultaAccesoPlantillas?.abort();
   consultaAccesoPlantillas = null;
@@ -704,7 +730,7 @@ async function cargarFuenteDatos() {
   // La disponibilidad de Bolsa en Inicio y en el menú la decide la API real del
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
   // bloquear los demás módulos. Una lectura ya en curso no se repite.
-  if (estado.datosBolsas?.carga !== "cargando"
+  if (vistaNecesitaBolsa() && estado.datosBolsas?.carga !== "cargando"
     && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) pedirCuadroBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
@@ -893,10 +919,11 @@ function actualizarNavegacionModulos() {
     if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     const accesosPropios = coordinadorModulos.obtenerAccesosEmpleado();
     const crearResumen = recursosVistas.get("accesos")?.crearTraductorResumenAccesosEmpleado;
+    const bolsaPendiente = disponibilidadBolsa()?.estado === "cargando";
     fase.textContent = estado.errorFuente || (crearResumen
-      ? resumenAccesosModulos(accesos, false, crearResumen({ accesos: accesosPropios, traducir: traducirPortal }))
+      ? resumenAccesosModulos(accesos, bolsaPendiente, crearResumen({ accesos: accesosPropios, traducir: traducirPortal }))
       : Object.keys(accesosPropios).length > 0 && !accesos.some((acceso) => acceso.disponible === true)
-        ? traducirPortal("txt_accesos_directos") : resumenAccesosModulos(accesos, false));
+        ? traducirPortal("txt_accesos_directos") : resumenAccesosModulos(accesos, bolsaPendiente));
   }
 }
 
@@ -935,6 +962,12 @@ function navegar(vista, opciones = {}) {
     estado.llamamientoDesdeMenu = false;
   }
   const hash = rutaDeVista(vista);
+  if (vistaNecesitaBolsa(estado.vista) && !vistaNecesitaBolsa(vista)) {
+    generacionCuadroBolsas += 1;
+    controladorBolsas?.cancelarPeticiones();
+    estado.datosBolsas = null;
+    cicloLecturaBolsas = 0;
+  }
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
   if (window.location.hash !== hash) history.pushState(null, "", hash);
   estado.vista = vista;
@@ -945,7 +978,7 @@ function navegar(vista, opciones = {}) {
   }
   renderizar();
   if (vista === "mis-preferencias" && superficiePreferencias.leerCarga() === "sin_cargar") void superficiePreferencias.cargar();
-  if (requiereLecturaBolsas(vista) && estado.datosBolsas === null) void controladorBolsas.cargarBolsas();
+  if (vistaNecesitaBolsa(vista) && estado.datosBolsas === null) pedirCuadroBolsas();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
@@ -977,7 +1010,8 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "contratos") {
-    contenedor.innerHTML = vistasOperaciones.renderizarContratos({ contratos_fuente: { estado: "no_configurado" } });
+    contenedor.innerHTML = recursosVistas.get("operaciones").crearVistasOperaciones(utilidadesVista)
+      .renderizarContratos({ contratos_fuente: { estado: "no_configurado" } });
     return;
   }
   if (vista === "llamamientos") {
@@ -995,7 +1029,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
   if (vistaBolsas && estado.datosBolsas === null) {
     // Sin lectura del cuadro (p. ej. al recargar con F5 en #bolsa/resumen): se
     // pide ahora y cargarBolsas pinta la vista «cargando» y después el cuadro.
-    void controladorBolsas.cargarBolsas();
+    pedirCuadroBolsas();
     return;
   }
   if (vista === "estadisticas") {
@@ -1037,6 +1071,11 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
+  const necesitaBolsaBase = moduloDeVistaPortal(estado.vista) === "bolsa"
+    && !vistaBolsaPendienteNoCompuesta(estado.vista);
+  if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
+    void prepararBolsaBase().catch(() => {});
+  }
   if (estado.vista === "portal" && !recursosVistas.has("inicio")
     && !cargasRecursosVistas.has("inicio") && !erroresRecursosVistas.has("inicio")) cargarRecursosVista("inicio");
   if (estado.vista === "portal" && esPerfilRRHH()
@@ -1079,6 +1118,14 @@ function renderizar() {
         contenedor.querySelector("[data-estilos-vista-reintentar]")?.focus({ preventScroll: true });
       }
     });
+    return;
+  }
+  if (necesitaBolsaBase && !controladorBolsas) {
+    const error = errorBolsaBase;
+    const [migas, titulo] = tituloDeVista(estado.vista);
+    porId("migas-pan").textContent = migas;
+    porId("titulo-vista").textContent = titulo;
+    contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(error ? "descripcion_superficie_no_montada" : "estado_modulo_comprobando")}</p>${error ? `<button type="button" class="boton-secundario" data-bolsa-base-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
     return;
   }
   const grupoRecursos = grupoRecursosVista(estado.vista);
@@ -1271,7 +1318,6 @@ const utilidadesVista = crearUtilidadesVista({
   escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion: () => false,
   operacionPermitida: () => false,
 });
-const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
 function claseEstado(estadoTexto) {
   const texto = String(estadoTexto).toLowerCase();
   if (/publicad|activa|disponible|firmad|válid|complet/.test(texto)) return "exito";
@@ -1359,7 +1405,22 @@ function instalarEventosBorradores() {
   });
 }
 
-const presentadorPanelInterno = crearPresentadorPanelInterno({
+let presentadorPanelInterno = null;
+let controladorBolsas = null;
+let promesaBolsaBase = null;
+let errorBolsaBase = false;
+function vistaNecesitaBolsa(vista = estado.vista) {
+  return vista === "portal" || (moduloDeVistaPortal(vista) === "bolsa"
+    && !vistaBolsaPendienteNoCompuesta(vista));
+}
+function prepararBolsaBase() {
+  if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
+  if (promesaBolsaBase) return promesaBolsaBase;
+  promesaBolsaBase = Promise.all([
+    import("./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1"),
+    import("./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1"),
+  ]).then(([panel, bolsas]) => {
+    const presentador = panel.crearPresentadorPanelInterno({
   claseEstado, encabezadoVista, escaparHTML, numero,
   obtenerDatosPanel: () => DATOS_PANEL,
   tituloVista: (vista) => TITULOS[vista]?.[1] || traducirPortal("txt_seccion_de_bolsa"),
@@ -1371,14 +1432,25 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalFicha: () => estado.modalFicha,
   obtenerModalResultado: () => estado.modalResultado,
-});
+    });
 
-const controladorBolsas = crearControladorBolsas({
-  estado,
-  renderizar: actualizarVistaBolsa,
-  navegar,
-  obtenerFuenteLectura: () => null,
-});
+    const controlador = bolsas.crearControladorBolsas({
+      estado, renderizar: actualizarVistaBolsa, navegar, obtenerFuenteLectura: () => null,
+    });
+    controlador.instalar();
+    instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas: controlador, actualizarVistaBolsa, porId });
+    presentadorPanelInterno = presentador;
+    controladorBolsas = controlador;
+    errorBolsaBase = false;
+    if (moduloDeVistaPortal(estado.vista) === "bolsa") renderizar();
+  }).catch((error) => {
+    promesaBolsaBase = null;
+    errorBolsaBase = true;
+    if (vistaNecesitaBolsa()) renderizar();
+    throw error;
+  });
+  return promesaBolsaBase;
+}
 
 let controladorAvisos = null;
 function cancelarAvisosBolsa() {
@@ -1470,8 +1542,6 @@ async function inicializar() {
   renderizar();
   controlador.instalar();
   integracionPreferencias.instalarMenu();
-  controladorBolsas.instalar();
-  instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas, actualizarVistaBolsa, porId });
   instalarEventosAvisosBolsa();
   instalarEventosAuditoriaBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));

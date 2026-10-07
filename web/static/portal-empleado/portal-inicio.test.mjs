@@ -105,6 +105,14 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
   assert.doesNotMatch(html, /data-vista=/);
 });
 
+test("Bolsa permite abrir el cuadro para comprobarlo sin afirmar que ya está disponible", () => {
+  const html = renderizar({ disponible: true, vista: "resumen", estado: "cargando" });
+  assert.match(html, /data-modulo-catalogo="bolsa"[^>]*aria-busy="true"[^>]*data-estado-conexion="comprobando"/u);
+  assert.match(html, /<span class="estado-proximamente">Comprobando<\/span>/u);
+  assert.match(html, /<button[^>]+data-vista="resumen"/u);
+  assert.doesNotMatch(html, /<span class="estado-disponible">/u);
+});
+
 test("un módulo denegado o sin servicio no ocupa una tarjeta vacía", () => {
   for (const acceso of [
     { disponible: false, vista: "", estado: "denegado", etiqueta: "Sin permiso para gestionar borradores" },

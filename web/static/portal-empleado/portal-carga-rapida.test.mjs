@@ -576,7 +576,7 @@ test("F5 en el cuadro de Bolsa: se pide el cuadro al montar y la carga no lo rep
   const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
   const montaje = portal.slice(portal.indexOf("function montarVistaBolsa("), portal.indexOf("function renderizarLlamamientoSinBolsa("));
   // Sin lectura del cuadro, la vista la pide (en vez de pintar «no disponible»).
-  assert.match(montaje, /if \(vistaBolsas && estado\.datosBolsas === null\) \{\s+(?:\/\/[^\n]*\s+)*void controladorBolsas\.cargarBolsas\(\);\s+return;/u);
+  assert.match(montaje, /if \(vistaBolsas && estado\.datosBolsas === null\) \{\s+(?:\/\/[^\n]*\s+)*pedirCuadroBolsas\(\);\s+return;/u);
   assert.ok(montaje.indexOf("estado.datosBolsas === null") < montaje.indexOf("if (!estado.fuenteLista)"));
   const carga = portal.slice(portal.indexOf("async function cargarFuenteDatos()"), portal.indexOf("function necesidadLlamamientoSeleccionada()"));
   // Una vista de Bolsa montada se conserva y no se vuelve a montar.
@@ -655,6 +655,9 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-panel-interno.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
   assert.deepEqual(grupos.map(([, grupo]) => grupo), ["cronos", "dietas", "personal"]);
