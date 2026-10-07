@@ -76,6 +76,13 @@ export function montarConsumidorConsultaMerito({ documento = globalThis.document
   documento.documentElement.lang = textos.idioma; documento.title = t("titulo");
   for (const elemento of documento.querySelectorAll("[data-consulta-texto]")) elemento.textContent = t(elemento.dataset.consultaTexto);
   for (const elemento of documento.querySelectorAll("[data-consulta-etiqueta]")) elemento.setAttribute("aria-label", t(elemento.dataset.consultaEtiqueta));
+  if (ventana?.location?.href && typeof ventana.history?.replaceState === "function") {
+    const destino = new URL(ventana.location.href);
+    if (destino.searchParams.has("lang") && destino.searchParams.get("lang") !== textos.idioma) {
+      destino.searchParams.set("lang", textos.idioma);
+      ventana.history.replaceState(ventana.history.state, "", destino);
+    }
+  }
   const enlace = documento.querySelector("[data-consulta-enlace-actual]");
   if (enlace && ventana?.location?.href) enlace.href = ventana.location.href;
   const controlador = new AbortController();
