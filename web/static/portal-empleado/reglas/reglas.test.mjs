@@ -170,7 +170,9 @@ test("claves válidas distintas conservan identificadores únicos y los datos no
 
 test("la vista inglesa marca como españoles solo los datos recibidos", () => {
   const modulo = new URL("./reglas.js", import.meta.url).href;
+  const idioma = new URL("../../comun/idioma.js", import.meta.url).href;
   const codigo = `globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    await (await import(${JSON.stringify(idioma)})).prepararIdiomas();
     const { renderizarCatalogo } = await import(${JSON.stringify(modulo)});
     const regla = ${JSON.stringify(regla({ ejemplo_parcial: "Solo personal fijo" }))};
     process.stdout.write(renderizarCatalogo({ modulo: "bolsa", catalogo_id: "vec.bolsa.reglas",
@@ -375,12 +377,14 @@ function catalogosDemo() {
 
 test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definición recibida", () => {
   const modulo = new URL("./reglas.js", import.meta.url).href;
+  const moduloIdioma = new URL("../../comun/idioma.js", import.meta.url).href;
   const catalogos = catalogosDemo();
   for (const idioma of ["es", "en"]) {
     const presentacion = JSON.parse(leer(`../../textos/${idioma}/reglas.json`)).presentacion;
     const codigo = `
       import assert from "node:assert/strict";
       globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=${idioma}" };
+      await (await import(${JSON.stringify(moduloIdioma)})).prepararIdiomas();
       const { filtrar, renderizarCatalogo } = await import(${JSON.stringify(modulo)});
       const catalogos = ${JSON.stringify(catalogos)};
       const presentacion = ${JSON.stringify(presentacion)};
@@ -417,12 +421,14 @@ test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definici�
 
 test("la presentación de una regla no cambia otro campo ni una definición nueva", () => {
   const modulo = new URL("./reglas.js", import.meta.url).href;
+  const idioma = new URL("../../comun/idioma.js", import.meta.url).href;
   const fuente = catalogosDemo().find((c) => c.modulo === "contratacion_temporal");
   const original = fuente.reglas.find((r) => r.clave === "c20.cancelacion_expediente");
   const en = JSON.parse(leer("../../textos/en/reglas.json")).presentacion.contratacion_temporal.c20.cancelacion_expediente;
   const codigo = `
     import assert from "node:assert/strict";
     globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    await (await import(${JSON.stringify(idioma)})).prepararIdiomas();
     const { detalleRegla, filtrar } = await import(${JSON.stringify(modulo)});
     const regla = ${JSON.stringify(original)};
     const html = detalleRegla(regla, "contratacion_temporal");
