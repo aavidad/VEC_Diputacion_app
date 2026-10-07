@@ -190,7 +190,8 @@ let promesaResumenInicio = null;
 function prepararResumenInicioVisible() {
   if (estado.vista !== "portal" || !esPerfilRRHH()) return Promise.resolve(null);
   if (typeof coordinadorModulos.prepararResumenInicio !== "function") {
-    estadoResumenInicio = "listo";
+    estadoResumenInicio = "error";
+    renderizarConservandoFoco();
     return Promise.resolve(null);
   }
   if (promesaResumenInicio) return promesaResumenInicio;
@@ -217,28 +218,34 @@ function textosVistaPreparados(grupo) {
   return textosGrupoPortalPreparados(grupo)
     && (grupo !== "preferencias" || gruposTextosMontables.has(grupo));
 }
-function esperarTextosDeVista(grupo, vista) {
+async function prepararTextosBolsa() {
+  const preparado = await prepararTextosPortal("bolsa");
+  const contratos = await import("./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1");
+  await contratos.prepararMensajesContratos(preparado.idioma);
+  return preparado;
+}
+function vistaVigenteParaTextos(grupo, idioma) {
+  return grupoTextosDeVista(estado.vista) === grupo
+    && vistaPermitida(estado.vista)
+    && (idioma === undefined || LOCALIZACION_PORTAL.split("-")[0] === idioma);
+}
+function esperarTextosDeVista(grupo) {
   if (cargasTextosVistas.has(grupo) || erroresTextosVistas.has(grupo)) return;
   const carga = grupo === "preferencias"
     ? integracionPreferencias.prepararTextosPreferencias()
-    : grupo === "bolsa"
-      ? prepararTextosPortal(grupo).then(async (preparado) => {
-        const contratos = await import("./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1");
-        await contratos.prepararMensajesContratos(preparado.idioma);
-        return preparado;
-      })
-      : prepararTextosPortal(grupo);
+    : grupo === "bolsa" ? prepararTextosBolsa() : prepararTextosPortal(grupo);
   cargasTextosVistas.set(grupo, carga);
-  carga.then(() => {
+  carga.then((preparado) => {
+    if (cargasTextosVistas.get(grupo) !== carga) return;
     gruposTextosMontables.add(grupo);
-    if (estado.vista === vista) renderizar();
+    if (vistaVigenteParaTextos(grupo, preparado?.idioma)) renderizar();
   }).catch(() => {
+    if (cargasTextosVistas.get(grupo) !== carga) return;
     erroresTextosVistas.add(grupo);
-    if (estado.vista === vista) {
-      renderizar();
-      porId("espacio-trabajo")?.querySelector("[data-textos-vista-reintentar]")?.focus({ preventScroll: true });
-    }
-  }).finally(() => cargasTextosVistas.delete(grupo));
+    if (vistaVigenteParaTextos(grupo)) renderizar();
+  }).finally(() => {
+    if (cargasTextosVistas.get(grupo) === carga) cargasTextosVistas.delete(grupo);
+  });
 }
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
@@ -958,7 +965,7 @@ function renderizar() {
           contenedor.querySelector("[data-textos-vista-reintentar]")?.focus({ preventScroll: true });
         }
       });
-    } else esperarTextosDeVista(grupoTextos, vistaPendiente);
+    } else esperarTextosDeVista(grupoTextos);
     return;
   }
   const [migas, titulo] = tituloDeVista(estado.vista);
