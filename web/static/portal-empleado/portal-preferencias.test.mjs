@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
 import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
+import { peticionesEnSerie } from "../comun/imagen-propia.js";
 
 const valores = Object.freeze({ idioma: "es", tamano_texto: "normal", alto_contraste: false,
   tema: "sistema", inicio: "cuadro", filas: 20, aviso_correo_tareas: false, aviso_correo_plazos: false });
@@ -46,6 +47,19 @@ test("dos vistas comparten GET en vuelo y una cancelación no corta la otra", as
   resolver(respuesta(get));
   assert.equal((await segunda).estado.version, 0);
   assert.equal(llamadas, 1);
+});
+
+test("GET recupera después de una respuesta 503 grande sin romper la cola de Usuarios", async () => {
+  let llamadas = 0;
+  const enSerie = peticionesEnSerie(async () => {
+    llamadas++;
+    return llamadas === 1
+      ? new Response("x".repeat(70 * 1024), { status: 503, headers: { "Content-Type": "application/json" } })
+      : respuesta(get);
+  });
+  const cliente = crearClientePreferencias({ fetchImpl: enSerie });
+  assert.equal((await cliente.consultar()).estado.version, 0);
+  assert.equal(llamadas, 2);
 });
 
 test("v2 permite los seis temas; v1 rechaza un tema adelantado", async () => {

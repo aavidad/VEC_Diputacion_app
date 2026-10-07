@@ -81,6 +81,38 @@ test("la cola de peticiones no deja dos en vuelo a la vez", async () => {
   assert.deepEqual(await resultados[2].value.json(), { ok: "/b" });
 });
 
+test("la cola acota preferencias a 64 KiB sin recortar la respuesta de imagen", async () => {
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async (ruta) => {
+    llamadas++;
+    if (ruta.endsWith("mis-preferencias")) return new Response("x".repeat(70 * 1024), { headers: { "Content-Type": "application/json" } });
+    return new Response("x".repeat(200 * 1024), { headers: { "Content-Type": "application/json" } });
+  });
+  await assert.rejects(serie("/api/vec/usuarios/mis-preferencias", {}), /respuesta_serie_demasiado_grande/u);
+  const imagen = await serie("/api/vec/usuarios/mi-imagen", {});
+  assert.equal((await imagen.arrayBuffer()).byteLength, 200 * 1024);
+  assert.equal(llamadas, 2);
+});
+
+test("cancelar un cuerpo bloqueado libera la cola para la siguiente petición", async () => {
+  let leyendo;
+  const lectura = new Promise((resolve) => { leyendo = resolve; });
+  let llamadas = 0;
+  const serie = peticionesEnSerie(async () => {
+    llamadas++;
+    if (llamadas === 1) return new Response(new ReadableStream({ pull() { leyendo(); return new Promise(() => {}); } }));
+    return respuesta({ recuperado: true });
+  });
+  const controlador = new AbortController();
+  const primera = serie("/api/vec/usuarios/mis-preferencias", { signal: controlador.signal });
+  const segunda = serie("/api/vec/usuarios/mis-preferencias", {});
+  await lectura;
+  controlador.abort();
+  await assert.rejects(primera, /respuesta_serie_cancelada/u);
+  assert.deepEqual(await (await segunda).json(), { recuperado: true });
+  assert.equal(llamadas, 2);
+});
+
 /** Elemento mínimo para pintar avatares sin DOM real. */
 function elementoPrueba() {
   const clases = new Set(["avatar"]);
