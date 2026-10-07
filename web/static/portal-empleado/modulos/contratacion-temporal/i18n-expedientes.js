@@ -3,9 +3,10 @@ import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.j
 import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
-  ...mensajesTramite("es"),
+  ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_FICHA_LISTA_ES,
   justificante_registrado: "Justificante registrado",
@@ -342,7 +343,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
 
 /** British English texts for the temporary staff requests case-file interface. */
 export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
-  ...mensajesTramite("en"),
+  ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_EN,
   ...MENSAJES_FICHA_LISTA_EN,
   justificante_registrado: "Acknowledgement recorded",
@@ -682,7 +683,9 @@ export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {
     || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes de expedientes no válidos");
   }
-  const mensajes = { ...MENSAJES_EXPEDIENTES_CONTRATACION_ES, ...sobrescrituras };
+  const base = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+    ? MENSAJES_EXPEDIENTES_CONTRATACION_ES : MENSAJES_EXPEDIENTES_CONTRATACION_EN;
+  const mensajes = { ...base, ...sobrescrituras };
   for (const [clave, valor] of Object.entries(mensajes)) {
     if (typeof valor !== "string" || valor.trim() === "") {
       throw new TypeError(`mensaje ${clave} no válido`);
