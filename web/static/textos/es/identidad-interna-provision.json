@@ -2,16 +2,16 @@
   "idioma": "es",
   "mensajes": {
     "limite": "Ejercicio sintético. No asigna empleo, perfiles ni acceso al portal.",
-    "uso_invalido": "Revisa el subcomando y los archivos indicados.",
+    "uso_invalido": "Los parámetros no son válidos. Ejecute --help y vuelva a indicar los archivos necesarios.",
     "entrada_insegura": "El archivo privado no cumple los permisos o la ruta exigidos.",
     "entrada_invalida": "El plan, la aprobación o la conexión no coinciden.",
     "acuse_inseguro": "No se pudo preparar el archivo de salida privado.",
-    "operacion_no_confirmada": "La autoridad SQL no confirmó la operación.",
-    "commit_no_confirmado": "El COMMIT no pudo confirmarse. Usa reconcile con el mismo plan; no cambies la operación.",
-    "acuse_no_guardado": "La operación se confirmó, pero el acuse no quedó guardado. Usa reconcile.",
-    "fuentes_confirmadas": "Identidad ordinaria sintética confirmada.",
-    "fuentes_rechazadas": "La autoridad SQL denegó la operación.",
-    "fuentes_no_disponibles": "La autoridad SQL no está disponible.",
+    "operacion_no_confirmada": "No se pudo confirmar la solicitud. Conserve los archivos y compruebe el resultado con reconcile antes de repetir apply.",
+    "commit_no_confirmado": "No se sabe si el alta quedó registrada. Conserve plan, conexión y aprobación; ejecute reconcile con un acuse nuevo. No repita apply.",
+    "acuse_no_guardado": "La respuesta quedó confirmada, pero no se guardó el acuse. Conserve los mismos archivos y ejecute reconcile con un acuse nuevo.",
+    "identidad_confirmada": "Persona sintética y cuenta ordinaria registradas.",
+    "identidad_rechazada": "La solicitud fue denegada y el intento quedó auditado. Consulte el acuse privado.",
+    "identidad_no_disponible": "No se completó la solicitud; el intento quedó auditado. Consulte el acuse privado.",
     "plan_preparado": "Plan preparado. Requiere aprobación privada y aplicación por la autoridad SQL."
   }
 }

@@ -32,19 +32,24 @@ type datosTextos struct {
 	Mensajes map[string]string `json:"mensajes"`
 }
 type diagnostico struct {
-	Codigo        string `json:"codigo"`
-	Mensaje       string `json:"mensaje"`
-	Limite        string `json:"limite"`
-	Estado        string `json:"estado"`
-	Confirmado    bool   `json:"confirmado"`
-	AcuseGuardado bool   `json:"acuse_guardado"`
-	Replay        bool   `json:"replay"`
+	Codigo                string `json:"codigo"`
+	Mensaje               string `json:"mensaje"`
+	Limite                string `json:"limite"`
+	Estado                string `json:"estado"`
+	TransaccionConfirmada bool   `json:"transaccion_confirmada"`
+	AcuseGuardado         bool   `json:"acuse_guardado"`
+	Replay                bool   `json:"replay"`
 }
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr, nuevaTransaccionPG)) }
 func ejecutar(args []string, salida, errores io.Writer, abrir abrirTransaccion) int {
 	if len(args) == 0 {
-		return informarFalloCatalogo(errores, os.ErrInvalid)
+		return escribirAyuda(errores, 1)
+	}
+	for _, argumento := range args {
+		if argumento == "--help" || argumento == "-h" || argumento == "help" {
+			return escribirAyuda(salida, 0)
+		}
 	}
 	modo := args[0]
 	args = args[1:]
@@ -141,20 +146,34 @@ func ejecutar(args []string, salida, errores io.Writer, abrir abrirTransaccion) 
 	defer clear(b)
 	b = append(b, '\n')
 	if _, err = archivo.Write(b); err != nil {
-		return emitir(errores, diagnostico{Codigo: "acuse_no_guardado", Estado: e.Estado, Confirmado: true, Replay: e.Replay}, 2)
+		return emitir(errores, diagnostico{Codigo: "acuse_no_guardado", Estado: e.Estado, TransaccionConfirmada: true, Replay: e.Replay}, 2)
 	}
 	if archivo.Sync() != nil || archivo.Close() != nil {
-		return emitir(errores, diagnostico{Codigo: "acuse_no_guardado", Estado: e.Estado, Confirmado: true, Replay: e.Replay}, 2)
+		return emitir(errores, diagnostico{Codigo: "acuse_no_guardado", Estado: e.Estado, TransaccionConfirmada: true, Replay: e.Replay}, 2)
 	}
 	guardado = true
-	codigo, exit := "fuentes_confirmadas", 0
+	codigo, exit := "identidad_confirmada", 0
 	if e.Estado == "denegado" {
-		codigo, exit = "fuentes_rechazadas", 1
+		codigo, exit = "identidad_rechazada", 1
 	}
 	if e.Estado == "error" {
-		codigo, exit = "fuentes_no_disponibles", 1
+		codigo, exit = "identidad_no_disponible", 1
 	}
-	return emitir(salida, diagnostico{Codigo: codigo, Estado: e.Estado, Confirmado: true, AcuseGuardado: true, Replay: e.Replay}, exit)
+	return emitir(salida, diagnostico{Codigo: codigo, Estado: e.Estado, TransaccionConfirmada: true, AcuseGuardado: true, Replay: e.Replay}, exit)
+}
+func escribirAyuda(destino io.Writer, salida int) int {
+	ayuda := struct {
+		Codigo   string              `json:"codigo"`
+		Comandos map[string][]string `json:"comandos"`
+	}{Codigo: "ayuda", Comandos: map[string][]string{
+		"plan":      {"--fuente", "--plan", "--textos"},
+		"apply":     {"--plan", "--conexion", "--aprobacion", "--acuse", "--textos", "--timeout"},
+		"reconcile": {"--plan", "--conexion", "--aprobacion", "--acuse", "--textos", "--timeout"},
+	}}
+	if json.NewEncoder(destino).Encode(ayuda) != nil {
+		return 2
+	}
+	return salida
 }
 func rutasDistintas(rutas ...string) bool {
 	vistas := map[string]bool{}
@@ -189,7 +208,7 @@ func cargarTextos(ruta string) (*i18n.Catalog, string, error) {
 	if decodificarEstricto(b, &datos) != nil {
 		return nil, "", os.ErrInvalid
 	}
-	claves := []string{"limite", "uso_invalido", "entrada_insegura", "entrada_invalida", "acuse_inseguro", "operacion_no_confirmada", "commit_no_confirmado", "acuse_no_guardado", "fuentes_confirmadas", "fuentes_rechazadas", "fuentes_no_disponibles", "plan_preparado"}
+	claves := []string{"limite", "uso_invalido", "entrada_insegura", "entrada_invalida", "acuse_inseguro", "operacion_no_confirmada", "commit_no_confirmado", "acuse_no_guardado", "identidad_confirmada", "identidad_rechazada", "identidad_no_disponible", "plan_preparado"}
 	if len(datos.Mensajes) != len(claves) {
 		return nil, "", os.ErrInvalid
 	}

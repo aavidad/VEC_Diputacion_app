@@ -63,6 +63,35 @@ func (t *txDoble) Recuperar(context.Context, string, string) ([]byte, error) {
 }
 func (t *txDoble) Confirmar(context.Context) error { t.commits++; return t.commitErr }
 func (t *txDoble) Cerrar(context.Context)          { t.cerradas++ }
+func TestAyudaSinCatalogoYMensajesEnDosIdiomas(t *testing.T) {
+	for _, caso := range []struct {
+		args []string
+		exit int
+	}{{nil, 1}, {[]string{"--help"}, 0}} {
+		var salida, errores bytes.Buffer
+		codigo := ejecutar(caso.args, &salida, &errores, nil)
+		if codigo != caso.exit {
+			t.Fatalf("help exit=%d, want %d", codigo, caso.exit)
+		}
+		b := salida.Bytes()
+		if codigo != 0 {
+			b = errores.Bytes()
+		}
+		var ayuda struct {
+			Codigo   string              `json:"codigo"`
+			Comandos map[string][]string `json:"comandos"`
+		}
+		if json.Unmarshal(b, &ayuda) != nil || ayuda.Codigo != "ayuda" || len(ayuda.Comandos) != 3 || len(ayuda.Comandos["reconcile"]) == 0 {
+			t.Fatal("help missing without catalogue")
+		}
+	}
+	for _, idioma := range []string{"es", "en"} {
+		_, _, err := cargarTextos("../../web/static/textos/" + idioma + "/identidad-interna-provision.json")
+		if err != nil {
+			t.Fatalf("catalogue %s: %v", idioma, err)
+		}
+	}
+}
 func txDenegada() *txDoble {
 	codigo := "identidad_rechazada"
 	b, _ := json.Marshal(envoltura{Estado: "denegado", Codigo: &codigo, AuditoriaIntento: auditoriaIntento{AuditoriaRef: "aud_1", Secuencia: 1, HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: "cor_1", RegistradaEn: "2026-10-07T00:00:00Z"}})
