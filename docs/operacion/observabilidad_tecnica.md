@@ -13,15 +13,15 @@ semánticas de OpenTelemetry, que entienden las herramientas habituales de
 registros; los propios de VEC empiezan por `vec.`. Las duraciones van en
 segundos.
 
-Los dos ejemplos de esta guía son salida real del registro, pero de un
-manejador sintético: rutas que existen en `vec-server`, un binario compilado
+Los dos ejemplos de esta guía son capturas históricas del registro de un
+manejador sintético, anteriores a la lista positiva de alias: rutas que existen en `vec-server`, un binario compilado
 con la revisión marcada, PostgreSQL 18.4 desechable con un pool de 2
 conexiones y unas funciones de PostgreSQL de prueba (`vec_bolsa.listar_participaciones`
 tarda 0,4 s; `vec_bolsa.consultar_participacion` se llama 30 veces, una por
 fila). No proceden de la principal.
 
 ```json
-{"time":"2026-10-06T16:18:06.94+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"72cf97a1c07e","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","url.path":"/api/vec/bolsa/mi-bolsa/historial","http.response.status_code":200,"http.server.request.duration":0.4069,"http.response.body.size":0,"vec.correlacion":"fdc3a21b2ddcc57c2fd7149dade6cf24","vec.bd.consultas":31,"vec.bd.duracion":0.4036,"vec.bd.espera_conexion":0.0033,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"select","vec.bd.consulta_mas_lenta.duracion":0.4014}
+{"time":"2026-10-06T16:18:06.94+02:00","level":"WARN","msg":"http.server.request","service.name":"vec-server","service.version":"72cf97a1c07e","deployment.environment.name":"desarrollo","vec.superficie":"interno","http.request.method":"GET","url.path":"/api/vec/bolsa/mi-bolsa/historial","http.response.status_code":200,"http.server.request.duration":0.4069,"http.response.body.size":0,"vec.correlacion":"fdc3a21b2ddcc57c2fd7149dade6cf24","vec.bd.consultas":31,"vec.bd.duracion":0.4036,"vec.bd.espera_conexion":0.0033,"vec.lenta":true,"vec.bd.consulta_mas_lenta":"vec_bolsa.listar_participaciones","vec.bd.consulta_mas_lenta.duracion":0.4014}
 ```
 
 | Campo | Qué es |
@@ -111,11 +111,11 @@ cuatro clases de error y otro grupo `otras`. La consulta más lenta mantiene su
 medida propia aunque su grupo se haya resumido en `otras`.
 
 Los alias proceden de una lista positiva de operaciones técnicas conocidas.
-Una consulta sin alias se reduce a un verbo cerrado, como `select`, y suma
+Una consulta normal sin alias se reduce a un verbo cerrado, como `select`, y suma
 `vec.bd.operaciones_desconocidas`. La clasificación usa los primeros 2048 bytes:
 es diagnóstica, no un análisis semántico del SQL. Nunca se registran SQL,
-argumentos, identificadores dinámicos ni texto libre del error. El ejemplo
-anterior de Bolsa se registra como `select`, porque no está en esa lista.
+argumentos, identificadores dinámicos ni texto libre del error. Con la clasificación actual, la operación de Bolsa del ejemplo histórico se
+registra como `select`, porque no está en esa lista. No se ha repetido ese ensayo.
 
 Para los lotes, `vec.bd.lotes` cuenta cierres; `vec.bd.lote.resultados_observados`
 cuenta callbacks de resultado y `vec.bd.lote.errores` los fallos observados.
