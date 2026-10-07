@@ -1,4 +1,8 @@
 import test from "node:test";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import {
   crearControladorOperacionesSituacion,

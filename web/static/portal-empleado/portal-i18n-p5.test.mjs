@@ -23,7 +23,7 @@ test("las fases del shell proceden del portal solicitado, también al pedir el o
   }
 });
 
-test("si falla un catálogo inglés, el shell muestra un conjunto español coherente sin importar CT", async () => {
+test("si falla Ayuda en inglés, la base conserva inglés y la carga completa explícita vuelve a español", async () => {
   const temporal = await mkdtemp(path.join(tmpdir(), "vec-portal-p5-"));
   try {
     const raiz = new URL("../", import.meta.url);
@@ -48,12 +48,12 @@ test("si falla un catálogo inglés, el shell muestra un conjunto español coher
       const textos = await import(new URL('../comun/textos.js', process.argv[1]));
       const espanol = (await textos.cargarTextos('portal', { idioma: 'es' })).seccion('fases_rrhh');
       const resultado = await cargarMensajesPortal('en');
-      assert.equal(MENSAJES_PORTAL.tramite_fase_solicitud, espanol.fase_solicitud);
+      assert.equal(MENSAJES_PORTAL.tramite_fase_solicitud, (await textos.cargarTextos('portal', { idioma: 'en' })).seccion('fases_rrhh').fase_solicitud);
       assert.equal(resultado.tramite_fase_solicitud, espanol.fase_solicitud);
       assert.equal(resultado.txt_modulos, (await textos.cargarTextos('portal', { idioma: 'es' })).seccion('textos').txt_modulos);
       assert.equal(MENSAJES_BOLSA_INTERNA.fecha_sin_valor,
-        (await textos.cargarTextos('portal', { idioma: 'es' })).seccion('bolsa_interna').fecha_sin_valor);
-      assert.equal(LOCALIZACION_PORTAL, 'es-ES');
+        (await textos.cargarTextos('portal', { idioma: 'en' })).seccion('bolsa_interna').fecha_sin_valor);
+      assert.equal(LOCALIZACION_PORTAL, 'en-GB');
     `;
     const salida = await ejecutar(process.execPath, ["--input-type=module", "-e", script, entrada]);
     assert.equal(salida.stderr.includes("ERR_MODULE_NOT_FOUND"), false);

@@ -4,8 +4,24 @@ import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from
 import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
 import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
+import { prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
-const textosCorreos = await cargarTextosCorreos();
+let textosCorreos = null;
+const textosDiferidos = Object.freeze({
+  traducir: (...args) => {
+    if (!textosCorreos) throw new Error("textos de preferencias pendientes de preparación");
+    return textosCorreos.traducir(...args);
+  },
+  fecha: (...args) => {
+    if (!textosCorreos) throw new Error("textos de preferencias pendientes de preparación");
+    return textosCorreos.fecha(...args);
+  },
+});
+function aplazarCarga(superficie) {
+  return Object.freeze({ ...superficie,
+    cargar: (...args) => textosCorreos ? superficie.cargar(...args) : Promise.resolve(null),
+  });
+}
 
 /** Adapta la autoridad de Usuarios al shell RRHH sin replicar su tema ni guardar datos locales. */
 export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, estado, renderizar,
@@ -50,12 +66,12 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
   // desarrollo no admite dos altas de sesión simultáneas de la misma cuenta.
   const enSerie = peticionesEnSerie(globalThis.fetch.bind(globalThis));
   const marco = { panel: "panel pref-panel", cabecera: "div", claseCabecera: "cabecera-panel", cuerpo: "cuerpo-panel" };
-  const correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/mis-correos", fetchImpl: enSerie }),
-    textos: textosCorreos, marco });
+  const correos = aplazarCarga(crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/mis-correos", fetchImpl: enSerie }),
+    textos: textosDiferidos, marco }));
   const avatar = crearAvatarCabecera(porId("sesion-visible")?.querySelector(".avatar"));
   let iniciales = "";
-  const imagen = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
-    textos: textosCorreos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales });
+  const imagen = aplazarCarga(crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
+    textos: textosDiferidos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales }));
   const clientePreferencias = crearClientePreferencias({ fetchImpl: enSerie });
   const superficie = crearSuperficiePreferenciasPortal({
     cliente: clientePreferencias,
@@ -83,6 +99,7 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     };
     boton.addEventListener("click", () => {
       if (!menu.hidden) { cerrar(true); return; }
+      opcion.textContent = traducir("preferencias_titulo_base");
       menu.hidden = false;
       boton.setAttribute("aria-expanded", "true");
       opcion.focus({ preventScroll: true });
@@ -110,11 +127,19 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
       return;
     }
     const aviso = porId("aviso-inicio-preferido");
-    aviso.textContent = traducir("preferencias_destino_no_disponible");
+    aviso.textContent = traducir(textosGrupoPortalPreparados("preferencias")
+      ? "preferencias_destino_no_disponible" : "vista_no_disponible_texto");
     aviso.hidden = false;
     anunciar(aviso.textContent);
   }
   function fijarIniciales(texto) { iniciales = String(texto ?? ""); avatar.fijarIniciales(iniciales); }
-  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales,
+  async function prepararTextosPreferencias() {
+    const preparado = await prepararTextosPortal("preferencias");
+    textosCorreos ??= await cargarTextosCorreos({ idioma: preparado.idioma });
+    if (["sin_cargar", "error"].includes(imagen.leerCarga())) void imagen.cargar();
+    if (["sin_cargar", "error"].includes(correos.leerCarga())) void correos.cargar();
+    return preparado;
+  }
+  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales, prepararTextosPreferencias,
     detenerRegistroErrores: clientePreferencias.detenerRegistroErrores });
 }

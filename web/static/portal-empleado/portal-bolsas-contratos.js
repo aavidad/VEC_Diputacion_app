@@ -15,10 +15,26 @@ const POR_PAGINA = 6;
 export async function cargarMensajesContratos(idioma) {
   return (await cargarTextos("bolsa", { idioma })).seccion("contratos_participacion");
 }
-export const MENSAJES_CONTRATOS = await cargarMensajesContratos();
+export let MENSAJES_CONTRATOS;
+let preparacionContratos = null;
+/** La ficha de Bolsa prepara su catálogo al abrir, conservando la instancia y el idioma activo. */
+export function prepararMensajesContratos(idioma) {
+  if (MENSAJES_CONTRATOS) return Promise.resolve(MENSAJES_CONTRATOS);
+  if (preparacionContratos) return preparacionContratos;
+  preparacionContratos = cargarMensajesContratos(idioma).then((catalogo) => {
+    if (!catalogo || typeof catalogo !== "object" || Object.keys(catalogo).length === 0
+      || Object.values(catalogo).some((valor) => typeof valor !== "string" || valor.trim() === "")) {
+      throw new Error("catálogo de contratos de Bolsa incompleto");
+    }
+    MENSAJES_CONTRATOS = Object.freeze({ ...catalogo });
+    return MENSAJES_CONTRATOS;
+  }).catch((error) => { preparacionContratos = null; throw error; });
+  return preparacionContratos;
+}
 
 /** Traductor estricto: una clave inexistente es un error de programación. */
 export function traducirContratos(clave, variables = {}, catalogo = MENSAJES_CONTRATOS) {
+  if (!catalogo || typeof catalogo !== "object") throw new Error("textos de contratos pendientes de preparación");
   const plantilla = catalogo[clave];
   if (!Object.hasOwn(catalogo, clave) || typeof plantilla !== "string") throw new Error(`Clave i18n de contratos inexistente: ${clave}`);
   return plantilla.replace(/\{(\w+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));

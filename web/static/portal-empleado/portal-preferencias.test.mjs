@@ -3,6 +3,8 @@ import test from "node:test";
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
 import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261001-ct-a-i18n-v1";
 import { peticionesEnSerie } from "../comun/imagen-propia.js";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+await prepararTextosPortal("preferencias");
 
 const valores = Object.freeze({ idioma: "es", tamano_texto: "normal", alto_contraste: false,
   tema: "sistema", inicio: "cuadro", filas: 20, aviso_correo_tareas: false, aviso_correo_plazos: false });

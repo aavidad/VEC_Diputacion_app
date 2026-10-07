@@ -6,10 +6,11 @@ globalThis.location = { href: "https://vec.example/portal-empleado/?lang=es" };
 const idiomaPreparado = await import("../comun/idioma.js");
 await idiomaPreparado.prepararIdiomas();
 const { IDIOMA_ACTUAL } = idiomaPreparado;
+const { crearTraductorPortal, MENSAJES_PORTAL, prepararTextosPortal } = await import("./portal-i18n.js?v=20261001-ct-a-i18n-v1");
+await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA, AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
 const ayudaDe = async (idioma) => JSON.parse(await readFile(new URL(`../textos/${idioma}/portal-ayuda.json`, import.meta.url), "utf8")).ayuda;
 const [MENSAJES_AYUDA_PORTAL, MENSAJES_AYUDA_EN] = await Promise.all([ayudaDe("es"), ayudaDe("en")]);
-const { crearTraductorPortal, MENSAJES_PORTAL } = await import("./portal-i18n.js");
 
 const CLAVES_INICIO = Object.keys(MENSAJES_AYUDA_PORTAL)
   .filter((clave) => clave.startsWith("ayuda_rrhh_portada_"));
