@@ -53,19 +53,44 @@ CREATE TABLE vec_autorizacion.outbox_gobierno_rol_nuevo_v1(
  operacion_ref text PRIMARY KEY,evento text NOT NULL CHECK(evento IN('definicion_propuesta','definicion_publicada')),
  auditoria_ref text NOT NULL,creada_en timestamptz(6) NOT NULL CHECK(isfinite(creada_en))
 );
-DO $tablas$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['propuesta_gobierno_rol_nuevo_v1','cierre_gobierno_rol_nuevo_v1','outbox_gobierno_rol_nuevo_v1'] LOOP
-  EXECUTE format('ALTER TABLE vec_autorizacion.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_autorizacion.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY propietario_exacto ON vec_autorizacion.%I TO vec_autorizacion_propietario USING(current_user=''vec_autorizacion_propietario'') WITH CHECK(current_user=''vec_autorizacion_propietario'')',t);
-  EXECUTE format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable()',t);
-  EXECUTE format('CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable()',t);
-  EXECUTE format('REVOKE ALL ON TABLE vec_autorizacion.%I FROM PUBLIC',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_autorizacion.%I FROM PUBLIC',t);
- END LOOP;
-END $tablas$;
+ALTER TABLE vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.propuesta_gobierno_rol_nuevo_v1
+ TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario')
+ WITH CHECK(current_user='vec_autorizacion_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.propuesta_gobierno_rol_nuevo_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.propuesta_gobierno_rol_nuevo_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+REVOKE ALL ON TABLE vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 FROM PUBLIC;
+
+ALTER TABLE vec_autorizacion.cierre_gobierno_rol_nuevo_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.cierre_gobierno_rol_nuevo_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.cierre_gobierno_rol_nuevo_v1
+ TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario')
+ WITH CHECK(current_user='vec_autorizacion_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.cierre_gobierno_rol_nuevo_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.cierre_gobierno_rol_nuevo_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+REVOKE ALL ON TABLE vec_autorizacion.cierre_gobierno_rol_nuevo_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.cierre_gobierno_rol_nuevo_v1 FROM PUBLIC;
+
+ALTER TABLE vec_autorizacion.outbox_gobierno_rol_nuevo_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.outbox_gobierno_rol_nuevo_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.outbox_gobierno_rol_nuevo_v1
+ TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario')
+ WITH CHECK(current_user='vec_autorizacion_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.outbox_gobierno_rol_nuevo_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.outbox_gobierno_rol_nuevo_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+REVOKE ALL ON TABLE vec_autorizacion.outbox_gobierno_rol_nuevo_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.outbox_gobierno_rol_nuevo_v1 FROM PUBLIC;
 
 -- Serialización cerrada de los structs Go. No se confunde jsonb::text con
 -- json.Marshal: se conservan orden, omitempty, escape HTML y fecha cero.
