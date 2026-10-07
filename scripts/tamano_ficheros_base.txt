@@ -108,10 +108,10 @@
 1022 web/static/portal-empleado/portal-componentes.css
 1200 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
-890 web/static/portal-empleado/portal-bolsas.test.mjs
 1027 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+919 web/static/portal-empleado/portal-bolsas.test.mjs
 820 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
-868 web/static/portal-empleado/portal-panel-interno.js
+874 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 1978 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 813 internal/app/server/server_test.go

@@ -256,6 +256,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]) versionesEspeciales.set(ruta, "20261007-ct-ficha-final-v1");
   versionesEspeciales.set("portal.js", "20261007-ct-ficha-b7-v1");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261007-ct-ficha-b7-v1");
+  for (const ruta of [
+    "portal.js", "portal-panel-interno.js", "portal-bolsas-operaciones.js",
+    "portal-bolsas-reincorporaciones.js", "portal-bolsas-api.js",
+    "portal-bolsas-ofertas.js", "portal-bolsas-sanciones.js",
+    "portal-bolsas-historial-ofrecimientos.js",
+  ]) versionesEspeciales.set(ruta, "20261007-bolsa-ficha-estadisticas-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -393,5 +399,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-ct-ficha-b7-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261007-bolsa-ficha-estadisticas-v1");
 });
