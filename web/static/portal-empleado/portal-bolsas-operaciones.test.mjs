@@ -100,10 +100,43 @@ test("metadatos documentales indisponibles se reintentan antes de leer solicitud
       preventDefault() {} });
     await new Promise((terminar) => setImmediate(terminar));
     estado.modalFicha = null;
+    estado.bolsaSeleccionada = "bolsa:otra";
     estadoCap = "disponible";
     resolver();
     await new Promise((terminar) => setImmediate(terminar));
     assert.equal(documentales, 1, "la ficha cerrada descarta el refresco tardío");
+    estado.modalFicha = modal;
+    estado.bolsaSeleccionada = "bolsa:uno";
+    estadoCap = "indisponible";
+    assert.equal(modal.operacionesB8.solicitudesCargando, false,
+      "la ficha conservada permite volver a reintentar");
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(refrescos, 3);
+    assert.equal(documentales, 1);
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 2);
+    estadoCap = "indisponible";
+    await controlador.cargar(modal, { incluirSecciones: false });
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    const resolverAntiguo = resolver;
+    await controlador.cargar(modal, { incluirSecciones: false });
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    resolverAntiguo();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(modal.operacionesB8.solicitudesCargando, true,
+      "el refresco viejo no libera el intento nuevo");
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 3);
   } finally { globalThis.fetch = anterior; }
 });
 

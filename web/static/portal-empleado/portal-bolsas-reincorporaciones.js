@@ -250,11 +250,18 @@ export function manejarClickReincorporacionesTitular(evento, { estado, renderiza
           ...(consultar ? { consultar } : {}) });
         return true;
       }
-      modal.reincorporacionesTitular.metadatosCargando = true;
+      const estadoReintento = modal.reincorporacionesTitular;
+      const intento = Symbol("reintento_metadatos_reincorporaciones");
+      estadoReintento.intentoMetadatos = intento;
+      estadoReintento.metadatosCargando = true;
       renderizar();
       void Promise.resolve().then(() => reintentarDisponibilidadOpcional("reincorporaciones_titular", contexto))
         .catch(() => { console.warn({ origen: "bolsa.reincorporaciones.metadatos", codigo: "no_disponible" }); })
         .then(() => {
+          if (modal.reincorporacionesTitular !== estadoReintento
+            || estadoReintento.intentoMetadatos !== intento) return;
+          estadoReintento.metadatosCargando = false;
+          delete estadoReintento.intentoMetadatos;
           if (estado.modalFicha !== modal || estado.bolsaSeleccionada !== contexto.bolsa_ref
             || modal.candidato?.participacion_ref !== contexto.participacion_ref) return;
           void cargarReincorporacionesTitularFicha(modal, { estado, renderizar, obtenerDisponibilidad,

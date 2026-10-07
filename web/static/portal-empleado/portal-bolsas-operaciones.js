@@ -377,6 +377,14 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const controlador = modal.controladorOperaciones;
     if (!flujo || flujo.solicitudesCargando || !controlador || controlador.signal.aborted
       || [401, 403].includes(flujo.solicitudesStatus)) return;
+    const intento = Symbol("reintento_solicitudes");
+    flujo.intentoSolicitudes = intento;
+    const mismoIntento = () => modal.operacionesB8 === flujo && flujo.intentoSolicitudes === intento;
+    const liberarIntento = () => {
+      if (!mismoIntento()) return;
+      flujo.solicitudesCargando = false;
+      delete flujo.intentoSolicitudes;
+    };
     flujo.solicitudesCargando = true;
     renderizar();
     const bolsaRef = estado.bolsaSeleccionada;
@@ -392,11 +400,14 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       }
     }
     if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo
-      || estado.bolsaSeleccionada !== bolsaRef || modal.candidato?.participacion_ref !== participacionRef) return;
+      || estado.bolsaSeleccionada !== bolsaRef || modal.candidato?.participacion_ref !== participacionRef) {
+      liberarIntento();
+      return;
+    }
     disponibilidad = disponibilidadDe("solicitudes_documentales", modal);
     if (disponibilidad?.estado !== "disponible") {
       const resultado = sinDisponibilidad(disponibilidad);
-      flujo.solicitudesCargando = false;
+      liberarIntento();
       flujo.solicitudesDocumentales = [];
       flujo.solicitudesError = resultado.mensaje;
       flujo.solicitudesStatus = null;
@@ -413,10 +424,13 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     } catch {
       respuesta = { ok: false, status: 0, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
     }
-    if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo) return;
+    if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo) {
+      liberarIntento();
+      return;
+    }
     if (disponibilidadDe("solicitudes_documentales", modal)?.estado !== "disponible") {
       const resultado = sinDisponibilidad(disponibilidadDe("solicitudes_documentales", modal));
-      flujo.solicitudesCargando = false;
+      liberarIntento();
       flujo.solicitudesDocumentales = [];
       flujo.solicitudesError = resultado.mensaje;
       flujo.solicitudesStatus = null;
@@ -426,7 +440,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       renderizar();
       return;
     }
-    flujo.solicitudesCargando = false;
+    liberarIntento();
     flujo.solicitudesDocumentales = respuesta.ok ? respuesta.datos : [];
     flujo.solicitudesError = respuesta.ok ? "" : respuesta.mensaje;
     flujo.solicitudesStatus = respuesta.ok ? 200 : respuesta.status;

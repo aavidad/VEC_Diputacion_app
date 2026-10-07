@@ -88,6 +88,45 @@ test("metadatos indisponibles muestran reintento sin leer la ficha hasta recuper
   assert.equal(modal.reincorporacionesTitular.carga, "listo");
 });
 
+test("volver a la bolsa tras un refresco descartado permite otro reintento", async () => {
+  const modal = { candidato: { participacion_ref: "participacion:uno" } };
+  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+  let estadoCap = "indisponible", consultas = 0, refrescos = 0, resolver;
+  const registro = () => ({ estado: estadoCap, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" });
+  const consultar = async () => { consultas++; return { ok: true, datos: [] }; };
+  const opciones = { estado, renderizar() {}, consultar, resolverDisponibilidadOpcional: registro,
+    reintentarDisponibilidadOpcional: () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); } };
+  const pulsar = () => manejarClickReincorporacionesTitularReal({
+    target: { closest: () => ({ dataset: { reincorporacionAccion: "reintentar" } }) }, preventDefault() {},
+  }, opciones);
+  await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
+    obtenerDisponibilidad: registro });
+  pulsar();
+  await new Promise((terminar) => setImmediate(terminar));
+  estado.bolsaSeleccionada = "bolsa:otra";
+  resolver();
+  await new Promise((terminar) => setImmediate(terminar));
+  estado.bolsaSeleccionada = "bolsa:uno";
+  assert.equal(modal.reincorporacionesTitular.metadatosCargando, false);
+  pulsar();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(refrescos, 2);
+  assert.equal(consultas, 0);
+  const resolverAntiguo = resolver;
+  await cargarReincorporacionesTitularFichaReal(modal, { estado, renderizar() {}, consultar,
+    obtenerDisponibilidad: registro });
+  pulsar();
+  await new Promise((terminar) => setImmediate(terminar));
+  resolverAntiguo();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(modal.reincorporacionesTitular.metadatosCargando, true,
+    "el refresco anterior no borra el indicador del nuevo");
+  estadoCap = "disponible";
+  resolver();
+  await new Promise((terminar) => setImmediate(terminar));
+  assert.equal(consultas, 1);
+});
+
 const escaparHTML = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const item = Object.freeze({
   evento_ref: "evento:ct:1", expediente_ref: "expediente:ct:1", relacion_ref: "relacion:1",
