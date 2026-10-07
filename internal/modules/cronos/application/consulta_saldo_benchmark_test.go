@@ -1,6 +1,7 @@
 package application
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -34,9 +35,10 @@ func fuenteAnualBenchmarkSaldo(b *testing.B) (time.Time, time.Time, *time.Locati
 		for i := 0; i < pares; i++ {
 			entrada := inicio.Add(time.Duration(i*20) * time.Minute).UTC()
 			salida := entrada.Add(10 * time.Minute)
+			ref := clave + "-" + strconv.Itoa(i)
 			fuente.Marcajes = append(fuente.Marcajes,
-				ports.MarcajeSaldo{MarcajeRef: clave + "-e", Movimiento: domain.PunchEntry, InstanteUTC: entrada, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"},
-				ports.MarcajeSaldo{MarcajeRef: clave + "-s", Movimiento: domain.PunchExit, InstanteUTC: salida, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"})
+				ports.MarcajeSaldo{MarcajeRef: ref + "-e", Movimiento: domain.PunchEntry, InstanteUTC: entrada, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"},
+				ports.MarcajeSaldo{MarcajeRef: ref + "-s", Movimiento: domain.PunchExit, InstanteUTC: salida, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"})
 		}
 		previsto := int64(pares * 10)
 		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})

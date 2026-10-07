@@ -270,8 +270,14 @@ func TestConsultaSaldoAgrupaMarcajesPorFechaLocalConDSTYOrdenDeFuente(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	desde, _ := fechaCivilSaldo("2026-10-24", zona)
-	hasta, _ := fechaCivilSaldo("2026-10-26", zona)
+	desde, err := fechaCivilSaldo("2026-10-24", zona)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasta, err := fechaCivilSaldo("2026-10-26", zona)
+	if err != nil {
+		t.Fatal(err)
+	}
 	marcaje := func(ref string, movimiento domain.PunchKind, instante time.Time) ports.MarcajeSaldo {
 		return ports.MarcajeSaldo{MarcajeRef: ref, Movimiento: movimiento, InstanteUTC: instante, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"}
 	}
