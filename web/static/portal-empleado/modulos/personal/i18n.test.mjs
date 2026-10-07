@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT } from "./i18n.js";
+import { readFile } from "node:fs/promises";
+import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT, prepararTextosPersonal } from "./i18n.js";
+
+test.before(async () => {
+  await prepararTextosPersonal();
+});
+
+test("el módulo se importa sin cargar textos y exige preparación antes de traducir", async () => {
+  const aislado = await import("./i18n.js?sin-preparar");
+  assert.equal(aislado.MENSAJES_PERSONAL, undefined);
+  assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
+});
 
 test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites", () => {
   const t = crearTraductorPersonal();
@@ -49,4 +60,42 @@ test("la fecha de estructura se presenta en castellano y Europe/Madrid", () => {
   assert.match(fecha, /Europe\/Madrid/);
   assert.doesNotMatch(fecha, /2026-09-06T00:00:00Z/);
   assert.throws(() => formatearFechaEstructuraOrganizativa("2026-09-06"), /no válida/);
+});
+
+test("Personal adopta el idioma efectivo y comunica la incidencia de respaldo", async () => {
+  const ingles = await prepararTextosPersonal({ idioma: "en", porDefecto: "es" });
+  assert.equal(ingles.idioma, "en");
+  assert.equal(ingles.localizacion, "en-GB");
+  assert.equal(ingles.incidenciaCatalogo, null);
+  assert.equal(formatearRecuentoCategorias(1_000), "1,000 categories");
+
+  const respaldo = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
+  const lecturas = [];
+  const resultado = await prepararTextosPersonal({
+    idioma: "en", porDefecto: "es", avisar: () => {},
+    leer: async (url) => {
+      lecturas.push(url.pathname);
+      if (url.pathname.endsWith("/en/personal.json")) throw new Error("catálogo temporalmente inaccesible");
+      return respaldo;
+    },
+  });
+  assert.equal(resultado.idioma, "es");
+  assert.equal(resultado.localizacion, "es-ES");
+  assert.equal(resultado.incidenciaCatalogo.codigo, "catalogo_no_disponible");
+  assert.deepEqual(lecturas.map((ruta) => ruta.match(/\/([^/]+)\/personal\.json$/u)[1]), ["en", "es"]);
+  assert.equal(formatearRecuentoCategorias(1_000), "1000 categorías");
+});
+
+test("un catálogo inaccesible no rompe la importación y permite otra preparación", async () => {
+  const aislado = await import("./i18n.js?recuperacion");
+  const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
+  await assert.rejects(aislado.prepararTextosPersonal({
+    idioma: "es", porDefecto: "es", avisar: () => {}, leer: async () => { throw new Error("sin catálogo"); },
+  }), /sin catálogo/);
+  assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
+  const recuperado = await aislado.prepararTextosPersonal({
+    idioma: "es", porDefecto: "es", avisar: () => {}, leer: async () => datos,
+  });
+  assert.equal(recuperado.idioma, "es");
+  assert.equal(aislado.crearTraductorPersonal()("catalogo_recuento_uno", { total: "1" }), "1 categoría");
 });
