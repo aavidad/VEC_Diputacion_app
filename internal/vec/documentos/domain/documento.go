@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 var ErrDocumentoInvalido = errors.New("documentos: documento invalido")
@@ -59,7 +61,7 @@ type Documento struct {
 
 func (d Documento) Validar() error {
 	if !ReferenciaOpacaValida(d.ID) || !NumeroVECValido(d.NumeroVEC) ||
-		!IdentificadorTecnicoValido(d.ModuloID) || !ReferenciaOpacaValida(d.ExpedienteRef) ||
+		!IdentificadorTecnicoValido(d.ModuloID) || !ReferenciaExpedienteModuloValida(d.ModuloID, d.ExpedienteRef) ||
 		!ReferenciaOpacaValida(d.TipoRef) || d.Version == 0 ||
 		!ReferenciaOpacaValida(d.PoliticaRef) || d.VersionPolitica == 0 ||
 		!HuellaValida(d.HuellaSHA256) || !HuellaValida(d.HuellaPoliticaSHA256) ||
@@ -141,6 +143,15 @@ var numeroVEC = regexp.MustCompile(`^VEC-[0-9]{4}-[0-9]{1,12}$`)
 
 func ReferenciaOpacaValida(s string) bool {
 	return referenciaHash.MatchString(s) && s != "ref:"+strings.Repeat("0", 64) || referenciaUUID.MatchString(s)
+}
+
+func ReferenciaExpedienteValida(s string) bool {
+	return ReferenciaOpacaValida(s) || vecdomain.ModuloReferenciaExpedienteV1(s) != ""
+}
+
+func ReferenciaExpedienteModuloValida(modulo, s string) bool {
+	moduloTipado := vecdomain.ModuloReferenciaExpedienteV1(s)
+	return ReferenciaOpacaValida(s) || moduloTipado != "" && moduloTipado == modulo
 }
 
 func IdentificadorTecnicoValido(s string) bool { return identificadorTecnico.MatchString(s) }
