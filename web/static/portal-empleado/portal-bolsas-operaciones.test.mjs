@@ -88,6 +88,131 @@ test("RRHH17 enlaza una solicitud documental pendiente sin cambiar estado al con
   assert.equal(incompleto.codigo, "respuesta_invalida");
 });
 
+test("403 documental queda aislado, sin reintento ni acción de regularizar", async () => {
+  const resultado = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", {
+    fetchImpl: async (_ruta, opciones) => {
+      assert.equal(opciones.method, "GET");
+      return response(403, { error: { detalle: "no exponer" } });
+    },
+  });
+  assert.equal(resultado.status, 403);
+  assert.equal(resultado.mensaje, "Acceso denegado");
+  const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "en_revision", estado_desde: desde },
+    estado: { carga: "listo", items: [], transiciones: transicionesRRHH18,
+      solicitudesDocumentales: [], solicitudesError: resultado.mensaje, solicitudesStatus: 403 } });
+  assert.match(vista, /Acceso denegado/u);
+  assert.doesNotMatch(vista, /data-b8-accion="reintentar-solicitudes"|data-operacion="regularizar"/u);
+});
+
+test("403 de operaciones no borra identidad o situación principal ni ofrece escritura", async () => {
+  const anterior = globalThis.fetch;
+  globalThis.fetch = async () => response(403, { error: { codigo: "acceso_denegado", detalle: "interno" } });
+  try {
+    const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+      estado_clave: "en_revision", estado_desde: desde } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {},
+      consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }),
+      consultarDocumentales: async () => ({ ok: false, status: 403, mensaje: "Acceso denegado" }),
+    });
+    await controlador.cargar(modal);
+    assert.equal(modal.candidato.nombre_visible, "Persona autorizada");
+    assert.equal(modal.candidato.estado_clave, "en_revision");
+    assert.equal(modal.candidato.estado_desde, desde);
+    assert.equal(modal.operacionesB8.carga, "error");
+    assert.equal(modal.operacionesB8.noDisponible, true);
+    const vista = renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 });
+    assert.match(vista, /Acceso denegado/u);
+    assert.doesNotMatch(vista, /data-b8-accion="reintentar"|data-b8-accion="reintentar-solicitudes"|data-operacion=/u);
+  } finally { globalThis.fetch = anterior; }
+});
+
+test("reintentar cada sección consulta solo su fuente y conserva al candidato autorizado", async () => {
+  const anterior = globalThis.fetch;
+  const rutas = [];
+  let operaciones = 0, documentales = 0, reglas = 0;
+  globalThis.fetch = async (ruta, opciones) => {
+    assert.equal(opciones.method, "GET");
+    rutas.push(String(ruta));
+    if (String(ruta).endsWith("/operaciones")) {
+      operaciones++;
+      return response(200, { data: { esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [],
+        situacion_vigente: { situacion: "en_revision", desde } } });
+    }
+    if (String(ruta).endsWith("/contratos")) return response(404, {});
+    if (String(ruta).endsWith("/reincorporaciones-titular")) return response(401, {});
+    assert.fail(`ruta no esperada: ${ruta}`);
+  };
+  try {
+    const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+      estado_clave: "en_revision", estado_desde: desde } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {},
+      consultarReglas: async () => { reglas++; return { ok: true, datos: { transiciones: transicionesRRHH18 } }; },
+      consultarDocumentales: async () => {
+        documentales++;
+        return documentales === 1
+          ? { ok: false, status: 503, mensaje: "No se pudieron consultar las solicitudes." }
+          : { ok: true, datos: [] };
+      },
+    });
+    await controlador.cargar(modal);
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(operaciones, 1);
+    assert.equal(reglas, 1);
+    assert.equal(documentales, 1);
+    assert.equal(rutas.filter((ruta) => ruta.endsWith("/contratos")).length, 1);
+    assert.equal(rutas.filter((ruta) => ruta.endsWith("/reincorporaciones-titular")).length, 1);
+    const pulsar = (accion) => controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: accion } }) }, preventDefault() {} });
+    pulsar("reintentar-solicitudes");
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(documentales, 2);
+    assert.equal(operaciones, 1);
+    assert.equal(reglas, 1);
+    pulsar("reintentar");
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(operaciones, 2);
+    assert.equal(reglas, 2);
+    assert.equal(documentales, 3);
+    assert.equal(rutas.filter((ruta) => ruta.endsWith("/contratos")).length, 1);
+    assert.equal(rutas.filter((ruta) => ruta.endsWith("/reincorporaciones-titular")).length, 1);
+    assert.equal(modal.candidato.nombre_visible, "Persona autorizada");
+  } finally { globalThis.fetch = anterior; }
+});
+
+test("reintentar el historial no repite una lectura documental ya denegada", async () => {
+  const anterior = globalThis.fetch;
+  let operaciones = 0, documentales = 0;
+  globalThis.fetch = async (ruta, opciones) => {
+    assert.equal(opciones.method, "GET");
+    if (String(ruta).endsWith("/operaciones")) {
+      operaciones++;
+      return operaciones === 1 ? response(503, {})
+        : response(200, { data: { esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [],
+          situacion_vigente: { situacion: "en_revision", desde } } });
+    }
+    return response(404, {});
+  };
+  try {
+    const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+      estado_clave: "en_revision", estado_desde: desde } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {},
+      consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }),
+      consultarDocumentales: async () => { documentales++; return { ok: false, status: 403, mensaje: "Acceso denegado" }; },
+    });
+    await controlador.cargar(modal);
+    const vista = renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 });
+    assert.match(vista, /data-b8-accion="reintentar"/u);
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar" } }) }, preventDefault() {} });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(operaciones, 2);
+    assert.equal(documentales, 1);
+    assert.equal(modal.candidato.nombre_visible, "Persona autorizada");
+    assert.equal(modal.operacionesB8.solicitudesStatus, 403);
+  } finally { globalThis.fetch = anterior; }
+});
+
 test("RRHH18 solo ofrece revisión y regularización con catálogo nuevo y situación vigente", () => {
   assert.deepEqual(operacionesDisponibles("renuncia", transicionesRRHH18), ["revisar", "regularizar", "excluir"]);
   assert.deepEqual(operacionesDisponibles("en_revision", transicionesRRHH18), ["regularizar", "excluir"]);

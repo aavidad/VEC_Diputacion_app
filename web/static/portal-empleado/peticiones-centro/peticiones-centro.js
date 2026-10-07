@@ -6,12 +6,12 @@ import {
   numeroExpedienteMOADValido,
 } from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261007-pc-i18n-v1";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261007-pantallas-textos-final-v1";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
-  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pantallas-textos-final-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",

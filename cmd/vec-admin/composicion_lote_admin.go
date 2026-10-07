@@ -58,5 +58,5 @@ func componerLoteADMIN(ctx context.Context, base configuracionPerfilesPrivada, u
 	if err != nil {
 		return nil, errorArranque("lote_servicio")
 	}
-	return &administracion.LoteADMIN{Organizacion: u.OrganizacionRef, Catalogo: autoridad, Servicio: servicio}, nil
+	return &administracion.LoteADMIN{Organizacion: u.OrganizacionRef, Motivos: lote.motivosCambio(), Catalogo: autoridad, Servicio: servicio}, nil
 }

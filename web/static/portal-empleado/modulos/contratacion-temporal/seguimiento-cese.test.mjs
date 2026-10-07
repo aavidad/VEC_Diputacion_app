@@ -83,6 +83,31 @@ function contenedorFalso() {
 const esperar = () => new Promise((r) => setImmediate(r));
 const contexto = Object.freeze({ expediente_ref: EXP, version: 7, fase_clave: "nombramiento", estado_clave: "en_curso" });
 
+test("el panel comunica cada lectura correcta, incluso tras reintentar un fallo", async () => {
+  let lecturas = 0;
+  const comunicadas = [];
+  const cliente = { consultarSeguimientoCese: async (ref, { signal }) => {
+    assert.equal(ref, EXP);
+    assert.ok(signal instanceof AbortSignal);
+    lecturas++;
+    if (lecturas === 1) throw Object.assign(new Error("temporal"), { estado: 503 });
+    return validarConsultaSeguimientoCese(consulta(), EXP);
+  } };
+  const contenedor = contenedorFalso();
+  const desmontar = montarPanelSeguimientoCese({ contenedor, cliente, contexto,
+    alConsultar: (datos) => comunicadas.push(datos) });
+  await esperar();
+  assert.equal(lecturas, 1);
+  assert.equal(comunicadas.length, 0);
+  assert.match(contenedor.innerHTML, /data-ct-seg-reintentar/u);
+  contenedor.eventos.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+  await esperar();
+  assert.equal(lecturas, 2);
+  assert.equal(comunicadas.length, 1);
+  assert.equal(comunicadas[0].estado.expediente_ref, EXP);
+  desmontar();
+});
+
 test("el panel muestra cese y modificación antes del cese, y solo el cierre después", async () => {
   const c = contenedorFalso();
   let respuesta = validarConsultaSeguimientoCese(consulta(), EXP);

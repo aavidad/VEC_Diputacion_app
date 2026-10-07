@@ -12,7 +12,7 @@ import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-ju
 
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
-  MENSAJES_INCORPORACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-i18n-v1";
+  MENSAJES_INCORPORACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTAS_INCORPORACIONES_CENTRO = Object.freeze({
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones",

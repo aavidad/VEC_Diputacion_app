@@ -1,5 +1,5 @@
 /** Textos de la ficha y la lista de peticiones (dirección de diseño del 29/09/2026). */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
 
 const [catalogos, plazos] = await Promise.all([
   cargarCatalogosContratacion("contratacion-temporal-ficha-lista"),

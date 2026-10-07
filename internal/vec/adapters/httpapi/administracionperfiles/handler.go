@@ -98,6 +98,7 @@ type Handler struct {
 	catalogo         ports.CatalogoRolesAdministrables
 	actos            ServicioActos
 	lotes            ServicioLotesADMIN
+	motivosLote      []MotivoLote
 	gobiernoPlan     ServicioGobiernoPlanFirmaADMIN
 	efectos          map[string]efectoNominal
 	soloLectura      bool

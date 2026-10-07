@@ -1,10 +1,10 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261007-p7-http-v1";
-import { crearClientePreferencias } from "./portal-preferencias-api.js?v=20261007-p7-http-v1";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20261007-pantallas-textos-final-v1";
+import { crearClientePreferencias } from "./portal-preferencias-api.js?v=20261007-pantallas-textos-final-v1";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
 import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
-import { prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 let textosCorreos = null;
 const textosDiferidos = Object.freeze({

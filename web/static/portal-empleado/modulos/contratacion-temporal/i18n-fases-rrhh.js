@@ -10,9 +10,9 @@
  * deduce responsables ni tareas: eso solo lo dice el servidor.
  */
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
-import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
-import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js";
-export { FASES_RRHH, FASE_RRHH_DE_ORIGEN, faseRRHH } from "./fases-rrhh-datos.js";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+export { FASES_RRHH, FASE_RRHH_DE_ORIGEN, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 
 // Estado del servidor o de la vista → estado único visible.
 const ESTADO_UNICO = Object.freeze({

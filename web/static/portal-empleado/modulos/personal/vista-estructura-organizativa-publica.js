@@ -3,7 +3,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20261007-t-personal-p5-v1";
+} from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);

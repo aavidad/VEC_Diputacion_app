@@ -119,6 +119,32 @@ func TestCorreccionSolicitaHuecoPropioSinModificarOriginal(t *testing.T) {
 	}
 }
 
+func TestCorreccionNoSolicitaConVinculoEmpleadoCaducado(t *testing.T) {
+	orden := ordenCorreccionPrueba(t)
+	actor, err := orden.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante := actor.ResueltoEn.Add(30 * time.Second)
+	actor.Instantanea.Vinculos[0].VigenteHasta = actor.ResueltoEn.Add(15 * time.Second)
+	orden, err = ports.NuevaOrdenConsumoCorreccion(actor, proveedorCorreccionVacio{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repositorioCorreccionPrueba{}
+	servicio, err := NuevoServicioCorrecciones(repo, relojMarcajePrueba{instante})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo, err := servicio.SolicitarOlvido(context.Background(), orden, ports.SolicitudOlvidoMarcaje{
+		ClaveOperacion: "olvido_0001", HuecoDeclarado: true, Movimiento: domain.PunchEntry,
+		FechaCivil: "2026-09-24", HoraPretendida: "08:15",
+	})
+	if !errors.Is(err, ports.ErrCorreccionNoAutorizada) || recibo != (ports.ReciboCorreccion{}) || repo.solicitudes != 0 {
+		t.Fatal("vínculo empleado caducado alcanzó el repositorio", recibo, err)
+	}
+}
+
 func TestCorreccionValidaPasoYVersionAntesDelRepositorio(t *testing.T) {
 	instante := time.Now().UTC().Truncate(time.Microsecond)
 	repo := &repositorioCorreccionPrueba{}

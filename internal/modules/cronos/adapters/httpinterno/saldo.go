@@ -111,7 +111,7 @@ func responderErrorAccesoCronos(w http.ResponseWriter, err error) {
 		errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado):
 		errorJSON(w, http.StatusUnauthorized, "autenticacion_requerida")
 	case errors.Is(err, ErrAccesoCronosDenegado), errors.Is(err, vecdomain.ErrPermissionDenied),
-		errors.Is(err, ports.ErrTeletrabajoNoAutorizado):
+		errors.Is(err, ports.ErrTeletrabajoNoAutorizado), errors.Is(err, ports.ErrCorreccionNoAutorizada):
 		errorJSON(w, http.StatusForbidden, "acceso_denegado")
 	default:
 		errorJSON(w, http.StatusServiceUnavailable, "no_disponible")

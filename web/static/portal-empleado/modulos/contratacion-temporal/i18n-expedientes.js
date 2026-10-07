@@ -1,11 +1,11 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
+import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
-import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE = Object.freeze({
   ...mensajesTramite(),

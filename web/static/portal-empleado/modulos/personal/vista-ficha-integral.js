@@ -1,7 +1,7 @@
 import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
 import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-b-revision-valor-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20261007-t-personal-p5-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 
 import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
 

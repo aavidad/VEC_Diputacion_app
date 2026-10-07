@@ -1,7 +1,7 @@
 /** Lecturas de textos que corresponden a la vista CT que se abre. */
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, INDICE_IDIOMAS, prepararIdiomas } from "../../../comun/idioma.js";
 import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
-import { FASES_RRHH } from "./fases-rrhh-datos.js";
+import { FASES_RRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 
 const CUADRO = Object.freeze([
   ["portal", "fases_rrhh"],

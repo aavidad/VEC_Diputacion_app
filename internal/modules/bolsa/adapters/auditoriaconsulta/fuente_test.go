@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
@@ -16,6 +18,15 @@ func TestFuenteDeniegaSinMaterialNiPool(t *testing.T) {
 	var fuente Fuente
 	if pagina, err := fuente.ConsultarAuditoria(context.Background(), auditoria.ConsultaAutorizada{}); len(pagina.Registros) != 0 || !errors.Is(err, auditoria.ErrNoDisponible) {
 		t.Fatalf("consulta sin fuente disponible: pagina=%+v error=%v", pagina, err)
+	}
+}
+
+func TestErrorConsultaBolsaConservaDenegacionSQL(t *testing.T) {
+	if !errors.Is(errorConsulta(context.Background(), &pgconn.PgError{Code: "42501"}), auditoria.ErrDenegada) {
+		t.Fatal("42501 debe conservar la denegación para el registro nominal")
+	}
+	if !errors.Is(errorConsulta(context.Background(), &pgconn.PgError{Code: "08006"}), auditoria.ErrNoDisponible) {
+		t.Fatal("fallo de conexión no debe presentarse como denegación")
 	}
 }
 

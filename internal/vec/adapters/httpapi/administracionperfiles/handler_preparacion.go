@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,20 +24,54 @@ type ServicioLotesADMIN interface {
 	PrepararLoteOrdinario(context.Context, domain.SolicitudPreparacionLoteAdministracionPerfiles) (domain.PreparacionLoteAdministracionPerfiles, error)
 }
 
+// MotivoLote es un motivo admitido para un cambio de perfiles: la referencia
+// del catálogo y la clave de texto con la que la pantalla lo nombra.
+type MotivoLote struct {
+	Motivo
+	ClaveI18N string `json:"clave_i18n"`
+}
+
+var claveMotivoLote = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
+
 // NuevoHandlerUsuariosMetadatosConLote conserva las dos lecturas nominales de
 // usuarios y abre sólo la preparación (GET) y el lote ordinario (POST). La
-// organización viene de la configuración privada, nunca de la petición.
-func NuevoHandlerUsuariosMetadatosConLote(origen, organizacion string, sesiones ResolvedorSesion,
+// organización y los motivos admitidos vienen de la configuración privada,
+// nunca de la petición.
+func NuevoHandlerUsuariosMetadatosConLote(origen, organizacion string, motivos []MotivoLote, sesiones ResolvedorSesion,
 	lecturas FuenteLecturas, catalogo ports.CatalogoRolesAdministrables, lotes ServicioLotesADMIN, auditor AuditorFrontera) (*Handler, error) {
-	if !organizacionPrivadaLote.MatchString(organizacion) || dependenciaNula(catalogo) || dependenciaNula(lotes) {
+	if !organizacionPrivadaLote.MatchString(organizacion) || dependenciaNula(catalogo) || dependenciaNula(lotes) ||
+		len(motivos) == 0 || len(motivos) > 16 {
 		return nil, ErrConfiguracionIncompleta
+	}
+	vistos := map[Motivo]bool{}
+	claves := map[string]bool{}
+	for _, m := range motivos {
+		if m.dominio().Validar() != nil || !claveMotivoLote.MatchString(m.ClaveI18N) || vistos[m.Motivo] || claves[m.ClaveI18N] {
+			return nil, ErrConfiguracionIncompleta
+		}
+		vistos[m.Motivo], claves[m.ClaveI18N] = true, true
 	}
 	h, err := NuevoHandlerUsuariosMetadatos(origen, sesiones, lecturas, auditor)
 	if err != nil {
 		return nil, err
 	}
 	h.soloLectura, h.catalogo, h.lotes, h.organizacionLote = false, catalogo, lotes, organizacion
+	h.motivosLote = append([]MotivoLote(nil), motivos...)
 	return h, nil
+}
+
+// motivoLoteAdmitido: sin lista configurada (handler anterior) se admite
+// cualquiera; con lista, sólo uno de ella.
+func (h *Handler) motivoLoteAdmitido(m Motivo) bool {
+	if len(h.motivosLote) == 0 {
+		return true
+	}
+	for _, x := range h.motivosLote {
+		if x.Motivo == m {
+			return true
+		}
+	}
+	return false
 }
 
 type AltaPreparacion struct {
@@ -79,6 +114,8 @@ type PreparacionLote struct {
 	Altas                   []AltaPreparacion `json:"altas"`
 	Bajas                   []BajaPreparacion `json:"bajas"`
 	Truncado                bool              `json:"truncado"`
+	// Motivos admitidos para el cambio, en el orden configurado.
+	Motivos []MotivoLote `json:"motivos"`
 }
 
 func preparacionDTO(p domain.PreparacionLoteAdministracionPerfiles) PreparacionLote {
@@ -171,7 +208,9 @@ func (h *Handler) getPreparacionLote(w http.ResponseWriter, r *http.Request, s S
 		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", accion, persona)
 		return
 	}
+	dto := preparacionDTO(p)
+	dto.Motivos = append([]MotivoLote(nil), h.motivosLote...)
 	jsonRespuesta(w, http.StatusOK, struct {
 		Preparacion PreparacionLote `json:"preparacion"`
-	}{preparacionDTO(p)})
+	}{dto})
 }

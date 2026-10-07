@@ -44,7 +44,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20261007-p5-solicitudes-reglas-v1");
+  assert.equal(version, "20261007-pantallas-textos-final-v1");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
   assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
@@ -54,7 +54,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v3"), version);
   // El enlace renueva su URL con el catálogo común del portal.
   const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
-  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20261001-ct-a-i18n-v1");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20261007-pantallas-textos-final-v1");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {

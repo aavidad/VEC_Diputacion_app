@@ -1,8 +1,8 @@
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261006-resumen-inicio-v2";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261007-pantallas-textos-final-v1";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261006-resumen-inicio-v2";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261007-pantallas-textos-final-v1";
 
 // Este listener usa certificado TLS personal. La petición va con credenciales
 // de mismo origen para que el proxy de pruebas con usuario y contraseña la deje

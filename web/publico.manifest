@@ -4,6 +4,14 @@ static/acceso/index.html
 static/acceso/locales/en.json
 static/acceso/locales/es.json
 static/assets/logo-diputacion-granada.svg
+static/canal-interno/index.html
+static/canal-interno/canal-interno.css
+static/canal-interno/canal-interno.js
+static/canal-interno/destinos.json
+static/textos/es/canal-interno.json
+static/textos/en/canal-interno.json
+static/textos/es/canal-interno-error.json
+static/textos/en/canal-interno-error.json
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css

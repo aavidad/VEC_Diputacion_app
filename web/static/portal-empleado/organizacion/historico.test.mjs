@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { MENSAJES_PERSONAL, crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js";
+import { MENSAJES_PERSONAL, crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
 
 await prepararTextosPersonal();
 const { API_ORGANIZACION_HISTORICA, RUTAS_IMPORTACION, crearClienteHistorico, crearClienteImportacion,
