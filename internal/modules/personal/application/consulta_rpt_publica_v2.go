@@ -98,8 +98,18 @@ func paginaRPTPublicaV2(s domain.SnapshotRPTPublicaV2, f domain.FiltroRPTPublica
 	if f.Vista == "puestos" {
 		filtrados := make([]domain.PuestoRPTPublicoV2, 0, len(s.Catalogo.Puestos))
 		for _, puesto := range s.Catalogo.Puestos {
+			// Solo la asignación singular entra en una lista de categoría. Una
+			// alternativa detectada no reparte ni duplica la dotación de la fila.
+			if f.CategoriaClave != "" && puesto.CategoriaClave != f.CategoriaClave ||
+				f.CentroCodigo != "" && puesto.CentroCodigo != f.CentroCodigo {
+				continue
+			}
+			pendientes := make([]string, 0, len(puesto.CategoriasPendientes))
+			for _, pendiente := range puesto.CategoriasPendientes {
+				pendientes = append(pendientes, pendiente.Denominacion)
+			}
 			if q == "" || strings.Contains(textoConsultaRPTV2(strings.Join([]string{puesto.Codigo, puesto.Denominacion, puesto.CentroCodigo, puesto.Centro, puesto.Delegacion,
-				strings.Join(puesto.Grupos, " "), puesto.Escala, puesto.CategoriaClave, strings.Join(puesto.CategoriasClaves, " "), puesto.Tipo, puesto.Provision}, " ")), q) {
+				strings.Join(puesto.Grupos, " "), puesto.Escala, puesto.CategoriaClave, strings.Join(puesto.CategoriasClaves, " "), strings.Join(pendientes, " "), puesto.Tipo, puesto.Provision}, " ")), q) {
 				filtrados = append(filtrados, puesto)
 			}
 		}

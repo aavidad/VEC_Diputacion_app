@@ -63,3 +63,13 @@ func TestRPTPublicaV2RechazaDependenciasAusentes(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestRPTPublicaV2FiltraCategoriaYCentroSoloEnPuestos(t *testing.T) {
+	f, err := leerFiltroRPTPublicaV2("vista=puestos&q=&limit=25&offset=0&categoria_clave=administrativo&centro_codigo=101")
+	if err != nil || f.CategoriaClave != "administrativo" || f.CentroCodigo != "101" {
+		t.Fatalf("filtro exacto=%+v err=%v", f, err)
+	}
+	if _, err := leerFiltroRPTPublicaV2("vista=categorias&q=&limit=25&offset=0&categoria_clave=administrativo"); err == nil {
+		t.Fatal("se admitió filtro de puestos sobre categorías")
+	}
+}

@@ -20,6 +20,7 @@ var (
 	ErrRPTPublicaV2NoDisponible = errors.New("personal: RPT publicada v2 no disponible")
 	patronReferenciaRPTV2       = regexp.MustCompile(`^rpt-publicada:[a-z0-9][a-z0-9:-]{2,127}$`)
 	patronHuellaRPTV2           = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	patronCentroRPTV2           = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 )
 
 const (
@@ -32,7 +33,9 @@ const (
 )
 
 // La proyección distingue referencias detectadas en el PDF de categorías
-// gobernadas. Una alternativa o una lectura pendiente nunca habilita un uso.
+// gobernadas. Puestos y Dotacion de cada categoría solo cuentan filas con
+// grupo acreditado por el preparador: no equivalen a todos los enlaces por
+// CategoriaClave. Una alternativa nunca habilita un uso ni reparte dotación.
 type CategoriaRPTPublicaV2 struct {
 	Clave                                     string   `json:"clave"`
 	Denominacion                              string   `json:"denominacion"`
@@ -165,16 +168,21 @@ func fechaDocumentoRPTV2Valida(v string) bool {
 }
 
 type FiltroRPTPublicaV2 struct {
-	Vista  string `json:"vista"`
-	Q      string `json:"q"`
-	Limite int    `json:"limite"`
-	Offset int    `json:"offset"`
+	Vista          string `json:"vista"`
+	Q              string `json:"q"`
+	Limite         int    `json:"limite"`
+	Offset         int    `json:"offset"`
+	CategoriaClave string `json:"categoria_clave"`
+	CentroCodigo   string `json:"centro_codigo"`
 }
 
 func (f FiltroRPTPublicaV2) Validar() error {
 	if (f.Vista != "categorias" && f.Vista != "puestos") || f.Q != strings.TrimSpace(f.Q) || !utf8.ValidString(f.Q) ||
 		utf8.RuneCountInString(f.Q) > 100 || strings.ContainsAny(f.Q, "\x00\r\n\t") || f.Limite < 1 ||
-		f.Limite > LimiteMaximoRPTPublicaV2 || f.Offset < 0 || f.Offset > 100000 {
+		f.Limite > LimiteMaximoRPTPublicaV2 || f.Offset < 0 || f.Offset > 100000 ||
+		(f.CategoriaClave != "" && !patronClaveRPTPublica.MatchString(f.CategoriaClave)) ||
+		(f.CentroCodigo != "" && !patronCentroRPTV2.MatchString(f.CentroCodigo)) ||
+		(f.Vista != "puestos" && (f.CategoriaClave != "" || f.CentroCodigo != "")) {
 		return ErrRPTPublicaV2Invalida
 	}
 	return nil
@@ -226,7 +234,8 @@ func NuevoMaterialConsultaRPTPublicaV2(s SolicitudConsultaRPTPublicaV2) (Materia
 		Atributos: map[string]string{"publicacion_ref": s.Snapshot.PublicacionRef, "corte": s.Snapshot.Corte,
 			"huella_sha256": s.Snapshot.HuellaSHA256, "vista": s.Filtro.Vista,
 			"q_sha256": huellaTextoRPTV2(s.Filtro.Q), "limite": strconv.Itoa(s.Filtro.Limite),
-			"offset": strconv.Itoa(s.Filtro.Offset), "material_sha256": hex.EncodeToString(suma[:])}}
+			"offset": strconv.Itoa(s.Filtro.Offset), "material_sha256": hex.EncodeToString(suma[:]),
+			"categoria_clave": filtroRPTV2ONinguno(s.Filtro.CategoriaClave), "centro_codigo": filtroRPTV2ONinguno(s.Filtro.CentroCodigo)}}
 	if _, err := recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialConsultaRPTPublicaV2{}, ErrRPTPublicaV2Invalida
 	}
@@ -236,6 +245,13 @@ func NuevoMaterialConsultaRPTPublicaV2(s SolicitudConsultaRPTPublicaV2) (Materia
 func huellaTextoRPTV2(v string) string {
 	suma := sha256.Sum256([]byte(v))
 	return hex.EncodeToString(suma[:])
+}
+
+func filtroRPTV2ONinguno(v string) string {
+	if v == "" {
+		return "sin_filtro"
+	}
+	return v
 }
 
 func (m MaterialConsultaRPTPublicaV2) Solicitud() SolicitudConsultaRPTPublicaV2 { return m.solicitud }

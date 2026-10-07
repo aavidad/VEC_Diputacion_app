@@ -113,7 +113,8 @@ func (h *handlerRPTPublicaV2) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		"items": items, "total": pagina.Total, "limit": pagina.Limite, "offset": pagina.Offset, "vista": pagina.Vista,
 		"esquema": personaldomain.EsquemaCandidatoRPTPublicaV2, "estado": pagina.Estado,
 		"publicacion_ref": pagina.PublicacionRef, "corte": pagina.Corte, "huella_sha256": pagina.HuellaSHA256,
-		"fuente": pagina.Fuente, "resumen": pagina.Resumen,
+		"fuente": map[string]any{"documento": pagina.Fuente.Documento, "importacion": pagina.Fuente.Importacion,
+			"generado_en": pagina.Fuente.GeneradoEn, "aviso": pagina.Fuente.Aviso}, "resumen": pagina.Resumen,
 		"categorias_pendientes_grupo": pagina.CategoriasPendientesGrupo, "evidencia": pagina.Evidencia,
 	}}})
 }
@@ -128,7 +129,8 @@ func leerFiltroRPTPublicaV2(raw string) (personaldomain.FiltroRPTPublicaV2, erro
 		return f, personaldomain.ErrRPTPublicaV2Invalida
 	}
 	for clave, valores := range q {
-		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset") || len(valores) != 1 {
+		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset" &&
+			clave != "categoria_clave" && clave != "centro_codigo") || len(valores) != 1 {
 			return f, personaldomain.ErrRPTPublicaV2Invalida
 		}
 	}
@@ -137,6 +139,8 @@ func leerFiltroRPTPublicaV2(raw string) (personaldomain.FiltroRPTPublicaV2, erro
 		f.Vista = "categorias"
 	}
 	f.Q = strings.TrimSpace(q.Get("q"))
+	f.CategoriaClave = q.Get("categoria_clave")
+	f.CentroCodigo = q.Get("centro_codigo")
 	f.Limite, err = enteroRPTPublica(q.Get("limit"))
 	if err != nil {
 		return f, personaldomain.ErrRPTPublicaV2Invalida
