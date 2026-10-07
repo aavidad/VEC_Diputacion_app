@@ -14,6 +14,7 @@ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regprocedure('vec_autorizacion.resolver_catalogo_acciones_administracion_v1(text,integer,text)') IS NULL
+ OR to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NULL
  OR to_regclass('vec_autorizacion.cabeza_catalogo_acciones_admin_v1') IS NULL
  OR to_regprocedure('vec_autorizacion.concesiones_gobierno_definiciones_admin_v1()') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_gobierno_rol_nuevo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -239,6 +240,15 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.comprobar_postimagen_rol_nuevo_v1(text) FROM PUBLIC;
 
+-- La correlación corresponde a cada acceso V3, no al material semántico de la
+-- operación. Los demás campos del sobre deben seguir siendo idénticos.
+CREATE FUNCTION vec_autorizacion.solicitud_replay_gobierno_rol_nuevo_v1(p_original bytea,p_actual text)
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $f$
+ SELECT (convert_from(p_original,'UTF8')::jsonb-'correlacion_ref')
+  IS NOT DISTINCT FROM (p_actual::jsonb-'correlacion_ref')
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.solicitud_replay_gobierno_rol_nuevo_v1(bytea,text) FROM PUBLIC;
+
 CREATE FUNCTION vec_autorizacion.aplicar_gobierno_rol_nuevo_v1(
  p_cierre boolean,p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
@@ -335,7 +345,8 @@ BEGIN
  ELSE
   SELECT * INTO prop FROM vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 WHERE propuesta_ref=op FOR SHARE;
   IF FOUND THEN
-   IF prop.solicitud IS DISTINCT FROM convert_to(p_material,'UTF8') THEN RAISE EXCEPTION 'AUT60: replay de propuesta divergente' USING ERRCODE='23505';END IF;
+   IF vec_autorizacion.solicitud_replay_gobierno_rol_nuevo_v1(prop.solicitud,p_material) IS NOT TRUE
+   THEN RAISE EXCEPTION 'AUT60: replay de propuesta divergente' USING ERRCODE='23505';END IF;
    replay:=true;
   END IF;
  END IF;
@@ -343,7 +354,8 @@ BEGIN
  IF p_cierre THEN
   SELECT * INTO prev FROM vec_autorizacion.cierre_gobierno_rol_nuevo_v1 WHERE propuesta_ref=prop.propuesta_ref;
   IF FOUND THEN
-   IF prev.operacion_ref IS DISTINCT FROM op OR prev.solicitud IS DISTINCT FROM convert_to(p_material,'UTF8')
+   IF prev.operacion_ref IS DISTINCT FROM op
+   OR vec_autorizacion.solicitud_replay_gobierno_rol_nuevo_v1(prev.solicitud,p_material) IS NOT TRUE
    THEN RAISE EXCEPTION 'AUT60: propuesta cerrada con otro material' USING ERRCODE='23505';END IF;
    PERFORM vec_autorizacion.comprobar_postimagen_rol_nuevo_v1(prop.propuesta_ref);
    replay:=true;
@@ -486,7 +498,8 @@ REVOKE ALL ON FUNCTION vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,
 
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_gobierno_roles_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
- vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
+ vec_autorizacion.resolver_rol_administrable_v1(text)
  TO vec_admin_gobierno_roles_ejecutor;
 RESET ROLE;
 COMMIT;
