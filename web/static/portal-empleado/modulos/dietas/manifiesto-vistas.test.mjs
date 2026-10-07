@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
 
 const raizWeb = new URL("../../../../", import.meta.url);
@@ -32,3 +32,12 @@ for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     }
   });
 }
+
+test("las páginas sin lector nominal no exponen datos de demostración", async () => {
+  for (const carpeta of ["catalogo", "informes"]) {
+    for (const archivo of ["index.html", "demo.js"]) {
+      await assert.rejects(stat(new URL(`${prefijo}${carpeta}/${archivo}`, raizWeb)),
+        { code: "ENOENT" });
+    }
+  }
+});
