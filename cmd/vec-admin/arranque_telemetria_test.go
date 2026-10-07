@@ -16,9 +16,11 @@ func TestEtapaComposicionADMINConservaSoloCatalogo(t *testing.T) {
 	}{
 		{etapa: "lector_usuarios", quiere: "lector_usuarios"},
 		{etapa: "pool_11_grupo", quiere: "pool_11_grupo"},
+		{etapa: "gobierno_roles_fuente", quiere: "gobierno_roles_fuente"},
+		{etapa: "pool_16_dsn", quiere: "pool_16_dsn"},
 		{etapa: "cargos_confianza_material", quiere: "cargos_confianza_material"},
 		{etapa: privado, quiere: "composicion"},
-		{etapa: "pool_15_dsn", quiere: "composicion"},
+		{etapa: "pool_17_dsn", quiere: "composicion"},
 	} {
 		err := fmt.Errorf("%w: etapa=%s", administracion.ErrConfiguracion, caso.etapa)
 		got := etapaComposicionADMIN(err)
