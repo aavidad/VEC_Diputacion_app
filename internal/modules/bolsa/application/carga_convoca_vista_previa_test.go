@@ -60,6 +60,21 @@ func TestVistaPreviaCargaConvocaDelEjemploSintetico(t *testing.T) {
 	}
 }
 
+func TestVistaPreviaMantieneAvisosYBloqueaIdentidadNoDerivable(t *testing.T) {
+	identidad := importacion.IdentidadEnmascarada{
+		Documento: "***1234**", PrimerApellido: "García", Nombre: "María",
+	}
+	filas := []importacion.FilaAceptada{
+		{Numero: 2, Identidad: identidad},
+		{Numero: 3, Identidad: identidad},
+		{Numero: 4, Identidad: importacion.IdentidadEnmascarada{Documento: "***5678**", Nombre: "Sin apellido"}},
+	}
+	avisos, derivable, err := filasIdentidadAmbigua(filas)
+	if err != nil || derivable || !avisos[2] || !avisos[3] || avisos[4] {
+		t.Fatalf("identidad inválida debe bloquear sin perder avisos previos: avisos=%v derivable=%t err=%v", avisos, derivable, err)
+	}
+}
+
 type decodificadorCargaPrueba struct {
 	hoja importacion.HojaStaging
 	err  error
