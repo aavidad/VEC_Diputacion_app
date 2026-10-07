@@ -27,7 +27,45 @@ const LIMITE_BYTES = 2 * 1024 * 1024;
 
 async function leerFicheroLocal(url) {
   const { readFile } = await import("node:fs/promises");
-  return readFile(url, "utf8");
+  const bytes = await readFile(url);
+  if (bytes.byteLength > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+  return new TextDecoder().decode(bytes);
+}
+
+function esperarReintento(signal) {
+  return new Promise((resolve, reject) => {
+    const cancelar = () => { clearTimeout(temporizador); reject(signal.reason ?? new DOMException("Aborted", "AbortError")); };
+    const temporizador = setTimeout(() => { signal?.removeEventListener("abort", cancelar); resolve(); }, 150);
+    if (signal?.aborted) cancelar();
+    else signal?.addEventListener("abort", cancelar, { once: true });
+  });
+}
+
+async function leerRespuestaAcotada(respuesta) {
+  const lector = respuesta.body?.getReader?.();
+  if (!lector) {
+    const texto = await respuesta.text();
+    if (new TextEncoder().encode(texto).byteLength > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+    return texto;
+  }
+  const decodificador = new TextDecoder();
+  let bytes = 0;
+  let texto = "";
+  try {
+    while (true) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+      texto += decodificador.decode(value, { stream: true });
+    }
+    return texto + decodificador.decode();
+  } catch (error) {
+    await Promise.resolve(lector.cancel()).catch(() => {});
+    throw error;
+  } finally {
+    lector.releaseLock();
+  }
 }
 
 export async function leerPorRed(url, fetchImpl, signal) {
@@ -35,6 +73,7 @@ export async function leerPorRed(url, fetchImpl, signal) {
   if (url.protocol !== origen.protocol || url.host !== origen.host) throw new Error("recurso JSON fuera del propio origen");
   const opciones = {
     method: "GET",
+    cache: "no-store",
     credentials: "same-origin",
     redirect: "error",
     referrerPolicy: "no-referrer",
@@ -43,19 +82,20 @@ export async function leerPorRed(url, fetchImpl, signal) {
   };
   for (let intento = 0; intento < 2; intento++) {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
-    try {
-      const respuesta = await fetchImpl(url.href, opciones);
-      if (!respuesta?.ok) {
-        const error = new Error(`recurso JSON no disponible (${respuesta?.status ?? "sin respuesta"})`);
-        if (intento === 0 && [502, 503].includes(respuesta?.status)) continue;
-        throw error;
-      }
-      const declarado = Number(respuesta.headers?.get?.("Content-Length"));
-      if (Number.isFinite(declarado) && declarado > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
-      return respuesta.text();
-    } catch (error) {
-      if (signal?.aborted || intento > 0 || /demasiado grande|no disponible/u.test(String(error?.message))) throw error;
+    let respuesta;
+    try { respuesta = await fetchImpl(url.href, opciones); }
+    catch (error) {
+      if (signal?.aborted || intento > 0) throw error;
+      await esperarReintento(signal);
+      continue;
     }
+    if (!respuesta?.ok) {
+      if (intento === 0 && [502, 503].includes(respuesta?.status)) { await esperarReintento(signal); continue; }
+      throw new Error(`recurso JSON no disponible (${respuesta?.status ?? "sin respuesta"})`);
+    }
+    const declarado = Number(respuesta.headers?.get?.("Content-Length"));
+    if (Number.isFinite(declarado) && declarado > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
+    return leerRespuestaAcotada(respuesta);
   }
 }
 
@@ -68,7 +108,6 @@ export async function leerRecursoJSON(url, { fetchImpl = globalThis.fetch, signa
   }
   if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
   const texto = destino.protocol === "file:" ? await leerFicheroLocal(destino) : await leerPorRed(destino, fetchImpl, signal);
-  if (texto.length > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");
   return JSON.parse(texto);
 }
 

@@ -116,7 +116,8 @@ test("cargarTextos lee sólo el elegido y usa el respaldo entero si falla", asyn
   assert.equal(cc.incidenciaCatalogo.codigo, "catalogo_no_disponible");
   assert.equal(cc.traducir("general.saludo", { nombre: "Ana" }), "Hola, Ana");
   assert.equal(avisos.length, 1);
-  await assert.rejects(cargarTextos("otro", { idioma: "bb", porDefecto: "aa", leer, raiz, avisar: () => {} }));
+  await assert.rejects(cargarTextos("otro", { idioma: "bb", porDefecto: "aa", leer, raiz, avisar: () => {} }), /no existe/u);
+  assert.deepEqual(leidos.slice(-2), ["bb/otro.json", "aa/otro.json"]);
 });
 
 test("las rutas de catálogo no admiten recorridos ni nombres arbitrarios", () => {
@@ -152,10 +153,22 @@ test("el transporte reintenta una vez 502, 503 y caída de red; conserva la inci
     assert.equal(llamadas.length, 2);
     assert.equal(llamadas[0].credentials, "same-origin");
     assert.equal(llamadas[0].redirect, "error");
+    assert.equal(llamadas[0].cache, "no-store");
   }
   let intentos = 0;
   await assert.rejects(leerPorRed(url, async () => { intentos++; return { ok: false, status: 503 }; }), /503/u);
   assert.equal(intentos, 2);
+});
+
+test("la lectura de red limita bytes UTF-8 y cancela el flujo demasiado grande", async () => {
+  const url = new URL("./idioma.js", import.meta.url);
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    text: async () => "á".repeat(1_100_000) })), /demasiado grande/u);
+  let cancelado = false;
+  await assert.rejects(leerPorRed(url, async () => ({ ok: true, headers: { get: () => null },
+    body: { getReader: () => ({ read: async () => ({ done: false, value: new Uint8Array(2_097_153) }),
+      cancel: async () => { cancelado = true; }, releaseLock: () => {} }) } })), /demasiado grande/u);
+  assert.equal(cancelado, true);
 });
 
 test("JSON roto en el elegido recupera el catálogo por defecto y registra la causa", async () => {
