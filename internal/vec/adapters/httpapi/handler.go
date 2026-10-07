@@ -32,6 +32,7 @@ type Handler struct {
 	autoridadRutasExactas                    AutoridadRutasExactas
 	registradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
 	emisorIncidencias                        ports.EmisorIncidenciasTecnicas
+	proyectorCapacidadesSesion               *application.ProyectorCapacidadesSesion
 }
 
 type HandlerOptions struct {
@@ -56,6 +57,9 @@ type HandlerOptions struct {
 	// (catálogo de módulos, auditoría caída). Nil equivale al emisor nulo; la
 	// composición raíz de vec-server siempre aporta uno real.
 	EmisorIncidenciasTecnicas ports.EmisorIncidenciasTecnicas
+	// ProyectorCapacidadesSesion se inyecta desde la composición confiable.
+	// Nil conserva el contrato anterior mientras se monta la fuente V3.
+	ProyectorCapacidadesSesion *application.ProyectorCapacidadesSesion
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -135,6 +139,7 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		autoridadRutasExactas:                    options.AutoridadRutasExactas,
 		registradorAuditoriaFronteraRutasExactas: options.RegistradorAuditoriaFronteraRutasExactas,
 		emisorIncidencias:                        emisorIncidenciasOPorDefecto(options.EmisorIncidenciasTecnicas),
+		proyectorCapacidadesSesion:               options.ProyectorCapacidadesSesion,
 	}, nil
 }
 
@@ -221,14 +226,37 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"routes": vecRoutes(),
 		})
 	case path == "/session":
+		w.Header().Set("Cache-Control", "no-store")
 		if !h.requireMethod(w, r, http.MethodGet) {
 			return
 		}
-		if !principal.HasPermission("vec.session.read") {
+		// En la superficie autenticada real los permisos de Principal son
+		// informativos. La fuente central y el perfil vigente deciden la
+		// proyeccion; el permiso legado solo rige la carcasa sin proyector.
+		if h.proyectorCapacidadesSesion == nil && !principal.HasPermission("vec.session.read") {
 			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 			return
 		}
-		h.writeJSON(w, http.StatusOK, map[string]any{"principal": principal})
+		respuesta := map[string]any{"principal": principal}
+		if h.proyectorCapacidadesSesion != nil {
+			cap, err := h.proyectorCapacidadesSesion.Proyectar(r.Context(), principal)
+			if err != nil {
+				if (errors.Is(err, domain.ErrAutorizacionDenegada) || errors.Is(err, ports.ErrAsignacionPerfilNoEncontrada)) &&
+					!errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) && !errors.Is(err, ports.ErrSeleccionSesionNoDisponible) {
+					h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+				} else {
+					h.writeError(w, http.StatusServiceUnavailable, codigoErrorSesionNoDisponible)
+				}
+				return
+			}
+			respuesta["capacidades"] = cap.Capacidades
+			respuesta["perfil_activo_ref"] = cap.PerfilActivoRef
+			respuesta["superficie"] = cap.Superficie
+			respuesta["version_rol_ref"] = cap.VersionRolRef
+			respuesta["revisiones"] = cap.Revisiones
+			respuesta["vigente_hasta"] = cap.VigenteHasta
+		}
+		h.writeJSON(w, http.StatusOK, respuesta)
 	case path == "/observabilidad/errores-cliente":
 		h.atenderErroresCliente(w, r, principal)
 	case path == "/modules":
@@ -483,6 +511,7 @@ func (h *Handler) writeJSON(w http.ResponseWriter, status int, data any) {
 const (
 	codigoErrorCatalogoModulosNoDisponible = "catalogo_modulos_no_disponible"
 	codigoErrorAuditoriaNoDisponible       = "auditoria_no_disponible"
+	codigoErrorSesionNoDisponible          = "sesion_no_disponible"
 	codigoErrorEventoNoPublicado           = "evento_no_publicado"
 )
 
