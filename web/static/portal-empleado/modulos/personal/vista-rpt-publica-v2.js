@@ -1,7 +1,54 @@
 import { cargarTextos } from "../../../comun/textos.js";
+import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { ErrorClienteRPTPublicaV2 } from "./cliente-http-rpt-publica-v2.js";
 
-const textos = await cargarTextos("personal-rpt-v2");
+const PARAMETROS_RPT = Object.freeze({ vista: "rpt_vista", q: "rpt_q", categoria_clave: "rpt_categoria", centro_codigo: "rpt_centro", limit: "rpt_limite", offset: "rpt_offset" });
+const CONSULTA_INICIAL_RPT = Object.freeze({ vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "" });
+
+function consultaRPTValida(v) {
+  return v && ["categorias", "puestos"].includes(v.vista) && typeof v.q === "string" && v.q === v.q.trim() &&
+    [...v.q].length <= 100 && !/[\x00-\x1F\x7F-\x9F]/u.test(v.q) &&
+    Number.isSafeInteger(v.limit) && v.limit >= 1 && v.limit <= 100 &&
+    Number.isSafeInteger(v.offset) && v.offset >= 0 && v.offset <= 100000 &&
+    typeof v.categoria_clave === "string" && (v.categoria_clave === "" || /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(v.categoria_clave)) &&
+    typeof v.centro_codigo === "string" && (v.centro_codigo === "" || /^[A-Za-z0-9-]{1,64}$/u.test(v.centro_codigo)) &&
+    (v.vista === "puestos" || v.categoria_clave === "" && v.centro_codigo === "");
+}
+
+function consultaRPTDesdeURL(ventana) {
+  if (!ventana?.location?.href) return { ...CONSULTA_INICIAL_RPT };
+  try {
+    const params = new URL(ventana.location.href).searchParams;
+    for (const nombre of Object.values(PARAMETROS_RPT)) if (params.getAll(nombre).length > 1) return null;
+    const decimal = (nombre, defecto, minimo, maximo) => {
+      const valor = params.get(nombre);
+      if (valor === null) return defecto;
+      if (!/^(0|[1-9][0-9]*)$/u.test(valor)) return NaN;
+      const n = Number(valor);
+      return Number.isSafeInteger(n) && n >= minimo && n <= maximo ? n : NaN;
+    };
+    const consulta = {
+      vista: params.get(PARAMETROS_RPT.vista) ?? CONSULTA_INICIAL_RPT.vista,
+      q: params.get(PARAMETROS_RPT.q) ?? "",
+      categoria_clave: params.get(PARAMETROS_RPT.categoria_clave) ?? "",
+      centro_codigo: params.get(PARAMETROS_RPT.centro_codigo) ?? "",
+      limit: decimal(PARAMETROS_RPT.limit, CONSULTA_INICIAL_RPT.limit, 1, 100),
+      offset: decimal(PARAMETROS_RPT.offset, CONSULTA_INICIAL_RPT.offset, 0, 100000),
+    };
+    return consultaRPTValida(consulta) ? consulta : null;
+  } catch { return null; }
+}
+
+function escribirConsultaRPTEnURL(ventana, consulta, modo) {
+  if (!ventana?.location?.href || !ventana.history || modo === "none") return;
+  const destino = new URL(ventana.location.href);
+  for (const [campo, nombre] of Object.entries(PARAMETROS_RPT)) destino.searchParams.set(nombre, String(consulta[campo]));
+  if (destino.href === ventana.location.href) return;
+  if (modo === "replace") ventana.history.replaceState(ventana.history.state, "", destino.href);
+  else ventana.history.pushState(ventana.history.state, "", destino.href);
+}
+
+function crearMontadorRPTPublicaV2(textos) {
 const t = (clave, variables = {}) => textos.traducir(`general.${clave}`, variables);
 const n = (documento, etiqueta, contenido = "") => {
   const elemento = documento.createElement(etiqueta);
@@ -39,17 +86,21 @@ function estadoFuente(documento, pagina, recargar) {
   const cuerpo = n(documento, "div"); cuerpo.className = "cuerpo-panel";
   const etiqueta = n(documento, "strong", t("estado")); etiqueta.className = "estado-avisado";
   cuerpo.append(etiqueta); panel.append(cuerpo);
-  const resumen = n(documento, "div"); resumen.className = "rejilla-kpi";
-  for (const [clave, valor, vista] of [
-    ["filas", pagina.resumen.puestos, "puestos"], ["dotaciones", pagina.resumen.dotacion, "puestos"],
-    ["categorias_resumen", pagina.resumen.categorias, "categorias"],
+  const resumen = n(documento, "div"); resumen.className = "rejilla-kpi rejilla-kpi--compacta";
+  for (const [clave, valor, vista, marca] of [
+    ["filas", pagina.resumen.puestos, "puestos", "documento"],
+    ["dotaciones", pagina.resumen.dotacion, "puestos", "grafico"],
+    ["categorias_resumen", pagina.resumen.categorias, "categorias", "reglas"],
   ]) {
-    const tarjeta = n(documento, "section"); tarjeta.className = "tarjeta-kpi";
-    const abrir = n(documento, "button"); abrir.type = "button"; abrir.dataset.personalRptV2Resumen = clave;
-    abrir.append(n(documento, "strong", numero(valor)), n(documento, "span", t(clave)));
+    const abrir = n(documento, "button"); abrir.type = "button"; abrir.className = "tarjeta-kpi"; abrir.dataset.personalRptV2Resumen = clave;
+    const pictograma = n(documento, "span"); pictograma.className = "icono-kpi"; pictograma.setAttribute("aria-hidden", "true");
+    pictograma.innerHTML = icono(marca);
+    const cifras = n(documento, "span");
+    const valorVisible = n(documento, "strong", numero(valor)); valorVisible.className = "valor-kpi";
+    const etiquetaVisible = n(documento, "span", t(clave)); etiquetaVisible.className = "etiqueta-kpi";
+    cifras.append(valorVisible, etiquetaVisible); abrir.append(pictograma, cifras);
     abrir.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }));
-    tarjeta.append(abrir);
-    resumen.append(tarjeta);
+    resumen.append(abrir);
   }
   return [panel, resumen];
 }
@@ -189,15 +240,21 @@ function mensajeError(error) {
   return t("error_unavailable");
 }
 
-export async function montarModuloRPTPublicaV2({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
+async function montarConTextos({ raiz, cliente, anunciar = () => {}, registrarDesmontar, ventana = raiz?.ownerDocument?.defaultView ?? globalThis.window } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || !cliente?.listar || typeof anunciar !== "function" ||
       registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") throw new TypeError("módulo RPT publicada no disponible");
   const documento = raiz.ownerDocument;
   const contenedor = n(documento, "section"); contenedor.className = "modulo-personal"; contenedor.dataset.personalRptPublicaV2 = "";
   raiz.append(contenedor);
-  let activa = true, controlador = null, consulta = Object.freeze({ vista: "categorias", q: "", limit: 25, offset: 0, categoria_clave: "", centro_codigo: "" });
+  let activa = true, controlador = null, consulta = Object.freeze(consultaRPTDesdeURL(ventana) ?? { ...CONSULTA_INICIAL_RPT });
   const sigueMontada = () => raiz.querySelector?.("[data-personal-rpt-publica-v2]") === contenedor;
-  const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); contenedor.remove?.(); };
+  const alVolver = () => queueMicrotask(() => {
+    if (!activa || !sigueMontada()) return;
+    const desdeURL = consultaRPTDesdeURL(ventana);
+    void recargar(desdeURL ?? { ...CONSULTA_INICIAL_RPT }, desdeURL ? "none" : "replace");
+  });
+  ventana?.addEventListener?.("popstate", alVolver);
+  const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); ventana?.removeEventListener?.("popstate", alVolver); contenedor.remove?.(); };
   registrarDesmontar?.(desmontar);
   const pintar = (tipo, pagina = null, fallo = null) => {
     if (!activa || !sigueMontada()) return;
@@ -216,16 +273,14 @@ export async function montarModuloRPTPublicaV2({ raiz, cliente, anunciar = () =>
     if (tipo === "disponible") contenedor.append(tabla(documento, pagina, recargar), paginacion(documento, pagina, recargar));
     if (recuperarFoco) contenedor.querySelector?.("[data-personal-rpt-v2-busqueda]")?.focus?.();
   };
-  const recargar = async (cambios = {}) => {
+  const recargar = async (cambios = {}, historial = "push") => {
     if (!activa || !sigueMontada()) return;
     const siguiente = { ...consulta, ...cambios };
-    if (!["categorias", "puestos"].includes(siguiente.vista) || typeof siguiente.q !== "string" || siguiente.q.length > 100 ||
-        !Number.isSafeInteger(siguiente.offset) || siguiente.offset < 0 || siguiente.offset > 100000 ||
-        (siguiente.categoria_clave !== "" && !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(siguiente.categoria_clave)) ||
-        (siguiente.centro_codigo !== "" && !/^[A-Za-z0-9-]{1,64}$/u.test(siguiente.centro_codigo)) ||
-        (siguiente.vista !== "puestos" && (siguiente.categoria_clave || siguiente.centro_codigo))) { pintar("error", null, null); return; }
+    if (!consultaRPTValida(siguiente)) { pintar("error", null, null); return; }
     controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo;
-    consulta = Object.freeze(siguiente); pintar("cargando");
+    consulta = Object.freeze(siguiente);
+    escribirConsultaRPTEnURL(ventana, consulta, historial);
+    pintar("cargando");
     try {
       const pagina = await cliente.listar(consulta, { signal: vuelo.signal });
       if (activa && controlador === vuelo && !vuelo.signal.aborted) pintar("disponible", pagina);
@@ -233,6 +288,19 @@ export async function montarModuloRPTPublicaV2({ raiz, cliente, anunciar = () =>
       if (activa && controlador === vuelo && !vuelo.signal.aborted) { anunciar(mensajeError(err), "error"); pintar("error", null, err); }
     } finally { if (controlador === vuelo) controlador = null; }
   };
-  await recargar();
+  await recargar({}, "replace");
   return Object.freeze({ desmontar });
+}
+return montarConTextos;
+}
+
+// El módulo se puede importar aunque falte el catálogo. Una lectura fallida
+// deja reintentar el montaje con el mismo URL cuando vuelva el lector común.
+export async function montarModuloRPTPublicaV2({ cargarCatalogo = cargarTextos, ...opciones } = {}) {
+  if (typeof cargarCatalogo !== "function") throw new TypeError("lector de textos no disponible");
+  const textos = await cargarCatalogo("personal-rpt-v2");
+  if (!textos || typeof textos.traducir !== "function" || typeof textos.numero !== "function" || typeof textos.fecha !== "function") {
+    throw new TypeError("catálogo de textos no disponible");
+  }
+  return crearMontadorRPTPublicaV2(textos)(opciones);
 }

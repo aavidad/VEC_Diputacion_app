@@ -32,6 +32,15 @@ const (
 	LimiteMaximoRPTPublicaV2      = 100
 )
 
+// La decisión debe cubrir el sobre de respuesta completo. Una concesión que
+// permita solo metadatos no autoriza entregar items, totales ni evidencia.
+func CamposRespuestaRPTPublicaV2() []string {
+	return []string{
+		"categorias_pendientes_grupo", "corte", "esquema", "estado", "evidencia", "fuente", "huella_sha256",
+		"items", "limit", "offset", "publicacion_ref", "resumen", "total", "vista",
+	}
+}
+
 // La proyección distingue referencias detectadas en el PDF de categorías
 // gobernadas. Puestos y Dotacion de cada categoría solo cuentan filas con
 // grupo acreditado por el preparador: no equivalen a todos los enlaces por
@@ -231,6 +240,7 @@ func NuevoMaterialConsultaRPTPublicaV2(s SolicitudConsultaRPTPublicaV2) (Materia
 	}
 	suma := sha256.Sum256(canonico)
 	recurso := core.RecursoAutorizable{Referencia: s.Snapshot.PublicacionRef, ModuloID: "personal", Tipo: "rpt_publica_publicacion",
+		Ambitos: map[string]string{"publicacion_ref": s.Snapshot.PublicacionRef},
 		Atributos: map[string]string{"publicacion_ref": s.Snapshot.PublicacionRef, "corte": s.Snapshot.Corte,
 			"huella_sha256": s.Snapshot.HuellaSHA256, "vista": s.Filtro.Vista,
 			"q_sha256": huellaTextoRPTV2(s.Filtro.Q), "limite": strconv.Itoa(s.Filtro.Limite),
@@ -258,6 +268,10 @@ func (m MaterialConsultaRPTPublicaV2) Solicitud() SolicitudConsultaRPTPublicaV2 
 func (m MaterialConsultaRPTPublicaV2) Canonico() []byte                         { return append([]byte(nil), m.canonico...) }
 func (m MaterialConsultaRPTPublicaV2) Recurso() core.RecursoAutorizable {
 	r := m.recurso
+	r.Ambitos = make(map[string]string, len(m.recurso.Ambitos))
+	for k, v := range m.recurso.Ambitos {
+		r.Ambitos[k] = v
+	}
 	r.Atributos = make(map[string]string, len(m.recurso.Atributos))
 	for k, v := range m.recurso.Atributos {
 		r.Atributos[k] = v
