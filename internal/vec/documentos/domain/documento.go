@@ -59,7 +59,7 @@ type Documento struct {
 
 func (d Documento) Validar() error {
 	if !ReferenciaOpacaValida(d.ID) || !NumeroVECValido(d.NumeroVEC) ||
-		!IdentificadorTecnicoValido(d.ModuloID) || !ReferenciaOpacaValida(d.ExpedienteRef) ||
+		!IdentificadorTecnicoValido(d.ModuloID) || !ReferenciaExpedienteModuloValida(d.ModuloID, d.ExpedienteRef) ||
 		!ReferenciaOpacaValida(d.TipoRef) || d.Version == 0 ||
 		!ReferenciaOpacaValida(d.PoliticaRef) || d.VersionPolitica == 0 ||
 		!HuellaValida(d.HuellaSHA256) || !HuellaValida(d.HuellaPoliticaSHA256) ||
@@ -141,6 +141,19 @@ var numeroVEC = regexp.MustCompile(`^VEC-[0-9]{4}-[0-9]{1,12}$`)
 
 func ReferenciaOpacaValida(s string) bool {
 	return referenciaHash.MatchString(s) && s != "ref:"+strings.Repeat("0", 64) || referenciaUUID.MatchString(s)
+}
+
+// El catálogo de referencias de expediente tiene hoy una única entrada:
+// versión 1, código ct, módulo contratacion_temporal, identificador hex de 64.
+// Las referencias opacas previas conservan su validez sin conversión.
+var expedienteCT = regexp.MustCompile(`^expediente:ct:[0-9a-f]{64}$`)
+
+func ReferenciaExpedienteValida(s string) bool {
+	return ReferenciaOpacaValida(s) || expedienteCT.MatchString(s)
+}
+
+func ReferenciaExpedienteModuloValida(modulo, s string) bool {
+	return ReferenciaOpacaValida(s) || modulo == "contratacion_temporal" && expedienteCT.MatchString(s)
 }
 
 func IdentificadorTecnicoValido(s string) bool { return identificadorTecnico.MatchString(s) }
