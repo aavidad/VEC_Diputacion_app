@@ -112,7 +112,7 @@ func main() {
 			}
 			gobierno = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno)
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, nil)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" {
@@ -178,6 +178,7 @@ func etapaComposicionADMIN(err error) string {
 func etapaComposicionADMINPermitida(etapa string) bool {
 	switch etapa {
 	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion", "gobierno_roles_config", "gobierno_roles_configuracion", "gobierno_roles_fuente",
+		"gobierno_roles_pool", "gobierno_roles_confianza_metadatos", "gobierno_roles_confianza_material", "gobierno_roles_servicio",
 		"firmante_publica", "firmante", "confianza_metadatos", "confianza_material", "confianza_cadena",
 		"emisor_usuarios", "auditoria_intentos", "auditoria_nominal", "frontera_tecnica", "auditor_compuesto",
 		"lector_usuarios", "lecturas_usuarios", "selector", "seudonimos", "identificadores", "servidor",
@@ -195,7 +196,7 @@ func etapaComposicionADMINPermitida(etapa string) bool {
 			}
 		}
 	}
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 17; i++ {
 		prefijo := "pool_" + strconv.Itoa(i)
 		for _, sufijo := range []string{"_dsn", "_config", "_abrir", "_login"} {
 			if etapa == prefijo+sufijo {
