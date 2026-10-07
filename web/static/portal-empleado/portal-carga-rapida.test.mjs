@@ -652,6 +652,7 @@ test("Inicio y CT no solicitan los catálogos y estilos exclusivos de otras pant
     "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
     "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
     "/portal-empleado/portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];

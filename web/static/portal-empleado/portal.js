@@ -20,7 +20,6 @@ import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
 
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
@@ -112,7 +111,10 @@ function cargarRecursosVista(grupo) {
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
-      : import("./portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1");
+      : Promise.all([
+        import("./portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1"),
+        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
+      ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
     if (cargasRecursosVistas.get(grupo) !== carga) return;
@@ -386,7 +388,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos.desmontar(); }
+        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; } } });
     },
@@ -1076,9 +1078,12 @@ function renderizar() {
     return;
   }
   if (grupoRecursos === "ofertas" && !superficieOfertasBolsa) {
-    superficieOfertasBolsa = recursosVistas.get("ofertas").crearSuperficieOfertasBolsa({ anunciar,
+    const recursos = recursosVistas.get("ofertas");
+    superficieOfertasBolsa = recursos.crearSuperficieOfertasBolsa({ anunciar,
       alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
     superficieOfertasBolsa.instalar(document);
+    superficieRRHHPlazos = recursos.crearSuperficieRRHHPlazos({ anunciar,
+      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
   }
   const [migas, titulo] = tituloDeVista(estado.vista);
   const moduloActivo = moduloActivoDeVista(estado.vista);
@@ -1289,9 +1294,7 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 });
 // Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
 let superficieOfertasBolsa = null;
-const superficieRRHHPlazos = crearSuperficieRRHHPlazos({ anunciar,
-  alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); },
-});
+let superficieRRHHPlazos = null;
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {
