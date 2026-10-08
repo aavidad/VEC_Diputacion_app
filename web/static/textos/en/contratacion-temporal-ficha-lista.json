@@ -32,6 +32,7 @@
     "ficha_historial_fase": "Stage: {fase}",
     "ficha_datos_titulo": "Request details",
     "ficha_datos_todos": "View all details",
+    "ficha_llamamiento_sin_bolsa": "There is no active job pool for this category. Review the case file's recruitment route.",
     "ficha_detalle_tecnico": "View technical details",
     "ficha_detalle_flujo": "Workflow",
     "ficha_detalle_version": "Case version",

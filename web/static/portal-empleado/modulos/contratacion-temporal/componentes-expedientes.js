@@ -229,20 +229,24 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
 // «Abrir llamamiento en Bolsa»: la bolsa elegida para cubrir la petición o, si
 // no hay, la vigente de su categoría. Bolsa abre el asistente con la referencia,
 // el centro y la fecha de inicio de la petición ya puestos.
-function renderizarAbrirLlamamiento(expediente, resolverBolsa) {
+function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   if (typeof resolverBolsa !== "function") return "";
   const valor = (clave) => expediente.cabecera?.find((campo) => campo.clave === clave)?.valor;
   const cobertura = valor("bolsa_cobertura");
   let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura) ? cobertura : "";
+  let sinBolsaConfirmada = false;
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
-    bolsaRef = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef })?.bolsa_ref || "" : "";
+    const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
+    bolsaRef = bolsaCategoria?.bolsa_ref || "";
+    sinBolsaConfirmada = !cobertura && bolsaCategoria?.estado === "sin_bolsa";
   }
   const origen = bolsaRef ? origenLlamamientoValido({
     expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
     fecha_inicio: expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio,
   }) : null;
-  if (!origen) return "";
+  if (!origen) return sinBolsaConfirmada
+    ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>` : "";
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
   return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(traducirPortal("panel_ct_abrir_llamamiento"))}</button></div>`;
 }
@@ -505,7 +509,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
       </div>
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
-        ${renderizarAbrirLlamamiento(expediente, resolverBolsa)}
+        ${renderizarAbrirLlamamiento(expediente, resolverBolsa, t)}
         ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
       </div>
     </div>

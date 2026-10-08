@@ -101,6 +101,7 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
   "reincorporacion_capacidad_no_habilitada",
 ]);
+const CLAVES_FICHA_SIN_BOLSA = Object.freeze(["ficha_llamamiento_sin_bolsa"]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
@@ -151,11 +152,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
       if (archivo === "i18n-ficha-lista.js") {
-        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD]) {
+        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD, ...CLAVES_FICHA_SIN_BOLSA]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(valor)
-          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)
+            && !CLAVES_FICHA_SIN_BOLSA.includes(clave)));
 
       }
       if (CLAVES_CAPACIDAD_ALTA[archivo]) {
