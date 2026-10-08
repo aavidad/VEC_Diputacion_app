@@ -55,7 +55,7 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
  * plazo es el de la fase del expediente (el que calcula el servidor) y se
  * nombra así; no se atribuye a una persona.
  */
-export function renderizarSiguientePasoFicha(expediente, estado, t) {
+export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente = false) {
   const tarea = expediente.tareas.find(({ estado_clave: e }) => e === "en_curso")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "espera")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "pendiente");
@@ -80,12 +80,15 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
   const terminado = ["completado", "cancelado"].includes(resumen?.estado_clave);
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
-  const titulo = terminado ? t("ficha_siguiente_paso_terminado")
+  const guiaCobertura = coberturaPendiente === true && !bloqueado && !terminado && !espera;
+  const titulo = guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+    : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
-  const que = accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
+  const que = guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+    : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
   const conPlazo = resumen?.plazo_estado && resumen.plazo_estado !== "no_calculado";
-  const plazo = conPlazo ? t("ficha_plazo_fase_estado", {
+  const plazo = guiaCobertura ? t("siguiente_paso_plazo_desconocido") : conPlazo ? t("ficha_plazo_fase_estado", {
     fecha: resumen.plazo, estado: t(`plazo_fase_${resumen.plazo_estado}`),
   }) : t("siguiente_paso_plazo_desconocido");
   const clase = terminado || espera ? " en-espera" : (incidencia ? " con-incidencia" : "");
@@ -93,14 +96,14 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
-        ${tarea ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
+        ${tarea && !guiaCobertura ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || guiaCobertura ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 
