@@ -38,11 +38,11 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
 	resumenConjunto ports.LectorResumenBolsas
 	// B92 acota las situaciones a la bolsa pedida; la lista exige este lector.
-	bolsaConjunto   lectorBolsaRRHHConjunto
-	recuperador     constitucion.Recuperador
-	categorias      map[string]string
-	grupos          map[string][]string
-	ahora           func() time.Time
+	bolsaConjunto lectorBolsaRRHHConjunto
+	recuperador   constitucion.Recuperador
+	categorias    map[string]string
+	grupos        map[string][]string
+	ahora         func() time.Time
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
@@ -57,7 +57,7 @@ type contadorLlamamientosEnCursoBolsa interface {
 }
 
 type lectorBolsaRRHHConjunto interface {
-	LeerBolsa(context.Context, string, time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionResumenParticipacion, int, error)
+	LeerBolsa(context.Context, string, time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionBolsaRRHH, int, error)
 }
 
 const validezCacheBolsasConstituidas = 30 * time.Second
@@ -277,7 +277,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 			continue
 		}
 		var ordenVigente dominiobolsa.OrdenVigenteBolsa
-		var filasResumen []ports.SituacionResumenParticipacion
+		var filasResumen []ports.SituacionBolsaRRHH
 		var totalCurso int
 		if alcance.bolsa != "" && f.bolsaConjunto != nil {
 			ordenVigente, filasResumen, totalCurso, err = f.bolsaConjunto.LeerBolsa(ctx, vigente.Bolsa.BolsaRef, corte)

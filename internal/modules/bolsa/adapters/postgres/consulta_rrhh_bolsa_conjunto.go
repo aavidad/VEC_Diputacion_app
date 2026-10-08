@@ -22,7 +22,7 @@ func NuevoLectorBolsaRRHHConjunto(pool *pgxpool.Pool) (*LectorBolsaRRHHConjunto,
 	return &LectorBolsaRRHHConjunto{pool: pool}, nil
 }
 
-func (l *LectorBolsaRRHHConjunto) LeerBolsa(ctx context.Context, bolsaRef string, corte time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionResumenParticipacion, int, error) {
+func (l *LectorBolsaRRHHConjunto) LeerBolsa(ctx context.Context, bolsaRef string, corte time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionBolsaRRHH, int, error) {
 	var vacio dominiobolsa.OrdenVigenteBolsa
 	if l == nil || l.pool == nil || ctx == nil || bolsaRef == "" || corte.IsZero() {
 		return vacio, nil, 0, ports.ErrResumenBolsasNoDisponible
@@ -67,7 +67,7 @@ func errorLecturaBolsaRRHHConjunto(ctx context.Context, fallo error) error {
 	return fallo
 }
 
-func leerSituacionesBolsaRRHHConjunto(ctx context.Context, tx pgx.Tx, bolsaRef string, corte time.Time) ([]ports.SituacionResumenParticipacion, error) {
+func leerSituacionesBolsaRRHHConjunto(ctx context.Context, tx pgx.Tx, bolsaRef string, corte time.Time) ([]ports.SituacionBolsaRRHH, error) {
 	filas, err := tx.Query(ctx, `SELECT bolsa_ref,categoria_ref,confirmada_en,instantanea_ref,version_instantanea,orden,
 		participacion_ref,situacion,desde,fecha_disponible,cese_fecha_efecto,cese_disponible_desde,
 		cese_en_restriccion,cese_trabajo_cesado,cese_pendiente,pendiente_desde,fila_numero
@@ -76,12 +76,12 @@ func leerSituacionesBolsaRRHHConjunto(ctx context.Context, tx pgx.Tx, bolsaRef s
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}
 	defer filas.Close()
-	salida := make([]ports.SituacionResumenParticipacion, 0)
+	salida := make([]ports.SituacionBolsaRRHH, 0)
 	for filas.Next() {
 		if len(salida) >= 20000 {
 			return nil, ports.ErrResumenBolsasNoDisponible
 		}
-		var fila ports.SituacionResumenParticipacion
+		var fila ports.SituacionBolsaRRHH
 		var version, orden int64
 		var numero int
 		var situacion *string
@@ -120,6 +120,7 @@ func leerSituacionesBolsaRRHHConjunto(ctx context.Context, tx pgx.Tx, bolsaRef s
 				return nil, ports.ErrResumenBolsasNoDisponible
 			}
 		}
+		fila.FilaNumero = numero
 		salida = append(salida, fila)
 	}
 	if filas.Err() != nil {

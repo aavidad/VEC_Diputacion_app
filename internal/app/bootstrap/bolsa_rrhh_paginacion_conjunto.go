@@ -49,7 +49,7 @@ func lectorBolsaRRHHConjuntoInstalado(ctx context.Context, pool *pgxpool.Pool) l
 // mapearSituacionesConjuntoBolsa ata el conjunto B82 a la instantánea y las
 // entradas que el lector RRHH va a presentar. Una fila ausente, duplicada o
 // de otra versión hace fallar la lectura completa.
-func mapearSituacionesConjuntoBolsa(vigente ports.ConstitucionVigente, entradas []ports.EntradaConstitucion, filas []ports.SituacionResumenParticipacion) (map[string]ports.SituacionParticipacion, map[string]ports.EstadoCese, error) {
+func mapearSituacionesConjuntoBolsa(vigente ports.ConstitucionVigente, entradas []ports.EntradaConstitucion, filas []ports.SituacionBolsaRRHH) (map[string]ports.SituacionParticipacion, map[string]ports.EstadoCese, error) {
 	if len(filas) != len(entradas) {
 		return nil, nil, ErrComposicionDesarrolloIncompleta
 	}
@@ -69,7 +69,8 @@ func mapearSituacionesConjuntoBolsa(vigente ports.ConstitucionVigente, entradas 
 		entrada, existe := esperadas[fila.ParticipacionRef]
 		if !existe || fila.BolsaRef != vigente.Bolsa.BolsaRef || fila.CategoriaRef != vigente.CategoriaRef ||
 			!fila.ConfirmadaEn.Equal(vigente.ConfirmadaEn) || fila.InstantaneaRef != vigente.Instantanea.InstantaneaRef ||
-			fila.VersionInstantanea != vigente.Instantanea.Version || fila.Orden != entrada.Orden || fila.Situacion == nil {
+			fila.VersionInstantanea != vigente.Instantanea.Version || fila.Orden != entrada.Orden ||
+			fila.FilaNumero != entrada.FilaNumero || fila.Situacion == nil {
 			return nil, nil, ErrComposicionDesarrolloIncompleta
 		}
 		if _, repetida := situaciones[fila.ParticipacionRef]; repetida {

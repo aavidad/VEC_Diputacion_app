@@ -14,10 +14,10 @@ import (
 type lectorBolsaConjuntoPrueba struct {
 	repo     repositorioVariasBolsasRRHHPrueba
 	lecturas *atomic.Int64
-	alterar  func([]ports.SituacionResumenParticipacion)
+	alterar  func([]ports.SituacionBolsaRRHH)
 }
 
-func (l lectorBolsaConjuntoPrueba) LeerBolsa(ctx context.Context, bolsa string, corte time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionResumenParticipacion, int, error) {
+func (l lectorBolsaConjuntoPrueba) LeerBolsa(ctx context.Context, bolsa string, corte time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionBolsaRRHH, int, error) {
 	l.lecturas.Add(1)
 	orden, err := ordenContadoRRHHPrueba{c: &contadoresBolsasRRHHPrueba{}, entradas: l.repo.entradas}.ConsultarOrdenVigente(ctx, bolsa)
 	if err != nil {
@@ -27,10 +27,14 @@ func (l lectorBolsaConjuntoPrueba) LeerBolsa(ctx context.Context, bolsa string, 
 	if err != nil {
 		return orden, nil, 0, err
 	}
-	filas := make([]ports.SituacionResumenParticipacion, 0, len(orden.Posiciones))
+	filas := make([]ports.SituacionBolsaRRHH, 0, len(orden.Posiciones))
+	numeros := make(map[string]int, len(l.repo.entradas["instantanea:"+bolsa]))
+	for _, entrada := range l.repo.entradas["instantanea:"+bolsa] {
+		numeros[entrada.ParticipacionRef] = entrada.FilaNumero
+	}
 	for _, fila := range resumen {
 		if fila.BolsaRef == bolsa {
-			filas = append(filas, fila)
+			filas = append(filas, ports.SituacionBolsaRRHH{SituacionResumenParticipacion: fila, FilaNumero: numeros[fila.ParticipacionRef]})
 		}
 	}
 	if l.alterar != nil {
@@ -77,6 +81,11 @@ func TestFuenteConstituidaRRHHBolsaConjuntoRechazaInstantaneaDivergente(t *testi
 	if _, _, err := mapearSituacionesConjuntoBolsa(repo.vigentes[0], repo.entradas[repo.vigentes[0].Instantanea.InstantaneaRef], filas); err == nil {
 		t.Fatal("se aceptó una situación de otra instantánea")
 	}
+	filas[0].VersionInstantanea--
+	filas[0].FilaNumero++
+	if _, _, err := mapearSituacionesConjuntoBolsa(repo.vigentes[0], repo.entradas[repo.vigentes[0].Instantanea.InstantaneaRef], filas); err == nil {
+		t.Fatal("se aceptó un número de fila distinto del acta")
+	}
 }
 
 func TestFuenteConstituidaRRHHBolsaConjuntoConservaExclusionAnteCesePendiente(t *testing.T) {
@@ -85,7 +94,7 @@ func TestFuenteConstituidaRRHHBolsaConjuntoConservaExclusionAnteCesePendiente(t 
 	pendienteDesde := f.ahora().Add(-time.Hour)
 	excluidaDesde := f.ahora().Add(-24 * time.Hour)
 	var lecturas atomic.Int64
-	f.bolsaConjunto = lectorBolsaConjuntoPrueba{repo: repo, lecturas: &lecturas, alterar: func(filas []ports.SituacionResumenParticipacion) {
+	f.bolsaConjunto = lectorBolsaConjuntoPrueba{repo: repo, lecturas: &lecturas, alterar: func(filas []ports.SituacionBolsaRRHH) {
 		filas[0].Situacion = &ports.SituacionParticipacion{ParticipacionRef: filas[0].ParticipacionRef, Situacion: "disponible", Desde: excluidaDesde}
 		filas[0].Cese = &ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde}
 		filas[1].Situacion = &ports.SituacionParticipacion{ParticipacionRef: filas[1].ParticipacionRef, Situacion: "excluido", Desde: excluidaDesde}
