@@ -10,7 +10,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261008-alta-circular-v3";
+} from "./contrato.js?v=20261008-alta-corte-v1";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

@@ -3,22 +3,22 @@
 import { escaparHTML } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-corte-v1";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-corte-v1";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-corte-v1";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-capacidad-v3";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-corte-v1";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
