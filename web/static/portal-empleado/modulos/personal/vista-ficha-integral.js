@@ -24,6 +24,7 @@ const BLOQUES = Object.freeze({
   documentos: { titulo: "ficha_documentos_titulo", ayuda: "ficha_documentos_ayuda", columnas: [["documento", "ficha_cab_documento"], ["fecha", "ficha_cab_fecha"], ["estado", "ficha_cab_estado"]] },
 });
 const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado", "excede_limite", "error"]);
+const RESPUESTAS_RPT = new Set(["disponible", "incidencia", "ausente", "denegado"]);
 /** Longitud máxima de una celda; la misma que valida el cliente de la ficha propia. */
 export const LIMITE_TEXTO_CAMPO_FICHA = 300;
 const ETIQUETAS_ESTADO = Object.freeze({
@@ -187,13 +188,17 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
  * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
  * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, montarContacto, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, montarContacto, navegarModulo, abrirCorreos, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false, rptDisponible = false, rptIncidencia = false, reintentarRPT } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
       (montarContacto !== undefined && typeof montarContacto !== "function") ||
       (abrirCorreos !== undefined && typeof abrirCorreos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
-      !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
+      !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean" ||
+      typeof rptDisponible !== "boolean" || typeof rptIncidencia !== "boolean" ||
+      (reintentarRPT !== undefined && typeof reintentarRPT !== "function") ||
+      (rptDisponible && (rptIncidencia || !montarCatalogos)) ||
+      (rptIncidencia && (!reintentarRPT || !montarCatalogos))) throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
   const t = crearTraductorPersonal(); const contenedor = nodo(d, "section"); contenedor.className = "modulo-personal";
   contenedor.dataset.personalFichaIntegral = ""; raiz.append(contenedor);
@@ -202,8 +207,9 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       ? (fuentes[clave].estadoInicial === "error" ? "error" : "sin_consulta") : "no_configurado"]));
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
   const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "contacto" && montarContacto) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
-  let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
+  let activa = true; let actual = !rptIncidencia && ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
   let vuelo; let vueloExportacion; let limpiarHistoria; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
+  let estadoRPT = rptIncidencia ? "incidencia" : "sin_aviso", vueloRPT = null, controlRPT = null;
   const limpiar = () => { limpiarHistoria?.(); limpiarHistoria = undefined; const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); vueloExportacion?.abort(); limpiar(); contenedor.remove?.(); };
   const caducarSesion = () => {
@@ -219,6 +225,47 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const ayudaFicha = ayuda(d, t);
   cabecera.append(nodo(d, "p", t("ficha_sobrelinea")), nodo(d, "h2", t("ficha_titulo")), ayudaFicha.elemento);
   const tabs = nodo(d, "div"); tabs.className = "personal-ficha-pestanas"; tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", t("ficha_navegacion"));
+  const avisoRPT = nodo(d, "div"); avisoRPT.dataset.personalFichaRptAviso = ""; avisoRPT.setAttribute("aria-live", "polite");
+  const pintarAvisoRPT = () => {
+    const conservarFoco = d.activeElement === controlRPT;
+    avisoRPT.hidden = estadoRPT === "sin_aviso";
+    if (avisoRPT.hidden) { avisoRPT.replaceChildren(); controlRPT = null; return; }
+    const clave = { incidencia: "ficha_rpt_incidencia", cargando: "ficha_rpt_cargando", disponible: "ficha_rpt_disponible",
+      ausente: "ficha_rpt_ausente", denegado: "ficha_rpt_denegado" }[estadoRPT];
+    const estado = mensaje(d, t(clave), estadoRPT === "incidencia" ? "alert" : "status");
+    estado.setAttribute("tabindex", "-1"); avisoRPT.replaceChildren(estado); controlRPT = estado;
+    if (estadoRPT === "incidencia" || estadoRPT === "disponible") {
+      const boton = nodo(d, "button", t(estadoRPT === "incidencia" ? "ficha_rpt_reintentar" : "ficha_rpt_abrir"));
+      boton.type = "button"; boton.className = "boton-secundario";
+      boton.dataset[estadoRPT === "incidencia" ? "personalFichaRptReintentar" : "personalFichaRptAbrir"] = "";
+      boton.addEventListener("click", estadoRPT === "incidencia" ? reintentarRPTVisible : () => {
+        if (activa && estadoRPT === "disponible" && actual !== "catalogos") pintar("catalogos");
+      });
+      avisoRPT.append(boton); controlRPT = boton;
+    }
+    if (conservarFoco) controlRPT?.focus?.({ preventScroll: true });
+  };
+  const reintentarRPTVisible = async () => {
+    if (!activa || estadoRPT !== "incidencia" || vueloRPT) return;
+    estadoRPT = "cargando"; pintarAvisoRPT();
+    const intento = Promise.resolve().then(() => {
+      const respuesta = reintentarRPT();
+      if (!respuesta || typeof respuesta.then !== "function") throw new TypeError("reintento RPT no disponible");
+      return respuesta;
+    }); vueloRPT = intento;
+    try {
+      const resultado = await intento;
+      if (!RESPUESTAS_RPT.has(resultado)) throw new TypeError("respuesta RPT no válida");
+      if (!activa || vueloRPT !== intento) return;
+      estadoRPT = resultado;
+    } catch {
+      if (!activa || vueloRPT !== intento) return;
+      estadoRPT = "incidencia";
+    } finally {
+      if (vueloRPT === intento) vueloRPT = null;
+      if (activa) pintarAvisoRPT();
+    }
+  };
   const principal = nodo(d, "div"); principal.className = "personal-ficha-principal"; principal.id = "personal-ficha-panel";
   principal.setAttribute("role", "tabpanel"); principal.setAttribute("tabindex", "0");
   const pintar = (clave, enfocarAccion = false) => {
@@ -356,5 +403,5 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       pintar(pestanas[destino][0]); tabs.querySelector?.(`[data-personal-ficha-tab="${pestanas[destino][0]}"]`)?.focus?.();
     }); tabs.append(tab);
   });
-  contenedor.append(cabecera, tabs, principal); pintar(actual); return Object.freeze({ desmontar });
+  contenedor.append(cabecera, tabs, avisoRPT, principal); pintarAvisoRPT(); pintar(actual); return Object.freeze({ desmontar });
 }

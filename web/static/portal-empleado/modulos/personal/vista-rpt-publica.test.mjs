@@ -112,3 +112,25 @@ test("una búsqueda tardía no reaparece al quitarla y desmontar cancela la cons
   pendientes[1].resolve(pagina()); await esperarRespuesta();
   assert.equal(r.querySelector("[data-personal-rpt-publica]"), null);
 });
+
+test("vista RPT conserva el código exacto y permite quitarlo sin perder la búsqueda", async () => {
+  const r = raiz(), llamadas = [];
+  const puesto = { codigo: "217", denominacion: "TÉCNICO", centro_codigo: "101", centro: "CENTRO",
+    delegacion: "PRESIDENCIA", grupos: [], escala: "", categoria_clave: "", nivel_destino: 17,
+    complemento_especifico_anual_centimos: 0, dotacion: 1, tipo: "E", provision: "I" };
+  await montarModuloRPTPublica({ raiz: r, codigoPuesto: "217", cliente: { async listar(consulta) {
+    llamadas.push(consulta);
+    return pagina({ vista: consulta.vista, total: consulta.vista === "puestos" ? 1 : 0,
+      items: consulta.vista === "puestos" ? [puesto] : [] });
+  } } });
+  assert.equal(llamadas[0].codigo_puesto, "217");
+  assert.equal(llamadas[0].vista, "puestos");
+  assert.match(textoNodo(r.querySelector("[data-personal-rpt-publica-codigo-aplicado]")), /Puesto: 217/u);
+  r.querySelector("[data-personal-rpt-publica-quitar-codigo]").listeners.get("click")();
+  await esperarRespuesta();
+  assert.equal(llamadas.at(-1).codigo_puesto, "");
+  assert.equal(llamadas.at(-1).vista, "puestos");
+  assert.equal(r.querySelector("[data-personal-rpt-publica-codigo-aplicado]"), null);
+  await assert.rejects(() => montarModuloRPTPublica({ raiz: raiz(), codigoPuesto: "217 ",
+    cliente: { listar: async () => pagina() } }), TypeError);
+});
