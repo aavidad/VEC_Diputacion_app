@@ -40,8 +40,6 @@ type DependenciasRutas struct {
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
 	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
 	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
-	AutoridadCierreAdministrativo   httpinterno.AutoridadServidorCierreAdministrativo
-	EjecutorCierreAdministrativo    httpinterno.EjecutorCierreAdministrativo
 	AutoridadAsignacion             httpinterno.AutoridadContextoCanalAsignacion
 	EjecutorAsignacion              httpinterno.EjecutorAsignacion
 	AutoridadInformeJuridico        httpinterno.AutoridadContextoCanalInformeJuridico
@@ -97,13 +95,6 @@ func NuevasRutas(
 	propuesta, err := httpinterno.NuevoManejadorPropuestaFormalizacion(
 		dependencias.AutoridadPropuestaFormalizacion,
 		dependencias.EjecutorPropuestaFormalizacion,
-	)
-	if err != nil {
-		return nil, ErrRutasContratacionTemporalInvalidas
-	}
-	cierreAdministrativo, err := httpinterno.NuevoManejadorCierreAdministrativo(
-		dependencias.AutoridadCierreAdministrativo,
-		dependencias.EjecutorCierreAdministrativo,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
@@ -230,14 +221,6 @@ func NuevasRutas(
 		{
 			Ruta:      httpinterno.RutaPropuestaFormalizacion,
 			Manejador: propuesta,
-		},
-		{
-			Ruta:      httpinterno.RutaCerrarAdministrativamente,
-			Manejador: cierreAdministrativo,
-		},
-		{
-			Ruta:      httpinterno.RutaReabrirExcepcionalmente,
-			Manejador: cierreAdministrativo,
 		},
 		{
 			Ruta:      httpinterno.RutaPreparacionesInformeJuridico,
