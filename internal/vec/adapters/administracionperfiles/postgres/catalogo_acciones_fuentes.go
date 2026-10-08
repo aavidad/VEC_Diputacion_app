@@ -53,8 +53,8 @@ func canonEntradasFuenteV2(entradas []domain.EntradaAccionAdministracionV1) ([]b
 	}
 	proyeccion := make([]entradaFuenteCanonicaV2, len(entradas))
 	for i, e := range entradas {
-		if e.Validar() != nil {
-			return nil, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		if err := e.Validar(); err != nil {
+			return nil, "", errors.Join(ports.ErrAutoridadAdministracionPerfilesNoDisponible, err)
 		}
 		proyeccion[i] = entradaFuenteCanonicaV2{
 			Referencia: e.Referencia, Version: e.Version, FuenteRef: e.FuenteRef,
@@ -65,7 +65,7 @@ func canonEntradasFuenteV2(entradas []domain.EntradaAccionAdministracionV1) ([]b
 	}
 	canon, err := json.Marshal(proyeccion)
 	if err != nil {
-		return nil, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return nil, "", errors.Join(ports.ErrAutoridadAdministracionPerfilesNoDisponible, err)
 	}
 	h := sha256.Sum256(canon)
 	return canon, hex.EncodeToString(h[:]), nil
@@ -78,18 +78,29 @@ func ValidarPaqueteCatalogoAccionesV2(canon []byte, catalogo domain.CatalogoAcci
 	ref string, version int, huella string) error {
 	denegado := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if len(canon) == 0 || len(canon) > maximoBytesCatalogoAcciones ||
-		catalogo.Validar() != nil || ref == "" || version < 1 || len(huella) != 64 {
+		ref == "" || version < 1 || len(huella) != 64 {
 		return denegado
+	}
+	if err := catalogo.Validar(); err != nil {
+		return errors.Join(denegado, err)
 	}
 	var paquete paqueteCatalogoAccionesV2
 	dec := json.NewDecoder(bytes.NewReader(canon))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&paquete) != nil || !errors.Is(dec.Decode(new(any)), io.EOF) {
+	if err := dec.Decode(&paquete); err != nil {
+		return errors.Join(denegado, err)
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return errors.Join(denegado, err)
+		}
 		return denegado
 	}
 	recodificado, err := json.Marshal(paquete)
-	if err != nil || !bytes.Equal(canon, recodificado) ||
-		paquete.Esquema != esquemaPaqueteCatalogoAccionesV2 ||
+	if err != nil {
+		return errors.Join(denegado, err)
+	}
+	if !bytes.Equal(canon, recodificado) || paquete.Esquema != esquemaPaqueteCatalogoAccionesV2 ||
 		paquete.Referencia != ref || paquete.Version != version ||
 		len(paquete.Fuentes) == 0 || len(paquete.Fuentes) > 512 ||
 		len(paquete.Perfiles) == 0 || len(paquete.Perfiles) > 512 {
@@ -120,7 +131,10 @@ func ValidarPaqueteCatalogoAccionesV2(canon []byte, catalogo domain.CatalogoAcci
 		}
 		identidades[identidad] = true
 		entradasCanon, h, err := canonEntradasFuenteV2(fuente.Entradas)
-		if err != nil || fuente.EntradasCanon != string(entradasCanon) || fuente.HuellaSHA256 != h {
+		if err != nil {
+			return errors.Join(denegado, err)
+		}
+		if fuente.EntradasCanon != string(entradasCanon) || fuente.HuellaSHA256 != h {
 			return denegado
 		}
 		for _, entrada := range fuente.Entradas {
