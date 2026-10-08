@@ -215,7 +215,7 @@ func (c CatalogoNecesidadesAlta) ValidarDatos(d DatosNecesidadAlta) error {
 		d.CatalogoVersion != c.Version || d.CatalogoHuellaSHA256 != c.HuellaSHA256 ||
 		(len(d.CatalogoInstantanea) != 0 && !bytes.Equal(d.CatalogoInstantanea, c.ContenidoCanonico)) ||
 		!d.CausaClave.Valida() || d.Periodo.Validar() != nil ||
-		d.JornadaMinutos == 0 || d.JornadaMinutos > c.JornadaReferenciaMinutos {
+		d.JornadaMinutos == 0 || d.JornadaMinutos > 7*24*60 {
 		return ErrNecesidadAltaInvalida
 	}
 	var causa *CausaNecesidadAlta

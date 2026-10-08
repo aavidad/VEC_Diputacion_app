@@ -104,11 +104,15 @@ BEGIN
        pg_temp.ct193_solicitud(raw,'vacante',p_finito,
          campos_vacante||pg_catalog.jsonb_build_object('titular_ref','persona:opaca:1'),2250)) IS NOT FALSE
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
-       pg_temp.ct193_solicitud(raw,'vacante',p_finito,campos_vacante,2251)) IS NOT FALSE THEN
+       pg_temp.ct193_solicitud(raw,'vacante',p_finito,campos_vacante,10081)) IS NOT FALSE THEN
    RAISE EXCEPTION 'CT193: vacante, RPT, campo inesperado o jornada divergente';
  END IF;
  IF vec_contratacion_temporal.necesidad_alta_valida_v3(
       pg_temp.ct193_solicitud(raw,'sustitucion',p_abierto,campos_sustitucion,2250)) IS NOT TRUE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+      pg_temp.ct193_solicitud(raw,'sustitucion',p_abierto,campos_sustitucion,2400)) IS NOT TRUE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+      pg_temp.ct193_solicitud(raw,'sustitucion',p_abierto,campos_sustitucion,10081)) IS NOT FALSE
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
       pg_temp.ct193_solicitud(raw,'sustitucion',p_abierto,
         campos_sustitucion-'puesto_codigo',2250)) IS NOT FALSE

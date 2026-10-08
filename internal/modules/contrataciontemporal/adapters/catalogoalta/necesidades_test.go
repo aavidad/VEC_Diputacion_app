@@ -94,8 +94,12 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	}
 	delete(vacante.Campos, "titular_ref")
 	vacante.JornadaMinutos = 2251
+	if err := c.ValidarDatos(vacante); err != nil {
+		t.Fatal("la jornada de referencia es precarga editable, no máximo", err)
+	}
+	vacante.JornadaMinutos = 10081
 	if c.ValidarDatos(vacante) == nil {
-		t.Fatal("jornada fuera de la referencia")
+		t.Fatal("jornada superior a una semana admitida")
 	}
 	acumulacion := domain.DatosNecesidadAlta{CausaClave: "acumulacion_tareas", Periodo: periodo(inicio.AddDate(0, 9, 0)), JornadaMinutos: 1800,
 		Campos: campos(map[string]string{"justificacion_temporal": "Refuerzo limitado de un servicio."})}

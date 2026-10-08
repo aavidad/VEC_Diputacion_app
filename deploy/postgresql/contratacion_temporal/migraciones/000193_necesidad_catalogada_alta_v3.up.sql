@@ -100,7 +100,6 @@ BEGIN
     OR pg_catalog.jsonb_typeof(c->'jornada_referencia_minutos') IS DISTINCT FROM 'number'
     OR c->>'jornada_referencia_minutos' !~ '^[1-9][0-9]{0,4}$'
     OR (c->>'jornada_referencia_minutos')::integer NOT BETWEEN 1 AND 10080
-    OR (n->>'jornada_minutos')::integer > (c->>'jornada_referencia_minutos')::integer
     OR pg_catalog.jsonb_typeof(c->'causas') IS DISTINCT FROM 'array' THEN
    RETURN false;
  END IF;

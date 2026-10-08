@@ -37,7 +37,7 @@ BEGIN
          pg_catalog.jsonb_set(s,'{necesidad,catalogo_huella_sha256}',
            pg_catalog.to_jsonb(pg_catalog.repeat('0',64)))) IS NOT FALSE
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
-         pg_catalog.jsonb_set(s,'{necesidad,jornada_minutos}','2251'::jsonb)) IS NOT FALSE
+         pg_catalog.jsonb_set(s,'{necesidad,jornada_minutos}','10081'::jsonb)) IS NOT FALSE
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
          pg_catalog.jsonb_set(s,'{necesidad,periodo,fin}',
            '"2026-11-01"'::jsonb)) IS NOT FALSE
