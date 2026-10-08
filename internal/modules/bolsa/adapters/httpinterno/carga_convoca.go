@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
@@ -31,6 +32,8 @@ const (
 
 	OperacionVistaPreviaCargaConvoca = "vista_previa"
 	OperacionConfirmarCargaConvoca   = "confirmar"
+	limiteDefectoVistaPreviaConvoca  = 50
+	limiteMaximoVistaPreviaConvoca   = 100
 
 	// MaximoCuerpoCargaConvoca cubre el fichero máximo en base64 más los
 	// campos del JSON, y queda por debajo del límite global del servidor.
@@ -42,6 +45,7 @@ var claveCategoriaCargaConvoca = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$
 // ErrCategoriaCargaConvocaNoValida la devuelve el preparador cuando la clave
 // no está en el catálogo RPT vigente.
 var ErrCategoriaCargaConvocaNoValida = errors.New("bolsa http interno: categoria de carga no valida")
+var errPaginacionCargaConvocaNoValida = errors.New("bolsa http interno: paginacion de carga no valida")
 
 // EntradaConfirmarCargaConvoca es lo único que aporta el navegador.
 type EntradaConfirmarCargaConvoca struct {
@@ -104,10 +108,19 @@ func NuevoHandlerCargaConvoca(p PreparadorCargaConvoca, o OperadorCargaConvoca, 
 }
 
 type cuerpoCargaConvoca struct {
-	NombreFichero          string `json:"nombre_fichero"`
-	ContenidoBase64        string `json:"contenido_base64"`
-	Categoria              string `json:"categoria,omitempty"`
-	ExcluirFilasConErrores bool   `json:"excluir_filas_con_errores,omitempty"`
+	NombreFichero          string          `json:"nombre_fichero"`
+	ContenidoBase64        string          `json:"contenido_base64"`
+	Categoria              string          `json:"categoria,omitempty"`
+	ExcluirFilasConErrores bool            `json:"excluir_filas_con_errores,omitempty"`
+	Filtro                 json.RawMessage `json:"filtro,omitempty"`
+	Limite                 json.RawMessage `json:"limite,omitempty"`
+	Desplazamiento         json.RawMessage `json:"desplazamiento,omitempty"`
+}
+
+type paginaVistaPreviaCargaConvoca struct {
+	filtro         string
+	limite         int
+	desplazamiento int
 }
 
 func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -153,12 +166,17 @@ func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
 	r = r.WithContext(contextoRecursoIntentoCargaConvoca(r.Context(), contenido))
+	pagina, err := paginaVistaPreviaDesdeCuerpo(cuerpo)
+	if err != nil {
+		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
+		return
+	}
 	vista, err := h.operador.Previsualizar(r.Context(), cuerpo.NombreFichero, contenido)
 	if err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
 		return
 	}
-	responderJSON(w, http.StatusOK, map[string]any{"data": vistaPreviaCargaConvocaJSON(vista)})
+	responderJSON(w, http.StatusOK, map[string]any{"data": vistaPreviaCargaConvocaJSON(vista, pagina)})
 }
 
 func (h *HandlerCargaConvoca) confirmar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
@@ -212,19 +230,22 @@ func leerCuerpoCargaConvoca(w http.ResponseWriter, r *http.Request, operacion st
 		return cuerpo, nil, errCuerpoCargaConvocaExcesivo
 	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaximoCuerpoCargaConvoca))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&cuerpo); err != nil {
+	if err := decodificarCuerpoCargaConvoca(dec, &cuerpo); err != nil {
 		var demasiado *http.MaxBytesError
 		if errors.As(err, &demasiado) {
 			return cuerpo, nil, errCuerpoCargaConvocaExcesivo
 		}
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
-	if dec.Decode(&struct{}{}) != io.EOF || !aplicacionbolsa.NombreFicheroCargaConvocaValido(cuerpo.NombreFichero) ||
+	if !aplicacionbolsa.NombreFicheroCargaConvocaValido(cuerpo.NombreFichero) ||
 		cuerpo.ContenidoBase64 == "" || int64(len(cuerpo.ContenidoBase64)) > MaximoCuerpoCargaConvoca {
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
 	if operacion == OperacionVistaPreviaCargaConvoca && (cuerpo.Categoria != "" || cuerpo.ExcluirFilasConErrores) {
+		return cuerpo, nil, errEntradaCargaConvoca
+	}
+	if operacion == OperacionConfirmarCargaConvoca &&
+		(len(cuerpo.Filtro) != 0 || len(cuerpo.Limite) != 0 || len(cuerpo.Desplazamiento) != 0) {
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
 	if operacion == OperacionConfirmarCargaConvoca && !claveCategoriaCargaConvoca.MatchString(cuerpo.Categoria) {
@@ -243,6 +264,112 @@ func leerCuerpoCargaConvoca(w http.ResponseWriter, r *http.Request, operacion st
 		return cuerpo, nil, aplicacionbolsa.ErrFicheroCargaConvocaExcesivo
 	}
 	return cuerpo, contenido, nil
+}
+
+// Lee cada propiedad una sola vez. Rechaza duplicados, incluidos los campos
+// de paginación: un mismo cuerpo no puede expresar dos páginas distintas.
+func decodificarCuerpoCargaConvoca(dec *json.Decoder, cuerpo *cuerpoCargaConvoca) error {
+	inicio, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if inicio != json.Delim('{') {
+		return errEntradaCargaConvoca
+	}
+	vistos := make(map[string]bool, 7)
+	for dec.More() {
+		claveToken, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		clave, ok := claveToken.(string)
+		if !ok || vistos[clave] {
+			return errEntradaCargaConvoca
+		}
+		vistos[clave] = true
+		var destino any
+		switch clave {
+		case "nombre_fichero":
+			destino = &cuerpo.NombreFichero
+		case "contenido_base64":
+			destino = &cuerpo.ContenidoBase64
+		case "categoria":
+			destino = &cuerpo.Categoria
+		case "excluir_filas_con_errores":
+			destino = &cuerpo.ExcluirFilasConErrores
+		case "filtro":
+			destino = &cuerpo.Filtro
+		case "limite":
+			destino = &cuerpo.Limite
+		case "desplazamiento":
+			destino = &cuerpo.Desplazamiento
+		default:
+			return errEntradaCargaConvoca
+		}
+		if err := dec.Decode(destino); err != nil {
+			return err
+		}
+	}
+	fin, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if fin != json.Delim('}') {
+		return errEntradaCargaConvoca
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return errEntradaCargaConvoca
+	}
+	return nil
+}
+
+func paginaVistaPreviaDesdeCuerpo(c cuerpoCargaConvoca) (paginaVistaPreviaCargaConvoca, error) {
+	pagina := paginaVistaPreviaCargaConvoca{filtro: "todas", limite: limiteDefectoVistaPreviaConvoca}
+	if len(c.Filtro) != 0 {
+		if string(c.Filtro) == "null" || json.Unmarshal(c.Filtro, &pagina.filtro) != nil {
+			return paginaVistaPreviaCargaConvoca{}, errEntradaCargaConvoca
+		}
+		switch pagina.filtro {
+		case "todas", "aceptadas", "rechazadas", "con_avisos":
+		default:
+			return paginaVistaPreviaCargaConvoca{}, errPaginacionCargaConvocaNoValida
+		}
+	}
+	if len(c.Limite) != 0 {
+		limite, err := enteroPaginaCargaConvoca(c.Limite)
+		if err != nil {
+			return paginaVistaPreviaCargaConvoca{}, err
+		}
+		if limite < 1 || limite > limiteMaximoVistaPreviaConvoca {
+			return paginaVistaPreviaCargaConvoca{}, errPaginacionCargaConvocaNoValida
+		}
+		pagina.limite = limite
+	}
+	if len(c.Desplazamiento) != 0 {
+		desplazamiento, err := enteroPaginaCargaConvoca(c.Desplazamiento)
+		if err != nil {
+			return paginaVistaPreviaCargaConvoca{}, err
+		}
+		if desplazamiento < 0 {
+			return paginaVistaPreviaCargaConvoca{}, errPaginacionCargaConvocaNoValida
+		}
+		pagina.desplazamiento = desplazamiento
+	}
+	return pagina, nil
+}
+
+func enteroPaginaCargaConvoca(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 || (raw[0] != '-' && (raw[0] < '0' || raw[0] > '9')) {
+		return 0, errEntradaCargaConvoca
+	}
+	valor, err := strconv.ParseInt(string(raw), 10, strconv.IntSize)
+	if err != nil {
+		return 0, errPaginacionCargaConvocaNoValida
+	}
+	return int(valor), nil
 }
 
 func borrarContenidoCargaConvoca(contenido []byte) {
@@ -271,6 +398,8 @@ func clasificarFalloCargaConvoca(err error) (int, string) {
 		return http.StatusUnprocessableEntity, "filas_con_errores_sin_aceptar"
 	case errors.Is(err, ErrCategoriaCargaConvocaNoValida):
 		return http.StatusUnprocessableEntity, "categoria_no_valida"
+	case errors.Is(err, errPaginacionCargaConvocaNoValida):
+		return http.StatusUnprocessableEntity, "paginacion_no_valida"
 	case errors.Is(err, puertosbolsa.ErrConstitucionBolsaEnConflicto):
 		return http.StatusConflict, "bolsa_en_conflicto"
 	case errors.Is(err, errEntradaCargaConvoca):
@@ -304,9 +433,17 @@ type filaCargaConvocaJSON struct {
 	Avisos          []string                     `json:"avisos"`
 }
 
-func vistaPreviaCargaConvocaJSON(v aplicacionbolsa.VistaPreviaCargaConvoca) map[string]any {
-	filas := make([]filaCargaConvocaJSON, 0, len(v.Filas))
+func vistaPreviaCargaConvocaJSON(v aplicacionbolsa.VistaPreviaCargaConvoca, pagina paginaVistaPreviaCargaConvoca) map[string]any {
+	filas := make([]filaCargaConvocaJSON, 0, pagina.limite)
+	totalFiltrado := 0
 	for _, f := range v.Filas {
+		if !filaEnFiltroCargaConvoca(f, pagina.filtro) {
+			continue
+		}
+		if totalFiltrado < pagina.desplazamiento || len(filas) >= pagina.limite {
+			totalFiltrado++
+			continue
+		}
 		fila := filaCargaConvocaJSON{Numero: f.Numero, Estado: f.Estado, Posicion: f.Posicion, Documento: f.Documento,
 			PrimerApellido: f.PrimerApellido, SegundoApellido: f.SegundoApellido, Nombre: f.Nombre,
 			Experiencia: f.Experiencia, Formacion: f.Formacion, Total: f.Total,
@@ -315,11 +452,28 @@ func vistaPreviaCargaConvocaJSON(v aplicacionbolsa.VistaPreviaCargaConvoca) map[
 			fila.Errores = append(fila.Errores, incidenciaCargaConvocaJSON{Campo: e.Campo, Codigo: e.Codigo})
 		}
 		filas = append(filas, fila)
+		totalFiltrado++
 	}
 	return map[string]any{
 		"esquema": EsquemaVistaPreviaCargaConvoca, "huella_sha256": v.HuellaSHA256, "nombre_fichero": v.NombreFichero,
 		"esquema_fichero": v.Esquema, "filas_leidas": v.FilasLeidas, "aceptadas": v.Aceptadas, "rechazadas": v.Rechazadas,
-		"con_avisos": v.ConAvisos, "bloqueo": v.Bloqueo, "filas": filas,
+		"con_avisos": v.ConAvisos, "bloqueo": v.Bloqueo, "filtro": pagina.filtro, "limite": pagina.limite,
+		"desplazamiento": pagina.desplazamiento, "total_filtrado": totalFiltrado, "filas": filas,
+	}
+}
+
+func filaEnFiltroCargaConvoca(f aplicacionbolsa.FilaVistaPreviaCargaConvoca, filtro string) bool {
+	switch filtro {
+	case "todas":
+		return true
+	case "aceptadas":
+		return f.Estado == aplicacionbolsa.EstadoFilaCargaAceptada
+	case "rechazadas":
+		return f.Estado == aplicacionbolsa.EstadoFilaCargaRechazada
+	case "con_avisos":
+		return len(f.Avisos) > 0
+	default:
+		return false
 	}
 }
 

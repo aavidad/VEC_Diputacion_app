@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -37,12 +38,16 @@ func (p *preparadorCargaPrueba) PrepararConfirmacionCargaConvoca(_ context.Conte
 
 type operadorCargaPrueba struct {
 	previsualizador *aplicacionbolsa.PrevisualizadorCargaConvoca
+	vistaFija       *aplicacionbolsa.VistaPreviaCargaConvoca
 	resultado       aplicacionbolsa.ResultadoCargaConvoca
 	err             error
 	excluir         bool
 }
 
 func (o *operadorCargaPrueba) Previsualizar(ctx context.Context, nombre string, contenido []byte) (aplicacionbolsa.VistaPreviaCargaConvoca, error) {
+	if o.vistaFija != nil {
+		return *o.vistaFija, nil
+	}
 	return o.previsualizador.Previsualizar(ctx, nombre, contenido)
 }
 func (o *operadorCargaPrueba) Confirmar(_ context.Context, _ puertosbolsa.SolicitudConfirmarCargaConvoca, excluir bool) (aplicacionbolsa.ResultadoCargaConvoca, error) {
@@ -121,12 +126,16 @@ func TestCargaConvocaVistaPreviaDevuelveFilasYNoAudita(t *testing.T) {
 	}
 	var cuerpo struct {
 		Data struct {
-			Esquema    string `json:"esquema"`
-			Aceptadas  int    `json:"aceptadas"`
-			Rechazadas int    `json:"rechazadas"`
-			ConAvisos  int    `json:"con_avisos"`
-			Bloqueo    string `json:"bloqueo"`
-			Filas      []struct {
+			Esquema        string `json:"esquema"`
+			Filtro         string `json:"filtro"`
+			Limite         int    `json:"limite"`
+			Desplazamiento int    `json:"desplazamiento"`
+			TotalFiltrado  int    `json:"total_filtrado"`
+			Aceptadas      int    `json:"aceptadas"`
+			Rechazadas     int    `json:"rechazadas"`
+			ConAvisos      int    `json:"con_avisos"`
+			Bloqueo        string `json:"bloqueo"`
+			Filas          []struct {
 				Numero   int    `json:"numero"`
 				Estado   string `json:"estado"`
 				Posicion int    `json:"posicion"`
@@ -143,12 +152,156 @@ func TestCargaConvocaVistaPreviaDevuelveFilasYNoAudita(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := cuerpo.Data
-	if d.Esquema != EsquemaVistaPreviaCargaConvoca || d.Aceptadas != 11 || d.Rechazadas != 1 || d.ConAvisos != 2 || d.Bloqueo != "" || len(d.Filas) != 12 ||
+	if d.Esquema != EsquemaVistaPreviaCargaConvoca || d.Filtro != "todas" || d.Limite != 50 || d.Desplazamiento != 0 || d.TotalFiltrado != 12 || d.Aceptadas != 11 || d.Rechazadas != 1 || d.ConAvisos != 2 || d.Bloqueo != "" || len(d.Filas) != 12 ||
 		d.Filas[0].Posicion != 1 || d.Filas[0].Nombre != "Antonio" || d.Filas[11].Estado != "rechazada" || d.Filas[11].Errores[0].Codigo != "total_incoherente" {
 		t.Fatalf("vista previa inesperada: %+v", d)
 	}
 	if len(a.operaciones) != 0 {
 		t.Fatal("auditó como fallido un intento correcto")
+	}
+}
+
+type respuestaPaginaCargaPrueba struct {
+	Data struct {
+		Filtro         string `json:"filtro"`
+		Limite         int    `json:"limite"`
+		Desplazamiento int    `json:"desplazamiento"`
+		TotalFiltrado  int    `json:"total_filtrado"`
+		FilasLeidas    int    `json:"filas_leidas"`
+		Aceptadas      int    `json:"aceptadas"`
+		Rechazadas     int    `json:"rechazadas"`
+		ConAvisos      int    `json:"con_avisos"`
+		Filas          []struct {
+			Numero int `json:"numero"`
+		} `json:"filas"`
+	} `json:"data"`
+}
+
+func TestCargaConvocaVistaPreviaFiltraYPaginaEnServidor(t *testing.T) {
+	contenido := ejemploCargaHTTP(t)
+	for _, caso := range []struct {
+		filtro         string
+		limite, offset int
+		total          int
+		filas          []int
+	}{
+		{"aceptadas", 1, 0, 11, []int{2}},
+		{"aceptadas", 1, 1, 11, []int{3}},
+		{"rechazadas", 50, 0, 1, []int{12}},
+		{"con_avisos", 50, 0, 2, []int{8, 9}},
+		{"con_avisos", 50, 2, 2, []int{}},
+	} {
+		t.Run(caso.filtro+"/"+strconv.Itoa(caso.offset), func(t *testing.T) {
+			h, _, _, _ := handlerCargaPrueba(t)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, peticionCarga(RutaVistaPreviaCargaConvoca, map[string]any{
+				"nombre_fichero": "carga_convoca_ejemplo.xlsx", "contenido_base64": contenido,
+				"filtro": caso.filtro, "limite": caso.limite, "desplazamiento": caso.offset,
+			}))
+			if w.Code != http.StatusOK {
+				t.Fatalf("estado %d: %s", w.Code, w.Body.String())
+			}
+			var respuesta respuestaPaginaCargaPrueba
+			if err := json.Unmarshal(w.Body.Bytes(), &respuesta); err != nil {
+				t.Fatal(err)
+			}
+			d := respuesta.Data
+			if d.Filtro != caso.filtro || d.Limite != caso.limite || d.Desplazamiento != caso.offset || d.TotalFiltrado != caso.total ||
+				d.FilasLeidas != 12 || d.Aceptadas != 11 || d.Rechazadas != 1 || d.ConAvisos != 2 || len(d.Filas) != len(caso.filas) {
+				t.Fatalf("página o contadores incorrectos: %+v", d)
+			}
+			for i, fila := range d.Filas {
+				if fila.Numero != caso.filas[i] {
+					t.Fatalf("fila %d = %d, se esperaba %d", i, fila.Numero, caso.filas[i])
+				}
+			}
+		})
+	}
+}
+
+func TestCargaConvocaVistaPreviaAcotaPaginaCincuenta(t *testing.T) {
+	h, _, operador, _ := handlerCargaPrueba(t)
+	vista := aplicacionbolsa.VistaPreviaCargaConvoca{FilasLeidas: 120, Aceptadas: 120}
+	for numero := 1; numero <= 120; numero++ {
+		vista.Filas = append(vista.Filas, aplicacionbolsa.FilaVistaPreviaCargaConvoca{Numero: numero, Estado: aplicacionbolsa.EstadoFilaCargaAceptada})
+	}
+	operador.vistaFija = &vista
+	for _, caso := range []struct{ offset, primero, ultimo, cantidad int }{{0, 1, 50, 50}, {50, 51, 100, 50}, {100, 101, 120, 20}, {150, 0, 0, 0}} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionCarga(RutaVistaPreviaCargaConvoca, map[string]any{
+			"nombre_fichero": "carga_convoca_ejemplo.xlsx", "contenido_base64": ejemploCargaHTTP(t),
+			"desplazamiento": caso.offset,
+		}))
+		if w.Code != http.StatusOK {
+			t.Fatalf("offset %d: estado %d", caso.offset, w.Code)
+		}
+		var respuesta respuestaPaginaCargaPrueba
+		if err := json.Unmarshal(w.Body.Bytes(), &respuesta); err != nil {
+			t.Fatal(err)
+		}
+		if respuesta.Data.Limite != 50 || respuesta.Data.TotalFiltrado != 120 || len(respuesta.Data.Filas) != caso.cantidad {
+			t.Fatalf("offset %d: %+v", caso.offset, respuesta.Data)
+		}
+		if caso.cantidad > 0 && (respuesta.Data.Filas[0].Numero != caso.primero || respuesta.Data.Filas[caso.cantidad-1].Numero != caso.ultimo) {
+			t.Fatalf("offset %d: filas incorrectas", caso.offset)
+		}
+	}
+}
+
+func TestCargaConvocaPaginacionRechazaValoresYConfirmacionLosProhibe(t *testing.T) {
+	contenido := ejemploCargaHTTP(t)
+	base := map[string]any{"nombre_fichero": "carga_convoca_ejemplo.xlsx", "contenido_base64": contenido}
+	for _, caso := range []struct {
+		nombre string
+		campo  string
+		valor  any
+		estado int
+		codigo string
+	}{
+		{"filtro desconocido", "filtro", "otro", 422, "paginacion_no_valida"},
+		{"filtro nulo", "filtro", nil, 400, "peticion_no_valida"},
+		{"filtro numérico", "filtro", 1, 400, "peticion_no_valida"},
+		{"limite cero", "limite", 0, 422, "paginacion_no_valida"},
+		{"limite sobre máximo", "limite", 101, 422, "paginacion_no_valida"},
+		{"limite cadena", "limite", "50", 400, "peticion_no_valida"},
+		{"limite nulo", "limite", nil, 400, "peticion_no_valida"},
+		{"desplazamiento negativo", "desplazamiento", -1, 422, "paginacion_no_valida"},
+		{"desplazamiento nulo", "desplazamiento", nil, 400, "peticion_no_valida"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			h, _, _, a := handlerCargaPrueba(t)
+			cuerpo := map[string]any{}
+			for clave, valor := range base {
+				cuerpo[clave] = valor
+			}
+			cuerpo[caso.campo] = caso.valor
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, peticionCarga(RutaVistaPreviaCargaConvoca, cuerpo))
+			if w.Code != caso.estado || codigoErrorCarga(t, w) != caso.codigo || len(a.operaciones) != 1 {
+				t.Fatalf("estado %d cuerpo %s auditados %d", w.Code, w.Body.String(), len(a.operaciones))
+			}
+		})
+	}
+	for _, campo := range []string{"filtro", "limite", "desplazamiento"} {
+		h, p, _, _ := handlerCargaPrueba(t)
+		cuerpo := map[string]any{"nombre_fichero": "carga_convoca_ejemplo.xlsx", "contenido_base64": contenido, "categoria": "auxiliar_administrativo", campo: nil}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionCarga(RutaConfirmarCargaConvoca, cuerpo))
+		if w.Code != http.StatusBadRequest || codigoErrorCarga(t, w) != "peticion_no_valida" || p.entrada.Contenido != nil {
+			t.Fatalf("confirmación admitió %s: %d %s", campo, w.Code, w.Body.String())
+		}
+	}
+	for _, ruta := range []string{RutaVistaPreviaCargaConvoca, RutaConfirmarCargaConvoca} {
+		h, _, _, _ := handlerCargaPrueba(t)
+		raw := `{"nombre_fichero":"carga_convoca_ejemplo.xlsx","contenido_base64":"` + contenido + `","limite":1,"limite":2}`
+		r := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(raw))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusBadRequest || codigoErrorCarga(t, w) != "peticion_no_valida" {
+			t.Fatalf("duplicado en %s: %d %s", ruta, w.Code, w.Body.String())
+		}
 	}
 }
 
