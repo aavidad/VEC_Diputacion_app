@@ -1,6 +1,6 @@
-import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261008-alta-corte-v1";
+import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { cargarMensajesNecesidadesAlta, crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261008-alta-corte-v1";
+import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261008-alta-analisis-bolsa-v4";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 
@@ -91,11 +91,13 @@ export function montarAltaContratacionTemporal({
   zonaHoraria = "Europe/Madrid",
   clienteRPT = crearClienteHTTPRPTPublica(),
   cargarTextosNecesidades = cargarMensajesNecesidadesAlta,
+  refrescarCatalogosAlta = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
-    || typeof anunciar !== "function" || typeof cargarTextosNecesidades !== "function") {
+    || typeof anunciar !== "function" || typeof cargarTextosNecesidades !== "function"
+    || refrescarCatalogosAlta !== null && typeof refrescarCatalogosAlta !== "function") {
     throw new TypeError("dependencias DOM del alta no válidas");
   }
   let mensajesMontaje = mensajes;
@@ -236,6 +238,11 @@ export function montarAltaContratacionTemporal({
       repintar("[data-ct-accion='cancelar']");
       await tarea;
       const estado = presentador.obtenerEstado();
+      if (estado.errores.numero_expediente_moad
+        && !Object.hasOwn(mensajesMontaje, "estado_numero_moad_no_valido")) {
+        prepararTextosNecesidades();
+        return;
+      }
       repintar(estado.fase === "recibo"
         ? "[data-ct-recibo]"
         : (estado.fase === "pendiente"
@@ -244,11 +251,25 @@ export function montarAltaContratacionTemporal({
     }
   }
 
-  function alEnviar(evento) {
+  async function alEnviar(evento) {
     const formularioDOM = evento.target?.closest?.("[data-ct-form]");
     if (!formularioDOM || !raiz.contains(formularioDOM)) return;
     evento.preventDefault();
-    presentador.prepararRevision(extraerBorrador(formularioDOM));
+    if (presentador.obtenerEstado().ocupado) return;
+    let borrador = extraerBorrador(formularioDOM);
+    if (presentador.tieneRechazoNumero?.()) {
+      presentador.actualizarBorrador(borrador);
+      if (presentador.necesitaRefrescoCatalogos()) {
+        const tarea = presentador.refrescarCatalogos(refrescarCatalogosAlta);
+        repintar();
+        if (!await tarea || !montada) {
+          if (montada) enfocarTrasValidacion();
+          return;
+        }
+      }
+      borrador = presentador.obtenerEstado().borrador;
+    }
+    presentador.prepararRevision(borrador);
     enfocarTrasValidacion();
   }
 
@@ -275,6 +296,21 @@ export function montarAltaContratacionTemporal({
   function alSalirCampo(evento) {
     const control = evento.target;
     if (control?.name !== "numero_expediente_moad") return;
+    if (presentador.tieneRechazoNumero?.()) {
+      const formularioDOM = control.closest?.("[data-ct-form]");
+      if (formularioDOM && raiz.contains(formularioDOM)) {
+        presentador.actualizarBorrador(extraerBorrador(formularioDOM));
+        repintar();
+        return;
+      }
+      const estado = presentador.obtenerEstado();
+      if (control.value === estado.borrador.numero_expediente_moad
+        && estado.errores.numero_expediente_moad) {
+        control.setAttribute?.("aria-invalid", "true");
+        control.setAttribute?.("aria-describedby", "ct-numero_expediente_moad-error");
+        return;
+      }
+    }
     const invalido = !numeroExpedienteMOADValido(control.value);
     const idError = "ct-numero_expediente_moad-error";
     const error = raiz.querySelector(`#${idError}`);

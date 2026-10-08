@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
   minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
@@ -170,6 +171,86 @@ test("el número MOAD se comprueba con el patrón publicado y obliga a volver a 
   assert.match(html, /data-ct-accion="volver"/u);
   assert.doesNotMatch(html, /data-ct-accion="confirmar"/u);
   assert.match(html, /Use el formato del ejemplo del número de expediente MOAD/u);
+});
+
+test("tras 422, salir y revisar sin cambiar MOAD conserva el error y no reenvía", async () => {
+  const inicial = catalogos();
+  const entrada = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  let envios = 0;
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: inicial,
+    capacidad: "contratacion_temporal.solicitud.crear", generarClaveIdempotencia: () => CLAVE,
+    ejecutor: async () => {
+      envios++;
+      const error = new Error("causa privada");
+      Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+        campo: "numero_expediente_moad", envelopeValido: true });
+      throw error;
+    } });
+  assert.equal(presentador.prepararRevision(entrada), true);
+  assert.equal(await presentador.enviar(), null);
+  presentador.volverAEdicion();
+  const mensajes = await cargarMensajesNecesidadesAlta("es");
+  const escuchas = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, manejar) => escuchas.set(tipo, manejar),
+    removeEventListener: (tipo) => escuchas.delete(tipo), contains: () => true,
+    querySelector: () => null, setAttribute() {}, removeAttribute() {} };
+  const formularioDOM = { borrador: { ...entrada },
+    querySelector: (selector) => selector === '[name="jornada_horas"]' ? {} : null };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class {
+    constructor(formulario) { this.borrador = formulario.borrador; }
+    get(campo) {
+      if (campo === "jornada_horas") return "35:00";
+      if (campo === "rc_existe") return "no";
+      return this.borrador[campo] ?? null;
+    }
+    getAll(campo) { return campo === "documentos_adjuntos" ? this.borrador.documentos_adjuntos : []; }
+  };
+  let lecturas = 0;
+  const actualizados = catalogos();
+  actualizados.numero_expediente_moad = { ...actualizados.numero_expediente_moad,
+    version: 2, ejemplo: "2026/12346", patron: "^2026/12346$" };
+  const desmontar = montarAltaContratacionTemporal({ raiz, presentador,
+    cargarTextosNecesidades: async () => mensajes,
+    refrescarCatalogosAlta: async () => { lecturas++; return actualizados; } });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const campo = { name: "numero_expediente_moad", value: entrada.numero_expediente_moad,
+      closest: () => formularioDOM };
+    escuchas.get("focusout")({ target: campo });
+    assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+    assert.match(raiz.innerHTML, /aria-invalid="true"/u);
+    await escuchas.get("submit")({ target: { closest: () => formularioDOM }, preventDefault() {} });
+    assert.equal(presentador.obtenerEstado().fase, "edicion");
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-accion="confirmar"/u);
+    assert.equal(envios, 1);
+    assert.equal(lecturas, 0);
+    formularioDOM.borrador.numero_expediente_moad = "2026/12346";
+    campo.value = "2026/12346";
+    escuchas.get("focusout")({ target: campo });
+    await escuchas.get("submit")({ target: { closest: () => formularioDOM }, preventDefault() {} });
+    assert.equal(lecturas, 1);
+    assert.equal(presentador.obtenerEstado().catalogos.numero_expediente_moad.version, 2);
+    assert.equal(presentador.obtenerEstado().fase, "revision");
+    assert.equal(envios, 1);
+  } finally {
+    desmontar();
+    globalThis.FormData = FormDataOriginal;
+  }
+});
+
+test("el patrón MOAD del catálogo nunca se ejecuta en el navegador", async () => {
+  const fuente = await readFile(new URL("./contrato.js", import.meta.url), "utf8");
+  assert.doesNotMatch(fuente, /new RegExp\s*\(/u);
+  const actual = catalogos();
+  actual.numero_expediente_moad.patron = "^([A-Za-z0-9._/-]+)+X$";
+  const entrada = borrador({ numero_expediente_moad: `2026/${"A".repeat(40)}`,
+    puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  assert.equal(validarBorradorAlta(entrada, actual).valido, true);
+  assert.equal(validarBorradorAlta({ ...entrada, numero_expediente_moad: "R-20261008-1936" }, actual)
+    .errores.numero_expediente_moad, "numero_moad_formato");
 });
 
 test("la obligatoriedad de plaza procede del catálogo de la causa", () => {

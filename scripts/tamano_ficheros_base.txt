@@ -93,7 +93,7 @@
 612 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 865 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 941 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
-865 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
+931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1035 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1211 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 729 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
@@ -104,13 +104,13 @@
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1653 web/static/portal-empleado/portal-modulos-coordinador.js
-1780 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1785 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1034 web/static/portal-empleado/portal-componentes.css
 1806 web/static/portal-empleado/portal.js
 1323 web/static/portal-empleado/portal-bolsas-api.js
 924 web/static/portal-empleado/portal-bolsas.test.mjs
 1101 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-853 web/static/portal-empleado/portal-i18n.test.mjs
+845 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 909 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -136,8 +136,8 @@
 909 deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
-864 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
-942 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
+851 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
+944 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go
