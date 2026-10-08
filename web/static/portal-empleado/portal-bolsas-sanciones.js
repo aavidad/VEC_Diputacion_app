@@ -2,7 +2,7 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261008-w-bolsa-ficha-main-v2";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "./portal-huella-archivo.js";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "./portal-justificante.js";
