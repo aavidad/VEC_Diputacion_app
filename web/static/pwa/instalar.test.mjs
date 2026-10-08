@@ -50,12 +50,25 @@ test("fuera del modo instalado no muestra acciones; sin contexto seguro no regis
   assert.deepEqual(caso.registros, []);
 });
 
-test("los dos portales enlazan manifiesto, navegación y script de la misma versión", async () => {
+test("el idioma de la URL se resuelve después de cargar el índice antes de pedir textos PWA", async () => {
+  const caso = preparar("/portal-empleado/", true);
+  caso.ventana.location.href = "https://vec.example/portal-empleado/?lang=en";
+  await iniciarPWA(caso);
+  assert.match(caso.manifiesto.href, /^\/textos\/en\/pwa-portal-empleado\.json\?/u);
+  assert.equal(caso.botones[1].textContent, "Home");
+  caso.botones[1].click();
+  assert.deepEqual(caso.movimientos, ["/portal-empleado/?lang=en"]);
+});
+
+test("cada portal enlaza manifiesto, navegación y su versión del instalador", async () => {
   for (const portal of ["portal-empleado", "area-personal"]) {
     const html = await readFile(new URL(`../${portal}/index.html`, import.meta.url), "utf8");
     assert.match(html, new RegExp(`data-pwa-manifest="pwa-${portal}"`));
-    assert.match(html, /\/pwa\/instalar\.js\?v=20261003-pwa-ci-v5/u);
+    assert.match(html, new RegExp(`/pwa/instalar\\.js\\?v=${portal === "portal-empleado"
+      ? "20261008-pwa-idioma-v1" : "20261003-pwa-ci-v5"}`));
     assert.match(html, /\/pwa\/navegacion\.css\?v=20261002-pwa-v2/u);
     assert.match(html, new RegExp(`data-pwa-scope="/${portal}/"`));
   }
+  const rrhh = await readFile(new URL("../portal-empleado/index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(rrhh, /href="\/textos\/es\/pwa-portal-empleado\.json/u);
 });

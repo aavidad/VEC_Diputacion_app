@@ -32,6 +32,7 @@ type GrupoPlazoCuadroRRHH struct {
 	Desde     time.Time
 	Urgente   bool
 	Numero    uint64
+	Captura   *CapturaPlazoFaseRRHH
 }
 
 // AgregadosCuadroRRHH son los agregados de todo el corte filtrado que la

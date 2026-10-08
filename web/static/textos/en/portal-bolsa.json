@@ -340,5 +340,36 @@
     "miBolsa": {
       "rolPortal": "My job pool and call-ups"
     }
+  },
+  "global": {
+    "titulo": "Bolsa overview",
+    "todos": "Applicants",
+    "disponible": "Available applicants",
+    "renuncia": "Applicants who declined",
+    "llamamientos": "Calls in progress",
+    "cargando": "Loading the list…",
+    "error": "The list could not be loaded. Check your connection and select Retry.",
+    "denegado": "You do not have permission to view this list.",
+    "vacio": "There are no records for this filter.",
+    "volver": "Back to Bolsa overview",
+    "reintentar": "Retry",
+    "siguiente": "Next page",
+    "mostrando": "{desde} to {hasta} of {total}",
+    "categoria": "Category",
+    "posicion": "Position in the official list",
+    "situacion": "Status",
+    "fecha": "Since",
+    "bolsa": "Bolsa",
+    "participaciones": "Applicants",
+    "ver_bolsa": "View Bolsa",
+    "sin_fecha": "Date unavailable",
+    "sin_categoria": "Category unavailable",
+    "sin_posicion": "Position unavailable",
+    "llamamiento": "Call",
+    "referencia": "Reference",
+    "sin_referencia": "No visible reference",
+    "anterior": "View previous",
+    "caducado": "This list has changed or has been open for a while. Refresh it to see the current data.",
+    "actualizar": "Refresh the list"
   }
 }

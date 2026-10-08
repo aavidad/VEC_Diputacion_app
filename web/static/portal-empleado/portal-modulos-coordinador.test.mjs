@@ -9,6 +9,7 @@ import {
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
+  localizacionAdmitida,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
@@ -24,6 +25,15 @@ import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contrat
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
   assert.equal(rutaDeVistaPortal(VISTA_PLANTILLAS_RRHH), "#contratacion-temporal/plantillas-rrhh");
+});
+
+test("el coordinador acepta la localización del documento al fallar el índice y rechaza las ajenas", () => {
+  const respaldoDocumento = { idiomas: [{ codigo: "es", localizacion: "es" }] };
+  assert.equal(localizacionAdmitida("es", respaldoDocumento), true);
+  assert.equal(localizacionAdmitida("en-GB", respaldoDocumento), false);
+  assert.equal(localizacionAdmitida("es_INVALIDA", respaldoDocumento), false);
+  assert.throws(() => crearCoordinadorModulosPortal({ escaparHTML: String, locale: "es_INVALIDA" }),
+    /dependencias del coordinador de módulos no válidas/u);
 });
 
 
@@ -99,6 +109,224 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 3,
     "Inicio y cada página usan el resumen global de su propia consulta");
   coordinador.desmontarVistaActual();
+});
+
+test("la lista ligera nombra centros sin consultas por fila y reintenta la fuente fallida", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const fila = (numero) => ({ expediente_ref: `expediente:ct:${numero}`, numero_visible: `2026/CT-${numero}`,
+    version: 1, fase_clave: "analisis", estado_clave: "en_curso",
+    centro_ref: "centro:desarrollo:001", categoria_ref: "categoria:auxiliar",
+    creado_en: "2026-10-01T08:00:00Z", actualizado_en: "2026-10-01T09:00:00Z" });
+  let paginas = 0, catalogos = 0, organizacion = 0, cuadroDenegado = false;
+  const cliente = {
+    async consultarCuadroRRHH() {
+      paginas += 1;
+      if (cuadroDenegado) throw Object.assign(new Error("sin acceso"), { estado: 403 });
+      return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila("0001"), fila("0002")],
+        hay_mas: false };
+    },
+    async obtenerCatalogosAlta() {
+      catalogos += 1;
+      if (catalogos === 1) throw Object.assign(new Error("incidencia"), { estado: 503 });
+      return { centros: [{ referencia: "centro:desarrollo:001", etiqueta: "Centro solicitante" }],
+        categorias: [{ referencia: "categoria:auxiliar", etiqueta: "Auxiliar" }] };
+    },
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async () => {
+      organizacion += 1;
+      return new Response("", { status: 403 });
+    } },
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+      contrato: { validarCatalogosAlta: (valor) => valor },
+      cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+      cargarCompleto: async () => { throw new Error("la lista no activa el montaje completo"); },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  assert.match(raiz.innerHTML, />Nombre del centro no disponible<small>Nombre de la categoría no disponible<\/small>/u);
+  assert.equal(paginas, 1);
+  assert.equal(catalogos, 1, "las dos filas comparten una sola consulta de nombres");
+  assert.equal(organizacion, 1);
+
+  const recargar = { dataset: {}, hasAttribute: (nombre) => nombre === "data-ct-exp-recargar" };
+  await raiz.eventos.get("click")({ target: { closest: () => recargar } });
+  assert.match(raiz.innerHTML, />Centro solicitante<small>Auxiliar<\/small>/u);
+  assert.match(raiz.innerHTML, /aria-label="Abrir el expediente 2026\/CT-0001"/u);
+  assert.doesNotMatch(raiz.innerHTML, /title="centro:desarrollo:001"/u);
+  assert.equal(paginas, 2);
+  assert.equal(catalogos, 2, "Actualizar lista reintenta el catálogo transitorio");
+  assert.equal(organizacion, 1, "una denegación de Organización no se repite");
+
+  cuadroDenegado = true;
+  await raiz.eventos.get("click")({ target: { closest: () => recargar } });
+  assert.equal(paginas, 3);
+  assert.equal(catalogos, 2);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-abrir=/u,
+    "la denegación del cuadro no se convierte en una lista anterior o vacía");
+  coordinador.desmontarVistaActual();
+});
+
+test("sin permiso para nombres, la lista inglesa conserva filas y el respaldo en inglés", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  let catalogos = 0, organizacion = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String, locale: "en-GB",
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async () => {
+      organizacion += 1;
+      return new Response("", { status: 403 });
+    } },
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => ({
+        consultarCuadroRRHH: async () => ({ generada_en: "2026-10-01T09:00:00Z",
+          expedientes: [{ expediente_ref: "expediente:ct:0001", numero_visible: "2026/CT-0001",
+            version: 1, fase_clave: "analisis", estado_clave: "en_curso",
+            centro_ref: "centro:desarrollo:001", categoria_ref: "categoria:auxiliar",
+            creado_en: "2026-10-01T08:00:00Z", actualizado_en: "2026-10-01T09:00:00Z" }],
+          hay_mas: false }),
+        obtenerCatalogosAlta: async () => {
+          catalogos += 1;
+          throw Object.assign(new Error("sin acceso"), { estado: 403 });
+        },
+      }) },
+      contrato: { validarCatalogosAlta: (valor) => valor },
+      cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+      cargarCompleto: async () => { throw new Error("no se usa"); },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  assert.match(raiz.innerHTML, />Centre name unavailable<small>Category name unavailable<\/small>/u);
+  assert.equal(raiz.lang, "en");
+  const recargar = { dataset: {}, hasAttribute: (nombre) => nombre === "data-ct-exp-recargar" };
+  await raiz.eventos.get("click")({ target: { closest: () => recargar } });
+  assert.equal(catalogos, 1);
+  assert.equal(organizacion, 1);
+  coordinador.desmontarVistaActual();
+});
+
+test("sin catálogo de Alta, Organización nombra el centro en la lista ligera una sola vez", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const unidades = [
+    ...Array.from({ length: 14 }, (_, i) => ({ clave: `delegacion-${i}`, etiqueta: "Delegación", tipo: "delegacion" })),
+    ...Array.from({ length: 41 }, (_, i) => ({ clave: `centro-${i}`,
+      etiqueta: i === 0 ? "DEPORTES" : "Otro centro", tipo: "centro", adscripcion_clave: "delegacion-0" })),
+    ...Array.from({ length: 11 }, (_, i) => ({ clave: `puesto-${i}`,
+      etiqueta: "Jefatura", tipo: "puesto_responsabilidad", adscripcion_clave: "centro-0" })),
+  ];
+  const estructura = { data: { estructura_organizativa: {
+    esquema: "vec.personal.estructura-organizativa-publica.v1", catalogo_id: "estructura-organizativa-dipgra",
+    catalogo_version: 1, catalogo_revision: 1, fuente_ref: "https://example.test/rpt",
+    fuente: { revision: "demo-v1", actualizada_en: "2026-09-06T00:00:00Z", demostracion: true,
+      aviso: "Demo sin vigencia", huella_sha256: "0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c" },
+    unidades,
+  } } };
+  let organizacion = 0, catalogos = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async () => {
+      organizacion += 1;
+      return new Response(JSON.stringify(estructura), { status: 200,
+        headers: { "content-type": "application/json; charset=utf-8" } });
+    } },
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => ({
+        consultarCuadroRRHH: async () => ({ generada_en: "2026-10-01T09:00:00Z",
+          expedientes: [{ expediente_ref: "expediente:ct:0001", numero_visible: "2026/CT-0001",
+            version: 1, fase_clave: "analisis", estado_clave: "en_curso",
+            centro_ref: "centro:rpt:0", categoria_ref: "categoria:auxiliar",
+            creado_en: "2026-10-01T08:00:00Z", actualizado_en: "2026-10-01T09:00:00Z" }],
+          hay_mas: false }),
+        obtenerCatalogosAlta: async () => {
+          catalogos += 1;
+          throw Object.assign(new Error("sin acceso"), { estado: 403 });
+        },
+      }) },
+      contrato: { validarCatalogosAlta: (valor) => valor },
+      cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+      cargarCompleto: async () => { throw new Error("no se usa"); },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  assert.match(raiz.innerHTML, />DEPORTES<small>Nombre de la categoría no disponible<\/small>/u);
+  const recargar = { dataset: {}, hasAttribute: (nombre) => nombre === "data-ct-exp-recargar" };
+  await raiz.eventos.get("click")({ target: { closest: () => recargar } });
+  assert.equal(organizacion, 1);
+  assert.equal(catalogos, 1);
+  coordinador.desmontarVistaActual();
+});
+
+test("Alta nombra los centros sin pedir Organización y un cuadro denegado no consulta etiquetas", async () => {
+  const catalogoModulos = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const fila = (numero, centro_ref) => ({ expediente_ref: `expediente:ct:${numero}`,
+    numero_visible: `2026/CT-${numero}`, version: 1, fase_clave: "analisis", estado_clave: "en_curso",
+    centro_ref, categoria_ref: "categoria:auxiliar", creado_en: "2026-10-01T08:00:00Z",
+    actualizado_en: "2026-10-01T09:00:00Z" });
+  for (const estadoCuadro of [200, 401, 403]) {
+    const denegarCuadro = estadoCuadro !== 200;
+    let organizacion = 0, catalogos = 0, paginas = 0;
+    const cliente = {
+      async consultarCuadroRRHH() {
+        paginas += 1;
+        if (denegarCuadro) throw Object.assign(new Error("sin acceso al cuadro"), { estado: estadoCuadro });
+        return { generada_en: "2026-10-01T09:00:00Z",
+          expedientes: [fila("0001", "centro-600"), fila("0002", "centro:rpt:A1B")], hay_mas: false };
+      },
+      async obtenerCatalogosAlta() {
+        catalogos += 1;
+        return { centros: [
+          { referencia: "centro:rpt:600", etiqueta: "DEPORTES" },
+          { referencia: "centro-a1b", etiqueta: "OTRO CENTRO" },
+        ], categorias: [{ referencia: "categoria:auxiliar", etiqueta: "Auxiliar" }] };
+      },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogoModulos,
+      consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+      entorno: { Headers, fetch: async () => {
+        organizacion += 1;
+        throw new Error("Organización no debe consultarse");
+      } },
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+        cargarCompleto: async () => { throw new Error("no se usa"); },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    const raiz = raizFalsa();
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+    assert.equal(paginas, 1);
+    assert.equal(catalogos, denegarCuadro ? 0 : 1);
+    assert.equal(organizacion, 0);
+    if (denegarCuadro) {
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-abrir=/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-reintentar/u);
+    } else {
+      assert.match(raiz.innerHTML, />DEPORTES<small>Auxiliar<\/small>/u);
+      assert.match(raiz.innerHTML, />OTRO CENTRO<small>Auxiliar<\/small>/u);
+    }
+    coordinador.desmontarVistaActual();
+  }
 });
 
 test("el cargador CT ligero exige un único perfil CT atestado", async () => {
@@ -1102,6 +1330,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     ["en-GB", "Case file loaded.", "Request list", "Date recorded"],
   ]) {
     const llamadas = [];
+    const fichasBolsa = [];
     let presentador;
     let mensajesAdaptador;
     const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
@@ -1115,6 +1344,9 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
       escaparHTML: String,
       locale: idioma,
       cargarCatalogoInterno: async () => catalogo,
+      montajeBolsa: { disponible: () => false, montar: () => ({ desmontar() {} }),
+        prepararFicha: ({ expedienteRef, signal }) => { fichasBolsa.push({ expedienteRef, signal }); },
+        limpiarFicha() {}, resolverBolsa: () => null },
       cargadoresInternos: { contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => ({
           obtenerCatalogosAlta: async () => { throw new Error("sin alta"); },
@@ -1156,6 +1388,9 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     const raiz = raizFalsa();
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: referencia }), true);
     assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    assert.equal(fichasBolsa.length, 1, "solo el detalle CT autorizado prepara una lectura de Bolsa");
+    assert.equal(fichasBolsa[0].expedienteRef, referencia);
+    assert.equal(fichasBolsa[0].signal.aborted, false);
     assert.equal(presentador.obtenerEstado().vista, "expediente");
     assert.equal(presentador.obtenerEstado().carga, "listo");
     assert.match(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
@@ -1171,6 +1406,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
 
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
     assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    assert.equal(fichasBolsa[0].signal.aborted, true, "salir de la ficha cancela Bolsa");
+    assert.equal(fichasBolsa.length, 1, "el cuadro no consulta Bolsa");
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { subvista: "alta" }), true);
+    assert.equal(fichasBolsa.length, 1, "Alta no consulta Bolsa");
     await presentador.cargar(); // camino ordinario del Cuadro
     await presentador.seleccionarExpediente(referencia);
     assert.deepEqual(llamadas.slice(-2), ["cuadro", `detalle:${referencia}`]);
@@ -1180,6 +1419,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     assert.deepEqual(llamadas.slice(-2), ["cuadro", "detalle-denegado"]);
     assert.equal(presentador.obtenerEstado().carga, "error");
     assert.equal(presentador.obtenerEstado().expediente, null);
+    assert.equal(fichasBolsa.length, 1, "el detalle denegado no consulta Bolsa");
     assert.doesNotMatch(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
 
     const antes = llamadas.length;
@@ -1188,6 +1428,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     }), true);
     assert.deepEqual(llamadas.slice(antes), ["cuadro"]);
     assert.equal(presentador.obtenerEstado().vista, "cuadro");
+    assert.equal(fichasBolsa.length, 1, "el expediente fuera del cuadro tampoco consulta Bolsa");
     coordinador.desmontarVistaActual();
   }
 });
@@ -1417,6 +1658,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   });
   let consultasCuadro = 0;
   let consultasCatalogo = 0;
+  let opcionesCatalogo;
   let consultasAnalisis = 0;
   const orden = [];
   let argumentosPresentador;
@@ -1435,7 +1677,8 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     async ejecutar() { throw new Error("actuación no compuesta"); },
   });
   const cliente = Object.freeze({
-    async obtenerCatalogosAlta() {
+    async obtenerCatalogosAlta(opciones) {
+      opcionesCatalogo = opciones;
       consultasCatalogo += 1;
       orden.push("alta");
       return catalogosAlta;
@@ -1494,6 +1737,9 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   assert.deepEqual(argumentosPresentador.capacidades, []);
   assert.strictEqual(altaMontada.catalogos, catalogosAlta);
   assert.strictEqual(altaMontada.ejecutor, registrarSolicitud);
+  const opcionesRefresco = { signal: new AbortController().signal };
+  assert.strictEqual(await altaMontada.obtenerCatalogosAlta(opcionesRefresco), catalogosAlta);
+  assert.strictEqual(opcionesCatalogo, opcionesRefresco);
   assert.equal(Object.hasOwn(altaMontada, "desarrolloNoAutoritativo"), false);
   assert.strictEqual(analisisMontado.cliente, cliente);
   assert.strictEqual(

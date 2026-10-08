@@ -20,7 +20,10 @@ import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
-  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => (
+    estado.lecturaPreferenciasInicial && !estado.preferencias.estado && !estado.preferencias.error
+      ? `<section class="panel preferencias-panel"><header><h2 tabindex="-1">${escaparHTML(traducir("areaPersonal.preferencias.titulo"))}</h2></header><div class="panel-contenido"><p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p><button type="button" class="boton-secundario" data-accion="recargar-preferencias">${escaparHTML(traducir("areaPersonal.preferencias.recargar"))}</button></div></section>`
+      : renderizarPreferencias(estado.preferencias)) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
@@ -195,18 +198,23 @@ export function datosMinimosMiBolsa(consulta) {
   });
 }
 
+function metodoIdentidadPreferencias(identidadConfirmada) {
+  return traducir(identidadConfirmada
+    ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada");
+}
+
 function datosMinimosPreferencias(identidadConfirmada) {
   const base = datosMinimosMiBolsa({ consultada_en: "" });
   return { ...base,
     meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias", busqueda_convocatorias_disponible: false },
-    sesion: { ...base.sesion, metodo: traducir(identidadConfirmada
-      ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada") },
+    sesion: { ...base.sesion, metodo: metodoIdentidadPreferencias(identidadConfirmada) },
   };
 }
 
 function asegurarShellPreferencias(estado) {
   if (estado.vista !== "preferencias" || estado.datos
-    || (!estado.preferencias.estado && !estado.preferencias.error)) return false;
+    || (!estado.preferencias.estado && !estado.preferencias.error
+      && !(estado.lecturaPreferenciasInicial && estado.miBolsaIntentada))) return false;
   estado.datos = datosMinimosPreferencias(Boolean(estado.preferencias.estado));
   estado.soloPreferencias = true;
   return true;
@@ -306,6 +314,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
 }
 
 function navegar(estado, vista, opciones = {}) {
+  estado.navegacionVersion += 1;
   if (!rutaDisponible(estado, vista)) vista = "inicio";
   estado.vista = vista;
   estado.avisoInicio = false;
@@ -418,13 +427,14 @@ function leerPantalla(estado) {
 }
 
 async function recargarPreferencias(estado) {
+  if (estado.lecturaPreferenciasInicial) return estado.lecturaPreferenciasInicial;
   const preferencias = estado.preferencias;
   preferencias.guardando = true;
   preferencias.error = null;
   renderizar(estado);
   porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
   try {
-    const lectura = await estado.clientePreferencias.cargar();
+    const lectura = await (estado.lecturaPreferenciasInicial ?? estado.clientePreferencias.cargar());
     Object.assign(preferencias, { ...lectura, error: null, recibo: null, pendiente: null, borrador: null });
     preferencias.avisoInicio = inicioAjenoElegido(lectura.estado);
     estado.filasPreferidas = lectura.estado.valores.filas;
@@ -497,6 +507,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
 
 function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
+  if (accion === "alternar-texto" || accion === "alternar-contraste") estado.ajusteVisualVersion += 1;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
   if (accion === "alternar-texto" || accion === "alternar-contraste") {
@@ -531,7 +542,12 @@ function atenderAccion(estado, boton) {
 }
 
 function conectarEventos(estado) {
+  document.addEventListener("input", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("change", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("keydown", () => { estado.interaccionVersion += 1; });
+  window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
+    estado.interaccionVersion += 1;
     if (!evento.target.closest(".identidad-cabecera") && !porId("menu-identidad")?.hidden) cerrarMenuIdentidad();
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
@@ -543,6 +559,7 @@ function conectarEventos(estado) {
     if (boton) atenderAccion(estado, boton);
   });
   document.addEventListener("submit", (evento) => {
+    estado.interaccionVersion += 1;
     const formulario = evento.target;
     if (!(formulario instanceof HTMLFormElement)) return;
     if (formulario.method === "dialog") return;
@@ -574,6 +591,7 @@ function conectarEventos(estado) {
     if (formulario.dataset.operacion) avisarOperacionNoDisponible(formulario.dataset.operacion);
   });
   window.addEventListener("popstate", () => {
+    estado.navegacionVersion += 1;
     cerrarMenu();
     cerrarMenuIdentidad();
     const parametros = new URLSearchParams(window.location.search);
@@ -620,6 +638,7 @@ async function cargar(estado) {
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
+    estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
@@ -634,12 +653,18 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
-    mostrarError(estado, error); if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
+    estado.miBolsaIntentada = true;
+    if (asegurarShellPreferencias(estado)) renderizar(estado);
+    else {
+      mostrarError(estado, error);
+      if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
+    }
   }
 }
 
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
-  clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
+  fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
+  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -650,12 +675,18 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     cliente,
     vistasDisponibles,
     datos: null,
+    miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,
     preferencias: { catalogo: preferencias?.catalogo || null, estado: preferencias?.estado || null,
       error: errorPreferencias, recibo: null, pendiente: null, borrador: null,
       guardando: false, avisoInicio: inicioAjeno },
     controladorVisual,
+    inicioTardio: !parametros.has("vista") && !preferencias,
+    navegacionVersion: 0,
+    interaccionVersion: 0,
+    ajusteVisualVersion: 0,
+    lecturaPreferenciasInicial: null,
     soloPreferencias: false,
     avisoInicio: inicioAjeno && !parametros.has("vista"),
     filasPreferidas: preferencias?.estado.valores.filas || 20,
@@ -675,14 +706,76 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     fuenteBolsa: "real",
     causaBolsa: "",
   };
+  if (preferenciasAplazadas) {
+    estado.lecturaPreferenciasInicial = new Promise((resolve) => { estado.resolverLecturaPreferenciasInicial = resolve; });
+  }
   ocultarRutasNoDisponibles(estado);
   // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
   if (parametros.has("vista") && !rutaDisponible(estado, parametros.get("vista"))) {
     window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
   }
-  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
+  await montarUsuariosAreaPersonal(estado, fetchUsuarios, porId("espacio-trabajo"));
+  if (estado.vista === "preferencias" && estado.datos) renderizar(estado);
   return estado;
+}
+
+/** Completa el GET tardío sin sustituir los datos ni reconstruir la vista activa. */
+export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = null) {
+  if (!estado) return;
+  const preferencias = estado.preferencias;
+  if (lectura) {
+    preferencias.catalogo = lectura.catalogo;
+    preferencias.estado = lectura.estado;
+    preferencias.error = null;
+    if (estado.soloPreferencias && estado.datos?.sesion) {
+      const metodo = metodoIdentidadPreferencias(true);
+      estado.datos.sesion.metodo = metodo;
+      const perfilSesion = porId("perfil-sesion");
+      if (perfilSesion) perfilSesion.textContent = metodo;
+    }
+    estado.filasPreferidas = lectura.estado.valores.filas;
+    if (estado.ajusteVisualVersion === 0) {
+      estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
+      sincronizarAtajosVisuales(lectura.estado.valores);
+    }
+    if (estado.inicioTardio && estado.navegacionVersion === 0 && estado.interaccionVersion === 0
+      && estado.vista === "llamamientos" && estado.datos && inicioAjenoElegido(lectura.estado)) {
+      estado.vista = "inicio";
+      estado.avisoInicio = true;
+      renderizar(estado);
+    }
+  } else {
+    preferencias.error = error;
+  }
+  const contenido = porId("espacio-trabajo");
+  if (estado.vista === "preferencias" && contenido) {
+    if (!estado.datos) {
+      asegurarShellPreferencias(estado);
+      renderizar(estado);
+    } else {
+      const panel = contenido.querySelector(".preferencias-panel");
+      if (panel) {
+        const activo = document.activeElement;
+        const dentro = panel.contains?.(activo) === true;
+        const idFoco = dentro ? activo?.id : "";
+        const recargando = dentro && activo?.dataset?.accion === "recargar-preferencias";
+        const plantilla = document.createElement("template");
+        plantilla.innerHTML = renderizarPreferencias(preferencias);
+        const nuevoPanel = plantilla.content.firstElementChild;
+        panel.replaceWith(nuevoPanel);
+        if (dentro) {
+          const destino = (idFoco && [...nuevoPanel.querySelectorAll("[id]")].find((nodo) => nodo.id === idFoco))
+            || (recargando && nuevoPanel.querySelector('[data-accion="recargar-preferencias"]'))
+            || nuevoPanel.querySelector("h2");
+          destino?.focus({ preventScroll: true });
+        }
+      }
+    }
+  }
+  estado.resolverLecturaPreferenciasInicial?.();
+  estado.lecturaPreferenciasInicial = null;
+  estado.resolverLecturaPreferenciasInicial = null;
 }

@@ -186,9 +186,11 @@ type DetalleExpedienteRRHH struct {
 	Fiscalizacion *FiscalizacionOperativaRRHH `json:"fiscalizacion,omitempty"`
 	Hitos         []HitoExpedienteRRHH        `json:"hitos"`
 	Lectura       ReciboLecturaRRHH           `json:"-"`
-	huella        [32]byte
-	bloques       uint8
-	canonV3       bool
+	// Estado informativo añadido tras la lectura autorizada; no es una concesión.
+	EstadoBorradoresPublicados EstadoDisponibilidadBorradoresRRHH `json:"-"`
+	huella                     [32]byte
+	bloques                    uint8
+	canonV3                    bool
 }
 
 // NuevoDetalleExpedienteRRHH valida el agregado completo antes de reducirlo a

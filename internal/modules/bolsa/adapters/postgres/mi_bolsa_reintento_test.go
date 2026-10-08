@@ -343,6 +343,48 @@ func TestMiBolsaLecturasSecundariasConservanDenegacionSanitizada(t *testing.T) {
 	}
 }
 
+func TestMiBolsaDiagnosticoSQLSinTextoPrivado(t *testing.T) {
+	instante := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
+	for _, variante := range []string{"consulta", "portal", "contacto", "ofertas"} {
+		t.Run(variante, func(t *testing.T) {
+			s := bolsa.SolicitudConsultaMiBolsa{CandidatoRef: "can_sintetico", ConsultadaEn: instante, Material: materialLecturaMiBolsaPrueba(t, instante)}
+			switch variante {
+			case "portal":
+				s.ResultadosEfectivos = []string{"enviado"}
+			case "contacto":
+				s.LeerContacto = true
+			case "ofertas":
+				s.LeerOfertas = true
+			}
+			pool := &poolLecturaMiBolsaPrueba{t: t, preparar: func(int) *txLecturaMiBolsaPrueba {
+				filas := []filaPanelPostgreSQLPrueba{{contenido: []byte(`{"consultada_en":"2026-09-30T10:00:00Z","participaciones":[]}`)}}
+				if variante == "consulta" {
+					filas[0].error = &pgconn.PgError{Code: "42883", Message: "secreto-canario"}
+				} else {
+					filas = append(filas, filaPanelPostgreSQLPrueba{error: &pgconn.PgError{Code: "42883", Message: "secreto-canario"}})
+				}
+				return &txLecturaMiBolsaPrueba{filas: filas}
+			}}
+			_, err := (&ConsultaMiBolsaPostgreSQL{pool: pool}).ConsultarMiBolsa(context.Background(), s)
+			var diagnostico interface{ DiagnosticoLecturaMiBolsa() (string, string) }
+			if !errors.Is(err, bolsa.ErrMaterialMiBolsaNoDisponible) || !errors.As(err, &diagnostico) || len(pool.transacciones) != 1 {
+				t.Fatalf("sin diagnóstico o contrato nominal: %v", err)
+			}
+			etapa, codigo := diagnostico.DiagnosticoLecturaMiBolsa()
+			if etapa != variante || codigo != "42883" || strings.Contains(err.Error(), "secreto-canario") {
+				t.Fatalf("diagnóstico no saneado: etapa=%q sqlstate=%q error=%q", etapa, codigo, err)
+			}
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				t.Fatal("el error PostgreSQL cruzó el adaptador")
+			}
+		})
+	}
+	if codigo := codigoSQLMiBolsa(&pgconn.PgError{Code: "42x83", Message: "secreto-canario"}); codigo != "" {
+		t.Fatalf("SQLSTATE no canónico: %q", codigo)
+	}
+}
+
 // La política común consulta Done al entrar en la espera. Este contexto
 // cancela en ese punto para distinguirlo de una cancelación antes del bucle.
 type contextoCanceladoAlEsperarMiBolsa struct {

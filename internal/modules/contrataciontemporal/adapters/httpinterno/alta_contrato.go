@@ -34,6 +34,7 @@ const (
 var (
 	errEntradaAltaInvalida       = errors.New("contratacion temporal http: entrada invalida")
 	errContenidoAltaNoValido     = errors.New("contratacion temporal http: contenido no valido")
+	errNumeroMOADAltaNoValido    = errors.New("contratacion temporal http: numero MOAD no valido")
 	errCuerpoAltaDemasiadoGrande = errors.New("contratacion temporal http: cuerpo demasiado grande")
 	patronEnteroJSONAlta         = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
 )
@@ -352,10 +353,11 @@ func solicitudAltaDesdePeticion(
 	if err := json.Unmarshal(contenido, &camposSobre); err != nil {
 		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
-	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
-		entrada.Solicitud == nil ||
-		(entrada.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD)) {
+	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) || entrada.Solicitud == nil {
 		return entradaAltaDecodificada{}, errContenidoAltaNoValido
+	}
+	if entrada.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD) {
+		return entradaAltaDecodificada{}, errNumeroMOADAltaNoValido
 	}
 	if (entrada.Esquema == "" && (camposSobre["esquema"] != nil || camposSobre["necesidad"] != nil)) ||
 		(entrada.Esquema == application.EsquemaAltaNecesidadV1 && entrada.Necesidad == nil) ||

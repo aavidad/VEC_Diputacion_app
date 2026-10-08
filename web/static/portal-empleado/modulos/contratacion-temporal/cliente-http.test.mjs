@@ -423,6 +423,22 @@ test("estado HTTP y rama cruzados conservan el bloqueo", async () => {
   }
 });
 
+test("el cliente de alta acepta solo el campo público MOAD del 422", async () => {
+  for (const [campo, codigo, determinado] of [
+    ["numero_expediente_moad", "contenido_no_valido", true],
+    ["consulta_sql", "respuesta_error_no_valida", false],
+  ]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuestaJSON({
+      error: { codigo: "contenido_no_valido",
+        clave_i18n: "api.contratacion_temporal.alta.error.contenido_no_valido",
+        correlacion_ref: "corr_0123456789abcdef0123456789abcdef", campo },
+    }, 422) });
+    await assert.rejects(cliente.registrarSolicitud(comandoAlta()), (error) =>
+      error.codigo === codigo && error.campo === (determinado ? campo : "")
+      && error.envelopeValido === determinado);
+  }
+});
+
 test("el inventario expone las rutas compuestas y los cinco flujos previos siguen intactos", async () => {
   const llamadas = [];
   const cliente = crearClienteHTTPContratacionTemporal({

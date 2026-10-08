@@ -7,6 +7,7 @@ Sólo lee ficheros SQL y Git. No conecta con PostgreSQL ni ejecuta migraciones.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
@@ -191,8 +192,84 @@ def added_lines(diff: str) -> set[int]:
     return result
 
 
-def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
+# Excepción revisada al parche literal de ORQ-1. Cualquier cambio en el DO
+# o en sus dos bloques vuelve al rechazo genérico de SQL dinámico.
+AD225_PATH = "deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql"
+AD225_PREAMBULO = (
+    "\\set ON_ERROR_STOP on\n"
+    "BEGIN;\n"
+    "SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;\n"
+    "SET LOCAL search_path = pg_catalog;\n"
+    "SET LOCAL lock_timeout = '5s';\n"
+    "SET LOCAL statement_timeout = '30s';\n"
+    "SELECT pg_advisory_xact_lock(hashtextextended('vec:orq1:ad225',0));\n"
+    "-- Instalar sólo después de IS17, CA37, AD215, AUT57, AD211, P22, AD175,\n"
+    "-- P32, AD180, P34, AD214, AD216 y AD218. Parchea únicamente POST218.\n"
+)
+AD225_DO_SHA256 = "e1f8592f43312992b7adf7c1b6fe5b5e615ed63fa0b566c7b46b75a70b84e130"
+AD225_MARCA_SHA256 = "d511878f1086b13f6e6ece691492a10a1110b9b3b6ef465f8728fd92312da0b7"
+AD225_AMPLIACION_SHA256 = "a056298c5d30fbcf2507c67740f378cf348ef6c9d70d8b68b6815b6bdd0afcf4"
+AD225_PREIMAGENES = {
+    ("c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714",
+     "79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5"),
+}
+
+
+def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> bool:
+    """Admite sólo el DO que preserva el núcleo V3 posterior a AD218 byte a byte."""
+    if filename != AD225_PATH or not sql.startswith(AD225_PREAMBULO + "DO $parche$") \
+            or sql.count("DO $parche$") != 1 \
+            or hashlib.sha256(body.encode()).hexdigest() != AD225_DO_SHA256:
+        return False
+    marca = re.search(r"marca text := \$marca225\$(.*?)\$marca225\$;", body, re.S)
+    ampliacion = re.search(r"ampliacion text := \$ampliacion225\$(.*?)\$ampliacion225\$;", body, re.S)
+    if not marca or not ampliacion or body.count("$marca225$") != 2 \
+            or body.count("$ampliacion225$") != 2:
+        return False
+    anterior, posterior = marca.group(1), ampliacion.group(1)
+    if (hashlib.sha256(anterior.encode()).hexdigest() != AD225_MARCA_SHA256
+            or hashlib.sha256(posterior.encode()).hexdigest() != AD225_AMPLIACION_SHA256
+            or not posterior.startswith(anterior)
+            or re.search(r"\b(?:CREATE|ALTER|SET|RESET|SECURITY)\b", posterior, re.I)):
+        return False
+    pares = re.findall(r"IF def_sha IS DISTINCT FROM '([0-9a-f]{64})'\s+OR src_sha IS DISTINCT FROM '([0-9a-f]{64})' THEN", body)
+    if len(pares) != 1 or set(pares) != AD225_PREIMAGENES:
+        return False
+    requeridos = (
+        "f oid := to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')",
+        "p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']",
+        "p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole",
+        "p.prosecdef AND p.provolatile='v' AND p.proparallel='u'",
+        "aclexplode(coalesce(p.proacl,acldefault('f',p.proowner)))",
+        "a.grantee=p.proowner AND a.grantor=p.proowner",
+        "a.privilege_type='EXECUTE' AND NOT a.is_grantable",
+        "WHERE p.oid=f)<>1",
+        "strpos(original,marca)=0",
+        "strpos(substr(original,strpos(original,marca)+length(marca)),marca)<>0",
+        "strpos(original,'reanudacion_solicitud_llamamiento')<>0",
+        "strpos(original,'contratacion_temporal.llamamiento.reanudar_solicitud')<>0",
+        "nuevo:=replace(original,marca,ampliacion);",
+        "EXECUTE nuevo;",
+        "actual IS DISTINCT FROM nuevo",
+        "replace(actual,ampliacion,marca) IS DISTINCT FROM original",
+        "(SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta",
+        "FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f",
+        "FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())",
+    )
+    return all(piece in body for piece in requeridos) and body.count("pg_get_functiondef(f)") == 2 \
+        and body.count("EXECUTE nuevo;") == 1
+
+
+def inspect_sql(sql: str, changed: set[int], filename: str | None = None) -> list[tuple[int, str]]:
     failures: list[tuple[int, str]] = []
+    # El preámbulo se comprueba aunque el diff sólo cambie una línea anterior
+    # al DO: de lo contrario el recorrido por sentencias no visitaría su cuerpo.
+    if filename == AD225_PATH and changed:
+        cuerpos = [t for t in tokens(sql) if t.kind == "body" and
+                   "pg_get_functiondef" in t.value and "EXECUTE" in t.value]
+        if len(cuerpos) != 1 or not reconstruccion_ad225_revisada(cuerpos[0].value, filename, sql):
+            failures.append((cuerpos[0].line if cuerpos else min(changed),
+                             "reconstrucción dinámica de función: preámbulo o parche AD225 divergente"))
 
     def inspect(segment: str, first_line: int, depth: int = 0) -> None:
         if depth > 5:
@@ -226,7 +303,7 @@ def inspect_sql(sql: str, changed: set[int]) -> list[tuple[int, str]]:
                 body_tokens = tokens(body.value, body.line)
                 if any(t.upper == "PG_GET_FUNCTIONDEF" for t in body_tokens) and any(
                     t.upper == "EXECUTE" for t in body_tokens
-                ):
+                ) and not reconstruccion_ad225_revisada(body.value, filename, sql):
                     failures.append((body.line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
                 if any(t.upper == "EXECUTE" for t in body_tokens):
                     literals = [t for t in body_tokens if t.kind in ("string", "body")]
@@ -300,7 +377,7 @@ def main() -> int:
         if path.suffix != ".sql" or not path.is_file():
             continue
         diff = git("diff", "--unified=0", base, "--", name)
-        for line, reason in inspect_sql(path.read_text(encoding="utf-8"), added_lines(diff)):
+        for line, reason in inspect_sql(path.read_text(encoding="utf-8"), added_lines(diff), filename=name):
             failures.append((name, line, reason))
     for name, line, reason in failures:
         print(f"PARO clave=search_path_definer archivo={name}:{line} esperado=pg_catalog,pg_temp actual={reason}", file=sys.stderr)

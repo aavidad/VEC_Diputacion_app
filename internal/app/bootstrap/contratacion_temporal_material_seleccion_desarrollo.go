@@ -27,6 +27,7 @@ type seleccionMaterialCTDesarrollo struct {
 	politicaOfertas                                                  bool
 	plantillasCatalogo                                               bool
 	plantillasDocumental                                             bool
+	ajustesReglasCT                                                  bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -62,6 +63,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		return s, ErrActivacionDesarrolloInvalida
 	}
 	plantillasDocumental, err := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return s, ErrActivacionDesarrolloInvalida
+	}
+	ajustesReglasCT, err := ajustesReglasCTSolicitados(cfg)
 	if err != nil {
 		return s, ErrActivacionDesarrolloInvalida
 	}
@@ -106,6 +111,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		politicaOfertas:              politicaOfertas,
 		plantillasCatalogo:           plantillasCatalogo,
 		plantillasDocumental:         plantillasDocumental,
+		ajustesReglasCT:              ajustesReglasCT,
 	}
 	return s, nil
 }
@@ -138,6 +144,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 		return err
 	}
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasDocumentalEnabled); err != nil {
+		return err
+	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTAjustesReglasEnabled); err != nil {
 		return err
 	}
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo); err != nil {
@@ -227,6 +236,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.plantillasDocumental {
 		d = append(d, descriptorMaterialPlantillasDocumentalCTDesarrollo())
+	}
+	if s.ajustesReglasCT {
+		d = append(d, descriptorMaterialAjustesReglasCT())
 	}
 	return d
 }

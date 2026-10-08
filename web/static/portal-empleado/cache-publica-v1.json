@@ -1,7 +1,7 @@
 {
   "version": "20261003-pwa-ci-v5",
   "comunes": [
-    "/pwa/instalar.js?v=20261003-pwa-ci-v5",
+    "/pwa/instalar.js?v=20261008-pwa-idioma-v1",
     "/pwa/navegacion.css?v=20261002-pwa-v2",
     "/pwa/icons/vec-192.png?v=20261002-pwa-v1",
     "/pwa/icons/vec-512.png?v=20261002-pwa-v1",
@@ -12,6 +12,6 @@
   "propios": [
     "/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1",
     "/portal-empleado/portal-componentes.css?v=20261008-bolsa-enlaces-v1",
-    "/portal-empleado/portal.js?v=20261008-alta-capacidad-v3"
+    "/portal-empleado/portal.js?v=20261008-r-personas-fichas-v3"
   ]
 }

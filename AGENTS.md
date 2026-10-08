@@ -41,7 +41,7 @@ Antes de editar:
 1. instrucciones de mayor prioridad del entorno;
 2. `AGENTS.md` y `ESPECIFICACIONES_AGENTES.md`;
 3. `INSTRUCCIONES_DESATASCO.md` y `ESTADO_PROYECTO.md`;
-4. el plan del módulo en `docs/plan_modulos/` cuando la tarea sea de un módulo;
+4. `docs/plan_modulos/OBJETIVOS.md` y el plan del módulo en `docs/plan_modulos/` cuando la tarea sea de un módulo;
 5. la especificación y la matriz normativa que enlacen esos documentos.
 
 Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.

@@ -29,7 +29,8 @@ SELECT contenido_canonico,
        en_llamamiento::bigint,
        fase_desde_expedientes,
        fase_desde_instantes,
-       urgente_expedientes
+       urgente_expedientes,
+       capturas_plazo
   FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v4(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
@@ -77,13 +78,15 @@ SELECT contenido_canonico,
        fase_desde_expedientes,
        fase_desde_instantes,
        urgente_expedientes,
+       capturas_plazo,
        recuento_estados,
        recuento_fases,
        recuento_numeros::bigint[],
        plazo_fases,
        plazo_desde,
        plazo_urgentes,
-       plazo_numeros::bigint[]
+       plazo_numeros::bigint[],
+       capturas_grupos
   FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,

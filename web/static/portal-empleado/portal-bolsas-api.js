@@ -8,6 +8,7 @@
  */
 
 import {
+  SITUACIONES_PARTICIPACION_BOLSA,
   validarRespuestaBolsas,
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
@@ -15,18 +16,67 @@ import {
 } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261007-pantallas-textos-final-v1";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261008-canal-telefono-v2";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261008-canal-telefono-v2";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v2";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
+const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
+export async function consultarGlobalBolsa(filtro, { corte = "", bolsa = "", cursor = "" } = {}, { fetchImpl = fetch, signal } = {}) {
+  if (!FILTROS_GLOBALES.has(filtro) || (corte && !/^[a-f0-9]{64}$/u.test(corte))
+    || (bolsa && (filtro !== "llamamientos" || typeof bolsa !== "string" || bolsa.length > 512 || bolsa.includes("/") || /[\u0000-\u001f\u007f-\u009f]/u.test(bolsa)))
+    || (cursor && !/^(0|[1-9][0-9]*)$/u.test(cursor))) throw new TypeError("filtro global de Bolsa no válido");
+  const parametros = new URLSearchParams({ filtro, limite: "50" });
+  if (corte) parametros.set("corte", corte);
+  if (bolsa) parametros.set("bolsa", bolsa);
+  if (cursor) parametros.set("cursor", cursor);
+  try {
+    const respuesta = await fetchImpl(`${RUTA_BOLSAS}?${parametros}`, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" } });
+    if (!respuesta.ok) return { ok: false, status: respuesta.status };
+    const datos = (await respuesta.json())?.data;
+    if (datos?.esquema !== "vec.bolsa.rrhh.global.v1" || datos.filtro !== filtro || (corte && datos.corte_ref !== corte)
+      || datos.bolsa_ref !== (bolsa || null)
+      || !Array.isArray(datos.items) || !Number.isSafeInteger(datos.total)
+      || !Number.isSafeInteger(datos.desde) || !Number.isSafeInteger(datos.hasta)
+      || datos.total < 0 || datos.desde < 0 || datos.hasta < 0 || datos.hasta > datos.total
+      || datos.items.length > 50 || (datos.items.length === 0 ? datos.desde !== 0 || datos.hasta !== datos.total : datos.hasta - datos.desde + 1 !== datos.items.length)
+      || datos.hay_mas !== (datos.hasta < datos.total)
+      || (datos.hay_mas ? datos.cursor_siguiente !== String(datos.hasta) : datos.cursor_siguiente !== null)
+      || !Number.isFinite(Date.parse(datos.generado_en))
+      || typeof datos.corte_ref !== "string" || !/^[a-f0-9]{64}$/u.test(datos.corte_ref)
+      || typeof datos.hay_mas !== "boolean" || (datos.hay_mas && !/^[0-9]+$/u.test(datos.cursor_siguiente ?? ""))
+      || datos.items.some((item) => !item || typeof item.bolsa_ref !== "string" || typeof item.categoria !== "string"
+        || (filtro === "llamamientos" ? typeof item.llamamiento_ref !== "string" || typeof item.referencia !== "string"
+          || typeof item.emitido_en !== "string" || !Number.isSafeInteger(item.participaciones)
+          : typeof item.participacion_ref !== "string" || !Number.isSafeInteger(item.orden_acta)
+          || item.orden_acta < 1 || !SITUACIONES_PARTICIPACION_BOLSA.includes(item.estado_clave) || (filtro !== "todos" && item.estado_clave !== filtro) || typeof item.estado_desde !== "string"))) {
+      return { ok: false, status: 0 };
+    }
+    return { ok: true, datos };
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    return { ok: false, status: 0 };
+  }
+}
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
+function corteResumen(valor) {
+  if (valor === undefined) return "";
+  if (typeof valor !== "string" || !/^[a-f0-9]{64}$/u.test(valor)) throw new Error("corte de Bolsa no válido");
+  return valor;
+}
+function disponibilidadGlobal(valor) {
+  if (valor === undefined) return false;
+  if (typeof valor !== "boolean") throw new Error("disponibilidad de lista no válida");
+  return valor;
+}
 export const RUTA_PLAZO_RESPUESTA_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/plazo-respuesta";
 const ESQUEMA_PLAZO_RESPUESTA = "vec.bolsa.llamamiento.plazo_respuesta.v1";
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
@@ -151,8 +201,17 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
     }
 
     const envelope = await respuesta.json();
-    const datos = validarRespuestaBolsas(envelope);
-    return { ok: true, datos };
+    const fuente = envelope?.data;
+    const corte_ref = corteResumen(fuente?.corte_ref);
+    const lista_llamamientos_disponible = disponibilidadGlobal(fuente?.lista_llamamientos_disponible);
+    const bolsas = Array.isArray(fuente?.bolsas) ? fuente.bolsas.map((bolsa) => {
+      const { lista_llamamientos_disponible: habilitada, ...base } = bolsa;
+      return { base, habilitada: disponibilidadGlobal(habilitada) };
+    }) : null;
+    const { corte_ref: _corteOmitido, lista_llamamientos_disponible: _listaOmitida, ...resto } = fuente;
+    const datos = validarRespuestaBolsas({ data: { ...resto, bolsas: bolsas?.map((item) => item.base) } });
+    return { ok: true, datos: { ...datos, ...(corte_ref ? { corte_ref } : {}), lista_llamamientos_disponible,
+      bolsas: datos.bolsas.map((bolsa, indice) => ({ ...bolsa, lista_llamamientos_disponible: bolsas[indice].habilitada || lista_llamamientos_disponible })) } };
   } catch (error) {
     return {
       ok: false,
@@ -170,7 +229,17 @@ export async function consultarEstadisticasBolsa({ fetchImpl = fetch, signal } =
       const mensajes = { 401: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada"), 403: traducirPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar_3"), 404: traducirPortal("txt_el_servicio_de_estadisticas_de_bolsa_no_esta_dis") };
       return { ok: false, status: respuesta.status, codigo: respuesta.status === 403 ? "acceso_denegado" : "error_servidor", mensaje: mensajes[respuesta.status] || traducirPortal("txt_no_se_pudieron_consultar_las_estadisticas_de_bol_http", { estado: respuesta.status }) };
     }
-    return { ok: true, datos: validarRespuestaEstadisticas(await respuesta.json()) };
+    const envelope = await respuesta.json();
+    const fuente = envelope?.data;
+    const corte_ref = corteResumen(fuente?.corte_ref);
+    const lista_llamamientos_disponible = disponibilidadGlobal(fuente?.lista_llamamientos_disponible ?? fuente?.llamamientos?.lista_llamamientos_disponible);
+    const en_curso_total = fuente?.llamamientos?.en_curso_total;
+    if (en_curso_total !== undefined && (!Number.isSafeInteger(en_curso_total) || en_curso_total < 0)) throw new Error("recuento de llamamientos no válido");
+    const { corte_ref: _corte, lista_llamamientos_disponible: _lista, ...resto } = fuente;
+    const { en_curso_total: _curso, lista_llamamientos_disponible: _listaCurso, ...llamamientos } = resto.llamamientos;
+    const datos = validarRespuestaEstadisticas({ data: { ...resto, llamamientos } });
+    return { ok: true, datos: { ...datos, ...(corte_ref ? { corte_ref } : {}), lista_llamamientos_disponible,
+      llamamientos: { ...datos.llamamientos, ...(en_curso_total === undefined ? {} : { en_curso_total }) } } };
   } catch (error) {
     return { ok: false, status: 0, codigo: "error_red_o_contrato", mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_estadis") };
   }
@@ -641,6 +710,30 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     }
   }
 
+  async function cargarGlobalBolsa(filtro, { corte = "", bolsa = "", cursor = "" } = {}) {
+    const controlador = iniciarLectura("candidatos");
+    const rutaAlPedir = globalThis.location ? `${globalThis.location.search}${globalThis.location.hash}` : null;
+    estado.bolsaSeleccionada = null;
+    estado.datosCandidatos = { carga: "cargando", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
+    renderizar();
+    const res = await resolverLectura("candidatos", controlador, async () => { await prepararTextosGlobalBolsa(); return consultarGlobalBolsa(filtro, { corte, bolsa, cursor }, { signal: controlador.signal }); });
+    if (res === null || !lecturaVigente("candidatos", controlador)) return;
+    terminarLectura("candidatos", controlador);
+    if (estado.vista !== "bolsa-candidatos" || (rutaAlPedir !== null
+      && `${globalThis.location?.search}${globalThis.location?.hash}` !== rutaAlPedir)) {
+      estado.datosCandidatos = null;
+      return;
+    }
+    if (res.ok && globalThis.location?.search !== undefined) {
+      const ruta = rutaGlobalBolsaCompartible(globalThis.location.search, filtro, res.datos.corte_ref, bolsa);
+      globalThis.history?.replaceState(null, "", ruta);
+    }
+    estado.datosCandidatos = res.ok
+      ? { carga: "listo", datos: res.datos, error: "", global: true, filtro, corte: res.datos.corte_ref, bolsa, cursor }
+      : { carga: [401, 403].includes(res.status) ? "denegado" : res.status === 409 ? "caducado" : "error", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
+    renderizar();
+  }
+
   async function abrirContactos(participacionRef, nombreVisible = "") {
     if (!participacionRef) return;
     const controlador = iniciarLectura("contactos");
@@ -781,6 +874,20 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
     documento.addEventListener("click", (evento) => {
+      const enlaceGlobal = evento.target?.closest?.('a[href*="bolsa_global="]');
+      if (enlaceGlobal && enlaceGlobal.closest?.("#espacio-trabajo") && !(evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) {
+        const destino = new URL(enlaceGlobal.getAttribute("href"), globalThis.location.href);
+        if (destino.origin === globalThis.location.origin && destino.pathname === globalThis.location.pathname && destino.hash === "#bolsa/bolsa-candidatos") {
+          try {
+            if (!leerGlobalBolsaCompartible(destino.search)) return;
+          } catch { return; }
+          evento.preventDefault();
+          globalThis.history.pushState(null, "", `${destino.pathname}${destino.search}${destino.hash}`);
+          navegar("bolsa-candidatos", { enfocar: false });
+          renderizar();
+          return;
+        }
+      }
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
@@ -792,7 +899,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           if (seguimiento) olvidarEmisionConfirmada();
           estado.bolsaSeleccionada = ref;
           estado.filtrosBolsa = { estado: seguimiento ? "" : botonVer.dataset.estado || "", texto: "",
-            ...(botonVer.dataset.pestana === "historico" ? { pestana: "historico" } : {}),
+            ...(["historico", "candidatos"].includes(botonVer.dataset.pestana) ? { pestana: botonVer.dataset.pestana } : {}),
             ...(seguimiento ? { seguimiento: { llamamiento_ref: seguimiento, bolsa_ref: ref } } : {}) };
           navegar("bolsa-candidatos");
           void cargarCandidatosBolsa(ref, { enfocarDestino: true });
@@ -812,6 +919,20 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "" });
+      } else if (accion === "reintentar-global" || accion === "pagina-global" || accion === "actualizar-global") {
+        evento.preventDefault();
+        const global = estado.datosCandidatos;
+        if (global?.global) {
+          if (accion === "actualizar-global") {
+            const ruta = rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", global.filtro, "", global.bolsa);
+            globalThis.history?.replaceState(null, "", ruta);
+            navegar("bolsa-candidatos", { enfocar: false });
+            renderizar();
+            return;
+          }
+          void cargarGlobalBolsa(global.filtro, { corte: accion === "actualizar-global" ? "" : global.corte,
+            bolsa: global.bolsa, cursor: accion === "pagina-global" ? botonAccion.dataset.cursor || "" : accion === "actualizar-global" ? "" : global.cursor || "" });
+        }
       } else if (accion === "reintentar-estadisticas") {
         evento.preventDefault();
         void cargarEstadisticas();
@@ -1191,6 +1312,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     suspenderLlamamientoB7,
     cargarBolsas,
     cargarCandidatosBolsa,
+    cargarGlobalBolsa,
     cargarEstadisticas,
     abrirFicha,
     cerrarFicha,

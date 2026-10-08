@@ -96,12 +96,43 @@ test("403 documental queda aislado, sin reintento ni acción de regularizar", as
     },
   });
   assert.equal(resultado.status, 403);
-  assert.equal(resultado.mensaje, "Acceso denegado");
+  assert.match(resultado.mensaje, /autorización específica/u);
   const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "en_revision", estado_desde: desde },
     estado: { carga: "listo", items: [], transiciones: transicionesRRHH18,
       solicitudesDocumentales: [], solicitudesError: resultado.mensaje, solicitudesStatus: 403 } });
-  assert.match(vista, /Acceso denegado/u);
+  assert.match(vista, /quien administra los accesos de RRHH/u);
   assert.doesNotMatch(vista, /data-b8-accion="reintentar-solicitudes"|data-operacion="regularizar"/u);
+});
+
+test("401 documental no confunde el fallo de esta consulta con la sesión del portal", async () => {
+  const resultado = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", {
+    fetchImpl: async () => response(401, { error: { detalle: "interno" } }),
+  });
+  assert.equal(resultado.status, 401);
+  assert.match(resultado.mensaje, /Está en el portal interno/u);
+  assert.doesNotMatch(resultado.mensaje, /Inicie sesión|interno"/u);
+});
+
+test("los metadatos de la ficha explican cada sección sin consultar capacidades ausentes", async () => {
+  const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+    estado_clave: "en_revision", estado_desde: desde } };
+  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+  const registro = (estadoCapacidad) => ({ estado: estadoCapacidad, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:dos" });
+  const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {},
+    consultarOperaciones: async () => ({ ok: true, datos: [], cambios: [], situacionVigente: { situacion: "en_revision", desde },
+      capacidadesFicha: { solicitudes_documentales: registro("no_autorizado"), reincorporaciones_titular: registro("sin_montaje") } }),
+    consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }),
+    consultarDocumentales: async () => assert.fail("no debe consultar solicitudes sin autorización"),
+    consultarReincorporaciones: async () => assert.fail("no debe consultar reincorporaciones sin montaje"),
+  });
+  await controlador.cargar(modal, { incluirSecciones: false });
+  await modal.promesaReincorporaciones;
+  assert.equal(modal.operacionesB8.solicitudesStatus, null);
+  assert.match(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }),
+    /quien administra los accesos de RRHH/u);
+  assert.doesNotMatch(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }),
+    /data-operacion="regularizar"|data-b8-accion="reintentar-solicitudes"/u);
+  assert.equal(modal.reincorporacionesTitular.motivo, "sin_montaje");
 });
 
 test("403 de operaciones no borra identidad o situación principal ni ofrece escritura", async () => {

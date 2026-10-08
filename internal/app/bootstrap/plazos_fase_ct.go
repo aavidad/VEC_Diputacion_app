@@ -60,8 +60,8 @@ func (c calculadoraPlazoFaseCT) CalcularPlazoFase(
 // PrepararPlazosFase lee las reglas una sola vez para todos los plazos de una
 // consulta: con un catálogo leído por cada fila, leerlo, clonarlo y resumirlo
 // dos veces por fila era casi todo el coste del cuadro. Los plazos son los
-// mismos que con CalcularPlazoFase; un fallo al leer deja que la aplicación
-// calcule fila a fila como antes.
+// mismos que con CalcularPlazoFase; si falla la lectura, la aplicación conserva
+// la causa y muestra el plazo sin calcular, sin nuevas consultas por fila.
 func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
 	if ctx == nil {
 		return nil, reglas.ErrCalculoNoDisponible
@@ -70,11 +70,43 @@ func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.C
 	if err != nil {
 		return nil, err
 	}
-	return calculadoraPlazoFaseCTLeida{lectura: lectura, vigentes: lectura.Reglas()}, nil
+	return calculadoraPlazoFaseCTLeida{reglas: c.reglas, lectura: lectura, vigentes: lectura.Reglas()}, nil
+}
+
+// PrepararPlazosFaseConsulta conserva una caché limitada al cuadro. Si falla
+// la lectura actual, las capturas históricas siguen siendo independientes.
+func (c calculadoraPlazoFaseCT) PrepararPlazosFaseConsulta(ctx context.Context, necesitaActual bool) ports.CalculadoraPlazoFaseRRHH {
+	preparada := calculadoraPlazoFaseCTConsulta{reglas: c.reglas, capturas: reglas.NuevaCacheInstantaneasPersistidas()}
+	if necesitaActual {
+		preparada.actual, preparada.errActual = c.PrepararPlazosFase(ctx)
+	}
+	return preparada
+}
+
+type calculadoraPlazoFaseCTConsulta struct {
+	reglas    *reglas.Resolutor
+	capturas  *reglas.CacheInstantaneasPersistidas
+	actual    ports.CalculadoraPlazoFaseRRHH
+	errActual error
+}
+
+func (c calculadoraPlazoFaseCTConsulta) CalcularPlazoFase(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	if c.errActual != nil {
+		return ports.PlazoFaseRRHH{}, false, c.errActual
+	}
+	if c.actual == nil {
+		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
+	}
+	return c.actual.CalcularPlazoFase(ctx, solicitud)
+}
+
+func (c calculadoraPlazoFaseCTConsulta) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCacheCT(c.reglas, c.capturas, ctx, solicitud, captura)
 }
 
 // calculadoraPlazoFaseCTLeida calcula con una lectura de reglas ya hecha.
 type calculadoraPlazoFaseCTLeida struct {
+	reglas   *reglas.Resolutor
 	lectura  reglas.ReglasLeidas
 	vigentes []reglas.Regla
 }
@@ -117,6 +149,10 @@ func plazoFaseCT(
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, err
 	}
+	return resultadoPlazoFaseCT(solicitud, regla, vencimiento)
+}
+
+func resultadoPlazoFaseCT(solicitud ports.SolicitudPlazoFaseRRHH, regla reglas.Regla, vencimiento reglas.Vencimiento) (ports.PlazoFaseRRHH, bool, error) {
 	hoy, err := calendariosdomain.FechaCivilDe(solicitud.Ahora)
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, reglas.ErrCalculoNoDisponible
@@ -133,6 +169,44 @@ func plazoFaseCT(
 		Estado: estado, ReglaRef: regla.Referencia,
 		ReglaEjemplo: regla.EsEjemplo() || regla.PaqueteEjemplo,
 	}, true, nil
+}
+
+func (c calculadoraPlazoFaseCT) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCT(c.reglas, ctx, solicitud, captura)
+}
+
+func (c calculadoraPlazoFaseCTLeida) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCT(c.reglas, ctx, solicitud, captura)
+}
+
+func calcularPlazoConCapturaCT(resolutor *reglas.Resolutor, ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCacheCT(resolutor, reglas.NuevaCacheInstantaneasPersistidas(), ctx, solicitud, captura)
+}
+
+func calcularPlazoConCapturaCacheCT(resolutor *reglas.Resolutor, cache *reglas.CacheInstantaneasPersistidas, ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	if ctx == nil || resolutor == nil || (captura.Estado != "capturada" && captura.Estado != "legado_base_transicion") || captura.Fase != solicitud.Fase || !captura.FaseDesde.Equal(solicitud.Desde) {
+		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
+	}
+	guardada := reglas.InstantaneaPersistidaRegla{
+		CatalogoBaseID: captura.BaseID, CatalogoBaseVersion: captura.BaseVersion,
+		CatalogoBaseHuella: captura.BaseHuella, CatalogoBaseCanonico: captura.BaseCanonico,
+		CatalogoAjustesID: captura.AjustesID, AjustesEncontrados: captura.AjustesEncontrados,
+		VersionAjustes: captura.AjustesVersion, HuellaAjustes: captura.AjustesHuella,
+		CanonicoAjustes: captura.AjustesCanonico, AjustesVigenteDesde: captura.AjustesVigenteDesde,
+		PreparadaEn: captura.CapturadaEn, Fase: string(captura.Fase), FaseDesde: captura.FaseDesde,
+	}
+	instantanea, err := cache.Rehidratar(guardada)
+	if err != nil {
+		if errors.Is(err, reglas.ErrReglaNoEncontrada) {
+			return ports.PlazoFaseRRHH{}, false, nil
+		}
+		return ports.PlazoFaseRRHH{}, false, err
+	}
+	regla, vencimiento, err := resolutor.CalcularConInstantanea(ctx, instantanea, solicitud.Desde, "", solicitud.Urgente)
+	if err != nil {
+		return ports.PlazoFaseRRHH{}, false, err
+	}
+	return resultadoPlazoFaseCT(solicitud, regla, vencimiento)
 }
 
 func reglaCubreFaseCT(regla reglas.Regla, fase string) bool {
