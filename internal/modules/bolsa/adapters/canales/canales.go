@@ -6,6 +6,7 @@ package canales
 
 import (
 	"context"
+	"log/slog"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -51,7 +52,12 @@ func (t *Telefono) Disponible(ctx context.Context) bool {
 		return true
 	}
 	ok, err := t.comprobar(ctx)
-	if err != nil || !ok {
+	if err != nil {
+		// Se apaga el canal en esta lectura y queda constancia de la causa.
+		slog.Warn("canal teléfono del llamamiento no comprobado", "causa", err)
+		return false
+	}
+	if !ok {
 		return false
 	}
 	t.instalado.Store(true)

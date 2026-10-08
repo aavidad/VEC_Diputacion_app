@@ -31,13 +31,38 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	if r == nil || r.pool == nil || ctx == nil || c.Contacto.Validar() != nil || c.ClaveIdempotencia == "" || c.ReciboRef == "" || c.Material.ValidarEstructura() != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
-	iso := pgx.Serializable
+	// El consumo V3 exige SERIALIZABLE. Una llamada con la hora del servidor
+	// que choca con otra (misma clave o mismos intentos) se repite en una
+	// transacción nueva: la repetición ya ve la fila confirmada y devuelve su
+	// instante original. El consumo de la transacción fallida se deshizo con
+	// ella, así que el mismo material vale para el reintento.
+	intentos := 1
 	if c.InstanteServidor {
-		// El cerrojo por clave e intento precede al reloj y a la lectura. En
-		// READ COMMITTED, un replay concurrente ve el INSERT ya confirmado.
-		iso = pgx.ReadCommitted
+		intentos = 3
 	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: iso, AccessMode: pgx.ReadWrite})
+	var out ports.RegistroContactoParticipacion
+	var err error
+	for i := 0; i < intentos; i++ {
+		out, err = r.registrarContactoEnTransaccion(ctx, c)
+		if err == nil || !conflictoSerializable(err) {
+			break
+		}
+	}
+	if err != nil {
+		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+	}
+	return out, nil
+}
+
+// conflictoSerializable reconoce los choques que se resuelven repitiendo la
+// transacción: serialización, interbloqueo o clave ya insertada por otra.
+func conflictoSerializable(err error) bool {
+	var p *pgconn.PgError
+	return errors.As(err, &p) && (p.Code == "40001" || p.Code == "40P01" || p.Code == "23505")
+}
+
+func (r *RepositorioContactoParticipacionPostgreSQL) registrarContactoEnTransaccion(ctx context.Context, c ports.ComandoRegistrarContactoParticipacion) (ports.RegistroContactoParticipacion, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
@@ -54,16 +79,16 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 		err = tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`, c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
 	}
 	if err != nil {
-		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+		return ports.RegistroContactoParticipacion{}, err
 	}
 	if !c.InstanteServidor && out.Reutilizado {
 		var verificador bool
 		if err = tx.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1(text,text)') IS NOT NULL`).Scan(&verificador); err != nil {
-			return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+			return ports.RegistroContactoParticipacion{}, err
 		}
 		if verificador {
 			if err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1($1,$2)`, c.Contacto.ParticipacionRef, c.ClaveIdempotencia).Scan(&verificador); err != nil {
-				return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+				return ports.RegistroContactoParticipacion{}, err
 			}
 		}
 	}
@@ -71,6 +96,9 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	if err = tx.Commit(ctx); err != nil {
+		if conflictoSerializable(err) {
+			return ports.RegistroContactoParticipacion{}, err
+		}
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	return out, nil
@@ -164,6 +192,9 @@ func errorContactoParticipacion(err error) error {
 			return dominiobolsa.ErrIntentosContactoAgotados
 		case "VBC05":
 			return dominiobolsa.ErrIntentoFueraDeFranja
+		case "VBC04":
+			// El día cambió entre la consulta del calendario y el registro.
+			return ports.ErrContactoParticipacionNoDisponible
 		}
 	}
 	return ports.ErrContactoParticipacionNoDisponible

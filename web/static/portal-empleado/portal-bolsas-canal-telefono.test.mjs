@@ -110,11 +110,11 @@ test("el seguimiento marca como siguiente a la primera persona sin resultado de 
   const vista = presentador({ datos, filtros }).renderizarVista("bolsa-candidatos");
   assert.match(vista, /<h2>Seguimiento por teléfono: Auxiliar de enfermería<\/h2><a class="boton-secundario" href="\?bolsa_ref=bolsa%3Asintetica%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:sintetica:1">Volver a la bolsa<\/a>/u);
   assert.match(vista, /class="tabla-contenedor" tabindex="0" role="region"/u);
-  assert.equal(vista.match(/Siguiente<\/span>/gu)?.length, 1);
-  assert.match(vista, /Lucía Martín Serrano<\/strong><\/button> <span class="estado-chip info">Siguiente<\/span>/u);
+  assert.equal(vista.match(/Siguiente a llamar<\/span>/gu)?.length, 1);
+  assert.match(vista, /Lucía Martín Serrano<\/strong><\/button> <span class="estado-chip info">Siguiente a llamar<\/span>/u);
   assert.match(vista, /Llamadas: 2<\/button><br>Indica que rechaza/u);
   assert.match(vista, /Llamadas: 1<\/button><br>Comunica/u);
-  assert.match(vista, /<button type="button" class="boton-primario" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="participacion:sintetica:2"[^>]*aria-label="Llamar a Lucía Martín Serrano">Llamar<\/button>/u);
+  assert.match(vista, /<button type="button" class="boton-primario" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="participacion:sintetica:2"[^>]*aria-label="Abrir la ficha de Lucía Martín Serrano para llamarle">Ver ficha y llamar<\/button>/u);
 });
 
 test("el seguimiento presenta carga, error con reintento, vacío y teléfono apagado", () => {

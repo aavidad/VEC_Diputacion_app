@@ -106,9 +106,16 @@ BEGIN
       OR p_desde_minuto>=p_hasta_minuto OR p_solo_dias_habiles IS NULL
       OR p_control_franja IS NULL OR p_control_franja NOT IN('impedir','advertir')
       OR (p_solo_dias_habiles AND (p_fecha_habil IS NULL OR p_dia_habil IS NULL))
-      OR (NOT p_solo_dias_habiles AND (p_fecha_habil IS NOT NULL OR p_dia_habil IS NOT NULL))
-      OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_timezone_names z WHERE z.name=p_zona))) THEN
+      OR (NOT p_solo_dias_habiles AND (p_fecha_habil IS NOT NULL OR p_dia_habil IS NOT NULL)))) THEN
    RAISE EXCEPTION 'B87: control inválido' USING ERRCODE='22023';
+ END IF;
+ -- Zona válida sin recorrer pg_timezone_names (unos 8 ms por llamada).
+ IF p_zona IS NOT NULL THEN
+  BEGIN
+   PERFORM pg_catalog.timezone(p_zona,pg_catalog.clock_timestamp());
+  EXCEPTION WHEN others THEN
+   RAISE EXCEPTION 'B87: control inválido' USING ERRCODE='22023';
+  END;
  END IF;
  IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.constitucion_entrada e
    JOIN vec_bolsa_llamamientos.constitucion c USING(instantanea_ref,version_instantanea)
@@ -128,6 +135,9 @@ BEGIN
    JOIN vec_bolsa_llamamientos.contacto_participacion c
      ON c.participacion_ref=x.ref AND c.llamamiento_ref=l.llamamiento_ref AND c.canal='correo'
     AND c.clave_idempotencia=l.clave_idempotencia||':correo:'||x.ordinality
+    AND c.recibo_ref='recibo:contacto:'||pg_catalog.encode(pg_catalog.sha256(
+      pg_catalog.convert_to(l.bolsa_ref||pg_catalog.chr(31)||l.clave_idempotencia||
+        pg_catalog.chr(31)||x.ref,'UTF8')),'hex')
    WHERE l.llamamiento_ref=p_llamamiento_ref AND l.bolsa_ref=p_bolsa_ref AND x.ref=p_participacion_ref) THEN
    RAISE EXCEPTION 'B87: llamamiento ajeno' USING ERRCODE='23503';
  END IF;
@@ -184,7 +194,7 @@ BEGIN
  END IF;
  IF v_control THEN
   SELECT pg_catalog.count(*) FILTER (WHERE c.resultado=ANY(p_resultados_sin_contacto))::integer,
-    pg_catalog.coalesce(pg_catalog.bool_or(NOT c.resultado=ANY(p_resultados_sin_contacto)),false),
+    coalesce(pg_catalog.bool_or(NOT c.resultado=ANY(p_resultados_sin_contacto)),false),
     pg_catalog.max(c.instante)
    INTO v_sin,v_contactado,v_ultimo
    FROM vec_bolsa_llamamientos.contacto_participacion c
