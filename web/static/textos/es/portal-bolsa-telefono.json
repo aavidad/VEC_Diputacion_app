@@ -1,0 +1,15 @@
+{
+  "telefono": {
+    "fecha_automatica": "Fecha y hora",
+    "anotacion_opcional": "Nota (opcional)",
+    "resultado_contactado": "Contactado",
+    "resultado_no_contesta": "No contesta",
+    "resultado_comunica": "Comunica",
+    "resultado_numero_erroneo": "Número erróneo",
+    "resultado_acepta": "Acepta",
+    "resultado_rechaza": "Rechaza",
+    "resultado_aplazado": "Pide pensarlo",
+    "resultado_buzon": "Buzón de voz",
+    "confirmar_resultado": "Registrar resultado"
+  }
+}

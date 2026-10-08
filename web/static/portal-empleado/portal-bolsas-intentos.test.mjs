@@ -105,3 +105,101 @@ test("el controlador registra un rebote de correo ligado al llamamiento y recarg
     globalThis.FormData = anterior;
   }
 });
+
+const registroTelefono = {
+  esquema: "vec.bolsa.registro_telefono.v1", instante_servidor: true, anotacion_opcional: true,
+  resultados: ["no_contesta", "comunica", "numero_erroneo", "acepta", "rechaza", "aplazado"],
+};
+const datosServidor = { ...intentos, registro_telefono: registroTelefono };
+const lecturaTelefono = async (datos = datosServidor) => consultarIntentosContacto("bolsa:1", "participacion:1", "llamamiento:1", {
+  fetchImpl: async () => respuesta(200, { data: { esquema: "vec.bolsa.rrhh.contactos.v1", intentos: datos } }),
+});
+
+function acuseTelefono(comando) {
+  return { ...comando, participacion_ref: "participacion:1", instante: "2026-10-08T09:12:45Z", recibo_ref: "recibo:contacto:1", reutilizado: false };
+}
+
+test("el modo de servidor muestra los resultados publicados y nota opcional sólo para teléfono", async () => {
+  assert.equal((await lecturaTelefono()).ok, true);
+  const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: datosServidor } });
+  const telefono = salida.match(/<form data-intentos-form="intento">([\s\S]*?)<\/form>/)[1];
+  const rebote = salida.match(/<form data-intentos-form="rebote">([\s\S]*?)<\/form>/)[1];
+  assert.match(telefono, /Comunica/);
+  assert.match(telefono, /Pide pensarlo/);
+  assert.match(telefono, /Nota \(opcional\)/);
+  assert.doesNotMatch(telefono, /name="instante"|<textarea[^>]*required/);
+  assert.match(rebote, /name="instante" required/);
+  assert.match(rebote, /<textarea[^>]*required/);
+});
+
+test("metadata incompleta, duplicada o ajena no habilita resultados ni degrada a legado", async () => {
+  for (const registro of [null, { ...registroTelefono, esquema: "otra" },
+    { ...registroTelefono, instante_servidor: false }, { ...registroTelefono, resultados: ["no_contesta", "no_contesta"] },
+    { ...registroTelefono, resultados: ["<img>"] }, { ...registroTelefono, resultados: ["resuelto"] }]) {
+    assert.equal((await lecturaTelefono({ ...intentos, registro_telefono: registro })).ok, false);
+  }
+});
+
+test("un acuse telefónico de otro contacto o sin instante confirmado no muestra éxito", async () => {
+  const comando = { canal: "telefono", llamamiento_ref: "llamamiento:1", resultado: "comunica", anotacion: "" };
+  for (const cambio of [{ participacion_ref: "otra" }, { llamamiento_ref: "otro" }, { resultado: "acepta" },
+    { anotacion: "cambiada" }, { instante: "fecha inválida" }]) {
+    const res = await registrarContactoIntento("bolsa:1", "participacion:1", comando, "k", {
+      fetchImpl: async () => respuesta(201, { data: { ...acuseTelefono(comando), ...cambio } }),
+    });
+    assert.equal(res.ok, false);
+  }
+});
+
+test("el registro con reloj servidor conserva nota y clave en un reintento y no envía fecha", async () => {
+  await lecturaTelefono();
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.v = f.valores; } get(c) { return this.v[c]; } };
+  try {
+    const posts = [];
+    const modal = { candidato, intentosContacto: { carga: "listo", datos: datosServidor } };
+    const estado = { bolsaSeleccionada: "bolsa:1", modalFicha: modal };
+    const controlador = crearControladorIntentosContacto({ estado, renderizar() {}, fetchImpl: async (_url, opciones) => {
+      if (opciones.method !== "POST") return respuesta(200, { data: { esquema: "vec.bolsa.rrhh.contactos.v1", intentos: datosServidor } });
+      posts.push(opciones);
+      return posts.length === 1 ? respuesta(503, { error: { codigo: "servicio_no_disponible" } })
+        : respuesta(200, { data: acuseTelefono(JSON.parse(opciones.body)) });
+    } });
+    const formulario = { dataset: { intentosForm: "intento" }, valores: { resultado: "comunica", anotacion: "Esperar <sin perder>" }, closest() { return this; } };
+    const enviar = async () => {
+      assert.equal(controlador.manejarSubmit({ target: formulario, preventDefault() {} }), true);
+      await new Promise((r) => setTimeout(r, 0));
+    };
+    await enviar();
+    const pintado = renderizarIntentosContacto({ candidato, estado: modal.intentosContacto });
+    assert.match(pintado, /Esperar &lt;sin perder&gt;/);
+    assert.match(pintado, /value="comunica" selected/);
+    await enviar();
+    assert.equal(posts.length, 2);
+    assert.equal(posts[0].body, posts[1].body);
+    assert.equal(posts[0].headers["Idempotency-Key"], posts[1].headers["Idempotency-Key"]);
+    assert.equal(Object.hasOwn(JSON.parse(posts[0].body), "instante"), false);
+    assert.equal(modal.intentosContacto.registradoEn, "2026-10-08T09:12:45Z");
+    assert.equal(modal.intentosContacto.recibo, "recibo:contacto:1");
+    assert.equal(estado.modalFicha, modal);
+  } finally { globalThis.FormData = anterior; }
+});
+
+test("una consulta pendiente se comparte y una respuesta tardía no cambia otra ficha", async () => {
+  let resolver;
+  let consultas = 0;
+  const modal = { candidato };
+  const estado = { bolsaSeleccionada: "bolsa:1", modalFicha: modal };
+  const controlador = crearControladorIntentosContacto({ estado, renderizar() {}, fetchImpl: async () => {
+    consultas++;
+    return new Promise((r) => { resolver = r; });
+  } });
+  const pendiente = controlador.cargar(modal);
+  await controlador.cargar(modal);
+  assert.equal(consultas, 1);
+  const otro = { candidato: { ...candidato, participacion_ref: "participacion:2" } };
+  estado.modalFicha = otro;
+  resolver(respuesta(200, { data: { esquema: "vec.bolsa.rrhh.contactos.v1", intentos } }));
+  await pendiente;
+  assert.equal(otro.intentosContacto, undefined);
+});
