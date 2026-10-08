@@ -5,7 +5,7 @@ import {
   crearControladorCorreoLlamamiento, renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo, validarPlantillaCorreo,
 } from "./portal-bolsas-correo.js";
 import { crearTraductorCorreoLlamamiento, MENSAJES_CORREO_LLAMAMIENTO } from "./portal-i18n-correo-llamamiento.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6";
 
 const plantillaServidor = { plantilla_version: "bolsa-llamamiento-v2", personalizada: true, limite: 4000, limite_asunto: 250, asunto: "Llamamiento de {bolsa}", cuerpo: "Estimado/a {nombre}:", marcadores: [{ clave: "nombre" }, { clave: "posicion" }] };
 const respuesta = (status, cuerpo) => ({ status, ok: status < 400, json: async () => cuerpo });

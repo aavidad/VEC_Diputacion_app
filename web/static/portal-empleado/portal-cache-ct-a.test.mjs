@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-documentos-ficha-v2";
+const versionCoordinador = "20261008-bolsa-global-v2";
 const versionCircuito = "20261008-documentos-ficha-v1";
 const versionVista = "20261008-documentos-ficha-v1";
 const versionRender = "20261008-documentos-ficha-v1";
@@ -107,8 +107,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteClienteHTTP = "20261008-w-ct-borradores-main-v2";
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = "20261008-alta-capacidad-v3";
-  const cohorteIdioma = "20261008-documentos-ficha-v2";
-  const cohorteEntrada = "20261008-documentos-ficha-v2";
+  const cohorteIdioma = "20261008-bolsa-global-v2";
+  const cohorteEntrada = "20261008-bolsa-global-v2";
   const cohorteFicha = "20261008-documentos-ficha-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
@@ -118,7 +118,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     ["./i18n.js", "20261007-pantallas-textos-final-v1"],
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", "20261008-u-b1-documentos-v5"],
+    [html, "/portal-empleado/portal.js", "20261008-u-b1-bolsa-global-v6"],
     [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteIdioma],
     [portal, "./portal-modulos-coordinador.js", cohorteIdioma],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
@@ -133,7 +133,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     exigirVersiones(fuente, ruta, version);
     if (antiguas.has(ruta)) assert.ok(!fuente.includes(`${ruta}?v=${antiguas.get(ruta)}`), ruta);
   }
-  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-u-b1-documentos-v5");
+  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-u-b1-bolsa-global-v6");
   assert.match(altaHTTP, /obtenerCatalogosNecesidadesAlta/u);
   assert.match(i18n, /export async function cargarMensajesNecesidadesAlta/u);
   assert.match(contrato, /export const ESQUEMA_ALTA_NECESIDAD/u);
