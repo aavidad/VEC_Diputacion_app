@@ -1,0 +1,7 @@
+# AD222 única, después de AD207/219/221 instaladas: no reaplicar prefijos ni DOWN.
+# Antes del preflight, DBA crea LOGIN privado con membresía única heredada y
+# sin SET/ADMIN, configura su fila vigente y verifica CONNECT/USAGE/EXEC de
+# las dos funciones exactas, sin CREATE/TEMP efectivos (incluido PUBLIC).
+# El UP no crea LOGIN, no siembra configuración ni revoca ACL compartidas.
+# Ensayo SQL sólo en base AD222 nueva, nunca en cachev4 fuente o principal.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000222_frontera_identidad_tecnica.up.sql
