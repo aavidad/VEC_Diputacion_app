@@ -76,6 +76,8 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion_version (
  version bigint NOT NULL CHECK(version BETWEEN 1 AND 9007199254740991),
  estado text NOT NULL CHECK(estado IN('pendiente','admitida_a_convocatoria','rechazada','incorporada')),
  actor_ref text COLLATE "C" NOT NULL CHECK(actor_ref~'^per_[A-Za-z0-9_-]{22,128}$'),
+ perfil_ref text COLLATE "C" NOT NULL CHECK(perfil_ref~'^prf_[A-Za-z0-9_-]{22,128}$'),
+ cuenta_ref text COLLATE "C" NOT NULL CHECK(cuenta_ref~'^cta_[A-Za-z0-9_-]{22,128}$'),
  motivo_ref text COLLATE "C",
  motivo_catalogo_ref text COLLATE "C",
  motivo_catalogo_version integer,
@@ -386,9 +388,10 @@ BEGIN
   v_clave_sha,v_material_sha,
   'externa_personal',v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_version(
-  solicitud_ref,version,estado,actor_ref,evaluacion,decision_ref,
+  solicitud_ref,version,estado,actor_ref,perfil_ref,cuenta_ref,evaluacion,decision_ref,
   consumo_huella_sha256,auditoria_ref,aplicada_en)
- VALUES(v_solicitud_ref,1,'pendiente',v_persona,v_evaluacion,
+ VALUES(v_solicitud_ref,1,'pendiente',v_persona,d->>'perfil_activo_ref',contexto->>'cuenta_ref',
+  v_evaluacion,
   consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref,v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_historia(
   historia_ref,solicitud_ref,version,accion,actor_ref,estado,registrada_en)
@@ -462,7 +465,8 @@ BEGIN
   'clave_idempotencia','decision','esquema','motivo_codigo','solicitud_ref','version_esperada']
  OR m->>'esquema' IS DISTINCT FROM 'vec.bolsa.inscripcion.decidir.v1'
  OR coalesce(m->>'solicitud_ref','') !~ '^solicitud_inscripcion_[0-9a-f]{64}$'
- OR m->>'decision' NOT IN('admitir','rechazar')
+ OR jsonb_typeof(m->'decision') IS DISTINCT FROM 'string'
+ OR (m->>'decision' IN('admitir','rechazar')) IS NOT TRUE
  OR jsonb_typeof(m->'motivo_codigo') IS DISTINCT FROM 'string'
  OR (m->>'decision'='admitir' AND m->>'motivo_codigo'<>'')
  OR (m->>'decision'='rechazar' AND coalesce(m->>'motivo_codigo','') !~ '^[a-z][a-z0-9_.:-]{2,127}$')
@@ -501,6 +505,22 @@ BEGIN
  OR c->>'huella_efecto_sha256' IS DISTINCT FROM v_recurso_sha
  THEN RAISE EXCEPTION 'B96: revisión sin decisión exacta' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:inscripcion:'||v_ref,0));
+ SELECT * INTO solicitud FROM vec_bolsa_llamamientos.solicitud_inscripcion
+ WHERE solicitud_ref=v_ref FOR SHARE;
+ IF FOUND AND v_actor IS NOT DISTINCT FROM solicitud.persona_ref THEN
+  RAISE EXCEPTION 'B96: el solicitante no puede revisar su solicitud' USING ERRCODE='42501';
+ END IF;
+ -- Un recibo ya emitido sólo puede recuperarlo quien realizó aquel acto con
+ -- el mismo perfil y cuenta. Rechazar aquí a otro RRHH evita consumir V3 para
+ -- una recuperación que jamás le pertenece; la ruta positiva revalida V3.
+ SELECT * INTO v_revision_version
+ FROM vec_bolsa_llamamientos.solicitud_inscripcion_version
+ WHERE solicitud_ref=v_ref AND version=v_esperada+1 FOR SHARE;
+ IF FOUND AND (
+  v_revision_version.actor_ref IS DISTINCT FROM v_actor
+  OR v_revision_version.perfil_ref IS DISTINCT FROM d->>'perfil_activo_ref'
+  OR v_revision_version.cuenta_ref IS DISTINCT FROM contexto->>'cuenta_ref')
+ THEN RAISE EXCEPTION 'B96: recibo de revisión ajeno' USING ERRCODE='B9604'; END IF;
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_revision_inscripcion_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
   p_payload,p_sobre,p_evidencia,p_raiz);
@@ -525,6 +545,10 @@ BEGIN
   SELECT * INTO STRICT v_revision_version
    FROM vec_bolsa_llamamientos.solicitud_inscripcion_version
    WHERE solicitud_ref=v_ref AND version=v_esperada+1;
+  IF v_revision_version.actor_ref IS DISTINCT FROM v_actor
+   OR v_revision_version.perfil_ref IS DISTINCT FROM d->>'perfil_activo_ref'
+   OR v_revision_version.cuenta_ref IS DISTINCT FROM contexto->>'cuenta_ref'
+  THEN RAISE EXCEPTION 'B96: recibo de revisión ajeno' USING ERRCODE='B9604'; END IF;
   etiquetas:=vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(
    solicitud.catalogo_ref,solicitud.catalogo_version,solicitud.catalogo_sha256,
    ARRAY[solicitud.categoria_ref],p_captura_actor->>'idioma');
@@ -572,10 +596,12 @@ BEGIN
   ARRAY[solicitud.categoria_ref],p_captura_actor->>'idioma');
  v_categoria:=etiquetas#>>'{0,categoria}';
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_version(
-  solicitud_ref,version,estado,actor_ref,motivo_ref,motivo_catalogo_ref,
+  solicitud_ref,version,estado,actor_ref,perfil_ref,cuenta_ref,
+  motivo_ref,motivo_catalogo_ref,
   motivo_catalogo_version,motivo_catalogo_sha256,evaluacion,decision_ref,
   consumo_huella_sha256,auditoria_ref,aplicada_en)
- VALUES(v_ref,v_nueva,v_estado,v_actor,CASE WHEN v_estado='rechazada' THEN m->>'motivo_codigo' END,
+ VALUES(v_ref,v_nueva,v_estado,v_actor,d->>'perfil_activo_ref',contexto->>'cuenta_ref',
+  CASE WHEN v_estado='rechazada' THEN m->>'motivo_codigo' END,
   CASE WHEN v_estado='rechazada' THEN motivos->>'catalogo_ref' END,
   CASE WHEN v_estado='rechazada' THEN (motivos->>'catalogo_version')::integer END,
   CASE WHEN v_estado='rechazada' THEN motivos->>'catalogo_sha256' END,
@@ -839,9 +865,9 @@ SET lock_timeout='2s' SET statement_timeout='15s'
 AS $f$
 DECLARE
  v_items jsonb; v_item jsonb; v_categoria jsonb; v_requisito jsonb;
- v_selectores jsonb:='[]'::jsonb; v_etiquetas jsonb; v_mapa jsonb:='{}'::jsonb;
+ v_selectores jsonb:='[]'::jsonb; v_etiquetas jsonb;
  v_propias jsonb; v_categorias jsonb; v_requisitos jsonb; v_bolsas jsonb:='[]'::jsonb;
- v_etiqueta jsonb; v_categoria_resumen text; v_requisitos_resumen text;
+ v_etiqueta jsonb; v_requisitos_resumen text; v_num_categorias integer; v_carta jsonb;
  v_estado text; v_puede boolean; v_impedimento text;
  v_pos integer:=0; v_conv text; v_propia jsonb; v_salida jsonb;
 BEGIN
@@ -853,21 +879,32 @@ BEGIN
  v_items:=CASE WHEN p_lista THEN p_fuente->'items' ELSE jsonb_build_array(p_fuente) END;
  IF jsonb_typeof(v_items) IS DISTINCT FROM 'array' OR jsonb_array_length(v_items)>100
  THEN RAISE EXCEPTION 'B96: página abierta fuera de límite' USING ERRCODE='54000'; END IF;
- FOR v_item IN SELECT valor FROM jsonb_array_elements(v_items) AS x(valor) LOOP
-  IF jsonb_typeof(v_item->'categorias') IS DISTINCT FROM 'array'
- OR jsonb_array_length(v_item->'categorias') NOT BETWEEN 1 AND 32
-  THEN RAISE EXCEPTION 'B96: categorías publicadas incompatibles' USING ERRCODE='55000'; END IF;
-  FOR v_categoria IN SELECT valor FROM jsonb_array_elements(v_item->'categorias') AS x(valor) LOOP
-   v_selectores:=v_selectores||jsonb_build_array(jsonb_build_object(
-    'catalogo_ref',v_item->>'catalogo_ref',
-    'catalogo_version',(v_item->>'catalogo_version')::integer,
-    'catalogo_sha256',v_item->>'catalogo_sha256',
-    'categoria_ref',v_categoria->>'categoria_ref',
-    'politica_catalogo_ref',v_item->>'politica_catalogo_ref',
-    'politica_catalogo_version',(v_item->>'politica_catalogo_version')::integer,
-    'politica_catalogo_sha256',v_item->>'politica_catalogo_sha256'));
-  END LOOP;
- END LOOP;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(v_items) AS x(valor)
+  WHERE (p_lista AND (
+   coalesce(x.valor->>'numero_categorias','') !~ '^[1-9][0-9]{0,2}$'
+   OR (x.valor->>'numero_categorias')::integer NOT BETWEEN 1 AND 128
+   OR coalesce(x.valor->>'categoria_ref_comprobacion','')=''
+   OR x.valor ? 'categorias'))
+  OR (NOT p_lista AND (
+   jsonb_typeof(x.valor->'categorias') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(x.valor->'categorias') NOT BETWEEN 1 AND 128)))
+ THEN RAISE EXCEPTION 'B96: categorías publicadas incompatibles' USING ERRCODE='55000'; END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+   'catalogo_ref',item.valor->>'catalogo_ref',
+   'catalogo_version',(item.valor->>'catalogo_version')::integer,
+   'catalogo_sha256',item.valor->>'catalogo_sha256',
+   'categoria_ref',categoria.valor->>'categoria_ref',
+   'politica_catalogo_ref',item.valor->>'politica_catalogo_ref',
+   'politica_catalogo_version',(item.valor->>'politica_catalogo_version')::integer,
+   'politica_catalogo_sha256',item.valor->>'politica_catalogo_sha256')
+   ORDER BY item.orden,categoria.orden),'[]'::jsonb)
+ INTO v_selectores
+ FROM jsonb_array_elements(v_items) WITH ORDINALITY AS item(valor,orden)
+ CROSS JOIN LATERAL jsonb_array_elements(
+   CASE WHEN p_lista THEN jsonb_build_array(jsonb_build_object(
+     'categoria_ref',item.valor->>'categoria_ref_comprobacion'))
+   ELSE item.valor->'categorias' END
+ ) WITH ORDINALITY AS categoria(valor,orden);
  v_etiquetas:=vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
   v_selectores,p_idioma);
  IF jsonb_typeof(v_etiquetas) IS DISTINCT FROM 'array'
@@ -885,27 +922,44 @@ BEGIN
  ) q;
  FOR v_item IN SELECT valor FROM jsonb_array_elements(v_items) AS x(valor) LOOP
   v_conv:=v_item->>'convocatoria_ref';
-  v_categorias:='[]'::jsonb;
-  v_requisitos:='[]'::jsonb;
-  v_requisitos_resumen:=NULL;
+ v_categorias:='[]'::jsonb;
+ v_requisitos:='[]'::jsonb;
+  v_requisitos_resumen:=v_item->>'resumen';
   v_puede:=true;
-  FOR v_categoria IN SELECT valor FROM jsonb_array_elements(v_item->'categorias') AS x(valor) LOOP
+  IF p_lista THEN
+   v_num_categorias:=(v_item->>'numero_categorias')::integer;
    v_etiqueta:=v_etiquetas->v_pos;
    v_pos:=v_pos+1;
-   IF v_etiqueta->>'categoria_ref' IS DISTINCT FROM v_categoria->>'categoria_ref'
+   IF v_etiqueta->>'categoria_ref' IS DISTINCT FROM v_item->>'categoria_ref_comprobacion'
     OR coalesce(v_etiqueta->>'categoria','')=''
     OR jsonb_typeof(v_etiqueta->'politica_valida') IS DISTINCT FROM 'boolean'
     OR coalesce(v_etiqueta->>'motivo_etiqueta_pendiente','')=''
     OR coalesce(v_etiqueta->>'motivo_etiqueta_cumple','')=''
    THEN RAISE EXCEPTION 'B96: categoría del lote divergente' USING ERRCODE='55000'; END IF;
-   v_categorias:=v_categorias||jsonb_build_array(jsonb_build_object(
-    'categoria_ref',v_categoria->>'categoria_ref','categoria',v_etiqueta->>'categoria'));
-   v_puede:=v_puede AND (v_etiqueta->>'politica_valida')::boolean;
-  END LOOP;
-  -- El catálogo de política es el mismo para todas las categorías de una
-  -- convocatoria; el motivo de requisito se toma de su versión publicada.
-  v_etiqueta:=v_etiquetas->(v_pos-1);
-  FOR v_requisito IN SELECT valor FROM jsonb_array_elements(v_item->'requisitos') AS x(valor) LOOP
+   v_puede:=(v_etiqueta->>'politica_valida')::boolean;
+  ELSE
+   v_num_categorias:=jsonb_array_length(v_item->'categorias');
+   IF v_item->>'numero_categorias' IS DISTINCT FROM v_num_categorias::text THEN
+    RAISE EXCEPTION 'B96: total de categorías divergente' USING ERRCODE='55000';
+   END IF;
+   FOR v_categoria IN SELECT valor FROM jsonb_array_elements(v_item->'categorias') AS x(valor) LOOP
+    v_etiqueta:=v_etiquetas->v_pos;
+    v_pos:=v_pos+1;
+    IF v_etiqueta->>'categoria_ref' IS DISTINCT FROM v_categoria->>'categoria_ref'
+     OR coalesce(v_etiqueta->>'categoria','')=''
+     OR jsonb_typeof(v_etiqueta->'politica_valida') IS DISTINCT FROM 'boolean'
+     OR coalesce(v_etiqueta->>'motivo_etiqueta_pendiente','')=''
+     OR coalesce(v_etiqueta->>'motivo_etiqueta_cumple','')=''
+    THEN RAISE EXCEPTION 'B96: categoría del lote divergente' USING ERRCODE='55000'; END IF;
+    v_categorias:=v_categorias||jsonb_build_array(jsonb_build_object(
+     'categoria_ref',v_categoria->>'categoria_ref','categoria',v_etiqueta->>'categoria'));
+    v_puede:=v_puede AND (v_etiqueta->>'politica_valida')::boolean;
+   END LOOP;
+   -- El catálogo de política es común a la versión, y el detalle sí presenta
+   -- cada requisito con su estado y motivo desde la fuente publicada.
+   v_etiqueta:=v_etiquetas->(v_pos-1);
+   v_requisitos_resumen:=NULL;
+   FOR v_requisito IN SELECT valor FROM jsonb_array_elements(v_item->'requisitos') AS x(valor) LOOP
    IF coalesce(v_requisito->>'descripcion','')='' THEN
     RAISE EXCEPTION 'B96: descripción de requisito ausente' USING ERRCODE='55000';
    END IF;
@@ -924,9 +978,8 @@ BEGIN
     'motivo_etiqueta',CASE WHEN v_estado='pendiente'
       THEN v_etiqueta->>'motivo_etiqueta_pendiente' ELSE v_etiqueta->>'motivo_etiqueta_cumple' END,
     'hito_cumplimiento',NULL,'hito_etiqueta',NULL));
-  END LOOP;
-  SELECT string_agg(x.valor->>'categoria',', ' ORDER BY x.orden)
-  INTO v_categoria_resumen FROM jsonb_array_elements(v_categorias) WITH ORDINALITY AS x(valor,orden);
+   END LOOP;
+  END IF;
   v_propia:=v_propias->v_conv;
   v_puede:=v_puede AND v_propia IS NULL;
   v_impedimento:=CASE WHEN v_propia IS NOT NULL
@@ -936,18 +989,21 @@ BEGIN
   IF NOT v_puede AND coalesce(v_impedimento,'')='' THEN
    RAISE EXCEPTION 'B96: impedimento sin catálogo' USING ERRCODE='B9601';
   END IF;
-  v_bolsas:=v_bolsas||jsonb_build_array(jsonb_build_object(
+  v_carta:=jsonb_build_object(
    'convocatoria_ref',v_conv,'titulo',v_item->>'titulo',
-   'categorias_resumen',v_categoria_resumen,'categorias',v_categorias,
+   'numero_categorias',v_num_categorias,
    'plazo_inicio',(v_item->>'plazo_abre_en')::timestamptz,
    'plazo_fin',(v_item->>'plazo_cierra_en')::timestamptz,
    'catalogo_version',(v_item->>'catalogo_version')::bigint,
    'requisitos_resumen',coalesce(v_requisitos_resumen,v_item->>'resumen'),
-   'requisitos',v_requisitos,
    'puede_iniciar',v_puede,
    'impedimento_etiqueta',v_impedimento,
    'estado_solicitud_propia',v_propia->>'estado',
-   'solicitud_ref',v_propia->>'solicitud_ref'));
+   'solicitud_ref',v_propia->>'solicitud_ref');
+  IF NOT p_lista THEN
+   v_carta:=v_carta||jsonb_build_object('categorias',v_categorias,'requisitos',v_requisitos);
+  END IF;
+  v_bolsas:=v_bolsas||jsonb_build_array(v_carta);
  END LOOP;
  IF p_lista THEN
   v_salida:=jsonb_build_object('convocatorias',v_bolsas,'total',(p_fuente->>'total')::bigint,
@@ -973,7 +1029,8 @@ DECLARE
  v_filtro jsonb; v_f_estado text; v_f_convocatoria text; v_f_cursor text;
  v_f_limite integer; v_ref_selector text; v_prefijo text;
  v_motivos jsonb; v_motivos_proyeccion jsonb;
- v_ahora timestamptz(6); v_auditoria record;
+ v_ahora timestamptz(6); v_emitida_en timestamptz; v_valida_hasta timestamptz;
+ v_auditoria record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR session_user NOT IN('vec_bolsa_inscripciones_lector',
@@ -998,6 +1055,15 @@ BEGIN
  v_canal:=p_captura->>'canal';
  v_idioma:=p_captura->>'idioma';
  v_recurso:=p_captura->>'recurso_ref';
+ IF jsonb_typeof(p_captura->'emitida_en') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(p_captura->'valida_hasta') IS DISTINCT FROM 'string'
+ THEN RAISE EXCEPTION 'B96: ventana de captura ausente' USING ERRCODE='42501'; END IF;
+ BEGIN
+  v_emitida_en:=(p_captura->>'emitida_en')::timestamptz;
+  v_valida_hasta:=(p_captura->>'valida_hasta')::timestamptz;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'B96: ventana de captura inválida' USING ERRCODE='42501';
+ END;
  IF v_persona IS NULL OR v_persona !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR p_captura->>'accion' IS DISTINCT FROM p_accion
  OR p_captura->>'perfil_ref' IS DISTINCT FROM v_contexto->>'perfil_activo_ref'
@@ -1010,15 +1076,16 @@ BEGIN
  OR p_captura->>'autenticacion_ref' IS DISTINCT FROM v_vinculo->>'autenticacion_ref'
  OR p_captura->>'canal' IS DISTINCT FROM v_vinculo->>'superficie'
  OR v_idioma IS NULL OR v_idioma NOT IN('es','en')
+ OR v_canal IS NULL OR v_canal NOT IN('externa_personal','interna_corporativa')
  OR coalesce(p_captura->>'revision_permisos','') !~ '^[1-9][0-9]{0,15}$'
- OR (p_captura->>'emitida_en')::timestamptz>v_ahora
- OR (p_captura->>'valida_hasta')::timestamptz<=v_ahora
- OR p_captura->>'intento_ref' !~ '^lectura_[0-9a-f]{32}$'
+ OR (v_emitida_en<=v_ahora AND v_valida_hasta>v_ahora) IS NOT TRUE
+ OR NOT isfinite(v_emitida_en) OR NOT isfinite(v_valida_hasta)
+ OR coalesce(p_captura->>'intento_ref','') !~ '^lectura_[0-9a-f]{32}$'
  OR p_captura->>'correlacion_ref' IS NULL
  OR p_captura->>'finalidad' IS NULL
  OR v_recurso IS NULL
  THEN RAISE EXCEPTION 'B96: sesión o captura no ligadas' USING ERRCODE='42501'; END IF;
- IF NOT (
+ IF (
   (session_user='vec_bolsa_inscripciones_lector'
    AND v_canal='externa_personal'
    AND p_accion IN('bolsa.inscripcion.convocatorias.listar',
@@ -1033,7 +1100,7 @@ BEGIN
    AND v_canal='interna_corporativa'
    AND p_accion IN('bolsa.inscripcion.rrhh.listar',
     'bolsa.inscripcion.rrhh.consultar','bolsa.inscripcion.rrhh.motivos'))
- ) THEN RAISE EXCEPTION 'B96: LOGIN lector fuera de competencia' USING ERRCODE='42501'; END IF;
+ ) IS NOT TRUE THEN RAISE EXCEPTION 'B96: LOGIN lector fuera de competencia' USING ERRCODE='42501'; END IF;
 
  -- Mismo canon que application/inscripcion.RecursoLectura: el recurso del
  -- permiso y de la auditoría se ata al selector, idioma y persona exactos.
@@ -1142,7 +1209,8 @@ BEGIN
  ELSIF p_accion='bolsa.inscripcion.rrhh.motivos' THEN
   IF v_canal<>'interna_corporativa'
    OR ARRAY(SELECT jsonb_object_keys(p_selector) ORDER BY 1) IS DISTINCT FROM ARRAY['decision']
-   OR p_selector->>'decision' NOT IN('admitir','rechazar')
+   OR jsonb_typeof(p_selector->'decision') IS DISTINCT FROM 'string'
+   OR (p_selector->>'decision' IN('admitir','rechazar')) IS NOT TRUE
   THEN RAISE EXCEPTION 'B96: motivos no ligados' USING ERRCODE='42501'; END IF;
   v_motivos:=vec_catalogos_configurables.listar_motivos_inscripcion_v1(v_idioma);
   SELECT coalesce(jsonb_agg(jsonb_build_object('codigo',x.valor->>'motivo_ref',

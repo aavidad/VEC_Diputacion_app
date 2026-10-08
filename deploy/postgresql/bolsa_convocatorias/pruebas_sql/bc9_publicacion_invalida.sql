@@ -7,7 +7,7 @@ SET LOCAL lock_timeout='2s';
 DO $test$
 DECLARE numero integer; v_id text; v_ref text; material jsonb; bytes bytea; huella text;
 BEGIN
- FOR numero IN 1..6 LOOP
+ FOR numero IN 1..7 LOOP
   BEGIN
    v_id:='proceso:bolsa:publicacion-invalida-'||numero;
    v_ref:='cv1_'||encode(sha256(convert_to(v_id,'UTF8')),'hex')||'_v1';
@@ -41,6 +41,8 @@ BEGIN
     WHEN 5 THEN material:=jsonb_set(material,'{publicada_en}','"infinity"'::jsonb);
     WHEN 6 THEN material:=jsonb_set(material,'{contenido,categorias}',
       jsonb_build_array('cat.alpha','cat.alpha'));
+    WHEN 7 THEN material:=jsonb_set(material,'{contenido,categorias}',
+      (SELECT jsonb_agg('cat.'||g ORDER BY g) FROM generate_series(1,129) AS g));
    END CASE;
    bytes:=convert_to(material::text,'UTF8');
    huella:=encode(sha256(bytes),'hex');
