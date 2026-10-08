@@ -272,6 +272,62 @@ test("sin catálogo de Alta, Organización nombra el centro en la lista ligera u
   coordinador.desmontarVistaActual();
 });
 
+test("Alta nombra todos los centros equivalentes sin pedir Organización y un cuadro 403 no la consulta", async () => {
+  const catalogoModulos = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const fila = (numero, centro_ref) => ({ expediente_ref: `expediente:ct:${numero}`,
+    numero_visible: `2026/CT-${numero}`, version: 1, fase_clave: "analisis", estado_clave: "en_curso",
+    centro_ref, categoria_ref: "categoria:auxiliar", creado_en: "2026-10-01T08:00:00Z",
+    actualizado_en: "2026-10-01T09:00:00Z" });
+  for (const denegarCuadro of [false, true]) {
+    let organizacion = 0, catalogos = 0, paginas = 0;
+    const cliente = {
+      async consultarCuadroRRHH() {
+        paginas += 1;
+        if (denegarCuadro) throw Object.assign(new Error("sin acceso al cuadro"), { estado: 403 });
+        return { generada_en: "2026-10-01T09:00:00Z",
+          expedientes: [fila("0001", "centro-600"), fila("0002", "centro:rpt:A1B")], hay_mas: false };
+      },
+      async obtenerCatalogosAlta() {
+        catalogos += 1;
+        return { centros: [
+          { referencia: "centro:rpt:600", etiqueta: "DEPORTES" },
+          { referencia: "centro-a1b", etiqueta: "OTRO CENTRO" },
+        ], categorias: [{ referencia: "categoria:auxiliar", etiqueta: "Auxiliar" }] };
+      },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogoModulos,
+      consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+      entorno: { Headers, fetch: async () => {
+        organizacion += 1;
+        throw new Error("Organización no debe consultarse");
+      } },
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+        cargarCompleto: async () => { throw new Error("no se usa"); },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    const raiz = raizFalsa();
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+    assert.equal(paginas, 1);
+    assert.equal(catalogos, 1);
+    assert.equal(organizacion, 0);
+    if (denegarCuadro) {
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-abrir=/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-reintentar/u);
+    } else {
+      assert.match(raiz.innerHTML, />DEPORTES<small>Auxiliar<\/small>/u);
+      assert.match(raiz.innerHTML, />OTRO CENTRO<small>Auxiliar<\/small>/u);
+    }
+    coordinador.desmontarVistaActual();
+  }
+});
+
 test("el cargador CT ligero exige un único perfil CT atestado", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);

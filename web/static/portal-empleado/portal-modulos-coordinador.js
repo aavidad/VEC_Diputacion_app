@@ -210,6 +210,17 @@ export function centrosDeOrganizacion(unidades) {
   return centros;
 }
 
+function nombreCentroEn(mapa, referencia) {
+  if (!(mapa instanceof Map)) return undefined;
+  const exacto = mapa.get(referencia);
+  if (exacto !== undefined) return exacto;
+  const desdeOrganizacion = /^centro-([a-z0-9]{1,12})$/iu.exec(referencia ?? "");
+  if (desdeOrganizacion) return mapa.get(`centro:rpt:${desdeOrganizacion[1].toUpperCase()}`);
+  const desdeRPT = /^centro:rpt:([a-z0-9]{1,12})$/iu.exec(referencia ?? "");
+  return desdeRPT ? mapa.get(`centro-${desdeRPT[1].toLowerCase()}`)
+    ?? mapa.get(`centro-${desdeRPT[1].toUpperCase()}`) : undefined;
+}
+
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja",
   "cronos-notificaciones", "cronos-bandeja-notificaciones", "dietas", "personal", "personal-registro"]));
 // Navegación propia: no incluye vistas de gestión ni acredita permisos.
@@ -381,11 +392,10 @@ export function crearCoordinadorModulosPortal({
         fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
       });
       const idiomaLista = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo;
-      let catalogoNombres = null;
-      let organizacionNombres = null;
       let promesaCatalogoNombres = null;
       let promesaOrganizacionNombres = null;
-      let etiquetasLista = { centros: new Map(), categorias: new Map(), textos: null };
+      let etiquetasLista = { centrosCatalogo: new Map(), centrosOrganizacion: new Map(),
+        categorias: new Map(), textos: null };
       const denegacionEstable = (error) => [401, 403, 404].includes(error?.estado ?? error?.status);
       const nombresCatalogo = () => {
         if (typeof cliente.obtenerCatalogosAlta !== "function") return Promise.resolve(null);
@@ -395,11 +405,10 @@ export function crearCoordinadorModulosPortal({
         }, "consultar catálogo CT").then(({ respuesta, error }) => {
           if (error) throw error;
           const catalogo = recursos.contrato.validarCatalogosAlta(respuesta);
-          catalogoNombres = {
+          return {
             centros: new Map(catalogo.centros.map(({ referencia, etiqueta }) => [referencia, etiqueta])),
             categorias: new Map(catalogo.categorias.map(({ referencia, etiqueta }) => [referencia, etiqueta])),
           };
-          return catalogoNombres;
         }).catch((error) => {
           if (!denegacionEstable(error)) promesaCatalogoNombres = null;
           return null;
@@ -413,26 +422,35 @@ export function crearCoordinadorModulosPortal({
           }).obtener())
           .then((estructura) => {
             if (!Array.isArray(estructura?.unidades)) throw new TypeError("estructura de centros no válida");
-            organizacionNombres = centrosDeOrganizacion(estructura.unidades);
-            return organizacionNombres;
+            return centrosDeOrganizacion(estructura.unidades);
           }).catch((error) => {
             if (!denegacionEstable(error)) promesaOrganizacionNombres = null;
             return null;
           });
         return promesaOrganizacionNombres;
       };
-      const prepararNombresLista = async () => {
-        const [catalogo, organizacion, textos] = await Promise.all([
-          nombresCatalogo(), nombresOrganizacion(),
-          cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista }),
-        ]);
+      const prepararNombresLista = async (paginaPromesa) => {
+        const catalogoPromesa = nombresCatalogo();
+        const textosPromesa = cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista })
+          .then((textos) => ({ textos }), (error) => ({ error }));
+        // El rechazo del cuadro, incluido 401/403, prevalece sobre cualquier
+        // incidencia opcional de etiquetas y nunca dispara Organización.
+        const pagina = await paginaPromesa;
+        const [catalogo, textosResultado] = await Promise.all([catalogoPromesa, textosPromesa]);
+        if (textosResultado.error) throw textosResultado.error;
+        const faltaCentro = Array.isArray(pagina?.expedientes) && pagina.expedientes.some(
+          ({ centro_ref: referencia }) => !nombreCentroEn(catalogo?.centros, referencia));
+        const organizacion = faltaCentro ? await nombresOrganizacion() : null;
         etiquetasLista = {
-          centros: new Map([...(organizacion ?? []), ...(catalogo?.centros ?? [])]),
+          centrosCatalogo: catalogo?.centros ?? new Map(),
+          centrosOrganizacion: organizacion ?? new Map(),
           categorias: catalogo?.categorias ?? new Map(),
-          textos,
+          textos: textosResultado.textos,
         };
+        return pagina;
       };
-      const nombreCentro = (referencia) => etiquetasLista.centros.get(referencia)
+      const nombreCentro = (referencia) => nombreCentroEn(etiquetasLista.centrosCatalogo, referencia)
+        ?? nombreCentroEn(etiquetasLista.centrosOrganizacion, referencia)
         ?? etiquetasLista.textos.traducir("general.lista_centro_nombre_no_disponible");
       const nombreCategoria = (referencia) => etiquetasLista.categorias.get(referencia)
         ?? etiquetasLista.textos.traducir("general.lista_categoria_nombre_no_disponible");
@@ -1265,10 +1283,7 @@ export function crearCoordinadorModulosPortal({
           };
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
             raiz, cliente: { consultarCuadroRRHH: async (solicitud, opciones) => {
-              const [pagina] = await Promise.all([
-                temporal.cliente.consultarCuadroRRHH(solicitud, opciones), temporal.prepararNombresLista(),
-              ]);
-              return pagina;
+              return temporal.prepararNombresLista(temporal.cliente.consultarCuadroRRHH(solicitud, opciones));
             } }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
             filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
