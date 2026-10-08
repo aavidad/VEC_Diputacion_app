@@ -143,6 +143,118 @@ func TestSesionExternaInscripcionSinPreferenciasNiRutaCierra(t *testing.T) {
 	}
 }
 
+func TestSesionExternaInscripcionRechazaDependenciaTipadaNula(t *testing.T) {
+	_, autoridad, _, _, _ := escenarioSesionExternaInscripcionPrueba(t)
+	var registro *registroSesionConsultaPrueba
+	autoridad.base.registro = registro
+	if _, err := NuevaSesionExternaInscripcion(autoridad); !errors.Is(err, ErrSesionExternaInscripcionNoDisponible) {
+		t.Fatal("registro tipado nulo admitido")
+	}
+}
+
+func actualizarContextoSesionExternaPrueba(t *testing.T, resultado *core.ResultadoContextoActorRegistradoV2) {
+	t.Helper()
+	instantanea := resultado.Contexto.Instantanea
+	actor, err := core.NuevoContextoActor(core.CuentaAutenticadaContextoActor{
+		CuentaRef: instantanea.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh,
+	}, instantanea, resultado.ResueltoEnAutoritativo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado.Contexto = actor
+	resultado.RepresentacionCanonica, err = actor.RepresentacionCanonicaVinculadaV2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado.HuellaSHA256, err = actor.HuellaSHA256VinculadaV2()
+	if err != nil || resultado.Validar() != nil {
+		t.Fatalf("contexto temporal de prueba inválido: %v", err)
+	}
+}
+
+func TestSesionExternaInscripcionAcotaContextoYVinculos(t *testing.T) {
+	for _, caso := range []string{"contexto", "vinculo"} {
+		t.Run(caso, func(t *testing.T) {
+			sesion, _, e, r, _ := escenarioSesionExternaInscripcionPrueba(t)
+			corte := time.Now().UTC().Truncate(time.Microsecond).Add(30 * time.Second)
+			if caso == "contexto" {
+				e.resolutor.base.Contexto.Instantanea.VigenteHasta = corte
+			} else {
+				e.resolutor.base = resultadoConVersionVinculoEmpleadoF1(t, e.resolutor.base, 1)
+				e.resolutor.base.Contexto.Instantanea.Vinculos[0].VigenteHasta = corte
+			}
+			actualizarContextoSesionExternaPrueba(t, &e.resolutor.base)
+			_, acreditacion, err := sesion.ResolverSesionExterna(r)
+			if err != nil || !acreditacion.ValidaHasta.Equal(corte) {
+				t.Fatalf("acreditación supera vigencia %s: limite=%v error=%v", caso, acreditacion.ValidaHasta, err)
+			}
+		})
+	}
+}
+
+func TestSesionExternaInscripcionConservaCausaYEtapaSinTextoPrivado(t *testing.T) {
+	for _, caso := range []string{"registro", "revalidacion", "contexto"} {
+		t.Run(caso, func(t *testing.T) {
+			sesion, autoridad, e, r, _ := escenarioSesionExternaInscripcionPrueba(t)
+			causa := errors.New("causa-privada-canario")
+			switch caso {
+			case "registro":
+				autoridad.base.registro = registroSesionNominalCaidoPrueba{RegistroSesiones: e.registro, err: causa}
+			case "revalidacion":
+				e.revalidador.err = causa
+			case "contexto":
+				autoridad.base.contextos = resolutorNominalCaidoPrueba{err: causa}
+			}
+			_, _, err := sesion.ResolverSesionExterna(r)
+			var etapa falloSesionPreferencias
+			if !errors.Is(err, ErrSesionExternaInscripcionNoDisponible) || !errors.Is(err, causa) ||
+				!errors.As(err, &etapa) || etapa.EtapaSegura() != caso {
+				t.Fatalf("causa/etapa perdida: %v", err)
+			}
+			serializada, eJSON := json.Marshal(err)
+			if eJSON != nil || strings.Contains(err.Error(), "canario") ||
+				strings.Contains(fmt.Sprintf("%+v", err), "canario") ||
+				strings.Contains(string(serializada), "canario") ||
+				strings.Contains(etapa.LogValue().String(), "canario") {
+				t.Fatal("el error imprimió causa privada")
+			}
+		})
+	}
+}
+
+func TestPreferenciasExternaMantieneDenegacionTempranaYAuditoria(t *testing.T) {
+	for _, caso := range []string{"sin_tls", "certificado_invalido", "resolvedor_sin_material", "registro_auditoria_caido", "resolvedor_tecnico_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			_, autoridad, e, r, _ := escenarioSesionExternaInscripcionPrueba(t)
+			r.URL.Path = usuarioshttp.RutaMisPreferenciasAreaPersonal
+			autoridad.manejador = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+			apuntes := &registradorDenegacionPreferenciasPrueba{}
+			autoridad.registrador = apuntes
+			esperado, intentos := http.StatusUnauthorized, 1
+			switch caso {
+			case "sin_tls":
+				r.TLS = nil
+			case "certificado_invalido":
+				r.TLS.PeerCertificates[0] = &x509.Certificate{Raw: []byte("otro")}
+			case "resolvedor_sin_material":
+				r.RemoteAddr = "192.0.2.1:12345"
+			case "registro_auditoria_caido":
+				r.TLS = nil
+				apuntes.err = errors.New("auditoria-caida-canario")
+				esperado = http.StatusServiceUnavailable
+			case "resolvedor_tecnico_caido":
+				autoridad.base.resolvedor = nil
+				esperado, intentos = http.StatusServiceUnavailable, 0
+			}
+			w := httptest.NewRecorder()
+			autoridad.proteger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("fallo llegó al despacho") })).ServeHTTP(w, r)
+			if w.Code != esperado || len(apuntes.ordenes) != intentos || len(e.registro.altas) != 0 {
+				t.Fatalf("denegación/auditoría cambiada: %s HTTP=%d apuntes=%d", caso, w.Code, len(apuntes.ordenes))
+			}
+		})
+	}
+}
+
 func TestPreferenciasExternaConservaResolucionTrasCompartirCotejo(t *testing.T) {
 	_, autoridad, e, r, _ := escenarioSesionExternaInscripcionPrueba(t)
 	r.URL.Path = usuarioshttp.RutaMisPreferenciasAreaPersonal

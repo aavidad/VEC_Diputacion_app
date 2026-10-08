@@ -59,9 +59,37 @@ type SesionExternaInscripcion struct {
 	preferencias *autoridadPreferenciasUsuariosDesarrollo
 }
 
+// La causa sigue disponible para errors.Is/As internos. Ninguna representación
+// textual del error incorpora el mensaje del registro, del SQL o del actor.
+type falloSesionExternaInscripcion struct{ causa error }
+
+func (falloSesionExternaInscripcion) Error() string {
+	return ErrSesionExternaInscripcionNoDisponible.Error()
+}
+func (falloSesionExternaInscripcion) String() string {
+	return ErrSesionExternaInscripcionNoDisponible.Error()
+}
+func (falloSesionExternaInscripcion) GoString() string {
+	return ErrSesionExternaInscripcionNoDisponible.Error()
+}
+func (falloSesionExternaInscripcion) Format(estado fmt.State, _ rune) {
+	_, _ = estado.Write([]byte(ErrSesionExternaInscripcionNoDisponible.Error()))
+}
+func (falloSesionExternaInscripcion) MarshalJSON() ([]byte, error) {
+	return []byte(`{"error":"sesion_no_disponible"}`), nil
+}
+func (falloSesionExternaInscripcion) LogValue() slog.Value {
+	return slog.StringValue(ErrSesionExternaInscripcionNoDisponible.Error())
+}
+func (e falloSesionExternaInscripcion) Unwrap() []error {
+	return []error{ErrSesionExternaInscripcionNoDisponible, e.causa}
+}
+
 func NuevaSesionExternaInscripcion(preferencias *autoridadPreferenciasUsuariosDesarrollo) (*SesionExternaInscripcion, error) {
 	if preferencias == nil || preferencias.base == nil || preferencias.base.resolvedor == nil ||
-		preferencias.base.registro == nil || preferencias.base.revalidador == nil || preferencias.base.contextos == nil ||
+		dependenciaAutorizacionComunDesarrolloNula(preferencias.base.registro) ||
+		dependenciaAutorizacionComunDesarrolloNula(preferencias.base.revalidador) ||
+		dependenciaAutorizacionComunDesarrolloNula(preferencias.base.contextos) ||
 		preferencias.superficie != core.SuperficieAutenticacionExternaPersonalV1 ||
 		preferencias.ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal || len(preferencias.cuentas) == 0 {
 		return nil, ErrSesionExternaInscripcionNoDisponible
@@ -85,7 +113,7 @@ func (s *SesionExternaInscripcion) ResolverSesionExterna(r *http.Request) (conte
 		if errors.Is(err, ErrMaterialDesarrolloInvalido) {
 			return vacio, sin, ErrSesionExternaInscripcionNoAutenticada
 		}
-		return vacio, sin, ErrSesionExternaInscripcionNoDisponible
+		return vacio, sin, falloSesionExternaInscripcion{err}
 	}
 	if certificado == nil || len(certificado.Raw) == 0 {
 		return vacio, sin, ErrSesionExternaInscripcionNoAutenticada
@@ -97,7 +125,7 @@ func (s *SesionExternaInscripcion) ResolverSesionExterna(r *http.Request) (conte
 	}
 	vinculo, resultado, err := s.preferencias.resolverSesion(segura, cuenta, ahora)
 	if err != nil {
-		return vacio, sin, ErrSesionExternaInscripcionNoDisponible
+		return vacio, sin, falloSesionExternaInscripcion{err}
 	}
 	ahora = s.preferencias.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	datos, err := vinculo.Datos()
@@ -113,6 +141,15 @@ func (s *SesionExternaInscripcion) ResolverSesionExterna(r *http.Request) (conte
 	hasta := datos.SesionValidaHasta
 	if certificado.NotAfter.Before(hasta) {
 		hasta = certificado.NotAfter
+	}
+	instantanea := resultado.Contexto.Instantanea
+	if instantanea.VigenteHasta.Before(hasta) {
+		hasta = instantanea.VigenteHasta
+	}
+	for _, vinculoContexto := range instantanea.Vinculos {
+		if vinculoContexto.VigenteHasta.Before(hasta) {
+			hasta = vinculoContexto.VigenteHasta
+		}
 	}
 	if !ahora.Before(hasta) || datos.AutenticacionVerificadaEn.After(ahora) {
 		return vacio, sin, ErrSesionExternaInscripcionNoAutenticada

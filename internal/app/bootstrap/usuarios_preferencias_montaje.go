@@ -294,7 +294,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			fallo(405, "metodo_no_permitido")
 			return
 		}
-		r, cuenta, cert, ahora, err := a.identificarCuentaCertificada(r)
+		peticionSegura, cuenta, cert, ahora, err := a.identificarCuentaCertificada(r)
 		if err != nil {
 			if errors.Is(err, ErrMaterialDesarrolloInvalido) {
 				denegarTemprano()
@@ -304,6 +304,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			}
 			return
 		}
+		r = peticionSegura
 		vinculo, resultado, err := a.resolverSesion(r, cuenta, ahora)
 		if err != nil {
 			a.registrarFallo(r.Context(), err)
