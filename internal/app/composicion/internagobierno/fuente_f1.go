@@ -112,6 +112,16 @@ func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutorida
 	return peticion, err
 }
 
+// ResolverPeticionYContexto entrega la selección nominal y el vínculo de una
+// misma resolución viva para Detalle. No conserva la captura para otra petición.
+func (f *FuenteF1) ResolverPeticionYContexto(ctx context.Context) (inc.PeticionAutoridad, ct.ContextoAutorizacionAltaV3, error) {
+	peticion, vinculo, resultado, err := f.resolverPeticionActual(ctx)
+	if err != nil {
+		return inc.PeticionAutoridad{}, ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
+	}
+	return peticion, ct.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}, nil
+}
+
 // resolverPeticionActual conserva una sola resolución viva de autenticación y
 // F1. La petición, el vínculo y el resultado proceden de esa misma lectura;
 // ninguno de ellos se guarda para otra petición ni sustituye V3 posterior.
