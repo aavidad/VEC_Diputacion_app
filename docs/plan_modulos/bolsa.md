@@ -90,3 +90,11 @@ Los tres totales globales siguen pendientes de una lectura global autorizada y p
 Las solicitudes documentales y las reincorporaciones de la ficha requieren disponibilidad nominal por participación antes de omitir sus consultas. La fuente preparada de S (`6455e0ead`) queda conservada en su rama; no se activa sin proveedor, porque también retiraría secciones operativas. Sigue pendiente conectar el contexto F1 real del lector con la proyección por recurso de V.
 
 Los totales globales cuentan participaciones en bolsas. Su lista paginada debe devolver página y total con el mismo filtro y corte, y registrar el acceso correcto en la misma transacción. La continuidad de sesión de CT y los registradores de intentos fallidos no cubren esta lectura de Bolsa. Falta el consumidor común de lectura y auditoría solicitado a V. No se han añadido enlaces a listas incompletas, consultas por bolsa ni una fachada V3 nueva.
+
+## Disponibilidad nominal de las secciones de la ficha — 8 de octubre de 2026
+
+El historial de operaciones leído y auditado incorpora la disponibilidad de solicitudes documentales y reincorporaciones de la persona titular para esa participación. La proyección reutiliza el contexto F1 del lector, una instantánea de permisos y los handlers realmente montados. Solo informa de disponibilidad; cada consulta y cada acto conservan su autorización.
+
+La ficha espera esa respuesta antes de pedir las secciones opcionales. Omite las ausentes o no autorizadas, conserva el candidato y el historial si falla la comprobación y permite reintentar. Los requisitos de Regularizar y su comprobación V3 se conservan. Sin metadata del servidor mantiene el recorrido anterior. No lleva SQL ni configuración nueva. Se reutiliza el proyector de V (`8d481727`) sin reescribirlo.
+
+La lista global de los totales sigue pendiente del consumidor de lectura y acceso correcto en la misma transacción. La disponibilidad de una participación no cubre ese acceso global.

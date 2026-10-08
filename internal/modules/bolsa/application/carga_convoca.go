@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
+	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -20,6 +23,7 @@ var (
 	ErrCargaConvocaBloqueada    = errors.New("bolsa: el fichero de CONVOCA no se puede cargar")
 	ErrCargaConvocaConErrores   = errors.New("bolsa: el fichero de CONVOCA tiene filas con errores")
 	ErrCargaConvocaDependencias = errors.New("bolsa: dependencias de la carga CONVOCA requeridas")
+	ErrDependenciaCargaConvoca  = errors.New("bolsa: dependencia de carga CONVOCA fallida")
 )
 
 // actorActaCargaConvoca es el actor que firma el acta del staging, que solo
@@ -31,24 +35,21 @@ func actorActaCargaConvoca(personaRef string) string {
 	return "actor:rrhh:" + hex.EncodeToString(suma[:16])
 }
 
-// ImportadorActaCargaConvoca guarda el lote en el staging protegido. Si el
-// acta del mismo fichero y categoría ya existe no se vuelve a importar: la
-// constitución la recupera tal cual (la carga es idempotente por acta).
-type ImportadorActaCargaConvoca interface {
-	ActaImportada(ctx context.Context, huellaSHA256, categoriaRef string) (bool, error)
-	Importar(context.Context, importacionapp.SolicitudImportacion) (importacionapp.ResultadoImportacion, error)
+// PreparadorLoteCargaConvoca decodifica y valida una sola vez, sin escribir.
+type PreparadorLoteCargaConvoca interface {
+	PrepararLote(context.Context, importacionapp.SolicitudImportacion) (importacion.LoteValidado, error)
 }
 
-// CustodioFicheroCargaConvoca conserva el fichero original y devuelve su
-// referencia opaca (fichero:sha256:...).
-type CustodioFicheroCargaConvoca interface {
-	Custodiar(context.Context, []byte) (string, error)
+// PreparadorOriginalCargaConvoca cifra el original en memoria; el repositorio
+// lo guarda en la misma transacción que el acta y la constitución.
+type PreparadorOriginalCargaConvoca interface {
+	Preparar(context.Context, string, string, string, []byte) (ports.OriginalProtegidoCargaConvoca, error)
 }
 
 // ConstituidorCargaConvoca constituye la bolsa del acta consumiendo el
 // material de la decisión (constitucion.ServicioAutorizado).
 type ConstituidorCargaConvoca interface {
-	Constituir(context.Context, constitucion.Solicitud, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error)
+	Constituir(context.Context, importacion.LoteValidado, constitucion.Solicitud, ports.OriginalProtegidoCargaConvoca, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error)
 }
 
 // ResultadoCargaConvoca es lo que la pantalla enseña tras confirmar.
@@ -67,21 +68,21 @@ type ServicioCargaConvoca struct {
 	previsualizador *PrevisualizadorCargaConvoca
 	contexto        ports.ResolutorContextoBorradorLlamamiento
 	autorizador     ports.AutorizadorBorradorLlamamientoV3
-	custodio        CustodioFicheroCargaConvoca
-	importador      ImportadorActaCargaConvoca
+	original        PreparadorOriginalCargaConvoca
+	preparador      PreparadorLoteCargaConvoca
 	constituidor    ConstituidorCargaConvoca
 	reloj           func() time.Time
 }
 
 func NuevoServicioCargaConvoca(previsualizador *PrevisualizadorCargaConvoca, contexto ports.ResolutorContextoBorradorLlamamiento,
-	autorizador ports.AutorizadorBorradorLlamamientoV3, custodio CustodioFicheroCargaConvoca, importador ImportadorActaCargaConvoca,
+	autorizador ports.AutorizadorBorradorLlamamientoV3, original PreparadorOriginalCargaConvoca, preparador PreparadorLoteCargaConvoca,
 	constituidor ConstituidorCargaConvoca, reloj func() time.Time,
 ) (*ServicioCargaConvoca, error) {
-	if previsualizador == nil || contexto == nil || autorizador == nil || custodio == nil || importador == nil || constituidor == nil || reloj == nil {
+	if previsualizador == nil || contexto == nil || autorizador == nil || original == nil || preparador == nil || constituidor == nil || reloj == nil {
 		return nil, ErrCargaConvocaDependencias
 	}
 	return &ServicioCargaConvoca{previsualizador: previsualizador, contexto: contexto, autorizador: autorizador,
-		custodio: custodio, importador: importador, constituidor: constituidor, reloj: reloj}, nil
+		original: original, preparador: preparador, constituidor: constituidor, reloj: reloj}, nil
 }
 
 // Confirmar carga la bolsa. Con filas rechazadas solo sigue si RRHH lo acepta
@@ -93,10 +94,11 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if solicitud.Validar() != nil {
 		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaInvalida
 	}
-	// El permiso se comprueba antes de leer el libro: sin decisión no se gasta
-	// CPU en decodificar ni validar un fichero.
 	if len(solicitud.Contenido) > MaximoBytesCargaConvoca {
 		return ResultadoCargaConvoca{}, ErrFicheroCargaConvocaExcesivo
+	}
+	if !NombreFicheroCargaConvocaValido(solicitud.NombreFichero) {
+		return ResultadoCargaConvoca{}, ErrFicheroCargaConvocaInvalido
 	}
 	suma := sha256.Sum256(solicitud.Contenido)
 	huella := hex.EncodeToString(suma[:])
@@ -127,9 +129,23 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, ports.AudienciaConfirmarCargaConvoca) {
 		return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
 	}
-	vista, err := s.previsualizador.Previsualizar(ctx, solicitud.NombreFichero, solicitud.Contenido)
+	originalRef := "original:convoca:" + strings.TrimPrefix(actaRef, "acta:importacion-convoca:")
+	lote, err := s.preparador.PrepararLote(ctx, importacionapp.SolicitudImportacion{
+		CategoriaRef: solicitud.CategoriaRef, BolsaRef: solicitud.BolsaRef, NombreFichero: solicitud.NombreFichero,
+		FicheroCustodiadoRef: originalRef, ActorRef: actorActaCargaConvoca(actor.PersonaRef), Contenido: solicitud.Contenido,
+	})
 	if err != nil {
-		return ResultadoCargaConvoca{}, err
+		if ctx.Err() != nil {
+			return ResultadoCargaConvoca{}, ctx.Err()
+		}
+		return ResultadoCargaConvoca{}, ErrFicheroCargaConvocaInvalido
+	}
+	if lote.Acta.ActaRef != actaRef || lote.Acta.HuellaFicheroSHA256 != huella || lote.Acta.FicheroCustodiadoRef != originalRef {
+		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaNoDisponible
+	}
+	vista, err := VistaPreviaDesdeLote(lote)
+	if err != nil {
+		return ResultadoCargaConvoca{}, ErrFicheroCargaConvocaInvalido
 	}
 	if vista.Bloqueo != "" {
 		return ResultadoCargaConvoca{}, ErrCargaConvocaBloqueada
@@ -137,26 +153,16 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if vista.Rechazadas > 0 && !excluirConErrores {
 		return ResultadoCargaConvoca{}, ErrCargaConvocaConErrores
 	}
-	reutilizada, err := s.importador.ActaImportada(ctx, huella, solicitud.CategoriaRef)
+	formato := strings.TrimPrefix(strings.ToLower(filepath.Ext(solicitud.NombreFichero)), ".")
+	sobre, err := s.original.Preparar(ctx, actaRef, huella, formato, solicitud.Contenido)
 	if err != nil {
 		return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
 	}
-	if !reutilizada {
-		custodia, err := s.custodio.Custodiar(ctx, solicitud.Contenido)
-		if err != nil {
-			return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
-		}
-		importado, err := s.importador.Importar(ctx, importacionapp.SolicitudImportacion{
-			CategoriaRef: solicitud.CategoriaRef, BolsaRef: solicitud.BolsaRef, NombreFichero: solicitud.NombreFichero,
-			FicheroCustodiadoRef: custodia, ActorRef: actorActaCargaConvoca(actor.PersonaRef), Contenido: solicitud.Contenido})
-		if err != nil {
-			return ResultadoCargaConvoca{}, errorDependenciaCarga(err)
-		}
-		if importado.Acta.ActaRef != actaRef || importado.Acta.HuellaFicheroSHA256 != huella {
-			return ResultadoCargaConvoca{}, ports.ErrCargaConvocaNoDisponible
-		}
+	defer clear(sobre.ContenidoCifrado)
+	if sobre.Referencia != originalRef || sobre.Formato != formato || sobre.BytesOriginales != len(solicitud.Contenido) {
+		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaNoDisponible
 	}
-	recibo, err := s.constituidor.Constituir(ctx, constitucion.Solicitud{HuellaFicheroSHA256: huella, CategoriaRef: solicitud.CategoriaRef, ActorRef: actor.PersonaRef}, material)
+	recibo, err := s.constituidor.Constituir(ctx, lote, constitucion.Solicitud{HuellaFicheroSHA256: huella, CategoriaRef: solicitud.CategoriaRef, ActorRef: actor.PersonaRef}, sobre, material)
 	if err != nil {
 		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 			return ResultadoCargaConvoca{}, err
@@ -166,7 +172,7 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if recibo.ActaRef != actaRef {
 		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaNoDisponible
 	}
-	return ResultadoCargaConvoca{Recibo: recibo, HuellaSHA256: huella, FilasCargadas: vista.Aceptadas, FilasExcluidas: vista.Rechazadas, ActaReutilizada: reutilizada}, nil
+	return ResultadoCargaConvoca{Recibo: recibo, HuellaSHA256: huella, FilasCargadas: vista.Aceptadas, FilasExcluidas: vista.Rechazadas, ActaReutilizada: recibo.ActaReutilizada}, nil
 }
 
 // errorDependenciaCarga conserva la cancelación y convierte cualquier otro
@@ -178,5 +184,5 @@ func errorDependenciaCarga(err error) error {
 	if errors.Is(err, ports.ErrConstitucionBolsaEnConflicto) {
 		return ports.ErrConstitucionBolsaEnConflicto
 	}
-	return ports.ErrCargaConvocaNoDisponible
+	return errors.Join(ports.ErrCargaConvocaNoDisponible, ErrDependenciaCargaConvoca)
 }

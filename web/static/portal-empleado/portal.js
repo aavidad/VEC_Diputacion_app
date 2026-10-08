@@ -121,7 +121,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261007-pantallas-textos-final-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261008-w-bolsa-ficha-main-v2"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -1503,8 +1503,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261008-canal-telefono-v2"),
-    import("./portal-bolsas-api.js?v=20261008-canal-telefono-v2"),
+    import("./portal-panel-interno.js?v=20261008-w-bolsa-ficha-main-v2"),
+    import("./portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2"),
     import("./portal-bolsas-ruta-filtros.js"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {

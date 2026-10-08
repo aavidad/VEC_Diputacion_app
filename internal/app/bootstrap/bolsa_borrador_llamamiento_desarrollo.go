@@ -700,10 +700,6 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerOperaciones, err := bolsahttp.NuevoHandlerOperacionesSituacion(preparador, servicioSituacion)
-	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
-	}
 	registradorDocumentales, procesoDocumentales, detenerIntentosDocumentales, err := AbrirRegistradorIntentosAuditoriaDesarrollo(
 		ctx, cfg, alta.postgresql.bolsa, []string{
 			alta.postgresql.gobierno.Config().ConnConfig.User,
@@ -840,7 +836,16 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
+		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	mutador.operaciones, err = bolsahttp.NuevoHandlerOperacionesSituacion(preparador, servicioSituacion, proyectorFicha)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

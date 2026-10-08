@@ -4,57 +4,48 @@ import (
 	"context"
 	"time"
 
+	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-// ServicioAutorizado constituye la bolsa de un acta ya importada cuando RRHH
-// confirma la carga desde la pantalla (B1). Construye la constitución igual
-// que Constituir, pero la persiste con el consumo de la decisión V3 de la
-// carga en la misma transacción (B79). Los vínculos `can_* → participación`
-// se registran después, igual que en la línea de órdenes.
+// ServicioAutorizado prepara la constitución del lote B1 en memoria. El
+// repositorio confirma acta, original cifrado, bolsa, vínculos y consumo V3
+// en una sola transacción.
 type ServicioAutorizado struct {
-	base       *Servicio
+	derivador  DerivadorCandidato
+	reloj      Reloj
 	autorizado ports.RepositorioConstitucionCargaConvoca
 }
 
-func NuevoServicioAutorizado(base *Servicio, autorizado ports.RepositorioConstitucionCargaConvoca) (*ServicioAutorizado, error) {
-	if base == nil || base.recuperador == nil || base.repositorio == nil || base.derivador == nil || base.reloj == nil || autorizado == nil {
+func NuevoServicioAutorizado(derivador DerivadorCandidato, reloj Reloj, autorizado ports.RepositorioConstitucionCargaConvoca) (*ServicioAutorizado, error) {
+	if derivador == nil || reloj == nil || autorizado == nil {
 		return nil, ErrDependenciasRequeridas
 	}
-	return &ServicioAutorizado{base: base, autorizado: autorizado}, nil
+	return &ServicioAutorizado{derivador: derivador, reloj: reloj, autorizado: autorizado}, nil
 }
 
 // Constituir recupera el lote del acta, construye la constitución y la
 // confirma consumiendo el material. El actor es el titular de la decisión.
-func (s *ServicioAutorizado) Constituir(ctx context.Context, solicitud Solicitud, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
-	if ctx == nil || s == nil || s.base == nil {
+// El mismo lote que se previsualizó llega al repositorio, sin una lectura de
+// staging intermedia ni escrituras previas a la autorización.
+func (s *ServicioAutorizado) Constituir(ctx context.Context, lote importacion.LoteValidado, solicitud Solicitud, original ports.OriginalProtegidoCargaConvoca, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
+	if ctx == nil || s == nil || s.derivador == nil || s.reloj == nil {
 		return ports.ReciboCargaConvoca{}, ErrDependenciasRequeridas
 	}
-	if solicitud.HuellaFicheroSHA256 == "" || solicitud.CategoriaRef == "" || solicitud.ActorRef == "" || material.ValidarEstructura() != nil {
+	if solicitud.HuellaFicheroSHA256 == "" || solicitud.CategoriaRef == "" || solicitud.ActorRef == "" || material.ValidarEstructura() != nil ||
+		lote.Validar() != nil || lote.Acta.HuellaFicheroSHA256 != solicitud.HuellaFicheroSHA256 || lote.Acta.CategoriaRef != solicitud.CategoriaRef ||
+		original.Referencia != lote.Acta.FicheroCustodiadoRef {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaInvalida
 	}
-	lote, _, existe, err := s.base.recuperador.RecuperarLote(ctx, solicitud.HuellaFicheroSHA256, solicitud.CategoriaRef)
+	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	constitucion, vinculos, pendientes, err := construirConstitucion(lote, solicitud.ActorRef, ahora, s.derivador)
 	if err != nil {
 		return ports.ReciboCargaConvoca{}, err
 	}
-	if !existe {
-		return ports.ReciboCargaConvoca{}, ErrActaNoEncontrada
-	}
-	ahora := s.base.reloj().UTC().Truncate(time.Microsecond)
-	constitucion, vinculos, pendientes, err := construirConstitucion(lote, solicitud.ActorRef, ahora, s.base.derivador)
+	recibo, err := s.autorizado.ConfirmarCargaConvocaAutorizada(ctx, lote, constitucion, vinculos, original, material)
 	if err != nil {
 		return ports.ReciboCargaConvoca{}, err
-	}
-	recibo, err := s.autorizado.ConstituirCargaConvocaAutorizada(ctx, constitucion, material)
-	if err != nil {
-		return ports.ReciboCargaConvoca{}, err
-	}
-	if len(vinculos) > 0 {
-		recibo.Vinculos, err = s.base.repositorio.RegistrarVinculos(ctx, recibo.ActaRef, vinculos, ahora)
-		if err != nil {
-			return ports.ReciboCargaConvoca{}, err
-		}
 	}
 	recibo.PendientesRevision = pendientes
 	return recibo, nil
