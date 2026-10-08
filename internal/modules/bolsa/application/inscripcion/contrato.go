@@ -101,6 +101,7 @@ type CapturaLectura struct {
 	Finalidad               string
 	CorrelacionRef          string
 	RevisionPermisos        uint64
+	HuellaInstantaneaSHA256 string
 	Filtro                  Filtro
 	EmitidaEn               time.Time
 	ValidaHasta             time.Time
@@ -119,7 +120,8 @@ func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 		c.Finalidad != "" && (c.Canal == "externa_personal" || c.Canal == "interna_corporativa") &&
 		referenciaOpaca.MatchString(c.CorrelacionRef) &&
 		referenciaOpaca.MatchString(c.AutenticacionRef) && huellaCertificado.MatchString(c.CertificadoHuellaSHA256) &&
-		c.RevisionPermisos > 0 && !c.EmitidaEn.IsZero() && !c.EmitidaEn.After(ahora) &&
+		c.RevisionPermisos > 0 && huellaCertificado.MatchString(c.HuellaInstantaneaSHA256) &&
+		!c.EmitidaEn.IsZero() && !c.EmitidaEn.After(ahora) &&
 		c.ValidaHasta.After(ahora)
 }
 

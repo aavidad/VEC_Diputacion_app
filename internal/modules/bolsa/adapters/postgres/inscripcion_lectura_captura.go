@@ -52,6 +52,7 @@ func prepararCapturaLecturaInscripcion(actor inscripcion.Actor, accion, recurso 
 		Finalidad               string `json:"finalidad"`
 		CorrelacionRef          string `json:"correlacion_ref"`
 		RevisionPermisos        uint64 `json:"revision_permisos"`
+		HuellaInstantaneaSHA256 string `json:"huella_instantanea_sha256"`
 		Filtro                  struct {
 			Estado          string `json:"estado"`
 			ConvocatoriaRef string `json:"convocatoria_ref"`
@@ -68,6 +69,7 @@ func prepararCapturaLecturaInscripcion(actor inscripcion.Actor, accion, recurso 
 		CertificadoHuellaSHA256: c.CertificadoHuellaSHA256, Canal: c.Canal,
 		Accion: c.Accion, RecursoRef: c.RecursoRef, Finalidad: c.Finalidad,
 		CorrelacionRef: c.CorrelacionRef, RevisionPermisos: c.RevisionPermisos,
+		HuellaInstantaneaSHA256: c.HuellaInstantaneaSHA256,
 		Filtro: struct {
 			Estado          string `json:"estado"`
 			ConvocatoriaRef string `json:"convocatoria_ref"`
