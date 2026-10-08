@@ -52,7 +52,7 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
   assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /No deadline is due today and there are no open issues\./u);
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
-  assert.match(html, /SAE job offers[\s\S]*?To be agreed with HR|To be agreed with HR[\s\S]*?SAE job offers/u);
+  assert.doesNotMatch(html, /SAE job offers|To be agreed with HR|data-vista="ofertas-sae"/u);
   assert.match(html, /New staff request/u);
   assert.doesNotMatch(html, /Lo pendiente|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
 });
