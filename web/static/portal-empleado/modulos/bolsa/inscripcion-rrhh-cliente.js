@@ -42,13 +42,7 @@ function detalleValido(item) {
       && (r.evidencia_ref == null || referencia(r.evidencia_ref)));
 }
 
-async function pedirSinTiempo(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
-  const respuesta = await fetchImpl(ruta, { method, credentials: "same-origin", mode: "same-origin",
-    cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal,
-    headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
-    ...(body ? { body: JSON.stringify(body) } : {}) });
-  if (!respuesta || respuesta.redirected || !Number.isInteger(respuesta.status)) throw new TypeError("respuesta incompatible");
-  if (!respuesta.ok) throw Object.assign(new Error("operación no completada"), { estado: respuesta.status });
+async function leerSobre(respuesta) {
   if (!/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) throw new TypeError("respuesta incompatible");
   const longitud = respuesta.headers?.get?.("content-length");
   if (longitud && (!/^\d+$/u.test(longitud) || Number(longitud) > MAXIMO_RESPUESTA)) throw new TypeError("respuesta excesiva");
@@ -75,7 +69,26 @@ async function pedirSinTiempo(fetchImpl, ruta, { method = "GET", body, signal } 
     texto = await respuesta.text();
     if (new TextEncoder().encode(texto).byteLength > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
   }
-  return { estado: respuesta.status, data: JSON.parse(texto)?.data };
+  return JSON.parse(texto);
+}
+
+async function pedirSinTiempo(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
+  const respuesta = await fetchImpl(ruta, { method, credentials: "same-origin", mode: "same-origin",
+    cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal,
+    headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}) });
+  if (!respuesta || respuesta.redirected || !Number.isInteger(respuesta.status)) throw new TypeError("respuesta incompatible");
+  if (!respuesta.ok) {
+    const error = Object.assign(new Error("operación no completada"), { estado: respuesta.status });
+    if (/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) {
+      try {
+        const codigo = (await leerSobre(respuesta))?.error?.codigo;
+        if (typeof codigo === "string" && /^[a-z_]{1,64}$/u.test(codigo)) error.codigo = codigo;
+      } catch (causa) { error.causa = causa; }
+    }
+    throw error;
+  }
+  return { estado: respuesta.status, data: (await leerSobre(respuesta))?.data };
 }
 
 async function pedir(fetchImpl, ruta, opciones = {}) {

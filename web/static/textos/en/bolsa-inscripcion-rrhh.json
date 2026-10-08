@@ -11,6 +11,7 @@
     "falta_acta": "The applicant cannot be added to the pool yet. Check that the final list and its evidence are available, then try again.",
     "regla_incompatible": "The admission rules have changed. Refresh the list and review the application again.",
     "evidencia_invalida": "The final list reference was not recognised. Check it and confirm entry into the pool again.",
+    "plazo_cerrado": "The application period for this recruitment process has ended. Refresh the list and check the application status.",
     "reintentar": "Retry",
     "vacio": "There are no applications matching these filters. Change the status or clear the recruitment process filter to search again.",
     "total": "{cuenta} applications. View from the start",

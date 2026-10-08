@@ -64,7 +64,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     const filtroActivo = filtro.convocatoria ? `<p>${et("filtro_activo")}: ${esc(nombreConvocatoria)}. <a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: "", cursor: "" }))}" data-inscripcion-quitar-filtro>${et("quitar_filtro")}</a></p>` : "";
     const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
       : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
-        : ["error", "conflicto", "falta_acta", "regla_incompatible", "evidencia_invalida"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
+        : ["error", "conflicto", "falta_acta", "regla_incompatible", "evidencia_invalida", "plazo_cerrado", "requisitos_pendientes"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
           : listado?.total === 0 ? `<p>${et("vacio")}</p>` : "";
     const cuenta = listado ? `<a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: "" }))}" data-inscripcion-total>${et("total", { cuenta: catalogo.numero(listado.total) })}</a>` : "";
     const paginacion = listado?.cursor_siguiente ? `<nav aria-label="${et("paginacion")}"><a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: listado.cursor_siguiente }))}" data-inscripcion-siguiente>${et("siguiente")}</a></nav>` : "";
@@ -159,8 +159,13 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       if (!vivo || orden !== secuencia) return;
       if ([401, 403].includes(error?.estado)) limpiarDenegacion();
       else { estadoVista = error?.estado === 409 ? decision === "incorporar" ? "falta_acta" : "conflicto"
-        : error?.estado === 422 ? decision === "incorporar" ? "evidencia_invalida" : "regla_incompatible" : "error";
-        if (["conflicto", "regla_incompatible"].includes(estadoVista)) { detalle = null; decision = ""; motivos = null; intento = null; }
+        : error?.estado === 422 ? error.codigo === "plazo_cerrado" ? "plazo_cerrado"
+          : error.codigo === "requisito_invalido" ? "requisitos_pendientes"
+            : decision === "incorporar" && error.codigo !== "catalogo_cambiado" ? "evidencia_invalida"
+              : "regla_incompatible" : "error";
+        if (["conflicto", "regla_incompatible", "plazo_cerrado", "requisitos_pendientes"].includes(estadoVista)) {
+          detalle = null; decision = ""; motivos = null; intento = null;
+        }
         pintar(); }
     } finally { enviando = false; }
   }

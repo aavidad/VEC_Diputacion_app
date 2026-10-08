@@ -91,6 +91,14 @@ test("una respuesta excesiva se corta antes de convertirla en JSON", async () =>
   await assert.rejects(cliente.listar(), /respuesta excesiva/u);
 });
 
+test("el cliente conserva el código de error gobernado sin mostrarlo directamente", async () => {
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => ({ ...respuesta(422, null),
+    text: async () => JSON.stringify({ error: { codigo: "catalogo_cambiado" } }) }) });
+  await assert.rejects(cliente.decidir({ solicitudRef: "solicitud:1", decision: "rechazar",
+    motivoCodigo: "falta_requisito", versionEsperada: 1, claveIdempotencia: "inscripcion-12345678" }),
+  (error) => error.estado === 422 && error.codigo === "catalogo_cambiado");
+});
+
 test("filtro compartible conserva la URL y normaliza estado desconocido", () => {
   assert.deepEqual(leerRutaInscripcionesRRHH("?inscripcion_estado=otro&inscripcion_convocatoria=convocatoria%3A1"),
     { estado: "pendiente", convocatoria: "convocatoria:1", cursor: "" });

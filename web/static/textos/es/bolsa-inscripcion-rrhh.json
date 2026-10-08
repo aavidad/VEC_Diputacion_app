@@ -11,6 +11,7 @@
     "falta_acta": "Aún no se puede incorporar a la aspirante. Compruebe que la lista definitiva y su evidencia están disponibles; después, vuelva a intentarlo.",
     "regla_incompatible": "Las reglas de admisión han cambiado. Actualice la lista y revise de nuevo la solicitud.",
     "evidencia_invalida": "No se reconoce la referencia de la lista definitiva. Revísela y vuelva a confirmar la incorporación.",
+    "plazo_cerrado": "El plazo de esta convocatoria ha terminado. Actualice la lista y compruebe el estado de la solicitud.",
     "reintentar": "Reintentar",
     "vacio": "No hay solicitudes con estos filtros. Cambie el estado o quite el filtro de convocatoria para buscar otras.",
     "total": "{cuenta} solicitudes. Ver desde el principio",
