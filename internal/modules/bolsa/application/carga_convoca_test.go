@@ -29,9 +29,10 @@ const categoriaCargaPrueba = "categoria:rpt:auxiliar_administrativo"
 // autorizadorCargaPrueba reutiliza la decisión del doble de borradores y
 // exporta el material con la audiencia propia de la carga.
 type autorizadorCargaPrueba struct {
-	base        autorizadorBorradorPrueba
-	audiencia   string
-	solicitudes []dominiovec.DatosSolicitudAutorizacionLigadaV3
+	base                autorizadorBorradorPrueba
+	audiencia           string
+	solicitudes         []dominiovec.DatosSolicitudAutorizacionLigadaV3
+	materialVistaPrevia bool
 }
 
 func (a *autorizadorCargaPrueba) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -41,7 +42,11 @@ func (a *autorizadorCargaPrueba) EmitirMaterialAutorizacionAtestadaV3(ctx contex
 	}
 	datos := datosSolicitudBorradorPrueba(a.base.t, solicitud)
 	a.solicitudes = append(a.solicitudes, datos)
-	return decision, confirmacion, exportadorBorradorPrueba{material: materialCargaPrueba(a.base.t, decision, resultado, datos, a.base.instante, a.audiencia)}, nil
+	datosMaterial := datos
+	if a.materialVistaPrevia {
+		datosMaterial.Recurso.Atributos = map[string]string{"fase": "vista_previa"}
+	}
+	return decision, confirmacion, exportadorBorradorPrueba{material: materialCargaPrueba(a.base.t, decision, resultado, datosMaterial, a.base.instante, a.audiencia)}, nil
 }
 
 func materialCargaPrueba(t *testing.T, decision dominiovec.DecisionAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, instante time.Time, audiencia string) puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
@@ -108,16 +113,17 @@ func (l *lectorContadoCarga) Decodificar(ctx context.Context, r io.ReadSeeker) (
 }
 
 type constituidorCargaPrueba struct {
-	solicitudes []constitucion.Solicitud
-	material    puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	lote        importacion.LoteValidado
-	original    puertosbolsa.OriginalProtegidoCargaConvoca
-	reutilizada bool
-	err         error
+	solicitudes     []constitucion.Solicitud
+	material        puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	contextoRecurso []byte
+	lote            importacion.LoteValidado
+	original        puertosbolsa.OriginalProtegidoCargaConvoca
+	reutilizada     bool
+	err             error
 }
 
-func (c *constituidorCargaPrueba) Constituir(_ context.Context, lote importacion.LoteValidado, s constitucion.Solicitud, original puertosbolsa.OriginalProtegidoCargaConvoca, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (puertosbolsa.ReciboCargaConvoca, error) {
-	c.solicitudes, c.material, c.lote, c.original = append(c.solicitudes, s), m, lote, original
+func (c *constituidorCargaPrueba) Constituir(_ context.Context, lote importacion.LoteValidado, s constitucion.Solicitud, original puertosbolsa.OriginalProtegidoCargaConvoca, contextoRecurso []byte, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (puertosbolsa.ReciboCargaConvoca, error) {
+	c.solicitudes, c.material, c.lote, c.original, c.contextoRecurso = append(c.solicitudes, s), m, lote, original, append([]byte(nil), contextoRecurso...)
 	if c.err != nil {
 		return puertosbolsa.ReciboCargaConvoca{}, c.err
 	}
@@ -201,10 +207,24 @@ func TestConfirmarCargaConvocaLigaDecisionAlActaEImporta(t *testing.T) {
 		e.constituidor.lote.Acta.BolsaRef != e.solicitud.BolsaRef || e.constituidor.lote.Acta.NombreFichero != "carga_convoca_ejemplo.xlsx" {
 		t.Fatalf("preparación inesperada: %+v", e.constituidor.lote.Acta)
 	}
+	preimagen := `{"ambitos":{"ambito_ref":"ambito:bolsa","unidad_ref":"unidad:seleccion"},"atributos":{}}`
+	huellaContexto := sha256.Sum256(e.constituidor.contextoRecurso)
+	if string(e.constituidor.contextoRecurso) != preimagen || e.constituidor.material.ResumenCapacidad().EfectoHuellaSHA256() != hex.EncodeToString(huellaContexto[:]) {
+		t.Fatalf("contexto de confirmación divergente: %s", e.constituidor.contextoRecurso)
+	}
 	c := e.constituidor.solicitudes
 	if len(c) != 1 || c[0].ActorRef != "per_0123456789abcdefghijkl" || c[0].HuellaFicheroSHA256 != huella || c[0].CategoriaRef != categoriaCargaPrueba ||
 		e.constituidor.material.ValidarEstructura() != nil {
 		t.Fatalf("constitución inesperada: %+v", c)
+	}
+}
+
+func TestConfirmarCargaConvocaRechazaMaterialDeVistaPrevia(t *testing.T) {
+	e := nuevoEscenarioCargaConvoca(t)
+	e.autorizador.materialVistaPrevia = true
+	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) ||
+		e.lector.llamadas != 0 || e.original.llamadas != 0 || len(e.constituidor.solicitudes) != 0 {
+		t.Fatalf("material de vista previa alcanzó la confirmación: %v", err)
 	}
 }
 

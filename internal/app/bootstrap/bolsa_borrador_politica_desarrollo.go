@@ -127,6 +127,15 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 		}
 		version := publicada.instantanea.VersionRol.Version
+		// Una nueva versión gobernada del mismo rol puede añadir B1 sin que el
+		// arranque publique ni reconstruya la asignación. Se consume la copia
+		// central y se mantiene íntegra su identidad y su historia.
+		if encontrada && instantaneaBolsaCargaConvocaCompatible(publicada.instantanea, datos,
+			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
+			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			p.publicada = true
+			return nil
+		}
 		objetivoVersion := versionRol + saltoProvisionDatosContactoBolsa
 		const envPreimagen = "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256"
 		const envObjetivo = "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"
@@ -373,28 +382,21 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ObtenerInstantaneaAutorizac
 	return clonarInstantaneaAutorizacionPostgreSQLDesarrollo(p.instantanea), nil
 }
 
-// La composición sólo puede montar B1 si la plantilla publicada y contrastada
-// contiene exactamente su concesión. Las plantillas actuales 1-16 no la tienen.
+// La composición sólo puede montar B1 si la asignación publicada y contrastada
+// contiene exactamente su concesión; la semilla histórica no la añade.
 func (p *politicaBorradorLlamamientoBolsaDesarrollo) permiteCargaConvoca() bool {
 	if p == nil {
 		return false
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if !p.publicada || p.instantanea.Validar() != nil {
+	if !p.publicada || p.instantanea.Validar() != nil ||
+		!p.instantanea.AsignacionPerfil.VigenteEn(p.reloj.Ahora()) ||
+		p.instantanea.VersionRol.Estado != dominiovec.EstadoVersionRolPublicada ||
+		p.instantanea.ControlVigenciaVersionRol.Estado != dominiovec.EstadoControlVigenciaVersionRolHabilitada {
 		return false
 	}
-	for _, concesion := range p.instantanea.VersionRol.Concesiones {
-		if concesion.Accion != puertosbolsa.AccionConfirmarCargaConvoca {
-			continue
-		}
-		return concesion.ModuloID == puertosbolsa.ModuloCargaConvoca &&
-			concesion.TipoRecurso == puertosbolsa.TipoRecursoCargaConvoca &&
-			len(concesion.Finalidades) == 1 && concesion.Finalidades[0] == puertosbolsa.FinalidadConfirmarCargaConvoca &&
-			concesion.GarantiaMinima == dominiovec.AuthAssuranceHigh &&
-			len(concesion.CamposPermitidos) == 0 && len(concesion.Obligaciones) == 0
-	}
-	return false
+	return concesionCargaConvocaExacta(p.instantanea.VersionRol.Concesiones)
 }
 
 func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAutorizacionV2(

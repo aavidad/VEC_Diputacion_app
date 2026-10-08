@@ -26,6 +26,7 @@ func TestVistaPreviaCargaConvocaRechazaExtensionAjenaAlContenido(t *testing.T) {
 		t.Fatal(err)
 	}
 	operador := operadorCargaConvocaBolsa{vista: vista}
+	lectura := vistaAutorizadaCargaConvocaBolsa{servicio: &aplicacionbolsa.ServicioVistaPreviaCargaConvocaAutorizada{}}
 	for _, caso := range []struct{ ruta, nombre string }{
 		{filepath.Join("..", "..", "modules", "bolsa", "application", "testdata", "carga_convoca", "carga_convoca_ejemplo.xlsx"), "acta.xls"},
 		{filepath.Join("..", "..", "modules", "bolsa", "adapters", "xlsconvoca", "testdata", "xls_sinteticos", "resumen.xls"), "acta.xlsx"},
@@ -37,13 +38,18 @@ func TestVistaPreviaCargaConvocaRechazaExtensionAjenaAlContenido(t *testing.T) {
 		if _, err := operador.Previsualizar(context.Background(), caso.nombre, contenido); !errors.Is(err, aplicacionbolsa.ErrFicheroCargaConvocaInvalido) {
 			t.Fatalf("%s como %s: %v", caso.ruta, caso.nombre, err)
 		}
+		if _, err := lectura.Preparar(context.Background(), puertosbolsa.SolicitudVistaPreviaCargaConvoca{
+			NombreFichero: caso.nombre, Contenido: contenido,
+		}); !errors.Is(err, aplicacionbolsa.ErrFicheroCargaConvocaInvalido) {
+			t.Fatalf("lectura autorizada %s como %s: %v", caso.ruta, caso.nombre, err)
+		}
 	}
 }
 
-func TestPreparadorVistaPreviaCargaConvocaPermaneceCerradoSinConsumidorDeLectura(t *testing.T) {
+func TestPreparadorVistaPreviaCargaConvocaPermaneceCerradoSinSesion(t *testing.T) {
 	p := &preparadorCargaConvocaBolsa{}
 	if err := p.PrepararVistaPreviaCargaConvoca(context.Background()); !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) {
-		t.Fatalf("la vista previa se habilitó sin consumidor nominal: %v", err)
+		t.Fatalf("la vista previa se habilitó sin sesión: %v", err)
 	}
 }
 
@@ -169,6 +175,43 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 	entrada.CategoriaClave = "inventada"
 	if _, err := preparador.PrepararConfirmacionCargaConvoca(ctx, entrada); err != bolsahttp.ErrCategoriaCargaConvocaNoValida {
 		t.Fatalf("categoría ajena al RPT aceptada: %v", err)
+	}
+	ctxVista := contextoRutaCoberturaDesarrolloPrueba(bolsa.soporteCanal, e.principal, bolsahttp.RutaVistaPreviaCargaConvoca)
+	capacidadVista := ctxVista.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	capacidadVista.metodo = http.MethodPost
+	capacidadVista.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
+	capacidadVista.certificadoValidoHasta = e.reloj.Ahora().Add(time.Minute)
+	ctxVista = context.WithValue(ctxVista, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadVista)
+	fronteraVista, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaVistaPreviaCargaConvoca)
+	if !ok {
+		t.Fatal("vista previa B1 sin frontera")
+	}
+	ctxVista = context.WithValue(ctxVista, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+		metodo: http.MethodPost, ruta: bolsahttp.RutaVistaPreviaCargaConvoca,
+		superficie: superficieInternaSeguridadComunDesarrollo, catalogo: catalogo, descriptor: fronteraVista})
+	ctxVista = context.WithValue(ctxVista, claveIntentoCargaConvocaBolsa{}, &intentoCargaConvocaBolsa{})
+	if err := preparador.PrepararVistaPreviaCargaConvoca(ctxVista); err != nil {
+		t.Fatalf("sesión B1 de lectura no verificada: %v", err)
+	}
+	qVista, err := preparador.PrepararSolicitudVistaPreviaCargaConvoca(ctxVista, bolsahttp.EntradaVistaPreviaCargaConvoca{
+		NombreFichero: "acta.xlsx", Contenido: []byte("contenido"), CategoriaClave: "auxiliar-administrativo",
+		Pagina: puertosbolsa.PaginaVistaPreviaCargaConvoca{Filtro: "todas", Limite: 50},
+	})
+	if err != nil || aplicacionbolsa.ValidarSolicitudVistaPreviaCargaConvoca(qVista) != nil || qVista.CategoriaRef != solicitud.CategoriaRef ||
+		qVista.ResultadoContexto.Contexto.Principal.ID == "" {
+		t.Fatalf("solicitud de lectura B1 sin identidad/categoría RPT: error=%v valida=%v categoria=%q principal_vacio=%t",
+			err, aplicacionbolsa.ValidarSolicitudVistaPreviaCargaConvoca(qVista), qVista.CategoriaRef, qVista.ResultadoContexto.Contexto.Principal.ID == "")
+	}
+	sumaVista := sha256.Sum256([]byte("contenido"))
+	if actaVista, ok := recursoActaCargaConvocaBolsa(ctxVista); !ok ||
+		actaVista != importacionapp.ReferenciaActa(hex.EncodeToString(sumaVista[:]), qVista.CategoriaRef) {
+		t.Fatalf("recurso de lectura no ligado al acta real: %q", actaVista)
+	}
+	if _, err := preparador.PrepararSolicitudVistaPreviaCargaConvoca(ctxVista, bolsahttp.EntradaVistaPreviaCargaConvoca{
+		NombreFichero: "acta.xlsx", Contenido: []byte("contenido"), CategoriaClave: "inventada",
+		Pagina: puertosbolsa.PaginaVistaPreviaCargaConvoca{Filtro: "todas", Limite: 50},
+	}); !errors.Is(err, bolsahttp.ErrCategoriaCargaConvocaNoValida) {
+		t.Fatalf("la lectura aceptó categoría ajena al RPT: %v", err)
 	}
 	seguridadCapturada, correlacionCapturada, ok := intentoVerificadoCargaConvocaBolsa(ctx)
 	if !ok || seguridadCapturada.Resultado.Validar() != nil || correlacionCapturada.Validar() != nil {

@@ -13,7 +13,7 @@ import (
 // Carga de bolsas desde el Excel de CONVOCA por RRHH (B1): RRHH sube el
 // fichero, ve la vista previa fila a fila y confirma. La confirmación importa
 // el acta y constituye la bolsa consumiendo la decisión V3 propia de la carga
-// (AD203/B79) en la misma transacción que la constitución.
+// (AD218/B95) en la misma transacción que la constitución.
 const (
 	AccionConfirmarCargaConvoca    = "bolsa.carga_convoca.confirmar"
 	FinalidadConfirmarCargaConvoca = "carga_bolsa_convoca"
@@ -85,5 +85,5 @@ type OriginalProtegidoCargaConvoca struct {
 // decisión de la carga en la misma transacción. Si la decisión no vale, no es
 // del actor o no es de esa acta, se revierte y no queda bolsa ni consumo.
 type RepositorioConstitucionCargaConvoca interface {
-	ConfirmarCargaConvocaAutorizada(context.Context, importacion.LoteValidado, Constitucion, []VinculoCandidato, OriginalProtegidoCargaConvoca, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboCargaConvoca, error)
+	ConfirmarCargaConvocaAutorizada(context.Context, importacion.LoteValidado, Constitucion, []VinculoCandidato, OriginalProtegidoCargaConvoca, []byte, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboCargaConvoca, error)
 }

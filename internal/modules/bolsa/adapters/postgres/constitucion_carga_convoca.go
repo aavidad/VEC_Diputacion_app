@@ -37,6 +37,13 @@ func NuevoRepositorioCargaConvocaPostgreSQL(pool *pgxpool.Pool, protector import
 // auditoriaRefConsumoCargaConvoca es la forma del asiento de consumo del núcleo AD3.
 var auditoriaRefConsumoCargaConvoca = regexp.MustCompile(`^aud_v3_[0-9a-f]{32}$`)
 
+const consultaConfirmarCargaConvocaB95 = `SELECT vec_bolsa_llamamientos.confirmar_carga_convoca_v2(
+	$1::jsonb, $2::jsonb, $3::jsonb,
+	$4::text, $5::text, $6::text, $7::text, $8::bigint, $9::bytea, $10::timestamptz,
+	$11::text, $12::bigint, $13::bytea, $14::timestamptz, $15::timestamptz, $16::jsonb, $17::timestamptz,
+	$18::jsonb, $19::bytea, $20::bytea, $21::bytea, $22::bytea, $23::bytea, $24::numeric, $25::numeric,
+	$26::bytea, $27::bytea, $28::bytea, $29::bytea)`
+
 type reciboCargaConvocaJSON struct {
 	reciboConstitucionJSON
 	DecisionRef        string                        `json:"decision_ref"`
@@ -48,11 +55,12 @@ type reciboCargaConvocaJSON struct {
 	AuditoriaAccesoRef string                        `json:"auditoria_acceso_ref"`
 }
 
-// ConfirmarCargaConvocaAutorizada es el único efecto B1. La función SQL B79
-// confirma original, acta, constitución, vínculos y V3 o revierte todo.
-func (r *RepositorioCargaConvocaPostgreSQL) ConfirmarCargaConvocaAutorizada(ctx context.Context, lote importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, original ports.OriginalProtegidoCargaConvoca, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
+// ConfirmarCargaConvocaAutorizada es el único efecto B1. B95 liga el contexto
+// canónico de confirmación a la decisión V3 antes de confirmar todo o revertir.
+func (r *RepositorioCargaConvocaPostgreSQL) ConfirmarCargaConvocaAutorizada(ctx context.Context, lote importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, original ports.OriginalProtegidoCargaConvoca, contextoRecurso []byte, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
 	if ctx == nil || r == nil || r.pool == nil || r.protector == nil || m.ValidarEstructura() != nil ||
-		lote.Validar() != nil || lote.Acta.ActaRef != c.ActaRef || original.Referencia != lote.Acta.FicheroCustodiadoRef {
+		lote.Validar() != nil || lote.Acta.ActaRef != c.ActaRef || original.Referencia != lote.Acta.FicheroCustodiadoRef ||
+		!contextoRecursoCargaConvocaValido(contextoRecurso, m.ResumenCapacidad().EfectoHuellaSHA256()) {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -80,21 +88,20 @@ func (r *RepositorioCargaConvocaPostgreSQL) ConfirmarCargaConvocaAutorizada(ctx 
 	if err != nil {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaInvalida
 	}
-	argumentos = append([]any{json.RawMessage(actaJSON), json.RawMessage(filasJSON), json.RawMessage(originalJSON)}, argumentos...)
-	argumentos = append(argumentos, json.RawMessage(vinculosJSON), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
-		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	argumentos, err = argumentosCargaConvocaB95(actaJSON, filasJSON, originalJSON, argumentos, vinculosJSON, contextoRecurso, m)
+	if err != nil {
+		return ports.ReciboCargaConvoca{}, err
+	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaNoDisponible
 	}
 	defer tx.Rollback(context.Background())
+	if err := prepararTransaccionCargaConvoca(ctx, tx); err != nil {
+		return ports.ReciboCargaConvoca{}, err
+	}
 	var contenido []byte
-	err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_carga_convoca_v1(
-		$1::jsonb, $2::jsonb, $3::jsonb,
-		$4::text, $5::text, $6::text, $7::text, $8::bigint, $9::bytea, $10::timestamptz,
-		$11::text, $12::bigint, $13::bytea, $14::timestamptz, $15::timestamptz, $16::jsonb, $17::timestamptz,
-		$18::jsonb, $19::bytea, $20::bytea, $21::bytea, $22::bytea, $23::numeric, $24::numeric,
-		$25::bytea, $26::bytea, $27::bytea, $28::bytea)`,
+	err = tx.QueryRow(ctx, consultaConfirmarCargaConvocaB95,
 		argumentos...,
 	).Scan(&contenido)
 	if err != nil {
@@ -121,6 +128,33 @@ func (r *RepositorioCargaConvocaPostgreSQL) ConfirmarCargaConvocaAutorizada(ctx 
 	return ports.ReciboCargaConvoca{ReciboConstitucion: recibo, DecisionRef: leido.DecisionRef, AuditoriaRef: leido.AuditoriaRef,
 		ConsumidaEn: consumida.UTC(), ActaReutilizada: leido.ActaReutilizada,
 		DecisionAccesoRef: leido.DecisionAccesoRef, AuditoriaAccesoRef: leido.AuditoriaAccesoRef}, nil
+}
+
+func prepararTransaccionCargaConvoca(ctx context.Context, tx pgx.Tx) error {
+	for _, ajuste := range []string{
+		"SET LOCAL statement_timeout = '15s'",
+		"SET LOCAL idle_in_transaction_session_timeout = '20s'",
+		"SET LOCAL lock_timeout = '2s'",
+		"SET LOCAL timezone = 'UTC'",
+	} {
+		if _, err := tx.Exec(ctx, ajuste); err != nil {
+			return errorConstitucion(ctx, err)
+		}
+	}
+	return nil
+}
+
+func argumentosCargaConvocaB95(actaJSON, filasJSON, originalJSON []byte, constitucion []any, vinculosJSON, contextoRecurso []byte, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]any, error) {
+	if len(constitucion) != 14 || len(contextoRecurso) == 0 {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	argumentos := make([]any, 0, 29)
+	argumentos = append(argumentos, json.RawMessage(actaJSON), json.RawMessage(filasJSON), json.RawMessage(originalJSON))
+	argumentos = append(argumentos, constitucion...)
+	argumentos = append(argumentos, json.RawMessage(vinculosJSON), contextoRecurso,
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
+		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	return argumentos, nil
 }
 
 func serializarOriginalCargaConvoca(o ports.OriginalProtegidoCargaConvoca, lote importacion.LoteValidado) ([]byte, error) {
@@ -151,7 +185,7 @@ func borrarJSONCargaConvoca(contenidos ...[]byte) {
 	}
 }
 
-// errorConstitucionCargaConvoca separa la denegación (42501 de AD203/B79) del
+// errorConstitucionCargaConvoca separa la denegación (42501 de AD218/B95) del
 // resto de fallos de la constitución. VA172 significa origen técnico ausente
 // tras AD208: es indisponibilidad, nunca denegación del perfil de RRHH.
 func errorConstitucionCargaConvoca(ctx context.Context, err error) error {

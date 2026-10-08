@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000093_vista_previa_carga_convoca_autorizada.up.sql
