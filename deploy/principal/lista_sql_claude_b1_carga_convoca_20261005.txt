@@ -11,5 +11,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000079_constitucion_carga_convo
 deploy/postgresql/bolsa_llamamientos/migraciones/000080_separacion_constituidor_cli.up.sql
 # B95 instala la única entrada web de confirmación con contexto V3 exacto;
 # depende de B79/B80 y retira EXECUTE web de v1, sin alterar su definición.
-# SHA256 eb8a57ca4d21457fcc50300434ebe905abe3bc47b4391a76d3c163d57c26b589 B95
+# SHA256 d1f88d6c66476dba07175752050a0795d2db7f2df9821cb2200b75097b0e1ae5 B95
 deploy/postgresql/bolsa_llamamientos/migraciones/000095_confirmacion_carga_convoca_contexto_v2.up.sql
