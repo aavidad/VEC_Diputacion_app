@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log"
 	"reflect"
 	"time"
 
@@ -107,7 +108,11 @@ func instantaneaBolsaCargaConvocaCompatible(i dominiovec.InstantaneaAutorizacion
 	}
 	base, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, versionBase)
-	if err != nil || i.AsignacionPerfil.AsignacionID != base.AsignacionPerfil.AsignacionID ||
+	if err != nil {
+		log.Printf("bolsa.carga_convoca.instantanea_base: %T", err)
+		return false
+	}
+	if i.AsignacionPerfil.AsignacionID != base.AsignacionPerfil.AsignacionID ||
 		!reflect.DeepEqual(i.AsignacionPerfil.Ambitos, base.AsignacionPerfil.Ambitos) {
 		return false
 	}

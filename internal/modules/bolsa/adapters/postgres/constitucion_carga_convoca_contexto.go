@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 )
 
 // contextoRecursoCargaConvocaValido verifica la preimagen exacta que B95
@@ -26,7 +27,11 @@ func contextoRecursoCargaConvocaValido(raw []byte, huellaCapacidad string) bool 
 		return false
 	}
 	canonico, err := json.Marshal(c)
-	if err != nil || !bytes.Equal(raw, canonico) {
+	if err != nil {
+		log.Printf("bolsa.carga_convoca.contexto_serializacion: %T", err)
+		return false
+	}
+	if !bytes.Equal(raw, canonico) {
 		return false
 	}
 	suma := sha256.Sum256(raw)
