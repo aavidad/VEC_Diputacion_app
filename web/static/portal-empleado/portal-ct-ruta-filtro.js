@@ -1,6 +1,8 @@
-/** URL del cuadro CT V1: filtros que el servidor aplica al conjunto completo. */
-const PARAMETROS = Object.freeze({ texto: "ct_texto", estado_clave: "ct_estado", fase_clave: "ct_fase" });
+/** URL del cuadro CT: filtros que el servidor aplica al conjunto completo. */
+const PARAMETROS = Object.freeze({ texto: "ct_texto", estado_clave: "ct_estado", fase_clave: "ct_fase",
+  plazo_estado: "ct_plazo_estado" });
 const ESTADOS = new Set(["", "incidencia", "espera_externa"]);
+const PLAZOS = new Set(["vencido", "vence_hoy", "vence_semana"]);
 const FASES = new Set(["", "solicitud", "analisis", "preparacion", "fiscalizacion",
   "llamamiento", "nombramiento", "incorporacion", "cierre"]);
 const TEXTO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
@@ -12,7 +14,8 @@ export function filtroServidorCTValido(filtro) {
   return filtro !== null && typeof filtro === "object" && !Array.isArray(filtro)
     && Object.keys(filtro).every((clave) => Object.hasOwn(PARAMETROS, clave))
     && typeof filtro.texto === "string" && filtro.texto === filtro.texto.trim() && TEXTO.test(filtro.texto)
-    && ESTADOS.has(filtro.estado_clave) && FASES.has(filtro.fase_clave);
+    && ESTADOS.has(filtro.estado_clave) && FASES.has(filtro.fase_clave)
+    && (!Object.hasOwn(filtro, "plazo_estado") || PLAZOS.has(filtro.plazo_estado));
 }
 
 export function leerFiltroCTDeRuta(busqueda) {
@@ -24,7 +27,9 @@ export function leerFiltroCTDeRuta(busqueda) {
     return FILTRO_CT_NO_SOPORTADO;
   const filtro = Object.freeze({ texto: parametros.get(PARAMETROS.texto) ?? "",
     estado_clave: parametros.get(PARAMETROS.estado_clave) ?? "",
-    fase_clave: parametros.get(PARAMETROS.fase_clave) ?? "" });
+    fase_clave: parametros.get(PARAMETROS.fase_clave) ?? "",
+    ...(parametros.has(PARAMETROS.plazo_estado)
+      ? { plazo_estado: parametros.get(PARAMETROS.plazo_estado) } : {}) });
   return filtroServidorCTValido(filtro) ? filtro : FILTRO_CT_NO_SOPORTADO;
 }
 

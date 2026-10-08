@@ -218,7 +218,8 @@ const resumenServidor = Object.freeze({
   en_tramite: 3, con_incidencia: 1, vencidos: 1, vencen_hoy: 1, vencen_semana: 2, sin_calcular: 0,
   por_fase: Object.freeze({ solicitud: 1, subsanacion_unidad: 1, analisis: 1 }),
 });
-const cuadroInicio = (resumen = resumenServidor) => ({ resumen, generadoEn: "2026-09-29T07:00:00Z" });
+const cuadroInicio = (resumen = resumenServidor, esquema = "vec.contratacion-temporal.cuadro-rrhh.v1") =>
+  ({ resumen, generadoEn: "2026-09-29T07:00:00Z", esquema });
 const bolsasListas = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
   { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2, por_estado: { disponible: 30 } },
   { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_desde: "2026-01-01", vigente_hasta: "2028-01-14", llamamientos_en_curso: 0, por_estado: { disponible: 12 } },
@@ -248,6 +249,17 @@ test("la portada de RRHH enlaza solo el recuento cuyo filtro V1 conserva todo el
   // La portada no descarga ni muestra expedientes sueltos.
   assert.doesNotMatch(html, /tareas-pendientes|data-ct-exp-abrir-inicio|Recuento parcial/u);
   assert.doesNotMatch(html, /Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
+});
+
+test("con cuadro V2 las tres tarjetas de plazo abren exactamente su filtro de servidor", () => {
+  const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio(resumenServidor,
+    "vec.contratacion-temporal.cuadro-rrhh.v2") });
+  for (const [metrica, plazo] of [["vencidos", "vencido"], ["vencen_hoy", "vence_hoy"],
+    ["vencen_semana", "vence_semana"]]) {
+    assert.match(html, new RegExp(`data-metrica="${metrica}"[^>]*data-ct-exp-lista-plazo-estado="${plazo}"`));
+  }
+  assert.doesNotMatch(portadaRRHH(), /data-ct-exp-lista-plazo-estado=/u,
+    "sin contrato V2 comprobado no se promete un filtro de plazo");
 });
 
 test("los indicadores conservan los recuentos del servidor sin enlaces a predicados parciales", () => {

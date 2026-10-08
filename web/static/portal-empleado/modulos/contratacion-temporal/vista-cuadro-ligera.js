@@ -19,8 +19,17 @@ const MOSTRAR_SERVIDOR_V1 = Object.freeze([
   ["todas", "lista_mostrar_todas"], ["incidencia", "lista_mostrar_incidencia"],
   ["espera", "lista_mostrar_espera"],
 ]);
-const ESTADO_DE_MOSTRAR = Object.freeze({ todas: "", incidencia: "incidencia", espera: "espera_externa" });
+const MOSTRAR_SERVIDOR_V2 = Object.freeze([...MOSTRAR_SERVIDOR_V1,
+  ["vencidos", "lista_mostrar_vencidos"], ["vence_hoy", "lista_mostrar_vence_hoy"],
+  ["vencen_semana", "lista_mostrar_vencen_semana"]]);
+const PLAZO_DE_MOSTRAR = Object.freeze({ vencidos: "vencido", vence_hoy: "vence_hoy",
+  vencen_semana: "vence_semana" });
+const MOSTRAR_DE_PLAZO = Object.freeze({ vencido: "vencidos", vence_hoy: "vence_hoy",
+  vence_semana: "vencen_semana" });
+const ESTADO_DE_MOSTRAR = Object.freeze({ todas: "", incidencia: "incidencia", espera: "espera_externa",
+  vencidos: "", vence_hoy: "", vencen_semana: "" });
 const MOSTRAR_DE_ESTADO = Object.freeze({ "": "todas", incidencia: "incidencia", espera_externa: "espera" });
+const ESQUEMA_CUADRO_PLAZOS = "vec.contratacion-temporal.cuadro-rrhh.v2";
 const FILTRO_LIGERO_INICIAL = Object.freeze({ ...FILTRO_LISTA_INICIAL, mostrar: "todas" });
 const TEXTO_SERVIDOR = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
 const errorFiltro = () => Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
@@ -80,6 +89,7 @@ function proyectarPagina(pagina, fases, locale, traducir) {
 export async function montarCuadroContratacionLigero({
   raiz, cliente, idioma, abrirDetalle, abrirAlta = null, mostrarError,
   filtroLista = null, filtroServidorRuta = null, alCambiarFiltroLista = null, signal = null,
+  esquemaCuadroInicio = null,
   nombreCentro = (referencia) => referencia, nombreCategoria = (referencia) => referencia,
 } = {}) {
   if (!raiz?.addEventListener || !raiz?.querySelector
@@ -103,22 +113,28 @@ export async function montarCuadroContratacionLigero({
   let filtroServidorActual = null;
   let temporizadorBusqueda = null;
   let filtroConsultado = null;
+  const plazosConsultables = esquemaCuadroInicio === ESQUEMA_CUADRO_PLAZOS
+    && typeof cliente.consultarCuadroRRHHV2 === "function";
 
   function filtroServidor() {
     if (filtroServidorActual) return filtroServidorActual;
     if (filtroServidorRuta !== null) {
       if (!filtroServidorRuta || typeof filtroServidorRuta !== "object"
-        || Object.keys(filtroServidorRuta).some((clave) => !["texto", "estado_clave", "fase_clave"].includes(clave))
+        || Object.keys(filtroServidorRuta).some((clave) => !["texto", "estado_clave", "fase_clave", "plazo_estado"].includes(clave))
         || typeof filtroServidorRuta.texto !== "string" || filtroServidorRuta.texto !== filtroServidorRuta.texto.trim()
         || !TEXTO_SERVIDOR.test(filtroServidorRuta.texto)
         || !Object.hasOwn(MOSTRAR_DE_ESTADO, filtroServidorRuta.estado_clave)
         || typeof filtroServidorRuta.fase_clave !== "string"
-        || filtroServidorRuta.fase_clave !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === filtroServidorRuta.fase_clave))
+        || filtroServidorRuta.fase_clave !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === filtroServidorRuta.fase_clave)
+        || (Object.hasOwn(filtroServidorRuta, "plazo_estado")
+          && !Object.hasOwn(MOSTRAR_DE_PLAZO, filtroServidorRuta.plazo_estado)))
         throw errorFiltro();
       filtroServidorActual = Object.freeze({ texto: filtroServidorRuta.texto,
-        estado_clave: filtroServidorRuta.estado_clave, fase_clave: filtroServidorRuta.fase_clave });
+        estado_clave: filtroServidorRuta.estado_clave, fase_clave: filtroServidorRuta.fase_clave,
+        ...(filtroServidorRuta.plazo_estado ? { plazo_estado: filtroServidorRuta.plazo_estado } : {}) });
       filtro = Object.freeze({ ...FILTRO_LIGERO_INICIAL, texto: filtroServidorRuta.texto,
-        fase: filtroServidorRuta.fase_clave, mostrar: MOSTRAR_DE_ESTADO[filtroServidorRuta.estado_clave] });
+        fase: filtroServidorRuta.fase_clave, mostrar: filtroServidorRuta.plazo_estado
+          ? MOSTRAR_DE_PLAZO[filtroServidorRuta.plazo_estado] : MOSTRAR_DE_ESTADO[filtroServidorRuta.estado_clave] });
       return filtroServidorActual;
     }
     if (filtroRuta === null) return SOLICITUD_INICIAL.filtros;
@@ -127,7 +143,9 @@ export async function montarCuadroContratacionLigero({
     const validado = filtroLigeroValido(filtroRuta);
     filtro = validado;
     filtroServidorActual = Object.freeze({ texto: validado.texto,
-      estado_clave: ESTADO_DE_MOSTRAR[validado.mostrar], fase_clave: validado.fase });
+      estado_clave: ESTADO_DE_MOSTRAR[validado.mostrar], fase_clave: validado.fase,
+      ...(PLAZO_DE_MOSTRAR[validado.mostrar]
+        ? { plazo_estado: PLAZO_DE_MOSTRAR[validado.mostrar] } : {}) });
     return filtroServidorActual;
   }
   const ayudas = Object.freeze({
@@ -141,6 +159,7 @@ export async function montarCuadroContratacionLigero({
   const filtroResultados = () => ({ ...filtro,
     ...(filtroServidorActual?.texto ? { texto: "" } : {}),
     ...(filtroServidorActual?.estado_clave ? { mostrar: "todas" } : {}),
+    ...(filtroServidorActual?.plazo_estado ? { mostrar: "todas" } : {}),
     ...(filtroServidorActual?.fase_clave ? { fase: "" } : {}),
   });
 
@@ -161,7 +180,8 @@ export async function montarCuadroContratacionLigero({
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
         actualizarDisponible: true, filtroResultados: filtroResultados(),
-        opcionesFaseServidor: FASES_SERVIDOR_V1, opcionesMostrarServidor: MOSTRAR_SERVIDOR_V1,
+        opcionesFaseServidor: FASES_SERVIDOR_V1,
+        opcionesMostrarServidor: plazosConsultables ? MOSTRAR_SERVIDOR_V2 : MOSTRAR_SERVIDOR_V1,
         buscadorServidor: true, tituloConjunto: true, ocultarFiltrosLocales: true,
         totalConjunto: filtro.mostrar === "en_tramite"
           ? cuadro.resumen?.en_tramite ?? null : cuadro.totales?.total ?? null,
@@ -204,15 +224,26 @@ export async function montarCuadroContratacionLigero({
     try {
       preparado = await prepararTextosContratacionVista("cuadro", { idioma, reintentar });
       if (!vigente || signal?.aborted || actual.signal.aborted) return;
-      const solicitud = { filtros: filtroServidor(),
+      const filtros = filtroServidor();
+      if (filtros.plazo_estado && !plazosConsultables) throw errorFiltro();
+      const solicitud = { filtros: filtros.plazo_estado
+        ? { texto: filtros.texto, centro_ref: "", categoria_ref: "",
+          estados_clave: filtros.estado_clave ? [filtros.estado_clave] : [],
+          fases_clave: filtros.fase_clave ? [filtros.fase_clave] : [],
+          plazo_estado: filtros.plazo_estado } : filtros,
         paginacion: { limite: SOLICITUD_INICIAL.paginacion.limite, cursor: cursores[paginaIndice] },
         resumen: true };
       filtroConsultado = JSON.stringify(filtro);
-      const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
+      const pagina = await (filtros.plazo_estado
+        ? cliente.consultarCuadroRRHHV2(solicitud, { signal: actual.signal })
+        : cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal }));
       if (!vigente || actual !== controlador) return;
+      if (filtros.plazo_estado && (pagina?.esquema !== ESQUEMA_CUADRO_PLAZOS
+        || !Number.isSafeInteger(pagina?.totales?.total) || pagina.totales.total < 0
+        || !pagina.resumen)) throw new TypeError("cuadro CT V2 sin total filtrado");
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"],
         localizacionDe(preparado.idioma), crearTraductorCuadroCT(preparado));
-      alCambiarFiltroLista?.(solicitud.filtros);
+      alCambiarFiltroLista?.(filtros);
       if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
       restaurarFoco(foco);
