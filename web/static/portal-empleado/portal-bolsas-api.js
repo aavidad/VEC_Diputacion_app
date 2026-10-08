@@ -718,6 +718,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const res = await resolverLectura("candidatos", controlador, async () => { await prepararTextosGlobalBolsa(); return consultarGlobalBolsa(filtro, { corte, bolsa, cursor }, { signal: controlador.signal }); });
     if (res === null || !lecturaVigente("candidatos", controlador)) return;
     terminarLectura("candidatos", controlador);
+    if (res.ok && globalThis.location?.search !== undefined) {
+      const ruta = rutaGlobalBolsaCompartible(globalThis.location.search, filtro, res.datos.corte_ref, bolsa);
+      globalThis.history?.replaceState(null, "", ruta);
+    }
     estado.datosCandidatos = res.ok
       ? { carga: "listo", datos: res.datos, error: "", global: true, filtro, corte: res.datos.corte_ref, bolsa, cursor }
       : { carga: [401, 403].includes(res.status) ? "denegado" : res.status === 409 ? "caducado" : "error", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
@@ -874,6 +878,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           evento.preventDefault();
           globalThis.history.pushState(null, "", `${destino.pathname}${destino.search}${destino.hash}`);
           navegar("bolsa-candidatos", { enfocar: false });
+          renderizar();
           return;
         }
       }
@@ -916,6 +921,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             const ruta = rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", global.filtro, "", global.bolsa);
             globalThis.history?.replaceState(null, "", ruta);
             navegar("bolsa-candidatos", { enfocar: false });
+            renderizar();
             return;
           }
           void cargarGlobalBolsa(global.filtro, { corte: accion === "actualizar-global" ? "" : global.corte,

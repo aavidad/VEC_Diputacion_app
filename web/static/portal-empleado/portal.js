@@ -1145,6 +1145,9 @@ function aplicarRutaCandidatosBolsa() {
     const ruta = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (rutaCandidatosAplicada?.ruta === ruta && rutaCandidatosAplicada?.datos === estado.datosBolsas.datos) return true;
     rutaCandidatosAplicada = { ruta, datos: estado.datosBolsas.datos };
+    const pagina = estado.datosCandidatos;
+    if (pagina?.global && pagina.carga === "listo" && pagina.filtro === filtroGlobal.filtro
+      && pagina.corte === filtroGlobal.corte && pagina.bolsa === filtroGlobal.bolsa) return true;
     estado.filtrosBolsa = {};
     void controladorBolsas.cargarGlobalBolsa(filtroGlobal.filtro, filtroGlobal);
     return true;
