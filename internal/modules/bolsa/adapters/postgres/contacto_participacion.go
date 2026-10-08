@@ -55,10 +55,10 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 }
 
 // conflictoSerializable reconoce los choques que se resuelven repitiendo la
-// transacción: serialización, interbloqueo o clave ya insertada por otra.
+// transacción: serialización, interbloqueo, clave ya insertada por otra o cerrojo que tardó más de su plazo.
 func conflictoSerializable(err error) bool {
 	var p *pgconn.PgError
-	return errors.As(err, &p) && (p.Code == "40001" || p.Code == "40P01" || p.Code == "23505")
+	return errors.As(err, &p) && (p.Code == "40001" || p.Code == "40P01" || p.Code == "23505" || p.Code == "55P03")
 }
 
 func (r *RepositorioContactoParticipacionPostgreSQL) registrarContactoEnTransaccion(ctx context.Context, c ports.ComandoRegistrarContactoParticipacion) (ports.RegistroContactoParticipacion, error) {
