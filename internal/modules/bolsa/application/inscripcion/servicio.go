@@ -39,7 +39,7 @@ func (s *Servicio) Abiertas(ctx context.Context, actor Actor, limite int, cursor
 		return PaginaAbiertas{}, ErrNoDisponible
 	}
 	for _, b := range p.Bolsas {
-		if !bolsaAbiertaValida(b) {
+		if !bolsaAbiertaValida(b, false) {
 			return PaginaAbiertas{}, ErrNoDisponible
 		}
 	}
@@ -57,7 +57,7 @@ func (s *Servicio) DetalleAbierta(ctx context.Context, actor Actor, ref string) 
 	if err != nil {
 		return BolsaAbierta{}, err
 	}
-	if !bolsaAbiertaValida(b) || b.ConvocatoriaRef != ref {
+	if !bolsaAbiertaValida(b, true) || b.ConvocatoriaRef != ref {
 		return BolsaAbierta{}, ErrNoDisponible
 	}
 	return b, nil
@@ -85,14 +85,17 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 	return c, nil
 }
 
-func bolsaAbiertaValida(b BolsaAbierta) bool {
+func bolsaAbiertaValida(b BolsaAbierta, detalle bool) bool {
 	if !convocatoriaRefValida(b.ConvocatoriaRef) || b.Titulo == "" ||
-		b.CategoriasResumen == "" || len(b.Categorias) == 0 || len(b.Categorias) > 128 ||
+		b.NumeroCategorias == 0 || b.NumeroCategorias > 128 ||
 		b.CatalogoVersion == 0 ||
 		b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
 		b.RequisitosResumen == "" ||
 		(b.EstadoPropio == nil && b.SolicitudRef != nil) ||
 		(b.EstadoPropio != nil && b.SolicitudRef == nil) {
+		return false
+	}
+	if detalle && uint64(len(b.Categorias)) != b.NumeroCategorias || !detalle && len(b.Categorias) != 0 {
 		return false
 	}
 	if b.EstadoPropio != nil && b.SolicitudRef != nil &&

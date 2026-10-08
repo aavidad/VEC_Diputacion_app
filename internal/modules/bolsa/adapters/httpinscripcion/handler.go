@@ -602,6 +602,8 @@ func responderFallo(w http.ResponseWriter, r *http.Request, err error) {
 		responderError(w, 409, "clave_en_conflicto")
 	case errors.Is(err, inscripcion.ErrActaNoDisponible):
 		responderError(w, 409, "acta_pendiente")
+	case errors.Is(err, inscripcion.ErrVinculoIdentidadPendiente):
+		responderError(w, 409, "vinculo_identidad_pendiente")
 	default:
 		registrarFalloInscripcion(r, err)
 		responderError(w, 503, "servicio_no_disponible")
