@@ -37,7 +37,7 @@ func (s *ServicioPresentacionCertificado) VincularCapsulaPresentacion(
 	ahora := s.identidad.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if validarResultadoPresentacionCertificado(
 		capsula.datos.resultado, capsula.datos.presentacion,
-		capsula.datos.estadoActual, true, ahora,
+		capsula.datos.estadoActual, capsula.datos.inicioExplicito, ahora,
 	) != nil || !capsula.datos.consumida.CompareAndSwap(false, true) {
 		return nil, ErrPresentacionCertificadoNoValida
 	}
@@ -68,7 +68,7 @@ func (s *ServicioIdentidad) datosCapsulaPresentacion(
 	}
 	c := vinculada.capsula.datos
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if validarResultadoPresentacionCertificado(c.resultado, c.presentacion, c.estadoActual, true, ahora) != nil ||
+	if validarResultadoPresentacionCertificado(c.resultado, c.presentacion, c.estadoActual, c.inicioExplicito, ahora) != nil ||
 		ctx.Err() != nil {
 		return domain.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrPresentacionCertificadoNoValida
 	}
