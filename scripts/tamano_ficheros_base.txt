@@ -112,7 +112,7 @@
 1030 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 
 820 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
-894 web/static/portal-empleado/portal-panel-interno.js
+897 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 2020 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 813 internal/app/server/server_test.go
