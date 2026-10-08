@@ -16,6 +16,14 @@ export function leerFichaCTDeRuta(busqueda) {
   return Object.freeze({ expedienteRef: referencia, version });
 }
 
+/** El enlace antiguo puede abrirse desde la primera página; fuera de ella necesita una indicación. */
+export function enlaceCTSinVersionFueraDePagina(ficha, cuadro) {
+  return ficha !== null && typeof ficha === "object" && REFERENCIA.test(ficha.expedienteRef)
+    && ficha.version === null && cuadro?.demostracion === false
+    && Array.isArray(cuadro.expedientes)
+    && !cuadro.expedientes.some((expediente) => expediente?.expediente_ref === ficha.expedienteRef);
+}
+
 export function rutaConFichaCT(ubicacion, ficha = null) {
   if (!ubicacion || typeof ubicacion.pathname !== "string" || !ubicacion.pathname.startsWith("/")
     || ubicacion.pathname.startsWith("//") || /[\\?#]/u.test(ubicacion.pathname)

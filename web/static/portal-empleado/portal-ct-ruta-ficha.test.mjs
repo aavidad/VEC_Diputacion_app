@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js";
+import { enlaceCTSinVersionFueraDePagina, leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js";
 
 test("la ficha CT conserva filtro e idioma sin introducir actor en la URL", () => {
   const ruta = rutaConFichaCT({ pathname: "/portal-empleado/", search: "?lang=en&ct_estado=incidencia",
@@ -21,4 +21,14 @@ test("la ruta rechaza referencias, versiones y parámetros ambiguos", () => {
     assert.equal(leerFichaCTDeRuta(busqueda), null, busqueda);
   }
   assert.throws(() => rutaConFichaCT({ pathname: "//evil.example/", search: "", hash: "#contratacion-temporal" }));
+});
+
+test("un enlace antiguo sin versión fuera de la primera página exige un aviso recuperable", () => {
+  const ficha = leerFichaCTDeRuta("?expediente=expediente%3Act%3A127");
+  const cuadro = { demostracion: false, expedientes: [{ expediente_ref: "expediente:ct:001" }] };
+  assert.equal(enlaceCTSinVersionFueraDePagina(ficha, cuadro), true);
+  assert.equal(enlaceCTSinVersionFueraDePagina(ficha, { ...cuadro,
+    expedientes: [{ expediente_ref: "expediente:ct:127" }] }), false);
+  assert.equal(enlaceCTSinVersionFueraDePagina({ ...ficha, version: 7 }, cuadro), false);
+  assert.equal(enlaceCTSinVersionFueraDePagina(ficha, null), false);
 });
