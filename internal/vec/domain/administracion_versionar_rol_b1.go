@@ -203,12 +203,12 @@ func copiarAsignacionVersionarBolsa(a AsignacionPerfil) AsignacionPerfil {
 }
 
 func copiarConcesionesVersionarBolsa(original []ConcesionRol) []ConcesionRol {
-	copia := make([]ConcesionRol, len(original))
-	copy(copia, original)
-	for i := range copia {
-		copia[i].Finalidades = copiarListaVersionarBolsa(original[i].Finalidades)
-		copia[i].CamposPermitidos = copiarListaVersionarBolsa(original[i].CamposPermitidos)
-		copia[i].Obligaciones = copiarListaVersionarBolsa(original[i].Obligaciones)
+	copia := make([]ConcesionRol, 0, len(original))
+	for _, concesion := range original {
+		concesion.Finalidades = copiarListaVersionarBolsa(concesion.Finalidades)
+		concesion.CamposPermitidos = copiarListaVersionarBolsa(concesion.CamposPermitidos)
+		concesion.Obligaciones = copiarListaVersionarBolsa(concesion.Obligaciones)
+		copia = append(copia, concesion)
 	}
 	return copia
 }
