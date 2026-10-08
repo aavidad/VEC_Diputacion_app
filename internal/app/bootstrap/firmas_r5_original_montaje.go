@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 
 	ctadapters "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters"
 	"vec-diputacion-granada/internal/vec/adapters/almacen"
@@ -42,7 +43,13 @@ func catalogosDocumentosR5Desarrollo(reloj vecports.Reloj, activo bool) (*conser
 func (p politicasConservacionR5Desarrollo) BuscarPoliticasConservacionDocumental(
 	ctx context.Context, s vecports.SolicitudPoliticaConservacionDocumental,
 ) ([]vecports.PoliticaConservacionDocumental, error) {
-	if p.actual == nil || p.historico == nil || ctx == nil || ctx.Err() != nil || s.Validar() != nil {
+	if ctx == nil {
+		return nil, vecports.ErrPoliticaConservacionDocumentalNoResuelta
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if p.actual == nil || p.historico == nil || s.Validar() != nil {
 		return nil, vecports.ErrPoliticaConservacionDocumentalNoResuelta
 	}
 	actual, err := p.actual.BuscarPoliticasConservacionDocumental(ctx, s)
@@ -79,27 +86,27 @@ func nuevoMontajeOriginalFirmaR5Desarrollo(
 	}
 	tipos, err := ctadapters.NuevosTiposOriginalFirmableRRHH(documentos.politicas)
 	if err != nil {
-		return nil, vecports.ErrOriginalFirmableCTNoDisponible
+		return nil, fmt.Errorf("%w: %w", vecports.ErrOriginalFirmableCTNoDisponible, err)
 	}
 	original, err := nuevoOriginalFirmableCTDesarrollo(pdpCTOriginalFirmableDesarrollo{alta: alta},
 		documentos.seudonimizador, documentos.politicas, documentos.reloj)
 	if err != nil {
-		return nil, vecports.ErrOriginalFirmableCTNoDisponible
+		return nil, fmt.Errorf("%w: %w", vecports.ErrOriginalFirmableCTNoDisponible, err)
 	}
 	fabricaLectura, err := docautorizacion.NuevaFabricaContextoLecturaOriginalV3(original, documentos.reloj)
 	if err != nil {
-		return nil, vecports.ErrOriginalFirmableCTNoDisponible
+		return nil, fmt.Errorf("%w: %w", vecports.ErrOriginalFirmableCTNoDisponible, err)
 	}
 	servicioDocumentos := *documentos.servicio
 	servicioDocumentos.ContextosLectura = fabricaLectura
 	custodia, err := almacen.NuevaCustodiaDocumentosOriginalCT(
 		servicioDocumentosOriginalCTDesarrollo{servicio: &servicioDocumentos}, original, original.mapear, tipos)
 	if err != nil {
-		return nil, vecports.ErrOriginalFirmableCTNoDisponible
+		return nil, fmt.Errorf("%w: %w", vecports.ErrOriginalFirmableCTNoDisponible, err)
 	}
 	servicioOriginal, err := vecapplication.NuevoServicioOriginalFirmableCT(fuente, custodia, tipos)
 	if err != nil {
-		return nil, vecports.ErrOriginalFirmableCTNoDisponible
+		return nil, fmt.Errorf("%w: %w", vecports.ErrOriginalFirmableCTNoDisponible, err)
 	}
 	return &montajeOriginalFirmaR5Desarrollo{
 		original: original, servicioOriginal: servicioOriginal,

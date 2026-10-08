@@ -58,4 +58,9 @@ func TestPoliticasConservacionR5MantienenVersionesExactas(t *testing.T) {
 	if _, err := resolver.BuscarPoliticasConservacionDocumental(context.Background(), vecports.SolicitudPoliticaConservacionDocumental{}); !errors.Is(err, vecports.ErrPoliticaConservacionDocumentalNoResuelta) {
 		t.Fatalf("solicitud vacía: %v", err)
 	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := resolver.BuscarPoliticasConservacionDocumental(ctx, vecports.SolicitudPoliticaConservacionDocumental{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("contexto cancelado oculto: %v", err)
+	}
 }
