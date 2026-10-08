@@ -132,7 +132,7 @@ func leerSituacionesResumen(ctx context.Context, consulta consultaResumenBolsas,
 			}
 			fila.Situacion = &ports.SituacionParticipacion{ParticipacionRef: fila.ParticipacionRef, Situacion: *situacion, Desde: *desde, FechaDisponible: disponible}
 		}
-		cese, err := interpretarCeseResumen(efecto, disponibleCese, restringida, cesado, corte)
+		cese, err := interpretarCeseResumen(efecto, disponibleCese, restringida, cesado, fila.Situacion, corte)
 		if err != nil {
 			return nil, err
 		}
@@ -145,16 +145,29 @@ func leerSituacionesResumen(ctx context.Context, consulta consultaResumenBolsas,
 	return salida, nil
 }
 
-// B91 conserva las columnas de B82: NULL/NULL/TRUE/FALSE identifica una
+// B90 conserva las columnas de B82: NULL/NULL/TRUE/FALSE identifica una
 // proyección pendiente. Cuatro NULL significan que no existe cese; las fechas
-// completas siguen el contrato B45. No se infiere una fecha de efecto.
-func interpretarCeseResumen(efecto, disponible *time.Time, restringida, cesado *bool, corte time.Time) (*ports.EstadoCese, error) {
+// completas siguen el contrato B45. Para los estados elegibles, B82 devuelve
+// en base.Desde el instante real de recepción B13. En otros estados conserva
+// su fecha propia, que nunca se atribuye al cese.
+func interpretarCeseResumen(efecto, disponible *time.Time, restringida, cesado *bool, base *ports.SituacionParticipacion, corte time.Time) (*ports.EstadoCese, error) {
 	if efecto == nil && disponible == nil {
 		if restringida == nil && cesado == nil {
 			return nil, nil
 		}
 		if restringida != nil && cesado != nil && *restringida && !*cesado {
-			return &ports.EstadoCese{CesePendiente: true}, nil
+			if base == nil {
+				return nil, ports.ErrResumenBolsasNoDisponible
+			}
+			estado := &ports.EstadoCese{CesePendiente: true}
+			switch base.Situacion {
+			case "disponible", "trabajando", "disponible_desde":
+				if base.Desde.IsZero() || base.Desde.After(corte) {
+					return nil, ports.ErrResumenBolsasNoDisponible
+				}
+				estado.PendienteDesde = base.Desde.UTC()
+			}
+			return estado, nil
 		}
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}

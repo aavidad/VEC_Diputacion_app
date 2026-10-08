@@ -101,6 +101,13 @@ func TestProyeccionCesePendienteImpideTurnoSinInventarFecha(t *testing.T) {
 	if _, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true}, true, corte); err == nil {
 		t.Fatal("pendiente sin instante B13 aceptado")
 	}
+	for _, anterior := range []string{"excluido", "renuncia", "no_disponible"} {
+		base := ports.SituacionParticipacion{Situacion: anterior, Desde: desde}
+		actual, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true}, true, corte)
+		if err != nil || actual.Situacion != anterior || !actual.Desde.Equal(desde) {
+			t.Fatalf("pendiente alteró situación anterior %s: %+v %v", anterior, actual, err)
+		}
+	}
 	sinCese, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{}, false, corte)
 	if err != nil || sinCese.Situacion != "disponible" {
 		t.Fatalf("ausencia de cese alteró situación: %+v %v", sinCese, err)

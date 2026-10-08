@@ -15,7 +15,7 @@ func ProyectarSituacionConEstadoCese(base ports.SituacionParticipacion, estado p
 		return base, nil
 	}
 	if estado.CesePendiente {
-		if corte.IsZero() || estado.PendienteDesde.IsZero() || estado.PendienteDesde.After(corte) ||
+		if corte.IsZero() || (!estado.PendienteDesde.IsZero() && estado.PendienteDesde.After(corte)) ||
 			estado.FechaEfecto.IsZero() != estado.DisponibleDesde.IsZero() ||
 			estado.FechaEfecto.IsZero() && (estado.EnRestriccion || estado.TrabajoCesado) ||
 			!estado.FechaEfecto.IsZero() && (estado.FechaEfecto.After(corte) || estado.DisponibleDesde.Before(estado.FechaEfecto)) {
@@ -23,6 +23,9 @@ func ProyectarSituacionConEstadoCese(base ports.SituacionParticipacion, estado p
 		}
 		switch base.Situacion {
 		case "disponible", "trabajando", "disponible_desde":
+			if estado.PendienteDesde.IsZero() {
+				return ports.SituacionParticipacion{}, ports.ErrConsultaEstadoCeseNoDisponible
+			}
 			base.Situacion = "no_disponible"
 			base.Desde = estado.PendienteDesde.UTC()
 			base.FechaDisponible = nil
