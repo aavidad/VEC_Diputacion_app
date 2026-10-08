@@ -107,8 +107,8 @@ export async function consultarSolicitudesDocumentalesRRHH(bolsa, participacion,
       headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) {
-      const clave = ({ 401: "txt_se_requiere_una_sesion_interna_autenticada",
-        403: "txt_acceso_denegado", 404: "txt_operacion_no_disponible_todavia" })[respuesta.status]
+      const clave = ({ 401: "txt_b8_solicitudes_documentales_401",
+        403: "txt_b8_solicitudes_documentales_403", 404: "txt_operacion_no_disponible_todavia" })[respuesta.status]
         || "txt_b8_solicitudes_documentales_error";
       return { ok: false, status: respuesta.status, mensaje: traducirPortal(clave) };
     }
@@ -245,7 +245,8 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const solicitudes = estado.solicitudesDocumentales || [];
   const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && (!estado.solicitudesError || estado.solicitudesMetadatos)))
     .map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
-  const solicitudesReintentables = !estado.solicitudesOmitidas && ![401, 403, 404].includes(estado.solicitudesStatus);
+  const solicitudesReintentables = (!estado.solicitudesOmitidas || estado.solicitudesMetadatos)
+    && ![401, 403, 404].includes(estado.solicitudesStatus);
   const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesCargando
     ? `<p role="status" aria-busy="true">${textoPortal("txt_comprobando_acceso")}</p>`
     : estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
@@ -348,8 +349,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     modalFicha.promesaReincorporaciones = reincorporaciones;
     const solicitudes = !leerDocumental
       ? { ok: false, status: null, omitida: documental.estado !== "indisponible",
-        metadatos: documental.estado === "indisponible", mensaje: documental.estado === "indisponible"
-          ? traducirPortal("txt_b8_solicitudes_documentales_error") : "" }
+        metadatos: documental.estado === "indisponible", mensaje: traducirPortal(({
+          no_autorizado: "txt_b8_solicitudes_documentales_no_autorizado",
+          sin_montaje: "txt_b8_solicitudes_documentales_sin_montaje",
+          indisponible: "txt_b8_solicitudes_documentales_error",
+        })[documental.estado]) }
       : !capacidades && !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
         ? { ok: false, status: solicitudesPrevias.solicitudesStatus, mensaje: solicitudesPrevias.solicitudesError }
         : await consultarDocumentales(bolsa, participacion, { signal: controlador.signal });
