@@ -252,8 +252,8 @@ checkpoint web de 23/07/2026, el alta se compone con la superficie neutral de
 expedientes, el shell registra el módulo, las traducciones y manifiestos están
 actualizados y existe un adaptador volátil exclusivo de presentación.
 
-La matriz de diecisiete tareas, las pruebas y el mapa de sustitución se recogen
-en `docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md`.
+La matriz de diecisiete tareas, las pruebas y el mapa de sustitución se recogieron
+en un documento del 23/07/2026 ya retirado (consultar la historia de Git).
 `datos-presentacion.js`, `datos-presentacion-ampliacion.js` y
 `adaptador-presentacion.js` siguen excluidos de los manifiestos interno y
 productivo. El cliente productivo O4-05 se incorporó después en `023b890`, sin

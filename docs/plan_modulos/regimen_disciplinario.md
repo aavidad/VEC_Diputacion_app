@@ -1,5 +1,7 @@
 # Plan de Régimen disciplinario — 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 VEC conservará actuaciones previas, iniciación, designaciones, instrucción,
 defensa, propuesta, resolución, recurso y ejecución en un expediente reservado.
 La primera entrega propuesta prepara un expediente sintético y recupera su recibo
