@@ -1,5 +1,7 @@
 # Provisión: inventario y plan de continuación
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 ## Bases públicas transcritas — 7 de octubre de 2026
 
 `vec-provision-bases` consulta una transcripción versionada del concurso

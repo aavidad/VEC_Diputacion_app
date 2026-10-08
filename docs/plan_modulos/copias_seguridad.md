@@ -1,5 +1,7 @@
 # Copias de seguridad y restauración desde Administración
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 Plan para Dirección, 1 de octubre de 2026. Encargo de Alberto de las 17:30.
 Base de inventario: `main@f49e01089fb51f58441141decd449df82cb6a420`.
 Estado: plan incorporado a `main` mediante la PR #327. La ejecución desde
