@@ -13,12 +13,12 @@ import {
   validarComandoAlta,
   validarReciboAlta,
 } from "./contrato.js?v=20261008-alta-circular-v3";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
 import {
   montarAltaContratacionTemporal,
   renderizarAltaContratacionTemporal,
-} from "./vista.js?v=20261008-alta-rpt-circular-v5";
+} from "./vista.js?v=20261008-alta-rpt-circular-v6";
 
 const directorio = new URL("./", import.meta.url);
 const [contratoFuente, vistaFuente] = await Promise.all([

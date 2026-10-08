@@ -12,7 +12,7 @@ import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pan
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v1";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
 import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261007-pantallas-textos-final-v1";

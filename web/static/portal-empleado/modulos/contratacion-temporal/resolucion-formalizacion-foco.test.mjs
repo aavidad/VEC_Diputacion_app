@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-alta-rpt-circular-v6";
 
 const preparacion = {
   esquema: "vec.contratacion-temporal.resolucion-formalizacion.preparacion.v1",

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 import * as saldo from "./modulos/cronos/vista-saldo-conectado.js";
 import * as remoto from "./modulos/cronos/vista-remoto.js";
 import * as movimientos from "./modulos/cronos/vista-movimientos-conectado.js";

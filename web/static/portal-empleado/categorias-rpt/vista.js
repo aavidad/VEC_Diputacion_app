@@ -1,16 +1,42 @@
-const SOLO_LECTURA = Object.freeze(["data-i18n", "data-i18n-label"]);
 export const TAMANO_PAGINA = 20;
 
-function traducirFijos(doc, t) {
-  for (const atributo of SOLO_LECTURA) {
-    doc.querySelectorAll(`[${atributo}]`).forEach((elemento) => {
-      const texto = t(elemento.getAttribute(atributo));
-      if (atributo === "data-i18n") elemento.textContent = texto;
-      else elemento.setAttribute("aria-label", texto);
-    });
-  }
-  doc.title = t("tituloDocumento");
-}
+const PLANTILLA = `
+  <section class="panel" aria-labelledby="rpt-lista-titulo">
+    <div class="cabecera-panel">
+      <h2 id="rpt-lista-titulo" data-rpt-texto="listaTitulo"></h2>
+    </div>
+    <div class="cuerpo-panel">
+      <form class="barra-filtros-bolsa" role="search" data-rpt="filtros" aria-labelledby="rpt-lista-titulo">
+        <div class="campo-filtro">
+          <label for="rpt-buscar" data-rpt-texto="buscar"></label>
+          <input id="rpt-buscar" data-rpt="buscar" type="search" maxlength="100" autocomplete="off" disabled />
+        </div>
+        <div class="campo-filtro">
+          <label for="rpt-grupo" data-rpt-texto="grupoFiltro"></label>
+          <select id="rpt-grupo" data-rpt="grupo" disabled></select>
+        </div>
+      </form>
+      <p data-rpt="estado" role="status" aria-live="polite"></p>
+      <button type="button" data-rpt="reintentar" class="boton-secundario" hidden data-rpt-texto="reintentar"></button>
+      <p data-rpt="cuenta" aria-live="polite" hidden></p>
+    </div>
+    <div class="tabla-contenedor" data-rpt="tabla" tabindex="0" hidden>
+      <table class="tabla-datos" aria-labelledby="rpt-lista-titulo">
+        <thead><tr>
+          <th scope="col" data-rpt-texto="colCategoria"></th>
+          <th scope="col" data-rpt-texto="colGrupo"></th>
+        </tr></thead>
+        <tbody data-rpt="filas"></tbody>
+      </table>
+    </div>
+    <nav class="paginacion-marco" data-rpt="paginacion" hidden>
+      <span data-rpt="pagina-estado" aria-live="polite"></span>
+      <div class="paginacion-marco__paginas">
+        <button type="button" data-rpt="anterior" data-rpt-texto="anterior"></button>
+        <button type="button" data-rpt="siguiente" data-rpt-texto="siguiente"></button>
+      </div>
+    </nav>
+  </section>`;
 
 function textoEn(doc, contenido, idiomaDatos, idiomaUI) {
   const nodo = doc.createElement("span");
@@ -27,55 +53,32 @@ export function filtrarCategorias(categorias, consulta = "", grupo = "", localiz
       .some((valor) => valor.toLocaleLowerCase(localizacion).includes(buscado))));
 }
 
-/** Montaje de solo lectura. Los dos controles de cambio permanecen inertes en HTML. */
-export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, localizacion }) {
-  if (!doc || typeof puerto?.listarOpciones !== "function" || typeof t !== "function") {
+/** Consulta de categorías montada dentro de la raíz que entrega el portal. */
+export function montarVistaCategorias({ raiz, puerto, t, idiomaUI, idiomaDatos, localizacion }) {
+  if (!raiz?.ownerDocument || typeof puerto?.listarOpciones !== "function" || typeof t !== "function") {
     throw new TypeError("montaje de categorías no disponible");
   }
-  doc.documentElement.lang = idiomaUI;
-  doc.querySelectorAll('a[href="/portal-empleado/"]').forEach((enlace) =>
-    enlace.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(idiomaUI)}`));
-  traducirFijos(doc, t);
-
-  const buscar = doc.getElementById("buscar");
-  const grupo = doc.getElementById("grupo");
-  const estado = doc.getElementById("estado");
-  const reintentar = doc.getElementById("reintentar");
-  const tabla = doc.getElementById("tabla-contenedor");
-  const filas = doc.getElementById("filas");
-  const cuenta = doc.getElementById("cuenta");
-  const paginacion = doc.getElementById("paginacion");
-  const paginaEstado = doc.getElementById("pagina-estado");
-  const anterior = doc.getElementById("anterior");
-  const siguiente = doc.getElementById("siguiente");
-  const detalle = doc.getElementById("detalle");
-  const nombreDetalle = doc.getElementById("detalle-nombre");
-  const gruposDetalle = doc.getElementById("detalle-grupos");
+  const doc = raiz.ownerDocument;
+  raiz.innerHTML = PLANTILLA;
+  raiz.querySelectorAll("[data-rpt-texto]").forEach((nodo) => { nodo.textContent = t(nodo.dataset.rptTexto); });
+  const parte = (nombre) => raiz.querySelector(`[data-rpt="${nombre}"]`);
+  const paginacion = parte("paginacion");
+  paginacion.setAttribute("aria-label", t("paginacionLabel"));
+  const buscar = parte("buscar");
+  const grupo = parte("grupo");
+  const estado = parte("estado");
+  const reintentar = parte("reintentar");
+  const tabla = parte("tabla");
+  const filas = parte("filas");
+  const cuenta = parte("cuenta");
+  const paginaEstado = parte("pagina-estado");
+  const anterior = parte("anterior");
+  const siguiente = parte("siguiente");
+  const numero = new Intl.NumberFormat(localizacion);
   let categorias = [];
-  let seleccionada = "";
   let pagina = 1;
   let controlador = null;
   let secuencia = 0;
-
-  function ocultarDetalle() {
-    seleccionada = "";
-    detalle.hidden = true;
-  }
-
-  function mostrarDetalle(categoria) {
-    seleccionada = categoria.referencia;
-    nombreDetalle.replaceChildren(textoEn(doc, categoria.etiqueta, idiomaDatos, idiomaUI));
-    gruposDetalle.replaceChildren(textoEn(doc,
-      categoria.grupos_subgrupos.length
-        ? categoria.grupos_subgrupos.map((g) => g.etiqueta).join(", ")
-        : t("sinGrupo"),
-      categoria.grupos_subgrupos.length ? idiomaDatos : idiomaUI, idiomaUI));
-    detalle.hidden = false;
-    for (const boton of filas.querySelectorAll("button[data-referencia]")) {
-      boton.setAttribute("aria-pressed", String(boton.dataset.referencia === seleccionada));
-    }
-    detalle.focus();
-  }
 
   function pintar() {
     const visibles = filtrarCategorias(categorias, buscar.value, grupo.value, localizacion);
@@ -84,17 +87,13 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     const mostradas = visibles.slice((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA);
     filas.replaceChildren();
     tabla.hidden = visibles.length === 0;
-    paginacion.hidden = visibles.length === 0;
-    paginaEstado.textContent = t("paginaEstado", {
-      pagina: new Intl.NumberFormat(localizacion).format(pagina),
-      total: new Intl.NumberFormat(localizacion).format(totalPaginas),
-    });
+    paginacion.hidden = totalPaginas <= 1;
+    paginaEstado.textContent = t("paginaEstado", { pagina: numero.format(pagina), total: numero.format(totalPaginas) });
     anterior.disabled = pagina <= 1;
     siguiente.disabled = pagina >= totalPaginas;
     cuenta.hidden = false;
-    cuenta.textContent = t("cuenta", { cuenta: new Intl.NumberFormat(localizacion).format(visibles.length) });
+    cuenta.textContent = t("cuenta", { cuenta: numero.format(visibles.length) });
     estado.textContent = visibles.length ? "" : t(categorias.length ? "sinCoincidencias" : "sinCategorias");
-    if (!mostradas.some((c) => c.referencia === seleccionada)) ocultarDetalle();
 
     for (const categoria of mostradas) {
       const fila = doc.createElement("tr");
@@ -102,21 +101,19 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
       celdaNombre.scope = "row";
       celdaNombre.append(textoEn(doc, categoria.etiqueta, idiomaDatos, idiomaUI));
       const celdaGrupo = doc.createElement("td");
-      celdaGrupo.append(textoEn(doc,
-        categoria.grupos_subgrupos.length
-          ? categoria.grupos_subgrupos.map((g) => g.etiqueta).join(", ")
-          : t("sinGrupo"),
-        categoria.grupos_subgrupos.length ? idiomaDatos : idiomaUI, idiomaUI));
-      const celdaAccion = doc.createElement("td");
-      const boton = doc.createElement("button");
-      boton.type = "button";
-      boton.className = "boton-terciario";
-      boton.dataset.referencia = categoria.referencia;
-      boton.setAttribute("aria-pressed", String(seleccionada === categoria.referencia));
-      boton.textContent = t("verDetalle");
-      boton.addEventListener("click", () => mostrarDetalle(categoria));
-      celdaAccion.append(boton);
-      fila.append(celdaNombre, celdaGrupo, celdaAccion);
+      if (!categoria.grupos_subgrupos.length) celdaGrupo.textContent = t("sinGrupo");
+      categoria.grupos_subgrupos.forEach((g, i) => {
+        if (i > 0) celdaGrupo.append(", ");
+        // Cada grupo lleva a la lista filtrada por él.
+        const boton = doc.createElement("button");
+        boton.type = "button";
+        boton.className = "boton-terciario";
+        boton.dataset.grupo = g.clave;
+        boton.setAttribute("aria-label", t("filtrarGrupo", { grupo: g.etiqueta }));
+        boton.append(textoEn(doc, g.etiqueta, idiomaDatos, idiomaUI));
+        celdaGrupo.append(boton);
+      });
+      fila.append(celdaNombre, celdaGrupo);
       filas.append(fila);
     }
   }
@@ -126,7 +123,6 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     controlador = new AbortController();
     const actual = ++secuencia;
     categorias = [];
-    ocultarDetalle();
     filas.replaceChildren();
     tabla.hidden = true;
     paginacion.hidden = true;
@@ -141,12 +137,11 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
       if (!Array.isArray(opciones)) throw new TypeError("respuesta no válida");
       categorias = opciones;
       const grupos = new Map(opciones.flatMap((c) => c.grupos_subgrupos.map((g) => [g.clave, g.etiqueta])));
-      grupo.replaceChildren();
       const todos = doc.createElement("option");
       todos.value = "";
       todos.textContent = t("todos");
-      grupo.append(todos);
-      for (const [clave, etiqueta] of grupos) {
+      grupo.replaceChildren(todos);
+      for (const [clave, etiqueta] of [...grupos].sort((a, b) => a[1].localeCompare(b[1], localizacion))) {
         const opcion = doc.createElement("option");
         opcion.value = clave;
         opcion.textContent = etiqueta;
@@ -167,15 +162,19 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     }
   }
 
-  doc.getElementById("filtros").addEventListener("submit", (evento) => evento.preventDefault());
+  parte("filtros").addEventListener("submit", (evento) => evento.preventDefault());
   buscar.addEventListener("input", () => { pagina = 1; pintar(); });
   grupo.addEventListener("change", () => { pagina = 1; pintar(); });
-  anterior.addEventListener("click", () => { pagina -= 1; pintar(); });
-  siguiente.addEventListener("click", () => { pagina += 1; pintar(); });
-  reintentar.addEventListener("click", cargar);
-  doc.defaultView?.addEventListener("pagehide", () => controlador?.abort());
-  doc.defaultView?.addEventListener("pageshow", (evento) => {
-    if (evento.persisted) void cargar();
+  filas.addEventListener("click", (evento) => {
+    const boton = evento.target.closest?.("button[data-grupo]");
+    if (!boton) return;
+    grupo.value = boton.dataset.grupo;
+    pagina = 1;
+    pintar();
+    grupo.focus();
   });
-  return Object.freeze({ cargar, cancelar: () => controlador?.abort() });
+  anterior.addEventListener("click", () => { pagina -= 1; pintar(); tabla.focus(); });
+  siguiente.addEventListener("click", () => { pagina += 1; pintar(); tabla.focus(); });
+  reintentar.addEventListener("click", cargar);
+  return Object.freeze({ cargar, desmontar: () => { secuencia += 1; controlador?.abort(); } });
 }

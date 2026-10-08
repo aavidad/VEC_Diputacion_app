@@ -7,7 +7,7 @@
  * (`canales_llamamiento`); sin ese dato solo existe el correo.
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v1";
+import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
 import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */

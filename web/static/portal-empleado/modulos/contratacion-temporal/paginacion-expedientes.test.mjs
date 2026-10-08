@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const CURSOR_B = "A".repeat(43);
 const CURSOR_C = "B".repeat(42) + "E";

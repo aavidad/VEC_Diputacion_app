@@ -45,6 +45,7 @@ const CLAVE_DOCUMENTOS = "documentos";
 // de Documentos usa un nombre propio para no confundirse con ella.
 export const VISTA_DOCUMENTOS_EXPEDIENTE = "documentos-expediente";
 export const VISTA_PLANTILLAS_RRHH = "plantillas-rrhh";
+export const VISTA_CATEGORIAS_RPT = "categorias-rpt";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa",
   CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
@@ -113,8 +114,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v5"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v5"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -125,7 +126,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-canal-telefono-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-canal-telefono-v2");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -212,7 +213,7 @@ export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
+  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
 ]));
 
 // Estado de un módulo autorizado sin entrada en el portal que aún no se ha
@@ -227,7 +228,7 @@ function errorCargaSustituida() {
 
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal" || vista === "mis-tramites") return "portal";
-  if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) return "contratacion_temporal";
+  if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH || vista === VISTA_CATEGORIAS_RPT) return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return CLAVE_DOCUMENTOS;
@@ -247,6 +248,7 @@ export function rutaDeVistaPortal(vista) {
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (vista === "ofertas-sae") return "#ofertas-sae";
   if (vista === VISTA_PLANTILLAS_RRHH) return "#contratacion-temporal/plantillas-rrhh";
+  if (vista === VISTA_CATEGORIAS_RPT) return "#contratacion-temporal/categorias-rpt";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
@@ -1007,7 +1009,7 @@ export function crearCoordinadorModulosPortal({
     if (VISTAS_MODULO_BOLSA.has(vista)) {
       return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
     }
-    if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) {
+    if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH || vista === VISTA_CATEGORIAS_RPT) {
       return composicion?.contratacionTemporal !== undefined;
     }
     if (vista === "cronos") return composicion?.cronos !== undefined;
@@ -1160,8 +1162,17 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    if (vista === VISTA_CATEGORIAS_RPT) {
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-alta-rpt-circular-v6");
+      if (montaje !== secuenciaMontaje) return false;
+      const modulo = montarCategoriasRPT({ raiz });
+      if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
+      desmontarVista = modulo.desmontar;
+      return true;
+    }
+
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261008-alta-rpt-circular-v5");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261008-alta-rpt-circular-v6");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

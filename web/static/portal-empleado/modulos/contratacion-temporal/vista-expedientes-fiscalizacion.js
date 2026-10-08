@@ -1,9 +1,9 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v5";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-alta-rpt-circular-v5";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
 export function montarModuloFiscalizacionContratacionTemporal({

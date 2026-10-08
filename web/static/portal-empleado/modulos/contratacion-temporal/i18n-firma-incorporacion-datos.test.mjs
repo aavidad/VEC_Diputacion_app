@@ -6,7 +6,7 @@ import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCU
 import { MENSAJES_FIRMA_REMISION_ES, MENSAJES_FIRMA_REMISION_EN } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_SEGUIMIENTO_CESE, MENSAJES_SEGUIMIENTO_CESE_EN } from "./i18n-seguimiento-cese.js";
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { MENSAJES_EXPEDIENTES_CONTRATACION_ES, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 

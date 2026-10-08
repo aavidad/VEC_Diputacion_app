@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js";
 
