@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261007-ct-menu-recuperacion-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-bolsa-inicio-v2";
+import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
@@ -332,7 +333,28 @@ test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales glo
   const html = portadaRRHH();
   assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
   assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
-  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 2, "solo las dos bolsas leídas ofrecen enlace");
+  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 4, "nombre y disponibles enlazan las dos bolsas leídas");
+  assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1" data-estado="disponible" aria-label="Ver 30 candidatos disponibles de Auxiliar &lt;A&gt;">30<\/a><\/td>/u);
+  const destino = html.match(/href="(\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos)"/u)?.[1].replaceAll("&amp;", "&");
+  assert.deepEqual(leerCandidatosBolsaCompartible(new URL(destino, "https://vec.example/portal-empleado/").search, bolsasListas.datos.bolsas),
+    { bolsaRef: "bolsa:1", estado: "disponible" });
+});
+
+test("Inicio enlaza cero disponibles y deja sin acción el dato ausente o la referencia inválida", () => {
+  const bolsas = [
+    { ...bolsasListas.datos.bolsas[0], por_estado: { disponible: 0 } },
+    { ...bolsasListas.datos.bolsas[1], por_estado: {} },
+    { ...bolsasListas.datos.bolsas[1], bolsa_ref: "bolsa/ajena", categoria: "Sin referencia válida", por_estado: { disponible: 4 } },
+  ];
+  const previo = globalThis.fetch;
+  globalThis.fetch = () => assert.fail("pintar Inicio no consulta candidatos");
+  try {
+    const html = portadaRRHH({ obtenerBolsasInicio: () => ({ carga: "listo", datos: { ...bolsasListas.datos, bolsas } }) });
+    assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos"[^>]*data-estado="disponible"[^>]*>0<\/a><\/td>/u);
+    assert.match(html, /<th scope="row"><a[^>]*>Técnica<\/a><\/th>\s*<td class="numero">—<\/td>/u);
+    assert.match(html, /<th scope="row">Sin referencia válida<\/th>\s*<td class="numero">4<\/td>/u);
+    assert.equal((html.match(/data-estado="disponible"/gu) ?? []).length, 1);
+  } finally { globalThis.fetch = previo; }
 });
 
 test("las claves de la portada se traducen con el traductor común", async () => {
@@ -350,5 +372,6 @@ test("las claves de la portada se traducen con el traductor común", async () =>
   assert.match(html, /Requests by stage[\s\S]*?4\. Financial review/u);
   assert.match(html, /To be agreed with HR/u);
   assert.match(html, /Tuesday, 29 September 2026/u);
+  assert.match(html, /aria-label="View 30 candidates in Auxiliar &lt;A&gt; with status: available"/u);
   assert.doesNotMatch(html, /Lo pendiente|Análisis RRHH|Peticiones por fase/u);
 });
