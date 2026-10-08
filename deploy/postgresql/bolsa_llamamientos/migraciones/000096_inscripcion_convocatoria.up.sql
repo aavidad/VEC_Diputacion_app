@@ -18,9 +18,9 @@ BEGIN
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)') IS NULL
  OR NOT has_function_privilege(current_user,
    'vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)','EXECUTE')
- OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)') IS NULL
  OR NOT has_function_privilege(current_user,
-   'vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)','EXECUTE')
+   'vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)','EXECUTE')
  OR to_regprocedure('vec_catalogos_configurables.comprobar_motivo_inscripcion_v1(text,integer,text,text)') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(text,integer,text)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_presentacion_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -914,7 +914,7 @@ BEGIN
   INTO v_categorias_pedidos
   FROM jsonb_array_elements(v_items) WITH ORDINALITY AS item(valor,orden);
   v_categorias_validas:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
-   v_categorias_pedidos);
+   v_categorias_pedidos,p_idioma);
   IF jsonb_typeof(v_categorias_validas) IS DISTINCT FROM 'array'
    OR jsonb_array_length(v_categorias_validas)<>jsonb_array_length(v_items)
   THEN RAISE EXCEPTION 'B96: cotejo de categorías incompleto' USING ERRCODE='55000'; END IF;

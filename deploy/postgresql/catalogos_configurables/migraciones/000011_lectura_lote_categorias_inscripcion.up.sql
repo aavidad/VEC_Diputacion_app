@@ -18,7 +18,7 @@ BEGIN
  OR to_regrole('vec_bolsa_llamamientos_propietario') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)') IS NOT NULL
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)') IS NOT NULL
- OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)') IS NOT NULL
  OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_asociacion_inscripcion_v1(text,integer,text)') IS NOT NULL
  THEN RAISE EXCEPTION 'CC11: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -76,6 +76,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM vec_catalogos_configurables.publicacion p
    WHERE p.catalogo_id=p_catalogo_id AND p.version=p_version AND p.huella_sha256=p_huella_sha256)
  THEN RAISE EXCEPTION 'CC11: publicación exacta ausente' USING ERRCODE='B9601'; END IF;
+ BEGIN
  SELECT count(*),jsonb_agg(jsonb_build_object(
   'categoria_ref',r.ref,
   'categoria',vec_catalogos_configurables.etiqueta_inscripcion_idioma_v1(e.definicion,e.etiqueta,p_idioma))
@@ -85,6 +86,9 @@ BEGIN
  JOIN vec_catalogos_configurables.entrada_publicada e
    ON e.catalogo_id=p_catalogo_id AND e.version=p_version
   AND e.huella_sha256=p_huella_sha256 AND e.categoria_id=r.ref;
+ EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '55000' OR SQLSTATE '54000' THEN
+  RAISE EXCEPTION 'CC11: etiqueta publicada incompatible' USING ERRCODE='B9601';
+ END;
  IF total<>cardinality(p_referencias) THEN
   RAISE EXCEPTION 'CC11: categoría no publicada en versión exacta' USING ERRCODE='B9601';
  END IF;
@@ -153,6 +157,7 @@ BEGIN
    OR coalesce(s.valor->>'politica_catalogo_sha256','') !~ '^[0-9a-f]{64}$'
  ) THEN RAISE EXCEPTION 'CC11: selector de lote inválido' USING ERRCODE='22023'; END IF;
 
+ BEGIN
  WITH pedidos AS MATERIALIZED (
   SELECT s.valor, s.orden,
    s.valor->>'catalogo_ref' AS catalogo_ref,
@@ -229,6 +234,9 @@ BEGIN
   'impedimento_etiqueta_politica',impedimento_etiqueta_politica,
   'politica_valida',coalesce(politica_valida,false)) ORDER BY orden),'[]'::jsonb)
  INTO total,resultado FROM resueltos;
+ EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '55000' OR SQLSTATE '54000' THEN
+  RAISE EXCEPTION 'CC11: etiqueta publicada incompatible' USING ERRCODE='B9601';
+ END;
  IF total<>jsonb_array_length(p_solicitudes) THEN
   RAISE EXCEPTION 'CC11: etiqueta o publicación exacta ausente' USING ERRCODE='B9601';
  END IF;
@@ -241,7 +249,7 @@ REVOKE ALL ON FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_insc
 -- exacta en una sola llamada. La falta de un código informa false; no oculta
 -- la convocatoria ni sustituye la etiqueta publicada del código de muestra.
 CREATE FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
- p_solicitudes jsonb
+ p_solicitudes jsonb,p_idioma text
 ) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
@@ -249,6 +257,7 @@ AS $f$
 DECLARE resultado jsonb;
 BEGIN
  IF current_user<>'vec_catalogos_configurables_propietario'
+ OR p_idioma IS NULL OR p_idioma NOT IN('es','en')
  OR jsonb_typeof(p_solicitudes) IS DISTINCT FROM 'array'
  OR jsonb_array_length(p_solicitudes)>100
  OR octet_length(p_solicitudes::text)>16777216
@@ -276,33 +285,62 @@ BEGIN
    s.valor->>'catalogo_sha256' AS catalogo_sha256,
    s.valor->'categorias_refs' AS categorias_refs
   FROM jsonb_array_elements(p_solicitudes) WITH ORDINALITY AS s(valor,orden)
+ ), pedidos_unicos AS MATERIALIZED (
+  SELECT row_number() OVER () AS grupo,distintos.* FROM (
+   SELECT DISTINCT catalogo_ref,catalogo_version,catalogo_sha256,categorias_refs
+   FROM pedidos
+  ) AS distintos
  ), refs AS MATERIALIZED (
-  SELECT pedido.orden,ref.valor AS categoria_ref
-  FROM pedidos pedido CROSS JOIN LATERAL
-   jsonb_array_elements_text(pedido.categorias_refs) AS ref(valor)
+  SELECT unico.grupo,ref.valor AS categoria_ref
+  FROM pedidos_unicos unico CROSS JOIN LATERAL
+   jsonb_array_elements_text(unico.categorias_refs) AS ref(valor)
  ), contadas AS (
-  SELECT pedido.orden,jsonb_array_length(pedido.categorias_refs) AS numero_categorias,
-   count(entrada.categoria_id) AS publicadas
-  FROM pedidos pedido
-  JOIN refs ON refs.orden=pedido.orden
+  SELECT unico.grupo,jsonb_array_length(unico.categorias_refs) AS numero_categorias,
+   count(entrada.categoria_id) FILTER (WHERE
+    -- Reproduce las guardas de etiqueta_inscripcion_idioma_v1. Una entrada
+    -- presente con texto inválido cuenta como ausente para la oferta.
+    octet_length(entrada.etiqueta) BETWEEN 1 AND 200
+    AND jsonb_typeof(entrada.definicion)='object'
+    AND (NOT (entrada.definicion ? 'etiquetas')
+      OR jsonb_typeof(entrada.definicion->'etiquetas')='object')
+    AND (NOT coalesce(entrada.definicion->'etiquetas' ? 'es',false)
+      OR jsonb_typeof(entrada.definicion#>'{etiquetas,es}')='string')
+    AND (NOT coalesce(entrada.definicion->'etiquetas' ? 'en',false)
+      OR jsonb_typeof(entrada.definicion#>'{etiquetas,en}')='string')
+    AND octet_length(CASE
+      WHEN p_idioma='en'
+       AND jsonb_typeof(entrada.definicion#>'{etiquetas,en}')='string'
+      THEN entrada.definicion#>>'{etiquetas,en}'
+      WHEN jsonb_typeof(entrada.definicion#>'{etiquetas,es}')='string'
+      THEN entrada.definicion#>>'{etiquetas,es}'
+      ELSE entrada.etiqueta END) BETWEEN 1 AND 200
+   ) AS publicadas
+  FROM pedidos_unicos unico
+  JOIN refs ON refs.grupo=unico.grupo
   LEFT JOIN vec_catalogos_configurables.publicacion publicacion
-   ON publicacion.catalogo_id=pedido.catalogo_ref
-   AND publicacion.version=pedido.catalogo_version
-   AND publicacion.huella_sha256=pedido.catalogo_sha256
+   ON publicacion.catalogo_id=unico.catalogo_ref
+   AND publicacion.version=unico.catalogo_version
+   AND publicacion.huella_sha256=unico.catalogo_sha256
   LEFT JOIN vec_catalogos_configurables.entrada_publicada entrada
    ON entrada.catalogo_id=publicacion.catalogo_id
    AND entrada.version=publicacion.version
    AND entrada.huella_sha256=publicacion.huella_sha256
    AND entrada.categoria_id=refs.categoria_ref
-  GROUP BY pedido.orden,pedido.categorias_refs
+  GROUP BY unico.grupo,unico.categorias_refs
  )
  SELECT coalesce(jsonb_agg(jsonb_build_object(
-  'catalogo_completo',publicadas=numero_categorias,
-  'numero_categorias',numero_categorias) ORDER BY orden),'[]'::jsonb)
- INTO resultado FROM contadas;
+  'catalogo_completo',contadas.publicadas=contadas.numero_categorias,
+  'numero_categorias',contadas.numero_categorias) ORDER BY pedido.orden),'[]'::jsonb)
+ INTO resultado FROM pedidos pedido
+ JOIN pedidos_unicos unico
+  ON unico.catalogo_ref=pedido.catalogo_ref
+  AND unico.catalogo_version=pedido.catalogo_version
+  AND unico.catalogo_sha256=pedido.catalogo_sha256
+  AND unico.categorias_refs=pedido.categorias_refs
+ JOIN contadas ON contadas.grupo=unico.grupo;
  RETURN resultado;
 END $f$;
-REVOKE ALL ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)
+REVOKE ALL ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
 
 CREATE FUNCTION vec_catalogos_configurables.listar_motivos_inscripcion_v1(p_idioma text)
@@ -403,7 +441,7 @@ GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.comprobar_politica_present
  TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)
  TO vec_bolsa_llamamientos_propietario;
-GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)
+GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)
  TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.listar_motivos_inscripcion_v1(text)
  TO vec_bolsa_llamamientos_propietario;

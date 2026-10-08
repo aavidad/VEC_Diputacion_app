@@ -8,12 +8,13 @@ DECLARE cat_doc text:='{"id":"bolsa.categorias.inscripcion","version":1}';
  pol_doc text:='{"id":"bolsa.politica.inscripcion","version":1}';
  pol_doc2 text:='{"id":"bolsa.politica.sinpresentacion","version":1}';
  cat_sha text; pol_sha text; pol_sha2 text; r jsonb; lote_maximo jsonb; f regprocedure;
- f_categorias regprocedure; refs_128 jsonb; comprobacion jsonb;
+ f_categorias regprocedure; refs_128 jsonb; comprobacion jsonb; selector jsonb;
+ lote_distinto jsonb; lote_repetido jsonb;
  f_asociacion regprocedure; alcance text;
 BEGIN
  alcance:='cv1_'||translate(rtrim(encode(convert_to('proceso:bolsa:historica-2026','UTF8'),'base64'),'='),'+/','-_')||'_v1';
  f:='vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)'::regprocedure;
- f_categorias:='vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)'::regprocedure;
+ f_categorias:='vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)'::regprocedure;
  f_asociacion:='vec_catalogos_configurables.comprobar_politica_asociacion_inscripcion_v1(text,integer,text)'::regprocedure;
  IF NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE')
@@ -163,7 +164,7 @@ BEGIN
  SELECT 'bolsa.categorias.inscripcion',1,cat_sha,'cat.'||g,'Categoría '||g,'{}'::jsonb
  FROM generate_series(1,127) AS g;
  SELECT jsonb_agg('cat.'||g ORDER BY g) INTO refs_128 FROM generate_series(1,128) AS g;
- IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1('[]')<>'[]'::jsonb
+ IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1('[]','es')<>'[]'::jsonb
  THEN RAISE EXCEPTION 'CC11: comprobación vacía incorrecta'; END IF;
  comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
   jsonb_build_array(
@@ -171,7 +172,7 @@ BEGIN
     'catalogo_version',1,'catalogo_sha256',cat_sha,
     'categorias_refs',jsonb_build_array('cat.1')),
    jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
-    'catalogo_version',1,'catalogo_sha256',cat_sha,'categorias_refs',refs_128)));
+    'catalogo_version',1,'catalogo_sha256',cat_sha,'categorias_refs',refs_128)),'es');
  IF jsonb_array_length(comprobacion)<>2
  OR comprobacion#>>'{0,catalogo_completo}'<>'true'
  OR comprobacion#>>'{0,numero_categorias}'<>'1'
@@ -181,15 +182,98 @@ BEGIN
  comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
    'catalogo_version',1,'catalogo_sha256',repeat('0',64),
-   'categorias_refs',jsonb_build_array('cat.1'))));
+   'categorias_refs',jsonb_build_array('cat.1'))),'es');
  IF comprobacion#>>'{0,catalogo_completo}'<>'false'
  THEN RAISE EXCEPTION 'CC11: huella equivocada completó catálogo'; END IF;
+ SELECT jsonb_agg(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+  'catalogo_version',1,'catalogo_sha256',cat_sha,
+  'categorias_refs',jsonb_build_array('cat.'||g)) ORDER BY g)
+ INTO lote_distinto FROM generate_series(1,100) AS g;
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(lote_distinto,'es');
+ IF jsonb_array_length(comprobacion)<>100
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(comprobacion) AS x(valor)
+  WHERE x.valor->>'catalogo_completo'<>'true' OR x.valor->>'numero_categorias'<>'1')
+ THEN RAISE EXCEPTION 'CC11: 100 combinaciones distintas desalineadas'; END IF;
+ SELECT jsonb_agg(lote_distinto->0) INTO lote_repetido FROM generate_series(1,100);
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(lote_repetido,'es');
+ IF jsonb_array_length(comprobacion)<>100
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(comprobacion) AS x(valor)
+  WHERE x.valor->>'catalogo_completo'<>'true' OR x.valor->>'numero_categorias'<>'1')
+ THEN RAISE EXCEPTION 'CC11: 100 combinaciones repetidas desalineadas'; END IF;
  BEGIN
   PERFORM vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
    jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
     'catalogo_version',1,'catalogo_sha256',cat_sha,
-    'categorias_refs',jsonb_build_array('cat.1','cat.1'))));
+    'categorias_refs',jsonb_build_array('cat.1','cat.1'))),'es');
   RAISE EXCEPTION 'CC11: refs duplicadas aceptadas';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ -- CC1 admite hasta 2048 bytes de etiqueta y objeto JSON arbitrario: estas
+ -- entradas existen en la publicación, pero el traductor no puede ofrecerlas.
+ INSERT INTO vec_catalogos_configurables.entrada_publicada
+  (catalogo_id,version,huella_sha256,categoria_id,etiqueta,definicion)
+ VALUES
+  ('bolsa.categorias.inscripcion',1,cat_sha,'cat.128',repeat('X',201),'{}'),
+  ('bolsa.categorias.inscripcion',1,cat_sha,'cat.bad.en','Base ES',
+   '{"etiquetas":{"es":"Bien ES","en":42}}'),
+  ('bolsa.categorias.inscripcion',1,cat_sha,'cat.en.larga','Base ES',
+   jsonb_build_object('etiquetas',jsonb_build_object('es','Bien ES','en',repeat('E',201)))),
+  ('bolsa.categorias.inscripcion',1,cat_sha,'cat.fallback','Base ES',
+   '{"etiquetas":{"es":"Bien ES"}}');
+ BEGIN
+  PERFORM vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(
+   'bolsa.categorias.inscripcion',1,cat_sha,ARRAY['cat.128'],'es');
+  RAISE EXCEPTION 'CC11: etiqueta 201 devolvió lectura unitaria';
+ EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
+   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,'categoria_ref','cat.128',
+    'politica_catalogo_ref','bolsa.politica.inscripcion',
+    'politica_catalogo_version',1,'politica_catalogo_sha256',pol_sha)),'es');
+  RAISE EXCEPTION 'CC11: detalle con etiqueta 201 no falló cerrado';
+ EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
+   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,'categoria_ref','cat.bad.en',
+    'politica_catalogo_ref','bolsa.politica.inscripcion',
+    'politica_catalogo_version',1,'politica_catalogo_sha256',pol_sha)),'en');
+  RAISE EXCEPTION 'CC11: detalle con EN mal tipada no falló cerrado';
+ EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
+   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,'categoria_ref','cat.1',
+    'politica_catalogo_ref','bolsa.politica.inscripcion',
+    'politica_catalogo_version',1,'politica_catalogo_sha256',pol_sha)),'fr');
+  RAISE EXCEPTION 'CC11: idioma del caller inválido aceptado';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ selector:=jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+  'catalogo_version',1,'catalogo_sha256',cat_sha,'categorias_refs',refs_128));
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'es');
+ IF comprobacion#>>'{0,catalogo_completo}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: etiqueta 201 ofertada en ES'; END IF;
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'en');
+ IF comprobacion#>>'{0,catalogo_completo}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: etiqueta 201 ofertada en EN'; END IF;
+ selector:=jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+  'catalogo_version',1,'catalogo_sha256',cat_sha,
+  'categorias_refs',jsonb_build_array('cat.bad.en')));
+ IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'es')#>>'{0,catalogo_completo}'<>'false'
+ OR vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'en')#>>'{0,catalogo_completo}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: EN mal tipada ofertada'; END IF;
+ selector:=jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+  'catalogo_version',1,'catalogo_sha256',cat_sha,
+  'categorias_refs',jsonb_build_array('cat.en.larga')));
+ IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'es')#>>'{0,catalogo_completo}'<>'true'
+ OR vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'en')#>>'{0,catalogo_completo}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: límite por idioma divergente'; END IF;
+ selector:=jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+  'catalogo_version',1,'catalogo_sha256',cat_sha,
+  'categorias_refs',jsonb_build_array('cat.fallback')));
+ IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(selector,'en')#>>'{0,catalogo_completo}'<>'true'
+ OR vec_catalogos_configurables.etiqueta_inscripcion_idioma_v1(
+   '{"etiquetas":{"es":"Bien ES"}}','Base ES','en')<>'Bien ES'
+ THEN RAISE EXCEPTION 'CC11: fallback ES rechazado'; END IF;
 END $test$;
 ROLLBACK;
