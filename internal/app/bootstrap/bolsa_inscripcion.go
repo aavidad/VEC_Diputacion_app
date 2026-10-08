@@ -41,6 +41,26 @@ type SesionInscripcionBolsa interface {
 	ResolverInscripcion(*http.Request) (contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, error)
 }
 
+// El selector pertenece a la frontera certificada del servidor. Sólo elige
+// entre sesiones ya compuestas; no lee un canal declarado por el navegador.
+type SelectorCanalAspiranteInscripcionBolsa interface {
+	SeleccionarCanalAspirante(*http.Request) (string, error)
+}
+
+// La autoridad común confirma una relación de empleado vigente y su perfil
+// ordinario. No deduce Persona de la identidad del certificado ni concede V3.
+type AcreditadorEmpleadoInscripcionBolsa interface {
+	AcreditarEmpleadoInscripcion(context.Context, contextoSeguridadComunDesarrollo) (AcreditacionEmpleadoInscripcionBolsa, error)
+}
+
+type AcreditacionEmpleadoInscripcionBolsa struct {
+	EmpleadoRef string
+	PersonaRef  string
+	PerfilRef   string
+	CuentaRef   string
+	ValidaHasta time.Time
+}
+
 type AcreditacionSesionInscripcionBolsa struct {
 	CertificadoHuellaSHA256 string
 	Canal                   string
@@ -56,12 +76,14 @@ type AcreditacionSesionInscripcionBolsa struct {
 // ConfiguracionPreparadorInscripcionBolsa sólo admite identidades instaladas
 // de forma explícita. La raíz conecta la autoridad común de sesión y PDP.
 type ConfiguracionPreparadorInscripcionBolsa struct {
-	Aspirante       *identidadCandidatoBolsaDesarrollo
-	RRHH            []identidadConsultaRRHHDesarrollo
-	SesionAspirante SesionInscripcionBolsa
-	SesionRRHH      SesionInscripcionBolsa
-	Autoridad       AutoridadInscripcionBolsa
-	Reloj           relojContratacionTemporalDesarrollo
+	RRHH                   []identidadConsultaRRHHDesarrollo
+	SesionAspirante        SesionInscripcionBolsa
+	SesionEmpleado         SesionInscripcionBolsa
+	SesionRRHH             SesionInscripcionBolsa
+	SelectorCanalAspirante SelectorCanalAspiranteInscripcionBolsa
+	AcreditadorEmpleado    AcreditadorEmpleadoInscripcionBolsa
+	Autoridad              AutoridadInscripcionBolsa
+	Reloj                  relojContratacionTemporalDesarrollo
 }
 
 type preparadorInscripcionBolsa struct {
@@ -71,10 +93,11 @@ type preparadorInscripcionBolsa struct {
 var _ httpinscripcion.Preparador = (*preparadorInscripcionBolsa)(nil)
 
 func NuevoPreparadorInscripcionBolsa(c ConfiguracionPreparadorInscripcionBolsa) (httpinscripcion.Preparador, error) {
+	empleadoConfigurado := !nuloInscripcionBolsa(c.SesionEmpleado) || !nuloInscripcionBolsa(c.SelectorCanalAspirante) || !nuloInscripcionBolsa(c.AcreditadorEmpleado)
+	empleadoCompleto := !nuloInscripcionBolsa(c.SesionEmpleado) && !nuloInscripcionBolsa(c.SelectorCanalAspirante) && !nuloInscripcionBolsa(c.AcreditadorEmpleado)
 	if nuloInscripcionBolsa(c.SesionAspirante) || nuloInscripcionBolsa(c.SesionRRHH) || nuloInscripcionBolsa(c.Autoridad) ||
-		nuloInscripcionBolsa(c.Reloj) || c.Aspirante == nil || c.Aspirante.personaRef == "" ||
-		c.Aspirante.perfilRef == "" || c.Aspirante.cuentaRef == "" ||
-		len(c.RRHH) == 0 {
+		nuloInscripcionBolsa(c.Reloj) ||
+		len(c.RRHH) == 0 || (empleadoConfigurado && !empleadoCompleto) {
 		return nil, inscripcion.ErrNoDisponible
 	}
 	return &preparadorInscripcionBolsa{configuracion: c}, nil
@@ -185,9 +208,27 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 	ahora := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	sesion := c.SesionAspirante
 	canalEsperado := "externa_personal"
+	empleado := false
 	if rrhh {
 		sesion = c.SesionRRHH
 		canalEsperado = "interna_corporativa"
+	} else if !nuloInscripcionBolsa(c.SelectorCanalAspirante) {
+		canal, err := c.SelectorCanalAspirante.SeleccionarCanalAspirante(r)
+		if err != nil {
+			return vacio, inscripcion.ErrSesionAusente
+		}
+		switch canal {
+		case "externa_personal":
+		case "interna_corporativa":
+			if nuloInscripcionBolsa(c.SesionEmpleado) || nuloInscripcionBolsa(c.AcreditadorEmpleado) {
+				return vacio, inscripcion.ErrNoDisponible
+			}
+			empleado = true
+			sesion = c.SesionEmpleado
+			canalEsperado = canal
+		default:
+			return vacio, inscripcion.ErrSesionAusente
+		}
 	}
 	ctx, acreditacion, err := sesion.ResolverInscripcion(r)
 	if err != nil || !huellaCertificadoInscripcionValida(acreditacion.CertificadoHuellaSHA256) ||
@@ -196,6 +237,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		return vacio, inscripcion.ErrSesionAusente
 	}
 	var personaEsperada, perfilEsperado, cuentaEsperada string
+	var empleadoValidoHasta time.Time
 	if rrhh {
 		coincidencias := 0
 		for _, identidad := range c.RRHH {
@@ -207,17 +249,35 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		if coincidencias != 1 || perfilEsperado == "" {
 			return vacio, inscripcion.ErrAccesoDenegado
 		}
-	} else {
-		id := c.Aspirante
-		if id == nil || acreditacion.CertificadoHuellaSHA256 != id.identidad.principal.Attributes["certificate_sha256"] ||
-			id.verificadoEn.After(ahora) || !ahora.Before(id.validoHasta) {
+	} else if empleado {
+		for _, identidad := range c.RRHH {
+			if acreditacion.CertificadoHuellaSHA256 == identidad.identidad.principal.Attributes["certificate_sha256"] {
+				return vacio, inscripcion.ErrAccesoDenegado
+			}
+		}
+		if ctx.Resultado.Validar() != nil || ctx.Vinculo.ValidarPara(ctx.Resultado) != nil {
 			return vacio, inscripcion.ErrSesionAusente
 		}
-		personaEsperada, perfilEsperado, cuentaEsperada = id.personaRef, id.perfilRef, id.cuentaRef
+		identidad, e := c.AcreditadorEmpleado.AcreditarEmpleadoInscripcion(r.Context(), ctx)
+		for _, rrhhNominal := range c.RRHH {
+			if identidad.PerfilRef != "" && identidad.PerfilRef == rrhhNominal.perfilRef {
+				return vacio, inscripcion.ErrAccesoDenegado
+			}
+		}
+		if e != nil || identidad.PersonaRef == "" || identidad.PerfilRef == "" || identidad.CuentaRef == "" ||
+			identidad.ValidaHasta.IsZero() || !identidad.ValidaHasta.After(ahora) ||
+			!vinculoEmpleadoInscripcionCoincide(ctx.Resultado, identidad.EmpleadoRef, ahora) {
+			return vacio, inscripcion.ErrAccesoDenegado
+		}
+		personaEsperada, perfilEsperado, cuentaEsperada = identidad.PersonaRef, identidad.PerfilRef, identidad.CuentaRef
+		empleadoValidoHasta = identidad.ValidaHasta
+	} else {
+		personaEsperada, perfilEsperado, cuentaEsperada = acreditacion.PersonaRef, acreditacion.PerfilRef, acreditacion.CuentaRef
 	}
 	ahora = c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !ahora.Before(acreditacion.ValidaHasta) || (!rrhh && !ahora.Before(c.Aspirante.validoHasta)) ||
-		!contextoInscripcionBolsaValido(ctx, personaEsperada, perfilEsperado, cuentaEsperada, rrhh, ahora) {
+	if !ahora.Before(acreditacion.ValidaHasta) ||
+		(empleado && !ahora.Before(empleadoValidoHasta)) ||
+		!contextoInscripcionBolsaValido(ctx, personaEsperada, perfilEsperado, cuentaEsperada, rrhh || empleado, ahora) {
 		return vacio, inscripcion.ErrSesionAusente
 	}
 	vinculo, err := ctx.Vinculo.Datos()
@@ -254,6 +314,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		captura, err := c.Autoridad.CapturarLectura(r.Context(), ctx, accion, recurso, filtro)
 		ahoraLectura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 		if err != nil || !ahoraLectura.Before(acreditacion.ValidaHasta) ||
+			(empleado && !ahoraLectura.Before(empleadoValidoHasta)) ||
 			!ctx.Vinculo.VigenteEn(ahoraLectura, ctx.Resultado) ||
 			captura.PersonaRef != actor.PersonaRef || captura.PerfilRef != actor.PerfilRef ||
 			captura.CuentaRef != vinculo.CuentaRef || captura.SesionRef != actor.SesionRef ||
@@ -280,6 +341,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 	ahoraEscritura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	resumen := concesion.Material.ResumenCapacidad()
 	if err != nil || !ahoraEscritura.Before(acreditacion.ValidaHasta) ||
+		(empleado && !ahoraEscritura.Before(empleadoValidoHasta)) ||
 		!ctx.Vinculo.VigenteEn(ahoraEscritura, ctx.Resultado) ||
 		concesion.Accion != accion || concesion.Recurso != recurso || concesion.MaterialSHA256 != hex.EncodeToString(hash[:]) ||
 		concesion.Material.ValidarEstructura() != nil || resumen.ContextoRef() != ctx.Resultado.RegistroContextoRef ||
@@ -307,6 +369,22 @@ func contextoInscripcionBolsaValido(ctx contextoSeguridadComunDesarrollo, person
 		v.MetodoObservado == vecdomain.AuthMethodCertificate && v.GarantiaObservada == vecdomain.AuthAssuranceHigh &&
 		((rrhh && v.Superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1) ||
 			(!rrhh && v.Superficie == vecdomain.SuperficieAutenticacionExternaPersonalV1))
+}
+
+func vinculoEmpleadoInscripcionCoincide(resultado vecdomain.ResultadoContextoActorRegistradoV2, empleadoRef string, ahora time.Time) bool {
+	if empleadoRef == "" {
+		return false
+	}
+	vigentes := 0
+	for _, vinculo := range resultado.Contexto.Instantanea.Vinculos {
+		if vinculo.Tipo == vecdomain.TipoReferenciaContextoActorEmpleado && vinculo.VigenteEn(ahora) {
+			vigentes++
+			if vinculo.Referencia != empleadoRef {
+				return false
+			}
+		}
+	}
+	return vigentes == 1
 }
 
 func actorConLecturaValidaInscripcion(a inscripcion.Actor, c *inscripcion.CapturaLectura, accion, recurso string, filtro inscripcion.Filtro) bool {
