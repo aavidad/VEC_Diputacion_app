@@ -107,3 +107,10 @@ Sin publicación de necesidades configurada, el catálogo v2 responde con una ca
 La lista ligera muestra el nombre del centro y la categoría. Reutiliza el catálogo de Alta y consulta la estructura pública de Organización sólo si falta algún centro de la página. Comparte ambas consultas entre las filas y conserva la lista si no puede recuperar los nombres, con un aviso en el idioma activo. Un cuadro denegado no inicia consultas de etiquetas.
 
 La carga permite usar el idioma de respaldo del documento cuando falla el índice de idiomas. Pruebas focales y Chrome local comprueban los rótulos en escritorio y móvil; las APIs del navegador son de prueba, sin acreditar una lectura nominal de PostgreSQL. No requiere SQL ni configuración nueva.
+
+
+## Categoría sin bolsa en la ficha — 08/10
+
+La ficha avisa cuando la lista autorizada de Bolsa confirma que no hay bolsa vigente para la categoría, y señala que debe revisarse la vía de cobertura. Los fallos de carga, la falta de acceso y una bolsa fijada que no se puede consultar no se presentan como ausencia. Cuando hay bolsa vigente, conserva el botón que abre el llamamiento real de Bolsa con los datos del expediente. No añade consultas ni un llamamiento paralelo.
+
+Ocho casos de Chrome local comprobaron el componente con catálogos reales en castellano a1440px e inglés a390px, teclado y ausencia de desbordamiento. El mayor p95 de renderizado hasta el siguiente frame fue16,5ms; no mide HTTP, PostgreSQL ni navegación nominal. No requiere SQL ni configuración nueva.
