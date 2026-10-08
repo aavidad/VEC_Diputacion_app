@@ -7,14 +7,15 @@ await prepararIdiomas();
 
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
-  categorias_resumen: "Auxiliar administrativo", categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
+  numero_categorias: 1, categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
   plazo_inicio: instante, plazo_fin: "2026-10-22T23:59:59Z", requisitos_resumen: "Titulación requerida",
   catalogo_version: 2, puede_iniciar: true, estado_solicitud_propia: null, solicitud_ref: null };
+const { categorias: _categoriasDetalle, ...resumen } = bolsa;
 
 test("la persona consulta páginas y presenta sin datos de identidad del navegador", async () => {
   const llamadas = [];
   const respuestas = [
-    { data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1", convocatorias: [bolsa], total: 1, cursor_siguiente: null } },
+    { data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1", convocatorias: [resumen], total: 1, cursor_siguiente: null } },
     { data: { esquema: "vec.bolsa.inscripcion.convocatoria.v1", convocatoria: { ...bolsa, puede_iniciar: true,
       requisitos: [{ codigo: "titulo", descripcion: "Título exigido", obligatorio: true,
         estado: "pendiente", motivo_codigo: "sin_evaluacion", motivo_etiqueta: "Pendiente de comprobar" }] } } },
@@ -84,4 +85,46 @@ test("la lectura propia pide sólo el idioma activo", async () => {
   } });
   await cliente.detallePropio("solicitud:42");
   assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa/inscripciones/solicitud:42?idioma=en"]);
+});
+
+test("el contrato acepta 128 categorías sin truncar y rechaza una página de 129", async () => {
+  const categorias = Array.from({ length: 128 }, (_, indice) => ({
+    categoria_ref: `categoria:${indice + 1}`, categoria: `Categoría ${indice + 1}`,
+  }));
+  const publicada = { ...bolsa, categorias, numero_categorias: 128 };
+  const { categorias: _completas, ...resumenPublicada } = publicada;
+  const respuestas = [
+    { data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+      convocatorias: [resumenPublicada], total: 1, cursor_siguiente: null } },
+    { data: { esquema: "vec.bolsa.inscripcion.convocatoria.v1",
+      convocatoria: { ...publicada, requisitos: [] } } },
+  ];
+  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
+    json: async () => respuestas.shift(),
+  }) });
+  assert.equal((await cliente.abiertas()).convocatorias[0].numero_categorias, 128);
+  assert.equal((await cliente.convocatoria(publicada.convocatoria_ref)).convocatoria.categorias[127].categoria_ref,
+    "categoria:128");
+  const invalido = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
+    json: async () => ({ data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+      convocatorias: [{ ...resumenPublicada, numero_categorias: 129 }],
+      total: 1, cursor_siguiente: null } }),
+  }) });
+  await assert.rejects(invalido.abiertas(), /inválida/u);
+});
+
+test("20 tarjetas con 128 categorías quedan bajo 256 KiB y la lista no arrastra los 128 nombres", async () => {
+  const convocatorias = Array.from({ length: 20 }, (_, indice) => ({
+    ...resumen, convocatoria_ref: `convocatoria:${indice + 1}`, numero_categorias: 128,
+    titulo: `Convocatoria de prueba ${indice + 1}`,
+  }));
+  const respuesta = { data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+    convocatorias, total: 20, cursor_siguiente: null } };
+  assert.ok(Buffer.byteLength(JSON.stringify(respuesta)) < 256 * 1024);
+  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
+    json: async () => respuesta,
+  }) });
+  const pagina = await cliente.abiertas();
+  assert.equal(pagina.convocatorias.length, 20);
+  assert.ok(pagina.convocatorias.every((convocatoria) => convocatoria.categorias === undefined));
 });

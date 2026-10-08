@@ -49,6 +49,10 @@ function fechaHora(textos, valor) {
   return esc(textos.fecha(valor, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }));
 }
 
+function textoBuscable(valor) {
+  return String(valor ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+}
+
 function tarjetaAbierta(bolsa, textos) {
   const t = (clave) => esc(textos.traducir(`vista.${clave}`));
   const propia = bolsa.estado_solicitud_propia;
@@ -58,7 +62,8 @@ function tarjetaAbierta(bolsa, textos) {
   return `<article class="panel portal-mi-bolsa__bolsa"><div class="cabecera-panel"><h3>${esc(bolsa.titulo)}</h3>
     ${propia ? `<span class="estado-chip info">${t(`estado_${propia}`)}</span>` : ""}</div>
     <div class="cuerpo-panel"><dl class="lista-datos"><div><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div>
-    <div><dt>${t("categoria")}</dt><dd>${esc(bolsa.categorias_resumen)}</dd></div>
+    <div><dt>${t("categoria")}</dt><dd><button type="button" class="boton-secundario" data-inscripcion-accion="bolsa"
+      data-ref="${esc(bolsa.convocatoria_ref)}">${esc(textos.plural("vista.categorias", bolsa.numero_categorias))}</button></dd></div>
     <div><dt>${t("requisitos")}</dt><dd>${esc(bolsa.requisitos_resumen)}</dd></div></dl>
     <div class="acciones-vista">${enlace}</div></div></article>`;
 }
@@ -83,23 +88,29 @@ function vistaBolsa(estado, textos) {
   if (!bolsa) return "";
   const pendiente = CLAVES_PENDIENTES.has(bolsa.convocatoria_ref);
   const categoria = bolsa.categorias.find((c) => c.categoria_ref === estado.categoriaRef);
+  const filtroCategoria = textoBuscable(estado.filtroCategoria.trim());
+  const categoriasVisibles = filtroCategoria
+    ? bolsa.categorias.filter((c) => textoBuscable(c.categoria).includes(filtroCategoria)) : bolsa.categorias;
   const requisitos = bolsa.requisitos.map((requisito) => `<li>${esc(requisito.descripcion)}${requisito.obligatorio
     ? ` <span class="estado-chip aviso">${t("obligatorio")}</span>` : ""}
     <span class="estado-chip ${requisito.estado === "cumple" ? "exito" : requisito.estado === "no_cumple" ? "peligro" : "aviso"}">${t(`requisito_${requisito.estado}`)}</span>
     <p>${esc(requisito.motivo_etiqueta)}</p>
     ${requisito.hito_etiqueta ? `<p>${t("cuandoExigido")}: ${esc(requisito.hito_etiqueta)}${requisito.hito_fecha ? ` · ${fecha(textos, requisito.hito_fecha)}` : ""}</p>` : ""}
     <label class="opcion-check"><input type="checkbox" data-inscripcion-requisito="${esc(requisito.codigo)}"
-      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente || requisito.estado === "no_cumple" ? "disabled" : ""}><span>${t("declarar")}: ${esc(requisito.descripcion)}</span></label></li>`).join("");
+      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente || estado.revision || requisito.estado === "no_cumple" ? "disabled" : ""}><span>${t("declarar")}: ${esc(requisito.descripcion)}</span></label></li>`).join("");
   const declarados = bolsa.requisitos.filter((requisito) => estado.declaraciones.has(requisito.codigo));
   const enviando = estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref);
   return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
     <h3 tabindex="-1">${esc(bolsa.titulo)}</h3><dl class="lista-datos"><div><dt>${t("plazo")}</dt>
       <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div></dl>
+    ${bolsa.categorias.length > 10 ? `<div class="campo"><label for="buscar-categoria-inscripcion-bolsa">${t("buscarCategoria")}</label>
+      <input id="buscar-categoria-inscripcion-bolsa" type="search" data-inscripcion-buscar-categoria
+        value="${esc(estado.filtroCategoria)}" autocomplete="off" ${pendiente || estado.revision ? "disabled" : ""}></div>` : ""}
     <div class="campo"><label for="categoria-inscripcion-bolsa">${t("categoria")}</label>
-      <select id="categoria-inscripcion-bolsa" data-inscripcion-categoria ${pendiente || bolsa.categorias.length === 1 ? "disabled" : ""}>
+      <select id="categoria-inscripcion-bolsa" data-inscripcion-categoria ${pendiente || estado.revision || bolsa.categorias.length === 1 || !categoriasVisibles.length ? "disabled" : ""}>
       ${bolsa.categorias.length > 1 ? `<option value="">${t("elegirCategoria")}</option>` : ""}
-      ${bolsa.categorias.map((c) => `<option value="${esc(c.categoria_ref)}" ${c.categoria_ref === estado.categoriaRef ? "selected" : ""}>${esc(c.categoria)}</option>`).join("")}
-      </select></div>
+      ${categoriasVisibles.map((c) => `<option value="${esc(c.categoria_ref)}" ${c.categoria_ref === estado.categoriaRef ? "selected" : ""}>${esc(c.categoria)}</option>`).join("")}
+      </select>${categoriasVisibles.length ? "" : `<p role="status">${t("sinCategorias")}</p>`}</div>
     <section class="panel"><div class="cabecera-panel"><h4>${t("requisitos")}</h4></div><div class="cuerpo-panel">${requisitos ? `<ul>${requisitos}</ul>` : `<p>${t("sinRequisitos")}</p>`}</div></section>
     ${estado.revision ? `<section class="panel"><div class="cabecera-panel"><h4 tabindex="-1" data-inscripcion-revision>${t("revisarTitulo")}</h4></div><div class="cuerpo-panel">
       <dl class="lista-datos"><div><dt>${t("convocatoria")}</dt><dd>${esc(bolsa.titulo)}</dd></div>
@@ -108,7 +119,7 @@ function vistaBolsa(estado, textos) {
       <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p><p>${t("declaracionesRevisar")}</p>
       ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(`requisito_${requisito.estado}`)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
       <div class="acciones-vista"><button type="button" class="boton-secundario" data-inscripcion-accion="corregir" ${enviando ? "disabled" : ""}>${t("corregir")}</button>
-      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
+      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo || !categoria ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
       : `<div class="acciones-vista">${bolsa.puede_iniciar ? "" : `<p role="status">${esc(bolsa.impedimento_etiqueta)}</p>`}
         <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || estado.bloqueoActo || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
     ${estado.error ? `<p role="alert">${esc(estado.error)}</p>${estado.bloqueoActo
@@ -153,7 +164,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
   const estado = { tipo: "abiertas", carga: true, abiertas: [], propias: [], total: 0,
     cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", revision: false,
     enviando: false, comprobarEnvio: false, bloqueoActo: false,
-    ayuda: false, declaraciones: new Set(), categoriaRef: "" };
+    ayuda: false, declaraciones: new Set(), categoriaRef: "", filtroCategoria: "" };
   let textos = null;
   let clienteEfectivo = cliente;
   let montado = true;
@@ -164,7 +175,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
   function limpiarDatosPrivados() {
     estado.abiertas = []; estado.propias = []; estado.bolsa = null; estado.solicitud = null;
     estado.cursor = null; estado.cursorPropias = null; estado.declaraciones.clear();
-    estado.categoriaRef = ""; estado.revision = false; estado.total = 0;
+    estado.categoriaRef = ""; estado.filtroCategoria = ""; estado.revision = false; estado.total = 0;
   }
 
   function cerrarPorDenegacion(error) {
@@ -231,6 +242,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     const { version, signal } = iniciarConsulta();
     estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.bolsa = null;
     estado.revision = false; estado.comprobarEnvio = false; estado.bloqueoActo = false;
+    estado.filtroCategoria = "";
     estado.declaraciones = new Set(); pintar();
     try {
       const datos = await clienteEfectivo.convocatoria(ref, { signal });
@@ -368,22 +380,36 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   function cambiar(evento) {
     if (evento.target?.matches?.("[data-inscripcion-categoria]") && estado.tipo === "bolsa") {
-      if (CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
+      if (estado.revision || CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
       const ref = evento.target.value;
       estado.categoriaRef = estado.bolsa?.categorias.some((c) => c.categoria_ref === ref) ? ref : "";
       pintar(); contenedor.querySelector?.("[data-inscripcion-categoria]")?.focus?.({ preventScroll: true });
       return;
     }
     const casilla = evento.target?.closest?.("[data-inscripcion-requisito]");
-    if (!casilla || !contenedor.contains(casilla) || estado.tipo !== "bolsa") return;
+    if (!casilla || !contenedor.contains(casilla) || estado.tipo !== "bolsa" || estado.revision) return;
     const codigo = casilla.dataset.inscripcionRequisito;
     if (!estado.bolsa?.requisitos.some((r) => r.codigo === codigo)) return;
     if (casilla.checked) estado.declaraciones.add(codigo);
     else estado.declaraciones.delete(codigo);
   }
 
+  function buscarCategoria(evento) {
+    if (!evento.target?.matches?.("[data-inscripcion-buscar-categoria]") || estado.tipo !== "bolsa"
+      || estado.revision || CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
+    estado.filtroCategoria = String(evento.target.value ?? "").slice(0, 120);
+    if (estado.categoriaRef && !estado.bolsa.categorias.some((c) => c.categoria_ref === estado.categoriaRef
+      && textoBuscable(c.categoria).includes(textoBuscable(estado.filtroCategoria.trim())))) estado.categoriaRef = "";
+    const posicion = evento.target.selectionStart;
+    pintar();
+    const nuevo = contenedor.querySelector?.("[data-inscripcion-buscar-categoria]");
+    nuevo?.focus?.({ preventScroll: true });
+    if (Number.isInteger(posicion)) nuevo?.setSelectionRange?.(posicion, posicion);
+  }
+
   contenedor.addEventListener("click", pulsar);
   contenedor.addEventListener("change", cambiar);
+  contenedor.addEventListener("input", buscarCategoria);
   pintar();
   (async () => {
     try {
@@ -404,5 +430,6 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
   })();
   return Object.freeze({ destruir() { montado = false; ++secuencia; consulta?.abort();
     contenedor.removeEventListener("click", pulsar); contenedor.removeEventListener("change", cambiar);
+    contenedor.removeEventListener("input", buscarCategoria);
     contenedor.replaceChildren(); } });
 }

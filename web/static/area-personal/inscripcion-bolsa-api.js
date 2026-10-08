@@ -38,10 +38,8 @@ function cursor(valor) {
 
 function bolsaResumen(valor) {
   return objeto(valor) && referencia(valor.convocatoria_ref) && cadena(valor.titulo, 200)
-    && cadena(valor.categorias_resumen, 500)
-    && Array.isArray(valor.categorias) && valor.categorias.length > 0 && valor.categorias.length <= 32
-    && valor.categorias.every((c) => objeto(c) && referencia(c.categoria_ref) && cadena(c.categoria, 200))
-    && new Set(valor.categorias.map((c) => c.categoria_ref)).size === valor.categorias.length
+    && Number.isSafeInteger(valor.numero_categorias) && valor.numero_categorias >= 1
+    && valor.numero_categorias <= 128
     && fecha(valor.plazo_inicio) && fecha(valor.plazo_fin)
     && Date.parse(valor.plazo_inicio) <= Date.parse(valor.plazo_fin)
     && cadena(valor.requisitos_resumen, 2000) && Number.isSafeInteger(valor.catalogo_version)
@@ -52,6 +50,17 @@ function bolsaResumen(valor) {
       || ESTADOS.has(valor.estado_solicitud_propia))
     && (valor.solicitud_ref === undefined || valor.solicitud_ref === null || referencia(valor.solicitud_ref))
     && Boolean(valor.estado_solicitud_propia) === Boolean(valor.solicitud_ref);
+}
+
+function bolsaListado(valor) {
+  return bolsaResumen(valor) && valor.categorias === undefined && valor.categorias_resumen === undefined;
+}
+
+function bolsaDetalle(valor) {
+  return bolsaResumen(valor) && valor.categorias_resumen === undefined
+    && Array.isArray(valor.categorias) && valor.categorias.length === valor.numero_categorias
+    && valor.categorias.every((c) => objeto(c) && referencia(c.categoria_ref) && cadena(c.categoria, 200))
+    && new Set(valor.categorias.map((c) => c.categoria_ref)).size === valor.categorias.length;
 }
 
 function solicitud(valor, { categoria = false } = {}) {
@@ -68,12 +77,12 @@ function validar(tipo, entrada) {
   switch (tipo) {
     case "abiertas":
       if (!Array.isArray(datos.convocatorias) || datos.convocatorias.length > 100
-        || datos.convocatorias.some((b) => !bolsaResumen(b))
+        || datos.convocatorias.some((b) => !bolsaListado(b))
         || !Number.isSafeInteger(datos.total) || datos.total < datos.convocatorias.length || !cursor(datos.cursor_siguiente))
         throw new TypeError("Relación de bolsas inválida");
       break;
     case "convocatoria":
-      if (!bolsaResumen(datos.convocatoria)
+      if (!bolsaDetalle(datos.convocatoria)
         || !Array.isArray(datos.convocatoria.requisitos)
         || datos.convocatoria.requisitos.length > 32 || datos.convocatoria.requisitos.some((r) =>
           !objeto(r) || !cadena(r.codigo, 100) || !cadena(r.descripcion, 2000)
