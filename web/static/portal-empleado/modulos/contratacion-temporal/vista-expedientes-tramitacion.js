@@ -701,6 +701,7 @@ export function crearGestorTramitacion({
         anunciar,
         locale,
         zonaHoraria,
+        refrescarCatalogosAlta: alta.obtenerCatalogosNecesidadesAlta,
       });
       if (soloSustituciones) {
         const aviso = contenedor.ownerDocument?.createElement?.("section");

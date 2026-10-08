@@ -27,9 +27,6 @@ const CAMPOS_NECESIDAD = Object.freeze([
   "financiacion_ref", "rc_ref", "intervencion_ref",
 ]);
 const PATRON_CODIGO_NECESIDAD = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$/u;
-// El servidor admite RE2. El navegador solo interpreta la parte plana y
-// acotada de ese vocabulario; otros patrones quedan para su validación final.
-const PATRON_MOAD_LOCAL_SEGURO = /^\^(?:(?:\[[A-Za-z0-9.\/_-]+\]|[A-Za-z0-9.\/_-])(?:\{[0-9]{1,2}(?:,[0-9]{1,2})?\})?)+\$$/u;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/;
 const PATRON_CLAVE_CATALOGO = /^[a-z][a-z0-9._-]{1,79}$/;
 const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/;
@@ -355,18 +352,9 @@ function validarCategoria(categoria, indice) {
 }
 
 export function numeroExpedienteMOADValido(valor) {
-  // Envolvente de transporte; el patrón de negocio sólo lo aplica el servidor.
-  return textoValido(valor, LIMITES_ALTA_CONTRATACION.numeroExpediente, false)
-    && !/[\p{Cc}\p{Cf}]/u.test(valor);
-}
-
-function numeroMOADCoincideConPolitica(valor, politica) {
-  if (!numeroExpedienteMOADValido(valor) || typeof politica?.patron !== "string") return false;
-  if (!PATRON_MOAD_LOCAL_SEGURO.test(politica.patron)) return true;
-  try {
-    const coincidencia = new RegExp(politica.patron, "u").exec(valor);
-    return coincidencia?.index === 0 && coincidencia[0] === valor;
-  } catch { return false; }
+  // Misma envolvente técnica que el servidor; la política publicada se
+  // comprueba allí sin ejecutar su patrón en el navegador.
+  return typeof valor === "string" && PATRON_NUMERO.test(valor);
 }
 
 export function validarPoliticaNumeroMOAD(politica) {
@@ -583,8 +571,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
-  if (conNumero && !numeroMOADCoincideConPolitica(borrador.numero_expediente_moad,
-    catalogos.numero_expediente_moad)) {
+  if (conNumero && !numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
     agregarError(errores, "numero_expediente_moad", "numero_moad_formato");
   }
   const centro = catalogos.centros.find((opcion) => opcion.referencia === borrador.centro_ref);
