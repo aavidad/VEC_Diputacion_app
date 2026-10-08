@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-rpt-recuperacion-root-v1";
+const versionCoordinador = "20261008-rpt-recuperacion-root-v2";
 const versionCircuito = "20261007-carga-pantalla-v1";
 const versionVista = "20261008-ct-alta-vista-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";

@@ -674,10 +674,10 @@ test("RPT abre cliente y vista del mismo corte conservando una sola URL hasta la
     "portal-composicion-empleado.js", "modulos/personal/vista-rpt-publica.js", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const hoja = "20261008-t-rpt-recuperacion-v1";
-  const ficha = "20261008-t-rpt-recuperacion-v1";
+  const ficha = "20261008-t-rpt-recuperacion-v2";
   const fichaCSS = "20261007-t-rpt-ficha-v1";
   const composicionVersion = "20261008-rpt-recuperacion-root-v1";
-  const raiz = "20261008-rpt-recuperacion-root-v1";
+  const raiz = "20261008-rpt-recuperacion-root-v2";
   assert.equal(versionDe(coordinador, "./modulos/personal/cliente-http-rpt-publica.js"), hoja);
   assert.equal(versionDe(coordinador, "./modulos/personal/vista-rpt-publica.js"), hoja);
   assert.equal(versionDe(vista, "./cliente-http-rpt-publica.js"), hoja);
