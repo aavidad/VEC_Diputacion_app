@@ -800,8 +800,11 @@ export async function montarModuloContratacionTemporal({
     }
     if (vista === "cuadro" && estado.cuadro_desactualizado === true) {
       try {
-        await presentador.volverAlCuadro();
-        if (montada && secuenciaCambio === secuenciaInterfaz) repintar("[data-ct-exp-filtros]");
+        const vuelto = await presentador.volverAlCuadro();
+        if (montada && secuenciaCambio === secuenciaInterfaz && vuelto?.vista === "cuadro") {
+          alCambiarFicha(null);
+          repintar("[data-ct-exp-filtros]");
+        }
       } catch {
         if (montada && secuenciaCambio === secuenciaInterfaz) {
           anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_error_carga"), "error");
