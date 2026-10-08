@@ -79,6 +79,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			return responderFallo(salida, "documento_invalido", "entrada", 2)
 		}
 		informe = auditoria.VerificarCadenaPresentacionCertificadoV1(d, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionPreIdentidadTecnica:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONPreIdentidadTecnica(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaPreIdentidadTecnicaV1(d, checkpoint, *maxRegistros)
 	case auditoria.EsquemaVerificacionFronteraAdminTecnicaV1:
 		var documento auditoria.DocumentoVerificacionMixta
 		if decodificarJSONEstricto(contenido, &documento) != nil {
