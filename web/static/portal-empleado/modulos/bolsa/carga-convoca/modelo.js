@@ -1,18 +1,42 @@
-/** Lógica de presentación de la carga, sin DOM: filtros, páginas y mensajes. */
+/** Lógica de presentación de la carga, sin DOM. La página la decide el servidor. */
 export const TAMANO_PAGINA = 50;
-export const FILTROS = Object.freeze(["todas", "aceptadas", "errores", "avisos"]);
+export const FILTROS_SERVIDOR = Object.freeze(["todas", "aceptadas", "rechazadas", "con_avisos"]);
+const FILTROS_VISTA = Object.freeze({ todas: "todas", aceptadas: "aceptadas", errores: "rechazadas", avisos: "con_avisos" });
+const FILTROS_CONTROL = Object.freeze({ todas: "todas", aceptadas: "aceptadas", rechazadas: "errores", con_avisos: "avisos" });
+const PARAMETRO_FILTRO = "convoca_estado";
+const PARAMETRO_PAGINA = "convoca_pagina";
+const MAXIMO_PAGINA = 400;
 
-export function filtrarFilas(filas, filtro) {
-  if (filtro === "aceptadas") return filas.filter((f) => f.estado === "aceptada");
-  if (filtro === "errores") return filas.filter((f) => f.estado === "rechazada");
-  if (filtro === "avisos") return filas.filter((f) => f.avisos.length > 0);
-  return filas;
+export function filtroServidor(control) {
+  return FILTROS_VISTA[control] ?? "todas";
 }
 
-export function paginar(lista, pagina, tamano = TAMANO_PAGINA) {
-  const total = Math.max(1, Math.ceil(lista.length / tamano));
-  const actual = Math.min(Math.max(1, pagina), total);
-  return { pagina: actual, total, elementos: lista.slice((actual - 1) * tamano, actual * tamano) };
+export function filtroControl(filtro) {
+  return FILTROS_CONTROL[filtro] ?? "todas";
+}
+
+export function leerEstadoRuta(search) {
+  const parametros = new URLSearchParams(search);
+  const estado = parametros.getAll(PARAMETRO_FILTRO);
+  const paginas = parametros.getAll(PARAMETRO_PAGINA);
+  const filtro = estado.length === 1 && FILTROS_SERVIDOR.includes(estado[0]) ? estado[0] : "todas";
+  const numero = paginas.length === 1 && /^[1-9][0-9]{0,2}$/u.test(paginas[0]) ? Number(paginas[0]) : 1;
+  return Object.freeze({ filtro, pagina: numero <= MAXIMO_PAGINA ? numero : 1 });
+}
+
+export function escribirEstadoRuta(search, filtro, pagina) {
+  const parametros = new URLSearchParams(search);
+  parametros.delete(PARAMETRO_FILTRO);
+  parametros.delete(PARAMETRO_PAGINA);
+  if (filtro !== "todas") parametros.set(PARAMETRO_FILTRO, filtro);
+  if (pagina !== 1) parametros.set(PARAMETRO_PAGINA, String(pagina));
+  const texto = parametros.toString();
+  return texto ? `?${texto}` : "";
+}
+
+export function paginaServidor(vista) {
+  const total = Math.max(1, Math.ceil(vista.total_filtrado / vista.limite));
+  return Object.freeze({ pagina: Math.floor(vista.desplazamiento / vista.limite) + 1, total });
 }
 
 /** «Primer apellido Segundo apellido, Nombre», como en las listas de RRHH. */

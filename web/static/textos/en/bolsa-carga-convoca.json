@@ -106,7 +106,8 @@
     "confirmarDescartes": {
       "one": "{cuenta} row with errors will be left out.",
       "other": "{cuenta} rows with errors will be left out."
-    }
+    },
+    "cargandoPagina": "Loading rows…"
   },
   "campos": {
     "dni_nie": "Document",
@@ -155,6 +156,7 @@
     "categoria_no_valida": "The chosen category is no longer available. Choose another one.",
     "bolsa_en_conflicto": "This file was already loaded into another pool. Check the chosen category.",
     "peticion_no_valida": "The file could not be sent. Choose it again and repeat.",
-    "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT."
+    "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT.",
+    "paginacion_no_valida": "That page could not be opened. Go back to the first page or choose another filter."
   }
 }

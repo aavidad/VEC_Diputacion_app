@@ -7,7 +7,8 @@ import {
   RUTA_CONFIRMAR, RUTA_VISTA_PREVIA, validarRecibo, validarVistaPrevia,
 } from "./cliente.js";
 import {
-  claveCampo, claveCategoria, filtrarFilas, nombrePersona, paginar, textoBloqueo, textoError, textoIncidencia,
+  claveCampo, claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta,
+  nombrePersona, paginaServidor, textoBloqueo, textoError, textoIncidencia,
 } from "./modelo.js";
 
 const leerCatalogo = async (idioma) => JSON.parse(await readFile(new URL(`../../../../textos/${idioma}/bolsa-carga-convoca.json`, import.meta.url), "utf8"));
@@ -23,6 +24,7 @@ const huella = "a".repeat(64);
 const vista = () => ({ data: {
   esquema: "vec.bolsa.rrhh.carga_convoca.vista_previa.v1", huella_sha256: huella, nombre_fichero: "bolsa.xlsx",
   esquema_fichero: "convoca_resumen_persona_v1", filas_leidas: 3, aceptadas: 2, rechazadas: 1, con_avisos: 1, bloqueo: "",
+  filtro: "todas", limite: 50, desplazamiento: 0, total_filtrado: 3,
   filas: [
     { numero: 2, estado: "aceptada", posicion: 1, documento: "***4521**", primer_apellido: "Reyes", segundo_apellido: "Álvarez", nombre: "Antonio", total: "15.75", errores: [], avisos: [] },
     { numero: 3, estado: "aceptada", posicion: 2, documento: "***2218**", primer_apellido: "García", nombre: "María", total: "10", errores: [], avisos: ["identidad_ambigua"] },
@@ -70,7 +72,8 @@ test("envía la vista previa y la confirmación por POST JSON sin credenciales p
   } });
   const v = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA" });
   assert.equal(v.filas.length, 3);
-  const r = await cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", excluir: true });
+  const r = await cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", excluir: true,
+    filtro: "rechazadas", limite: 1, desplazamiento: 50 });
   assert.equal(r.filas_cargadas, 2);
   for (const [, opciones] of llamadas) {
     assert.equal(opciones.method, "POST");
@@ -78,8 +81,26 @@ test("envía la vista previa y la confirmación por POST JSON sin credenciales p
     assert.equal(opciones.cache, "no-store");
     assert.deepEqual(Object.keys(opciones.headers).sort(), ["Accept", "Content-Type"]);
   }
-  assert.deepEqual(JSON.parse(llamadas[0][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA" });
+  assert.deepEqual(JSON.parse(llamadas[0][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA",
+    filtro: "todas", limite: 50, desplazamiento: 0 });
   assert.deepEqual(JSON.parse(llamadas[1][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA", categoria: "auxiliar", excluir_filas_con_errores: true });
+});
+
+test("pide una página exacta y rechaza una respuesta que suplante filtro o posición", async () => {
+  const peticiones = [];
+  const cliente = crearClienteCargaConvoca({ fetchImpl: async (_ruta, opciones) => {
+    const solicitud = JSON.parse(opciones.body);
+    peticiones.push(solicitud);
+    return respuestaJSON({ data: { ...vista().data, filtro: "rechazadas", limite: 1,
+      desplazamiento: 0, total_filtrado: 1, filas: [vista().data.filas[2]] } });
+  } });
+  const pagina = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "rechazadas", limite: 1, desplazamiento: 0 });
+  assert.equal(pagina.filas.length, 1);
+  assert.equal(peticiones[0].filtro, "rechazadas");
+  assert.equal(peticiones[0].limite, 1);
+  assert.equal(peticiones[0].desplazamiento, 0);
+  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "todas" }), /página de vista previa incompatible/u);
+  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "otro" }), TypeError);
 });
 
 test("traduce los fallos a mensajes en llano sin códigos", async () => {
@@ -95,16 +116,27 @@ test("traduce los fallos a mensajes en llano sin códigos", async () => {
 test("rechaza respuestas con otra forma", () => {
   assert.throws(() => validarVistaPrevia({ data: { ...vista().data, esquema: "otro" } }));
   assert.throws(() => validarVistaPrevia({ data: { ...vista().data, filas: [{ numero: -1, estado: "aceptada", errores: [], avisos: [] }] } }));
+  assert.throws(() => validarVistaPrevia({ data: { ...vista().data, total_filtrado: 2 } }));
+  assert.throws(() => validarVistaPrevia({ data: { ...vista().data, limite: 0 } }));
+  assert.throws(() => validarVistaPrevia({ data: { ...vista().data, filas: [] } }));
+  assert.throws(() => validarVistaPrevia({ data: { ...vista().data, filtro: "rechazadas" } }));
+  assert.equal(validarVistaPrevia({ data: { ...vista().data, filtro: "rechazadas", total_filtrado: 1,
+    filas: [vista().data.filas[2]] } }).filas.length, 1);
   assert.throws(() => validarRecibo({ data: { ...recibo().data, auditoria_ref: 7 } }));
 });
 
-test("filtra, pagina y explica cada fila", async () => {
+test("la página del servidor y la URL conservan solo filtro, página y otros parámetros", async () => {
   const textos = await textosDe("es");
   const filas = validarVistaPrevia(vista()).filas;
-  assert.equal(filtrarFilas(filas, "errores").length, 1);
-  assert.equal(filtrarFilas(filas, "avisos").length, 1);
-  assert.equal(filtrarFilas(filas, "todas").length, 3);
-  assert.deepEqual(paginar(Array.from({ length: 120 }, (_, i) => i), 9, 50), { pagina: 3, total: 3, elementos: Array.from({ length: 20 }, (_, i) => 100 + i) });
+  assert.deepEqual(paginaServidor({ limite: 50, desplazamiento: 50, total_filtrado: 117 }), { pagina: 2, total: 3 });
+  assert.equal(filtroServidor("errores"), "rechazadas");
+  assert.equal(filtroServidor("avisos"), "con_avisos");
+  assert.equal(filtroControl("con_avisos"), "avisos");
+  assert.deepEqual(leerEstadoRuta("?lang=en&x=1&convoca_estado=con_avisos&convoca_pagina=3"), { filtro: "con_avisos", pagina: 3 });
+  assert.deepEqual(leerEstadoRuta("?convoca_estado=otra&convoca_pagina=999999"), { filtro: "todas", pagina: 1 });
+  assert.equal(escribirEstadoRuta("?lang=en&x=1&convoca_estado=aceptadas", "con_avisos", 3),
+    "?lang=en&x=1&convoca_estado=con_avisos&convoca_pagina=3");
+  assert.equal(escribirEstadoRuta("?lang=en&x=1", "todas", 1), "?lang=en&x=1");
   assert.equal(nombrePersona(filas[0]), "Reyes Álvarez, Antonio");
   assert.equal(nombrePersona(filas[1]), "García, María");
   assert.equal(claveCampo("Primer Apellido"), "primer_apellido");

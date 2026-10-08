@@ -1,3 +1,5 @@
+import { FILTROS_SERVIDOR, TAMANO_PAGINA } from "./modelo.js?v=20261008-u-b1-paginacion-v1";
+
 /**
  * Transporte de la carga de bolsas desde CONVOCA. El fichero viaja en base64
  * dentro de un JSON cerrado; la identidad la pone la frontera mTLS del
@@ -56,7 +58,18 @@ export function validarVistaPrevia(sobre) {
   const d = sobre?.data;
   if (d?.esquema !== ESQUEMA_VISTA || !HUELLA.test(d.huella_sha256 ?? "") || !texto(d.nombre_fichero, 255)
     || ![d.filas_leidas, d.aceptadas, d.rechazadas, d.con_avisos].every(entero)
-    || !(d.bloqueo === "" || CODIGO.test(d.bloqueo ?? "")) || !Array.isArray(d.filas) || !d.filas.every(validarFila)) {
+    || !(d.bloqueo === "" || CODIGO.test(d.bloqueo ?? "")) || !FILTROS_SERVIDOR.includes(d.filtro)
+    || !entero(d.limite) || d.limite < 1 || d.limite > 100 || !entero(d.desplazamiento)
+    || !entero(d.total_filtrado) || !Array.isArray(d.filas) || d.filas.length > d.limite
+    || (d.filas.length > 0 && d.desplazamiento + d.filas.length > d.total_filtrado) || !d.filas.every(validarFila)) {
+    throw new TypeError("vista previa incompatible");
+  }
+  const total = { todas: d.filas_leidas, aceptadas: d.aceptadas, rechazadas: d.rechazadas, con_avisos: d.con_avisos }[d.filtro];
+  const filasEsperadas = Math.min(d.limite, Math.max(0, d.total_filtrado - d.desplazamiento));
+  if (d.total_filtrado !== total || d.filas.length !== filasEsperadas || d.filas.some((fila) =>
+    (d.filtro === "aceptadas" && fila.estado !== "aceptada")
+    || (d.filtro === "rechazadas" && fila.estado !== "rechazada")
+    || (d.filtro === "con_avisos" && fila.avisos.length === 0))) {
     throw new TypeError("vista previa incompatible");
   }
   return Object.freeze({ ...d, filas: Object.freeze(d.filas.map((f) => Object.freeze({ ...f }))) });
@@ -110,8 +123,16 @@ export function crearClienteCargaConvoca({ fetchImpl = globalThis.fetch, plazoMs
     }
   }
   return Object.freeze({
-    async previsualizar({ nombre, base64, signal }) {
-      return validarVistaPrevia(await enviar(RUTA_VISTA_PREVIA, { nombre_fichero: nombre, contenido_base64: base64 }, signal));
+    async previsualizar({ nombre, base64, filtro = "todas", limite = TAMANO_PAGINA, desplazamiento = 0, signal }) {
+      if (!FILTROS_SERVIDOR.includes(filtro) || !entero(limite) || limite < 1 || limite > 100 || !entero(desplazamiento)) {
+        throw new TypeError("paginación de vista previa no válida");
+      }
+      const vista = validarVistaPrevia(await enviar(RUTA_VISTA_PREVIA,
+        { nombre_fichero: nombre, contenido_base64: base64, filtro, limite, desplazamiento }, signal));
+      if (vista.filtro !== filtro || vista.limite !== limite || vista.desplazamiento !== desplazamiento) {
+        throw new TypeError("página de vista previa incompatible");
+      }
+      return vista;
     },
     async confirmar({ nombre, base64, categoria, excluir, signal }) {
       const cuerpo = { nombre_fichero: nombre, contenido_base64: base64, categoria };

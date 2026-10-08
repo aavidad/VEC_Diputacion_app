@@ -1,7 +1,8 @@
-import { bytesABase64, comprobarFichero } from "./cliente.js?v=20261008-b1-correctivo-v1";
+import { bytesABase64, comprobarFichero } from "./cliente.js?v=20261008-u-b1-paginacion-v1";
 import {
-  claveCategoria, filtrarFilas, nombrePersona, paginar, textoAviso, textoBloqueo, textoError, textoIncidencia,
-} from "./modelo.js?v=20261008-b1-correctivo-v1";
+  claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
+  paginaServidor, TAMANO_PAGINA, textoAviso, textoBloqueo, textoError, textoIncidencia,
+} from "./modelo.js?v=20261008-u-b1-paginacion-v1";
 
 const ZONA = "Europe/Madrid";
 const CODIGOS_FICHERO = new Set(["fichero_no_valido", "fichero_demasiado_grande", "demasiadas_filas", "peticion_no_valida"]);
@@ -32,8 +33,13 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   traducirFijos(doc, t);
 
   const pasos = { 1: $("paso-elegir"), 2: $("paso-revisar"), 3: $("paso-hecho") };
-  const estado = { nombre: "", base64: "", categoria: null, vista: null, filtro: "todas", pagina: 1, ocupado: false };
-  let controlador = null;
+  const rutaInicial = leerEstadoRuta(doc.defaultView?.location?.search ?? "");
+  const estado = { nombre: "", base64: "", categoria: null, vista: null, filtro: rutaInicial.filtro,
+    pagina: rutaInicial.pagina, ocupado: false, cargandoPagina: false, generacion: 0, secuencia: 0,
+    peticionActual: null };
+  let controladorCategorias = null;
+  let controladorVista = null;
+  let controladorConfirmacion = null;
 
   function irAPaso(numero) {
     for (const [clave, seccion] of Object.entries(pasos)) seccion.hidden = Number(clave) !== numero;
@@ -47,12 +53,6 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     pasos[numero].focus();
   }
 
-  function nuevaPeticion() {
-    controlador?.abort();
-    controlador = new AbortController();
-    return controlador.signal;
-  }
-
   // Paso 1: categorías y validación del formulario.
   async function cargarCategorias() {
     const select = $("categoria");
@@ -61,7 +61,9 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("categorias-reintentar").hidden = true;
     $("categorias-estado").textContent = t("categoriasCargando");
     try {
-      const opciones = await categorias.listarOpciones({ signal: nuevaPeticion() });
+      controladorCategorias?.abort();
+      controladorCategorias = new AbortController();
+      const opciones = await categorias.listarOpciones({ signal: controladorCategorias.signal });
       const previa = select.value;
       select.replaceChildren(select.options[0]);
       for (const opcion of opciones) {
@@ -137,6 +139,70 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     aviso.focus();
   }
 
+  function actualizarRuta(filtro, pagina, modo) {
+    const ventana = doc.defaultView;
+    if (!ventana?.history || !modo) return;
+    const { pathname, search, hash } = ventana.location;
+    const destino = `${pathname}${escribirEstadoRuta(search, filtro, pagina)}${hash}`;
+    if (destino !== `${pathname}${search}${hash}`) ventana.history[modo](null, "", destino);
+  }
+
+  function mismaLectura(antes, despues) {
+    return !antes || ["huella_sha256", "filas_leidas", "aceptadas", "rechazadas", "con_avisos", "bloqueo"]
+      .every((campo) => antes[campo] === despues[campo]);
+  }
+
+  function solicitarPagina({ filtro, pagina, ruta = null }) {
+    if (!estado.base64) return Promise.resolve(null);
+    const paginaSolicitada = pagina;
+    const clave = `${estado.generacion}:${filtro}:${pagina}`;
+    if (estado.peticionActual?.clave === clave) return estado.peticionActual.promesa;
+    if (estado.vista?.filtro === filtro && estado.pagina === pagina && !estado.cargandoPagina) return Promise.resolve(estado.vista);
+    controladorVista?.abort();
+    controladorVista = new AbortController();
+    const signal = controladorVista.signal;
+    const secuencia = ++estado.secuencia;
+    estado.cargandoPagina = true;
+    $("estado-revisar").textContent = t("cargandoPagina");
+    $("error-revisar").hidden = true;
+    $("cargar").disabled = true;
+    const promesa = (async () => {
+      try {
+        let respuesta = await cliente.previsualizar({ nombre: estado.nombre, base64: estado.base64,
+          filtro, limite: TAMANO_PAGINA, desplazamiento: (pagina - 1) * TAMANO_PAGINA, signal });
+        if (secuencia !== estado.secuencia || signal.aborted) return null;
+        const ultimaPagina = Math.max(1, Math.ceil(respuesta.total_filtrado / TAMANO_PAGINA));
+        if (pagina > ultimaPagina) {
+          pagina = ultimaPagina;
+          respuesta = await cliente.previsualizar({ nombre: estado.nombre, base64: estado.base64,
+            filtro, limite: TAMANO_PAGINA, desplazamiento: (pagina - 1) * TAMANO_PAGINA, signal });
+        }
+        if (secuencia !== estado.secuencia || signal.aborted) return null;
+        if (!mismaLectura(estado.vista, respuesta)) throw new TypeError("el fichero cambió durante la revisión");
+        const primera = !estado.vista;
+        estado.vista = respuesta;
+        estado.filtro = filtro;
+        estado.pagina = pagina;
+        pintarRevision(primera);
+        if (pasos[2].hidden) irAPaso(2);
+        actualizarRuta(filtro, pagina, pagina !== paginaSolicitada ? "replaceState" : ruta);
+        return respuesta;
+      } catch (error) {
+        if (secuencia !== estado.secuencia || error?.name === "AbortError") return null;
+        throw error;
+      } finally {
+        if (secuencia === estado.secuencia) {
+          estado.cargandoPagina = false;
+          estado.peticionActual = null;
+          $("estado-revisar").textContent = "";
+          $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.ocupado;
+        }
+      }
+    })();
+    estado.peticionActual = { clave, promesa };
+    return promesa;
+  }
+
   async function revisar(evento) {
     evento.preventDefault();
     if (estado.ocupado) return;
@@ -152,12 +218,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       estado.base64 = bytesABase64(bytes);
       bytes.fill(0);
       estado.categoria = datos.categoria;
-      estado.vista = await cliente.previsualizar({ nombre: estado.nombre, base64: estado.base64, signal: nuevaPeticion() });
-      estado.filtro = "todas";
-      estado.pagina = 1;
+      estado.vista = null;
+      estado.generacion += 1;
+      const ruta = leerEstadoRuta(doc.defaultView?.location?.search ?? "");
+      const respuesta = await solicitarPagina({ filtro: ruta.filtro, pagina: ruta.pagina });
+      if (!respuesta) return;
       $("estado-elegir").textContent = "";
-      pintarRevision();
-      irAPaso(2);
     } catch (error) {
       if (error?.name === "AbortError") return;
       estado.base64 = "";
@@ -166,6 +232,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     } finally {
       estado.ocupado = false;
       $("revisar").disabled = false;
+      if (estado.vista) $("cargar").disabled = Boolean(estado.vista.bloqueo) || estado.cargandoPagina;
     }
   }
 
@@ -178,16 +245,16 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   }
 
   function pintarFilas() {
-    const visibles = filtrarFilas(estado.vista.filas, estado.filtro);
-    const pagina = paginar(visibles, estado.pagina);
-    estado.pagina = pagina.pagina;
-    $("cuenta").textContent = visibles.length ? t("cuentaFilas", { cuenta: visibles.length }) : t("sinFilasFiltro");
+    const visibles = estado.vista.filas;
+    const pagina = paginaServidor(estado.vista);
+    $("cuenta").textContent = estado.vista.total_filtrado
+      ? t("cuentaFilas", { cuenta: estado.vista.total_filtrado }) : t("sinFilasFiltro");
     $("tabla-contenedor").hidden = visibles.length === 0;
     $("paginacion").hidden = pagina.total <= 1;
     $("pagina-estado").textContent = t("paginaEstado", { pagina: n(pagina.pagina), total: n(pagina.total) });
     $("anterior").disabled = pagina.pagina <= 1;
     $("siguiente").disabled = pagina.pagina >= pagina.total;
-    $("filas").replaceChildren(...pagina.elementos.map((fila) => {
+    $("filas").replaceChildren(...visibles.map((fila) => {
       const tr = doc.createElement("tr");
       const aceptada = fila.estado === "aceptada";
       tr.append(celda(aceptada ? n(fila.posicion) : "—", "carga-numero"));
@@ -211,7 +278,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     }));
   }
 
-  function pintarRevision() {
+  function pintarRevision(primera = false) {
     const v = estado.vista;
     $("resumen-fichero").textContent = t("resumenFichero", { fichero: v.nombre_fichero, categoria: estado.categoria.etiqueta });
     $("kpi-leidas").textContent = n(v.filas_leidas);
@@ -221,12 +288,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("bloqueo").hidden = !v.bloqueo;
     $("bloqueo").textContent = v.bloqueo ? textoBloqueo(textos, v.bloqueo) : "";
     $("excluir-marco").hidden = v.rechazadas === 0 || Boolean(v.bloqueo);
-    $("excluir").checked = false;
+    if (primera) $("excluir").checked = false;
     $("excluir-texto").textContent = t("excluir", { cuenta: v.rechazadas });
-    $("cargar").disabled = Boolean(v.bloqueo);
+    $("cargar").disabled = Boolean(v.bloqueo) || estado.cargandoPagina;
     $("error-revisar").hidden = true;
     $("estado-revisar").textContent = "";
-    doc.querySelectorAll('input[name="filtro"]').forEach((r) => { r.checked = r.value === estado.filtro; });
+    doc.querySelectorAll('input[name="filtro"]').forEach((r) => { r.checked = r.value === filtroControl(estado.filtro); });
     pintarFilas();
   }
 
@@ -239,7 +306,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   function pedirConfirmacion() {
     const v = estado.vista;
-    if (!v || v.bloqueo || estado.ocupado) return;
+    if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina) return;
     if (v.rechazadas > 0 && !$("excluir").checked) { mostrarErrorRevision(t("faltaExcluir")); return; }
     $("error-revisar").hidden = true;
     $("confirmar-texto").textContent = `${t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta })} ${v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : ""}`.trim();
@@ -248,14 +315,16 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   async function cargar() {
     $("confirmar").close?.();
-    if (estado.ocupado) return;
+    if (estado.ocupado || estado.cargandoPagina) return;
     estado.ocupado = true;
     $("cargar").disabled = true;
     $("otro-fichero").disabled = true;
     $("estado-revisar").textContent = t("cargando");
     try {
+      controladorConfirmacion = new AbortController();
       const recibo = await cliente.confirmar({ nombre: estado.nombre, base64: estado.base64,
-        categoria: claveCategoria(estado.categoria.referencia), excluir: $("excluir").checked, signal: nuevaPeticion() });
+        categoria: claveCategoria(estado.categoria.referencia), excluir: $("excluir").checked,
+        signal: controladorConfirmacion.signal });
       estado.base64 = "";
       pintarHecho(recibo);
       irAPaso(3);
@@ -264,6 +333,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       $("estado-revisar").textContent = "";
       mostrarErrorRevision(textoError(textos, error));
     } finally {
+      controladorConfirmacion = null;
       estado.ocupado = false;
       $("cargar").disabled = Boolean(estado.vista?.bloqueo);
       $("otro-fichero").disabled = false;
@@ -288,8 +358,10 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   }
 
   function reiniciar() {
-    controlador?.abort();
-    Object.assign(estado, { nombre: "", base64: "", vista: null, ocupado: false });
+    controladorVista?.abort();
+    estado.secuencia += 1;
+    Object.assign(estado, { nombre: "", base64: "", vista: null, ocupado: false,
+      cargandoPagina: false, peticionActual: null });
     $("fichero").value = "";
     $("resumen-errores").hidden = true;
     marcarCampo("fichero", "");
@@ -301,21 +373,26 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   $("form-elegir").addEventListener("submit", revisar);
   $("categorias-reintentar").addEventListener("click", () => void cargarCategorias());
+  function navegarPagina(filtro, pagina, { ruta = "pushState", enfocar = true } = {}) {
+    if (!estado.vista || estado.ocupado) return;
+    void solicitarPagina({ filtro, pagina, ruta }).then((respuesta) => {
+      if (!respuesta || !enfocar) return;
+      $("tabla-contenedor").hidden ? $("cuenta").focus() : $("tabla-contenedor").focus();
+    }).catch((error) => {
+      doc.querySelectorAll('input[name="filtro"]').forEach((radio) => {
+        radio.checked = radio.value === filtroControl(estado.filtro);
+      });
+      mostrarErrorRevision(textoError(textos, error));
+    });
+  }
   doc.querySelectorAll('input[name="filtro"]').forEach((radio) => radio.addEventListener("change", () => {
-    estado.filtro = radio.value;
-    estado.pagina = 1;
-    pintarFilas();
+    navegarPagina(filtroServidor(radio.value), 1);
   }));
   doc.querySelectorAll(".carga-kpi-boton").forEach((boton) => boton.addEventListener("click", () => {
-    estado.filtro = boton.dataset.filtro;
-    estado.pagina = 1;
-    const radio = doc.querySelector(`input[name="filtro"][value="${estado.filtro}"]`);
-    if (radio) radio.checked = true;
-    pintarFilas();
-    $("tabla-contenedor").hidden ? $("cuenta").focus() : $("tabla-contenedor").focus();
+    navegarPagina(filtroServidor(boton.dataset.filtro), 1);
   }));
-  $("anterior").addEventListener("click", () => { estado.pagina -= 1; pintarFilas(); });
-  $("siguiente").addEventListener("click", () => { estado.pagina += 1; pintarFilas(); });
+  $("anterior").addEventListener("click", () => navegarPagina(estado.filtro, Math.max(1, estado.pagina - 1)));
+  $("siguiente").addEventListener("click", () => navegarPagina(estado.filtro, estado.pagina + 1));
   $("excluir").addEventListener("change", () => { $("error-revisar").hidden = true; });
   $("cargar").addEventListener("click", pedirConfirmacion);
   $("confirmar-si").addEventListener("click", () => void cargar());
@@ -324,6 +401,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   $("otra-carga").addEventListener("click", reiniciar);
   $("ayuda-abrir").addEventListener("click", () => $("ayuda").showModal?.());
   $("ayuda-cerrar").addEventListener("click", () => $("ayuda").close?.());
-  doc.defaultView?.addEventListener("pagehide", () => controlador?.abort());
+  doc.defaultView?.addEventListener("popstate", () => {
+    const ruta = leerEstadoRuta(doc.defaultView.location.search);
+    if (!estado.base64) { estado.filtro = ruta.filtro; estado.pagina = ruta.pagina; return; }
+    navegarPagina(ruta.filtro, ruta.pagina, { ruta: null, enfocar: false });
+  });
+  doc.defaultView?.addEventListener("pagehide", () => {
+    controladorCategorias?.abort();
+    controladorVista?.abort();
+  });
   return Object.freeze({ iniciar: cargarCategorias });
 }

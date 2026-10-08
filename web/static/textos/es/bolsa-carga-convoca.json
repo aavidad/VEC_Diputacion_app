@@ -106,7 +106,8 @@
     "confirmarDescartes": {
       "one": "Se dejará fuera {cuenta} fila con errores.",
       "other": "Se dejarán fuera {cuenta} filas con errores."
-    }
+    },
+    "cargandoPagina": "Cargando filas…"
   },
   "campos": {
     "dni_nie": "Documento",
@@ -155,6 +156,7 @@
     "categoria_no_valida": "La categoría elegida ya no está disponible. Elija otra.",
     "bolsa_en_conflicto": "Ese fichero ya se cargó en otra bolsa. Revise la categoría elegida.",
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
-    "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática."
+    "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática.",
+    "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro."
   }
 }
