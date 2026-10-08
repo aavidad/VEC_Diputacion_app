@@ -111,6 +111,9 @@ func probarAltaE3PG(t *testing.T, ctx context.Context, runtime, segundo, admin *
 	if v.efecto.Esquema != esquemaEfectoAltaV3 {
 		t.Fatal("alta E3 sin esquema V3")
 	}
+	if !abierto {
+		exigirNumeroPersonasE3PG(t, v)
+	}
 	var forma struct {
 		Solicitud struct {
 			Periodo map[string]json.RawMessage `json:"periodo"`
@@ -148,6 +151,7 @@ func probarAltaE3PG(t *testing.T, ctx context.Context, runtime, segundo, admin *
 
 func probarReplayReinicioAltaE3PG(t *testing.T, ctx context.Context, runtime, admin *pgxpool.Pool, v vectorAltaE3PG) {
 	t.Helper()
+	exigirNumeroPersonasE3PG(t, v)
 	var inicio time.Time
 	if err := admin.QueryRow(ctx, `SELECT pg_postmaster_start_time()`).Scan(&inicio); err != nil {
 		t.Fatal(err)
@@ -192,6 +196,8 @@ func probarReplayReinicioAltaE3PG(t *testing.T, ctx context.Context, runtime, ad
 
 func probarColisionAltaE3PG(t *testing.T, ctx context.Context, segundo, admin *pgxpool.Pool, e3, colision vectorAltaE3PG) {
 	t.Helper()
+	exigirNumeroPersonasE3PG(t, e3)
+	exigirNumeroPersonasE3PG(t, colision)
 	if e3.efecto.Esquema != esquemaEfectoAltaV3 || colision.efecto.Esquema != esquemaEfectoAltaV3 {
 		t.Fatal("la colisión requiere dos altas E3")
 	}
@@ -239,6 +245,7 @@ func probarColisionAltaE3PG(t *testing.T, ctx context.Context, segundo, admin *p
 
 func probarConcurrenciaAltaE3PG(t *testing.T, ctx context.Context, runtime, segundo, admin *pgxpool.Pool, concurrente vectorAltaE3PG) {
 	t.Helper()
+	exigirNumeroPersonasE3PG(t, concurrente)
 	if concurrente.efecto.Esquema != esquemaEfectoAltaV3 {
 		t.Fatal("la carrera requiere un alta E3")
 	}
@@ -375,6 +382,43 @@ type vectorAltaE3PG struct {
 	sellos    sellosAltaCanonicos
 	alta      []byte
 	necesidad json.RawMessage
+}
+
+func exigirNumeroPersonasE3PG(t *testing.T, v vectorAltaE3PG) {
+	t.Helper()
+	var necesidad struct {
+		CatalogoVersion     uint64            `json:"catalogo_version"`
+		Campos              map[string]string `json:"campos"`
+		CatalogoInstantanea string            `json:"catalogo_instantanea"`
+	}
+	if err := json.Unmarshal(v.necesidad, &necesidad); err != nil ||
+		necesidad.CatalogoVersion != 2 || necesidad.Campos["numero_personas"] != "2" ||
+		bytes.Count(v.alta, []byte(`"numero_personas":"2"`)) != 1 {
+		t.Fatalf("E3 no selló número de personas dentro del efecto: %v", err)
+	}
+	var catalogo struct {
+		Version uint64 `json:"version"`
+		Causas  []struct {
+			Clave              string   `json:"clave"`
+			CamposPermitidos   []string `json:"campos_permitidos"`
+			CamposObligatorios []string `json:"campos_obligatorios"`
+		} `json:"causas"`
+	}
+	if err := json.Unmarshal(decodificarPublicoR3B(t, necesidad.CatalogoInstantanea), &catalogo); err != nil ||
+		catalogo.Version != 2 || len(catalogo.Causas) != 1 ||
+		catalogo.Causas[0].Clave != "acumulacion_tareas" {
+		t.Fatalf("instantánea E3 nueva no corresponde al catálogo de necesidad: %v", err)
+	}
+	permitido, obligatorio := false, false
+	for _, campo := range catalogo.Causas[0].CamposPermitidos {
+		permitido = permitido || campo == "numero_personas"
+	}
+	for _, campo := range catalogo.Causas[0].CamposObligatorios {
+		obligatorio = obligatorio || campo == "numero_personas"
+	}
+	if !permitido || !obligatorio {
+		t.Fatal("el catálogo sellado no exige número de personas")
+	}
 }
 
 func cargarVectorAltaE3PG(t *testing.T, ruta string) vectorAltaE3PG {

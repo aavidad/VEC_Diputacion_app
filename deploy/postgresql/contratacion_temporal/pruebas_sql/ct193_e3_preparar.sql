@@ -18,6 +18,7 @@ DECLARE
     v_causa jsonb;
     v_campos jsonb;
     v_causa_clave text := 'acumulacion_tareas';
+    v_catalogo_version integer := 2;
 BEGIN
     IF p_caso NOT IN ('e3_alta','abierto','colision','concurrente')
        OR p_jornada NOT BETWEEN 1 AND 2250
@@ -33,6 +34,7 @@ BEGIN
       FROM public.vectores_o2_05 WHERE caso=p_caso;
 
     v_campos:=jsonb_build_object(
+       'numero_personas','2',
        'justificacion_temporal','Refuerzo limitado.',
        'organica_codigo','100','funcional_codigo','200',
        'proyecto_gasto_codigo','300','porcentaje_financiacion','100');
@@ -44,10 +46,11 @@ BEGIN
        'regla_ref','regla:ct:acumulacion:v1',
        'fecha_fin','obligatoria',
        'maximo_meses',9,'ventana_meses',18,
-       'campos_permitidos','["justificacion_temporal","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
-       'campos_obligatorios','["justificacion_temporal","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb);
+       'campos_permitidos','["numero_personas","justificacion_temporal","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
+       'campos_obligatorios','["numero_personas","justificacion_temporal","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb);
     IF p_caso='abierto' THEN
        v_causa_clave:='sustitucion';
+       v_catalogo_version:=1;
        v_campos:=jsonb_build_object(
          'puesto_codigo','3388',
          'rpt_catalogo_ref','fuente:importacion:rpt:prueba',
@@ -67,7 +70,7 @@ BEGIN
     END IF;
     v_catalogo:=jsonb_build_object(
       'esquema','vec.ct.necesidades_alta.v1',
-      'referencia','catalogo:ct:paridad','version',1,'es_ejemplo',true,
+      'referencia','catalogo:ct:paridad','version',v_catalogo_version,'es_ejemplo',true,
       'fuente_ref','circular:ct:prueba','fuente_url','https://www.dipgra.es/ct',
       'jornada_referencia_minutos',2250,
       'jornada_fuente_ref','operador:ct:prueba',
@@ -79,7 +82,7 @@ BEGIN
          'causa_fin','reincorporacion_titular',
          'politica_fin',jsonb_build_object(
            'regla_ref','regla:ct:sustitucion:v1',
-           'catalogo_version',1,
+           'catalogo_version',v_catalogo_version,
            'catalogo_huella_sha256',encode(sha256(v_catalogo_bytes),'hex'),
            'fecha_fin','opcional',
            'causa_fin','reincorporacion_titular'));
@@ -87,7 +90,7 @@ BEGIN
     v_necesidad:=jsonb_build_object(
       'esquema','vec.ct.necesidad_alta.v1',
       'catalogo_ref','catalogo:ct:paridad',
-      'catalogo_version',1,
+      'catalogo_version',v_catalogo_version,
       'catalogo_huella_sha256',encode(sha256(v_catalogo_bytes),'hex'),
       'causa_clave',v_causa_clave,
       'periodo',v_periodo,
