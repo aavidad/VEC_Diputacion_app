@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261001-ct-a-i18n-v1";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-circular-v3";
 
 function diferida() {
   let resolver;

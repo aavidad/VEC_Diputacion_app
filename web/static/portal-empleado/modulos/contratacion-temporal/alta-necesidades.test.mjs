@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import {
   crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
   minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
-} from "./contrato.js";
-import { crearAltaClienteHTTP } from "./cliente-http-alta.js";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
+} from "./contrato.js?v=20261008-alta-circular-v3";
+import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
 import { montarAltaContratacionTemporal, renderizarAltaContratacionTemporal,
-  seleccionarPuestoPublicadoRPT } from "./vista.js";
-import { cargarMensajesNecesidadesAlta } from "./i18n.js";
+  seleccionarPuestoPublicadoRPT } from "./vista.js?v=20261008-alta-circular-v3";
+import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-circular-v3";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);

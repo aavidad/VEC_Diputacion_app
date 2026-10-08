@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   validarRespuestaEstadisticas,
   validarSerieEstadisticas,
-} from "./contrato-estadisticas.js?v=20261001-ct-a-i18n-v1";
+} from "./contrato-estadisticas.js?v=20261008-alta-circular-v3";
 
 function serie(inicio) {
   return { inicio, altas: 0, llamamientos: 0, formalizaciones: 0, cierres: 0, incidencias: 0 };

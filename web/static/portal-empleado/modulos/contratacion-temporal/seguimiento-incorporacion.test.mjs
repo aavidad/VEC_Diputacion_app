@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CLAVES_I18N_SEGUIMIENTO_INCORPORACION, montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { CLAVES_I18N_SEGUIMIENTO_INCORPORACION, montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-alta-circular-v3";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-circular-v3";
 
 const recibo = Object.freeze({
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",

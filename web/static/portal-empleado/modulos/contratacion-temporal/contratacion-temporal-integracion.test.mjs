@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-circular-v3";
 import {
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+} from "../../portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
 
 const directorio = new URL("./", import.meta.url);
 const [

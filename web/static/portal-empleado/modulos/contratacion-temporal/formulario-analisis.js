@@ -10,7 +10,7 @@ import {
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;

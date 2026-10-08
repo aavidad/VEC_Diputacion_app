@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js";
+import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js?v=20261008-alta-circular-v3";
 
 const solicitud = { expediente_ref: "expediente:ct:sintetico-009", version_observada: 7 };
 const pdf = "%PDF-1.7\nBorrador sintético\n%%EOF";

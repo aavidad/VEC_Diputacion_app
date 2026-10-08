@@ -10,7 +10,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261002-ct-fin-moad-v1";
+} from "./contrato.js?v=20261008-alta-circular-v3";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

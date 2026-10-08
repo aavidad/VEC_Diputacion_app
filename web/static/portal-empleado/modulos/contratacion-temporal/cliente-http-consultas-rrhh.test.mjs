@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   crearClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
-} from "./cliente-http.js";
+} from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",

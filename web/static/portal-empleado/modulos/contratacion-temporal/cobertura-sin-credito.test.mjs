@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-circular-v3";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js";
 
 const EXPEDIENTE = "expediente:ct:prueba:credito:001";

@@ -4,9 +4,9 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-ct-inicio-v1";
-const versionCircuito = "20261008-ct-inicio-v1";
-const versionVista = "20261008-ct-inicio-v1";
+const versionCoordinador = "20261008-alta-circular-v3";
+const versionCircuito = "20261008-alta-circular-v3";
+const versionVista = "20261008-alta-circular-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -79,12 +79,62 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   for (const hoja of [
     "./modulos/contratacion-temporal/cliente-http.js",
     "./modulos/contratacion-temporal/adaptador-http-expedientes.js",
-    "./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js",
-  ]) exigirVersiones(coordinador, hoja, version);
+  ]) exigirVersiones(coordinador, hoja, versionCoordinador);
+  for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
+    exigirVersiones(coordinador, hoja, version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
-  exigirVersiones(categorias, "./arranque.js", version);
-  exigirVersiones(arranque, "./cliente.js", version);
-  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", version);
+  exigirVersiones(categorias, "./arranque.js", versionCoordinador);
+  exigirVersiones(arranque, "./cliente.js", versionCoordinador);
+  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionCoordinador);
+});
+
+test("Alta por circular renueva su cadena y no reutiliza módulos sin las exportaciones nuevas", async () => {
+  const nombres = ["index.html", "portal.js", "portal-modulos-coordinador.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista.js",
+    "modulos/contratacion-temporal/i18n.js",
+    "modulos/contratacion-temporal/contrato.js",
+    "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json"];
+  const [html, portal, coordinador, cliente, altaHTTP, expedientes, tramitacion,
+    vista, i18n, contrato, interno, produccion, cache] = await Promise.all(
+    nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
+  const cohorte = "20261008-alta-circular-v3";
+  const antiguas = new Map([
+    ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
+    ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
+    ["./modulos/contratacion-temporal/cliente-http.js", "20261007-pantallas-textos-final-v1"],
+    ["./cliente-http-alta.js", "20261008-ct-necesidades-v2"],
+    ["./i18n.js", "20261007-pantallas-textos-final-v1"],
+  ]);
+  const aristas = [
+    [html, "/portal-empleado/portal.js"],
+    [html, "/portal-empleado/portal-modulos-coordinador.js"],
+    [portal, "./portal-modulos-coordinador.js"],
+    [coordinador, "./modulos/contratacion-temporal/cliente-http.js"],
+    [cliente, "./cliente-http-alta.js"],
+    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js"],
+    [expedientes, "./vista-expedientes-tramitacion.js"],
+    [tramitacion, "./vista.js"],
+    [vista, "./i18n.js"],
+    [vista, "./contrato.js"],
+  ];
+  for (const [fuente, ruta] of aristas) {
+    exigirVersiones(fuente, ruta, cohorte);
+    if (antiguas.has(ruta)) assert.ok(!fuente.includes(`${ruta}?v=${antiguas.get(ruta)}`), ruta);
+  }
+  exigirVersiones(cache, "/portal-empleado/portal.js", cohorte);
+  assert.match(altaHTTP, /obtenerCatalogosNecesidadesAlta/u);
+  assert.match(i18n, /export async function cargarMensajesNecesidadesAlta/u);
+  assert.match(contrato, /export const ESQUEMA_ALTA_NECESIDAD/u);
+  for (const contenido of [interno, produccion]) {
+    for (const idioma of ["es", "en"]) {
+      const ruta = `static/textos/${idioma}/contratacion-temporal-necesidades-alta.json`;
+      assert.equal(contenido.split(ruta).length - 1, 1, ruta);
+    }
+  }
 });

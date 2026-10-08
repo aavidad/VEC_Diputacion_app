@@ -99,15 +99,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-circular-v3"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261007-pantallas-textos-final-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261007-pantallas-textos-final-v1"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-circular-v3"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-circular-v3"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -118,7 +118,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-ct-inicio-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-alta-circular-v3");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -150,7 +150,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // el servidor responde a su consulta con una página válida.
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, i18n] = await Promise.all([
-      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=20261008-rpt-enlaces-v1"),
       import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-busqueda-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261007-pantallas-textos-final-v1"),
@@ -1118,7 +1118,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261007-pantallas-textos-final-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261008-alta-circular-v3");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

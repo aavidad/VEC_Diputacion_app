@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-circular-v3";
 
 const EXPEDIENTE = "expediente:ct:prueba:cobertura:eleccion";
 const CLAVE = "11111111-1111-4111-8111-111111111111";

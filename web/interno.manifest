@@ -465,6 +465,7 @@ static/textos/es/contratacion-temporal-ficha-lista.json
 static/textos/es/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/es/contratacion-temporal-llamamiento.json
 static/textos/es/contratacion-temporal-moad.json
+static/textos/es/contratacion-temporal-necesidades-alta.json
 static/textos/es/contratacion-temporal-subsanacion-reparos.json
 static/textos/es/contratacion-temporal-textos-vistas.json
 static/textos/es/contratacion-temporal-compatibilidad.json
@@ -477,6 +478,7 @@ static/textos/en/contratacion-temporal-ficha-lista.json
 static/textos/en/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/en/contratacion-temporal-llamamiento.json
 static/textos/en/contratacion-temporal-moad.json
+static/textos/en/contratacion-temporal-necesidades-alta.json
 static/textos/en/contratacion-temporal-subsanacion-reparos.json
 static/textos/en/contratacion-temporal-textos-vistas.json
 static/textos/en/contratacion-temporal-compatibilidad.json

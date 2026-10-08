@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-b-servicios-351-main-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";
-import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-circular-v3";
 import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-f-reconciliacion-324-v1";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {

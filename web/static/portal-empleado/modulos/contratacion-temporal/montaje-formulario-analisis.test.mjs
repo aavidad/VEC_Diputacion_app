@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { crearExpedienteContratacionTemporalPresentacion } from "./datos-presentacion.js";
-import { CAPACIDAD_CREAR_SOLICITUD } from "./contrato.js";
+import { CAPACIDAD_CREAR_SOLICITUD } from "./contrato.js?v=20261008-alta-circular-v3";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
 
 const HUELLA = "a".repeat(64);
 const FORM_DATA_ORIGINAL = globalThis.FormData;

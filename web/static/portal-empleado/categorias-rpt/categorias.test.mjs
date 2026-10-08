@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js";
-import { crearClienteCategorias } from "./cliente.js";
+import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-circular-v3";
+import { crearClienteCategorias } from "./cliente.js?v=20261008-alta-circular-v3";
 import { crearPuertoCategorias } from "./puerto.js";
 import { filtrarCategorias, TAMANO_PAGINA } from "./vista.js";
 

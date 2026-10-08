@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { validarPropuestaCobertura } from "./contrato-cobertura.js";
-import { validarCatalogosAlta } from "./contrato.js";
+import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import {
   preparacionPresentable, renderizarViasPreparacion, selectorPestanaPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
-import { renderizarAlta } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { renderizarAlta } from "./vista-expedientes-render.js?v=20261008-alta-circular-v3";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-circular-v3";
 
 const HUELLA = "a".repeat(64);
 const t = (clave) => clave;

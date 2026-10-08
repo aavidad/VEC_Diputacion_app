@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { raizPrueba, montar, seleccion } from "./formulario-llamamiento-pruebas.js";
+import { raizPrueba, montar, seleccion } from "./formulario-llamamiento-pruebas.js?v=20261008-alta-circular-v3";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
 
 function escenario({ radio = false, radioExtra = false, anterior = null } = {}) {

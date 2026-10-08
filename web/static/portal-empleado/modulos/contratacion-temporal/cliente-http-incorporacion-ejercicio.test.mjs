@@ -5,7 +5,7 @@ import {
   validarPreparacionIncorporacionEjercicio,
 } from "./contrato-incorporacion-ejercicio.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const solicitud = { expediente_ref: "expediente:ct:001", solicitud_personal_ref: "solicitud:personal:001",
   version_actual_expediente_observada: 8, motivo_clave: "incorporacion.ejercicio", documentos_refs: ["documento:ct:001"],

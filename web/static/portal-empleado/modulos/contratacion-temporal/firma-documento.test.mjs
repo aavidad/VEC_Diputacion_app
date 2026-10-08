@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { crearClienteAutoFirma, ErrorAutoFirma, paraPruebas } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento, ErrorFirmaDocumento, RUTA_CONSULTA_FIRMA_DOCUMENTO, RUTA_FIRMA_DOCUMENTO, validarEstadoFirmas } from "./firma-documento-cliente.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 
 const t = crearTraductorCircuitoFirma();

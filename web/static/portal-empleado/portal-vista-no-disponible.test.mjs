@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { moduloDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261006-arranque-rapido-v2";
+import { moduloDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 // Recorrido en cidonia del 06/10/2026 con tecnico_rrhh: Personal · Registro,

@@ -12,13 +12,13 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
+} from "./portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-circular-v3";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-circular-v3";
 import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {

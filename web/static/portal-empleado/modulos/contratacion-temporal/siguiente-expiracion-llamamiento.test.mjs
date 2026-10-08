@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVE, EXPEDIENTE, recibo, raizPrueba, montar, seleccion, comunicacionRegistrada, justificante, revisionManual,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-circular-v3";
 
 // Tras confirmar RRHH la expiración (sin respuesta en plazo), el paso ofrece
 // abrir el siguiente llamamiento igual que tras una renuncia.

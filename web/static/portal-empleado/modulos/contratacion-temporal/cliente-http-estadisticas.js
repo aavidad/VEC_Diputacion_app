@@ -10,8 +10,8 @@
 import {
   PERIODOS_ESTADISTICAS,
   validarRespuestaEstadisticas,
-} from "./contrato-estadisticas.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+} from "./contrato-estadisticas.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
 
 const traducirCT = crearTraductorContratacionTemporal();
 
