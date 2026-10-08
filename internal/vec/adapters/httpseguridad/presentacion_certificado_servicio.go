@@ -276,7 +276,8 @@ func (s *ServicioPresentacionCertificado) consumirPresentacion(
 	return CapsulaPresentacionCertificado{datos: &datosCapsulaPresentacionCertificado{
 		servicio: s, marcador: prueba.datos.marcador,
 		canalRef: prueba.datos.canalRef, estadoActual: copiarEstado(estado),
-		resultado: resultado, presentacion: presentacion,
+		inicioExplicito: inicio,
+		resultado:       resultado, presentacion: presentacion,
 	}}, nil
 }
 

@@ -167,13 +167,15 @@ type CapsulaPresentacionCertificado struct {
 }
 
 type datosCapsulaPresentacionCertificado struct {
-	servicio     *ServicioPresentacionCertificado
-	marcador     *marcaPeticionCertificadoActual
-	canalRef     string
-	estadoActual estadoIdentidadSesion
-	resultado    ResultadoRegistroPresentacionCertificado
-	presentacion DatosPresentacionCertificado
-	consumida    atomic.Bool
+	servicio        *ServicioPresentacionCertificado
+	marcador        *marcaPeticionCertificadoActual
+	canalRef        string
+	inicioExplicito bool
+	tokenEmitido    atomic.Bool
+	estadoActual    estadoIdentidadSesion
+	resultado       ResultadoRegistroPresentacionCertificado
+	presentacion    DatosPresentacionCertificado
+	consumida       atomic.Bool
 }
 
 type bloqueoSerializacionPresentacionCertificado struct{}

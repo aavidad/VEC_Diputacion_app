@@ -1,0 +1,7 @@
+{
+  "esquema": "vec.identidad.sesion-memoria-certificado.v1",
+  "referencia": "politica:identidad:sesion-memoria-certificado:ejemplo-v1",
+  "version": 1,
+  "ttl_segundos": 120,
+  "capacidad": 4096
+}
