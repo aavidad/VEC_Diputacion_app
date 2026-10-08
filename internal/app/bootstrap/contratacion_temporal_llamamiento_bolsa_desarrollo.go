@@ -578,8 +578,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoPersistido(ctx conte
 	vacio := ports.ReciboSolicitudLlamamientoBolsa{}
 	canonico, err := r.Registro.Canonico()
 	if err != nil || r.Registro.Tipo != "propuesta" || r.Registro.OperacionRef != c.OperacionRef ||
-		r.Registro.Propuesta == nil || r.Registro.Llamamiento == nil || r.Registro.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoAbierto ||
-		r.ConfirmadaEn.Before(c.SolicitadaEn) {
+		r.Registro.Propuesta == nil || r.Registro.Llamamiento == nil || r.Registro.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoAbierto {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
 	propuesta := r.Registro.Propuesta
@@ -607,9 +606,11 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoPersistido(ctx conte
 		VersionExpediente: c.VersionExpediente, CorrelacionRef: c.CorrelacionRef, Necesidad: datos.Necesidad, Bolsa: datos.Bolsa, Orden: datos.Orden, Politica: datos.Politica,
 		Resultado:         referenciaVersionadaPuenteLlamamientoDesarrollo(r.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canonico)),
 		PropuestaGenerada: true,
-		Propuesta:         referenciaVersionadaPuenteLlamamientoDesarrollo(propuesta.PropuestaRef, 1, propuesta.HuellaContenidoSHA256),
-		AccionEvento:      referenciaCatalogoPuenteLlamamientoDesarrollo("bolsa.llamamiento.evento.registrar"),
-		LlamamientoRef:    llamamiento.LlamamientoRef, SeleccionRef: seudonimo,
+		// Bolsa ya consumió autorización fresca para la misma operación, también en replay.
+		LlamamientoRecuperado: r.ConfirmadaEn.Before(c.SolicitadaEn),
+		Propuesta:             referenciaVersionadaPuenteLlamamientoDesarrollo(propuesta.PropuestaRef, 1, propuesta.HuellaContenidoSHA256),
+		AccionEvento:          referenciaCatalogoPuenteLlamamientoDesarrollo("bolsa.llamamiento.evento.registrar"),
+		LlamamientoRef:        llamamiento.LlamamientoRef, SeleccionRef: seudonimo,
 		RetencionSeleccion: referenciaCatalogoPuenteLlamamientoDesarrollo("retencion:seleccion:sintetica:desarrollo"),
 		OrdenSeleccionado:  uint32(propuesta.OrdenSeleccionado), ReciboRef: r.ReciboRef, AuditoriaRef: r.AuditoriaRef, EventoRef: r.EventoRef,
 		ConfirmadaEn: r.ConfirmadaEn, Procedencia: p.procedencia(c, f, "llamamiento", ahora),

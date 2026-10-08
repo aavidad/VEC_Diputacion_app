@@ -164,6 +164,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	autoridadAsignaciones              autoridadAsignacionesContratacionTemporalDesarrollo
 	registroDecisionesAnalisis         registroDecisionesAnalisisContratacionTemporalDesarrollo
 	instantaneasPorSolicitud           map[string]dominiovec.InstantaneaAutorizacion
+
+	instantaneaReanudacionSolicitudLlamamiento dominiovec.InstantaneaAutorizacion
 }
 
 var _ httpinterno.AutoridadContextoCanalAnalisisRRHH = (*soporteAltaContratacionTemporalDesarrollo)(nil)
