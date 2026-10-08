@@ -50,8 +50,13 @@ const (
 )
 
 var referenciaOpaca = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$`)
+var referenciaConvocatoria = regexp.MustCompile(`^cv1_[A-Za-z0-9_-]+_v[1-9][0-9]*$`)
 var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 var huellaCertificado = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+func convocatoriaRefValida(ref string) bool {
+	return len(ref) <= 200 && referenciaConvocatoria.MatchString(ref)
+}
 
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
@@ -60,6 +65,7 @@ type Actor struct {
 	PerfilRef         string
 	SesionRef         string
 	Idioma            string
+	Canal             string
 	ResultadoContexto dominiovec.ResultadoContextoActorRegistradoV2
 	Vinculo           dominiovec.VinculoAutenticacionActorV2
 	Lectura           *CapturaLectura
@@ -70,6 +76,7 @@ func (a Actor) Valido() bool {
 	return referenciaOpaca.MatchString(a.PersonaRef) &&
 		referenciaOpaca.MatchString(a.PerfilRef) &&
 		referenciaOpaca.MatchString(a.SesionRef) && (a.Idioma == "" || a.Idioma == "es" || a.Idioma == "en") &&
+		(a.Canal == "externa_personal" || a.Canal == "interna_corporativa") &&
 		a.ResultadoContexto.Validar() == nil && a.Vinculo.ValidarPara(a.ResultadoContexto) == nil &&
 		a.ResultadoContexto.Contexto.PersonaRef == a.PersonaRef &&
 		a.ResultadoContexto.Contexto.PerfilActivoRef == a.PerfilRef
@@ -99,14 +106,14 @@ type CapturaLectura struct {
 func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 	c := a.Lectura
 	ahora := time.Now().UTC()
-	if c == nil || strings.Contains(accion, ".rrhh.") != (c.Canal == "interno_rrhh") {
+	if c == nil || (strings.Contains(accion, ".rrhh.") && c.Canal != "interna_corporativa") {
 		return false
 	}
 	return a.Valido() && c != nil && c.PersonaRef == a.PersonaRef &&
-		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef &&
+		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef && c.Canal == a.Canal &&
 		c.CuentaRef == a.ResultadoContexto.Contexto.Instantanea.CuentaRef &&
 		c.Accion == accion && c.RecursoRef == recurso && c.Filtro == filtro &&
-		c.Finalidad != "" && (c.Canal == "externo_personal" || c.Canal == "interno_empleado" || c.Canal == "interno_rrhh") &&
+		c.Finalidad != "" && (c.Canal == "externa_personal" || c.Canal == "interna_corporativa") &&
 		referenciaOpaca.MatchString(c.CorrelacionRef) &&
 		referenciaOpaca.MatchString(c.AutenticacionRef) && huellaCertificado.MatchString(c.CertificadoHuellaSHA256) &&
 		c.RevisionPermisos > 0 && !c.EmitidaEn.IsZero() && !c.EmitidaEn.After(ahora) &&
@@ -133,7 +140,7 @@ type Declaracion struct {
 }
 
 func (p Presentacion) Validar() error {
-	if !referenciaOpaca.MatchString(p.ConvocatoriaRef) || !referenciaOpaca.MatchString(p.CategoriaRef) || p.CatalogoVersion == 0 ||
+	if !convocatoriaRefValida(p.ConvocatoriaRef) || !referenciaOpaca.MatchString(p.CategoriaRef) || len(p.CategoriaRef) > 200 || p.CatalogoVersion == 0 ||
 		!claveIdempotencia.MatchString(p.ClaveIdempotencia) || len(p.Declaraciones) > 32 {
 		return ErrSolicitudInvalida
 	}
@@ -217,7 +224,7 @@ type Solicitud struct {
 
 func (s Solicitud) Validar() error {
 	if !referenciaOpaca.MatchString(s.SolicitudRef) || !referenciaOpaca.MatchString(s.ReciboRef) ||
-		!referenciaOpaca.MatchString(s.ConvocatoriaRef) || !referenciaOpaca.MatchString(s.CategoriaRef) ||
+		!convocatoriaRefValida(s.ConvocatoriaRef) || !referenciaOpaca.MatchString(s.CategoriaRef) || len(s.CategoriaRef) > 200 ||
 		s.Categoria == "" || len(s.Categoria) > 200 ||
 		s.Version == 0 || s.RegistradaEn.IsZero() {
 		return ErrSolicitudInvalida
@@ -260,7 +267,7 @@ type Filtro struct {
 func (f Filtro) Validar() error {
 	if f.Limite < 1 || f.Limite > 100 ||
 		(f.Estado != "" && f.Estado != EstadoPendiente && f.Estado != EstadoAdmitidaAConvocatoria && f.Estado != EstadoIncorporada && f.Estado != EstadoRechazada) ||
-		(f.ConvocatoriaRef != "" && !referenciaOpaca.MatchString(f.ConvocatoriaRef)) || len(f.Cursor) > 512 {
+		(f.ConvocatoriaRef != "" && !convocatoriaRefValida(f.ConvocatoriaRef)) || len(f.Cursor) > 512 {
 		return ErrSolicitudInvalida
 	}
 	return nil

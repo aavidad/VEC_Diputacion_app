@@ -33,3 +33,20 @@ func TestMaterialPresentacionUnicoParaDecisionYEfecto(t *testing.T) {
 		t.Fatalf("referencia=%q error=%v", ref, err)
 	}
 }
+
+func TestMaterialDecisionLigaVersionMotivoYClave(t *testing.T) {
+	d := Decision{SolicitudRef: "solicitud_inscripcion_" + strings.Repeat("a", 64), Tipo: "rechazar", MotivoCodigo: "requisito.no.acreditado", VersionEsperada: 2, ClaveIdempotencia: "inscripcion-00000002"}
+	material, huella, err := MaterialDecision(d)
+	if err != nil || !bytes.Contains(material, []byte(`"version_esperada":2`)) || !bytes.Contains(material, []byte(`"motivo_codigo":"requisito.no.acreditado"`)) {
+		t.Fatalf("material=%s err=%v", material, err)
+	}
+	recurso, err := RecursoDecision(d, huella)
+	if err != nil || !bytes.Contains(recurso, []byte(d.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
+		t.Fatalf("recurso=%s err=%v", recurso, err)
+	}
+	d.VersionEsperada = 3
+	_, otra, err := MaterialDecision(d)
+	if err != nil || otra == huella {
+		t.Fatal("una version distinta conserva la misma huella")
+	}
+}
