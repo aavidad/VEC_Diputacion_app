@@ -18,6 +18,7 @@ import {
 } from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
 import { cargarTextos } from "../comun/textos.js";
+import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -26,6 +27,11 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+export function localizacionAdmitida(locale, indice = INDICE_IDIOMAS) {
+  if (typeof locale !== "string" || !indice?.idiomas?.some(({ localizacion }) => localizacion === locale)) return false;
+  try { return Intl.DateTimeFormat.supportedLocalesOf([locale]).length === 1; }
+  catch { return false; }
+}
 const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion"]);
 // El circuito se consulta al cargar CT. Un fallo transitorio de un catálogo no
 // debe quedar congelado en el módulo ni retrasar el arranque del portal.
@@ -121,7 +127,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261008-ct-inicio-v1");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261008-ct-centros-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
@@ -287,7 +293,7 @@ export function crearCoordinadorModulosPortal({
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function" || typeof cargarTramitesPropios !== "function"
-    || !["es-ES", "en-GB"].includes(locale)
+    || !localizacionAdmitida(locale)
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000
     || !Array.isArray(modulosDiferidos) || !modulosDiferidos.every((clave) => CLAVES_CARGA_PORTAL.includes(clave))) {
@@ -374,6 +380,62 @@ export function crearCoordinadorModulosPortal({
       const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
         fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
       });
+      const idiomaLista = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo;
+      let catalogoNombres = null;
+      let organizacionNombres = null;
+      let promesaCatalogoNombres = null;
+      let promesaOrganizacionNombres = null;
+      let etiquetasLista = { centros: new Map(), categorias: new Map(), textos: null };
+      const denegacionEstable = (error) => [401, 403, 404].includes(error?.estado ?? error?.status);
+      const nombresCatalogo = () => {
+        if (typeof cliente.obtenerCatalogosAlta !== "function") return Promise.resolve(null);
+        promesaCatalogoNombres ??= consultar(async (opciones) => {
+          try { return { respuesta: await cliente.obtenerCatalogosAlta(opciones) }; }
+          catch (error) { return { error }; }
+        }, "consultar catálogo CT").then(({ respuesta, error }) => {
+          if (error) throw error;
+          const catalogo = recursos.contrato.validarCatalogosAlta(respuesta);
+          catalogoNombres = {
+            centros: new Map(catalogo.centros.map(({ referencia, etiqueta }) => [referencia, etiqueta])),
+            categorias: new Map(catalogo.categorias.map(({ referencia, etiqueta }) => [referencia, etiqueta])),
+          };
+          return catalogoNombres;
+        }).catch((error) => {
+          if (!denegacionEstable(error)) promesaCatalogoNombres = null;
+          return null;
+        });
+        return promesaCatalogoNombres;
+      };
+      const nombresOrganizacion = () => {
+        promesaOrganizacionNombres ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1")
+          .then((modulo) => modulo.crearClienteHTTPEstructuraOrganizativaPublica({
+            fetchImpl: fetchDelEntorno() ?? globalThis.fetch,
+          }).obtener())
+          .then((estructura) => {
+            if (!Array.isArray(estructura?.unidades)) throw new TypeError("estructura de centros no válida");
+            organizacionNombres = centrosDeOrganizacion(estructura.unidades);
+            return organizacionNombres;
+          }).catch((error) => {
+            if (!denegacionEstable(error)) promesaOrganizacionNombres = null;
+            return null;
+          });
+        return promesaOrganizacionNombres;
+      };
+      const prepararNombresLista = async () => {
+        const [catalogo, organizacion, textos] = await Promise.all([
+          nombresCatalogo(), nombresOrganizacion(),
+          cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista }),
+        ]);
+        etiquetasLista = {
+          centros: new Map([...(organizacion ?? []), ...(catalogo?.centros ?? [])]),
+          categorias: catalogo?.categorias ?? new Map(),
+          textos,
+        };
+      };
+      const nombreCentro = (referencia) => etiquetasLista.centros.get(referencia)
+        ?? etiquetasLista.textos.traducir("general.lista_centro_nombre_no_disponible");
+      const nombreCategoria = (referencia) => etiquetasLista.categorias.get(referencia)
+        ?? etiquetasLista.textos.traducir("general.lista_categoria_nombre_no_disponible");
       let perfilIntervencion = false;
       if (consultarSesion !== null) {
         const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión CT");
@@ -415,6 +477,7 @@ export function crearCoordinadorModulosPortal({
       };
       return { contratacionTemporal: Object.freeze({
         modoLigero: true, cliente, esperarCuadroLigero, activarCompleto,
+        prepararNombresLista, nombreCentro, nombreCategoria,
         alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null,
         prepararResumenInicio, obtenerCuadroInicio: () => cuadroInicio,
       }) };
@@ -430,7 +493,7 @@ export function crearCoordinadorModulosPortal({
           .catch((error) => { promesaVista = null; throw error; });
       return promesaVista;
     };
-    const idiomaCircuito = locale === "en-GB" ? "en" : "es";
+    const idiomaCircuito = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo;
     let fasesCircuito;
     try {
       fasesCircuito = await cargarModuloConLimite(() => cargarFasesCircuito(idiomaCircuito),
@@ -1201,10 +1264,16 @@ export function crearCoordinadorModulosPortal({
             destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });
           };
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
-            raiz, cliente: temporal.cliente, idioma: locale === "en-GB" ? "en" : "es",
+            raiz, cliente: { consultarCuadroRRHH: async (solicitud, opciones) => {
+              const [pagina] = await Promise.all([
+                temporal.cliente.consultarCuadroRRHH(solicitud, opciones), temporal.prepararNombresLista(),
+              ]);
+              return pagina;
+            } }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
             filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
             alCambiarFiltroLista: opciones?.alCambiarFiltroLista ?? null,
+            nombreCentro: temporal.nombreCentro, nombreCategoria: temporal.nombreCategoria,
             abrirDetalle: ({ expedienteRef }) => montarVista("contratacion-temporal", raiz, { ...opciones, expedienteRef }),
             abrirAlta: esPerfilRRHH() ? () => montarVista("contratacion-temporal", raiz, { ...opciones, subvista: "alta" }) : null,
             mostrarError,
