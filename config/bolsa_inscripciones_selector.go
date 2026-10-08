@@ -15,5 +15,7 @@ func (c Config) BolsaInscripcionesActivo() (bool, error) {
 	c = c.Normalize()
 	return selectorDesarrolloActivo(c, c.BolsaInscripcionesEnabled,
 		ErrBolsaInscripcionesSelector, ErrBolsaInscripcionesActivacion,
-		catalogoRequerido{EnvBolsaInscripcionesLectorDatabaseURL, c.BolsaInscripcionesLectorPostgreSQL.dsn})
+		catalogoRequerido{EnvBolsaInscripcionesLectorDatabaseURL, c.BolsaInscripcionesLectorPostgreSQL.dsn},
+		catalogoRequerido{EnvBolsaInscripcionesEmpleadoLectorDatabaseURL, c.BolsaInscripcionesEmpleadoLectorPostgreSQL.dsn},
+		catalogoRequerido{EnvBolsaInscripcionesRRHHLectorDatabaseURL, c.BolsaInscripcionesRRHHLectorPostgreSQL.dsn})
 }
