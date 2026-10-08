@@ -233,7 +233,8 @@ type PaginaCuadroRRHH struct {
 	Totales         *TotalesCuadroRRHH      `json:"totales,omitempty"`
 	// FasesDesde (CT-000110) es opcional: instante de entrada en la fase
 	// actual de cada expediente, alineado con Expedientes y fuera del canon.
-	FasesDesde []time.Time `json:"-"`
+	FasesDesde    []time.Time            `json:"-"`
+	CapturasPlazo []CapturaPlazoFaseRRHH `json:"-"`
 	// Plazos es opcional y lo calcula la aplicación con el catálogo de
 	// reglas; alineado con Expedientes, nil donde la fase no tiene plazo.
 	Plazos []*PlazoFaseRRHH `json:"-"`

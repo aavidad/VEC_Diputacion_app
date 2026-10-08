@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -72,6 +73,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resultado, err := h.consultor.Consultar(r.Context(), orden)
 	if err != nil {
 		publicarAcuseLecturaFallida(w, err)
+		registrarFalloTecnicoMiBolsa(err)
 		responderError(w, err)
 		return
 	}
@@ -85,6 +87,45 @@ func publicarAcuseLecturaFallida(w http.ResponseWriter, err error) {
 		w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
 		w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
 	}
+}
+
+// El registro técnico usa únicamente códigos cerrados. El error puede
+// envolver mensajes de PostgreSQL o datos del expediente: nunca se imprime.
+func registrarFalloTecnicoMiBolsa(err error) {
+	estado := http.StatusInternalServerError
+	if esIndisponibilidad(err) {
+		estado = http.StatusServiceUnavailable
+	} else if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
+		return
+	}
+	etapa, sqlstate := "desconocida", ""
+	var diagnostico interface{ DiagnosticoLecturaMiBolsa() (string, string) }
+	if errors.As(err, &diagnostico) {
+		candidata, codigo := diagnostico.DiagnosticoLecturaMiBolsa()
+		switch candidata {
+		case "conexion", "configuracion", "consulta", "portal", "contacto", "ofertas", "commit":
+			etapa = candidata
+		}
+		if len(codigo) == 5 {
+			valido := true
+			for _, c := range codigo {
+				if c < '0' || (c > '9' && c < 'A') || c > 'Z' {
+					valido = false
+					break
+				}
+			}
+			if valido {
+				sqlstate = codigo
+			}
+		}
+	}
+	correlacion := ""
+	if acuse, ok := mibolsa.AcuseLecturaFallida(err); ok {
+		correlacion = acuse.CorrelacionRef
+	}
+	slog.Error("lectura de Mi Bolsa fallida", "operacion", "consultar_mi_bolsa",
+		"ruta", RutaMiBolsa, "estado_http", estado, "etapa", etapa,
+		"sqlstate", sqlstate, "correlacion_ref", correlacion)
 }
 
 // cuerpoAusente admite el GET sin cuerpo de HTTP/1.1 (http.NoBody) y el de

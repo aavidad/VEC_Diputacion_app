@@ -692,6 +692,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-expedientes.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-r-traza-idioma-v1");
+  for (const ruta of ["portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js", "portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-r-personas-v1");
   for (const ruta of [
     "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
     "modulos/contratacion-temporal/alta-renderer-puro.js",
@@ -855,6 +858,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
   assert.notEqual(versionPortal, "20261008-r-traza-idioma-v1");
+  assert.notEqual(versionPortal, "20261008-r-personas-fichas-v3");
 
 });
 

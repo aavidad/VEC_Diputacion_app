@@ -1,0 +1,12 @@
+# Despliegue: primero las SQL CT190 y CT191, después el binario.
+# Para habilitar edición: publicar la misma base Go (secuencia esperada 0,
+# sin ajustes CT148 previos), aprobar provisión CAS y arrancar el nuevo binario
+# con la configuración indicada en cmd/vec-preparar-catalogo-reglas-ct/README.md.
+# Mientras no haya base activa, las altas y cambios de fase continúan como
+# legado_sin_instantanea, con la calculadora actual preparada una vez por consulta.
+# La transición sólo cubre fases iniciadas hasta la primera activación.
+# No es obligatorio publicar para mantener la tramitación.
+# SHA256 783c577c36d4d1de42d42c7eb6d93c05761aa2d3e0ba559f253efd654e5ab2b6 deploy/postgresql/contratacion_temporal/migraciones/000190_instantanea_plazo_fase.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000190_instantanea_plazo_fase.up.sql
+# SHA256 63debe57d5f2a2813616010c10fa17bb5ae3f615ae79d46d93b7c32cd95e349e deploy/postgresql/contratacion_temporal/migraciones/000191_activacion_ajustes_reglas.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000191_activacion_ajustes_reglas.up.sql

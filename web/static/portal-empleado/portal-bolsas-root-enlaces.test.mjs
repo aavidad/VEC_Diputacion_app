@@ -101,6 +101,7 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
   assert.notEqual(versionRaiz, "20261008-bolsa-global-v2");
   assert.notEqual(versionRaiz, "20261008-alta-analisis-bolsa-v4");
   assert.notEqual(versionRaiz, "20261008-r-traza-idioma-v1");
+  assert.notEqual(versionRaiz, "20261008-r-personas-fichas-v3");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");
