@@ -40,6 +40,13 @@ func TestVistaPreviaCargaConvocaRechazaExtensionAjenaAlContenido(t *testing.T) {
 	}
 }
 
+func TestPreparadorVistaPreviaCargaConvocaPermaneceCerradoSinConsumidorDeLectura(t *testing.T) {
+	p := &preparadorCargaConvocaBolsa{}
+	if err := p.PrepararVistaPreviaCargaConvoca(context.Background()); !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) {
+		t.Fatalf("la vista previa se habilitó sin consumidor nominal: %v", err)
+	}
+}
+
 func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	perfil := "prf_bolsa_bback"
 	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil, false, false, true)
