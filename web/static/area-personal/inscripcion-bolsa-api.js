@@ -4,9 +4,10 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/u;
 const CLAVE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/u;
 const CODIGOS_ERROR = new Set(["plazo_cerrado", "catalogo_cambiado", "requisito_invalido",
   "declaracion_invalida", "solicitud_existente", "clave_en_conflicto"]);
+const ESTADOS_REQUISITO = new Set(["cumple", "no_cumple", "pendiente"]);
 const INSTANCIAS = Object.freeze({
-  abiertas: "vec.bolsa.inscripciones.abiertas.v1",
-  bolsa: "vec.bolsa.inscripcion.bolsa.v1",
+  abiertas: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+  convocatoria: "vec.bolsa.inscripcion.convocatoria.v1",
   propias: "vec.bolsa.inscripciones.propias.v1",
   recibo: "vec.bolsa.inscripcion.recibo.v1",
   detallePropio: "vec.bolsa.inscripcion.propias.detalle.v1",
@@ -34,10 +35,17 @@ function cursor(valor) {
 }
 
 function bolsaResumen(valor) {
-  return objeto(valor) && referencia(valor.bolsa_ref) && cadena(valor.categoria, 200)
+  return objeto(valor) && referencia(valor.convocatoria_ref) && cadena(valor.titulo, 200)
+    && cadena(valor.categorias_resumen, 500)
+    && Array.isArray(valor.categorias) && valor.categorias.length > 0 && valor.categorias.length <= 32
+    && valor.categorias.every((c) => objeto(c) && referencia(c.categoria_ref) && cadena(c.categoria, 200))
+    && new Set(valor.categorias.map((c) => c.categoria_ref)).size === valor.categorias.length
     && fecha(valor.plazo_inicio) && fecha(valor.plazo_fin)
+    && Date.parse(valor.plazo_inicio) <= Date.parse(valor.plazo_fin)
     && cadena(valor.requisitos_resumen, 2000) && Number.isSafeInteger(valor.catalogo_version)
     && valor.catalogo_version > 0
+    && typeof valor.puede_iniciar === "boolean"
+    && (valor.puede_iniciar || cadena(valor.impedimento_etiqueta, 500))
     && (valor.estado_solicitud_propia === undefined || valor.estado_solicitud_propia === null
       || ESTADOS.has(valor.estado_solicitud_propia))
     && (valor.solicitud_ref === undefined || valor.solicitud_ref === null || referencia(valor.solicitud_ref))
@@ -45,7 +53,8 @@ function bolsaResumen(valor) {
 }
 
 function solicitud(valor, { categoria = false } = {}) {
-  return objeto(valor) && referencia(valor.solicitud_ref) && referencia(valor.bolsa_ref)
+  return objeto(valor) && referencia(valor.solicitud_ref) && referencia(valor.convocatoria_ref)
+    && (valor.bolsa_ref === undefined || valor.bolsa_ref === null || referencia(valor.bolsa_ref))
     && (!categoria || cadena(valor.categoria, 200))
     && ESTADOS.has(valor.estado) && Number.isSafeInteger(valor.version) && valor.version > 0
     && fecha(valor.registrada_en) && referencia(valor.recibo_ref);
@@ -56,18 +65,25 @@ function validar(tipo, entrada) {
   if (!objeto(datos) || datos.esquema !== INSTANCIAS[tipo]) throw new TypeError("Respuesta de inscripción inválida");
   switch (tipo) {
     case "abiertas":
-      if (!Array.isArray(datos.bolsas) || datos.bolsas.length > 100 || datos.bolsas.some((b) => !bolsaResumen(b))
-        || !Number.isSafeInteger(datos.total) || datos.total < datos.bolsas.length || !cursor(datos.cursor_siguiente))
+      if (!Array.isArray(datos.convocatorias) || datos.convocatorias.length > 100
+        || datos.convocatorias.some((b) => !bolsaResumen(b))
+        || !Number.isSafeInteger(datos.total) || datos.total < datos.convocatorias.length || !cursor(datos.cursor_siguiente))
         throw new TypeError("Relación de bolsas inválida");
       break;
-    case "bolsa":
-      if (!objeto(datos.bolsa) || !referencia(datos.bolsa.bolsa_ref)
-        || !cadena(datos.bolsa.categoria, 200) || !fecha(datos.bolsa.plazo_inicio)
-        || !fecha(datos.bolsa.plazo_fin) || !Number.isSafeInteger(datos.bolsa.catalogo_version)
-        || datos.bolsa.catalogo_version < 1 || !Array.isArray(datos.bolsa.requisitos)
-        || datos.bolsa.requisitos.length > 32 || datos.bolsa.requisitos.some((r) =>
+    case "convocatoria":
+      if (!bolsaResumen(datos.convocatoria)
+        || !Array.isArray(datos.convocatoria.requisitos)
+        || datos.convocatoria.requisitos.length > 32 || datos.convocatoria.requisitos.some((r) =>
           !objeto(r) || !cadena(r.codigo, 100) || !cadena(r.descripcion, 2000)
-          || typeof r.obligatorio !== "boolean")) throw new TypeError("Ficha de bolsa inválida");
+          || typeof r.obligatorio !== "boolean" || !ESTADOS_REQUISITO.has(r.estado)
+          || !cadena(r.motivo_codigo, 100) || !cadena(r.motivo_etiqueta, 500)
+          || (r.procedencia_ref !== undefined && r.procedencia_ref !== null && !referencia(r.procedencia_ref))
+          || (r.hito_cumplimiento !== undefined && r.hito_cumplimiento !== null && !cadena(r.hito_cumplimiento, 100))
+          || (r.hito_etiqueta !== undefined && r.hito_etiqueta !== null && !cadena(r.hito_etiqueta, 200))
+          || Boolean(r.hito_cumplimiento) !== Boolean(r.hito_etiqueta)
+          || (r.hito_fecha !== undefined && r.hito_fecha !== null && !fecha(r.hito_fecha)))
+        || new Set(datos.convocatoria.requisitos.map((r) => r.codigo)).size !== datos.convocatoria.requisitos.length)
+        throw new TypeError("Ficha de convocatoria inválida");
       break;
     case "propias":
       if (!Array.isArray(datos.solicitudes) || datos.solicitudes.length > 100
@@ -128,14 +144,14 @@ function parametrosPagina({ limite = 20, cursor: siguiente = "" } = {}) {
 export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({
     async abiertas(opciones = {}) {
-      const datos = await peticion(`${BASE}/inscripciones/bolsas-abiertas?${parametrosPagina(opciones)}`,
+      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas?${parametrosPagina(opciones)}`,
         { fetchImpl, signal: opciones.signal });
       return validar("abiertas", datos);
     },
-    async bolsa(bolsaRef, { signal } = {}) {
-      const datos = await peticion(`${BASE}/inscripciones/bolsas-abiertas/${segmento(bolsaRef)}`, { fetchImpl, signal });
-      const validada = validar("bolsa", datos);
-      if (validada.bolsa.bolsa_ref !== bolsaRef) throw new TypeError("Ficha de otra bolsa");
+    async convocatoria(convocatoriaRef, { signal } = {}) {
+      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas/${segmento(convocatoriaRef)}`, { fetchImpl, signal });
+      const validada = validar("convocatoria", datos);
+      if (validada.convocatoria.convocatoria_ref !== convocatoriaRef) throw new TypeError("Ficha de otra convocatoria");
       return validada;
     },
     async propias(opciones = {}) {
@@ -149,8 +165,8 @@ export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch } = 
       if (validado.solicitud.solicitud_ref !== solicitudRef) throw new TypeError("Solicitud propia distinta");
       return validado;
     },
-    async inscribir({ bolsaRef, claveIdempotencia, catalogoVersion, declaraciones = [], signal } = {}) {
-      if (!referencia(bolsaRef) || !CLAVE.test(claveIdempotencia ?? "")
+    async inscribir({ convocatoriaRef, categoriaRef, claveIdempotencia, catalogoVersion, declaraciones = [], signal } = {}) {
+      if (!referencia(convocatoriaRef) || !referencia(categoriaRef) || !CLAVE.test(claveIdempotencia ?? "")
         || !Number.isSafeInteger(catalogoVersion) || catalogoVersion < 1
         || !Array.isArray(declaraciones) || declaraciones.length > 32
         || new Set(declaraciones.map((d) => d?.requisito_codigo)).size !== declaraciones.length
@@ -158,11 +174,11 @@ export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch } = 
           || (d.evidencia_ref !== undefined && !referencia(d.evidencia_ref)))) throw new TypeError("Solicitud inválida");
       const datos = await peticion(`${BASE}/mi-bolsa/inscripciones`, {
         metodo: "POST", fetchImpl, signal,
-        cuerpo: { bolsa_ref: bolsaRef, clave_idempotencia: claveIdempotencia,
+        cuerpo: { convocatoria_ref: convocatoriaRef, categoria_ref: categoriaRef, clave_idempotencia: claveIdempotencia,
           catalogo_version: catalogoVersion, declaraciones },
       });
       const validado = validar("recibo", datos);
-      if (validado.bolsa_ref !== bolsaRef) throw new TypeError("Recibo de otra bolsa");
+      if (validado.convocatoria_ref !== convocatoriaRef) throw new TypeError("Recibo de otra convocatoria");
       return validado;
     },
   });

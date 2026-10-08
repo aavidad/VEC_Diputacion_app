@@ -10,7 +10,7 @@ const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
 function leerId(url) {
   const valor = new URL(url).searchParams.get("id") ?? "";
   if (valor === "mis-solicitudes") return { tipo: "propias" };
-  if (valor.startsWith("bolsa:") && REFERENCIA.test(valor.slice(6))) return { tipo: "bolsa", ref: valor.slice(6) };
+  if (valor.startsWith("convocatoria:") && REFERENCIA.test(valor.slice(13))) return { tipo: "bolsa", ref: valor.slice(13) };
   if (valor.startsWith("solicitud:") && REFERENCIA.test(valor.slice(10))) return { tipo: "solicitud", ref: valor.slice(10) };
   return null;
 }
@@ -44,16 +44,20 @@ function cabecera(textos, ayuda) {
 function fecha(textos, valor) {
   return esc(textos.fecha(valor, { dateStyle: "medium", timeZone: "Europe/Madrid" }));
 }
+function fechaHora(textos, valor) {
+  return esc(textos.fecha(valor, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }));
+}
 
 function tarjetaAbierta(bolsa, textos) {
   const t = (clave) => esc(textos.traducir(`vista.${clave}`));
   const propia = bolsa.estado_solicitud_propia;
   const enlace = propia && bolsa.solicitud_ref
     ? `<button type="button" class="boton-secundario" data-inscripcion-accion="solicitud" data-ref="${esc(bolsa.solicitud_ref)}">${t("verSolicitud")}</button>`
-    : `<button type="button" class="boton-primario" data-inscripcion-accion="bolsa" data-ref="${esc(bolsa.bolsa_ref)}">${t("verBolsa")}</button>`;
-  return `<article class="panel portal-mi-bolsa__bolsa"><div class="cabecera-panel"><h3>${esc(bolsa.categoria)}</h3>
+    : `<button type="button" class="boton-primario" data-inscripcion-accion="bolsa" data-ref="${esc(bolsa.convocatoria_ref)}">${t("verBolsa")}</button>`;
+  return `<article class="panel portal-mi-bolsa__bolsa"><div class="cabecera-panel"><h3>${esc(bolsa.titulo)}</h3>
     ${propia ? `<span class="estado-chip info">${t(`estado_${propia}`)}</span>` : ""}</div>
-    <div class="cuerpo-panel"><dl class="lista-datos"><div><dt>${t("plazo")}</dt><dd>${fecha(textos, bolsa.plazo_inicio)} – ${fecha(textos, bolsa.plazo_fin)}</dd></div>
+    <div class="cuerpo-panel"><dl class="lista-datos"><div><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div>
+    <div><dt>${t("categoria")}</dt><dd>${esc(bolsa.categorias_resumen)}</dd></div>
     <div><dt>${t("requisitos")}</dt><dd>${esc(bolsa.requisitos_resumen)}</dd></div></dl>
     <div class="acciones-vista">${enlace}</div></div></article>`;
 }
@@ -64,6 +68,7 @@ function vistaAbiertas(estado, textos) {
   if (estado.error) return `<div class="cuerpo-panel" role="alert"><p>${esc(estado.error)}</p>
     <button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${t("reintentar")}</button></div>`;
   if (!estado.abiertas.length) return `<div class="cuerpo-panel vacio-controlado" role="status"><p>${t("vacio")}</p>
+    <button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>
     <button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${t("actualizar")}</button></div>`;
   return `<div class="cuerpo-panel"><div class="acciones-vista"><button type="button" class="boton-secundario"
       data-inscripcion-accion="propias">${t("misSolicitudes")}</button></div>
@@ -75,23 +80,36 @@ function vistaBolsa(estado, textos) {
   const t = (clave) => esc(textos.traducir(`vista.${clave}`));
   const bolsa = estado.bolsa;
   if (!bolsa) return "";
-  const pendiente = CLAVES_PENDIENTES.has(bolsa.bolsa_ref);
+  const pendiente = CLAVES_PENDIENTES.has(bolsa.convocatoria_ref);
+  const categoria = bolsa.categorias.find((c) => c.categoria_ref === estado.categoriaRef);
   const requisitos = bolsa.requisitos.map((requisito) => `<li>${esc(requisito.descripcion)}${requisito.obligatorio
     ? ` <span class="estado-chip aviso">${t("obligatorio")}</span>` : ""}
+    <span class="estado-chip ${requisito.estado === "cumple" ? "exito" : requisito.estado === "no_cumple" ? "peligro" : "aviso"}">${t(`requisito_${requisito.estado}`)}</span>
+    <p>${esc(requisito.motivo_etiqueta)}</p>
+    ${requisito.hito_etiqueta ? `<p>${t("cuandoExigido")}: ${esc(requisito.hito_etiqueta)}${requisito.hito_fecha ? ` · ${fecha(textos, requisito.hito_fecha)}` : ""}</p>` : ""}
     <label class="opcion-check"><input type="checkbox" data-inscripcion-requisito="${esc(requisito.codigo)}"
-      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente ? "disabled" : ""}><span>${t("declarar")}</span></label></li>`).join("");
+      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente || requisito.estado === "no_cumple" ? "disabled" : ""}><span>${t("declarar")}: ${esc(requisito.descripcion)}</span></label></li>`).join("");
   const declarados = bolsa.requisitos.filter((requisito) => estado.declaraciones.has(requisito.codigo));
-  const enviando = estado.enviando || ENVIOS_ACTIVOS.has(bolsa.bolsa_ref);
+  const enviando = estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref);
   return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
-    <h3 tabindex="-1">${esc(bolsa.categoria)}</h3><dl class="lista-datos"><div><dt>${t("plazo")}</dt>
-      <dd>${fecha(textos, bolsa.plazo_inicio)} – ${fecha(textos, bolsa.plazo_fin)}</dd></div></dl>
+    <h3 tabindex="-1">${esc(bolsa.titulo)}</h3><dl class="lista-datos"><div><dt>${t("plazo")}</dt>
+      <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div></dl>
+    <div class="campo"><label for="categoria-inscripcion-bolsa">${t("categoria")}</label>
+      <select id="categoria-inscripcion-bolsa" data-inscripcion-categoria ${pendiente || bolsa.categorias.length === 1 ? "disabled" : ""}>
+      ${bolsa.categorias.length > 1 ? `<option value="">${t("elegirCategoria")}</option>` : ""}
+      ${bolsa.categorias.map((c) => `<option value="${esc(c.categoria_ref)}" ${c.categoria_ref === estado.categoriaRef ? "selected" : ""}>${esc(c.categoria)}</option>`).join("")}
+      </select></div>
     <section class="panel"><div class="cabecera-panel"><h4>${t("requisitos")}</h4></div><div class="cuerpo-panel">${requisitos ? `<ul>${requisitos}</ul>` : `<p>${t("sinRequisitos")}</p>`}</div></section>
-    ${estado.revision ? `<section class="panel"><div class="cabecera-panel"><h4>${t("revisarTitulo")}</h4></div><div class="cuerpo-panel">
+    ${estado.revision ? `<section class="panel"><div class="cabecera-panel"><h4 tabindex="-1" data-inscripcion-revision>${t("revisarTitulo")}</h4></div><div class="cuerpo-panel">
+      <dl class="lista-datos"><div><dt>${t("convocatoria")}</dt><dd>${esc(bolsa.titulo)}</dd></div>
+      <div><dt>${t("categoria")}</dt><dd>${esc(categoria?.categoria)}</dd></div>
+      <div><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div></dl>
       <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p><p>${t("declaracionesRevisar")}</p>
-      ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
+      ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(`requisito_${requisito.estado}`)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
       <div class="acciones-vista"><button type="button" class="boton-secundario" data-inscripcion-accion="corregir" ${enviando ? "disabled" : ""}>${t("corregir")}</button>
       <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
-      : `<div class="acciones-vista"><button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio ? "disabled" : ""}>${t("solicitar")}</button></div>`}
+      : `<div class="acciones-vista">${bolsa.puede_iniciar ? "" : `<p role="status">${esc(bolsa.impedimento_etiqueta)}</p>`}
+        <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
     ${estado.error ? `<p role="alert">${esc(estado.error)}</p><button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>` : ""}</div>`;
 }
 
@@ -110,13 +128,14 @@ function vistaSolicitud(estado, textos) {
 
 function vistaPropias(estado, textos) {
   const t = (clave) => esc(textos.traducir(`vista.${clave}`));
+  if (estado.error) return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button></div>`;
   if (!estado.propias.length) return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
     <p role="status">${t("sinSolicitudes")}</p></div>`;
   return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
     <h3>${t("misSolicitudes")}</h3><button type="button" class="boton-secundario" data-inscripcion-accion="actualizar-propias">${t("actualizarSolicitudes")}</button>
     <div class="marco-participaciones">${estado.propias.map((solicitud) =>
     `<article class="panel portal-mi-bolsa__bolsa"><div class="cabecera-panel"><h4>${esc(solicitud.categoria)}</h4>
-      <span class="estado-chip info">${t(`estado_${solicitud.estado}`)}</span></div><div class="cuerpo-panel">
+      <span class="estado-chip ${solicitud.estado === "rechazada" ? "peligro" : solicitud.estado === "incorporada" ? "exito" : "aviso"}">${t(`estado_${solicitud.estado}`)}</span></div><div class="cuerpo-panel">
       <p>${fecha(textos, solicitud.registrada_en)}</p><button type="button" class="boton-secundario" data-inscripcion-accion="solicitud" data-ref="${esc(solicitud.solicitud_ref)}">${t("verSolicitud")}</button>
       </div></article>`).join("")}</div>${estado.cursorPropias ? `<button type="button" class="boton-secundario" data-inscripcion-accion="mas-propias">${t("mostrarMas")}</button>` : ""}</div>`;
 }
@@ -124,11 +143,11 @@ function vistaPropias(estado, textos) {
 export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscripcionBolsa(),
   idioma, ventana = globalThis.window, anunciar = () => {}, textoBase = () => "" } = {}) {
   if (!contenedor?.addEventListener || !contenedor?.removeEventListener || !ventana?.location
-    || !ventana?.history || !cliente?.abiertas || !cliente?.bolsa || !cliente?.propias
+    || !ventana?.history || !cliente?.abiertas || !cliente?.convocatoria || !cliente?.propias
     || !cliente?.detallePropio || !cliente?.inscribir) throw new TypeError("Montaje de inscripción inválido");
   const estado = { tipo: "abiertas", carga: true, abiertas: [], propias: [], total: 0,
     cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", revision: false,
-    enviando: false, comprobarEnvio: false, ayuda: false, declaraciones: new Set() };
+    enviando: false, comprobarEnvio: false, ayuda: false, declaraciones: new Set(), categoriaRef: "" };
   let textos = null;
   let montado = true;
   let consulta = null;
@@ -168,7 +187,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
     try {
       const datos = await cliente.abiertas({ cursor: mas ? estado.cursor : "", signal });
       if (!montado || signal.aborted || version !== secuencia) return;
-      estado.abiertas = mas ? [...estado.abiertas, ...datos.bolsas] : datos.bolsas;
+      estado.abiertas = mas ? [...estado.abiertas, ...datos.convocatorias] : datos.convocatorias;
       estado.total = datos.total; estado.cursor = datos.cursor_siguiente;
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
@@ -190,11 +209,13 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
     estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.bolsa = null;
     estado.revision = false; estado.comprobarEnvio = false; estado.declaraciones = new Set(); pintar();
     try {
-      const datos = await cliente.bolsa(ref, { signal });
+      const datos = await cliente.convocatoria(ref, { signal });
       if (!montado || signal.aborted || version !== secuencia) return;
-      estado.bolsa = datos.bolsa;
+      estado.bolsa = datos.convocatoria;
       const pendiente = CLAVES_PENDIENTES.get(ref);
       if (pendiente) estado.declaraciones = new Set(pendiente.declaraciones.map((d) => d.requisito_codigo));
+      estado.categoriaRef = pendiente?.categoriaRef ?? (datos.convocatoria.categorias.length === 1
+        ? datos.convocatoria.categorias[0].categoria_ref : "");
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
@@ -246,41 +267,47 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
 
   async function confirmar() {
     const bolsa = estado.bolsa;
-    if (!bolsa || !estado.revision || estado.enviando || ENVIOS_ACTIVOS.has(bolsa.bolsa_ref)
+    const categoria = bolsa?.categorias.find((c) => c.categoria_ref === estado.categoriaRef);
+    if (!bolsa || !categoria || !bolsa.puede_iniciar || !estado.revision || estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref)
       || estado.comprobarEnvio) return;
     const version = secuencia;
-    let peticion = CLAVES_PENDIENTES.get(bolsa.bolsa_ref);
+    let peticion = CLAVES_PENDIENTES.get(bolsa.convocatoria_ref);
     if (!peticion) {
       const clave = globalThis.crypto?.randomUUID?.();
       if (!clave) { estado.error = t("error"); pintar(); return; }
-      peticion = Object.freeze({ clave, catalogoVersion: bolsa.catalogo_version,
+      peticion = Object.freeze({ clave, catalogoVersion: bolsa.catalogo_version, categoriaRef: categoria.categoria_ref,
         declaraciones: Object.freeze(bolsa.requisitos.filter((r) => estado.declaraciones.has(r.codigo))
           .map((r) => Object.freeze({ requisito_codigo: r.codigo }))) });
-      CLAVES_PENDIENTES.set(bolsa.bolsa_ref, peticion);
+      CLAVES_PENDIENTES.set(bolsa.convocatoria_ref, peticion);
     }
-    ENVIOS_ACTIVOS.add(bolsa.bolsa_ref);
+    ENVIOS_ACTIVOS.add(bolsa.convocatoria_ref);
     estado.enviando = true; estado.error = ""; pintar();
     try {
-      const recibo = await cliente.inscribir({ bolsaRef: bolsa.bolsa_ref,
+      const recibo = await cliente.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
+        categoriaRef: peticion.categoriaRef,
         catalogoVersion: peticion.catalogoVersion, claveIdempotencia: peticion.clave,
         declaraciones: peticion.declaraciones });
-      CLAVES_PENDIENTES.delete(bolsa.bolsa_ref);
+      CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado) return;
       if (version !== secuencia) {
-        if (estado.tipo === "bolsa" && estado.bolsa?.bolsa_ref === bolsa.bolsa_ref) {
+        if (estado.tipo === "bolsa" && estado.bolsa?.convocatoria_ref === bolsa.convocatoria_ref) {
           estado.comprobarEnvio = true; estado.error = t("envioComprobar");
         }
         return;
       }
-      if (estado.tipo !== "bolsa" || estado.bolsa?.bolsa_ref !== bolsa.bolsa_ref) return;
-      estado.solicitud = { ...recibo, categoria: bolsa.categoria }; estado.tipo = "solicitud"; estado.revision = false;
+      if (estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
+      estado.solicitud = { ...recibo, categoria: categoria.categoria }; estado.tipo = "solicitud"; estado.revision = false;
       cambiarURL(`solicitud:${recibo.solicitud_ref}`); anunciar(t("registrada"));
     } catch (error) {
-      if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.bolsa_ref !== bolsa.bolsa_ref) return;
+      if (error?.status === 400 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
+      if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
+      if (error?.status === 401 || error?.status === 403) {
+        estado.bolsa = null; estado.declaraciones.clear(); estado.revision = false;
+      }
     } finally {
-      ENVIOS_ACTIVOS.delete(bolsa.bolsa_ref);
-      if (montado && (version === secuencia || (estado.tipo === "bolsa" && estado.bolsa?.bolsa_ref === bolsa.bolsa_ref))) {
+      ENVIOS_ACTIVOS.delete(bolsa.convocatoria_ref);
+      if (montado && (version === secuencia || (estado.tipo === "bolsa" && estado.bolsa?.convocatoria_ref === bolsa.convocatoria_ref))) {
         estado.enviando = false; pintar();
       }
     }
@@ -299,18 +326,30 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
       else if (id?.tipo === "solicitud") void cargarSolicitud(id.ref);
       else if (id?.tipo === "propias") void propias();
       else void abiertas();
-    } else if (accion === "bolsa" && REFERENCIA.test(ref ?? "")) { cambiarURL(`bolsa:${ref}`); void cargarBolsa(ref); }
+    } else if (accion === "bolsa" && REFERENCIA.test(ref ?? "")) { cambiarURL(`convocatoria:${ref}`); void cargarBolsa(ref); }
     else if (accion === "solicitud" && REFERENCIA.test(ref ?? "")) { cambiarURL(`solicitud:${ref}`); void cargarSolicitud(ref); }
     else if (accion === "propias") { cambiarURL("mis-solicitudes"); void propias(); }
     else if (accion === "actualizar-propias") void propias();
     else if (accion === "mas" && estado.cursor) void abiertas({ mas: true });
     else if (accion === "mas-propias" && estado.cursorPropias) void propias({ mas: true });
-    else if (accion === "revisar" && estado.bolsa) { estado.revision = true; pintar(); }
-    else if (accion === "corregir") { estado.revision = false; pintar(); }
+    else if (accion === "revisar" && estado.bolsa?.puede_iniciar && estado.categoriaRef) {
+      estado.revision = true; pintar();
+      contenedor.querySelector?.("[data-inscripcion-revision]")?.focus?.({ preventScroll: true });
+    }
+    else if (accion === "corregir") {
+      estado.revision = false; pintar(); contenedor.querySelector?.("h3[tabindex]")?.focus?.({ preventScroll: true });
+    }
     else if (accion === "confirmar") void confirmar();
   }
 
   function cambiar(evento) {
+    if (evento.target?.matches?.("[data-inscripcion-categoria]") && estado.tipo === "bolsa") {
+      if (CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
+      const ref = evento.target.value;
+      estado.categoriaRef = estado.bolsa?.categorias.some((c) => c.categoria_ref === ref) ? ref : "";
+      pintar(); contenedor.querySelector?.("[data-inscripcion-categoria]")?.focus?.({ preventScroll: true });
+      return;
+    }
     const casilla = evento.target?.closest?.("[data-inscripcion-requisito]");
     if (!casilla || !contenedor.contains(casilla) || estado.tipo !== "bolsa") return;
     const codigo = casilla.dataset.inscripcionRequisito;
