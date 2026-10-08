@@ -95,3 +95,24 @@ test("denegación borra lista y la respuesta tardía no vuelve a mostrarla", asy
   vista.desmontar();
   assert.equal(raiz.innerHTML, "");
 });
+
+test("RRHH no puede confirmar admisión con un requisito obligatorio pendiente", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true };
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    historial: { pushState() {} },
+    cliente: { listar: async () => ({ solicitudes: [solicitud], total: 1, cursor_siguiente: null }),
+      detalle: async () => ({ ...detalle, requisitos: [{ ...detalle.requisitos[0], estado: "pendiente" }] }),
+      motivos: async () => ({ motivos: [] }), decidir: async () => { throw new Error("no debe decidir"); },
+      incorporar: async () => { throw new Error("no debe incorporar"); } } });
+  await new Promise((r) => setTimeout(r, 0));
+  const accion = { dataset: { inscripcionAbrir: "solicitud:1" }, matches: () => false };
+  eventos.get("click")({ target: { closest: () => accion } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /data-inscripcion-decidir="admitir" disabled/u);
+  assert.match(raiz.innerHTML, /Pendiente de comprobar/u);
+  vista.desmontar();
+});
