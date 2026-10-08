@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion/migraciones/000062_version_rol_bolsa_base.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_v3.up.sql
+deploy/postgresql/autorizacion/migraciones/000063_version_rol_bolsa_cas.up.sql
