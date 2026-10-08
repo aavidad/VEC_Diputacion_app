@@ -1,4 +1,4 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v6";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261009-inscripcion-v1";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261005-b4b-v1";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
