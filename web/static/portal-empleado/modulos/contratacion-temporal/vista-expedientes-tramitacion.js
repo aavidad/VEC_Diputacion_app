@@ -10,15 +10,15 @@ import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-rep
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-ct-necesidades-v2";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-ct-necesidades-v2";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js?v=20261008-ct-inicio-v1";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261007-pantallas-textos-final-v1";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-ct-necesidades-v2";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
