@@ -106,3 +106,10 @@ Sin publicación de necesidades configurada, el catálogo v2 responde con una ca
 El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.
 
 El corte no lleva SQL ni configuración nueva. La proyección nominal de capacidades por recurso de V sigue pendiente para evitar también consultas de secciones sin permiso. No se incorporan los consumidores opcionales de S mientras falte su proveedor nominal: retiraban funciones disponibles de CT y Bolsa.
+
+
+## Validación de nuevas peticiones — 8 de octubre de 2026
+
+CT194 añade comprobaciones SQL del porcentaje, los códigos, las referencias, las fechas y los textos de la necesidad. Conserva los errores de concurrencia para que el alta pueda reintentar la transacción; una dependencia no disponible sigue devolviendo el error nominal. La migración parte de las dos funciones instaladas después de postHX, los 14 cambios HZ, B85, B86, CT193 y B87. No cambia las 71 altas conservadas ni sus recibos, historia, permisos o circuito inicial CT164.
+
+La fecha de la circular de Alta es el 19 de febrero de 2026, confirmada en el PDF oficial que cita su catálogo. El documento de mayo pertenece a otra fuente. El alta limitada sin catálogo ya está en main y no se vuelve a implementar. Para desplegar sólo se instala CT194 una vez, según `deploy/principal/lista_sql_codexx_p2_alta_20261008.txt`; no requiere configuración nueva. El ensayo PostgreSQL 18 y las pruebas de reintento SQL y respuesta HTTP pasan. La medición de la validadora dio 0,077 ms por llamada en 1000 llamadas locales; no mide una petición HTTP completa. Las tarjetas de plazo CT192 siguen en una pieza separada y necesitan la sesión nominal y el apunte común en la misma transacción.
