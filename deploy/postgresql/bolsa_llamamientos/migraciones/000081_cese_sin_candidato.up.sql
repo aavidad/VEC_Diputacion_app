@@ -4,10 +4,11 @@
 -- candidato: vinculo_candidato exige constitucion_entrada. Hasta ahora el
 -- relevo B45 reintentaba ese cese para siempre y bloqueaba todos los
 -- posteriores. Aquí queda registrado y auditado como «sin candidato» y el
--- cursor avanza. No aplica restricción, no toca participaciones y no cambia
+-- cursor avanza. La proyección enlaza el asiento común del acto CT115. No
+-- aplica restricción, no toca participaciones y no cambia
 -- el caso de una bolsa constituida a la que le falta el vínculo: ese sigue
--- reintentándose hasta que se rellenen los vínculos. Requiere Bolsa 000045 y
--- CT129. No se reaplica.
+-- reintentándose hasta que se rellenen los vínculos. Requiere Bolsa 000045,
+-- CT129 y CT197. No se reaplica.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
@@ -32,6 +33,9 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL
+    OR to_regprocedure('vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',
+        'vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(text,text,bigint)','EXECUTE')
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL THEN
   RAISE EXCEPTION 'Bolsa 000081: preimagen incompatible o ya instalada' USING ERRCODE='55000';
@@ -60,8 +64,11 @@ CREATE TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa (
  expediente_ref text NOT NULL CHECK (octet_length(expediente_ref) BETWEEN 1 AND 512),
  organizacion_ref text NOT NULL CHECK (organizacion_ref ~ '^organizacion:desarrollo:'),
  recibo_ct_ref text NOT NULL CHECK (octet_length(recibo_ct_ref) BETWEEN 1 AND 512),
+ auditoria_ct_ref text NOT NULL CHECK (auditoria_ct_ref ~ '^aud_v3_[0-9a-f]{32}$'),
  motivo text NOT NULL CHECK (motivo='participacion_no_constituida'),
  registro jsonb NOT NULL CHECK (jsonb_typeof(registro)='object'),
+ CHECK (registro->>'origen_evento_ref' IS NOT DISTINCT FROM origen_ref
+        AND registro->>'auditoria_ct_ref' IS NOT DISTINCT FROM auditoria_ct_ref),
  registro_sha256 text NOT NULL CHECK (registro_sha256=encode(sha256(convert_to(registro::text,'UTF8')),'hex')),
  recibido_en timestamptz(6) NOT NULL,
  recibido_por text NOT NULL DEFAULT session_user CHECK (octet_length(recibido_por) BETWEEN 1 AND 128),
@@ -79,7 +86,7 @@ REVOKE ALL ON TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa FROM PUBLIC;
 CREATE TRIGGER cese_sin_candidato_bolsa_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa
  FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 COMMENT ON TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa IS
- 'Cese CT verificado cuya participación no pertenece a ninguna bolsa constituida: sin candidato, sin restricción; solo adición.';
+ 'Proyección técnica de cese CT verificado y ligado a su auditoría común: sin candidato, sin restricción; solo adición.';
 
 -- Mismas guardas de sesión que registrar/confirmar de 000045. Solo admite el
 -- cese cuando B13 ya lo tiene, con participación, sin cuarentena, coherente
@@ -91,7 +98,8 @@ CREATE FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
 RETURNS boolean
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET lock_timeout='2s'
  SET statement_timeout='5s' AS $f$
-DECLARE v_ct record; v_b13 record; v_llamamiento record; v_previa vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
+DECLARE v_ct record; v_b13 record; v_llamamiento record; v_procedencia record;
+ v_previa vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
  v_evento_ref text; v_registro jsonb; v_ahora timestamptz;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
@@ -109,6 +117,13 @@ BEGIN
  IF NOT FOUND OR v_ct.llamamiento_ref IS NULL OR v_ct.expediente_ref IS NULL
     OR v_ct.organizacion_ref IS NULL OR v_ct.recibo_ref IS NULL THEN
   RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_procedencia FROM vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(
+  p_origen_ref,p_huella_sha256,p_posicion);
+ IF NOT FOUND OR v_procedencia.origen_ref IS DISTINCT FROM p_origen_ref
+    OR v_procedencia.auditoria_ref IS NULL
+    OR v_procedencia.auditoria_ref !~ '^aud_v3_[0-9a-f]{32}$' THEN
+  RAISE EXCEPTION 'auditoría del cese CT no acreditada' USING ERRCODE='42501';
  END IF;
  v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex');
  -- Mismo cerrojo que B13 y B45 para el evento: nada cambia hasta COMMIT.
@@ -157,21 +172,25 @@ BEGIN
  IF FOUND THEN
   IF v_previa.origen_huella_sha256<>p_huella_sha256 OR v_previa.origen_posicion<>p_posicion
      OR v_previa.llamamiento_ref<>v_ct.llamamiento_ref OR v_previa.participacion_ref<>v_b13.participacion_ref
-     OR v_previa.bolsa_ref<>v_b13.bolsa_ref THEN
+     OR v_previa.bolsa_ref<>v_b13.bolsa_ref
+     OR v_previa.auditoria_ct_ref<>v_procedencia.auditoria_ref THEN
    RAISE EXCEPTION 'cese sin candidato divergente' USING ERRCODE='VBC01';
   END IF;
   RETURN true;
  END IF;
  v_ahora:=date_trunc('microseconds',clock_timestamp());
- v_registro:=jsonb_build_object('esquema','vec.bolsa.cese.sin-candidato.auditoria.v1','evento_ref',v_evento_ref,
-   'accion','cese_sin_candidato_registrado','resultado','sin_candidato','motivo','participacion_no_constituida',
-   'actor',session_user,'correlacion_ref',p_origen_ref,'llamamiento_ref',v_ct.llamamiento_ref,
+ v_registro:=jsonb_build_object('esquema','vec.bolsa.cese.sin-candidato.proyeccion.v1','evento_ref',v_evento_ref,
+   'accion','cese_sin_candidato_proyectado','resultado','sin_candidato','motivo','participacion_no_constituida',
+   'proceso',session_user,'origen_evento_ref',p_origen_ref,'auditoria_ct_ref',v_procedencia.auditoria_ref,
+   'correlacion_ref',p_origen_ref,'llamamiento_ref',v_ct.llamamiento_ref,
    'participacion_ref',v_b13.participacion_ref,'bolsa_ref',v_b13.bolsa_ref,'recibo_ct_ref',v_ct.recibo_ref,
    'registrada_en',to_char(v_ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
  INSERT INTO vec_bolsa_llamamientos.cese_sin_candidato_bolsa(origen_ref,evento_ref,origen_huella_sha256,origen_posicion,
-  llamamiento_ref,participacion_ref,bolsa_ref,expediente_ref,organizacion_ref,recibo_ct_ref,motivo,registro,registro_sha256,recibido_en)
+  llamamiento_ref,participacion_ref,bolsa_ref,expediente_ref,organizacion_ref,recibo_ct_ref,auditoria_ct_ref,
+  motivo,registro,registro_sha256,recibido_en)
  VALUES(p_origen_ref,v_evento_ref,p_huella_sha256,p_posicion,v_ct.llamamiento_ref,v_b13.participacion_ref,v_b13.bolsa_ref,
-  v_ct.expediente_ref,v_ct.organizacion_ref,v_ct.recibo_ref,'participacion_no_constituida',v_registro,
+  v_ct.expediente_ref,v_ct.organizacion_ref,v_ct.recibo_ref,v_procedencia.auditoria_ref,
+  'participacion_no_constituida',v_registro,
   encode(sha256(convert_to(v_registro::text,'UTF8')),'hex'),v_ahora);
  RETURN false;
 END $f$;

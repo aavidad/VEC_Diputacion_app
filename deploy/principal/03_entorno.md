@@ -356,15 +356,15 @@ incorporación la entrega un relevo con **conexión propia**:
   política de no incorporación desde el catálogo (b24); sin ella, las entregas
   quedan pendientes de revisión en los avisos de Bolsa.
 
-## Relevo de ceses (CT129, Bolsa 000045 y Bolsa 000081)
+## Relevo de ceses (CT129, CT197, Bolsa 000045 y Bolsa 000081)
 
 Cuando Contratación temporal registra un cese, un relevo propio lo lleva a
 Bolsa para aplicar la restricción de cinco o nueve meses al candidato. Usa su
 **propia conexión**:
 
 - Requisitos: CT129, Bolsa 000045, que crea el grupo
-  `vec_bolsa_llamamientos_relevo_cese` sin LOGIN, y Bolsa 000081
-  (`lista_sql_claude_relevo_ceses_b81_20261005.txt`). Sin 000081 el relevo no
+  `vec_bolsa_llamamientos_relevo_cese` sin LOGIN, CT197 y Bolsa 000081
+  (`lista_sql_claude_relevo_ceses_b81_20261005.txt`). Sin CT197 o 000081 el relevo no
   arranca. Detección:
   `SELECT to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL`.
 - LOGIN nominal fuera de Git, miembro **solo** de ese grupo (INHERIT, sin
@@ -386,7 +386,8 @@ Bolsa elige entre tres participaciones sintéticas que genera el propio puente
 (`contratacion_temporal_llamamiento_bolsa_desarrollo.go`), no entre las de una
 bolsa constituida. Esas participaciones no tienen candidato
 (`vinculo_candidato`). Desde Bolsa 000081, el cese de un expediente así queda
-registrado y auditado en `cese_sin_candidato_bolsa` y el relevo sigue con los
+proyectado en `cese_sin_candidato_bolsa`, con referencia a la auditoría común
+del acto CT115, y el relevo sigue con los
 siguientes; antes se reintentaba cada 30 segundos y bloqueaba todos los
 posteriores. Nadie vuelve a la bolsa por ese cese, porque no hay candidato.
 Si la participación es de una bolsa constituida y solo falta su vínculo, el
@@ -396,19 +397,19 @@ copia fría de la principal solo la bolsa de administrativo tiene vínculos
 
 B81 no sustituye B85, B86 ni B87. Su cursor parte de la definición instalada
 en la copia postHX con las 14 SQL de HZ, B85, B86, CT193 y B87.
-Las dos funciones incorporan `search_path=pg_catalog, pg_temp`; el cursor
+Las funciones nuevas incorporan `search_path=pg_catalog, pg_temp`; el cursor
 conserva las guardas y permisos del relevo. La tabla nueva tiene un índice
 por posición y referencia para continuar sin recorrer todo su historial.
 
-CONFIG NUEVA: ninguna. Con el relevo ya activado, instalar B81 antes de
+CONFIG NUEVA: ninguna. Con el relevo ya activado, instalar CT197 y B81 antes de
 actualizar el binario; sus variables y su LOGIN son los mismos del relevo B45.
 
 Orden para encenderlo en la principal, con copia fría previa:
 
-1. Instalar Bolsa 000081 una sola vez
+1. Instalar CT197 y después Bolsa 000081, una sola vez cada una
    (`lista_sql_claude_relevo_ceses_b81_20261005.txt`). Comprobar antes que
-   la tabla y la función de B81 no existen; su número está reservado aunque
-   B85–B87 ya estén instaladas. No repetirlas ni ejecutar un DOWN.
+   el testigo de CT197, la tabla y la función de B81 no existen. Sus números
+   están reservados aunque B85–B87 ya estén instaladas. No repetirlas ni ejecutar un DOWN.
 2. Crear el LOGIN con el guion privado, primero `ensayo` y después `aplicar`.
 3. Rellenar los vínculos de las once actas que no los tienen (apartado
    D3-B11-D: `vec-server rellenar-vinculos-bolsa`, ensayo y `--aplicar` por

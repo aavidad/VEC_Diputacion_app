@@ -281,7 +281,8 @@ func iniciarEntregaCesesCTBolsaDesarrollo(ctx context.Context, cfg config.Config
 		pool.Close()
 		return nada, puertosbolsa.ErrContratosParticipacionNoDisponible
 	}
-	if err = ejecucionCT.QueryRow(ctx, `SELECT to_regprocedure('vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+	if err = ejecucionCT.QueryRow(ctx, `SELECT to_regprocedure('vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)') IS NOT NULL
+		AND to_regprocedure('vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(text,text,bigint)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
 		pool.Close()
 		return nada, puertosct.ErrPublicacionContratosBolsaNoDisponible
 	}

@@ -64,7 +64,8 @@ BEGIN
   '2030-01-01','comunicacion_reincorporacion','documento:b81:774',repeat('c',64),'',
   i.recibo_ref,(inicio AT TIME ZONE 'UTC')::date,'llamamiento:b81:774','confirmada',
   'reserva:b81:774','recibo:ct:b81:774',origen,v.agregado_json,j,
-  jsonb_build_object('registrada_en',to_char(instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),
+  jsonb_build_object('registrada_en',to_char(instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+                     'auditoria_ref','aud_v3_'||repeat('f',32)),
   'decision:b81:774',repeat('d',64),repeat('e',64),'aud_v3_'||repeat('f',32),
   'politica:b81:774',1,repeat('a',64),instante,instante);
  SELECT * INTO STRICT c FROM vec_contratacion_temporal.cese_nombramiento_v1 WHERE evento_ref=origen;
@@ -147,6 +148,8 @@ END $denegada$;
 RESET SESSION AUTHORIZATION;
 ROLLBACK TO SAVEPOINT bolsa_constituida;
 
+-- CT197 debe devolver el vínculo sin dejar la marca RLS abierta.
+SELECT set_config('vec.ct129.origen_ref','marca-previa-b81',true);
 SET SESSION AUTHORIZATION vec_b81_774_relevo;
 DO $ejecucion$
 DECLARE o text:=current_setting('vec.b81.origen'); h text:=current_setting('vec.b81.huella');
@@ -166,8 +169,71 @@ EXCEPTION WHEN insufficient_privilege THEN
  IF v.origen_posicion<>p OR v.origen_ref<>o THEN
   RAISE EXCEPTION 'B81: cursor esperado %/% actual %/%',p,o,v.origen_posicion,v.origen_ref;
  END IF;
+ IF current_setting('vec.ct129.origen_ref',true)<>'marca-previa-b81' THEN
+  RAISE EXCEPTION 'CT197: marca RLS no restaurada tras éxito';
+ END IF;
 END $ejecucion$;
 RESET SESSION AUTHORIZATION;
+
+-- La fuente CT115 mantiene formato y obligatoriedad incluso en esta fixture.
+SET LOCAL session_replication_role = replica;
+DO $fuente$
+DECLARE o text:=current_setting('vec.b81.origen');
+BEGIN
+ BEGIN
+  UPDATE vec_contratacion_temporal.cese_nombramiento_v1 SET auditoria_ref='auditoria_invalida'
+   WHERE evento_ref=o;
+  RAISE EXCEPTION 'CT197: formato de auditoría aceptado';
+ EXCEPTION WHEN check_violation THEN NULL; END;
+ BEGIN
+  UPDATE vec_contratacion_temporal.cese_nombramiento_v1 SET auditoria_ref=NULL WHERE evento_ref=o;
+  RAISE EXCEPTION 'CT197: auditoría nula aceptada';
+ EXCEPTION WHEN not_null_violation THEN NULL; END;
+END $fuente$;
+SET LOCAL session_replication_role = origin;
+
+-- Una referencia local ya confirmada no se reutiliza si el recibo CT diverge.
+SAVEPOINT auditoria_divergente;
+SET LOCAL session_replication_role = replica;
+UPDATE vec_contratacion_temporal.cese_nombramiento_v1
+ SET recibo_json=jsonb_set(recibo_json,'{auditoria_ref}',to_jsonb('aud_v3_'||repeat('e',32)))
+ WHERE evento_ref=current_setting('vec.b81.origen');
+SET LOCAL session_replication_role = origin;
+SET SESSION AUTHORIZATION vec_b81_774_relevo;
+DO $divergente$
+BEGIN
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
+   current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),current_setting('vec.b81.posicion')::bigint);
+  RAISE EXCEPTION 'CT197: recibo con auditoría divergente aceptado';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ IF current_setting('vec.ct129.origen_ref',true)<>'marca-previa-b81' THEN
+  RAISE EXCEPTION 'CT197: marca RLS no restaurada tras error';
+ END IF;
+END $divergente$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT auditoria_divergente;
+
+-- Aunque la fuente presentase otro testigo coherente, el replay no reescribe
+-- la referencia de auditoría que quedó en la proyección original.
+SAVEPOINT auditoria_cambiada;
+SET LOCAL session_replication_role = replica;
+UPDATE vec_contratacion_temporal.cese_nombramiento_v1
+ SET auditoria_ref='aud_v3_'||repeat('e',32),
+     recibo_json=jsonb_set(recibo_json,'{auditoria_ref}',to_jsonb('aud_v3_'||repeat('e',32)))
+ WHERE evento_ref=current_setting('vec.b81.origen');
+SET LOCAL session_replication_role = origin;
+SET SESSION AUTHORIZATION vec_b81_774_relevo;
+DO $replay_divergente$
+BEGIN
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
+   current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),current_setting('vec.b81.posicion')::bigint);
+  RAISE EXCEPTION 'B81: replay sustituyó la auditoría de origen';
+ EXCEPTION WHEN SQLSTATE 'VBC01' THEN NULL; END;
+END $replay_divergente$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT auditoria_cambiada;
 
 DO $auditoria$
 DECLARE s vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
@@ -176,8 +242,12 @@ BEGIN
   WHERE origen_ref=current_setting('vec.b81.origen');
  IF s.evento_ref<>current_setting('vec.b81.evento')
     OR s.origen_huella_sha256<>current_setting('vec.b81.huella')
+    OR s.auditoria_ct_ref<>'aud_v3_'||repeat('f',32)
     OR s.registro_sha256<>encode(sha256(convert_to(s.registro::text,'UTF8')),'hex')
-    OR s.registro->>'actor'<>'vec_b81_774_relevo'
+    OR s.registro->>'proceso'<>'vec_b81_774_relevo'
+    OR s.registro->>'esquema'<>'vec.bolsa.cese.sin-candidato.proyeccion.v1'
+    OR s.registro->>'origen_evento_ref'<>s.origen_ref
+    OR s.registro->>'auditoria_ct_ref'<>s.auditoria_ct_ref
     OR s.registro->>'motivo'<>'participacion_no_constituida'
     OR s.registro->>'recibo_ct_ref'<>'recibo:ct:b81:774'
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa
@@ -208,6 +278,11 @@ END $auditoria$;
 SET SESSION AUTHORIZATION vec_b81_774_intruso;
 DO $intruso$
 BEGIN
+ BEGIN
+  PERFORM vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(
+   current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),current_setting('vec.b81.posicion')::bigint);
+  RAISE EXCEPTION 'CT197: intruso consultó auditoría de origen';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
    current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),current_setting('vec.b81.posicion')::bigint);

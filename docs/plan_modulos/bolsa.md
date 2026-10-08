@@ -8,22 +8,25 @@ Las respuestas de RRHH del 2 de octubre están en [decisiones_rrhh_2026-10-02.md
 
 B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
 una participación que no pertenece a ninguna bolsa constituida. Conserva el
-cese y su registro con actor, fecha y huella; no asigna candidato ni cambia
+cese y su proyección con la referencia del evento y de la auditoría común CT115;
+el registro local identifica al proceso de entrega. No asigna candidato ni cambia
 disponibilidad. Si la bolsa está constituida y falta el vínculo, el cese sigue
 pendiente y el relevo se detiene. El camino de regreso a la bolsa requiere
 que CT utilice participaciones reales de la bolsa; queda fuera de esta PR.
 
 La rama se actualiza con main y el cursor se toma de la definición instalada
-en postHX + HZ + B85 + B86 + CT193 + B87. B81 sigue reservada para #774,
-sin colisión con esas migraciones. Antes de integrar, Claude revisa el SQL
-exacto y comprueba el ensayo privado y la CI. No se ha instalado B81 en
-ninguna base compartida. La lista de instalación contiene solo B81; no se
-reaplican las migraciones anteriores. CONFIG NUEVA: ninguna.
+en postHX + HZ + B85 + B86 + CT193 + B87. CT197 añade un testigo técnico que
+verifica el cese publicado con CT129 y entrega a Bolsa su `auditoria_ref` exacta.
+La función no concede lectura de la tabla CT a Bolsa ni modifica CT129.
+CT197 y B81 están reservadas para #774; la lista instala CT197 antes de B81.
+Claude revisa las dos SQL exactas y el ensayo final antes de integrar. Ninguna
+está instalada en una base compartida. CONFIG NUEVA: ninguna.
 
-En el clon PostgreSQL 18.4 de esa base, B81 se instaló una vez en 0,09 s
-y la prueba SQL terminó en 0,11 s. Comprueba alta y replay únicos, avance
+El primer ensayo de B81, previo al vínculo de auditoría, instaló en 0,09 s y
+probó en 0,11 s su flujo y permisos. El ensayo final de CT197 y B81 está
+pendiente sobre PostgreSQL 18.4 de la misma base. La prueba comprueba alta y replay únicos, avance
 del cursor, bolsa constituida y huella falsa denegadas, permisos y rechazo
-de UPDATE/DELETE. La fixture prepara historia CT/B13 dentro de ROLLBACK
+de UPDATE/DELETE, incluido el vínculo a `auditoria_ref`. La fixture prepara historia CT/B13 dentro de ROLLBACK
 y usa el verificador CT129 real; no es un recorrido de navegador ni prueba
 el registro de un cese desde RRHH. Las pruebas Go comprueban la continuidad
 23503 → cese ajeno → sin candidato y la parada ante errores.
