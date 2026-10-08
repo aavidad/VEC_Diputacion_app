@@ -4,7 +4,7 @@ Las preguntas de Contratación y Bolsa que siguen abiertas son las prioritarias.
 
 Decisiones ya acordadas: se utilizará el portafirmas de Diputación; el correo saliente utilizará SMTP corporativo, configurable desde administración; el correo del candidato procederá del dato obligatorio de su alta en VEC; VEC sustituirá a CONVOCA en la gestión de bolsas y, más adelante, en los procesos selectivos, importando primero las bolsas existentes; el candidato se identificará con DNIe o certificado digital. No se solicita volver a elegir estas soluciones.
 
-Las preguntas se agrupan por módulo: Contratación temporal (38, 63, 72–74, 95, 96, 124–128, 140, 146, 148), bolsas y sustitución de CONVOCA (17, 18, 37, 45, 62, 97–99, 144, 145, 147), procesos de RRHH (39), Cronos (19–21, 41, 42, 47, 48, 100–103), Dietas (22–26, 40, 44, 46, 49–51, 104–108), Personal (27–29), Administración y Usuarios (30–36, 141), protección de datos y seguridad (76–94), procesos selectivos (109–111, 139), copias de seguridad (112–115), certificados e indicadores (116–117), exportación (118), formación y carrera (119–121) y competencia por perfiles (122).
+Las preguntas se agrupan por módulo: Contratación temporal (38, 63, 72–74, 95, 96, 124–128, 140, 146, 148), bolsas y sustitución de CONVOCA (17, 18, 37, 45, 62, 97–99, 144, 147), procesos de RRHH (39), Cronos (19–21, 41, 42, 47, 48, 100–103), Dietas (22–26, 40, 44, 46, 49–51, 104–108), Personal (27–29), Administración y Usuarios (30–36, 141), protección de datos y seguridad (76–94), procesos selectivos (109–111, 139), copias de seguridad (112–115), certificados e indicadores (116–117), exportación (118), formación y carrera (119–121) y competencia por perfiles (122).
 
 ## Texto para enviar
 
