@@ -26,51 +26,86 @@ func nuevoVerificadorFirmaDocumentos(cfg config.Config, fuenteResultados ...func
 	switch cfg.FirmaVerificacionEnabled {
 	case "", "false":
 		return nil, nil
-	case "true":
-		activo, err := cfg.DocumentosDesarrolloActivo()
-		if err != nil || !activo {
-			return nil, ErrComposicionFirmaVerificacionNoDisponible
-		}
-	default:
+	}
+	material, err := cargarMaterialFirmaDocumentos(cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer material.borrar()
+	material.configuracion.Disponibilidad = observadorFirmaDocumentos(fuenteResultados...)
+	cliente, err := validadorautofirma.Nuevo(material.configuracion)
+	if err != nil {
 		return nil, ErrComposicionFirmaVerificacionNoDisponible
+	}
+	return cliente, nil
+}
+
+type materialFirmaDocumentos struct {
+	configuracion                 validadorautofirma.Configuracion
+	ca, token, certificado, clave []byte
+}
+
+func (m *materialFirmaDocumentos) borrar() {
+	if m == nil {
+		return
+	}
+	borrarBytes(m.ca)
+	borrarBytes(m.token)
+	borrarBytes(m.certificado)
+	borrarBytes(m.clave)
+}
+
+// Una sola lectura privada alimenta el cliente y el comprobante R5. La
+// configuración cargada conserva las mismas guardas previas de la vía común.
+func cargarMaterialFirmaDocumentos(cfg config.Config) (materialFirmaDocumentos, error) {
+	var m materialFirmaDocumentos
+	cfg = cfg.Normalize()
+	activo, err := cfg.DocumentosDesarrolloActivo()
+	if cfg.FirmaVerificacionEnabled != "true" || err != nil || !activo {
+		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
 	if cfg.FirmaVerificacionURL == "" || cfg.FirmaVerificacionCAFile == "" || cfg.FirmaVerificacionTimeout == "" ||
 		(cfg.FirmaVerificacionTokenFile == "" && (cfg.FirmaVerificacionCertFile == "" || cfg.FirmaVerificacionKeyFile == "")) ||
 		(cfg.FirmaVerificacionCertFile == "") != (cfg.FirmaVerificacionKeyFile == "") {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
 	if !nombreServidorTLSValido(cfg.FirmaVerificacionNombreServidorTLS) {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
 	plazo, err := time.ParseDuration(cfg.FirmaVerificacionTimeout)
 	if err != nil || plazo < time.Millisecond || plazo > 60*time.Second {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
-	ca, err := leerFicheroMaterialSeguro(cfg.FirmaVerificacionCAFile, 64<<10)
+	m.ca, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionCAFile, 64<<10)
 	if err != nil {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
-	defer borrarBytes(ca)
-	var token, certificado, clave []byte
 	if cfg.FirmaVerificacionTokenFile != "" {
-		token, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionTokenFile, 512)
+		m.token, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionTokenFile, 512)
 		if err != nil {
-			return nil, ErrComposicionFirmaVerificacionNoDisponible
+			m.borrar()
+			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
 		}
-		defer borrarBytes(token)
 	}
 	if cfg.FirmaVerificacionCertFile != "" {
-		certificado, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionCertFile, 64<<10)
+		m.certificado, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionCertFile, 64<<10)
 		if err != nil {
-			return nil, ErrComposicionFirmaVerificacionNoDisponible
+			m.borrar()
+			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
 		}
-		defer borrarBytes(certificado)
-		clave, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionKeyFile, 64<<10)
+		m.clave, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionKeyFile, 64<<10)
 		if err != nil {
-			return nil, ErrComposicionFirmaVerificacionNoDisponible
+			m.borrar()
+			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
 		}
-		defer borrarBytes(clave)
 	}
+	m.configuracion = validadorautofirma.Configuracion{URL: cfg.FirmaVerificacionURL, CAPEM: m.ca,
+		NombreServidorTLS: cfg.FirmaVerificacionNombreServidorTLS, Token: m.token,
+		CertificadoClientePEM: m.certificado, ClaveClientePEM: m.clave, Timeout: plazo}
+	return m, nil
+}
+
+func observadorFirmaDocumentos(fuenteResultados ...func() vecports.EmisorResultadosTecnicosConContexto) func(context.Context, bool) {
 	var observar func(context.Context, bool)
 	if len(fuenteResultados) == 1 && fuenteResultados[0] != nil {
 		observar = func(ctx context.Context, disponible bool) {
@@ -86,14 +121,7 @@ func nuevoVerificadorFirmaDocumentos(cfg config.Config, fuenteResultados ...func
 				Resultado: resultado, Componente: domain.ComponenteIncidenciaGrxFirma, Etapa: domain.EtapaIncidenciaPeticion})
 		}
 	}
-	cliente, err := validadorautofirma.Nuevo(validadorautofirma.Configuracion{
-		URL: cfg.FirmaVerificacionURL, CAPEM: ca, NombreServidorTLS: cfg.FirmaVerificacionNombreServidorTLS, Token: token,
-		CertificadoClientePEM: certificado, ClaveClientePEM: clave, Timeout: plazo, Disponibilidad: observar,
-	})
-	if err != nil {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
-	}
-	return cliente, nil
+	return observar
 }
 
 // nombreServidorTLSValido admite vacio (se verifica el host de la URL), un
