@@ -30,12 +30,24 @@ type capturasSQLRRHH struct {
 	Grupos  []capturaSQLRRHH  `json:"grupos"`
 	Bases   map[string]string `json:"bases"`
 	Ajustes map[string]string `json:"ajustes"`
+	// Cada definición canónica se convierte una vez por payload. Las capturas
+	// comparten estos bytes inmutables; el resolutor comprueba huella y bytes.
+	basesCanonicas   map[string][]byte
+	ajustesCanonicos map[string][]byte
 }
 
 func leerCapturasSQLRRHH(raw []byte) (capturasSQLRRHH, error) {
 	var c capturasSQLRRHH
 	if len(raw) == 0 || len(raw) > 4194304 || json.Unmarshal(raw, &c) != nil || c.Bases == nil || c.Ajustes == nil {
 		return c, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	c.basesCanonicas = make(map[string][]byte, len(c.Bases))
+	for huella, base := range c.Bases {
+		c.basesCanonicas[huella] = []byte(base)
+	}
+	c.ajustesCanonicos = make(map[string][]byte, len(c.Ajustes))
+	for huella, ajustes := range c.Ajustes {
+		c.ajustesCanonicos[huella] = []byte(ajustes)
 	}
 	return c, nil
 }
@@ -49,13 +61,13 @@ func (c capturasSQLRRHH) convertir(s capturaSQLRRHH) (ports.CapturaPlazoFaseRRHH
 	case "legado_sin_instantanea":
 		return p, nil
 	case "capturada", "legado_base_transicion":
-		base, existeBase := c.Bases[s.BaseHuella]
-		ajustes, existenAjustes := c.Ajustes[s.AjustesHuella]
+		base, existeBase := c.basesCanonicas[s.BaseHuella]
+		ajustes, existenAjustes := c.ajustesCanonicos[s.AjustesHuella]
 		if !existeBase || !existenAjustes || s.CapturadaEn == nil || s.BaseID == "" || s.AjustesID == "" {
 			return p, ports.ErrResultadoConsultaRRHHNoConfiable
 		}
-		p.BaseID, p.BaseVersion, p.BaseHuella, p.BaseCanonico = s.BaseID, s.BaseVersion, s.BaseHuella, []byte(base)
-		p.AjustesID, p.AjustesEncontrados, p.AjustesVersion, p.AjustesHuella, p.AjustesCanonico = s.AjustesID, s.AjustesEncontrados, s.AjustesVersion, s.AjustesHuella, []byte(ajustes)
+		p.BaseID, p.BaseVersion, p.BaseHuella, p.BaseCanonico = s.BaseID, s.BaseVersion, s.BaseHuella, base
+		p.AjustesID, p.AjustesEncontrados, p.AjustesVersion, p.AjustesHuella, p.AjustesCanonico = s.AjustesID, s.AjustesEncontrados, s.AjustesVersion, s.AjustesHuella, ajustes
 		p.CapturadaEn = s.CapturadaEn.UTC()
 		if s.AjustesVigenteDesde != nil {
 			p.AjustesVigenteDesde = s.AjustesVigenteDesde.UTC()

@@ -36,3 +36,52 @@ func TestCapturasCuadroRRHHReconstituyeDiccionariosYRechazaAusencias(t *testing.
 		t.Fatal("base ausente aceptada")
 	}
 }
+
+func TestCapturasCuadroRRHHComparteCanonicosPorHuellaEnUnPayload(t *testing.T) {
+	desde := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	fila := capturaSQLRRHH{Estado: "capturada", Fase: "fiscalizacion", FaseDesde: desde,
+		BaseID: "vec.contratacion_temporal.reglas", BaseVersion: 1, BaseHuella: "base-uno",
+		AjustesID: "vec.contratacion_temporal.reglas.ajustes", AjustesHuella: "ajustes-uno", CapturadaEn: &desde}
+	otra := fila
+	otra.BaseHuella, otra.AjustesHuella = "base-dos", "ajustes-dos"
+	entrada := capturasSQLRRHH{Grupos: []capturaSQLRRHH{fila, fila, otra},
+		Bases:   map[string]string{"base-uno": "{\"id\":\"uno\"}", "base-dos": "{\"id\":\"dos\"}"},
+		Ajustes: map[string]string{"ajustes-uno": "{}", "ajustes-dos": "{\"c\":{}}"}}
+	raw, err := json.Marshal(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leida, err := leerCapturasSQLRRHH(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capturas [3]ports.CapturaPlazoFaseRRHH
+	for i, grupo := range leida.Grupos {
+		capturas[i], err = leida.convertir(grupo)
+		if err != nil {
+			t.Fatalf("grupo %d: %v", i, err)
+		}
+	}
+	if &capturas[0].BaseCanonico[0] != &capturas[1].BaseCanonico[0] ||
+		&capturas[0].AjustesCanonico[0] != &capturas[1].AjustesCanonico[0] {
+		t.Fatal("el mismo par se copió por grupo")
+	}
+	if &capturas[0].BaseCanonico[0] == &capturas[2].BaseCanonico[0] ||
+		&capturas[0].AjustesCanonico[0] == &capturas[2].AjustesCanonico[0] ||
+		string(capturas[2].BaseCanonico) != entrada.Bases[otra.BaseHuella] ||
+		string(capturas[2].AjustesCanonico) != entrada.Ajustes[otra.AjustesHuella] {
+		t.Fatal("pares distintos mezclados")
+	}
+	delete(entrada.Ajustes, "ajustes-uno")
+	raw, err = json.Marshal(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leida, err = leerCapturasSQLRRHH(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leida.convertir(fila); err == nil {
+		t.Fatal("ajustes ausentes aceptados")
+	}
+}
