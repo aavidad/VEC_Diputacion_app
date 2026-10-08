@@ -93,23 +93,29 @@ func transaccionInscripcion(ctx context.Context, pool iniciadorTransacciones, op
 		return nil, err
 	}
 	var resultado []byte
+	var etapa string
 	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
 		resultado = nil
+		etapa = "abrir"
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 		if err != nil {
 			return err
 		}
 		defer revertir(tx)
+		etapa = "configurar"
 		if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
 			return err
 		}
+		etapa = "ejecutar"
 		contenido, err := operacion(tx)
 		if err != nil {
 			return err
 		}
+		etapa = "validar_proyeccion"
 		if len(contenido) == 0 || len(contenido) > 2*1024*1024 || validar(contenido) != nil {
 			return inscripcion.ErrNoDisponible
 		}
+		etapa = "confirmar"
 		if err = tx.Commit(ctx); err != nil {
 			return err
 		}
@@ -117,7 +123,7 @@ func transaccionInscripcion(ctx context.Context, pool iniciadorTransacciones, op
 		return nil
 	})
 	if err != nil {
-		return nil, errorInscripcionPostgreSQL(ctx, err)
+		return nil, errorInscripcionPostgreSQL(ctx, err, etapa)
 	}
 	return resultado, nil
 }
@@ -134,32 +140,69 @@ func decodificarInscripcionEstricta(contenido []byte, destino any) error {
 	return nil
 }
 
-func errorInscripcionPostgreSQL(ctx context.Context, err error) error {
+// falloInscripcionPostgreSQL sólo expone etapa y SQLSTATE cerrados. El texto
+// del servidor, sus detalles, pistas y parámetros nunca salen de esta capa.
+type falloInscripcionPostgreSQL struct {
+	nominal  error
+	etapa    string
+	sqlstate string
+}
+
+func (e falloInscripcionPostgreSQL) Error() string {
+	return "bolsa inscripción: fallo de persistencia"
+}
+func (e falloInscripcionPostgreSQL) Unwrap() error { return e.nominal }
+func (e falloInscripcionPostgreSQL) DiagnosticoInscripcion() (string, string) {
+	return e.etapa, e.sqlstate
+}
+
+func errorInscripcionPostgreSQL(ctx context.Context, err error, etapa string) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
+	nominal := inscripcion.ErrNoDisponible
+	sqlstate := ""
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
+		if codigoInscripcionSeguro(pgErr.Code) {
+			sqlstate = pgErr.Code
+		}
 		switch pgErr.Code {
 		case "42501":
-			return inscripcion.ErrAccesoDenegado
+			nominal = inscripcion.ErrAccesoDenegado
 		case "B9601":
-			return inscripcion.ErrCatalogoCambiado
+			nominal = inscripcion.ErrCatalogoCambiado
 		case "B9602":
-			return inscripcion.ErrPlazoCerrado
+			nominal = inscripcion.ErrPlazoCerrado
 		case "B9603":
-			return inscripcion.ErrClaveConflicto
+			nominal = inscripcion.ErrClaveConflicto
 		case "B9604":
-			return inscripcion.ErrSolicitudExistente
+			nominal = inscripcion.ErrSolicitudExistente
 		case "B9605":
-			return inscripcion.ErrDeclaracionInvalida
+			nominal = inscripcion.ErrDeclaracionInvalida
 		case "B9606":
-			return inscripcion.ErrRequisitoInvalido
+			nominal = inscripcion.ErrRequisitoInvalido
 		case "22023":
-			return inscripcion.ErrSolicitudInvalida
+			nominal = inscripcion.ErrSolicitudInvalida
 		case "23505":
-			return inscripcion.ErrConflicto
+			nominal = inscripcion.ErrConflicto
 		}
 	}
-	return inscripcion.ErrNoDisponible
+	if etapa != "abrir" && etapa != "configurar" && etapa != "ejecutar" &&
+		etapa != "validar_proyeccion" && etapa != "confirmar" {
+		etapa = "desconocida"
+	}
+	return falloInscripcionPostgreSQL{nominal: nominal, etapa: etapa, sqlstate: sqlstate}
+}
+
+func codigoInscripcionSeguro(codigo string) bool {
+	if len(codigo) != 5 {
+		return false
+	}
+	for _, caracter := range codigo {
+		if caracter < '0' || caracter > '9' && caracter < 'A' || caracter > 'Z' {
+			return false
+		}
+	}
+	return true
 }

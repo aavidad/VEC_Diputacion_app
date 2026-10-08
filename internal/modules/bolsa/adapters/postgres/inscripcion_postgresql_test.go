@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -103,11 +104,31 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 	for _, caso := range casos {
 		t.Run(caso.codigo, func(t *testing.T) {
 			err := errorInscripcionPostgreSQL(context.Background(), &pgconn.PgError{
-				Code: caso.codigo, Message: "dato personal de prueba",
-			})
+				Code: caso.codigo, Message: "dato personal de prueba", Detail: "detalle privado",
+			}, "ejecutar")
 			if !errors.Is(err, caso.causa) || err.Error() == "dato personal de prueba" {
 				t.Fatalf("error nominal o privacidad inválida: %v", err)
 			}
+			var diagnostico interface{ DiagnosticoInscripcion() (string, string) }
+			if !errors.As(err, &diagnostico) {
+				t.Fatal("falta diagnóstico seguro para 5xx")
+			}
+			etapa, codigo := diagnostico.DiagnosticoInscripcion()
+			if etapa != "ejecutar" || codigo != caso.codigo ||
+				strings.Contains(err.Error(), "detalle privado") || strings.Contains(err.Error(), "dato personal") {
+				t.Fatalf("diagnóstico expuso datos o perdió SQLSTATE: %v / %s %s", err, etapa, codigo)
+			}
 		})
+	}
+	malformado := errorInscripcionPostgreSQL(context.Background(), &pgconn.PgError{
+		Code: "B96\n!", Detail: "detalle privado",
+	}, "etapa-controlada-por-error")
+	var diagnostico interface{ DiagnosticoInscripcion() (string, string) }
+	if !errors.As(malformado, &diagnostico) {
+		t.Fatal("falta diagnóstico de código malformado")
+	}
+	etapa, codigo := diagnostico.DiagnosticoInscripcion()
+	if etapa != "desconocida" || codigo != "" || strings.Contains(malformado.Error(), "detalle privado") {
+		t.Fatalf("diagnóstico malformado filtró datos: %s %q %v", etapa, codigo, malformado)
 	}
 }
