@@ -114,7 +114,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-w-ct-borradores-main-v2"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-ct192-montaje-v1"),
 
     ]);
     let completos;
@@ -127,12 +127,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261008-ct-centros-v1");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261008-ct192-montaje-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-documentos-ficha-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-ct192-montaje-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -486,7 +486,7 @@ export function crearCoordinadorModulosPortal({
           paginacion: { limite: 1, cursor: "" }, resumen: true,
         }, opciones)).then((pagina) => {
           if (!pagina?.resumen) throw new TypeError("resumen CT no disponible");
-          cuadroInicio = Object.freeze({ resumen: pagina.resumen });
+          cuadroInicio = Object.freeze({ esquema: pagina.esquema, resumen: pagina.resumen });
           return cuadroInicio;
         }).catch((error) => { promesaResumen = null; throw error; });
         return promesaResumen;
@@ -1242,7 +1242,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-hz8-idioma-v2");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-ct192-montaje-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1270,22 +1270,31 @@ export function crearCoordinadorModulosPortal({
           desmontarVista = () => controladorMontaje.abort();
           const moduloLigero = await temporal.esperarCuadroLigero();
           if (montaje !== secuenciaMontaje) { controladorMontaje.abort(); return false; }
-          const mostrarError = (destino, { error, reintentar, mensaje }) => {
+          const mostrarError = (destino, { error, reintentar, mensaje, quitarFiltro, quitarFiltroEtiqueta }) => {
             if (montaje !== secuenciaMontaje) return;
             const denegado = [401, 403].includes(error?.estado) || error?.codigo === "acceso_denegado";
+            const puedeQuitar = typeof quitarFiltro === "function" && typeof quitarFiltroEtiqueta === "string";
             destino.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert">
               <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "estado_modulo_no_disponible"))}</p>
-              ${denegado ? "" : `<button type="button" data-ct-reintentar>${escaparHTML(traducir("accion_reintentar"))}</button>`}
+              ${puedeQuitar ? `<button type="button" data-ct-quitar-filtro>${escaparHTML(quitarFiltroEtiqueta)}</button>`
+                : denegado ? "" : `<button type="button" data-ct-reintentar>${escaparHTML(traducir("accion_reintentar"))}</button>`}
             </div></section>`;
-            destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });
+            if (puedeQuitar) destino.querySelector?.("[data-ct-quitar-filtro]")?.addEventListener("click", () => quitarFiltro(), { once: true });
+            else destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });
           };
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
-            raiz, cliente: { consultarCuadroRRHH: async (solicitud, opciones) => {
-              return temporal.prepararNombresLista(temporal.cliente.consultarCuadroRRHH(solicitud, opciones));
-            } }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
+            raiz, cliente: {
+              consultarCuadroRRHH: (solicitud, opciones) => temporal.prepararNombresLista(
+                temporal.cliente.consultarCuadroRRHH(solicitud, opciones)),
+              ...(typeof temporal.cliente.consultarCuadroRRHHV2 === "function" ? {
+                consultarCuadroRRHHV2: (solicitud, opciones) => temporal.prepararNombresLista(
+                  temporal.cliente.consultarCuadroRRHHV2(solicitud, opciones)),
+              } : {}),
+            }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
             filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
             alCambiarFiltroLista: opciones?.alCambiarFiltroLista ?? null,
+            esquemaCuadroInicio: temporal.obtenerCuadroInicio()?.esquema ?? null,
             nombreCentro: temporal.nombreCentro, nombreCategoria: temporal.nombreCategoria,
             abrirDetalle: ({ expedienteRef }) => montarVista("contratacion-temporal", raiz, { ...opciones, expedienteRef }),
             abrirAlta: esPerfilRRHH() ? () => montarVista("contratacion-temporal", raiz, { ...opciones, subvista: "alta" }) : null,

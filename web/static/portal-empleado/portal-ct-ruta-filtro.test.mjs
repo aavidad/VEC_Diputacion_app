@@ -19,14 +19,24 @@ test("la URL CT V1 conserva idioma y expediente y solo codifica el predicado apl
     "#portal"), "/portal-empleado/?lang=en&expediente=expediente%3Act%3A1#portal");
 });
 
-test("el lector deniega filtros duplicados, plazos y claves ajenas sin convertirlos en incidencia", () => {
+test("el lector conserva los filtros de plazo admitidos y deniega claves ajenas o duplicadas", () => {
   assert.equal(leerFiltroCTDeRuta("?lang=es"), null);
+  for (const plazo_estado of ["vencido", "vence_hoy", "vence_semana"]) {
+    const filtro = { texto: "", estado_clave: "", fase_clave: "", plazo_estado };
+    const ruta = rutaPortalConFiltroCT({ pathname: "/portal-empleado/", search: "?lang=en&ct_estado=incidencia" },
+      "#contratacion-temporal", filtro);
+    assert.equal(ruta, `/portal-empleado/?lang=en&ct_plazo_estado=${plazo_estado}#contratacion-temporal`);
+    assert.deepEqual(leerFiltroCTDeRuta(new URL(ruta, "https://vec.example").search), filtro);
+  }
   for (const busqueda of ["?ct_mostrar=incidencia", "?ct_estado=sin_plazo", "?ct_estado=incidencia&ct_estado=incidencia",
-    "?ct_fase=gestion_bolsa", "?ct_texto=%40", "?ct_cursor=opaco"]) {
+    "?ct_fase=gestion_bolsa", "?ct_texto=%40", "?ct_cursor=opaco", "?ct_plazo_estado=manana",
+    "?ct_estado=incidencia&ct_plazo_estado=vencido",
+    "?ct_plazo_estado=vencido&ct_plazo_estado=vencido"]) {
     assert.equal(leerFiltroCTDeRuta(busqueda), FILTRO_CT_NO_SOPORTADO, busqueda);
   }
   assert.equal(filtroServidorCTValido({ texto: "", estado_clave: "incidencia", fase_clave: "cierre" }), true);
   assert.equal(filtroServidorCTValido({ texto: "", estado_clave: "incidencia", fase_clave: "gestion_bolsa" }), false);
+  assert.equal(filtroServidorCTValido({ texto: "", estado_clave: "", fase_clave: "", plazo_estado: "vencidos" }), false);
   assert.equal(limpiarFiltroCTDeBusqueda("?lang=es&ct_estado=incidencia&ct_fase=cierre&vista=ct"), "?lang=es&vista=ct");
   assert.throws(() => rutaPortalConFiltroCT({ pathname: "//otro.example/", search: "" }, "#portal"));
 });

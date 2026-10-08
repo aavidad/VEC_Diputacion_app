@@ -21,6 +21,7 @@ import {
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
 import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
 import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { FILTRO_CT_NO_SOPORTADO, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -89,6 +90,7 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   assert.equal(consultas.length, 0, "la carga modular no hace POST CT");
   assert.equal(coordinador.obtenerCuadroInicio(), null);
   const resumen = await coordinador.prepararResumenInicio();
+  assert.equal(resumen.esquema, "vec.contratacion-temporal.cuadro-rrhh.v1");
   assert.deepEqual(resumen.resumen.por_fase, {});
   await coordinador.prepararResumenInicio();
   assert.equal(consultas.length, 1);
@@ -108,6 +110,158 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   assert.equal(consultas[2].filtros.estado_clave, "incidencia");
   assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 3,
     "Inicio y cada página usan el resumen global de su propia consulta");
+  coordinador.desmontarVistaActual();
+});
+
+test("el enlace directo de plazo usa una única lectura V2 y conserva la denegación V1", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const pagina = { esquema: "vec.contratacion-temporal.cuadro-rrhh.v2",
+    generada_en: "2026-10-08T10:00:00Z", expedientes: [], hay_mas: false,
+    totales: { total: 0, en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 },
+    resumen: { en_tramite: 0, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+      vencen_semana: 0, sin_calcular: 0, por_fase: {} } };
+  for (const disponible of [true, false]) {
+    let v1 = 0, v2 = 0;
+    const cliente = {
+      consultarCuadroRRHH: async () => { v1++; return pagina; },
+      consultarCuadroRRHHV2: async (solicitud) => {
+        v2++;
+        assert.equal(solicitud.esquema, "vec.contratacion-temporal.cuadro-rrhh.v2");
+        assert.equal(solicitud.filtros.plazo_estado, "vencido");
+        if (!disponible) throw Object.assign(new Error("contrato V2 ausente"), { estado: 400 });
+        return pagina;
+      },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+      entorno: { Headers, fetch: async () => new Response("", { status: 403 }) },
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+        cargarCompleto: async () => { throw new Error("montaje completo no esperado"); },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    const raiz = raizFalsa();
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, {
+      filtroServidorRuta: { texto: "", estado_clave: "", fase_clave: "", plazo_estado: "vencido" },
+    }), true);
+    assert.equal(v1, 0, "el enlace directo no sondea el resumen sin filtro");
+    assert.equal(v2, 1);
+    if (disponible) {
+      assert.match(raiz.innerHTML, /value="vencidos" selected/u);
+      const resumen = await coordinador.prepararResumenInicio();
+      assert.equal(resumen.esquema, pagina.esquema, "Inicio conserva la señal del servidor");
+    } else {
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-abrir=|ct-exp-listado/u);
+      assert.match(raiz.innerHTML, /role="alert"/u);
+    }
+    coordinador.desmontarVistaActual();
+  }
+});
+
+test("Quitar filtro limpia la URL y sólo entonces consulta la lista V1", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  for (const caso of ["url_invalida", "cliente_sin_v2"]) {
+    let lecturasV1 = 0, lecturasV2 = 0, pulsarQuitar;
+    let ruta = `/portal-empleado/?lang=en&ct_plazo_estado=${caso === "url_invalida" ? "manana" : "vencido"}#contratacion-temporal`;
+    const cliente = {
+      consultarCuadroRRHH: async () => {
+        lecturasV1++;
+        return { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+          generada_en: "2026-10-08T10:00:00Z", expedientes: [], hay_mas: false };
+      },
+      ...(caso === "url_invalida" ? { consultarCuadroRRHHV2: async () => { lecturasV2++; } } : {}),
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+      entorno: { Headers, fetch: async () => new Response("", { status: 403 }) },
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+        cargarCompleto: async () => { throw new Error("montaje completo no esperado"); },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    const raiz = raizFalsa();
+    raiz.querySelector = (selector) => selector === "[data-ct-quitar-filtro]"
+      ? { addEventListener: (_evento, accion) => { pulsarQuitar = accion; } } : null;
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, {
+      filtroServidorRuta: caso === "url_invalida" ? FILTRO_CT_NO_SOPORTADO
+        : { texto: "", estado_clave: "", fase_clave: "", plazo_estado: "vencido" },
+      alCambiarFiltroLista: (filtro) => {
+        ruta = rutaPortalConFiltroCT(new URL(ruta, "https://vec.example"), "#contratacion-temporal", filtro);
+      },
+    }), true);
+    assert.equal(lecturasV1, 0, caso);
+    assert.equal(lecturasV2, 0, caso);
+    assert.match(raiz.innerHTML, /data-ct-quitar-filtro>Quitar filtro/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-reintentar|data-ct-exp-abrir=/u);
+    assert.match(ruta, /ct_plazo_estado=/u, "el error no limpia la URL por sí solo");
+    assert.equal(typeof pulsarQuitar, "function");
+    await pulsarQuitar();
+    assert.equal(lecturasV1, 1, caso);
+    assert.equal(lecturasV2, 0, caso);
+    assert.equal(ruta, "/portal-empleado/?lang=en#contratacion-temporal");
+    coordinador.desmontarVistaActual();
+  }
+});
+
+test("el cliente HTTP real ofrece Quitar filtro tras 400 V2 y consulta V1 solo al pulsarlo", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  let v1 = 0, v2 = 0, pulsarQuitar;
+  let ruta = "/portal-empleado/?lang=en&ct_plazo_estado=vencido#contratacion-temporal";
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["tecnico_rrhh"] }),
+    entorno: { Headers, fetch: async (destino, opciones) => {
+      if (destino !== "/api/vec/contratacion-temporal/cuadro/consultas")
+        return new Response("", { status: 403 });
+      const solicitud = JSON.parse(opciones.body);
+      if (solicitud.filtros.plazo_estado) {
+        v2++;
+        assert.equal(solicitud.esquema, "vec.contratacion-temporal.cuadro-rrhh.v2");
+        return new Response(JSON.stringify({ error: { codigo: "peticion_no_valida",
+          clave_i18n: "api.contratacion_temporal.consulta_rrhh.error.peticion_no_valida",
+          correlacion_ref: `corr_${"a".repeat(32)}` } }), { status: 400,
+          headers: { "Content-Type": "application/json; charset=utf-8" } });
+      }
+      v1++;
+      return respuestaJSON({ data: { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+        generada_en: "2026-10-08T10:00:00Z", expedientes: [], hay_mas: false,
+        resumen: { en_tramite: 0, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+          vencen_semana: 0, sin_calcular: 0, por_fase: {} } } }, 200);
+    } },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  raiz.querySelector = (selector) => selector === "[data-ct-quitar-filtro]"
+    ? { addEventListener: (_evento, accion) => { pulsarQuitar = accion; } } : null;
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, {
+    filtroServidorRuta: { texto: "", estado_clave: "", fase_clave: "", plazo_estado: "vencido" },
+    alCambiarFiltroLista: (filtro) => {
+      ruta = rutaPortalConFiltroCT(new URL(ruta, "https://vec.example"), "#contratacion-temporal", filtro);
+    },
+  }), true);
+  assert.equal(v2, 1);
+  assert.equal(v1, 0, "el 400 no expone una lista sin filtro");
+  assert.match(raiz.innerHTML, /data-ct-quitar-filtro>Quitar filtro/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-reintentar|data-ct-exp-abrir=/u);
+  assert.match(ruta, /ct_plazo_estado=vencido/u);
+  await pulsarQuitar();
+  assert.equal(v2, 1);
+  assert.equal(v1, 1);
+  assert.equal(ruta, "/portal-empleado/?lang=en#contratacion-temporal");
   coordinador.desmontarVistaActual();
 });
 

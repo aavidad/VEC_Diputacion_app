@@ -1,6 +1,7 @@
 const RUTA_CUADRO = "/api/vec/contratacion-temporal/cuadro/consultas";
 const RUTA_DETALLE = "/api/vec/contratacion-temporal/expedientes/consultas";
 const ESQUEMA_CUADRO = "vec.contratacion-temporal.cuadro-rrhh.v1";
+const ESQUEMA_CUADRO_V2 = "vec.contratacion-temporal.cuadro-rrhh.v2";
 const ESQUEMA_DETALLE = "vec.contratacion-temporal.detalle-rrhh.v1";
 const MAXIMO_SOLICITUD = 4 * 1024;
 const MAXIMO_RESPUESTA = 256 * 1024;
@@ -15,6 +16,7 @@ const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const ESTADOS_OPERATIVOS = new Set([
   "pendiente", "en_curso", "espera_externa", "completado", "incidencia", "cancelado",
 ]);
+const ESTADOS_PLAZO_FILTRO = new Set(["", "vencido", "vence_hoy", "vence_semana"]);
 const ESQUEMA_PRESENTACION_FLUJO = "vec.contratacion_temporal.presentacion_flujo_rrhh.v1";
 
 export const RUTAS_CONSULTA_RRHH = Object.freeze({
@@ -99,6 +101,23 @@ function validarSolicitudCuadro(entrada) {
   return structuredClone(entrada);
 }
 
+function validarSolicitudCuadroV2(entrada) {
+  if (!camposCerrados(entrada, ["esquema", "filtros", "paginacion"], ["resumen"])
+    || entrada.esquema !== ESQUEMA_CUADRO_V2
+    || (Object.hasOwn(entrada, "resumen") && entrada.resumen !== true)
+    || !camposCerrados(entrada.filtros, ["texto", "estado_clave", "fase_clave", "plazo_estado"])
+    || !cadena(entrada.filtros.texto, { vacia: true, maximo: 80, patron: PATRON_TEXTO_CUADRO })
+    || !estadoOperativo(entrada.filtros.estado_clave, true)
+    || !clave(entrada.filtros.fase_clave, true)
+    || !ESTADOS_PLAZO_FILTRO.has(entrada.filtros.plazo_estado)
+    || !camposCerrados(entrada.paginacion, ["limite", "cursor"])
+    || !entero(entrada.paginacion.limite, 1) || entrada.paginacion.limite > MAXIMO_EXPEDIENTES
+    || !cursor(entrada.paginacion.cursor, true)) {
+    throw new TypeError("solicitud de cuadro RRHH V2 no válida");
+  }
+  return structuredClone(entrada);
+}
+
 function validarSolicitudDetalle(entrada) {
   if (!camposCerrados(entrada, ["expediente_ref", "version_observada"])
     || !referencia(entrada.expediente_ref)
@@ -166,12 +185,14 @@ function resumenPortadaValido(resumen) {
     && fases.reduce((suma, [, numero]) => suma + numero, 0) === resumen.en_tramite;
 }
 
-function validarPagina(entrada) {
+function validarPagina(entrada, { requiereV2 = false } = {}) {
   if (!camposCerrados(
     entrada,
     ["esquema", "generada_en", "expedientes", "hay_mas"],
     ["cursor_siguiente", "totales", "resumen"],
-  ) || entrada.esquema !== ESQUEMA_CUADRO || !instante(entrada.generada_en)
+  ) || (requiereV2 ? entrada.esquema !== ESQUEMA_CUADRO_V2
+    : entrada.esquema !== ESQUEMA_CUADRO && entrada.esquema !== ESQUEMA_CUADRO_V2)
+    || !instante(entrada.generada_en)
     || !Array.isArray(entrada.expedientes)
     || entrada.expedientes.length > MAXIMO_EXPEDIENTES
     || typeof entrada.hay_mas !== "boolean"
@@ -341,6 +362,20 @@ export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}
         maximoSolicitud: MAXIMO_SOLICITUD,
         maximoRespuesta: MAXIMO_RESPUESTA,
         validarRespuesta: validarPagina,
+        efecto: false,
+        tipoContenido: "application/json",
+      });
+    },
+    consultarCuadroRRHHV2(solicitud, opciones) {
+      const { signal } = validarOpciones(opciones);
+      return ejecutar({
+        ruta: RUTA_CUADRO,
+        entrada: validarSolicitudCuadroV2(solicitud),
+        signal,
+        estadoEsperado: 200,
+        maximoSolicitud: MAXIMO_SOLICITUD,
+        maximoRespuesta: MAXIMO_RESPUESTA,
+        validarRespuesta: (pagina) => validarPagina(pagina, { requiereV2: true }),
         efecto: false,
         tipoContenido: "application/json",
       });

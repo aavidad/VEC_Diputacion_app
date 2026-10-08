@@ -38,20 +38,21 @@ export function resumenPortadaDesdeServidor(resumen) {
   });
 }
 
-// Los recuentos pueden solaparse. El cuadro V1 solo puede consultar todas las
-// páginas de «incidencia» con el mismo predicado del resumen; los plazos son
-// informativos hasta disponer de un filtro de servidor equivalente.
-function renderizarPendientes(resumen, escaparHTML, traducir, numero) {
+// La portada solo enlaza un plazo si el cuadro declara el contrato de lista V2.
+// La clasificación y el recuento pertenecen al mismo corte del servidor.
+const ESQUEMA_CUADRO_PLAZOS = "vec.contratacion-temporal.cuadro-rrhh.v2";
+function renderizarPendientes(resumen, escaparHTML, traducir, numero, plazosConsultables) {
   const t = (clave, variables) => escaparHTML(traducir(clave, variables));
   const total = resumen.vencidos + resumen.vencenHoy + resumen.conIncidencia;
   const contadores = [
-    ["vencidos", "reloj", "peligro", resumen.vencidos, "vencidos", "inicio_rrhh_pendientes_vencidos"],
+    ["vencidos", "reloj", "peligro", resumen.vencidos, "vencido", "inicio_rrhh_pendientes_vencidos"],
     ["vencen_hoy", "reloj", "advertencia", resumen.vencenHoy, "vence_hoy", "inicio_rrhh_pendientes_hoy"],
     ["incidencias", "alerta", "peligro", resumen.conIncidencia, "incidencia", "inicio_rrhh_pendientes_incidencia"],
   ].map(([clave, iconoNombre, tono, valor, mostrar, rotulo]) => renderizarIndicador({
     clave, iconoNombre, tono, valor: numero(valor), etiqueta: traducir(rotulo),
     ariaEtiqueta: traducir(`${rotulo}_aria`, { total: numero(valor) }),
-    destino: mostrar === "incidencia" ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="incidencia"` : "",
+    destino: mostrar === "incidencia" ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="incidencia"`
+      : plazosConsultables ? `${DESTINO_LISTA} data-ct-exp-lista-plazo-estado="${mostrar}"` : "",
     escaparHTML, traducir,
   })).join("");
   const sinCalcular = resumen.sinCalcular > 0
@@ -249,7 +250,8 @@ export function crearVistaInicioPortal({
       { clave: "en_tramite", iconoNombre: "expediente", tono: "", valor: resumen ? numero(resumen.enTramite) : null,
         etiqueta: traducir("inicio_rrhh_kpi_en_tramite"), destino: "" },
       { clave: "vencen_semana", iconoNombre: "reloj", tono: "advertencia", valor: resumen?.vencenSemana == null ? null : numero(resumen.vencenSemana),
-        etiqueta: traducir("inicio_rrhh_kpi_vencen_semana"), destino: "" },
+        etiqueta: traducir("inicio_rrhh_kpi_vencen_semana"), destino: cuadro?.esquema === ESQUEMA_CUADRO_PLAZOS
+          ? `${DESTINO_LISTA} data-ct-exp-lista-plazo-estado="vence_semana"` : "" },
       { clave: "disponibles", iconoNombre: "personas", tono: "exito", valor: disponiblesBolsa === null ? null : numero(disponiblesBolsa),
         etiqueta: traducir("inicio_rrhh_kpi_disponibles", { total: bolsas.bolsas?.length ?? 0 }), destino: disponiblesBolsa === null ? "" : 'data-vista="resumen"' },
     ].map((indicador) => renderizarIndicador({ ...indicador, escaparHTML, traducir })).join("");
@@ -263,7 +265,8 @@ export function crearVistaInicioPortal({
         </header>
         ${estadoCT}
         ${renderizarAccesosEmpleado({ accesos: obtenerAccesosEmpleado(), escaparHTML })}
-        ${resumen ? renderizarPendientes(resumen, escaparHTML, traducir, numero) : ""}
+        ${resumen ? renderizarPendientes(resumen, escaparHTML, traducir, numero,
+          cuadro?.esquema === ESQUEMA_CUADRO_PLAZOS) : ""}
         <div class="rejilla-kpi rejilla-kpi--compacta">${indicadores}</div>
         <div class="rejilla-dos">
           ${resumen ? renderizarPorFase(resumen, escaparHTML, traducir, numero) : ""}

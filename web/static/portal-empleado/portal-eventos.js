@@ -398,6 +398,14 @@ export function crearControladorPortal(dependencias) {
             mostrar: botonVista.dataset.ctExpListaMostrar ?? "todas",
           };
         }
+        if (botonVista.dataset.ctExpListaPlazoEstado) {
+          opciones.filtroServidorRuta = {
+            texto: "",
+            estado_clave: "",
+            fase_clave: "",
+            plazo_estado: botonVista.dataset.ctExpListaPlazoEstado,
+          };
+        }
         navegar(botonVista.dataset.vista, opciones);
         return;
       }

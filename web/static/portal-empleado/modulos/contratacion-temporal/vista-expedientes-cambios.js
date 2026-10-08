@@ -4,7 +4,7 @@
  * consume una autorización y deja su auditoría. Los textos libres y los datos
  * personales llegan como la marca «*protegido»: solo se sabe que cambiaron.
  */
-import { crearClienteHTTPCambiosExpediente } from "./cliente-http-cambios-expediente.js?v=20261008-w-ct-borradores-main-v2";
+import { crearClienteHTTPCambiosExpediente } from "./cliente-http-cambios-expediente.js?v=20261008-ct192-montaje-v1";
 import { MENSAJES_CAMBIOS_EXPEDIENTE_ES, MENSAJES_CAMBIOS_EXPEDIENTE_EN } from "./i18n-cambios-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
