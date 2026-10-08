@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -93,50 +94,50 @@ func nuevasRutasFirmaR5ExternaCT(cfg config.Config, d insumosFirmaR5ExternaCT,
 	// Los dos puentes leen el mismo original y el mismo almacén documental.
 	original, err := ctadapters.NuevaFuenteOriginalFirmaDocumentos(d.original.servicioOriginal, d.original.tipos)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	pdfAnterior, err := nuevaFuentePDFFirmaAnteriorCTDesarrollo(d.original.original, d.original.servicioDocumentos)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	plan, err := plannominal.NuevaFuente(d.planResolutor, d.publicacionPlan, d.planVersion)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	ctxPlan, cancelarPlan := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 	_, err = plan.Plan(ctxPlan)
 	cancelarPlan()
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	seleccion, err := postgresct.NuevaSeleccionFirmantePostgreSQL(d.alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	selector, err := plannominal.NuevoSelectorCentralFirmanteV2(seleccion, motivoFirmaV2CTDesarrollo())
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	descriptor, err := plannominal.NuevaFuenteDescriptorFirmaV2(plan, selector)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	competencia, err := plannominal.NuevaFuenteCompetenciaFirmantePlanV2(plan, seleccion, d.reloj.Ahora)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	emisor, registrador, err := nuevoEmisorFirmaExternaV2CTDesarrollo(d.alta.soporte, d.perfil,
 		d.materialConsulta, d.materialRegistro, d.reloj, d.procesoAuditoria)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	autorizador, err := ctapplication.NuevoAutorizadorNominalFirmaV2(descriptor, emisor)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	durable, err := postgresct.NuevoRegistroFirmasVerificadasPostgreSQL(d.alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 
 	// El servicio anterior se copia. Ningún fallo posterior puede publicar una
@@ -148,28 +149,28 @@ func nuevasRutasFirmaR5ExternaCT(cfg config.Config, d insumosFirmaR5ExternaCT,
 		pdfAnterior: pdfAnterior, competencia: competencia,
 		politicaFirmantes: fuenteCircuitoFirmaReglasDesarrollo{resolutor: d.circuito},
 	}); err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	preparacion, err := nuevaFuentePreparacionExternaR5CTDesarrollo(original, plan, registrador,
 		custodia, registro, verificador, d.reloj)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	preflight, err := ctapplication.NuevoServicioPreflightFirmaR5V2Externa(firma.firmaExterna, d.autoridadRutas, preparacion)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	hOriginal, err := httpinterno.NuevoManejadorOriginalFirmableCT(d.autoridadRutas, d.original.servicioOriginal)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	hPreflight, err := httpinterno.NuevoManejadorPreflightFirmaR5V2(d.autoridadRutas, preflight)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	hRegistro, err := httpinterno.NuevoManejadorRegistroFirmaExternaV2(d.autoridadRutas, firma.firmaExterna)
 	if err != nil {
-		return nil, errFirmaR5ExternaMontajeNoDisponible
+		return nil, fmt.Errorf("%w: %w", errFirmaR5ExternaMontajeNoDisponible, err)
 	}
 	d.firma.firmaExterna, d.firma.registroR5 = firma.firmaExterna, firma.registroR5
 	return &rutasFirmaR5ExternaCT{rutas: []vechttp.RutaExacta{
