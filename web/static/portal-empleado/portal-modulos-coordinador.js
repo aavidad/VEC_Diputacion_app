@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261005-b-contacto-v3";
+} from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
 import { cargarTextos } from "../comun/textos.js";
 import {
@@ -31,13 +31,21 @@ const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion"]);
 // debe quedar congelado en el módulo ni retrasar el arranque del portal.
 const cargarFasesCircuitoPredeterminado = async (idioma) =>
   (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases");
-const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
+const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]), estadoRPT: "ausente" });
+function estadoSondaRPT(resultado) {
+  if (resultado?.ok === true) return "disponible";
+  if (resultado?.codigo === "montaje_ausente") return "ausente";
+  if (resultado?.codigo === "estado_no_valido" && resultado.estado === 404) return "ausente";
+  if (resultado?.codigo === "estado_no_valido" && [401, 403].includes(resultado.estado)) return "denegado";
+  return "incidencia";
+}
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
 // «documentos» es también una sección de Bolsa; la vista del servicio común
 // de Documentos usa un nombre propio para no confundirse con ella.
 export const VISTA_DOCUMENTOS_EXPEDIENTE = "documentos-expediente";
 export const VISTA_PLANTILLAS_RRHH = "plantillas-rrhh";
+export const VISTA_CATEGORIAS_RPT = "categorias-rpt";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa",
   CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
@@ -99,15 +107,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-circular-v3"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261007-pantallas-textos-final-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261007-pantallas-textos-final-v1"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -118,7 +126,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-ct-inicio-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-alta-capacidad-v3");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -132,12 +140,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20261007-pantallas-textos-final-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261007-pantallas-textos-final-v1"),
-      import("./modulos/personal/registro-b2.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/personal/vista.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/registro-b2.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/cliente-http-ficha-propia.js?v=20261004-personal-relaciones-v1"),
       import("./modulos/personal/vista-contacto-propio.js?v=20261007-pantallas-textos-final-v1"),
     ]);
@@ -150,11 +158,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // el servidor responde a su consulta con una página válida.
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, i18n] = await Promise.all([
-      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20261004-b-rpt-busqueda-v1"),
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261007-pantallas-textos-final-v1"),
-      import("./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4"),
     ]);
     await i18n.prepararTextosPersonal();
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
@@ -205,7 +213,7 @@ export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
+  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
 ]));
 
 // Estado de un módulo autorizado sin entrada en el portal que aún no se ha
@@ -220,7 +228,7 @@ function errorCargaSustituida() {
 
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal" || vista === "mis-tramites") return "portal";
-  if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) return "contratacion_temporal";
+  if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH || vista === VISTA_CATEGORIAS_RPT) return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return CLAVE_DOCUMENTOS;
@@ -240,6 +248,7 @@ export function rutaDeVistaPortal(vista) {
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (vista === "ofertas-sae") return "#ofertas-sae";
   if (vista === VISTA_PLANTILLAS_RRHH) return "#contratacion-temporal/plantillas-rrhh";
+  if (vista === VISTA_CATEGORIAS_RPT) return "#contratacion-temporal/categorias-rpt";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
@@ -496,6 +505,7 @@ export function crearCoordinadorModulosPortal({
           catalogos: recursos.contrato.validarCatalogosAlta(valor),
           capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
           ejecutor: cliente.registrarSolicitud,
+          obtenerCatalogosNecesidadesAlta: (opciones) => cliente.obtenerCatalogosNecesidadesAlta(opciones),
         });
       } catch {
         alta = null;
@@ -650,9 +660,41 @@ export function crearCoordinadorModulosPortal({
       throw new TypeError("vista de Personal no disponible");
     }
     const catalogos = publicos.status === "fulfilled" ? publicos.value : SIN_CATALOGOS_PUBLICOS;
+    const estadoRPT = { estado: catalogos.estadoRPT };
+    let reintentoRPTEnCurso = null;
+    const reintentarRPT = ({ signal } = {}) => {
+      if (estadoRPT.estado !== "incidencia" || signal?.aborted) return Promise.resolve(estadoRPT.estado);
+      try { exigirVigente(); } catch { return Promise.resolve(estadoRPT.estado); }
+      if (reintentoRPTEnCurso && !reintentoRPTEnCurso.signal?.aborted)
+        return reintentoRPTEnCurso.promesa;
+      const vuelo = (async () => {
+        const crearCliente = catalogos.recursos?.clienteRPT?.crearClienteHTTPRPTPublica;
+        const fetchImpl = fetchDelEntorno();
+        if (typeof crearCliente !== "function" || !fetchImpl) return "ausente";
+        let resultado;
+        try {
+          const cliente = crearCliente({ fetchImpl });
+          await cliente.listar({ vista: "categorias", q: "", limit: 1, offset: 0 }, { signal });
+          resultado = { ok: true };
+        } catch (error) {
+          resultado = { codigo: error?.codigo, estado: error?.estado };
+        }
+        try { exigirVigente(); } catch { return estadoRPT.estado; }
+        if (signal?.aborted) return estadoRPT.estado;
+        estadoRPT.estado = estadoSondaRPT(resultado);
+        return estadoRPT.estado;
+      })();
+      const intento = { signal, promesa: null };
+      intento.promesa = vuelo.finally(() => {
+        if (reintentoRPTEnCurso === intento) reintentoRPTEnCurso = null;
+      });
+      reintentoRPTEnCurso = intento;
+      return intento.promesa;
+    };
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
       ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
         catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
+        estadoRPT, reintentarRPT,
         // Abrir un destino diferido no exige haberlo visitado antes. Esto
         // sólo ofrece navegación propia; su lectura se autoriza al entrar.
         // Sólo se ofrecen destinos del catálogo; un módulo oculto no aparece.
@@ -671,10 +713,8 @@ export function crearCoordinadorModulosPortal({
     return { personal, personalRegistro: componerRegistroPersonal(recursos, entorno) };
   }
 
-  // Carga los catálogos públicos de Personal y sondea las dos consultas a la
-  // vez. Solo se ofrecen las que responden con una página válida; el resto se
-  // omite sin error. Las consultas pertenecen a la carga en curso: se cancelan
-  // con ella.
+  // Una incidencia temporal de RPT permite reintento expreso desde la ficha;
+  // ausencia y denegación se mantienen diferenciadas.
   async function cargarCatalogosPublicosPersonal({ consultar }) {
     let recursos;
     try {
@@ -694,13 +734,19 @@ export function crearCoordinadorModulosPortal({
       ["estructura", () => recursos?.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl }),
         (cliente, opciones) => cliente.obtener(opciones)],
     ];
-    const resultados = await Promise.allSettled(sondeos.map(([, crear, sondear]) => {
-      const cliente = crear();
-      return consultar((opciones) => sondear(cliente, opciones), "consultar catálogos de Personal");
+    const resultados = await Promise.allSettled(sondeos.map(async ([, crear, sondear]) => {
+      let cliente;
+      try { cliente = crear(); } catch { return { ok: false, codigo: "montaje_ausente" }; }
+      if (!cliente || typeof cliente !== "object") return { ok: false, codigo: "montaje_ausente" };
+      return consultar(async (opciones) => {
+        try { await sondear(cliente, opciones); return { ok: true }; }
+        catch (error) { return { ok: false, codigo: error?.codigo, estado: error?.estado }; }
+      }, "consultar catálogos de Personal");
     }));
-    const disponibles = sondeos.filter((_, indice) => resultados[indice].status === "fulfilled")
+    const disponibles = sondeos.filter((_, indice) => resultados[indice].status === "fulfilled" && resultados[indice].value.ok)
       .map(([clave]) => clave);
-    return Object.freeze({ recursos, disponibles: Object.freeze(disponibles) });
+    const estadoRPT = resultados[0].status === "fulfilled" ? estadoSondaRPT(resultados[0].value) : "incidencia";
+    return Object.freeze({ recursos, disponibles: Object.freeze(disponibles), estadoRPT });
   }
 
   async function cargarDietas({ exigirVigente }) {
@@ -963,7 +1009,7 @@ export function crearCoordinadorModulosPortal({
     if (VISTAS_MODULO_BOLSA.has(vista)) {
       return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
     }
-    if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) {
+    if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH || vista === VISTA_CATEGORIAS_RPT) {
       return composicion?.contratacionTemporal !== undefined;
     }
     if (vista === "cronos") return composicion?.cronos !== undefined;
@@ -1116,8 +1162,17 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    if (vista === VISTA_CATEGORIAS_RPT) {
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-alta-rpt-circular-v6");
+      if (montaje !== secuenciaMontaje) return false;
+      const modulo = montarCategoriasRPT({ raiz });
+      if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
+      desmontarVista = modulo.desmontar;
+      return true;
+    }
+
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261007-pantallas-textos-final-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261008-alta-rpt-circular-v6");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

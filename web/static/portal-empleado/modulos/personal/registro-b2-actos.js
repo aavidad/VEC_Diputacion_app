@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;

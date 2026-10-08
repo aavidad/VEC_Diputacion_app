@@ -247,6 +247,8 @@ static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
 static/textos/en/portal-bolsa.json
+static/textos/es/portal-bolsa-telefono.json
+static/textos/en/portal-bolsa-telefono.json
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js
@@ -396,6 +398,8 @@ static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-reincorporaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
+static/portal-empleado/portal-bolsas-seguimiento.js
+static/portal-empleado/portal-llamamiento-origen.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js
 static/portal-empleado/portal-bolsas-ruta-filtros.js
@@ -510,6 +514,7 @@ static/textos/es/bolsas-publicas.json
 static/textos/en/bolsas-publicas.json
 static/portal-empleado/categorias-rpt/index.html
 static/portal-empleado/categorias-rpt/arranque.js
+static/portal-empleado/categorias-rpt/montaje.js
 static/portal-empleado/categorias-rpt/vista.js
 static/portal-empleado/categorias-rpt/puerto.js
 static/portal-empleado/categorias-rpt/cliente.js
@@ -545,6 +550,7 @@ static/textos/es/contratacion-temporal-ficha-lista.json
 static/textos/es/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/es/contratacion-temporal-llamamiento.json
 static/textos/es/contratacion-temporal-moad.json
+static/textos/es/contratacion-temporal-necesidades-alta.json
 static/textos/es/contratacion-temporal-subsanacion-reparos.json
 static/textos/es/contratacion-temporal-textos-vistas.json
 static/textos/es/contratacion-temporal-compatibilidad.json
@@ -557,6 +563,7 @@ static/textos/en/contratacion-temporal-ficha-lista.json
 static/textos/en/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/en/contratacion-temporal-llamamiento.json
 static/textos/en/contratacion-temporal-moad.json
+static/textos/en/contratacion-temporal-necesidades-alta.json
 static/textos/en/contratacion-temporal-subsanacion-reparos.json
 static/textos/en/contratacion-temporal-textos-vistas.json
 static/textos/en/contratacion-temporal-compatibilidad.json

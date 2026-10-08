@@ -188,10 +188,6 @@ func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
-	configuracion := nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
-		m.motivos.opciones(r.Context()), m.catalogo,
-	)
-	configuracion.SubsanacionDisponible = m.subsanacionDisponible
 	minutosJornada, err := m.jornada.minutos(r.Context())
 	if err != nil {
 		responderErrorConfiguracionAnalisisContratacionTemporalDesarrollo(
@@ -199,6 +195,10 @@ func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
+	configuracion := nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
+		m.motivos.opciones(r.Context()), m.catalogo,
+	)
+	configuracion.SubsanacionDisponible = m.subsanacionDisponible
 	configuracion.JornadaCompletaMinutosSemanales = minutosJornada
 	contenido, err := json.Marshal(
 		respuestaConfiguracionAnalisisContratacionTemporalDesarrollo{
@@ -260,16 +260,15 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 		})
 	}
 	return configuracionAnalisisContratacionTemporalDesarrollo{
-		Esquema:                         esquemaConfiguracionAnalisisContratacionTemporal,
-		ArtefactoRef:                    artefactoAnalisisContratacionTemporalDesarrollo,
-		Modalidades:                     modalidades,
-		Categorias:                      catalogo.Categorias,
-		Causas:                          append([]opcionClaveCatalogosAltaContratacionTemporalDesarrollo(nil), opciones.causas...),
-		EntradasRC:                      entradasRC,
-		DuracionesMaximas:               duraciones,
-		UrgenciaDisponible:              opciones.urgenciaDisponible,
-		MotivosRectificacion:            motivos,
-		JornadaCompletaMinutosSemanales: minutosJornadaCompletaPredeterminadaDesarrollo,
+		Esquema:              esquemaConfiguracionAnalisisContratacionTemporal,
+		ArtefactoRef:         artefactoAnalisisContratacionTemporalDesarrollo,
+		Modalidades:          modalidades,
+		Categorias:           catalogo.Categorias,
+		Causas:               append([]opcionClaveCatalogosAltaContratacionTemporalDesarrollo(nil), opciones.causas...),
+		EntradasRC:           entradasRC,
+		DuracionesMaximas:    duraciones,
+		UrgenciaDisponible:   opciones.urgenciaDisponible,
+		MotivosRectificacion: motivos,
 	}
 }
 

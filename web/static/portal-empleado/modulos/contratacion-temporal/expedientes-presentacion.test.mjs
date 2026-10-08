@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { exigirRenovado } from "../../versiones-cache.test-helper.mjs";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
@@ -23,12 +23,12 @@ import {
 } from "./datos-presentacion.js";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 const MENSAJES_EXPEDIENTES_CONTRATACION_EN = await cargarMensajesExpedientesContratacionEnIdioma("en");
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });

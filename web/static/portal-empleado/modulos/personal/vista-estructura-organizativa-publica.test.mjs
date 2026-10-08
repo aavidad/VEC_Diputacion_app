@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => { await prepararTextosPersonal(); });
 import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
-import { montarModuloEstructuraOrganizativaPublica } from "./vista-estructura-organizativa-publica.js";
+import { montarModuloEstructuraOrganizativaPublica } from "./vista-estructura-organizativa-publica.js?v=20261008-alta-rpt-circular-v4";
 
 test("estructura carga el i18n actualizado del corte F2", () => {
   const codigo = readFileSync(new URL("./vista-estructura-organizativa-publica.js", import.meta.url), "utf8");

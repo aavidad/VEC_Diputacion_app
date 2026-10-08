@@ -16,13 +16,16 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	ctrpt "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/rptpublica"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
@@ -357,7 +360,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath, cfg.RPTCatalogoPath)
+	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath, cfg.RPTCatalogoPath, cfg.CTNecesidadesAltaSourcePath)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -382,13 +385,44 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
 			alta.cerrar()
 		}
 	}()
+	// El alta de necesidad queda cerrada hasta declarar una publicación propia
+	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
+	// La relectura de la instantánea usa la conexión del ejecutor: es el único
+	// rol al que CT193 concede leer_instantanea_necesidad_alta_v3.
+	if cfg.CTNecesidadesAltaSourcePath != "" {
+		recuperador, err := postgresct.NuevoRecuperadorNecesidadAltaPostgreSQL(alta.postgresql.ejecucion)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		fuenteNecesidades, err := catalogoalta.NuevaFuente(cfg.CTNecesidadesAltaSourcePath, recuperador)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if _, err := fuenteRPT.ObtenerRPTPublica(context.Background()); err != nil {
+			return nil, nil, nil, err
+		}
+		verificadorRPT, err := ctrpt.NuevoVerificadorAlta(fuenteRPT)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if err := alta.servicio.ConfigurarFuenteNecesidadesAlta(fuenteNecesidades); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := alta.servicio.ConfigurarVerificadorPuestoRPTAlta(verificadorRPT); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	montajePreparacionBases, existePreparacionBases, err := NuevoMontajePreparacionBasesV3(cfg, alta.soporte, reloj)
 	if err != nil || existePreparacionBases != preparacionBasesActiva || preparacionBasesActiva && montajePreparacionBases.configuracion != configuracionPreparacionBases {
 		return nil, nil, nil, errMontajePreparacionBasesV3

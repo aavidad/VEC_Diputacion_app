@@ -2,6 +2,21 @@ import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
+function aplanarMensajesNecesidades(seccion, prefijo = "", salida = {}) {
+  for (const [clave, valor] of Object.entries(seccion ?? {})) {
+    const nombre = prefijo ? `${prefijo}.${clave}` : clave;
+    if (typeof valor === "string") salida[nombre] = valor;
+    else aplanarMensajesNecesidades(valor, nombre, salida);
+  }
+  return salida;
+}
+/** El catálogo de necesidades se pide al entrar en Alta, nunca al importar CT. */
+export async function cargarMensajesNecesidadesAlta(idioma) {
+  const catalogo = idioma === undefined
+    ? await cargarCatalogosContratacion("contratacion-temporal-necesidades-alta")
+    : await cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta", idioma);
+  return Object.freeze(aplanarMensajesNecesidades(catalogo.actual));
+}
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";

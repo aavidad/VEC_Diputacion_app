@@ -38,6 +38,9 @@ type SolicitudCentro struct {
 	RC                 DeclaracionRC   `json:"rc"`
 	DocumentosAdjuntos []string        `json:"documentos_adjuntos"`
 	Observaciones      string          `json:"observaciones,omitempty"`
+	// Necesidad se fija por el servidor para el alta versionada. Su ausencia
+	// conserva el contrato y los bytes históricos de SolicitudCentro.
+	Necesidad *DatosNecesidadAlta `json:"necesidad,omitempty"`
 }
 
 func (s SolicitudCentro) Validar() error {
@@ -49,11 +52,19 @@ func (s SolicitudCentro) Validar() error {
 		!textoValido(s.Observaciones, 4000, true) {
 		return ErrDatoInvalido
 	}
+	if s.Necesidad != nil && (s.Necesidad.ValidarInstantanea() != nil ||
+		s.MotivoClave != s.Necesidad.CausaClave || s.Periodo != s.Necesidad.Periodo) {
+		return ErrDatoInvalido
+	}
 	return nil
 }
 
 func (s SolicitudCentro) clonar() SolicitudCentro {
 	s.DocumentosAdjuntos = append([]string(nil), s.DocumentosAdjuntos...)
+	if s.Necesidad != nil {
+		copia := s.Necesidad.clonar()
+		s.Necesidad = &copia
+	}
 	return s
 }
 

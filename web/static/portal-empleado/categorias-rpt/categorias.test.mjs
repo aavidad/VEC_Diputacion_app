@@ -64,15 +64,15 @@ test("rechaza un DTO que añada un estado supuesto y conserva la denegación del
     (error) => error.estado === 403);
 });
 
-test("el puerto admite escritores futuros inyectados y la pantalla actual mantiene los botones cerrados", async () => {
+test("el puerto admite escritores futuros inyectados y la pantalla no ofrece botones sin efecto", async () => {
   const solicitarAlta = async () => ({ registro: "externo" });
   const puerto = crearPuertoCategorias({ listarOpciones: async () => [], solicitarAlta });
   assert.equal(puerto.solicitarAlta, solicitarAlta);
   assert.equal(puerto.solicitarDeshabilitacion, null);
-  const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
-  assert.match(html, /data-i18n="anadir"[^>]*disabled|disabled[^>]*data-i18n="anadir"/u);
-  assert.match(html, /data-i18n="deshabilitar"[^>]*disabled|disabled[^>]*data-i18n="deshabilitar"/u);
-  assert.doesNotMatch(html, /<form[^>]*action=/u);
+  const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  assert.doesNotMatch(vista, /disabled aria-describedby|<form[^>]*action=/u);
+  const arranque = await readFile(new URL("./arranque.js", import.meta.url), "utf8");
+  assert.match(arranque, /#contratacion-temporal\/categorias-rpt/u);
 });
 
 test("filtra por categoría y grupo sin alterar la fuente y pagina a veinte filas", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js";
+import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js?v=20261008-alta-circular-v3";
 
 const solicitud = Object.freeze({ expediente_ref: "expediente:ct:sintetico-009", version_observada: 7 });
 const mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

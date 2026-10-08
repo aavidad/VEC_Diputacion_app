@@ -258,7 +258,7 @@ export function crearVistaInicioPortal({
       <section class="portal-rrhh-inicio" aria-label="${t("menu_inicio")}">
         <header class="cabeza-pagina">
           <div><h2 class="portal-rrhh-fecha">${escaparHTML(fecha.charAt(0).toLocaleUpperCase(locale) + fecha.slice(1))}</h2></div>
-          <div class="fila-acciones"><a class="boton-secundario" href="/portal-empleado/categorias-rpt/?lang=${encodeURIComponent(idioma)}">${t("inicio_rrhh_categorias_rpt")}</a>
+          <div class="fila-acciones"><button type="button" class="boton-secundario" data-vista="categorias-rpt">${t("inicio_rrhh_categorias_rpt")}</button>
           ${disponibleCT ? `<button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("inicio_rrhh_nueva_peticion")}</button>` : ""}</div>
         </header>
         ${estadoCT}

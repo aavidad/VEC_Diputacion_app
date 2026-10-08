@@ -12,7 +12,7 @@ import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
@@ -101,6 +101,12 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
   "reincorporacion_capacidad_no_habilitada",
 ]);
+// Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
+const CLAVES_CAPACIDAD_ALTA = Object.freeze({
+  "i18n-textos-vistas.js": ["motivo_sustitucion"],
+  "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
+    "necesidades_alta_no_disponibles_detalle"],
+});
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
 
@@ -151,6 +157,13 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
 
+      }
+      if (CLAVES_CAPACIDAD_ALTA[archivo]) {
+        for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(preimagen)
+          .filter(([clave]) => !CLAVES_CAPACIDAD_ALTA[archivo].includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);

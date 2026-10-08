@@ -51,7 +51,7 @@ async function arrancar(origen = null) {
       aplicarTextosPortal(document, traducir);
       document.documentElement.lang = pc.idioma;
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261007-pc-recuperacion-v1");
+      const peticiones = await import("./peticiones-centro.js?v=20261008-alta-capacidad-v3");
       peticiones.instalarAyudaPeticionCentro(document);
       await Promise.all([
         import("./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1"),

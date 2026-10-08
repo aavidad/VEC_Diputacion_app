@@ -12,13 +12,13 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
+} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
 import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
@@ -487,7 +487,10 @@ function cargadorCatalogosPublicosFalso({ rpt = true, estructura = true } = {}) 
     const desmontar = () => nodo.remove(); registrarDesmontar?.(desmontar); return { desmontar };
   };
   return async () => ({
-    clienteRPT: { crearClienteHTTPRPTPublica: () => ({ listar: async () => { if (!rpt) throw new Error("503"); return {}; } }) },
+    clienteRPT: { crearClienteHTTPRPTPublica: () => ({ listar: async () => {
+      if (!rpt) throw Object.assign(new Error("catálogo ausente"), { codigo: "estado_no_valido", estado: 404 });
+      return {};
+    } }) },
     vistaRPT: { montarModuloRPTPublica: vista("personalRptPublica") },
     clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica: () => ({ obtener: async () => { if (!estructura) throw new Error("404"); return {}; } }) },
     vistaEstructura: { montarModuloEstructuraOrganizativaPublica: vista("personalEstructuraOrganizativaPublica") },
@@ -515,6 +518,11 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
   assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "contacto", "catalogos"]);
   assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 0);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(llamadas.at(-1), "/api/interna/personal/mi-ficha", "el 503 de RPT conserva Mi ficha");
+  assert.ok(raiz.querySelector("[data-personal-ficha-rpt-reintentar]"));
+  assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  raiz.querySelector('[data-personal-ficha-tab="catalogos"]').listeners.click();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(llamadas.at(-1), "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
   assert.ok(raiz.querySelector("[data-personal-categorias]"));
@@ -666,6 +674,64 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
     const montados = ["personalCategorias", "personalRptPublica", "personalEstructuraOrganizativaPublica"]
       .filter((marca) => raiz.querySelectorAll("section").some((nodo) => nodo.dataset[marca] !== undefined));
     assert.deepEqual(montados, esperados);
+    coordinador.desmontarVistaActual();
+  }
+});
+
+test("RPT distingue 503 de ausencia y denegación; reintenta una sonda sin montar lista antes de 200", async () => {
+  for (const [estadoHTTP, esperado] of [[503, "incidencia"], [404, "ausente"], [403, "denegado"]]) {
+    let estadoActual = estadoHTTP;
+    let sondas = 0;
+    let montajesRPT = 0;
+    let ficha;
+    const moduloPersonal = {
+      contrato: { CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" },
+      cliente: { crearClienteHTTPCategoriasPersonal: () => ({}) },
+      vista: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+      clienteCategorias: { crearClienteHTTPCategoriasPersonal: () => ({}) },
+      vistaCategorias: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+      ficha: { montarVistaFichaIntegralPersonal(entrada) { ficha = entrada; return { desmontar() {} }; } },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { fetch: async () => { throw new Error("sin consultas reales en la prueba"); } },
+      cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("CT fuera del caso"); },
+        personal: async () => moduloPersonal,
+        personal_catalogos_publicos: async () => ({
+          clienteRPT: { crearClienteHTTPRPTPublica: () => ({ async listar() {
+            sondas += 1;
+            if (estadoActual !== 200) throw Object.assign(new Error("sonda rechazada"),
+              { codigo: "estado_no_valido", estado: estadoActual });
+            return {};
+          } }) },
+          vistaRPT: { montarModuloRPTPublica: async () => { montajesRPT += 1; return { desmontar() {} }; } },
+        }),
+      },
+    });
+    await coordinador.cargarInterno();
+    await coordinador.prepararVista("personal");
+    assert.equal(await coordinador.montarVista("personal", raizDietasFalsa()), true);
+    assert.equal(sondas, 1, "una sola sonda inicial");
+    assert.equal(ficha.rptDisponible, false);
+    assert.equal(ficha.rptIncidencia, esperado === "incidencia");
+    await ficha.montarCatalogos({ raiz: {}, anunciar() {} });
+    assert.equal(montajesRPT, 0, "la lista no se monta con sonda fallida");
+    if (esperado === "incidencia") {
+      const fichaRetirada = ficha;
+      coordinador.retirarVistaMontada();
+      assert.equal(await fichaRetirada.reintentarRPT(), "incidencia");
+      assert.equal(sondas, 1, "el botón de una ficha retirada no inicia otra consulta");
+      assert.equal(await coordinador.montarVista("personal", raizDietasFalsa()), true);
+    }
+    estadoActual = 200;
+    const reintentos = await Promise.all([ficha.reintentarRPT(), ficha.reintentarRPT()]);
+    assert.deepEqual(reintentos, [esperado === "incidencia" ? "disponible" : esperado,
+      esperado === "incidencia" ? "disponible" : esperado]);
+    assert.equal(sondas, esperado === "incidencia" ? 2 : 1, "solo la incidencia admite reintento explícito");
+    await ficha.montarCatalogos({ raiz: {}, anunciar() {} });
+    assert.equal(montajesRPT, esperado === "incidencia" ? 1 : 0);
     coordinador.desmontarVistaActual();
   }
 });

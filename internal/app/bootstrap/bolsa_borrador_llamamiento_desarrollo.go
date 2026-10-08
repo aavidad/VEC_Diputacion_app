@@ -110,7 +110,14 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarCont
 	if err != nil {
 		return puertosbolsa.SolicitudRegistrarContactoParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, OfertaRef: entrada.OfertaRef, EvidenciaRef: entrada.EvidenciaRef, EvidenciaHuellaSHA256: entrada.EvidenciaHuellaSHA256, Canal: entrada.Canal, Instante: entrada.Instante, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, OfertaRef: entrada.OfertaRef, EvidenciaRef: entrada.EvidenciaRef, EvidenciaHuellaSHA256: entrada.EvidenciaHuellaSHA256, Canal: entrada.Canal, Instante: entrada.Instante, InstanteServidor: entrada.InstanteServidor, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
+}
+
+// SoportaRegistroTelefonoServidor indica que este preparador traslada el modo
+// «hora del servidor» de la llamada. Si falta B87, el registro responde 503 y
+// la lectura no anuncia la capacidad.
+func (p *preparadorBorradorLlamamientoDesarrollo) SoportaRegistroTelefonoServidor() bool {
+	return p != nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDatosContacto(ctx context.Context, entrada bolsahttp.EntradaRegistrarDatosContactoParticipacion) (puertosbolsa.SolicitudRegistrarDatosContactoParticipacion, error) {
@@ -305,6 +312,8 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
 	emision *aplicacionbolsa.ServicioEmisionLlamamiento
 	fuente  *fuenteCorreoParticipacionB7
+	// canales publica los canales de aviso activos (catálogo + adaptador).
+	canales *aplicacionbolsa.RegistroCanalesLlamamiento
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -797,7 +806,11 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	canales, err := componerCanalesLlamamientoBolsaDesarrollo(servicioEmision != nil, repositorioContacto)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {
