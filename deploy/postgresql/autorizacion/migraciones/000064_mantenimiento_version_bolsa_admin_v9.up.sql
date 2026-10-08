@@ -16,6 +16,8 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_mantenimiento_perfil_fijo_admin_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_mantenimiento_perfil_fijo_admin_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion.ajustar_inicio_asignacion_mantenimiento_v1(jsonb)') IS NULL
+ OR to_regprocedure('vec_autorizacion.mantener_version_perfil_fijo_gobierno_definiciones_admin_v1(text,text)') IS NULL
+ OR to_regclass('vec_autorizacion.registro_mantenimiento_gobierno_definiciones_admin_v1') IS NULL
  OR to_regprocedure('vec_autorizacion.concesiones_version_rol_bolsa_v1()') IS NULL
  OR to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regclass('vec_autorizacion.config_mantenimiento_version_bolsa_admin_v1') IS NOT NULL
@@ -169,6 +171,25 @@ BEGIN
  IF (SELECT jsonb_agg(jsonb_build_object('asignacion_ref',x.value#>>'{asignacion,asignacion_ref}','persona_ref',x.value#>>'{asignacion,principal_id}','perfil_ref',x.value#>>'{asignacion,perfil_activo_ref}') ORDER BY x.value#>>'{asignacion,perfil_activo_ref}') FROM jsonb_array_elements(asigs) x)
  IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('asignacion_ref',x.value->>'asignacion_ref','persona_ref',x.value->>'persona_ref','perfil_ref',x.value->>'perfil_ref') ORDER BY x.value->>'perfil_ref') FROM jsonb_array_elements(efectivos) x)
  THEN RAISE EXCEPTION 'AUT64: PARO clave=APP_objetivos actual=conjunto_distinto esperado=dos_APP_efectivas_exactas' USING ERRCODE='40001'; END IF;
+ -- La v8 y sus dos asignaciones proceden del efecto AUT59 confirmado, no de
+ -- filas insertadas sin el plan y recibo originales de ese mantenimiento.
+ IF NOT EXISTS(
+  SELECT 1 FROM vec_autorizacion.registro_mantenimiento_gobierno_definiciones_admin_v1 m
+  WHERE m.recibo->>'esquema'='vec.admin.mantenimiento-fijo.v4'
+   AND m.recibo->>'rol_origen_ref'='rol:administracion_perfiles:v7'
+   AND m.recibo->>'rol_destino_ref'=r.version_rol_ref
+   AND m.recibo->>'rol_destino_sha256'=r.huella_sha256
+   AND m.recibo->>'plan_sha256'=m.plan_sha256
+   AND jsonb_array_length(m.recibo->'asignaciones')=2
+   AND NOT EXISTS(
+    SELECT 1 FROM jsonb_array_elements(m.recibo->'asignaciones') q
+    WHERE NOT EXISTS(
+     SELECT 1 FROM jsonb_array_elements(asigs) s
+     WHERE s.value#>>'{asignacion,asignacion_ref}'=q.value->>'ref'
+      AND s.value#>>'{asignacion,huella_sha256}'=q.value->>'sha'
+    )
+   )
+ ) THEN RAISE EXCEPTION 'AUT64: PARO clave=procedencia_v8 actual=sin_recibo_AUT59 esperado=rol_y_dos_asignaciones_confirmadas' USING ERRCODE='40001'; END IF;
  RETURN jsonb_build_object('esquema','vec.admin.mantenimiento-fijo.preimagen.v5','rol',to_jsonb(r),'control',to_jsonb(c),'categoria',to_jsonb(meta),'gobierno',to_jsonb(gob),'catalogo',cat,'asignaciones',asigs);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.preimagen_mantenimiento_version_bolsa_admin_v1(jsonb) FROM PUBLIC;
