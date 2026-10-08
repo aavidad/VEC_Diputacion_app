@@ -57,26 +57,9 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
-	bolsa, err := c.Bolsa.ClonarCanonica()
-	if err != nil || c.Instantanea.Validar() != nil || len(c.Entradas) == 0 ||
-		len(c.Entradas) != len(c.Instantanea.Entradas) || c.ActaRef == "" || c.ActorRef == "" || c.CategoriaRef == "" {
-		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaInvalida
-	}
-	bolsaCanonica, err := json.Marshal(bolsa)
+	argumentos, err := argumentosConstitucion(c)
 	if err != nil {
-		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaInvalida
-	}
-	instantaneaCanonica, err := json.Marshal(c.Instantanea)
-	if err != nil {
-		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaInvalida
-	}
-	entradas := make([]entradaConstitucionJSON, len(c.Entradas))
-	for i, e := range c.Entradas {
-		entradas[i] = entradaConstitucionJSON{Orden: e.Orden, ParticipacionRef: e.ParticipacionRef, FilaNumero: e.FilaNumero}
-	}
-	entradasJSON, err := json.Marshal(entradas)
-	if err != nil {
-		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaInvalida
+		return ports.ReciboConstitucion{}, err
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
@@ -87,9 +70,7 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 	err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.constituir_bolsa_v1(
 		$1::text, $2::text, $3::text, $4::text, $5::bigint, $6::bytea, $7::timestamptz,
 		$8::text, $9::bigint, $10::bytea, $11::timestamptz, $12::timestamptz, $13::jsonb, $14::timestamptz)`,
-		c.ActaRef, c.ActorRef, c.CategoriaRef, bolsa.BolsaRef, int64(bolsa.Version), bolsaCanonica, bolsa.VigenteDesde,
-		c.Instantanea.InstantaneaRef, int64(c.Instantanea.Version), instantaneaCanonica,
-		c.Instantanea.ReferidaEn, c.Instantanea.GeneradaEn, entradasJSON, c.ConfirmadaEn,
+		argumentos...,
 	).Scan(&contenido)
 	if err != nil {
 		return ports.ReciboConstitucion{}, errorConstitucion(ctx, err)
@@ -101,6 +82,40 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 	if json.Unmarshal(contenido, &recibo) != nil {
 		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaNoDisponible
 	}
+	return recibo.traducir()
+}
+
+// argumentosConstitucion valida la constitución y prepara, en orden, los
+// catorce argumentos de constituir_bolsa_v1 (también los primeros de B79).
+func argumentosConstitucion(c ports.Constitucion) ([]any, error) {
+	bolsa, err := c.Bolsa.ClonarCanonica()
+	if err != nil || c.Instantanea.Validar() != nil || len(c.Entradas) == 0 ||
+		len(c.Entradas) != len(c.Instantanea.Entradas) || c.ActaRef == "" || c.ActorRef == "" || c.CategoriaRef == "" {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	bolsaCanonica, err := json.Marshal(bolsa)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	instantaneaCanonica, err := json.Marshal(c.Instantanea)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	entradas := make([]entradaConstitucionJSON, len(c.Entradas))
+	for i, e := range c.Entradas {
+		entradas[i] = entradaConstitucionJSON{Orden: e.Orden, ParticipacionRef: e.ParticipacionRef, FilaNumero: e.FilaNumero}
+	}
+	entradasJSON, err := json.Marshal(entradas)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	return []any{c.ActaRef, c.ActorRef, c.CategoriaRef, bolsa.BolsaRef, int64(bolsa.Version), bolsaCanonica, bolsa.VigenteDesde,
+		c.Instantanea.InstantaneaRef, int64(c.Instantanea.Version), instantaneaCanonica,
+		c.Instantanea.ReferidaEn, c.Instantanea.GeneradaEn, entradasJSON, c.ConfirmadaEn}, nil
+}
+
+// traducir convierte el recibo JSON de constituir_bolsa_v1.
+func (recibo reciboConstitucionJSON) traducir() (ports.ReciboConstitucion, error) {
 	confirmada, err := time.Parse("2006-01-02T15:04:05.000000Z", recibo.ConfirmadaEn)
 	if err != nil {
 		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaNoDisponible

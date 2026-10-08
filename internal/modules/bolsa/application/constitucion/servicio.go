@@ -174,6 +174,32 @@ func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.R
 	return recibo, nil
 }
 
+// OrdenarFilasConstitucion ordena las filas del resumen como quedarán en la
+// bolsa: Total descendente y, a igual Total, apellidos y nombre; por último,
+// número de fila. La vista previa de la carga usa el mismo orden.
+func OrdenarFilasConstitucion(filas []importacion.FilaAceptada) {
+	sort.SliceStable(filas, func(i, j int) bool {
+		a, b := filas[i], filas[j]
+		ta, tb := puntuacion(totalFila(a)), puntuacion(totalFila(b))
+		if ta != tb {
+			return ta > tb
+		}
+		ka := strings.ToLower(a.Identidad.PrimerApellido + " " + a.Identidad.SegundoApellido + " " + a.Identidad.Nombre)
+		kb := strings.ToLower(b.Identidad.PrimerApellido + " " + b.Identidad.SegundoApellido + " " + b.Identidad.Nombre)
+		if ka != kb {
+			return ka < kb
+		}
+		return a.Numero < b.Numero
+	})
+}
+
+func totalFila(fila importacion.FilaAceptada) string {
+	if fila.Resumen == nil {
+		return ""
+	}
+	return fila.Resumen.Total
+}
+
 func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora time.Time, derivador DerivadorCandidato) (ports.Constitucion, []ports.VinculoCandidato, []ports.FilaPendienteRevision, error) {
 	acta := lote.Acta
 	if acta.Esquema != importacion.EsquemaResumenPersona {
@@ -193,19 +219,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		return ports.Constitucion{}, nil, nil, err
 	}
 	sujetos := semillasSujeto(filas)
-	sort.SliceStable(filas, func(i, j int) bool {
-		a, b := filas[i], filas[j]
-		ta, tb := puntuacion(a.Resumen.Total), puntuacion(b.Resumen.Total)
-		if ta != tb {
-			return ta > tb
-		}
-		ka := strings.ToLower(a.Identidad.PrimerApellido + " " + a.Identidad.SegundoApellido + " " + a.Identidad.Nombre)
-		kb := strings.ToLower(b.Identidad.PrimerApellido + " " + b.Identidad.SegundoApellido + " " + b.Identidad.Nombre)
-		if ka != kb {
-			return ka < kb
-		}
-		return a.Numero < b.Numero
-	})
+	OrdenarFilasConstitucion(filas)
 	sufijoActa := sufijoOpaco(acta.ActaRef)
 	bolsaRef := acta.BolsaRef
 	if bolsaRef == "" {

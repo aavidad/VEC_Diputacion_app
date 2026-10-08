@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -170,5 +171,63 @@ func TestProvisionBolsaConservaCompletaYRechazaHuellaORamaAjena(t *testing.T) {
 	politica, autoridad, _ = politicaProvisionBolsaPrueba(t, 15)
 	if err := politica.PublicarInicial(context.Background()); err == nil || autoridad.publicadas != 0 || politica.publicada {
 		t.Fatalf("rama ajena aceptada: err=%v", err)
+	}
+}
+
+func TestProvisionCargaConvocaExigeCASYConcesionPropia(t *testing.T) {
+	concede := func(i dominiovec.InstantaneaAutorizacion) bool {
+		for _, c := range i.VersionRol.Concesiones {
+			if c.Accion == puertosbolsa.AccionConfirmarCargaConvoca {
+				return c.ModuloID == puertosbolsa.ModuloCargaConvoca && c.TipoRecurso == puertosbolsa.TipoRecursoCargaConvoca &&
+					len(c.Finalidades) == 1 && c.Finalidades[0] == puertosbolsa.FinalidadConfirmarCargaConvoca &&
+					len(c.CamposPermitidos) == 0 && len(c.Obligaciones) == 0
+			}
+		}
+		return false
+	}
+	politicaBase, _, datosBase := politicaProvisionBolsaPrueba(t, 0)
+	for v := 5; v <= 16; v++ {
+		base, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(datosBase.PrincipalID, datosBase.PerfilActivoRef,
+			politicaBase.soporte.unidadRef, politicaBase.soporte.ambitoRef, politicaBase.reloj.Ahora(), v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ampliada, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(datosBase.PrincipalID, datosBase.PerfilActivoRef,
+			politicaBase.soporte.unidadRef, politicaBase.soporte.ambitoRef, politicaBase.reloj.Ahora(), v+16)
+		if err != nil || !concede(ampliada) || concede(base) || len(ampliada.VersionRol.Concesiones) != len(base.VersionRol.Concesiones)+1 ||
+			!reflect.DeepEqual(ampliada.VersionRol.Concesiones[:len(base.VersionRol.Concesiones)], base.VersionRol.Concesiones) {
+			t.Fatalf("v%d→v%d perdió una concesión anterior: %v", v, v+16, err)
+		}
+	}
+	politica, autoridad, _ := politicaProvisionBolsaPrueba(t, 13)
+	if err := politica.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 || concede(politica.instantanea) {
+		t.Fatalf("v13 adquirió B1 sin aprobación: err=%v publicaciones=%d", err, autoridad.publicadas)
+	}
+	politica, autoridad, datos := politicaProvisionBolsaPrueba(t, 13)
+	preimagen, objetivo, err := huellasProvisionRRHHBolsa(autoridad.leida.instantanea, datos, politica.soporte, politica.reloj.Ahora(), 29)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envCargaConvocaAprobacion, "aprobacion:prueba-b1")
+	t.Setenv(envCargaConvocaPreimagen, preimagen)
+	t.Setenv(envCargaConvocaObjetivo, strings.Repeat("a", 64))
+	if err := politica.PublicarInicial(context.Background()); err == nil || autoridad.publicadas != 0 {
+		t.Fatal("B1 aceptó una huella objetivo distinta")
+	}
+	t.Setenv(envCargaConvocaObjetivo, objetivo)
+	politica, autoridad, datos = politicaProvisionBolsaPrueba(t, 13)
+	preimagen, objetivo, err = huellasProvisionRRHHBolsa(autoridad.leida.instantanea, datos, politica.soporte, politica.reloj.Ahora(), 29)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envCargaConvocaPreimagen, preimagen)
+	t.Setenv(envCargaConvocaObjetivo, objetivo)
+	if err := politica.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 1 || autoridad.preimagen != 13 ||
+		politica.instantanea.VersionRol.Version != 29 || !concede(politica.instantanea) || !concedeConsultaDatosContacto(politica.instantanea) {
+		t.Fatalf("CAS v13→v29: err=%v publicaciones=%d preimagen=%d versión=%d", err, autoridad.publicadas, autoridad.preimagen, politica.instantanea.VersionRol.Version)
+	}
+	politica, autoridad, _ = politicaProvisionBolsaPrueba(t, 29)
+	if err := politica.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 || !concede(politica.instantanea) {
+		t.Fatalf("v29 vigente no se conservó: err=%v publicaciones=%d", err, autoridad.publicadas)
 	}
 }
