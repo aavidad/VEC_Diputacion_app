@@ -13,7 +13,7 @@
  */
 
 import { cargarTextos } from "../../../comun/textos.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-sin-bolsa-v2";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 
 export const MODULO_TEXTOS_FASE_FIRMA = "contratacion-temporal-firma";
 const ZONA_HORARIA = "Europe/Madrid";
@@ -114,7 +114,8 @@ function botonFirmado(fase, etiqueta, textos) {
  * traduce documento y cargo del catálogo. `aviso` false omite el aviso de
  * estado no disponible cuando el bloque ya explica otro motivo (permiso).
  */
-export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, valor) => valor, aviso = true }) {
+export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, valor) => valor, aviso = true,
+  mostrarDescargaFirmado = true }) {
   if (!textos || !catalogo?.documentos?.length) return "";
   const conEstado = Boolean(real);
   const documentos = conEstado ? real.documentos : catalogo.documentos;
@@ -133,7 +134,7 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
         <span>${escaparHTML(textoPersona)}</span></div>
       <div class="ct-fase-firma-dato"><span class="ct-fase-firma-rotulo">${escaparHTML(textos.traducir("fase.desde"))}</span>
         <span>${escaparHTML(textoDesde(fase, textos))}</span></div>
-      ${botonFirmado(fase, etiqueta, textos)}
+      ${mostrarDescargaFirmado ? botonFirmado(fase, etiqueta, textos) : ""}
     </li>`;
   }).join("");
   return `<section class="ct-fase-firma" aria-labelledby="ct-fase-firma-titulo" data-ct-fase-firma>
@@ -141,4 +142,18 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
     ${conEstado || !aviso ? "" : `<p class="ct-fase-firma-aviso" role="status">${escaparHTML(textos.traducir("fase.estado_no_disponible_aviso"))}</p>`}
     <ul class="ct-fase-firma-lista" aria-label="${escaparHTML(textos.traducir("fase.lista"))}">${filas}</ul>
   </section>`;
+}
+
+/** Sólo metadatos reales de un original firmado custodiado habilitan su descarga. */
+export function renderizarFirmadosEnDocumentos(real, textos, nombrar = (_tipo, valor) => valor) {
+  if (!real?.registro || !textos || !Array.isArray(real.documentos)) return "";
+  const filas = real.documentos.map((documento) => {
+    const fase = calcularFaseDocumento(documento, true);
+    if (!fase.custodiado?.documento_custodiado) return "";
+    const etiqueta = nombrar("documento", documento.etiqueta);
+    return `<li class="ct-fase-firma-fila"><div class="ct-fase-firma-documento"><strong>${escaparHTML(etiqueta)}</strong></div>
+      ${botonFirmado(fase, etiqueta, textos)}</li>`;
+  }).filter(Boolean);
+  return filas.length ? `<ul class="ct-exp-documentos-lista" aria-label="${escaparHTML(textos.traducir("fase.lista"))}">${filas.join("")}</ul>
+    <p id="ct-firma-descarga-aviso" role="status" aria-live="polite"></p>` : "";
 }
