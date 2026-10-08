@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -255,5 +257,49 @@ func TestFuenteCatalogoV2RequierePaqueteDeLaMismaLectura(t *testing.T) {
 				t.Fatalf("fuente v2 no cerró lectura: %v", err)
 			}
 		})
+	}
+}
+
+func TestErrorFuenteV2NoExponeClavePrivadaYConservaCausa(t *testing.T) {
+	paquete, c := paqueteFuentePrueba(t)
+	const clavePrivada = "DNI_SINTETICO_12345678Z"
+	entrada := []byte(`{"` + clavePrivada + `":"valor"}`)
+	err := ValidarPaqueteCatalogoAccionesV2(entrada, c, c.FuenteRef, c.FuenteVersion, c.FuenteHuellaSHA256)
+	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) {
+		t.Fatalf("se perdió el error nominal: %v", err)
+	}
+	for _, formato := range []string{"%v", "%+v", "%#v"} {
+		texto := fmt.Sprintf(formato, err)
+		if strings.Contains(texto, clavePrivada) || texto != ports.ErrAutoridadAdministracionPerfilesNoDisponible.Error() {
+			t.Fatalf("formato %s reveló una clave de entrada", formato)
+		}
+	}
+	var registro bytes.Buffer
+	slog.New(slog.NewTextHandler(&registro, nil)).Error("fuente", "error", err)
+	if strings.Contains(registro.String(), clavePrivada) {
+		t.Fatal("slog reveló una clave de entrada")
+	}
+	// El error de tipo del decodificador conserva su identidad diagnóstica.
+	malTipado := bytes.Replace(paquete, []byte(`"version":1`), []byte(`"version":"`+clavePrivada+`"`), 1)
+	err = ValidarPaqueteCatalogoAccionesV2(malTipado, c, c.FuenteRef, c.FuenteVersion, c.FuenteHuellaSHA256)
+	var causa *json.UnmarshalTypeError
+	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || !errors.As(err, &causa) {
+		t.Fatal("la causa tipada no se conserva para diagnóstico interno")
+	}
+	for _, formato := range []string{"%v", "%+v", "%#v"} {
+		if strings.Contains(fmt.Sprintf(formato, err), clavePrivada) {
+			t.Fatalf("formato %s reveló la entrada mal tipada", formato)
+		}
+	}
+	entradaMalFormada := []byte(`{"` + clavePrivada + `":]}`)
+	err = ValidarPaqueteCatalogoAccionesV2(entradaMalFormada, c, c.FuenteRef, c.FuenteVersion, c.FuenteHuellaSHA256)
+	var sintaxis *json.SyntaxError
+	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || !errors.As(err, &sintaxis) {
+		t.Fatal("la causa sintáctica no se conserva para diagnóstico interno")
+	}
+	for _, formato := range []string{"%v", "%+v", "%#v"} {
+		if strings.Contains(fmt.Sprintf(formato, err), clavePrivada) {
+			t.Fatalf("formato %s reveló la clave mal formada", formato)
+		}
 	}
 }
