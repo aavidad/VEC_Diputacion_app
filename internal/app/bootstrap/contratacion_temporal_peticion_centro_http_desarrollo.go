@@ -193,5 +193,8 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 			intervinientes[otro.actor.ActorRef] = map[string]string{"nombre": otro.principal.DisplayName, "cargo": etiquetas[otro.actor.PuestoRef], "puesto_ref": otro.actor.PuestoRef}
 		}
 	}
-	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": catalogos, "entorno": "desarrollo_sintetico", "catalogo_revision": c.Revision}, nil
+	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": catalogos, "entorno": "desarrollo_sintetico", "catalogo_revision": c.Revision, "capacidades": map[string]bool{
+		"incorporaciones": m.proveedor.incorporacionesCompuestas,
+		"cancelaciones":   m.proveedor.incorporacionesCompuestas && m.proveedor.cancelacionesCompuestas && a.cancelacion != nil,
+	}}, nil
 }

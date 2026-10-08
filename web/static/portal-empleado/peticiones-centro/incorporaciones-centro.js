@@ -114,8 +114,16 @@ export function crearClienteIncorporacionesCentro(fetchImpl = globalThis.fetch) 
       clearTimeout(temporizador);
     }
   }
+  let bandejaEnCurso = null;
   return Object.freeze({
-    bandeja: async () => validarBandejaIncorporaciones(await pedir(RUTAS_INCORPORACIONES_CENTRO.bandeja)),
+    bandeja: () => {
+      if (!bandejaEnCurso) {
+        bandejaEnCurso = pedir(RUTAS_INCORPORACIONES_CENTRO.bandeja)
+          .then(validarBandejaIncorporaciones)
+          .finally(() => { bandejaEnCurso = null; });
+      }
+      return bandejaEnCurso;
+    },
     confirmar: async (solicitud, hoy) => {
       const cuerpo = validarSolicitudConfirmacionCentro(solicitud, hoy);
       const recibo = await pedir(RUTAS_INCORPORACIONES_CENTRO.confirmaciones, { method: "POST", cuerpo });
@@ -278,9 +286,4 @@ export function instalarAyudaIncorporacionesCentro(doc, t = crearTraductorIncorp
   for (const elemento of doc?.querySelectorAll?.("[data-i18n-ayuda-incorporacion]") ?? []) {
     elemento.textContent = t(elemento.dataset.i18nAyudaIncorporacion);
   }
-}
-
-if (typeof document !== "undefined" && document.querySelector("#incorporaciones-centro")) {
-  instalarAyudaIncorporacionesCentro(document);
-  montarIncorporacionesCentro({ contenedor: document.querySelector("#incorporaciones-centro") });
 }

@@ -51,14 +51,22 @@ async function arrancar(origen = null) {
       aplicarTextosPortal(document, traducir);
       document.documentElement.lang = pc.idioma;
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261008-alta-etiquetas-ayuda-v2");
+      const peticiones = await import("./peticiones-centro.js?v=20261008-pc-capacidades-w1");
       peticiones.instalarAyudaPeticionCentro(document);
-      await Promise.all([
-        import("./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1"),
-        import("./cancelaciones-centro.js?v=20261007-pc-recuperacion-v1"),
-      ]);
       ayuda.disabled = false;
-      await peticiones.iniciarPeticionCentro();
+      const pantalla = await peticiones.iniciarPeticionCentro();
+      if (pantalla.capacidades?.incorporaciones === true) {
+        const incorporaciones = await import("./incorporaciones-centro.js?v=20261008-pc-capacidades-w1");
+        const bandeja = incorporaciones.crearClienteIncorporacionesCentro();
+        incorporaciones.instalarAyudaIncorporacionesCentro(document);
+        let cancelaciones = null;
+        if (pantalla.capacidades.cancelaciones === true) {
+          cancelaciones = await import("./cancelaciones-centro.js?v=20261008-pc-capacidades-w1");
+          cancelaciones.instalarAyudaCancelacionesCentro(document);
+        }
+        incorporaciones.montarIncorporacionesCentro({ contenedor: document.querySelector("#incorporaciones-centro"), cliente: bandeja });
+        cancelaciones?.montarCancelacionesCentro({ contenedor: document.querySelector("#cancelaciones-centro"), bandeja });
+      }
       montado = true;
       if (puedeDevolverFoco(origen)) {
         const titulo = raiz.querySelector("h1, h2");

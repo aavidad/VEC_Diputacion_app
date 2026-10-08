@@ -95,3 +95,9 @@ CT193 y Go conservan la necesidad y el catálogo en el efecto sellado. Dos revis
 ## Etiquetas de Alta y ayuda de Inicio — 08/10
 
 Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo de cada causa. La plaza opcional lleva una sola indicación; la obligatoria lleva asterisco y el control exige el valor. La ayuda de Inicio describe las áreas disponibles, sin ofrecer las ofertas al SAE retiradas. La validación de las cuatro causas y los permisos se conserva. Este corte no requiere SQL ni configuración nueva.
+
+## Incorporaciones del centro sin consultas duplicadas — 08/10
+
+El contexto del centro informa de las secciones efectivamente publicadas al arrancar. La página monta incorporaciones y cancelaciones después de leer ese contexto; si no recibe una señal positiva, no consulta la bandeja. Ambas secciones comparten la petición simultánea, sin conservar datos entre recargas. Los permisos de lectura y los actos siguen comprobándose en sus rutas. El montaje de RRHH conserva su propia bandeja.
+
+Pruebas focales: 39 Node y cinco combinaciones de capacidad Go. Chrome, con respuestas de prueba y la página completa, recorrió seis estados en español a 1440 px y en inglés a 390 px: ausencia, contexto antiguo, incorporaciones, ambas secciones, vacío y fallo. Arranque observado de 91 a 136 ms; cero consultas a la ruta ausente y una cuando está publicada, sin errores JavaScript ni desbordamiento. Estos tiempos no acreditan PostgreSQL ni el despliegue nominal. No requiere SQL ni configuración nueva.

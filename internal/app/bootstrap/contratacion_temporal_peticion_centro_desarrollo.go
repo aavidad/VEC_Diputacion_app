@@ -110,11 +110,13 @@ func nuevaIdentidadPeticionCentroDesarrollo(
 }
 
 type proveedorPeticionCentroDesarrollo struct {
-	alta      *dependenciasAltaContratacionTemporalDesarrollo
-	actores   map[string]*identidadPeticionCentroDesarrollo
-	catalogos vecports.ConsultaCatalogosConfigurables
-	version   int
-	reloj     relojContratacionTemporalDesarrollo
+	incorporacionesCompuestas bool
+	cancelacionesCompuestas   bool
+	alta                      *dependenciasAltaContratacionTemporalDesarrollo
+	actores                   map[string]*identidadPeticionCentroDesarrollo
+	catalogos                 vecports.ConsultaCatalogosConfigurables
+	version                   int
+	reloj                     relojContratacionTemporalDesarrollo
 }
 
 type claveMaterialPeticionCentroDesarrollo struct{}
@@ -238,6 +240,8 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 	if err != nil {
 		return nil, err
 	}
+	p.incorporacionesCompuestas = len(rutasIncorporacion) > 0
+	p.cancelacionesCompuestas = len(rutasCancelacion) > 0
 	return append(append(rutas, rutasIncorporacion...), rutasCancelacion...), nil
 }
 

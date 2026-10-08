@@ -7,7 +7,7 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1";
+import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20261008-pc-capacidades-w1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
@@ -221,9 +221,4 @@ export function instalarAyudaCancelacionesCentro(doc, t = crearTraductorCancelac
   for (const elemento of doc?.querySelectorAll?.("[data-i18n-ayuda-cancelacion]") ?? []) {
     elemento.textContent = t(elemento.dataset.i18nAyudaCancelacion);
   }
-}
-
-if (typeof document !== "undefined" && document.querySelector("#cancelaciones-centro")) {
-  instalarAyudaCancelacionesCentro(document);
-  montarCancelacionesCentro({ contenedor: document.querySelector("#cancelaciones-centro") });
 }

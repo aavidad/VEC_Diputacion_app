@@ -85,3 +85,29 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
   assert.match(c.innerHTML, /Pendiente de confirmar/u);
 });
+
+test("incorporaciones y cancelaciones comparten la lectura en curso, también un fallo, y permiten recargar", async () => {
+  let resolver;
+  let llamadas = 0;
+  const cliente = crearClienteIncorporacionesCentro(() => {
+    llamadas += 1;
+    return new Promise((r) => { resolver = r; });
+  });
+  const primera = cliente.bandeja();
+  const segunda = cliente.bandeja();
+  assert.equal(primera, segunda);
+  assert.equal(llamadas, 1);
+  resolver({ ok: true, status: 200, text: async () => JSON.stringify({ data: bandeja() }) });
+  assert.equal(await primera, await segunda);
+  const fallo = cliente.bandeja();
+  const repetida = cliente.bandeja();
+  assert.equal(fallo, repetida);
+  assert.equal(llamadas, 2, "una recarga no reutiliza datos antiguos");
+  resolver({ ok: false, status: 503, text: async () => '{}' });
+  await assert.rejects(fallo, (e) => e.estado === 503);
+  await assert.rejects(repetida, (e) => e.estado === 503);
+  const recuperada = cliente.bandeja();
+  assert.equal(llamadas, 3);
+  resolver({ ok: true, status: 200, text: async () => JSON.stringify({ data: bandeja({ expedientes: [] }) }) });
+  assert.equal((await recuperada).expedientes.length, 0);
+});

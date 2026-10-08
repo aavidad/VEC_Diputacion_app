@@ -640,7 +640,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   globalThis.addEventListener?.("beforeunload", (event) => { if (ocupado || operacionPendiente) { event.preventDefault(); event.returnValue = ""; } });
   raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;
   await cargar();
-  return { recargar: cargar };
+  return { recargar: cargar, capacidades: contexto?.capacidades };
 }
 
 /**
