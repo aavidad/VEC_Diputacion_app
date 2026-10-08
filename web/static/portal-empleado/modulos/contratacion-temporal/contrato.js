@@ -27,6 +27,9 @@ const CAMPOS_NECESIDAD = Object.freeze([
   "financiacion_ref", "rc_ref", "intervencion_ref",
 ]);
 const PATRON_CODIGO_NECESIDAD = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$/u;
+// El servidor admite RE2. El navegador solo interpreta la parte plana y
+// acotada de ese vocabulario; otros patrones quedan para su validación final.
+const PATRON_MOAD_LOCAL_SEGURO = /^\^(?:(?:\[[A-Za-z0-9.\/_-]+\]|[A-Za-z0-9.\/_-])(?:\{[0-9]{1,2}(?:,[0-9]{1,2})?\})?)+\$$/u;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/;
 const PATRON_CLAVE_CATALOGO = /^[a-z][a-z0-9._-]{1,79}$/;
 const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/;
@@ -357,6 +360,15 @@ export function numeroExpedienteMOADValido(valor) {
     && !/[\p{Cc}\p{Cf}]/u.test(valor);
 }
 
+function numeroMOADCoincideConPolitica(valor, politica) {
+  if (!numeroExpedienteMOADValido(valor) || typeof politica?.patron !== "string") return false;
+  if (!PATRON_MOAD_LOCAL_SEGURO.test(politica.patron)) return true;
+  try {
+    const coincidencia = new RegExp(politica.patron, "u").exec(valor);
+    return coincidencia?.index === 0 && coincidencia[0] === valor;
+  } catch { return false; }
+}
+
 export function validarPoliticaNumeroMOAD(politica) {
   exigirCamposExactos(politica, ["referencia", "version", "patron", "ejemplo"], "política de número MOAD");
   if (!referenciaValida(politica.referencia) || !Number.isSafeInteger(politica.version)
@@ -495,6 +507,14 @@ function valorNecesidadValido(campo, valor) {
   return PATRON_CODIGO_NECESIDAD.test(valor);
 }
 
+function errorValorNecesidad(campo) {
+  if (["numero_personas", "porcentaje_financiacion", "justificacion_temporal"].includes(campo)) return campo;
+  if (["organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "proyecto_codigo"].includes(campo)) {
+    return "codigo_necesidad";
+  }
+  return "campo_necesidad";
+}
+
 export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false,
   jornadaReferenciaMinutos = 0 } = {}) {
   return clonarYCongelarAlta({
@@ -563,8 +583,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
-  if (conNumero && !numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
-    agregarError(errores, "numero_expediente_moad", "numero_moad");
+  if (conNumero && !numeroMOADCoincideConPolitica(borrador.numero_expediente_moad,
+    catalogos.numero_expediente_moad)) {
+    agregarError(errores, "numero_expediente_moad", "numero_moad_formato");
   }
   const centro = catalogos.centros.find((opcion) => opcion.referencia === borrador.centro_ref);
   if (!centro) agregarError(errores, "centro_ref", "opcion_catalogo");
@@ -649,11 +670,14 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       }
       for (const campo of CAMPOS_NECESIDAD) {
         const valor = borrador[campo];
-        if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))
-          || (valor && !causa.campos_permitidos.includes(campo))) {
-          agregarError(errores, campo, campo === "numero_personas" ? "numero_personas" : "campo_necesidad");
+        const codigoError = errorValorNecesidad(campo);
+        if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))) {
+          agregarError(errores, campo, codigoError);
         }
-        if (causa.campos_obligatorios.includes(campo) && !valor) agregarError(errores, campo, "texto_obligatorio");
+        if (valor && !causa.campos_permitidos.includes(campo)) agregarError(errores, campo, "campo_necesidad");
+        if (causa.campos_obligatorios.includes(campo) && !valor) {
+          agregarError(errores, campo, codigoError === "campo_necesidad" ? "texto_obligatorio" : codigoError);
+        }
       }
       for (const grupo of causa.uno_de ?? []) {
         if (grupo.filter((campo) => borrador[campo]).length !== 1) agregarError(errores, grupo[0], "uno_de");
