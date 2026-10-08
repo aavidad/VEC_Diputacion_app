@@ -292,3 +292,26 @@ test("actualizar tras caducar consulta una vez y fija el corte nuevo para F5", a
     aplicar(); assert.equal(consultas.length, 2, "repintar el corte nuevo no duplica GET");
   } finally { controlador.cancelarPeticiones(); Object.assign(globalThis, previo); }
 });
+
+
+test("una página tardía no cambia la URL ni el resumen al volver durante la carga", async () => {
+  const location = { pathname: "/portal-empleado/", search: `?bolsa_global=todos&corte_bolsa=${CORTE_GLOBAL}`, hash: "#bolsa/bolsa-candidatos" };
+  const previo = { fetch: globalThis.fetch, location: globalThis.location, history: globalThis.history };
+  let resolver, pedidos = 0, escrituras = 0;
+  globalThis.location = location;
+  globalThis.history = { replaceState() { escrituras++; } };
+  globalThis.fetch = () => { pedidos++; return new Promise((r) => { resolver = r; }); };
+  const estado = { vista: "bolsa-candidatos", filtrosBolsa: {} };
+  const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {}, documento: { querySelector: () => null } });
+  try {
+    const carga = controlador.cargarGlobalBolsa("todos", { corte: CORTE_GLOBAL });
+    for (let n = 0; n < 100 && !resolver; n++) await new Promise((r) => setTimeout(r, 5));
+    assert.equal(pedidos, 1);
+    estado.vista = "resumen"; location.search = ""; location.hash = "#bolsa/resumen";
+    resolver(new Response(JSON.stringify({ data: { esquema: "vec.bolsa.rrhh.global.v1", generado_en: "2026-10-08T10:00:00Z", corte_ref: CORTE_GLOBAL,
+      filtro: "todos", bolsa_ref: null, total: 0, desde: 0, hasta: 0, hay_mas: false, cursor_siguiente: null, items: [] } }), { status: 200 }));
+    await carga;
+    assert.equal(escrituras, 0); assert.equal(location.hash, "#bolsa/resumen");
+    assert.equal(estado.datosCandidatos, null);
+  } finally { controlador.cancelarPeticiones(); Object.assign(globalThis, previo); }
+});

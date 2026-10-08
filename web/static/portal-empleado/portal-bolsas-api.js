@@ -712,12 +712,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   async function cargarGlobalBolsa(filtro, { corte = "", bolsa = "", cursor = "" } = {}) {
     const controlador = iniciarLectura("candidatos");
+    const rutaAlPedir = globalThis.location ? `${globalThis.location.search}${globalThis.location.hash}` : null;
     estado.bolsaSeleccionada = null;
     estado.datosCandidatos = { carga: "cargando", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
     renderizar();
     const res = await resolverLectura("candidatos", controlador, async () => { await prepararTextosGlobalBolsa(); return consultarGlobalBolsa(filtro, { corte, bolsa, cursor }, { signal: controlador.signal }); });
     if (res === null || !lecturaVigente("candidatos", controlador)) return;
     terminarLectura("candidatos", controlador);
+    if (estado.vista !== "bolsa-candidatos" || (rutaAlPedir !== null
+      && `${globalThis.location?.search}${globalThis.location?.hash}` !== rutaAlPedir)) {
+      estado.datosCandidatos = null;
+      return;
+    }
     if (res.ok && globalThis.location?.search !== undefined) {
       const ruta = rutaGlobalBolsaCompartible(globalThis.location.search, filtro, res.datos.corte_ref, bolsa);
       globalThis.history?.replaceState(null, "", ruta);
