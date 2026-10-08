@@ -5,6 +5,38 @@
 import { traducirIntentos as t } from "./portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1";
 import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "./portal-justificante.js";
+import { cargarTextos } from "../comun/textos.js";
+
+// El catálogo nuevo se pide sólo cuando la lectura anuncia el modo de servidor.
+// Si falla, queda disponible la ficha y se puede reintentar la consulta.
+let textosTelefono;
+let cargaTextosTelefono;
+async function prepararTextosTelefono() {
+  if (textosTelefono) return textosTelefono;
+  cargaTextosTelefono ??= cargarTextos("portal-bolsa-telefono");
+  try {
+    textosTelefono = await cargaTextosTelefono;
+    return textosTelefono;
+  } finally {
+    cargaTextosTelefono = null;
+  }
+}
+
+function telefono(titulo) {
+  return textosTelefono.traducir(`telefono.${titulo}`);
+}
+
+function registroTelefonoValido(registro) {
+  if (!registro || registro.esquema !== "vec.bolsa.registro_telefono.v1"
+    || registro.instante_servidor !== true || registro.anotacion_opcional !== true
+    || !Array.isArray(registro.resultados) || registro.resultados.length === 0
+    || registro.resultados.length > 16
+    || new Set(registro.resultados).size !== registro.resultados.length) return false;
+  const mensajes = textosTelefono.seccion("telefono");
+  return registro.resultados.every((resultado) => typeof resultado === "string"
+    && /^[a-z][a-z_]{1,39}$/u.test(resultado)
+    && Object.hasOwn(mensajes, `resultado_${resultado}`));
+}
 
 const BASE = "/api/vec/bolsa/bolsas";
 const RESULTADOS_INTENTO = Object.freeze(["contactado", "no_contesta", "numero_erroneo"]);
@@ -50,6 +82,12 @@ export async function consultarIntentosContacto(bolsa, participacion, llamamient
     if (cuerpo?.data?.esquema !== "vec.bolsa.rrhh.contactos.v1" || !intentosValidos(intentos)) {
       return { ok: false, status: 0, mensaje: t("error_carga") };
     }
+    if (Object.hasOwn(intentos, "registro_telefono")) {
+      await prepararTextosTelefono();
+      if (!registroTelefonoValido(intentos.registro_telefono)) {
+        return { ok: false, status: 0, mensaje: t("error_carga") };
+      }
+    }
     return { ok: true, datos: intentos };
   } catch {
     return { ok: false, status: 0, mensaje: t("error_carga") };
@@ -64,7 +102,17 @@ export async function registrarContactoIntento(bolsa, participacion, comando, cl
       body: JSON.stringify(comando),
     });
     const cuerpo = await respuesta.json().catch(() => ({}));
-    if (respuesta.ok && typeof cuerpo?.data?.recibo_ref === "string") return { ok: true, datos: cuerpo.data };
+    const datos = cuerpo?.data;
+    if ((respuesta.status === 200 || respuesta.status === 201)
+      && typeof datos?.recibo_ref === "string" && datos.recibo_ref !== "") {
+      const servidor = comando.canal === "telefono" && !Object.hasOwn(comando, "instante");
+      if (servidor && (datos.participacion_ref !== participacion || datos.llamamiento_ref !== comando.llamamiento_ref
+        || datos.canal !== "telefono" || datos.resultado !== comando.resultado
+        || datos.anotacion !== comando.anotacion || !Number.isFinite(new Date(datos.instante).getTime()))) {
+        return { ok: false, status: 0, mensaje: t("error_servicio") };
+      }
+      return { ok: true, datos };
+    }
     const codigo = cuerpo?.error?.codigo;
     return { ok: false, status: respuesta.status, mensaje: ERRORES.includes(codigo) ? t(`error_${codigo}`) : t("error_servicio") };
   } catch {
@@ -87,13 +135,19 @@ function localAhora() {
 function formularios(e, i, candidato, flujo) {
   const deshabilitado = flujo.enviando ? " disabled" : "";
   const etiquetaBoton = (clave) => (flujo.enviando ? t("boton_enviando") : t(clave));
-  const campos = (tipo) => `<label>${t("campo_instante")} <input type="datetime-local" name="instante" required value="${localAhora()}"></label><label>${t("campo_anotacion")} <textarea name="anotacion" required maxlength="1000" data-intentos-campo="${tipo}"></textarea></label>`;
+  const borrador = (tipo) => flujo.borradores?.[tipo] || {};
+  const campos = (tipo) => `<label>${t("campo_instante")} <input type="datetime-local" name="instante" required value="${e(borrador(tipo).instante || localAhora())}"${deshabilitado}></label><label>${t("campo_anotacion")} <textarea name="anotacion" required maxlength="1000" data-intentos-campo="${tipo}"${deshabilitado}>${e(borrador(tipo).anotacion || "")}</textarea></label>`;
+  const registro = i.registro_telefono;
+  const resultados = registro ? registro.resultados : RESULTADOS_INTENTO;
+  const camposTelefono = registro
+    ? `<p>${e(telefono("fecha_automatica"))}</p><label>${e(telefono("anotacion_opcional"))} <textarea name="anotacion" maxlength="1000" data-intentos-campo="intento"${deshabilitado}>${e(borrador("intento").anotacion || "")}</textarea></label>`
+    : campos("intento");
   let intento = "";
   if (i.baja_propuesta && !i.contactado) {
     const excluible = candidato.estado_clave !== "excluido";
     intento = `<p role="status">${e(t("baja_propuesta_texto"))}</p>${excluible ? `<button type="button" class="boton-primario" data-b8-accion="seleccionar" data-operacion="excluir">${t("boton_proponer_baja")}</button>` : ""}`;
   } else {
-    intento = `<form data-intentos-form="intento"><h5>${t("formulario_intento")}</h5><label>${t("campo_resultado")} <select name="resultado" required>${RESULTADOS_INTENTO.map((r) => `<option value="${r}">${t(`resultado_${r}`)}</option>`).join("")}</select></label>${campos("intento")}<button type="submit" class="boton-primario"${deshabilitado}>${etiquetaBoton("boton_intento")}</button></form>`;
+    intento = `<form data-intentos-form="intento"><h5>${t("formulario_intento")}</h5><label>${t("campo_resultado")} <select name="resultado" required${deshabilitado}>${resultados.map((r) => `<option value="${e(r)}"${borrador("intento").resultado === r ? " selected" : ""}>${e(registro ? telefono(`resultado_${r}`) : t(`resultado_${r}`))}</option>`).join("")}</select></label>${camposTelefono}<button type="submit" class="boton-primario"${deshabilitado}>${flujo.enviando ? t("boton_enviando") : registro ? telefono("confirmar_resultado") : t("boton_intento")}</button></form>`;
   }
   const rebote = `<form data-intentos-form="rebote"><h5>${t("formulario_rebote")}</h5>${campos("rebote")}<button type="submit" class="boton-secundario"${deshabilitado}>${etiquetaBoton("boton_rebote")}</button></form>`;
   return `${intento}${rebote}`;
@@ -105,11 +159,15 @@ export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML
   const envolver = (extra, cuerpo) => `<section class="panel panel-separado" data-intentos-raiz="true" aria-labelledby="titulo-intentos-contacto">${cabecera(extra)}<div class="cuerpo-panel">${cuerpo}</div></section>`;
   if (!candidato?.ultimo_llamamiento?.llamamiento_ref) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_llamamiento")}</p>`);
   const actual = estado.carga || "cargando";
-  if (actual === "cargando") return envolver("", `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
-  if (actual === "error") return envolver("", `<p class="mensaje-error" role="alert">${e(estado.error || t("error_carga"))}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
+  const reciboVisible = estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}</p>` : "";
+  if (actual === "cargando") return envolver("", `${reciboVisible}<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
+  if (actual === "error") return envolver("", `${reciboVisible}<p class="mensaje-error" role="alert">${e(estado.error || t("error_carga"))}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
   const i = estado.datos;
-  const mensajes = `${estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}<p class="mensaje-error" role="alert">${e(estado.errorOperacion || "")}</p>`;
-  if (!i.configurado) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_catalogo")}</p>${mensajes}${formularios(e, { baja_propuesta: false }, candidato, estado)}`);
+  if (i?.registro_telefono && (!textosTelefono || !registroTelefonoValido(i.registro_telefono))) {
+    return envolver("", `${reciboVisible}<p class="mensaje-error" role="alert">${t("error_carga")}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
+  }
+  const mensajes = `${reciboVisible}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${e(estado.errorOperacion)}</p>` : ""}`;
+  if (!i.configurado) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_catalogo")}</p>${mensajes}${formularios(e, { baja_propuesta: false, registro_telefono: i.registro_telefono }, candidato, estado)}`);
   const avisos = i.avisos.filter((a) => AVISOS.includes(a)).map((a) => `<span class="estado-chip aviso">${t(`aviso_${a}`)}</span>`).join(" ");
   const franja = i.franja ? `<div class="fila-resumen"><dt>${t("dato_franja")}</dt><dd>${e(i.franja.solo_dias_habiles ? t("franja_habiles", { valor: i.franja.valor }) : i.franja.valor)}</dd></div>` : "";
   const siguiente = !i.contactado && !i.baja_propuesta ? `<div class="fila-resumen"><dt>${t("dato_siguiente")}</dt><dd>${e(i.siguiente_permitido_desde ? instante(i.siguiente_permitido_desde) : t("sin_valor"))}</dd></div>` : "";
@@ -130,9 +188,12 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
   async function cargar(modal) {
     const llamamiento = modal?.candidato?.ultimo_llamamiento?.llamamiento_ref;
     if (!modal || !llamamiento) return;
+    if (modal.intentosContacto?.carga === "cargando" && modal.intentosLlamamiento === llamamiento
+      && modal.controladorIntentos && !modal.controladorIntentos.signal.aborted) return;
     modal.controladorIntentos?.abort();
     const controlador = new AbortController();
     modal.controladorIntentos = controlador;
+    modal.intentosLlamamiento = llamamiento;
     modal.intentosContacto = { ...modal.intentosContacto, carga: "cargando" };
     renderizar();
     const res = await consultarIntentosContacto(estado.bolsaSeleccionada, modal.candidato.participacion_ref, llamamiento, { ...opciones, signal: controlador.signal });
@@ -151,13 +212,13 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     return true;
   }
 
-  async function enviar(modal, flujo, comando) {
+  async function enviar(modal, flujo, comando, tipo) {
     const huella = JSON.stringify(comando);
     if (flujo.huella !== huella) {
       flujo.huella = huella;
       flujo.clave = globalThis.crypto?.randomUUID?.() || `intento-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
-    flujo.enviando = true; flujo.errorOperacion = ""; flujo.recibo = "";
+    flujo.enviando = true; flujo.errorOperacion = ""; flujo.recibo = ""; flujo.registradoEn = "";
     renderizar();
     const res = await registrarContactoIntento(estado.bolsaSeleccionada, modal.candidato.participacion_ref, comando, flujo.clave, opciones);
     if (estado.modalFicha !== modal) return;
@@ -168,7 +229,9 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
       return;
     }
     flujo.recibo = res.datos.recibo_ref;
+    flujo.registradoEn = res.datos.instante;
     delete flujo.huella; delete flujo.clave;
+    delete flujo.borradores?.[tipo];
     await cargar(modal);
   }
 
@@ -180,24 +243,30 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     const flujo = modal.intentosContacto || (modal.intentosContacto = {});
     if (flujo.enviando) return true;
     const datos = new FormData(formulario);
+    const tipo = formulario.dataset.intentosForm;
+    flujo.borradores ??= {};
+    flujo.borradores[tipo] = Object.fromEntries(["instante", "anotacion", "resultado"].map((campo) => [campo, String(datos.get(campo) || "")]));
+    const rebote = formulario.dataset.intentosForm === "rebote";
+    const registro = !rebote ? flujo.datos?.registro_telefono : null;
     const fecha = new Date(String(datos.get("instante") || ""));
     const anotacion = String(datos.get("anotacion") || "").trim();
-    if (!Number.isFinite(fecha.getTime()) || !anotacion) {
+    if ((!registro && (!Number.isFinite(fecha.getTime()) || !anotacion))
+      || (registro && !registroTelefonoValido(registro)) || anotacion.length > 1000) {
       flujo.errorOperacion = t("error_solicitud_invalida");
       renderizar();
       return true;
     }
-    const rebote = formulario.dataset.intentosForm === "rebote";
     const resultado = rebote ? "no_entregado" : String(datos.get("resultado") || "");
-    if (!rebote && !RESULTADOS_INTENTO.includes(resultado)) {
+    if (!rebote && !(registro ? registro.resultados : RESULTADOS_INTENTO).includes(resultado)) {
       flujo.errorOperacion = t("error_solicitud_invalida");
       renderizar();
       return true;
     }
     void enviar(modal, flujo, {
-      canal: rebote ? "correo" : "telefono", resultado, anotacion, instante: fecha.toISOString(),
+      canal: rebote ? "correo" : "telefono", resultado, anotacion,
+      ...(!registro ? { instante: fecha.toISOString() } : {}),
       llamamiento_ref: modal.candidato.ultimo_llamamiento.llamamiento_ref,
-    });
+    }, tipo);
     return true;
   }
 
