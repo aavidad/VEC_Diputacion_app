@@ -1,18 +1,42 @@
 /** Entrada de solo lectura a la lista CT. El detalle conserva su montaje propio. */
 import { localizacionDe } from "../../../comun/idioma.js";
 import { FASE_RRHH_DE_ORIGEN } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261007-carga-pantalla-v1";
+import { FILTRO_LISTA_INICIAL } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261008-ct-inicio-v1";
 import { crearTraductorCuadroCT, prepararTextosContratacionVista } from "./i18n-vistas.js?v=20261007-pantallas-textos-final-v1";
 
 const SOLICITUD_INICIAL = Object.freeze({
   filtros: Object.freeze({ texto: "", estado_clave: "", fase_clave: "" }),
   paginacion: Object.freeze({ limite: 100, cursor: "" }),
 });
+const FASES_SERVIDOR_V1 = Object.freeze([
+  ["solicitud", "etiqueta_fase_solicitud"], ["analisis", "etiqueta_fase_analisis_rrhh"],
+  ["preparacion", "lista_fase_servidor_preparacion"], ["fiscalizacion", "etiqueta_fase_fiscalizacion"],
+  ["llamamiento", "lista_fase_servidor_llamamiento"], ["nombramiento", "etiqueta_fase_nombramiento"],
+  ["incorporacion", "etiqueta_fase_incorporacion"], ["cierre", "lista_fase_servidor_cierre"],
+]);
+const MOSTRAR_SERVIDOR_V1 = Object.freeze([
+  ["todas", "lista_mostrar_todas"], ["incidencia", "lista_mostrar_incidencia"],
+  ["espera", "lista_mostrar_espera"],
+]);
+const ESTADO_DE_MOSTRAR = Object.freeze({ todas: "", incidencia: "incidencia", espera: "espera_externa" });
+const MOSTRAR_DE_ESTADO = Object.freeze({ "": "todas", incidencia: "incidencia", espera_externa: "espera" });
+const FILTRO_LIGERO_INICIAL = Object.freeze({ ...FILTRO_LISTA_INICIAL, mostrar: "todas" });
+const TEXTO_SERVIDOR = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
+const errorFiltro = () => Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
+  { codigo: "filtro_servidor_no_disponible" });
+function filtroLigeroValido(entrada) {
+  const texto = entrada?.texto ?? "", fase = entrada?.fase ?? "", mostrar = entrada?.mostrar ?? "todas";
+  if (typeof texto !== "string" || texto !== texto.trim() || !TEXTO_SERVIDOR.test(texto)
+    || typeof fase !== "string" || fase !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === fase)
+    || !Object.hasOwn(ESTADO_DE_MOSTRAR, mostrar)
+    || (entrada?.centro ?? "") !== "" || (entrada?.categoria ?? "") !== "") throw errorFiltro();
+  return Object.freeze({ texto, fase, centro: "", categoria: "", mostrar });
+}
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu,
   (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[caracter]);
 
-function proyectarPagina(pagina, fases, locale) {
+function proyectarPagina(pagina, fases, locale, traducir) {
   if (!Array.isArray(pagina?.expedientes) || typeof pagina.generada_en !== "string"
     || typeof pagina.hay_mas !== "boolean"
     || (pagina.totales && !pagina.resumen)
@@ -24,6 +48,7 @@ function proyectarPagina(pagina, fases, locale) {
   const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: "Europe/Madrid" });
   const expedientes = pagina.expedientes.map((entrada) => {
     const fase = FASE_RRHH_DE_ORIGEN[entrada.fase_clave];
+    const etiquetaFase = FASES_SERVIDOR_V1.find(([clave]) => clave === entrada.fase_clave)?.[1];
     const estadoClave = entrada.estado_clave === "espera_externa" ? "espera" : entrada.estado_clave;
     const plazo = entrada.plazo_fase;
     return Object.freeze({
@@ -32,7 +57,7 @@ function proyectarPagina(pagina, fases, locale) {
       centro: entrada.centro_ref,
       categoria: entrada.categoria_ref,
       fase_clave: entrada.fase_clave,
-      fase_actual: fases[`fase_${fase}`] ?? entrada.fase_clave,
+      fase_actual: etiquetaFase ? traducir(etiquetaFase) : fases[`fase_${fase}`] ?? entrada.fase_clave,
       estado_clave: estadoClave,
       estado: fases[`estado_${estadoClave}`] ?? entrada.estado_clave,
       plazo_estado: plazo?.estado ?? "no_calculado",
@@ -54,12 +79,13 @@ function proyectarPagina(pagina, fases, locale) {
  */
 export async function montarCuadroContratacionLigero({
   raiz, cliente, idioma, abrirDetalle, abrirAlta = null, mostrarError,
-  filtroLista = null, signal = null,
+  filtroLista = null, filtroServidorRuta = null, alCambiarFiltroLista = null, signal = null,
   nombreCentro = (referencia) => referencia, nombreCategoria = (referencia) => referencia,
 } = {}) {
   if (!raiz?.addEventListener || !raiz?.querySelector
     || typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof abrirDetalle !== "function" || typeof mostrarError !== "function"
+    || (alCambiarFiltroLista !== null && typeof alCambiarFiltroLista !== "function")
     || (signal !== null && (typeof signal?.addEventListener !== "function"
       || typeof signal.aborted !== "boolean"))) {
     throw new TypeError("dependencias de cuadro CT incompletas");
@@ -72,7 +98,7 @@ export async function montarCuadroContratacionLigero({
   let cuadro;
   let paginaIndice = 0;
   const cursores = [""];
-  let filtro = FILTRO_LISTA_INICIAL;
+  let filtro = FILTRO_LIGERO_INICIAL;
   let filtroRuta = filtroLista;
   let filtroServidorActual = null;
   let temporizadorBusqueda = null;
@@ -80,24 +106,28 @@ export async function montarCuadroContratacionLigero({
 
   function filtroServidor() {
     if (filtroServidorActual) return filtroServidorActual;
+    if (filtroServidorRuta !== null) {
+      if (!filtroServidorRuta || typeof filtroServidorRuta !== "object"
+        || Object.keys(filtroServidorRuta).some((clave) => !["texto", "estado_clave", "fase_clave"].includes(clave))
+        || typeof filtroServidorRuta.texto !== "string" || filtroServidorRuta.texto !== filtroServidorRuta.texto.trim()
+        || !TEXTO_SERVIDOR.test(filtroServidorRuta.texto)
+        || !Object.hasOwn(MOSTRAR_DE_ESTADO, filtroServidorRuta.estado_clave)
+        || typeof filtroServidorRuta.fase_clave !== "string"
+        || filtroServidorRuta.fase_clave !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === filtroServidorRuta.fase_clave))
+        throw errorFiltro();
+      filtroServidorActual = Object.freeze({ texto: filtroServidorRuta.texto,
+        estado_clave: filtroServidorRuta.estado_clave, fase_clave: filtroServidorRuta.fase_clave });
+      filtro = Object.freeze({ ...FILTRO_LIGERO_INICIAL, texto: filtroServidorRuta.texto,
+        fase: filtroServidorRuta.fase_clave, mostrar: MOSTRAR_DE_ESTADO[filtroServidorRuta.estado_clave] });
+      return filtroServidorActual;
+    }
     if (filtroRuta === null) return SOLICITUD_INICIAL.filtros;
-    if (!filtroRuta || typeof filtroRuta !== "object" || Array.isArray(filtroRuta)) {
-      throw new TypeError("filtro CT de ruta no válido");
-    }
-    const validado = filtroListaValido({ mostrar: "todas", ...filtroRuta });
-    if (Object.keys(filtroRuta).some((clave) => !Object.hasOwn(FILTRO_LISTA_INICIAL, clave))
-      || Object.entries(filtroRuta).some(([clave, valor]) => valor !== undefined && valor !== null
-        && String(valor).trim() !== validado[clave])
-      || validado.fase || validado.centro || validado.categoria
-      || !["incidencia", "espera", "todas"].includes(validado.mostrar)) {
-      throw Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
-        { codigo: "filtro_servidor_no_disponible" });
-    }
+    if (!filtroRuta || typeof filtroRuta !== "object" || Array.isArray(filtroRuta)
+      || Object.keys(filtroRuta).some((clave) => !Object.hasOwn(FILTRO_LIGERO_INICIAL, clave))) throw errorFiltro();
+    const validado = filtroLigeroValido(filtroRuta);
     filtro = validado;
     filtroServidorActual = Object.freeze({ texto: validado.texto,
-      estado_clave: validado.mostrar === "incidencia" ? "incidencia"
-        : (validado.mostrar === "espera" ? "espera_externa" : ""),
-      fase_clave: "" });
+      estado_clave: ESTADO_DE_MOSTRAR[validado.mostrar], fase_clave: validado.fase });
     return filtroServidorActual;
   }
   const ayudas = Object.freeze({
@@ -111,6 +141,7 @@ export async function montarCuadroContratacionLigero({
   const filtroResultados = () => ({ ...filtro,
     ...(filtroServidorActual?.texto ? { texto: "" } : {}),
     ...(filtroServidorActual?.estado_clave ? { mostrar: "todas" } : {}),
+    ...(filtroServidorActual?.fase_clave ? { fase: "" } : {}),
   });
 
   function paginacion(t) {
@@ -130,6 +161,8 @@ export async function montarCuadroContratacionLigero({
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
         actualizarDisponible: true, filtroResultados: filtroResultados(),
+        opcionesFaseServidor: FASES_SERVIDOR_V1, opcionesMostrarServidor: MOSTRAR_SERVIDOR_V1,
+        buscadorServidor: true, tituloConjunto: true, ocultarFiltrosLocales: true,
         totalConjunto: filtro.mostrar === "en_tramite"
           ? cuadro.resumen?.en_tramite ?? null : cuadro.totales?.total ?? null,
         enTramiteConjunto: cuadro.resumen?.en_tramite ?? null,
@@ -177,7 +210,9 @@ export async function montarCuadroContratacionLigero({
       filtroConsultado = JSON.stringify(filtro);
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
-      cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
+      cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"],
+        localizacionDe(preparado.idioma), crearTraductorCuadroCT(preparado));
+      alCambiarFiltroLista?.(solicitud.filtros);
       if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
       restaurarFoco(foco);
@@ -188,8 +223,9 @@ export async function montarCuadroContratacionLigero({
         mostrarError(raiz, { error, mensaje, reintentar: () => {
           if (filtroNoDisponible) {
             filtroRuta = null;
+            filtroServidorRuta = null;
             filtroServidorActual = null;
-            filtro = FILTRO_LISTA_INICIAL;
+            filtro = FILTRO_LIGERO_INICIAL;
             paginaIndice = 0;
             cursores.length = 1;
           }
@@ -225,9 +261,11 @@ export async function montarCuadroContratacionLigero({
       paginaIndice--;
       await cargar({ foco: '[data-ct-pagina="anterior"]' });
     } else if (boton.dataset.ctExpQuitarFiltro) {
-      filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LISTA_INICIAL
-        : filtroListaValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]: "" });
-      filtroRuta = { ...filtro, mostrar: filtro.mostrar === "en_tramite" ? "todas" : filtro.mostrar };
+      filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LIGERO_INICIAL
+        : filtroLigeroValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]:
+          boton.dataset.ctExpQuitarFiltro === "mostrar" ? "todas" : "" });
+      filtroRuta = { ...filtro };
+      filtroServidorRuta = null;
       filtroServidorActual = null;
       paginaIndice = 0;
       cursores.length = 1;
@@ -239,17 +277,19 @@ export async function montarCuadroContratacionLigero({
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
     if (!formulario || !cuadro || !vigente || signal?.aborted) return;
     const datos = Object.fromEntries(new FormData(formulario).entries());
-    if (evento.type === "input" && evento.target?.name === "texto" && datos.mostrar === "en_tramite") {
-      datos.mostrar = "todas";
-      const selector = formulario.elements?.namedItem?.("mostrar");
-      if (selector) selector.value = "todas";
+    let nuevoFiltro;
+    try { nuevoFiltro = filtroLigeroValido(datos); }
+    catch (error) {
+      mostrarError(raiz, { error, mensaje: crearTraductorCuadroCT(preparado)("lista_filtro_no_disponible"),
+        reintentar: () => cargar({ reintentar: true }) });
+      return;
     }
-    const nuevoFiltro = filtroListaValido(datos);
     const claveNueva = JSON.stringify(nuevoFiltro);
     if (claveNueva === filtroConsultado && temporizadorBusqueda === null) return;
     if (claveNueva !== JSON.stringify(filtro)) {
       filtro = nuevoFiltro;
       filtroRuta = { ...datos };
+      filtroServidorRuta = null;
       filtroServidorActual = null;
       filtroConsultado = null;
       controlador?.abort();

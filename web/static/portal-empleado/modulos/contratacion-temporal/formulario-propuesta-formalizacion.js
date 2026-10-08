@@ -1,5 +1,5 @@
 /** Orientación de la pantalla RRHH 13 hacia la única acción real CT65. */
-import { escaparHTML } from "./componentes-expedientes.js?v=20261007-carga-pantalla-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 // La pantalla original pide generación automática posterior a la selección.

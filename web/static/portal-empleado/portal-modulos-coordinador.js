@@ -113,12 +113,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261007-carga-pantalla-v1");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261008-ct-inicio-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-ct-alta-vista-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-ct-inicio-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -1148,6 +1148,8 @@ export function crearCoordinadorModulosPortal({
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
             raiz, cliente: temporal.cliente, idioma: locale === "en-GB" ? "en" : "es",
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
+            filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
+            alCambiarFiltroLista: opciones?.alCambiarFiltroLista ?? null,
             abrirDetalle: ({ expedienteRef }) => montarVista("contratacion-temporal", raiz, { ...opciones, expedienteRef }),
             abrirAlta: esPerfilRRHH() ? () => montarVista("contratacion-temporal", raiz, { ...opciones, subvista: "alta" }) : null,
             mostrarError,
