@@ -567,6 +567,12 @@ export function crearPresentadorExpedientesContratacionTemporal({
     ejecutarActuacion,
     cancelar,
     desmontar,
+    resolverDisponibilidadOpcional(clave, contexto) {
+      if (desmontado || estado.carga !== "listo"
+        || estado.expediente?.expediente_ref !== contexto?.expediente_ref
+        || estado.expediente?.version !== contexto?.version_observada) return null;
+      return fuente.resolverDisponibilidadOpcional?.(clave, contexto) ?? null;
+    },
     obtenerEstado() {
       return estado;
     },
