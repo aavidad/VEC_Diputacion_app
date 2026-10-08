@@ -382,6 +382,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       doc.querySelectorAll('input[name="filtro"]').forEach((radio) => {
         radio.checked = radio.value === filtroControl(estado.filtro);
       });
+      actualizarRuta(estado.filtro, estado.pagina, "replaceState");
       mostrarErrorRevision(textoError(textos, error));
     });
   }
