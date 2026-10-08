@@ -4,6 +4,7 @@ import test from "node:test";
 import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { renderizarPreferencias } from "../area-personal/preferencias.js";
 import { iniciarI18nAreaPersonal } from "../area-personal/i18n.js";
+import { lectorCatalogos } from "../area-personal/textos-prueba.test-helper.mjs";
 
 const catalogo = async (idioma) => JSON.parse(await readFile(
   new URL(`../textos/${idioma}/preferencias.json`, import.meta.url), "utf8"));
@@ -36,9 +37,11 @@ test("Área personal cambia los textos de preferencias al inicializar el idioma"
   try {
     for (const [idioma, mensajes] of [["es", es.areaPersonal], ["en", en.areaPersonal]]) {
       globalThis.document = { documentElement: { lang: idioma }, querySelectorAll: () => [] };
-      await iniciarI18nAreaPersonal(globalThis.document, {
-        ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
+      const leer = lectorCatalogos();
+      await iniciarI18nAreaPersonal(globalThis.document, { leer, pantalla: "preferencias",
+        ubicacion: { href: `https://vec.example/area-personal/?vista=preferencias&lang=${idioma}` },
       });
+      assert.deepEqual(leer.pedidas, [`${idioma}/area-personal.json`, `${idioma}/preferencias.json`]);
       const html = renderizarPreferencias({ error: { codigo: "servicio" } });
       assert.ok(html.includes(mensajes.preferencias.sinDatos));
       assert.ok(html.includes(mensajes.preferencias.error.servicio));
