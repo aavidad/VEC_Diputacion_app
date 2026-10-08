@@ -340,5 +340,36 @@
     "miBolsa": {
       "rolPortal": "Mi bolsa y mis llamamientos"
     }
+  },
+  "global": {
+    "titulo": "Relación general de Bolsa",
+    "todos": "Aspirantes",
+    "disponible": "Aspirantes disponibles",
+    "renuncia": "Aspirantes en renuncia",
+    "llamamientos": "Llamamientos en curso",
+    "cargando": "Cargando la relación…",
+    "error": "No se ha podido cargar la relación. Compruebe la conexión y pulse Reintentar.",
+    "denegado": "No dispone de permiso para consultar esta relación.",
+    "vacio": "No hay registros en este filtro.",
+    "volver": "Volver al cuadro de Bolsa",
+    "reintentar": "Reintentar",
+    "siguiente": "Ver siguientes",
+    "mostrando": "Del {desde} al {hasta} de {total}",
+    "categoria": "Categoría",
+    "posicion": "Posición en el acta",
+    "situacion": "Situación",
+    "fecha": "Desde",
+    "bolsa": "Bolsa",
+    "participaciones": "Aspirantes",
+    "ver_bolsa": "Ver bolsa",
+    "sin_fecha": "Sin fecha disponible",
+    "sin_categoria": "Categoría no disponible",
+    "sin_posicion": "Sin posición disponible",
+    "llamamiento": "Llamamiento",
+    "referencia": "Referencia",
+    "sin_referencia": "Sin referencia visible",
+    "anterior": "Ver anteriores",
+    "caducado": "La relación ha cambiado o lleva un tiempo abierta. Actualícela para ver los datos actuales.",
+    "actualizar": "Actualizar la relación"
   }
 }

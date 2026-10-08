@@ -64,3 +64,8 @@ La comprobación de Chrome ejercitó la API con el certificado sintético del ki
 
 
 Revisión SQL de instalación: el primer candidato ORQ fue rechazado por excluir la cadena Personal/B1. La versión corregida usa un parche localizado con marca única y dos huellas de preimagen permitidas. En un PostgreSQL 18 nuevo se instalaron los 13 prerrequisitos antes de las cuatro SQL de ORQ; las pruebas pasaron. Tras fallo persistido en solicitar llamamiento y reinicio, dos recuperaciones simultáneas reales devolvieron 200/503 por la reserva; el replay final200 fue idéntico al ganador y al recibo/fecha previos de Bolsa, con una sola historia de recuperación y19/19/19 de negocio. El arnés y las pruebas están en pruebas_sql; no se reaplicaron SQL confirmadas.
+## Publicación de autoridad concurrente — 8 de octubre de 2026
+
+El análisis podía quedar no disponible cuando dos peticiones publicaban la misma autoridad a la vez: la capa PostgreSQL perdía el error 40001 y el reintento acotado existente no lo recibía. La corrección conserva esa causa en los dos bloqueos consultivos y recupera la publicación idéntica ya confirmada, comprobando su predecesora histórica o la instantánea vigente exacta que usa CT130. Mantiene identidad, ámbito, origen, catálogo, rol, control y contenido.
+
+La prueba focal en PostgreSQL 18 provocó la carrera serializable: dos publicadores obtuvieron el mismo resultado y sólo se añadió una versión. Pasaron normal, race y la regresión CT130; preimagen y ámbito distintos se rechazaron. Dos revisores independientes dieron GO al código final. No incorpora migraciones ni configuración nueva. La validación en cidonia del 503 de R queda para después de la publicación de Claude.

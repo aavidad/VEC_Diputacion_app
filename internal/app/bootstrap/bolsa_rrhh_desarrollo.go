@@ -29,8 +29,10 @@ const (
 )
 
 type datasetBolsasRRHHDesarrollo struct {
-	GeneradoEn string `json:"generado_en"`
-	Bolsas     []struct {
+	ResumenConjunto      bool                                     `json:"-"`
+	LlamamientosGlobales []bolsaapplication.LlamamientoGlobalRRHH `json:"-"`
+	GeneradoEn           string                                   `json:"generado_en"`
+	Bolsas               []struct {
 		Referencia          string                      `json:"bolsa_ref"`
 		CategoriaRef        string                      `json:"categoria_ref"`
 		Categoria           string                      `json:"categoria"`
@@ -74,6 +76,7 @@ type politicaOrdenRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
+	global cacheGlobalBolsasRRHH
 	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
@@ -199,7 +202,11 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		if !ok {
 			return
 		}
-		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
+		respuesta := vista.respuestaEstadisticas()
+		if !h.adjuntarCorteGlobal(w, r, vista.datos, respuesta) {
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
@@ -207,6 +214,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
+		if r.URL.RawQuery != "" && r.ContentLength == 0 {
+			h.responderGlobal(w, r)
+			return
+		}
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
@@ -215,7 +226,11 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		if !ok {
 			return
 		}
-		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaBolsas()}, r.Method == http.MethodHead)
+		respuesta := vista.respuestaBolsas()
+		if !h.adjuntarCorteGlobal(w, r, vista.datos, respuesta) {
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 		return
 	}
 	bolsaRef, ok := referenciaBolsaCandidatos(r.URL.Path)
