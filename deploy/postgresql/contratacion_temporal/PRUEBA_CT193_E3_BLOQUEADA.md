@@ -1,9 +1,12 @@
 # CT193: ensayo firmado E3 en PostgreSQL 18 efímero
 
-Estado de esta revisión: CT193 incorpora la validación de `numero_personas`
-con SHA256 `c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c`.
-Esta versión del UP requiere dos revisiones independientes y otro ensayo en
-PostgreSQL 18 nuevo; todavía no tiene GO dinámico.
+Estado de esta revisión: CT193 define explícitamente las cuatro funciones que
+antes se reconstruían en bloques dinámicos. El UP tiene SHA256 `c71fab86fdd15b0c0d77a3feff7e36f25592302fd589a46aab37261090a82094`.
+Las tres funciones privilegiadas fijan `search_path=pg_catalog,pg_temp`; las
+guardas cotejan preimagen, postimagen, propietario, permisos y metadatos.
+Esta versión requiere revisión independiente y un ensayo PostgreSQL 18 nuevo.
+Los resultados anteriores de `c5bc06e8…715c` se conservan como historia y no
+acreditan esta sustitución.
 
 Evidencia anterior a esta revisión: el ensayo ordinario de la rama
 `966a479051c9ea7730bd44f6a86db43b132394e8` terminó con código **0** en una
@@ -17,7 +20,7 @@ corresponden a esa fuente exacta.
 
 La fuente CT preparada es `2703bda17b3acc226fb4427e192c6c710c05597f`.
 El UP de CT193 de esta rama tiene SHA256
-`c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c`.
+`c71fab86fdd15b0c0d77a3feff7e36f25592302fd589a46aab37261090a82094`.
 El runner nuevo es `probar_ct193_e3_postgresql18.sh`, su fixture es
 `pruebas_sql/ct193_e3_preparar.sql` y el test Go es
 `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_v3_postgresql18_test.go`.
