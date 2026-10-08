@@ -1,0 +1,596 @@
+\set ON_ERROR_STOP on
+-- B90. Un cese B13 aún sin restricción B45 mantiene al candidato pendiente.
+-- La condición nace del primer evento durable, aunque B81 todavía no se haya
+-- proyectado o B8 vincule al candidato antes del siguiente ciclo del relevo.
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+SET LOCAL search_path = pg_catalog;
+SET LOCAL timezone = 'UTC';
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000090',0));
+
+DO $pre$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+    OR to_regclass('vec_bolsa_llamamientos.contrato_participacion') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.cese_ajeno_bolsa') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.estado_cese_bolsa_v1(text,timestamptz)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1(text,timestamptz)') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.candidatos_cese_pendiente_b90') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz)') IS NOT NULL THEN
+  RAISE EXCEPTION 'B90: clave=preimagen_pendiente esperado=B13_B45_B50_B81_instaladas actual=incompatible_o_ya_instalada'
+   USING ERRCODE='55000';
+ END IF;
+END $pre$;
+
+-- Vista privada de hechos: los lectores aplican su propio corte temporal.
+-- La proyección B81 no resuelve el cese; una entrega B13 en cuarentena sigue
+-- pendiente. El instante recibido_en fija desde cuándo Bolsa conoce el hecho.
+CREATE VIEW vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 AS
+ SELECT vc.candidato_ref,cp.participacion_ref,cp.evento_ref,cp.origen_ref,
+        cp.huella_sha256,cp.origen_posicion,cp.ocurrido_en,cp.origen_creada_en,
+        cp.recibido_en,r.recibida_en AS restriccion_recibida_en,
+        a.recibido_en AS ajeno_recibido_en
+ FROM vec_bolsa_llamamientos.contrato_participacion cp
+ JOIN vec_bolsa_llamamientos.vinculo_candidato vc
+   ON vc.participacion_ref=cp.participacion_ref
+ LEFT JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa r
+   ON r.evento_ref=cp.evento_ref AND r.origen_ref=cp.origen_ref
+ LEFT JOIN vec_bolsa_llamamientos.cese_ajeno_bolsa a
+   ON a.origen_ref=cp.origen_ref AND a.llamamiento_ref=cp.llamamiento_ref
+ WHERE cp.tipo='cese' AND cp.participacion_ref IS NOT NULL
+ ;
+REVOKE ALL ON vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 FROM PUBLIC;
+
+-- B50 conserva la fachada v1 para sus consumidores históricos. Esta v2
+-- añade el estado pendiente sin inventar fecha de disponibilidad. La frontera
+-- Go autorizada lee una fila incluso cuando B45 aún no tiene restricción.
+CREATE FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(
+ p_participacion_ref text,p_corte timestamptz)
+RETURNS TABLE(fecha_efecto date,disponible_desde date,en_restriccion boolean,
+ trabajo_cesado boolean,cese_pendiente boolean,pendiente_desde timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+SET statement_timeout='5s' AS $f$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_participacion_ref IS NULL OR octet_length(p_participacion_ref) NOT BETWEEN 1 AND 512
+    OR p_corte IS NULL OR NOT isfinite(p_corte) THEN
+  RAISE EXCEPTION 'B90: consulta de estado de cese denegada' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY
+ WITH titular AS (
+  SELECT vc.candidato_ref FROM vec_bolsa_llamamientos.vinculo_candidato vc
+   WHERE vc.participacion_ref=p_participacion_ref
+ ), pendiente AS (
+  SELECT min(cp.recibido_en) AS desde
+    FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+    JOIN titular t ON t.candidato_ref=cp.candidato_ref
+   WHERE cp.ocurrido_en<=p_corte AND cp.origen_creada_en<=p_corte
+     AND cp.recibido_en<=p_corte
+     AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_corte)
+     AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_corte)
+ )
+ SELECT ec.fecha_efecto,ec.disponible_desde,coalesce(ec.en_restriccion,false),
+        coalesce(ec.trabajo_cesado,false),p.desde IS NOT NULL,p.desde
+ FROM pendiente p
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(p_participacion_ref,p_corte) ec ON true
+ WHERE p.desde IS NOT NULL OR ec.fecha_efecto IS NOT NULL;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz)
+ TO vec_bolsa_llamamientos_ejecutor;
+
+DO $post$
+DECLARE f regprocedure:='vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz)'::regprocedure;
+BEGIN
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
+    OR (SELECT 'search_path=pg_catalog, pg_temp'=ANY(proconfig) FROM pg_proc WHERE oid=f) IS NOT TRUE
+    OR (SELECT array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text) FROM pg_proc p
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)
+       IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos_propietario']
+    OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',
+       'vec_bolsa_llamamientos.candidatos_cese_pendiente_b90','SELECT')
+    OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese',
+       'vec_bolsa_llamamientos.candidatos_cese_pendiente_b90','SELECT') THEN
+  RAISE EXCEPTION 'B90: clave=postimagen_pendiente esperado=solo_owner_y_fachada_ejecutor actual=ACL_o_definicion_divergente'
+   USING ERRCODE='55000';
+ END IF;
+END $post$;
+-- Lecturas de orden, resumen y lote del mismo pendiente B13, en esta transacción.
+DO $pre$
+DECLARE actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'rol',true,'pendiente_b90',true,'vinculo',true,'restriccion',true,
+ 'contrato',true,'situacion',true,'orden_b6',true,'resumen_b82',true,'lote_libre',true,
+ 'def_orden_sha256','701b9c64abe2c08f53de224343b174d056d2f7b61a414ac87a936e435a6d962a',
+ 'def_resumen_sha256','4fb1cd92068acde37fc22c08c5ae4c56e9f6a13d6c3aa3fa90bc4fc60b741c13',
+ 'owner_orden','vec_bolsa_llamamientos_propietario','owner_resumen','vec_bolsa_llamamientos_propietario',
+ 'acl_orden','{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}',
+ 'acl_resumen','{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}');
+BEGIN
+ SELECT jsonb_build_object(
+ 'rol',current_user='vec_bolsa_llamamientos_propietario',
+ 'pendiente_b90',to_regclass('vec_bolsa_llamamientos.candidatos_cese_pendiente_b90') IS NOT NULL,
+ 'vinculo',to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NOT NULL,
+ 'restriccion',to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NOT NULL,
+ 'contrato',to_regclass('vec_bolsa_llamamientos.contrato_participacion') IS NOT NULL,
+ 'situacion',to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NOT NULL,
+ 'orden_b6',to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)') IS NOT NULL,
+ 'resumen_b82',to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NOT NULL,
+ 'lote_libre',to_regprocedure('vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)') IS NULL
+    AND to_regprocedure('vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)') IS NULL,
+ 'def_orden_sha256',encode(sha256(convert_to(pg_get_functiondef(to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)')),'UTF8')),'hex'),
+ 'def_resumen_sha256',encode(sha256(convert_to(pg_get_functiondef(to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)')),'UTF8')),'hex'),
+ 'owner_orden',(SELECT proowner::regrole::text FROM pg_proc WHERE oid=to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)')),
+ 'owner_resumen',(SELECT proowner::regrole::text FROM pg_proc WHERE oid=to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)')),
+ 'acl_orden',(SELECT proacl::text FROM pg_proc WHERE oid=to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)')),
+ 'acl_resumen',(SELECT proacl::text FROM pg_proc WHERE oid=to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)')))
+ INTO actual;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=preimagen_lectores esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $pre$;
+
+-- Núcleo privado de conjunto. B6/B82 y la fachada nominal ejecutan este
+-- cálculo como propietario; ningún LOGIN obtiene EXECUTE directo.
+CREATE FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
+ p_participaciones text[],p_corte timestamptz)
+RETURNS TABLE(participacion_ref text,fecha_efecto date,disponible_desde date,
+ en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean,
+ pendiente_desde timestamptz)
+LANGUAGE plpgsql STABLE SECURITY INVOKER ROWS 20000
+SET search_path=pg_catalog,pg_temp
+SET statement_timeout='5s' AS $f$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+    OR p_corte IS NULL OR NOT isfinite(p_corte)
+    OR p_participaciones IS NULL
+    OR EXISTS (SELECT 1 FROM unnest(p_participaciones) x
+                WHERE x IS NULL OR octet_length(x) NOT BETWEEN 1 AND 512) THEN
+  RAISE EXCEPTION 'B90: consulta de ceses en lote denegada' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY
+ WITH refs AS MATERIALIZED (
+  SELECT DISTINCT x.ref FROM unnest(p_participaciones) AS x(ref)
+ ), titulares AS MATERIALIZED (
+  SELECT i.ref,vc.candidato_ref FROM refs i
+   JOIN vec_bolsa_llamamientos.vinculo_candidato vc ON vc.participacion_ref=i.ref
+ ), candidatos AS MATERIALIZED (
+  SELECT DISTINCT candidato_ref FROM titulares
+ ), pendientes AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(z.candidato_ref,to_jsonb(z.pendiente_desde)),'{}'::jsonb) AS mapa
+  FROM (
+   SELECT cp.candidato_ref,min(cp.recibido_en) AS pendiente_desde
+    FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+    JOIN candidatos c ON c.candidato_ref=cp.candidato_ref
+   WHERE cp.ocurrido_en<=p_corte AND cp.origen_creada_en<=p_corte
+     AND cp.recibido_en<=p_corte
+     AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_corte)
+     AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_corte)
+   GROUP BY cp.candidato_ref
+  ) z
+ ), restricciones AS MATERIALIZED (
+  SELECT r.candidato_ref,r.fecha_efecto,r.disponible_desde,r.llamamiento_ref,r.evento_ref
+   FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+   JOIN candidatos c ON c.candidato_ref=r.candidato_ref
+  WHERE r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
+ ), ultimo_y_maximo AS MATERIALIZED (
+  SELECT DISTINCT ON (r.candidato_ref) r.candidato_ref,r.fecha_efecto,r.llamamiento_ref,
+         max(r.disponible_desde) OVER (PARTITION BY r.candidato_ref) AS disponible_desde
+   FROM restricciones r ORDER BY r.candidato_ref,r.fecha_efecto DESC,r.evento_ref DESC
+ ), mapa_ceses AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(u.candidato_ref,jsonb_build_object(
+   'fecha_efecto',u.fecha_efecto,'llamamiento_ref',u.llamamiento_ref,
+   'disponible_desde',u.disponible_desde)),'{}'::jsonb) AS mapa
+  FROM ultimo_y_maximo u
+ ), ultimo_estado AS MATERIALIZED (
+  SELECT DISTINCT ON (sp.participacion_ref) sp.participacion_ref,sp.situacion,sp.desde
+   FROM vec_bolsa_llamamientos.situacion_participacion sp
+   JOIN refs i ON i.ref=sp.participacion_ref
+  WHERE sp.desde<=p_corte ORDER BY sp.participacion_ref,sp.desde DESC
+ ), mapa_estado AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(s.participacion_ref,jsonb_build_object(
+   'situacion',s.situacion,'desde',s.desde)),'{}'::jsonb) AS mapa
+  FROM ultimo_estado s
+ ), incorporaciones AS MATERIALIZED (
+  SELECT vc.candidato_ref,cp.llamamiento_ref,coalesce(cp.inicio,cp.ocurrido_en) AS inicio
+   FROM candidatos c
+   JOIN vec_bolsa_llamamientos.vinculo_candidato vc ON vc.candidato_ref=c.candidato_ref
+   JOIN vec_bolsa_llamamientos.contrato_participacion cp ON cp.participacion_ref=vc.participacion_ref
+  WHERE cp.tipo='incorporacion' AND coalesce(cp.inicio,cp.ocurrido_en)<=p_corte
+ ), cierre_relacion AS MATERIALIZED (
+  SELECT r.candidato_ref,r.llamamiento_ref,max(r.fecha_efecto) AS fecha_efecto
+   FROM restricciones r GROUP BY r.candidato_ref,r.llamamiento_ref
+ ), cierres_por_candidato AS MATERIALIZED (
+  SELECT c.candidato_ref,jsonb_object_agg(c.llamamiento_ref,to_jsonb(c.fecha_efecto)) AS cierres
+   FROM cierre_relacion c GROUP BY c.candidato_ref
+ ), mapa_cierres AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(c.candidato_ref,c.cierres),'{}'::jsonb) AS mapa
+   FROM cierres_por_candidato c
+ ), prueba AS MATERIALIZED (
+  SELECT i.candidato_ref,
+   coalesce(bool_or(i.llamamiento_ref=(mc.mapa->i.candidato_ref->>'llamamiento_ref')
+    AND i.inicio<(((mc.mapa->i.candidato_ref->>'fecha_efecto')::date+1)::timestamp
+      AT TIME ZONE 'Europe/Madrid')),false) AS misma_relacion,
+   coalesce(bool_or((mcr.mapa->i.candidato_ref->>i.llamamiento_ref) IS NULL OR
+    i.inicio>=(((mcr.mapa->i.candidato_ref->>i.llamamiento_ref)::date+1)::timestamp
+      AT TIME ZONE 'Europe/Madrid')),false) AS otra_abierta
+  FROM incorporaciones i CROSS JOIN mapa_ceses mc CROSS JOIN mapa_cierres mcr
+  WHERE mc.mapa ? i.candidato_ref
+  GROUP BY i.candidato_ref
+ ), mapa_prueba AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(pr.candidato_ref,jsonb_build_object(
+   'misma_relacion',pr.misma_relacion,'otra_abierta',pr.otra_abierta)),'{}'::jsonb) AS mapa
+   FROM prueba pr
+ )
+ SELECT t.ref,ce.fecha_efecto,ce.disponible_desde,
+  coalesce(ce.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date AND
+   (s.situacion IS DISTINCT FROM 'trabajando' OR
+    (s.situacion='trabajando' AND pr.misma_relacion AND NOT pr.otra_abierta
+     AND s.desde<((ce.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))),false),
+  coalesce(s.situacion='trabajando' AND pr.misma_relacion AND NOT pr.otra_abierta
+   AND s.desde<((ce.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'),false),
+  (p.mapa ? t.candidato_ref),(p.mapa->>t.candidato_ref)::timestamptz
+ FROM titulares t CROSS JOIN pendientes p CROSS JOIN mapa_ceses mc
+  CROSS JOIN mapa_estado ms CROSS JOIN mapa_prueba mp
+  LEFT JOIN LATERAL jsonb_to_record(mc.mapa->t.candidato_ref)
+   AS ce(fecha_efecto date,llamamiento_ref text,disponible_desde date) ON true
+  LEFT JOIN LATERAL jsonb_to_record(ms.mapa->t.ref)
+   AS s(situacion text,desde timestamptz) ON true
+  LEFT JOIN LATERAL jsonb_to_record(mp.mapa->t.candidato_ref)
+   AS pr(misma_relacion boolean,otra_abierta boolean) ON true
+ WHERE ce.fecha_efecto IS NOT NULL OR p.mapa ? t.candidato_ref;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz) FROM PUBLIC;
+
+-- Única fachada de consumo del lote: la sesión de RRHH ya comprobada por Go
+-- conserva el rol técnico exacto. Las funciones internas B6/B82 usan el
+-- núcleo privado y mantienen su propia ACL histórica.
+CREATE FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
+ p_participaciones text[],p_corte timestamptz)
+RETURNS TABLE(participacion_ref text,fecha_efecto date,disponible_desde date,
+ en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean,
+ pendiente_desde timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER ROWS 20000
+SET search_path=pg_catalog,pg_temp SET statement_timeout='5s' AS $fachada$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_participaciones IS NULL OR cardinality(p_participaciones) NOT BETWEEN 0 AND 20000 THEN
+  RAISE EXCEPTION 'B90: consulta nominal de ceses en lote denegada' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT x.participacion_ref,x.fecha_efecto,x.disponible_desde,
+  x.en_restriccion,x.trabajo_cesado,x.cese_pendiente,x.pendiente_desde
+ FROM vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(p_participaciones,p_corte) x;
+END $fachada$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)
+ TO vec_bolsa_llamamientos_ejecutor;
+
+-- Reconstrucciones literales de las definiciones instaladas. B90 solo cambia
+-- el cálculo de cese; firma, OID y concesiones se conservan.
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(p_bolsa_ref text, p_en timestamp with time zone)
+ RETURNS TABLE(politica_ref text, version_politica bigint, criterio text, tipo_lista text, reposicion text, provisional boolean, rotulo text, actor text, vigente_desde timestamp with time zone, participacion_ref text, orden_acta bigint, orden_vigente bigint, situacion text, razon text)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
+ WITH politica AS (
+  SELECT p.* FROM vec_bolsa_llamamientos.politica_orden_bolsa p
+   WHERE p.bolsa_ref=p_bolsa_ref AND p.vigente_desde<=p_en AND (p.vigente_hasta IS NULL OR p.vigente_hasta>p_en)
+   ORDER BY p.version DESC LIMIT 1
+ ), ceses AS MATERIALIZED (
+  SELECT ec.* FROM vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
+   coalesce((SELECT array_agg(e.participacion_ref) FROM vec_bolsa_llamamientos.constitucion c
+     JOIN vec_bolsa_llamamientos.constitucion_entrada e USING(instantanea_ref,version_instantanea)
+    WHERE c.bolsa_ref=p_bolsa_ref),ARRAY[]::text[]),p_en) ec
+ ), base AS (
+  SELECT e.participacion_ref,e.orden AS orden_acta,s.situacion,s.fecha_disponible,
+         coalesce(rc.en_restriccion,false) AS cese_restringido,
+         coalesce(rc.cese_pendiente,false) AS cese_pendiente,
+         coalesce(rc.trabajo_cesado,false) AS trabajo_cesado,
+         ((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)
+           OR coalesce(rc.trabajo_cesado,false)) AND NOT coalesce(rc.en_restriccion,false)
+          AND NOT coalesce(rc.cese_pendiente,false)) AS ocupa_turno,
+         r.aplicada_en AS repuesta_en,
+         EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.penalizacion_orden_sancion pe
+                  WHERE pe.bolsa_ref=c.bolsa_ref AND pe.participacion_ref=e.participacion_ref AND pe.aplicada_en<=p_en
+                    AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.reversion_sancion_participacion rv
+                                     WHERE rv.sancion_ref=pe.sancion_ref AND rv.registrada_en<=p_en)) AS penalizada
+    FROM vec_bolsa_llamamientos.constitucion c
+    JOIN vec_bolsa_llamamientos.constitucion_entrada e USING(instantanea_ref,version_instantanea)
+    JOIN LATERAL (SELECT sp.situacion,sp.fecha_disponible FROM vec_bolsa_llamamientos.situacion_participacion sp WHERE sp.participacion_ref=e.participacion_ref AND sp.desde<=p_en ORDER BY sp.desde DESC LIMIT 1) s ON true
+    LEFT JOIN ceses rc ON rc.participacion_ref=e.participacion_ref
+    LEFT JOIN LATERAL (SELECT ro.aplicada_en FROM vec_bolsa_llamamientos.reposicion_orden_bolsa ro WHERE ro.bolsa_ref=c.bolsa_ref AND ro.participacion_ref=e.participacion_ref AND ro.aplicada_en<=p_en ORDER BY ro.aplicada_en DESC LIMIT 1) r ON true
+   WHERE c.bolsa_ref=p_bolsa_ref
+ ), elegibles AS (
+  SELECT b.participacion_ref,row_number() OVER(ORDER BY
+    CASE WHEN b.penalizada THEN 1 ELSE 0 END,
+    CASE WHEN p.reposicion='fin_lista' AND b.repuesta_en IS NOT NULL THEN 1 ELSE 0 END,
+    CASE WHEN p.reposicion='fin_lista' AND b.repuesta_en IS NOT NULL THEN NULL ELSE b.orden_acta END,
+    b.repuesta_en,b.orden_acta,b.participacion_ref)::bigint AS orden_vigente
+   FROM base b CROSS JOIN politica p WHERE b.ocupa_turno
+ )
+ SELECT p.politica_ref,p.version,p.criterio,p.tipo_lista,p.reposicion,p.provisional,p.rotulo,p.actor,p.vigente_desde,
+        b.participacion_ref,b.orden_acta,e.orden_vigente,
+        CASE WHEN b.cese_pendiente AND b.situacion IN ('disponible','trabajando','disponible_desde')
+             THEN 'no_disponible'
+             WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde')
+             THEN 'disponible_desde' WHEN b.trabajo_cesado THEN 'disponible'
+             ELSE b.situacion END AS situacion,
+        CASE WHEN b.cese_pendiente AND b.situacion IN ('disponible','trabajando','disponible_desde')
+             THEN 'cese_pendiente'
+             WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde') THEN 'restriccion_cese'
+             WHEN b.trabajo_cesado AND b.ocupa_turno THEN 'retorno_tras_cese'
+             WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'
+             WHEN NOT b.ocupa_turno AND b.situacion='trabajando' THEN 'trabajando'
+             WHEN NOT b.ocupa_turno THEN 'sin_turno'
+             WHEN b.penalizada THEN 'sancion_al_final'
+             WHEN b.repuesta_en IS NOT NULL AND e.orden_vigente IS DISTINCT FROM b.orden_acta THEN 'reposicion_tras_contrato'
+             WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta
+                  AND EXISTS (SELECT 1 FROM base o WHERE o.penalizada AND o.ocupa_turno AND o.orden_acta < b.orden_acta) THEN 'adelanta_por_sancion'
+             WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta THEN 'pausa'
+             ELSE 'orden_acta' END
+   FROM base b CROSS JOIN politica p LEFT JOIN elegibles e USING(participacion_ref)
+  ORDER BY e.orden_vigente NULLS LAST,b.orden_acta,b.participacion_ref
+ $function$;
+
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(p_corte timestamp with time zone)
+ RETURNS TABLE(bolsa_ref text, categoria_ref text, confirmada_en timestamp with time zone, instantanea_ref text, version_instantanea bigint, orden bigint, participacion_ref text, situacion text, desde timestamp with time zone, fecha_disponible timestamp with time zone, cese_fecha_efecto date, cese_disponible_desde date, cese_en_restriccion boolean, cese_trabajo_cesado boolean)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER ROWS 10000
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_corte IS NULL OR NOT isfinite(p_corte) THEN
+  RAISE EXCEPTION 'lectura del resumen de bolsas denegada' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY
+ WITH k AS MATERIALIZED (
+   SELECT DISTINCT c.bolsa_ref,c.categoria_ref,c.confirmada_en,c.instantanea_ref,c.version_instantanea
+     FROM vec_bolsa_llamamientos.listar_constituciones_v1() c
+ ), entradas AS MATERIALIZED (
+   SELECT e.* FROM k
+   JOIN vec_bolsa_llamamientos.constitucion_entrada e
+     ON e.instantanea_ref=k.instantanea_ref AND e.version_instantanea=k.version_instantanea
+ ), ceses AS MATERIALIZED (
+   SELECT ec.* FROM vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
+    coalesce((SELECT array_agg(e.participacion_ref) FROM entradas e),ARRAY[]::text[]),p_corte) ec
+ )
+ SELECT k.bolsa_ref,k.categoria_ref,k.confirmada_en,
+        k.instantanea_ref,k.version_instantanea,e.orden,e.participacion_ref,
+        s.situacion,CASE WHEN x.cese_pendiente
+          AND s.situacion IN ('disponible','trabajando','disponible_desde')
+          THEN x.pendiente_desde ELSE s.desde END,s.fecha_disponible,
+        CASE WHEN x.cese_pendiente THEN NULL ELSE x.fecha_efecto END,
+        CASE WHEN x.cese_pendiente THEN NULL ELSE x.disponible_desde END,
+        CASE WHEN x.cese_pendiente THEN true ELSE x.en_restriccion END,
+        CASE WHEN x.cese_pendiente THEN false ELSE x.trabajo_cesado END
+   FROM k
+   LEFT JOIN entradas e
+     ON e.instantanea_ref=k.instantanea_ref AND e.version_instantanea=k.version_instantanea
+   LEFT JOIN LATERAL (
+     SELECT sp.situacion,sp.desde,sp.fecha_disponible
+       FROM vec_bolsa_llamamientos.situacion_participacion sp
+      WHERE sp.participacion_ref=e.participacion_ref
+      ORDER BY sp.desde DESC LIMIT 1) s ON true
+   LEFT JOIN ceses x ON x.participacion_ref=e.participacion_ref
+  ORDER BY k.categoria_ref,e.orden;
+END $function$;
+
+-- Mi Bolsa: reconstrucción literal de la definición final instalada,
+-- con el pendiente B13 en la misma transacción del consumo V3 existente.
+DO $mi_pre$
+DECLARE f oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_mi_bolsa_v1(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'rol',true,'owner','vec_bolsa_llamamientos_propietario','security_definer',true,
+ 'return_type','jsonb','md5_prosrc','a81ac5b086c82d60119387605b156fdc',
+ 'def_sha256','b34363311643e728121102964f8ffba920994356d6b593c1637c4218ba06d15f',
+ 'config',to_jsonb(ARRAY['search_path=pg_catalog','lock_timeout=2s','statement_timeout=15s']),
+ 'acl',to_jsonb(ARRAY['vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos_propietario']));
+BEGIN
+ SELECT jsonb_build_object('rol',current_user='vec_bolsa_llamamientos_propietario',
+  'owner',p.proowner::regrole::text,'security_definer',p.prosecdef,
+  'return_type',p.prorettype::regtype::text,'md5_prosrc',md5(p.prosrc),
+  'def_sha256',encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),
+  'config',to_jsonb(p.proconfig),
+  'acl',(SELECT to_jsonb(array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text))
+          FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a)) INTO actual
+ FROM pg_proc p WHERE p.oid=f;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=preimagen_mi_bolsa esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $mi_pre$;
+
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.consultar_mi_bolsa_v1(p_candidato_ref text, p_consultada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '15s'
+AS $function$
+DECLARE c jsonb; d jsonb; x jsonb; v_candidatos integer; v_pendiente_desde timestamptz;
+BEGIN
+ IF p_candidato_ref IS NULL OR p_candidato_ref !~ '^can_[A-Za-z0-9_-]{22,128}$' OR p_consultada_en IS NULL
+    OR p_capacidad IS NULL OR p_decision IS NULL OR p_motivo IS NULL OR p_contexto IS NULL OR p_persona_version IS NULL OR p_perfil_version IS NULL OR p_payload IS NULL OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
+   RAISE EXCEPTION 'consulta Mi bolsa inválida' USING ERRCODE='22023';
+ END IF;
+ BEGIN
+   c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb; x:=convert_from(p_contexto,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation OR character_not_in_repertoire OR untranslatable_character THEN
+   RAISE EXCEPTION 'consulta Mi bolsa inválida' USING ERRCODE='22023';
+ END;
+ IF c->>'efecto_ref' IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+    OR d->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+    OR c->>'huella_efecto_sha256' IS DISTINCT FROM d->>'contexto_recurso_huella_sha256'
+    OR jsonb_typeof(x->'vinculos') IS DISTINCT FROM 'array' THEN
+   RAISE EXCEPTION 'consulta Mi bolsa denegada' USING ERRCODE='42501';
+ END IF;
+ SELECT count(*) INTO v_candidatos FROM jsonb_array_elements(x->'vinculos') e
+  WHERE e->>'tipo'='candidato' AND e->>'estado'='activo';
+ IF v_candidatos<>1 OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(x->'vinculos') e WHERE e->>'tipo'='candidato' AND e->>'estado'='activo' AND e->>'referencia'=p_candidato_ref) THEN
+   RAISE EXCEPTION 'consulta Mi bolsa denegada' USING ERRCODE='42501';
+ END IF;
+ PERFORM 1 FROM vec_autorizacion_atestada_v3.registrar_y_consumir_mi_bolsa_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ -- Una lectura por candidato tras el consumo V3 existente, en la misma TX.
+ SELECT min(cp.recibido_en) INTO v_pendiente_desde
+ FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+ WHERE cp.candidato_ref=p_candidato_ref
+   AND cp.ocurrido_en<=p_consultada_en AND cp.origen_creada_en<=p_consultada_en
+   AND cp.recibido_en<=p_consultada_en
+   AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_consultada_en)
+   AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_consultada_en);
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'bolsa',participacion.bolsa_ref,'categoria',participacion.categoria_ref,'version',participacion.version_bolsa,'orden_inicial',participacion.orden,'total_instantanea',participacion.total_participaciones,'estado_bolsa',participacion.estado,'vigente_desde',to_char(participacion.vigente_desde AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'vigente_hasta',CASE WHEN participacion.vigente_hasta IS NULL THEN NULL ELSE to_char(participacion.vigente_hasta AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
+    'situacion_actual',CASE WHEN situacion.participacion_ref IS NULL AND v_pendiente_desde IS NULL THEN NULL ELSE jsonb_build_object(
+      'estado',CASE WHEN v_pendiente_desde IS NOT NULL
+       AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN 'no_disponible'
+      WHEN situacion.situacion IN ('disponible','trabajando','disponible_desde')
+       AND plazo.disponible_en>p_consultada_en THEN 'disponible_desde'
+       WHEN cese.trabajo_cesado OR situacion.situacion='disponible_desde' THEN 'disponible'
+       ELSE situacion.situacion END,
+      'desde',to_char((CASE
+       WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN v_pendiente_desde
+       WHEN cese.en_restriccion AND plazo.disponible_en>p_consultada_en
+         AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
+         AND (situacion.fecha_disponible IS NULL OR plazo.cese_disponible_en>situacion.fecha_disponible)
+         THEN greatest(situacion.desde,cese.fecha_efecto::timestamp AT TIME ZONE 'Europe/Madrid')
+       WHEN plazo.disponible_en<=p_consultada_en AND plazo.disponible_en IS NOT NULL
+         AND (cese.trabajo_cesado OR situacion.situacion='disponible_desde')
+         THEN greatest(situacion.desde,plazo.disponible_en)
+       ELSE situacion.desde END)
+       AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'hasta',CASE WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN NULL
+       WHEN situacion.hasta IS NULL THEN NULL ELSE to_char(situacion.hasta AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
+      'fecha_disponible',CASE
+       WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN NULL
+       WHEN situacion.situacion IN ('disponible','trabajando','disponible_desde')
+         AND plazo.disponible_en>p_consultada_en
+         THEN to_char(plazo.disponible_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+       ELSE NULL END
+    ) END,
+    'ultimo_llamamiento',CASE WHEN ultimo.llamamiento_ref IS NULL THEN NULL ELSE jsonb_build_object(
+      'emitido_en',to_char(ultimo.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'canal','correo','resultado',ultimo.resultado
+    ) END
+  ) ORDER BY participacion.confirmada_en DESC,participacion.categoria_ref),'[]'::jsonb) INTO x
+ FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) participacion
+ LEFT JOIN LATERAL (
+   SELECT s.participacion_ref,s.situacion,s.desde,s.hasta,s.fecha_disponible
+     FROM vec_bolsa_llamamientos.situacion_participacion s
+    WHERE s.participacion_ref=participacion.participacion_ref AND s.desde<=p_consultada_en
+    ORDER BY s.desde DESC LIMIT 1
+ ) situacion ON true
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(
+   participacion.participacion_ref,p_consultada_en) cese ON true
+ LEFT JOIN LATERAL (
+   SELECT greatest(
+     CASE WHEN situacion.situacion='disponible_desde' THEN situacion.fecha_disponible END,
+     CASE WHEN (cese.en_restriccion OR cese.trabajo_cesado)
+            AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
+       THEN cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid' END
+   ) AS disponible_en,
+   cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid' AS cese_disponible_en
+ ) plazo ON true
+ LEFT JOIN LATERAL (
+   SELECT l.llamamiento_ref,l.emitido_en,contacto.resultado
+     FROM vec_bolsa_llamamientos.llamamiento_emitido l
+     JOIN vec_bolsa_llamamientos.contacto_participacion contacto
+       ON contacto.llamamiento_ref=l.llamamiento_ref
+      AND contacto.bolsa_ref=l.bolsa_ref
+      AND contacto.participacion_ref=participacion.participacion_ref
+      AND contacto.canal='correo'
+      AND contacto.resultado IN('enviado','no_enviado')
+      AND contacto.instante<=p_consultada_en
+    WHERE l.bolsa_ref=participacion.bolsa_ref
+      AND l.participaciones ? participacion.participacion_ref
+      AND l.emitido_en<=p_consultada_en
+    ORDER BY l.emitido_en DESC,l.llamamiento_ref DESC,contacto.instante DESC,contacto.contacto_ref DESC
+    LIMIT 1
+ ) ultimo ON true;
+ RETURN jsonb_build_object('consultada_en',to_char(p_consultada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'participaciones',x);
+END $function$;
+
+DO $mi_post$
+DECLARE f oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_mi_bolsa_v1(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'owner','vec_bolsa_llamamientos_propietario','security_definer',true,
+ 'return_type','jsonb','pending_source',true,
+ 'config',to_jsonb(ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s','statement_timeout=15s']),
+ 'acl',to_jsonb(ARRAY['vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos_propietario']));
+BEGIN
+ SELECT jsonb_build_object('owner',p.proowner::regrole::text,'security_definer',p.prosecdef,
+  'return_type',p.prorettype::regtype::text,
+  'pending_source',position('candidatos_cese_pendiente_b90' in p.prosrc)>0,
+  'config',to_jsonb(p.proconfig),
+  'acl',(SELECT to_jsonb(array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text))
+          FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a)) INTO actual
+ FROM pg_proc p WHERE p.oid=f;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=postimagen_mi_bolsa esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $mi_post$;
+
+DO $post$
+DECLARE actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'owner_lote','vec_bolsa_llamamientos_propietario',
+ 'owner_nucleo','vec_bolsa_llamamientos_propietario',
+ 'nucleo_invocador',true,'nucleo_ejecutor',false,
+ 'owner_orden','vec_bolsa_llamamientos_propietario',
+ 'owner_resumen','vec_bolsa_llamamientos_propietario',
+ 'definidoras',true,'busqueda_cerrada',true,'lote_ejecutor',true,
+ 'lote_publico',false,'lote_relevo',false,'orden_ejecutor',true,
+ 'resumen_ejecutor',true,'orden_publico',false,'resumen_publico',false,
+ 'vista_ejecutor',false);
+BEGIN
+ SELECT jsonb_build_object(
+ 'owner_lote',(SELECT proowner::regrole::text FROM pg_proc WHERE oid='vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)'::regprocedure),
+ 'owner_nucleo',(SELECT proowner::regrole::text FROM pg_proc WHERE oid='vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)'::regprocedure),
+ 'nucleo_invocador',(SELECT NOT prosecdef AND 'search_path=pg_catalog, pg_temp'=ANY(proconfig)
+    FROM pg_proc WHERE oid='vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)'::regprocedure),
+ 'nucleo_ejecutor',has_function_privilege('vec_bolsa_llamamientos_ejecutor',
+    'vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)','EXECUTE'),
+ 'owner_orden',(SELECT proowner::regrole::text FROM pg_proc WHERE oid='vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure),
+ 'owner_resumen',(SELECT proowner::regrole::text FROM pg_proc WHERE oid='vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)'::regprocedure),
+ 'definidoras',(SELECT bool_and(prosecdef) FROM pg_proc WHERE oid IN (
+  'vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)'::regprocedure,
+  'vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure,
+  'vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)'::regprocedure)),
+ 'busqueda_cerrada',(SELECT bool_and('search_path=pg_catalog, pg_temp'=ANY(proconfig)) FROM pg_proc WHERE oid IN (
+  'vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)'::regprocedure,
+  'vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure,
+  'vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)'::regprocedure)),
+ 'lote_ejecutor',has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)','EXECUTE'),
+ 'lote_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)'::regprocedure AND a.grantee=0),
+ 'lote_relevo',has_function_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz)','EXECUTE'),
+ 'orden_ejecutor',has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)','EXECUTE'),
+ 'resumen_ejecutor',has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)','EXECUTE'),
+ 'orden_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure AND a.grantee=0),
+ 'resumen_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)'::regprocedure AND a.grantee=0),
+ 'vista_ejecutor',has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.candidatos_cese_pendiente_b90','SELECT'))
+ INTO actual;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=postimagen_lectores esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $post$;
+COMMIT;
