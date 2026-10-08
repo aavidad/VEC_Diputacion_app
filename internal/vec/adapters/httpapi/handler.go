@@ -19,6 +19,7 @@ import (
 
 type Handler struct {
 	service                                  *application.Service
+	manejadorSesionNominal                   ManejadorSesionNominal
 	soloRutasExactas                         bool
 	internal                                 *application.InternalOperations
 	personalCatalog                          CatalogoPersonal
@@ -35,6 +36,9 @@ type Handler struct {
 }
 
 type HandlerOptions struct {
+	// Sólo la composición confiable puede proporcionar la sesión nominal.
+	// El manejador acredita TLS, registra el efecto y audita los rechazos.
+	ManejadorSesionNominal                   ManejadorSesionNominal
 	InternalOperations                       *application.InternalOperations
 	PersonalCatalog                          CatalogoPersonal
 	CategoriasProfesionales                  ConsultaCategoriasProfesionales
@@ -56,6 +60,17 @@ type HandlerOptions struct {
 	// (catálogo de módulos, auditoría caída). Nil equivale al emisor nulo; la
 	// composición raíz de vec-server siempre aporta uno real.
 	EmisorIncidenciasTecnicas ports.EmisorIncidenciasTecnicas
+}
+
+var ErrSesionNominalInvalida = errors.New("vec http handler: nominal session handler invalid")
+
+var errAuditoriaSesionNominalNoDisponible = errors.New("vec http: nominal session audit unavailable")
+
+// ManejadorSesionNominal recibe exclusivamente las dos rutas canónicas de
+// sesión. Los alias se auditan por ruta fija antes de llegar al manejador.
+type ManejadorSesionNominal interface {
+	http.Handler
+	AuditarRechazoSesionNoCanonica(context.Context, string) error
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -99,6 +114,13 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if service == nil {
 		return nil, errors.New("vec http handler: service required")
 	}
+	if options.ManejadorSesionNominal != nil &&
+		(manejadorRutaExactaInvalido(options.ManejadorSesionNominal) || options.AllowDemoIdentity ||
+			options.DemoIdentityResolver != nil || options.TrustIdentityHeaders ||
+			len(options.TrustedProxyCIDRs) != 0 || options.IdentitySubjectHeader != "" ||
+			options.IdentityRolesHeader != "" || options.IdentityMechanismHeader != "") {
+		return nil, ErrSesionNominalInvalida
+	}
 	if (len(options.RutasExactas) == 0 && len(options.RutasColeccion) == 0 && !dependenciaRutaExactaNula(options.AutoridadRutasExactas)) ||
 		((len(options.RutasExactas) != 0 || len(options.RutasColeccion) != 0) && dependenciaRutaExactaNula(options.AutoridadRutasExactas)) {
 		return nil, ErrRutaExactaInvalida
@@ -123,6 +145,7 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	}
 	return &Handler{
 		service:                                  service,
+		manejadorSesionNominal:                   options.ManejadorSesionNominal,
 		internal:                                 options.InternalOperations,
 		personalCatalog:                          options.PersonalCatalog,
 		categoriasProfesionales:                  options.CategoriasProfesionales,
@@ -152,6 +175,37 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if h.manejadorSesionNominal != nil &&
+		(r.URL.Path == "/api/vec/session" || r.URL.Path == "/api/vec/session/start") {
+		ruta := r.URL.Path
+		metodo := http.MethodGet
+		if ruta == "/api/vec/session/start" {
+			metodo = http.MethodPost
+		}
+		cuerpo := r.ContentLength > 0 || len(r.TransferEncoding) != 0 ||
+			r.Body != nil && r.Body != http.NoBody
+		if !peticionRutaExactaCanonica(r) || r.URL.RawQuery != "" || r.Method != metodo || cuerpo {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			errAuditoria := h.manejadorSesionNominal.AuditarRechazoSesionNoCanonica(r.Context(), ruta)
+			if errAuditoria != nil || r.Context().Err() != nil {
+				h.responderFalloRegistroAuditoria(w, r,
+					errors.Join(errAuditoriaSesionNominalNoDisponible, errAuditoria, r.Context().Err()))
+				return
+			}
+			if peticionRutaExactaCanonica(r) && r.URL.RawQuery == "" && !cuerpo && r.Method != metodo {
+				w.Header().Set("Allow", metodo)
+				h.writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+				return
+			}
+			h.writeError(w, http.StatusBadRequest, "solicitud_invalida")
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		h.manejadorSesionNominal.ServeHTTP(w, r)
 		return
 	}
 	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {
@@ -507,7 +561,7 @@ func (h *Handler) responderFalloCatalogoModulos(w http.ResponseWriter, r *http.R
 // registrarse: declara AUDITORIA_NO_REGISTRADA y responde 503 fijo. La
 // denegación conserva su 403.
 func (h *Handler) responderFalloRegistroAuditoria(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, domain.ErrPermissionDenied) {
+	if errors.Is(err, domain.ErrPermissionDenied) && !errors.Is(err, errAuditoriaSesionNominalNoDisponible) {
 		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}

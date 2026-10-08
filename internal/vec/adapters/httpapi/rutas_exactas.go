@@ -163,6 +163,9 @@ func segmentoRutaExactaValido(segmento string) bool {
 }
 
 func rutaColisionaConShellVEC(ruta string) bool {
+	if ruta == "/api/vec/session/start" {
+		return true
+	}
 	for _, reservada := range rutasBaseVEC() {
 		if !strings.Contains(reservada, "{") && ruta == reservada {
 			return true
