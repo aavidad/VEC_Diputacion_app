@@ -157,9 +157,13 @@ func mantenerEntregaCTBolsa(nombre string, entregar func(context.Context) (resul
 // entregaCesesCTBolsa usa un cursor B45 distinto del inbox B13. Lee solo
 // ceses CT confirmados, ya filtrados antes de paginar por el propietario CT.
 // Un fallo detiene la pasada y conserva el cursor durable anterior.
+type consultorCesesCTBolsa interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 type entregaCesesCTBolsa struct {
 	lector puertosct.LectorPublicacionCesesBolsa
-	pool   *pgxpool.Pool
+	pool   consultorCesesCTBolsa
 	lote   int
 }
 

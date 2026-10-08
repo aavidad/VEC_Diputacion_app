@@ -83,3 +83,20 @@ La cifra de disponibles de cada bolsa en Inicio abre su lista paginada con el es
 Al salir de una lista de Bolsa hacia Inicio se retiran `bolsa_ref`, `estado` y `cursor` de la URL; se conservan los parámetros del portal. Atrás y Adelante recuperan la entrada anterior con su filtro. Las URL antiguas que ya apuntan a Inicio se corrigen sin crear otra entrada de historial.
 
 Los tres totales globales siguen pendientes de una lectura global autorizada y paginada. Hoy suman participaciones en bolsas, por lo que una persona incluida en varias bolsas puede contar varias veces. No se debe sustituir ese conjunto por una lista de una sola bolsa ni consultar cada bolsa desde el navegador para reconstruirlo.
+
+
+## Ceses sin candidato — revisión de #774, 8 de octubre de 2026
+
+B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
+una participación que no pertenece a ninguna bolsa constituida. Conserva el
+cese y su registro con actor, fecha y huella; no asigna candidato ni cambia
+disponibilidad. Si la bolsa está constituida y falta el vínculo, el cese sigue
+pendiente y el relevo se detiene. El camino de regreso a la bolsa requiere
+que CT utilice participaciones reales de la bolsa; queda fuera de esta PR.
+
+La rama se actualiza con main y el cursor se toma de la definición instalada
+en postHX + HZ + B85 + B86 + CT193 + B87. B81 sigue reservada para #774,
+sin colisión con esas migraciones. Antes de integrar, Claude revisa el SQL
+exacto y comprueba el ensayo privado y la CI. No se ha instalado B81 en
+ninguna base compartida. La lista de instalación contiene solo B81; no se
+reaplican las migraciones anteriores. CONFIG NUEVA: ninguna.

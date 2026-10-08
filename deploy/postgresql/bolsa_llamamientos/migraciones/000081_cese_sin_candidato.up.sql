@@ -42,7 +42,9 @@ BEGIN
        AND md5(p.prosrc)='1654ac60956eaa685f13683466fb51cd'
        AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef
        AND p.proconfig=ARRAY['search_path=pg_catalog']) THEN
-  RAISE EXCEPTION 'Bolsa 000081: cursor de cese distinto del de 000045' USING ERRCODE='55000';
+  RAISE EXCEPTION 'Bolsa 000081: clave=cursor_cese_preimagen esperado=1654ac60956eaa685f13683466fb51cd actual=%',
+   (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure)
+   USING ERRCODE='55000';
  END IF;
 END $pre$;
 
@@ -65,6 +67,8 @@ CREATE TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa (
  recibido_por text NOT NULL DEFAULT session_user CHECK (octet_length(recibido_por) BETWEEN 1 AND 128),
  CHECK (evento_ref='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||origen_ref,'UTF8')),'hex'))
 );
+CREATE INDEX cese_sin_candidato_bolsa_cursor_idx
+ ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(origen_posicion DESC,origen_ref DESC);
 ALTER TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa FORCE ROW LEVEL SECURITY;
 CREATE POLICY cese_sin_candidato_bolsa_solo_propietario ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa
@@ -85,7 +89,7 @@ COMMENT ON TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa IS
 CREATE FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
  p_origen_ref text,p_huella_sha256 text,p_posicion bigint)
 RETURNS boolean
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s'
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET lock_timeout='2s'
  SET statement_timeout='5s' AS $f$
 DECLARE v_ct record; v_b13 record; v_llamamiento record; v_previa vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
  v_evento_ref text; v_registro jsonb; v_ahora timestamptz;
@@ -175,10 +179,14 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
 
 -- El cursor cuenta también los ceses sin candidato. Mismas guardas, firma,
--- configuración y ACL que en 000045 (CREATE OR REPLACE conserva la ACL).
+-- ACL que la preimagen instalada postHX+HZ+B85+B86+CT193+B87.
+-- Literal obtenido con pg_get_functiondef; se añade pg_temp al search_path.
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()
-RETURNS TABLE(origen_posicion bigint,origen_ref text)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ RETURNS TABLE(origen_posicion bigint, origen_ref text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
     OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
@@ -194,7 +202,7 @@ BEGIN
   UNION ALL
   SELECT s.origen_posicion,s.origen_ref FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa s
  ) x ORDER BY x.posicion DESC,x.ref DESC LIMIT 1;
-END $f$;
+END $function$;
 
 DO $post$
 DECLARE f regprocedure:='vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)'::regprocedure;
@@ -208,6 +216,8 @@ BEGIN
       IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_relevo_cese']
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=c) IS NOT TRUE
+    OR (SELECT proconfig FROM pg_proc WHERE oid=c) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
+    OR NOT ('search_path=pg_catalog, pg_temp'=ANY((SELECT proconfig FROM pg_proc WHERE oid=f)))
     OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE') THEN
   RAISE EXCEPTION 'Bolsa 000081: postimagen incompatible' USING ERRCODE='55000';

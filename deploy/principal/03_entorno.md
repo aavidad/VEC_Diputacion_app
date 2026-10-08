@@ -356,7 +356,7 @@ incorporación la entrega un relevo con **conexión propia**:
   política de no incorporación desde el catálogo (b24); sin ella, las entregas
   quedan pendientes de revisión en los avisos de Bolsa.
 
-## Relevo de ceses (CT129 y Bolsa 000045)
+## Relevo de ceses (CT129, Bolsa 000045 y Bolsa 000081)
 
 Cuando Contratación temporal registra un cese, un relevo propio lo lleva a
 Bolsa para aplicar la restricción de cinco o nueve meses al candidato. Usa su
@@ -394,10 +394,21 @@ cese sigue pendiente hasta rellenar los vínculos (apartado D3-B11-D). En la
 copia fría de la principal solo la bolsa de administrativo tiene vínculos
 (41); las otras once están sin rellenar.
 
+B81 no sustituye B85, B86 ni B87. Su cursor parte de la definición instalada
+en la copia postHX con las 14 SQL de HZ, B85, B86, CT193 y B87.
+Las dos funciones incorporan `search_path=pg_catalog, pg_temp`; el cursor
+conserva las guardas y permisos del relevo. La tabla nueva tiene un índice
+por posición y referencia para continuar sin recorrer todo su historial.
+
+CONFIG NUEVA: ninguna. Con el relevo ya activado, instalar B81 antes de
+actualizar el binario; sus variables y su LOGIN son los mismos del relevo B45.
+
 Orden para encenderlo en la principal, con copia fría previa:
 
 1. Instalar Bolsa 000081 una sola vez
-   (`lista_sql_claude_relevo_ceses_b81_20261005.txt`).
+   (`lista_sql_claude_relevo_ceses_b81_20261005.txt`). Comprobar antes que
+   la tabla y la función de B81 no existen; su número está reservado aunque
+   B85–B87 ya estén instaladas. No repetirlas ni ejecutar un DOWN.
 2. Crear el LOGIN con el guion privado, primero `ensayo` y después `aplicar`.
 3. Rellenar los vínculos de las once actas que no los tienen (apartado
    D3-B11-D: `vec-server rellenar-vinculos-bolsa`, ensayo y `--aplicar` por

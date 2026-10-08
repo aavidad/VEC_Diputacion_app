@@ -22,8 +22,11 @@ BEGIN
  END IF;
 END $pre$;
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()
-RETURNS TABLE(origen_posicion bigint,origen_ref text)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ RETURNS TABLE(origen_posicion bigint, origen_ref text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
     OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
@@ -37,7 +40,7 @@ BEGIN
   UNION ALL
   SELECT a.origen_posicion,a.origen_ref FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a
  ) x ORDER BY x.posicion DESC,x.ref DESC LIMIT 1;
-END $f$;
+END $function$;
 DO $post$
 BEGIN
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure)
