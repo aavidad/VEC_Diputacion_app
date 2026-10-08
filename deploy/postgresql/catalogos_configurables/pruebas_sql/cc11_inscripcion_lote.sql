@@ -8,18 +8,22 @@ DECLARE cat_doc text:='{"id":"bolsa.categorias.inscripcion","version":1}';
  pol_doc text:='{"id":"bolsa.politica.inscripcion","version":1}';
  pol_doc2 text:='{"id":"bolsa.politica.sinpresentacion","version":1}';
  cat_sha text; pol_sha text; pol_sha2 text; r jsonb; lote_maximo jsonb; f regprocedure;
+ f_categorias regprocedure; refs_128 jsonb; comprobacion jsonb;
  f_asociacion regprocedure; alcance text;
 BEGIN
  alcance:='cv1_'||translate(rtrim(encode(convert_to('proceso:bolsa:historica-2026','UTF8'),'base64'),'='),'+/','-_')||'_v1';
  f:='vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)'::regprocedure;
+ f_categorias:='vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)'::regprocedure;
  f_asociacion:='vec_catalogos_configurables.comprobar_politica_asociacion_inscripcion_v1(text,integer,text)'::regprocedure;
  IF NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE')
+ OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f_categorias,'EXECUTE')
+ OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',f_categorias,'EXECUTE')
  OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f_asociacion,'EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',f_asociacion,'EXECUTE')
  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-   WHERE p.oid IN(f,f_asociacion) AND a.grantee=0)
+   WHERE p.oid IN(f,f_categorias,f_asociacion) AND a.grantee=0)
  THEN RAISE EXCEPTION 'CC11: ACL abierta'; END IF;
  cat_sha:=encode(sha256(convert_to(cat_doc,'UTF8')),'hex');
  pol_sha:=encode(sha256(convert_to(pol_doc,'UTF8')),'hex');
@@ -154,5 +158,38 @@ BEGIN
   RAISE EXCEPTION 'CC11: etiqueta ausente aceptada';
  EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL;
  END;
+ INSERT INTO vec_catalogos_configurables.entrada_publicada
+  (catalogo_id,version,huella_sha256,categoria_id,etiqueta,definicion)
+ SELECT 'bolsa.categorias.inscripcion',1,cat_sha,'cat.'||g,'Categoría '||g,'{}'::jsonb
+ FROM generate_series(1,127) AS g;
+ SELECT jsonb_agg('cat.'||g ORDER BY g) INTO refs_128 FROM generate_series(1,128) AS g;
+ IF vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1('[]')<>'[]'::jsonb
+ THEN RAISE EXCEPTION 'CC11: comprobación vacía incorrecta'; END IF;
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+  jsonb_build_array(
+   jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,
+    'categorias_refs',jsonb_build_array('cat.1')),
+   jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,'categorias_refs',refs_128)));
+ IF jsonb_array_length(comprobacion)<>2
+ OR comprobacion#>>'{0,catalogo_completo}'<>'true'
+ OR comprobacion#>>'{0,numero_categorias}'<>'1'
+ OR comprobacion#>>'{1,catalogo_completo}'<>'false'
+ OR comprobacion#>>'{1,numero_categorias}'<>'128'
+ THEN RAISE EXCEPTION 'CC11: categoría 128 ausente no detectada: %',comprobacion; END IF;
+ comprobacion:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+  jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+   'catalogo_version',1,'catalogo_sha256',repeat('0',64),
+   'categorias_refs',jsonb_build_array('cat.1'))));
+ IF comprobacion#>>'{0,catalogo_completo}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: huella equivocada completó catálogo'; END IF;
+ BEGIN
+  PERFORM vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
+    'catalogo_version',1,'catalogo_sha256',cat_sha,
+    'categorias_refs',jsonb_build_array('cat.1','cat.1'))));
+  RAISE EXCEPTION 'CC11: refs duplicadas aceptadas';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
 END $test$;
 ROLLBACK;

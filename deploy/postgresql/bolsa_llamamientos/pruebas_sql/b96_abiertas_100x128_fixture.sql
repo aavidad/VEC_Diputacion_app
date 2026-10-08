@@ -99,4 +99,28 @@ BEGIN
   RAISE NOTICE 'B96 perf128 SQL limite=% bytes=% p95_ms=%',limite,bytes,round(p95,3);
  END LOOP;
 END $medir$;
+-- Una categoría faltante en el catálogo versionado no desaparece del total,
+-- pero tampoco permite presentar desde la tarjeta. El detalle falla cerrado.
+DELETE FROM vec_catalogos_configurables.entrada_publicada
+ WHERE catalogo_id='bolsa.categorias.inscripcion' AND version=1
+  AND categoria_id='cat.128';
+DO $categoria_ausente$
+DECLARE raw jsonb;pagina jsonb;detalle jsonb;ref text;
+BEGIN
+ raw:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(NULL,100);
+ pagina:=vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
+  raw,'per_'||repeat('a',22),'es','certificado','alto',true);
+ IF pagina->>'total'<>'100' OR jsonb_array_length(pagina->'convocatorias')<>100
+ OR pagina#>>'{convocatorias,0,puede_iniciar}'<>'false'
+ OR pagina#>>'{convocatorias,0,impedimento_etiqueta}'<>'No disponible ES'
+ THEN RAISE EXCEPTION 'B96: catálogo incompleto ofertado o fila omitida %',pagina; END IF;
+ ref:=pagina#>>'{convocatorias,0,convocatoria_ref}';
+ detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref);
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
+   detalle,'per_'||repeat('a',22),'es','certificado','alto',false);
+  RAISE EXCEPTION 'B96: detalle aceptó categoría sin catálogo';
+ EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL;
+ END;
+END $categoria_ausente$;
 ROLLBACK;

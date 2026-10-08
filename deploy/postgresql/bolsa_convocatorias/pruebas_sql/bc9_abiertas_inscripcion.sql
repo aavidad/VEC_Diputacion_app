@@ -130,8 +130,12 @@ BEGIN
  THEN RAISE EXCEPTION 'BC9: convocatoria abierta omitida'; END IF;
  FOR item IN SELECT valor FROM jsonb_array_elements(todos) AS x(valor) LOOP
   IF item ? 'categorias' OR item ? 'requisitos'
+   OR item ? 'convocatoria_id' OR item ? 'identificador_publico'
+   OR item ? 'bases_ref' OR item ? 'version_sha256'
    OR coalesce(item->>'categoria_ref_comprobacion','')=''
    OR (item->>'numero_categorias')::integer NOT BETWEEN 1 AND 128
+   OR jsonb_typeof(item->'categorias_refs_comprobacion') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(item->'categorias_refs_comprobacion')<>(item->>'numero_categorias')::integer
    OR (item->>'numero_requisitos')::integer<>1
    OR coalesce(item->>'titulo','')=''
    OR item->>'plazo_abre_en' IS NULL OR item->>'plazo_cierra_en' IS NULL
@@ -140,14 +144,17 @@ BEGIN
  SELECT valor INTO item FROM jsonb_array_elements(todos) AS x(valor)
   WHERE valor->>'convocatoria_ref'=ref33;
  IF item->>'numero_categorias'<>'33' OR item->>'categoria_ref_comprobacion'<>'cat.1'
+ OR item#>>'{categorias_refs_comprobacion,32}'<>'cat.33'
  THEN RAISE EXCEPTION 'BC9: lista 33 categorías resumida mal: %',item; END IF;
  SELECT valor INTO item FROM jsonb_array_elements(todos) AS x(valor)
   WHERE valor->>'convocatoria_ref'=ref128;
  IF item->>'numero_categorias'<>'128' OR item->>'categoria_ref_comprobacion'<>'cat.1'
+ OR item#>>'{categorias_refs_comprobacion,127}'<>'cat.128'
  THEN RAISE EXCEPTION 'BC9: lista 128 categorías resumida mal: %',item; END IF;
  detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref33);
  posterior:=vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref33,'cat.33');
  IF detalle->>'numero_categorias'<>'33' OR detalle ? 'categoria_ref_comprobacion'
+ OR detalle ? 'categorias_refs_comprobacion'
  OR detalle->>'numero_requisitos'<>'1' OR jsonb_array_length(detalle->'requisitos')<>1
  OR jsonb_array_length(detalle->'categorias')<>33
  OR jsonb_array_length(posterior->'categorias')<>33
@@ -155,6 +162,7 @@ BEGIN
  detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref128);
  posterior:=vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref128,'cat.128');
  IF detalle->>'numero_categorias'<>'128' OR detalle ? 'categoria_ref_comprobacion'
+ OR detalle ? 'categorias_refs_comprobacion'
  OR detalle->>'numero_requisitos'<>'1' OR jsonb_array_length(detalle->'requisitos')<>1
  OR jsonb_array_length(detalle->'categorias')<>128
  OR jsonb_array_length(posterior->'categorias')<>128
