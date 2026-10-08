@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 func TestFabricaPoolO405ConservaDefaultsRealesSinCallbacksInyectables(
@@ -27,24 +29,17 @@ func TestFabricaPoolO405ConservaDefaultsRealesSinCallbacksInyectables(
 		t.Fatal("pgx no expuso sus cuatro defaults reales")
 	}
 
-	dependencia, err := nuevoPoolRecuperacionCoberturaO405PostgreSQL(
-		context.Background(),
-		"host=db-o405.example,replica-o405.example "+
-			"port=5432,5432 user=vec_o405 dbname=postgres "+
-			"password='' sslmode=verify-full pool_min_conns=0",
-		modoTLSAcreditacionPoolO405Produccion,
-	)
-	if err != nil {
-		t.Fatalf("fábrica cerrada rechazó defaults pgx: %v", err)
+	const cadena = "host=db-o405.example,replica-o405.example " +
+		"port=5432,5432 user=vec_o405 dbname=postgres " +
+		"password='' sslmode=verify-full pool_min_conns=0"
+	configuracion, err := pgxpool.ParseConfig(cadena)
+	if err != nil || !endurecerTLSFabricaPoolO405(&configuracion.ConnConfig.Config, modoTLSAcreditacionPoolO405Produccion) {
+		t.Fatalf("configuración PGX no acreditada: %v", err)
 	}
-	cierreReal := dependencia.cierre.cerrar
-	cierres := 0
-	dependencia.cierre.cerrar = func() {
-		cierres++
-		cierreReal()
+	postgresqlcompartido.FijarTamanoPool(configuracion, cadena, 4)
+	if !configuracionPoolAcreditacionO405Valida(configuracion, modoTLSAcreditacionPoolO405Produccion) {
+		t.Fatal("configuración acreditada inválida")
 	}
-	defer dependencia.Cerrar()
-	configuracion := dependencia.pool.Config()
 	if configuracion.ConnConfig.DialFunc == nil ||
 		configuracion.ConnConfig.LookupFunc == nil ||
 		configuracion.ConnConfig.BuildFrontend == nil ||
@@ -52,18 +47,7 @@ func TestFabricaPoolO405ConservaDefaultsRealesSinCallbacksInyectables(
 		len(configuracion.ConnConfig.Fallbacks) == 0 {
 		t.Fatal("fábrica no conservó defaults o fallbacks reales")
 	}
-	configuracion.ConnConfig.DialFunc = nil
-	configuracion.ConnConfig.LookupFunc = nil
-	configuracion.ConnConfig.BuildFrontend = nil
-	configuracion.ConnConfig.BuildContextWatcherHandler = nil
-	efectiva := dependencia.pool.Config()
-	if efectiva.ConnConfig.DialFunc == nil ||
-		efectiva.ConnConfig.LookupFunc == nil ||
-		efectiva.ConnConfig.BuildFrontend == nil ||
-		efectiva.ConnConfig.BuildContextWatcherHandler == nil {
-		t.Fatal("copia de configuración alteró pool acreditado")
-	}
-	for _, alternativa := range efectiva.ConnConfig.Fallbacks {
+	for _, alternativa := range configuracion.ConnConfig.Fallbacks {
 		if alternativa == nil ||
 			!tlsAcreditacionPoolO405VerificaIdentidad(
 				alternativa.TLSConfig,
@@ -72,31 +56,11 @@ func TestFabricaPoolO405ConservaDefaultsRealesSinCallbacksInyectables(
 			t.Fatal("fallback no quedó bajo configuración compartida acreditada")
 		}
 	}
-	copia := *dependencia
-	if ejecutor, err :=
-		NuevoEjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL(
-			context.Background(),
-			&copia,
-		); ejecutor != nil || !errors.Is(
-		err,
-		cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoDisponible,
-	) {
-		t.Fatalf("copia de pool aceptada: ejecutor=%v err=%v", ejecutor, err)
-	}
-	ctxCancelado, cancelar := context.WithCancel(context.Background())
-	cancelar()
-	if ejecutor, err :=
-		NuevoEjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL(
-			ctxCancelado,
-			dependencia,
-		); ejecutor != nil || !errors.Is(err, context.Canceled) ||
-		cierres != 0 {
-		t.Fatalf(
-			"constructor tomó ownership: ejecutor=%v cierres=%d err=%v",
-			ejecutor,
-			cierres,
-			err,
-		)
+	ctx, cancelar := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancelar()
+	if pool, err := nuevoPoolRecuperacionCoberturaO405PostgreSQL(ctx, cadena,
+		modoTLSAcreditacionPoolO405Produccion); pool != nil || err == nil {
+		t.Fatalf("fábrica entregó pool sin preflight: pool=%v err=%v", pool, err)
 	}
 }
 

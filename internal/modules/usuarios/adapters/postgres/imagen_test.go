@@ -51,11 +51,12 @@ type txImagenPGPrueba struct {
 	respuestas         []filaImagenPGPrueba
 	llamadas           []llamadaCorreoPG
 	commits, rollbacks int
+	errExec            error
 }
 
 func (t *txImagenPGPrueba) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	t.llamadas = append(t.llamadas, llamadaCorreoPG{sql, args})
-	return pgconn.CommandTag{}, nil
+	return pgconn.CommandTag{}, t.errExec
 }
 func (t *txImagenPGPrueba) QueryRow(_ context.Context, sql string, args ...any) filaCorreos {
 	t.llamadas = append(t.llamadas, llamadaCorreoPG{sql, args})

@@ -27,7 +27,7 @@ func TestDerivarMaterialConsumidorAplicaDominioYPrefijoNominales(t *testing.T) {
 	casos := append([]descriptorMaterialConsumidorV3Desarrollo{
 		{Audiencia: puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo, Dominio: "vec.bolsa.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:bolsa:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 	}, descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()...)
-	if len(casos) != 5 {
+	if len(casos) != 6 {
 		t.Fatalf("audiencias históricas inesperadas: %d", len(casos))
 	}
 	for _, d := range casos {

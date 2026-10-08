@@ -16,6 +16,7 @@ import (
 	"time"
 
 	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 type anclajeFisicoRuntime struct {
@@ -265,7 +266,7 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 	}
 	// Confirmar sólo una creación cuyo comando terminó correctamente.
 	// La exclusión técnica impide iniciar procesos archivados en esta fase.
-	revisar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	revisar, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	actual, err := p.leerClon(revisar)
 	if err != nil {
@@ -353,7 +354,7 @@ func (p *RuntimePlantillas) retirar(ctx context.Context, clon string) error {
 		}
 		return nil
 	})
-	revisar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	revisar, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	despues, err := p.leerClon(revisar)
 	if err != nil {

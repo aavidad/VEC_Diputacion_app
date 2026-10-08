@@ -1,5 +1,5 @@
 /** Lectura del catálogo efectivo B45 para RRHH; ninguna regla se calcula en el navegador. */
-import { traducirPortal, LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { traducirPortal, LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -17,6 +17,12 @@ export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ay
   const cabecera = `<header class="cabecera-panel"><div><h3>${t("titulo")}</h3><p>${t("subtitulo")}</p></div>
     <button type="button" class="boton-secundario politica-cese-ayuda-boton" data-politica-cese-ayuda aria-label="${t("ayuda_boton")}" aria-expanded="${ayudaAbierta}" aria-controls="politica-cese-ayuda">?</button></header>
     <p id="politica-cese-ayuda" class="politica-cese-ayuda" ${ayudaAbierta ? "" : "hidden"}>${t("ayuda")}</p>`;
+  if (estado === "no_disponible") {
+    return `<section class="panel politica-cese-rrhh" data-politica-cese aria-labelledby="politica-cese-no-disponible"><div class="cuerpo-panel vacio-controlado">
+      <h3 id="politica-cese-no-disponible">${t("no_disponible_titulo")}</h3><p>${t("no_disponible_texto")}</p>
+      <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="portal">${esc(traducirPortal("accion_volver_portal"))}</button></div>
+    </div></section>`;
+  }
   if (!politica || estado !== "lista") {
     const clave = cargando ? "cargando" : estado === "denegada" ? "denegada" : "error";
     return `<section class="panel politica-cese-rrhh" data-politica-cese>${cabecera}<div class="cuerpo-panel" role="${cargando ? "status" : "alert"}">
@@ -43,13 +49,13 @@ export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ay
   </section>`;
 }
 
-export function montarVistaPoliticaCeseRRHH({ raiz, politica, cliente, anunciar = () => {}, alDenegacion = () => {} } = {}) {
+export function montarVistaPoliticaCeseRRHH({ raiz, politica, noDisponible = false, cliente, anunciar = () => {}, alDenegacion = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultar !== "function" || typeof anunciar !== "function" || typeof alDenegacion !== "function") {
     throw new TypeError("vista de política de cese no disponible");
   }
   let actual = politica;
-  let estado = politica ? "lista" : "error";
+  let estado = politica ? "lista" : noDisponible ? "no_disponible" : "error";
   let ayudaAbierta = false;
   let controlador = null;
   let montada = true;
@@ -67,8 +73,9 @@ export function montarVistaPoliticaCeseRRHH({ raiz, politica, cliente, anunciar 
       actual = recibida; estado = "lista"; pintar();
     } catch (error) {
       if (!montada || signal.aborted || carga !== secuencia) return;
-      actual = null; estado = error?.estado === 401 || error?.estado === 403 ? "denegada" : "error";
+      actual = null; estado = error?.estado === 401 || error?.estado === 403 ? "denegada" : error?.estado === 404 ? "no_disponible" : "error";
       if (estado === "denegada") alDenegacion();
+      if (estado === "no_disponible") { pintar(); anunciar(`${traducirPortal("politica_cese_no_disponible_titulo")} ${traducirPortal("politica_cese_no_disponible_texto")}`); return; }
       pintar(); anunciar(traducirPortal(`politica_cese_${estado === "denegada" ? "denegada" : "error"}`), "error");
     }
   }

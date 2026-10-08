@@ -11,6 +11,7 @@ import (
 	hist "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/historiaincorporacion"
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const consultaLocalizadorIncorporacionAplicacionV2 = `SELECT recibo_ref, material_sha256, intencion_sha256 FROM vec_contratacion_temporal.localizar_incorporacion_original_v2($1::text,$2::text,$3::text)`
@@ -90,7 +91,7 @@ func (l *LocalizadorIncorporacionOriginalV2PostgreSQL) Localizar(ctx context.Con
 	if !nuloLectorHistoriaV2(tx) {
 		defer func() {
 			if !confirmado {
-				limite, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				limite, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 				defer cancel()
 				_ = tx.Rollback(limite)
 			}

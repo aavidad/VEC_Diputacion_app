@@ -26,22 +26,13 @@ El estado y el plan de cada módulo están en `ESTADO_PROYECTO.md` y en
 - Un borrador no es un documento firmado, y autenticarse con certificado no es
   firmar: ninguno de los dos se presenta como firma legal.
 
-## Prioridad vigente
+## Prioridad vigente (07/10/2026)
 
-La prioridad es el módulo `contrataciontemporal`, basado en el procedimiento
-remitido por RRHH. Bolsa no se borra: mantiene convocatorias, candidaturas,
-posiciones, reglas y llamamientos.
-
-Si una tarea de contratación temporal necesita una capacidad común de VEC,
-Bolsa, Personal, documentos o firma:
-
-1. se define una tarea dependiente y acotada;
-2. se implementa en el módulo que posee esa autoridad;
-3. se prueba e integra;
-4. se vuelve inmediatamente al camino crítico de contratación temporal.
-
-No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
-instrucción de dirección.
+Se terminan todos los módulos de la app en paralelo: cada equipo en su área y,
+dentro de ella, primero lo que es base de otros (identidad, permisos,
+catálogos, datos maestros) y después las pantallas que lo usan. Lo que ve
+RRHH tiene que ir rápido: pantallas por debajo de 300 ms con volumen realista.
+Se trabaja en local y GitHub; el servidor de desarrollo compartido no se toca.
 
 ## Lectura obligatoria
 
@@ -192,6 +183,26 @@ Codex lee las skills de `.agents/skills/` del repositorio y Claude, de `~/.claud
 `security-audit` está en `~/.claude/skills/` y en `skills/` de cada CODEX_HOME.
 
 ## Calidad
+
+### Rendimiento instantáneo — orden del operador, 6 de octubre de 2026
+
+La aplicación debe responder de forma instantánea en todos los módulos y
+soportar miles de personas conectadas a la vez. Es requisito de aceptación, no
+una mejora.
+
+- Objetivo: cada lectura responde en el servidor en menos de 300 ms (p95) con
+  volumen de datos real; la pantalla útil aparece en menos de 1 s.
+- Toda PR que añada o cambie una ruta aporta una medición con volumen realista
+  (`EXPLAIN ANALYZE` y tiempo de la ruta) o una prueba que fije el número de
+  consultas.
+- Prohibido el N+1: ni una consulta ni un consumo de autorización por fila. Se
+  trabaja en lotes, con índices y con transacciones cortas.
+- El portal muestra primero lo que ya tiene y carga cada módulo por separado,
+  sin que uno lento bloquee a los demás.
+- Antes de cada hito, prueba de carga local a cientos y miles de usuarios
+  concurrentes, con percentiles y errores.
+- La velocidad nunca se consigue quitando autorización, auditoría ni otras
+  comprobaciones.
 
 ### Validación eficiente — orden del operador, 24 de septiembre de 2026
 

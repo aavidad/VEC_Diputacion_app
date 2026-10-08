@@ -3,15 +3,17 @@
 El visor abre la salida local del preparador de sesión S5. Muestra el orden del
 día y las propuestas de acuerdo, vinculadas por el punto de agenda. Conserva
 los textos aportados como datos; cambiar el idioma de la interfaz no traduce
-automáticamente esos textos.
+automáticamente esos textos. El selector común conserva el archivo abierto,
+los otros parámetros y el ancla de la URL. La URL muestra el idioma que se ha
+cargado, incluido el de respaldo si falta el solicitado.
 
 Use sólo material sintético. El archivo no acredita una sesión convocada o
-celebrada, asistencia, deliberaciones, votaciones ni acuerdos adoptados. La
-referencia de preparación del tribunal, su versión y la huella aportada están
-sin cotejar. Esa huella procede de la entrada; no es una huella emitida por el
-preparador anterior de tribunal. La pertenencia de la fase también permanece
-pendiente. El borrador no designa miembros, habilita actuaciones, aprueba, firma
-ni califica.
+celebrada, asistencia, deliberaciones, votaciones ni acuerdos adoptados. El
+formato inicial deja sin cotejar la preparación del tribunal y la fase. El
+formato con `cotejo_local` declara que el CLI cotejó una salida local del
+tribunal y calculó su huella. El visor comprueba la coherencia del formato,
+pero no repite ese cotejo ni verifica la procedencia, vigencia o habilitación.
+El borrador no designa miembros, aprueba, firma ni califica.
 
 Genere una salida del CLI y abra el visor desde loopback:
 
@@ -21,6 +23,21 @@ go run ./cmd/vec-selectivos-preparar-acta \
   < cmd/vec-selectivos-preparar-acta/testdata/material.json \
   > /tmp/vec-sesion-propuesta.json
 python scripts/servir_preparacion_rrhh.py --modulo selectivos-acta-visor
+```
+
+Para abrir un borrador que declara el cotejo local, prepare también la salida
+del tribunal y use la opción `-tribunal-salida` del CLI de acta:
+
+```sh
+go run ./cmd/vec-selectivos-preparar-tribunal \
+  --catalogos-dir web/static/textos --idioma es \
+  < cmd/vec-selectivos-preparar-tribunal/testdata/material.json \
+  > /tmp/vec-tribunal-propuesto.json
+go run ./cmd/vec-selectivos-preparar-acta \
+  --catalogos-dir web/static/textos --idioma es \
+  --tribunal-salida /tmp/vec-tribunal-propuesto.json \
+  < cmd/vec-selectivos-preparar-acta/testdata/material-cotejo.json \
+  > /tmp/vec-sesion-cotejada-local.json
 ```
 
 Seleccione la salida JSON en «Abrir borrador preparado». Revise el contexto,
@@ -39,7 +56,9 @@ enlaces ni generan consultas. No hay botones para celebrar una sesión,
 adoptar acuerdos, aprobar ni firmar.
 
 El contrato consumido es la raíz `titulo`, `preparacion`, `limite`, `mensajes`
-del CLI `vec-selectivos-preparar-acta`. Se exige el estado `borrador_propuesto`
+del CLI `vec-selectivos-preparar-acta`, con `cotejo_local` únicamente cuando
+ambos avisos de antecedente y fase indican el cotejo local. Se rechazan mezclas
+de los dos formatos. Se exige el estado `borrador_propuesto`
 y material `preparacion_sintetica`. Las listas vacías y los textos ausentes
 permanecen incompletos, con sus pendientes. Se comprueba la correspondencia
 de los pendientes con sus mensajes y los enlaces locales entre agenda y

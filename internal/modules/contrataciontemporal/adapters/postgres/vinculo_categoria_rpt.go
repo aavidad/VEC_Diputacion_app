@@ -15,6 +15,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -183,7 +184,7 @@ func revertirVinculoRPT(tx pgx.Tx) {
 	if tx == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	_ = tx.Rollback(ctx)
 }

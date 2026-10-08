@@ -743,7 +743,7 @@
         "titulo": "Search help",
         "subtitulo": "Answers about registration, merits, scoring and call-ups",
         "pregunta": "What do you need to know?",
-        "ejemplo": "Example: submit a correction",
+        "ejemplo": "Example: respond to a call-up",
         "boton": "Search"
       },
       "lateral": "Help options and channels",
@@ -837,7 +837,7 @@
     "grupoResumen": "Summary",
     "grupoInformacion": "My information",
     "grupoTramitacion": "Procedures",
-    "grupoComunicaciones": "Communications",
+    "grupoComunicaciones": "Messages and help",
     "miBolsa": "My job pool",
     "pieLateral": "General HR portal",
     "pieLateralDetalle": "Initial phase · Job pools module",

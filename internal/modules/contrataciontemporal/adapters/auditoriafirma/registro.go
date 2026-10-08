@@ -66,7 +66,19 @@ func (r *Registro) ConsultarFirmasAutorizadasV2(ctx context.Context, m ct.Materi
 	if err == nil {
 		return lectura, nil
 	}
+	if lecturaAuditadaSinResultado(err) {
+		return ct.LecturaFirmasR5V2{}, err
+	}
 	return ct.LecturaFirmasR5V2{}, r.auditar(ctx, intento, ct.AccionConsultarFirmasR5V2, m.ExpedienteRef, err)
+}
+
+// lecturaAuditadaSinResultado reconoce el «no encontrado» de una lectura
+// autorizada. El lector sólo lo devuelve después de confirmar la transacción
+// que consumió la decisión y escribió su auditoría de consumo: esa fila ya
+// registra el acceso. Otro intento «error» lo duplicaría y contaría como fallo
+// técnico lo que es una respuesta 404.
+func lecturaAuditadaSinResultado(err error) bool {
+	return errors.Is(err, ct.ErrExpedienteConsultaFirmasNoEncontrado)
 }
 
 func (r *Registro) auditar(ctx context.Context, intento, accion, recurso string, fallo error) error {

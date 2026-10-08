@@ -58,8 +58,11 @@ func ValidarPlanAutorizadoFirmaV2(m ports.MaterialFirmaVerificadaV2, plan vd.Ref
 // RecursoPlanAutorizadoFirmaV2 mantiene acción, audiencia y recurso de firma;
 // su contexto liga material, plan, descriptor y decisión interior. CT172 usa
 // otro contexto: el consumidor debe confirmar ambos en una sola transacción.
-func RecursoPlanAutorizadoFirmaV2(m ports.MaterialFirmaVerificadaV2, plan vd.ReferenciaEntradaCatalogo, decisionInteriorSHA256 string, envoltorio []byte) (vd.RecursoAutorizable, error) {
-	if ValidarPlanAutorizadoFirmaV2(m, plan, decisionInteriorSHA256, envoltorio) != nil {
+// Lleva los mismos ámbitos que la decisión interior (los de la asignación de
+// quien actúa), con las mismas reglas; AD209 los relee en el consumo.
+func RecursoPlanAutorizadoFirmaV2(m ports.MaterialFirmaVerificadaV2, plan vd.ReferenciaEntradaCatalogo, decisionInteriorSHA256 string, envoltorio []byte, a ports.AmbitosOperadorFirmaV2) (vd.RecursoAutorizable, error) {
+	if ValidarPlanAutorizadoFirmaV2(m, plan, decisionInteriorSHA256, envoltorio) != nil || a.OrganizacionRef != m.OrganizacionRef ||
+		(a.UnidadRef != "" && (m.Via != ports.ViaFirmaCertificadoVEC || a.UnidadRef != m.UnidadFirmanteRef)) {
 		return vd.RecursoAutorizable{}, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
 	h, err := m.HuellaSHA256()
@@ -72,6 +75,6 @@ func RecursoPlanAutorizadoFirmaV2(m ports.MaterialFirmaVerificadaV2, plan vd.Ref
 	}
 	sha := sha256.Sum256(envoltorio)
 	return vd.RecursoAutorizable{Referencia: m.RecursoRef(), ModuloID: ports.ModuloContratacion, Tipo: tipo,
-		Ambitos:   map[string]string{"organizacion_ref": m.OrganizacionRef},
+		Ambitos:   a.Mapa(),
 		Atributos: map[string]string{"material_sha256": h, "plan_firma_sha256": hex.EncodeToString(sha[:])}}, nil
 }

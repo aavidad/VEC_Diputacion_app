@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/formacion/application"
@@ -13,6 +15,9 @@ import (
 )
 
 const MaxEntrada = 65536
+
+var ErrConfiguracion = errors.New("formacion.error.configuracion")
+var ErrSalida = errors.New("formacion.error.salida")
 
 //go:embed fuentes.json
 var fuentesJSON []byte
@@ -169,9 +174,9 @@ func valor(d *json.Decoder, nivel int) error {
 	return err
 }
 func Proyectar(p application.Preparacion) (Proyeccion, error) {
-	var fuentes FuenteCorporativa
-	if err := json.Unmarshal(fuentesJSON, &fuentes); err != nil {
-		return Proyeccion{}, errors.New("formacion.error.configuracion")
+	fuentes, err := leerFuentes(fuentesJSON)
+	if err != nil {
+		return Proyeccion{}, err
 	}
 	d := p.Plan
 	if d.Configuracion.Modalidades == nil {
@@ -193,6 +198,27 @@ func Proyectar(p application.Preparacion) (Proyeccion, error) {
 	}
 	return o, nil
 }
+
+func leerFuentes(b []byte) (FuenteCorporativa, error) {
+	invalida := func() (FuenteCorporativa, error) {
+		return FuenteCorporativa{}, ErrConfiguracion
+	}
+	if len(b) == 0 || len(b) > MaxEntrada || documentoUnico(b) != nil {
+		return invalida()
+	}
+	var fuentes FuenteCorporativa
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if dec.Decode(&fuentes) != nil || !enlaceHTTPS(fuentes.PlanURL) || !enlaceHTTPS(fuentes.PlataformaURL) {
+		return invalida()
+	}
+	return fuentes, nil
+}
+
+func enlaceHTTPS(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && !strings.Contains(raw, "#") && u.Opaque == ""
+}
 func Escribir(w io.Writer, p application.Preparacion) error {
 	o, err := Proyectar(p)
 	if err != nil {
@@ -200,5 +226,8 @@ func Escribir(w io.Writer, p application.Preparacion) error {
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(o)
+	if err := enc.Encode(o); err != nil {
+		return fmt.Errorf("%w: %w", ErrSalida, err)
+	}
+	return nil
 }

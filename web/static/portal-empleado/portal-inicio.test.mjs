@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-alta-rpt-circular-v6";
+import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
@@ -56,7 +57,7 @@ test("la portada sin catálogo ofrece reintento y el clic activa la recarga exis
   });
   let html = vista();
   assert.match(html, /role="alert" aria-labelledby="error-catalogo-modulos-titulo"/u);
-  assert.match(html, /El catálogo interno de módulos no está disponible/u);
+  assert.match(html, /No se han podido cargar las áreas del portal/u);
   assert.match(html, /<button[^>]*data-accion="recargar-fuente"[^>]*>Reintentar<\/button>/u);
 
   const documentoAnterior = globalThis.document;
@@ -105,6 +106,14 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
   assert.doesNotMatch(html, /data-vista=/);
 });
 
+test("Bolsa permite abrir el cuadro para comprobarlo sin afirmar que ya está disponible", () => {
+  const html = renderizar({ disponible: true, vista: "resumen", estado: "cargando" });
+  assert.match(html, /data-modulo-catalogo="bolsa"[^>]*aria-busy="true"[^>]*data-estado-conexion="comprobando"/u);
+  assert.match(html, /<span class="estado-proximamente">Comprobando<\/span>/u);
+  assert.match(html, /<button[^>]+data-vista="resumen"/u);
+  assert.doesNotMatch(html, /<span class="estado-disponible">/u);
+});
+
 test("un módulo denegado o sin servicio no ocupa una tarjeta vacía", () => {
   for (const acceso of [
     { disponible: false, vista: "", estado: "denegado", etiqueta: "Sin permiso para gestionar borradores" },
@@ -134,7 +143,7 @@ test("Inicio del empleado sin módulos disponibles muestra un estado vacío i18n
   assert.match(html, /role="status" data-inicio-sin-modulos>\s*<p>«inicio_empleado_sin_modulos»<\/p>/u);
   assert.ok(claves.includes("inicio_empleado_sin_modulos"));
   assert.doesNotMatch(html, /data-modulo-catalogo=|data-accion="ayuda"|rejilla-modulos/u);
-  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay módulos disponibles para su perfil\./u);
+  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay áreas disponibles para su perfil\./u);
   // Con el catálogo caído manda su aviso con reintento, no el estado vacío.
   const fallido = vista(true);
   assert.match(fallido, /data-accion="recargar-fuente"/u);
@@ -204,16 +213,12 @@ test("la identidad visual cubre los trece módulos del catálogo y conserva sali
 });
 
 const fijo = () => new Date("2026-09-29T08:00:00Z");
-const expedientesCuadro = [
-  { expediente_ref: "exp:a", numero_visible: "2026/CT-000001", centro: "DEPORTES", categoria: "Operario/a",
-    fase_clave: "solicitud", estado_clave: "en_curso", plazo: "1 oct 2026", plazo_estado: "en_plazo", plazo_ultimo_dia: "2026-10-01" },
-  { expediente_ref: "exp:b", numero_visible: "2026/CT-000002", centro: "CULTURA", categoria: "Técnico/a",
-    fase_clave: "subsanacion_unidad", estado_clave: "incidencia", plazo: "29 sept 2026", plazo_estado: "vence_hoy", plazo_ultimo_dia: "2026-09-29" },
-  { expediente_ref: "exp:c", numero_visible: "2026/CT-000003", centro: "Centro <libre>", categoria: "Auxiliar & más",
-    fase_clave: "analisis", estado_clave: "pendiente", plazo: "25 sept 2026", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-25" },
-  { expediente_ref: "exp:d", numero_visible: "2026/CT-000004", centro: "CULTURA", categoria: "Técnico/a",
-    fase_clave: "seguimiento", estado_clave: "completado", plazo: "—" },
-];
+// Recuentos que el servidor calcula sobre todo el cuadro (CT-000184).
+const resumenServidor = Object.freeze({
+  en_tramite: 3, con_incidencia: 1, vencidos: 1, vencen_hoy: 1, vencen_semana: 2, sin_calcular: 0,
+  por_fase: Object.freeze({ solicitud: 1, subsanacion_unidad: 1, analisis: 1 }),
+});
+const cuadroInicio = (resumen = resumenServidor) => ({ resumen, generadoEn: "2026-09-29T07:00:00Z" });
 const bolsasListas = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
   { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2, por_estado: { disponible: 30 } },
   { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_desde: "2026-01-01", vigente_hasta: "2028-01-14", llamamientos_en_curso: 0, por_estado: { disponible: 12 } },
@@ -226,55 +231,54 @@ function portadaRRHH(opciones = {}) {
     obtenerCatalogo: () => [moduloBolsa],
     resolverAcceso: (clave) => ({ disponible: true, vista: clave === "bolsa" ? "resumen" : "contratacion-temporal" }),
     esPerfilRRHH: () => true,
-    obtenerCuadroInicio: () => ({ expedientes: expedientesCuadro, parcial: false, generadoEn: "2026-09-29T07:00:00Z" }),
+    obtenerCuadroInicio: () => cuadroInicio(),
     obtenerBolsasInicio: () => bolsasListas,
     ahora: fijo,
     ...opciones,
   })();
 }
 
-test("la portada de RRHH empieza por los expedientes que piden atención, ordenados por plazo", () => {
+test("la portada de RRHH enlaza solo el recuento cuyo filtro V1 conserva todo el conjunto", () => {
   const html = portadaRRHH();
-  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">2 expedientes pendientes<\/h3>/u);
-  // Vencido (25/09) antes que el que vence hoy (29/09); el que está en plazo no aparece.
-  assert.match(html, /2026\/CT-000003[\s\S]*2026\/CT-000002/u);
-  assert.doesNotMatch(html.split("tareas-pendientes")[1].split("</ol>")[0], /2026\/CT-000001|2026\/CT-000004/u);
-  assert.match(html, /class="fecha-tarea vencido"/u);
-  assert.match(html, /class="fecha-tarea hoy"/u);
-  assert.match(html, /Fase 2 de 8: Análisis RRHH · Plazo vencido el 25 sept 2026/u);
-  assert.match(html, /Fase 4 de 8: Fiscalización · Vence hoy · Con incidencia/u);
-  assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="exp:c"\s+aria-label="Abrir el expediente 2026\/CT-000003">Abrir expediente/u);
-  assert.match(html, /Centro &lt;libre&gt; ·/u);
-  assert.match(html, /Auxiliar &amp; más/u);
-  assert.doesNotMatch(html, /<libre>|Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Lo pendiente<\/h3>/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--peligro" data-metrica="vencidos">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--advertencia" data-metrica="vencen_hoy">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
+  assert.match(html, /data-metrica="incidencias"[^>]*data-ct-exp-lista-mostrar="incidencia" aria-label="1 con una incidencia abierta: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con una incidencia abierta/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="(?:vencidos|vence_hoy|vencen_semana|en_tramite|sin_plazo)"|data-ct-exp-lista-fase=/u);
+  // La portada no descarga ni muestra expedientes sueltos.
+  assert.doesNotMatch(html, /tareas-pendientes|data-ct-exp-abrir-inicio|Recuento parcial/u);
+  assert.doesNotMatch(html, /Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
 });
 
-test("los indicadores cuentan igual que la lista y llevan a ella filtrada", () => {
+test("los indicadores conservan los recuentos del servidor sin enlaces a predicados parciales", () => {
   const html = portadaRRHH();
-  assert.match(html, /data-ct-exp-lista-mostrar="vencidos">Con plazo vencido: 1<\/button>/u);
-  assert.match(html, /data-metrica="en_tramite" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
-  // Vence esta semana: 29/09 y 01/10 desde el 29/09; el vencido no cuenta.
+  assert.match(html, /<div class="tarjeta-kpi" data-metrica="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
   assert.match(html, /data-metrica="vencen_semana"[^>]*>[\s\S]*?<strong class="valor-kpi">2<\/strong>/u);
   assert.match(html, /data-metrica="disponibles" data-vista="resumen">[\s\S]*?<strong class="valor-kpi">42<\/strong>[\s\S]*?Personas disponibles en 2 bolsas/u);
-  // Ofertas al SAE: sin cifra, explicado.
-  assert.match(html, /data-metrica="sae" data-vista="ofertas-sae">[\s\S]*?Pendiente de definir con RRHH/u);
-  assert.match(html, /data-ct-exp-lista-fase="analisis_rrhh"[^>]*>2\. Análisis RRHH<\/button><\/th>\s*<td class="numero">1<\/td>/u);
-  assert.match(html, /data-ct-exp-lista-fase="seguimiento"[^>]*>8\. Seguimiento<\/button><\/th>\s*<td class="numero">0<\/td>/u);
+  assert.doesNotMatch(html, /data-metrica="sae"|data-vista="ofertas-sae"|Pendiente de definir con RRHH/u);
+  // El reparto pasa de la fase del servidor a las ocho fases de RRHH.
+  assert.match(html, /<th scope="row">2\. Análisis RRHH<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">4\. [^<]*<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">8\. Seguimiento<\/th>\s*<td class="numero">0<\/td>/u);
   assert.match(html, /Auxiliar &lt;A&gt;[\s\S]*?Sin fecha de fin/u);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición de personal/u);
 });
 
-test("una consulta con más páginas avisa de que el recuento es parcial", () => {
-  const html = portadaRRHH({ obtenerCuadroInicio: () => ({ expedientes: expedientesCuadro, parcial: true, generadoEn: "2026-09-29T07:00:00Z" }) });
-  assert.match(html, /role="status">Recuento parcial/u);
-  assert.doesNotMatch(portadaRRHH(), /Recuento parcial/u);
+test("si algún plazo no se pudo calcular la portada lo dice sin prometer un filtro ausente", () => {
+  const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 2 }) });
+  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.<\/p>/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="sin_plazo"|Ver cuáles/u);
+  assert.match(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 1 }) }), /En 1 petición no se ha podido calcular el plazo\./u);
+  assert.doesNotMatch(portadaRRHH(), /no se ha podido calcular el plazo/u);
+  // Sin nada pendiente pero con plazos sin calcular, no se dice que no vence nada.
+  const cero = { ...resumenServidor, vencidos: 0, vencen_hoy: 0, con_incidencia: 0, sin_calcular: 1 };
+  assert.doesNotMatch(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio(cero) }), /Ningún plazo vence hoy/u);
 });
 
 test("sin nada urgente la portada lo dice y no inventa tareas", () => {
-  const html = portadaRRHH({ obtenerCuadroInicio: () => ({ expedientes: [expedientesCuadro[0]], parcial: false, generadoEn: "2026-09-29T07:00:00Z" }) });
-  assert.match(html, /No hay expedientes pendientes/u);
+  const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, vencidos: 0, vencen_hoy: 0, con_incidencia: 0 }) });
   assert.match(html, /Ningún plazo vence hoy ni hay incidencias abiertas/u);
-  assert.doesNotMatch(html, /tareas-pendientes/u);
+  assert.doesNotMatch(html, /data-metrica="vencidos"/u);
 });
 
 test("un fallo del cuadro no se presenta como ausencia de expedientes", () => {
@@ -287,13 +291,28 @@ test("Bolsa y Contratación denegadas no muestran datos retenidos", () => {
   let lecturaRetenidaConsultada = false;
   const html = portadaRRHH({
     resolverAcceso: () => ({ disponible: false, estado: "denegado", vista: "" }),
-    obtenerCuadroInicio: () => ({ expedientes: [{ ...expedientesCuadro[1], categoria: "Dato privado" }], parcial: false }),
+    obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, por_fase: { solicitud: 3 } }),
     obtenerBolsasInicio: () => { lecturaRetenidaConsultada = true; return bolsasListas; },
   });
   assert.equal(lecturaRetenidaConsultada, false, "el inicio no lee datos de Bolsa sin acceso positivo");
-  assert.doesNotMatch(html, /Dato privado|Auxiliar &lt;A&gt;/u);
+  assert.doesNotMatch(html, /Auxiliar &lt;A&gt;|<strong class="valor-kpi">3<\/strong>|Lo pendiente/u);
   assert.match(html, /Sin permiso/u);
   assert.doesNotMatch(html, /data-vista="contratacion-temporal"/u);
+});
+
+test("Inicio RRHH explica la caída de CT anunciado y permite reintentar sin abrir su módulo", () => {
+  const accesoCT = () => ({ disponible: false, estado: "no_disponible", vista: "" });
+  const conCT = portadaRRHH({
+    obtenerCatalogo: () => [moduloBolsa, { clave: "contratacion_temporal" }],
+    resolverAcceso: (clave) => clave === "contratacion_temporal" ? accesoCT() : { disponible: true, vista: "resumen" },
+  });
+  assert.match(conCT, /id="inicio-ct-no-disponible"/u);
+  assert.match(conCT, /La gestión de peticiones de personal temporal no está disponible ahora/u);
+  assert.match(conCT, /data-accion="recargar-fuente">Reintentar<\/button>/u);
+  assert.doesNotMatch(conCT, /data-vista="contratacion-temporal"/u);
+  assert.ok(conCT.indexOf("inicio-ct-no-disponible") < conCT.indexOf("rejilla-kpi"));
+  const sinCT = portadaRRHH({ resolverAcceso: (clave) => clave === "contratacion_temporal" ? accesoCT() : { disponible: true, vista: "resumen" } });
+  assert.doesNotMatch(sinCT, /inicio-ct-no-disponible/u);
 });
 
 test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento sin instante", () => {
@@ -309,6 +328,34 @@ test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento s
   assert.match(html, /data-metrica="disponibles">[\s\S]*?<strong class="valor-kpi">—<\/strong>/u);
 });
 
+test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales globales", () => {
+  const html = portadaRRHH();
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
+  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 4, "nombre y disponibles enlazan las dos bolsas leídas");
+  assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1" data-estado="disponible" aria-label="Ver 30 candidatos disponibles de Auxiliar &lt;A&gt;">30<\/a><\/td>/u);
+  const destino = html.match(/href="(\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos)"/u)?.[1].replaceAll("&amp;", "&");
+  assert.deepEqual(leerCandidatosBolsaCompartible(new URL(destino, "https://vec.example/portal-empleado/").search, bolsasListas.datos.bolsas),
+    { bolsaRef: "bolsa:1", estado: "disponible" });
+});
+
+test("Inicio enlaza cero disponibles y deja sin acción el dato ausente o la referencia inválida", () => {
+  const bolsas = [
+    { ...bolsasListas.datos.bolsas[0], por_estado: { disponible: 0 } },
+    { ...bolsasListas.datos.bolsas[1], por_estado: {} },
+    { ...bolsasListas.datos.bolsas[1], bolsa_ref: "bolsa/ajena", categoria: "Sin referencia válida", por_estado: { disponible: 4 } },
+  ];
+  const previo = globalThis.fetch;
+  globalThis.fetch = () => assert.fail("pintar Inicio no consulta candidatos");
+  try {
+    const html = portadaRRHH({ obtenerBolsasInicio: () => ({ carga: "listo", datos: { ...bolsasListas.datos, bolsas } }) });
+    assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos"[^>]*data-estado="disponible"[^>]*>0<\/a><\/td>/u);
+    assert.match(html, /<th scope="row"><a[^>]*>Técnica<\/a><\/th>\s*<td class="numero">—<\/td>/u);
+    assert.match(html, /<th scope="row">Sin referencia válida<\/th>\s*<td class="numero">4<\/td>/u);
+    assert.equal((html.match(/data-estado="disponible"/gu) ?? []).length, 1);
+  } finally { globalThis.fetch = previo; }
+});
+
 test("las claves de la portada se traducen con el traductor común", async () => {
   const ingles = await cargarMensajesPortal("en");
   const traducirEN = crearTraductorPortal(ingles);
@@ -319,22 +366,11 @@ test("las claves de la portada se traducen con el traductor común", async () =>
     assert.equal(traducirEN(clave, variables), esperado);
   }
   const html = portadaRRHH({ traducir: traducirEN, locale: "en-GB" });
-  assert.match(html, /2 cases need attention/u);
-  assert.match(html, /Stage 2 of 8: HR review · Deadline passed on 25 sept 2026/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
+  assert.match(html, /Deadline passed/u);
   assert.match(html, /Requests by stage[\s\S]*?4\. Financial review/u);
-  assert.match(html, /To be agreed with HR/u);
+  assert.doesNotMatch(html, /To be agreed with HR|data-vista="ofertas-sae"/u);
   assert.match(html, /Tuesday, 29 September 2026/u);
-  assert.doesNotMatch(html, /expedientes pendientes|Análisis RRHH|Peticiones por fase/u);
-});
-
-test("la portada agrupa en una fila los expedientes pendientes idénticos y conserva sus números", async () => {
-  const { agruparPendientes } = await import("./portal-inicio.js");
-  const base = { categoria: "Auxiliar de enfermería", centro: "Residencia", fase_clave: "solicitud", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-18", plazo: "18/9/26" };
-  const grupos = agruparPendientes([
-    ...Array.from({ length: 15 }, (_, i) => ({ ...base, numero_visible: `CT-${i}` })),
-    { ...base, centro: "Otro centro", numero_visible: "CT-99" },
-  ]);
-  assert.equal(grupos.length, 2);
-  assert.equal(grupos[0].length, 15);
-  assert.equal(grupos[1][0].numero_visible, "CT-99");
+  assert.match(html, /aria-label="View 30 candidates in Auxiliar &lt;A&gt; with status: available"/u);
+  assert.doesNotMatch(html, /Lo pendiente|Análisis RRHH|Peticiones por fase/u);
 });

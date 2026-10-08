@@ -1,0 +1,244 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Alta CT con necesidad del centro
+  version: 3.0.0
+  description: |
+    La misma operación de alta admite este sobre cuando el cliente declara el
+    esquema v3. La causa describe la necesidad que pide el centro. RRHH decide
+    después la modalidad jurídica durante el análisis del expediente.
+    El servidor obtiene la identidad, verifica la publicación del puesto RPT
+    cuando corresponde y añade la instantánea del catálogo antes de sellar la
+    petición. El código RPT no acredita ocupación ni vacancia.
+paths:
+  /api/vec/contratacion-temporal/solicitudes:
+    post:
+      operationId: registrarNecesidadContratacionTemporalV3
+      summary: Registrar o recuperar la misma alta con necesidad catalogada
+      security:
+        - ContextoInternoPlataforma: []
+      x-activacion: |
+        Requiere CT193, fuente de necesidades declarada, publicación RPT
+        verificable cuando se selecciona un puesto y autorización V3. Una
+        fuente declarada sin CT193 impide arrancar la composición. Un intento
+        con la fuente no compuesta o una dependencia caída responde 503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AltaNecesidadV3'
+      responses:
+        '201':
+          description: Alta confirmada o repetición exacta ya confirmada; mismo recibo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AltaConfirmada'
+        '400':
+          $ref: '#/components/responses/ErrorComun'
+        '401':
+          $ref: '#/components/responses/ErrorComun'
+        '403':
+          $ref: '#/components/responses/ErrorComun'
+        '409':
+          description: La clave ya corresponde a otro contenido o al alta v2.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorAlta'
+        '413':
+          $ref: '#/components/responses/ErrorComun'
+        '415':
+          $ref: '#/components/responses/ErrorComun'
+        '422':
+          description: Causa, periodo, jornada o datos incompatibles con la publicación.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorAlta'
+        '502':
+          $ref: '#/components/responses/ErrorComun'
+        '503':
+          description: La fuente no está compuesta o una dependencia dejó de estar disponible; el alta no se confirma.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorAlta'
+        '504':
+          $ref: '#/components/responses/ErrorComun'
+components:
+  securitySchemes:
+    ContextoInternoPlataforma:
+      type: mutualTLS
+      description: La plataforma aporta por el canal confiable actor, sesión, perfil y organización.
+  responses:
+    ErrorComun:
+      description: Error nominal con código, clave i18n y correlación.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorAlta'
+  schemas:
+    ClaveIdempotencia:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ReferenciaOpaca:
+      type: string
+      minLength: 3
+      maxLength: 160
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    ClaveCatalogo:
+      type: string
+      minLength: 2
+      maxLength: 80
+      pattern: '^[a-z][a-z0-9._-]{1,79}$'
+    FechaCivilUTC:
+      type: string
+      format: date-time
+      pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T00:00:00Z$'
+    PeriodoNecesidad:
+      type: object
+      additionalProperties: false
+      required: [inicio]
+      properties:
+        inicio:
+          $ref: '#/components/schemas/FechaCivilUTC'
+        fin:
+          $ref: '#/components/schemas/FechaCivilUTC'
+        causa_fin:
+          $ref: '#/components/schemas/ClaveCatalogo'
+      oneOf:
+        - required: [fin]
+        - required: [causa_fin]
+      description: |
+        La publicación de la causa determina si la fecha fin es obligatoria
+        o si se permite un hecho de fin. El cliente no aporta politica_fin:
+        el servidor la fija desde esa publicación cuando procede.
+    RC:
+      type: object
+      additionalProperties: false
+      required: [existe]
+      properties:
+        existe:
+          type: boolean
+        numero:
+          $ref: '#/components/schemas/ReferenciaOpaca'
+        fecha:
+          $ref: '#/components/schemas/FechaCivilUTC'
+        importe:
+          type: object
+          additionalProperties: false
+          required: [centimos, moneda]
+          properties:
+            centimos: {type: integer, minimum: 1, maximum: 922337203685477}
+            moneda: {const: EUR}
+        documento_ref:
+          $ref: '#/components/schemas/ReferenciaOpaca'
+      allOf:
+        - if:
+            properties:
+              existe: {const: true}
+          then:
+            required: [numero, fecha, importe, documento_ref]
+          else:
+            not:
+              anyOf:
+                - required: [numero]
+                - required: [fecha]
+                - required: [importe]
+                - required: [documento_ref]
+    SolicitudCentroV3:
+      type: object
+      additionalProperties: false
+      required: [centro_ref, contacto_ref, categoria_ref, grupo_subgrupo,
+                 motivo_clave, detalle, periodo, rc, documentos_adjuntos]
+      properties:
+        centro_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+        contacto_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+        categoria_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+        grupo_subgrupo: {type: string, pattern: '^[A-Z][A-Z0-9/+.-]{0,19}$'}
+        motivo_clave: {$ref: '#/components/schemas/ClaveCatalogo'}
+        detalle: {type: string, minLength: 1, maxLength: 4000}
+        periodo: {$ref: '#/components/schemas/PeriodoNecesidad'}
+        rc: {$ref: '#/components/schemas/RC'}
+        documentos_adjuntos:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/ReferenciaOpaca'}
+        observaciones: {type: string, maxLength: 4000}
+    NecesidadV3:
+      type: object
+      additionalProperties: false
+      required: [esquema, catalogo_ref, catalogo_version,
+                 catalogo_huella_sha256, causa_clave, jornada_minutos, campos]
+      properties:
+        esquema: {const: vec.ct.necesidad_alta.v1}
+        catalogo_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+        catalogo_version: {type: integer, minimum: 1, maximum: 9007199254740991}
+        catalogo_huella_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        causa_clave: {$ref: '#/components/schemas/ClaveCatalogo'}
+        jornada_minutos: {type: integer, minimum: 1, maximum: 10080}
+        campos:
+          type: object
+          maxProperties: 32
+          propertyNames: {pattern: '^[a-z][a-z0-9_]{0,79}$'}
+          additionalProperties: {type: string, minLength: 1}
+      description: |
+        causa_clave coincide con solicitud.motivo_clave. El catálogo v2 de
+        consulta publica por causa los campos permitidos, obligatorios y uno_de,
+        así como la jornada de referencia y el límite individual de periodo.
+        La publicación de ejemplo de 19/02/2026 exige
+        campos.numero_personas en las cuatro causas: cadena decimal canónica
+        entre 1 y 4294967295, sin valor supuesto por el servidor. Vacante
+        exige plaza_codigo y puesto_codigo según la circular. Vacante y
+        sustitución exigen puesto_codigo, rpt_catalogo_ref y
+        rpt_catalogo_huella_sha256 de la publicación RPT; titular_ref es
+        opcional. Las instantáneas anteriores conservan los campos exigidos
+        por su propio catálogo. La versión del esquema RPT se valida por
+        separado y no se envía como versión de publicación. El código
+        del puesto se verifica en esa publicación, sin declarar que esté vacío.
+        Para programa, financiación y RC o referencia de Intervención se
+        aportan como campos estructurados. El servidor rechaza la instantánea
+        del catálogo si el cliente intenta enviarla.
+    AltaNecesidadV3:
+      type: object
+      additionalProperties: false
+      required: [esquema, numero_expediente_moad, clave_idempotencia,
+                 solicitud, necesidad]
+      properties:
+        esquema: {const: vec.ct.alta_necesidad.v1}
+        numero_expediente_moad: {type: string, pattern: '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'}
+        clave_idempotencia: {$ref: '#/components/schemas/ClaveIdempotencia'}
+        solicitud: {$ref: '#/components/schemas/SolicitudCentroV3'}
+        necesidad: {$ref: '#/components/schemas/NecesidadV3'}
+    AltaConfirmada:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [expediente_ref, numero_visible, version, recibo_ref, confirmada_en]
+          properties:
+            expediente_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+            numero_visible: {type: string}
+            version: {type: integer, minimum: 1}
+            recibo_ref: {$ref: '#/components/schemas/ReferenciaOpaca'}
+            confirmada_en: {type: string, format: date-time}
+    ErrorAlta:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [codigo, clave_i18n, correlacion_ref]
+          properties:
+            codigo: {type: string}
+            clave_i18n: {type: string}
+            correlacion_ref: {type: string}

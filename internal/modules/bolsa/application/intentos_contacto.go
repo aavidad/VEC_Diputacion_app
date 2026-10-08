@@ -18,8 +18,9 @@ type controlIntentosContacto struct {
 }
 
 type intentoPreparado struct {
-	politica dominiobolsa.PoliticaIntentosTelefonicos
-	diaHabil bool
+	politica      dominiobolsa.PoliticaIntentosTelefonicos
+	diaHabil      bool
+	fechaDiaHabil time.Time
 }
 
 // EstablecerControlIntentos compone el control de intentos. Se llama solo
@@ -47,12 +48,27 @@ func (s *ServicioContactoParticipacion) prepararIntento(ctx context.Context, c d
 		return nil, nil
 	}
 	preparado := &intentoPreparado{politica: politica, diaHabil: true}
-	if politica.Franja.Zona != nil && politica.Franja.SoloDiasHabiles {
-		if preparado.diaHabil, err = s.intentos.calendario.EsDiaHabil(ctx, c.Instante); err != nil {
+	instanteEvaluado := c.Instante
+	if c.InstanteServidor {
+		// Este reloj sólo prepara la consulta de calendario. La fecha final
+		// sale de PostgreSQL y se compara allí antes del INSERT.
+		instanteEvaluado = s.intentos.reloj().UTC()
+		if instanteEvaluado.IsZero() {
 			return nil, puertosbolsa.ErrContactoParticipacionNoDisponible
 		}
 	}
-	if politica.Franja.Control == dominiobolsa.ControlReglaImpedir && len(politica.Franja.AvisosFranja(c.Instante, preparado.diaHabil)) > 0 {
+	if politica.Franja.Zona != nil && politica.Franja.SoloDiasHabiles {
+		fechaLocal := instanteEvaluado.In(politica.Franja.Zona)
+		preparado.fechaDiaHabil = time.Date(fechaLocal.Year(), fechaLocal.Month(), fechaLocal.Day(), 0, 0, 0, 0, time.UTC)
+		instanteCalendario := instanteEvaluado
+		if c.InstanteServidor {
+			instanteCalendario = fechaLocal
+		}
+		if preparado.diaHabil, err = s.intentos.calendario.EsDiaHabil(ctx, instanteCalendario); err != nil {
+			return nil, puertosbolsa.ErrContactoParticipacionNoDisponible
+		}
+	}
+	if !c.InstanteServidor && politica.Franja.Control == dominiobolsa.ControlReglaImpedir && len(politica.Franja.AvisosFranja(c.Instante, preparado.diaHabil)) > 0 {
 		return nil, dominiobolsa.ErrIntentoFueraDeFranja
 	}
 	return preparado, nil

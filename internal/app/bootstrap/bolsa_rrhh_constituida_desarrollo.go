@@ -32,16 +32,25 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	parametros     *postgresbolsa.RepositorioPoliticaAvisosPostgreSQL
 	marcas         ports.ConsultaMarcasParticipaciones
 	intentos       ports.PoliticaIntentosContacto
-	emisiones      *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
-	recuperador    constitucion.Recuperador
-	categorias     map[string]string
-	grupos         map[string][]string
-	ahora          func() time.Time
+	emisiones      contadorLlamamientosEnCursoBolsa
+	// Con B82 y B85, resumenConjunto sirve cuadro y estadísticas con tres
+	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
+	resumenConjunto ports.LectorResumenBolsas
+	recuperador     constitucion.Recuperador
+	categorias      map[string]string
+	grupos          map[string][]string
+	ahora           func() time.Time
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
 	cacheada bool
 	hasta    time.Time
+}
+
+// contadorLlamamientosEnCursoBolsa se usa sólo en el camino legado, una vez
+// por bolsa, cuando falta el resumen de conjunto B82/B85.
+type contadorLlamamientosEnCursoBolsa interface {
+	ContarEnCurso(context.Context, string) (int, error)
 }
 
 const validezCacheBolsasConstituidas = 30 * time.Second
@@ -181,7 +190,8 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolImportacion.Close()
 		return nil
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -207,7 +217,36 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 	return datos, true
 }
 
+// alcanceCargaBolsasRRHH decide cuánto lee una petición. El cuadro y las
+// estadísticas solo cuentan personas por estado: no descifran el acta
+// protegida (nombres y documentos) ni calculan marcas. La lista de
+// candidatos de una bolsa lee solo esa bolsa, con todo su detalle.
+type alcanceCargaBolsasRRHH struct {
+	bolsa   string
+	detalle bool
+}
+
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
+	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{detalle: true})
+}
+
+// cargarResumen sirve el cuadro y las estadísticas de RRHH.
+func (f *fuenteConstituidaRRHHDesarrollo) cargarResumen(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
+	if f != nil && f.resumenConjunto != nil {
+		return f.cargarResumenConjunto(ctx)
+	}
+	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{})
+}
+
+// cargarBolsa sirve la lista de candidatos de una sola bolsa.
+func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsa(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
+	if bolsaRef == "" {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true})
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alcance alcanceCargaBolsasRRHH) (datasetBolsasRRHHDesarrollo, error) {
 	if f == nil || f.repositorio == nil || f.situaciones == nil || f.orden == nil || f.emisiones == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
@@ -220,10 +259,15 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
-	if err := f.cargarMarcasBase(ctx, &datos); err != nil {
-		return datasetBolsasRRHHDesarrollo{}, err
+	if alcance.detalle {
+		if err := f.cargarMarcasBase(ctx, &datos); err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
 	}
 	for _, vigente := range vigentes {
+		if alcance.bolsa != "" && vigente.Bolsa.BolsaRef != alcance.bolsa {
+			continue
+		}
 		ordenVigente, err := f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
@@ -265,24 +309,22 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
 		datos.Bolsas[len(datos.Bolsas)-1].LlamamientosEnCurso = totalCurso
-		if err := f.cargarMarcas(ctx, &datos, vigente.Bolsa.BolsaRef); err != nil {
-			return datasetBolsasRRHHDesarrollo{}, err
-		}
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
-		lote, _, existe, err := f.recuperador.RecuperarLote(ctx, vigente.Bolsa.HuellaListadoSHA256, vigente.CategoriaRef)
+		var filas map[int]struct{ nombre, documento string }
+		if alcance.detalle {
+			if err := f.cargarMarcas(ctx, &datos, vigente.Bolsa.BolsaRef); err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
+			if filas, err = f.filasVisibles(ctx, vigente); err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
+		}
+		situacionesLote, cesesLote, err := f.leerSituacionesBolsa(ctx, entradas, corte)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
-		}
-		if !existe {
-			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
-		}
-		filas := map[int]struct{ nombre, documento string }{}
-		for _, fila := range lote.Aceptadas {
-			nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
-			filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
 		}
 		for _, entrada := range entradas {
 			posicion, encontradaOrden := posiciones[entrada.ParticipacionRef]
@@ -290,15 +332,15 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 			}
 			visible, encontrada := filas[entrada.FilaNumero]
-			if !encontrada {
+			if alcance.detalle && !encontrada {
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 			}
-			situacion, err := f.situaciones.SituacionVigente(ctx, entrada.ParticipacionRef)
+			situacion, err := f.situacionDeLote(ctx, situacionesLote, entrada.ParticipacionRef)
 			if err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
 			if f.ceseActivo {
-				estadoCese, presente, err := f.estadosCese.ConsultarEstadoCese(ctx, entrada.ParticipacionRef, corte)
+				estadoCese, presente, err := f.estadoCeseDeLote(ctx, cesesLote, entrada.ParticipacionRef, corte)
 				if err != nil {
 					return datasetBolsasRRHHDesarrollo{}, err
 				}
@@ -330,6 +372,69 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 		}
 	}
 	return datos, nil
+}
+
+// filasVisibles descifra del acta protegida el nombre y el documento
+// enmascarado de cada fila. Solo la lista de candidatos los necesita.
+func (f *fuenteConstituidaRRHHDesarrollo) filasVisibles(ctx context.Context, vigente ports.ConstitucionVigente) (map[int]struct{ nombre, documento string }, error) {
+	lote, _, existe, err := f.recuperador.RecuperarLote(ctx, vigente.Bolsa.HuellaListadoSHA256, vigente.CategoriaRef)
+	if err != nil {
+		return nil, err
+	}
+	if !existe {
+		return nil, ErrComposicionDesarrolloIncompleta
+	}
+	filas := make(map[int]struct{ nombre, documento string }, len(lote.Aceptadas))
+	for _, fila := range lote.Aceptadas {
+		nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
+		filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
+	}
+	return filas, nil
+}
+
+// leerSituacionesBolsa lee de una vez la situación vigente y, si procede, el
+// estado de cese de todas las participaciones de una bolsa: dos idas y vueltas
+// por bolsa en lugar de dos por participación. Si el adaptador no ofrece
+// lectura por lotes devuelve mapas nulos y la lectura sigue siendo individual.
+func (f *fuenteConstituidaRRHHDesarrollo) leerSituacionesBolsa(ctx context.Context, entradas []ports.EntradaConstitucion, corte time.Time) (map[string]ports.SituacionParticipacion, map[string]ports.EstadoCese, error) {
+	refs := make([]string, 0, len(entradas))
+	for _, entrada := range entradas {
+		refs = append(refs, entrada.ParticipacionRef)
+	}
+	var situaciones map[string]ports.SituacionParticipacion
+	if lector, ok := f.situaciones.(ports.LectorSituacionesVigentes); ok {
+		var err error
+		if situaciones, err = lector.SituacionesVigentes(ctx, refs); err != nil {
+			return nil, nil, err
+		}
+	}
+	var ceses map[string]ports.EstadoCese
+	if consulta, ok := f.estadosCese.(ports.ConsultaEstadosCese); ok && f.ceseActivo {
+		var err error
+		if ceses, err = consulta.ConsultarEstadosCese(ctx, refs, corte); err != nil {
+			return nil, nil, err
+		}
+	}
+	return situaciones, ceses, nil
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) situacionDeLote(ctx context.Context, lote map[string]ports.SituacionParticipacion, ref string) (ports.SituacionParticipacion, error) {
+	if lote == nil {
+		return f.situaciones.SituacionVigente(ctx, ref)
+	}
+	situacion, ok := lote[ref]
+	if !ok {
+		return ports.SituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
+	}
+	return situacion, nil
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) estadoCeseDeLote(ctx context.Context, lote map[string]ports.EstadoCese, ref string, corte time.Time) (ports.EstadoCese, bool, error) {
+	if lote == nil {
+		return f.estadosCese.ConsultarEstadoCese(ctx, ref, corte)
+	}
+	estado, presente := lote[ref]
+	return estado, presente, nil
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) denominacion(categoriaRef string) string {

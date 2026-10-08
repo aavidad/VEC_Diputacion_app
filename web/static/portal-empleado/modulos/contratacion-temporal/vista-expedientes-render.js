@@ -3,13 +3,13 @@
 import {
   escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+} from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261001-ct-a-i18n-v1";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v6";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
@@ -47,19 +47,27 @@ export function renderizarNavegacion(estado, t) {
   </nav>`;
 }
 
+// Estos enlaces abren otra pestaña: se dice con un símbolo y, para el lector
+// de pantalla, con texto.
+function avisoOtraPestana(t) {
+  return ` <span aria-hidden="true">↗</span><span class="solo-lectura"> ${escaparHTML(t("abre_otra_pestana"))}</span>`;
+}
+
 // Centros, Peticiones, Calendarios y Reglas son acciones de la bandeja: van a la derecha del título.
 export function renderizarCabeceraModulo(estado, t) {
   const acciones = estado.vista === "cuadro" ? `<div class="acciones-vista ct-exp-acciones-cabecera">
-      <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a>
-      <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a>
-      <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}</a>
+      <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}${avisoOtraPestana(t)}</a>
+      <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}${avisoOtraPestana(t)}</a>
+      <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}${avisoOtraPestana(t)}</a>
       ${enlaceReglasVigentes()}
     </div>` : "";
   // Dentro de un expediente, el título dice cuál es («Expediente 2026/CT-000015»).
   const enExpediente = ["expediente", "documentos", "auditoria"].includes(estado.vista)
     && typeof estado.expediente?.numero_visible === "string";
   const titulo = enExpediente
-    ? t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) })
+    ? (numeroExpedienteVisible(estado.expediente.numero_visible, t) === t("numero_expediente_sin_asignar")
+      ? t("ficha_titulo_modulo_sin_numero")
+      : t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) }))
     : t("titulo");
   return `<header class="ct-exp-cabecera-modulo">
     <div>
@@ -92,13 +100,19 @@ export function renderizarAlta(
       </div>
     </section>`;
   }
-  return `<div data-ct-exp-preparacion></div><div data-ct-exp-alta></div>
+  return `<div data-ct-exp-alta></div>
     ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
     ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
     ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
     ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}
     ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`;
 }
+
+// El servidor registra la fiscalización con la clave canónica; la corta se
+// conserva para los datos de presentación anteriores.
+const ACCIONES_REGISTRO_FISCALIZACION = new Set([
+  "contratacion_temporal.fiscalizacion.registrar", "registrar_fiscalizacion",
+]);
 
 export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = null) {
   const expediente = estado?.expediente;
@@ -115,7 +129,7 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
   const ultimoHito = expediente.historial?.at?.(-1);
   const fiscalizacionConfirmadaEnDetalle = resumen?.fase_clave === "fiscalizacion"
     && resultadoFavorable.includes(expediente.fiscalizacion?.resultado_clave)
-    && ultimoHito?.accion_clave === "registrar_fiscalizacion"
+    && ACCIONES_REGISTRO_FISCALIZACION.has(ultimoHito?.accion_clave)
     && ultimoHito.version_expediente === expediente.version;
   const fiscalizacionConfirmadaPorRecibo = resumen?.fase_clave === "fiscalizacion"
     && reciboFiscalizacion?.expediente_ref === expediente.expediente_ref
@@ -162,10 +176,13 @@ export function contextoFiscalizacionDesdeEstado(estado) {
   });
 }
 
+// El adaptador solo añade el campo «unidad» cuando el detalle trae una
+// asignación confirmada, y lo muestra con el nombre de la unidad (no con su
+// referencia interna). Basta con que el campo exista y tenga valor.
 export function asignacionConfirmadaEnDetalle(expediente) {
   return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
     ({ clave, valor }) => clave === "unidad"
-      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
+      && typeof valor === "string" && valor.trim() !== "",
   );
 }
 

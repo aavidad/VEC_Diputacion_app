@@ -1,7 +1,7 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261002-ct-fin-modalidad-v1";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261002-ct-fin-modalidad-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { justificanteTraducido } from "../../portal-justificante.js";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261008-ct-inicio-v1";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261008-ct-inicio-v1";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
@@ -10,8 +10,10 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */
-// Referencias sin valor para quien tramita: constan en la auditoría del servidor.
-const OCULTOS_RECIBO = new Set(["auditoria_ref", "organizacion_ref"]);
+// Referencias y versiones sin valor para quien tramita: constan en la auditoría
+// del servidor y el control de versión sigue actuando aunque no se enseñe.
+const OCULTOS_RECIBO = new Set(["auditoria_ref", "organizacion_ref", "version_resultante", "version_llamamiento",
+  "version_esperada", "version_comunicacion_esperada", "correo_sha256"]);
 // De las referencias de un recibo solo se ofrece copiar el justificante; el resto no aporta a quien tramita.
 const JUSTIFICANTES_RECIBO = new Set(["recibo_ref", "recibo_local_ref", "justificante_ref"]);
 
@@ -179,19 +181,13 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           ${valor === opcion ? "selected" : ""}>${e(t(esResolucion(operacion)
             ? "llamamiento_resolucion_" + opcion : "llamamiento_respuesta_" + opcion))}</option>`).join("")}
       </select>${error}</div>`;
-    // Referencias, claves, versiones y huellas ya fijadas viajan ocultas; en pantalla
-    // solo lo útil: copiar el justificante o la clave y la versión en palabras.
-    const clave = nombre === "clave_idempotencia";
+    // La clave de operación vive solo en el estado del formulario: nunca se pinta.
+    if (nombre === "clave_idempotencia") return "";
+    // Referencias, versiones y huellas fijadas por el expediente o por un recibo
+    // viajan ocultas: el control de versión se conserva, pero no se enseña.
     const tecnico = /_ref$/u.test(nombre) || numero || ["correo_sha256", "tipo_antecedente"].includes(nombre);
-    if (valor !== "" && ((bloqueado && tecnico) || clave)) {
-      const oculto = `<input id="${id}" name="${nombre}" value="${e(valor)}" type="hidden" readonly>`;
-      // Los antecedentes (referencias, huella, tipo) ya constan en su recibo: solo viajan.
-      if (!clave && !numero) return oculto;
-      const visible = clave ? claveRecuperacionTraducida(valor, e, t)
-        : e(t(nombre === "version_comunicacion_esperada" ? "llamamiento_version_comunicacion_valor"
-          : "llamamiento_version_expediente_valor", { version: valor }));
-      // La clave ya se rotula a sí misma («Clave de recuperación preparada»).
-      return `<div class="ct-campo">${clave ? "" : `<span>${e(t("llamamiento_version_rotulo"))}</span>`}${oculto}<p id="${id}-visible" tabindex="-1">${visible}</p></div>`;
+    if (bloqueado && tecnico) {
+      return valor === "" ? "" : `<input id="${id}" name="${nombre}" value="${e(valor)}" type="hidden" readonly>`;
     }
     const recepcion = nombre === "recibida_en";
     const fechaMadrid = recepcion && esRespuesta(operacion) && /Z$/u.test(valor)
@@ -209,7 +205,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         ${error}</div>`;
   }
   function recibo(operacion, datos) {
-    if (!datos) return `<p class="ct-ayuda">${e(t("llamamiento_sin_recibo"))}</p>`;
+    // Sin recibo, el estado del paso («Pendiente») ya lo dice: no se repite.
+    if (!datos) return "";
     const campos = operacion === "propuesta" ? CAMPOS_RECIBO_PROPUESTA.filter((campo) => campo !== "esquema")
       : operacion === "siguiente" ? CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo !== "esquema")
       : esResolucion(operacion)
@@ -222,14 +219,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? ["recibo_ref", "confirmada_en", "organizacion_ref", "llamamiento_ref", "version_llamamiento"]
       : ["comunicacion_ref", "recibo_ref", "auditoria_ref", "version_resultante", "estado_local",
         ...(Object.hasOwn(datos, "registrada_en") ? ["registrada_en", "intencion_envio_ref"] : [])];
+    // La respuesta anotada se identifica por su justificante; su recibo técnico sería un duplicado.
     const camposVisibles = campos.filter((campo) => !OCULTOS_RECIBO.has(campo)
+      && !(esRespuesta(operacion) && campo === "recibo_ref")
       && (!/_ref$|^intencion_siguiente_referencia$/u.test(campo) || JUSTIFICANTES_RECIBO.has(campo) || campo === "correo_ref"));
     return `<section class="ct-recibo" data-ct-llamamiento-recibo="${operacion}"
       aria-labelledby="ct-llamamiento-recibo-${operacion}" tabindex="-1">
       <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo" : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo" : esResolucion(operacion)
         ? "llamamiento_" + operacion + "_recibo_" + datos.respuesta : operacion === "respuesta_siguiente"
         ? "llamamiento_respuesta_siguiente_recibo" : esRespuesta(operacion)
-        ? "llamamiento_respuesta_recibo" : "llamamiento_recibo"))}</h4>
+        ? "llamamiento_respuesta_recibo" : `llamamiento_${operacion}_recibo`))}</h4>
       <dl>${camposVisibles.map((nombre) => {
         const intencion = nombre.startsWith("intencion_siguiente_");
         let valor = intencion ? datos.intencion_siguiente[nombre.slice("intencion_siguiente_".length)] : datos[nombre];
@@ -256,36 +255,36 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       </div>` : ""}
     </section>`;
   }
-  function formulario(operacion, campos) {
+  // tituloEnResumen: el título ya lo pinta el <summary> que envuelve el paso; no se repite.
+  function formulario(operacion, campos, tituloEnResumen = false) {
     const paso = estado[operacion];
     const titulo = t("llamamiento_" + operacion);
     const idCorreo = operacion === "respuesta" ? "ct-llamamiento-correo" : `ct-llamamiento-${operacion}-correo`;
+    const controles = campos.map((nombre) => campo(
+      operacion, nombre, paso.valores[nombre] ?? "", paso.solicitud !== null
+        || (paso.claveConservada && nombre === "clave_idempotencia")
+        || ((esResolucion(operacion) || ["seleccion", "comunicacion", "comunicacion_siguiente", "siguiente", "propuesta"].includes(operacion))
+          && !(esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(nombre)))
+        || (esRespuesta(operacion) && !CAMPOS_RESPUESTA_EDITABLES.includes(nombre)),
+    )).join("");
+    // Si todo lo que viaja está oculto (p. ej. llamar a la siguiente persona), no se pinta un recuadro vacío.
+    const soloOcultos = !esRespuesta(operacion) && !/<(?:label|fieldset|p|span|select)\b/u.test(controles);
     return `<section class="ct-llamamiento-paso" aria-labelledby="ct-llamamiento-${operacion}-titulo">
-      <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
+      ${tituloEnResumen ? "" : `<h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>`}
       ${paso.recibo ? `<details data-ct-llamamiento-datos-registrados="${operacion}"><summary>${e(t("llamamiento_datos_registrados"))}</summary>` : ""}
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
         <div class="ct-resumen-errores" data-ct-llamamiento-errores role="alert" hidden><ul></ul></div>
-        <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}>
-          <legend>${e(t("llamamiento_contexto"))}</legend>
-          <div class="ct-campos">${campos.map((nombre) => campo(
-            operacion, nombre, paso.valores[nombre] ?? "", paso.solicitud !== null
-              || (paso.claveConservada && nombre === "clave_idempotencia")
-              || ((esResolucion(operacion) || ["comunicacion", "comunicacion_siguiente", "siguiente", "propuesta"].includes(operacion)) && nombre !== "clave_idempotencia"
-                && !(esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(nombre)))
-              || (esRespuesta(operacion) && !CAMPOS_RESPUESTA_EDITABLES.includes(nombre)),
-          )).join("")}</div>
+        <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}${soloOcultos ? " hidden" : ""}>
+          <div class="ct-campos">${controles}</div>
         ${esRespuesta(operacion) ? `<div class="ct-campo">
           <label for="${idCorreo}">${e(t("llamamiento_correo_archivo"))} *</label>
           <input id="${idCorreo}" type="file" accept=".eml" data-ct-llamamiento-correo
             ${paso.solicitud !== null ? "disabled" : ""}>
-          <p class="ct-ayuda">${e(t("llamamiento_correo_ayuda"))}</p>
           ${paso.valores.correo_sha256 ? `<p class="ct-ayuda" data-ct-llamamiento-huella-calculada>
             ${e(t("llamamiento_correo_huella_conservada"))}</p>` : ""}
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${paso.solicitud === null && !paso.claveConservada && !esRespuesta(operacion) && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
-          data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
         ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
             ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
@@ -324,17 +323,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     <header class="ct-cabecera"><div>
       <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
     </div></header>
-    <p class="ct-exp-mensaje ct-tono-informacion" data-ct-llamamiento-contexto>${e(t(
-      estado.enlazado ? "llamamiento_contexto_enlazado" : "llamamiento_contexto_manual",
-    ))}</p>
+    ${estado.enlazado ? "" : `<p class="ct-exp-mensaje ct-tono-informacion" role="status"
+      data-ct-llamamiento-sin-expediente>${e(t("llamamiento_sin_expediente"))}</p>`}
     ${listaComunicaciones()}
     ${consultaRespuesta()}
-    ${bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
+    ${!estado.enlazado || bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
     ${resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
-      <summary>${e(t("llamamiento_comunicacion"))}</summary>
-      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION)
+      <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>
+      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>`}
     ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}

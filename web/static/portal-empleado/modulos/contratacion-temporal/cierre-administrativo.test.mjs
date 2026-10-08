@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const expediente_ref = "expediente:ct:cierre";
 const seguimiento_ref = "seguimiento:ct:cierre";

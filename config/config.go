@@ -38,6 +38,7 @@ const (
 	EnvTLSKeyFile                                  = "VEC_TLS_KEY_FILE"
 	EnvCTNumeroExpedienteSourcePath                = "VEC_CT_NUMERO_EXPEDIENTE_SOURCE_PATH"
 	EnvCTCircuitoRRHHSourcePath                    = "VEC_CT_CIRCUITO_RRHH_SOURCE_PATH"
+	EnvCTNecesidadesAltaSourcePath                 = "VEC_CT_NECESIDADES_ALTA_SOURCE_PATH"
 	EnvPersonalCatalogPath                         = "VEC_PERSONAL_CATALOG_PATH"
 	EnvIncorporacionV2File                         = "VEC_CT_INCORPORACION_V2_FILE"
 	EnvContratacionTemporalSubsanacionPoliticaFile = "VEC_CT_SUBSANACION_POLITICA_FILE"
@@ -149,6 +150,7 @@ type Config struct {
 	TLSKeyFile                                  string
 	CTNumeroExpedienteSourcePath                string
 	CTCircuitoRRHHSourcePath                    string
+	CTNecesidadesAltaSourcePath                 string
 	PersonalCatalogPath                         string
 	PersonalCatalogInMemory                     bool
 	PersonalOrganizacionSourcePath              string
@@ -212,6 +214,7 @@ type Config struct {
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
+	AuditoriaSelladoPostgreSQL                  ConfiguracionPostgreSQLAuditoriaSellado
 	BolsaPoliticaOfertasCalculadorPostgreSQL    ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
@@ -263,6 +266,7 @@ func Load() Config {
 		TLSKeyFile:                             envFirst(EnvTLSKeyFile),
 		CTNumeroExpedienteSourcePath:           envFirst(EnvCTNumeroExpedienteSourcePath),
 		CTCircuitoRRHHSourcePath:               envFirst(EnvCTCircuitoRRHHSourcePath),
+		CTNecesidadesAltaSourcePath:            envFirst(EnvCTNecesidadesAltaSourcePath),
 		PersonalCatalogPath:                    envFirst(EnvPersonalCatalogPath),
 		PersonalOrganizacionSourcePath:         envFirst(EnvPersonalOrganizacionSourcePath),
 		RPTCatalogoPath:                        envFirst(EnvRPTCatalogoPath),
@@ -339,6 +343,7 @@ func Load() Config {
 		},
 		BolsaRelevoNoIncorporacionPostgreSQL:     NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
 		BolsaRelevoCesePostgreSQL:                NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
+		AuditoriaSelladoPostgreSQL:               NuevaConfiguracionPostgreSQLAuditoriaSellado(envFirst(EnvAuditoriaSelladoDatabaseURL)),
 		BolsaPoliticaOfertasCalculadorPostgreSQL: NuevaConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador(envFirst(EnvBolsaPoliticaOfertasCalculadorDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
@@ -429,6 +434,7 @@ func (c Config) Normalize() Config {
 	c.RPTCatalogoPath = strings.TrimSpace(c.RPTCatalogoPath)
 	c.CTNumeroExpedienteSourcePath = strings.TrimSpace(c.CTNumeroExpedienteSourcePath)
 	c.CTCircuitoRRHHSourcePath = strings.TrimSpace(c.CTCircuitoRRHHSourcePath)
+	c.CTNecesidadesAltaSourcePath = strings.TrimSpace(c.CTNecesidadesAltaSourcePath)
 	if c.PersonalOrganizacionVersion == 0 {
 		c.PersonalOrganizacionVersion = 1
 	}
@@ -482,6 +488,7 @@ func (c Config) Normalize() Config {
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
+	c.AuditoriaSelladoPostgreSQL = c.AuditoriaSelladoPostgreSQL.normalizar()
 	c.BolsaPoliticaOfertasCalculadorPostgreSQL = c.BolsaPoliticaOfertasCalculadorPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()

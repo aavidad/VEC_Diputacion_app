@@ -18,6 +18,8 @@ import (
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -264,7 +266,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			denegarTemprano()
 			return
 		}
+		inicioIdentidad := time.Now()
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
+		if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+			telemetria.RegistrarFase(r.Context(), telemetria.FaseIdentidad, time.Since(inicioIdentidad), err)
+		}
 		cert := r.TLS.VerifiedChains[0][0]
 		ahora := a.reloj.Ahora()
 		if err != nil {
@@ -341,7 +347,7 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if incidencias == nil || gobierno == nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	defer cancel()
 	topologiaGobierno, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, gobierno)
 	if err != nil {
@@ -444,7 +450,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{
 		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},

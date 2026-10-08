@@ -6,6 +6,7 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -34,7 +35,7 @@ func camposPortalMiBolsaDesarrollo(resolutor *reglas.Resolutor) (puertosbolsa.Ca
 		return nil, nil
 	}
 	campos := camposPortalMiBolsaReglas{resolutor: resolutor}
-	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	if _, err := campos.CamposVisiblesMiBolsa(ctx); err != nil {
 		return nil, errors.Join(errReglasEjemploNoValidas, err)

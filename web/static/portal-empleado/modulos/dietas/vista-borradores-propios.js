@@ -3,8 +3,10 @@ import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260929-i18n-dietas-v1";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261002-codexe-d7c-ux-v3";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
+import { validarCatalogoRutasDietas } from "./contrato.js";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
+
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
 const todos = (raiz, selector) => Array.from(raiz?.querySelectorAll(selector) || []);
@@ -249,7 +251,10 @@ export function montarVistaBorradoresPropios(
   let reciboRectificacionConfirmado = null;
   let mapaVista = null;
   let montajeMapa = null;
+  let reintentoCatalogo = null;
+  let accionRutaEnCurso = false;
   let controladorCatalogo = null;
+  let falloCatalogoRuta = false;
   let calculoCabeceraFirma = null;
   const rutasCalculadas = new Map();
   let catalogoOtros = calculadorRuta ? null : catalogoOtrosGastosValido(catalogoOtrosGastos);
@@ -474,6 +479,10 @@ export function montarVistaBorradoresPropios(
     calcularRuta.className = "boton-secundario";
     calcularRuta.dataset.dietasCalcularRuta = "";
     calcularRuta.disabled = !calculadorRuta;
+    const avisoCatalogoRuta = nodo(documento, "p");
+    avisoCatalogoRuta.dataset.dietasCatalogoRutaError = "";
+    avisoCatalogoRuta.setAttribute("role", "alert");
+    avisoCatalogoRuta.hidden = true;
     const mapaRaiz = nodo(documento, "div");
     mapaRaiz.className = "dietas-comision-mapa-raiz";
     mapaRaiz.dataset.dietasComisionMapaRaiz = "";
@@ -596,6 +605,7 @@ export function montarVistaBorradoresPropios(
       paradas,
       puntoRuta("destino_codigo","borradores_propios_destino"),
       calcularRuta,
+      avisoCatalogoRuta,
       mapaRaiz,
       etiquetaVehiculo,
       rutasVehiculo,
@@ -636,13 +646,13 @@ export function montarVistaBorradoresPropios(
     return form;
   }
   async function cargarCatalogoRuta() {
-    if (!calculadorRuta) return;
+    if (!calculadorRuta || !visorRuta || !activaAhora()) return null;
     controladorCatalogo?.abort();
     controladorCatalogo = new AbortController();
     const signal = controladorCatalogo.signal;
     try {
-      const catalogo = await calculadorRuta.obtenerCatalogo({ signal });
-      if (!activaAhora() || signal.aborted || !Array.isArray(catalogo?.puntos)) return;
+      const catalogo = validarCatalogoRutasDietas(await calculadorRuta.obtenerCatalogo({ signal }));
+      if (!activaAhora() || signal.aborted) return null;
       puntosRuta = catalogo.puntos;
       nombresRuta = new Map(puntosRuta.map((punto) => [punto.codigo, punto.nombre]));
       const controles = todos(formularioPersistente, "select").filter((selector) =>
@@ -661,20 +671,44 @@ export function montarVistaBorradoresPropios(
       if (typeof calculadorRuta.obtenerCatalogoOtrosGastos === "function") {
         try { catalogoOtros = catalogoOtrosGastosValido(await calculadorRuta.obtenerCatalogoOtrosGastos({ signal })); }
         catch { catalogoOtros = null; }
-        if (!activaAhora() || signal.aborted) return;
+        if (!activaAhora() || signal.aborted) return null;
         Array.from(formularioPersistente.querySelectorAll("select")).filter((selector) => selector.name === "tipo_gasto")
           .forEach((selector) => pintarTiposOtroGasto(selector, catalogoOtros, tBorradores));
       }
+      const mapaRaiz = formularioPersistente.querySelector("[data-dietas-comision-mapa-raiz]");
+      const vista = await montarVistaMapaComisionDietas({ raiz: mapaRaiz, calculador: calculadorRuta,
+        visorRuta, catalogoInicial: catalogo, anunciar: (texto, tono) => anunciar(texto, tono) });
+      if (!activaAhora() || signal.aborted) { vista.desmontar(); return null; }
+      mapaVista = vista;
+      falloCatalogoRuta = false;
       pintar();
+      return vista;
     } catch {
-      if (!activaAhora() || signal.aborted) return;
+      if (!activaAhora() || signal.aborted) return null;
       puntosRuta = [];
       nombresRuta = new Map();
+      catalogoOtros = null;
+      falloCatalogoRuta = true;
       mensaje("ruta_error_servicio", "error");
       pintar();
+      return null;
     } finally {
       if (controladorCatalogo?.signal === signal) controladorCatalogo = null;
     }
+  }
+  async function mapaParaCalcular() {
+    const actual = mapaVista || await montajeMapa;
+    if (actual || !activaAhora()) return actual;
+    if (!reintentoCatalogo) {
+      const intento = cargarCatalogoRuta();
+      reintentoCatalogo = intento;
+      montajeMapa = intento;
+      const terminar = () => {
+        if (reintentoCatalogo === intento) reintentoCatalogo = null;
+      };
+      void intento.then(terminar, terminar);
+    }
+    return reintentoCatalogo;
   }
   function valoresParadas(form) {
     return Array.from(form.querySelectorAll("select"))
@@ -1272,14 +1306,7 @@ export function montarVistaBorradoresPropios(
         ? traducir("borradores_propios_titulo")
         : tBorradores("borradores_propios_titulo_registrados")), avisoPersistente, espacio);
       if (calculadorRuta && visorRuta) {
-        const mapaRaiz = formularioPersistente.querySelector("[data-dietas-comision-mapa-raiz]");
-        montajeMapa = montarVistaMapaComisionDietas({ raiz: mapaRaiz, calculador: calculadorRuta,
-          visorRuta, anunciar: (texto, tono) => anunciar(texto, tono) }).then((vista) => {
-          if (!activaAhora()) { vista.desmontar(); return null; }
-          mapaVista = vista;
-          return vista;
-        }, () => null);
-        void cargarCatalogoRuta();
+        montajeMapa = cargarCatalogoRuta();
       }
     }
     raiz.dataset.formularioVisible = String(formularioVisible);
@@ -1298,6 +1325,13 @@ export function montarVistaBorradoresPropios(
     for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]", "[data-dietas-calcular-ruta]"]) {
       const boton = formularioPersistente.querySelector(selector);
       if (boton) boton.disabled = controlesBloqueados || extranjero || (selector === "[data-dietas-calcular-ruta]" && !calculadorRuta);
+    }
+    const botonRuta = formularioPersistente.querySelector("[data-dietas-calcular-ruta]");
+    if (botonRuta) botonRuta.textContent = traducir(falloCatalogoRuta ? "circuito_reintentar_consulta" : "comision_ruta_calcular");
+    const avisoRuta = formularioPersistente.querySelector("[data-dietas-catalogo-ruta-error]");
+    if (avisoRuta) {
+      avisoRuta.hidden = !falloCatalogoRuta;
+      avisoRuta.textContent = falloCatalogoRuta ? traducir("ruta_error_servicio") : "";
     }
     if (formularioPersistente) {
       const vehiculo = formularioPersistente.querySelector("[data-dietas-vehiculo-propio]");
@@ -1747,34 +1781,42 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const calcularRutaVehiculo = evento.target?.closest?.("[data-dietas-ruta-calcular]");
-    if (calcularRutaVehiculo && edicion && calculadorRuta && !controlador) {
+    if (calcularRutaVehiculo && edicion && calculadorRuta && !controlador && !accionRutaEnCurso) {
       const fila = calcularRutaVehiculo.closest("[data-dietas-ruta-linea]");
-      const codigos = codigosRutaVehiculo(fila);
-      if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
+      accionRutaEnCurso = true;
+      calcularRutaVehiculo.setAttribute("aria-busy", "true");
       try {
-        const mapa = mapaVista || await montajeMapa;
+        const mapa = await mapaParaCalcular();
+        if (!activaAhora()) return;
         if (!mapa) throw new Error("mapa no disponible");
+        const codigos = codigosRutaVehiculo(fila);
+        if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
         mapa.establecerCodigos(codigos);
         const calculo = await mapa.calcular();
         if (calculo) {
           rutasCalculadas.set(JSON.stringify(codigos), calculo);
           fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_calculada");
         }
-      } catch { mensaje("ruta_error_servicio", "error"); pintar(); }
+      } catch { if (activaAhora()) { mensaje("ruta_error_servicio", "error"); pintar(); } }
+      finally { accionRutaEnCurso = false; calcularRutaVehiculo.removeAttribute("aria-busy"); }
       return;
     }
     const calcular = evento.target?.closest?.("[data-dietas-calcular-ruta]");
-    if (calcular && !calcular.disabled && calculadorRuta && !controlador && activaAhora()) {
+    if (calcular && !calcular.disabled && calculadorRuta && !controlador && activaAhora() && !accionRutaEnCurso) {
       const form = calcular.closest("[data-dietas-borrador-form]");
-      const codigos = codigosRuta(form, new FormData(form));
-      if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
+      accionRutaEnCurso = true;
+      calcular.setAttribute("aria-busy", "true");
       try {
-        const mapa = mapaVista || await montajeMapa;
+        const mapa = await mapaParaCalcular();
+        if (!activaAhora()) return;
         if (!mapa) throw new Error("mapa no disponible");
+        const codigos = codigosRuta(form, new FormData(form));
+        if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
         mapa.establecerCodigos(codigos);
         const calculo = await mapa.calcular();
         if (calculo) calculoCabeceraFirma = JSON.stringify(codigos);
-      } catch { mensaje("ruta_error_servicio", "error"); pintar(); }
+      } catch { if (activaAhora()) { mensaje("ruta_error_servicio", "error"); pintar(); } }
+      finally { accionRutaEnCurso = false; calcular.removeAttribute("aria-busy"); }
       return;
     }
     const anadirOtro = evento.target?.closest?.("[data-dietas-otro-anadir]");

@@ -156,3 +156,60 @@ func TestConsultaCuadroRRHHPideElPlazoUrgenteDeLosExpedientesUrgentes(t *testing
 		}
 	}
 }
+
+// preparadorPlazoFasePrueba lee sus reglas una vez por consulta y entrega la
+// calculadora preparada, o falla.
+type preparadorPlazoFasePrueba struct {
+	calculadoraPlazoFasePrueba
+	preparaciones int
+	preparada     *calculadoraPlazoFasePrueba
+	errPreparar   error
+}
+
+func (p *preparadorPlazoFasePrueba) PrepararPlazosFase(context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
+	p.preparaciones++
+	if p.errPreparar != nil {
+		return nil, p.errPreparar
+	}
+	return p.preparada, nil
+}
+
+// Con una calculadora que admite prepararse, la página calcula sus plazos con
+// una sola preparación; si la preparación falla, calcula fila a fila como antes.
+func TestConsultaCuadroRRHHPreparaLosPlazosUnaVezPorConsulta(t *testing.T) {
+	t.Parallel()
+	for _, caso := range []struct {
+		nombre      string
+		errPreparar error
+	}{{"preparada", nil}, {"falla_y_calcula_fila_a_fila", errors.New("catálogo no disponible")}} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entorno := nuevoEntornoConsultaRRHH(t)
+			entorno.sesion.pagina.FasesDesde = []time.Time{entorno.sesion.pagina.Expedientes[0].CreadoEn}
+			servicio, err := NuevoServicioConsultaCuadroRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			preparador := &preparadorPlazoFasePrueba{
+				calculadoraPlazoFasePrueba: calculadoraPlazoFasePrueba{plazo: plazoFaseValidoPrueba(), aplicable: true},
+				preparada:                  &calculadoraPlazoFasePrueba{plazo: plazoFaseValidoPrueba(), aplicable: true},
+				errPreparar:                caso.errPreparar,
+			}
+			servicio.ConfigurarPlazosFase(preparador)
+			pagina, err := servicio.Consultar(context.Background(), entorno.cuadro)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(pagina.Plazos) != 1 || pagina.Plazos[0] == nil || *pagina.Plazos[0] != plazoFaseValidoPrueba() {
+				t.Fatalf("plazo no proyectado: %+v", pagina.Plazos)
+			}
+			usadas, sinUsar := len(preparador.preparada.solicitudes), len(preparador.solicitudes)
+			if caso.errPreparar != nil {
+				usadas, sinUsar = sinUsar, usadas
+			}
+			if preparador.preparaciones != 1 || usadas != 1 || sinUsar != 0 {
+				t.Fatalf("preparaciones %d, preparada %d, fila a fila %d", preparador.preparaciones,
+					len(preparador.preparada.solicitudes), len(preparador.solicitudes))
+			}
+		})
+	}
+}

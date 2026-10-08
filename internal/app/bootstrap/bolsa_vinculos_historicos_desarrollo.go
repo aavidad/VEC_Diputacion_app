@@ -18,6 +18,9 @@ import (
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var huellaBolsaHistorica = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -164,7 +167,8 @@ func abrirPoolRecuperacionConvocaRelleno(ctx context.Context, cfg config.Config)
 		}
 		return nil
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, pc)
+	telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, pc)
 	if err != nil {
 		return nil, ErrPoolImportacionConvocaNoDisponible
 	}

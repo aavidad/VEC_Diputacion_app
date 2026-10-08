@@ -24,7 +24,7 @@ AD193 → AD195/AD196 → AD178 → AD177 → AUT41 → CT175 → CC7 → CT176,
 | Orden | Tarea | Dueño propuesto | Bloquea | Cierre verificable |
 | --- | --- | --- | --- | --- |
 | 1 | Extender `vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1` a `vec.catalogos.{crear,actualizar,publicar,retirar}` **sólo** con `tipo_recurso=catalogo_configurable` y la audiencia `vec_catalogos_configurables.plan_nominal_firma.gobierno.v1`. Si se abre a todo `vec.catalogos.*`, las fachadas generales de catálogos quedarían autorizables. | K (identidad y permisos) | Gobierno del plan (crear, publicar y retirar el plan de quién firma). | Migración AUT nueva con preimagen medida; la prueba positiva de AD177 pasa sin sustituir la categoría Aplicación. |
-| 2 | **Decidido por dirección (05/10): sí.** Grupo técnico dedicado para el gobierno del plan con una sola pertenencia, como las ramas de administración, en lugar del runtime de Contratación temporal (hoy dos LOGIN). | Dirección con K | Activar el gobierno. | Decisión escrita; si es grupo propio, AD nuevo que lo exija en la rama del núcleo. |
+| 2 | **Decidido por dirección (05/10): sí; preparado en AD200** (al activar, el DBA crea el LOGIN y sus cuatro filas de origen de consumo, ver `PLAN_NOMINAL_FIRMA_AD177.md`). Grupo técnico dedicado para el gobierno del plan con una sola pertenencia, como las ramas de administración, en lugar del runtime de Contratación temporal (hoy dos LOGIN). | Dirección con K | Activar el gobierno. | Decisión escrita; si es grupo propio, AD nuevo que lo exija en la rama del núcleo. |
 | 3 | Fuente nominal de sesión, perfil y certificado para emitir las decisiones V3 de firma y de recuperación con actores reales. | K | Recorrido de navegador con dos firmas. | Decisión V3 real emitida y consumida en el clon, sin actor ficticio. |
 | 4a | **Hecho (#723):** la composición R5 (`componerFirmasR5`) entrega a las dos vías el decorador `RegistroConPlanV2` (descriptor del plan + emisor exterior + CT176) y nunca el registro directo de CT172; el adaptador PostgreSQL real cumple la interfaz que lo exige. | Firmas (E) | — | Prueba `TestComposicionFirmasR5RegistraSiempreConPlanCT176`. |
 | 4b | Decorador Go que añade al recurso de gobierno la huella de estado, revisión y SHA del material, y kit que conserva el material exacto para reintentos del gobierno del plan. | Firmas (E) | Activar el gobierno del plan desde la aplicación. | Pruebas del decorador y del kit; reintento con los mismos bytes y la misma clave. |
@@ -33,3 +33,67 @@ AD193 → AD195/AD196 → AD178 → AD177 → AUT41 → CT175 → CC7 → CT176,
 | 6 | Recorrido completo: navegador → dos firmas → mismo PDF verificado V2 → justificante → reinicio, con auditoría propia de cada descarga. | Firmas (E) | Depende de 1, 3 y 4. | Captura y recibos iguales antes y después de reiniciar aplicación y PostgreSQL. |
 
 Detalles menores que quedan anotados en los documentos de cada migración: el CAS de CC7 usa SQLSTATE 40001, que un reintentador genérico repetiría; las fechas del canon del plan las aporta el material y sólo se valida su orden.
+
+## Qué falta para 4c (medido el 05/10 sobre main)
+
+`componerFirmasR5` necesita diez dependencias. Sólo el registro durable (CT172/CT176, `postgres.RegistroFirmasVerificadasPostgreSQL`) y el verificador GrxFirma (`validadorautofirma.Cliente`) tienen ya implementación real lista. Del emisor V3 (`firmaemisorv2.Emisor`), el autorizador nominal y el original hay piezas, pero no completas. Sin implementación fuera de pruebas: el selector central del descriptor (`plannominal.SelectorCentralDescriptorFirmaV2`), la comprobación de la publicación del plan (`plannominal.PublicacionAutorizada`), la competencia del firmante, el PDF anterior custodiado (`ports.FuentePDFFirmaAnterior`) y la política de firmantes (`ports.FuentePoliticaMismaPersonaEnPasos`, corte 4c-1 en #739). Tampoco están registradas las rutas de escritura (registro VEC, registro externo, preflight y original).
+
+Cortes, en orden de dependencia:
+
+| Corte | Qué | Depende de |
+| --- | --- | --- |
+| 4c-1 | Política de firmantes desde el circuito del catálogo (`reglas.CircuitoFirma.PermiteMismaPersonaEnPasos`). | — |
+| 4c-2 | El montaje conserva el verificador como `VerificadorFirmasDocumento`; sin verificador no se compone R5. | — |
+| 4c-3 | Fachada CT de lectura que compruebe la publicación del plan sobre `leer_plan_nominal_firma_v1` (hoy sólo la ejecuta el propietario CT) y `PublicacionAutorizada` en Go. | Plan publicado (gobierno, tarea 3) |
+| 4c-4 | Fachada de lectura de la selección central y la competencia (CA25, Personal29, AUT32/AUT35) para el ejecutor CT antes del PDP, y `SelectorCentralDescriptorFirmaV2` y `FuenteCompetenciaFirmante` en Go. | Cargos (ver abajo) |
+| 4c-5 | Emisor V3 de escritura: audiencias `firma_vec.v2` y `firma_externa.v2` (decisión interior y exterior), concesiones del perfil y fuente nominal que acepte esas rutas. | 4c-3, 4c-4 |
+| 4c-6 | Original firmable: implementar `almacen.AutorizacionesDocumentosOriginalCT` y componer su cadena. | — |
+| 4c-7 | PDF anterior: lectura del firmado custodiado en Documentos con su concesión de descarga. | 4c-6 |
+| 4c-8 | Composición en la raíz y las cuatro rutas, con su autoridad de canal y sus entradas en la lista de rutas y de transportes mTLS. | todos |
+
+## Cargos de quien firma
+
+La competencia del firmante (AUT35) exige tres fuentes nominales de la misma persona: el certificado firmante vinculado (CA25, publicado por AD165 con la acción `administracion.certificados.nominal.publicar`), el cargo y su enlace de ejercicio en Personal (Personal29, publicados por AD166 con `personal.cargo_competencial.publicar`) y una asignación activa del perfil cuyo `rol_id` es el del paso del plan. AUT35 no lee las tablas `cargo_ct_*` de AD160.
+
+- Certificado y cargo en Personal: el SQL existe y Rol7 ya tiene las dos acciones, pero vec-admin no tiene emisor ni llamada para ellas.
+- Asignación del perfil de cargo: AD164 dejó cerradas las fachadas `*_plan_cargo_ct_v1` hasta tener auditoría común nominal y categoría Aplicación, y `vec-cargos-ct` necesita decisiones `administracion.perfiles.{proponer,aprobar,otorgar,recibo.consultar}` que no están en el catálogo nominal de Rol7. Abrirlas exige rol nuevo, rama del núcleo, audiencias, reapertura con auditoría común y emisor en vec-admin.
+- Además no hay versiones de rol publicadas para los cargos del plan, ni un circuito gobernado para publicar roles ordinarios (hoy los publica el bootstrap de desarrollo; ver tarea 5).
+
+Corte mínimo (aprobado por dirección el 05/10): publicar las versiones de rol de los cargos, registrarlas como asignables (AUT49) y asignarlas con el lote ordinario de Administración (AD190/AUT44, pantalla A8), y añadir a vec-admin el emisor y la llamada de AD165 y AD166. Eso sustituye el doble control de AD164 por el control del lote. Se construye sin esperar a RRHH, con la regla de quién asigna configurable; la pregunta 143 de `dudas.md` queda abierta.
+
+## Gobierno del plan: bloqueo de ámbitos (hallado el 05/10)
+
+AD177 y `plannominal.RecursoGobiernoPlanFirma` fijan el recurso de gobierno sin ámbitos (`"ambitos":{}` en la huella de contexto). El PDP común exige que el recurso tenga exactamente las dimensiones de la asignación (`AsignacionPerfil.Cubre`), y una asignación siempre tiene al menos un ámbito; la del administrador con Rol7 tiene organización y unidad, y el catálogo nominal de Rol7 declara esas dos dimensiones para `vec.catalogos.*`. Resultado: cualquier decisión de gobierno del plan se deniega con `ambito_no_autorizado` antes de llegar a AD177. Ningún ensayo lo había detectado porque nadie emitía todavía esa decisión.
+
+Aprobado por dirección el 05/10: que el recurso de gobierno lleve `organizacion_ref` y `unidad_ref` de la asignación del administrador, y una migración nueva que sustituya `registrar_y_confirmar_gobierno_plan_firma_v1` para recibirlos, cotejarlos con la asignación de la decisión consumida (fachada AUT) y calcular con ellos la huella de contexto. El material del kit (13 claves) y CC7 no cambian.
+
+## Corte 4c-3: publicación vigente del plan (CC8 y CT178)
+
+El descriptor del plan (`plannominal.Fuente`) relee en cada firma el catálogo del plan y pide a `PublicacionAutorizada` que confirme que es la publicación vigente. `leer_plan_nominal_firma_v1` (CC7) no sirve antes del PDP porque exige un consumo de firma de la misma transacción. CC8 añade `comprobar_publicacion_plan_nominal_firma_v1(id, versión, SHA)`, de sólo lectura, con las mismas comprobaciones de publicación que CC7 y sin devolver el documento: sólo fecha y revisión. Lo ejecuta el propietario CT; CT178 lo ofrece al ejecutor CT. En Go, `postgres.PublicacionPlanFirmaPostgreSQL` coteja además la fecha y la revisión con el catálogo leído (la fecha de publicación debe tener precisión de microsegundo: PostgreSQL redondea y una fecha más fina no coincidiría nunca). La comprobación definitiva sigue en CT176 con el pin y el consumo.
+
+## Unidad en la decisión de firma V2 (opción B, aprobada el 05/10)
+
+El recurso de cada decisión de firma lleva exactamente los ámbitos de la asignación de quien actúa: organización y, si la tiene, unidad. SQL relee esa asignación en el consumo y en la vía VEC exige que la unidad sea la del paso del plan. Orden de cortes: interior VEC (AD206 + CT181, #780), plan exterior (AD177), consulta R5 V2 y vía externa. El plan exterior (AD209 + CT185) aplica a la decisión exterior las mismas reglas que AD206 a la interior: Go le pone los ámbitos con los que se emitió la interior y SQL los relee de la asignación en el consumo. Con los dos cortes, un firmante con unidad completa la firma por la vía VEC; uno sin unidad funciona como antes. La consulta y la recuperación R5 V2 (CC10 + AD210 + CT186) llevan la unidad de la asignación en `UnidadRef` y la ligan a un paso del plan publicado (opción A, 06/10). El SQL (#824) instala las v3 y el corte Go (#825) envía la unidad: en la firma múltiple por la vía VEC consulta quien firma, con la unidad de su competencia (la del paso, que AUT32 exige en su asignación). La vía externa y la consulta R5 por HTTP siguen sólo con organización, y la consulta de RRHH con la unidad del expediente queda en `docs/estudio_requisitos/pendientes_v2.md`.
+
+## Estado al cierre del 06/10 (para retomar)
+
+PR abiertas, en este orden de fusión (todas en borrador; las encola dirección):
+
+| PR | Qué | Revisión |
+| --- | --- | --- |
+| #776 → #820 → #821 | 4c-4: Personal38, AUT56 (selección central del firmante) y su Go | GO |
+| #780 | Opción B, decisión interior (AD206 + CT181) | GO |
+| #823 | Opción B, plan exterior (AD209 + CT185) | GO |
+| #824 → #825 | Opción B, consulta R5 V2 con la unidad del paso (CC10 + AD210 + CT186) y su Go | GO |
+| #826 | 4c-5 PR 1: descriptores de `firma_vec.v2` / `firma_externa.v2` y perfil fijo de la vía externa (rol `firma_externa_registro_ct_desarrollo`, que exigen las guardas SQL) | GO |
+| #827 | 4c-5 PR 2: predicado del PDP, motivo y fuente nominal de la vía externa; emisor con `NuevoEmisorConAmbitos` (va sobre #780 con #826) | en revisión |
+
+Decisiones del 06/10: la vía externa y la consulta de RRHH siguen sin unidad (opción C; `dudas.md` 148 y `pendientes_v2.md`). La firma VEC la hace la persona con su asignación de cargo (opción A); la garantía de su sesión es la sintética de desarrollo, declarada y con fecha de retirada, y se exige empleado canónico en Personal además de la persona de CA25.
+
+Siguiente (4c-5 PR 3, partida en 3a y 3b; reparto aprobado):
+
+- **3a, identidad.** La frontera mTLS de CT (`capacidadValida`) sólo admite el certificado del soporte de RRHH, así que `registro-vec` necesita su propia autoridad de ruta, con la forma de la familia empleado (`autoridadRutasDietasDesarrollo`): certificados del resolvedor de desarrollo con doble llave, cápsula de un solo uso por petición, alta de sesión sintética con política de desarrollo y fecha de retirada, revalidador y resolutor de contexto con alcance `{empleado}`. Configuración privada `identidad/firma-vec.json` fuera de Git (DSN de registro de identidad, revalidación y contexto; fecha de retirada) y plantilla sin secretos en el repo. La cuenta y el perfil llegan de la selección de AUT56 guardada en el contenedor sellado de la petición, sólo si su certificado es el del canal; la persona del contexto debe ser la de CA25. Pruebas: otro certificado, otro perfil u otra persona, cápsula repetida, política vencida, empleado ausente o ambiguo. Doble revisión de seguridad.
+  - Ficheros previstos (bootstrap): `contratacion_temporal_firma_v2_sesion_firmante_desarrollo.go` (configuración privada, autoridad de ruta, cápsula y apertura de sesión) y su prueba; plantilla `contratacion_temporal_firma_v2_sesion_firmante.ejemplo.json` junto a ella, que la prueba lee con el mismo cargador. Reutiliza `resolvedorIdentidadDesarrollo.porHuella`, `httpseguridad.RegistroSesiones` (`identidadpg`), `NuevoRevalidadorAutenticacionActorPostgreSQL`, `NuevoResolutorRegistroContextoActorPostgreSQLV2` con `servicioContextoActorDietas` (alcance `{empleado}`) y `NuevaAutoridadContextoActorRegistradoV2`; no toca `capacidadValida` ni el soporte de RRHH.
+  - Orden: (1) cargador y plantilla, con pruebas de configuración inválida, ausente y sin doble llave; (2) autoridad de ruta y cápsula, con pruebas de certificado ajeno al resolvedor y de cápsula repetida; (3) apertura de sesión desde la selección sellada, con pruebas de otro certificado, otro perfil, otra persona, política vencida y empleado ausente o ambiguo; (4) doble revisión de seguridad (security-audit focal y un segundo revisor) antes de 3b.
+- **3b, decisor y emisor.** Decisor sobre la asignación real (`NuevoAlmacenAutorizacion` del pool `vec_autorizacion_fuente`, registro y motivos), emisores de material de `firma_vec.v2` y de la consulta R5, envoltorio de la fuente de competencia de AUT56 que guarda la selección, fuente nominal VEC y `NuevoEmisorConAmbitos`.
+- **4c-8.** Composición en la raíz de las rutas `original`, `preflight`, `registro-vec` y `registro-externo` (perfil fijo de la vía externa al arrancar, manejadores, listas de rutas y de transportes mTLS) y recorrido con dos personas en el clon.

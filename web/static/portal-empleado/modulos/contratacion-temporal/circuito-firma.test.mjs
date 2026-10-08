@@ -6,9 +6,9 @@ import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
 
-} from "./circuito-firma.js?v=20261002-ct-r5-grafo-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
+} from "./circuito-firma.js?v=20261008-alta-circular-v3";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
@@ -16,6 +16,7 @@ import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 // cargados para que el montaje no dependa de la lectura del fichero.
 const textosFasePrueba = await cargarTextos("contratacion-temporal-firma", { idioma: IDIOMA_POR_DEFECTO });
 const cargarTextosPrueba = async () => textosFasePrueba;
+const MENSAJES_CIRCUITO_FIRMA_EN = (await cargarTextos("contratacion-temporal-circuito-firma", { idioma: "en" })).seccion("general");
 
 function paso(orden, total, extra = {}) {
   return {
@@ -112,7 +113,7 @@ test("v2 conserva la alternativa opaca; v1 exige ausencia y v2 exige una lista v
 test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma oficial", () => {
   const datos = validarCircuitoFirma(circuitoConAlternativa());
   const es = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma());
-  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma({}, "en-GB"));
+  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(es, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
   assert.match(en, /HR Directorate or Head of the HR Service/u);
   assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
@@ -122,7 +123,7 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(en, /Sending to the corporate signature service/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
-  assert.match(es, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
+  assert.match(es, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
   assert.doesNotMatch(es, /Portafirmas conectado|firma eficaz|Enviar a Firmadoc/u);
 });
 
@@ -159,7 +160,7 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   assert.match(html, /Envío no disponible/u);
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.match(html, /El envío desde este panel no está disponible/u);
-  assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
+  assert.match(html, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
   assert.match(html, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(html, /<details class="ct-circuito-limite">/u);
   assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
@@ -197,7 +198,7 @@ test("dos pasos CT118 firmados no acreditan registro en Portafirmas", () => {
   const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
   assert.equal((html.match(/Firma de prueba registrada por/gu) ?? []).length, 2);
   assert.match(html, /Envío no disponible/u);
-  assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
+  assert.match(html, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
   assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
 });
 
@@ -215,7 +216,7 @@ test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verifi
     assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
-    assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
+    assert.match(html, /Todavía no puede firmar este documento con certificado en VEC. Consulte con quien gestiona el expediente/u);
     assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
   }
   let efectos = 0;
@@ -243,13 +244,13 @@ test("las dos vías de firma usan el idioma del portal", () => {
     const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort();
     assert.deepEqual(variables(valor), variables(MENSAJES_CIRCUITO_FIRMA_ES[clave]), clave);
   }
-  const traductor = crearTraductorCircuitoFirma({}, "en-GB");
+  const traductor = crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
   assert.match(html, /Sending to the corporate signature service/u);
   assert.match(html, /Sending unavailable/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
   assert.match(html, /Sending from this panel is not available/u);
-  assert.match(html, /This panel does not evidence a signature, submission or record in Portafirmas/u);
+  assert.match(html, /The document has not yet been signed, sent or registered in Portafirmas from this screen/u);
   assert.match(html, /Awaiting test signature by/u);
   assert.match(html, /Allows referral to Financial Control/u);
   assert.match(html, /If returned, goes back to drafting/u);
@@ -263,12 +264,12 @@ test("las dos vías de firma usan el idioma del portal", () => {
 test("el catálogo de prueba traduce documentos y cargos conocidos sin alterar valores ajenos", () => {
   const dato = circuito();
   dato.documentos[0].pasos[0].cargo = "Técnico/a de RRHH responsable del expediente";
-  const html = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  const html = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(html, /Final report/u);
   assert.match(html, /HR officer responsible for the case/u);
   assert.doesNotMatch(html, /Informe definitivo|Técnico\/a de RRHH/u);
   dato.documentos[0].etiqueta = "Nombre ajeno <x>";
-  const otro = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  const otro = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"));
   assert.match(otro, /Nombre ajeno &lt;x&gt;/u);
 });
 
@@ -356,7 +357,7 @@ test("el montaje no ejecuta CT118 ni entrega un recibo aparente", async () => {
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
-  assert.match(ayuda, /"ayuda_contenido_421": "El «Circuito de firma»/u);
+  assert.match(ayuda, /"ayuda_contenido_421": "«Circuito de firma»/u);
   assert.match(ayuda, /"ayuda_contenido_422": ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
 });
 
@@ -479,8 +480,9 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261003-ct-firma-v2-v1"],
-    ["vista-expedientes.js", "20261003-ct-firma-v2-v1"],
+    ["circuito-firma.js", "20261008-alta-circular-v3"],
+    ["vista-expedientes.js", "20261008-alta-capacidad-v3"],
+
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	almacenvec "vec-diputacion-granada/internal/vec/adapters/almacen"
 	"vec-diputacion-granada/internal/vec/adapters/conservacion"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
@@ -37,6 +38,9 @@ import (
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var ErrComposicionDocumentosNoDisponible = errors.New("bootstrap: Documentos no disponible")
@@ -226,7 +230,7 @@ func (a *autoridadDocumentosDesarrollo) denegar(w http.ResponseWriter, r *http.R
 	if _, err := rand.Read(aleatorio[:]); err == nil {
 		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if err := a.registrador.RegistrarDenegacion(ctx, docpg.OrdenDenegacionFrontera{CorrelacionRef: correlacion, Motivo: motivo,
 		Ruta: ruta, Metodo: metodo, ActorRef: actorRef}); err != nil {
@@ -415,7 +419,8 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, "", ErrComposicionDocumentosNoDisponible
 	}
@@ -560,7 +565,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return incidencias
 	})
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("firma_verificacion", err)
 	}
 	if !activo {
 		return nil, nil
@@ -588,7 +593,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var pools []*pgxpool.Pool
 	var cierres []func()
@@ -719,7 +724,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return nil, errDocumentosEn()
 	}
 	cierres = append(cierres, func() {
-		ctxCierre, cancelarCierre := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxCierre, cancelarCierre := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelarCierre()
 		_ = incidencias.Cerrar(ctxCierre)
 	})

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-// El selector común fija el idioma al cargar el módulo, como en el navegador.
+// El índice asíncrono debe estar listo antes de tomar una instantánea del idioma.
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=en" };
-const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = await import("../comun/idioma.js");
+const idiomaPreparado = await import("../comun/idioma.js");
+await idiomaPreparado.prepararIdiomas();
+const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = idiomaPreparado;
 const { cambiarIdioma, montarSelectorIdioma } = await import("../comun/idioma.js");
 const { cargarMensajesPortal, crearTraductorPortal, traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
 const MENSAJES_PORTAL_CASTELLANO = await cargarMensajesPortal("es");
@@ -42,16 +44,17 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
     resolverAcceso: (clave) => clave === "bolsa"
       ? { disponible: false, estado: "denegado" } : { disponible: true, vista: "contratacion-temporal" },
     esPerfilRRHH: () => true,
-    obtenerCuadroInicio: () => ({ expedientes: [], parcial: false, generadoEn: "2026-09-29T07:00:00Z" }),
+    obtenerCuadroInicio: () => ({ generadoEn: "2026-09-29T07:00:00Z", resumen: { en_tramite: 0, con_incidencia: 0,
+      vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} } }),
     ahora: () => new Date("2026-09-29T08:00:00Z"),
     locale: "en-GB",
   })();
-  assert.match(html, /No cases need attention/u);
+  assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /No deadline is due today and there are no open issues\./u);
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
-  assert.match(html, /SAE job offers[\s\S]*?To be agreed with HR|To be agreed with HR[\s\S]*?SAE job offers/u);
+  assert.doesNotMatch(html, /SAE job offers|To be agreed with HR|data-vista="ofertas-sae"/u);
   assert.match(html, /New staff request/u);
-  assert.doesNotMatch(html, /expedientes pendientes|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
+  assert.doesNotMatch(html, /Lo pendiente|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
 });
 
 test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catálogo castellano", async () => {
@@ -78,8 +81,8 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   assert.equal(traducirPortal("contratacion_temporal_miga"), "Employee Portal → Temporary staff requests");
   assert.equal(traducirPortal("contratacion_temporal_titulo"), "Manage temporary staff requests");
   assert.equal(traducirPortal("plantillas_rrhh_nav"), "Document templates");
-  assert.equal(traducirPortal("txt_modulos"), "Modules");
-  assert.equal(traducirPortal("txt_modulos_del_portal"), "Portal modules");
+  assert.equal(traducirPortal("txt_modulos"), "Areas");
+  assert.equal(traducirPortal("txt_modulos_del_portal"), "Portal areas");
   assert.equal(traducirPortal("txt_portal_de_recursos_humanos"), "Human Resources Portal");
   assert.equal(traducirPortal("txt_2026_diputacion_de_granada_portal_del_empleado"),
     "© 2026 Diputación de Granada · Employee Portal");
@@ -104,7 +107,7 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   assert.equal(es("auditoria_expediente_accion"), "Consultar auditoría de este expediente");
   assert.equal(es("contratacion_temporal_titulo"), "Gestión de peticiones de personal temporal");
   assert.equal(es("plantillas_rrhh_nav"), "Plantillas de documentos");
-  assert.equal(es("txt_modulos"), "Módulos");
+  assert.equal(es("txt_modulos"), "Áreas");
   assert.equal(es("txt_proteccion_de_datos_accesibilidad_ayuda"), "Protección de datos · Accesibilidad · Ayuda");
   aplicarTextosPortal(documento, crearTraductorPortal(MENSAJES_PORTAL_CASTELLANO));
   assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),

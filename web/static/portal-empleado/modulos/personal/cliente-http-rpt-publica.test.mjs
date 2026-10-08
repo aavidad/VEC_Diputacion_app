@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPRPTPublica, ErrorClienteRPTPublica } from "./cliente-http-rpt-publica.js";
+import { crearClienteHTTPRPTPublica, ErrorClienteRPTPublica } from "./cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 function categoria() { return { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158 }; }
 function puesto() { return { codigo: "430-101-001", denominacion: "SECRETARIA DE GRUPO", centro_codigo: "101", centro: "GABINETE DE PRESIDENCIA", delegacion: "PRESIDENCIA", grupos: [], escala: "", categoria_clave: "", nivel_destino: 0, complemento_especifico_anual_centimos: 0, dotacion: 3, tipo: "E", provision: "I" }; }
 function sobre(vista = "categorias") { return { data: { rpt: { items: [vista === "puestos" ? puesto() : categoria()], total: 1, limit: 25, offset: 0, vista, esquema: "vec.catalogo.rpt.v1", fuente: { documento: "RPT publicada", importacion: "rpt-publica-v1", generado_en: "2026-09-17", aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }, resumen: { puestos: 842, dotacion: 1714, categorias: 145, centros: 41 } } } }; }
@@ -9,3 +9,31 @@ test("cliente RPT usa GET same-origin y conserva la URL de categorías", async (
 test("cliente RPT admite solo la proyección pública completa de puestos", async () => { const cliente = crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(sobre("puestos")) }); const pagina = await cliente.listar({ vista: "puestos", q: "presidencia", limit: 25, offset: 0 }); assert.equal(pagina.items[0].codigo, "430-101-001"); assert.equal(pagina.items[0].centro, "GABINETE DE PRESIDENCIA"); assert.equal(pagina.items[0].nivel_destino, 0); const sensible = sobre("puestos"); sensible.data.rpt.items[0].ocupante = "Antonio López Fernández"; const estricto = crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(sensible) }); await assert.rejects(() => estricto.listar({ vista: "puestos", q: "", limit: 25, offset: 0 }), ErrorClienteRPTPublica); });
 test("cliente RPT rechaza selector y esquema incompatibles", async () => { const cliente = crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(sobre()) }); await assert.rejects(() => cliente.listar({ vista: "jefaturas", q: "", limit: 25, offset: 0 }), TypeError); const falsa = sobre(); falsa.data.rpt.resumen.centros = -1; const estricto = crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(falsa) }); await assert.rejects(() => estricto.listar({ vista: "categorias", q: "", limit: 25, offset: 0 }), ErrorClienteRPTPublica); });
 test("cliente RPT propaga cancelación durante una petición activa", async () => { let señal; const cliente = crearClienteHTTPRPTPublica({ fetchImpl: async (_ruta, opciones) => new Promise((_resolver, rechazar) => { señal = opciones.signal; señal.addEventListener("abort", () => rechazar(new DOMException("abort", "AbortError")), { once: true }); }) }); const abortador = new AbortController(); const pendiente = cliente.listar({ vista: "categorias", q: "", limit: 25, offset: 0 }, { signal: abortador.signal }); abortador.abort(); await assert.rejects(() => pendiente, ErrorClienteRPTPublica); assert.equal(señal.aborted, true); });
+
+test("cliente RPT envía código exacto y rechaza entradas anómalas antes de fetch", async () => {
+  const llamadas = [];
+  const cliente = crearClienteHTTPRPTPublica({ fetchImpl: async (ruta) => {
+    llamadas.push(ruta); return respuesta(sobre("puestos"));
+  } });
+  const consulta = { vista: "puestos", q: "", limit: 25, offset: 0,
+    codigo_puesto: "430-101-001" };
+  const pagina = await cliente.listar(consulta);
+  assert.equal(pagina.items[0].codigo, consulta.codigo_puesto);
+  assert.equal(llamadas[0], "/api/vec/personal/rpt-publica?q=&limit=25&offset=0&vista=puestos&codigo_puesto=430-101-001");
+  for (const codigo_puesto of ["430-101", "430-101-001 ", "430-101-001a", "*"]) {
+    const antes = llamadas.length;
+    if (codigo_puesto === "430-101") {
+      await assert.rejects(() => cliente.listar({ ...consulta, codigo_puesto }), ErrorClienteRPTPublica);
+    } else {
+      await assert.rejects(() => cliente.listar({ ...consulta, codigo_puesto }), TypeError);
+    }
+    assert.equal(llamadas.length, antes + (codigo_puesto === "430-101" ? 1 : 0));
+  }
+  await assert.rejects(() => cliente.listar({ ...consulta, vista: "categorias" }), TypeError);
+  assert.equal(llamadas.length, 2);
+  const sobreAjeno = sobre("puestos");
+  sobreAjeno.data.rpt.total = 2;
+  sobreAjeno.data.rpt.items.push({ ...puesto(), codigo: "430-101-002" });
+  const ajeno = crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(sobreAjeno) });
+  await assert.rejects(() => ajeno.listar(consulta), ErrorClienteRPTPublica);
+});

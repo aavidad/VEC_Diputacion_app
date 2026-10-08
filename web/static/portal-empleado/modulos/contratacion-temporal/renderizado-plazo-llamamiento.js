@@ -4,8 +4,8 @@
  * expiración proceden del recibo del servidor. La situación «en plazo» o
  * «vencido» es solo lectura: el servidor decide con su propio reloj.
  */
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { justificanteTraducido } from "../../portal-justificante.js";
 import { CAMPOS_REVISION_RESOLUCION, respuestaFueraDePlazo, situacionPlazoRespuesta } from "./contrato-llamamiento.js";
 
 /** Estado derivado del plazo, compartido por el formulario y la vista. */
@@ -37,11 +37,6 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
     const valor = estado[operacion].valores[nombre] ?? "";
     const visible = tipo === "datetime-local" ? String(valor).replace(/Z$/u, "") : valor;
-    if (nombre === "clave_idempotencia" && valor !== "") {
-      // La clave ya preparada viaja oculta; en pantalla solo se ofrece copiarla.
-      return `<div class="ct-campo"><input id="${id}" name="${nombre}" value="${e(valor)}"
-        type="hidden" readonly><p id="${id}-visible" tabindex="-1">${claveRecuperacionTraducida(valor, e, t)}</p></div>`;
-    }
     const atributos = tipo === "datetime-local" ? 'type="datetime-local" step="0.000001"' : 'type="text" maxlength="160"';
     return `<div class="ct-campo"><label for="${id}">${e(t(etiqueta))} *</label>
       <input id="${id}" name="${nombre}" ${atributos} value="${e(visible)}" required autocomplete="off"
@@ -50,8 +45,6 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
   function acciones(operacion, envio) {
     const paso = estado[operacion];
     return `<div class="ct-acciones">
-      ${paso.solicitud === null && !paso.claveConservada ? `<button class="boton-secundario" type="button"
-        data-ct-llamamiento-clave="${operacion}">${e(t("llamamiento_crear_clave"))}</button>` : ""}
       ${!paso.recibo && !paso.bloqueado ? `<button class="boton-primario" type="submit"${paso.ocupado ? " disabled" : ""}>${e(t(
         paso.solicitud !== null ? "llamamiento_recuperar" : envio))}</button>` : ""}
     </div>`;
@@ -62,7 +55,6 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
     return `<form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado}">
       <fieldset${paso.ocupado ? " disabled" : ""}><legend>${e(t("llamamiento_" + operacion))}</legend>
         <div class="ct-campos">
-          ${entrada(operacion, "clave_idempotencia", "text", "llamamiento_clave_idempotencia", bloqueado || paso.claveConservada)}
           ${entrada(operacion, "instante_en", "datetime-local", etiquetas.instante, bloqueado)}
           ${entrada(operacion, "prueba_ref", "text", etiquetas.prueba, bloqueado)}
         </div></fieldset>
@@ -75,7 +67,6 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
     return `<form data-ct-llamamiento-form="expiracion" novalidate aria-busy="${paso.ocupado}">
       <fieldset${paso.ocupado ? " disabled" : ""}><legend>${e(t("llamamiento_expiracion"))}</legend>
         <div class="ct-campos">
-          ${entrada("expiracion", "clave_idempotencia", "text", "llamamiento_clave_idempotencia", bloqueado || paso.claveConservada)}
           ${CAMPOS_REVISION_RESOLUCION.map((nombre) => `<div class="ct-campo"><label for="ct-llamamiento-expiracion-${nombre}">
             <input id="ct-llamamiento-expiracion-${nombre}" name="${nombre}" type="checkbox" autocomplete="off"${
   paso.valores[nombre] === true ? " checked" : ""}${bloqueado ? " disabled" : ""}> ${e(t("llamamiento_" + nombre + "_expiracion"))}</label></div>`).join("")}

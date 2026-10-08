@@ -11,6 +11,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -194,7 +195,7 @@ func fechaReferenciaFichaPropia(u *url.URL) (personaldomain.FechaCivil, int) {
 // la identidad original y la correlación que preparó la frontera del servidor.
 // Si no hay acuse durable, la respuesta no revela el motivo original.
 func (m *ManejadorFichaPropia) denegar(w http.ResponseWriter, r *http.Request, estado int, motivo string) {
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	motivoRegistro := "entrada_invalida"
 	if estado == http.StatusServiceUnavailable {

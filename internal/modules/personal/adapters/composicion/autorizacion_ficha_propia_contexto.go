@@ -7,6 +7,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -32,7 +33,7 @@ func PrepararContextoIntentoFichaPropia(ctx context.Context, resolver ResolutorI
 	if _, err := estadoIntentoFichaPropia(ctx); err == nil {
 		return ctx, nil
 	}
-	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), limite)
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(limite))
 	defer cancelar()
 	identidad, err := resolver.ResolverIdentidadFichaPropia(auditCtx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {

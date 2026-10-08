@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { LIMITE_TEXTO_FICHA_PROPIA, RUTA_FICHA_PROPIA, ACCEPT_FICHA_PROPIA_EXPORTACION, crearFuentesFichaPropia } from "./cliente-http-ficha-propia.js";
-import { LIMITE_TEXTO_CAMPO_FICHA } from "./vista-ficha-integral.js";
+import { LIMITE_TEXTO_CAMPO_FICHA } from "./vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4";
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js";
 
 const FICHA = Object.freeze({

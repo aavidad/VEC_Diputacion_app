@@ -46,7 +46,7 @@ test("mide el resumen en bytes UTF-8, igual que el contrato Go", async () => {
   const cliente = crearClienteBorradorLlamamiento({ fetchImpl: async () => respuesta(recibo) });
   await cliente.crear({ resumen: "€", claveIdempotencia: "blam-12345678" });
   await cliente.crear({ resumen: "á".repeat(1000), claveIdempotencia: "blam-12345679" });
-  await assert.rejects(async () => cliente.crear({ resumen: "á".repeat(1001), claveIdempotencia: "blam-12345670" }), /2.000/);
+  await assert.rejects(async () => cliente.crear({ resumen: "á".repeat(1001), claveIdempotencia: "blam-12345670" }), /El resumen es demasiado corto o demasiado largo/);
 });
 
 test("cancela sin convertir AbortError en éxito o mensaje de conexión", async () => {

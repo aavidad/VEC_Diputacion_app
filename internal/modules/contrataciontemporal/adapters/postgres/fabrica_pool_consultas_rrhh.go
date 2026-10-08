@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const rolConsultorRRHHPostgreSQL = "vec_contratacion_temporal_consultor_rrhh"
@@ -92,7 +93,8 @@ func nuevoPoolConsultasRRHHPostgreSQL(
 		!configuracionPoolAcreditacionO405Valida(configuracion, modo) {
 		return nil, errorPoolConsultasRRHH(ctx)
 	}
-	poolCreado, err = pgxpool.NewWithConfig(ctx, configuracion)
+	postgresqlcompartido.FijarTamanoPool(configuracion, cadenaConexion, 4)
+	poolCreado, err = postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil || poolCreado == nil {
 		return nil, errorPoolConsultasRRHH(ctx)
 	}

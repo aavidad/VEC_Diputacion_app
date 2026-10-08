@@ -51,8 +51,13 @@ normalizar_manifiesto() {
 				;;
 			*.json)
 				case "${ruta}" in
+					static/canal-interno/destinos.json)
+						[[ "${nombre}" != interno ]] ||
+							fallar "Catalogo de enlaces publico en superficie interna: ${ruta}"
+						;;
 					static/portal-empleado/cache-publica-v1.json | \
 					static/area-personal/cache-publica-v1.json | \
+					static/area-personal/vistas.json | \
 					"${cartografia_indice}" | static/acceso/locales/es.json | \
 						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \
@@ -143,7 +148,7 @@ fi
 if grep -Eq '^static/(portal-empleado|area-personal|presentacion|modulos)/' "${publico}"; then
 	fallar "La superficie publica incorpora recursos de una superficie autenticada."
 fi
-if grep -Eq '^static/(bolsa|verificar|area-personal|presentacion|modulos)/' "${interno}"; then
+if grep -Eq '^static/(bolsa|canal-interno|verificar|area-personal|presentacion|modulos)/' "${interno}"; then
 	fallar "La superficie interna incorpora recursos publicos, externos o de presentacion."
 fi
 

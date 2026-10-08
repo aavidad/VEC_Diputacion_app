@@ -8,7 +8,7 @@ import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i
 import {
   CLAVE, EXPEDIENTE, recibo, raizPrueba, montar, seleccion, comunicacionRegistrada, declaracion,
   justificante, archivoCorreo, revisionManual,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 const CLAVE_CONTACTO = "123e4567-e89b-42d3-a456-426614174011";
 const CLAVE_CAUSA = "123e4567-e89b-42d3-a456-426614174012";
@@ -109,7 +109,7 @@ test("al vencer sin respuesta VEC propone y solo la confirmación de RRHH la reg
   ahora = despues;
   cerrar.revisarPlazo();
   assert.match(raiz.innerHTML, /data-ct-llamamiento-plazo-situacion="vencido"/u);
-  assert.match(raiz.innerHTML, /No aceptación por falta de respuesta y llamamiento al siguiente candidato/u);
+  assert.match(raiz.innerHTML, /La persona no ha respondido en plazo\. Si lo confirma, se dar/u);
   await raiz.enviar("expiracion", { clave_idempotencia: CLAVE_EXPIRACION, revision_respuesta_rrhh: true, revision_plazo_rrhh: false });
   assert.equal(resoluciones.length, 0, "RRHH debe marcar ambas comprobaciones");
   await raiz.enviar("expiracion", { clave_idempotencia: CLAVE_EXPIRACION, ...revisionManual, respuesta: "aceptacion",
@@ -118,8 +118,8 @@ test("al vencer sin respuesta VEC propone y solo la confirmación de RRHH la reg
     expediente_ref: EXPEDIENTE, llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_esperada: 2, respuesta: "expiracion_gobernada", prueba_respuesta_ref: "", ...revisionManual,
     criterio_validacion_ref: PLAZO.criterio_expiracion_ref }]);
-  assert.match(confirmaciones.at(-1).advertencia, /vec\.bolsa\.reglas:1:b08\.sin_respuesta_baja/u);
-  assert.match(raiz.innerHTML, /Propuesta confirmada: no aceptación registrada/u);
+  assert.doesNotMatch(confirmaciones.at(-1).advertencia, /vec\.bolsa\.reglas/u); assert.match(confirmaciones.at(-1).advertencia, /falta de respuesta/u);
+  assert.match(raiz.innerHTML, /Falta de respuesta confirmada/u);
   assert.match(raiz.innerHTML, /Expirado/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
   cerrar();
@@ -143,7 +143,7 @@ test("respuesta fuera de plazo exige la causa acreditada antes de resolver", asy
   assert.equal(resoluciones.length, 0, "sin causa acreditada no se resuelve");
   await raiz.enviar("causa", { clave_idempotencia: CLAVE_CAUSA, instante_en: "2026-09-07T07:30", prueba_ref: "prueba:causa" });
   assert.equal(eventos.at(-1).tipo, "causa_justificada");
-  assert.match(raiz.innerHTML, /Causa justificada acreditada/u);
+  assert.match(raiz.innerHTML, /Causa justificada anotada/u);
   await raiz.enviar("resolucion", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174003", ...revisionManual });
   assert.equal(resoluciones.length, 1);
   assert.equal(resoluciones[0].criterio_validacion_ref, PLAZO.criterio_respuesta_ref);

@@ -2,7 +2,7 @@ import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n
 
 import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
 export { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { recortarBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vd "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -160,7 +161,7 @@ func (t *TransaccionCierreAdministrativoPostgreSQL) EjecutarCierreAdministrativo
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancel()
 			_ = tx.Rollback(c)
 		}

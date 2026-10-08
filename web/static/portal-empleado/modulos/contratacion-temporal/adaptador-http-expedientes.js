@@ -3,11 +3,11 @@ import {
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { minutosJornadaCompletaValidos } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -478,11 +478,30 @@ function fasesDesdeHitos(detalle, traducir) {
     }
   }
   const actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
-  // La fase administrativa actual manda, salvo que una acción ya la haya cumplido (análisis registrado).
-  if (actual >= 0 && fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO) {
+  // La fase actual del manifiesto es autoritativa para la posición del rail.
+  // Un hito puede completar una tarea de esa fase sin avanzar el expediente.
+  if (actual >= 0 && (presentacion.fase_actual || fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO)) {
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
   }
   return fases;
+}
+
+// Datos de la petición para prerrellenar el análisis; si no encajan en el
+// contrato se omiten: la ficha nunca deja de abrirse por una sugerencia.
+function datosPeticionParaAnalisis(detalle) {
+  if (detalle.analisis || !detalle.solicitud) return {};
+  try {
+    return { datos_peticion: validarDatosPeticionAnalisis({
+      ...(detalle.resumen.modalidad_clave ? { modalidad_clave: detalle.resumen.modalidad_clave } : {}),
+      categoria_ref: detalle.resumen.categoria_ref,
+      grupo_subgrupo: detalle.solicitud.grupo_subgrupo,
+      periodo: { inicio: detalle.solicitud.periodo_inicio,
+        ...(detalle.solicitud.periodo_fin ? { fin: detalle.solicitud.periodo_fin }
+          : { causa_fin: detalle.solicitud.periodo_causa_fin }) },
+    }) };
+  } catch {
+    return {};
+  }
 }
 
 function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCompleta) {
@@ -508,6 +527,8 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
       ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
     } } : {}),
+    // Sin análisis todavía, los datos de la petición prerrellenan el formulario.
+    ...datosPeticionParaAnalisis(detalle),
     fases: fasesDesdeHitos(detalle, traducir),
     historial: historialDesdeHitos(detalle.hitos, locale, t),
     ...(detalle.fiscalizacion ? { fiscalizacion: {
@@ -529,6 +550,10 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
 export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   cliente, locale = "es-ES", obtenerCatalogos = () => null, mensajes = {},
   obtenerJornadaCompleta = () => null, obtenerModalidades = () => null,
+  // Nombres de centro de Organización (Map referencia → nombre, o promesa de
+  // él). Solo completan los centros que el catálogo del alta no nombra, p. ej.
+  // para un perfil que no puede dar de alta peticiones.
+  obtenerCentrosOrganizacion = () => null,
 } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
@@ -545,6 +570,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   }
   if (typeof obtenerModalidades !== "function") {
     throw new TypeError("obtener modalidades de expedientes no válido");
+  }
+  if (typeof obtenerCentrosOrganizacion !== "function") {
+    throw new TypeError("obtener centros de organización no válido");
   }
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
@@ -588,8 +616,23 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     }
   }
 
+  async function resolverCentrosOrganizacion() {
+    try {
+      const centros = await obtenerCentrosOrganizacion();
+      return centros instanceof Map && centros.size > 0 ? centros : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function resolverEtiquetas() {
-    const [catalogos, modalidades] = await Promise.all([resolverCatalogos(), resolverModalidades()]);
+    const [catalogosAlta, modalidades, organizacion] = await Promise.all([
+      resolverCatalogos(), resolverModalidades(), resolverCentrosOrganizacion()]);
+    // El catálogo del alta manda; Organización solo nombra lo que falte.
+    const catalogos = organizacion === null ? catalogosAlta : {
+      ...(catalogosAlta ?? {}),
+      centros: new Map([...organizacion, ...(catalogosAlta?.centros ?? [])]),
+    };
     return modalidades === null ? catalogos : { ...(catalogos ?? {}), modalidades };
   }
 
@@ -622,6 +665,17 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
       }
       return cuadro;
+    },
+    // Portada: los recuentos de todo el cuadro, sin descargar sus filas. La
+    // misma consulta autorizada que la lista, con una sola fila y el resumen.
+    async resumenInicio({ signal } = {}) {
+      const pagina = await cliente.consultarCuadroRRHH({
+        filtros: { texto: "", estado_clave: "", fase_clave: "" },
+        paginacion: { limite: 1, cursor: "" },
+        resumen: true,
+      }, { signal });
+      if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
+      return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
     },
     async obtener(expedienteRef, { signal } = {}) {
       const version = versiones.get(expedienteRef);

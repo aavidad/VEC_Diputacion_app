@@ -9,6 +9,8 @@ import (
 	"time"
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -98,7 +100,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	if estado == http.StatusForbidden {
 		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
 	}
-	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(2*time.Second))
 	defer cancel()
 	correlacion, err := nuevaCorrelacionDenegacionPreferenciasUsuarios()
 	if err != nil {
@@ -109,7 +111,12 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
 	}
-	return a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden)
+	inicioAuditoria := time.Now()
+	err = a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden)
+	if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+		telemetria.RegistrarFase(ctxAuditoria, telemetria.FaseAuditoria, time.Since(inicioAuditoria), err)
+	}
+	return err
 }
 
 func (a *autoridadPreferenciasUsuariosDesarrollo) AuditarDenegacionPreferencias(ctx context.Context, estado int) error {

@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("ayuda");
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {
@@ -35,7 +39,7 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   const configuracion = renderizar();
   assert.match(configuracion, /name="plazo" required minlength="2" maxlength="160" value=""/);
   assert.doesNotMatch(configuracion, /no presupone un plazo legal|no acreditan entrega/);
-  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /no presupone un plazo legal.*no acreditan la entrega/);
+  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /RRHH debe indicar el plazo aplicable.*compruebe.*aviso se ha enviado y entregado/);
   assert.doesNotMatch(configuracion, /48 horas|relay de desarrollo|Recorrido real B7/);
   flujo.configuracion = { plazo: "Pendiente de definición por RRHH" };
   assert.match(renderizar(), /name="plazo" required minlength="2" maxlength="160" value=""/);
@@ -75,8 +79,9 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
     obtenerModalFicha: () => modalFicha,
   });
   const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /aria-describedby="bolsa-resultado-sin-expediente" disabled aria-disabled="true">Registrar resultado/);
-  assert.match(html, /id="bolsa-resultado-sin-expediente"[^>]+>La aceptación o renuncia se registra en el expediente/);
+  // La aceptación o renuncia se registra en Contratación temporal: el botón lleva allí, nunca queda muerto.
+  assert.match(html, /<a class="boton-secundario boton-ancho" href="\/portal-empleado\/#contratacion-temporal">Registrar resultado en Peticiones de personal temporal<\/a>/);
+  assert.doesNotMatch(html, /bolsa-resultado-sin-expediente|disabled aria-disabled="true">Registrar resultado/);
   assert.doesNotMatch(html, /data-bolsa-accion="abrir-resultado"|data-bolsa-form="resultado"|href="[^"]*llamamiento:01/);
 
   modalFicha = { abierto: true, candidato, bolsa, registroContacto: {}, intentosContacto: { carga: "cargando" }, reciboContacto: "recibo:contacto:01" };
@@ -99,8 +104,7 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   assert.doesNotMatch(sinPermiso, /Registrar resultado|bolsa-resultado-sin-expediente|data-bolsa-accion="abrir-ficha"/);
 
   // En Node la interfaz está en el idioma por defecto; el inglés se comprueba en su catálogo de datos.
-  assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente"), /\bHTTP\b|B3|CT[0-9]/);
   const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
-  assert.match(ingles.panel_resultado_sin_expediente, /This job pool does not identify the case/);
+  assert.equal(Object.hasOwn(ingles, "panel_resultado_sin_expediente"), false);
   assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or declines/);
 });

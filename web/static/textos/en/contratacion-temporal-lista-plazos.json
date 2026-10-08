@@ -1,10 +1,13 @@
 {
   "lista": {
+    "plazo_fase_en_plazo": "Within deadline",
+    "plazo_fase_vence_hoy": "Due today",
+    "plazo_fase_vencido": "Overdue",
+    "plazo_fase_sin_calcular": "Not calculated",
     "lista_mostrar_vencidos": "Overdue",
-    "lista_estado_plazo_vencido": "{estado} · deadline passed on {fecha}",
-    "lista_plazo_vencio_ayer": "Due yesterday",
-    "lista_plazo_vencio_hace": "Due {dias} days ago",
-    "lista_plazo_vencio_hoy": "Due earlier today",
+    "lista_plazo_vencio_ayer": "Overdue since yesterday",
+    "lista_plazo_vencio_hace": "Overdue by {dias} days",
+    "lista_plazo_vencio_hoy": "Was due today",
     "lista_plazo_vence_hoy": "Due today",
     "lista_plazo_vence_manana": "Due tomorrow",
     "lista_plazo_vence_en": "Due in {dias} calendar days"

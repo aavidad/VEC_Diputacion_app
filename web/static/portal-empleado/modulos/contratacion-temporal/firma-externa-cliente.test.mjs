@@ -3,7 +3,7 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 
 import { crearClienteFirmaExterna, ErrorFirmaExterna, RUTA_REGISTRO_FIRMA_EXTERNA } from "./firma-externa-cliente.js";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 const pdf = new TextEncoder().encode("%PDF-1.7\nobj\n%%EOF");

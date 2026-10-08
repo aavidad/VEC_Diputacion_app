@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -185,9 +185,10 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
 });
 
 test("la proyección autorizada localiza cabeceras, fase, estado y período sin alterar datos de servidor", async () => {
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
   for (const [locale, mensajes, fase, estado, cabecera] of [
     ["es-ES", {}, "Obtención del candidato", "En trámite", "Período solicitado"],
-    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate selection", "In progress", "Requested period"],
+    ["en-GB", mensajesEN, "Candidate selection", "In progress", "Requested period"],
   ]) {
     const llamadas = [];
     const cliente = clienteFalso(llamadas);
@@ -431,6 +432,32 @@ test("no marca la obtención de candidato sin mapeo acreditado del servidor", as
   assert.equal(expediente.fases.length, 8);
   assert.equal(expediente.fases[4].etiqueta, "Obtención del candidato");
   assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
+});
+
+test("la rectificación conserva una fase actual visible si el servidor sigue en solicitud", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarDetalleRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...resumen, fase_clave: "solicitud", estado_clave: "en_curso" },
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: [{ secuencia: 1, version_expediente: 2,
+      accion_clave: "contratacion_temporal.analisis.rectificar",
+      realizada_en: "2026-09-03T09:00:00Z", fase_origen: "solicitud",
+      fase_destino: "solicitud", estado_origen: "en_curso", estado_destino: "en_curso" }],
+    presentacion_flujo: {
+      referencia: "flujo-visual:rrhh:temporal", fase_actual: "solicitud",
+      fases: ["solicitud", "analisis_rrhh", "gestion_bolsa"].map((clave, indice) => ({
+        clave, orden: indice + 1, clave_i18n: `contratacion_temporal.fase.${clave}`,
+      })),
+    },
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(expediente.fases[0].estado_clave, "en_curso");
+  assert.equal(expediente.fases[1].estado_clave, "completado");
+  assert.equal(expediente.fases.filter(({ estado_clave }) => estado_clave === "en_curso").length, 1);
 });
 
 test("completa sólo la obtención de candidato desde la propuesta formalizada", async () => {
@@ -773,4 +800,28 @@ test("el centro con la clave de la organización se nombra con su entrada del ca
   assert.equal(etiquetaCatalogo(centros, "centro-810a"), "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA");
   assert.equal(etiquetaCatalogo(centros, "centro-999"), "centro-999");
   assert.equal(etiquetaCatalogo(null, "centro-520"), "centro-520");
+});
+
+test("sin análisis, el expediente lleva los datos de la petición para prerrellenarlo", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.analisis; delete detalle.cobertura;
+    return detalle;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.deepEqual(expediente.datos_peticion, {
+    modalidad_clave: "bolsa", categoria_ref: "categoria:auxiliar", grupo_subgrupo: "A2",
+    periodo: { inicio: "2026-09-04T00:00:00Z", fin: "2026-12-31T00:00:00Z" },
+  });
+  assert.equal(expediente.analisis_previo, undefined);
+});
+
+test("con análisis registrado, el expediente no ofrece datos de la petición", async () => {
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso([]) });
+  await adaptador.listar();
+  assert.equal((await adaptador.obtener(resumen.expediente_ref)).datos_peticion, undefined);
 });

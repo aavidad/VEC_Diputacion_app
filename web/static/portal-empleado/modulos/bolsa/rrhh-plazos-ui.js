@@ -1,6 +1,6 @@
-import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261002-r2-post401-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
@@ -30,8 +30,7 @@ function claveNueva() {
 /** Propuesta del catálogo de Bolsa; sin regla no se propone una cifra. */
 export async function cargarPlazoCatalogo({ cliente } = {}) {
   try {
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
-    const datos = await lector.reglas();
+    const datos = await leerReglasVigentes({ cliente });
     const reglas = datos.catalogos.filter((catalogo) => catalogo.modulo === "bolsa" && catalogo.estado === "disponible")
       .flatMap((catalogo) => catalogo.reglas).filter((regla) => regla.clave === CLAVE_PLAZO_CATALOGO);
     if (reglas.length !== 1) return null;

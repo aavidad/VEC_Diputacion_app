@@ -20,6 +20,7 @@ for (const { codigo, localizacion } of INDICE_IDIOMAS.idiomas) {
     const t = crearTraductorSolicitudes(mensajes, localizacion);
     assert.equal(t.numero(12345), new Intl.NumberFormat(localizacion).format(12345));
     const fecha = new Intl.DateTimeFormat(localizacion, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).format(new Date(datos.tramites[0].fecha));
+    assert.equal(formatearFechaSolicitudes(datos.tramites[0].fecha, localizacion), fecha);
     const html = renderizarSolicitudes({ situacion: "disponible", datos }, mensajes, localizacion);
     assert.ok(html.includes(mensajes.titulo));
     assert.ok(html.includes(mensajes.estado_en_revision));

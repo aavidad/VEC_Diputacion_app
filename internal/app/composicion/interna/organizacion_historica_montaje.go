@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	ports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -102,7 +103,7 @@ func acreditarPoolOrganizacionHistorica(ctx context.Context, pool *pgxpool.Pool,
 	if acreditarPoolSeguimiento(ctx, pool, perfil) != nil {
 		return ErrPoolsSeguimientoNoDisponibles
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tablas := []string{"org_nodo_historia", "version_rpt_historia", "version_plantilla_historia", "puesto_tipo_historia", "dotacion_rpt_historia", "plaza_plantilla_historia", "puesto_rpt_historia", "vinculo_plaza_puesto_historia", "recibo_consulta_organizacion"}
 	const sql = `SELECT count(*)=9 AND NOT COALESCE(bool_or(pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),true) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_personal' AND c.relname=ANY($1::text[]) AND c.relkind IN ('r','p')`

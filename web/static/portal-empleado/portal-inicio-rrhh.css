@@ -11,6 +11,9 @@
 
 .portal-rrhh-inicio > .cabeza-pagina { margin: 0; }
 .portal-rrhh-pendientes .cabecera-panel { flex-wrap: wrap; }
+/* Lo pendiente: tres cifras dentro del panel, en una fila en escritorio. */
+.portal-rrhh-pendientes > .rejilla-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 16px 20px 20px; }
+@media (max-width: 720px) { .portal-rrhh-pendientes > .rejilla-kpi { grid-template-columns: 1fr; padding: 12px; } }
 .portal-rrhh-inicio .rejilla-kpi { margin: 0; }
 .portal-rrhh-fecha { font-size: 1.125rem; }
 

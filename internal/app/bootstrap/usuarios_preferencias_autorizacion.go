@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"time"
 
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -83,7 +85,9 @@ func (p *proveedorPreferenciasUsuarios) ProveerMaterialPreferencias(ctx context.
 	if err != nil {
 		return vacia, usuariosports.ErrProhibido
 	}
+	inicioV3 := time.Now()
 	decision, confirmacion, exportador, err := emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, c.resultado)
+	telemetria.RegistrarFase(ctx, telemetria.FaseV3, time.Since(inicioV3), err)
 	if errors.Is(err, core.ErrAutorizacionDenegada) {
 		return vacia, usuariosports.ErrProhibido
 	}

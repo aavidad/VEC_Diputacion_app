@@ -68,3 +68,35 @@ Ninguno toca las PR en marcha (#713, #715, #719, #727, #733, #734, #736–#742).
 7. **C11 · Revisión de usabilidad del recorrido de RRHH** (bandeja, detalle, análisis, llamamiento, ficha del candidato de Bolsa) con `revisor-usabilidad-vec`. Entrega la lista de cambios por pantalla, ordenada por gravedad. Tamaño S.
 8. **B6 · Decidir sobre las PR antiguas** del proceso externo (#179, #204, #205, #206, #209, #221) y de plazos (#233, #237, #240): qué se rescata, sobre qué main y qué se cierra. Lo decide dirección. Desbloquea B5 (correo corporativo) y C6 (plazo tras subsanar). Tamaño S.
 9. **B3 · Renuncia justificada y «en revisión» de punta a punta:** el aspirante entrega el justificante desde Mi Bolsa, RRHH lo valida y el estado cambia, con auditoría. Va después de B2. Tamaño S–M.
+
+
+## Correcciones del recorrido del 07/10: auditoría del expediente
+
+La consulta web distingue ahora una ruta de auditoría no disponible (404) de un acceso denegado (401/403). Ante un fallo temporal permite reintentar y mantiene los filtros cerrados hasta recuperar las opciones del servidor. El número del expediente se recibe como dato de presentación desde la ficha; no se deduce de su referencia opaca. El montaje que lo transmite se entrega con la corrección de la ficha de CT.
+
+La activación sigue en manos de dirección: el despliegue requiere `VEC_RRHH_AUDITORIA_ENABLED` y sus dependencias nominales. Esta corrección de interfaz no activa el servicio ni cambia permisos, consultas o registros de auditoría. El contrato Go y SQL de Documentos D14 del equipo V está integrado en main (#845). La ficha de #850 transmite la referencia `expediente:ct:<64 hex>` y rechaza la referencia vacía de desarrollo. La instalación de D14 y la consulta nominal en el entorno de destino siguen requiriendo su comprobación; esta entrega no las acredita.
+
+Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; después, las lecturas de Bolsa con una decisión V3, auditoría y consulta en la misma transacción, paginación SQL y listas filtradas para las cifras del resumen. CT187 está integrado desde la PR #840; su medición y sus límites constan allí. No se da por terminado el recorrido completo ni la firma.
+
+
+## Inicio sin acceso SAE pendiente — 8 de octubre de 2026
+
+Se retiran la tarjeta y la entrada de ofertas al SAE de Inicio: abrían una pantalla sin gestión disponible. Inicio conserva los indicadores de peticiones y Bolsa, en la rejilla compacta común. La elección de cobertura en el expediente y los datos de las ofertas de Bolsa conservan su recorrido. La gestión del SAE se ofrecerá cuando tenga un consumidor real.
+
+## Alta según la circular del 19/02/2026 — preparación del 08/10
+
+El catálogo v2 distingue vacante, sustitución, acumulación de tareas y programa. Recoge el número de personas y exige los códigos de plaza y puesto para vacante. La jornada se muestra en horas y minutos y se conserva en minutos enteros. La modalidad jurídica se decide durante el análisis. El catálogo de ejemplo es configurable y cita la circular oficial comprobada.
+
+Los textos de necesidades se cargan en el idioma activo al abrir Alta, con reintento. La interfaz valida las referencias alternativas de financiación y los periodos de cada causa. El coordinador entrega el getter v2 sin pedirlo en otras vistas. El recibo HTTP conserva sus cinco campos. La consulta RPT por código exacto, cedida por Personal, filtra antes del recuento y la paginación; la recuperación de la ficha distingue incidencia, ausencia y denegación.
+
+CT193 y Go conservan la necesidad y el catálogo en el efecto sellado. Dos revisiones estáticas y el ensayo PostgreSQL 18 desechable verificaron catálogo v2 y número de personas igual a2, incluidos reinicio, colisión y concurrencia; las instantáneas anteriores conservaron sus reglas. El formulario pasó Chrome con APIs de prueba. Falta el recorrido HTTP nominal completo. La puerta de calidad rechazó los bloques de reconstrucción dinámica. El primer cambio a definiciones explícitas (`83a14d71…e798`) omitía CT164; dirección lo rechazó y su ensayo no reproducía la principal. La corrección `eefd7bc6…6bb3` parte de postHX más los 14 cambios HZ: conserva CT164 y reconstruye las 71 altas con los mismos bytes. El ensayo PostgreSQL 18 terminó con código 0 y mantuvo las cinco funciones y el trigger de CT164. La prueba del circuito inicial usa una transacción revertida; no acredita un alta V3 nominal. La prueba de programa temporal que fallaba en CI ya incluye el número de personas obligatorio y pasa. Las revisiones finales y la CI del correctivo siguen pendientes. CONFIG NUEVA: `VEC_CT_NECESIDADES_ALTA_SOURCE_PATH=/app/data/catalogos/contratacion-temporal/necesidades_v1.ejemplo.json`. Docker copia la fuente única a esa ruta. En el kit nativo se copia la misma fuente a `data/catalogos/contratacion-temporal/necesidades_v1.ejemplo.json`; dirección monta el directorio data ya usado por la aplicación y activa el selector después de instalar CT193. La imagen no activa el selector por defecto. No se instaló SQL en una base compartida.
+
+
+## Etiquetas de Alta y ayuda de Inicio — 08/10
+
+Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo de cada causa. La plaza opcional lleva una sola indicación; la obligatoria lleva asterisco y el control exige el valor. La ayuda de Inicio describe las áreas disponibles, sin ofrecer las ofertas al SAE retiradas. La validación de las cuatro causas y los permisos se conserva. Este corte no requiere SQL ni configuración nueva.
+
+
+## Alta con capacidad limitada — 08/10
+
+Sin publicación de necesidades configurada, el catálogo v2 responde con una capacidad ausente específica; no usa las cuatro causas del ejemplo. La pantalla conserva el alta de sustitución que ofrece el catálogo v1 y explica qué se puede registrar. Sólo activa ese recorrido ante la respuesta validada del servidor y un catálogo v1 limitado a sustitución. Una avería, denegación o respuesta inválida mantiene el error y el reintento. La capacidad ausente no ofrece un reintento junto al formulario: conserva los datos y la operación activa. Después de configurar la fuente y volver a cargar el portal, el catálogo v2 ofrece las causas publicadas. No añade SQL ni configuración nueva; para las otras causas sigue siendo necesario configurar la fuente de #895 después de CT193.

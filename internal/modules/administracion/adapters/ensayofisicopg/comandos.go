@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 const dockerLocal = "/usr/bin/docker"
@@ -54,7 +55,7 @@ func (e Ensayador) herramienta(ctx context.Context, nombre, programa string, arg
 }
 
 func eliminarContenedor(nombre string) bool {
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	_, _ = docker(ctx, nil, 4096, "container", "rm", "--force", nombre)
 	b, err := docker(ctx, nil, 4096, "container", "ls", "--all", "--filter", "name=^/"+nombre+"$", "--format", "{{.ID}}")

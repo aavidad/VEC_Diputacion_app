@@ -15,6 +15,7 @@ import (
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	"vec-diputacion-granada/internal/shared/i18n"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -207,7 +208,7 @@ const sondaFronteraCorreosSQL = `SELECT count(*)=1 FROM pg_catalog.pg_constraint
  AND position('/api/vec/usuarios/area-personal/mis-correos' IN pg_catalog.pg_get_constraintdef(oid))>0`
 
 func preflightSQLCorreosUsuariosDesarrollo(cfg config.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	for _, superficie := range superficiesUsuariosEnProceso(cfg) {
 		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, superficie)

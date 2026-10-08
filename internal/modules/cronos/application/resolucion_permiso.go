@@ -108,7 +108,7 @@ func (s *ServicioResolucionPermisos) contexto(ctx context.Context, orden ports.O
 	if err != nil {
 		return vecdomain.ContextoActor{}, "", err
 	}
-	empleado, _, err := empleadoVigente(actor, s.reloj)
+	empleado, _, err := empleadoVigente(ctx, actor, s.reloj)
 	return actor, empleado, err
 }
 
@@ -202,7 +202,7 @@ func (s *ServicioAvisosPropios) contexto(ctx context.Context, orden ports.OrdenA
 	if err != nil {
 		return vecdomain.ContextoActor{}, "", err
 	}
-	empleado, _, err := empleadoVigente(actor, s.reloj)
+	empleado, _, err := empleadoVigente(ctx, actor, s.reloj)
 	return actor, empleado, err
 }
 

@@ -54,7 +54,11 @@ func (a *AutorizadorNominalFirmaV2) AutorizarFirmaVerificadaV2(ctx context.Conte
 		return cero, err
 	}
 	defer clear(descriptor)
-	r, err := RecursoFirmaVerificadaV2(m, descriptor)
+	ambitos, err := a.emisor.ObtenerAmbitosOperadorFirmaV2(ctx)
+	if err != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	r, err := RecursoFirmaVerificadaV2ConAmbitos(m, descriptor, ambitos)
 	if err != nil {
 		return cero, err
 	}

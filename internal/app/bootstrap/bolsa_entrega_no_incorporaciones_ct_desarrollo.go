@@ -16,6 +16,9 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // Relevo de no incorporaciones (duda 12 de RRHH): lee la publicación de CT
@@ -220,7 +223,8 @@ func abrirPoolRelevoBolsaDesarrollo(ctx context.Context, dsn, rol, nombreAplicac
 		}
 		return comprobarIdentidadRelevoBolsaDesarrollo(ctx, conexion, rol)
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	telemetria.Instrumentar(configuracion) // consultas por petición en el registro de acceso
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, falloPostgreSQLCTDesarrollo(err)
 	}

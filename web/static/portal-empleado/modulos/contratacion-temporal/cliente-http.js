@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261002-ct-fin-moad-v1";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -15,7 +15,7 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261002-ct-fin-modalidad-v1";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261006-resumen-inicio-v2";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
@@ -298,6 +298,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       throw errorCliente("cabeceras_no_disponibles", { causa: error });
     }
     let respuesta;
+    let respuestaConsumida = false;
     try {
       const opcionesFetch = {
         method: metodo,
@@ -375,13 +376,14 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
           causa: error,
         });
       }
+      respuestaConsumida = true;
       return validada;
     } catch (error) {
       throw efecto
         ? clasificarResultadoEfecto(error, rechazoDeterminado)
         : error;
     } finally {
-      await cancelarRespuesta(respuesta);
+      if (!respuestaConsumida) await cancelarRespuesta(respuesta);
     }
   }
 

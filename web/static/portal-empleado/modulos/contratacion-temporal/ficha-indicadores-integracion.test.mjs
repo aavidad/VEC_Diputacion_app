@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cargarFichaIndicadores } from "../analitica/ficha-indicadores.js";
-import { montarVistaEstadisticas, renderizarVistaEstadisticas } from "./vista-estadisticas.js";
+import { montarVistaEstadisticas, renderizarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 
 const ficha = await cargarFichaIndicadores();
 const datos = { esquema: "vec.ct.estadisticas.v1", corte_global: 73, periodo: "mensual", series: [], totales: {} };

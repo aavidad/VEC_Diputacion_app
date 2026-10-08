@@ -20,11 +20,40 @@ Una entrada inválida devuelve código 1 sin borrador por stdout.
 Si no puede escribir el diagnóstico por stderr, devuelve código 2.
 La herramienta no escribe archivos ni llama a servicios externos.
 
+Para cotejar el borrador con una propuesta de tribunal concreta, guarde primero
+la salida del preparador de tribunal y pásela al comando existente:
+
+```sh
+go run ./cmd/vec-selectivos-preparar-tribunal \
+  -catalogos-dir web/static/textos -idioma es \
+  < cmd/vec-selectivos-preparar-tribunal/testdata/material.json > /var/tmp/tribunal-sintetico.json
+go run ./cmd/vec-selectivos-preparar-acta \
+  -catalogos-dir web/static/textos -idioma es \
+  -tribunal-salida /var/tmp/tribunal-sintetico.json \
+  < cmd/vec-selectivos-preparar-acta/testdata/material-cotejo.json
+```
+
+El material de cotejo deja `huella_aportada_sha256` vacía. El comando calcula el SHA256 de los
+bytes exactos del archivo de salida del tribunal, incluida su presentación JSON,
+y lo incorpora al borrador. Si ya se aportó una huella, exige que coincida. También
+coteja la identidad, la versión y la fase propuesta, y rechaza una salida de
+tribunal alterada que no coincida con la preparación recalculada. `cotejo_local`
+identifica esta comprobación. Cambiar espacios o mensajes del archivo cambia su
+huella, por lo que debe conservarse el archivo exacto que se haya cotejado.
+Los avisos del resultado distinguen lo comprobado en el archivo local de la
+procedencia, vigencia y habilitación que todavía debe confirmar la autoridad.
+
+Sin `-tribunal-salida`, el comando mantiene el contrato anterior: acepta la
+huella aportada si tiene formato válido y deja el antecedente y la fase pendientes
+de cotejo. Con el archivo, el cotejo sigue siendo local: cualquier persona puede
+preparar ese JSON y no se verifica su procedencia institucional.
+
 ## Referencias y propuestas
 
 `antecedente_tribunal` identifica una preparación local de S5 por identidad,
 versión y `huella_aportada_sha256`. La huella procede de quien prepara el archivo:
-el CLI anterior de S5 no la emite y este corte no la coteja con el material original.
+el preparador de tribunal no la emite. El cotejo opcional descrito arriba enlaza
+el borrador con su salida guardada.
 Una referencia con formato válido no acredita la existencia o vigencia del tribunal.
 
 S5 conserva las referencias a la preparación de bases de S2 y al baremo existente.

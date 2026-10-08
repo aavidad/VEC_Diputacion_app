@@ -311,6 +311,8 @@ func solicitudesCentroGobiernoAltaIguales(
 		!primera.Periodo.Inicio.Equal(segunda.Periodo.Inicio) ||
 		!primera.Periodo.Fin.Equal(segunda.Periodo.Fin) ||
 		primera.Periodo.CausaFin != segunda.Periodo.CausaFin ||
+		primera.Periodo.PoliticaFin != segunda.Periodo.PoliticaFin ||
+		!reflect.DeepEqual(primera.Necesidad, segunda.Necesidad) ||
 		primera.RC.Existe != segunda.RC.Existe ||
 		primera.RC.Numero != segunda.RC.Numero ||
 		!primera.RC.Fecha.Equal(segunda.RC.Fecha) ||

@@ -18,12 +18,15 @@ import (
 	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	mibolsa "vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 var (
@@ -158,7 +161,9 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	if err != nil || cfg.ConnConfig.User == "" || validarTLSPostgreSQLBorradores(&cfg.ConnConfig.Config, true) != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
-	cfg.MaxConns, cfg.MinConns = 2, 0
+	// 8 por defecto: con 2, miles de candidatos a la vez hacían cola en el pool.
+	postgresqlcompartido.FijarTamanoPool(cfg, dsn, 8)
+	cfg.MinConns = 0
 	cfg.ConnConfig.ConnectTimeout = 5 * time.Second
 	if cfg.ConnConfig.RuntimeParams == nil {
 		cfg.ConnConfig.RuntimeParams = map[string]string{}
@@ -169,7 +174,8 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	} {
 		cfg.ConnConfig.RuntimeParams[clave] = valor
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	telemetria.Instrumentar(cfg) // consultas por petición en el registro de acceso
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, cfg)
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}

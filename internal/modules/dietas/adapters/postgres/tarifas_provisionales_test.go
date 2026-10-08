@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,57 @@ type filaReglaCatalogo struct{ dato []byte }
 func (f filaReglaCatalogo) Scan(dest ...any) error {
 	*dest[0].(*[]byte) = append([]byte(nil), f.dato...)
 	return nil
+}
+
+type filaTarifaCatalogo struct{ datos []any }
+
+func (f filaTarifaCatalogo) Scan(dest ...any) error {
+	if len(dest) != len(f.datos) {
+		return errors.New("columnas inesperadas")
+	}
+	for i, valor := range f.datos {
+		reflect.ValueOf(dest[i]).Elem().Set(reflect.ValueOf(valor))
+	}
+	return nil
+}
+
+type consultaTarifaCatalogo struct {
+	datos []any
+	sql   string
+	args  []any
+}
+
+func (c *consultaTarifaCatalogo) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	c.sql = sql
+	c.args = append([]any(nil), args...)
+	return filaTarifaCatalogo{c.datos}
+}
+
+func TestConsultarTarifaDevuelveFuentesYConservaImportesProvisionales(t *testing.T) {
+	version := "provisional:rd462:20260923"
+	fecha := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
+	c := &consultaTarifaCatalogo{datos: []any{version, domain.RotuloTarifaProvisional,
+		"BOE-A-2005-19988 / RD 462/2002", "BOE-A-2023-16462 / RD 462/2002",
+		"ES", 2, "2026-09-23", "", int64(3740), int64(6597), "0.2600"}}
+	repo := &RepositorioTarifasProvisionales{consulta: c}
+	leida, err := repo.Consultar(context.Background(), version, 2, "automovil", fecha)
+	if err != nil || leida.ReferenciaDietas != c.datos[2] || leida.ReferenciaKilometraje != c.datos[3] ||
+		leida.Dieta.ManutencionCentimos != 3740 || leida.Dieta.AlojamientoTopeCentimos != 6597 ||
+		leida.EURPorKM != "0.2600" || leida.Dieta.Rotulo != domain.RotuloTarifaProvisional ||
+		c.sql != consultaTarifaComisionProvisional || len(c.args) != 4 || c.args[0] != version || c.args[1] != 2 || c.args[2] != "automovil" || c.args[3] != "2026-09-23" {
+		t.Fatalf("lectura de tarifa y fuentes: %+v %v %#v", leida, err, c.args)
+	}
+	for _, valor := range []string{"", "fuente sin formato"} {
+		c.datos[2] = valor
+		if _, err := repo.Consultar(context.Background(), version, 2, "automovil", fecha); !errors.Is(err, ErrTarifaProvisionalNoDisponible) {
+			t.Fatalf("referencia de dietas %q aceptada: %v", valor, err)
+		}
+	}
+	c.datos[2] = "BOE-A-2005-19988 / RD 462/2002"
+	c.datos[3] = ""
+	if _, err := repo.Consultar(context.Background(), version, 2, "automovil", fecha); !errors.Is(err, ErrTarifaProvisionalNoDisponible) {
+		t.Fatalf("referencia de kilometraje ausente aceptada: %v", err)
+	}
 }
 
 type consultaReglaCatalogo struct {

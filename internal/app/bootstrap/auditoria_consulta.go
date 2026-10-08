@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/config"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	bolsaauditoria "vec-diputacion-granada/internal/modules/bolsa/adapters/auditoriaconsulta"
 	ctauditoria "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/auditoriaconsulta"
@@ -125,7 +126,7 @@ func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, 
 	if respuesta.codigo == http.StatusUnauthorized {
 		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
 	}
-	ctxRegistro, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+	ctxRegistro, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(250*time.Millisecond))
 	defer cancelar()
 	if err := m.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxRegistro, vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion, Motivo: motivo,
@@ -144,12 +145,13 @@ type dependenciasAuditoriaConsultaRRHH struct {
 	EmisorCT, EmisorBolsa auditoria.EmisorMaterialV3
 	Identidad             auditoria.IdentidadConsulta
 	Opciones              auditoria.ProveedorOpciones
+	Intentos              auditoria.ConfiguracionIntentos
 }
 
 func nuevasRutasAuditoriaConsultaRRHH(d dependenciasAuditoriaConsultaRRHH) ([]vechttp.RutaExacta, error) {
 	if d.PoolCT == nil || d.PoolBolsa == nil || dependenciaAuditoriaConsultaNula(d.EmisorCT) ||
 		dependenciaAuditoriaConsultaNula(d.EmisorBolsa) || dependenciaAuditoriaConsultaNula(d.Identidad) ||
-		dependenciaAuditoriaConsultaNula(d.Opciones) {
+		dependenciaAuditoriaConsultaNula(d.Opciones) || dependenciaAuditoriaConsultaNula(d.Intentos.Registrador) {
 		return nil, auditoria.ErrNoDisponible
 	}
 	ct, err := ctauditoria.NuevaFuente(d.PoolCT)
@@ -162,6 +164,9 @@ func nuevasRutasAuditoriaConsultaRRHH(d dependenciasAuditoriaConsultaRRHH) ([]ve
 	}
 	servicio, err := auditoria.NuevoServicio(emisorAuditoriaConsultaRRHH{ct: d.EmisorCT, bolsa: d.EmisorBolsa}, ct, bolsa)
 	if err != nil {
+		return nil, err
+	}
+	if err := servicio.ConfigurarIntentos(d.Intentos); err != nil {
 		return nil, err
 	}
 	manejador, err := auditoria.NuevoManejador(servicio, d.Opciones, d.Identidad)

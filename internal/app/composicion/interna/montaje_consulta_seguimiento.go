@@ -16,6 +16,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -157,7 +158,7 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	if orden.Validar() != nil {
 		return false
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoAuditoriaDenegacionSeguimiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoAuditoriaDenegacionSeguimiento))
 	defer cancelar()
 	if err := p.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		log.Printf("composicion interna: auditoria_frontera_no_registrada correlacion=%s", orden.CorrelacionRef)
@@ -193,7 +194,7 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 	if orden.Validar() != nil {
 		return false
 	}
-	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoAuditoriaDenegacionSeguimiento)
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoarranque.Ampliar(plazoAuditoriaDenegacionSeguimiento))
 	defer cancelar()
 	if err := p.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		log.Printf("composicion interna: auditoria_frontera_no_registrada correlacion=%s", correlacion)

@@ -1,14 +1,16 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
+import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
-export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
-  ...mensajesTramite("es"),
+const MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE = Object.freeze({
+  ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_FICHA_LISTA_ES,
-  centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -26,12 +28,10 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   cabecera_jornada_valor: "{horas} h {minutos} min de media semanal ({porcentaje})",
   cabecera_jornada_menos_minuto: "Menos de 1 min de media semanal ({porcentaje})",
   cabecera_jornada_porcentaje: "{porcentaje} de la jornada completa",
-  cabecera_resultado_rc: "Resultado RC",
   cabecera_coste_estimado: "Coste estimado",
   cabecera_via_cobertura: "Vía de cobertura",
   cabecera_bolsa_cobertura: "Bolsa",
   enlace_bolsa_historico_aria: "Bolsa {bolsa}. Abrir su histórico de llamamientos",
-  cabecera_decision_gobernada: "Decisión gobernada",
   cabecera_comprobacion_bolsa: "Comprobación de bolsa",
   cabecera_unidad_asignada: "Unidad asignada",
   unidad_recursos_humanos: "Recursos Humanos",
@@ -59,31 +59,22 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   nav_documentos: "Documentos",
   nav_auditoria: "Auditoría",
   nav_estadisticas: "Estadísticas",
-  estado_inicial: "La superficie está preparada para cargar los expedientes.",
   estado_cargando: "Cargando cuadro de peticiones de personal temporal.",
   estado_listo: "Cuadro de peticiones de personal temporal actualizado.",
   estado_vacio: "No hay expedientes que coincidan con los filtros.",
   estado_error_carga: "No se pudo cargar el cuadro. Reintente o contacte con soporte.",
   estado_error_filtros: "Revise los filtros: el texto admite hasta 80 caracteres. Use letras, números, espacios o los signos / . _ -.",
   estado_error_paginacion: "La consulta se ha interrumpido; no es el final de la lista. Reiniciar consulta o Reintentar vuelve a la primera página y conserva los filtros.",
-  estado_denegado: "No dispone de acceso a esta superficie.",
-  estado_denegado_expediente: "No dispone de acceso al detalle del expediente.",
-  estado_cargando_expediente: "Cargando expediente y trazabilidad.",
   estado_expediente_listo: "Expediente cargado.",
   estado_error_expediente: "No se pudo cargar el expediente. Reintente desde el cuadro.",
   resolucion_preparacion_cargando: "Consultando la preparación de resolución del expediente.",
   resolucion_preparacion_denegada: "No dispone de permiso para consultar o registrar la resolución de este expediente.",
   resolucion_preparacion_no_disponible: "La preparación de resolución no está disponible. Reintente la consulta; no se ha habilitado ninguna actuación.",
   resolucion_preparacion_reintentar: "Reintentar consulta de resolución",
-  estado_accion_denegada: "La actuación no está disponible para el perfil activo.",
   estado_registrando_actuacion: "Registrando la actuación. No cierre esta pantalla.",
   estado_actuacion_registrada: "Actuación registrada y expediente actualizado.",
-  estado_confirmada_actualizacion_pendiente:
-    "Actuación confirmada. La actualización de la vista está pendiente; no repita el efecto.",
   estado_actualizacion_pendiente:
     "Actualización pendiente. Recargue el expediente antes de realizar otra actuación.",
-  estado_resultado_indeterminado:
-    "El resultado de la actuación no puede determinarse todavía. No la repita; consulte su recibo mediante la recuperación protegida o contacte con soporte.",
   estado_error_actuacion:
     "No se pudo confirmar la actuación. El expediente se conserva sin cambios visibles.",
   montaje_siguiente_pendiente:
@@ -150,7 +141,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   columna_acciones: "Acciones",
   abrir: "Abrir expediente",
   resumen_fila: "Resumen del expediente {expediente}",
-  numero_expediente_sin_asignar: "Sin numerar",
   resumen_abrir_expediente: "Abrir expediente completo",
   resumen_fecha_solicitud: "Solicitud registrada",
   modalidad_no_informada_bandeja: "La consulta de la bandeja no devuelve la modalidad de este expediente.",
@@ -311,7 +301,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   organizacion_referencia: "Centros",
   calendarios_laborales: "Calendarios",
   peticiones_centro: "Peticiones y ratificación · certificado del centro",
-  peticiones_centros_rrhh: "Peticiones",
   nueva_peticion_descripcion:
     "Indique la necesidad de personal del centro y revise los datos antes de registrar la solicitud.",
   fase_sin_confirmar: "Sin confirmar",
@@ -355,11 +344,10 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
 });
 
 /** British English texts for the temporary staff requests case-file interface. */
-export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
-  ...mensajesTramite("en"),
+const MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE = Object.freeze({
+  ...mensajesTramite(),
   ...MENSAJES_ANALISIS_CATALOGO_EN,
   ...MENSAJES_FICHA_LISTA_EN,
-  centro_visible: "Centre {ambito} · {numero}",
   justificante_registrado: "Acknowledgement recorded",
   justificante_copiar: "Copy reference",
   justificante_copiado: "Reference copied",
@@ -377,12 +365,10 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   cabecera_jornada_valor: "{horas} hr {minutos} min weekly average ({porcentaje})",
   cabecera_jornada_menos_minuto: "Less than 1 min weekly average ({porcentaje})",
   cabecera_jornada_porcentaje: "{porcentaje} of full-time hours",
-  cabecera_resultado_rc: "RC outcome",
   cabecera_coste_estimado: "Estimated cost",
   cabecera_via_cobertura: "Staffing route",
   cabecera_bolsa_cobertura: "Recruitment pool",
   enlace_bolsa_historico_aria: "Recruitment pool {bolsa}. Open its call history",
-  cabecera_decision_gobernada: "Controlled decision",
   cabecera_comprobacion_bolsa: "Recruitment-pool check",
   cabecera_unidad_asignada: "Assigned unit",
   unidad_recursos_humanos: "Human Resources",
@@ -410,31 +396,22 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   nav_documentos: "Documents",
   nav_auditoria: "Audit",
   nav_estadisticas: "Statistics",
-  estado_inicial: "The page is ready to load case files.",
   estado_cargando: "Loading the temporary staff requests dashboard.",
   estado_listo: "Temporary staff requests dashboard updated.",
   estado_vacio: "No case files match the filters.",
   estado_error_carga: "The dashboard could not be loaded. Try again or contact support.",
   estado_error_filtros: "Check the filters: text may contain up to 80 characters. Use letters, numbers, spaces or the symbols / . _ -.",
   estado_error_paginacion: "The enquiry was interrupted; this is not the end of the list. Restart enquiry or Try again returns to the first page and keeps the filters.",
-  estado_denegado: "You do not have access to this page.",
-  estado_denegado_expediente: "You do not have access to the case-file details.",
-  estado_cargando_expediente: "Loading the case file and audit trail.",
   estado_expediente_listo: "Case file loaded.",
   estado_error_expediente: "The case file could not be loaded. Try again from the dashboard.",
   resolucion_preparacion_cargando: "Checking the preparation of the decision for this case file.",
   resolucion_preparacion_denegada: "You do not have permission to view or record the decision for this case file.",
   resolucion_preparacion_no_disponible: "Decision preparation is unavailable. Try the enquiry again; no action has been enabled.",
   resolucion_preparacion_reintentar: "Retry decision enquiry",
-  estado_accion_denegada: "This action is unavailable to the active profile.",
   estado_registrando_actuacion: "Recording the action. Do not close this page.",
   estado_actuacion_registrada: "Action recorded and case file updated.",
-  estado_confirmada_actualizacion_pendiente:
-    "Action confirmed. The view has yet to be updated; do not repeat the action.",
   estado_actualizacion_pendiente:
     "Update pending. Reload the case file before taking another action.",
-  estado_resultado_indeterminado:
-    "The outcome of the action cannot yet be determined. Do not repeat it; retrieve its receipt using protected recovery or contact support.",
   estado_error_actuacion:
     "The action could not be confirmed. The case file remains without visible changes.",
   montaje_siguiente_pendiente:
@@ -501,7 +478,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   columna_acciones: "Actions",
   abrir: "Open case file",
   resumen_fila: "Summary of case file {expediente}",
-  numero_expediente_sin_asignar: "Not numbered",
   resumen_abrir_expediente: "Open full case file",
   resumen_fecha_solicitud: "Request recorded",
   modalidad_no_informada_bandeja: "The work-queue enquiry does not return the type for this case file.",
@@ -662,7 +638,6 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   organizacion_referencia: "Centres",
   calendarios_laborales: "Calendars",
   peticiones_centro: "Requests and ratification · centre certificate",
-  peticiones_centros_rrhh: "Requests",
   nueva_peticion_descripcion:
     "Enter the centre's staffing need and review the details before recording the request.",
   fase_sin_confirmar: "Unconfirmed",
@@ -705,12 +680,19 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   comprobacion_resultado_no_consta: "Not recorded",
 });
 
+export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE : undefined;
+export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? undefined : MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE;
+
 export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {
   if (sobrescrituras === null || typeof sobrescrituras !== "object"
     || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes de expedientes no válidos");
   }
-  const mensajes = { ...MENSAJES_EXPEDIENTES_CONTRATACION_ES, ...sobrescrituras };
+  const base = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+    ? MENSAJES_EXPEDIENTES_CONTRATACION_ES : MENSAJES_EXPEDIENTES_CONTRATACION_EN;
+  const mensajes = { ...base, ...sobrescrituras };
   for (const [clave, valor] of Object.entries(mensajes)) {
     if (typeof valor !== "string" || valor.trim() === "") {
       throw new TypeError(`mensaje ${clave} no válido`);
@@ -723,4 +705,31 @@ export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {
       mensajes[clave],
     );
   };
+}
+
+/** Prepara expresamente los mensajes de otro idioma sin cargarlo al abrir CT. */
+export async function cargarMensajesExpedientesContratacionEnIdioma(idioma) {
+  const catalogos = await Promise.all([
+    cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-ficha-lista", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-lista-plazos", idioma, "lista"),
+    ...["incorporacion", "hito", "continuidad", "firma", "borrador", "firma_pendiente"]
+      .map((seccion) => cargarCatalogosContratacionEnIdioma(
+        "contratacion-temporal-firma-incorporacion-expedientes", idioma, seccion)),
+  ]);
+  if (catalogos.some((catalogo) => catalogo.idioma !== idioma)) {
+    if (idioma === IDIOMA_POR_DEFECTO) throw new Error("catálogo de expedientes no disponible");
+    return cargarMensajesExpedientesContratacionEnIdioma(IDIOMA_POR_DEFECTO);
+  }
+  const base = idioma === IDIOMA_POR_DEFECTO
+    ? MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE : MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE;
+  const mensajes = { ...base };
+  for (const catalogo of catalogos.slice(1)) {
+    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+      if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
+    }
+  }
+  Object.assign(mensajes, await cargarMensajesTramiteEnIdioma(idioma));
+  return Object.freeze(mensajes);
 }

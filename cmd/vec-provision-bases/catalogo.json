@@ -1,0 +1,67 @@
+{
+  "schema_version": "provision.bases_publicas.v1",
+  "procesos": [
+    {
+      "modalidad": "concurso_general",
+      "expediente": "2026/PPT_01/000026",
+      "cve": "BOP-GRA-2026-060006",
+      "estado": "transcripcion_publica_pendiente_revision_rrhh",
+      "fuentes": [
+        {
+          "tipo": "bop_bases_y_anexo_rectificados",
+          "url": "https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1774825281922-final-43091ebf.pdf?p=1776760572971",
+          "sha256": "7cd3b0f34df21f0811c71242be4ca128105cc6c498ed10af1fa0f7ab28b9fc11"
+        },
+        {
+          "tipo": "rectificacion_1306",
+          "url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Documentos-Provision-de-Puestos/2026_PPT_01000026_-RECTIFICACION_ERRORES.pdf",
+          "sha256": "f1f280d947cb7c97d647d62a3b487c2d12fa45cd939a7e6fb6f896b0b35a3aa0"
+        },
+        {
+          "tipo": "boe_extracto_8491",
+          "url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Documentos-Provision-de-Puestos/2026_PPT_01000026-BOE.pdf",
+          "sha256": "bd8feb124499108da02716cb71e9c047eb85a519377a73b8dee3144329beca72"
+        }
+      ],
+      "fuente_plazo_url": "https://www.dipgra.es/servicios/areas/transparencia/mostrar/CONVOCATORIA-PARA-LA-PROVISION-DE-PUESTOS-DE-TRABAJO-POR-EL-PROCEDIMIENTO-DE-CONCURSO-GENERAL-Expte.-2026-PPT_01-000026/",
+      "plazo_fin_inclusivo": "2026-05-04",
+      "fecha_corte_exclusiva": "2026-05-05",
+      "puestos_anexo_codigo": ["2714", "2923", "1851", "2904", "2905", "2712", "2713", "2788", "3103"],
+      "puestos_excluidos_rectificacion_codigo": ["3724", "2894"],
+      "apartados": [
+        {"referencia": "base:1", "estado": "transcrito", "dato": "Oferta del anexo publicado; la vacancia efectiva requiere fuente RPT."},
+        {"referencia": "base:3", "estado": "pendiente_integracion", "dato": "Condición funcionarial, requisitos por puesto y excepciones de permanencia requieren fuentes autorizadas."},
+        {"referencia": "base:4", "estado": "pendiente_integracion", "dato": "La solicitud se presenta por el registro electrónico indicado en la convocatoria."},
+        {"referencia": "base:6:A", "estado": "transcrito_parcial", "familia_motor": "valoracion_trabajo", "maximo_micropuntos": "22000000", "dato": "Experiencia profesional: diez últimos años, tramos por diferencia de nivel; falta cotejar conversiones y solapes."},
+        {"referencia": "base:6:B", "estado": "transcrito_parcial", "familia_motor": "grado", "maximo_micropuntos": "19000000", "dato": "Grado personal frente al nivel solicitado; falta cotejar todos los tramos."},
+        {"referencia": "base:6:C", "estado": "transcrito_parcial", "familia_motor": "antiguedad", "maximo_micropuntos": "18000000", "dato": "Antigüedad por meses completos; falta cotejar fuentes y periodos reconocidos."},
+        {"referencia": "base:6:D", "estado": "transcrito_parcial", "familia_motor": "permanencia", "maximo_micropuntos": "20000000", "dato": "Permanencia: años completos o fracción superior a seis meses; falta cotejar excepciones."},
+        {"referencia": "base:6:E", "estado": "transcrito_parcial", "familia_motor": "titulaciones", "maximo_micropuntos": "12000000", "dato": "Títulos por nivel académico y relación con requisitos; falta cotejar cada categoría."},
+        {"referencia": "base:6:F", "estado": "transcrito_parcial", "familia_motor": "cursos", "maximo_micropuntos": "9000000", "dato": "Acciones formativas desde 20 horas; falta cotejar materias, duplicados y vigencia."},
+        {"referencia": "base:7", "estado": "pendiente_integracion", "dato": "Preferencias y desempates de las bases; un sorteo exige acta y evidencia."},
+        {"referencia": "base:8", "estado": "pendiente_integracion", "dato": "Provisional, alegaciones y resolución con publicación acreditada."},
+        {"referencia": "base:9", "estado": "pendiente_integracion", "dato": "Cese y toma de posesión por actos de Personal."}
+      ]
+    },
+    {
+      "modalidad": "libre_designacion",
+      "expediente": "2025/PPT_01/000474",
+      "cve": "BOP-GRA-2026-016005",
+      "estado": "transcripcion_publica_pendiente_revision_rrhh",
+      "fuentes": [
+        {
+          "tipo": "bop_bases_y_anexo",
+          "url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Documentos-Provision-de-Puestos/2025_PPT_01000474_BOP.pdf",
+          "sha256": "dffadf491e320df735c2d7c31e1dad80c19ff90b8afd67cb081391767fe3ab39"
+        }
+      ],
+      "apartados": [
+        {"referencia": "base:1", "estado": "transcrito", "dato": "La oferta se identifica en el anexo del BOP."},
+        {"referencia": "base:2", "estado": "pendiente_integracion", "dato": "Requisitos del puesto y situación funcionarial, con comprobación propia."},
+        {"referencia": "base:3", "estado": "pendiente_integracion", "dato": "Solicitud electrónica y currículum con documentación justificativa."},
+        {"referencia": "base:4", "estado": "pendiente_integracion", "dato": "Decisión motivada tras valorar trayectoria e idoneidad; no deriva de un ranking automático."},
+        {"referencia": "base:5", "estado": "pendiente_integracion", "dato": "Cese y toma de posesión requieren resolución y actos de Personal."}
+      ]
+    }
+  ]
+}

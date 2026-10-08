@@ -46,16 +46,39 @@ type opcionesAuditoriaConsultaPrueba struct {
 	err      error
 }
 
+type registradorIntentoConsultaPrueba struct {
+	ordenes []vecports.OrdenIntentoAuditoria
+}
+
+func (r *registradorIntentoConsultaPrueba) AppendIntentoAuditoria(_ context.Context, orden vecports.OrdenIntentoAuditoria) (vecports.AcuseIntentoAuditoria, error) {
+	r.ordenes = append(r.ordenes, orden)
+	datos, err := orden.Datos()
+	if err != nil {
+		return vecports.AcuseIntentoAuditoria{}, err
+	}
+	return vecports.AcuseIntentoAuditoria{AuditoriaRef: "auditoria_sintetica", Secuencia: int64(len(r.ordenes)),
+		HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: datos.Datos.CorrelacionRef,
+		RegistradaEn: time.Now().UTC().Truncate(time.Microsecond)}, nil
+}
+
+func configuracionIntentosConsultaPrueba(motivo vecdomain.ReferenciaEntradaCatalogo) auditoria.ConfiguracionIntentos {
+	return auditoria.ConfiguracionIntentos{Registrador: &registradorIntentoConsultaPrueba{},
+		Proceso: "vec_server_ensayo", Canal: string(vecdomain.SuperficieAutenticacionInternaCorporativaV1),
+		Finalidad: "revision_administrativa_auditoria_rrhh", Motivo: motivo}
+}
+
 func (o *opcionesAuditoriaConsultaPrueba) Actuales(context.Context) (auditoria.Opciones, error) {
 	return o.opciones, o.err
 }
 
 func TestRutasAuditoriaConsultaRRHHExigenDependenciasYRegistranAmbasRutas(t *testing.T) {
 	ct, bolsa := &emisorAuditoriaConsultaPrueba{}, &emisorAuditoriaConsultaPrueba{}
+	escenario := nuevoEscenarioMaterialRutasDietasPrueba(t, "dietas.ruta.catalogo.consultar")
 	deps := dependenciasAuditoriaConsultaRRHH{
 		PoolCT: &pgxpool.Pool{}, PoolBolsa: &pgxpool.Pool{},
 		EmisorCT: ct, EmisorBolsa: bolsa,
 		Identidad: &identidadAuditoriaConsultaPrueba{}, Opciones: &opcionesAuditoriaConsultaPrueba{},
+		Intentos: configuracionIntentosConsultaPrueba(escenario.motivo),
 	}
 	rutas, err := nuevasRutasAuditoriaConsultaRRHH(deps)
 	if err != nil || len(rutas) != 2 || rutas[0].Ruta != auditoria.RutaOpciones ||
@@ -72,6 +95,9 @@ func TestRutasAuditoriaConsultaRRHHExigenDependenciasYRegistranAmbasRutas(t *tes
 		{"emisor CT", func(d *dependenciasAuditoriaConsultaRRHH) { d.EmisorCT = (*emisorAuditoriaConsultaPrueba)(nil) }},
 		{"emisor Bolsa", func(d *dependenciasAuditoriaConsultaRRHH) { d.EmisorBolsa = (*emisorAuditoriaConsultaPrueba)(nil) }},
 		{"identidad", func(d *dependenciasAuditoriaConsultaRRHH) { d.Identidad = (*identidadAuditoriaConsultaPrueba)(nil) }},
+		{"intentos", func(d *dependenciasAuditoriaConsultaRRHH) {
+			d.Intentos.Registrador = (*registradorIntentoConsultaPrueba)(nil)
+		}},
 		{"opciones", func(d *dependenciasAuditoriaConsultaRRHH) { d.Opciones = (*opcionesAuditoriaConsultaPrueba)(nil) }},
 	}
 	for _, caso := range casos {
@@ -164,6 +190,7 @@ func TestRutasAuditoriaConsultaRRHHContratoHTTPFallaCerrado(t *testing.T) {
 			Correlacion: datos.Correlacion,
 		}},
 		Opciones: &opcionesAuditoriaConsultaPrueba{opciones: opciones},
+		Intentos: configuracionIntentosConsultaPrueba(escenario.motivo),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -31,14 +31,23 @@ type DependenciasComposicionPerfiles struct {
 	// Lote abre la preparación y el lote ordinario junto a las lecturas de
 	// usuarios. Sólo se admite con SoloUsuariosMetadatos.
 	Lote *LoteADMIN
+	// GobiernoPlan abre el gobierno del plan nominal de firma de Contratación
+	// temporal junto a las lecturas de usuarios. Sólo con SoloUsuariosMetadatos.
+	GobiernoPlan api.ServicioGobiernoPlanFirmaADMIN
+	// Efectos abre los efectos nominales (cargos competenciales,
+	// certificados nominales) junto a las lecturas de usuarios. Sólo con
+	// SoloUsuariosMetadatos.
+	Efectos []EfectoNominalMontado
 }
 
 // LoteADMIN es la autoridad del lote ya compuesta: organización privada,
 // catálogo de perfiles registrados y servicio de aplicación del lote.
 type LoteADMIN struct {
 	Organizacion string
-	Catalogo     ports.CatalogoRolesAdministrables
-	Servicio     api.ServicioLotesADMIN
+	// Motivos admitidos para dar o quitar perfiles, de la configuración.
+	Motivos  []api.MotivoLote
+	Catalogo ports.CatalogoRolesAdministrables
+	Servicio api.ServicioLotesADMIN
 }
 
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {
@@ -84,7 +93,7 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	}
 	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
 		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos,
-		Lote: deps.Lote})
+		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan, Efectos: deps.Efectos})
 }
 
 func dependenciaComposicionNula(v any) bool {

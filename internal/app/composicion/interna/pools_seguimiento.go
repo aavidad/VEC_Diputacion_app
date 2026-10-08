@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // MaterialPoolSeguimiento se entrega desde el inventario privado del arranque.
@@ -160,13 +162,13 @@ func AbrirPoolsSeguimiento(ctx context.Context, material MaterialPoolsSeguimient
 	}
 	pools := make([]*pgxpool.Pool, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
-		pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+		pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 		if err != nil {
 			cerrarPoolsSeguimiento(pools)
 			return salida, ErrPoolsSeguimientoNoDisponibles
 		}
 		pools = append(pools, pool)
-		ctxSonda, cancelar := context.WithTimeout(ctx, plazoSondaPoolSeguimiento)
+		ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
 		err = pool.Ping(ctxSonda) // AfterConnect acredita LOGIN y ACL antes de aceptar la conexion.
 		cancelar()
 		if err != nil {
@@ -297,7 +299,7 @@ func acreditarPoolSeguimiento(ctx context.Context, q consultadorACLPoolSeguimien
 	if ctx == nil || q == nil || ctx.Err() != nil {
 		return ErrPoolsSeguimientoNoDisponibles
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, plazoSondaPoolSeguimiento)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
 	defer cancelar()
 	var sesion, efectivo string
 	var loginValido, aclValida bool

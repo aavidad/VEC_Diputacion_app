@@ -1,10 +1,15 @@
-/** Una intención visible por acción; no se guarda nada en el navegador. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261002-ct-fin-modalidad-v1";
-import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261001-ct-a-i18n-v1";
+/**
+ * Llamamiento del expediente abierto: una acción visible por paso; no se
+ * guarda nada en el navegador. La clave de operación se genera sola al enviar
+ * y nunca se muestra: un reintento de la misma operación reutiliza la petición
+ * congelada (y su clave) para no duplicar el efecto.
+ */
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261008-ct-inicio-v1";
+import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261002-ct-fin-modalidad-v1";
-import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261008-ct-inicio-v1";
+import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261007-pantallas-textos-final-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,
@@ -20,7 +25,7 @@ import {
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
 } from "./contrato-llamamiento.js";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261002-ct-fin-modalidad-v1";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261008-ct-inicio-v1";
 import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js";
 import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js";
 
@@ -509,8 +514,9 @@ export function montarFormularioLlamamiento({
       for (const campo of contrato.campos) {
         // Los antecedentes de comunicación proceden del recibo, no de los controles.
         const revision = (esResolucion(operacion) || operacion === "expiracion") && CAMPOS_REVISION_RESOLUCION.includes(campo);
-        if ((esResolucion(operacion) || ["comunicacion", "comunicacion_siguiente", "siguiente", "propuesta", "expiracion"].includes(operacion)) && campo !== "clave_idempotencia" && !revision) continue;
-        if (paso.claveConservada && campo === "clave_idempotencia") continue;
+        // La clave vive solo en el estado y las referencias del expediente vienen del contexto.
+        if (campo === "clave_idempotencia") continue;
+        if ((esResolucion(operacion) || ["seleccion", "comunicacion", "comunicacion_siguiente", "siguiente", "propuesta", "expiracion"].includes(operacion)) && !revision) continue;
         if (esRespuesta(operacion) && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
         if (esEventoPlazo(operacion) && !CAMPOS_EVENTO_PLAZO_EDITABLES.includes(campo)) continue;
         const control = formulario.elements.namedItem(campo);
@@ -640,6 +646,8 @@ export function montarFormularioLlamamiento({
     const operacion = formulario.dataset.ctLlamamientoForm;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     const paso = estado[operacion];
+    // Sin expediente abierto no hay llamamiento: no se teclean referencias ni versiones.
+    if (!estado.enlazado) return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
@@ -666,6 +674,22 @@ export function montarFormularioLlamamiento({
       }
     }
     const contrato = OPERACIONES[operacion];
+    // Un reintento reenvía la petición congelada; su clave nunca se sustituye.
+    const reintento = paso.solicitud !== null;
+    // Primera vez: clave nueva e invisible. Si ya hay una (reintento tras un error
+    // de validación o una confirmación cancelada), se conserva la misma.
+    if (paso.solicitud === null && contrato.campos.includes("clave_idempotencia") && !paso.valores.clave_idempotencia) {
+      try {
+        const clave = generarClaveIdempotencia(operacion);
+        if (typeof clave !== "string" || !clave) throw new TypeError();
+        paso.valores.clave_idempotencia = clave;
+      } catch {
+        paso.mensaje = "llamamiento_preparacion_error";
+        paso.tono = "error";
+        repintar(operacion);
+        return;
+      }
+    }
     const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
     try {
@@ -684,14 +708,17 @@ export function montarFormularioLlamamiento({
         (anterior) => anterior !== operacion
           && (estado[anterior].solicitud?.clave_idempotencia ?? estado[anterior].recibo?.clave_idempotencia)
             === solicitud.clave_idempotencia,
-      )) throw new TypeError("la operación necesita su propia clave");
+      )) throw new TypeError("clave_repetida");
       if (["resolucion", "siguiente"].includes(operacion) && [estado.seleccion, estado.comunicacion,
         estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion, estado.expiracion] : [])]
         .some((anterior) => (anterior.solicitud?.clave_idempotencia ?? anterior.recibo?.clave_idempotencia)
           === solicitud.clave_idempotencia)) {
-        throw new TypeError("la operación necesita su propia clave");
+        throw new TypeError("clave_repetida");
       }
     } catch (error) {
+      // Una clave generada que coincide con la de otra operación se descarta: el
+      // siguiente intento genera otra, sin que la persona tenga que hacer nada.
+      if (error?.message === "clave_repetida") delete paso.valores.clave_idempotencia;
       paso.mensaje = esRespuesta(operacion) && error?.message === "hora_madrid_no_univoca"
         ? "llamamiento_respuesta_hora_no_univoca"
         : ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_validacion`
@@ -713,7 +740,7 @@ export function montarFormularioLlamamiento({
           justificante: solicitud.prueba_respuesta_ref,
           criterio: solicitud.criterio_validacion_ref,
           antecedente: solicitud.prueba_entrega_ref,
-          ...(esEventoPlazo(operacion) ? { instante: solicitud.instante_en, prueba: solicitud.prueba_ref } : {}),
+          ...(esEventoPlazo(operacion) ? { instante: fecha.format(new Date(solicitud.instante_en)), prueba: solicitud.prueba_ref } : {}),
           ...(operacion === "siguiente" ? {
             resolucion: solicitud.resolucion_ref, intencion: solicitud.intencion_ref,
           } : {}),
@@ -860,7 +887,13 @@ export function montarFormularioLlamamiento({
         paso.solicitud = null;
         paso.claveConservada = true;
       }
-      if (rechazo && !conflicto) paso.solicitud = null;
+      if (rechazo && !conflicto) {
+        paso.solicitud = null;
+        // El servidor rechazó el primer intento sin efecto: el siguiente, corregido, lleva
+        // clave nueva. Tras un intento incierto la clave se conserva, porque el original
+        // pudo surtir efecto; y también en las operaciones que la guardan para recuperar.
+        if (!reintento && !paso.claveConservada) delete paso.valores.clave_idempotencia;
+      }
       if (esRespuesta(operacion) && estado.comunicaciones.estado === "lista"
         && error?.envelopeValido === true && [403, 409].includes(error.estado)) {
         estado.comunicaciones.intentoNoConfirmado = Object.freeze({ operacion, solicitud });
@@ -956,27 +989,6 @@ export function montarFormularioLlamamiento({
         repintar("propuesta");
       });
     }
-    const control = evento.target?.closest?.("[data-ct-llamamiento-clave]");
-    if (!control || !raiz.contains(control)) return;
-    evento.preventDefault();
-    const operacion = control.dataset.ctLlamamientoClave;
-    if (!Object.hasOwn(OPERACIONES, operacion)) return;
-    if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
-    if (esRespuesta(operacion)) return;
-    if (esResolucion(operacion) && !puedeResolver(operacion)) return;
-    if (esEventoPlazo(operacion) && !puedeRegistrarEventoPlazo(operacion)) return;
-    if (operacion === "expiracion" && !puedeConfirmarExpiracion()) return;
-    if (operacion === "siguiente" && !puedeContinuar()) return;
-    if (operacion === "propuesta" && (!puedeProponer() || !estado.propuesta.disponible)) return;
-    const paso = estado[operacion];
-    if (paso.solicitud !== null || paso.claveConservada || paso.ocupado || paso.calculando) return;
-    guardarBorradores();
-    try { paso.valores.clave_idempotencia = generarClaveIdempotencia() ?? ""; } catch {
-      paso.mensaje = "llamamiento_validacion";
-      paso.tono = "error";
-    }
-    repintar();
-    raiz.querySelector(`#ct-llamamiento-${operacion}-clave_idempotencia-visible`)?.focus?.();
   }
 
   raiz.addEventListener("submit", alEnviar);

@@ -92,6 +92,31 @@ func solicitud(ruta, cuerpo string) *http.Request {
 	r.Header.Set("Content-Type", "application/json")
 	return r
 }
+
+func TestListaExpedienteCTTipadoLlegaAlaAutoridadSinConvertirReferencia(t *testing.T) {
+	a := &autoridadPrueba{denegar: true}
+	s := &servicioPrueba{documento: documentoPrueba()}
+	rutas, err := NuevasRutasExactas(s, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := "expediente:ct:" + strings.Repeat("a", 64)
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente,
+		`{"expediente_ref":"`+ref+`","limite":50}`))
+	if w.Code != http.StatusForbidden || a.recurso != ref || s.llamadas != 0 {
+		t.Fatalf("estado=%d recurso=%q llamadas=%d", w.Code, a.recurso, s.llamadas)
+	}
+	for _, invalida := range []string{"expediente:bolsa:" + strings.Repeat("a", 64), "expediente:ct:" + strings.Repeat("A", 64)} {
+		a.llamadas = 0
+		w = httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente,
+			`{"expediente_ref":"`+invalida+`","limite":50}`))
+		if w.Code != http.StatusUnprocessableEntity || a.llamadas != 0 {
+			t.Fatalf("referencia %q: estado=%d autoridad=%d", invalida, w.Code, a.llamadas)
+		}
+	}
+}
 func TestRutasListaExigenContextoYNoAceptanCabecerasLibres(t *testing.T) {
 	s := &servicioPrueba{documento: documentoPrueba()}
 	a := &autoridadPrueba{denegar: true}

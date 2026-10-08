@@ -3,13 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ErrorAPIBorradores,
-} from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
   validarSolicitudCrearBorrador,
 } from "./portal-borradores-contrato.js";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
+import { crearEstadoBorradores } from "./portal-borradores-estado.js";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261008-borradores-error-legible-v1";
 import {
   CLAVE_IDEMPOTENCIA_A,
   CLAVE_IDEMPOTENCIA_B,
@@ -53,6 +55,27 @@ function crearSuperficie({ cliente, claves } = {}) {
   });
   return { anuncios, cambios, superficie };
 }
+
+test("la pantalla conserva el diagnóstico estructurado sin enseñar código ni correlación", () => {
+  const estado = crearEstadoBorradores();
+  estado.faseLista = "error";
+  estado.errorLista = { mensaje: "No se pudo completar esta acción. Revise la lista.",
+    codigo: "rechazo_no_catalogado", correlacion: "correlacion:borradores:418", estadoHTTP: 418 };
+  const renderizar = crearRenderizadorBorradores({ escaparHTML, estado,
+    motivoSeleccionado: () => null, plantillaSeleccionada: () => null }).renderizar;
+  let html = renderizar();
+  assert.match(html, /No se pudo completar esta acción/u);
+  assert.match(html, /borradores-recargar/u);
+  assert.doesNotMatch(html, /rechazo_no_catalogado|correlacion:borradores:418|<dt>Código<\/dt>|\b418\b/u);
+  estado.faseLista = "listo";
+  estado.opciones = opciones();
+  estado.lista = lista();
+  html = renderizar();
+  assert.match(html, /No se pudo completar esta acción/u);
+  assert.doesNotMatch(html, /rechazo_no_catalogado|correlacion:borradores:418|\b418\b/u);
+  assert.equal(estado.errorLista.codigo, "rechazo_no_catalogado");
+  assert.equal(estado.errorLista.correlacion, "correlacion:borradores:418");
+});
 
 function cambiar(superficie, ruta, valor, tipo = "text", checked = false) {
   assert.equal(superficie.actualizarCampo({ ruta, valor, tipo, checked }), true);
@@ -110,6 +133,27 @@ test("la navegación comprueba capacidad sin leer la bandeja y reutiliza las opc
   assert.deepEqual(llamadas, ["opciones", "lista", "detalle"]);
 });
 
+test("sin API de borradores (404) la vista dice «no disponible» en llano, sin códigos ni reintento", async () => {
+  const llamadas = [];
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      llamadas.push("opciones");
+      throw new ErrorAPIBorradores("Sin ruta.", 404, undefined, { codigo: "respuesta_error_no_valida" });
+    },
+    listar: async () => { llamadas.push("lista"); return structuredClone(lista()); },
+  });
+  const { anuncios, superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.activar(), false);
+  assert.equal(superficie.obtenerAcceso().estado, "no_disponible");
+  const html = superficie.renderizar();
+  assert.match(html, /Esta función no está disponible/);
+  assert.match(html, /avise a Informática/);
+  assert.match(html, /data-vista="resumen"/);
+  assert.doesNotMatch(html, /respuesta_error_no_valida|role="alert"|borradores-recargar|backend|CAS/u);
+  assert.deepEqual(llamadas, ["opciones"]);
+  assert.ok(anuncios.includes("Borradores de convocatorias no disponibles"));
+});
+
 test("activar con referencia abre solo el borrador incluido en la lista autorizada", async () => {
   const llamadas = [];
   const referencia = detalle().referencia_estado.referencia;
@@ -160,7 +204,7 @@ test("una referencia ausente no obtiene detalle ni abre la primera fila", async 
   }) });
   assert.equal(await superficie.activar({ referencia: "convocatoria:externa:inexistente" }), false);
   assert.equal(detalles, 0);
-  assert.match(superficie.renderizar(), /El borrador solicitado no está disponible en la bandeja autorizada/);
+  assert.match(superficie.renderizar(), /Este borrador no está disponible en su lista/);
   assert.match(superficie.renderizar(), /Seleccione un borrador o cree uno nuevo/);
   assert.ok(anuncios.includes("El borrador solicitado no está disponible"));
 });
@@ -232,7 +276,7 @@ test("la capacidad de consulta sin actualización deja el detalle realmente en s
   });
   await superficie.activar();
   const html = superficie.renderizar();
-  assert.match(html, /Solo lectura: sin capacidad/);
+  assert.match(html, /Solo consulta: no puede modificar datos/);
   assert.match(html, /data-borrador-form="editor" inert[^>]+aria-disabled="true"/);
   assert.equal(superficie.actualizarCampo({
     ruta: "contenido_editable.titulo", valor: "Cambio no autorizado",
@@ -405,7 +449,7 @@ test("un 409 conserva el formulario local y permite rotar conscientemente la cla
   assert.equal(await superficie.guardar(), false);
   let html = superficie.renderizar();
   assert.match(html, /Título local que debe sobrevivir/);
-  assert.match(html, /Conflicto de idempotencia \(HTTP 409\)/);
+  assert.match(html, /Esta operación ya se inició con otros datos/);
   assert.match(html, /Los cambios introducidos continúan en este editor/);
   assert.equal(await superficie.manejarAccion({ accion: "borradores-rotar-idempotencia" }), false);
   assert.deepEqual(claves, [CLAVE_IDEMPOTENCIA_A, CLAVE_IDEMPOTENCIA_B]);
@@ -438,9 +482,9 @@ test("un 412 compara la revisión vigente sin pisar cambios y reaplica con su ET
   cambiar(superficie, "contenido_editable.titulo", "Título local sin guardar");
   assert.equal(await superficie.guardar(), false);
   let html = superficie.renderizar();
-  assert.match(html, /Conflicto de revisión CAS \(HTTP 412\)/);
+  assert.match(html, /El borrador cambió mientras lo editaba/);
   assert.match(html, /Título local sin guardar/);
-  assert.match(html, /fedcba9876543210/);
+  assert.doesNotMatch(html, /fedcba9876543210|conflicto_revision|<dt>Código<\/dt>/u);
   assert.equal(await superficie.manejarAccion({ accion: "borradores-cargar-vigente" }), true);
   html = superficie.renderizar();
   assert.match(html, /Comparación antes de resolver/);

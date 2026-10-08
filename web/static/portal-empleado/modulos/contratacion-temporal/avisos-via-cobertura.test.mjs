@@ -4,8 +4,8 @@ import test from "node:test";
 import { renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { validarAvisosViaCobertura } from "./contrato-avisos-via-cobertura.js";
 import { validarPropuestaCobertura } from "./contrato-cobertura.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
 const REGLA_AGOTAMIENTO = {

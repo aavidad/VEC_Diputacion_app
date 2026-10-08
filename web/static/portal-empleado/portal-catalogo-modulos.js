@@ -7,11 +7,11 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
+import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
+import { cargarTextos } from "../comun/textos.js";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
-const RUTA_TRADUCCIONES = `/locales/${IDIOMA_ACTUAL}.json`;
 const CAMPOS_MANIFIESTO = new Set([
   "id", "name_key", "description_key", "version", "group", "base_path", "permissions", "menu",
 ]);
@@ -152,6 +152,8 @@ export function crearCatalogoModulosDesdeManifiestos(manifiestos, traducciones) 
 }
 
 export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch) {
+  // El catálogo común prepara el índice y comunica el idioma efectivo si hubo respaldo.
+  const rutaTraducciones = `/locales/${(await cargarTextos("portal")).idioma}.json`;
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
   // El servidor interno exige certificado cliente también en estos GET.
   // Limitarlo al mismo origen y no seguir redirecciones; no usar cookies.
@@ -160,7 +162,7 @@ export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch)
       method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
       cache: "no-store", headers: { Accept: "application/json" },
     }),
-    fetchImpl(RUTA_TRADUCCIONES, {
+    fetchImpl(rutaTraducciones, {
       method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
       cache: "no-store", headers: { Accept: "application/json" },
     }),
@@ -177,12 +179,13 @@ export function renderizarNavegacionModulos({
     || typeof escaparHTML !== "function" || typeof traducir !== "function") {
     throw new TypeError("navegación de módulos no válida");
   }
-  // Solo se ofrecen los módulos disponibles y los que aún se comprueban: un
-  // módulo sin acceso para el perfil o sin servicio no ocupa el menú.
+  // Una entrada recuperable ya pasó el filtro del perfil atestado. Su botón
+  // solo vuelve a comprobar la fuente; nunca abre ni autoriza el módulo.
   return catalogo.map((modulo) => [modulo, resolverAcceso(modulo.clave)])
-    .filter(([, acceso]) => acceso?.disponible === true || acceso?.estado === "cargando")
+    .filter(([, acceso]) => acceso?.disponible === true || acceso?.estado === "cargando" || acceso?.recuperable === true)
     .map(([modulo, acceso]) => {
       const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
+      const recuperable = acceso?.recuperable === true && !habilitado;
       const estado = habilitado ? traducir("estado_modulo_activo") : (acceso?.textoEstado || ({
         cargando: traducir("estado_modulo_comprobando"),
         denegado: traducir("estado_modulo_sin_permiso"),
@@ -191,10 +194,10 @@ export function renderizarNavegacionModulos({
       }[acceso?.estado] || traducir("estado_modulo_no_habilitado")));
       const comprobando = acceso?.estado === "cargando";
       return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
-        data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
+        data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : recuperable ? ' data-accion="recargar-fuente"' : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
         <span class="indicador-menu" aria-hidden="true">${escaparHTML((modulo.titulo.trim().charAt(0) || modulo.sigla.charAt(0)).toLocaleUpperCase())}</span>
         <span>${escaparHTML(modulo.titulo)}</span>
-        <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
+        <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}${recuperable ? ` · ${escaparHTML(traducir("txt_reintentar"))}` : ""}</span>
       </button>`;
     }).join("");
 }

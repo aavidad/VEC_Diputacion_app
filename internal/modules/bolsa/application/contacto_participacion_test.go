@@ -83,3 +83,36 @@ func TestServicioContactoLeeSoloTrasResolverElAmbito(t *testing.T) {
 		t.Fatalf("err=%v lecturas=%d", err, repo.lecturasParticipacion)
 	}
 }
+
+func TestSolicitudTelefonoActualDistingueFechaServidorDeLegado(t *testing.T) {
+	resultado, vinculo := resultadoContextoContactoPrueba(t)
+	base := puertosbolsa.SolicitudRegistrarContactoParticipacion{
+		Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:1",
+		ParticipacionRef: "participacion:1", LlamamientoRef: "llamamiento:1",
+		Canal: "telefono", Resultado: "comunica", InstanteServidor: true,
+		ClaveIdempotencia: "clave-1", Correlacion: correlacionBorradorPrueba(t),
+		MotivoAutorizacion: motivoBorradorPrueba(),
+	}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("modo actual válido: %v", err)
+	}
+	conFecha := base
+	conFecha.Instante = time.Date(2026, 10, 8, 10, 0, 0, 0, time.UTC)
+	if conFecha.Validar() == nil {
+		t.Fatal("modo servidor con fecha del cliente admitido")
+	}
+	legado := conFecha
+	legado.InstanteServidor = false
+	if legado.Validar() == nil {
+		t.Fatal("comunica legado admitido")
+	}
+	legado.Resultado = "no_contesta"
+	legado.Anotacion = "Sin respuesta"
+	if err := legado.Validar(); err != nil {
+		t.Fatalf("legado alterado: %v", err)
+	}
+	base.Resultado = "no_entregado"
+	if base.Validar() == nil {
+		t.Fatal("rebote de correo admitido como teléfono actual")
+	}
+}

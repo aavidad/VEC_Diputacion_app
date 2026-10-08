@@ -271,3 +271,21 @@ Se aplican los cambios de dirección 17:40: CAR-004 fuera, RUM dueño H y H05 co
 con rama prevista. La estimación anterior de 17 tareas y 99–168 h queda sustituida por las
 23 tareas y 135–226 h; Astra dio GO a esta ampliación y su cálculo en el documento `4017c75f…`.
 Falta el GO final de dirección sobre este documento antes de abrir su PR.
+
+
+## Retoma H07 — 7 de octubre de 2026
+
+Se recuperan los diez archivos de la PR #388 sobre la base `01046e2e7`,
+sin repetir H05 ni H06. La CLI combina la declaración, los antecedentes y
+la política de grado; conserva sus diferencias, los periodos solapados y
+la procedencia. La preparación mantiene pendiente el reconocimiento.
+
+Pruebas focales Go y vet correctas, revisión independiente favorable,
+Semgrep local (42 reglas, siete archivos) y gosec focal sin hallazgos.
+Medición local del ejecutable: 64 casos, 30 ejecuciones; mediana 14,92 ms,
+p95 16,64 ms y máximo 21,79 ms, incluidos arranque, archivos y salida JSON.
+Esta medida corresponde a la CLI; no mide PostgreSQL ni una pantalla.
+
+Faltan el lector nominal de Personal, la autorización H08, el registro del
+expediente y el reconocimiento por quien tenga competencia. El corte
+recupera una preparación existente; no completa Carrera ni habilita datos reales.

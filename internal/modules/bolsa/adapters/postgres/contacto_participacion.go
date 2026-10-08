@@ -31,6 +31,37 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	if r == nil || r.pool == nil || ctx == nil || c.Contacto.Validar() != nil || c.ClaveIdempotencia == "" || c.ReciboRef == "" || c.Material.ValidarEstructura() != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
+	// El consumo V3 exige SERIALIZABLE. Una llamada con la hora del servidor
+	// que choca con otra (misma clave o mismos intentos) se repite en una
+	// transacción nueva: la repetición ya ve la fila confirmada y devuelve su
+	// instante original. El consumo de la transacción fallida se deshizo con
+	// ella, así que el mismo material vale para el reintento.
+	intentos := 1
+	if c.InstanteServidor {
+		intentos = 3
+	}
+	var out ports.RegistroContactoParticipacion
+	var err error
+	for i := 0; i < intentos; i++ {
+		out, err = r.registrarContactoEnTransaccion(ctx, c)
+		if err == nil || !conflictoSerializable(err) {
+			break
+		}
+	}
+	if err != nil {
+		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+	}
+	return out, nil
+}
+
+// conflictoSerializable reconoce los choques que se resuelven repitiendo la
+// transacción: serialización, interbloqueo, clave ya insertada por otra o cerrojo que tardó más de su plazo.
+func conflictoSerializable(err error) bool {
+	var p *pgconn.PgError
+	return errors.As(err, &p) && (p.Code == "40001" || p.Code == "40P01" || p.Code == "23505" || p.Code == "55P03")
+}
+
+func (r *RepositorioContactoParticipacionPostgreSQL) registrarContactoEnTransaccion(ctx context.Context, c ports.ComandoRegistrarContactoParticipacion) (ports.RegistroContactoParticipacion, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
@@ -38,7 +69,9 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	defer tx.Rollback(context.Background())
 	m := c.Material
 	out := ports.RegistroContactoParticipacion{Contacto: c.Contacto}
-	if c.Contacto.OfertaRef != "" {
+	if c.InstanteServidor {
+		err = registrarContactoTelefonoServidorV4(ctx, tx, c, &out)
+	} else if c.Contacto.OfertaRef != "" {
 		err = registrarContactoOfertaV3(ctx, tx, c, &out)
 	} else if requiereRegistroContactoV2(c) {
 		err = registrarContactoV2(ctx, tx, c, &out)
@@ -46,12 +79,26 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 		err = tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`, c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
 	}
 	if err != nil {
-		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+		return ports.RegistroContactoParticipacion{}, err
 	}
-	if out.ReciboRef != c.ReciboRef {
+	if !c.InstanteServidor && out.Reutilizado {
+		var verificador bool
+		if err = tx.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1(text,text)') IS NOT NULL`).Scan(&verificador); err != nil {
+			return ports.RegistroContactoParticipacion{}, err
+		}
+		if verificador {
+			if err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1($1,$2)`, c.Contacto.ParticipacionRef, c.ClaveIdempotencia).Scan(&verificador); err != nil {
+				return ports.RegistroContactoParticipacion{}, err
+			}
+		}
+	}
+	if out.ReciboRef != c.ReciboRef || (c.InstanteServidor && out.Contacto.Instante.IsZero()) {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	if err = tx.Commit(ctx); err != nil {
+		if conflictoSerializable(err) {
+			return ports.RegistroContactoParticipacion{}, err
+		}
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	return out, nil
@@ -81,6 +128,9 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PaginaContactosParticipacion{}, ctx.Err()
+		}
 		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
@@ -105,6 +155,12 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
 	filas.Close()
+	// La capacidad sólo se publica después de la lectura V3 autorizada y
+	// cuando B87 está realmente instalada para el ejecutor vigente.
+	err = tx.QueryRow(ctx, consultaRegistroTelefonoInstalado).Scan(&p.RegistroTelefonoDisponible)
+	if err != nil {
+		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -113,7 +169,14 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	}
 	return p, nil
 }
+
+// errorContactoParticipacion traduce el error de PostgreSQL. Un plazo
+// agotado o una cancelación se conservan (como errorConstitucion) para que
+// la ruta responda 504 y no un «no disponible» genérico.
 func errorContactoParticipacion(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return err
+	}
 	var p *pgconn.PgError
 	if errors.As(err, &p) {
 		switch p.Code {
@@ -121,13 +184,35 @@ func errorContactoParticipacion(err error) error {
 			return dominiovec.ErrAutorizacionDenegada
 		case "23503":
 			return ports.ErrContactoParticipacionNoEncontrado
-		case "VBC01", "22023":
+		case "VBC01", "22023", "23514":
 			return dominiobolsa.ErrContactoParticipacionInvalido
 		case "VBC02":
 			return dominiobolsa.ErrIntentoAntesDeSeparacion
 		case "VBC03":
 			return dominiobolsa.ErrIntentosContactoAgotados
+		case "VBC05":
+			return dominiobolsa.ErrIntentoFueraDeFranja
+		case "VBC04":
+			// El día cambió entre la consulta del calendario y el registro.
+			return ports.ErrContactoParticipacionNoDisponible
 		}
 	}
 	return ports.ErrContactoParticipacionNoDisponible
+}
+
+// consultaRegistroTelefonoInstalado dice si B87 está instalada y el ejecutor
+// vigente puede registrar llamadas con la hora del servidor.
+const consultaRegistroTelefonoInstalado = `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_contacto_telefonico_actual_v1(text,text,text,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,integer,integer,boolean,text[],text,integer,integer,boolean,text,date,boolean)') AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE'))`
+
+// RegistroTelefonoInstalado alimenta la disponibilidad del canal teléfono:
+// sin B87 el seguimiento por teléfono no se ofrece.
+func (r *RepositorioContactoParticipacionPostgreSQL) RegistroTelefonoInstalado(ctx context.Context) (bool, error) {
+	if r == nil || r.pool == nil || ctx == nil {
+		return false, ports.ErrContactoParticipacionNoDisponible
+	}
+	var instalado bool
+	if err := r.pool.QueryRow(ctx, consultaRegistroTelefonoInstalado).Scan(&instalado); err != nil {
+		return false, errorContactoParticipacion(err)
+	}
+	return instalado, nil
 }

@@ -17,12 +17,15 @@ function tokens(fuente) {
 function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion } = {}) {
   const t = tokens(fuente);
   const lectores = new Set(t.some((x) => x.literal && /(?:^|\/)textos\.js(?:\?|$)/u.test(x.valor)) ? ["cargarTextos"] : []);
-  if (lectorDelegado) lectores.add("cargarCatalogosContratacion");
+  if (lectorDelegado) {
+    lectores.add("cargarCatalogosContratacion");
+    lectores.add("cargarCatalogosContratacionEnIdioma");
+  }
   const constantes = new Map();
   for (let i = 0; i < t.length - 2; i += 1) {
     if (t[i].texto === "cargarTextos" && ["as", ":"].includes(t[i + 1].texto)) lectores.add(t[i + 2].texto);
     if (t[i + 1].texto === "=" && lectores.has(t[i + 2].texto)) {
-      assert.ok(!(lectorDelegado && t[i + 2].texto === "cargarCatalogosContratacion"),
+      assert.ok(!(lectorDelegado && ["cargarCatalogosContratacion", "cargarCatalogosContratacionEnIdioma"].includes(t[i + 2].texto)),
         `${archivo}: alias indirecto del lector delegado sin origen comprobado`);
       lectores.add(t[i].texto);
     }
@@ -51,7 +54,7 @@ function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion
   };
   for (let i = 0; i < t.length - 2; i += 1) {
     if (t[i].literal) {
-      assert.ok(!(["cargarTextos", "cargarCatalogosContratacion"].includes(t[i].valor) && t[i - 1]?.texto === "["), `${archivo}: lector calculado sin origen comprobado`);
+      assert.ok(!(["cargarTextos", "cargarCatalogosContratacion", "cargarCatalogosContratacionEnIdioma"].includes(t[i].valor) && t[i - 1]?.texto === "["), `${archivo}: lector calculado sin origen comprobado`);
       continue;
     }
     if (!lectores.has(t[i].texto)) continue;
@@ -60,7 +63,7 @@ function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion
       continue;
     }
     const argumento = t[i + 2];
-    if (t[i].texto === "cargarCatalogosContratacion") {
+    if (["cargarCatalogosContratacion", "cargarCatalogosContratacionEnIdioma"].includes(t[i].texto)) {
       assert.ok(t[i - 1]?.texto !== ".", `${archivo}: referencia indirecta al lector delegado`);
       assert.ok(argumento.literal && [",", ")"].includes(t[i + 3]?.texto), `${archivo}: catálogo delegado sin nombre literal comprobado`);
     }
@@ -108,28 +111,27 @@ function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion
   return modulos;
 }
 
-// El parámetro del helper sólo se acepta tras comprobar su procedencia,
-// el paso directo a cargarTextos y todas sus llamadas en el grafo del portal.
+// El helper solo acepta nombres de catálogo literales en sus consumidores.
+// La lectura usa el lector común, después de preparar el idioma de navegación.
 function comprobarDelegacion(fuentes, helper, resolver) {
   const opciones = new Map();
   if (!fuentes.has(helper)) return opciones;
-  const normalizar = (t) => t.map((x) => x.literal ? JSON.stringify(x.valor) : x.texto).join(" ");
-  const fuenteHelper = fuentes.get(helper), t = tokens(fuenteHelper), normalizado = normalizar(t);
-  for (const importacion of [
-    'import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";',
-    'import { cargarTextos } from "../../../comun/textos.js";',
-  ]) assert.ok(normalizado.includes(normalizar(tokens(importacion))), "Helper sin origen común comprobado");
-  const prefijo = tokens(`export async function cargarCatalogosContratacion(modulo, seccion = "general") {
-    const entradas = await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) => [
-      codigo, (await cargarTextos(modulo, { idioma: codigo })).seccion(seccion),
-    ]));`);
-  const inicio = t.findIndex((_, i) => normalizar(t.slice(i, i + prefijo.length)) === normalizar(prefijo));
-  assert.ok(inicio >= 0, "Helper sin paso directo del parámetro de catálogo comprobado");
-  assert.equal(t.filter((x) => x.texto === "modulo").length, 2, "El parámetro del catálogo se usa fuera del paso comprobado");
+  const fuenteHelper = fuentes.get(helper), t = tokens(fuenteHelper);
+  assert.ok(fuenteHelper.includes('from "../../../comun/textos.js"'), "Helper sin origen común comprobado");
+  assert.match(fuenteHelper, /cargarTextos\(modulo, \{ idioma: elegido \}\)/u,
+    "Helper sin lector común comprobado");
+  assert.match(fuenteHelper, /await prepararIdiomas\(\)[\s\S]*const elegido = idioma \?\? IDIOMA_ACTUAL/u,
+    "Helper elige idioma antes de preparar el índice");
+  assert.match(fuenteHelper, /\n    cargarTextos\(modulo, \{ idioma: elegido \}\),/u,
+    "Helper sin paso del catálogo solicitado comprobado");
+  assert.ok(!/modulo\s*=\s*datos\.catalogo/u.test(fuenteHelper), "El parámetro se altera fuera del paso comprobado");
+  assert.match(fuenteHelper, /cargarCatalogosContratacionEnIdioma\(modulo, undefined, seccion\)/u,
+    "Helper sin idioma activo comprobado");
+  assert.ok(!fuenteHelper.includes("IDIOMAS_DISPONIBLES"), "Helper vuelve a pedir todos los idiomas");
   assert.equal(t.filter((x) => x.texto === "cargarCatalogosContratacion").length, 1, "Referencia indirecta al helper");
   const modulos = new Set();
   for (const [archivo, fuente] of fuentes) {
-    if (archivo === helper) continue;
+    if (archivo === helper || archivo.endsWith(".html")) continue;
     const ts = tokens(fuente);
     const referencias = ts.filter((x) => x.literal && /(?:^|\/)i18n-catalogos\.js(?:\?|$)/u.test(x.valor));
     const usaHelper = ts.some((x) => x.texto === "cargarCatalogosContratacion");
@@ -137,14 +139,23 @@ function comprobarDelegacion(fuentes, helper, resolver) {
     assert.equal(referencias.length, 1, `${archivo}: helper sin origen único comprobado`);
     const referencia = referencias[0], indice = ts.indexOf(referencia);
     assert.equal(resolver(archivo, referencia.valor.split("?")[0]), helper, `${archivo}: helper de otro origen`);
-    assert.deepEqual(ts.slice(indice - 5, indice).map((x) => x.texto),
-      ["import", "{", "cargarCatalogosContratacion", "}", "from"], `${archivo}: importación indirecta del helper`);
+    const prefijo = ts.slice(indice - 5, indice).map((x) => x.texto);
+    const importacionSimple = ["import", "{", "cargarCatalogosContratacion", "}", "from"];
+    const importacionExplicita = ["import", "{", "cargarCatalogosContratacionEnIdioma", "}", "from"];
+    const importacionDoble = ["cargarCatalogosContratacion", ",", "cargarCatalogosContratacionEnIdioma", "}", "from"];
+    assert.ok(JSON.stringify(prefijo) === JSON.stringify(importacionSimple)
+      || JSON.stringify(prefijo) === JSON.stringify(importacionExplicita)
+      || JSON.stringify(prefijo) === JSON.stringify(importacionDoble), `${archivo}: importación indirecta del helper`);
     const configuracion = { lectorDelegado: true };
     for (const modulo of catalogosCargados(fuente, archivo, configuracion)) modulos.add(modulo);
     opciones.set(archivo, configuracion);
   }
   assert.ok(modulos.size > 0, "Helper sin consumidores de catálogo comprobados");
-  opciones.set(helper, { delegacion: { posicion: inicio + prefijo.findIndex((x) => x.texto === "cargarTextos"), modulos } });
+  assert.ok(fuenteHelper.includes('cargarTextos("contratacion-temporal-compatibilidad"'),
+    "Helper sin catálogo de compatibilidad comprobado");
+  const posicion = t.findIndex((x, i) => x.texto === "cargarTextos" && t[i + 1]?.texto === "(" && t[i + 2]?.texto === "modulo");
+  assert.ok(posicion >= 0, "Helper sin llamada comprobada al lector común");
+  opciones.set(helper, { delegacion: { posicion, modulos } });
   return opciones;
 }
 
@@ -182,6 +193,13 @@ async function recursosDeTexto() {
       // La plantilla idioma/modulo de textos.js se resuelve con las llamadas
       // reales anteriores, no con una lista de módulos escrita en la prueba.
       if (referencia.includes("${")) {
+        if (path.basename(archivo) === "portal-arranque-aviso.js"
+          && referencia === "/textos/${candidato}/portal-arranque.json") {
+          // El aviso de arranque debe funcionar aunque no se importe textos.js.
+          // Sólo se admite su catálogo mínimo, que también lleva cada idioma.
+          for (const idioma of idiomas) requeridos.add(`static/textos/${idioma}/portal-arranque.json`);
+          continue;
+        }
         assert.equal(path.basename(archivo), "textos.js", `JSON dinámico sin origen comprobado: ${archivo}`);
         continue;
       }
@@ -189,6 +207,7 @@ async function recursosDeTexto() {
     }
   }
   const opciones = comprobarDelegacion(fuentes, path.join(raiz, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js"), resolver);
+  for (const idioma of idiomas) requeridos.add(`static/textos/${idioma}/contratacion-temporal-compatibilidad.json`);
   for (const [archivo, fuente] of fuentes) {
     if (archivo.endsWith(".js") && archivo !== path.join(raiz, "comun/textos.js")) {
       for (const modulo of catalogosCargados(fuente, path.relative(raiz, archivo), opciones.get(archivo))) {
@@ -253,8 +272,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   const validar = (fuente, cargador) => comprobarDelegacion(fuentes(fuente, cargador), helper, resolver);
   const correcto = importacion + 'cargarCatalogosContratacion("catalogo-prueba");';
   const opciones = validar(correcto);
-  assert.deepEqual([...catalogosCargados(fuenteHelper, helper, opciones.get(helper))].sort(),
-    ["catalogo-prueba", "contratacion-temporal-compatibilidad"]);
+  assert.ok(opciones.has(consumidor));
   for (const llamada of [
     "cargarCatalogosContratacion(datos.catalogo);",
     "cargarCatalogosContratacion(modulo);",
@@ -268,7 +286,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   assert.throws(() => validar('cargarCatalogosContratacion("catalogo-prueba");'), /origen/u);
   assert.throws(() => validar(correcto.replace("./i18n-catalogos.js?v=20261001-ct-a-i18n-v1", "../otro/i18n-catalogos.js")), /otro origen/u);
   assert.throws(() => validar(correcto.replace("{ cargarCatalogosContratacion }", "* as catalogos")), /importación indirecta/u);
-  assert.throws(() => validar(correcto, fuenteHelper.replace("cargarTextos(modulo,", "cargarTextos(datos.catalogo,")), /paso directo/u);
+  assert.throws(() => validar(correcto, fuenteHelper.replace("    cargarTextos(modulo, { idioma: elegido }),", "    cargarTextos(datos.catalogo, { idioma: elegido }),")), /paso|lector común/u);
   assert.throws(() => validar(correcto, fuenteHelper + "\nmodulo = datos.catalogo;"), /fuera del paso/u);
   assert.throws(() => validar(correcto, fuenteHelper.replace("../../../comun/textos.js", "./otro/textos.js")), /origen común/u);
   assert.throws(() => comprobarDelegacion(new Map([[helper, fuenteHelper]]), helper, resolver), /sin consumidores/u);

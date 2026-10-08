@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type ServicioContactoParticipacion struct {
@@ -47,13 +48,22 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
-	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: solicitud.Instante.UTC().Truncate(time.Microsecond), Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
+	instante := time.Time{}
+	if !solicitud.InstanteServidor {
+		instante = solicitud.Instante.UTC().Truncate(time.Microsecond)
+	}
+	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: instante, InstanteServidor: solicitud.InstanteServidor, Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
 	if contacto.Validar() != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
 	intento, err := s.prepararIntento(ctx, contacto)
 	if err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
+	}
+	// «Comunica» solo se admite si las reglas vigentes lo cuentan como intento
+	// sin contacto: con otras reglas contaría como persona localizada.
+	if !resultadoAdmitidoPorReglas(intento, contacto.Resultado) {
+		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionRegistrarContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadRegistrarContactoParticipacion, Correlacion: solicitud.Correlacion})
@@ -68,16 +78,27 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, puertosbolsa.AudienciaRegistrarContactoParticipacion) {
 		return puertosbolsa.RegistroContactoParticipacion{}, errorDependenciaSituacion(err)
 	}
-	comando := puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}
+	comando := puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, InstanteServidor: solicitud.InstanteServidor}
 	if intento != nil {
 		politica := intento.politica
 		comando.ControlIntentos = &politica
+		comando.FechaDiaHabil = intento.fechaDiaHabil
+		comando.DiaHabil = intento.diaHabil
 	}
 	registro, err := s.repositorio.RegistrarContacto(ctx, comando)
 	if err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
-	if err = completarIntento(intento, contacto, &registro); err != nil {
+	// La llamada ya está confirmada: en un registro nuevo SQL comprobó que su
+	// fecha es la del calendario consultado antes. Solo en una repetición de un
+	// día anterior se vuelve a mirar el calendario, y si falla se conserva el
+	// valor previo: un aviso de franja nunca convierte en error lo ya guardado.
+	if solicitud.InstanteServidor && registro.Reutilizado && intento != nil && intento.politica.Franja.Zona != nil && intento.politica.Franja.SoloDiasHabiles {
+		if habil, errCalendario := s.intentos.calendario.EsDiaHabil(ctx, registro.Contacto.Instante.In(intento.politica.Franja.Zona)); errCalendario == nil {
+			intento.diaHabil = habil
+		}
+	}
+	if err = completarIntento(intento, registro.Contacto, &registro); err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
 	return registro, nil
@@ -128,6 +149,11 @@ func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		// Solo la denegación nominal ya registrada por el emisor es una
+		// denegación; cualquier otro fallo sigue siendo indisponibilidad.
+		if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return q, dominiovec.ErrAutorizacionDenegada
+		}
 		return q, errorDependenciaSituacion(err)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
@@ -136,4 +162,8 @@ func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q
 	}
 	q.SolicitudAutorizacion, q.Decision, q.Confirmacion, q.Material = auth, decision, confirmacion, material
 	return q, nil
+}
+
+func resultadoAdmitidoPorReglas(intento *intentoPreparado, resultado string) bool {
+	return intento == nil || resultado != dominiobolsa.ResultadoContactoComunica || intento.politica.SinContacto(resultado)
 }

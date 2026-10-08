@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarLlamamiento } from "./renderizado-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import {
   recibo as seleccion, comunicacionRegistrada, justificante, declaracion,
   reciboResolucion, continuacionConfirmada, avisoSiguienteRegistrado,
   justificanteSiguiente, declaracionSiguiente, reciboResolucionSucesor,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 const fecha = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",
@@ -14,7 +14,7 @@ const fecha = new Intl.DateTimeFormat("es-ES", {
 const t = crearTraductorContratacionTemporal();
 const paso = (recibo, extra = {}) => ({
   recibo, valores: {}, ocupado: false, calculando: false, solicitud: null,
-  bloqueado: false, claveConservada: false, tono: "exito", mensaje: "llamamiento_sin_recibo",
+  bloqueado: false, claveConservada: false, tono: "exito", mensaje: "llamamiento_pendiente",
   ...extra,
 });
 const respuesta = justificante({ ...declaracion(), recibida_en: "2026-09-05T08:30:00Z" });
