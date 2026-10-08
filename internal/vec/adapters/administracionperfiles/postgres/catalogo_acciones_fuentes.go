@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -15,6 +17,30 @@ import (
 )
 
 const esquemaPaqueteCatalogoAccionesV2 = "vec.admin.catalogo-acciones.paquete.v2"
+
+// errorPaqueteCatalogoAccionesV2 conserva la causa para errors.Is/As sin
+// exponer nombres de claves ni fragmentos del paquete al formatear el error.
+type errorPaqueteCatalogoAccionesV2 struct{ causa error }
+
+func (e errorPaqueteCatalogoAccionesV2) Error() string {
+	return ports.ErrAutoridadAdministracionPerfilesNoDisponible.Error()
+}
+
+func (e errorPaqueteCatalogoAccionesV2) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, e.Error())
+}
+
+func (e errorPaqueteCatalogoAccionesV2) LogValue() slog.Value {
+	return slog.StringValue(e.Error())
+}
+
+func (e errorPaqueteCatalogoAccionesV2) Unwrap() []error {
+	return []error{ports.ErrAutoridadAdministracionPerfilesNoDisponible, e.causa}
+}
+
+func falloPaqueteCatalogoAccionesV2(causa error) error {
+	return errorPaqueteCatalogoAccionesV2{causa: causa}
+}
 
 // entradaFuenteCanonicaV2 fija la proyeccion byte a byte de una entrada. Solo
 // se excluye la huella que depende de esta misma representacion.
@@ -54,7 +80,7 @@ func canonEntradasFuenteV2(entradas []domain.EntradaAccionAdministracionV1) ([]b
 	proyeccion := make([]entradaFuenteCanonicaV2, len(entradas))
 	for i, e := range entradas {
 		if err := e.Validar(); err != nil {
-			return nil, "", errors.Join(ports.ErrAutoridadAdministracionPerfilesNoDisponible, err)
+			return nil, "", falloPaqueteCatalogoAccionesV2(err)
 		}
 		proyeccion[i] = entradaFuenteCanonicaV2{
 			Referencia: e.Referencia, Version: e.Version, FuenteRef: e.FuenteRef,
@@ -65,7 +91,7 @@ func canonEntradasFuenteV2(entradas []domain.EntradaAccionAdministracionV1) ([]b
 	}
 	canon, err := json.Marshal(proyeccion)
 	if err != nil {
-		return nil, "", errors.Join(ports.ErrAutoridadAdministracionPerfilesNoDisponible, err)
+		return nil, "", falloPaqueteCatalogoAccionesV2(err)
 	}
 	h := sha256.Sum256(canon)
 	return canon, hex.EncodeToString(h[:]), nil
@@ -82,23 +108,23 @@ func ValidarPaqueteCatalogoAccionesV2(canon []byte, catalogo domain.CatalogoAcci
 		return denegado
 	}
 	if err := catalogo.Validar(); err != nil {
-		return errors.Join(denegado, err)
+		return falloPaqueteCatalogoAccionesV2(err)
 	}
 	var paquete paqueteCatalogoAccionesV2
 	dec := json.NewDecoder(bytes.NewReader(canon))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&paquete); err != nil {
-		return errors.Join(denegado, err)
+		return falloPaqueteCatalogoAccionesV2(err)
 	}
 	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
 		if err != nil {
-			return errors.Join(denegado, err)
+			return falloPaqueteCatalogoAccionesV2(err)
 		}
 		return denegado
 	}
 	recodificado, err := json.Marshal(paquete)
 	if err != nil {
-		return errors.Join(denegado, err)
+		return falloPaqueteCatalogoAccionesV2(err)
 	}
 	if !bytes.Equal(canon, recodificado) || paquete.Esquema != esquemaPaqueteCatalogoAccionesV2 ||
 		paquete.Referencia != ref || paquete.Version != version ||
@@ -132,7 +158,7 @@ func ValidarPaqueteCatalogoAccionesV2(canon []byte, catalogo domain.CatalogoAcci
 		identidades[identidad] = true
 		entradasCanon, h, err := canonEntradasFuenteV2(fuente.Entradas)
 		if err != nil {
-			return errors.Join(denegado, err)
+			return falloPaqueteCatalogoAccionesV2(err)
 		}
 		if fuente.EntradasCanon != string(entradasCanon) || fuente.HuellaSHA256 != h {
 			return denegado
