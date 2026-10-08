@@ -230,8 +230,10 @@ func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string, rutasNecesidades ...str
 	if len(rutasNecesidades) == 1 {
 		rutaNecesidades = strings.TrimSpace(rutasNecesidades[0])
 	}
-	if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
-		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	if rutaNecesidades != "" {
+		if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
+			return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+		}
 	}
 	politica, err := numeracion.Cargar("")
 	if err != nil {
@@ -520,6 +522,14 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 	}
 	var contenido []byte
 	if r.URL.RawQuery == "version=2" {
+		// La fuente embebida es un ejemplo para pruebas. Sin publicación
+		// configurada tampoco se monta la escritura de necesidades.
+		if catalogos.rutaNecesidades == "" {
+			responderErrorCatalogosAltaContratacionTemporalDesarrollo(
+				w, r, http.StatusServiceUnavailable, "capacidad_no_configurada",
+			)
+			return
+		}
 		var datos datosCatalogosAltaV2
 		datos, err = datosCatalogosAltaV2Desde(catalogos)
 		if err == nil {
