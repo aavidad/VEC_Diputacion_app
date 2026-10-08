@@ -46,7 +46,7 @@ BEGIN
    AND f.proowner=pg_catalog.to_regrole('vec_autorizacion_propietario')
    AND f.prosecdef AND pg_catalog.array_position(f.proconfig,'search_path=pg_catalog, pg_temp') IS NOT NULL;
   IF actual IS DISTINCT FROM p.huella THEN
-   RAISE EXCEPTION 'AUT61: PARO clave=% actual=% esperado=%',p.firma,pg_catalog.coalesce(actual,'ausente'),p.huella USING ERRCODE='55000';END IF;
+   RAISE EXCEPTION 'AUT61: PARO clave=% actual=% esperado=%',p.firma,coalesce(actual,'ausente'),p.huella USING ERRCODE='55000';END IF;
  END LOOP;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_propietario;
@@ -772,12 +772,12 @@ BEGIN
   OR pg_catalog.array_position(f.proconfig,'search_path=pg_catalog, pg_temp') IS NULL THEN
    RAISE EXCEPTION 'AUT61: PARO clave=funcion actual=% esperado=owner_search_path',item.firma USING ERRCODE='55000';END IF;
   SELECT pg_catalog.count(*) INTO numero FROM pg_catalog.aclexplode(
-   pg_catalog.coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner)));
+   coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner)));
   IF numero IS DISTINCT FROM pg_catalog.cardinality(item.roles)
   OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(
-    pg_catalog.coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner))) a
+    coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner))) a
     LEFT JOIN pg_catalog.pg_roles r ON r.oid=a.grantee
-    WHERE pg_catalog.coalesce(r.rolname,'PUBLIC')<>ALL(item.roles)
+    WHERE coalesce(r.rolname,'PUBLIC')<>ALL(item.roles)
     OR a.grantor IS DISTINCT FROM propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
   OR EXISTS(SELECT 1 FROM pg_catalog.unnest(item.roles) rol
     WHERE NOT pg_catalog.has_function_privilege(rol,f.oid,'EXECUTE')) THEN
