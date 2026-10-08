@@ -223,7 +223,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 	sufijoActa := sufijoOpaco(acta.ActaRef)
 	bolsaRef := acta.BolsaRef
 	if bolsaRef == "" {
-		bolsaRef = "bolsa:" + claveCategoria(acta.CategoriaRef) + ":" + sufijoActa
+		bolsaRef = bolsaRefDerivadaActa(acta.ActaRef, acta.CategoriaRef)
 	}
 	resolucionRef := "resolucion:constitucion:" + sufijoActa
 	huellaResolucion := huellaHex(acta.ActaRef, actorRef, ahora.Format(time.RFC3339Nano))
@@ -302,6 +302,10 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		Entradas:     vinculos,
 		ConfirmadaEn: ahora,
 	}, candidatos, pendientes, nil
+}
+
+func bolsaRefDerivadaActa(actaRef, categoriaRef string) string {
+	return "bolsa:" + claveCategoria(categoriaRef) + ":" + sufijoOpaco(actaRef)
 }
 
 // semillasSujeto devuelve la semilla de la referencia de sujeto de cada fila:
