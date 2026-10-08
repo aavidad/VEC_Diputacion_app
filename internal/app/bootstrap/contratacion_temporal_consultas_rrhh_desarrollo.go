@@ -47,6 +47,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	motivos ports.ResolutorMotivoConsultaRRHH, motivoCuadro, motivoDetalle dominiovec.ReferenciaEntradaCatalogo,
 	base dependenciasConsultasRRHHDesarrollo,
 	fronteras catalogoFronterasComunDesarrollo,
+	documentalMontado bool,
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
 	if len(lectores) == 0 || poolConsultas == nil || motivos == nil || base.cerrar == nil {
@@ -158,7 +159,8 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		originalPropuesta, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesionOriginal, reloj)
-		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP, detalle, originalPropuesta) {
+		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP,
+			consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuesta) {
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 		mux.descargas[lector.identidad.principal.ID] = descarga
@@ -307,6 +309,10 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 		return vacio, ports.ErrConsultaRRHHNoDisponible
 	}
 	cfg := dependenciasCT.cfg
+	documentalMontado, err := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return vacio, err
+	}
 	resolvedor := dependenciasCT.resolvedor
 	derivador := dependenciasCT.derivador
 	reloj := dependenciasCT.reloj
@@ -465,9 +471,9 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
 	if len(lectores) > 0 {
-		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras)
+		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras, documentalMontado)
 		if err != nil {
 			return vacio, err
 		}
