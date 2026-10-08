@@ -1,0 +1,8 @@
+# Requiere AD230 integrado en la base antes de AD228; AD230 pertenece al corte B1.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
