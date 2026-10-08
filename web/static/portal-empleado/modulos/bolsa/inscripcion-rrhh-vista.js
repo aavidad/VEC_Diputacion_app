@@ -46,6 +46,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let filtro = leerRutaInscripcionesRRHH(localizacion.search);
   let intento = null;
   let enviando = false;
+  let enfocarLista = false;
   const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${clave}`, vars);
   const et = (clave, vars) => esc(t(clave, vars));
   const fecha = (valor) => esc(catalogo.fecha(valor, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }));
@@ -85,13 +86,14 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
         ${requisitos}${decision ? `<h4>${et("revision")}</h4>${selector}${evidencia}` : ""}${confirmar}</div></section>`;
     }
     const confirmacion = recibo ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("recibo")}: ${esc(recibo.recibo_ref)}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
-    raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
+    raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo" tabindex="-1">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
       <div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><form data-inscripcion-filtros><label for="inscripcion-estado">${et("estado")}</label><select id="inscripcion-estado" name="estado">${opcionesEstado}</select>
       <button class="boton-secundario" type="submit">${et("filtrar")}</button></form>${filtroActivo}
       ${estado}${cuenta}${listado?.total ? `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("convocatoria")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
   }
   function navegar(nuevo) {
     filtro = nuevo; detalle = null; motivos = null; decision = ""; recibo = null; intento = null;
+    enfocarLista = true;
     historial.pushState(null, "", rutaInscripcionesRRHH(localizacion.href, filtro));
     void cargarLista();
   }
@@ -102,6 +104,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       const data = await cliente.listar({ ...filtro, idioma: catalogo.idioma, signal: controlador.signal });
       if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
       listado = data; estadoVista = "lista"; pintar();
+      if (enfocarLista) { enfocarLista = false; raiz.querySelector?.("#inscripciones-titulo")?.focus?.({ preventScroll: true }); }
     } catch (error) {
       if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
       if ([401, 403].includes(error?.estado)) limpiarDenegacion();
@@ -178,7 +181,10 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     else if (accion.dataset.inscripcionDecidir) void prepararDecision(accion.dataset.inscripcionDecidir);
     else if (accion.hasAttribute("data-inscripcion-confirmar")) void confirmar();
     else if (accion.hasAttribute("data-inscripcion-cancelar")) { decision = ""; motivos = null; intento = null; pintar(); }
-    else if (accion.hasAttribute("data-inscripcion-cerrar")) { ++secuencia; controlador?.abort(); detalle = null; decision = ""; motivos = null; pintar(); }
+    else if (accion.hasAttribute("data-inscripcion-cerrar")) { const ref = detalle?.solicitud_ref;
+      ++secuencia; controlador?.abort(); detalle = null; decision = ""; motivos = null; pintar();
+      [...(raiz.querySelectorAll?.("[data-inscripcion-abrir]") || [])]
+        .find((control) => control.dataset.inscripcionAbrir === ref)?.focus?.({ preventScroll: true }); }
     else if (accion.hasAttribute("data-inscripcion-reintentar")) void cargarLista();
     else if (accion.hasAttribute("data-inscripcion-ayuda")) { ayuda = !ayuda; pintar(); raiz.querySelector?.("[data-inscripcion-ayuda]")?.focus?.(); }
     else if (accion.hasAttribute("data-inscripcion-siguiente")) navegar({ ...filtro, cursor: listado.cursor_siguiente });
@@ -192,7 +198,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     evento.preventDefault(); const form = new FormData(evento.target);
     navegar({ estado: form.get("estado"), convocatoria: filtro.convocatoria, cursor: "" });
   };
-  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); void cargarLista(); };
+  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); enfocarLista = true; void cargarLista(); };
   const desmontar = () => {
     if (!vivo) return;
     vivo = false; ++secuencia; controlador?.abort();
