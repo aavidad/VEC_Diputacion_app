@@ -17,7 +17,7 @@ const maximoEntradasXLSX = 512
 
 // El ZIP se consume entero y cada tamaño real se mide antes de interpretar XML.
 // No se extrae ninguna entrada a disco ni se resuelve ningún Target externo.
-func decodificarXLSX(ctx context.Context, origen io.ReadSeeker) (dominio.HojaStaging, error) {
+func decodificarXLSX(ctx context.Context, origen io.ReadSeeker, maximoFilas int) (dominio.HojaStaging, error) {
 	tamano, err := origen.Seek(0, io.SeekEnd)
 	if err != nil || tamano < 4 {
 		return dominio.HojaStaging{}, ErrXLSInvalido
@@ -129,7 +129,7 @@ func decodificarXLSX(ctx context.Context, origen io.ReadSeeker) (dominio.HojaSta
 	if err != nil {
 		return dominio.HojaStaging{}, err
 	}
-	cabeceras, filas, err := leerHojaXLSX(ctx, datosHoja, compartidas, estilos)
+	cabeceras, filas, err := leerHojaXLSX(ctx, datosHoja, compartidas, estilos, maximoFilas)
 	if err != nil {
 		return dominio.HojaStaging{}, err
 	}
@@ -641,7 +641,7 @@ type celdaXLSX struct {
 	Inline  string
 }
 
-func leerHojaXLSX(ctx context.Context, datos []byte, compartidas []string, estilos []bool) ([]string, []dominio.FilaStaging, error) {
+func leerHojaXLSX(ctx context.Context, datos []byte, compartidas []string, estilos []bool, maximoFilas int) ([]string, []dominio.FilaStaging, error) {
 	dec := xml.NewDecoder(bytes.NewReader(datos))
 	var cabeceras []string
 	var filas []dominio.FilaStaging
@@ -672,7 +672,7 @@ func leerHojaXLSX(ctx context.Context, datos []byte, compartidas []string, estil
 						return nil, nil, ErrXLSInvalido
 					}
 				}
-				if numero > maximoFilasXLS {
+				if numero > maximoFilas {
 					return nil, nil, ErrLimiteXLSExcedido
 				}
 				celdas, ultimaColumna = nil, 0

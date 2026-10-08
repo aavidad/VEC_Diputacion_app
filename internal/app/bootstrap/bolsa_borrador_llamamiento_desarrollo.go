@@ -290,6 +290,7 @@ var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.Generado
 
 type emisorBorradorLlamamientoDesarrollo struct {
 	crear, consultar, situacion, contacto, consultaContacto, datosContacto, consultaDatosContacto, emision, politicaOfertas *emisorMaterialRenovableCTDesarrollo
+	cargaConvoca                                                                                                            *emisorMaterialRenovableCTDesarrollo
 	consultaPoliticaOfertas                                                                                                 *emisorMaterialRenovableCTDesarrollo
 	consultaReincorporacion                                                                                                 *emisorMaterialRenovableCTDesarrollo
 	consultaSolicitudesDocumentales                                                                                         *emisorMaterialRenovableCTDesarrollo
@@ -355,6 +356,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 	case puertosbolsa.AccionCrearBorradorLlamamientoInterno:
 		if e != nil && e.crear != nil {
 			return e.crear.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionConfirmarCargaConvoca:
+		if e != nil && e.cargaConvoca != nil {
+			return e.cargaConvoca.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
 	case puertosbolsa.AccionConsultarBorradorLlamamientoInterno:
 		if e != nil && e.consultar != nil {
@@ -424,7 +429,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	proveedorReincorporacion ...*proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
-	if ctx == nil || personalizacion == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialConsultaSolicitudesDocumentales == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialConsultaDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
+	if ctx == nil || personalizacion == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialConsultaSolicitudesDocumentales == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialConsultaDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil || alta.postgresql.proveedorMaterialCargaConvoca == nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
@@ -463,12 +468,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	soporteBolsa.soporteCanal.contextoEsperadoRegistrado = esperadoRegistrado
 	completa := false
 	cerrarIntentosDocumentales := func() {}
+	cerrarCargaConvoca := func() {}
 	detenerReincorporaciones := func() {}
 	defer func() {
 		if !completa {
 			detenerReincorporaciones()
 			cerrarAuditoria()
 			cerrarIntentosDocumentales()
+			cerrarCargaConvoca()
 		}
 	}()
 	sesionBolsa, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
@@ -524,6 +531,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoEmitirLlamamientoBolsaDesarrollo(),
 	}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoConfirmarCargaConvocaBolsaDesarrollo()}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if politicaOfertasActiva && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
@@ -605,6 +616,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	emisorCargaConvoca, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialCargaConvoca)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	var emisorPoliticaOfertas *emisorMaterialRenovableCTDesarrollo
 	var emisorConsultaPoliticaOfertas *emisorMaterialRenovableCTDesarrollo
 	if politicaOfertasActiva {
@@ -623,6 +638,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}}
 	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, consultaSolicitudesDocumentales: emisorDocumentales, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
+	emisor.cargaConvoca = emisorCargaConvoca
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -797,6 +813,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	handlerCargaConvoca, detenerCargaConvoca, err := nuevoHandlerCargaConvocaBolsaDesarrollo(ctx, cfg,
+		alta.postgresql.bolsa, preparador, emisor, pdp, registradorDocumentales, procesoDocumentales, dependenciasCT.reloj.Ahora)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	cerrarCargaConvoca = detenerCargaConvoca
 	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
@@ -818,7 +840,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	// No incorporación (CT124/Bolsa 000042): con la incorporación acreditada
 	// encendida, el relevo lleva la baja a la bandeja de Bolsa.
-	cerrar := func() { detenerReincorporaciones(); cerrarAuditoria(); cerrarIntentosDocumentales() }
+	cerrar := func() {
+		detenerReincorporaciones()
+		cerrarAuditoria()
+		cerrarIntentosDocumentales()
+		cerrarCargaConvoca()
+	}
 	if incorporacionAcreditadaSolicitada(cfg) {
 		var catalogo catalogoNoIncorporacionBolsa
 		if c, ok := catalogoSanciones.(catalogoNoIncorporacionBolsa); ok && c != nil {
@@ -835,10 +862,13 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			detenerReincorporaciones()
 			cerrarAuditoria()
 			cerrarIntentosDocumentales()
+			cerrarCargaConvoca()
 		}
 	}
 	completa = true
 	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},
+		vechttp.RutaExacta{Ruta: bolsahttp.RutaConfirmarCargaConvoca, Manejador: handlerCargaConvoca})
 	if politicaOfertasActiva {
 		rutas = append(rutas, rutaPoliticaOfertas, rutaCapacidadPoliticaOfertas)
 	}

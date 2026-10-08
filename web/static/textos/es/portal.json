@@ -872,6 +872,7 @@
     "txt_volver_al_cuadro": "Volver al cuadro",
     "txt_volver_al_cuadro_de_mando": "Volver al cuadro de mando",
     "txt_reglas_vigentes": "Reglas vigentes",
+    "txt_cargar_bolsa_convoca": "Cargar bolsa desde CONVOCA",
     "txt_ficha_de_persona": "Ficha de {nombre}",
     "txt_vigencia_abierta": "Desde el {desde}, sin fecha de fin",
     "txt_registrar_resultado_en_peticiones": "Registrar resultado en Peticiones de personal temporal",

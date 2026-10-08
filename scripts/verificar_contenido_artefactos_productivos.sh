@@ -287,6 +287,7 @@ transportes_mtls_revisados=(
 	# fijas, same-origin, no-store, redirect error y no-referrer.
 	static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 	static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
+	static/portal-empleado/modulos/bolsa/carga-convoca/cliente.js
 	static/portal-empleado/modulos/auditoria/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js
