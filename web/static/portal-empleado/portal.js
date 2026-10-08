@@ -1,6 +1,6 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
-  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-ct-inicio-v1";
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
@@ -109,7 +109,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-ct-inicio-v1"),
+      import("./portal-inicio.js?v=20261008-bolsa-inicio-v2"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -893,7 +893,9 @@ function opcionesDesdeEnlace(vista) {
 function vistaDesdeHash() {
   const valor = window.location.hash.replace(/^#\/?/, "").trim();
   if (!valor || valor === "portal") {
-    if (window.location.hash !== "#portal") history.replaceState(null, "", "#portal");
+    const ruta = rutaPortalConFiltroCT(window.location, "#portal");
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.replaceState(null, "", ruta);
     return "portal";
   } const candidata = valor.split("/").filter(Boolean).at(-1);
   if (Object.hasOwn(TITULOS, candidata)) return candidata;
@@ -1005,9 +1007,10 @@ function navegar(vista, opciones = {}) {
       vista === "contratacion-temporal" && filtroServidorCTValido(filtroServidorRuta) ? filtroServidorRuta : null);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.pushState(null, "", ruta);
-  } else if (vista !== "contratacion-temporal"
-    && window.location.search !== limpiarFiltroCTDeBusqueda(window.location.search)) {
-    history.replaceState(null, "", rutaPortalConFiltroCT(window.location, hash));
+  } else if (vista !== "contratacion-temporal") {
+    const ruta = rutaPortalConFiltroCT(window.location, hash);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.replaceState(null, "", ruta);
   }
   estado.vista = vista;
   estado.opcionesVista = vista === "contratacion-temporal"

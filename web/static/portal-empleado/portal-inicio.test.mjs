@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261007-ct-menu-recuperacion-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-bolsa-inicio-v2";
 import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
