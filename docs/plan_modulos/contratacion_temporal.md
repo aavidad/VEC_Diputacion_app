@@ -77,3 +77,12 @@ La consulta web distingue ahora una ruta de auditoría no disponible (404) de un
 La activación sigue en manos de dirección: el despliegue requiere `VEC_RRHH_AUDITORIA_ENABLED` y sus dependencias nominales. Esta corrección de interfaz no activa el servicio ni cambia permisos, consultas o registros de auditoría. El contrato Go y SQL de Documentos D14 del equipo V está integrado en main (#845). La ficha de #850 transmite la referencia `expediente:ct:<64 hex>` y rechaza la referencia vacía de desarrollo. La instalación de D14 y la consulta nominal en el entorno de destino siguen requiriendo su comprobación; esta entrega no las acredita.
 
 Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; después, las lecturas de Bolsa con una decisión V3, auditoría y consulta en la misma transacción, paginación SQL y listas filtradas para las cifras del resumen. CT187 está integrado desde la PR #840; su medición y sus límites constan allí. No se da por terminado el recorrido completo ni la firma.
+
+
+## Alta según la circular del 19/02/2026 — preparación del 08/10
+
+El catálogo v2 de necesidades distingue vacante, sustitución, acumulación de tareas y programa. Recoge el número de personas; para vacante exige los códigos de plaza y puesto. La jornada se muestra en horas y minutos y se conserva en minutos enteros. La modalidad jurídica se decide después, durante el análisis. El catálogo de ejemplo es configurable y cita la circular oficial comprobada.
+
+La interfaz mantiene sus textos en JSON del idioma elegido y los carga al abrir Alta. También valida las referencias alternativas de financiación y los periodos de cada causa. El coordinador entrega la consulta del catálogo v2 sin pedirla al abrir otras vistas. La cadena de módulos usa una URL por archivo; el recibo HTTP mantiene sus cinco campos.
+
+CT193 y Go conservan la necesidad y su catálogo en el efecto sellado. El nuevo canon pasó las dos revisiones y el ensayo E2/E3 en PostgreSQL 18 desechable, incluida recuperación, colisión y concurrencia. Falta conectar la consulta pública RPT por código exacto entregada por Personal y comprobar el POST desde Chrome con la fuente de necesidades configurada. La configuración nueva es `VEC_CT_NECESIDADES_ALTA_SOURCE_PATH`; el valor de despliegue se fijará en la entrega tras comprobar el paquete de la principal. Ninguna base compartida recibió este SQL.

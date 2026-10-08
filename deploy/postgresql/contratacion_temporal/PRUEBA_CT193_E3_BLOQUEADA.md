@@ -118,3 +118,10 @@ Se restauró el límite anterior de 8192 en
 `966a479051c9ea7730bd44f6a86db43b132394e8`, manteniendo `-p 6`, la memoria
 y el tiempo acotados. Ese intento limpió sus recursos y no instaló CT193.
 El consumidor visual y la autorización nominal requieren revisión propia.
+
+
+## Nuevo canon de la circular: ensayo del 08/10
+
+La candidata `256612e2fec4a19c5267b793d7ac1b559751b846` recibió dos ratificaciones independientes. El UP CT193 con SHA256 `c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c` se aplicó una sola vez en otra base PostgreSQL 18 desechable. La ejecución terminó con código 0: E2 antes y después, E3 con fin, periodo abierto, recuperación tras reconstruir el contenedor sobre el mismo volumen, colisión y concurrencia. Cada fase exige el marcador PASS de su prueba; las altas nuevas dejaron una versión, actuación, auditoría, outbox y recibo, y los replays mantuvieron esos cinco contadores.
+
+La salida original del runner se conservó fuera de Git, con modo 0600; este resultado no depende de la transcripción del ensayo anterior. Al terminar no quedaban contenedores ni volúmenes con la etiqueta del ensayo. No se instaló CT193 en una base con historia ni se acredita aquí el POST nominal o el recorrido Chrome. La dependencia de consulta RPT por código exacto sigue pendiente de su propietario.
