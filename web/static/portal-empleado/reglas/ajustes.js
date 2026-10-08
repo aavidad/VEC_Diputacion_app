@@ -28,15 +28,15 @@ const instanteRFC3339 = (valor) => typeof valor === "string"
 
 /** Rechaza las horas inexistentes o ambiguas en los cambios de horario de Madrid. */
 export function normalizarFechaMadrid(valor, ahora = Date.now(), minimo = ahora) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(valor)) throw new ErrorAjustes("ajustesFechaInvalida");
-  const [anio, mes, dia, hora, minuto] = valor.match(/\d+/gu).map(Number);
-  const base = Date.UTC(anio, mes - 1, dia, hora, minuto);
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(valor)) throw new ErrorAjustes("ajustesFechaInvalida");
+  const [anio, mes, dia, hora, minuto, segundo = 0] = valor.match(/\d+/gu).map(Number);
+  const base = Date.UTC(anio, mes - 1, dia, hora, minuto, segundo);
   const formato = new Intl.DateTimeFormat(undefined, { timeZone: "Europe/Madrid", numberingSystem: "latn", year: "numeric", month: "2-digit",
-    day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
   const candidatos = [1, 2].map((desfase) => base - desfase * 3600000).filter((utc) => {
     const partes = Object.fromEntries(formato.formatToParts(utc).map(({ type, value }) => [type, value]));
     return Number(partes.year) === anio && Number(partes.month) === mes && Number(partes.day) === dia
-      && Number(partes.hour) === hora && Number(partes.minute) === minuto;
+      && Number(partes.hour) === hora && Number(partes.minute) === minuto && Number(partes.second) === segundo;
   });
   if (candidatos.length !== 1 || candidatos[0] <= ahora || candidatos[0] < minimo) throw new ErrorAjustes("ajustesFechaInvalida");
   return new Date(candidatos[0]).toISOString().replace(".000Z", "Z");
@@ -219,10 +219,13 @@ const fecha = (iso) => Number.isNaN(Date.parse(iso)) ? "" : fechaAjustes(iso);
 function fechaMadridControl(iso) {
   const instante = Date.parse(iso);
   if (Number.isNaN(instante)) return "";
+  const fraccion = /\.(\d+)/u.exec(iso)?.[1] ?? "";
+  const redondeado = Math.ceil(instante / 1000) * 1000
+    + (instante % 1000 === 0 && /[1-9]/u.test(fraccion) ? 1000 : 0);
   const partes = Object.fromEntries(new Intl.DateTimeFormat(undefined, { timeZone: "Europe/Madrid",
     numberingSystem: "latn", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit",
-    minute: "2-digit", hourCycle: "h23" }).formatToParts(instante).map(({ type, value }) => [type, value]));
-  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}`;
+    minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(redondeado).map(({ type, value }) => [type, value]));
+  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}:${partes.second}`;
 }
 const cabezaFutura = (modelo) => Boolean(modelo.cabeza
   && Date.parse(modelo.cabeza.vigente_desde) > Date.parse(modelo.consultada_en));
@@ -254,10 +257,12 @@ function validarValoresFormulario(regla, borrador) {
 
 function renderizarHistoriaSinBase(historial, motivos) {
   if (!historial.length) return "";
+  const numeros = new Map([...new Set(historial.flatMap((h) => h.cambios.map((c) => c.regla_clave)))].sort()
+    .map((claveRegla, indice) => [claveRegla, indice + 1]));
   const entradas = historial.map((h) => {
     const motivo = motivos.find((m) => m.clave === h.motivo_clave);
     const motivoTexto = motivo ? t(motivo.texto_clave) : t("ajustesMotivoNoIdentificado");
-    const cambios = h.cambios.map((c) => `<li>${esc(t("ajustesReglaSinNombre"))} · ${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("");
+    const cambios = h.cambios.map((c) => `<li>${esc(t("ajustesReglaHistoricaNumero", { numero: formatearNumero(numeros.get(c.regla_clave)) }))} · ${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("");
     return `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(h.actor_nombre || t("ajustesAutorNoDisponible"))} · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivoTexto)}
       <ul>${cambios}</ul>
       ${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}
@@ -334,7 +339,7 @@ function renderizarFormulario(regla, baseEdicion, hayCabezaFutura, fechaCabeza, 
   const motivo = `<label><span>${esc(t("ajustesMotivo"))}</span><select name="motivo_clave" required${bloqueado}><option value="">${esc(t("ajustesElegirMotivo"))}</option>${motivos.map((m) => `<option value="${esc(m.clave)}"${m.clave === borrador?.motivo_clave ? " selected" : ""}>${esc(t(m.texto_clave))}</option>`).join("")}</select></label>`;
   const inicio = hayCabezaFutura || borrador?.inicio_efecto === "futuro" ? "futuro" : "ahora";
   const valorFecha = borrador?.fecha_madrid ?? (hayCabezaFutura ? fechaMadridControl(fechaCabeza) : "");
-  const fechaControl = `<fieldset class="rg-ajuste-nota"><legend>${esc(t("ajustesInicioEfecto"))}</legend><label><input type="radio" name="inicio_efecto" value="ahora"${inicio === "ahora" ? " checked" : ""}${bloqueado || hayCabezaFutura ? " disabled" : ""}>${esc(t("ajustesDesdeAhora"))}</label><label><input type="radio" name="inicio_efecto" value="futuro"${inicio === "futuro" ? " checked" : ""}${bloqueado}>${esc(t("ajustesFechaFutura"))}</label>${hayCabezaFutura ? `<p class="rg-meta">${esc(t("ajustesAhoraBloqueado", { fecha: fecha(fechaCabeza) }))}</p>` : ""}${inicio === "futuro" ? `<label><span>${esc(t("ajustesFechaHoraMadrid"))}</span><input name="fecha_madrid" type="datetime-local" required value="${esc(valorFecha)}"${bloqueado}></label>` : ""}</fieldset>`;
+  const fechaControl = `<fieldset class="rg-ajuste-nota"><legend>${esc(t("ajustesInicioEfecto"))}</legend><label><input type="radio" name="inicio_efecto" value="ahora"${inicio === "ahora" ? " checked" : ""}${bloqueado || hayCabezaFutura ? " disabled" : ""}>${esc(t("ajustesDesdeAhora"))}</label><label><input type="radio" name="inicio_efecto" value="futuro"${inicio === "futuro" ? " checked" : ""}${bloqueado}>${esc(t("ajustesFechaFutura"))}</label>${hayCabezaFutura ? `<p class="rg-meta">${esc(t("ajustesAhoraBloqueado", { fecha: fecha(fechaCabeza) }))}</p>` : ""}${inicio === "futuro" ? `<label><span>${esc(t("ajustesFechaHoraMadrid"))}</span><input name="fecha_madrid" type="datetime-local" step="1" required value="${esc(valorFecha)}"${bloqueado}></label>` : ""}</fieldset>`;
   const efecto = inicio === "futuro" ? t("ajustesEfectoFuturo", { fecha: fecha(borrador?.vigente_desde) }) : t("ajustesEfecto");
   const reglaCabeza = { ...regla, valores: baseEdicion };
   const resumen = fase === "revision" ? `<div class="rg-ajuste-revision" tabindex="-1" data-ajustes-revision><h4>${esc(t("ajustesRevisar"))}</h4><p>${esc(efecto)}</p>${hayCabezaFutura ? `<p>${esc(t("ajustesSustituyeProgramado", { fecha: fecha(fechaCabeza) }))}</p>` : ""}<dl>${regla.edicion.campos.filter((campo) => borrador[campo] !== baseEdicion[campo]).map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(reglaCabeza, campo, baseEdicion[campo]))} → ${esc(presentarValor(reglaCabeza, campo, borrador[campo], borrador.unidad ?? baseEdicion.unidad ?? regla.unidad))}</dd></div>`).join("")}

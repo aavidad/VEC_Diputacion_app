@@ -56,7 +56,7 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
     const html = renderizarAjustes(modelo);
     assert.match(html, /Ver historial/u);
     assert.match(html, /Duda 63/u);
-    assert.match(html, /Regla sin nombre disponible/u);
+    assert.match(html, /Regla anterior 1/u);
     assert.doesNotMatch(html, /<code>c03\.plazo_fiscalizacion<\/code>/u);
     assert.match(html, /Cantidad: 12 → 10/u);
     assert.match(html, /Revisado/u);
@@ -66,6 +66,18 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
     const falsa = lectura(); falsa.data.activacion.estado = estado;
     assert.throws(() => validarLecturaAjustes(falsa), ErrorAjustes);
   }
+});
+
+test("la historia sin catálogo distingue reglas sin exponer sus claves", () => {
+  const sinBase = lectura();
+  sinBase.data.activacion.estado = "inactiva";
+  sinBase.data.puede_ajustar = false;
+  sinBase.data.reglas = [];
+  sinBase.data.historial[0].cambios.push({ regla_clave: "c04.plazo_subsanacion", campo: "cantidad", anterior: "8", nuevo: "9" });
+  const html = renderizarAjustes(validarLecturaAjustes(sinBase));
+  assert.match(html, /Regla anterior 1/u);
+  assert.match(html, /Regla anterior 2/u);
+  assert.doesNotMatch(html, /<code>c0[34]\.plazo_/u);
 });
 
 test("la cabeza programada conserva CAS independiente del valor vigente", () => {
@@ -204,10 +216,24 @@ test("la pantalla muestra resumen, historia y recibo, escapa datos; desactiva ca
 
 test("fecha futura de Madrid se normaliza sin horas ambiguas ni inexistentes", () => {
   assert.equal(normalizarFechaMadrid("2027-01-15T10:30", Date.parse("2026-01-01")), "2027-01-15T09:30:00Z");
+  assert.equal(normalizarFechaMadrid("2027-01-15T10:30:30", Date.parse("2026-01-01")), "2027-01-15T09:30:30Z");
   assert.equal(normalizarFechaMadrid("2027-07-15T10:30", Date.parse("2026-01-01")), "2027-07-15T08:30:00Z");
   for (const local of ["2027-03-28T02:30", "2027-10-31T02:30", "2026-01-01T10:30", "invalida"]) {
     assert.throws(() => normalizarFechaMadrid(local, Date.parse("2026-10-08")), ErrorAjustes);
   }
+});
+
+test("la fecha prellenada conserva segundos y supera fracciones de la cabeza", () => {
+  const futuro = lectura();
+  futuro.data.version_esperada = 3;
+  futuro.data.cabeza = { version: 3, ajustes: { "c03.plazo_fiscalizacion": { cantidad: "7" } },
+    vigente_desde: "2027-01-15T09:30:30.123456Z", publicada_en: "2026-10-08T10:00:00Z" };
+  futuro.data.programados = [futuro.data.cabeza];
+  const html = renderizarAjustes(validarLecturaAjustes(futuro), { reglaActiva: "c03.plazo_fiscalizacion" });
+  assert.match(html, /value="2027-01-15T10:30:31"/u);
+  assert.match(html, /type="datetime-local" step="1"/u);
+  assert.equal(normalizarFechaMadrid("2027-01-15T10:30:31", Date.parse("2026-10-08"), Date.parse(futuro.data.cabeza.vigente_desde)),
+    "2027-01-15T09:30:31Z");
 });
 
 test("el cliente admite fecha futura sólo como instante UTC y usa una ruta fija por módulo", async () => {

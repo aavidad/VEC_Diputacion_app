@@ -87,6 +87,7 @@
     "ajustesSustituyeProgramado": "La comparación parte de la versión programada para {fecha}.",
     "ajustesReglaSinNombre": "Regla sin nombre disponible",
     "ajustesValoresVersion": "Valores de esta versión",
-    "ajustesProgramadosParciales": "Hay más cambios programados. Consulte el historial y cargue los cambios anteriores."
+    "ajustesProgramadosParciales": "Hay más cambios programados. Consulte el historial y cargue los cambios anteriores.",
+    "ajustesReglaHistoricaNumero": "Regla anterior {numero}"
   }
 }

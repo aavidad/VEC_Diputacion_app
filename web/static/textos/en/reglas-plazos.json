@@ -87,6 +87,7 @@
     "ajustesSustituyeProgramado": "The comparison starts from the version scheduled for {fecha}.",
     "ajustesReglaSinNombre": "Rule name unavailable",
     "ajustesValoresVersion": "Values in this version",
-    "ajustesProgramadosParciales": "There are more scheduled changes. Check the history and load earlier changes."
+    "ajustesProgramadosParciales": "There are more scheduled changes. Check the history and load earlier changes.",
+    "ajustesReglaHistoricaNumero": "Earlier rule {numero}"
   }
 }
