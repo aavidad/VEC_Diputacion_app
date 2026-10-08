@@ -13,6 +13,7 @@ import (
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	bolsaapplication "vec-diputacion-granada/internal/modules/bolsa/application"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -36,6 +37,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	// Con B82 y B85, resumenConjunto sirve cuadro y estadísticas con tres
 	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
 	resumenConjunto ports.LectorResumenBolsas
+	bolsaConjunto   lectorBolsaRRHHConjunto
 	recuperador     constitucion.Recuperador
 	categorias      map[string]string
 	grupos          map[string][]string
@@ -51,6 +53,10 @@ type fuenteConstituidaRRHHDesarrollo struct {
 // por bolsa, cuando falta el resumen de conjunto B82/B85.
 type contadorLlamamientosEnCursoBolsa interface {
 	ContarEnCurso(context.Context, string) (int, error)
+}
+
+type lectorBolsaRRHHConjunto interface {
+	LeerBolsa(context.Context, string, time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionResumenParticipacion, int, error)
 }
 
 const validezCacheBolsasConstituidas = 30 * time.Second
@@ -191,7 +197,17 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		return nil
 	}
 	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	var bolsaConjunto lectorBolsaRRHHConjunto
+	if resumenConjunto != nil {
+		bolsaConjunto, err = postgresbolsa.NuevoLectorBolsaRRHHConjunto(poolBolsa)
+		if err != nil {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("lector_bolsa_conjunto", err)
+			poolBolsa.Close()
+			poolImportacion.Close()
+			return nil
+		}
+	}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, bolsaConjunto: bolsaConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -268,7 +284,14 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		if alcance.bolsa != "" && vigente.Bolsa.BolsaRef != alcance.bolsa {
 			continue
 		}
-		ordenVigente, err := f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
+		var ordenVigente dominiobolsa.OrdenVigenteBolsa
+		var filasResumen []ports.SituacionResumenParticipacion
+		var totalCurso int
+		if alcance.bolsa != "" && f.bolsaConjunto != nil {
+			ordenVigente, filasResumen, totalCurso, err = f.bolsaConjunto.LeerBolsa(ctx, vigente.Bolsa.BolsaRef, corte)
+		} else {
+			ordenVigente, err = f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
+		}
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
@@ -304,9 +327,11 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 			Referencia: vigente.Bolsa.BolsaRef, CategoriaRef: vigente.CategoriaRef,
 			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: politica.TipoLista, VigenteDesde: desde, PoliticaOrden: politica,
 		})
-		totalCurso, err := f.emisiones.ContarEnCurso(ctx, vigente.Bolsa.BolsaRef)
-		if err != nil {
-			return datasetBolsasRRHHDesarrollo{}, err
+		if filasResumen == nil {
+			totalCurso, err = f.emisiones.ContarEnCurso(ctx, vigente.Bolsa.BolsaRef)
+			if err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
 		}
 		datos.Bolsas[len(datos.Bolsas)-1].LlamamientosEnCurso = totalCurso
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
@@ -322,7 +347,13 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
 		}
-		situacionesLote, cesesLote, err := f.leerSituacionesBolsa(ctx, entradas, corte)
+		var situacionesLote map[string]ports.SituacionParticipacion
+		var cesesLote map[string]ports.EstadoCese
+		if filasResumen != nil {
+			situacionesLote, cesesLote, err = mapearSituacionesConjuntoBolsa(vigente, entradas, filasResumen)
+		} else {
+			situacionesLote, cesesLote, err = f.leerSituacionesBolsa(ctx, entradas, corte)
+		}
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
