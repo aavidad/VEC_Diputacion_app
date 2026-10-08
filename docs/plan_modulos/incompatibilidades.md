@@ -1,5 +1,7 @@
 # Plan de Incompatibilidades — 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 VEC tramitará declaraciones y solicitudes de compatibilidad, informes, decisión,
 condiciones y revisiones. La persona declara los hechos y el órgano competente
 decide. La primera entrega propuesta conserva una solicitud sintética y su recibo

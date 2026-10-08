@@ -1,5 +1,7 @@
 # Cronos: continuación por capacidades
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 Plan de trabajo del 7 de octubre de 2026. La orden de Dirección reanuda los módulos;
 cidonia queda congelada. Esta ficha ordena cortes futuros sobre `main@01046e2e`;
 no autoriza instalar SQL, habilitar Cronos ni usar datos reales.
