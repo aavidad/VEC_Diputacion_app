@@ -83,3 +83,18 @@ La cifra de disponibles de cada bolsa en Inicio abre su lista paginada con el es
 Al salir de una lista de Bolsa hacia Inicio se retiran `bolsa_ref`, `estado` y `cursor` de la URL; se conservan los parámetros del portal. Atrás y Adelante recuperan la entrada anterior con su filtro. Las URL antiguas que ya apuntan a Inicio se corrigen sin crear otra entrada de historial.
 
 Los tres totales globales siguen pendientes de una lectura global autorizada y paginada. Hoy suman participaciones en bolsas, por lo que una persona incluida en varias bolsas puede contar varias veces. No se debe sustituir ese conjunto por una lista de una sola bolsa ni consultar cada bolsa desde el navegador para reconstruirlo.
+
+
+## Continuación de fichas y totales globales — 8 de octubre de 2026
+
+Las solicitudes documentales y las reincorporaciones de la ficha requieren disponibilidad nominal por participación antes de omitir sus consultas. La fuente preparada de S (`6455e0ead`) queda conservada en su rama; no se activa sin proveedor, porque también retiraría secciones operativas. Sigue pendiente conectar el contexto F1 real del lector con la proyección por recurso de V.
+
+Los totales globales cuentan participaciones en bolsas. Su lista paginada debe devolver página y total con el mismo filtro y corte, y registrar el acceso correcto en la misma transacción. La continuidad de sesión de CT y los registradores de intentos fallidos no cubren esta lectura de Bolsa. Falta el consumidor común de lectura y auditoría solicitado a V. No se han añadido enlaces a listas incompletas, consultas por bolsa ni una fachada V3 nueva.
+
+## Disponibilidad nominal de las secciones de la ficha — 8 de octubre de 2026
+
+El historial de operaciones leído y auditado incorpora la disponibilidad de solicitudes documentales y reincorporaciones de la persona titular para esa participación. La proyección reutiliza el contexto F1 del lector, una instantánea de permisos y los handlers realmente montados. Solo informa de disponibilidad; cada consulta y cada acto conservan su autorización.
+
+La ficha espera esa respuesta antes de pedir las secciones opcionales. Omite las ausentes o no autorizadas, conserva el candidato y el historial si falla la comprobación y permite reintentar. Los requisitos de Regularizar y su comprobación V3 se conservan. Sin metadata del servidor mantiene el recorrido anterior. No lleva SQL ni configuración nueva. Se reutiliza el proyector de V (`8d481727`) sin reescribirlo.
+
+La lista global de los totales sigue pendiente del consumidor de lectura y acceso correcto en la misma transacción. La disponibilidad de una participación no cubre ese acceso global.
