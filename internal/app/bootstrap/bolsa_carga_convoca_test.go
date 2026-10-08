@@ -13,10 +13,32 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	xls "vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
+
+func TestVistaPreviaCargaConvocaRechazaExtensionAjenaAlContenido(t *testing.T) {
+	vista, err := aplicacionbolsa.NuevoPrevisualizadorCargaConvoca(xls.NuevoLector())
+	if err != nil {
+		t.Fatal(err)
+	}
+	operador := operadorCargaConvocaBolsa{vista: vista}
+	for _, caso := range []struct{ ruta, nombre string }{
+		{filepath.Join("..", "..", "modules", "bolsa", "application", "testdata", "carga_convoca", "carga_convoca_ejemplo.xlsx"), "acta.xls"},
+		{filepath.Join("..", "..", "modules", "bolsa", "adapters", "xlsconvoca", "testdata", "xls_sinteticos", "resumen.xls"), "acta.xlsx"},
+	} {
+		contenido, err := os.ReadFile(caso.ruta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := operador.Previsualizar(context.Background(), caso.nombre, contenido); !errors.Is(err, aplicacionbolsa.ErrFicheroCargaConvocaInvalido) {
+			t.Fatalf("%s como %s: %v", caso.ruta, caso.nombre, err)
+		}
+	}
+}
 
 func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	perfil := "prf_bolsa_bback"

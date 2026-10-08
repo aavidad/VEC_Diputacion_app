@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -173,6 +175,10 @@ type operadorCargaConvocaBolsa struct {
 func (o operadorCargaConvocaBolsa) Previsualizar(ctx context.Context, nombre string, contenido []byte) (aplicacionbolsa.VistaPreviaCargaConvoca, error) {
 	if o.vista == nil {
 		return aplicacionbolsa.VistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	formato, err := xls.FormatoContenido(contenido)
+	if err != nil || !strings.EqualFold(filepath.Ext(nombre), "."+formato) {
+		return aplicacionbolsa.VistaPreviaCargaConvoca{}, aplicacionbolsa.ErrFicheroCargaConvocaInvalido
 	}
 	return o.vista.Previsualizar(ctx, nombre, contenido)
 }
