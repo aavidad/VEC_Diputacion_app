@@ -615,7 +615,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261008-canal-telefono-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261008-w-fichas-capacidades-v2",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
