@@ -143,13 +143,22 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
     const filas = resumen.bolsas.slice(0, MAXIMO_BOLSAS_INICIO).map((bolsa) => {
       const disponibles = bolsa?.por_estado?.disponible;
       let enlace = null;
-      try { enlace = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref); }
+      let enlaceDisponibles = null;
+      try {
+        enlace = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref);
+        if (Number.isSafeInteger(disponibles) && disponibles >= 0) {
+          enlaceDisponibles = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref, "disponible");
+        }
+      }
       catch { /* Una referencia no válida se muestra sin enlace. */ }
+      const cifraDisponibles = enlaceDisponibles
+        ? `<a class="enlace-tabla" href="${escaparHTML(enlaceDisponibles)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="disponible" aria-label="${escaparHTML(traducir("txt_aria_ver_candidatos_estado", { total: numero(disponibles), estado: traducir("inicio_rrhh_col_disponibles").toLocaleLowerCase(locale), categoria: bolsa.categoria }))}">${escaparHTML(numero(disponibles))}</a>`
+        : Number.isSafeInteger(disponibles) && disponibles >= 0 ? escaparHTML(numero(disponibles)) : "—";
       return `<tr>
         <th scope="row">${enlace
           ? `<a class="enlace-tabla" href="${escaparHTML(enlace)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}">${escaparHTML(bolsa.categoria)}</a>`
           : escaparHTML(bolsa.categoria)}</th>
-        <td class="numero">${Number.isSafeInteger(disponibles) ? escaparHTML(numero(disponibles)) : "—"}</td>
+        <td class="numero">${cifraDisponibles}</td>
         <td class="numero">${Number.isSafeInteger(bolsa.llamamientos_en_curso) ? escaparHTML(numero(bolsa.llamamientos_en_curso)) : "—"}</td>
         <td>${escaparHTML(finVigenciaBolsaPortal(bolsa.vigente_hasta, traducir))}</td>
       </tr>`;

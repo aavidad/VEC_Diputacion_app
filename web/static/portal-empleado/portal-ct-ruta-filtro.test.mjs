@@ -31,6 +31,37 @@ test("el lector deniega filtros duplicados, plazos y claves ajenas sin convertir
   assert.throws(() => rutaPortalConFiltroCT({ pathname: "//otro.example/", search: "" }, "#portal"));
 });
 
+test("salir de Candidatos retira su filtro y conserva los parámetros del portal", () => {
+  const ubicacion = { pathname: "/portal-empleado/",
+    search: "?lang=en&perfil=rrhh&bolsa_ref=bolsa%3A1&estado=disponible&cursor=anterior&ct_estado=incidencia" };
+  for (const hash of ["#portal", "#mis-preferencias", "#contratacion-temporal"]) {
+    assert.equal(rutaPortalConFiltroCT(ubicacion, hash), `/portal-empleado/?lang=en&perfil=rrhh${hash}`);
+  }
+  assert.equal(rutaPortalConFiltroCT(ubicacion, "#bolsa/bolsa-candidatos"),
+    "/portal-empleado/?lang=en&perfil=rrhh&bolsa_ref=bolsa%3A1&estado=disponible&cursor=anterior#bolsa/bolsa-candidatos");
+  assert.equal(rutaPortalConFiltroCT({ ...ubicacion, search: "?lang=en&estado=pendiente" }, "#portal"),
+    "/portal-empleado/?lang=en&estado=pendiente#portal", "un estado sin bolsa no pertenece a su filtro");
+});
+
+test("Inicio abierto por un enlace anterior limpia la query sin añadir historia", async () => {
+  const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function vistaDesdeHash()");
+  const fin = portal.indexOf("function rutaDeVista(", inicio);
+  const location = { pathname: "/portal-empleado/", search: "?lang=en&bolsa_ref=bolsa%3A1&estado=disponible", hash: "#portal" };
+  const reemplazos = [];
+  const leer = runInNewContext(`${portal.slice(inicio, fin)}; vistaDesdeHash`, {
+    window: { location }, rutaPortalConFiltroCT, TITULOS: { portal: "Inicio" },
+    history: { replaceState(_estado, _titulo, ruta) {
+      reemplazos.push(ruta);
+      const url = new URL(ruta, "https://vec.example"); location.search = url.search; location.hash = url.hash;
+    } },
+  });
+  assert.equal(leer(), "portal");
+  assert.deepEqual(reemplazos, ["/portal-empleado/?lang=en#portal"]);
+  assert.equal(leer(), "portal");
+  assert.equal(reemplazos.length, 1, "repintar Inicio no reescribe la URL");
+});
+
 test("F5 entrega también el callback que mantiene la URL al editar el filtro", async () => {
   const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const inicio = portal.indexOf("function opcionesDesdeEnlace(vista)");
