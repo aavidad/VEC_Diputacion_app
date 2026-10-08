@@ -217,7 +217,7 @@ BEGIN
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=c) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=c) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
-    OR NOT ('search_path=pg_catalog, pg_temp'=ANY((SELECT proconfig FROM pg_proc WHERE oid=f)))
+    OR (SELECT 'search_path=pg_catalog, pg_temp'=ANY(p.proconfig) FROM pg_proc p WHERE p.oid=f) IS NOT TRUE
     OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE') THEN
   RAISE EXCEPTION 'Bolsa 000081: postimagen incompatible' USING ERRCODE='55000';
