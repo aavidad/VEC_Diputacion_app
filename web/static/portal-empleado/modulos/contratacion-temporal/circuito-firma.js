@@ -249,6 +249,7 @@ export function crearGestorCircuitoFirma({
   const controlador = new AbortController();
   let consulta = null;
   let circuitoActual = null;
+  let secuenciaMontaje = 0;
   const consultaFirmaCompuesta = typeof dependenciasAcciones.clientePreflight?.consultar === "function"
     && typeof dependenciasAcciones.obtenerVinculoOriginal === "function"
     && typeof dependenciasAcciones.obtenerOriginal === "function";
@@ -258,6 +259,17 @@ export function crearGestorCircuitoFirma({
     const catalogo = resultado?.catalogo ?? resultado?.circuito ?? null;
     return textos && catalogo ? { catalogo, textos } : null;
   };
+  function expedienteConsultable(estado) {
+    const expediente = estado?.expediente;
+    if (!["expediente", "documentos"].includes(estado?.vista) || estado.carga !== "listo"
+      || expediente?.demostracion !== false || !expediente.expediente_ref
+      || estado.expediente_ref !== expediente.expediente_ref
+      || !Number.isSafeInteger(expediente.version) || expediente.version < 1) return null;
+    if (estado.vista === "documentos" && (estado.documentos?.demostracion !== false
+      || estado.documentos.expediente_ref !== expediente.expediente_ref
+      || estado.documentos.version !== expediente.version)) return null;
+    return { ref: expediente.expediente_ref, version: expediente.version, vista: estado.vista };
+  }
   function pintarFirmados(resultado, datosFase) {
     const zona = raiz.querySelector?.("[data-ct-exp-firmados]");
     if (!zona) return;
@@ -279,13 +291,14 @@ export function crearGestorCircuitoFirma({
   // que la fase de firma se vea en todas sus fases; firmar o devolver solo se
   // ofrece cuando sus borradores se pueden descargar (fase de nombramiento).
   // Sin registro compuesto el bloque sigue siendo informativo.
-  async function conEstadoReal(resultado) {
+  async function conEstadoReal(resultado, contextoEsperado = null) {
     const circuito = resultado?.circuito;
     const estado = obtenerEstado();
+    const contextoActual = expedienteConsultable(estado);
+    if (contextoEsperado && (contextoActual?.ref !== contextoEsperado.ref
+      || contextoActual.version !== contextoEsperado.version || contextoActual.vista !== contextoEsperado.vista)) return resultado;
     const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(estado) : null;
-    const expedienteRef = solicitud?.expediente_ref
-      ?? (circuito && estado?.vista === "expediente" && estado.expediente?.demostracion === false
-        && typeof estado.expediente.expediente_ref === "string" ? estado.expediente.expediente_ref : null);
+    const expedienteRef = circuito ? contextoActual?.ref : null;
     if (!expedienteRef) return resultado;
     let respuesta;
     if (typeof clienteFirma?.consultarConEstado === "function") {
@@ -300,9 +313,10 @@ export function crearGestorCircuitoFirma({
     // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
     // responde o no coincide, no se muestran estados derivados del ejemplo.
     const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
+    const permitirAcciones = estado.vista === "expediente" && Boolean(solicitud);
     const real = fusionado ? Object.freeze({ ...fusionado,
-      acciones: Boolean(solicitud), preflight_compuesto: consultaFirmaCompuesta && Boolean(solicitud),
-    }) : consultaFirmaCompuesta && solicitud ? Object.freeze({ ...circuito,
+      acciones: permitirAcciones, preflight_compuesto: consultaFirmaCompuesta && permitirAcciones,
+    }) : consultaFirmaCompuesta && permitirAcciones ? Object.freeze({ ...circuito,
       acciones: true, preflight_compuesto: true, estado_no_acreditado: true,
     }) : null;
     return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
@@ -403,19 +417,23 @@ export function crearGestorCircuitoFirma({
 
   function montarSiProcede(estado) {
     acciones.actualizar();
-    if (estado?.vista !== "expediente" || !estado.expediente ||
+    const contexto = expedienteConsultable(estado);
+    if (!contexto ||
       (typeof cliente?.obtenerCircuito !== "function" && typeof cliente?.obtenerCircuitoConEstado !== "function")) return;
     consulta ??= Promise.resolve(obtenerCatalogo()).catch(() => ({ estado: "no_disponible" }));
-    const expedienteRef = estado.expediente.expediente_ref;
-    void consulta.then(conEstadoReal).then(async (resultado) => {
+    const actualMontaje = ++secuenciaMontaje;
+    void consulta.then((resultado) => conEstadoReal(resultado, contexto)).then(async (resultado) => {
       const datosFase = await fase(resultado);
-      const actual = obtenerEstado();
-      if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(resultado, datosFase);
+      const actual = expedienteConsultable(obtenerEstado());
+      if (!esMontada() || controlador.signal.aborted || actualMontaje !== secuenciaMontaje
+        || actual?.ref !== contexto.ref || actual.version !== contexto.version || actual.vista !== contexto.vista) return;
+      if (contexto.vista === "documentos") pintarFirmados(resultado, datosFase);
+      else insertar(resultado, datosFase);
     });
   }
 
   return Object.freeze({
     montarSiProcede,
-    retirar() { circuitoActual = null; acciones.retirar(); controlador.abort(); raiz.removeEventListener?.("click", manejarFirmadoEnDocumentos); },
+    retirar() { ++secuenciaMontaje; circuitoActual = null; acciones.retirar(); controlador.abort(); raiz.removeEventListener?.("click", manejarFirmadoEnDocumentos); },
   });
 }

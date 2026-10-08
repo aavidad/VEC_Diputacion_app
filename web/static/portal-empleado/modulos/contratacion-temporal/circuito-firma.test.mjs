@@ -277,7 +277,8 @@ test("el gestor inserta el bloque después de siguiente paso, con fallback tras 
   const insertados = [];
   const siguiente = { insertAdjacentHTML: (posicion, html) => insertados.push({ ancla: "siguiente", posicion, html }) };
   const fases = { insertAdjacentHTML: (posicion, html) => insertados.push({ ancla: "fases", posicion, html }) };
-  let estado = { vista: "expediente", expediente: { expediente_ref: "exp:1" } };
+  let estado = { vista: "expediente", carga: "listo", expediente_ref: "exp:1",
+    expediente: { expediente_ref: "exp:1", version: 1, demostracion: false } };
   const raiz = { querySelector: (selector) => selector === ".ct-exp-siguiente-paso" ? siguiente : selector === ".ct-exp-progreso" ? fases : null };
   let consultas = 0;
   const cliente = { obtenerCircuito: async () => { consultas += 1; return validarCircuitoFirma(circuito()); } };
@@ -290,7 +291,8 @@ test("el gestor inserta el bloque después de siguiente paso, con fallback tras 
   gestor.montarSiProcede({ vista: "cuadro" });
   const anterior = estado;
   gestor.montarSiProcede(anterior);
-  estado = { vista: "expediente", expediente: { expediente_ref: "exp:2" } };
+  estado = { vista: "expediente", carga: "listo", expediente_ref: "exp:2",
+    expediente: { expediente_ref: "exp:2", version: 1, demostracion: false } };
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1, "un expediente ya sustituido no recibe el bloque");
   assert.equal(consultas, 1, "el catálogo se consulta una vez por montaje");
@@ -305,7 +307,8 @@ test("el gestor inserta el bloque después de siguiente paso, con fallback tras 
 test("un fallo de consulta deja el estado pendiente visible en el expediente actual", async () => {
   const insertados = [];
   const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
-  const estado = { vista: "expediente", expediente: { expediente_ref: "exp:1" } };
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: "exp:1",
+    expediente: { expediente_ref: "exp:1", version: 1, demostracion: false } };
   const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
   const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
     cliente: { obtenerCircuito: async () => null }, clienteFirma: { consultar: () => { throw new Error("no debe consultarse"); } } });
@@ -471,6 +474,92 @@ test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en leng
   await pulsar();
   assert.match(aviso.textContent, /No se ha podido descargar el PDF firmado/u);
   assert.doesNotMatch(aviso.textContent, /503|consulta_fallida/u);
+  gestor.retirar();
+});
+
+test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones de firma", async () => {
+  const ref = "expediente:ct:firmado-1";
+  const custodiado = { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`,
+    version: 2, huella_sha256: "b".repeat(64) };
+  const catalogo = validarCircuitoFirma(circuito());
+  const datos = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 2,
+      pasos: [{ estado: "firmado", documento_custodiado: custodiado }, { estado: "pendiente_firma" }] }] };
+  let estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 8, demostracion: false },
+    documentos: { expediente_ref: ref, version: 8, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [] } };
+  const zona = { innerHTML: "" };
+  const insertados = [];
+  const ancla = { insertAdjacentHTML: (_posicion, html) => insertados.push(html) };
+  const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona
+    : selector === "[data-ct-exp-ancla-firma]" ? ancla : null };
+  let respuesta = { estado: "disponible", datos };
+  const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
+    clienteFirma: { consultarConEstado: async () => respuesta } });
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(zona.innerHTML, /data-ct-descargar-firmado/u);
+  assert.match(zona.innerHTML, new RegExp(custodiado.huella_sha256, "u"));
+  assert.equal(insertados.length, 1);
+  assert.doesNotMatch(insertados[0], /data-ct-descargar-firmado/u);
+  estado = { ...estado, vista: "documentos" };
+  zona.innerHTML = "";
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(zona.innerHTML, /data-ct-descargar-firmado/u);
+  assert.equal(insertados.length, 1, "la subvista no monta pasos ni acciones");
+  estado = { ...estado, vista: "expediente" };
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(insertados.length, 2);
+  respuesta = { estado: "no_disponible" };
+  estado = { ...estado, vista: "documentos" };
+  zona.innerHTML = "";
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(zona.innerHTML, "", "404 o fuente no disponible no crea un firmado");
+  gestor.retirar();
+});
+
+test("Documentos descarta la lectura firmada tardía y las referencias cruzadas", async () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const refA = "expediente:ct:a"; const refB = "expediente:ct:b";
+  const estadoDoc = (ref) => ({ vista: "documentos", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 8, demostracion: false },
+    documentos: { expediente_ref: ref, version: 8, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [] } });
+  let estado = estadoDoc(refA);
+  let zona = { innerHTML: "" };
+  const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona : null };
+  let resolverA;
+  const pendienteA = new Promise((resolver) => { resolverA = resolver; });
+  const datos = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 2,
+      pasos: [{ estado: "firmado", documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`,
+        documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "c".repeat(64) } },
+      { estado: "pendiente_firma" }] }] };
+  const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
+    clienteFirma: { consultarConEstado: (ref) => ref === refA ? pendienteA : Promise.resolve({ estado: "no_disponible" }) } });
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  estado = estadoDoc(refB); zona = { innerHTML: "" };
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  resolverA({ estado: "disponible", datos });
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(zona.innerHTML, "", "la firma tardía de A no aparece en B");
+  estado = { ...estadoDoc(refA), documentos: { ...estadoDoc(refA).documentos, expediente_ref: refB } };
+  zona = { innerHTML: "" };
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(zona.innerHTML, "", "un índice ajeno no habilita la consulta");
+  estado = { ...estadoDoc(refA), documentos: { ...estadoDoc(refA).documentos, version: 7 } };
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(zona.innerHTML, "", "un índice de otra versión no habilita la consulta");
   gestor.retirar();
 });
 

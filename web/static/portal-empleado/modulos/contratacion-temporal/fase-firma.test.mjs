@@ -155,4 +155,6 @@ test("el botón firmado se coloca en Documentos sólo con custodia real", () => 
   assert.equal(renderizarFirmadosEnDocumentos({ documentos: [doc] }, es), "");
   assert.equal(renderizarFirmadosEnDocumentos({ registro: real.registro,
     documentos: [documento(["pendiente_firma"], 1)] }, es), "");
+  assert.equal(renderizarFirmadosEnDocumentos({ registro: real.registro,
+    documentos: [documento(["devuelto"], 1)] }, es), "");
 });
