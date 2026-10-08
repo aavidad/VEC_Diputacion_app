@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../../../../comun/textos.js";
-import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261002-ct-fin-moad-v1";
+import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261008-w-ct-borradores-main-v2";
 import { crearClienteCargaConvoca } from "./cliente.js?v=20261008-b1-correctivo-v1";
 import { montarVistaCargaConvoca } from "./vista.js?v=20261008-b1-correctivo-v1";
 
