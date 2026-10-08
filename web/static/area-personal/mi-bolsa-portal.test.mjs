@@ -13,6 +13,31 @@ test("sin acciones compuestas no se exige nada y con ellas se valida todo", () =
   assert.throws(() => validarPortalMiBolsa({ ...datos, acciones_portal: { ...acciones, modo_respuesta: "automatico" } }), /no son válidas/u);
 });
 
+test("pausa máxima nula conserva Mi bolsa y las demás acciones sin ofrecer pausa", () => {
+  const portal = [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
+    contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z",
+  }, solicitud_pendiente: null, ultima_respuesta: null }];
+  const sinPausa = { ...acciones, pausa_maxima: null };
+  assert.doesNotThrow(() => validarPortalMiBolsa({ participaciones, acciones_portal: sinPausa, portal }));
+  assert.doesNotThrow(() => validarPortalMiBolsa({ participaciones,
+    acciones_portal: { ...acciones, pausa_maxima: "2028-02-29T08:00:00Z" }, portal }));
+  const html = renderizarPortalMiBolsa(participaciones, portal, sinPausa);
+  assert.equal(html, renderizarPortalMiBolsa(participaciones, portal, acciones));
+  assert.match(html, /data-portal-mi-bolsa="responder"/u);
+  assert.match(html, /data-portal-mi-bolsa="documental"/u);
+  assert.doesNotMatch(html, /data-tipo="pausa"|data-portal-mi-bolsa="solicitar"/u);
+  for (const valor of [undefined, "", "sin fecha", "2026-02-30T08:00:00Z",
+    "2025-02-29T08:00:00Z", "2026-10-01T24:00:00Z", 42, {}]) {
+    assert.throws(() => validarPortalMiBolsa({ participaciones,
+      acciones_portal: { ...acciones, pausa_maxima: valor }, portal }), /pausa_maxima/u);
+  }
+  for (const incompleta of [{ ...sinPausa, causas_renuncia: undefined },
+    { ...sinPausa, modo_respuesta: undefined }]) {
+    assert.throws(() => validarPortalMiBolsa({ participaciones, acciones_portal: incompleta, portal }), /no son válidas/u);
+  }
+  assert.throws(() => validarPortalMiBolsa({ participaciones, acciones_portal: sinPausa }), /no son válidas/u);
+});
+
 test("muestra la respuesta y admite solicitud pendiente desde toda participación propia", () => {
   const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: { contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);
   assert.doesNotMatch(html, /data-portal-mi-bolsa="solicitar"|data-tipo="pausa"|data-tipo="reactivacion"/u);
