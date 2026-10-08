@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
     <link rel="stylesheet" href="./carga-convoca.css?v=20261008-b1-correctivo-v1" />
-    <script type="module" src="./arranque.js?v=20261008-u-b1-recibo-v4"></script>
+    <script type="module" src="./arranque.js?v=20261008-u-b1-recibo-v5"></script>
   </head>
   <body class="portal-empleado-app carga-convoca-pagina">
     <a class="salto-contenido" href="#carga" data-i18n="saltarContenido"></a>
@@ -122,7 +122,7 @@
               <input type="checkbox" id="excluir" aria-describedby="error-revisar" /> <span id="excluir-texto"></span>
             </label>
             <p id="error-revisar" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
-            <p id="recuperar-ayuda" class="carga-pista" data-i18n="recuperarResultadoAyuda" hidden></p>
+            <p id="recuperar-ayuda" class="carga-pista" role="status" aria-live="polite" data-i18n="recuperarResultadoAyuda" hidden></p>
             <p id="estado-revisar" class="carga-estado" role="status" aria-live="polite"></p>
             <div class="carga-acciones">
               <button type="button" class="boton-secundario" id="otro-fichero" data-i18n="otroFichero"></button>

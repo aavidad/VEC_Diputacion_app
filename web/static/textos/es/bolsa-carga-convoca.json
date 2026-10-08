@@ -121,7 +121,8 @@
     "volverResultado": "Volver al resultado",
     "ficheroNoDisponible": "El fichero ya no está en esta página. Para revisar las filas descartadas, pulse «Cargar otra bolsa» y elija el mismo Excel. No confirme otra carga.",
     "recuperarResultado": "Recuperar resultado",
-    "recuperarResultadoAyuda": "La carga puede estar ya registrada. Esta acción vuelve a enviar el mismo fichero y categoría para obtener el recibo de esa carga, sin crear otra bolsa."
+    "recuperarResultadoAyuda": "La carga puede estar ya registrada. Esta acción vuelve a enviar el mismo fichero y categoría para obtener el recibo de esa carga, sin crear otra bolsa.",
+    "recuperacionSinFichero": "El fichero ya no está disponible en esta página. Pulse «Elegir otro fichero» y seleccione el mismo Excel y categoría. Revise la vista antes de confirmar; la carga anterior puede estar registrada."
   },
   "campos": {
     "dni_nie": "Documento",

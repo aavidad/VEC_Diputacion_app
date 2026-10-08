@@ -121,7 +121,8 @@
     "volverResultado": "Back to the result",
     "ficheroNoDisponible": "The file is no longer on this page. To review the excluded rows, select “Load another pool” and choose the same spreadsheet. Do not confirm another load.",
     "recuperarResultado": "Recover result",
-    "recuperarResultadoAyuda": "The load may already have been recorded. This action sends the same file and category again to retrieve its receipt without creating another pool."
+    "recuperarResultadoAyuda": "The load may already have been recorded. This action sends the same file and category again to retrieve its receipt without creating another pool.",
+    "recuperacionSinFichero": "The file is no longer available on this page. Select “Choose another file” and choose the same spreadsheet and category. Review the preview before confirming; the earlier load may already be recorded."
   },
   "campos": {
     "dni_nie": "Document",

@@ -319,6 +319,15 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     nodo.focus();
   }
 
+  function avisarRecuperacionSinFichero() {
+    if (!estado.indeterminado || estado.base64) return;
+    $("recuperar-resultado").disabled = true;
+    $("recuperar-ayuda").textContent = t("recuperacionSinFichero");
+    $("recuperar-ayuda").hidden = false;
+    doc.querySelectorAll('input[name="filtro"], .carga-kpi-boton, #anterior, #siguiente')
+      .forEach((control) => { control.disabled = true; });
+  }
+
   function pedirConfirmacion() {
     const v = estado.vista;
     if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina || estado.soloLectura || estado.indeterminado) return;
@@ -330,6 +339,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   async function cargar({ recuperar = false } = {}) {
     if ($("confirmar").open) $("confirmar").close?.();
+    if (recuperar && !estado.base64) { avisarRecuperacionSinFichero(); return; }
     if (estado.ocupado || estado.cargandoPagina || estado.soloLectura
       || (estado.indeterminado && !recuperar) || (recuperar && !estado.indeterminado)) return;
     estado.ocupado = true;
@@ -364,13 +374,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
         $("recuperar-resultado").hidden = false;
         $("recuperar-ayuda").hidden = false;
         $("ver-bolsas-tras-error").hidden = false;
+        if (!estado.base64) avisarRecuperacionSinFichero();
       }
       mostrarErrorRevision(textoError(textos, fallo));
     } finally {
       controladorConfirmacion = null;
       estado.ocupado = false;
       $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.soloLectura || estado.indeterminado;
-      $("recuperar-resultado").disabled = false;
+      $("recuperar-resultado").disabled = estado.indeterminado && !estado.base64;
       $("otro-fichero").disabled = false;
     }
   }
@@ -463,6 +474,9 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("ver-bolsas-tras-error").hidden = true;
     $("recuperar-resultado").hidden = true;
     $("recuperar-ayuda").hidden = true;
+    $("recuperar-ayuda").textContent = t("recuperarResultadoAyuda");
+    doc.querySelectorAll('input[name="filtro"], .carga-kpi-boton, #anterior, #siguiente')
+      .forEach((control) => { control.disabled = false; });
     $("fichero").value = "";
     $("resumen-errores").hidden = true;
     marcarCampo("fichero", "");
@@ -524,6 +538,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   });
   doc.defaultView?.addEventListener("pageshow", () => {
     if (estado.recibo && !estado.base64 && !pasos[3].hidden) avisarFicheroNoDisponible();
+    if (estado.indeterminado && !estado.base64 && !pasos[2].hidden) avisarRecuperacionSinFichero();
   });
   return Object.freeze({ iniciar: cargarCategorias });
 }
