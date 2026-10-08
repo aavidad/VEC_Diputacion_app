@@ -207,3 +207,11 @@ catálogo elegido. Ocho pruebas focales y la revisión independiente del código
 La ruta sigue siendo el visor local del JSON de preparación. Este corte no
 conecta catálogo, inscripción, selección ni certificados corporativos;
 continúan pendientes los contratos de la plataforma de Formación.
+
+Aparcado por dirección el 8 de octubre a las 02:11. La CI de la PR #882
+pasó Go, race, vet y 3.464 de 3.466 pruebas web; las dos restantes detectaron
+que los catálogos de error faltan en los manifiestos de superficie.
+El parche pendiente está conservado en
+`docs/plan_modulos/formacion-manifiestos-pendiente.patch`: añade ambos idiomas
+en `web/interno.manifest` y `web/produccion.manifest`. No se aplica ni se
+rebaja la guarda durante el aparcamiento; se retomará con Formación.
