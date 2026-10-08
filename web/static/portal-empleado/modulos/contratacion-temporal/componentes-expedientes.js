@@ -12,7 +12,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261007-pantallas-textos-final-v1";
+} from "./vista-expedientes-ficha.js?v=20261008-documentos-ficha-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
