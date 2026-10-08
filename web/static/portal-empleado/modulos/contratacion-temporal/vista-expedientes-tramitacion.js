@@ -636,16 +636,7 @@ export function crearGestorTramitacion({
       if (sesion.reciboPintado) mostrarAvisoLecturaPendiente(sesion);
     };
     try {
-      await presentador.cargar();
-      if (!vigente()) return;
-      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
-        ({ expediente_ref: referencia }) => referencia === recibo.expediente_ref,
-      );
-      if (!resumen || resumen.version < recibo.version_resultante) {
-        avisarPendiente();
-        return;
-      }
-      await presentador.seleccionarExpediente(recibo.expediente_ref, "expediente");
+      await presentador.refrescarExpedienteConfirmado(recibo);
       if (!vigente()) return;
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
@@ -661,7 +652,8 @@ export function crearGestorTramitacion({
         && contenedorAnterior?.contains?.(focoAnterior);
       repintar();
       const destino = raiz.querySelector("[data-ct-exp-rectificacion]")
-        ?? raiz.querySelector("[data-ct-exp-analisis]");
+        ?? raiz.querySelector("[data-ct-exp-analisis]")
+        ?? raiz.querySelector(".ct-exp-contenido");
       const documento = destino?.ownerDocument;
       if (documento?.createElement && typeof destino?.append === "function") {
         const t = crearTraductorContratacionTemporal(mensajes);
