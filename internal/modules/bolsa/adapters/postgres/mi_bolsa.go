@@ -65,11 +65,11 @@ func (r *ConsultaMiBolsaPostgreSQL) consultarMiBolsaIntento(ctx context.Context,
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err, etapaMiBolsaConexion)
 	}
 	defer revertir(tx)
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err, etapaMiBolsaConfiguracion)
 	}
 	m := s.Material
 	funcion := funcionConsultarMiBolsaV1
@@ -80,7 +80,7 @@ func (r *ConsultaMiBolsaPostgreSQL) consultarMiBolsaIntento(ctx context.Context,
 	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text,$2::timestamptz,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
 		s.CandidatoRef, s.ConsultadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
 	if err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err, etapaMiBolsaConsulta)
 	}
 	defer borrarBytesPostgreSQL(contenido)
 	resultado, err := decodificarInstantaneaMiBolsa(contenido, s.ConsultadaEn)
@@ -92,24 +92,24 @@ func (r *ConsultaMiBolsaPostgreSQL) consultarMiBolsaIntento(ctx context.Context,
 	// de consumir la consulta propia y registrar su auditoría.
 	if len(s.ResultadosEfectivos) != 0 {
 		if resultado.Portal, err = leerPortalCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura, err, etapaMiBolsaPortal)
 		}
 	}
 	if s.LeerContacto {
 		if resultado.Contactos, err = leerContactosCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura, err, etapaMiBolsaContacto)
 		}
 	}
 	if s.LeerOfertas {
 		if resultado.Ofertas, err = leerOfertasCandidato(ctx, lectura, s.CandidatoRef, s.ConsultadaEn); err != nil {
-			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura.carrera, err)
+			return puertosbolsa.InstantaneaMiBolsa{}, errorProyeccionMiBolsa(lectura, err, etapaMiBolsaOfertas)
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err)
+		return puertosbolsa.InstantaneaMiBolsa{}, errorIntentoMiBolsa(ctx, err, etapaMiBolsaCommit)
 	}
 	return resultado, nil
 }
@@ -205,19 +205,63 @@ func errorMiBolsa(ctx context.Context, err error) error {
 	return puertosbolsa.ErrMaterialMiBolsaNoDisponible
 }
 
-func errorIntentoMiBolsa(ctx context.Context, err error) error {
-	nominal := errorMiBolsa(ctx, err)
-	if postgresql.EsCarreraSerializable(err) {
-		return errorCarreraLecturaMiBolsa{nominal}
+type etapaDiagnosticoMiBolsa string
+
+const (
+	etapaMiBolsaConexion      etapaDiagnosticoMiBolsa = "conexion"
+	etapaMiBolsaConfiguracion etapaDiagnosticoMiBolsa = "configuracion"
+	etapaMiBolsaConsulta      etapaDiagnosticoMiBolsa = "consulta"
+	etapaMiBolsaPortal        etapaDiagnosticoMiBolsa = "portal"
+	etapaMiBolsaContacto      etapaDiagnosticoMiBolsa = "contacto"
+	etapaMiBolsaOfertas       etapaDiagnosticoMiBolsa = "ofertas"
+	etapaMiBolsaCommit        etapaDiagnosticoMiBolsa = "commit"
+)
+
+// El diagnóstico conserva únicamente una etapa fija y el SQLSTATE. El texto
+// de PostgreSQL no sale de este adaptador; Unwrap mantiene el contrato nominal.
+type falloLecturaPostgreSQLMiBolsa struct {
+	nominal  error
+	etapa    etapaDiagnosticoMiBolsa
+	sqlstate string
+}
+
+func (e falloLecturaPostgreSQLMiBolsa) Error() string { return "bolsa: lectura PostgreSQL fallida" }
+func (e falloLecturaPostgreSQLMiBolsa) Unwrap() error { return e.nominal }
+func (e falloLecturaPostgreSQLMiBolsa) DiagnosticoLecturaMiBolsa() (string, string) {
+	return string(e.etapa), e.sqlstate
+}
+
+func codigoSQLMiBolsa(err error) string {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr == nil || len(pgErr.Code) != 5 {
+		return ""
 	}
-	return nominal
+	for _, c := range pgErr.Code {
+		if c < '0' || (c > '9' && c < 'A') || c > 'Z' {
+			return ""
+		}
+	}
+	return pgErr.Code
+}
+
+func errorIntentoMiBolsa(ctx context.Context, err error, etapa etapaDiagnosticoMiBolsa) error {
+	nominal := errorMiBolsa(ctx, err)
+	if ctx == nil || ctx.Err() != nil {
+		return nominal
+	}
+	diagnostico := falloLecturaPostgreSQLMiBolsa{nominal: nominal, etapa: etapa, sqlstate: codigoSQLMiBolsa(err)}
+	if postgresql.EsCarreraSerializable(err) {
+		return errorCarreraLecturaMiBolsa{diagnostico}
+	}
+	return diagnostico
 }
 
 // Los lectores secundarios traducen sus errores. Conservamos solo la marca
 // del aborto para repetir también la autorización y la auditoría iniciales.
 type consultorProyeccionMiBolsa struct {
-	tx      consultorPortal
-	carrera bool
+	tx       consultorPortal
+	carrera  bool
+	sqlstate string
 }
 
 func (c *consultorProyeccionMiBolsa) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
@@ -232,15 +276,17 @@ type filaProyeccionMiBolsa struct {
 func (f filaProyeccionMiBolsa) Scan(destinos ...any) error {
 	err := f.fila.Scan(destinos...)
 	f.consultor.carrera = postgresql.EsCarreraSerializable(err)
+	f.consultor.sqlstate = codigoSQLMiBolsa(err)
 	return err
 }
 
-func errorProyeccionMiBolsa(carrera bool, traducido error) error {
+func errorProyeccionMiBolsa(lectura *consultorProyeccionMiBolsa, traducido error, etapa etapaDiagnosticoMiBolsa) error {
 	nominal := errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, traducido)
-	if carrera {
-		return errorCarreraLecturaMiBolsa{nominal}
+	diagnostico := falloLecturaPostgreSQLMiBolsa{nominal: nominal, etapa: etapa, sqlstate: lectura.sqlstate}
+	if lectura.carrera {
+		return errorCarreraLecturaMiBolsa{diagnostico}
 	}
-	return nominal
+	return diagnostico
 }
 
 type errorCarreraLecturaMiBolsa struct{ error }
